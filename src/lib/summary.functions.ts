@@ -113,7 +113,7 @@ Return a structured summary.`;
         .select()
         .single();
       if (insErr) throw new Error(insErr.message);
-      return inserted;
+      return { ok: true as const, summary: inserted };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       if (msg.includes("429")) throw new Error("Rate limit reached. Try again shortly.");
