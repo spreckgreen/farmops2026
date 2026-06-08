@@ -51,13 +51,20 @@ type ParsedLine = {
   entryType: "status" | "blocker" | "decision" | "commit" | "meeting" | "note";
   projectTags: string[];
   startAt: string | null;
+  percent: number | null;
 };
 
 const PROJECT_TAG_RE = /#project\/([a-z0-9][a-z0-9-_]*)/gi;
 const START_AT_RE =
   /@start:(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}(?::\d{2})?)(Z|[+-]\d{2}:?\d{2})?/i;
+const PROGRESS_RE = /@progress:(\d{1,3})%?/i;
 
-function extractMeta(text: string): { tags: string[]; startAt: string | null; stripped: string } {
+function extractMeta(text: string): {
+  tags: string[];
+  startAt: string | null;
+  percent: number | null;
+  stripped: string;
+} {
   const tags: string[] = [];
   let stripped = text.replace(PROJECT_TAG_RE, (_m, t: string) => {
     tags.push(t.toLowerCase());
@@ -71,7 +78,19 @@ function extractMeta(text: string): { tags: string[]; startAt: string | null; st
     if (!isNaN(d.getTime())) startAt = d.toISOString();
     stripped = stripped.replace(START_AT_RE, "");
   }
-  return { tags: Array.from(new Set(tags)), startAt, stripped: stripped.replace(/\s+/g, " ").trim() };
+  let percent: number | null = null;
+  const pm = stripped.match(PROGRESS_RE);
+  if (pm) {
+    const n = Math.max(0, Math.min(100, parseInt(pm[1], 10)));
+    if (!isNaN(n)) percent = n;
+    stripped = stripped.replace(PROGRESS_RE, "");
+  }
+  return {
+    tags: Array.from(new Set(tags)),
+    startAt,
+    percent,
+    stripped: stripped.replace(/\s+/g, " ").trim(),
+  };
 }
 
 function parseMarkdown(md: string): ParsedLine[] {
