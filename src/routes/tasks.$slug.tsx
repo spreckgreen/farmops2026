@@ -42,7 +42,11 @@ function TaskPage() {
   const summarize = useMutation({
     mutationFn: () =>
       summarizeFn({ data: { mode: "task_update", scope_task_id: q.data!.task.id, period_days: 14 } }),
-    onSuccess: () => {
+    onSuccess: (res) => {
+      if (!res.ok) {
+        toast.error(res.error);
+        return;
+      }
       toast.success("Summary drafted");
       qc.invalidateQueries({ queryKey: ["summaries"] });
     },
