@@ -350,7 +350,41 @@ export const deleteTask = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+// ---- Scheduled tasks report ----
+
+export const listProjectTags = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data, error } = await context.supabase
+      .from("tasks")
+      .select("project_tags");
+    if (error) throw new Error(error.message);
+    const tags = new Set<string>();
+    for (const row of data ?? []) {
+      for (const t of (row.project_tags ?? []) as string[]) tags.add(t);
+    }
+    return Array.from(tags).sort();
+  });
+
+export const listScheduledTasks = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ tag: z.string().trim().min(1).max(64).nullable() }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    let q = context.supabase
+      .from("tasks")
+      .select("id, slug, title, status, project_tags, start_at")
+      .not("start_at", "is", null)
+      .order("start_at", { ascending: true });
+    if (data.tag) q = q.contains("project_tags", [data.tag]);
+    const { data: rows, error } = await q;
+    if (error) throw new Error(error.message);
+    return rows ?? [];
+  });
+
 // ---- Summaries ----
+
 
 export const listSummaries = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
