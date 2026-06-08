@@ -1,15 +1,29 @@
-import { createFileRoute, useParams, Link } from "@tanstack/react-router";
+import { createFileRoute, useParams, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { getTaskBySlug, setTaskStatus } from "@/lib/log.functions";
+import { getTaskBySlug, setTaskStatus, updateTask, deleteTask } from "@/lib/log.functions";
 import { generateSummary } from "@/lib/summary.functions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { AppLayout } from "@/components/app-layout";
 import { requireAuthenticatedUser } from "@/lib/auth-route";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
+import { Pencil, Trash2, Check, X } from "lucide-react";
+import { useState } from "react";
 
 export const Route = createFileRoute("/tasks/$slug")({
   ssr: false,
@@ -20,10 +34,16 @@ export const Route = createFileRoute("/tasks/$slug")({
 
 function TaskPage() {
   const { slug } = useParams({ from: "/tasks/$slug" });
+  const navigate = useNavigate();
   const getFn = useServerFn(getTaskBySlug);
   const statusFn = useServerFn(setTaskStatus);
+  const updateFn = useServerFn(updateTask);
+  const deleteFn = useServerFn(deleteTask);
   const summarizeFn = useServerFn(generateSummary);
   const qc = useQueryClient();
+
+  const [editing, setEditing] = useState(false);
+  const [draftTitle, setDraftTitle] = useState("");
 
   const q = useQuery({
     queryKey: ["task", slug],
@@ -37,6 +57,27 @@ function TaskPage() {
       qc.invalidateQueries({ queryKey: ["task", slug] });
       qc.invalidateQueries({ queryKey: ["tasks"] });
     },
+  });
+
+  const saveTitle = useMutation({
+    mutationFn: (title: string) => updateFn({ data: { id: q.data!.task.id, title } }),
+    onSuccess: () => {
+      toast.success("Task updated");
+      setEditing(false);
+      qc.invalidateQueries({ queryKey: ["task", slug] });
+      qc.invalidateQueries({ queryKey: ["tasks"] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
+  });
+
+  const remove = useMutation({
+    mutationFn: () => deleteFn({ data: { id: q.data!.task.id } }),
+    onSuccess: () => {
+      toast.success("Task deleted");
+      qc.invalidateQueries({ queryKey: ["tasks"] });
+      navigate({ to: "/tasks" });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
   });
 
   const summarize = useMutation({
@@ -65,8 +106,47 @@ function TaskPage() {
         ← all tasks
       </Link>
       <div className="flex items-start justify-between gap-4 mt-2 mb-6">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-mono font-bold truncate">{task.title}</h1>
+        <div className="min-w-0 flex-1">
+          {editing ? (
+            <div className="flex items-center gap-2">
+              <Input
+                autoFocus
+                value={draftTitle}
+                onChange={(e) => setDraftTitle(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && draftTitle.trim()) saveTitle.mutate(draftTitle.trim());
+                  if (e.key === "Escape") setEditing(false);
+                }}
+                className="font-mono text-xl font-bold h-10"
+              />
+              <Button
+                size="icon"
+                variant="ghost"
+                disabled={!draftTitle.trim() || saveTitle.isPending}
+                onClick={() => saveTitle.mutate(draftTitle.trim())}
+              >
+                <Check className="h-4 w-4" />
+              </Button>
+              <Button size="icon" variant="ghost" onClick={() => setEditing(false)}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-mono font-bold truncate">{task.title}</h1>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-7 w-7"
+                onClick={() => {
+                  setDraftTitle(task.title);
+                  setEditing(true);
+                }}
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          )}
           <p className="text-xs text-muted-foreground font-mono">#{task.slug}</p>
         </div>
         <div className="flex items-center gap-2">
@@ -81,6 +161,31 @@ function TaskPage() {
           <Button onClick={() => summarize.mutate()} disabled={summarize.isPending || entries.length === 0}>
             {summarize.isPending ? "Summarizing…" : "Summarize"}
           </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button size="icon" variant="ghost" className="text-destructive hover:text-destructive">
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete this task?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  "{task.title}" will be removed. Activity log entries are preserved but unlinked.
+                  This cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => remove.mutate()}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  Delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       </div>
 
