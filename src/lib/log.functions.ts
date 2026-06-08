@@ -356,7 +356,7 @@ export const updateTask = createServerFn({ method: "POST" })
     z
       .object({
         id: z.string().uuid(),
-        title: z.string().trim().min(1).max(200),
+        title: z.string().trim().min(1).max(500),
       })
       .parse(d),
   )
