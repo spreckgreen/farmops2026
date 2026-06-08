@@ -1,19 +1,10 @@
-import { createFileRoute, Outlet, redirect, Link, useRouter } from "@tanstack/react-router";
+import { Link, useRouter } from "@tanstack/react-router";
+import type { ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { todayDateString } from "@/lib/slug";
 
-export const Route = createFileRoute("/_authenticated")({
-  ssr: false,
-  beforeLoad: async () => {
-    const { data, error } = await supabase.auth.getUser();
-    if (error || !data.user) throw redirect({ to: "/auth" });
-    return { user: data.user };
-  },
-  component: AppLayout,
-});
-
-function AppLayout() {
+export function AppLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
   const today = todayDateString();
 
@@ -60,9 +51,7 @@ function AppLayout() {
           </Button>
         </div>
       </header>
-      <main className="flex-1">
-        <Outlet />
-      </main>
+      <main className="flex-1">{children}</main>
     </div>
   );
 }

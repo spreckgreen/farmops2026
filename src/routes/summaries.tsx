@@ -5,10 +5,14 @@ import { listSummaries, updateSummary } from "@/lib/log.functions";
 import { generateSummary } from "@/lib/summary.functions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { AppLayout } from "@/components/app-layout";
+import { requireAuthenticatedUser } from "@/lib/auth-route";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
-export const Route = createFileRoute("/_authenticated/summaries")({
+export const Route = createFileRoute("/summaries")({
+  ssr: false,
+  beforeLoad: requireAuthenticatedUser,
   head: () => ({ meta: [{ title: "Summaries — log.md" }] }),
   component: SummariesPage,
 });
@@ -53,7 +57,8 @@ function SummariesPage() {
   });
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8">
+    <AppLayout>
+      <div className="max-w-3xl mx-auto px-4 py-8">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-mono font-bold">Summaries</h1>
         <div className="flex gap-2">
@@ -119,7 +124,8 @@ function SummariesPage() {
           );
         })}
       </ul>
-    </div>
+      </div>
+    </AppLayout>
   );
 }
 

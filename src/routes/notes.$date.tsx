@@ -5,10 +5,14 @@ import { useServerFn } from "@tanstack/react-start";
 import { getDailyNote, saveDailyNote } from "@/lib/log.functions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { AppLayout } from "@/components/app-layout";
+import { requireAuthenticatedUser } from "@/lib/auth-route";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
-export const Route = createFileRoute("/_authenticated/notes/$date")({
+export const Route = createFileRoute("/notes/$date")({
+  ssr: false,
+  beforeLoad: requireAuthenticatedUser,
   head: () => ({ meta: [{ title: "Daily note — log.md" }] }),
   component: NotePage,
 });
@@ -26,7 +30,7 @@ Untagged thoughts stay here in the note and don't enter the activity log.
 `;
 
 function NotePage() {
-  const { date } = useParams({ from: "/_authenticated/notes/$date" });
+  const { date } = useParams({ from: "/notes/$date" });
   const fetchNote = useServerFn(getDailyNote);
   const saveFn = useServerFn(saveDailyNote);
   const qc = useQueryClient();
@@ -78,7 +82,8 @@ function NotePage() {
   const openTasks = tasks.filter((t) => t.status !== "done");
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6">
+    <AppLayout>
+      <div className="max-w-6xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6">
       <section className="min-w-0">
         <div className="flex items-baseline justify-between mb-4">
           <div>
@@ -140,6 +145,7 @@ Untagged lines stay in this note only.`}</pre>
           </Button>
         </div>
       </aside>
-    </div>
+      </div>
+    </AppLayout>
   );
 }
