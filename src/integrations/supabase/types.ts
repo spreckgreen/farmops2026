@@ -14,7 +14,164 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      activity_log: {
+        Row: {
+          ai_summary: string | null
+          created_at: string
+          daily_note_id: string | null
+          entry_type: Database["public"]["Enums"]["entry_type"]
+          id: string
+          raw_content: string
+          task_id: string | null
+          user_id: string
+        }
+        Insert: {
+          ai_summary?: string | null
+          created_at?: string
+          daily_note_id?: string | null
+          entry_type?: Database["public"]["Enums"]["entry_type"]
+          id?: string
+          raw_content: string
+          task_id?: string | null
+          user_id: string
+        }
+        Update: {
+          ai_summary?: string | null
+          created_at?: string
+          daily_note_id?: string | null
+          entry_type?: Database["public"]["Enums"]["entry_type"]
+          id?: string
+          raw_content?: string
+          task_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activity_log_daily_note_id_fkey"
+            columns: ["daily_note_id"]
+            isOneToOne: false
+            referencedRelation: "daily_notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activity_log_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      daily_notes: {
+        Row: {
+          created_at: string
+          date: string
+          id: string
+          markdown_content: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          id?: string
+          markdown_content?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          id?: string
+          markdown_content?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      summaries: {
+        Row: {
+          created_at: string
+          edited_summary: Json | null
+          generated_summary: Json
+          id: string
+          mode: Database["public"]["Enums"]["summary_mode"]
+          period_end: string
+          period_start: string
+          scope_task_id: string | null
+          status: Database["public"]["Enums"]["summary_status"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          edited_summary?: Json | null
+          generated_summary: Json
+          id?: string
+          mode: Database["public"]["Enums"]["summary_mode"]
+          period_end: string
+          period_start: string
+          scope_task_id?: string | null
+          status?: Database["public"]["Enums"]["summary_status"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          edited_summary?: Json | null
+          generated_summary?: Json
+          id?: string
+          mode?: Database["public"]["Enums"]["summary_mode"]
+          period_end?: string
+          period_start?: string
+          scope_task_id?: string | null
+          status?: Database["public"]["Enums"]["summary_status"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "summaries_scope_task_id_fkey"
+            columns: ["scope_task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tasks: {
+        Row: {
+          closed_at: string | null
+          created_at: string
+          id: string
+          slug: string
+          status: Database["public"]["Enums"]["task_status"]
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          closed_at?: string | null
+          created_at?: string
+          id?: string
+          slug: string
+          status?: Database["public"]["Enums"]["task_status"]
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          closed_at?: string | null
+          created_at?: string
+          id?: string
+          slug?: string
+          status?: Database["public"]["Enums"]["task_status"]
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +180,16 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      entry_type:
+        | "status"
+        | "blocker"
+        | "decision"
+        | "commit"
+        | "meeting"
+        | "note"
+      summary_mode: "task_update" | "project_rollup" | "weekly_report"
+      summary_status: "draft" | "reviewed" | "published"
+      task_status: "open" | "blocked" | "done"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +316,18 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      entry_type: [
+        "status",
+        "blocker",
+        "decision",
+        "commit",
+        "meeting",
+        "note",
+      ],
+      summary_mode: ["task_update", "project_rollup", "weekly_report"],
+      summary_status: ["draft", "reviewed", "published"],
+      task_status: ["open", "blocked", "done"],
+    },
   },
 } as const
