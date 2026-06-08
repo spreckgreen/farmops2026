@@ -34,7 +34,11 @@ function SummariesPage() {
 
   const weekly = useMutation({
     mutationFn: () => generateFn({ data: { mode: "weekly_report", period_days: 7 } }),
-    onSuccess: () => {
+    onSuccess: (res) => {
+      if (!res.ok) {
+        toast.error(res.error);
+        return;
+      }
       toast.success("Weekly report drafted");
       qc.invalidateQueries({ queryKey: ["summaries"] });
     },
@@ -43,7 +47,11 @@ function SummariesPage() {
 
   const rollup = useMutation({
     mutationFn: () => generateFn({ data: { mode: "project_rollup", period_days: 14 } }),
-    onSuccess: () => {
+    onSuccess: (res) => {
+      if (!res.ok) {
+        toast.error(res.error);
+        return;
+      }
       toast.success("Project rollup drafted");
       qc.invalidateQueries({ queryKey: ["summaries"] });
     },
