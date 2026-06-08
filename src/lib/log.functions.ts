@@ -176,7 +176,7 @@ export const saveDailyNote = createServerFn({ method: "POST" })
     // 3. Existing tasks (for resolve + create check)
     const { data: existingTasks } = await supabase
       .from("tasks")
-      .select("id, slug, title, status, project_tags, start_at");
+      .select("id, slug, title, status, project_tags, start_at, percent_complete");
     const tasksBySlug = new Map((existingTasks ?? []).map((t) => [t.slug, t]));
     const tasksByTitle = new Map(
       (existingTasks ?? []).map((t) => [t.title.toLowerCase(), t]),
@@ -197,8 +197,9 @@ export const saveDailyNote = createServerFn({ method: "POST" })
           closed_at: p.newTask.done ? new Date().toISOString() : null,
           project_tags: p.projectTags,
           start_at: p.startAt,
+          percent_complete: p.newTask.done ? 100 : (p.percent ?? 0),
         })
-        .select("id, slug, title, status, project_tags, start_at")
+        .select("id, slug, title, status, project_tags, start_at, percent_complete")
         .single();
       if (created) {
         tasksBySlug.set(created.slug, created);
@@ -206,7 +207,7 @@ export const saveDailyNote = createServerFn({ method: "POST" })
       }
     }
 
-    // 5. Update status / tags / start_at for resolved tasks
+    // 5. Update status / tags / start_at / percent for resolved tasks
     const resolveTask = (p: ParsedLine) => {
       if (p.newTask) return tasksBySlug.get(slugify(p.newTask.title));
       if (p.taskRef)
@@ -223,10 +224,12 @@ export const saveDailyNote = createServerFn({ method: "POST" })
         closed_at?: string;
         project_tags?: string[];
         start_at?: string;
+        percent_complete?: number;
       } = {};
       if (p.newTask?.done && existing.status !== "done") {
         upd.status = "done";
         upd.closed_at = new Date().toISOString();
+        upd.percent_complete = 100;
       }
       if (p.projectTags.length > 0) {
         const merged = Array.from(
@@ -238,6 +241,9 @@ export const saveDailyNote = createServerFn({ method: "POST" })
       }
       if (p.startAt && p.startAt !== existing.start_at) {
         upd.start_at = p.startAt;
+      }
+      if (p.percent !== null && p.percent !== existing.percent_complete) {
+        upd.percent_complete = p.percent;
       }
       if (Object.keys(upd).length > 0) {
         await supabase.from("tasks").update(upd).eq("id", existing.id);
