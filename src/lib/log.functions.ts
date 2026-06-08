@@ -294,10 +294,16 @@ export const updateSummary = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
-    const update: Record<string, unknown> = {};
+    const update: {
+      edited_summary?: unknown;
+      status?: "draft" | "reviewed" | "published";
+    } = {};
     if (data.edited_summary !== undefined) update.edited_summary = data.edited_summary;
     if (data.status !== undefined) update.status = data.status;
-    const { error } = await context.supabase.from("summaries").update(update).eq("id", data.id);
+    const { error } = await context.supabase
+      .from("summaries")
+      .update(update as never)
+      .eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true };
   });

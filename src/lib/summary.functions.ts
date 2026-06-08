@@ -51,14 +51,16 @@ export const generateSummary = createServerFn({ method: "POST" })
     }
 
     // Previous summary for same scope (extend, don't restart)
-    const { data: prev } = await supabase
+    let prevQ = supabase
       .from("summaries")
       .select("generated_summary, edited_summary")
       .eq("mode", data.mode)
-      .eq("scope_task_id", data.scope_task_id ?? null)
       .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .limit(1);
+    prevQ = data.scope_task_id
+      ? prevQ.eq("scope_task_id", data.scope_task_id)
+      : prevQ.is("scope_task_id", null);
+    const { data: prev } = await prevQ.maybeSingle();
 
     const prevText = prev
       ? JSON.stringify(prev.edited_summary ?? prev.generated_summary)
