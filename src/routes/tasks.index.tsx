@@ -4,7 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { listTasks } from "@/lib/log.functions";
 import { Badge } from "@/components/ui/badge";
 
-export const Route = createFileRoute("/_authenticated/tasks/")({
+export const Route = createFileRoute("/tasks/")({
   head: () => ({ meta: [{ title: "Tasks — log.md" }] }),
   component: TasksPage,
 });

@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
-export const Route = createFileRoute("/_authenticated/notes/$date")({
+export const Route = createFileRoute("/notes/$date")({
   head: () => ({ meta: [{ title: "Daily note — log.md" }] }),
   component: NotePage,
 });
