@@ -47,7 +47,10 @@ export const generateSummary = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
 
     if (!entries || entries.length === 0) {
-      throw new Error("No activity in this period yet — write a note first.");
+      return {
+        ok: false as const,
+        error: "No activity in this period yet — write a note first.",
+      };
     }
 
     // Previous summary for same scope (extend, don't restart)
