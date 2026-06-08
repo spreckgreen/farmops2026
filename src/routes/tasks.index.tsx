@@ -3,8 +3,12 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { listTasks } from "@/lib/log.functions";
 import { Badge } from "@/components/ui/badge";
+import { AppLayout } from "@/components/app-layout";
+import { requireAuthenticatedUser } from "@/lib/auth-route";
 
 export const Route = createFileRoute("/tasks/")({
+  ssr: false,
+  beforeLoad: requireAuthenticatedUser,
   head: () => ({ meta: [{ title: "Tasks — log.md" }] }),
   component: TasksPage,
 });
@@ -20,7 +24,8 @@ function TasksPage() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
+    <AppLayout>
+      <div className="max-w-4xl mx-auto px-4 py-8">
       <h1 className="text-2xl font-mono font-bold mb-6">Tasks</h1>
       {isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
       {(["open", "blocked", "done"] as const).map((status) => (
@@ -52,6 +57,7 @@ function TasksPage() {
           </ul>
         </section>
       ))}
-    </div>
+      </div>
+    </AppLayout>
   );
 }

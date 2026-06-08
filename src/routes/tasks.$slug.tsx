@@ -6,16 +6,20 @@ import { generateSummary } from "@/lib/summary.functions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { AppLayout } from "@/components/app-layout";
+import { requireAuthenticatedUser } from "@/lib/auth-route";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 
 export const Route = createFileRoute("/tasks/$slug")({
+  ssr: false,
+  beforeLoad: requireAuthenticatedUser,
   head: () => ({ meta: [{ title: "Task — log.md" }] }),
   component: TaskPage,
 });
 
 function TaskPage() {
-  const { slug } = useParams({ from: "/_authenticated/tasks/$slug" });
+  const { slug } = useParams({ from: "/tasks/$slug" });
   const getFn = useServerFn(getTaskBySlug);
   const statusFn = useServerFn(setTaskStatus);
   const summarizeFn = useServerFn(generateSummary);
@@ -45,13 +49,14 @@ function TaskPage() {
     onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
   });
 
-  if (q.isLoading) return <p className="p-8 text-sm text-muted-foreground">Loading…</p>;
-  if (!q.data) return <p className="p-8 text-sm text-muted-foreground">Task not found.</p>;
+  if (q.isLoading) return <AppLayout><p className="p-8 text-sm text-muted-foreground">Loading…</p></AppLayout>;
+  if (!q.data) return <AppLayout><p className="p-8 text-sm text-muted-foreground">Task not found.</p></AppLayout>;
 
   const { task, entries } = q.data;
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8">
+    <AppLayout>
+      <div className="max-w-3xl mx-auto px-4 py-8">
       <Link to="/tasks" className="text-xs text-muted-foreground hover:text-foreground font-mono">
         ← all tasks
       </Link>
@@ -102,6 +107,7 @@ function TaskPage() {
           </li>
         ))}
       </ul>
-    </div>
+      </div>
+    </AppLayout>
   );
 }
