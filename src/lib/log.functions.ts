@@ -147,6 +147,7 @@ function parseMarkdown(md: string): ParsedLine[] {
         entryType,
         projectTags: meta.tags,
         startAt: meta.startAt,
+        percent: meta.percent,
       });
       continue;
     }
