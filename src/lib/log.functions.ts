@@ -109,6 +109,7 @@ function parseMarkdown(md: string): ParsedLine[] {
         entryType: "status",
         projectTags: meta.tags,
         startAt: meta.startAt,
+        percent: meta.percent,
       });
       continue;
     }
