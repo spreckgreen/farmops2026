@@ -49,7 +49,30 @@ type ParsedLine = {
   taskRef?: { kind: "slug" | "title"; value: string };
   newTask?: { title: string; done: boolean };
   entryType: "status" | "blocker" | "decision" | "commit" | "meeting" | "note";
+  projectTags: string[];
+  startAt: string | null;
 };
+
+const PROJECT_TAG_RE = /#project\/([a-z0-9][a-z0-9-_]*)/gi;
+const START_AT_RE =
+  /@start:(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}(?::\d{2})?)(Z|[+-]\d{2}:?\d{2})?/i;
+
+function extractMeta(text: string): { tags: string[]; startAt: string | null; stripped: string } {
+  const tags: string[] = [];
+  let stripped = text.replace(PROJECT_TAG_RE, (_m, t: string) => {
+    tags.push(t.toLowerCase());
+    return "";
+  });
+  let startAt: string | null = null;
+  const m = stripped.match(START_AT_RE);
+  if (m) {
+    const time = m[2].length === 5 ? `${m[2]}:00` : m[2];
+    const d = new Date(`${m[1]}T${time}${m[3] ?? ""}`);
+    if (!isNaN(d.getTime())) startAt = d.toISOString();
+    stripped = stripped.replace(START_AT_RE, "");
+  }
+  return { tags: Array.from(new Set(tags)), startAt, stripped: stripped.replace(/\s+/g, " ").trim() };
+}
 
 function parseMarkdown(md: string): ParsedLine[] {
   const out: ParsedLine[] = [];
@@ -57,20 +80,20 @@ function parseMarkdown(md: string): ParsedLine[] {
     const trimmed = line.trim();
     if (!trimmed) continue;
 
-    // - [ ] / - [x] task line
     const taskMatch = trimmed.match(/^-\s*\[([ xX])\]\s+(.+)$/);
     if (taskMatch) {
       const done = taskMatch[1].toLowerCase() === "x";
-      const title = taskMatch[2].trim();
+      const meta = extractMeta(taskMatch[2].trim());
       out.push({
         raw: trimmed,
-        newTask: { title, done },
+        newTask: { title: meta.stripped, done },
         entryType: "status",
+        projectTags: meta.tags,
+        startAt: meta.startAt,
       });
       continue;
     }
 
-    // entry type prefix
     let entryType: ParsedLine["entryType"] = "note";
     let body = trimmed;
     for (const [prefix, type] of Object.entries(ENTRY_TYPE_PREFIXES)) {
@@ -81,24 +104,28 @@ function parseMarkdown(md: string): ParsedLine[] {
       }
     }
 
-    // #task/<slug> ...
     const tagMatch = body.match(/^#task\/([a-z0-9-]+)\s+(.+)$/i);
     if (tagMatch) {
+      const meta = extractMeta(tagMatch[2]);
       out.push({
         raw: trimmed,
         taskRef: { kind: "slug", value: tagMatch[1].toLowerCase() },
         entryType,
+        projectTags: meta.tags,
+        startAt: meta.startAt,
       });
       continue;
     }
 
-    // [[Task Name]] ...
     const linkMatch = body.match(/^\[\[([^\]]+)\]\]\s+(.+)$/);
     if (linkMatch) {
+      const meta = extractMeta(linkMatch[2]);
       out.push({
         raw: trimmed,
         taskRef: { kind: "title", value: linkMatch[1].trim() },
         entryType,
+        projectTags: meta.tags,
+        startAt: meta.startAt,
       });
       continue;
     }
