@@ -154,7 +154,7 @@ export const saveDailyNote = createServerFn({ method: "POST" })
     // 3. Existing tasks (for resolve + create check)
     const { data: existingTasks } = await supabase
       .from("tasks")
-      .select("id, slug, title, status");
+      .select("id, slug, title, status, project_tags, start_at");
     const tasksBySlug = new Map((existingTasks ?? []).map((t) => [t.slug, t]));
     const tasksByTitle = new Map(
       (existingTasks ?? []).map((t) => [t.title.toLowerCase(), t]),
@@ -173,8 +173,10 @@ export const saveDailyNote = createServerFn({ method: "POST" })
           title: p.newTask.title,
           status: p.newTask.done ? "done" : "open",
           closed_at: p.newTask.done ? new Date().toISOString() : null,
+          project_tags: p.projectTags,
+          start_at: p.startAt,
         })
-        .select("id, slug, title, status")
+        .select("id, slug, title, status, project_tags, start_at")
         .single();
       if (created) {
         tasksBySlug.set(created.slug, created);
@@ -182,17 +184,41 @@ export const saveDailyNote = createServerFn({ method: "POST" })
       }
     }
 
-    // 5. Update status for existing tasks where checkbox toggled to done
+    // 5. Update status / tags / start_at for resolved tasks
+    const resolveTask = (p: ParsedLine) => {
+      if (p.newTask) return tasksBySlug.get(slugify(p.newTask.title));
+      if (p.taskRef)
+        return p.taskRef.kind === "slug"
+          ? tasksBySlug.get(p.taskRef.value)
+          : tasksByTitle.get(p.taskRef.value.toLowerCase());
+      return undefined;
+    };
     for (const p of parsed) {
-      if (!p.newTask) continue;
-      const slug = slugify(p.newTask.title);
-      const existing = tasksBySlug.get(slug);
+      const existing = resolveTask(p);
       if (!existing) continue;
-      if (p.newTask.done && existing.status !== "done") {
-        await supabase
-          .from("tasks")
-          .update({ status: "done", closed_at: new Date().toISOString() })
-          .eq("id", existing.id);
+      const upd: {
+        status?: "done";
+        closed_at?: string;
+        project_tags?: string[];
+        start_at?: string;
+      } = {};
+      if (p.newTask?.done && existing.status !== "done") {
+        upd.status = "done";
+        upd.closed_at = new Date().toISOString();
+      }
+      if (p.projectTags.length > 0) {
+        const merged = Array.from(
+          new Set([...(existing.project_tags ?? []), ...p.projectTags]),
+        );
+        if (merged.length !== (existing.project_tags ?? []).length) {
+          upd.project_tags = merged;
+        }
+      }
+      if (p.startAt && p.startAt !== existing.start_at) {
+        upd.start_at = p.startAt;
+      }
+      if (Object.keys(upd).length > 0) {
+        await supabase.from("tasks").update(upd).eq("id", existing.id);
       }
     }
 
