@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 
-export const Route = createFileRoute("/_authenticated/tasks/$slug")({
+export const Route = createFileRoute("/tasks/$slug")({
   head: () => ({ meta: [{ title: "Task — log.md" }] }),
   component: TaskPage,
 });

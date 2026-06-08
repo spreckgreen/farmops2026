@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
-export const Route = createFileRoute("/_authenticated/summaries")({
+export const Route = createFileRoute("/summaries")({
   head: () => ({ meta: [{ title: "Summaries — log.md" }] }),
   component: SummariesPage,
 });

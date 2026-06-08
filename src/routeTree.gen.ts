@@ -9,74 +9,68 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SummariesRouteImport } from './routes/summaries'
 import { Route as AuthRouteImport } from './routes/auth'
-import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
-import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
-import { Route as AuthenticatedSummariesRouteImport } from './routes/_authenticated/summaries'
-import { Route as AuthenticatedTasksIndexRouteImport } from './routes/_authenticated/tasks.index'
-import { Route as AuthenticatedTasksSlugRouteImport } from './routes/_authenticated/tasks.$slug'
-import { Route as AuthenticatedNotesDateRouteImport } from './routes/_authenticated/notes.$date'
+import { Route as IndexRouteImport } from './routes/index'
+import { Route as TasksIndexRouteImport } from './routes/tasks.index'
+import { Route as TasksSlugRouteImport } from './routes/tasks.$slug'
+import { Route as NotesDateRouteImport } from './routes/notes.$date'
 
+const SummariesRoute = SummariesRouteImport.update({
+  id: '/summaries',
+  path: '/summaries',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
-  id: '/_authenticated',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
+const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => AuthenticatedRouteRoute,
+  getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedSummariesRoute = AuthenticatedSummariesRouteImport.update({
-  id: '/summaries',
-  path: '/summaries',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedTasksIndexRoute = AuthenticatedTasksIndexRouteImport.update({
+const TasksIndexRoute = TasksIndexRouteImport.update({
   id: '/tasks/',
   path: '/tasks/',
-  getParentRoute: () => AuthenticatedRouteRoute,
+  getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedTasksSlugRoute = AuthenticatedTasksSlugRouteImport.update({
+const TasksSlugRoute = TasksSlugRouteImport.update({
   id: '/tasks/$slug',
   path: '/tasks/$slug',
-  getParentRoute: () => AuthenticatedRouteRoute,
+  getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedNotesDateRoute = AuthenticatedNotesDateRouteImport.update({
+const NotesDateRoute = NotesDateRouteImport.update({
   id: '/notes/$date',
   path: '/notes/$date',
-  getParentRoute: () => AuthenticatedRouteRoute,
+  getParentRoute: () => rootRouteImport,
 } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof AuthenticatedIndexRoute
+  '/': typeof IndexRoute
   '/auth': typeof AuthRoute
-  '/summaries': typeof AuthenticatedSummariesRoute
-  '/notes/$date': typeof AuthenticatedNotesDateRoute
-  '/tasks/$slug': typeof AuthenticatedTasksSlugRoute
-  '/tasks/': typeof AuthenticatedTasksIndexRoute
+  '/summaries': typeof SummariesRoute
+  '/notes/$date': typeof NotesDateRoute
+  '/tasks/$slug': typeof TasksSlugRoute
+  '/tasks/': typeof TasksIndexRoute
 }
 export interface FileRoutesByTo {
+  '/': typeof IndexRoute
   '/auth': typeof AuthRoute
-  '/summaries': typeof AuthenticatedSummariesRoute
-  '/': typeof AuthenticatedIndexRoute
-  '/notes/$date': typeof AuthenticatedNotesDateRoute
-  '/tasks/$slug': typeof AuthenticatedTasksSlugRoute
-  '/tasks': typeof AuthenticatedTasksIndexRoute
+  '/summaries': typeof SummariesRoute
+  '/notes/$date': typeof NotesDateRoute
+  '/tasks/$slug': typeof TasksSlugRoute
+  '/tasks': typeof TasksIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
+  '/': typeof IndexRoute
   '/auth': typeof AuthRoute
-  '/_authenticated/summaries': typeof AuthenticatedSummariesRoute
-  '/_authenticated/': typeof AuthenticatedIndexRoute
-  '/_authenticated/notes/$date': typeof AuthenticatedNotesDateRoute
-  '/_authenticated/tasks/$slug': typeof AuthenticatedTasksSlugRoute
-  '/_authenticated/tasks/': typeof AuthenticatedTasksIndexRoute
+  '/summaries': typeof SummariesRoute
+  '/notes/$date': typeof NotesDateRoute
+  '/tasks/$slug': typeof TasksSlugRoute
+  '/tasks/': typeof TasksIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -88,25 +82,35 @@ export interface FileRouteTypes {
     | '/tasks/$slug'
     | '/tasks/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/auth' | '/summaries' | '/' | '/notes/$date' | '/tasks/$slug' | '/tasks'
+  to: '/' | '/auth' | '/summaries' | '/notes/$date' | '/tasks/$slug' | '/tasks'
   id:
     | '__root__'
-    | '/_authenticated'
+    | '/'
     | '/auth'
-    | '/_authenticated/summaries'
-    | '/_authenticated/'
-    | '/_authenticated/notes/$date'
-    | '/_authenticated/tasks/$slug'
-    | '/_authenticated/tasks/'
+    | '/summaries'
+    | '/notes/$date'
+    | '/tasks/$slug'
+    | '/tasks/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
+  IndexRoute: typeof IndexRoute
   AuthRoute: typeof AuthRoute
+  SummariesRoute: typeof SummariesRoute
+  NotesDateRoute: typeof NotesDateRoute
+  TasksSlugRoute: typeof TasksSlugRoute
+  TasksIndexRoute: typeof TasksIndexRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/summaries': {
+      id: '/summaries'
+      path: '/summaries'
+      fullPath: '/summaries'
+      preLoaderRoute: typeof SummariesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/auth': {
       id: '/auth'
       path: '/auth'
@@ -114,73 +118,44 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated': {
-      id: '/_authenticated'
-      path: ''
-      fullPath: '/'
-      preLoaderRoute: typeof AuthenticatedRouteRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_authenticated/': {
-      id: '/_authenticated/'
+    '/': {
+      id: '/'
       path: '/'
       fullPath: '/'
-      preLoaderRoute: typeof AuthenticatedIndexRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
+      preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/summaries': {
-      id: '/_authenticated/summaries'
-      path: '/summaries'
-      fullPath: '/summaries'
-      preLoaderRoute: typeof AuthenticatedSummariesRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/tasks/': {
-      id: '/_authenticated/tasks/'
+    '/tasks/': {
+      id: '/tasks/'
       path: '/tasks'
       fullPath: '/tasks/'
-      preLoaderRoute: typeof AuthenticatedTasksIndexRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
+      preLoaderRoute: typeof TasksIndexRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/tasks/$slug': {
-      id: '/_authenticated/tasks/$slug'
+    '/tasks/$slug': {
+      id: '/tasks/$slug'
       path: '/tasks/$slug'
       fullPath: '/tasks/$slug'
-      preLoaderRoute: typeof AuthenticatedTasksSlugRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
+      preLoaderRoute: typeof TasksSlugRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/notes/$date': {
-      id: '/_authenticated/notes/$date'
+    '/notes/$date': {
+      id: '/notes/$date'
       path: '/notes/$date'
       fullPath: '/notes/$date'
-      preLoaderRoute: typeof AuthenticatedNotesDateRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
+      preLoaderRoute: typeof NotesDateRouteImport
+      parentRoute: typeof rootRouteImport
     }
   }
 }
 
-interface AuthenticatedRouteRouteChildren {
-  AuthenticatedSummariesRoute: typeof AuthenticatedSummariesRoute
-  AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
-  AuthenticatedNotesDateRoute: typeof AuthenticatedNotesDateRoute
-  AuthenticatedTasksSlugRoute: typeof AuthenticatedTasksSlugRoute
-  AuthenticatedTasksIndexRoute: typeof AuthenticatedTasksIndexRoute
-}
-
-const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
-  AuthenticatedSummariesRoute: AuthenticatedSummariesRoute,
-  AuthenticatedIndexRoute: AuthenticatedIndexRoute,
-  AuthenticatedNotesDateRoute: AuthenticatedNotesDateRoute,
-  AuthenticatedTasksSlugRoute: AuthenticatedTasksSlugRoute,
-  AuthenticatedTasksIndexRoute: AuthenticatedTasksIndexRoute,
-}
-
-const AuthenticatedRouteRouteWithChildren =
-  AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
-
 const rootRouteChildren: RootRouteChildren = {
-  AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
+  IndexRoute: IndexRoute,
   AuthRoute: AuthRoute,
+  SummariesRoute: SummariesRoute,
+  NotesDateRoute: NotesDateRoute,
+  TasksSlugRoute: TasksSlugRoute,
+  TasksIndexRoute: TasksIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
