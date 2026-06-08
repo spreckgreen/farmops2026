@@ -11,7 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
-import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as AuthenticatedSummariesRouteImport } from './routes/_authenticated/summaries'
 import { Route as AuthenticatedTasksIndexRouteImport } from './routes/_authenticated/tasks.index'
 import { Route as AuthenticatedTasksSlugRouteImport } from './routes/_authenticated/tasks.$slug'
@@ -26,10 +26,10 @@ const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
   id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
+const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedSummariesRoute = AuthenticatedSummariesRouteImport.update({
   id: '/summaries',
@@ -53,7 +53,7 @@ const AuthenticatedNotesDateRoute = AuthenticatedNotesDateRouteImport.update({
 } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
+  '/': typeof AuthenticatedIndexRoute
   '/auth': typeof AuthRoute
   '/summaries': typeof AuthenticatedSummariesRoute
   '/notes/$date': typeof AuthenticatedNotesDateRoute
@@ -61,19 +61,19 @@ export interface FileRoutesByFullPath {
   '/tasks/': typeof AuthenticatedTasksIndexRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/summaries': typeof AuthenticatedSummariesRoute
+  '/': typeof AuthenticatedIndexRoute
   '/notes/$date': typeof AuthenticatedNotesDateRoute
   '/tasks/$slug': typeof AuthenticatedTasksSlugRoute
   '/tasks': typeof AuthenticatedTasksIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/_authenticated/summaries': typeof AuthenticatedSummariesRoute
+  '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/notes/$date': typeof AuthenticatedNotesDateRoute
   '/_authenticated/tasks/$slug': typeof AuthenticatedTasksSlugRoute
   '/_authenticated/tasks/': typeof AuthenticatedTasksIndexRoute
@@ -88,20 +88,19 @@ export interface FileRouteTypes {
     | '/tasks/$slug'
     | '/tasks/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/summaries' | '/notes/$date' | '/tasks/$slug' | '/tasks'
+  to: '/auth' | '/summaries' | '/' | '/notes/$date' | '/tasks/$slug' | '/tasks'
   id:
     | '__root__'
-    | '/'
     | '/_authenticated'
     | '/auth'
     | '/_authenticated/summaries'
+    | '/_authenticated/'
     | '/_authenticated/notes/$date'
     | '/_authenticated/tasks/$slug'
     | '/_authenticated/tasks/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
 }
@@ -122,12 +121,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
+    '/_authenticated/': {
+      id: '/_authenticated/'
       path: '/'
       fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AuthenticatedIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/summaries': {
       id: '/_authenticated/summaries'
@@ -162,6 +161,7 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedSummariesRoute: typeof AuthenticatedSummariesRoute
+  AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
   AuthenticatedNotesDateRoute: typeof AuthenticatedNotesDateRoute
   AuthenticatedTasksSlugRoute: typeof AuthenticatedTasksSlugRoute
   AuthenticatedTasksIndexRoute: typeof AuthenticatedTasksIndexRoute
@@ -169,6 +169,7 @@ interface AuthenticatedRouteRouteChildren {
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedSummariesRoute: AuthenticatedSummariesRoute,
+  AuthenticatedIndexRoute: AuthenticatedIndexRoute,
   AuthenticatedNotesDateRoute: AuthenticatedNotesDateRoute,
   AuthenticatedTasksSlugRoute: AuthenticatedTasksSlugRoute,
   AuthenticatedTasksIndexRoute: AuthenticatedTasksIndexRoute,
@@ -178,10 +179,19 @@ const AuthenticatedRouteRouteWithChildren =
   AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
