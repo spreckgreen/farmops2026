@@ -51,13 +51,20 @@ type ParsedLine = {
   entryType: "status" | "blocker" | "decision" | "commit" | "meeting" | "note";
   projectTags: string[];
   startAt: string | null;
+  percent: number | null;
 };
 
 const PROJECT_TAG_RE = /#project\/([a-z0-9][a-z0-9-_]*)/gi;
 const START_AT_RE =
   /@start:(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}(?::\d{2})?)(Z|[+-]\d{2}:?\d{2})?/i;
+const PROGRESS_RE = /@progress:(\d{1,3})%?/i;
 
-function extractMeta(text: string): { tags: string[]; startAt: string | null; stripped: string } {
+function extractMeta(text: string): {
+  tags: string[];
+  startAt: string | null;
+  percent: number | null;
+  stripped: string;
+} {
   const tags: string[] = [];
   let stripped = text.replace(PROJECT_TAG_RE, (_m, t: string) => {
     tags.push(t.toLowerCase());
@@ -71,7 +78,19 @@ function extractMeta(text: string): { tags: string[]; startAt: string | null; st
     if (!isNaN(d.getTime())) startAt = d.toISOString();
     stripped = stripped.replace(START_AT_RE, "");
   }
-  return { tags: Array.from(new Set(tags)), startAt, stripped: stripped.replace(/\s+/g, " ").trim() };
+  let percent: number | null = null;
+  const pm = stripped.match(PROGRESS_RE);
+  if (pm) {
+    const n = Math.max(0, Math.min(100, parseInt(pm[1], 10)));
+    if (!isNaN(n)) percent = n;
+    stripped = stripped.replace(PROGRESS_RE, "");
+  }
+  return {
+    tags: Array.from(new Set(tags)),
+    startAt,
+    percent,
+    stripped: stripped.replace(/\s+/g, " ").trim(),
+  };
 }
 
 function parseMarkdown(md: string): ParsedLine[] {
@@ -90,6 +109,7 @@ function parseMarkdown(md: string): ParsedLine[] {
         entryType: "status",
         projectTags: meta.tags,
         startAt: meta.startAt,
+        percent: meta.percent,
       });
       continue;
     }
@@ -113,6 +133,7 @@ function parseMarkdown(md: string): ParsedLine[] {
         entryType,
         projectTags: meta.tags,
         startAt: meta.startAt,
+        percent: meta.percent,
       });
       continue;
     }
@@ -126,6 +147,7 @@ function parseMarkdown(md: string): ParsedLine[] {
         entryType,
         projectTags: meta.tags,
         startAt: meta.startAt,
+        percent: meta.percent,
       });
       continue;
     }
@@ -154,7 +176,7 @@ export const saveDailyNote = createServerFn({ method: "POST" })
     // 3. Existing tasks (for resolve + create check)
     const { data: existingTasks } = await supabase
       .from("tasks")
-      .select("id, slug, title, status, project_tags, start_at");
+      .select("id, slug, title, status, project_tags, start_at, percent_complete");
     const tasksBySlug = new Map((existingTasks ?? []).map((t) => [t.slug, t]));
     const tasksByTitle = new Map(
       (existingTasks ?? []).map((t) => [t.title.toLowerCase(), t]),
@@ -175,8 +197,9 @@ export const saveDailyNote = createServerFn({ method: "POST" })
           closed_at: p.newTask.done ? new Date().toISOString() : null,
           project_tags: p.projectTags,
           start_at: p.startAt,
+          percent_complete: p.newTask.done ? 100 : (p.percent ?? 0),
         })
-        .select("id, slug, title, status, project_tags, start_at")
+        .select("id, slug, title, status, project_tags, start_at, percent_complete")
         .single();
       if (created) {
         tasksBySlug.set(created.slug, created);
@@ -184,7 +207,7 @@ export const saveDailyNote = createServerFn({ method: "POST" })
       }
     }
 
-    // 5. Update status / tags / start_at for resolved tasks
+    // 5. Update status / tags / start_at / percent for resolved tasks
     const resolveTask = (p: ParsedLine) => {
       if (p.newTask) return tasksBySlug.get(slugify(p.newTask.title));
       if (p.taskRef)
@@ -201,10 +224,12 @@ export const saveDailyNote = createServerFn({ method: "POST" })
         closed_at?: string;
         project_tags?: string[];
         start_at?: string;
+        percent_complete?: number;
       } = {};
       if (p.newTask?.done && existing.status !== "done") {
         upd.status = "done";
         upd.closed_at = new Date().toISOString();
+        upd.percent_complete = 100;
       }
       if (p.projectTags.length > 0) {
         const merged = Array.from(
@@ -216,6 +241,9 @@ export const saveDailyNote = createServerFn({ method: "POST" })
       }
       if (p.startAt && p.startAt !== existing.start_at) {
         upd.start_at = p.startAt;
+      }
+      if (p.percent !== null && p.percent !== existing.percent_complete) {
+        upd.percent_complete = p.percent;
       }
       if (Object.keys(upd).length > 0) {
         await supabase.from("tasks").update(upd).eq("id", existing.id);
@@ -374,7 +402,9 @@ export const listScheduledTasks = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     let q = context.supabase
       .from("tasks")
-      .select("id, slug, title, status, project_tags, start_at")
+      .select(
+        "id, slug, title, status, project_tags, start_at, percent_complete, closed_at, updated_at",
+      )
       .not("start_at", "is", null)
       .order("start_at", { ascending: true });
     if (data.tag) q = q.contains("project_tags", [data.tag]);

@@ -144,6 +144,7 @@ export type Database = {
           closed_at: string | null
           created_at: string
           id: string
+          percent_complete: number
           project_tags: string[]
           slug: string
           start_at: string | null
@@ -156,6 +157,7 @@ export type Database = {
           closed_at?: string | null
           created_at?: string
           id?: string
+          percent_complete?: number
           project_tags?: string[]
           slug: string
           start_at?: string | null
@@ -168,6 +170,7 @@ export type Database = {
           closed_at?: string | null
           created_at?: string
           id?: string
+          percent_complete?: number
           project_tags?: string[]
           slug?: string
           start_at?: string | null
