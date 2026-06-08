@@ -402,7 +402,9 @@ export const listScheduledTasks = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     let q = context.supabase
       .from("tasks")
-      .select("id, slug, title, status, project_tags, start_at")
+      .select(
+        "id, slug, title, status, project_tags, start_at, percent_complete, closed_at, updated_at",
+      )
       .not("start_at", "is", null)
       .order("start_at", { ascending: true });
     if (data.tag) q = q.contains("project_tags", [data.tag]);
