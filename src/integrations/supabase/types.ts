@@ -144,7 +144,9 @@ export type Database = {
           closed_at: string | null
           created_at: string
           id: string
+          project_tags: string[]
           slug: string
+          start_at: string | null
           status: Database["public"]["Enums"]["task_status"]
           title: string
           updated_at: string
@@ -154,7 +156,9 @@ export type Database = {
           closed_at?: string | null
           created_at?: string
           id?: string
+          project_tags?: string[]
           slug: string
+          start_at?: string | null
           status?: Database["public"]["Enums"]["task_status"]
           title: string
           updated_at?: string
@@ -164,7 +168,9 @@ export type Database = {
           closed_at?: string | null
           created_at?: string
           id?: string
+          project_tags?: string[]
           slug?: string
+          start_at?: string | null
           status?: Database["public"]["Enums"]["task_status"]
           title?: string
           updated_at?: string

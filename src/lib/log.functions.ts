@@ -49,7 +49,30 @@ type ParsedLine = {
   taskRef?: { kind: "slug" | "title"; value: string };
   newTask?: { title: string; done: boolean };
   entryType: "status" | "blocker" | "decision" | "commit" | "meeting" | "note";
+  projectTags: string[];
+  startAt: string | null;
 };
+
+const PROJECT_TAG_RE = /#project\/([a-z0-9][a-z0-9-_]*)/gi;
+const START_AT_RE =
+  /@start:(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}(?::\d{2})?)(Z|[+-]\d{2}:?\d{2})?/i;
+
+function extractMeta(text: string): { tags: string[]; startAt: string | null; stripped: string } {
+  const tags: string[] = [];
+  let stripped = text.replace(PROJECT_TAG_RE, (_m, t: string) => {
+    tags.push(t.toLowerCase());
+    return "";
+  });
+  let startAt: string | null = null;
+  const m = stripped.match(START_AT_RE);
+  if (m) {
+    const time = m[2].length === 5 ? `${m[2]}:00` : m[2];
+    const d = new Date(`${m[1]}T${time}${m[3] ?? ""}`);
+    if (!isNaN(d.getTime())) startAt = d.toISOString();
+    stripped = stripped.replace(START_AT_RE, "");
+  }
+  return { tags: Array.from(new Set(tags)), startAt, stripped: stripped.replace(/\s+/g, " ").trim() };
+}
 
 function parseMarkdown(md: string): ParsedLine[] {
   const out: ParsedLine[] = [];
@@ -57,20 +80,20 @@ function parseMarkdown(md: string): ParsedLine[] {
     const trimmed = line.trim();
     if (!trimmed) continue;
 
-    // - [ ] / - [x] task line
     const taskMatch = trimmed.match(/^-\s*\[([ xX])\]\s+(.+)$/);
     if (taskMatch) {
       const done = taskMatch[1].toLowerCase() === "x";
-      const title = taskMatch[2].trim();
+      const meta = extractMeta(taskMatch[2].trim());
       out.push({
         raw: trimmed,
-        newTask: { title, done },
+        newTask: { title: meta.stripped, done },
         entryType: "status",
+        projectTags: meta.tags,
+        startAt: meta.startAt,
       });
       continue;
     }
 
-    // entry type prefix
     let entryType: ParsedLine["entryType"] = "note";
     let body = trimmed;
     for (const [prefix, type] of Object.entries(ENTRY_TYPE_PREFIXES)) {
@@ -81,24 +104,28 @@ function parseMarkdown(md: string): ParsedLine[] {
       }
     }
 
-    // #task/<slug> ...
     const tagMatch = body.match(/^#task\/([a-z0-9-]+)\s+(.+)$/i);
     if (tagMatch) {
+      const meta = extractMeta(tagMatch[2]);
       out.push({
         raw: trimmed,
         taskRef: { kind: "slug", value: tagMatch[1].toLowerCase() },
         entryType,
+        projectTags: meta.tags,
+        startAt: meta.startAt,
       });
       continue;
     }
 
-    // [[Task Name]] ...
     const linkMatch = body.match(/^\[\[([^\]]+)\]\]\s+(.+)$/);
     if (linkMatch) {
+      const meta = extractMeta(linkMatch[2]);
       out.push({
         raw: trimmed,
         taskRef: { kind: "title", value: linkMatch[1].trim() },
         entryType,
+        projectTags: meta.tags,
+        startAt: meta.startAt,
       });
       continue;
     }
@@ -127,7 +154,7 @@ export const saveDailyNote = createServerFn({ method: "POST" })
     // 3. Existing tasks (for resolve + create check)
     const { data: existingTasks } = await supabase
       .from("tasks")
-      .select("id, slug, title, status");
+      .select("id, slug, title, status, project_tags, start_at");
     const tasksBySlug = new Map((existingTasks ?? []).map((t) => [t.slug, t]));
     const tasksByTitle = new Map(
       (existingTasks ?? []).map((t) => [t.title.toLowerCase(), t]),
@@ -146,8 +173,10 @@ export const saveDailyNote = createServerFn({ method: "POST" })
           title: p.newTask.title,
           status: p.newTask.done ? "done" : "open",
           closed_at: p.newTask.done ? new Date().toISOString() : null,
+          project_tags: p.projectTags,
+          start_at: p.startAt,
         })
-        .select("id, slug, title, status")
+        .select("id, slug, title, status, project_tags, start_at")
         .single();
       if (created) {
         tasksBySlug.set(created.slug, created);
@@ -155,17 +184,41 @@ export const saveDailyNote = createServerFn({ method: "POST" })
       }
     }
 
-    // 5. Update status for existing tasks where checkbox toggled to done
+    // 5. Update status / tags / start_at for resolved tasks
+    const resolveTask = (p: ParsedLine) => {
+      if (p.newTask) return tasksBySlug.get(slugify(p.newTask.title));
+      if (p.taskRef)
+        return p.taskRef.kind === "slug"
+          ? tasksBySlug.get(p.taskRef.value)
+          : tasksByTitle.get(p.taskRef.value.toLowerCase());
+      return undefined;
+    };
     for (const p of parsed) {
-      if (!p.newTask) continue;
-      const slug = slugify(p.newTask.title);
-      const existing = tasksBySlug.get(slug);
+      const existing = resolveTask(p);
       if (!existing) continue;
-      if (p.newTask.done && existing.status !== "done") {
-        await supabase
-          .from("tasks")
-          .update({ status: "done", closed_at: new Date().toISOString() })
-          .eq("id", existing.id);
+      const upd: {
+        status?: "done";
+        closed_at?: string;
+        project_tags?: string[];
+        start_at?: string;
+      } = {};
+      if (p.newTask?.done && existing.status !== "done") {
+        upd.status = "done";
+        upd.closed_at = new Date().toISOString();
+      }
+      if (p.projectTags.length > 0) {
+        const merged = Array.from(
+          new Set([...(existing.project_tags ?? []), ...p.projectTags]),
+        );
+        if (merged.length !== (existing.project_tags ?? []).length) {
+          upd.project_tags = merged;
+        }
+      }
+      if (p.startAt && p.startAt !== existing.start_at) {
+        upd.start_at = p.startAt;
+      }
+      if (Object.keys(upd).length > 0) {
+        await supabase.from("tasks").update(upd).eq("id", existing.id);
       }
     }
 
@@ -297,7 +350,41 @@ export const deleteTask = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+// ---- Scheduled tasks report ----
+
+export const listProjectTags = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data, error } = await context.supabase
+      .from("tasks")
+      .select("project_tags");
+    if (error) throw new Error(error.message);
+    const tags = new Set<string>();
+    for (const row of data ?? []) {
+      for (const t of (row.project_tags ?? []) as string[]) tags.add(t);
+    }
+    return Array.from(tags).sort();
+  });
+
+export const listScheduledTasks = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ tag: z.string().trim().min(1).max(64).nullable() }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    let q = context.supabase
+      .from("tasks")
+      .select("id, slug, title, status, project_tags, start_at")
+      .not("start_at", "is", null)
+      .order("start_at", { ascending: true });
+    if (data.tag) q = q.contains("project_tags", [data.tag]);
+    const { data: rows, error } = await q;
+    if (error) throw new Error(error.message);
+    return rows ?? [];
+  });
+
 // ---- Summaries ----
+
 
 export const listSummaries = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])

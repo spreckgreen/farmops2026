@@ -38,6 +38,13 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 Tasks
               </Link>
               <Link
+                to="/reports"
+                className="px-3 py-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+                activeProps={{ className: "px-3 py-1.5 rounded-md bg-accent text-foreground" }}
+              >
+                Reports
+              </Link>
+              <Link
                 to="/summaries"
                 className="px-3 py-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
                 activeProps={{ className: "px-3 py-1.5 rounded-md bg-accent text-foreground" }}
