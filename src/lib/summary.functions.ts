@@ -12,15 +12,15 @@ const SummaryInput = z.object({
 const ProjectGroup = z.object({
   project: z.string(),
   summary: z.string(),
-  highlights: z.array(z.string()).default([]),
+  highlights: z.array(z.string()),
 });
 
 const SummarySchema = z.object({
   summary: z.string(),
-  key_decisions: z.array(z.string()).default([]),
-  blockers: z.array(z.string()).default([]),
-  next_steps: z.array(z.string()).default([]),
-  by_project: z.array(ProjectGroup).default([]),
+  key_decisions: z.array(z.string()),
+  blockers: z.array(z.string()),
+  next_steps: z.array(z.string()),
+  by_project: z.array(ProjectGroup),
 });
 
 const MODE_INSTRUCTIONS: Record<string, string> = {
