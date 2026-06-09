@@ -53,7 +53,7 @@ function SummariesPage() {
         toast.error(res.error);
         return;
       }
-      const count = "summaries" in res ? res.summaries.length : 1;
+      const count = "summaries" in res && res.summaries ? res.summaries.length : 1;
       toast.success(`Project rollup drafted (${count} project${count === 1 ? "" : "s"})`);
       qc.invalidateQueries({ queryKey: ["summaries"] });
     },
