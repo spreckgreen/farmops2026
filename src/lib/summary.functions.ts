@@ -45,7 +45,7 @@ export const generateSummary = createServerFn({ method: "POST" })
 
     let q = supabase
       .from("activity_log")
-      .select("created_at, entry_type, raw_content, task_id, tasks(title, slug)")
+      .select("created_at, entry_type, raw_content, task_id, tasks(title, slug, project_tags)")
       .gte("created_at", periodStart.toISOString())
       .order("created_at", { ascending: true });
     if (data.scope_task_id) q = q.eq("task_id", data.scope_task_id);
@@ -78,8 +78,11 @@ export const generateSummary = createServerFn({ method: "POST" })
 
     const entryLines = entries
       .map((e) => {
-        const t = (e.tasks as { title?: string } | null)?.title;
-        return `- [${e.created_at.slice(0, 10)}] [${e.entry_type}]${t ? ` (${t})` : ""} ${e.raw_content}`;
+        const task = e.tasks as { title?: string; project_tags?: string[] } | null;
+        const tags = task?.project_tags ?? [];
+        const projectLabel = tags.length ? tags.map((t) => `#project/${t}`).join(" ") : "#project/Unassigned";
+        const t = task?.title;
+        return `- [${e.created_at.slice(0, 10)}] [${e.entry_type}] ${projectLabel}${t ? ` (${t})` : ""} ${e.raw_content}`;
       })
       .join("\n");
 
