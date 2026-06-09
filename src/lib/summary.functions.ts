@@ -27,10 +27,31 @@ const MODE_INSTRUCTIONS: Record<string, string> = {
   task_update:
     "Write a 2-3 sentence progress note in past tense, no fluff. Focus on what actually happened.",
   project_rollup:
-    "Produce a structured rollup: bullets for what shipped, what is blocked, and what is next. Be concise.",
+    "Produce a running history rollup for ONE project. Extend the prior rollup into an ongoing narrative of the project's progress to date — do not restart. Without a formal plan, treat this as a chronological status: where the project stands now, what changed since the last rollup, current blockers, and what is next. Use `summary` for the narrative (120-180 words), and populate key_decisions / blockers / next_steps. Leave `by_project` empty.",
   weekly_report:
     "Write an executive weekly report grouped by project. Populate `by_project`: one entry per distinct project tag in the activity (use 'Unassigned' for entries with no tag), each with a 2-3 sentence past-tense narrative and 2-5 highlight bullets scoped strictly to that project's entries. Then write `summary` as a 100-150 word executive overview that references the projects by name. Past tense, plain language, lead with outcomes.",
 };
+
+type EntryRow = {
+  created_at: string;
+  entry_type: string;
+  raw_content: string;
+  task_id: string | null;
+  tasks: { title?: string; slug?: string; project_tags?: string[] } | null;
+};
+
+function formatEntries(entries: EntryRow[]): string {
+  return entries
+    .map((e) => {
+      const tags = e.tasks?.project_tags ?? [];
+      const projectLabel = tags.length
+        ? tags.map((t) => `#project/${t}`).join(" ")
+        : "#project/Unassigned";
+      const t = e.tasks?.title;
+      return `- [${e.created_at.slice(0, 10)}] [${e.entry_type}] ${projectLabel}${t ? ` (${t})` : ""} ${e.raw_content}`;
+    })
+    .join("\n");
+}
 
 export const generateSummary = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -50,59 +71,63 @@ export const generateSummary = createServerFn({ method: "POST" })
       .order("created_at", { ascending: true });
     if (data.scope_task_id) q = q.eq("task_id", data.scope_task_id);
 
-    const { data: entries, error } = await q;
+    const { data: entriesRaw, error } = await q;
     if (error) throw new Error(error.message);
+    const entries = (entriesRaw ?? []) as unknown as EntryRow[];
 
-    if (!entries || entries.length === 0) {
+    if (entries.length === 0) {
       return {
         ok: false as const,
         error: "No activity in this period yet — write a note first.",
       };
     }
 
-    // Previous summary for same scope (extend, don't restart)
-    let prevQ = supabase
-      .from("summaries")
-      .select("generated_summary, edited_summary")
-      .eq("mode", data.mode)
-      .order("created_at", { ascending: false })
-      .limit(1);
-    prevQ = data.scope_task_id
-      ? prevQ.eq("scope_task_id", data.scope_task_id)
-      : prevQ.is("scope_task_id", null);
-    const { data: prev } = await prevQ.maybeSingle();
-
-    const prevText = prev
-      ? JSON.stringify(prev.edited_summary ?? prev.generated_summary)
-      : "(none)";
-
-    const entryLines = entries
-      .map((e) => {
-        const task = e.tasks as { title?: string; project_tags?: string[] } | null;
-        const tags = task?.project_tags ?? [];
-        const projectLabel = tags.length ? tags.map((t) => `#project/${t}`).join(" ") : "#project/Unassigned";
-        const t = task?.title;
-        return `- [${e.created_at.slice(0, 10)}] [${e.entry_type}] ${projectLabel}${t ? ` (${t})` : ""} ${e.raw_content}`;
-      })
-      .join("\n");
-
-    const prompt = `You are summarizing an activity log.
-
-MODE: ${data.mode}
-INSTRUCTIONS: ${MODE_INSTRUCTIONS[data.mode]}
-
-PREVIOUS SUMMARY (extend, do not restart):
-${prevText}
-
-NEW ACTIVITY ENTRIES (chronological):
-${entryLines}
-
-Return a structured summary.`;
-
     const { createLovableAiGatewayProvider } = await import("./ai-gateway.server");
     const gateway = createLovableAiGatewayProvider(apiKey);
 
-    try {
+    const runOne = async (params: {
+      scope_project: string | null;
+      scope_task_id: string | null;
+      entriesForScope: EntryRow[];
+      extraContext?: string;
+    }) => {
+      // Previous summary for same scope (extend ongoing narrative)
+      let prevQ = supabase
+        .from("summaries")
+        .select("generated_summary, edited_summary, created_at")
+        .eq("mode", data.mode)
+        .order("created_at", { ascending: false })
+        .limit(1);
+      prevQ = params.scope_task_id
+        ? prevQ.eq("scope_task_id", params.scope_task_id)
+        : prevQ.is("scope_task_id", null);
+      prevQ = params.scope_project
+        ? prevQ.eq("scope_project", params.scope_project)
+        : prevQ.is("scope_project", null);
+      const { data: prev } = await prevQ.maybeSingle();
+
+      const prevText = prev
+        ? `(from ${prev.created_at.slice(0, 10)})\n${JSON.stringify(prev.edited_summary ?? prev.generated_summary)}`
+        : "(none — this is the first rollup for this scope)";
+
+      const scopeHeader = params.scope_project
+        ? `PROJECT: #project/${params.scope_project}`
+        : "SCOPE: all activity";
+
+      const prompt = `You are maintaining a running activity log summary.
+
+MODE: ${data.mode}
+${scopeHeader}
+INSTRUCTIONS: ${MODE_INSTRUCTIONS[data.mode]}
+${params.extraContext ? `\n${params.extraContext}\n` : ""}
+PREVIOUS SUMMARY (extend into an ongoing narrative — do not restart):
+${prevText}
+
+NEW ACTIVITY ENTRIES (chronological, since last rollup or within period):
+${formatEntries(params.entriesForScope)}
+
+Return a structured summary.`;
+
       const { experimental_output: output } = await generateText({
         model: gateway("google/gemini-3-flash-preview"),
         experimental_output: Output.object({ schema: SummarySchema }),
@@ -114,7 +139,8 @@ Return a structured summary.`;
         .insert({
           user_id: userId,
           mode: data.mode,
-          scope_task_id: data.scope_task_id ?? null,
+          scope_task_id: params.scope_task_id,
+          scope_project: params.scope_project,
           period_start: periodStart.toISOString(),
           period_end: periodEnd.toISOString(),
           generated_summary: output,
@@ -123,7 +149,40 @@ Return a structured summary.`;
         .select()
         .single();
       if (insErr) throw new Error(insErr.message);
-      return { ok: true as const, summary: inserted };
+      return inserted;
+    };
+
+    try {
+      if (data.mode === "project_rollup" && !data.scope_task_id) {
+        // Group entries by project tag; an entry with multiple tags appears in each.
+        const groups = new Map<string, EntryRow[]>();
+        for (const e of entries) {
+          const tags = e.tasks?.project_tags ?? [];
+          const keys = tags.length ? tags : ["Unassigned"];
+          for (const k of keys) {
+            if (!groups.has(k)) groups.set(k, []);
+            groups.get(k)!.push(e);
+          }
+        }
+
+        const summaries = [];
+        for (const [project, projectEntries] of groups) {
+          const s = await runOne({
+            scope_project: project,
+            scope_task_id: null,
+            entriesForScope: projectEntries,
+          });
+          summaries.push(s);
+        }
+        return { ok: true as const, summaries };
+      }
+
+      const summary = await runOne({
+        scope_project: null,
+        scope_task_id: data.scope_task_id ?? null,
+        entriesForScope: entries,
+      });
+      return { ok: true as const, summary };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       if (msg.includes("429")) throw new Error("Rate limit reached. Try again shortly.");
