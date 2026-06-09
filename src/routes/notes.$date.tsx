@@ -112,8 +112,9 @@ function NotePage() {
             <p className="text-xs text-muted-foreground font-mono">{date}</p>
           </div>
           <span className="text-xs text-muted-foreground">
-            {mutation.isPending ? "saving…" : draft === lastSavedRef.current ? "saved" : "unsaved"}
+            {draft === lastSavedRef.current ? "saved" : "pending · saves on leave"}
           </span>
+
         </div>
 
         <textarea
