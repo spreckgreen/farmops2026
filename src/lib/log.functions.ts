@@ -512,6 +512,7 @@ export const upsertProject = createServerFn({ method: "POST" })
     if (data.id) {
       const { error } = await supabase.from("projects").update(payload).eq("id", data.id);
       if (error) throw new Error(error.message);
+      await invalidateSummaries(supabase, userId);
       return { ok: true as const, id: data.id };
     }
     const { data: inserted, error } = await supabase
@@ -520,6 +521,7 @@ export const upsertProject = createServerFn({ method: "POST" })
       .select("id")
       .single();
     if (error) throw new Error(error.message);
+    await invalidateSummaries(supabase, userId);
     return { ok: true as const, id: inserted.id };
   });
 
@@ -529,5 +531,6 @@ export const deleteProject = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { error } = await context.supabase.from("projects").delete().eq("id", data.id);
     if (error) throw new Error(error.message);
+    await invalidateSummaries(context.supabase, context.userId);
     return { ok: true };
   });
