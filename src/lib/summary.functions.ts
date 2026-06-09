@@ -126,7 +126,7 @@ ${prevText}
 NEW ACTIVITY ENTRIES (chronological, since last rollup or within period):
 ${formatEntries(params.entriesForScope)}
 
-Return a structured summary.`;
+Return a structured summary. ALWAYS include every field in the schema — use empty arrays ([]) for lists that don't apply and empty strings ("") for unused text fields. Never omit a field.`;
 
       const { experimental_output: output } = await generateText({
         model: gateway("google/gemini-3-flash-preview"),
