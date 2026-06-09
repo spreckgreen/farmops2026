@@ -349,7 +349,7 @@ export const setTaskStatus = createServerFn({ method: "POST" })
     z.object({ id: z.string().uuid(), status: z.enum(["open", "blocked", "done"]) }).parse(d),
   )
   .handler(async ({ data, context }) => {
-    const { supabase } = context;
+    const { supabase, userId } = context;
     const { error } = await supabase
       .from("tasks")
       .update({
@@ -358,6 +358,7 @@ export const setTaskStatus = createServerFn({ method: "POST" })
       })
       .eq("id", data.id);
     if (error) throw new Error(error.message);
+    await invalidateSummaries(supabase, userId);
     return { ok: true };
   });
 
@@ -377,6 +378,7 @@ export const updateTask = createServerFn({ method: "POST" })
       .update({ title: data.title })
       .eq("id", data.id);
     if (error) throw new Error(error.message);
+    await invalidateSummaries(context.supabase, context.userId);
     return { ok: true };
   });
 
@@ -386,6 +388,7 @@ export const deleteTask = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { error } = await context.supabase.from("tasks").delete().eq("id", data.id);
     if (error) throw new Error(error.message);
+    await invalidateSummaries(context.supabase, context.userId);
     return { ok: true };
   });
 
