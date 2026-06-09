@@ -22,6 +22,7 @@ type SummaryShape = {
   key_decisions: string[];
   blockers: string[];
   next_steps: string[];
+  by_project?: { project: string; summary: string; highlights: string[] }[];
 };
 
 function SummariesPage() {
