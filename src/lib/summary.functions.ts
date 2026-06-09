@@ -9,11 +9,18 @@ const SummaryInput = z.object({
   period_days: z.number().int().min(1).max(60).default(7),
 });
 
+const ProjectGroup = z.object({
+  project: z.string(),
+  summary: z.string(),
+  highlights: z.array(z.string()).default([]),
+});
+
 const SummarySchema = z.object({
   summary: z.string(),
   key_decisions: z.array(z.string()).default([]),
   blockers: z.array(z.string()).default([]),
   next_steps: z.array(z.string()).default([]),
+  by_project: z.array(ProjectGroup).default([]),
 });
 
 const MODE_INSTRUCTIONS: Record<string, string> = {
@@ -22,7 +29,7 @@ const MODE_INSTRUCTIONS: Record<string, string> = {
   project_rollup:
     "Produce a structured rollup: bullets for what shipped, what is blocked, and what is next. Be concise.",
   weekly_report:
-    "Write an executive narrative of 150-200 words suitable for a stakeholder email. Past tense, plain language, lead with outcomes.",
+    "Write an executive weekly report grouped by project. Populate `by_project`: one entry per distinct project tag in the activity (use 'Unassigned' for entries with no tag), each with a 2-3 sentence past-tense narrative and 2-5 highlight bullets scoped strictly to that project's entries. Then write `summary` as a 100-150 word executive overview that references the projects by name. Past tense, plain language, lead with outcomes.",
 };
 
 export const generateSummary = createServerFn({ method: "POST" })
