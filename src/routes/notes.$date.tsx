@@ -1,14 +1,15 @@
 import { createFileRoute, Link, useParams } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { getDailyNote, saveDailyNote } from "@/lib/log.functions";
+import { getDailyNote, listProjects, saveDailyNote } from "@/lib/log.functions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AppLayout } from "@/components/app-layout";
 import { requireAuthenticatedUser } from "@/lib/auth-route";
 import { toast } from "sonner";
 import { format } from "date-fns";
+
 
 export const Route = createFileRoute("/notes/$date")({
   ssr: false,
