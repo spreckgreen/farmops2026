@@ -294,21 +294,23 @@ export const saveDailyNote = createServerFn({ method: "POST" })
       });
     }
 
-    // 7. Deduplicate against entries already logged for this daily_note_id
-    const { data: existingEntries } = await supabase
+    // 7. Replace (don't append): wipe prior entries for this daily note and
+    //    re-insert from the current parsed markdown. This way edits/removals
+    //    in Today flow through to Tasks/Reports/Summaries instead of leaving
+    //    stale rows behind.
+    const { error: delErr } = await supabase
       .from("activity_log")
-      .select("raw_content")
+      .delete()
       .eq("daily_note_id", data.noteId);
-    const seen = new Set((existingEntries ?? []).map((e) => e.raw_content));
-    const fresh = entries.filter((e) => !seen.has(e.raw_content));
+    if (delErr) throw new Error(delErr.message);
 
-    if (fresh.length > 0) {
-      const { error: insErr } = await supabase.from("activity_log").insert(fresh);
+    if (entries.length > 0) {
+      const { error: insErr } = await supabase.from("activity_log").insert(entries);
       if (insErr) throw new Error(insErr.message);
     }
 
     await invalidateSummaries(supabase, userId);
-    return { saved: true, newEntries: fresh.length };
+    return { saved: true, newEntries: entries.length };
   });
 
 // ---- Tasks ----
