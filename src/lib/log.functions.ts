@@ -157,12 +157,13 @@ function parseMarkdown(md: string): ParsedLine[] {
 
 // Any mutation to projects, tasks, or daily-note-driven entries invalidates
 // the cached summaries: nuke them so the Reports page regenerates from scratch
-// on next view/run rather than showing stale rollups.
-// Any mutation to projects, tasks, or daily-note-driven entries invalidates
-// the cached summaries: nuke them so the Reports page regenerates from scratch
-// on next view/run rather than showing stale rollups.
-async function invalidateSummaries(supabase: any, userId: string) {
-  await supabase.from("summaries").delete().eq("user_id", userId);
+// Reports and Summaries are NOT auto-invalidated when projects, tasks, or
+// daily notes change. They only refresh when the user explicitly triggers a
+// regenerate from the Reports or Summaries pages (which deletes prior
+// summaries for that scope and inserts a fresh one). This keeps the cached
+// rollups stable until the user asks for an updated take.
+async function invalidateSummaries(_supabase: any, _userId: string) {
+  // intentional no-op — see comment above
 }
 
 export const saveDailyNote = createServerFn({ method: "POST" })
