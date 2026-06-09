@@ -12,15 +12,15 @@ const SummaryInput = z.object({
 const ProjectGroup = z.object({
   project: z.string(),
   summary: z.string(),
-  highlights: z.array(z.string()).default([]),
+  highlights: z.array(z.string()),
 });
 
 const SummarySchema = z.object({
   summary: z.string(),
-  key_decisions: z.array(z.string()).default([]),
-  blockers: z.array(z.string()).default([]),
-  next_steps: z.array(z.string()).default([]),
-  by_project: z.array(ProjectGroup).default([]),
+  key_decisions: z.array(z.string()),
+  blockers: z.array(z.string()),
+  next_steps: z.array(z.string()),
+  by_project: z.array(ProjectGroup),
 });
 
 const MODE_INSTRUCTIONS: Record<string, string> = {
@@ -126,7 +126,7 @@ ${prevText}
 NEW ACTIVITY ENTRIES (chronological, since last rollup or within period):
 ${formatEntries(params.entriesForScope)}
 
-Return a structured summary.`;
+Return a structured summary. ALWAYS include every field in the schema — use empty arrays ([]) for lists that don't apply and empty strings ("") for unused text fields. Never omit a field.`;
 
       const { experimental_output: output } = await generateText({
         model: gateway("google/gemini-3-flash-preview"),
