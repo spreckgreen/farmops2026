@@ -64,11 +64,15 @@ export const generateSummary = createServerFn({ method: "POST" })
     const periodEnd = new Date();
     const periodStart = new Date(periodEnd.getTime() - data.period_days * 24 * 60 * 60 * 1000);
 
+    // project_rollup is a fresh resummarization of the entire project history;
+    // weekly_report and task_update stay scoped to the rolling period.
+    const useFullHistory = data.mode === "project_rollup";
+
     let q = supabase
       .from("activity_log")
       .select("created_at, entry_type, raw_content, task_id, tasks(title, slug, project_tags)")
-      .gte("created_at", periodStart.toISOString())
       .order("created_at", { ascending: true });
+    if (!useFullHistory) q = q.gte("created_at", periodStart.toISOString());
     if (data.scope_task_id) q = q.eq("task_id", data.scope_task_id);
 
     const { data: entriesRaw, error } = await q;
@@ -78,7 +82,9 @@ export const generateSummary = createServerFn({ method: "POST" })
     if (entries.length === 0) {
       return {
         ok: false as const,
-        error: "No activity in this period yet — write a note first.",
+        error: useFullHistory
+          ? "No activity logged yet — write a note first."
+          : "No activity in this period yet — write a note first.",
       };
     }
 
