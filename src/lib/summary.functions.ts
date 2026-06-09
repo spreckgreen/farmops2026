@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
-import { generateText, Output } from "ai";
+import { generateText } from "ai";
 
 const SummaryInput = z.object({
   mode: z.enum(["task_update", "project_rollup", "weekly_report"]),
@@ -22,6 +22,8 @@ const SummarySchema = z.object({
   next_steps: z.array(z.string()),
   by_project: z.array(ProjectGroup),
 });
+
+type SummaryOutput = z.infer<typeof SummarySchema>;
 
 const MODE_INSTRUCTIONS: Record<string, string> = {
   task_update:
@@ -51,6 +53,83 @@ function formatEntries(entries: EntryRow[]): string {
       return `- [${e.created_at.slice(0, 10)}] [${e.entry_type}] ${projectLabel}${t ? ` (${t})` : ""} ${e.raw_content}`;
     })
     .join("\n");
+}
+
+function extractJsonObject(raw: string): unknown {
+  const stripped = raw
+    .trim()
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/i, "");
+
+  try {
+    return JSON.parse(stripped);
+  } catch {
+    const start = stripped.indexOf("{");
+    const end = stripped.lastIndexOf("}");
+    if (start === -1 || end <= start) throw new Error("AI response was not JSON");
+    return JSON.parse(stripped.slice(start, end + 1));
+  }
+}
+
+function asStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
+}
+
+function normalizeSummary(value: unknown): SummaryOutput {
+  const obj = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+  const byProject = Array.isArray(obj.by_project)
+    ? obj.by_project.map((item) => {
+        const p = item && typeof item === "object" ? (item as Record<string, unknown>) : {};
+        return {
+          project: typeof p.project === "string" && p.project.trim() ? p.project : "Unassigned",
+          summary: typeof p.summary === "string" ? p.summary : "",
+          highlights: asStringArray(p.highlights),
+        };
+      })
+    : [];
+
+  return SummarySchema.parse({
+    summary: typeof obj.summary === "string" ? obj.summary : "",
+    key_decisions: asStringArray(obj.key_decisions),
+    blockers: asStringArray(obj.blockers),
+    next_steps: asStringArray(obj.next_steps),
+    by_project: byProject,
+  });
+}
+
+function buildFallbackSummary(entries: EntryRow[], mode: string, scopeProject: string | null): SummaryOutput {
+  const first = entries[0]?.created_at?.slice(0, 10);
+  const last = entries[entries.length - 1]?.created_at?.slice(0, 10);
+  const projectLabel = scopeProject ? `#project/${scopeProject}` : "the selected activity";
+  const recent = entries
+    .slice(-4)
+    .map((e) => e.raw_content.trim())
+    .filter(Boolean)
+    .join(" ");
+
+  const summary = `${projectLabel} has ${entries.length} logged update${entries.length === 1 ? "" : "s"}${first && last ? ` from ${first} through ${last}` : ""}. ${recent || "The available entries were captured and can be rerun when more detail is logged."}`;
+
+  const blockers = entries
+    .filter((e) => /block|blocked|stuck|risk|issue|problem|waiting/i.test(e.raw_content))
+    .map((e) => e.raw_content.trim())
+    .slice(-5);
+
+  const nextSteps = entries
+    .filter((e) => /next|todo|follow.?up|plan|start|ship|finish/i.test(e.raw_content))
+    .map((e) => e.raw_content.trim())
+    .slice(-5);
+
+  return {
+    summary,
+    key_decisions: [],
+    blockers,
+    next_steps: nextSteps,
+    by_project:
+      mode === "weekly_report"
+        ? [{ project: scopeProject ?? "Unassigned", summary, highlights: entries.slice(-5).map((e) => e.raw_content.trim()).filter(Boolean) }]
+        : [],
+  };
 }
 
 export const generateSummary = createServerFn({ method: "POST" })
