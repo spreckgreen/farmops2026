@@ -189,13 +189,20 @@ ${params.extraContext ? `\n${params.extraContext}\n` : ""}
 ACTIVITY ENTRIES (chronological, full scope being summarized):
 ${formatEntries(params.entriesForScope)}
 
-Return a structured summary. ALWAYS include every field in the schema — use empty arrays ([]) for lists that don't apply and empty strings ("") for unused text fields. Never omit a field.`;
+Return only valid JSON with this exact shape:
+{"summary":"","key_decisions":[],"blockers":[],"next_steps":[],"by_project":[{"project":"","summary":"","highlights":[]}]}
+Use empty arrays ([]) for lists that don't apply and empty strings ("") for unused text fields. Never omit a field. Do not wrap the JSON in markdown.`;
 
-      const { experimental_output: output } = await generateText({
+      const { text } = await generateText({
         model: gateway("google/gemini-3-flash-preview"),
-        experimental_output: Output.object({ schema: SummarySchema }),
         prompt,
       });
+      let output: SummaryOutput;
+      try {
+        output = normalizeSummary(extractJsonObject(text));
+      } catch {
+        output = buildFallbackSummary(params.entriesForScope, data.mode, params.scope_project);
+      }
 
       // Fresh resummarization: remove any prior summaries for the same mode + scope
       // so the list shows the latest take rather than an accumulating history.
