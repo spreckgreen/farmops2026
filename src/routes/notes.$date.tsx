@@ -101,6 +101,72 @@ function NotePage() {
   const tasks = query.data?.tasks ?? [];
   const openTasks = tasks.filter((t) => t.status !== "done");
 
+  // ---- #project/ autocomplete ----
+  const listProjectsFn = useServerFn(listProjects);
+  const projectsQ = useQuery({ queryKey: ["projects"], queryFn: () => listProjectsFn() });
+  const projects = (projectsQ.data ?? []) as { slug: string; name: string }[];
+
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const [caret, setCaret] = useState(0);
+  const [acIndex, setAcIndex] = useState(0);
+
+  const acToken = useMemo(() => {
+    if (!textareaRef.current) return null;
+    const before = draft.slice(0, caret);
+    const m = /#project\/([a-z0-9-_]*)$/i.exec(before);
+    if (!m) return null;
+    return { start: caret - m[1].length, query: m[1].toLowerCase() };
+  }, [draft, caret]);
+
+  const acMatches = useMemo(() => {
+    if (!acToken) return [];
+    const q = acToken.query;
+    return projects
+      .filter((p) => !q || p.slug.toLowerCase().includes(q) || p.name.toLowerCase().includes(q))
+      .slice(0, 6);
+  }, [acToken, projects]);
+
+  useEffect(() => {
+    setAcIndex(0);
+  }, [acToken?.query]);
+
+  const applyCompletion = (slug: string) => {
+    if (!acToken) return;
+    const next = draft.slice(0, acToken.start) + slug + draft.slice(caret);
+    const newCaret = acToken.start + slug.length;
+    setDraft(next);
+    requestAnimationFrame(() => {
+      const ta = textareaRef.current;
+      if (ta) {
+        ta.focus();
+        ta.setSelectionRange(newCaret, newCaret);
+        setCaret(newCaret);
+      }
+    });
+  };
+
+  const onTextareaKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (!acMatches.length) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setAcIndex((i) => (i + 1) % acMatches.length);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setAcIndex((i) => (i - 1 + acMatches.length) % acMatches.length);
+    } else if (e.key === "Enter" || e.key === "Tab") {
+      e.preventDefault();
+      applyCompletion(acMatches[acIndex].slug);
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      // Move caret one back so the regex stops matching, dismissing the popup.
+      setCaret(-1);
+    }
+  };
+
+  const syncCaret = (e: React.SyntheticEvent<HTMLTextAreaElement>) => {
+    setCaret(e.currentTarget.selectionStart ?? 0);
+  };
+
   return (
     <AppLayout>
       <div className="max-w-6xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6">
@@ -118,13 +184,51 @@ function NotePage() {
 
         </div>
 
-        <textarea
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          placeholder={PLACEHOLDER}
-          spellCheck={false}
-          className="w-full min-h-[70vh] bg-card border border-border rounded-lg p-4 font-mono text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-ring resize-y"
-        />
+        <div className="relative">
+          <textarea
+            ref={textareaRef}
+            value={draft}
+            onChange={(e) => {
+              setDraft(e.target.value);
+              setCaret(e.target.selectionStart ?? 0);
+            }}
+            onKeyDown={onTextareaKeyDown}
+            onKeyUp={syncCaret}
+            onClick={syncCaret}
+            onSelect={syncCaret}
+            placeholder={PLACEHOLDER}
+            spellCheck={false}
+            className="w-full min-h-[70vh] bg-card border border-border rounded-lg p-4 font-mono text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-ring resize-y"
+          />
+          {acMatches.length > 0 && (
+            <div className="absolute left-3 bottom-3 z-10 w-72 bg-popover border border-border rounded-md shadow-md overflow-hidden">
+              <div className="px-3 py-1.5 text-[10px] uppercase tracking-wider font-mono text-muted-foreground border-b border-border">
+                #project/ — ↑↓ Enter
+              </div>
+              <ul>
+                {acMatches.map((p, i) => (
+                  <li key={p.slug}>
+                    <button
+                      type="button"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        applyCompletion(p.slug);
+                      }}
+                      onMouseEnter={() => setAcIndex(i)}
+                      className={`w-full text-left px-3 py-1.5 text-sm flex items-baseline justify-between gap-2 ${
+                        i === acIndex ? "bg-accent text-accent-foreground" : ""
+                      }`}
+                    >
+                      <span className="font-mono truncate">{p.slug}</span>
+                      <span className="text-xs text-muted-foreground truncate">{p.name}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+
 
         <details className="mt-3 text-xs text-muted-foreground">
           <summary className="cursor-pointer hover:text-foreground">Syntax cheatsheet</summary>
