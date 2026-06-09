@@ -1,0 +1,1 @@
+CREATE POLICY "activity_log_owner_delete" ON public.activity_log FOR DELETE TO public USING (auth.uid() = user_id);
