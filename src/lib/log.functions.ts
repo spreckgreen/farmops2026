@@ -155,6 +155,16 @@ function parseMarkdown(md: string): ParsedLine[] {
   return out;
 }
 
+// Any mutation to projects, tasks, or daily-note-driven entries invalidates
+// the cached summaries: nuke them so the Reports page regenerates from scratch
+// on next view/run rather than showing stale rollups.
+// Any mutation to projects, tasks, or daily-note-driven entries invalidates
+// the cached summaries: nuke them so the Reports page regenerates from scratch
+// on next view/run rather than showing stale rollups.
+async function invalidateSummaries(supabase: any, userId: string) {
+  await supabase.from("summaries").delete().eq("user_id", userId);
+}
+
 export const saveDailyNote = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
@@ -296,6 +306,7 @@ export const saveDailyNote = createServerFn({ method: "POST" })
       if (insErr) throw new Error(insErr.message);
     }
 
+    await invalidateSummaries(supabase, userId);
     return { saved: true, newEntries: fresh.length };
   });
 
@@ -338,7 +349,7 @@ export const setTaskStatus = createServerFn({ method: "POST" })
     z.object({ id: z.string().uuid(), status: z.enum(["open", "blocked", "done"]) }).parse(d),
   )
   .handler(async ({ data, context }) => {
-    const { supabase } = context;
+    const { supabase, userId } = context;
     const { error } = await supabase
       .from("tasks")
       .update({
@@ -347,6 +358,7 @@ export const setTaskStatus = createServerFn({ method: "POST" })
       })
       .eq("id", data.id);
     if (error) throw new Error(error.message);
+    await invalidateSummaries(supabase, userId);
     return { ok: true };
   });
 
@@ -366,6 +378,7 @@ export const updateTask = createServerFn({ method: "POST" })
       .update({ title: data.title })
       .eq("id", data.id);
     if (error) throw new Error(error.message);
+    await invalidateSummaries(context.supabase, context.userId);
     return { ok: true };
   });
 
@@ -375,6 +388,7 @@ export const deleteTask = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { error } = await context.supabase.from("tasks").delete().eq("id", data.id);
     if (error) throw new Error(error.message);
+    await invalidateSummaries(context.supabase, context.userId);
     return { ok: true };
   });
 
@@ -498,6 +512,7 @@ export const upsertProject = createServerFn({ method: "POST" })
     if (data.id) {
       const { error } = await supabase.from("projects").update(payload).eq("id", data.id);
       if (error) throw new Error(error.message);
+      await invalidateSummaries(supabase, userId);
       return { ok: true as const, id: data.id };
     }
     const { data: inserted, error } = await supabase
@@ -506,6 +521,7 @@ export const upsertProject = createServerFn({ method: "POST" })
       .select("id")
       .single();
     if (error) throw new Error(error.message);
+    await invalidateSummaries(supabase, userId);
     return { ok: true as const, id: inserted.id };
   });
 
@@ -515,5 +531,6 @@ export const deleteProject = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { error } = await context.supabase.from("projects").delete().eq("id", data.id);
     if (error) throw new Error(error.message);
+    await invalidateSummaries(context.supabase, context.userId);
     return { ok: true };
   });
