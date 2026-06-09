@@ -452,3 +452,68 @@ export const updateSummary = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
+// ---- Projects (hashtag lookup) ----
+
+const slugRe = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/;
+
+export const listProjects = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data, error } = await context.supabase
+      .from("projects")
+      .select("*")
+      .order("start_date", { ascending: true, nullsFirst: false })
+      .order("name", { ascending: true });
+    if (error) throw new Error(error.message);
+    return data ?? [];
+  });
+
+export const upsertProject = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        id: z.string().uuid().nullable().optional(),
+        slug: z.string().trim().min(1).max(64).regex(slugRe, "lowercase, numbers, dashes"),
+        name: z.string().trim().min(1).max(200),
+        description: z.string().trim().max(2000).nullable().optional(),
+        start_date: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/)
+          .nullable()
+          .optional(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const payload = {
+      user_id: userId,
+      slug: data.slug,
+      name: data.name,
+      description: data.description ?? null,
+      start_date: data.start_date ?? null,
+    };
+    if (data.id) {
+      const { error } = await supabase.from("projects").update(payload).eq("id", data.id);
+      if (error) throw new Error(error.message);
+      return { ok: true as const, id: data.id };
+    }
+    const { data: inserted, error } = await supabase
+      .from("projects")
+      .insert(payload)
+      .select("id")
+      .single();
+    if (error) throw new Error(error.message);
+    return { ok: true as const, id: inserted.id };
+  });
+
+export const deleteProject = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase.from("projects").delete().eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
