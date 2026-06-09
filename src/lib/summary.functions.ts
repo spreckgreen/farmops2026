@@ -98,7 +98,11 @@ function normalizeSummary(value: unknown): SummaryOutput {
   });
 }
 
-function buildFallbackSummary(entries: EntryRow[], mode: string, scopeProject: string | null): SummaryOutput {
+function buildFallbackSummary(
+  entries: EntryRow[],
+  mode: string,
+  scopeProject: string | null,
+): SummaryOutput {
   const first = entries[0]?.created_at?.slice(0, 10);
   const last = entries[entries.length - 1]?.created_at?.slice(0, 10);
   const projectLabel = scopeProject ? `#project/${scopeProject}` : "the selected activity";
@@ -127,7 +131,16 @@ function buildFallbackSummary(entries: EntryRow[], mode: string, scopeProject: s
     next_steps: nextSteps,
     by_project:
       mode === "weekly_report"
-        ? [{ project: scopeProject ?? "Unassigned", summary, highlights: entries.slice(-5).map((e) => e.raw_content.trim()).filter(Boolean) }]
+        ? [
+            {
+              project: scopeProject ?? "Unassigned",
+              summary,
+              highlights: entries
+                .slice(-5)
+                .map((e) => e.raw_content.trim())
+                .filter(Boolean),
+            },
+          ]
         : [],
   };
 }
@@ -206,11 +219,7 @@ Use empty arrays ([]) for lists that don't apply and empty strings ("") for unus
 
       // Fresh resummarization: remove any prior summaries for the same mode + scope
       // so the list shows the latest take rather than an accumulating history.
-      let delQ = supabase
-        .from("summaries")
-        .delete()
-        .eq("user_id", userId)
-        .eq("mode", data.mode);
+      let delQ = supabase.from("summaries").delete().eq("user_id", userId).eq("mode", data.mode);
       delQ = params.scope_task_id
         ? delQ.eq("scope_task_id", params.scope_task_id)
         : delQ.is("scope_task_id", null);
