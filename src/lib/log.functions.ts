@@ -158,10 +158,10 @@ function parseMarkdown(md: string): ParsedLine[] {
 // Any mutation to projects, tasks, or daily-note-driven entries invalidates
 // the cached summaries: nuke them so the Reports page regenerates from scratch
 // on next view/run rather than showing stale rollups.
-async function invalidateSummaries(
-  supabase: { from: (t: string) => { delete: () => { eq: (c: string, v: string) => Promise<unknown> } } },
-  userId: string,
-) {
+// Any mutation to projects, tasks, or daily-note-driven entries invalidates
+// the cached summaries: nuke them so the Reports page regenerates from scratch
+// on next view/run rather than showing stale rollups.
+async function invalidateSummaries(supabase: any, userId: string) {
   await supabase.from("summaries").delete().eq("user_id", userId);
 }
 
