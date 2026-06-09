@@ -306,6 +306,7 @@ export const saveDailyNote = createServerFn({ method: "POST" })
       if (insErr) throw new Error(insErr.message);
     }
 
+    await invalidateSummaries(supabase, userId);
     return { saved: true, newEntries: fresh.length };
   });
 
