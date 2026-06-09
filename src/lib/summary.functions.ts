@@ -97,39 +97,17 @@ export const generateSummary = createServerFn({ method: "POST" })
       entriesForScope: EntryRow[];
       extraContext?: string;
     }) => {
-      // Previous summary for same scope (extend ongoing narrative)
-      let prevQ = supabase
-        .from("summaries")
-        .select("generated_summary, edited_summary, created_at")
-        .eq("mode", data.mode)
-        .order("created_at", { ascending: false })
-        .limit(1);
-      prevQ = params.scope_task_id
-        ? prevQ.eq("scope_task_id", params.scope_task_id)
-        : prevQ.is("scope_task_id", null);
-      prevQ = params.scope_project
-        ? prevQ.eq("scope_project", params.scope_project)
-        : prevQ.is("scope_project", null);
-      const { data: prev } = await prevQ.maybeSingle();
-
-      const prevText = prev
-        ? `(from ${prev.created_at.slice(0, 10)})\n${JSON.stringify(prev.edited_summary ?? prev.generated_summary)}`
-        : "(none — this is the first rollup for this scope)";
-
       const scopeHeader = params.scope_project
         ? `PROJECT: #project/${params.scope_project}`
         : "SCOPE: all activity";
 
-      const prompt = `You are maintaining a running activity log summary.
+      const prompt = `You are writing a fresh summary of an activity log. Re-summarize from scratch every time — do not assume any prior summary exists.
 
 MODE: ${data.mode}
 ${scopeHeader}
 INSTRUCTIONS: ${MODE_INSTRUCTIONS[data.mode]}
 ${params.extraContext ? `\n${params.extraContext}\n` : ""}
-PREVIOUS SUMMARY (extend into an ongoing narrative — do not restart):
-${prevText}
-
-NEW ACTIVITY ENTRIES (chronological, since last rollup or within period):
+ACTIVITY ENTRIES (chronological, full scope being summarized):
 ${formatEntries(params.entriesForScope)}
 
 Return a structured summary. ALWAYS include every field in the schema — use empty arrays ([]) for lists that don't apply and empty strings ("") for unused text fields. Never omit a field.`;
@@ -139,6 +117,21 @@ Return a structured summary. ALWAYS include every field in the schema — use em
         experimental_output: Output.object({ schema: SummarySchema }),
         prompt,
       });
+
+      // Fresh resummarization: remove any prior summaries for the same mode + scope
+      // so the list shows the latest take rather than an accumulating history.
+      let delQ = supabase
+        .from("summaries")
+        .delete()
+        .eq("user_id", userId)
+        .eq("mode", data.mode);
+      delQ = params.scope_task_id
+        ? delQ.eq("scope_task_id", params.scope_task_id)
+        : delQ.is("scope_task_id", null);
+      delQ = params.scope_project
+        ? delQ.eq("scope_project", params.scope_project)
+        : delQ.is("scope_project", null);
+      await delQ;
 
       const { data: inserted, error: insErr } = await supabase
         .from("summaries")
