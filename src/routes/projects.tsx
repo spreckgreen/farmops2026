@@ -5,6 +5,7 @@ import { useState } from "react";
 import { format } from "date-fns";
 import { Pencil, Trash2, Plus } from "lucide-react";
 import { listProjects, upsertProject, deleteProject } from "@/lib/log.functions";
+import { slugify } from "@/lib/slug";
 import { AppLayout } from "@/components/app-layout";
 import { requireAuthenticatedUser } from "@/lib/auth-route";
 import { Button } from "@/components/ui/button";
@@ -61,7 +62,7 @@ function ProjectsPage() {
       upsertFn({
         data: {
           id: draft.id,
-          slug: draft.slug.trim().toLowerCase(),
+          slug: slugify(draft.slug),
           name: draft.name.trim(),
           description: draft.description.trim() || null,
           start_date: draft.start_date || null,
@@ -188,7 +189,7 @@ function ProjectsPage() {
               <Input
                 id="slug"
                 value={draft.slug}
-                onChange={(e) => setDraft((d) => ({ ...d, slug: e.target.value }))}
+                onChange={(e) => setDraft((d) => ({ ...d, slug: slugify(e.target.value) }))}
                 placeholder="marketing-site"
                 disabled={!!draft.id}
               />
