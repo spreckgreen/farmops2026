@@ -98,6 +98,7 @@ export type Database = {
           mode: Database["public"]["Enums"]["summary_mode"]
           period_end: string
           period_start: string
+          scope_project: string | null
           scope_task_id: string | null
           status: Database["public"]["Enums"]["summary_status"]
           updated_at: string
@@ -111,6 +112,7 @@ export type Database = {
           mode: Database["public"]["Enums"]["summary_mode"]
           period_end: string
           period_start: string
+          scope_project?: string | null
           scope_task_id?: string | null
           status?: Database["public"]["Enums"]["summary_status"]
           updated_at?: string
@@ -124,6 +126,7 @@ export type Database = {
           mode?: Database["public"]["Enums"]["summary_mode"]
           period_end?: string
           period_start?: string
+          scope_project?: string | null
           scope_task_id?: string | null
           status?: Database["public"]["Enums"]["summary_status"]
           updated_at?: string
