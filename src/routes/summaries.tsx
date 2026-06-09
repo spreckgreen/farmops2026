@@ -97,6 +97,11 @@ function SummariesPage() {
               <div className="flex items-center justify-between gap-2 mb-3">
                 <div className="flex items-center gap-2">
                   <Badge variant="outline" className="font-mono text-[10px] uppercase">{s.mode}</Badge>
+                  {(s as { scope_project?: string | null }).scope_project && (
+                    <Badge variant="secondary" className="font-mono text-[10px]">
+                      #project/{(s as { scope_project?: string }).scope_project}
+                    </Badge>
+                  )}
                   {scope?.title && <span className="text-xs text-muted-foreground">→ {scope.title}</span>}
                 </div>
                 <div className="flex items-center gap-2">
