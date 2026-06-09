@@ -27,7 +27,7 @@ const MODE_INSTRUCTIONS: Record<string, string> = {
   task_update:
     "Write a 2-3 sentence progress note in past tense, no fluff. Focus on what actually happened.",
   project_rollup:
-    "Produce a running history rollup for ONE project. Extend the prior rollup into an ongoing narrative of the project's progress to date — do not restart. Without a formal plan, treat this as a chronological status: where the project stands now, what changed since the last rollup, current blockers, and what is next. Use `summary` for the narrative (120-180 words), and populate key_decisions / blockers / next_steps. Leave `by_project` empty.",
+    "Produce a fresh rollup for ONE project covering its entire activity history to date. Re-summarize from scratch every run — features change during development, so do not assume any prior summary. Without a formal plan, treat this as a chronological status: where the project stands now, what has been accomplished, current blockers, and what is next. Use `summary` for the narrative (120-180 words), and populate key_decisions / blockers / next_steps. Leave `by_project` empty.",
   weekly_report:
     "Write an executive weekly report grouped by project. Populate `by_project`: one entry per distinct project tag in the activity (use 'Unassigned' for entries with no tag), each with a 2-3 sentence past-tense narrative and 2-5 highlight bullets scoped strictly to that project's entries. Then write `summary` as a 100-150 word executive overview that references the projects by name. Past tense, plain language, lead with outcomes.",
 };
@@ -64,11 +64,15 @@ export const generateSummary = createServerFn({ method: "POST" })
     const periodEnd = new Date();
     const periodStart = new Date(periodEnd.getTime() - data.period_days * 24 * 60 * 60 * 1000);
 
+    // project_rollup is a fresh resummarization of the entire project history;
+    // weekly_report and task_update stay scoped to the rolling period.
+    const useFullHistory = data.mode === "project_rollup";
+
     let q = supabase
       .from("activity_log")
       .select("created_at, entry_type, raw_content, task_id, tasks(title, slug, project_tags)")
-      .gte("created_at", periodStart.toISOString())
       .order("created_at", { ascending: true });
+    if (!useFullHistory) q = q.gte("created_at", periodStart.toISOString());
     if (data.scope_task_id) q = q.eq("task_id", data.scope_task_id);
 
     const { data: entriesRaw, error } = await q;
@@ -78,7 +82,9 @@ export const generateSummary = createServerFn({ method: "POST" })
     if (entries.length === 0) {
       return {
         ok: false as const,
-        error: "No activity in this period yet — write a note first.",
+        error: useFullHistory
+          ? "No activity logged yet — write a note first."
+          : "No activity in this period yet — write a note first.",
       };
     }
 
@@ -91,39 +97,17 @@ export const generateSummary = createServerFn({ method: "POST" })
       entriesForScope: EntryRow[];
       extraContext?: string;
     }) => {
-      // Previous summary for same scope (extend ongoing narrative)
-      let prevQ = supabase
-        .from("summaries")
-        .select("generated_summary, edited_summary, created_at")
-        .eq("mode", data.mode)
-        .order("created_at", { ascending: false })
-        .limit(1);
-      prevQ = params.scope_task_id
-        ? prevQ.eq("scope_task_id", params.scope_task_id)
-        : prevQ.is("scope_task_id", null);
-      prevQ = params.scope_project
-        ? prevQ.eq("scope_project", params.scope_project)
-        : prevQ.is("scope_project", null);
-      const { data: prev } = await prevQ.maybeSingle();
-
-      const prevText = prev
-        ? `(from ${prev.created_at.slice(0, 10)})\n${JSON.stringify(prev.edited_summary ?? prev.generated_summary)}`
-        : "(none — this is the first rollup for this scope)";
-
       const scopeHeader = params.scope_project
         ? `PROJECT: #project/${params.scope_project}`
         : "SCOPE: all activity";
 
-      const prompt = `You are maintaining a running activity log summary.
+      const prompt = `You are writing a fresh summary of an activity log. Re-summarize from scratch every time — do not assume any prior summary exists.
 
 MODE: ${data.mode}
 ${scopeHeader}
 INSTRUCTIONS: ${MODE_INSTRUCTIONS[data.mode]}
 ${params.extraContext ? `\n${params.extraContext}\n` : ""}
-PREVIOUS SUMMARY (extend into an ongoing narrative — do not restart):
-${prevText}
-
-NEW ACTIVITY ENTRIES (chronological, since last rollup or within period):
+ACTIVITY ENTRIES (chronological, full scope being summarized):
 ${formatEntries(params.entriesForScope)}
 
 Return a structured summary. ALWAYS include every field in the schema — use empty arrays ([]) for lists that don't apply and empty strings ("") for unused text fields. Never omit a field.`;
@@ -133,6 +117,21 @@ Return a structured summary. ALWAYS include every field in the schema — use em
         experimental_output: Output.object({ schema: SummarySchema }),
         prompt,
       });
+
+      // Fresh resummarization: remove any prior summaries for the same mode + scope
+      // so the list shows the latest take rather than an accumulating history.
+      let delQ = supabase
+        .from("summaries")
+        .delete()
+        .eq("user_id", userId)
+        .eq("mode", data.mode);
+      delQ = params.scope_task_id
+        ? delQ.eq("scope_task_id", params.scope_task_id)
+        : delQ.is("scope_task_id", null);
+      delQ = params.scope_project
+        ? delQ.eq("scope_project", params.scope_project)
+        : delQ.is("scope_project", null);
+      await delQ;
 
       const { data: inserted, error: insErr } = await supabase
         .from("summaries")
