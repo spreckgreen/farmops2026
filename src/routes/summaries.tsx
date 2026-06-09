@@ -22,6 +22,7 @@ type SummaryShape = {
   key_decisions: string[];
   blockers: string[];
   next_steps: string[];
+  by_project?: { project: string; summary: string; highlights: string[] }[];
 };
 
 function SummariesPage() {
@@ -105,6 +106,24 @@ function SummariesPage() {
                 </div>
               </div>
               <p className="text-sm leading-relaxed mb-3">{body.summary}</p>
+
+              {body.by_project && body.by_project.length > 0 && (
+                <div className="mb-3 space-y-3 border-l-2 border-border pl-3">
+                  {body.by_project.map((p, i) => (
+                    <div key={i}>
+                      <h3 className="text-xs font-mono uppercase tracking-wider mb-1">
+                        #project/{p.project}
+                      </h3>
+                      <p className="text-sm leading-relaxed mb-1">{p.summary}</p>
+                      {p.highlights?.length > 0 && (
+                        <ul className="list-disc list-inside text-sm space-y-0.5 marker:text-muted-foreground">
+                          {p.highlights.map((h, j) => <li key={j}>{h}</li>)}
+                        </ul>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
 
               {body.key_decisions?.length > 0 && (
                 <SummarySection title="Decisions" items={body.key_decisions} />
