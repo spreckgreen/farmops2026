@@ -27,7 +27,7 @@ const MODE_INSTRUCTIONS: Record<string, string> = {
   task_update:
     "Write a 2-3 sentence progress note in past tense, no fluff. Focus on what actually happened.",
   project_rollup:
-    "Produce a running history rollup for ONE project. Extend the prior rollup into an ongoing narrative of the project's progress to date — do not restart. Without a formal plan, treat this as a chronological status: where the project stands now, what changed since the last rollup, current blockers, and what is next. Use `summary` for the narrative (120-180 words), and populate key_decisions / blockers / next_steps. Leave `by_project` empty.",
+    "Produce a fresh rollup for ONE project covering its entire activity history to date. Re-summarize from scratch every run — features change during development, so do not assume any prior summary. Without a formal plan, treat this as a chronological status: where the project stands now, what has been accomplished, current blockers, and what is next. Use `summary` for the narrative (120-180 words), and populate key_decisions / blockers / next_steps. Leave `by_project` empty.",
   weekly_report:
     "Write an executive weekly report grouped by project. Populate `by_project`: one entry per distinct project tag in the activity (use 'Unassigned' for entries with no tag), each with a 2-3 sentence past-tense narrative and 2-5 highlight bullets scoped strictly to that project's entries. Then write `summary` as a 100-150 word executive overview that references the projects by name. Past tense, plain language, lead with outcomes.",
 };
