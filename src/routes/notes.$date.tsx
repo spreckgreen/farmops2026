@@ -66,17 +66,36 @@ function NotePage() {
     onError: (e) => toast.error(e instanceof Error ? e.message : "Save failed"),
   });
 
-  // Autosave debounce
+  // Keep a ref to the latest draft so the unmount-time flush sees current text.
+  const draftRef = useRef<string>("");
+  useEffect(() => {
+    draftRef.current = draft;
+  }, [draft]);
+
+  // Defer saving (and any task creation) until the user leaves the Today tab.
+  // Flush on unmount and also on browser tab close/refresh.
   useEffect(() => {
     if (!query.data) return;
-    if (draft === lastSavedRef.current) return;
-    const id = setTimeout(() => {
-      lastSavedRef.current = draft;
-      mutation.mutate(draft);
-    }, 1200);
-    return () => clearTimeout(id);
+    const noteId = query.data.note.id;
+
+    const flush = () => {
+      const current = draftRef.current;
+      if (current === lastSavedRef.current) return;
+      lastSavedRef.current = current;
+      // Fire-and-forget; the route may already be unmounting.
+      saveFn({ data: { noteId, date, markdown: current } }).catch(() => {});
+    };
+
+    const onBeforeUnload = () => flush();
+    window.addEventListener("beforeunload", onBeforeUnload);
+
+    return () => {
+      window.removeEventListener("beforeunload", onBeforeUnload);
+      flush();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draft, query.data]);
+  }, [query.data?.note.id, date]);
+
 
   const tasks = query.data?.tasks ?? [];
   const openTasks = tasks.filter((t) => t.status !== "done");
@@ -93,8 +112,9 @@ function NotePage() {
             <p className="text-xs text-muted-foreground font-mono">{date}</p>
           </div>
           <span className="text-xs text-muted-foreground">
-            {mutation.isPending ? "saving…" : draft === lastSavedRef.current ? "saved" : "unsaved"}
+            {draft === lastSavedRef.current ? "saved" : "pending · saves on leave"}
           </span>
+
         </div>
 
         <textarea
