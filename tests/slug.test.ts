@@ -9,7 +9,7 @@ describe("slugify", () => {
     expect(slugify("  Foo   Bar -- Baz  ")).toBe("foo-bar-baz");
   });
   it("removes non a-z0-9 chars", () => {
-    expect(slugify("Cafe Über #42")).toBe("cafe-br-42");
+    expect(slugify("Cafe Über #42")).toBe("cafe-ber-42");
   });
   it("caps at 60 chars", () => {
     expect(slugify("a".repeat(120)).length).toBe(60);
