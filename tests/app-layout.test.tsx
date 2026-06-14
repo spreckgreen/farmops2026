@@ -3,8 +3,10 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import React from "react";
 
-const navigate = vi.fn();
-const signOut = vi.fn().mockResolvedValue({ error: null });
+const { navigate, signOut } = vi.hoisted(() => ({
+  navigate: vi.fn(),
+  signOut: vi.fn().mockResolvedValue({ error: null }),
+}));
 
 vi.mock("@tanstack/react-router", () => ({
   Link: ({ to, params, children, className }: any) => {
