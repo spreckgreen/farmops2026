@@ -3,16 +3,25 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import React from "react";
 
-const navigate = vi.fn();
-const getUser = vi.fn().mockResolvedValue({ data: { user: null }, error: null });
-const signInWithPassword = vi
-  .fn()
-  .mockResolvedValue({ data: { user: { id: "u1" } }, error: null });
-const signUp = vi
-  .fn()
-  .mockResolvedValue({ data: { user: { id: "u1" } }, error: null });
-const toastSuccess = vi.fn();
-const toastError = vi.fn();
+const {
+  navigate,
+  getUser,
+  signInWithPassword,
+  signUp,
+  toastSuccess,
+  toastError,
+} = vi.hoisted(() => ({
+  navigate: vi.fn(),
+  getUser: vi.fn().mockResolvedValue({ data: { user: null }, error: null }),
+  signInWithPassword: vi
+    .fn()
+    .mockResolvedValue({ data: { user: { id: "u1" } }, error: null }),
+  signUp: vi
+    .fn()
+    .mockResolvedValue({ data: { user: { id: "u1" } }, error: null }),
+  toastSuccess: vi.fn(),
+  toastError: vi.fn(),
+}));
 
 vi.mock("@tanstack/react-router", () => ({
   createFileRoute: () => (cfg: any) => cfg,
