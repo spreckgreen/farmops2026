@@ -58,6 +58,14 @@ export function AppLayout({ children }: { children: ReactNode }) {
               >
                 Summaries
               </Link>
+              <a
+                href="https://cheerful-stage.lovable.app"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3 py-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Welcome
+              </a>
             </nav>
           </div>
           <Button variant="ghost" size="sm" onClick={signOut}>
