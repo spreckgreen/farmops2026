@@ -58,14 +58,20 @@ export function AppLayout({ children }: { children: ReactNode }) {
               >
                 Summaries
               </Link>
-              <a
-                href="https://cheerful-stage.lovable.app"
-                target="_blank"
-                rel="noopener noreferrer"
+              <Link
+                to="/maintenance"
                 className="px-3 py-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+                activeProps={{ className: "px-3 py-1.5 rounded-md bg-accent text-foreground" }}
               >
-                Bostead Farms Maintenance/Inventory
-              </a>
+                Maintenance
+              </Link>
+              <Link
+                to="/inventory"
+                className="px-3 py-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+                activeProps={{ className: "px-3 py-1.5 rounded-md bg-accent text-foreground" }}
+              >
+                Inventory
+              </Link>
             </nav>
           </div>
           <Button variant="ghost" size="sm" onClick={signOut}>

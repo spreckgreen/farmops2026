@@ -47,25 +47,21 @@ describe("AppLayout top navigation", () => {
       "Projects",
       "Reports",
       "Summaries",
-      "Bostead Farms Maintenance/Inventory",
+      "Maintenance",
+      "Inventory",
     ]) {
       expect(screen.getByRole("link", { name: label })).toBeInTheDocument();
     }
   });
 
-  it("external Bostead Farms link opens in a new tab safely", () => {
+  it("Maintenance and Inventory link to internal routes", () => {
     render(
       <AppLayout>
         <div />
       </AppLayout>,
     );
-    const link = screen.getByRole("link", {
-      name: "Bostead Farms Maintenance/Inventory",
-    });
-    expect(link).toHaveAttribute("href", "https://cheerful-stage.lovable.app");
-    expect(link).toHaveAttribute("target", "_blank");
-    expect(link).toHaveAttribute("rel", expect.stringContaining("noopener"));
-    expect(link).toHaveAttribute("rel", expect.stringContaining("noreferrer"));
+    expect(screen.getByRole("link", { name: "Maintenance" })).toHaveAttribute("href", "/maintenance");
+    expect(screen.getByRole("link", { name: "Inventory" })).toHaveAttribute("href", "/inventory");
   });
 
   it("Today link points at /notes/<today>", () => {
