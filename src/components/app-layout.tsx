@@ -18,8 +18,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
       <header className="border-b border-border bg-card/30 backdrop-blur sticky top-0 z-10">
         <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
           <div className="flex items-center gap-6">
-            <Link to="/" className="font-mono font-bold tracking-tight">
-              log<span className="text-muted-foreground">.md</span>
+            <Link to="/" className="font-bold tracking-tight">
+              Bostead Farms
             </Link>
             <nav className="flex items-center gap-1 text-sm">
               <Link

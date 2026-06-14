@@ -14,7 +14,7 @@ import { format } from "date-fns";
 export const Route = createFileRoute("/notes/$date")({
   ssr: false,
   beforeLoad: requireAuthenticatedUser,
-  head: () => ({ meta: [{ title: "Daily note — log.md" }] }),
+  head: () => ({ meta: [{ title: "Daily note — Bostead Farms" }] }),
   component: NotePage,
 });
 

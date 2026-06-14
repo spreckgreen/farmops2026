@@ -24,7 +24,7 @@ import { toast } from "sonner";
 export const Route = createFileRoute("/projects")({
   ssr: false,
   beforeLoad: requireAuthenticatedUser,
-  head: () => ({ meta: [{ title: "Projects — log.md" }] }),
+  head: () => ({ meta: [{ title: "Projects — Bostead Farms" }] }),
   component: ProjectsPage,
 });
 

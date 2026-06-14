@@ -28,7 +28,7 @@ import { useState } from "react";
 export const Route = createFileRoute("/tasks/$slug")({
   ssr: false,
   beforeLoad: requireAuthenticatedUser,
-  head: () => ({ meta: [{ title: "Task — log.md" }] }),
+  head: () => ({ meta: [{ title: "Task — Bostead Farms" }] }),
   component: TaskPage,
 });
 

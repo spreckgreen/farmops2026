@@ -8,7 +8,7 @@ import { toast } from "sonner";
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
-  head: () => ({ meta: [{ title: "Sign in — log.md" }] }),
+  head: () => ({ meta: [{ title: "Sign in — Bostead Farms" }] }),
   component: AuthPage,
 });
 
@@ -53,9 +53,9 @@ function AuthPage() {
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <h1 className="font-mono text-2xl font-bold">log<span className="text-muted-foreground">.md</span></h1>
+          <h1 className="text-2xl font-bold">Bostead Farms</h1>
           <p className="text-sm text-muted-foreground mt-2">
-            Obsidian-style task & activity log
+            Maintenance & inventory management
           </p>
         </div>
         <form onSubmit={submit} className="space-y-4 bg-card border border-border rounded-lg p-6">
