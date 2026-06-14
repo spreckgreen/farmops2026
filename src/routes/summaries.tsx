@@ -13,7 +13,7 @@ import { format } from "date-fns";
 export const Route = createFileRoute("/summaries")({
   ssr: false,
   beforeLoad: requireAuthenticatedUser,
-  head: () => ({ meta: [{ title: "Summaries — log.md" }] }),
+  head: () => ({ meta: [{ title: "Summaries — Bostead Farms" }] }),
   component: SummariesPage,
 });
 

@@ -9,7 +9,7 @@ import { requireAuthenticatedUser } from "@/lib/auth-route";
 export const Route = createFileRoute("/tasks/")({
   ssr: false,
   beforeLoad: requireAuthenticatedUser,
-  head: () => ({ meta: [{ title: "Tasks — log.md" }] }),
+  head: () => ({ meta: [{ title: "Tasks — Bostead Farms" }] }),
   component: TasksPage,
 });
 

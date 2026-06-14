@@ -28,7 +28,7 @@ import {
 export const Route = createFileRoute("/reports")({
   ssr: false,
   beforeLoad: requireAuthenticatedUser,
-  head: () => ({ meta: [{ title: "Reports — log.md" }] }),
+  head: () => ({ meta: [{ title: "Reports — Bostead Farms" }] }),
   component: ReportsPage,
 });
 
