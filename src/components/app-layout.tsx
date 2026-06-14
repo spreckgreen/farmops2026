@@ -64,7 +64,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 rel="noopener noreferrer"
                 className="px-3 py-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
               >
-                Welcome
+                Bostead Farms Maintenance/Inventory
               </a>
             </nav>
           </div>
