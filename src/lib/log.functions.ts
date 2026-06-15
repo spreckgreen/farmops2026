@@ -1423,17 +1423,31 @@ export const addReorderToToday = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
 
-    const table = data.kind === "inventory" ? "inventory_items" : "consumables";
-    const { data: item, error: itemErr } = await supabase
-      .from(table)
-      .select("id, name, vendor")
-      .eq("id", data.itemId)
-      .maybeSingle();
-    if (itemErr) throw new Error(itemErr.message);
-    if (!item || !item.name) throw new Error("Item not found");
+    let name: string | null = null;
+    let vendor: string | null = null;
+    if (data.kind === "inventory") {
+      const { data: item, error: itemErr } = await supabase
+        .from("inventory_items")
+        .select("id, name, vendor")
+        .eq("id", data.itemId)
+        .maybeSingle();
+      if (itemErr) throw new Error(itemErr.message);
+      if (!item || !item.name) throw new Error("Item not found");
+      name = item.name;
+      vendor = item.vendor ?? null;
+    } else {
+      const { data: item, error: itemErr } = await supabase
+        .from("consumables")
+        .select("id, name")
+        .eq("id", data.itemId)
+        .maybeSingle();
+      if (itemErr) throw new Error(itemErr.message);
+      if (!item || !item.name) throw new Error("Item not found");
+      name = item.name;
+    }
 
-    const label = `Order ${item.name}${item.vendor ? ` (${item.vendor})` : ""}`;
-    const slug = slugify(`order ${item.name}`);
+    const label = `Order ${name}${vendor ? ` (${vendor})` : ""}`;
+    const slug = slugify(`order ${name}`);
 
     let { data: task } = await supabase
       .from("tasks")
