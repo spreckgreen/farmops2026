@@ -75,6 +75,15 @@ const HEADER_ALIASES: Record<string, string> = {
   note: "notes",
   comment: "notes",
   comments: "notes",
+  // Welcoming Pages preset — `assets` and `consumables` tables
+  "quantity in stock": "quantity",
+  "qty in stock": "quantity",
+  "min quantity": "reorder_level",
+  "minimum quantity": "reorder_level",
+  "cost per unit": "unit_cost",
+  "per unit cost": "unit_cost",
+  tags: "notes",
+  status: "category",
 };
 
 function normalizeHeader(h: string): string {
