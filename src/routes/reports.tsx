@@ -43,6 +43,10 @@ export const Route = createFileRoute("/reports")({
 });
 
 const ALL = "__all__";
+const REPEAT_ALL = "__all__";
+const REPEAT_YES = "__repeat__";
+const REPEAT_NO = "__no_repeat__";
+
 const fmt = (d: string | null | undefined) =>
   d ? format(new Date(d), "MMM d, yyyy · HH:mm") : "—";
 
