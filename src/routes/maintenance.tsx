@@ -185,17 +185,17 @@ function MaintenancePage() {
 
   return (
     <AppLayout>
-      <div className="min-h-[calc(100vh-3.5rem)] bg-[#0a0a0a] text-neutral-100">
+      <div className="min-h-[calc(100vh-3.5rem)] bg-background text-foreground">
         <div className="max-w-6xl mx-auto px-6 py-12">
-          <div className="flex items-start justify-between gap-6 mb-10">
+          <div className="flex items-start justify-between gap-6 mb-10 flex-wrap">
             <div>
-              <div className="inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-medium text-amber-400 mb-4">
+              <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-medium text-primary mb-4">
                 <Wrench className="h-3 w-3" /> Service Maintenance
               </div>
               <h1 className="text-4xl md:text-5xl font-bold tracking-tight">
-                Keep every asset <span className="text-amber-400">running smoothly.</span>
+                Keep every asset <span className="text-gradient-amber">running smoothly.</span>
               </h1>
-              <p className="mt-3 text-neutral-400 max-w-2xl">
+              <p className="mt-3 text-muted-foreground max-w-2xl">
                 Track service intervals, log repairs, and import existing records from CSV or JSON.
               </p>
             </div>
