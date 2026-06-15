@@ -130,6 +130,26 @@ function BacklogPage() {
           Queued tasks not yet pulled into today. Click "Add to today" to activate.
         </p>
 
+        <div className="flex gap-2 mb-6">
+          <Input
+            placeholder="New backlog task…"
+            value={newTitle}
+            onChange={(e) => setNewTitle(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                submitNew();
+              }
+            }}
+          />
+          <Button
+            onClick={submitNew}
+            disabled={createMutation.isPending || !newTitle.trim()}
+          >
+            {createMutation.isPending ? "Adding…" : "Add"}
+          </Button>
+        </div>
+
         {dueItems.length > 0 && (
           <section className="mb-8">
             <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-2">
