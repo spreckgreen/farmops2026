@@ -12,6 +12,9 @@ import { slugify } from "./slug";
 //   Tasks/<slug>.md          one file per task (includes scheduled "report" tasks)
 //   Projects/<slug>.md       one file per project
 //   Summaries/<id>.md        one file per summary
+//   Inventory/<slug>.md      one file per inventory item
+//   Maintenance/<id>.md      one file per maintenance record
+//   Consumables/<slug>.md    one file per consumable
 //
 // Every file uses YAML frontmatter with a `bostead` block describing the
 // source record (kind + id + slug). The body is human-editable markdown.
