@@ -92,6 +92,7 @@ function BacklogPage() {
   };
 
   const dueItems = (maint.data ?? []).filter((m) => !m.alreadyQueued);
+  const reorderItems = (reorder.data ?? []).filter((r) => !r.alreadyQueued);
 
   return (
     <AppLayout>
