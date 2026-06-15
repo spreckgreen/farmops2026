@@ -57,6 +57,26 @@ function toDate(v: unknown): string | null {
   return d.toISOString().slice(0, 10);
 }
 
+function toISO(v: unknown): string | null {
+  if (v === null || v === undefined || v === "") return null;
+  const d = new Date(String(v));
+  if (isNaN(d.getTime())) return null;
+  return d.toISOString();
+}
+
+function toJsonArray(v: unknown): unknown[] {
+  if (Array.isArray(v)) return v;
+  if (typeof v === "string" && v.trim().startsWith("[")) {
+    try {
+      const p = JSON.parse(v);
+      return Array.isArray(p) ? p : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
 function toNumber(v: unknown): number | null {
   if (v === null || v === undefined || v === "") return null;
   const n = typeof v === "number" ? v : parseFloat(String(v).replace(/[$,]/g, ""));
@@ -85,13 +105,25 @@ export const importMaintenance = createServerFn({ method: "POST" })
         if ((KNOWN as readonly string[]).includes(k)) known[k] = v;
         else extra[k] = v;
       }
+      // Cross-map WP service_schedules fields onto our date columns
+      const performed = toDate(known.performed_at ?? known.completed_date);
+      const due = toDate(known.due_at ?? known.scheduled_date);
+      const scheduledISO = toISO(known.scheduled_date ?? known.due_at);
+      const completedISO = toISO(known.completed_date ?? known.performed_at);
       return {
         user_id: userId,
         asset_name: (known.asset_name as string | null | undefined) ?? null,
+        asset_id: (known.asset_id as string | null | undefined) ?? null,
+        title: (known.title as string | null | undefined) ?? null,
+        description: (known.description as string | null | undefined) ?? null,
         service_type: (known.service_type as string | null | undefined) ?? null,
         status: (known.status as string | null | undefined) ?? null,
-        performed_at: toDate(known.performed_at),
-        due_at: toDate(known.due_at),
+        recurrence: (known.recurrence as string | null | undefined) ?? "none",
+        consumables_used: toJsonArray(known.consumables_used) as never,
+        performed_at: performed,
+        due_at: due,
+        scheduled_date: scheduledISO,
+        completed_date: completedISO,
         cost: toNumber(known.cost),
         vendor: (known.vendor as string | null | undefined) ?? null,
         notes: (known.notes as string | null | undefined) ?? null,
