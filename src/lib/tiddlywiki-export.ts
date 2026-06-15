@@ -283,6 +283,18 @@ export function tiddlersFromSummaries(rows: SummaryRow[]): Tiddler[] {
       "summary-status": r.status ?? "",
       "period-start": r.period_start ?? "",
       "period-end": r.period_end ?? "",
+      "bostead-kind": "summary",
+      "bostead-payload": JSON.stringify({
+        id: r.id,
+        mode: r.mode,
+        scope_project: r.scope_project ?? null,
+        scope_task_slug: r.scope_task?.slug ?? null,
+        period_start: r.period_start,
+        period_end: r.period_end,
+        status: r.status,
+        created_at: r.created_at,
+        body: shape,
+      }),
     });
   }
 
