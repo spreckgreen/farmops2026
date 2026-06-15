@@ -460,7 +460,7 @@ export const obsidianImport = createServerFn({ method: "POST" })
             description,
           };
           if (/^[0-9a-f-]{36}$/i.test(id)) row.id = id;
-          const { error } = await supabase.from("inventory_items").upsert(row, { onConflict: "id" });
+          const { error } = await supabase.from("inventory_items").upsert(row as never, { onConflict: "id" });
           if (!error) inventory++;
         } else if (kind === "maintenance_record") {
           const id = (bostead.id as string) || baseName;
