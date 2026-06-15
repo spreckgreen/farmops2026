@@ -612,7 +612,7 @@ export const importTasksFromTiddlers = createServerFn({ method: "POST" })
 
 const SummaryImportSchema = z.object({
   id: z.string().uuid().nullable(),
-  mode: z.enum(["weekly_report", "project_rollup", "task_rollup", "daily_digest"]),
+  mode: z.enum(["weekly_report", "project_rollup", "task_update"]),
   scope_project: z.string().trim().min(1).max(64).nullable(),
   scope_task_slug: z.string().trim().min(1).max(120).nullable(),
   period_start: z.string().nullable(),
