@@ -1,0 +1,1 @@
+UPDATE public.summaries SET display_title = NULL WHERE mode = 'weekly_report' AND display_title LIKE 'Status WE %';
