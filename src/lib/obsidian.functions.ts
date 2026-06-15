@@ -311,6 +311,20 @@ export const obsidianImport = createServerFn({ method: "POST" })
     let tasks = 0;
     let projects = 0;
     let summaries = 0;
+    let inventory = 0;
+    let maintenance = 0;
+    let consumables = 0;
+
+    const num = (v: unknown): number | null => {
+      if (v === undefined || v === null || v === "") return null;
+      const n = Number(v);
+      return Number.isFinite(n) ? n : null;
+    };
+    const str = (v: unknown): string | null => {
+      if (v === undefined || v === null) return null;
+      const s = String(v).trim();
+      return s ? s : null;
+    };
 
     for (const file of data.files) {
       if (!file.path.toLowerCase().endsWith(".md")) continue;
@@ -320,9 +334,16 @@ export const obsidianImport = createServerFn({ method: "POST" })
       const folder = file.path.split("/")[0]?.toLowerCase();
       const baseName = file.path.split("/").pop()?.replace(/\.md$/i, "") ?? "";
 
-      const kind =
-        kindFromBostead ||
-        (folder === "daily" ? "daily_note" : folder === "tasks" ? "task" : folder === "projects" ? "project" : folder === "summaries" ? "summary" : null);
+      const folderKind: Record<string, string> = {
+        daily: "daily_note",
+        tasks: "task",
+        projects: "project",
+        summaries: "summary",
+        inventory: "inventory_item",
+        maintenance: "maintenance_record",
+        consumables: "consumable",
+      };
+      const kind = kindFromBostead || folderKind[folder ?? ""] || null;
       if (!kind) continue;
 
       try {
