@@ -208,6 +208,9 @@ function InventoryPage() {
               <p className="mt-3 text-neutral-400 max-w-2xl">
                 Track supplies, feed, parts, and equipment. Import existing stock from CSV or JSON.
               </p>
+              <p className="mt-2 text-xs text-neutral-500 max-w-2xl">
+                Welcoming Pages preset is built in — exports of <code className="text-amber-400/80">assets</code> or <code className="text-amber-400/80">consumables</code> map automatically (quantity_in_stock, min_quantity, cost_per_unit, unit, category).
+              </p>
             </div>
             <div className="flex gap-2 shrink-0">
               <input
