@@ -216,16 +216,64 @@ export const commitDailyNote = createServerFn({ method: "POST" })
 
     const { data: existingTasks } = await supabase
       .from("tasks")
-      .select("id, slug, title, status, project_tags, start_at, percent_complete");
+      .select("id, slug, title, status, project_tags, start_at, percent_complete, created_at");
     const tasksBySlug = new Map((existingTasks ?? []).map((t) => [t.slug, t]));
     const tasksByTitle = new Map(
       (existingTasks ?? []).map((t) => [t.title.toLowerCase(), t]),
     );
 
+    // Dedupe window: any task created in the last 24h whose title is a
+    // prefix of (or extended by) a new task is treated as the same task.
+    // This kills typing-cascade duplicates ("Follow" → "Follow-up" → ...).
+    const DEDUPE_WINDOW_MS = 24 * 60 * 60 * 1000;
+    const now = Date.now();
+    const recentTasks = (existingTasks ?? []).filter(
+      (t) => now - new Date(t.created_at).getTime() < DEDUPE_WINDOW_MS,
+    );
+    const findPrefixMatch = (newTitle: string) => {
+      const n = newTitle.toLowerCase().trim();
+      if (n.length < 2) return null;
+      const candidates = recentTasks
+        .filter((t) => {
+          const e = t.title.toLowerCase().trim();
+          if (!e) return false;
+          if (e === n) return true;
+          const short = e.length < n.length ? e : n;
+          if (short.length < 3) return false;
+          return n.startsWith(e) || e.startsWith(n);
+        })
+        .sort((a, b) => b.title.length - a.title.length);
+      return candidates[0] ?? null;
+    };
+
     for (const p of parsed) {
       if (!p.newTask) continue;
       const slug = slugify(p.newTask.title);
       if (!slug || tasksBySlug.has(slug)) continue;
+
+      const match = findPrefixMatch(p.newTask.title);
+      if (match) {
+        if (p.newTask.title.length > match.title.length && !tasksBySlug.has(slug)) {
+          // Upgrade the existing task to the longer/more complete title.
+          await supabase
+            .from("tasks")
+            .update({ title: p.newTask.title, slug })
+            .eq("id", match.id);
+          tasksBySlug.delete(match.slug);
+          tasksByTitle.delete(match.title.toLowerCase());
+          const upgraded = { ...match, title: p.newTask.title, slug };
+          tasksBySlug.set(slug, upgraded);
+          tasksByTitle.set(p.newTask.title.toLowerCase(), upgraded);
+          const idx = recentTasks.findIndex((t) => t.id === match.id);
+          if (idx >= 0) recentTasks[idx] = upgraded;
+        } else {
+          // Existing one is already the longer/canonical form — reuse it.
+          tasksBySlug.set(slug, match);
+          tasksByTitle.set(p.newTask.title.toLowerCase(), match);
+        }
+        continue;
+      }
+
       const { data: created } = await supabase
         .from("tasks")
         .insert({
@@ -238,11 +286,12 @@ export const commitDailyNote = createServerFn({ method: "POST" })
           start_at: p.startAt,
           percent_complete: p.newTask.done ? 100 : (p.percent ?? 0),
         })
-        .select("id, slug, title, status, project_tags, start_at, percent_complete")
+        .select("id, slug, title, status, project_tags, start_at, percent_complete, created_at")
         .single();
       if (created) {
         tasksBySlug.set(created.slug, created);
         tasksByTitle.set(created.title.toLowerCase(), created);
+        recentTasks.push(created);
       }
     }
 
