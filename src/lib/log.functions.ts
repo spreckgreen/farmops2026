@@ -217,12 +217,42 @@ export const refreshDailyNoteFromLog = createServerFn({ method: "POST" })
       .order("created_at", { ascending: true });
     if (error) throw new Error(error.message);
 
+    // Treat the current draft as authoritative for deletions: if the user
+    // removed lines from the textarea, drop matching activity_log rows so
+    // future refreshes don't resurrect them. Only do this when the draft is
+    // non-empty, so an accidentally cleared textarea still restores from log.
+    const draftLines = (data.currentMarkdown ?? "")
+      .split("\n")
+      .map(normalizeLogLine)
+      .filter(Boolean);
+    let workingEntries = entries ?? [];
+    const explicitlyDeletedIds: string[] = [];
+    if (draftLines.length > 0) {
+      const draftSignatures = new Set<string>();
+      const draftExact = new Set<string>();
+      for (const line of draftLines) {
+        const sig = taskSignature(line, config);
+        if (sig) draftSignatures.add(sig);
+        else draftExact.add(line);
+      }
+      const survivors: ActivityLogEntry[] = [];
+      for (const e of workingEntries) {
+        const raw = normalizeLogLine(e.raw_content);
+        const sig = taskSignature(raw, config);
+        const kept = sig ? draftSignatures.has(sig) : draftExact.has(raw);
+        if (kept) survivors.push(e);
+        else if (e.id) explicitlyDeletedIds.push(e.id);
+      }
+      workingEntries = survivors;
+    }
+
     // Dedupe activity_log rows: exact duplicates and near-duplicate task
     // typing cascades collapse to the longest/canonical entry. Removes
     // duplicate IDs from the database so future refreshes stay clean.
-    const { kept, duplicateIds } = dedupeLogEntries(entries ?? [], config);
-    if (duplicateIds.length > 0) {
-      const { error: delErr } = await supabase.from("activity_log").delete().in("id", duplicateIds);
+    const { kept, duplicateIds } = dedupeLogEntries(workingEntries, config);
+    const toDelete = [...explicitlyDeletedIds, ...duplicateIds];
+    if (toDelete.length > 0) {
+      const { error: delErr } = await supabase.from("activity_log").delete().in("id", toDelete);
       if (delErr) throw new Error(delErr.message);
     }
 
@@ -252,7 +282,7 @@ export const refreshDailyNoteFromLog = createServerFn({ method: "POST" })
     return {
       markdown,
       restored: kept.length,
-      deduped: duplicateIds.length,
+      deduped: duplicateIds.length + explicitlyDeletedIds.length,
       preserved: draftOnly.length,
     };
   });
