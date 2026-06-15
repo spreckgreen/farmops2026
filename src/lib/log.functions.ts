@@ -1056,3 +1056,127 @@ export const importSummariesFromTiddlers = createServerFn({ method: "POST" })
     }
     return { ok: true as const, inserted, updated };
   });
+
+// ============================================================
+// Backlog: queued tasks not yet pulled into today's work.
+// ============================================================
+
+export const listBacklog = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional() })
+      .optional()
+      .parse(d ?? {}),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const date =
+      data?.date ??
+      new Date().toLocaleDateString("en-CA", { timeZone: "UTC" });
+
+    const { data: note } = await supabase
+      .from("daily_notes")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("date", date)
+      .maybeSingle();
+
+    let todayTaskIds: string[] = [];
+    if (note?.id) {
+      const { data: entries } = await supabase
+        .from("activity_log")
+        .select("task_id")
+        .eq("user_id", userId)
+        .eq("daily_note_id", note.id);
+      todayTaskIds = Array.from(
+        new Set((entries ?? []).map((e) => e.task_id).filter((x): x is string => !!x)),
+      );
+    }
+
+    const dayStart = `${date}T00:00:00.000Z`;
+    const dayEnd = `${date}T23:59:59.999Z`;
+
+    let query = supabase
+      .from("tasks")
+      .select("*")
+      .in("status", ["open", "blocked"])
+      .order("created_at", { ascending: false });
+
+    // Exclude tasks already touched today or created today (those show on Today's tasks).
+    const { data: tasks, error } = await query;
+    if (error) throw new Error(error.message);
+    const todaySet = new Set(todayTaskIds);
+    const filtered = (tasks ?? []).filter((t) => {
+      if (todaySet.has(t.id)) return false;
+      if (t.created_at >= dayStart && t.created_at <= dayEnd) return false;
+      return true;
+    });
+    return filtered;
+  });
+
+export const addTaskToToday = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ taskId: z.string().uuid() }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const date = new Date().toLocaleDateString("en-CA", { timeZone: "UTC" });
+
+    const { data: task, error: taskErr } = await supabase
+      .from("tasks")
+      .select("id, slug, title")
+      .eq("id", data.taskId)
+      .maybeSingle();
+    if (taskErr) throw new Error(taskErr.message);
+    if (!task) throw new Error("Task not found");
+
+    // Ensure today's daily note exists.
+    let { data: note } = await supabase
+      .from("daily_notes")
+      .select("id, markdown_content")
+      .eq("user_id", userId)
+      .eq("date", date)
+      .maybeSingle();
+    if (!note) {
+      const { data: created, error: insErr } = await supabase
+        .from("daily_notes")
+        .insert({ user_id: userId, date, markdown_content: "" })
+        .select("id, markdown_content")
+        .single();
+      if (insErr) throw new Error(insErr.message);
+      note = created;
+    }
+
+    // Append a reference line if not already present in the markdown.
+    const refLine = `- #task/${task.slug} ${task.title}`;
+    const current = note.markdown_content ?? "";
+    if (!current.includes(`#task/${task.slug}`)) {
+      const next = current.trim().length ? `${current.trimEnd()}\n${refLine}\n` : `${refLine}\n`;
+      await supabase
+        .from("daily_notes")
+        .update({ markdown_content: next })
+        .eq("id", note.id);
+    }
+
+    // Insert activity log entry so listTasks picks it up immediately.
+    const { data: existing } = await supabase
+      .from("activity_log")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("daily_note_id", note.id)
+      .eq("task_id", task.id)
+      .limit(1);
+    if (!existing || existing.length === 0) {
+      await supabase.from("activity_log").insert({
+        user_id: userId,
+        task_id: task.id,
+        daily_note_id: note.id,
+        entry_type: "note",
+        raw_content: refLine,
+      });
+    }
+
+    return { ok: true as const, taskId: task.id };
+  });
