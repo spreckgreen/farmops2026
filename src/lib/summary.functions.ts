@@ -294,8 +294,9 @@ Use empty arrays ([]) for lists that don't apply and empty strings ("") for unus
         .select()
         .single();
       if (insErr) throw new Error(insErr.message);
-      return inserted;
+      return inserted!;
     };
+    type InsertedSummary = Awaited<ReturnType<typeof insertSummary>>;
 
     try {
       // ----- WEEKLY REPORT: one row covering Mon-Sun ending Sunday ----------
