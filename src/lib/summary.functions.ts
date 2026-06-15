@@ -341,7 +341,7 @@ Use empty arrays ([]) for lists that don't apply and empty strings ("") for unus
       // ----- QUARTER REVIEW: per-quarter, per-project ----------------------
       if (data.mode === "quarter_review") {
         const quarters = data.quarter ? [data.quarter] : lastNQuarters(8);
-        const summaries: unknown[] = [];
+        const summaries: InsertedSummary[] = [];
 
         for (const qq of quarters) {
           const { start, end } = quarterBounds(qq.year, qq.q);
@@ -447,7 +447,7 @@ Use empty arrays ([]) for lists that don't apply and empty strings ("") for unus
           }
         }
 
-        const summaries: unknown[] = [];
+        const summaries: InsertedSummary[] = [];
         const now = new Date();
         const farPast = new Date(0);
         for (const [project, projectEntries] of groups) {
