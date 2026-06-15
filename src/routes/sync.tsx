@@ -97,13 +97,13 @@ function SyncPage() {
     try {
       const files = await readAllMarkdown(vault);
       if (files.length === 0) {
-        toast.message("No markdown files found in Daily/, Tasks/, Projects/, Summaries/");
+        toast.message("No markdown files found in Daily/, Tasks/, Projects/, Summaries/, Inventory/, Maintenance/, Consumables/");
         return;
       }
       const result = await doImport({ data: { files } });
       setLastSync(new Date().toLocaleString());
       toast.success(
-        `Imported ${result.dailyNotes} notes, ${result.tasks} tasks, ${result.projects} projects, ${result.summaries} summaries`,
+        `Imported ${result.dailyNotes} notes · ${result.tasks} tasks · ${result.projects} projects · ${result.summaries} summaries · ${result.inventory} inventory · ${result.maintenance} maintenance · ${result.consumables} consumables`,
       );
     } catch (e) {
       toast.error(`Pull failed: ${(e as Error).message}`);
