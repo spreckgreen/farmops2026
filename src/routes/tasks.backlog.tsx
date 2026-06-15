@@ -49,6 +49,7 @@ function BacklogPage() {
   const invalidateAll = () => {
     qc.invalidateQueries({ queryKey: ["tasks", "backlog"] });
     qc.invalidateQueries({ queryKey: ["tasks", "today"] });
+    qc.invalidateQueries({ queryKey: ["tasks", "backlog", "reorder"] });
   };
 
   const mutation = useMutation({
