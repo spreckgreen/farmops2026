@@ -154,18 +154,14 @@ function ReportsPage() {
         {tasksQ.isLoading && (
           <p className="text-sm text-muted-foreground">Loading…</p>
         )}
-        {tasksQ.data && tasksQ.data.length === 0 && (
+        {tasksQ.data && filteredTasks.length === 0 && (
           <p className="text-sm text-muted-foreground">
-            No scheduled tasks{tag !== ALL ? ` for #project/${tag}` : ""} yet. Add a line
-            like{" "}
-            <code className="font-mono">
-              - [ ] Ship beta #project/web @start:2026-06-12 09:00 @progress:25
-            </code>{" "}
-            in a daily note.
+            No scheduled tasks{tag !== ALL ? ` for #project/${tag}` : ""}
+            {repeatFilter === REPEAT_YES ? " (repeating)" : repeatFilter === REPEAT_NO ? " (non-repeating)" : ""} yet.
           </p>
         )}
 
-        {tasksQ.data && tasksQ.data.length > 0 && (
+        {filteredTasks.length > 0 && (
           <div className="border border-border rounded-lg overflow-hidden">
             <Table>
               <TableHeader>
