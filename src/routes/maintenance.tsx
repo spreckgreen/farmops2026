@@ -377,9 +377,9 @@ function MaintenancePage() {
               </div>
             </div>
           ) : (
-            <div className="rounded-xl border border-neutral-800 bg-neutral-900/40 overflow-hidden">
+            <div className="rounded-xl border border-border bg-card/40 overflow-hidden">
               <table className="w-full text-sm">
-                <thead className="bg-neutral-900/80 text-neutral-400 text-left">
+                <thead className="bg-card/80 text-muted-foreground text-left">
                   <tr>
                     <th className="px-4 py-2 font-medium">Asset</th>
                     <th className="px-4 py-2 font-medium">Service</th>
@@ -393,20 +393,20 @@ function MaintenancePage() {
                 </thead>
                 <tbody>
                   {records.map((r) => (
-                    <tr key={r.id} className="border-t border-neutral-800">
+                    <tr key={r.id} className="border-t border-border hover:bg-card/60">
                       <td className="px-4 py-2">{r.asset_name ?? "—"}</td>
-                      <td className="px-4 py-2 text-neutral-300">{r.service_type ?? "—"}</td>
-                      <td className="px-4 py-2 text-neutral-300">{r.status ?? "—"}</td>
-                      <td className="px-4 py-2 text-neutral-300">{r.performed_at ?? "—"}</td>
-                      <td className="px-4 py-2 text-neutral-300">{r.due_at ?? "—"}</td>
-                      <td className="px-4 py-2 text-neutral-300">
+                      <td className="px-4 py-2 text-muted-foreground">{r.service_type ?? "—"}</td>
+                      <td className="px-4 py-2 text-muted-foreground">{r.status ?? "—"}</td>
+                      <td className="px-4 py-2 text-muted-foreground">{r.performed_at ?? "—"}</td>
+                      <td className="px-4 py-2 text-muted-foreground">{r.due_at ?? "—"}</td>
+                      <td className="px-4 py-2 text-muted-foreground">
                         {r.cost != null ? `$${Number(r.cost).toFixed(2)}` : "—"}
                       </td>
-                      <td className="px-4 py-2 text-neutral-300">{r.vendor ?? "—"}</td>
+                      <td className="px-4 py-2 text-muted-foreground">{r.vendor ?? "—"}</td>
                       <td className="px-4 py-2 text-right">
                         <button
                           onClick={() => deleteMut.mutate(r.id)}
-                          className="text-neutral-500 hover:text-red-400"
+                          className="text-muted-foreground hover:text-destructive"
                           aria-label="Delete record"
                         >
                           <Trash2 className="h-4 w-4" />
