@@ -72,6 +72,13 @@ export function AppLayout({ children }: { children: ReactNode }) {
               >
                 Inventory
               </Link>
+              <Link
+                to="/sync"
+                className="px-3 py-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+                activeProps={{ className: "px-3 py-1.5 rounded-md bg-accent text-foreground" }}
+              >
+                Sync
+              </Link>
             </nav>
           </div>
           <Button variant="ghost" size="sm" onClick={signOut}>
