@@ -4,9 +4,14 @@ import { z } from "zod";
 import { generateText } from "ai";
 
 const SummaryInput = z.object({
-  mode: z.enum(["task_update", "project_rollup", "weekly_report"]),
+  mode: z.enum(["task_update", "project_rollup", "weekly_report", "quarter_review"]),
   scope_task_id: z.string().uuid().nullable().optional(),
   period_days: z.number().int().min(1).max(60).default(7),
+  // Optional: target a specific quarter when mode === "quarter_review".
+  // When omitted, the server iterates the last 8 quarters (2 years).
+  quarter: z
+    .object({ year: z.number().int().min(2000).max(2100), q: z.number().int().min(1).max(4) })
+    .optional(),
 });
 
 const ProjectGroup = z.object({
@@ -29,9 +34,11 @@ const MODE_INSTRUCTIONS: Record<string, string> = {
   task_update:
     "Write a 2-3 sentence progress note in past tense, no fluff. Focus on what actually happened.",
   project_rollup:
-    "Produce a fresh rollup for ONE project covering its entire activity history to date. Re-summarize from scratch every run — features change during development, so do not assume any prior summary. Without a formal plan, treat this as a chronological status: where the project stands now, what has been accomplished, current blockers, and what is next. Use `summary` for the narrative (120-180 words), and populate key_decisions / blockers / next_steps. Leave `by_project` empty.",
+    "Produce a fresh running summary for ONE project covering its entire activity history to date. Re-summarize from scratch every run — features change during development, so do not assume any prior summary. Without a formal plan, treat this as a chronological status: where the project stands now, what has been accomplished, current blockers, and what is next. Use `summary` for the narrative (120-180 words), and populate key_decisions / blockers / next_steps. Leave `by_project` empty.",
   weekly_report:
-    "Write an executive weekly report grouped by project. Populate `by_project`: one entry per distinct project tag in the activity (use 'Unassigned' for entries with no tag), each with a 2-3 sentence past-tense narrative and 2-5 highlight bullets scoped strictly to that project's entries. Then write `summary` as a 100-150 word executive overview that references the projects by name. Past tense, plain language, lead with outcomes.",
+    "Write an executive weekly status report covering ONE Monday-Sunday week (week ending Sunday). Populate `by_project`: one entry per distinct project tag in the activity (use 'Unassigned' for entries with no tag), each with a 2-3 sentence past-tense narrative and 2-5 highlight bullets scoped strictly to that project's entries. Then write `summary` as a 100-150 word executive overview that references the projects by name. Past tense, plain language, lead with outcomes.",
+  quarter_review:
+    "Write a quarterly review for ONE project covering ONE calendar quarter. Focus on what was completed in the quarter (especially tasks closed in-period), key decisions made, blockers encountered, and what is next for the project going into the following quarter. Use `summary` for a 120-180 word narrative. Populate key_decisions / blockers / next_steps. Leave `by_project` empty.",
 };
 
 type EntryRow = {
@@ -40,6 +47,15 @@ type EntryRow = {
   raw_content: string;
   task_id: string | null;
   tasks: { title?: string; slug?: string; project_tags?: string[] } | null;
+};
+
+type TaskRow = {
+  id: string;
+  title: string | null;
+  slug: string | null;
+  status: string | null;
+  closed_at: string | null;
+  project_tags: string[] | null;
 };
 
 function formatEntries(entries: EntryRow[]): string {
@@ -145,6 +161,57 @@ function buildFallbackSummary(
   };
 }
 
+// ---- Date helpers --------------------------------------------------------
+
+function pad(n: number, w = 2) {
+  return String(n).padStart(w, "0");
+}
+
+function yyyymmdd(d: Date) {
+  return `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}`;
+}
+
+// Returns Monday 00:00 UTC and Sunday 23:59:59.999 UTC for the week containing `ref`.
+// If `ref` is Sunday, that Sunday IS the week-end.
+function weekBoundsEndingSunday(ref: Date): { start: Date; end: Date } {
+  const end = new Date(Date.UTC(ref.getUTCFullYear(), ref.getUTCMonth(), ref.getUTCDate()));
+  const dow = end.getUTCDay(); // 0 Sun..6 Sat
+  const daysAfterSunday = dow === 0 ? 0 : dow; // distance from Sunday going forward (we walk back to previous Sun if not Sun)
+  // Walk back to the most recent Sunday (today if today is Sunday)
+  end.setUTCDate(end.getUTCDate() - daysAfterSunday + (dow === 0 ? 0 : 0));
+  // ^ when dow !== 0, daysAfterSunday equals dow, which subtracts to the prior Sunday.
+  end.setUTCHours(23, 59, 59, 999);
+  const start = new Date(end);
+  start.setUTCDate(start.getUTCDate() - 6);
+  start.setUTCHours(0, 0, 0, 0);
+  return { start, end };
+}
+
+function quarterBounds(year: number, q: number): { start: Date; end: Date } {
+  const startMonth = (q - 1) * 3;
+  const start = new Date(Date.UTC(year, startMonth, 1, 0, 0, 0, 0));
+  const end = new Date(Date.UTC(year, startMonth + 3, 1, 0, 0, 0, 0));
+  end.setUTCMilliseconds(end.getUTCMilliseconds() - 1);
+  return { start, end };
+}
+
+function lastNQuarters(n: number, ref = new Date()): { year: number; q: number }[] {
+  const out: { year: number; q: number }[] = [];
+  let year = ref.getUTCFullYear();
+  let q = Math.floor(ref.getUTCMonth() / 3) + 1;
+  for (let i = 0; i < n; i++) {
+    out.push({ year, q });
+    q -= 1;
+    if (q < 1) {
+      q = 4;
+      year -= 1;
+    }
+  }
+  return out;
+}
+
+// ---- Generate ------------------------------------------------------------
+
 export const generateSummary = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => SummaryInput.parse(d))
@@ -153,47 +220,30 @@ export const generateSummary = createServerFn({ method: "POST" })
     const apiKey = process.env.LOVABLE_API_KEY;
     if (!apiKey) throw new Error("Missing LOVABLE_API_KEY");
 
-    const periodEnd = new Date();
-    const periodStart = new Date(periodEnd.getTime() - data.period_days * 24 * 60 * 60 * 1000);
-
-    // project_rollup is a fresh resummarization of the entire project history;
-    // weekly_report and task_update stay scoped to the rolling period.
-    const useFullHistory = data.mode === "project_rollup";
-
-    let q = supabase
-      .from("activity_log")
-      .select("created_at, entry_type, raw_content, task_id, tasks(title, slug, project_tags)")
-      .order("created_at", { ascending: true });
-    if (!useFullHistory) q = q.gte("created_at", periodStart.toISOString());
-    if (data.scope_task_id) q = q.eq("task_id", data.scope_task_id);
-
-    const { data: entriesRaw, error } = await q;
-    if (error) throw new Error(error.message);
-    const entries = (entriesRaw ?? []) as unknown as EntryRow[];
-
-    if (entries.length === 0) {
-      return {
-        ok: false as const,
-        error: useFullHistory
-          ? "No activity logged yet — write a note first."
-          : "No activity in this period yet — write a note first.",
-      };
-    }
-
     const { createLovableAiGatewayProvider } = await import("./ai-gateway.server");
     const gateway = createLovableAiGatewayProvider(apiKey);
 
-    const runOne = async (params: {
-      scope_project: string | null;
-      scope_task_id: string | null;
+    const callAi = async (prompt: string, entriesForScope: EntryRow[], scopeProject: string | null): Promise<SummaryOutput> => {
+      const { text } = await generateText({
+        model: gateway("google/gemini-3-flash-preview"),
+        prompt,
+      });
+      try {
+        return normalizeSummary(extractJsonObject(text));
+      } catch {
+        return buildFallbackSummary(entriesForScope, data.mode, scopeProject);
+      }
+    };
+
+    const buildPrompt = (params: {
+      scopeProject: string | null;
       entriesForScope: EntryRow[];
       extraContext?: string;
     }) => {
-      const scopeHeader = params.scope_project
-        ? `PROJECT: #project/${params.scope_project}`
+      const scopeHeader = params.scopeProject
+        ? `PROJECT: #project/${params.scopeProject}`
         : "SCOPE: all activity";
-
-      const prompt = `You are writing a fresh summary of an activity log. Re-summarize from scratch every time — do not assume any prior summary exists.
+      return `You are writing a fresh summary of an activity log. Re-summarize from scratch every time — do not assume any prior summary exists.
 
 MODE: ${data.mode}
 ${scopeHeader}
@@ -205,39 +255,39 @@ ${formatEntries(params.entriesForScope)}
 Return only valid JSON with this exact shape:
 {"summary":"","key_decisions":[],"blockers":[],"next_steps":[],"by_project":[{"project":"","summary":"","highlights":[]}]}
 Use empty arrays ([]) for lists that don't apply and empty strings ("") for unused text fields. Never omit a field. Do not wrap the JSON in markdown.`;
+    };
 
-      const { text } = await generateText({
-        model: gateway("google/gemini-3-flash-preview"),
-        prompt,
-      });
-      let output: SummaryOutput;
-      try {
-        output = normalizeSummary(extractJsonObject(text));
-      } catch {
-        output = buildFallbackSummary(params.entriesForScope, data.mode, params.scope_project);
+    type InsertRow = {
+      mode: string;
+      scope_project: string | null;
+      scope_task_id: string | null;
+      period_start: string;
+      period_end: string;
+      display_title: string;
+      output: SummaryOutput;
+    };
+
+    const insertSummary = async (row: InsertRow) => {
+      // Replace any prior row for the same (mode, scope_project, scope_task_id, period).
+      let delQ = supabase.from("summaries").delete().eq("user_id", userId).eq("mode", row.mode);
+      delQ = row.scope_task_id ? delQ.eq("scope_task_id", row.scope_task_id) : delQ.is("scope_task_id", null);
+      delQ = row.scope_project ? delQ.eq("scope_project", row.scope_project) : delQ.is("scope_project", null);
+      if (row.mode === "weekly_report" || row.mode === "quarter_review") {
+        delQ = delQ.eq("period_start", row.period_start).eq("period_end", row.period_end);
       }
-
-      // Fresh resummarization: remove any prior summaries for the same mode + scope
-      // so the list shows the latest take rather than an accumulating history.
-      let delQ = supabase.from("summaries").delete().eq("user_id", userId).eq("mode", data.mode);
-      delQ = params.scope_task_id
-        ? delQ.eq("scope_task_id", params.scope_task_id)
-        : delQ.is("scope_task_id", null);
-      delQ = params.scope_project
-        ? delQ.eq("scope_project", params.scope_project)
-        : delQ.is("scope_project", null);
       await delQ;
 
       const { data: inserted, error: insErr } = await supabase
         .from("summaries")
         .insert({
           user_id: userId,
-          mode: data.mode,
-          scope_task_id: params.scope_task_id,
-          scope_project: params.scope_project,
-          period_start: periodStart.toISOString(),
-          period_end: periodEnd.toISOString(),
-          generated_summary: output,
+          mode: row.mode,
+          scope_task_id: row.scope_task_id,
+          scope_project: row.scope_project,
+          period_start: row.period_start,
+          period_end: row.period_end,
+          display_title: row.display_title,
+          generated_summary: row.output,
           status: "draft",
         })
         .select()
@@ -247,8 +297,144 @@ Use empty arrays ([]) for lists that don't apply and empty strings ("") for unus
     };
 
     try {
+      // ----- WEEKLY REPORT: one row covering Mon-Sun ending Sunday ----------
+      if (data.mode === "weekly_report") {
+        const { start, end } = weekBoundsEndingSunday(new Date());
+        const { data: entriesRaw, error } = await supabase
+          .from("activity_log")
+          .select("created_at, entry_type, raw_content, task_id, tasks(title, slug, project_tags)")
+          .gte("created_at", start.toISOString())
+          .lte("created_at", end.toISOString())
+          .order("created_at", { ascending: true });
+        if (error) throw new Error(error.message);
+        const entries = (entriesRaw ?? []) as unknown as EntryRow[];
+        if (entries.length === 0) {
+          return {
+            ok: false as const,
+            error: `No activity logged for week ending ${end.toISOString().slice(0, 10)}.`,
+          };
+        }
+        const title = `Status WE ${yyyymmdd(end)}`;
+        const output = await callAi(
+          buildPrompt({
+            scopeProject: null,
+            entriesForScope: entries,
+            extraContext: `WEEK BOUNDS: ${start.toISOString().slice(0, 10)} (Mon) through ${end.toISOString().slice(0, 10)} (Sun, week-ending).`,
+          }),
+          entries,
+          null,
+        );
+        const summary = await insertSummary({
+          mode: "weekly_report",
+          scope_project: null,
+          scope_task_id: null,
+          period_start: start.toISOString(),
+          period_end: end.toISOString(),
+          display_title: title,
+          output,
+        });
+        return { ok: true as const, summary };
+      }
+
+      // ----- QUARTER REVIEW: per-quarter, per-project ----------------------
+      if (data.mode === "quarter_review") {
+        const quarters = data.quarter ? [data.quarter] : lastNQuarters(8);
+        const summaries: unknown[] = [];
+
+        for (const qq of quarters) {
+          const { start, end } = quarterBounds(qq.year, qq.q);
+          const qLabel = `${qq.year}Q${pad(qq.q)}`;
+
+          const [{ data: entriesRaw, error: eErr }, { data: tasksRaw, error: tErr }] =
+            await Promise.all([
+              supabase
+                .from("activity_log")
+                .select("created_at, entry_type, raw_content, task_id, tasks(title, slug, project_tags)")
+                .gte("created_at", start.toISOString())
+                .lte("created_at", end.toISOString())
+                .order("created_at", { ascending: true }),
+              supabase
+                .from("tasks")
+                .select("id, title, slug, status, closed_at, project_tags")
+                .gte("closed_at", start.toISOString())
+                .lte("closed_at", end.toISOString()),
+            ]);
+          if (eErr) throw new Error(eErr.message);
+          if (tErr) throw new Error(tErr.message);
+
+          const entries = (entriesRaw ?? []) as unknown as EntryRow[];
+          const closedTasks = (tasksRaw ?? []) as unknown as TaskRow[];
+
+          // Group projects from entries + closed tasks.
+          const projects = new Map<string, { entries: EntryRow[]; closed: TaskRow[] }>();
+          const bucket = (key: string) => {
+            if (!projects.has(key)) projects.set(key, { entries: [], closed: [] });
+            return projects.get(key)!;
+          };
+          for (const e of entries) {
+            const tags = e.tasks?.project_tags ?? [];
+            const keys = tags.length ? tags : ["Unassigned"];
+            for (const k of keys) bucket(k).entries.push(e);
+          }
+          for (const t of closedTasks) {
+            const tags = t.project_tags ?? [];
+            const keys = tags.length ? tags : ["Unassigned"];
+            for (const k of keys) bucket(k).closed.push(t);
+          }
+
+          if (projects.size === 0) continue;
+
+          for (const [project, group] of projects) {
+            const closedList = group.closed
+              .map((t) => `- ${t.title ?? t.slug ?? t.id} (closed ${t.closed_at?.slice(0, 10)})`)
+              .join("\n");
+            const extra =
+              `QUARTER: ${qLabel} — ${start.toISOString().slice(0, 10)} through ${end.toISOString().slice(0, 10)}.\n` +
+              (closedList ? `TASKS CLOSED IN QUARTER (#project/${project}):\n${closedList}` : `No tasks closed in quarter for #project/${project}.`);
+
+            // Skip empty quarters for this project (no entries AND no closures).
+            if (group.entries.length === 0 && group.closed.length === 0) continue;
+
+            const output = await callAi(
+              buildPrompt({
+                scopeProject: project,
+                entriesForScope: group.entries,
+                extraContext: extra,
+              }),
+              group.entries,
+              project,
+            );
+            const inserted = await insertSummary({
+              mode: "quarter_review",
+              scope_project: project,
+              scope_task_id: null,
+              period_start: start.toISOString(),
+              period_end: end.toISOString(),
+              display_title: `Quarter Review ${qLabel} — #project/${project}`,
+              output,
+            });
+            summaries.push(inserted);
+          }
+        }
+
+        if (summaries.length === 0) {
+          return { ok: false as const, error: "No activity or closed tasks in the last 2 years." };
+        }
+        return { ok: true as const, summaries };
+      }
+
+      // ----- PROJECT ROLLUP: per-project running summary across full history
       if (data.mode === "project_rollup" && !data.scope_task_id) {
-        // Group entries by project tag; an entry with multiple tags appears in each.
+        const { data: entriesRaw, error } = await supabase
+          .from("activity_log")
+          .select("created_at, entry_type, raw_content, task_id, tasks(title, slug, project_tags)")
+          .order("created_at", { ascending: true });
+        if (error) throw new Error(error.message);
+        const entries = (entriesRaw ?? []) as unknown as EntryRow[];
+        if (entries.length === 0) {
+          return { ok: false as const, error: "No activity logged yet — write a note first." };
+        }
+
         const groups = new Map<string, EntryRow[]>();
         for (const e of entries) {
           const tags = e.tasks?.project_tags ?? [];
@@ -259,22 +445,62 @@ Use empty arrays ([]) for lists that don't apply and empty strings ("") for unus
           }
         }
 
-        const summaries = [];
+        const summaries: unknown[] = [];
+        const now = new Date();
+        const farPast = new Date(0);
         for (const [project, projectEntries] of groups) {
-          const s = await runOne({
+          const output = await callAi(
+            buildPrompt({ scopeProject: project, entriesForScope: projectEntries }),
+            projectEntries,
+            project,
+          );
+          const inserted = await insertSummary({
+            mode: "project_rollup",
             scope_project: project,
             scope_task_id: null,
-            entriesForScope: projectEntries,
+            period_start: farPast.toISOString(),
+            period_end: now.toISOString(),
+            display_title: `Running Summary — #project/${project}`,
+            output,
           });
-          summaries.push(s);
+          summaries.push(inserted);
         }
         return { ok: true as const, summaries };
       }
 
-      const summary = await runOne({
+      // ----- TASK UPDATE (or scoped project_rollup) ------------------------
+      const periodEnd = new Date();
+      const periodStart = new Date(periodEnd.getTime() - data.period_days * 24 * 60 * 60 * 1000);
+      let q = supabase
+        .from("activity_log")
+        .select("created_at, entry_type, raw_content, task_id, tasks(title, slug, project_tags)")
+        .order("created_at", { ascending: true });
+      if (data.mode !== "project_rollup") q = q.gte("created_at", periodStart.toISOString());
+      if (data.scope_task_id) q = q.eq("task_id", data.scope_task_id);
+      const { data: entriesRaw, error } = await q;
+      if (error) throw new Error(error.message);
+      const entries = (entriesRaw ?? []) as unknown as EntryRow[];
+      if (entries.length === 0) {
+        return { ok: false as const, error: "No activity in this period yet — write a note first." };
+      }
+
+      const output = await callAi(
+        buildPrompt({ scopeProject: null, entriesForScope: entries }),
+        entries,
+        null,
+      );
+      const title =
+        data.mode === "task_update"
+          ? `Task Update ${periodEnd.toISOString().slice(0, 10)}`
+          : `Summary ${periodEnd.toISOString().slice(0, 10)}`;
+      const summary = await insertSummary({
+        mode: data.mode,
         scope_project: null,
         scope_task_id: data.scope_task_id ?? null,
-        entriesForScope: entries,
+        period_start: periodStart.toISOString(),
+        period_end: periodEnd.toISOString(),
+        display_title: title,
+        output,
       });
       return { ok: true as const, summary };
     } catch (err) {
