@@ -732,6 +732,21 @@ export const getTaskBySlug = createServerFn({ method: "POST" })
     return { task, entries: entries ?? [] };
   });
 
+export const RECURRENCE_VALUES = ["none", "daily", "weekly", "monthly", "quarterly", "yearly"] as const;
+export type Recurrence = (typeof RECURRENCE_VALUES)[number];
+
+function advanceRecurrence(from: Date, kind: Recurrence): Date | null {
+  const d = new Date(from);
+  switch (kind) {
+    case "daily": d.setUTCDate(d.getUTCDate() + 1); return d;
+    case "weekly": d.setUTCDate(d.getUTCDate() + 7); return d;
+    case "monthly": d.setUTCMonth(d.getUTCMonth() + 1); return d;
+    case "quarterly": d.setUTCMonth(d.getUTCMonth() + 3); return d;
+    case "yearly": d.setUTCFullYear(d.getUTCFullYear() + 1); return d;
+    default: return null;
+  }
+}
+
 export const setTaskStatus = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
@@ -739,16 +754,40 @@ export const setTaskStatus = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    const { error } = await supabase
+    const now = new Date();
+
+    const { data: existing } = await supabase
       .from("tasks")
-      .update({
-        status: data.status,
-        closed_at: data.status === "done" ? new Date().toISOString() : null,
-      })
-      .eq("id", data.id);
+      .select("recurrence, recurrence_next_at, start_at")
+      .eq("id", data.id)
+      .maybeSingle();
+
+    const recurrence = ((existing as { recurrence?: string } | null)?.recurrence ?? "none") as Recurrence;
+    const isRepeating = data.status === "done" && recurrence !== "none";
+
+    const update: Record<string, unknown> = {
+      status: isRepeating ? "open" : data.status,
+      closed_at: data.status === "done" && !isRepeating ? now.toISOString() : null,
+    };
+    if (isRepeating) {
+      const ex = existing as { recurrence_next_at?: string | null; start_at?: string | null } | null;
+      const base = ex?.recurrence_next_at
+        ? new Date(ex.recurrence_next_at)
+        : ex?.start_at
+        ? new Date(ex.start_at)
+        : now;
+      const next = advanceRecurrence(base < now ? now : base, recurrence);
+      if (next) {
+        update.recurrence_next_at = next.toISOString();
+        update.start_at = next.toISOString();
+        update.percent_complete = 0;
+      }
+    }
+
+    const { error } = await supabase.from("tasks").update(update).eq("id", data.id);
     if (error) throw new Error(error.message);
     await invalidateSummaries(supabase, userId);
-    return { ok: true };
+    return { ok: true, repeated: isRepeating };
   });
 
 export const updateTask = createServerFn({ method: "POST" })
@@ -757,14 +796,27 @@ export const updateTask = createServerFn({ method: "POST" })
     z
       .object({
         id: z.string().uuid(),
-        title: z.string().trim().min(1).max(500),
+        title: z.string().trim().min(1).max(500).optional(),
+        recurrence: z.enum(RECURRENCE_VALUES).optional(),
       })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
+    const patch: Record<string, unknown> = {};
+    if (data.title !== undefined) patch.title = data.title;
+    if (data.recurrence !== undefined) {
+      patch.recurrence = data.recurrence;
+      if (data.recurrence === "none") {
+        patch.recurrence_next_at = null;
+      } else {
+        const next = advanceRecurrence(new Date(), data.recurrence);
+        if (next) patch.recurrence_next_at = next.toISOString();
+      }
+    }
+    if (Object.keys(patch).length === 0) return { ok: true };
     const { error } = await context.supabase
       .from("tasks")
-      .update({ title: data.title })
+      .update(patch)
       .eq("id", data.id);
     if (error) throw new Error(error.message);
     await invalidateSummaries(context.supabase, context.userId);
