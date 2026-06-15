@@ -144,6 +144,11 @@ function SummariesPage() {
           const scope = (s as { scope_task?: { slug?: string; title?: string } | null }).scope_task;
           return (
             <li key={s.id} className="border border-border rounded-lg p-5 bg-card">
+              {(s as { display_title?: string | null }).display_title && (
+                <h2 className="text-lg font-mono font-semibold mb-2">
+                  {(s as { display_title?: string }).display_title}
+                </h2>
+              )}
               <div className="flex items-center justify-between gap-2 mb-3">
                 <div className="flex items-center gap-2">
                   <Badge variant="outline" className="font-mono text-[10px] uppercase">{s.mode}</Badge>
