@@ -98,25 +98,25 @@ export function WelcomingPagesImportHelper({
   };
 
   return (
-    <div className="rounded-xl border border-neutral-800 bg-neutral-900/40 mb-6 overflow-hidden">
+    <div className="rounded-xl border border-border bg-card/40 mb-6 overflow-hidden">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center justify-between gap-3 px-5 py-3 text-left hover:bg-neutral-900/80 transition"
+        className="w-full flex items-center justify-between gap-3 px-5 py-3 text-left hover:bg-card/80 transition"
       >
         <div>
-          <div className="text-sm font-semibold text-amber-400">
+          <div className="text-sm font-semibold text-primary">
             Bring {kind} data from Welcoming Pages
           </div>
-          <div className="text-xs text-neutral-500 mt-0.5">
+          <div className="text-xs text-muted-foreground mt-0.5">
             Cross-project DB access isn't available — run this SQL there to export, then upload here.
           </div>
         </div>
         <ChevronDown
-          className={`h-4 w-4 text-neutral-500 transition-transform ${open ? "rotate-180" : ""}`}
+          className={`h-4 w-4 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`}
         />
       </button>
       {open && (
-        <div className="border-t border-neutral-800 divide-y divide-neutral-800">
+        <div className="border-t border-border divide-y divide-border">
           {presets.map((p) => (
             <div key={p.label} className="px-5 py-4">
               <div className="flex items-center justify-between gap-3 mb-1">
@@ -125,7 +125,7 @@ export function WelcomingPagesImportHelper({
                   size="sm"
                   variant="ghost"
                   onClick={() => copy(p.sql, p.label)}
-                  className="text-neutral-400 hover:text-amber-400 h-7"
+                  className="text-muted-foreground hover:text-primary h-7"
                 >
                   {copied === p.label ? (
                     <>
@@ -138,8 +138,8 @@ export function WelcomingPagesImportHelper({
                   )}
                 </Button>
               </div>
-              <p className="text-xs text-neutral-500 mb-2">{p.description}</p>
-              <pre className="text-[11px] leading-relaxed text-neutral-300 bg-neutral-950 border border-neutral-800 rounded-md p-3 overflow-x-auto">
+              <p className="text-xs text-muted-foreground mb-2">{p.description}</p>
+              <pre className="text-[11px] leading-relaxed text-foreground/80 bg-background border border-border rounded-md p-3 overflow-x-auto">
                 {p.sql}
               </pre>
             </div>
