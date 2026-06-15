@@ -13,33 +13,33 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 // ----- Fake backend with controllable save latency ------------------------
 
-const store = {
-  noteId: "note-1",
-  date: "2026-06-15",
-  markdown: "initial content",
-  saveLatencyMs: 50,
-  saveCalls: 0,
-  fetchCalls: 0,
-};
-
-const getDailyNoteImpl = vi.fn(async () => {
-  store.fetchCalls++;
-  return {
-    note: { id: store.noteId, date: store.date, markdown_content: store.markdown },
-    tasks: [] as Array<{ id: string; slug: string; title: string; status: string }>,
+const { store, getDailyNoteImpl, saveDailyNoteImpl, listProjectsImpl } = vi.hoisted(() => {
+  const store = {
+    noteId: "note-1",
+    date: "2026-06-15",
+    markdown: "initial content",
+    saveLatencyMs: 50,
+    saveCalls: 0,
+    fetchCalls: 0,
   };
+  const getDailyNoteImpl = vi.fn(async () => {
+    store.fetchCalls++;
+    return {
+      note: { id: store.noteId, date: store.date, markdown_content: store.markdown },
+      tasks: [] as Array<{ id: string; slug: string; title: string; status: string }>,
+    };
+  });
+  const saveDailyNoteImpl = vi.fn(
+    async ({ data }: { data: { noteId: string; date: string; markdown: string } }) => {
+      store.saveCalls++;
+      await new Promise((r) => setTimeout(r, store.saveLatencyMs));
+      store.markdown = data.markdown;
+      return { saved: true, newEntries: 0 };
+    },
+  );
+  const listProjectsImpl = vi.fn(async () => [] as Array<{ slug: string; name: string }>);
+  return { store, getDailyNoteImpl, saveDailyNoteImpl, listProjectsImpl };
 });
-
-const saveDailyNoteImpl = vi.fn(
-  async ({ data }: { data: { noteId: string; date: string; markdown: string } }) => {
-    store.saveCalls++;
-    await new Promise((r) => setTimeout(r, store.saveLatencyMs));
-    store.markdown = data.markdown;
-    return { saved: true, newEntries: 0 };
-  },
-);
-
-const listProjectsImpl = vi.fn(async () => [] as Array<{ slug: string; name: string }>);
 
 // ----- Mocks --------------------------------------------------------------
 
