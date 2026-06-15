@@ -416,13 +416,15 @@ export const commitDailyNote = createServerFn({ method: "POST" })
       });
     }
 
-    const { error: delErr } = await supabase
-      .from("activity_log")
-      .delete()
-      .eq("daily_note_id", data.noteId);
-    if (delErr) throw new Error(delErr.message);
-
+    // Safety: never wipe existing log entries when commit produced nothing
+    // (e.g. user accidentally cleared the textarea). Preserves prior commits
+    // so the "Refresh from log" button can rebuild the note.
     if (entries.length > 0) {
+      const { error: delErr } = await supabase
+        .from("activity_log")
+        .delete()
+        .eq("daily_note_id", data.noteId);
+      if (delErr) throw new Error(delErr.message);
       const { error: insErr } = await supabase.from("activity_log").insert(entries);
       if (insErr) throw new Error(insErr.message);
     }
