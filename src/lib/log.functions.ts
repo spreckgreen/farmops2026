@@ -648,16 +648,63 @@ export const commitDailyNote = createServerFn({ method: "POST" })
 
 // ---- Tasks ----
 
-export const listTasks = createServerFn({ method: "GET" })
+// Returns tasks delivered/touched on a given day (defaults to today).
+// "Touched today" = task has an activity_log entry linked to that day's
+// daily note for the current user, OR the task was created today.
+export const listTasks = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
-    const { supabase } = context;
-    const { data, error } = await supabase
-      .from("tasks")
-      .select("*")
-      .order("created_at", { ascending: false });
+  .inputValidator((d: unknown) =>
+    z
+      .object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional() })
+      .optional()
+      .parse(d ?? {}),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const date =
+      data?.date ??
+      new Date().toLocaleDateString("en-CA", { timeZone: "UTC" });
+
+    // Today's daily note (may not exist yet).
+    const { data: note } = await supabase
+      .from("daily_notes")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("date", date)
+      .maybeSingle();
+
+    // Task ids referenced by today's activity log entries.
+    let todayTaskIds: string[] = [];
+    if (note?.id) {
+      const { data: entries } = await supabase
+        .from("activity_log")
+        .select("task_id")
+        .eq("user_id", userId)
+        .eq("daily_note_id", note.id);
+      todayTaskIds = Array.from(
+        new Set((entries ?? []).map((e) => e.task_id).filter((x): x is string => !!x)),
+      );
+    }
+
+    // Day window (UTC) for task created_at fallback.
+    const dayStart = `${date}T00:00:00.000Z`;
+    const dayEnd = `${date}T23:59:59.999Z`;
+
+    const orFilters = [
+      `created_at.gte.${dayStart},created_at.lte.${dayEnd}`,
+    ];
+    let query = supabase.from("tasks").select("*");
+    if (todayTaskIds.length) {
+      query = query.or(
+        `id.in.(${todayTaskIds.join(",")}),and(created_at.gte.${dayStart},created_at.lte.${dayEnd})`,
+      );
+    } else {
+      query = query.gte("created_at", dayStart).lte("created_at", dayEnd);
+    }
+    const { data: tasks, error } = await query.order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
-    return data ?? [];
+    void orFilters;
+    return tasks ?? [];
   });
 
 export const getTaskBySlug = createServerFn({ method: "POST" })
