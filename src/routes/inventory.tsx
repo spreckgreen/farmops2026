@@ -232,6 +232,43 @@ function InventoryPage() {
                 }}
               />
               <Button
+                onClick={() => {
+                  if (items.length === 0) {
+                    toast.info("No inventory to export");
+                    return;
+                  }
+                  const csv = rowsToCsv(items as never, [
+                    { key: "sku", label: "sku" },
+                    { key: "name", label: "name" },
+                    { key: "description", label: "description" },
+                    { key: "category", label: "category" },
+                    { key: "location", label: "location" },
+                    { key: "quantity", label: "quantity" },
+                    { key: "unit", label: "unit" },
+                    { key: "min_quantity", label: "min_quantity" },
+                    { key: "reorder_level", label: "reorder_level" },
+                    { key: "unit_cost", label: "unit_cost" },
+                    { key: "vendor", label: "vendor" },
+                    { key: "status", label: "status" },
+                    { key: "tags", label: "tags" },
+                    { key: "barcode", label: "barcode" },
+                    { key: "current_hours", label: "current_hours" },
+                    { key: "current_miles", label: "current_miles" },
+                    { key: "usage_tracking", label: "usage_tracking" },
+                    { key: "notes", label: "notes" },
+                  ]);
+                  downloadCsv(
+                    `inventory_${new Date().toISOString().slice(0, 10)}.csv`,
+                    csv,
+                  );
+                  toast.success(`Exported ${items.length} item${items.length === 1 ? "" : "s"}`);
+                }}
+                variant="ghost"
+                className="text-neutral-400 hover:text-amber-400"
+              >
+                <Download className="h-4 w-4 mr-1" /> Export
+              </Button>
+              <Button
                 onClick={() => fileRef.current?.click()}
                 variant="outline"
                 className="border-amber-500/40 text-amber-400 hover:bg-amber-500/10"
