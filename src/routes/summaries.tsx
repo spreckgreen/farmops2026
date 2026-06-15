@@ -80,6 +80,29 @@ function SummariesPage() {
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-mono font-bold">Summaries</h1>
         <div className="flex gap-2">
+          <Button
+            variant="outline"
+            disabled={!q.data || q.data.length === 0}
+            onClick={async () => {
+              try {
+                const tpl = await loadTemplate();
+                const tiddlers = tiddlersFromSummaries((q.data ?? []) as SummaryRow[]);
+                const html = assembleTiddlyWiki(tpl, tiddlers, {
+                  siteTitle: "Bostead Farms — Summaries",
+                  subtitle: "Activity summaries export",
+                  defaultTiddlers: ["Summaries"],
+                });
+                const stamp = format(new Date(), "yyyyMMdd-HHmm");
+                downloadHtml(`bostead-summaries-${stamp}.html`, html);
+                toast.success("TiddlyWiki export downloaded");
+              } catch (e) {
+                toast.error(e instanceof Error ? e.message : "Export failed");
+              }
+            }}
+          >
+            <Download className="h-4 w-4 mr-1.5" />
+            Export TiddlyWiki
+          </Button>
           <Button variant="outline" onClick={() => rollup.mutate()} disabled={rollup.isPending}>
             {rollup.isPending ? "…" : "Project rollup"}
           </Button>
