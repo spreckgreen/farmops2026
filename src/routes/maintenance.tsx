@@ -185,17 +185,17 @@ function MaintenancePage() {
 
   return (
     <AppLayout>
-      <div className="min-h-[calc(100vh-3.5rem)] bg-[#0a0a0a] text-neutral-100">
+      <div className="min-h-[calc(100vh-3.5rem)] bg-background text-foreground">
         <div className="max-w-6xl mx-auto px-6 py-12">
-          <div className="flex items-start justify-between gap-6 mb-10">
+          <div className="flex items-start justify-between gap-6 mb-10 flex-wrap">
             <div>
-              <div className="inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-medium text-amber-400 mb-4">
+              <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-medium text-primary mb-4">
                 <Wrench className="h-3 w-3" /> Service Maintenance
               </div>
               <h1 className="text-4xl md:text-5xl font-bold tracking-tight">
-                Keep every asset <span className="text-amber-400">running smoothly.</span>
+                Keep every asset <span className="text-gradient-amber">running smoothly.</span>
               </h1>
-              <p className="mt-3 text-neutral-400 max-w-2xl">
+              <p className="mt-3 text-muted-foreground max-w-2xl">
                 Track service intervals, log repairs, and import existing records from CSV or JSON.
               </p>
             </div>
@@ -239,18 +239,18 @@ function MaintenancePage() {
                   toast.success(`Exported ${records.length} record${records.length === 1 ? "" : "s"}`);
                 }}
                 variant="ghost"
-                className="text-neutral-400 hover:text-amber-400"
+                className="text-muted-foreground hover:text-primary"
               >
                 <Download className="h-4 w-4 mr-1" /> Export
               </Button>
               <Button
                 onClick={() => fileRef.current?.click()}
                 variant="outline"
-                className="border-amber-500/40 text-amber-400 hover:bg-amber-500/10"
+                className="border-primary/40 text-primary hover:bg-primary/10"
               >
                 <Upload className="h-4 w-4 mr-1" /> Import file
               </Button>
-              <Button className="bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold">
+              <Button className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-glow">
                 <Plus className="h-4 w-4 mr-1" /> New record
               </Button>
             </div>
@@ -266,11 +266,11 @@ function MaintenancePage() {
             ].map((s) => (
               <div
                 key={s.label}
-                className="rounded-xl border border-neutral-800 bg-neutral-900/60 p-5"
+                className="rounded-xl border border-border bg-gradient-card p-5 shadow-glow"
               >
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-neutral-400">{s.label}</span>
-                  <s.icon className="h-4 w-4 text-amber-400" />
+                  <span className="text-sm text-muted-foreground">{s.label}</span>
+                  <s.icon className="h-4 w-4 text-primary" />
                 </div>
                 <div className="text-3xl font-bold">{s.value}</div>
               </div>
@@ -278,22 +278,22 @@ function MaintenancePage() {
           </div>
 
           {pending && (
-            <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-5 mb-8">
+            <div className="rounded-xl border border-primary/30 bg-primary/5 p-5 mb-8">
               <div className="flex items-center justify-between gap-4 flex-wrap mb-3">
                 <div className="flex items-center gap-2">
-                  <FileText className="h-4 w-4 text-amber-400" />
+                  <FileText className="h-4 w-4 text-primary" />
                   <span className="font-semibold">{pendingName}</span>
-                  <span className="text-sm text-neutral-400">
+                  <span className="text-sm text-muted-foreground">
                     · {pending.length} row{pending.length === 1 ? "" : "s"} ready
                   </span>
                 </div>
-                <div className="flex items-center gap-3">
-                  <label className="flex items-center gap-2 text-sm text-neutral-300">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <label className="flex items-center gap-2 text-sm text-foreground/80">
                     <input
                       type="checkbox"
                       checked={replace}
                       onChange={(e) => setReplace(e.target.checked)}
-                      className="accent-amber-500"
+                      className="accent-[oklch(0.78_0.17_65)]"
                     />
                     Replace all my existing records
                   </label>
@@ -310,7 +310,7 @@ function MaintenancePage() {
                   <Button
                     onClick={() => importMut.mutate()}
                     disabled={importMut.isPending}
-                    className="bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold"
+                    className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-glow"
                   >
                     {importMut.isPending ? "Importing…" : `Import ${pending.length}`}
                   </Button>
@@ -318,7 +318,7 @@ function MaintenancePage() {
               </div>
               <div className="overflow-x-auto">
                 <table className="text-xs w-full">
-                  <thead className="text-neutral-400 text-left">
+                  <thead className="text-muted-foreground text-left">
                     <tr>
                       {Object.keys(pending[0] ?? {})
                         .slice(0, 8)
@@ -331,11 +331,11 @@ function MaintenancePage() {
                   </thead>
                   <tbody>
                     {pending.slice(0, 3).map((r, i) => (
-                      <tr key={i} className="border-t border-neutral-800">
+                      <tr key={i} className="border-t border-border">
                         {Object.keys(pending[0] ?? {})
                           .slice(0, 8)
                           .map((k) => (
-                            <td key={k} className="px-2 py-1 text-neutral-300 truncate max-w-[160px]">
+                            <td key={k} className="px-2 py-1 text-muted-foreground truncate max-w-[160px]">
                               {String(r[k] ?? "")}
                             </td>
                           ))}
@@ -344,7 +344,7 @@ function MaintenancePage() {
                   </tbody>
                 </table>
                 {pending.length > 3 && (
-                  <p className="text-xs text-neutral-500 mt-2">
+                  <p className="text-xs text-muted-foreground mt-2">
                     Showing first 3 rows. Unrecognized columns are kept in a JSON field.
                   </p>
                 )}
@@ -353,33 +353,33 @@ function MaintenancePage() {
           )}
 
           {isLoading ? (
-            <div className="rounded-xl border border-neutral-800 bg-neutral-900/40 p-10 text-center text-neutral-400">
+            <div className="rounded-xl border border-border bg-card/40 p-10 text-center text-muted-foreground">
               Loading records…
             </div>
           ) : records.length === 0 ? (
-            <div className="rounded-xl border border-neutral-800 bg-neutral-900/40 p-10 text-center">
-              <Wrench className="h-10 w-10 text-amber-400 mx-auto mb-3" />
+            <div className="rounded-xl border border-border bg-card/40 p-10 text-center">
+              <Wrench className="h-10 w-10 text-primary mx-auto mb-3" />
               <h2 className="text-xl font-semibold mb-1">No maintenance records yet</h2>
-              <p className="text-neutral-400 mb-4">
+              <p className="text-muted-foreground mb-4">
                 Upload a CSV/JSON export to bring records forward, or add your first one.
               </p>
               <div className="flex justify-center gap-2">
                 <Button
                   variant="outline"
                   onClick={() => fileRef.current?.click()}
-                  className="border-amber-500/40 text-amber-400 hover:bg-amber-500/10"
+                  className="border-primary/40 text-primary hover:bg-primary/10"
                 >
                   <Upload className="h-4 w-4 mr-1" /> Import file
                 </Button>
-                <Button className="bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold">
+                <Button className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-glow">
                   <Plus className="h-4 w-4 mr-1" /> New record
                 </Button>
               </div>
             </div>
           ) : (
-            <div className="rounded-xl border border-neutral-800 bg-neutral-900/40 overflow-hidden">
+            <div className="rounded-xl border border-border bg-card/40 overflow-hidden">
               <table className="w-full text-sm">
-                <thead className="bg-neutral-900/80 text-neutral-400 text-left">
+                <thead className="bg-card/80 text-muted-foreground text-left">
                   <tr>
                     <th className="px-4 py-2 font-medium">Asset</th>
                     <th className="px-4 py-2 font-medium">Service</th>
@@ -393,20 +393,20 @@ function MaintenancePage() {
                 </thead>
                 <tbody>
                   {records.map((r) => (
-                    <tr key={r.id} className="border-t border-neutral-800">
+                    <tr key={r.id} className="border-t border-border hover:bg-card/60">
                       <td className="px-4 py-2">{r.asset_name ?? "—"}</td>
-                      <td className="px-4 py-2 text-neutral-300">{r.service_type ?? "—"}</td>
-                      <td className="px-4 py-2 text-neutral-300">{r.status ?? "—"}</td>
-                      <td className="px-4 py-2 text-neutral-300">{r.performed_at ?? "—"}</td>
-                      <td className="px-4 py-2 text-neutral-300">{r.due_at ?? "—"}</td>
-                      <td className="px-4 py-2 text-neutral-300">
+                      <td className="px-4 py-2 text-muted-foreground">{r.service_type ?? "—"}</td>
+                      <td className="px-4 py-2 text-muted-foreground">{r.status ?? "—"}</td>
+                      <td className="px-4 py-2 text-muted-foreground">{r.performed_at ?? "—"}</td>
+                      <td className="px-4 py-2 text-muted-foreground">{r.due_at ?? "—"}</td>
+                      <td className="px-4 py-2 text-muted-foreground">
                         {r.cost != null ? `$${Number(r.cost).toFixed(2)}` : "—"}
                       </td>
-                      <td className="px-4 py-2 text-neutral-300">{r.vendor ?? "—"}</td>
+                      <td className="px-4 py-2 text-muted-foreground">{r.vendor ?? "—"}</td>
                       <td className="px-4 py-2 text-right">
                         <button
                           onClick={() => deleteMut.mutate(r.id)}
-                          className="text-neutral-500 hover:text-red-400"
+                          className="text-muted-foreground hover:text-destructive"
                           aria-label="Delete record"
                         >
                           <Trash2 className="h-4 w-4" />
