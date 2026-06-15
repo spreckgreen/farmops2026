@@ -203,11 +203,13 @@ export const refreshDailyNoteFromLog = createServerFn({ method: "POST" })
       .object({
         noteId: z.string().uuid(),
         currentMarkdown: z.string().optional(),
+        dedupeConfig: dedupeConfigSchema,
       })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
     const { supabase } = context;
+    const config = resolveDedupeConfig(data.dedupeConfig);
     const { data: entries, error } = await supabase
       .from("activity_log")
       .select("id, raw_content, created_at")
@@ -218,7 +220,7 @@ export const refreshDailyNoteFromLog = createServerFn({ method: "POST" })
     // Dedupe activity_log rows: exact duplicates and near-duplicate task
     // typing cascades collapse to the longest/canonical entry. Removes
     // duplicate IDs from the database so future refreshes stay clean.
-    const { kept, duplicateIds } = dedupeLogEntries(entries ?? []);
+    const { kept, duplicateIds } = dedupeLogEntries(entries ?? [], config);
     if (duplicateIds.length > 0) {
       const { error: delErr } = await supabase.from("activity_log").delete().in("id", duplicateIds);
       if (delErr) throw new Error(delErr.message);
@@ -235,8 +237,8 @@ export const refreshDailyNoteFromLog = createServerFn({ method: "POST" })
     for (const rawLine of (data.currentMarkdown ?? "").split("\n")) {
       const trimmed = normalizeLogLine(rawLine);
       if (!trimmed) continue;
-      if (lineMatchesAny(rebuiltLines, trimmed)) continue;
-      if (lineMatchesAny(draftOnly, trimmed)) continue;
+      if (lineMatchesAny(rebuiltLines, trimmed, config)) continue;
+      if (lineMatchesAny(draftOnly, trimmed, config)) continue;
       draftOnly.push(trimmed);
     }
     const markdown =
