@@ -74,6 +74,18 @@ function BacklogPage() {
     },
   });
 
+  const reorderMutation = useMutation({
+    mutationFn: (vars: { kind: "inventory" | "consumable"; itemId: string }) =>
+      addReorderFn({ data: vars }),
+    onSuccess: () => {
+      toast.success("Re-order added to today");
+      invalidateAll();
+    },
+    onError: (e: unknown) => {
+      toast.error(e instanceof Error ? e.message : "Failed to add re-order");
+    },
+  });
+
   const grouped = {
     open: (data ?? []).filter((t) => t.status === "open"),
     blocked: (data ?? []).filter((t) => t.status === "blocked"),
