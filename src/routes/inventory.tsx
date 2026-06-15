@@ -75,6 +75,15 @@ const HEADER_ALIASES: Record<string, string> = {
   note: "notes",
   comment: "notes",
   comments: "notes",
+  // Welcoming Pages preset — `assets` and `consumables` tables
+  "quantity in stock": "quantity",
+  "qty in stock": "quantity",
+  "min quantity": "reorder_level",
+  "minimum quantity": "reorder_level",
+  "cost per unit": "unit_cost",
+  "per unit cost": "unit_cost",
+  tags: "notes",
+  status: "category",
 };
 
 function normalizeHeader(h: string): string {
@@ -198,6 +207,9 @@ function InventoryPage() {
               </h1>
               <p className="mt-3 text-neutral-400 max-w-2xl">
                 Track supplies, feed, parts, and equipment. Import existing stock from CSV or JSON.
+              </p>
+              <p className="mt-2 text-xs text-neutral-500 max-w-2xl">
+                Welcoming Pages preset is built in — exports of <code className="text-amber-400/80">assets</code> or <code className="text-amber-400/80">consumables</code> map automatically (quantity_in_stock, min_quantity, cost_per_unit, unit, category).
               </p>
             </div>
             <div className="flex gap-2 shrink-0">
