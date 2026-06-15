@@ -733,11 +733,17 @@ export const listTasks = createServerFn({ method: "POST" })
       .order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
 
-    // Done tasks should only appear if they were actually accomplished today.
+    // Done tasks should only appear if they actually transitioned to done
+    // today — i.e. closed_at falls within today AND the task is referenced
+    // by an activity_log entry on today's daily note. This prevents stale
+    // done items (carried over by recurrence resets, log refreshes that
+    // re-stamp closed_at, etc.) from cluttering the Done section.
+    const todaySet = new Set(todayTaskIds);
     const filtered = (tasks ?? []).filter((t) => {
       if (t.status !== "done") return true;
       if (!t.closed_at) return false;
-      return t.closed_at >= dayStart && t.closed_at <= dayEnd;
+      if (t.closed_at < dayStart || t.closed_at > dayEnd) return false;
+      return todaySet.has(t.id);
     });
     return filtered;
   });
