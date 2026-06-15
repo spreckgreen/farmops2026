@@ -18,6 +18,7 @@ import { Route as InventoryRouteImport } from './routes/inventory'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as TasksIndexRouteImport } from './routes/tasks.index'
+import { Route as TasksBacklogRouteImport } from './routes/tasks.backlog'
 import { Route as TasksSlugRouteImport } from './routes/tasks.$slug'
 import { Route as NotesDateRouteImport } from './routes/notes.$date'
 
@@ -66,6 +67,11 @@ const TasksIndexRoute = TasksIndexRouteImport.update({
   path: '/tasks/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TasksBacklogRoute = TasksBacklogRouteImport.update({
+  id: '/tasks/backlog',
+  path: '/tasks/backlog',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TasksSlugRoute = TasksSlugRouteImport.update({
   id: '/tasks/$slug',
   path: '/tasks/$slug',
@@ -88,6 +94,7 @@ export interface FileRoutesByFullPath {
   '/sync': typeof SyncRoute
   '/notes/$date': typeof NotesDateRoute
   '/tasks/$slug': typeof TasksSlugRoute
+  '/tasks/backlog': typeof TasksBacklogRoute
   '/tasks/': typeof TasksIndexRoute
 }
 export interface FileRoutesByTo {
@@ -101,6 +108,7 @@ export interface FileRoutesByTo {
   '/sync': typeof SyncRoute
   '/notes/$date': typeof NotesDateRoute
   '/tasks/$slug': typeof TasksSlugRoute
+  '/tasks/backlog': typeof TasksBacklogRoute
   '/tasks': typeof TasksIndexRoute
 }
 export interface FileRoutesById {
@@ -115,6 +123,7 @@ export interface FileRoutesById {
   '/sync': typeof SyncRoute
   '/notes/$date': typeof NotesDateRoute
   '/tasks/$slug': typeof TasksSlugRoute
+  '/tasks/backlog': typeof TasksBacklogRoute
   '/tasks/': typeof TasksIndexRoute
 }
 export interface FileRouteTypes {
@@ -130,6 +139,7 @@ export interface FileRouteTypes {
     | '/sync'
     | '/notes/$date'
     | '/tasks/$slug'
+    | '/tasks/backlog'
     | '/tasks/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -143,6 +153,7 @@ export interface FileRouteTypes {
     | '/sync'
     | '/notes/$date'
     | '/tasks/$slug'
+    | '/tasks/backlog'
     | '/tasks'
   id:
     | '__root__'
@@ -156,6 +167,7 @@ export interface FileRouteTypes {
     | '/sync'
     | '/notes/$date'
     | '/tasks/$slug'
+    | '/tasks/backlog'
     | '/tasks/'
   fileRoutesById: FileRoutesById
 }
@@ -170,6 +182,7 @@ export interface RootRouteChildren {
   SyncRoute: typeof SyncRoute
   NotesDateRoute: typeof NotesDateRoute
   TasksSlugRoute: typeof TasksSlugRoute
+  TasksBacklogRoute: typeof TasksBacklogRoute
   TasksIndexRoute: typeof TasksIndexRoute
 }
 
@@ -238,6 +251,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TasksIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/tasks/backlog': {
+      id: '/tasks/backlog'
+      path: '/tasks/backlog'
+      fullPath: '/tasks/backlog'
+      preLoaderRoute: typeof TasksBacklogRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/tasks/$slug': {
       id: '/tasks/$slug'
       path: '/tasks/$slug'
@@ -266,6 +286,7 @@ const rootRouteChildren: RootRouteChildren = {
   SyncRoute: SyncRoute,
   NotesDateRoute: NotesDateRoute,
   TasksSlugRoute: TasksSlugRoute,
+  TasksBacklogRoute: TasksBacklogRoute,
   TasksIndexRoute: TasksIndexRoute,
 }
 export const routeTree = rootRouteImport
