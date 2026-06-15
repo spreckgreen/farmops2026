@@ -216,3 +216,43 @@ export const deleteInventory = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
+const CreateSchema = z.object({
+  name: z.string().trim().min(1).max(500),
+  sku: z.string().trim().max(200).optional().nullable(),
+  category: z.string().trim().max(200).optional().nullable(),
+  location: z.string().trim().max(200).optional().nullable(),
+  quantity: z.union([z.number(), z.string()]).optional().nullable(),
+  unit: z.string().trim().max(50).optional().nullable(),
+  reorder_level: z.union([z.number(), z.string()]).optional().nullable(),
+  unit_cost: z.union([z.number(), z.string()]).optional().nullable(),
+  vendor: z.string().trim().max(500).optional().nullable(),
+  notes: z.string().trim().max(5000).optional().nullable(),
+});
+
+export const createInventory = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => CreateSchema.parse(d))
+  .handler(async ({ data, context }) => {
+    const row = {
+      user_id: context.userId,
+      name: data.name,
+      sku: data.sku ?? null,
+      category: data.category ?? null,
+      location: data.location ?? null,
+      quantity: toNumber(data.quantity),
+      unit: data.unit ?? null,
+      reorder_level: toNumber(data.reorder_level),
+      unit_cost: toNumber(data.unit_cost),
+      vendor: data.vendor ?? null,
+      notes: data.notes ?? null,
+      status: "available",
+    };
+    const { data: inserted, error } = await context.supabase
+      .from("inventory_items")
+      .insert(row as never)
+      .select()
+      .single();
+    if (error) throw new Error(error.message);
+    return inserted;
+  });
