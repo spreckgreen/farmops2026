@@ -30,7 +30,8 @@ function areNearDuplicateTaskLines(a: string, b: string) {
   if (!left || !right) return false;
   if (left === right) return true;
 
-  const [shorter, longer] = left.length <= right.length ? [left, right] : [right, left];
+  const [shorter, longer] =
+    left.length <= right.length ? [left, right] : [right, left];
   const shorterWords = shorter.split(" ").filter(Boolean).length;
   return (
     shorter.length >= 8 &&
@@ -43,7 +44,9 @@ function isBetterCanonicalLine(candidate: string, current: string) {
   const candidateTask = normalizeTaskForDedupe(candidate);
   const currentTask = normalizeTaskForDedupe(current);
   if (candidateTask && currentTask) {
-    if (candidateTask.length !== currentTask.length) return candidateTask.length > currentTask.length;
+    if (candidateTask.length !== currentTask.length) {
+      return candidateTask.length > currentTask.length;
+    }
   }
   return normalizeLogLine(candidate).length > normalizeLogLine(current).length;
 }
@@ -116,10 +119,7 @@ export const refreshDailyNoteFromLog = createServerFn({ method: "POST" })
     // duplicate IDs from the database so future refreshes stay clean.
     const { kept, duplicateIds } = dedupeLogEntries(entries ?? []);
     if (duplicateIds.length > 0) {
-      const { error: delErr } = await supabase
-        .from("activity_log")
-        .delete()
-        .in("id", duplicateIds);
+      const { error: delErr } = await supabase.from("activity_log").delete().in("id", duplicateIds);
       if (delErr) throw new Error(delErr.message);
     }
 
@@ -138,10 +138,7 @@ export const refreshDailyNoteFromLog = createServerFn({ method: "POST" })
       if (findDuplicateLineIndex(draftOnly, trimmed) !== -1) continue;
       draftOnly.push(trimmed);
     }
-    const markdown =
-      draftOnly.length > 0
-        ? (rebuilt ? rebuilt + "\n" : "") + draftOnly.join("\n")
-        : rebuilt;
+    const markdown = draftOnly.length > 0 ? (rebuilt ? rebuilt + "\n" : "") + draftOnly.join("\n") : rebuilt;
 
     const { error: updErr } = await supabase
       .from("daily_notes")
@@ -155,7 +152,6 @@ export const refreshDailyNoteFromLog = createServerFn({ method: "POST" })
       preserved: draftOnly.length,
     };
   });
-
 
 // ---- Get or create today's daily note + return parsed activity for the day ----
 
