@@ -193,10 +193,10 @@ export function tiddlersFromScheduledTasks(
 export type SummaryRow = {
   id: string;
   mode: string;
-  scope_type: string | null;
+  scope_project?: string | null;
   period_start: string | null;
   period_end: string | null;
-  ai_summary: unknown;
+  generated_summary: unknown;
   edited_summary: unknown;
   status: string | null;
   created_at: string;
@@ -210,6 +210,12 @@ type SummaryShape = {
   next_steps?: string[];
   by_project?: { project: string; summary: string; highlights: string[] }[];
 };
+
+function pickShape(row: SummaryRow): SummaryShape {
+  const edited = row.edited_summary as SummaryShape | null;
+  if (edited && typeof edited === "object") return edited;
+  return (row.generated_summary as SummaryShape | null) ?? {};
+}
 
 function pickShape(row: SummaryRow): SummaryShape {
   const edited = row.edited_summary as SummaryShape | null;
