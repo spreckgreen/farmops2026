@@ -212,24 +212,24 @@ function InventoryPage() {
 
   return (
     <AppLayout>
-      <div className="min-h-[calc(100vh-3.5rem)] bg-[#0a0a0a] text-neutral-100">
+      <div className="min-h-[calc(100vh-3.5rem)] bg-background text-foreground">
         <div className="max-w-6xl mx-auto px-6 py-12">
-          <div className="flex items-start justify-between gap-6 mb-10">
+          <div className="flex items-start justify-between gap-6 mb-10 flex-wrap">
             <div>
-              <div className="inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-medium text-amber-400 mb-4">
+              <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-medium text-primary mb-4">
                 <Package className="h-3 w-3" /> Inventory
               </div>
               <h1 className="text-4xl md:text-5xl font-bold tracking-tight">
-                Know what's on hand, <span className="text-amber-400">always.</span>
+                Know what's on hand, <span className="text-gradient-amber">always.</span>
               </h1>
-              <p className="mt-3 text-neutral-400 max-w-2xl">
+              <p className="mt-3 text-muted-foreground max-w-2xl">
                 Track supplies, feed, parts, and equipment. Import existing stock from CSV or JSON.
               </p>
-              <p className="mt-2 text-xs text-neutral-500 max-w-2xl">
-                Welcoming Pages preset is built in — exports of <code className="text-amber-400/80">assets</code> or <code className="text-amber-400/80">consumables</code> map automatically (quantity_in_stock, min_quantity, cost_per_unit, unit, category).
+              <p className="mt-2 text-xs text-muted-foreground/80 max-w-2xl">
+                Welcoming Pages preset is built in — exports of <code className="text-primary/80">assets</code> or <code className="text-primary/80">consumables</code> map automatically (quantity_in_stock, min_quantity, cost_per_unit, unit, category).
               </p>
             </div>
-            <div className="flex gap-2 shrink-0">
+            <div className="flex gap-2 shrink-0 flex-wrap">
               <input
                 ref={fileRef}
                 type="file"
