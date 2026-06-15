@@ -1335,3 +1335,182 @@ export const addMaintenanceToToday = createServerFn({ method: "POST" })
 
     return { ok: true as const, taskId: task.id, slug: task.slug };
   });
+
+// ============================================================
+// Inventory re-orders: items with quantity < 1 surface in backlog.
+// ============================================================
+
+export const listReorderInventory = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context;
+    const [invRes, conRes, tasksRes] = await Promise.all([
+      supabase
+        .from("inventory_items")
+        .select("id, name, sku, quantity, unit, vendor")
+        .eq("user_id", userId),
+      supabase
+        .from("consumables")
+        .select("id, name, unit, quantity_in_stock")
+        .eq("user_id", userId),
+      supabase.from("tasks").select("slug, status").eq("user_id", userId),
+    ]);
+    if (invRes.error) throw new Error(invRes.error.message);
+    if (conRes.error) throw new Error(conRes.error.message);
+
+    const openSlugs = new Set(
+      (tasksRes.data ?? [])
+        .filter((t) => t.status !== "done")
+        .map((t) => t.slug),
+    );
+
+    type ReorderItem = {
+      id: string;
+      kind: "inventory" | "consumable";
+      name: string;
+      quantity: number;
+      unit: string | null;
+      vendor: string | null;
+      slug: string;
+      alreadyQueued: boolean;
+    };
+
+    const lowInv: ReorderItem[] = (invRes.data ?? [])
+      .filter((i) => i.name && Number(i.quantity ?? 0) < 1)
+      .map((i) => {
+        const slug = slugify(`order ${i.name}`);
+        return {
+          id: i.id,
+          kind: "inventory" as const,
+          name: i.name as string,
+          quantity: Number(i.quantity ?? 0),
+          unit: i.unit ?? null,
+          vendor: i.vendor ?? null,
+          slug,
+          alreadyQueued: openSlugs.has(slug),
+        };
+      });
+
+    const lowCon: ReorderItem[] = (conRes.data ?? [])
+      .filter((c) => c.name && Number(c.quantity_in_stock ?? 0) < 1)
+      .map((c) => {
+        const slug = slugify(`order ${c.name}`);
+        return {
+          id: c.id,
+          kind: "consumable" as const,
+          name: c.name as string,
+          quantity: Number(c.quantity_in_stock ?? 0),
+          unit: c.unit ?? null,
+          vendor: null,
+          slug,
+          alreadyQueued: openSlugs.has(slug),
+        };
+      });
+
+    return [...lowInv, ...lowCon].sort((a, b) => a.name.localeCompare(b.name));
+  });
+
+export const addReorderToToday = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        kind: z.enum(["inventory", "consumable"]),
+        itemId: z.string().uuid(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+
+    let name: string | null = null;
+    let vendor: string | null = null;
+    if (data.kind === "inventory") {
+      const { data: item, error: itemErr } = await supabase
+        .from("inventory_items")
+        .select("id, name, vendor")
+        .eq("id", data.itemId)
+        .maybeSingle();
+      if (itemErr) throw new Error(itemErr.message);
+      if (!item || !item.name) throw new Error("Item not found");
+      name = item.name;
+      vendor = item.vendor ?? null;
+    } else {
+      const { data: item, error: itemErr } = await supabase
+        .from("consumables")
+        .select("id, name")
+        .eq("id", data.itemId)
+        .maybeSingle();
+      if (itemErr) throw new Error(itemErr.message);
+      if (!item || !item.name) throw new Error("Item not found");
+      name = item.name;
+    }
+
+    const label = `Order ${name}${vendor ? ` (${vendor})` : ""}`;
+    const slug = slugify(`order ${name}`);
+
+    let { data: task } = await supabase
+      .from("tasks")
+      .select("id, slug, title")
+      .eq("user_id", userId)
+      .eq("slug", slug)
+      .maybeSingle();
+    if (!task) {
+      const { data: created, error: insErr } = await supabase
+        .from("tasks")
+        .insert({
+          user_id: userId,
+          slug,
+          title: label,
+          status: "open",
+          project_tags: ["inventory", "reorder"],
+        })
+        .select("id, slug, title")
+        .single();
+      if (insErr) throw new Error(insErr.message);
+      task = created;
+    }
+
+    const date = new Date().toLocaleDateString("en-CA", { timeZone: "UTC" });
+    let { data: note } = await supabase
+      .from("daily_notes")
+      .select("id, markdown_content")
+      .eq("user_id", userId)
+      .eq("date", date)
+      .maybeSingle();
+    if (!note) {
+      const { data: created, error: nErr } = await supabase
+        .from("daily_notes")
+        .insert({ user_id: userId, date, markdown_content: "" })
+        .select("id, markdown_content")
+        .single();
+      if (nErr) throw new Error(nErr.message);
+      note = created;
+    }
+
+    const refLine = `- #task/${task.slug} ${task.title}`;
+    const current = note.markdown_content ?? "";
+    if (!current.includes(`#task/${task.slug}`)) {
+      const next = current.trim().length ? `${current.trimEnd()}\n${refLine}\n` : `${refLine}\n`;
+      await supabase.from("daily_notes").update({ markdown_content: next }).eq("id", note.id);
+    }
+
+    const { data: existing } = await supabase
+      .from("activity_log")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("daily_note_id", note.id)
+      .eq("task_id", task.id)
+      .limit(1);
+    if (!existing || existing.length === 0) {
+      await supabase.from("activity_log").insert({
+        user_id: userId,
+        task_id: task.id,
+        daily_note_id: note.id,
+        entry_type: "note",
+        raw_content: refLine,
+      });
+    }
+
+    return { ok: true as const, taskId: task.id, slug: task.slug };
+  });

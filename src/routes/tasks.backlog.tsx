@@ -6,6 +6,8 @@ import {
   addTaskToToday,
   listDueMaintenance,
   addMaintenanceToToday,
+  listReorderInventory,
+  addReorderToToday,
 } from "@/lib/log.functions";
 import { AppLayout } from "@/components/app-layout";
 import { Badge } from "@/components/ui/badge";
@@ -25,6 +27,8 @@ function BacklogPage() {
   const addFn = useServerFn(addTaskToToday);
   const listMaintFn = useServerFn(listDueMaintenance);
   const addMaintFn = useServerFn(addMaintenanceToToday);
+  const listReorderFn = useServerFn(listReorderInventory);
+  const addReorderFn = useServerFn(addReorderToToday);
   const qc = useQueryClient();
 
   const { data, isLoading } = useQuery({
@@ -37,9 +41,15 @@ function BacklogPage() {
     queryFn: () => listMaintFn({ data: {} }),
   });
 
+  const reorder = useQuery({
+    queryKey: ["tasks", "backlog", "reorder"],
+    queryFn: () => listReorderFn(),
+  });
+
   const invalidateAll = () => {
     qc.invalidateQueries({ queryKey: ["tasks", "backlog"] });
     qc.invalidateQueries({ queryKey: ["tasks", "today"] });
+    qc.invalidateQueries({ queryKey: ["tasks", "backlog", "reorder"] });
   };
 
   const mutation = useMutation({
@@ -64,12 +74,25 @@ function BacklogPage() {
     },
   });
 
+  const reorderMutation = useMutation({
+    mutationFn: (vars: { kind: "inventory" | "consumable"; itemId: string }) =>
+      addReorderFn({ data: vars }),
+    onSuccess: () => {
+      toast.success("Re-order added to today");
+      invalidateAll();
+    },
+    onError: (e: unknown) => {
+      toast.error(e instanceof Error ? e.message : "Failed to add re-order");
+    },
+  });
+
   const grouped = {
     open: (data ?? []).filter((t) => t.status === "open"),
     blocked: (data ?? []).filter((t) => t.status === "blocked"),
   };
 
   const dueItems = (maint.data ?? []).filter((m) => !m.alreadyQueued);
+  const reorderItems = (reorder.data ?? []).filter((r) => !r.alreadyQueued);
 
   return (
     <AppLayout>
@@ -119,8 +142,45 @@ function BacklogPage() {
           </section>
         )}
 
+        {reorderItems.length > 0 && (
+          <section className="mb-8">
+            <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-2">
+              Re-orders (low stock) · {reorderItems.length}
+            </h2>
+            <ul className="divide-y divide-border border border-border rounded-lg overflow-hidden">
+              {reorderItems.map((r) => {
+                const pending =
+                  reorderMutation.isPending && reorderMutation.variables?.itemId === r.id;
+                return (
+                  <li
+                    key={`${r.kind}-${r.id}`}
+                    className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-accent/40 transition-colors"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="font-medium truncate">Order {r.name}</div>
+                      <div className="text-xs text-muted-foreground font-mono">
+                        {r.quantity} {r.unit ?? ""} in stock
+                        {r.vendor ? ` · ${r.vendor}` : ""}
+                      </div>
+                    </div>
+                    <Badge variant="destructive">low</Badge>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      disabled={pending}
+                      onClick={() => reorderMutation.mutate({ kind: r.kind, itemId: r.id })}
+                    >
+                      {pending ? "Adding…" : "Add to today"}
+                    </Button>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        )}
+
         {isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
-        {!isLoading && (data?.length ?? 0) === 0 && dueItems.length === 0 && (
+        {!isLoading && (data?.length ?? 0) === 0 && dueItems.length === 0 && reorderItems.length === 0 && (
           <p className="text-sm text-muted-foreground">Backlog is empty.</p>
         )}
         {(["open", "blocked"] as const).map((status) =>
