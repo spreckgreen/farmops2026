@@ -205,6 +205,9 @@ function BacklogPage() {
                         #{t.slug}
                       </div>
                     </Link>
+                    {t.recurrence && t.recurrence !== "none" && (
+                      <Badge variant="outline" className="text-[10px] uppercase">↻ {t.recurrence}</Badge>
+                    )}
                     <Badge
                       variant={status === "blocked" ? "destructive" : "outline"}
                     >
