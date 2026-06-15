@@ -54,9 +54,24 @@ function NotePage() {
   const [draft, setDraft] = useState<string>("");
   const lastSavedRef = useRef<string>("");
 
+  // Only seed the editor from the server when the note id changes (initial
+  // load or date switch). Background refetches after autosave must NOT
+  // clobber in-progress edits — e.g. a trailing "\n" the user just typed to
+  // start a new entry would be wiped by the refetched (trimmed) markdown.
+  const loadedNoteIdRef = useRef<string | null>(null);
   useEffect(() => {
-    if (query.data) {
-      const md = query.data.note.markdown_content || "";
+    if (!query.data) return;
+    const noteId = query.data.note.id;
+    const md = query.data.note.markdown_content || "";
+    if (loadedNoteIdRef.current !== noteId) {
+      loadedNoteIdRef.current = noteId;
+      setDraft(md);
+      lastSavedRef.current = md;
+      return;
+    }
+    // Same note, background refetch: only adopt server content if the user
+    // has no unsaved local edits (draft matches what we last saved).
+    if (draftRef.current === lastSavedRef.current && md !== lastSavedRef.current) {
       setDraft(md);
       lastSavedRef.current = md;
     }
