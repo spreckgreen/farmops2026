@@ -309,17 +309,17 @@ function InventoryPage() {
           </div>
 
           {pending && (
-            <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-5 mb-8">
+            <div className="rounded-xl border border-primary/30 bg-primary/5 p-5 mb-8">
               <div className="flex items-center justify-between gap-4 flex-wrap mb-3">
                 <div className="flex items-center gap-2">
-                  <FileText className="h-4 w-4 text-amber-400" />
+                  <FileText className="h-4 w-4 text-primary" />
                   <span className="font-semibold">{pendingName}</span>
-                  <span className="text-sm text-neutral-400">
+                  <span className="text-sm text-muted-foreground">
                     · {pending.length} row{pending.length === 1 ? "" : "s"} ready
                   </span>
                 </div>
                 <div className="flex items-center gap-3 flex-wrap">
-                  <div className="flex items-center gap-1 rounded-md border border-neutral-800 bg-neutral-900/60 p-1 text-xs">
+                  <div className="flex items-center gap-1 rounded-md border border-border bg-card/60 p-1 text-xs">
                     {(["append", "merge", "replace"] as const).map((m) => (
                       <button
                         key={m}
@@ -327,8 +327,8 @@ function InventoryPage() {
                         onClick={() => setMode(m)}
                         className={`px-2.5 py-1 rounded ${
                           mode === m
-                            ? "bg-amber-500 text-neutral-950 font-semibold"
-                            : "text-neutral-400 hover:text-neutral-200"
+                            ? "bg-primary text-primary-foreground font-semibold"
+                            : "text-muted-foreground hover:text-foreground"
                         }`}
                       >
                         {m === "append" ? "Add new" : m === "merge" ? "Merge" : "Replace all"}
@@ -336,12 +336,12 @@ function InventoryPage() {
                     ))}
                   </div>
                   {mode === "merge" && (
-                    <label className="flex items-center gap-2 text-xs text-neutral-400">
+                    <label className="flex items-center gap-2 text-xs text-muted-foreground">
                       Match on
                       <select
                         value={mergeKey}
                         onChange={(e) => setMergeKey(e.target.value as "sku" | "name")}
-                        className="bg-neutral-900 border border-neutral-800 rounded px-1.5 py-1 text-neutral-200"
+                        className="bg-card border border-border rounded px-1.5 py-1 text-foreground"
                       >
                         <option value="sku">SKU</option>
                         <option value="name">Name</option>
@@ -361,7 +361,7 @@ function InventoryPage() {
                   <Button
                     onClick={() => importMut.mutate()}
                     disabled={importMut.isPending}
-                    className="bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold"
+                    className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-glow"
                   >
                     {importMut.isPending ? "Importing…" : `Import ${pending.length}`}
                   </Button>
@@ -369,7 +369,7 @@ function InventoryPage() {
               </div>
               <div className="overflow-x-auto">
                 <table className="text-xs w-full">
-                  <thead className="text-neutral-400 text-left">
+                  <thead className="text-muted-foreground text-left">
                     <tr>
                       {Object.keys(pending[0] ?? {})
                         .slice(0, 8)
@@ -382,11 +382,11 @@ function InventoryPage() {
                   </thead>
                   <tbody>
                     {pending.slice(0, 3).map((r, i) => (
-                      <tr key={i} className="border-t border-neutral-800">
+                      <tr key={i} className="border-t border-border">
                         {Object.keys(pending[0] ?? {})
                           .slice(0, 8)
                           .map((k) => (
-                            <td key={k} className="px-2 py-1 text-neutral-300 truncate max-w-[160px]">
+                            <td key={k} className="px-2 py-1 text-muted-foreground truncate max-w-[160px]">
                               {String(r[k] ?? "")}
                             </td>
                           ))}
@@ -395,7 +395,7 @@ function InventoryPage() {
                   </tbody>
                 </table>
                 {pending.length > 3 && (
-                  <p className="text-xs text-neutral-500 mt-2">
+                  <p className="text-xs text-muted-foreground mt-2">
                     Showing first 3 rows. Unrecognized columns are kept in a JSON field.
                   </p>
                 )}
@@ -404,33 +404,33 @@ function InventoryPage() {
           )}
 
           {isLoading ? (
-            <div className="rounded-xl border border-neutral-800 bg-neutral-900/40 p-10 text-center text-neutral-400">
+            <div className="rounded-xl border border-border bg-card/40 p-10 text-center text-muted-foreground">
               Loading items…
             </div>
           ) : items.length === 0 ? (
-            <div className="rounded-xl border border-neutral-800 bg-neutral-900/40 p-10 text-center">
-              <Package className="h-10 w-10 text-amber-400 mx-auto mb-3" />
+            <div className="rounded-xl border border-border bg-card/40 p-10 text-center">
+              <Package className="h-10 w-10 text-primary mx-auto mb-3" />
               <h2 className="text-xl font-semibold mb-1">No inventory items yet</h2>
-              <p className="text-neutral-400 mb-4">
+              <p className="text-muted-foreground mb-4">
                 Upload a CSV/JSON export to bring stock forward, or add your first item.
               </p>
               <div className="flex justify-center gap-2">
                 <Button
                   variant="outline"
                   onClick={() => fileRef.current?.click()}
-                  className="border-amber-500/40 text-amber-400 hover:bg-amber-500/10"
+                  className="border-primary/40 text-primary hover:bg-primary/10"
                 >
                   <Upload className="h-4 w-4 mr-1" /> Import file
                 </Button>
-                <Button className="bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold">
+                <Button className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-glow">
                   <Plus className="h-4 w-4 mr-1" /> New item
                 </Button>
               </div>
             </div>
           ) : (
-            <div className="rounded-xl border border-neutral-800 bg-neutral-900/40 overflow-hidden">
+            <div className="rounded-xl border border-border bg-card/40 overflow-hidden">
               <table className="w-full text-sm">
-                <thead className="bg-neutral-900/80 text-neutral-400 text-left">
+                <thead className="bg-card/80 text-muted-foreground text-left">
                   <tr>
                     <th className="px-4 py-2 font-medium">SKU</th>
                     <th className="px-4 py-2 font-medium">Name</th>
@@ -450,24 +450,24 @@ function InventoryPage() {
                       r.quantity != null &&
                       Number(r.quantity) <= Number(r.reorder_level);
                     return (
-                      <tr key={r.id} className="border-t border-neutral-800">
-                        <td className="px-4 py-2 text-neutral-300">{r.sku ?? "—"}</td>
+                      <tr key={r.id} className="border-t border-border hover:bg-card/60">
+                        <td className="px-4 py-2 text-muted-foreground">{r.sku ?? "—"}</td>
                         <td className="px-4 py-2">{r.name ?? "—"}</td>
-                        <td className="px-4 py-2 text-neutral-300">{r.category ?? "—"}</td>
-                        <td className="px-4 py-2 text-neutral-300">{r.location ?? "—"}</td>
-                        <td className={`px-4 py-2 ${low ? "text-amber-400 font-semibold" : "text-neutral-300"}`}>
+                        <td className="px-4 py-2 text-muted-foreground">{r.category ?? "—"}</td>
+                        <td className="px-4 py-2 text-muted-foreground">{r.location ?? "—"}</td>
+                        <td className={`px-4 py-2 ${low ? "text-primary font-semibold" : "text-muted-foreground"}`}>
                           {r.quantity ?? "—"}
                           {r.unit ? ` ${r.unit}` : ""}
                         </td>
-                        <td className="px-4 py-2 text-neutral-300">{r.reorder_level ?? "—"}</td>
-                        <td className="px-4 py-2 text-neutral-300">
+                        <td className="px-4 py-2 text-muted-foreground">{r.reorder_level ?? "—"}</td>
+                        <td className="px-4 py-2 text-muted-foreground">
                           {r.unit_cost != null ? `$${Number(r.unit_cost).toFixed(2)}` : "—"}
                         </td>
-                        <td className="px-4 py-2 text-neutral-300">{r.vendor ?? "—"}</td>
+                        <td className="px-4 py-2 text-muted-foreground">{r.vendor ?? "—"}</td>
                         <td className="px-4 py-2 text-right">
                           <button
                             onClick={() => deleteMut.mutate(r.id)}
-                            className="text-neutral-500 hover:text-red-400"
+                            className="text-muted-foreground hover:text-destructive"
                             aria-label="Delete item"
                           >
                             <Trash2 className="h-4 w-4" />
