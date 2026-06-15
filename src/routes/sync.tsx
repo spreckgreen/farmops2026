@@ -124,8 +124,9 @@ function SyncPage() {
           <h1 className="text-2xl font-bold tracking-tight">Obsidian Sync</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Two-way sync between Bostead Farms and a local Obsidian vault folder. Files live
-            under <code>Daily/</code>, <code>Tasks/</code>, <code>Projects/</code>, and{" "}
-            <code>Summaries/</code> with YAML frontmatter for round-tripping.
+            under <code>Daily/</code>, <code>Tasks/</code>, <code>Projects/</code>,{" "}
+            <code>Summaries/</code>, <code>Inventory/</code>, <code>Maintenance/</code>, and{" "}
+            <code>Consumables/</code> with YAML frontmatter for round-tripping.
           </p>
         </header>
 
