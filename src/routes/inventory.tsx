@@ -141,17 +141,23 @@ function InventoryPage() {
 
   const [pending, setPending] = useState<Record<string, unknown>[] | null>(null);
   const [pendingName, setPendingName] = useState<string>("");
-  const [replace, setReplace] = useState(false);
+  const [mode, setMode] = useState<"append" | "merge" | "replace">("append");
+  const [mergeKey, setMergeKey] = useState<"sku" | "name">("sku");
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   const importMut = useMutation({
     mutationFn: async () => {
       if (!pending) return null;
-      return importFn({ data: { records: pending as never[], replace } });
+      return importFn({
+        data: { records: pending as never[], mode, mergeKey },
+      });
     },
     onSuccess: (res) => {
       if (res) {
-        toast.success(`Imported ${res.inserted} item${res.inserted === 1 ? "" : "s"}`);
+        const parts: string[] = [];
+        if (res.inserted) parts.push(`${res.inserted} added`);
+        if (res.updated) parts.push(`${res.updated} updated`);
+        toast.success(`Imported — ${parts.join(", ") || "no changes"}`);
         setPending(null);
         setPendingName("");
         if (fileRef.current) fileRef.current.value = "";
@@ -262,16 +268,36 @@ function InventoryPage() {
                     · {pending.length} row{pending.length === 1 ? "" : "s"} ready
                   </span>
                 </div>
-                <div className="flex items-center gap-3">
-                  <label className="flex items-center gap-2 text-sm text-neutral-300">
-                    <input
-                      type="checkbox"
-                      checked={replace}
-                      onChange={(e) => setReplace(e.target.checked)}
-                      className="accent-amber-500"
-                    />
-                    Replace all my existing items
-                  </label>
+                <div className="flex items-center gap-3 flex-wrap">
+                  <div className="flex items-center gap-1 rounded-md border border-neutral-800 bg-neutral-900/60 p-1 text-xs">
+                    {(["append", "merge", "replace"] as const).map((m) => (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => setMode(m)}
+                        className={`px-2.5 py-1 rounded ${
+                          mode === m
+                            ? "bg-amber-500 text-neutral-950 font-semibold"
+                            : "text-neutral-400 hover:text-neutral-200"
+                        }`}
+                      >
+                        {m === "append" ? "Add new" : m === "merge" ? "Merge" : "Replace all"}
+                      </button>
+                    ))}
+                  </div>
+                  {mode === "merge" && (
+                    <label className="flex items-center gap-2 text-xs text-neutral-400">
+                      Match on
+                      <select
+                        value={mergeKey}
+                        onChange={(e) => setMergeKey(e.target.value as "sku" | "name")}
+                        className="bg-neutral-900 border border-neutral-800 rounded px-1.5 py-1 text-neutral-200"
+                      >
+                        <option value="sku">SKU</option>
+                        <option value="name">Name</option>
+                      </select>
+                    </label>
+                  )}
                   <Button
                     variant="ghost"
                     onClick={() => {
