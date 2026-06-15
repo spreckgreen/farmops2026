@@ -17,7 +17,7 @@ export const Route = createFileRoute("/sync")({
 
 type DirHandle = FileSystemDirectoryHandle;
 
-const FOLDERS = ["Daily", "Tasks", "Projects", "Summaries"];
+const FOLDERS = ["Daily", "Tasks", "Projects", "Summaries", "Inventory", "Maintenance", "Consumables"];
 
 async function getOrCreateSubdir(root: DirHandle, name: string): Promise<DirHandle> {
   return root.getDirectoryHandle(name, { create: true });
@@ -97,13 +97,13 @@ function SyncPage() {
     try {
       const files = await readAllMarkdown(vault);
       if (files.length === 0) {
-        toast.message("No markdown files found in Daily/, Tasks/, Projects/, Summaries/");
+        toast.message("No markdown files found in Daily/, Tasks/, Projects/, Summaries/, Inventory/, Maintenance/, Consumables/");
         return;
       }
       const result = await doImport({ data: { files } });
       setLastSync(new Date().toLocaleString());
       toast.success(
-        `Imported ${result.dailyNotes} notes, ${result.tasks} tasks, ${result.projects} projects, ${result.summaries} summaries`,
+        `Imported ${result.dailyNotes} notes · ${result.tasks} tasks · ${result.projects} projects · ${result.summaries} summaries · ${result.inventory} inventory · ${result.maintenance} maintenance · ${result.consumables} consumables`,
       );
     } catch (e) {
       toast.error(`Pull failed: ${(e as Error).message}`);
@@ -124,8 +124,9 @@ function SyncPage() {
           <h1 className="text-2xl font-bold tracking-tight">Obsidian Sync</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Two-way sync between Bostead Farms and a local Obsidian vault folder. Files live
-            under <code>Daily/</code>, <code>Tasks/</code>, <code>Projects/</code>, and{" "}
-            <code>Summaries/</code> with YAML frontmatter for round-tripping.
+            under <code>Daily/</code>, <code>Tasks/</code>, <code>Projects/</code>,{" "}
+            <code>Summaries/</code>, <code>Inventory/</code>, <code>Maintenance/</code>, and{" "}
+            <code>Consumables/</code> with YAML frontmatter for round-tripping.
           </p>
         </header>
 

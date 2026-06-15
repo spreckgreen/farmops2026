@@ -12,6 +12,9 @@ import { slugify } from "./slug";
 //   Tasks/<slug>.md          one file per task (includes scheduled "report" tasks)
 //   Projects/<slug>.md       one file per project
 //   Summaries/<id>.md        one file per summary
+//   Inventory/<slug>.md      one file per inventory item
+//   Maintenance/<id>.md      one file per maintenance record
+//   Consumables/<slug>.md    one file per consumable
 //
 // Every file uses YAML frontmatter with a `bostead` block describing the
 // source record (kind + id + slug). The body is human-editable markdown.
@@ -171,11 +174,14 @@ export const obsidianExport = createServerFn({ method: "GET" })
     const { supabase } = context;
     const files: ObsidianFile[] = [];
 
-    const [notesQ, tasksQ, projectsQ, summariesQ] = await Promise.all([
+    const [notesQ, tasksQ, projectsQ, summariesQ, inventoryQ, maintenanceQ, consumablesQ] = await Promise.all([
       supabase.from("daily_notes").select("*").order("date", { ascending: true }),
       supabase.from("tasks").select("*").order("created_at", { ascending: true }),
       supabase.from("projects").select("*").order("name", { ascending: true }),
       supabase.from("summaries").select("*").order("created_at", { ascending: true }),
+      supabase.from("inventory_items").select("*").order("name", { ascending: true }),
+      supabase.from("maintenance_records").select("*").order("performed_at", { ascending: true }),
+      supabase.from("consumables").select("*").order("name", { ascending: true }),
     ]);
 
     for (const n of notesQ.data ?? []) {
@@ -225,6 +231,67 @@ export const obsidianExport = createServerFn({ method: "GET" })
       files.push({ path: `Summaries/${s.id}.md`, content: buildFile(meta, body) });
     }
 
+    for (const i of inventoryQ.data ?? []) {
+      const slug = safeSlug(i.name || i.sku || "", i.id);
+      const meta = {
+        bostead: { kind: "inventory_item", id: i.id, slug },
+        name: i.name ?? "",
+        sku: i.sku ?? "",
+        category: i.category ?? "",
+        location: i.location ?? "",
+        status: i.status,
+        quantity: i.quantity ?? "",
+        unit: i.unit ?? "",
+        min_quantity: i.min_quantity ?? "",
+        reorder_level: i.reorder_level ?? "",
+        unit_cost: i.unit_cost ?? "",
+        vendor: i.vendor ?? "",
+        barcode: i.barcode ?? "",
+        current_hours: i.current_hours,
+        current_miles: i.current_miles,
+        usage_tracking: i.usage_tracking,
+        tags: (i.tags ?? []) as string[],
+      };
+      const body = `# ${i.name ?? "Inventory item"}\n\n${i.description ?? ""}\n\n${i.notes ?? ""}\n`;
+      files.push({ path: `Inventory/${slug}.md`, content: buildFile(meta, body) });
+    }
+
+    for (const m of maintenanceQ.data ?? []) {
+      const meta = {
+        bostead: { kind: "maintenance_record", id: m.id, asset_id: m.asset_id ?? "" },
+        title: m.title ?? "",
+        asset_name: m.asset_name ?? "",
+        asset_id: m.asset_id ?? "",
+        service_type: m.service_type ?? "",
+        status: m.status ?? "",
+        performed_at: m.performed_at ?? "",
+        due_at: m.due_at ?? "",
+        scheduled_date: m.scheduled_date ?? "",
+        completed_date: m.completed_date ?? "",
+        recurrence: m.recurrence ?? "",
+        cost: m.cost ?? "",
+        vendor: m.vendor ?? "",
+        consumables_used: m.consumables_used ?? [],
+      };
+      const body = `# ${m.title ?? m.asset_name ?? "Maintenance"}\n\n${m.description ?? ""}\n\n${m.notes ?? ""}\n`;
+      files.push({ path: `Maintenance/${m.id}.md`, content: buildFile(meta, body) });
+    }
+
+    for (const c of consumablesQ.data ?? []) {
+      const slug = safeSlug(c.name || "", c.id);
+      const meta = {
+        bostead: { kind: "consumable", id: c.id, slug },
+        name: c.name,
+        unit: c.unit ?? "",
+        category: c.category ?? "",
+        quantity_in_stock: c.quantity_in_stock,
+        min_quantity: c.min_quantity,
+        cost_per_unit: c.cost_per_unit ?? "",
+      };
+      const body = `# ${c.name}\n`;
+      files.push({ path: `Consumables/${slug}.md`, content: buildFile(meta, body) });
+    }
+
     return { files };
   });
 
@@ -244,6 +311,20 @@ export const obsidianImport = createServerFn({ method: "POST" })
     let tasks = 0;
     let projects = 0;
     let summaries = 0;
+    let inventory = 0;
+    let maintenance = 0;
+    let consumables = 0;
+
+    const num = (v: unknown): number | null => {
+      if (v === undefined || v === null || v === "") return null;
+      const n = Number(v);
+      return Number.isFinite(n) ? n : null;
+    };
+    const str = (v: unknown): string | null => {
+      if (v === undefined || v === null) return null;
+      const s = String(v).trim();
+      return s ? s : null;
+    };
 
     for (const file of data.files) {
       if (!file.path.toLowerCase().endsWith(".md")) continue;
@@ -253,9 +334,16 @@ export const obsidianImport = createServerFn({ method: "POST" })
       const folder = file.path.split("/")[0]?.toLowerCase();
       const baseName = file.path.split("/").pop()?.replace(/\.md$/i, "") ?? "";
 
-      const kind =
-        kindFromBostead ||
-        (folder === "daily" ? "daily_note" : folder === "tasks" ? "task" : folder === "projects" ? "project" : folder === "summaries" ? "summary" : null);
+      const folderKind: Record<string, string> = {
+        daily: "daily_note",
+        tasks: "task",
+        projects: "project",
+        summaries: "summary",
+        inventory: "inventory_item",
+        maintenance: "maintenance_record",
+        consumables: "consumable",
+      };
+      const kind = kindFromBostead || folderKind[folder ?? ""] || null;
       if (!kind) continue;
 
       try {
@@ -345,11 +433,84 @@ export const obsidianImport = createServerFn({ method: "POST" })
             { onConflict: "id" },
           );
           if (!error) summaries++;
+        } else if (kind === "inventory_item") {
+          const id = (bostead.id as string) || "";
+          const name = str(meta.name) || baseName;
+          const description = body.replace(/^#\s.*\n/, "").trim();
+          const row: Record<string, unknown> = {
+            user_id: userId,
+            name,
+            sku: str(meta.sku),
+            category: str(meta.category),
+            location: str(meta.location),
+            status: ["available", "in_use", "maintenance", "retired"].includes(meta.status as string)
+              ? (meta.status as string)
+              : "available",
+            quantity: num(meta.quantity),
+            unit: str(meta.unit),
+            min_quantity: num(meta.min_quantity),
+            reorder_level: num(meta.reorder_level),
+            unit_cost: num(meta.unit_cost),
+            vendor: str(meta.vendor),
+            barcode: str(meta.barcode) ?? "",
+            current_hours: num(meta.current_hours) ?? 0,
+            current_miles: num(meta.current_miles) ?? 0,
+            usage_tracking: str(meta.usage_tracking) ?? "none",
+            tags: Array.isArray(meta.tags) ? (meta.tags as string[]) : [],
+            description,
+          };
+          if (/^[0-9a-f-]{36}$/i.test(id)) row.id = id;
+          const { error } = await supabase.from("inventory_items").upsert(row as never, { onConflict: "id" });
+          if (!error) inventory++;
+        } else if (kind === "maintenance_record") {
+          const id = (bostead.id as string) || baseName;
+          if (!/^[0-9a-f-]{36}$/i.test(id)) continue;
+          const description = body.replace(/^#\s.*\n/, "").trim();
+          const consumablesUsed = Array.isArray(meta.consumables_used)
+            ? meta.consumables_used
+            : [];
+          const { error } = await supabase.from("maintenance_records").upsert(
+            {
+              id,
+              user_id: userId,
+              title: str(meta.title),
+              asset_name: str(meta.asset_name),
+              asset_id: str(meta.asset_id),
+              service_type: str(meta.service_type),
+              status: str(meta.status),
+              performed_at: str(meta.performed_at),
+              due_at: str(meta.due_at),
+              scheduled_date: str(meta.scheduled_date),
+              completed_date: str(meta.completed_date),
+              recurrence: str(meta.recurrence) ?? "none",
+              cost: num(meta.cost),
+              vendor: str(meta.vendor),
+              consumables_used: consumablesUsed as never,
+              description,
+            },
+            { onConflict: "id" },
+          );
+          if (!error) maintenance++;
+        } else if (kind === "consumable") {
+          const id = (bostead.id as string) || "";
+          const name = str(meta.name) || baseName;
+          const row: Record<string, unknown> = {
+            user_id: userId,
+            name,
+            unit: str(meta.unit) ?? "pcs",
+            category: str(meta.category) ?? "",
+            quantity_in_stock: num(meta.quantity_in_stock) ?? 0,
+            min_quantity: num(meta.min_quantity) ?? 0,
+            cost_per_unit: num(meta.cost_per_unit) ?? 0,
+          };
+          if (/^[0-9a-f-]{36}$/i.test(id)) row.id = id;
+          const { error } = await supabase.from("consumables").upsert(row as never, { onConflict: "id" });
+          if (!error) consumables++;
         }
       } catch {
         // skip malformed file
       }
     }
 
-    return { dailyNotes, tasks, projects, summaries };
+    return { dailyNotes, tasks, projects, summaries, inventory, maintenance, consumables };
   });
