@@ -1,0 +1,122 @@
+import { createServerFn } from "@tanstack/react-start";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { z } from "zod";
+
+// Known columns. Anything else in a row goes into `raw`.
+const KNOWN = [
+  "asset_name",
+  "service_type",
+  "status",
+  "performed_at",
+  "due_at",
+  "cost",
+  "vendor",
+  "notes",
+] as const;
+
+const RecordSchema = z
+  .object({
+    asset_name: z.string().trim().max(500).nullable().optional(),
+    service_type: z.string().trim().max(500).nullable().optional(),
+    status: z.string().trim().max(100).nullable().optional(),
+    performed_at: z.string().trim().max(64).nullable().optional(),
+    due_at: z.string().trim().max(64).nullable().optional(),
+    cost: z.union([z.number(), z.string()]).nullable().optional(),
+    vendor: z.string().trim().max(500).nullable().optional(),
+    notes: z.string().trim().max(5000).nullable().optional(),
+    raw: z.record(z.string(), z.any()).optional(),
+  })
+  .passthrough();
+
+const InputSchema = z.object({
+  records: z.array(RecordSchema).min(1).max(5000),
+  replace: z.boolean().optional(),
+});
+
+function toDate(v: unknown): string | null {
+  if (v === null || v === undefined || v === "") return null;
+  const s = String(v).trim();
+  // Accept YYYY-MM-DD or anything Date can parse.
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const d = new Date(s);
+  if (isNaN(d.getTime())) return null;
+  return d.toISOString().slice(0, 10);
+}
+
+function toNumber(v: unknown): number | null {
+  if (v === null || v === undefined || v === "") return null;
+  const n = typeof v === "number" ? v : parseFloat(String(v).replace(/[$,]/g, ""));
+  return isNaN(n) ? null : n;
+}
+
+export const importMaintenance = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => InputSchema.parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+
+    if (data.replace) {
+      const { error: delErr } = await supabase
+        .from("maintenance_records")
+        .delete()
+        .eq("user_id", userId);
+      if (delErr) throw new Error(delErr.message);
+    }
+
+    const rows = data.records.map((rec) => {
+      const known: Record<string, unknown> = {};
+      const extra: Record<string, unknown> = { ...(rec.raw ?? {}) };
+      for (const [k, v] of Object.entries(rec)) {
+        if (k === "raw") continue;
+        if ((KNOWN as readonly string[]).includes(k)) known[k] = v;
+        else extra[k] = v;
+      }
+      return {
+        user_id: userId,
+        asset_name: (known.asset_name as string | null | undefined) ?? null,
+        service_type: (known.service_type as string | null | undefined) ?? null,
+        status: (known.status as string | null | undefined) ?? null,
+        performed_at: toDate(known.performed_at),
+        due_at: toDate(known.due_at),
+        cost: toNumber(known.cost),
+        vendor: (known.vendor as string | null | undefined) ?? null,
+        notes: (known.notes as string | null | undefined) ?? null,
+        raw: extra,
+      };
+    });
+
+    // Insert in chunks of 500 to keep request size reasonable.
+    let inserted = 0;
+    for (let i = 0; i < rows.length; i += 500) {
+      const chunk = rows.slice(i, i + 500);
+      const { error } = await supabase.from("maintenance_records").insert(chunk);
+      if (error) throw new Error(error.message);
+      inserted += chunk.length;
+    }
+    return { inserted };
+  });
+
+export const listMaintenance = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data, error } = await context.supabase
+      .from("maintenance_records")
+      .select("*")
+      .order("performed_at", { ascending: false, nullsFirst: false })
+      .order("created_at", { ascending: false })
+      .limit(500);
+    if (error) throw new Error(error.message);
+    return data ?? [];
+  });
+
+export const deleteMaintenance = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase
+      .from("maintenance_records")
+      .delete()
+      .eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
