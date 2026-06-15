@@ -43,7 +43,13 @@ export const getDailyNote = createServerFn({ method: "POST" })
       .select("id, slug, title, status")
       .order("created_at", { ascending: false });
 
-    return { note: note!, tasks: tasks ?? [] };
+    const { data: entries } = await supabase
+      .from("activity_log")
+      .select("id, entry_type, raw_content, ai_summary, created_at, task_id, tasks(slug, title)")
+      .eq("daily_note_id", note!.id)
+      .order("created_at", { ascending: true });
+
+    return { note: note!, tasks: tasks ?? [], entries: entries ?? [] };
   });
 
 // ---- Save daily note + parse entries into activity_log ----
