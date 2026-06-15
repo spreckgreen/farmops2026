@@ -5,28 +5,44 @@ import { z } from "zod";
 const KNOWN = [
   "sku",
   "name",
+  "description",
   "category",
   "location",
   "quantity",
   "unit",
   "reorder_level",
+  "min_quantity",
   "unit_cost",
   "vendor",
   "notes",
+  "status",
+  "tags",
+  "barcode",
+  "current_hours",
+  "current_miles",
+  "usage_tracking",
 ] as const;
 
 const RecordSchema = z
   .object({
     sku: z.string().trim().max(200).nullable().optional(),
     name: z.string().trim().max(500).nullable().optional(),
+    description: z.string().trim().max(5000).nullable().optional(),
     category: z.string().trim().max(200).nullable().optional(),
     location: z.string().trim().max(200).nullable().optional(),
     quantity: z.union([z.number(), z.string()]).nullable().optional(),
     unit: z.string().trim().max(50).nullable().optional(),
     reorder_level: z.union([z.number(), z.string()]).nullable().optional(),
+    min_quantity: z.union([z.number(), z.string()]).nullable().optional(),
     unit_cost: z.union([z.number(), z.string()]).nullable().optional(),
     vendor: z.string().trim().max(500).nullable().optional(),
     notes: z.string().trim().max(5000).nullable().optional(),
+    status: z.string().trim().max(50).nullable().optional(),
+    tags: z.union([z.array(z.string()), z.string()]).nullable().optional(),
+    barcode: z.string().trim().max(200).nullable().optional(),
+    current_hours: z.union([z.number(), z.string()]).nullable().optional(),
+    current_miles: z.union([z.number(), z.string()]).nullable().optional(),
+    usage_tracking: z.string().trim().max(50).nullable().optional(),
     raw: z.record(z.string(), z.any()).optional(),
   })
   .passthrough();
@@ -34,8 +50,7 @@ const RecordSchema = z
 const InputSchema = z.object({
   records: z.array(RecordSchema).min(1).max(5000),
   mode: z.enum(["append", "replace", "merge"]).optional(),
-  mergeKey: z.enum(["sku", "name"]).optional(),
-  // Back-compat: older clients sent { replace: true }
+  mergeKey: z.enum(["sku", "name", "barcode"]).optional(),
   replace: z.boolean().optional(),
 });
 
@@ -43,6 +58,20 @@ function toNumber(v: unknown): number | null {
   if (v === null || v === undefined || v === "") return null;
   const n = typeof v === "number" ? v : parseFloat(String(v).replace(/[$,]/g, ""));
   return isNaN(n) ? null : n;
+}
+
+function toTags(v: unknown): string[] | null {
+  if (v === null || v === undefined || v === "") return null;
+  if (Array.isArray(v)) return v.map((s) => String(s).trim()).filter(Boolean);
+  return String(v)
+    .split(/[;,]/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+function toStatus(v: unknown): string {
+  const s = (v == null ? "" : String(v)).trim().toLowerCase().replace(/\s+/g, "_");
+  return ["available", "in_use", "maintenance", "retired"].includes(s) ? s : "available";
 }
 
 function normKey(v: unknown): string | null {
