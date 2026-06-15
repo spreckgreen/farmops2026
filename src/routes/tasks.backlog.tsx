@@ -27,6 +27,8 @@ function BacklogPage() {
   const addFn = useServerFn(addTaskToToday);
   const listMaintFn = useServerFn(listDueMaintenance);
   const addMaintFn = useServerFn(addMaintenanceToToday);
+  const listReorderFn = useServerFn(listReorderInventory);
+  const addReorderFn = useServerFn(addReorderToToday);
   const qc = useQueryClient();
 
   const { data, isLoading } = useQuery({
