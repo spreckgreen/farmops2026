@@ -433,11 +433,84 @@ export const obsidianImport = createServerFn({ method: "POST" })
             { onConflict: "id" },
           );
           if (!error) summaries++;
+        } else if (kind === "inventory_item") {
+          const id = (bostead.id as string) || "";
+          const name = str(meta.name) || baseName;
+          const description = body.replace(/^#\s.*\n/, "").trim();
+          const row: Record<string, unknown> = {
+            user_id: userId,
+            name,
+            sku: str(meta.sku),
+            category: str(meta.category),
+            location: str(meta.location),
+            status: ["available", "in_use", "maintenance", "retired"].includes(meta.status as string)
+              ? (meta.status as string)
+              : "available",
+            quantity: num(meta.quantity),
+            unit: str(meta.unit),
+            min_quantity: num(meta.min_quantity),
+            reorder_level: num(meta.reorder_level),
+            unit_cost: num(meta.unit_cost),
+            vendor: str(meta.vendor),
+            barcode: str(meta.barcode) ?? "",
+            current_hours: num(meta.current_hours) ?? 0,
+            current_miles: num(meta.current_miles) ?? 0,
+            usage_tracking: str(meta.usage_tracking) ?? "none",
+            tags: Array.isArray(meta.tags) ? (meta.tags as string[]) : [],
+            description,
+          };
+          if (/^[0-9a-f-]{36}$/i.test(id)) row.id = id;
+          const { error } = await supabase.from("inventory_items").upsert(row, { onConflict: "id" });
+          if (!error) inventory++;
+        } else if (kind === "maintenance_record") {
+          const id = (bostead.id as string) || baseName;
+          if (!/^[0-9a-f-]{36}$/i.test(id)) continue;
+          const description = body.replace(/^#\s.*\n/, "").trim();
+          const consumablesUsed = Array.isArray(meta.consumables_used)
+            ? meta.consumables_used
+            : [];
+          const { error } = await supabase.from("maintenance_records").upsert(
+            {
+              id,
+              user_id: userId,
+              title: str(meta.title),
+              asset_name: str(meta.asset_name),
+              asset_id: str(meta.asset_id),
+              service_type: str(meta.service_type),
+              status: str(meta.status),
+              performed_at: str(meta.performed_at),
+              due_at: str(meta.due_at),
+              scheduled_date: str(meta.scheduled_date),
+              completed_date: str(meta.completed_date),
+              recurrence: str(meta.recurrence) ?? "none",
+              cost: num(meta.cost),
+              vendor: str(meta.vendor),
+              consumables_used: consumablesUsed as never,
+              description,
+            },
+            { onConflict: "id" },
+          );
+          if (!error) maintenance++;
+        } else if (kind === "consumable") {
+          const id = (bostead.id as string) || "";
+          const name = str(meta.name) || baseName;
+          const row: Record<string, unknown> = {
+            user_id: userId,
+            name,
+            unit: str(meta.unit) ?? "pcs",
+            category: str(meta.category) ?? "",
+            quantity_in_stock: num(meta.quantity_in_stock) ?? 0,
+            min_quantity: num(meta.min_quantity) ?? 0,
+            cost_per_unit: num(meta.cost_per_unit) ?? 0,
+          };
+          if (/^[0-9a-f-]{36}$/i.test(id)) row.id = id;
+          const { error } = await supabase.from("consumables").upsert(row, { onConflict: "id" });
+          if (!error) consumables++;
         }
       } catch {
         // skip malformed file
       }
     }
 
-    return { dailyNotes, tasks, projects, summaries };
+    return { dailyNotes, tasks, projects, summaries, inventory, maintenance, consumables };
   });
