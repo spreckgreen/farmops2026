@@ -79,11 +79,12 @@ describe("activity_log RLS: delete by daily_note_id", () => {
     expect(count).toBe(2);
   });
 
-  it("owning user can delete their own rows by daily_note_id", async () => {
+  it("owning user cannot delete their own rows by daily_note_id", async () => {
     const { error } = await userA.client
       .from("activity_log")
       .delete()
       .eq("daily_note_id", noteId);
+    // RLS silently filters — delete succeeds with no rows affected (append-only log)
     expect(error).toBeNull();
 
     const { count, error: countErr } = await admin
@@ -91,6 +92,6 @@ describe("activity_log RLS: delete by daily_note_id", () => {
       .select("*", { count: "exact", head: true })
       .eq("daily_note_id", noteId);
     expect(countErr).toBeNull();
-    expect(count).toBe(0);
+    expect(count).toBe(2);
   });
 });
