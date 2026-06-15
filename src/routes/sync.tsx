@@ -44,8 +44,7 @@ async function readAllMarkdown(root: DirHandle): Promise<ObsidianFile[]> {
     } catch {
       continue;
     }
-    // @ts-expect-error — values() is supported in browsers exposing FSA API
-    for await (const entry of dir.values()) {
+    for await (const entry of (dir as unknown as { values: () => AsyncIterable<FileSystemHandle> }).values()) {
       if (entry.kind !== "file") continue;
       if (!entry.name.toLowerCase().endsWith(".md")) continue;
       const file = await (entry as FileSystemFileHandle).getFile();

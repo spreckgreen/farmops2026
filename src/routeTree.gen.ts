@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SyncRouteImport } from './routes/sync'
 import { Route as SummariesRouteImport } from './routes/summaries'
 import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as ProjectsRouteImport } from './routes/projects'
@@ -20,6 +21,11 @@ import { Route as TasksIndexRouteImport } from './routes/tasks.index'
 import { Route as TasksSlugRouteImport } from './routes/tasks.$slug'
 import { Route as NotesDateRouteImport } from './routes/notes.$date'
 
+const SyncRoute = SyncRouteImport.update({
+  id: '/sync',
+  path: '/sync',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SummariesRoute = SummariesRouteImport.update({
   id: '/summaries',
   path: '/summaries',
@@ -79,6 +85,7 @@ export interface FileRoutesByFullPath {
   '/projects': typeof ProjectsRoute
   '/reports': typeof ReportsRoute
   '/summaries': typeof SummariesRoute
+  '/sync': typeof SyncRoute
   '/notes/$date': typeof NotesDateRoute
   '/tasks/$slug': typeof TasksSlugRoute
   '/tasks/': typeof TasksIndexRoute
@@ -91,6 +98,7 @@ export interface FileRoutesByTo {
   '/projects': typeof ProjectsRoute
   '/reports': typeof ReportsRoute
   '/summaries': typeof SummariesRoute
+  '/sync': typeof SyncRoute
   '/notes/$date': typeof NotesDateRoute
   '/tasks/$slug': typeof TasksSlugRoute
   '/tasks': typeof TasksIndexRoute
@@ -104,6 +112,7 @@ export interface FileRoutesById {
   '/projects': typeof ProjectsRoute
   '/reports': typeof ReportsRoute
   '/summaries': typeof SummariesRoute
+  '/sync': typeof SyncRoute
   '/notes/$date': typeof NotesDateRoute
   '/tasks/$slug': typeof TasksSlugRoute
   '/tasks/': typeof TasksIndexRoute
@@ -118,6 +127,7 @@ export interface FileRouteTypes {
     | '/projects'
     | '/reports'
     | '/summaries'
+    | '/sync'
     | '/notes/$date'
     | '/tasks/$slug'
     | '/tasks/'
@@ -130,6 +140,7 @@ export interface FileRouteTypes {
     | '/projects'
     | '/reports'
     | '/summaries'
+    | '/sync'
     | '/notes/$date'
     | '/tasks/$slug'
     | '/tasks'
@@ -142,6 +153,7 @@ export interface FileRouteTypes {
     | '/projects'
     | '/reports'
     | '/summaries'
+    | '/sync'
     | '/notes/$date'
     | '/tasks/$slug'
     | '/tasks/'
@@ -155,6 +167,7 @@ export interface RootRouteChildren {
   ProjectsRoute: typeof ProjectsRoute
   ReportsRoute: typeof ReportsRoute
   SummariesRoute: typeof SummariesRoute
+  SyncRoute: typeof SyncRoute
   NotesDateRoute: typeof NotesDateRoute
   TasksSlugRoute: typeof TasksSlugRoute
   TasksIndexRoute: typeof TasksIndexRoute
@@ -162,6 +175,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/sync': {
+      id: '/sync'
+      path: '/sync'
+      fullPath: '/sync'
+      preLoaderRoute: typeof SyncRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/summaries': {
       id: '/summaries'
       path: '/summaries'
@@ -243,6 +263,7 @@ const rootRouteChildren: RootRouteChildren = {
   ProjectsRoute: ProjectsRoute,
   ReportsRoute: ReportsRoute,
   SummariesRoute: SummariesRoute,
+  SyncRoute: SyncRoute,
   NotesDateRoute: NotesDateRoute,
   TasksSlugRoute: TasksSlugRoute,
   TasksIndexRoute: TasksIndexRoute,
