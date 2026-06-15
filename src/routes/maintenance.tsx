@@ -278,22 +278,22 @@ function MaintenancePage() {
           </div>
 
           {pending && (
-            <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-5 mb-8">
+            <div className="rounded-xl border border-primary/30 bg-primary/5 p-5 mb-8">
               <div className="flex items-center justify-between gap-4 flex-wrap mb-3">
                 <div className="flex items-center gap-2">
-                  <FileText className="h-4 w-4 text-amber-400" />
+                  <FileText className="h-4 w-4 text-primary" />
                   <span className="font-semibold">{pendingName}</span>
-                  <span className="text-sm text-neutral-400">
+                  <span className="text-sm text-muted-foreground">
                     · {pending.length} row{pending.length === 1 ? "" : "s"} ready
                   </span>
                 </div>
-                <div className="flex items-center gap-3">
-                  <label className="flex items-center gap-2 text-sm text-neutral-300">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <label className="flex items-center gap-2 text-sm text-foreground/80">
                     <input
                       type="checkbox"
                       checked={replace}
                       onChange={(e) => setReplace(e.target.checked)}
-                      className="accent-amber-500"
+                      className="accent-[oklch(0.78_0.17_65)]"
                     />
                     Replace all my existing records
                   </label>
@@ -310,7 +310,7 @@ function MaintenancePage() {
                   <Button
                     onClick={() => importMut.mutate()}
                     disabled={importMut.isPending}
-                    className="bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold"
+                    className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-glow"
                   >
                     {importMut.isPending ? "Importing…" : `Import ${pending.length}`}
                   </Button>
@@ -318,7 +318,7 @@ function MaintenancePage() {
               </div>
               <div className="overflow-x-auto">
                 <table className="text-xs w-full">
-                  <thead className="text-neutral-400 text-left">
+                  <thead className="text-muted-foreground text-left">
                     <tr>
                       {Object.keys(pending[0] ?? {})
                         .slice(0, 8)
@@ -331,11 +331,11 @@ function MaintenancePage() {
                   </thead>
                   <tbody>
                     {pending.slice(0, 3).map((r, i) => (
-                      <tr key={i} className="border-t border-neutral-800">
+                      <tr key={i} className="border-t border-border">
                         {Object.keys(pending[0] ?? {})
                           .slice(0, 8)
                           .map((k) => (
-                            <td key={k} className="px-2 py-1 text-neutral-300 truncate max-w-[160px]">
+                            <td key={k} className="px-2 py-1 text-muted-foreground truncate max-w-[160px]">
                               {String(r[k] ?? "")}
                             </td>
                           ))}
@@ -344,7 +344,7 @@ function MaintenancePage() {
                   </tbody>
                 </table>
                 {pending.length > 3 && (
-                  <p className="text-xs text-neutral-500 mt-2">
+                  <p className="text-xs text-muted-foreground mt-2">
                     Showing first 3 rows. Unrecognized columns are kept in a JSON field.
                   </p>
                 )}
