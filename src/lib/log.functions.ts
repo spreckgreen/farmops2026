@@ -30,17 +30,47 @@ export const refreshDailyNoteFromLog = createServerFn({ method: "POST" })
     const { supabase } = context;
     const { data: entries, error } = await supabase
       .from("activity_log")
-      .select("raw_content, created_at")
+      .select("id, raw_content, created_at")
       .eq("daily_note_id", data.noteId)
       .order("created_at", { ascending: true });
     if (error) throw new Error(error.message);
+
+    // Dedupe activity_log rows: identical raw_content (trimmed) within the
+    // same note collapses to the earliest entry. Removes duplicate IDs from
+    // the database so subsequent refresh/commit cycles stay clean.
+    const seen = new Map<string, string>(); // raw -> kept id
+    const duplicateIds: string[] = [];
+    for (const e of entries ?? []) {
+      const raw = (e.raw_content ?? "").trim();
+      if (!raw) {
+        duplicateIds.push(e.id);
+        continue;
+      }
+      if (seen.has(raw)) {
+        duplicateIds.push(e.id);
+      } else {
+        seen.set(raw, e.id);
+      }
+    }
+    if (duplicateIds.length > 0) {
+      const { error: delErr } = await supabase
+        .from("activity_log")
+        .delete()
+        .in("id", duplicateIds);
+      if (delErr) throw new Error(delErr.message);
+    }
+
     const markdown = rebuildMarkdownFromEntries(entries ?? []);
     const { error: updErr } = await supabase
       .from("daily_notes")
       .update({ markdown_content: markdown })
       .eq("id", data.noteId);
     if (updErr) throw new Error(updErr.message);
-    return { markdown, restored: (entries ?? []).length };
+    return {
+      markdown,
+      restored: (entries ?? []).length - duplicateIds.length,
+      deduped: duplicateIds.length,
+    };
   });
 
 
