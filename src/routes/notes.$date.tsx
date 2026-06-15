@@ -33,9 +33,16 @@ Untagged thoughts stay here in the note and don't enter the activity log.
 
 function NotePage() {
   const { date } = useParams({ from: "/notes/$date" });
+  const navigate = useNavigate();
   const fetchNote = useServerFn(getDailyNote);
   const saveFn = useServerFn(saveDailyNote);
   const qc = useQueryClient();
+
+  const today = format(new Date(), "yyyy-MM-dd");
+  const shift = (days: number) => {
+    const next = format(addDays(parseISO(date), days), "yyyy-MM-dd");
+    navigate({ to: "/notes/$date", params: { date: next } });
+  };
 
   const query = useQuery({
     queryKey: ["daily-note", date],
