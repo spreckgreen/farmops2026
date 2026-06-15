@@ -104,18 +104,30 @@ export const importInventory = createServerFn({ method: "POST" })
         if ((KNOWN as readonly string[]).includes(k)) known[k] = v;
         else extra[k] = v;
       }
+      // Sync reorder_level <-> min_quantity (WP uses min_quantity)
+      const reorder = toNumber(known.reorder_level);
+      const minQty = toNumber(known.min_quantity);
       return {
         user_id: userId,
         sku: (known.sku as string | null | undefined) ?? null,
         name: (known.name as string | null | undefined) ?? null,
+        description: (known.description as string | null | undefined) ?? null,
         category: (known.category as string | null | undefined) ?? null,
         location: (known.location as string | null | undefined) ?? null,
         quantity: toNumber(known.quantity),
         unit: (known.unit as string | null | undefined) ?? null,
-        reorder_level: toNumber(known.reorder_level),
+        reorder_level: reorder ?? minQty,
+        min_quantity: minQty ?? reorder,
         unit_cost: toNumber(known.unit_cost),
         vendor: (known.vendor as string | null | undefined) ?? null,
         notes: (known.notes as string | null | undefined) ?? null,
+        status: toStatus(known.status),
+        tags: toTags(known.tags) ?? [],
+        barcode: (known.barcode as string | null | undefined) ?? null,
+        current_hours: toNumber(known.current_hours) ?? 0,
+        current_miles: toNumber(known.current_miles) ?? 0,
+        usage_tracking:
+          (known.usage_tracking as string | null | undefined) ?? "none",
         raw: extra,
       };
     });
