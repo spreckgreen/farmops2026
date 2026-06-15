@@ -75,29 +75,46 @@ function NotePage() {
     onError: (e) => toast.error(e instanceof Error ? e.message : "Save failed"),
   });
 
-  // Keep a ref to the latest draft so the unmount-time flush sees current text.
+  // Keep a ref to the latest draft so flush callbacks see current text.
   const draftRef = useRef<string>("");
   useEffect(() => {
     draftRef.current = draft;
   }, [draft]);
 
-  // Defer saving (and any task creation) until the user leaves the Today tab.
-  // Flush on unmount and also on browser tab close/refresh.
+  // Debounced auto-save: persist changes ~800ms after the user stops typing.
+  // This avoids the race where navigating away fires an in-flight save and
+  // the next mount refetches stale content before the save lands.
+  useEffect(() => {
+    if (!query.data) return;
+    if (draft === lastSavedRef.current) return;
+    const noteId = query.data.note.id;
+    const snapshot = draft;
+    const t = setTimeout(() => {
+      mutation.mutate(snapshot, {
+        onSuccess: () => {
+          lastSavedRef.current = snapshot;
+          qc.invalidateQueries({ queryKey: ["daily-note", date] });
+        },
+      });
+    }, 800);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft, query.data?.note.id, date]);
+
+  // Flush on unmount / tab close so an in-flight debounce doesn't lose edits.
   useEffect(() => {
     if (!query.data) return;
     const noteId = query.data.note.id;
-
     const flush = () => {
       const current = draftRef.current;
       if (current === lastSavedRef.current) return;
       lastSavedRef.current = current;
-      // Fire-and-forget; the route may already be unmounting.
-      saveFn({ data: { noteId, date, markdown: current } }).catch(() => {});
+      saveFn({ data: { noteId, date, markdown: current } })
+        .then(() => qc.invalidateQueries({ queryKey: ["daily-note", date] }))
+        .catch(() => {});
     };
-
     const onBeforeUnload = () => flush();
     window.addEventListener("beforeunload", onBeforeUnload);
-
     return () => {
       window.removeEventListener("beforeunload", onBeforeUnload);
       flush();
