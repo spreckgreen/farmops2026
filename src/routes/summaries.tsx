@@ -119,6 +119,9 @@ function SummariesPage() {
             Export TiddlyWiki
           </Button>
           <TiddlyWikiImportButton kind="summaries" />
+          <Button variant="outline" onClick={() => quarterly.mutate()} disabled={quarterly.isPending}>
+            {quarterly.isPending ? "…" : "Quarterly review (2y)"}
+          </Button>
           <Button variant="outline" onClick={() => rollup.mutate()} disabled={rollup.isPending}>
             {rollup.isPending ? "…" : "Project rollup"}
           </Button>
