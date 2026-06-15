@@ -17,6 +17,7 @@ import {
   tiddlersFromSummaries,
   type SummaryRow,
 } from "@/lib/tiddlywiki-export";
+import { TiddlyWikiImportButton } from "@/components/tiddlywiki-import-button";
 
 export const Route = createFileRoute("/summaries")({
   ssr: false,
@@ -103,6 +104,7 @@ function SummariesPage() {
             <Download className="h-4 w-4 mr-1.5" />
             Export TiddlyWiki
           </Button>
+          <TiddlyWikiImportButton kind="summaries" />
           <Button variant="outline" onClick={() => rollup.mutate()} disabled={rollup.isPending}>
             {rollup.isPending ? "…" : "Project rollup"}
           </Button>
