@@ -18,9 +18,20 @@ export const getDailyNote = createServerFn({ method: "POST" })
 
     let note = existing;
     if (!note) {
+      // Seed a new note with the most recent previous day's content so the
+      // user can pick up where they left off.
+      const { data: prior } = await supabase
+        .from("daily_notes")
+        .select("markdown_content")
+        .lt("date", data.date)
+        .order("date", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const seed = prior?.markdown_content ?? "";
       const { data: created, error } = await supabase
         .from("daily_notes")
-        .insert({ date: data.date, user_id: userId, markdown_content: "" })
+        .insert({ date: data.date, user_id: userId, markdown_content: seed })
         .select()
         .single();
       if (error) throw new Error(error.message);
