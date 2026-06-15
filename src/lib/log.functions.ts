@@ -25,7 +25,14 @@ function rebuildMarkdownFromEntries(entries: { raw_content: string; created_at: 
 // the underlying log still holds the data.
 export const refreshDailyNoteFromLog = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => z.object({ noteId: z.string().uuid() }).parse(d))
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        noteId: z.string().uuid(),
+        currentMarkdown: z.string().optional(),
+      })
+      .parse(d),
+  )
   .handler(async ({ data, context }) => {
     const { supabase } = context;
     const { data: entries, error } = await supabase
@@ -60,7 +67,33 @@ export const refreshDailyNoteFromLog = createServerFn({ method: "POST" })
       if (delErr) throw new Error(delErr.message);
     }
 
-    const markdown = rebuildMarkdownFromEntries(entries ?? []);
+    const rebuilt = rebuildMarkdownFromEntries(entries ?? []);
+
+    // Safe merge: preserve any lines the user typed in the editor since the
+    // last commit. Lines from the current draft that are NOT already present
+    // in the rebuilt-from-log markdown are appended at the bottom, in their
+    // original order. Whitespace-only lines and exact duplicates are skipped.
+    const rebuiltLines = new Set(
+      rebuilt
+        .split("\n")
+        .map((l) => l.trim())
+        .filter(Boolean),
+    );
+    const draftOnly: string[] = [];
+    const seenDraft = new Set<string>();
+    for (const rawLine of (data.currentMarkdown ?? "").split("\n")) {
+      const trimmed = rawLine.trim();
+      if (!trimmed) continue;
+      if (rebuiltLines.has(trimmed)) continue;
+      if (seenDraft.has(trimmed)) continue;
+      seenDraft.add(trimmed);
+      draftOnly.push(trimmed);
+    }
+    const markdown =
+      draftOnly.length > 0
+        ? (rebuilt ? rebuilt + "\n" : "") + draftOnly.join("\n")
+        : rebuilt;
+
     const { error: updErr } = await supabase
       .from("daily_notes")
       .update({ markdown_content: markdown })
@@ -70,6 +103,7 @@ export const refreshDailyNoteFromLog = createServerFn({ method: "POST" })
       markdown,
       restored: (entries ?? []).length - duplicateIds.length,
       deduped: duplicateIds.length,
+      preserved: draftOnly.length,
     };
   });
 
