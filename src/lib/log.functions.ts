@@ -157,8 +157,8 @@ export const refreshDailyNoteFromLog = createServerFn({ method: "POST" })
     for (const rawLine of (data.currentMarkdown ?? "").split("\n")) {
       const trimmed = normalizeLogLine(rawLine);
       if (!trimmed) continue;
-      if (findDuplicateLineIndex(rebuiltLines, trimmed) !== -1) continue;
-      if (findDuplicateLineIndex(draftOnly, trimmed) !== -1) continue;
+      if (lineMatchesAny(rebuiltLines, trimmed)) continue;
+      if (lineMatchesAny(draftOnly, trimmed)) continue;
       draftOnly.push(trimmed);
     }
     const markdown =
