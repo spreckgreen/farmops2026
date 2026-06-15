@@ -180,7 +180,7 @@ function BacklogPage() {
         )}
 
         {isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
-        {!isLoading && (data?.length ?? 0) === 0 && dueItems.length === 0 && (
+        {!isLoading && (data?.length ?? 0) === 0 && dueItems.length === 0 && reorderItems.length === 0 && (
           <p className="text-sm text-muted-foreground">Backlog is empty.</p>
         )}
         {(["open", "blocked"] as const).map((status) =>
