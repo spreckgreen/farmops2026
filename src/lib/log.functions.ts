@@ -1180,3 +1180,158 @@ export const addTaskToToday = createServerFn({ method: "POST" })
 
     return { ok: true as const, taskId: task.id };
   });
+
+// ============================================================
+// Maintenance → Backlog: items due within the current month.
+// ============================================================
+
+export const listDueMaintenance = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional() })
+      .optional()
+      .parse(d ?? {}),
+  )
+  .handler(async ({ context, data }) => {
+    const { supabase, userId } = context;
+    const today =
+      data?.date ??
+      new Date().toLocaleDateString("en-CA", { timeZone: "UTC" });
+    const [y, m] = today.split("-").map(Number);
+    const monthStart = `${y}-${String(m).padStart(2, "0")}-01`;
+    const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate();
+    const monthEnd = `${y}-${String(m).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+
+    const { data: records, error } = await supabase
+      .from("maintenance_records")
+      .select("id, title, asset_name, service_type, status, due_at, scheduled_date, completed_date")
+      .eq("user_id", userId);
+    if (error) throw new Error(error.message);
+
+    const inMonth = (records ?? []).filter((r) => {
+      if (r.completed_date) return false;
+      if ((r.status ?? "").toLowerCase() === "completed" || (r.status ?? "").toLowerCase() === "done") return false;
+      const due = r.due_at ?? (r.scheduled_date ? r.scheduled_date.slice(0, 10) : null);
+      if (!due) return false;
+      return due >= monthStart && due <= monthEnd;
+    });
+
+    // Hide ones that already have a matching task in the backlog or today.
+    const { data: existingTasks } = await supabase
+      .from("tasks")
+      .select("slug, status");
+    const taskSlugs = new Set(
+      (existingTasks ?? [])
+        .filter((t) => t.status !== "done")
+        .map((t) => t.slug),
+    );
+
+    return inMonth
+      .map((r) => {
+        const label =
+          r.title ??
+          [r.service_type, r.asset_name].filter(Boolean).join(" — ") ??
+          "Maintenance";
+        const slug = slugify(`maint ${label}`);
+        return {
+          id: r.id,
+          title: label,
+          due_at: r.due_at ?? (r.scheduled_date ? r.scheduled_date.slice(0, 10) : null),
+          asset_name: r.asset_name,
+          service_type: r.service_type,
+          slug,
+          alreadyQueued: taskSlugs.has(slug),
+        };
+      })
+      .sort((a, b) => (a.due_at ?? "").localeCompare(b.due_at ?? ""));
+  });
+
+export const addMaintenanceToToday = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ maintenanceId: z.string().uuid() }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { data: rec, error: recErr } = await supabase
+      .from("maintenance_records")
+      .select("id, title, asset_name, service_type")
+      .eq("id", data.maintenanceId)
+      .maybeSingle();
+    if (recErr) throw new Error(recErr.message);
+    if (!rec) throw new Error("Maintenance record not found");
+
+    const label =
+      rec.title ??
+      [rec.service_type, rec.asset_name].filter(Boolean).join(" — ") ??
+      "Maintenance";
+    const slug = slugify(`maint ${label}`);
+
+    // Find or create task.
+    let { data: task } = await supabase
+      .from("tasks")
+      .select("id, slug, title")
+      .eq("user_id", userId)
+      .eq("slug", slug)
+      .maybeSingle();
+    if (!task) {
+      const { data: created, error: insErr } = await supabase
+        .from("tasks")
+        .insert({
+          user_id: userId,
+          slug,
+          title: label,
+          status: "open",
+          project_tags: ["maintenance"],
+        })
+        .select("id, slug, title")
+        .single();
+      if (insErr) throw new Error(insErr.message);
+      task = created;
+    }
+
+    // Reuse the same today-attach flow.
+    const date = new Date().toLocaleDateString("en-CA", { timeZone: "UTC" });
+    let { data: note } = await supabase
+      .from("daily_notes")
+      .select("id, markdown_content")
+      .eq("user_id", userId)
+      .eq("date", date)
+      .maybeSingle();
+    if (!note) {
+      const { data: created, error: nErr } = await supabase
+        .from("daily_notes")
+        .insert({ user_id: userId, date, markdown_content: "" })
+        .select("id, markdown_content")
+        .single();
+      if (nErr) throw new Error(nErr.message);
+      note = created;
+    }
+
+    const refLine = `- #task/${task.slug} ${task.title}`;
+    const current = note.markdown_content ?? "";
+    if (!current.includes(`#task/${task.slug}`)) {
+      const next = current.trim().length ? `${current.trimEnd()}\n${refLine}\n` : `${refLine}\n`;
+      await supabase.from("daily_notes").update({ markdown_content: next }).eq("id", note.id);
+    }
+
+    const { data: existing } = await supabase
+      .from("activity_log")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("daily_note_id", note.id)
+      .eq("task_id", task.id)
+      .limit(1);
+    if (!existing || existing.length === 0) {
+      await supabase.from("activity_log").insert({
+        user_id: userId,
+        task_id: task.id,
+        daily_note_id: note.id,
+        entry_type: "note",
+        raw_content: refLine,
+      });
+    }
+
+    return { ok: true as const, taskId: task.id, slug: task.slug };
+  });
