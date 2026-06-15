@@ -231,6 +231,67 @@ export const obsidianExport = createServerFn({ method: "GET" })
       files.push({ path: `Summaries/${s.id}.md`, content: buildFile(meta, body) });
     }
 
+    for (const i of inventoryQ.data ?? []) {
+      const slug = safeSlug(i.name || i.sku || "", i.id);
+      const meta = {
+        bostead: { kind: "inventory_item", id: i.id, slug },
+        name: i.name ?? "",
+        sku: i.sku ?? "",
+        category: i.category ?? "",
+        location: i.location ?? "",
+        status: i.status,
+        quantity: i.quantity ?? "",
+        unit: i.unit ?? "",
+        min_quantity: i.min_quantity ?? "",
+        reorder_level: i.reorder_level ?? "",
+        unit_cost: i.unit_cost ?? "",
+        vendor: i.vendor ?? "",
+        barcode: i.barcode ?? "",
+        current_hours: i.current_hours,
+        current_miles: i.current_miles,
+        usage_tracking: i.usage_tracking,
+        tags: (i.tags ?? []) as string[],
+      };
+      const body = `# ${i.name ?? "Inventory item"}\n\n${i.description ?? ""}\n\n${i.notes ?? ""}\n`;
+      files.push({ path: `Inventory/${slug}.md`, content: buildFile(meta, body) });
+    }
+
+    for (const m of maintenanceQ.data ?? []) {
+      const meta = {
+        bostead: { kind: "maintenance_record", id: m.id, asset_id: m.asset_id ?? "" },
+        title: m.title ?? "",
+        asset_name: m.asset_name ?? "",
+        asset_id: m.asset_id ?? "",
+        service_type: m.service_type ?? "",
+        status: m.status ?? "",
+        performed_at: m.performed_at ?? "",
+        due_at: m.due_at ?? "",
+        scheduled_date: m.scheduled_date ?? "",
+        completed_date: m.completed_date ?? "",
+        recurrence: m.recurrence ?? "",
+        cost: m.cost ?? "",
+        vendor: m.vendor ?? "",
+        consumables_used: m.consumables_used ?? [],
+      };
+      const body = `# ${m.title ?? m.asset_name ?? "Maintenance"}\n\n${m.description ?? ""}\n\n${m.notes ?? ""}\n`;
+      files.push({ path: `Maintenance/${m.id}.md`, content: buildFile(meta, body) });
+    }
+
+    for (const c of consumablesQ.data ?? []) {
+      const slug = safeSlug(c.name || "", c.id);
+      const meta = {
+        bostead: { kind: "consumable", id: c.id, slug },
+        name: c.name,
+        unit: c.unit ?? "",
+        category: c.category ?? "",
+        quantity_in_stock: c.quantity_in_stock,
+        min_quantity: c.min_quantity,
+        cost_per_unit: c.cost_per_unit ?? "",
+      };
+      const body = `# ${c.name}\n`;
+      files.push({ path: `Consumables/${slug}.md`, content: buildFile(meta, body) });
+    }
+
     return { files };
   });
 
