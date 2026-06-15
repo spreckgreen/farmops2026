@@ -210,6 +210,7 @@ export type SummaryRow = {
   edited_summary: unknown;
   status: string | null;
   created_at: string;
+  display_title?: string | null;
   scope_task?: { slug: string; title: string } | null;
 };
 
