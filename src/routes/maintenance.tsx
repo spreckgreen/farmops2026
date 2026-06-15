@@ -1,19 +1,176 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useState, useRef } from "react";
+import Papa from "papaparse";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { AppLayout } from "@/components/app-layout";
 import { Button } from "@/components/ui/button";
-import { Wrench, Plus, Calendar, AlertTriangle } from "lucide-react";
+import { requireAuthenticatedUser } from "@/lib/auth-route";
+import {
+  importMaintenance,
+  listMaintenance,
+  deleteMaintenance,
+} from "@/lib/maintenance.functions";
+import {
+  Wrench,
+  Plus,
+  Calendar,
+  AlertTriangle,
+  Upload,
+  FileText,
+  Trash2,
+} from "lucide-react";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/maintenance")({
+  ssr: false,
+  beforeLoad: requireAuthenticatedUser,
   head: () => ({
     meta: [
       { title: "Maintenance — Bostead Farms" },
-      { name: "description", content: "Service and maintenance records for Bostead Farms equipment." },
+      {
+        name: "description",
+        content: "Service and maintenance records for Bostead Farms equipment.",
+      },
     ],
   }),
   component: MaintenancePage,
 });
 
+// Map common header variants → our canonical field names.
+const HEADER_ALIASES: Record<string, string> = {
+  asset: "asset_name",
+  "asset name": "asset_name",
+  equipment: "asset_name",
+  item: "asset_name",
+  service: "service_type",
+  "service type": "service_type",
+  type: "service_type",
+  status: "status",
+  state: "status",
+  "performed at": "performed_at",
+  "performed on": "performed_at",
+  "service date": "performed_at",
+  date: "performed_at",
+  "completed at": "performed_at",
+  "due at": "due_at",
+  "next due": "due_at",
+  "due date": "due_at",
+  cost: "cost",
+  amount: "cost",
+  price: "cost",
+  vendor: "vendor",
+  supplier: "vendor",
+  technician: "vendor",
+  notes: "notes",
+  note: "notes",
+  description: "notes",
+  comment: "notes",
+  comments: "notes",
+};
+
+function normalizeHeader(h: string): string {
+  return h.trim().toLowerCase().replace(/[_-]+/g, " ");
+}
+
+function mapRowKeys(row: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(row)) {
+    if (v === undefined || v === null || v === "") continue;
+    const norm = normalizeHeader(k);
+    const mapped = HEADER_ALIASES[norm] ?? norm.replace(/\s+/g, "_");
+    out[mapped] = v;
+  }
+  return out;
+}
+
+async function parseFile(file: File): Promise<Record<string, unknown>[]> {
+  const text = await file.text();
+  const lower = file.name.toLowerCase();
+  if (lower.endsWith(".json")) {
+    const parsed = JSON.parse(text);
+    const arr = Array.isArray(parsed)
+      ? parsed
+      : Array.isArray((parsed as { records?: unknown }).records)
+        ? ((parsed as { records: unknown[] }).records as unknown[])
+        : null;
+    if (!arr) throw new Error("JSON must be an array or {records:[…]}");
+    return arr.map((r) => mapRowKeys(r as Record<string, unknown>));
+  }
+  // CSV
+  const result = Papa.parse<Record<string, unknown>>(text, {
+    header: true,
+    skipEmptyLines: true,
+    dynamicTyping: false,
+  });
+  if (result.errors.length) {
+    const first = result.errors[0];
+    throw new Error(`CSV parse error: ${first.message} (row ${first.row})`);
+  }
+  return (result.data ?? []).map((r) => mapRowKeys(r));
+}
+
 function MaintenancePage() {
+  const qc = useQueryClient();
+  const listFn = useServerFn(listMaintenance);
+  const importFn = useServerFn(importMaintenance);
+  const deleteFn = useServerFn(deleteMaintenance);
+
+  const { data: records = [], isLoading } = useQuery({
+    queryKey: ["maintenance"],
+    queryFn: () => listFn(),
+  });
+
+  const [pending, setPending] = useState<Record<string, unknown>[] | null>(null);
+  const [pendingName, setPendingName] = useState<string>("");
+  const [replace, setReplace] = useState(false);
+  const fileRef = useRef<HTMLInputElement | null>(null);
+
+  const importMut = useMutation({
+    mutationFn: async () => {
+      if (!pending) return null;
+      return importFn({ data: { records: pending as never[], replace } });
+    },
+    onSuccess: (res) => {
+      if (res) {
+        toast.success(`Imported ${res.inserted} record${res.inserted === 1 ? "" : "s"}`);
+        setPending(null);
+        setPendingName("");
+        if (fileRef.current) fileRef.current.value = "";
+        qc.invalidateQueries({ queryKey: ["maintenance"] });
+      }
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Import failed"),
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: (id: string) => deleteFn({ data: { id } }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["maintenance"] }),
+  });
+
+  const onFile = async (file: File) => {
+    try {
+      const rows = await parseFile(file);
+      if (rows.length === 0) {
+        toast.error("No rows found in file");
+        return;
+      }
+      setPending(rows);
+      setPendingName(file.name);
+      toast.success(`Parsed ${rows.length} row${rows.length === 1 ? "" : "s"} from ${file.name}`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not parse file");
+    }
+  };
+
+  const stats = {
+    total: records.length,
+    open: records.filter((r) => (r.status ?? "").toLowerCase() !== "done").length,
+    overdue: records.filter(
+      (r) => r.due_at && new Date(r.due_at) < new Date() && (r.status ?? "").toLowerCase() !== "done",
+    ).length,
+  };
+
   return (
     <AppLayout>
       <div className="min-h-[calc(100vh-3.5rem)] bg-[#0a0a0a] text-neutral-100">
@@ -27,21 +184,43 @@ function MaintenancePage() {
                 Keep every asset <span className="text-amber-400">running smoothly.</span>
               </h1>
               <p className="mt-3 text-neutral-400 max-w-2xl">
-                Track service intervals, log repairs, and schedule preventative maintenance across the farm.
+                Track service intervals, log repairs, and import existing records from CSV or JSON.
               </p>
             </div>
-            <Button className="bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold shrink-0">
-              <Plus className="h-4 w-4 mr-1" /> New record
-            </Button>
+            <div className="flex gap-2 shrink-0">
+              <input
+                ref={fileRef}
+                type="file"
+                accept=".csv,.json,text/csv,application/json"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) void onFile(f);
+                }}
+              />
+              <Button
+                onClick={() => fileRef.current?.click()}
+                variant="outline"
+                className="border-amber-500/40 text-amber-400 hover:bg-amber-500/10"
+              >
+                <Upload className="h-4 w-4 mr-1" /> Import file
+              </Button>
+              <Button className="bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold">
+                <Plus className="h-4 w-4 mr-1" /> New record
+              </Button>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
             {[
-              { label: "Open work orders", value: "0", icon: Wrench },
-              { label: "Due this week", value: "0", icon: Calendar },
-              { label: "Overdue", value: "0", icon: AlertTriangle },
+              { label: "Total records", value: String(stats.total), icon: Wrench },
+              { label: "Open / scheduled", value: String(stats.open), icon: Calendar },
+              { label: "Overdue", value: String(stats.overdue), icon: AlertTriangle },
             ].map((s) => (
-              <div key={s.label} className="rounded-xl border border-neutral-800 bg-neutral-900/60 p-5">
+              <div
+                key={s.label}
+                className="rounded-xl border border-neutral-800 bg-neutral-900/60 p-5"
+              >
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm text-neutral-400">{s.label}</span>
                   <s.icon className="h-4 w-4 text-amber-400" />
@@ -51,14 +230,147 @@ function MaintenancePage() {
             ))}
           </div>
 
-          <div className="rounded-xl border border-neutral-800 bg-neutral-900/40 p-10 text-center">
-            <Wrench className="h-10 w-10 text-amber-400 mx-auto mb-3" />
-            <h2 className="text-xl font-semibold mb-1">No maintenance records yet</h2>
-            <p className="text-neutral-400 mb-4">Add your first service record to start tracking.</p>
-            <Button className="bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold">
-              <Plus className="h-4 w-4 mr-1" /> New record
-            </Button>
-          </div>
+          {pending && (
+            <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-5 mb-8">
+              <div className="flex items-center justify-between gap-4 flex-wrap mb-3">
+                <div className="flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-amber-400" />
+                  <span className="font-semibold">{pendingName}</span>
+                  <span className="text-sm text-neutral-400">
+                    · {pending.length} row{pending.length === 1 ? "" : "s"} ready
+                  </span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <label className="flex items-center gap-2 text-sm text-neutral-300">
+                    <input
+                      type="checkbox"
+                      checked={replace}
+                      onChange={(e) => setReplace(e.target.checked)}
+                      className="accent-amber-500"
+                    />
+                    Replace all my existing records
+                  </label>
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      setPending(null);
+                      setPendingName("");
+                      if (fileRef.current) fileRef.current.value = "";
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={() => importMut.mutate()}
+                    disabled={importMut.isPending}
+                    className="bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold"
+                  >
+                    {importMut.isPending ? "Importing…" : `Import ${pending.length}`}
+                  </Button>
+                </div>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="text-xs w-full">
+                  <thead className="text-neutral-400 text-left">
+                    <tr>
+                      {Object.keys(pending[0] ?? {})
+                        .slice(0, 8)
+                        .map((k) => (
+                          <th key={k} className="px-2 py-1 font-medium">
+                            {k}
+                          </th>
+                        ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pending.slice(0, 3).map((r, i) => (
+                      <tr key={i} className="border-t border-neutral-800">
+                        {Object.keys(pending[0] ?? {})
+                          .slice(0, 8)
+                          .map((k) => (
+                            <td key={k} className="px-2 py-1 text-neutral-300 truncate max-w-[160px]">
+                              {String(r[k] ?? "")}
+                            </td>
+                          ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {pending.length > 3 && (
+                  <p className="text-xs text-neutral-500 mt-2">
+                    Showing first 3 rows. Unrecognized columns are kept in a JSON field.
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {isLoading ? (
+            <div className="rounded-xl border border-neutral-800 bg-neutral-900/40 p-10 text-center text-neutral-400">
+              Loading records…
+            </div>
+          ) : records.length === 0 ? (
+            <div className="rounded-xl border border-neutral-800 bg-neutral-900/40 p-10 text-center">
+              <Wrench className="h-10 w-10 text-amber-400 mx-auto mb-3" />
+              <h2 className="text-xl font-semibold mb-1">No maintenance records yet</h2>
+              <p className="text-neutral-400 mb-4">
+                Upload a CSV/JSON export to bring records forward, or add your first one.
+              </p>
+              <div className="flex justify-center gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => fileRef.current?.click()}
+                  className="border-amber-500/40 text-amber-400 hover:bg-amber-500/10"
+                >
+                  <Upload className="h-4 w-4 mr-1" /> Import file
+                </Button>
+                <Button className="bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold">
+                  <Plus className="h-4 w-4 mr-1" /> New record
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-xl border border-neutral-800 bg-neutral-900/40 overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-neutral-900/80 text-neutral-400 text-left">
+                  <tr>
+                    <th className="px-4 py-2 font-medium">Asset</th>
+                    <th className="px-4 py-2 font-medium">Service</th>
+                    <th className="px-4 py-2 font-medium">Status</th>
+                    <th className="px-4 py-2 font-medium">Performed</th>
+                    <th className="px-4 py-2 font-medium">Due</th>
+                    <th className="px-4 py-2 font-medium">Cost</th>
+                    <th className="px-4 py-2 font-medium">Vendor</th>
+                    <th className="px-4 py-2"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {records.map((r) => (
+                    <tr key={r.id} className="border-t border-neutral-800">
+                      <td className="px-4 py-2">{r.asset_name ?? "—"}</td>
+                      <td className="px-4 py-2 text-neutral-300">{r.service_type ?? "—"}</td>
+                      <td className="px-4 py-2 text-neutral-300">{r.status ?? "—"}</td>
+                      <td className="px-4 py-2 text-neutral-300">{r.performed_at ?? "—"}</td>
+                      <td className="px-4 py-2 text-neutral-300">{r.due_at ?? "—"}</td>
+                      <td className="px-4 py-2 text-neutral-300">
+                        {r.cost != null ? `$${Number(r.cost).toFixed(2)}` : "—"}
+                      </td>
+                      <td className="px-4 py-2 text-neutral-300">{r.vendor ?? "—"}</td>
+                      <td className="px-4 py-2 text-right">
+                        <button
+                          onClick={() => deleteMut.mutate(r.id)}
+                          className="text-neutral-500 hover:text-red-400"
+                          aria-label="Delete record"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
     </AppLayout>
