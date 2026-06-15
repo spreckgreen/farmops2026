@@ -135,13 +135,18 @@ export const importInventory = createServerFn({ method: "POST" })
     if (mode === "merge") {
       const { data: existing, error: exErr } = await supabase
         .from("inventory_items")
-        .select("id, sku, name")
+        .select("id, sku, name, barcode")
         .eq("user_id", userId);
       if (exErr) throw new Error(exErr.message);
 
+      const keyOf = (row: { sku: string | null; name: string | null; barcode: string | null }) =>
+        normKey(
+          mergeKey === "sku" ? row.sku : mergeKey === "barcode" ? row.barcode : row.name,
+        );
+
       const index = new Map<string, string>();
       for (const row of existing ?? []) {
-        const key = normKey(mergeKey === "sku" ? row.sku : row.name);
+        const key = keyOf(row);
         if (key && !index.has(key)) index.set(key, row.id);
       }
 
@@ -149,7 +154,7 @@ export const importInventory = createServerFn({ method: "POST" })
       let inserted = 0;
       const toInsert: typeof rows = [];
       for (const r of rows) {
-        const key = normKey(mergeKey === "sku" ? r.sku : r.name);
+        const key = keyOf({ sku: r.sku, name: r.name, barcode: r.barcode });
         const id = key ? index.get(key) : undefined;
         if (id) {
           const { user_id: _u, ...patch } = r;
