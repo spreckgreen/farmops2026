@@ -143,7 +143,7 @@ export const importInventory = createServerFn({ method: "POST" })
       if (error) throw new Error(error.message);
       inserted += chunk.length;
     }
-    return { inserted };
+    return { inserted, updated: 0, mode, mergeKey };
   });
 
 export const listInventory = createServerFn({ method: "GET" })
