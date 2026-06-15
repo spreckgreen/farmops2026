@@ -438,7 +438,11 @@ export type Database = {
         | "commit"
         | "meeting"
         | "note"
-      summary_mode: "task_update" | "project_rollup" | "weekly_report"
+      summary_mode:
+        | "task_update"
+        | "project_rollup"
+        | "weekly_report"
+        | "quarter_review"
       summary_status: "draft" | "reviewed" | "published"
       task_status: "open" | "blocked" | "done"
     }
@@ -576,7 +580,12 @@ export const Constants = {
         "meeting",
         "note",
       ],
-      summary_mode: ["task_update", "project_rollup", "weekly_report"],
+      summary_mode: [
+        "task_update",
+        "project_rollup",
+        "weekly_report",
+        "quarter_review",
+      ],
       summary_status: ["draft", "reviewed", "published"],
       task_status: ["open", "blocked", "done"],
     },

@@ -1,0 +1,1 @@
+ALTER TYPE public.summary_mode ADD VALUE IF NOT EXISTS 'quarter_review';
