@@ -273,18 +273,18 @@ function InventoryPage() {
                   toast.success(`Exported ${items.length} item${items.length === 1 ? "" : "s"}`);
                 }}
                 variant="ghost"
-                className="text-neutral-400 hover:text-amber-400"
+                className="text-muted-foreground hover:text-primary"
               >
                 <Download className="h-4 w-4 mr-1" /> Export
               </Button>
               <Button
                 onClick={() => fileRef.current?.click()}
                 variant="outline"
-                className="border-amber-500/40 text-amber-400 hover:bg-amber-500/10"
+                className="border-primary/40 text-primary hover:bg-primary/10"
               >
                 <Upload className="h-4 w-4 mr-1" /> Import file
               </Button>
-              <Button className="bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold">
+              <Button className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-glow">
                 <Plus className="h-4 w-4 mr-1" /> New item
               </Button>
             </div>
