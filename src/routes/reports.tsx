@@ -43,6 +43,10 @@ export const Route = createFileRoute("/reports")({
 });
 
 const ALL = "__all__";
+const REPEAT_ALL = "__all__";
+const REPEAT_YES = "__repeat__";
+const REPEAT_NO = "__no_repeat__";
+
 const fmt = (d: string | null | undefined) =>
   d ? format(new Date(d), "MMM d, yyyy · HH:mm") : "—";
 
@@ -50,11 +54,19 @@ function ReportsPage() {
   const tagsFn = useServerFn(listProjectTags);
   const tasksFn = useServerFn(listScheduledTasks);
   const [tag, setTag] = useState<string>(ALL);
+  const [repeatFilter, setRepeatFilter] = useState<string>(REPEAT_ALL);
 
   const tagsQ = useQuery({ queryKey: ["project-tags"], queryFn: () => tagsFn() });
   const tasksQ = useQuery({
     queryKey: ["scheduled-tasks", tag],
     queryFn: () => tasksFn({ data: { tag: tag === ALL ? null : tag } }),
+  });
+
+  const filteredTasks = (tasksQ.data ?? []).filter((t) => {
+    if (repeatFilter === REPEAT_ALL) return true;
+    const isRepeating = t.recurrence && t.recurrence !== "none";
+    if (repeatFilter === REPEAT_YES) return isRepeating;
+    return !isRepeating;
   });
 
   return (
@@ -85,6 +97,21 @@ function ReportsPage() {
                       #project/{t}
                     </SelectItem>
                   ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="w-48">
+              <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1 block">
+                Repeats
+              </label>
+              <Select value={repeatFilter} onValueChange={setRepeatFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={REPEAT_ALL}>All</SelectItem>
+                  <SelectItem value={REPEAT_YES}>Repeating only</SelectItem>
+                  <SelectItem value={REPEAT_NO}>Non-repeating only</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -127,18 +154,14 @@ function ReportsPage() {
         {tasksQ.isLoading && (
           <p className="text-sm text-muted-foreground">Loading…</p>
         )}
-        {tasksQ.data && tasksQ.data.length === 0 && (
+        {tasksQ.data && filteredTasks.length === 0 && (
           <p className="text-sm text-muted-foreground">
-            No scheduled tasks{tag !== ALL ? ` for #project/${tag}` : ""} yet. Add a line
-            like{" "}
-            <code className="font-mono">
-              - [ ] Ship beta #project/web @start:2026-06-12 09:00 @progress:25
-            </code>{" "}
-            in a daily note.
+            No scheduled tasks{tag !== ALL ? ` for #project/${tag}` : ""}
+            {repeatFilter === REPEAT_YES ? " (repeating)" : repeatFilter === REPEAT_NO ? " (non-repeating)" : ""} yet.
           </p>
         )}
 
-        {tasksQ.data && tasksQ.data.length > 0 && (
+        {filteredTasks.length > 0 && (
           <div className="border border-border rounded-lg overflow-hidden">
             <Table>
               <TableHeader>
@@ -154,7 +177,7 @@ function ReportsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {tasksQ.data.map((t) => {
+                {filteredTasks.map((t) => {
                   const done = t.status === "done";
                   return (
                     <TableRow key={t.id}>
