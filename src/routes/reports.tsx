@@ -100,6 +100,21 @@ function ReportsPage() {
                 </SelectContent>
               </Select>
             </div>
+            <div className="w-48">
+              <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1 block">
+                Repeats
+              </label>
+              <Select value={repeatFilter} onValueChange={setRepeatFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={REPEAT_ALL}>All</SelectItem>
+                  <SelectItem value={REPEAT_YES}>Repeating only</SelectItem>
+                  <SelectItem value={REPEAT_NO}>Non-repeating only</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <Button
               variant="outline"
               size="sm"
