@@ -3,21 +3,96 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import { slugify } from "./slug";
 
-// Rebuild a clean markdown body from activity_log raw lines, preserving
-// chronological order and dropping duplicate lines.
-function rebuildMarkdownFromEntries(entries: { raw_content: string; created_at: string }[]) {
-  const seen = new Set<string>();
-  const lines: string[] = [];
+type ActivityLogEntry = { id?: string; raw_content: string; created_at: string };
+
+function normalizeLogLine(raw: string) {
+  return (raw ?? "").replace(/\s+/g, " ").trim();
+}
+
+function normalizeTaskForDedupe(raw: string) {
+  const taskMatch = normalizeLogLine(raw).match(/^-\s*\[[ xX]\]\s+(.+)$/);
+  if (!taskMatch) return null;
+  return taskMatch[1]
+    .replace(/#project\/[a-z0-9][a-z0-9-_]*/gi, " ")
+    .replace(/@start:\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(?::\d{2})?(?:Z|[+-]\d{2}:?\d{2})?/gi, " ")
+    .replace(/@progress:\d{1,3}%?/gi, " ")
+    .replace(/[’']/g, "")
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+function areNearDuplicateTaskLines(a: string, b: string) {
+  const left = normalizeTaskForDedupe(a);
+  const right = normalizeTaskForDedupe(b);
+  if (!left || !right) return false;
+  if (left === right) return true;
+
+  const [shorter, longer] = left.length <= right.length ? [left, right] : [right, left];
+  const shorterWords = shorter.split(" ").filter(Boolean).length;
+  return (
+    shorter.length >= 8 &&
+    longer.startsWith(shorter) &&
+    (shorterWords >= 2 || shorter.length >= 12 || shorter.length / longer.length >= 0.35)
+  );
+}
+
+function isBetterCanonicalLine(candidate: string, current: string) {
+  const candidateTask = normalizeTaskForDedupe(candidate);
+  const currentTask = normalizeTaskForDedupe(current);
+  if (candidateTask && currentTask) {
+    if (candidateTask.length !== currentTask.length) return candidateTask.length > currentTask.length;
+  }
+  return normalizeLogLine(candidate).length > normalizeLogLine(current).length;
+}
+
+function findDuplicateLineIndex(lines: string[], candidate: string) {
+  const normalized = normalizeLogLine(candidate);
+  return lines.findIndex((line) => {
+    const existing = normalizeLogLine(line);
+    return existing === normalized || areNearDuplicateTaskLines(existing, normalized);
+  });
+}
+
+function dedupeLogEntries(entries: ActivityLogEntry[]) {
+  const kept: ActivityLogEntry[] = [];
+  const duplicateIds: string[] = [];
   const sorted = [...entries].sort(
     (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
   );
   for (const e of sorted) {
-    const raw = (e.raw_content ?? "").trim();
-    if (!raw || seen.has(raw)) continue;
-    seen.add(raw);
-    lines.push(raw);
+    const raw = normalizeLogLine(e.raw_content);
+    if (!raw) {
+      if (e.id) duplicateIds.push(e.id);
+      continue;
+    }
+
+    const duplicateIndex = findDuplicateLineIndex(
+      kept.map((entry) => entry.raw_content),
+      raw,
+    );
+    if (duplicateIndex === -1) {
+      kept.push({ ...e, raw_content: raw });
+      continue;
+    }
+
+    const current = kept[duplicateIndex];
+    if (isBetterCanonicalLine(raw, current.raw_content)) {
+      if (current.id) duplicateIds.push(current.id);
+      kept[duplicateIndex] = { ...e, raw_content: raw };
+    } else if (e.id) {
+      duplicateIds.push(e.id);
+    }
   }
-  return lines.join("\n");
+  return { kept, duplicateIds };
+}
+
+// Rebuild a clean markdown body from activity_log raw lines, preserving
+// chronological order and dropping exact and typing-cascade duplicate lines.
+function rebuildMarkdownFromEntries(entries: ActivityLogEntry[]) {
+  return dedupeLogEntries(entries).kept.map((entry) => entry.raw_content).join("\n");
 }
 
 // Rebuild today's note markdown from existing activity_log entries.
