@@ -177,7 +177,7 @@ function ReportsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {tasksQ.data.map((t) => {
+                {filteredTasks.map((t) => {
                   const done = t.status === "done";
                   return (
                     <TableRow key={t.id}>
