@@ -784,7 +784,7 @@ export const setTaskStatus = createServerFn({ method: "POST" })
       }
     }
 
-    const { error } = await supabase.from("tasks").update(update).eq("id", data.id);
+    const { error } = await supabase.from("tasks").update(update as never).eq("id", data.id);
     if (error) throw new Error(error.message);
     await invalidateSummaries(supabase, userId);
     return { ok: true, repeated: isRepeating };
