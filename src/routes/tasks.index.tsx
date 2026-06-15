@@ -72,9 +72,14 @@ function TasksPage() {
                       <div className="font-medium truncate">{t.title}</div>
                       <div className="text-xs text-muted-foreground font-mono">#{t.slug}</div>
                     </div>
-                    <Badge variant={status === "done" ? "secondary" : status === "blocked" ? "destructive" : "outline"}>
-                      {status}
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      {t.recurrence && t.recurrence !== "none" && (
+                        <Badge variant="outline" className="text-[10px] uppercase">↻ {t.recurrence}</Badge>
+                      )}
+                      <Badge variant={status === "done" ? "secondary" : status === "blocked" ? "destructive" : "outline"}>
+                        {status}
+                      </Badge>
+                    </div>
                   </Link>
                 </li>
               );

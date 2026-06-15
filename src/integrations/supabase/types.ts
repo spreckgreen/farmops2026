@@ -379,6 +379,8 @@ export type Database = {
           id: string
           percent_complete: number
           project_tags: string[]
+          recurrence: string
+          recurrence_next_at: string | null
           slug: string
           start_at: string | null
           status: Database["public"]["Enums"]["task_status"]
@@ -392,6 +394,8 @@ export type Database = {
           id?: string
           percent_complete?: number
           project_tags?: string[]
+          recurrence?: string
+          recurrence_next_at?: string | null
           slug: string
           start_at?: string | null
           status?: Database["public"]["Enums"]["task_status"]
@@ -405,6 +409,8 @@ export type Database = {
           id?: string
           percent_complete?: number
           project_tags?: string[]
+          recurrence?: string
+          recurrence_next_at?: string | null
           slug?: string
           start_at?: string | null
           status?: Database["public"]["Enums"]["task_status"]
