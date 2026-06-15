@@ -205,7 +205,7 @@ function TaskPage() {
         <Checkbox
           id="repeat-toggle"
           checked={(task.recurrence ?? "none") !== "none"}
-          onCheckedChange={(v) =>
+          onCheckedChange={(v: boolean | "indeterminate") =>
             saveRecurrence.mutate(v ? ((task.recurrence as Recurrence) === "none" ? "weekly" : (task.recurrence as Recurrence)) : "none")
           }
         />
