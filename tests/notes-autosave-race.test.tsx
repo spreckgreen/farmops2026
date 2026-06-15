@@ -75,13 +75,9 @@ vi.mock("@tanstack/react-router", () => ({
 
 // Must import AFTER mocks so the module picks them up.
 // eslint-disable-next-line import/first
-import NoteModule from "@/routes/notes.$date";
+import { Route as NoteRoute } from "@/routes/notes.$date";
 
-// The component is exported via `Route.options.component` in production; we
-// rebuild a thin wrapper around the same module-level component for tests.
-// The route file uses a private `NotePage` — re-derive by reading the export.
-const NotePage = (NoteModule as unknown as { Route: { options: { component: React.FC } } })
-  .Route.options.component;
+const NotePage = (NoteRoute as unknown as { options: { component: React.FC } }).options.component;
 
 function renderNotePage() {
   const qc = new QueryClient({
