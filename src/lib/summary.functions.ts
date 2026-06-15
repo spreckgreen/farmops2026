@@ -257,8 +257,9 @@ Return only valid JSON with this exact shape:
 Use empty arrays ([]) for lists that don't apply and empty strings ("") for unused text fields. Never omit a field. Do not wrap the JSON in markdown.`;
     };
 
+    type SummaryMode = "task_update" | "project_rollup" | "weekly_report" | "quarter_review";
     type InsertRow = {
-      mode: string;
+      mode: SummaryMode;
       scope_project: string | null;
       scope_task_id: string | null;
       period_start: string;
