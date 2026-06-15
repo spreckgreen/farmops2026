@@ -264,7 +264,7 @@ Use empty arrays ([]) for lists that don't apply and empty strings ("") for unus
       scope_task_id: string | null;
       period_start: string;
       period_end: string;
-      display_title: string;
+      display_title: string | null;
       output: SummaryOutput;
     };
 
@@ -316,7 +316,6 @@ Use empty arrays ([]) for lists that don't apply and empty strings ("") for unus
             error: `No activity logged for week ending ${end.toISOString().slice(0, 10)}.`,
           };
         }
-        const title = `Status WE ${yyyymmdd(end)}`;
         const output = await callAi(
           buildPrompt({
             scopeProject: null,
@@ -332,11 +331,12 @@ Use empty arrays ([]) for lists that don't apply and empty strings ("") for unus
           scope_task_id: null,
           period_start: start.toISOString(),
           period_end: end.toISOString(),
-          display_title: title,
+          display_title: null,
           output,
         });
         return { ok: true as const, summary };
       }
+
 
       // ----- QUARTER REVIEW: per-quarter, per-project ----------------------
       if (data.mode === "quarter_review") {
