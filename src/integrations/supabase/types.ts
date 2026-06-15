@@ -89,6 +89,60 @@ export type Database = {
         }
         Relationships: []
       }
+      inventory_items: {
+        Row: {
+          category: string | null
+          created_at: string
+          id: string
+          location: string | null
+          name: string | null
+          notes: string | null
+          quantity: number | null
+          raw: Json
+          reorder_level: number | null
+          sku: string | null
+          unit: string | null
+          unit_cost: number | null
+          updated_at: string
+          user_id: string
+          vendor: string | null
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          id?: string
+          location?: string | null
+          name?: string | null
+          notes?: string | null
+          quantity?: number | null
+          raw?: Json
+          reorder_level?: number | null
+          sku?: string | null
+          unit?: string | null
+          unit_cost?: number | null
+          updated_at?: string
+          user_id: string
+          vendor?: string | null
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          id?: string
+          location?: string | null
+          name?: string | null
+          notes?: string | null
+          quantity?: number | null
+          raw?: Json
+          reorder_level?: number | null
+          sku?: string | null
+          unit?: string | null
+          unit_cost?: number | null
+          updated_at?: string
+          user_id?: string
+          vendor?: string | null
+        }
+        Relationships: []
+      }
       maintenance_records: {
         Row: {
           asset_name: string | null
