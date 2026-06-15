@@ -93,17 +93,25 @@ function NotePage() {
   const refreshMutation = useMutation({
     mutationFn: async () => {
       if (!query.data) return null;
-      return refreshFn({ data: { noteId: query.data.note.id } });
+      return refreshFn({
+        data: {
+          noteId: query.data.note.id,
+          currentMarkdown: draftRef.current,
+        },
+      });
     },
     onSuccess: (res) => {
       if (!res) return;
       setDraft(res.markdown);
       lastSavedRef.current = res.markdown;
-      toast.success(
-        res.restored
-          ? `Restored ${res.restored} entr${res.restored === 1 ? "y" : "ies"} from log`
-          : "Log is empty for today",
-      );
+      const parts: string[] = [];
+      if (res.restored)
+        parts.push(`${res.restored} from log`);
+      if (res.preserved)
+        parts.push(`${res.preserved} kept from editor`);
+      if (res.deduped)
+        parts.push(`${res.deduped} duplicate${res.deduped === 1 ? "" : "s"} removed`);
+      toast.success(parts.length ? `Refreshed · ${parts.join(" · ")}` : "Log is empty for today");
       qc.invalidateQueries({ queryKey: ["daily-note", date] });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Refresh failed"),
