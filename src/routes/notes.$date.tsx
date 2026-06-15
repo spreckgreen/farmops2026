@@ -323,33 +323,73 @@ Untagged lines stay in this note only.`}</pre>
         </details>
       </section>
 
-      <aside className="lg:border-l lg:border-border lg:pl-6">
-        <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-3">
-          Open tasks · {openTasks.length}
-        </h2>
-        <ul className="space-y-1">
-          {openTasks.length === 0 && (
-            <li className="text-sm text-muted-foreground">None yet. Add a `- [ ]` line.</li>
-          )}
-          {openTasks.map((t) => (
-            <li key={t.id}>
-              <Link
-                to="/tasks/$slug"
-                params={{ slug: t.slug }}
-                className="flex items-center justify-between gap-2 text-sm py-1.5 px-2 rounded hover:bg-accent group"
-              >
-                <span className="truncate">{t.title}</span>
-                {t.status === "blocked" && (
-                  <Badge variant="destructive" className="text-[10px]">blocked</Badge>
-                )}
-              </Link>
-            </li>
-          ))}
-        </ul>
-        <div className="mt-6">
-          <Button variant="outline" size="sm" asChild className="w-full">
-            <Link to="/tasks">All tasks →</Link>
-          </Button>
+      <aside className="lg:border-l lg:border-border lg:pl-6 space-y-6">
+        <div>
+          <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-3">
+            Today's log · {(query.data?.entries ?? []).length}
+          </h2>
+          <ul className="space-y-2">
+            {(query.data?.entries ?? []).length === 0 && (
+              <li className="text-xs text-muted-foreground">
+                Nothing committed yet. Press "Commit to log" to persist today's entries.
+              </li>
+            )}
+            {(query.data?.entries ?? []).map((e: {
+              id: string;
+              entry_type: string;
+              raw_content: string;
+              created_at: string;
+              tasks: { slug: string; title: string } | null;
+            }) => (
+              <li key={e.id} className="border border-border rounded p-2 bg-card">
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <Badge variant="outline" className="text-[10px] font-mono uppercase">
+                    {e.entry_type}
+                  </Badge>
+                  {e.tasks && (
+                    <Link
+                      to="/tasks/$slug"
+                      params={{ slug: e.tasks.slug }}
+                      className="text-[10px] font-mono text-muted-foreground hover:text-foreground truncate"
+                    >
+                      #{e.tasks.slug}
+                    </Link>
+                  )}
+                </div>
+                <p className="text-xs font-mono whitespace-pre-wrap break-words">{e.raw_content}</p>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div>
+          <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-3">
+            Open tasks · {openTasks.length}
+          </h2>
+          <ul className="space-y-1">
+            {openTasks.length === 0 && (
+              <li className="text-sm text-muted-foreground">None yet. Add a `- [ ]` line.</li>
+            )}
+            {openTasks.map((t) => (
+              <li key={t.id}>
+                <Link
+                  to="/tasks/$slug"
+                  params={{ slug: t.slug }}
+                  className="flex items-center justify-between gap-2 text-sm py-1.5 px-2 rounded hover:bg-accent group"
+                >
+                  <span className="truncate">{t.title}</span>
+                  {t.status === "blocked" && (
+                    <Badge variant="destructive" className="text-[10px]">blocked</Badge>
+                  )}
+                </Link>
+              </li>
+            ))}
+          </ul>
+          <div className="mt-4">
+            <Button variant="outline" size="sm" asChild className="w-full">
+              <Link to="/tasks">All tasks →</Link>
+            </Button>
+          </div>
         </div>
       </aside>
       </div>
