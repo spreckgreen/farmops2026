@@ -37,6 +37,7 @@ function NotePage() {
   const fetchNote = useServerFn(getDailyNote);
   const saveFn = useServerFn(saveDailyNote);
   const commitFn = useServerFn(commitDailyNote);
+  const refreshFn = useServerFn(refreshDailyNoteFromLog);
   const qc = useQueryClient();
 
   const today = format(new Date(), "yyyy-MM-dd");
