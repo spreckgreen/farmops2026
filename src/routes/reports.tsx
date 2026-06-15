@@ -54,11 +54,19 @@ function ReportsPage() {
   const tagsFn = useServerFn(listProjectTags);
   const tasksFn = useServerFn(listScheduledTasks);
   const [tag, setTag] = useState<string>(ALL);
+  const [repeatFilter, setRepeatFilter] = useState<string>(REPEAT_ALL);
 
   const tagsQ = useQuery({ queryKey: ["project-tags"], queryFn: () => tagsFn() });
   const tasksQ = useQuery({
     queryKey: ["scheduled-tasks", tag],
     queryFn: () => tasksFn({ data: { tag: tag === ALL ? null : tag } }),
+  });
+
+  const filteredTasks = (tasksQ.data ?? []).filter((t) => {
+    if (repeatFilter === REPEAT_ALL) return true;
+    const isRepeating = t.recurrence && t.recurrence !== "none";
+    if (repeatFilter === REPEAT_YES) return isRepeating;
+    return !isRepeating;
   });
 
   return (
