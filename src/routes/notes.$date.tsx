@@ -90,6 +90,25 @@ function NotePage() {
     onError: (e) => toast.error(e instanceof Error ? e.message : "Commit failed"),
   });
 
+  const refreshMutation = useMutation({
+    mutationFn: async () => {
+      if (!query.data) return null;
+      return refreshFn({ data: { noteId: query.data.note.id } });
+    },
+    onSuccess: (res) => {
+      if (!res) return;
+      setDraft(res.markdown);
+      lastSavedRef.current = res.markdown;
+      toast.success(
+        res.restored
+          ? `Restored ${res.restored} entr${res.restored === 1 ? "y" : "ies"} from log`
+          : "Log is empty for today",
+      );
+      qc.invalidateQueries({ queryKey: ["daily-note", date] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Refresh failed"),
+  });
+
   // Keep a ref to the latest draft so flush callbacks see current text.
   const draftRef = useRef<string>("");
   useEffect(() => {
