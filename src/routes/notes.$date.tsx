@@ -179,17 +179,44 @@ function NotePage() {
     <AppLayout>
       <div className="max-w-6xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6">
       <section className="min-w-0">
-        <div className="flex items-baseline justify-between mb-4">
-          <div>
-            <h1 className="text-2xl font-mono font-bold">
-              {format(new Date(date + "T00:00:00"), "EEEE, MMMM d")}
-            </h1>
-            <p className="text-xs text-muted-foreground font-mono">{date}</p>
+        <div className="flex items-baseline justify-between mb-4 gap-3 flex-wrap">
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="icon" onClick={() => shift(-1)} aria-label="Previous day">
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => shift(1)}
+              aria-label="Next day"
+              disabled={date >= today}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+            <input
+              type="date"
+              value={date}
+              max={today}
+              onChange={(e) => {
+                if (e.target.value) navigate({ to: "/notes/$date", params: { date: e.target.value } });
+              }}
+              className="bg-card border border-border rounded-md px-2 py-1 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+            {date !== today && (
+              <Button variant="ghost" size="sm" onClick={() => navigate({ to: "/notes/$date", params: { date: today } })}>
+                Today
+              </Button>
+            )}
+            <div className="ml-2">
+              <h1 className="text-2xl font-mono font-bold leading-tight">
+                {format(parseISO(date), "EEEE, MMMM d")}
+              </h1>
+              <p className="text-xs text-muted-foreground font-mono">{date}</p>
+            </div>
           </div>
           <span className="text-xs text-muted-foreground">
             {draft === lastSavedRef.current ? "saved" : "pending · saves on leave"}
           </span>
-
         </div>
 
         <div className="relative">
