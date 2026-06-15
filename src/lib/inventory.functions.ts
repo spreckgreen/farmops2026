@@ -33,6 +33,9 @@ const RecordSchema = z
 
 const InputSchema = z.object({
   records: z.array(RecordSchema).min(1).max(5000),
+  mode: z.enum(["append", "replace", "merge"]).optional(),
+  mergeKey: z.enum(["sku", "name"]).optional(),
+  // Back-compat: older clients sent { replace: true }
   replace: z.boolean().optional(),
 });
 
@@ -42,13 +45,21 @@ function toNumber(v: unknown): number | null {
   return isNaN(n) ? null : n;
 }
 
+function normKey(v: unknown): string | null {
+  if (v === null || v === undefined) return null;
+  const s = String(v).trim().toLowerCase();
+  return s === "" ? null : s;
+}
+
 export const importInventory = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => InputSchema.parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
+    const mode = data.mode ?? (data.replace ? "replace" : "append");
+    const mergeKey = data.mergeKey ?? "sku";
 
-    if (data.replace) {
+    if (mode === "replace") {
       const { error: delErr } = await supabase
         .from("inventory_items")
         .delete()
@@ -79,6 +90,49 @@ export const importInventory = createServerFn({ method: "POST" })
         raw: extra,
       };
     });
+
+    if (mode === "merge") {
+      const { data: existing, error: exErr } = await supabase
+        .from("inventory_items")
+        .select("id, sku, name")
+        .eq("user_id", userId);
+      if (exErr) throw new Error(exErr.message);
+
+      const index = new Map<string, string>();
+      for (const row of existing ?? []) {
+        const key = normKey(mergeKey === "sku" ? row.sku : row.name);
+        if (key && !index.has(key)) index.set(key, row.id);
+      }
+
+      let updated = 0;
+      let inserted = 0;
+      const toInsert: typeof rows = [];
+      for (const r of rows) {
+        const key = normKey(mergeKey === "sku" ? r.sku : r.name);
+        const id = key ? index.get(key) : undefined;
+        if (id) {
+          const { user_id: _u, ...patch } = r;
+          const { error } = await supabase
+            .from("inventory_items")
+            .update(patch as never)
+            .eq("id", id)
+            .eq("user_id", userId);
+          if (error) throw new Error(error.message);
+          updated += 1;
+        } else {
+          toInsert.push(r);
+        }
+      }
+      for (let i = 0; i < toInsert.length; i += 500) {
+        const chunk = toInsert.slice(i, i + 500);
+        const { error } = await supabase
+          .from("inventory_items")
+          .insert(chunk as never);
+        if (error) throw new Error(error.message);
+        inserted += chunk.length;
+      }
+      return { inserted, updated, mode, mergeKey };
+    }
 
     let inserted = 0;
     for (let i = 0; i < rows.length; i += 500) {
