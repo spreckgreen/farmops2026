@@ -264,7 +264,7 @@ Use empty arrays ([]) for lists that don't apply and empty strings ("") for unus
       scope_task_id: string | null;
       period_start: string;
       period_end: string;
-      display_title: string;
+      display_title: string | null;
       output: SummaryOutput;
     };
 
