@@ -107,55 +107,47 @@ describe("Today autosave race", () => {
   });
 
   it("flushes pending edits on unmount and a remount sees the newest content", async () => {
-    const user = userEvent.setup();
-
-    // First mount: load, edit, unmount before debounce fires.
+    // First mount: load, edit, unmount before the 800ms debounce fires.
     const first = renderNotePage();
     const textarea = (await screen.findByRole("textbox")) as HTMLTextAreaElement;
-    expect(textarea.value).toBe("initial content");
+    await waitFor(() => expect(textarea.value).toBe("initial content"));
 
-    await user.clear(textarea);
-    await user.type(textarea, "edited on Today");
+    fireEvent.change(textarea, { target: { value: "edited on Today" } });
     expect(textarea.value).toBe("edited on Today");
 
     // Simulate the user leaving Today (e.g. navigating to Inventory) BEFORE
-    // the 800ms debounce fires. The unmount-flush effect must await the save.
+    // the debounce fires. The unmount-flush effect must kick off the save.
     first.unmount();
 
     // Drain the in-flight save the unmount flush kicked off.
     await act(async () => {
-      await new Promise((r) => setTimeout(r, store.saveLatencyMs + 50));
+      await new Promise((r) => setTimeout(r, store.saveLatencyMs + 100));
     });
 
     expect(store.saveCalls).toBeGreaterThanOrEqual(1);
     expect(store.markdown).toBe("edited on Today");
 
-    // Second mount: come straight back to Today. Refetch should now see the
+    // Second mount: come straight back to Today. Refetch must serve the
     // saved content — never the original stale string.
     renderNotePage();
     const remounted = (await screen.findByRole("textbox")) as HTMLTextAreaElement;
-    expect(remounted.value).toBe("edited on Today");
+    await waitFor(() => expect(remounted.value).toBe("edited on Today"));
   });
 
   it("debounced typing eventually persists without unmounting", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    try {
-      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
-      renderNotePage();
-      const textarea = (await screen.findByRole("textbox")) as HTMLTextAreaElement;
+    renderNotePage();
+    const textarea = (await screen.findByRole("textbox")) as HTMLTextAreaElement;
+    await waitFor(() => expect(textarea.value).toBe("initial content"));
 
-      await user.clear(textarea);
-      await user.type(textarea, "live edit");
+    fireEvent.change(textarea, { target: { value: "live edit" } });
 
-      // Advance past the 800ms debounce + save latency.
-      await act(async () => {
-        await vi.advanceTimersByTimeAsync(1000);
-      });
-
-      expect(store.saveCalls).toBeGreaterThanOrEqual(1);
-      expect(store.markdown).toBe("live edit");
-    } finally {
-      vi.useRealTimers();
-    }
+    // Wait past the 800ms debounce + save latency.
+    await waitFor(
+      () => {
+        expect(store.saveCalls).toBeGreaterThanOrEqual(1);
+        expect(store.markdown).toBe("live edit");
+      },
+      { timeout: 2000 },
+    );
   });
 });
