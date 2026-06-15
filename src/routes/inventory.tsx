@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { rowsToCsv, downloadCsv } from "@/lib/csv";
+import { WelcomingPagesImportHelper } from "@/components/welcoming-pages-import-helper";
 
 export const Route = createFileRoute("/inventory")({
   ssr: false,
