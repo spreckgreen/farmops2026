@@ -704,7 +704,14 @@ export const listTasks = createServerFn({ method: "POST" })
     const { data: tasks, error } = await query.order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
     void orFilters;
-    return tasks ?? [];
+
+    // Done tasks should only appear if they were actually accomplished today.
+    const filtered = (tasks ?? []).filter((t) => {
+      if (t.status !== "done") return true;
+      if (!t.closed_at) return false;
+      return t.closed_at >= dayStart && t.closed_at <= dayEnd;
+    });
+    return filtered;
   });
 
 export const getTaskBySlug = createServerFn({ method: "POST" })
