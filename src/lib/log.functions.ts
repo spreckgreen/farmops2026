@@ -1166,6 +1166,46 @@ export const listBacklog = createServerFn({ method: "POST" })
     return filtered;
   });
 
+export const createBacklogTask = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        title: z.string().trim().min(1).max(500),
+        project_tags: z.array(z.string().trim().min(1).max(64)).max(20).optional(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const base = slugify(data.title).slice(0, 80) || "task";
+    let slug = base;
+    for (let i = 0; i < 50; i++) {
+      const { data: existing } = await supabase
+        .from("tasks")
+        .select("id")
+        .eq("slug", slug)
+        .maybeSingle();
+      if (!existing) break;
+      slug = `${base}-${Math.random().toString(36).slice(2, 6)}`;
+    }
+    const { data: row, error } = await supabase
+      .from("tasks")
+      .insert({
+        user_id: userId,
+        slug,
+        title: data.title.trim(),
+        status: "open",
+        project_tags: data.project_tags ?? [],
+      })
+      .select("*")
+      .single();
+    if (error) throw new Error(error.message);
+    return row;
+  });
+
+
+
 export const addTaskToToday = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
