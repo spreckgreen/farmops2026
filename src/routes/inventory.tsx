@@ -17,10 +17,12 @@ import {
   Boxes,
   AlertTriangle,
   Upload,
+  Download,
   FileText,
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { rowsToCsv, downloadCsv } from "@/lib/csv";
 
 export const Route = createFileRoute("/inventory")({
   ssr: false,
