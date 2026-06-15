@@ -3,6 +3,47 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import { slugify } from "./slug";
 
+// Rebuild a clean markdown body from activity_log raw lines, preserving
+// chronological order and dropping duplicate lines.
+function rebuildMarkdownFromEntries(entries: { raw_content: string; created_at: string }[]) {
+  const seen = new Set<string>();
+  const lines: string[] = [];
+  const sorted = [...entries].sort(
+    (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+  );
+  for (const e of sorted) {
+    const raw = (e.raw_content ?? "").trim();
+    if (!raw || seen.has(raw)) continue;
+    seen.add(raw);
+    lines.push(raw);
+  }
+  return lines.join("\n");
+}
+
+// Rebuild today's note markdown from existing activity_log entries.
+// Used by the "Refresh from log" button when the textarea was cleared but
+// the underlying log still holds the data.
+export const refreshDailyNoteFromLog = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ noteId: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    const { data: entries, error } = await supabase
+      .from("activity_log")
+      .select("raw_content, created_at")
+      .eq("daily_note_id", data.noteId)
+      .order("created_at", { ascending: true });
+    if (error) throw new Error(error.message);
+    const markdown = rebuildMarkdownFromEntries(entries ?? []);
+    const { error: updErr } = await supabase
+      .from("daily_notes")
+      .update({ markdown_content: markdown })
+      .eq("id", data.noteId);
+    if (updErr) throw new Error(updErr.message);
+    return { markdown, restored: (entries ?? []).length };
+  });
+
+
 // ---- Get or create today's daily note + return parsed activity for the day ----
 
 export const getDailyNote = createServerFn({ method: "POST" })
@@ -375,13 +416,15 @@ export const commitDailyNote = createServerFn({ method: "POST" })
       });
     }
 
-    const { error: delErr } = await supabase
-      .from("activity_log")
-      .delete()
-      .eq("daily_note_id", data.noteId);
-    if (delErr) throw new Error(delErr.message);
-
+    // Safety: never wipe existing log entries when commit produced nothing
+    // (e.g. user accidentally cleared the textarea). Preserves prior commits
+    // so the "Refresh from log" button can rebuild the note.
     if (entries.length > 0) {
+      const { error: delErr } = await supabase
+        .from("activity_log")
+        .delete()
+        .eq("daily_note_id", data.noteId);
+      if (delErr) throw new Error(delErr.message);
       const { error: insErr } = await supabase.from("activity_log").insert(entries);
       if (insErr) throw new Error(insErr.message);
     }

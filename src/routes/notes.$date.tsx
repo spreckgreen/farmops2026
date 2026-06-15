@@ -2,7 +2,7 @@ import { createFileRoute, Link, useParams, useNavigate } from "@tanstack/react-r
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { commitDailyNote, getDailyNote, listProjects, saveDailyNote } from "@/lib/log.functions";
+import { commitDailyNote, getDailyNote, listProjects, refreshDailyNoteFromLog, saveDailyNote } from "@/lib/log.functions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AppLayout } from "@/components/app-layout";
@@ -37,6 +37,7 @@ function NotePage() {
   const fetchNote = useServerFn(getDailyNote);
   const saveFn = useServerFn(saveDailyNote);
   const commitFn = useServerFn(commitDailyNote);
+  const refreshFn = useServerFn(refreshDailyNoteFromLog);
   const qc = useQueryClient();
 
   const today = format(new Date(), "yyyy-MM-dd");
@@ -87,6 +88,25 @@ function NotePage() {
       }
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Commit failed"),
+  });
+
+  const refreshMutation = useMutation({
+    mutationFn: async () => {
+      if (!query.data) return null;
+      return refreshFn({ data: { noteId: query.data.note.id } });
+    },
+    onSuccess: (res) => {
+      if (!res) return;
+      setDraft(res.markdown);
+      lastSavedRef.current = res.markdown;
+      toast.success(
+        res.restored
+          ? `Restored ${res.restored} entr${res.restored === 1 ? "y" : "ies"} from log`
+          : "Log is empty for today",
+      );
+      qc.invalidateQueries({ queryKey: ["daily-note", date] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Refresh failed"),
   });
 
   // Keep a ref to the latest draft so flush callbacks see current text.
@@ -254,6 +274,15 @@ function NotePage() {
             <span className="text-xs text-muted-foreground">
               {draft === lastSavedRef.current ? "saved" : "saving…"}
             </span>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => refreshMutation.mutate()}
+              disabled={refreshMutation.isPending || !query.data}
+              title="Rebuild this note's markdown from today's activity log"
+            >
+              {refreshMutation.isPending ? "Refreshing…" : "Refresh from log"}
+            </Button>
             <Button
               size="sm"
               variant="default"
