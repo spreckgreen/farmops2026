@@ -13,7 +13,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "verify": "vitest run && vite build",
-    "dev:clean": "rm -rf node_modules/.vite && vite dev"
+    "dev:clean": "rimraf node_modules/.vite && vite dev"
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "^2.0.48",
