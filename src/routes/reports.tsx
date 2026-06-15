@@ -148,6 +148,7 @@ function ReportsPage() {
                   <TableHead>Status</TableHead>
                   <TableHead className="w-44">% Complete</TableHead>
                   <TableHead>Start</TableHead>
+                  <TableHead>Repeats</TableHead>
                   <TableHead>Completed</TableHead>
                   <TableHead>Last update</TableHead>
                 </TableRow>
