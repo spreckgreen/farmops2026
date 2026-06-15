@@ -91,6 +91,24 @@ function BacklogPage() {
     },
   });
 
+  const createMutation = useMutation({
+    mutationFn: (title: string) => createFn({ data: { title } }),
+    onSuccess: () => {
+      toast.success("Task added to backlog");
+      setNewTitle("");
+      qc.invalidateQueries({ queryKey: ["tasks", "backlog"] });
+    },
+    onError: (e: unknown) => {
+      toast.error(e instanceof Error ? e.message : "Failed to create task");
+    },
+  });
+
+  const submitNew = () => {
+    const t = newTitle.trim();
+    if (!t) return;
+    createMutation.mutate(t);
+  };
+
   const grouped = {
     open: (data ?? []).filter((t) => t.status === "open"),
     blocked: (data ?? []).filter((t) => t.status === "blocked"),
