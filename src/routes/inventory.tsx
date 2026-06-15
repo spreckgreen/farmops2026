@@ -141,17 +141,23 @@ function InventoryPage() {
 
   const [pending, setPending] = useState<Record<string, unknown>[] | null>(null);
   const [pendingName, setPendingName] = useState<string>("");
-  const [replace, setReplace] = useState(false);
+  const [mode, setMode] = useState<"append" | "merge" | "replace">("append");
+  const [mergeKey, setMergeKey] = useState<"sku" | "name">("sku");
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   const importMut = useMutation({
     mutationFn: async () => {
       if (!pending) return null;
-      return importFn({ data: { records: pending as never[], replace } });
+      return importFn({
+        data: { records: pending as never[], mode, mergeKey },
+      });
     },
     onSuccess: (res) => {
       if (res) {
-        toast.success(`Imported ${res.inserted} item${res.inserted === 1 ? "" : "s"}`);
+        const parts: string[] = [];
+        if (res.inserted) parts.push(`${res.inserted} added`);
+        if (res.updated) parts.push(`${res.updated} updated`);
+        toast.success(`Imported — ${parts.join(", ") || "no changes"}`);
         setPending(null);
         setPendingName("");
         if (fileRef.current) fileRef.current.value = "";
