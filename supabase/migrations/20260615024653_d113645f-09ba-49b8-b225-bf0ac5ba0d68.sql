@@ -1,0 +1,1 @@
+DROP POLICY IF EXISTS activity_log_owner_delete ON public.activity_log;
