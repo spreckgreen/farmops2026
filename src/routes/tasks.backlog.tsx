@@ -6,6 +6,8 @@ import {
   addTaskToToday,
   listDueMaintenance,
   addMaintenanceToToday,
+  listReorderInventory,
+  addReorderToToday,
 } from "@/lib/log.functions";
 import { AppLayout } from "@/components/app-layout";
 import { Badge } from "@/components/ui/badge";
