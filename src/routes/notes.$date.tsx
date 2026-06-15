@@ -8,7 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { AppLayout } from "@/components/app-layout";
 import { requireAuthenticatedUser } from "@/lib/auth-route";
 import { toast } from "sonner";
-import { format } from "date-fns";
+import { format, addDays, parseISO } from "date-fns";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 
 export const Route = createFileRoute("/notes/$date")({
