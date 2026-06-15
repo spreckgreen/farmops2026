@@ -15,7 +15,7 @@ export const Route = createFileRoute("/tasks/")({
 
 function TasksPage() {
   const fn = useServerFn(listTasks);
-  const { data, isLoading } = useQuery({ queryKey: ["tasks"], queryFn: () => fn() });
+  const { data, isLoading } = useQuery({ queryKey: ["tasks", "today"], queryFn: () => fn({ data: {} }) });
 
   const grouped = {
     open: (data ?? []).filter((t) => t.status === "open"),
