@@ -377,6 +377,7 @@ export function tiddlersFromSummaries(rows: SummaryRow[]): Tiddler[] {
 function summaryTitle(r: SummaryRow): string {
   if (r.display_title && r.display_title.trim()) return r.display_title;
   const date = r.created_at.slice(0, 10);
+  const project = r.scope_project ? ` — #project/${r.scope_project}` : "";
   const scope = r.scope_task ? ` · ${r.scope_task.title}` : "";
-  return `${date} — ${r.mode}${scope}`;
+  return `${date}${project} — ${r.mode}${scope}`;
 }
