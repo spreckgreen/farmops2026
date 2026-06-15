@@ -148,6 +148,7 @@ function ReportsPage() {
                   <TableHead>Status</TableHead>
                   <TableHead className="w-44">% Complete</TableHead>
                   <TableHead>Start</TableHead>
+                  <TableHead>Repeats</TableHead>
                   <TableHead>Completed</TableHead>
                   <TableHead>Last update</TableHead>
                 </TableRow>
@@ -207,7 +208,14 @@ function ReportsPage() {
                         </div>
                       </TableCell>
                       <TableCell className="text-xs font-mono text-muted-foreground">
-                        {fmt(t.start_at)}
+                        {fmt(t.start_at) === "—" && t.recurrence_next_at ? fmt(t.recurrence_next_at) : fmt(t.start_at)}
+                      </TableCell>
+                      <TableCell>
+                        {t.recurrence && t.recurrence !== "none" ? (
+                          <Badge variant="outline" className="text-[10px] uppercase">↻ {t.recurrence}</Badge>
+                        ) : (
+                          <span className="text-xs font-mono text-muted-foreground">—</span>
+                        )}
                       </TableCell>
                       <TableCell className="text-xs font-mono text-muted-foreground">
                         {fmt(t.closed_at)}
