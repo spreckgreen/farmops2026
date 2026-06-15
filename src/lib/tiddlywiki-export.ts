@@ -210,6 +210,7 @@ export type SummaryRow = {
   edited_summary: unknown;
   status: string | null;
   created_at: string;
+  display_title?: string | null;
   scope_task?: { slug: string; title: string } | null;
 };
 
@@ -253,7 +254,7 @@ export function tiddlersFromSummaries(rows: SummaryRow[]): Tiddler[] {
     const projectTitles: string[] = [];
     if (shape.by_project?.length) {
       for (const p of shape.by_project) {
-        const pTitle = `${r.created_at.slice(0, 10)} — #project/${p.project}`;
+        const pTitle = `${baseTitle} — #project/${p.project}`;
         const pLines: string[] = [];
         pLines.push(`! ${pTitle}`, "");
         if (r.period_start || r.period_end) {
@@ -374,6 +375,7 @@ export function tiddlersFromSummaries(rows: SummaryRow[]): Tiddler[] {
 }
 
 function summaryTitle(r: SummaryRow): string {
+  if (r.display_title && r.display_title.trim()) return r.display_title;
   const date = r.created_at.slice(0, 10);
   const scope = r.scope_task ? ` · ${r.scope_task.title}` : "";
   return `${date} — ${r.mode}${scope}`;

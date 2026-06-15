@@ -69,6 +69,20 @@ function SummariesPage() {
     onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
   });
 
+  const quarterly = useMutation({
+    mutationFn: () => generateFn({ data: { mode: "quarter_review", period_days: 7 } }),
+    onSuccess: (res) => {
+      if (!res.ok) {
+        toast.error(res.error);
+        return;
+      }
+      const count = "summaries" in res && res.summaries ? res.summaries.length : 0;
+      toast.success(`Quarterly review drafted (${count} entr${count === 1 ? "y" : "ies"})`);
+      qc.invalidateQueries({ queryKey: ["summaries"] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
+  });
+
   const setStatus = useMutation({
     mutationFn: ({ id, status }: { id: string; status: "draft" | "reviewed" | "published" }) =>
       updateFn({ data: { id, status } }),
@@ -105,6 +119,9 @@ function SummariesPage() {
             Export TiddlyWiki
           </Button>
           <TiddlyWikiImportButton kind="summaries" />
+          <Button variant="outline" onClick={() => quarterly.mutate()} disabled={quarterly.isPending}>
+            {quarterly.isPending ? "…" : "Quarterly review (2y)"}
+          </Button>
           <Button variant="outline" onClick={() => rollup.mutate()} disabled={rollup.isPending}>
             {rollup.isPending ? "…" : "Project rollup"}
           </Button>
@@ -127,6 +144,11 @@ function SummariesPage() {
           const scope = (s as { scope_task?: { slug?: string; title?: string } | null }).scope_task;
           return (
             <li key={s.id} className="border border-border rounded-lg p-5 bg-card">
+              {(s as { display_title?: string | null }).display_title && (
+                <h2 className="text-lg font-mono font-semibold mb-2">
+                  {(s as { display_title?: string }).display_title}
+                </h2>
+              )}
               <div className="flex items-center justify-between gap-2 mb-3">
                 <div className="flex items-center gap-2">
                   <Badge variant="outline" className="font-mono text-[10px] uppercase">{s.mode}</Badge>

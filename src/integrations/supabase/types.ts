@@ -322,6 +322,7 @@ export type Database = {
       summaries: {
         Row: {
           created_at: string
+          display_title: string | null
           edited_summary: Json | null
           generated_summary: Json
           id: string
@@ -336,6 +337,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          display_title?: string | null
           edited_summary?: Json | null
           generated_summary: Json
           id?: string
@@ -350,6 +352,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          display_title?: string | null
           edited_summary?: Json | null
           generated_summary?: Json
           id?: string
@@ -435,7 +438,11 @@ export type Database = {
         | "commit"
         | "meeting"
         | "note"
-      summary_mode: "task_update" | "project_rollup" | "weekly_report"
+      summary_mode:
+        | "task_update"
+        | "project_rollup"
+        | "weekly_report"
+        | "quarter_review"
       summary_status: "draft" | "reviewed" | "published"
       task_status: "open" | "blocked" | "done"
     }
@@ -573,7 +580,12 @@ export const Constants = {
         "meeting",
         "note",
       ],
-      summary_mode: ["task_update", "project_rollup", "weekly_report"],
+      summary_mode: [
+        "task_update",
+        "project_rollup",
+        "weekly_report",
+        "quarter_review",
+      ],
       summary_status: ["draft", "reviewed", "published"],
       task_status: ["open", "blocked", "done"],
     },

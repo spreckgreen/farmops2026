@@ -912,8 +912,9 @@ export const listSummaries = createServerFn({ method: "GET" })
     const { data } = await context.supabase
       .from("summaries")
       .select("*, scope_task:tasks(slug, title)")
+      .order("period_end", { ascending: false, nullsFirst: false })
       .order("created_at", { ascending: false })
-      .limit(50);
+      .limit(500);
     return data ?? [];
   });
 

@@ -1,0 +1,1 @@
+ALTER TABLE public.summaries ADD COLUMN IF NOT EXISTS display_title text;
