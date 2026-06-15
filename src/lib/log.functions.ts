@@ -1145,24 +1145,17 @@ export const listBacklog = createServerFn({ method: "POST" })
       );
     }
 
-    const dayStart = `${date}T00:00:00.000Z`;
-    const dayEnd = `${date}T23:59:59.999Z`;
-
     let query = supabase
       .from("tasks")
       .select("*")
       .in("status", ["open", "blocked"])
       .order("created_at", { ascending: false });
 
-    // Exclude tasks already touched today or created today (those show on Today's tasks).
+    // Exclude tasks already pulled into today's activity log.
     const { data: tasks, error } = await query;
     if (error) throw new Error(error.message);
     const todaySet = new Set(todayTaskIds);
-    const filtered = (tasks ?? []).filter((t) => {
-      if (todaySet.has(t.id)) return false;
-      if (t.created_at >= dayStart && t.created_at <= dayEnd) return false;
-      return true;
-    });
+    const filtered = (tasks ?? []).filter((t) => !todaySet.has(t.id));
     return filtered;
   });
 
