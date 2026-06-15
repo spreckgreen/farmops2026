@@ -117,23 +117,10 @@ export const refreshDailyNoteFromLog = createServerFn({ method: "POST" })
       .order("created_at", { ascending: true });
     if (error) throw new Error(error.message);
 
-    // Dedupe activity_log rows: identical raw_content (trimmed) within the
-    // same note collapses to the earliest entry. Removes duplicate IDs from
-    // the database so subsequent refresh/commit cycles stay clean.
-    const seen = new Map<string, string>(); // raw -> kept id
-    const duplicateIds: string[] = [];
-    for (const e of entries ?? []) {
-      const raw = (e.raw_content ?? "").trim();
-      if (!raw) {
-        duplicateIds.push(e.id);
-        continue;
-      }
-      if (seen.has(raw)) {
-        duplicateIds.push(e.id);
-      } else {
-        seen.set(raw, e.id);
-      }
-    }
+    // Dedupe activity_log rows: exact duplicates and near-duplicate task
+    // typing cascades collapse to the longest/canonical entry. Removes
+    // duplicate IDs from the database so future refreshes stay clean.
+    const { kept, duplicateIds } = dedupeLogEntries(entries ?? []);
     if (duplicateIds.length > 0) {
       const { error: delErr } = await supabase
         .from("activity_log")
@@ -142,26 +129,19 @@ export const refreshDailyNoteFromLog = createServerFn({ method: "POST" })
       if (delErr) throw new Error(delErr.message);
     }
 
-    const rebuilt = rebuildMarkdownFromEntries(entries ?? []);
+    const rebuilt = kept.map((entry) => entry.raw_content).join("\n");
 
     // Safe merge: preserve any lines the user typed in the editor since the
     // last commit. Lines from the current draft that are NOT already present
     // in the rebuilt-from-log markdown are appended at the bottom, in their
     // original order. Whitespace-only lines and exact duplicates are skipped.
-    const rebuiltLines = new Set(
-      rebuilt
-        .split("\n")
-        .map((l) => l.trim())
-        .filter(Boolean),
-    );
+    const rebuiltLines = rebuilt.split("\n").map(normalizeLogLine).filter(Boolean);
     const draftOnly: string[] = [];
-    const seenDraft = new Set<string>();
     for (const rawLine of (data.currentMarkdown ?? "").split("\n")) {
-      const trimmed = rawLine.trim();
+      const trimmed = normalizeLogLine(rawLine);
       if (!trimmed) continue;
-      if (rebuiltLines.has(trimmed)) continue;
-      if (seenDraft.has(trimmed)) continue;
-      seenDraft.add(trimmed);
+      if (findDuplicateLineIndex(rebuiltLines, trimmed) !== -1) continue;
+      if (findDuplicateLineIndex(draftOnly, trimmed) !== -1) continue;
       draftOnly.push(trimmed);
     }
     const markdown =
@@ -176,7 +156,7 @@ export const refreshDailyNoteFromLog = createServerFn({ method: "POST" })
     if (updErr) throw new Error(updErr.message);
     return {
       markdown,
-      restored: (entries ?? []).length - duplicateIds.length,
+      restored: kept.length,
       deduped: duplicateIds.length,
       preserved: draftOnly.length,
     };
