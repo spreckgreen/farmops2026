@@ -200,6 +200,36 @@ function TaskPage() {
         </div>
       </div>
 
+      <div className="mb-6 flex flex-wrap items-center gap-3 rounded-lg border border-border bg-card/40 px-4 py-3">
+        <Checkbox
+          id="repeat-toggle"
+          checked={(task.recurrence ?? "none") !== "none"}
+          onCheckedChange={(v) =>
+            saveRecurrence.mutate(v ? ((task.recurrence as Recurrence) === "none" ? "weekly" : (task.recurrence as Recurrence)) : "none")
+          }
+        />
+        <label htmlFor="repeat-toggle" className="text-sm font-medium cursor-pointer">
+          Repeat this task
+        </label>
+        <Select
+          value={(task.recurrence as Recurrence | null) ?? "none"}
+          onValueChange={(v) => saveRecurrence.mutate(v as Recurrence)}
+          disabled={(task.recurrence ?? "none") === "none"}
+        >
+          <SelectTrigger className="w-36"><SelectValue placeholder="Interval" /></SelectTrigger>
+          <SelectContent>
+            {RECURRENCE_VALUES.filter((r) => r !== "none").map((r) => (
+              <SelectItem key={r} value={r}>{r}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {(task.recurrence ?? "none") !== "none" && task.recurrence_next_at && (
+          <span className="text-xs font-mono text-muted-foreground">
+            next: {new Date(task.recurrence_next_at).toLocaleDateString()}
+          </span>
+        )}
+      </div>
+
       <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-3">
         Activity log · {entries.length}
       </h2>
