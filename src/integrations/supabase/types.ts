@@ -322,6 +322,7 @@ export type Database = {
       summaries: {
         Row: {
           created_at: string
+          display_title: string | null
           edited_summary: Json | null
           generated_summary: Json
           id: string
@@ -336,6 +337,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          display_title?: string | null
           edited_summary?: Json | null
           generated_summary: Json
           id?: string
@@ -350,6 +352,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          display_title?: string | null
           edited_summary?: Json | null
           generated_summary?: Json
           id?: string
