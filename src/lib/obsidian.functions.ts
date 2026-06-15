@@ -174,11 +174,14 @@ export const obsidianExport = createServerFn({ method: "GET" })
     const { supabase } = context;
     const files: ObsidianFile[] = [];
 
-    const [notesQ, tasksQ, projectsQ, summariesQ] = await Promise.all([
+    const [notesQ, tasksQ, projectsQ, summariesQ, inventoryQ, maintenanceQ, consumablesQ] = await Promise.all([
       supabase.from("daily_notes").select("*").order("date", { ascending: true }),
       supabase.from("tasks").select("*").order("created_at", { ascending: true }),
       supabase.from("projects").select("*").order("name", { ascending: true }),
       supabase.from("summaries").select("*").order("created_at", { ascending: true }),
+      supabase.from("inventory_items").select("*").order("name", { ascending: true }),
+      supabase.from("maintenance_records").select("*").order("performed_at", { ascending: true }),
+      supabase.from("consumables").select("*").order("name", { ascending: true }),
     ]);
 
     for (const n of notesQ.data ?? []) {
