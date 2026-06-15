@@ -282,6 +282,8 @@ function InventoryPage() {
             </div>
           </div>
 
+          <WelcomingPagesImportHelper kind="inventory" />
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
             {[
               { label: "Total items", value: String(stats.total), icon: Boxes },
