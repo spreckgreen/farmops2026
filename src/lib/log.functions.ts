@@ -3,21 +3,92 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import { slugify } from "./slug";
 
-// Rebuild a clean markdown body from activity_log raw lines, preserving
-// chronological order and dropping duplicate lines.
-function rebuildMarkdownFromEntries(entries: { raw_content: string; created_at: string }[]) {
-  const seen = new Set<string>();
-  const lines: string[] = [];
+type ActivityLogEntry = { id?: string; raw_content: string; created_at: string };
+
+function normalizeLogLine(raw: string) {
+  return (raw ?? "").replace(/\s+/g, " ").trim();
+}
+
+function normalizeTaskForDedupe(raw: string) {
+  const taskMatch = normalizeLogLine(raw).match(/^-\s*\[[ xX]\]\s+(.+)$/);
+  if (!taskMatch) return null;
+  return taskMatch[1]
+    .replace(/#project\/[a-z0-9][a-z0-9-_]*/gi, " ")
+    .replace(/@start:\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(?::\d{2})?(?:Z|[+-]\d{2}:?\d{2})?/gi, " ")
+    .replace(/@progress:\d{1,3}%?/gi, " ")
+    .replace(/[’']/g, "")
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+function areNearDuplicateTaskLines(a: string, b: string) {
+  const left = normalizeTaskForDedupe(a);
+  const right = normalizeTaskForDedupe(b);
+  if (!left || !right) return false;
+  if (left === right) return true;
+
+  const [shorter, longer] = left.length <= right.length ? [left, right] : [right, left];
+  const shorterWords = shorter.split(" ").filter(Boolean).length;
+  return (
+    shorter.length >= 8 &&
+    longer.startsWith(shorter) &&
+    (shorterWords >= 2 || shorter.length >= 12 || shorter.length / longer.length >= 0.35)
+  );
+}
+
+function isBetterCanonicalLine(candidate: string, current: string) {
+  const candidateTask = normalizeTaskForDedupe(candidate);
+  const currentTask = normalizeTaskForDedupe(current);
+  if (candidateTask && currentTask) {
+    if (candidateTask.length !== currentTask.length) {
+      return candidateTask.length > currentTask.length;
+    }
+  }
+  return normalizeLogLine(candidate).length > normalizeLogLine(current).length;
+}
+
+function findDuplicateLineIndex(lines: string[], candidate: string) {
+  const normalized = normalizeLogLine(candidate);
+  return lines.findIndex((line) => {
+    const existing = normalizeLogLine(line);
+    return existing === normalized || areNearDuplicateTaskLines(existing, normalized);
+  });
+}
+
+function dedupeLogEntries(entries: ActivityLogEntry[]) {
+  const kept: ActivityLogEntry[] = [];
+  const duplicateIds: string[] = [];
   const sorted = [...entries].sort(
     (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
   );
   for (const e of sorted) {
-    const raw = (e.raw_content ?? "").trim();
-    if (!raw || seen.has(raw)) continue;
-    seen.add(raw);
-    lines.push(raw);
+    const raw = normalizeLogLine(e.raw_content);
+    if (!raw) {
+      if (e.id) duplicateIds.push(e.id);
+      continue;
+    }
+
+    const duplicateIndex = findDuplicateLineIndex(
+      kept.map((entry) => entry.raw_content),
+      raw,
+    );
+    if (duplicateIndex === -1) {
+      kept.push({ ...e, raw_content: raw });
+      continue;
+    }
+
+    const current = kept[duplicateIndex];
+    if (isBetterCanonicalLine(raw, current.raw_content)) {
+      if (current.id) duplicateIds.push(current.id);
+      kept[duplicateIndex] = { ...e, raw_content: raw };
+    } else if (e.id) {
+      duplicateIds.push(e.id);
+    }
   }
-  return lines.join("\n");
+  return { kept, duplicateIds };
 }
 
 // Rebuild today's note markdown from existing activity_log entries.
@@ -42,57 +113,32 @@ export const refreshDailyNoteFromLog = createServerFn({ method: "POST" })
       .order("created_at", { ascending: true });
     if (error) throw new Error(error.message);
 
-    // Dedupe activity_log rows: identical raw_content (trimmed) within the
-    // same note collapses to the earliest entry. Removes duplicate IDs from
-    // the database so subsequent refresh/commit cycles stay clean.
-    const seen = new Map<string, string>(); // raw -> kept id
-    const duplicateIds: string[] = [];
-    for (const e of entries ?? []) {
-      const raw = (e.raw_content ?? "").trim();
-      if (!raw) {
-        duplicateIds.push(e.id);
-        continue;
-      }
-      if (seen.has(raw)) {
-        duplicateIds.push(e.id);
-      } else {
-        seen.set(raw, e.id);
-      }
-    }
+    // Dedupe activity_log rows: exact duplicates and near-duplicate task
+    // typing cascades collapse to the longest/canonical entry. Removes
+    // duplicate IDs from the database so future refreshes stay clean.
+    const { kept, duplicateIds } = dedupeLogEntries(entries ?? []);
     if (duplicateIds.length > 0) {
-      const { error: delErr } = await supabase
-        .from("activity_log")
-        .delete()
-        .in("id", duplicateIds);
+      const { error: delErr } = await supabase.from("activity_log").delete().in("id", duplicateIds);
       if (delErr) throw new Error(delErr.message);
     }
 
-    const rebuilt = rebuildMarkdownFromEntries(entries ?? []);
+    const rebuilt = kept.map((entry) => entry.raw_content).join("\n");
 
     // Safe merge: preserve any lines the user typed in the editor since the
     // last commit. Lines from the current draft that are NOT already present
     // in the rebuilt-from-log markdown are appended at the bottom, in their
     // original order. Whitespace-only lines and exact duplicates are skipped.
-    const rebuiltLines = new Set(
-      rebuilt
-        .split("\n")
-        .map((l) => l.trim())
-        .filter(Boolean),
-    );
+    const rebuiltLines = rebuilt.split("\n").map(normalizeLogLine).filter(Boolean);
     const draftOnly: string[] = [];
-    const seenDraft = new Set<string>();
     for (const rawLine of (data.currentMarkdown ?? "").split("\n")) {
-      const trimmed = rawLine.trim();
+      const trimmed = normalizeLogLine(rawLine);
       if (!trimmed) continue;
-      if (rebuiltLines.has(trimmed)) continue;
-      if (seenDraft.has(trimmed)) continue;
-      seenDraft.add(trimmed);
+      if (findDuplicateLineIndex(rebuiltLines, trimmed) !== -1) continue;
+      if (findDuplicateLineIndex(draftOnly, trimmed) !== -1) continue;
       draftOnly.push(trimmed);
     }
     const markdown =
-      draftOnly.length > 0
-        ? (rebuilt ? rebuilt + "\n" : "") + draftOnly.join("\n")
-        : rebuilt;
+      draftOnly.length > 0 ? (rebuilt ? rebuilt + "\n" : "") + draftOnly.join("\n") : rebuilt;
 
     const { error: updErr } = await supabase
       .from("daily_notes")
@@ -101,12 +147,11 @@ export const refreshDailyNoteFromLog = createServerFn({ method: "POST" })
     if (updErr) throw new Error(updErr.message);
     return {
       markdown,
-      restored: (entries ?? []).length - duplicateIds.length,
+      restored: kept.length,
       deduped: duplicateIds.length,
       preserved: draftOnly.length,
     };
   });
-
 
 // ---- Get or create today's daily note + return parsed activity for the day ----
 
