@@ -232,7 +232,7 @@ function NotePage() {
             </div>
           </div>
           <span className="text-xs text-muted-foreground">
-            {draft === lastSavedRef.current ? "saved" : "pending · saves on leave"}
+            {draft === lastSavedRef.current ? "saved" : "saving…"}
           </span>
         </div>
 
