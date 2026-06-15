@@ -62,6 +62,48 @@ export type Database = {
           },
         ]
       }
+      consumables: {
+        Row: {
+          category: string | null
+          cost_per_unit: number | null
+          created_at: string
+          id: string
+          min_quantity: number
+          name: string
+          quantity_in_stock: number
+          raw: Json
+          unit: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category?: string | null
+          cost_per_unit?: number | null
+          created_at?: string
+          id?: string
+          min_quantity?: number
+          name: string
+          quantity_in_stock?: number
+          raw?: Json
+          unit?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category?: string | null
+          cost_per_unit?: number | null
+          created_at?: string
+          id?: string
+          min_quantity?: number
+          name?: string
+          quantity_in_stock?: number
+          raw?: Json
+          unit?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       daily_notes: {
         Row: {
           created_at: string
@@ -91,53 +133,77 @@ export type Database = {
       }
       inventory_items: {
         Row: {
+          barcode: string | null
           category: string | null
           created_at: string
+          current_hours: number
+          current_miles: number
+          description: string | null
           id: string
           location: string | null
+          min_quantity: number | null
           name: string | null
           notes: string | null
           quantity: number | null
           raw: Json
           reorder_level: number | null
           sku: string | null
+          status: string
+          tags: string[]
           unit: string | null
           unit_cost: number | null
           updated_at: string
+          usage_tracking: string
           user_id: string
           vendor: string | null
         }
         Insert: {
+          barcode?: string | null
           category?: string | null
           created_at?: string
+          current_hours?: number
+          current_miles?: number
+          description?: string | null
           id?: string
           location?: string | null
+          min_quantity?: number | null
           name?: string | null
           notes?: string | null
           quantity?: number | null
           raw?: Json
           reorder_level?: number | null
           sku?: string | null
+          status?: string
+          tags?: string[]
           unit?: string | null
           unit_cost?: number | null
           updated_at?: string
+          usage_tracking?: string
           user_id: string
           vendor?: string | null
         }
         Update: {
+          barcode?: string | null
           category?: string | null
           created_at?: string
+          current_hours?: number
+          current_miles?: number
+          description?: string | null
           id?: string
           location?: string | null
+          min_quantity?: number | null
           name?: string | null
           notes?: string | null
           quantity?: number | null
           raw?: Json
           reorder_level?: number | null
           sku?: string | null
+          status?: string
+          tags?: string[]
           unit?: string | null
           unit_cost?: number | null
           updated_at?: string
+          usage_tracking?: string
           user_id?: string
           vendor?: string | null
         }
@@ -145,51 +211,80 @@ export type Database = {
       }
       maintenance_records: {
         Row: {
+          asset_id: string | null
           asset_name: string | null
+          completed_date: string | null
+          consumables_used: Json
           cost: number | null
           created_at: string
+          description: string | null
           due_at: string | null
           id: string
           notes: string | null
           performed_at: string | null
           raw: Json
+          recurrence: string | null
+          scheduled_date: string | null
           service_type: string | null
           status: string | null
+          title: string | null
           updated_at: string
           user_id: string
           vendor: string | null
         }
         Insert: {
+          asset_id?: string | null
           asset_name?: string | null
+          completed_date?: string | null
+          consumables_used?: Json
           cost?: number | null
           created_at?: string
+          description?: string | null
           due_at?: string | null
           id?: string
           notes?: string | null
           performed_at?: string | null
           raw?: Json
+          recurrence?: string | null
+          scheduled_date?: string | null
           service_type?: string | null
           status?: string | null
+          title?: string | null
           updated_at?: string
           user_id: string
           vendor?: string | null
         }
         Update: {
+          asset_id?: string | null
           asset_name?: string | null
+          completed_date?: string | null
+          consumables_used?: Json
           cost?: number | null
           created_at?: string
+          description?: string | null
           due_at?: string | null
           id?: string
           notes?: string | null
           performed_at?: string | null
           raw?: Json
+          recurrence?: string | null
+          scheduled_date?: string | null
           service_type?: string | null
           status?: string | null
+          title?: string | null
           updated_at?: string
           user_id?: string
           vendor?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "maintenance_records_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       projects: {
         Row: {
