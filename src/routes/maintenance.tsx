@@ -24,6 +24,7 @@ import {
 import { toast } from "sonner";
 import { rowsToCsv, downloadCsv } from "@/lib/csv";
 import { WelcomingPagesImportHelper } from "@/components/welcoming-pages-import-helper";
+import { NewRecordDialog } from "@/components/new-record-dialog";
 
 export const Route = createFileRoute("/maintenance")({
   ssr: false,
