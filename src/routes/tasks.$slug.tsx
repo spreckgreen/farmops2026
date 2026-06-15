@@ -70,6 +70,17 @@ function TaskPage() {
     onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
   });
 
+  const saveRecurrence = useMutation({
+    mutationFn: (recurrence: Recurrence) =>
+      updateFn({ data: { id: q.data!.task.id, recurrence } }),
+    onSuccess: () => {
+      toast.success("Recurrence updated");
+      qc.invalidateQueries({ queryKey: ["task", slug] });
+      qc.invalidateQueries({ queryKey: ["tasks"] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
+  });
+
   const remove = useMutation({
     mutationFn: () => deleteFn({ data: { id: q.data!.task.id } }),
     onSuccess: () => {
