@@ -2,7 +2,7 @@ import { createFileRoute, Link, useParams, useNavigate } from "@tanstack/react-r
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { getDailyNote, listProjects, saveDailyNote } from "@/lib/log.functions";
+import { commitDailyNote, getDailyNote, listProjects, saveDailyNote } from "@/lib/log.functions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AppLayout } from "@/components/app-layout";
@@ -36,6 +36,7 @@ function NotePage() {
   const navigate = useNavigate();
   const fetchNote = useServerFn(getDailyNote);
   const saveFn = useServerFn(saveDailyNote);
+  const commitFn = useServerFn(commitDailyNote);
   const qc = useQueryClient();
 
   const today = format(new Date(), "yyyy-MM-dd");
@@ -65,14 +66,27 @@ function NotePage() {
       if (!query.data) return null;
       return saveFn({ data: { noteId: query.data.note.id, date, markdown } });
     },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Save failed"),
+  });
+
+  const commitMutation = useMutation({
+    mutationFn: async (markdown: string) => {
+      if (!query.data) return null;
+      return commitFn({ data: { noteId: query.data.note.id, date, markdown } });
+    },
     onSuccess: (res) => {
-      if (res?.newEntries) {
-        toast.success(`Saved · ${res.newEntries} new entr${res.newEntries === 1 ? "y" : "ies"} logged`);
+      if (res) {
+        toast.success(
+          res.newEntries
+            ? `Committed · ${res.newEntries} entr${res.newEntries === 1 ? "y" : "ies"} logged`
+            : "Committed",
+        );
         qc.invalidateQueries({ queryKey: ["tasks"] });
         qc.invalidateQueries({ queryKey: ["task"] });
+        qc.invalidateQueries({ queryKey: ["daily-note", date] });
       }
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Save failed"),
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Commit failed"),
   });
 
   // Keep a ref to the latest draft so flush callbacks see current text.
@@ -101,23 +115,28 @@ function NotePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft, query.data?.note.id, date]);
 
-  // Flush on unmount / tab close so an in-flight debounce doesn't lose edits.
+  // Commit on unmount / tab close: persist the latest markdown AND parse it
+  // into tasks + activity_log. This is the only path that mutates Tasks and
+  // the activity log, so mid-typing autosaves stay quiet.
   useEffect(() => {
     if (!query.data) return;
     const noteId = query.data.note.id;
-    const flush = () => {
+    const flushCommit = () => {
       const current = draftRef.current;
-      if (current === lastSavedRef.current) return;
       lastSavedRef.current = current;
-      saveFn({ data: { noteId, date, markdown: current } })
-        .then(() => qc.invalidateQueries({ queryKey: ["daily-note", date] }))
+      commitFn({ data: { noteId, date, markdown: current } })
+        .then(() => {
+          qc.invalidateQueries({ queryKey: ["daily-note", date] });
+          qc.invalidateQueries({ queryKey: ["tasks"] });
+          qc.invalidateQueries({ queryKey: ["task"] });
+        })
         .catch(() => {});
     };
-    const onBeforeUnload = () => flush();
+    const onBeforeUnload = () => flushCommit();
     window.addEventListener("beforeunload", onBeforeUnload);
     return () => {
       window.removeEventListener("beforeunload", onBeforeUnload);
-      flush();
+      flushCommit();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query.data?.note.id, date]);
@@ -231,9 +250,20 @@ function NotePage() {
               <p className="text-xs text-muted-foreground font-mono">{date}</p>
             </div>
           </div>
-          <span className="text-xs text-muted-foreground">
-            {draft === lastSavedRef.current ? "saved" : "saving…"}
-          </span>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-muted-foreground">
+              {draft === lastSavedRef.current ? "saved" : "saving…"}
+            </span>
+            <Button
+              size="sm"
+              variant="default"
+              onClick={() => commitMutation.mutate(draftRef.current)}
+              disabled={commitMutation.isPending || !query.data}
+              title="Persist tasks and activity log entries from today's note"
+            >
+              {commitMutation.isPending ? "Committing…" : "Commit to log"}
+            </Button>
+          </div>
         </div>
 
         <div className="relative">

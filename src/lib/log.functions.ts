@@ -177,7 +177,28 @@ async function invalidateSummaries(_supabase: any, _userId: string) {
   // intentional no-op — see comment above
 }
 
+// Draft save: only persist the markdown. Parsing into tasks/activity_log is
+// deferred until commitDailyNote() so that mid-typing autosaves don't churn
+// the activity log with corrective intermediate entries.
 export const saveDailyNote = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ noteId: z.string().uuid(), date: z.string(), markdown: z.string() }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    const { error: updErr } = await supabase
+      .from("daily_notes")
+      .update({ markdown_content: data.markdown })
+      .eq("id", data.noteId);
+    if (updErr) throw new Error(updErr.message);
+    return { saved: true, newEntries: 0 };
+  });
+
+// Commit: persist markdown AND parse it into tasks + activity_log.
+// Called when the user leaves Today (unmount / navigation / tab close) or
+// presses "Commit" so intermediate edits don't generate noisy log churn.
+export const commitDailyNote = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
     z.object({ noteId: z.string().uuid(), date: z.string(), markdown: z.string() }).parse(d),
@@ -185,17 +206,14 @@ export const saveDailyNote = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
 
-    // 1. Save markdown
     const { error: updErr } = await supabase
       .from("daily_notes")
       .update({ markdown_content: data.markdown })
       .eq("id", data.noteId);
     if (updErr) throw new Error(updErr.message);
 
-    // 2. Parse
     const parsed = parseMarkdown(data.markdown);
 
-    // 3. Existing tasks (for resolve + create check)
     const { data: existingTasks } = await supabase
       .from("tasks")
       .select("id, slug, title, status, project_tags, start_at, percent_complete");
@@ -204,7 +222,6 @@ export const saveDailyNote = createServerFn({ method: "POST" })
       (existingTasks ?? []).map((t) => [t.title.toLowerCase(), t]),
     );
 
-    // 4. Create new tasks from `- [ ]` lines that don't exist yet
     for (const p of parsed) {
       if (!p.newTask) continue;
       const slug = slugify(p.newTask.title);
@@ -229,7 +246,6 @@ export const saveDailyNote = createServerFn({ method: "POST" })
       }
     }
 
-    // 5. Update status / tags / start_at / percent for resolved tasks
     const resolveTask = (p: ParsedLine) => {
       if (p.newTask) return tasksBySlug.get(slugify(p.newTask.title));
       if (p.taskRef)
@@ -272,7 +288,6 @@ export const saveDailyNote = createServerFn({ method: "POST" })
       }
     }
 
-    // 6. Build entries; resolve task refs
     type EntryInsert = {
       user_id: string;
       task_id: string | null;
@@ -291,10 +306,10 @@ export const saveDailyNote = createServerFn({ method: "POST" })
           p.taskRef.kind === "slug"
             ? tasksBySlug.get(p.taskRef.value)
             : tasksByTitle.get(p.taskRef.value.toLowerCase());
-        if (!found) continue; // skip unresolved
+        if (!found) continue;
         taskId = found.id;
       } else {
-        continue; // untagged → stays in daily note only
+        continue;
       }
       entries.push({
         user_id: userId,
@@ -305,10 +320,6 @@ export const saveDailyNote = createServerFn({ method: "POST" })
       });
     }
 
-    // 7. Replace (don't append): wipe prior entries for this daily note and
-    //    re-insert from the current parsed markdown. This way edits/removals
-    //    in Today flow through to Tasks/Reports/Summaries instead of leaving
-    //    stale rows behind.
     const { error: delErr } = await supabase
       .from("activity_log")
       .delete()
@@ -321,7 +332,7 @@ export const saveDailyNote = createServerFn({ method: "POST" })
     }
 
     await invalidateSummaries(supabase, userId);
-    return { saved: true, newEntries: entries.length };
+    return { committed: true, newEntries: entries.length };
   });
 
 // ---- Tasks ----
