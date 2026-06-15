@@ -63,7 +63,7 @@ vi.mock("@tanstack/react-start", () => ({
 }));
 
 vi.mock("@tanstack/react-router", () => ({
-  createFileRoute: () => (_opts: unknown) => ({}),
+  createFileRoute: () => (opts: { component: React.FC }) => ({ options: opts }),
   useParams: () => ({ date: "2026-06-15" }),
   useNavigate: () => vi.fn(),
   Link: ({ children, to, params }: any) => {
