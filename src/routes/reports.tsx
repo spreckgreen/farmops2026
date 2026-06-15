@@ -68,23 +68,57 @@ function ReportsPage() {
               <code className="font-mono">#project/&lt;tag&gt;</code> to group.
             </p>
           </div>
-          <div className="w-64">
-            <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1 block">
-              Project tag
-            </label>
-            <Select value={tag} onValueChange={setTag}>
-              <SelectTrigger>
-                <SelectValue placeholder="All projects" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL}>All projects</SelectItem>
-                {(tagsQ.data ?? []).map((t) => (
-                  <SelectItem key={t} value={t}>
-                    #project/{t}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="flex items-end gap-2">
+            <div className="w-64">
+              <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1 block">
+                Project tag
+              </label>
+              <Select value={tag} onValueChange={setTag}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All projects" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL}>All projects</SelectItem>
+                  {(tagsQ.data ?? []).map((t) => (
+                    <SelectItem key={t} value={t}>
+                      #project/{t}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={!tasksQ.data}
+              onClick={async () => {
+                try {
+                  const filterTag = tag === ALL ? null : tag;
+                  const tpl = await loadTemplate();
+                  const rows = (tasksQ.data ?? []) as ScheduledTaskRow[];
+                  const tiddlers = tiddlersFromScheduledTasks(rows, filterTag);
+                  const indexTitle = filterTag
+                    ? `Scheduled Tasks — #project/${filterTag}`
+                    : "Scheduled Tasks";
+                  const html = assembleTiddlyWiki(tpl, tiddlers, {
+                    siteTitle: "Bostead Farms — Reports",
+                    subtitle: indexTitle,
+                    defaultTiddlers: [indexTitle],
+                  });
+                  const stamp = format(new Date(), "yyyyMMdd-HHmm");
+                  downloadHtml(
+                    `bostead-reports-${filterTag ?? "all"}-${stamp}.html`,
+                    html,
+                  );
+                  toast.success("TiddlyWiki export downloaded");
+                } catch (e) {
+                  toast.error(e instanceof Error ? e.message : "Export failed");
+                }
+              }}
+            >
+              <Download className="h-4 w-4 mr-1.5" />
+              Export TiddlyWiki
+            </Button>
           </div>
         </div>
 
