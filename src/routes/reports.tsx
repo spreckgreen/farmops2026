@@ -120,6 +120,7 @@ function ReportsPage() {
               <Download className="h-4 w-4 mr-1.5" />
               Export TiddlyWiki
             </Button>
+            <TiddlyWikiImportButton kind="tasks" />
           </div>
         </div>
 
