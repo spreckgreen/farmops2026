@@ -17,7 +17,7 @@ export const Route = createFileRoute("/sync")({
 
 type DirHandle = FileSystemDirectoryHandle;
 
-const FOLDERS = ["Daily", "Tasks", "Projects", "Summaries"];
+const FOLDERS = ["Daily", "Tasks", "Projects", "Summaries", "Inventory", "Maintenance", "Consumables"];
 
 async function getOrCreateSubdir(root: DirHandle, name: string): Promise<DirHandle> {
   return root.getDirectoryHandle(name, { create: true });
