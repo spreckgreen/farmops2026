@@ -254,7 +254,7 @@ export function tiddlersFromSummaries(rows: SummaryRow[]): Tiddler[] {
     const projectTitles: string[] = [];
     if (shape.by_project?.length) {
       for (const p of shape.by_project) {
-        const pTitle = `${r.created_at.slice(0, 10)} — #project/${p.project}`;
+        const pTitle = `${baseTitle} — #project/${p.project}`;
         const pLines: string[] = [];
         pLines.push(`! ${pTitle}`, "");
         if (r.period_start || r.period_end) {
