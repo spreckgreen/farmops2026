@@ -32,7 +32,9 @@ function BacklogPage() {
   const addMaintFn = useServerFn(addMaintenanceToToday);
   const listReorderFn = useServerFn(listReorderInventory);
   const addReorderFn = useServerFn(addReorderToToday);
+  const createFn = useServerFn(createBacklogTask);
   const qc = useQueryClient();
+  const [newTitle, setNewTitle] = useState("");
 
   const { data, isLoading } = useQuery({
     queryKey: ["tasks", "backlog"],
