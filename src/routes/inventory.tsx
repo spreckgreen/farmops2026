@@ -17,10 +17,13 @@ import {
   Boxes,
   AlertTriangle,
   Upload,
+  Download,
   FileText,
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { rowsToCsv, downloadCsv } from "@/lib/csv";
+import { WelcomingPagesImportHelper } from "@/components/welcoming-pages-import-helper";
 
 export const Route = createFileRoute("/inventory")({
   ssr: false,
@@ -47,7 +50,7 @@ const HEADER_ALIASES: Record<string, string> = {
   item: "name",
   "item name": "name",
   product: "name",
-  description: "name",
+  description: "description",
   category: "category",
   type: "category",
   group: "category",
@@ -64,8 +67,6 @@ const HEADER_ALIASES: Record<string, string> = {
   "unit of measure": "unit",
   "reorder level": "reorder_level",
   reorder: "reorder_level",
-  "min qty": "reorder_level",
-  minimum: "reorder_level",
   "unit cost": "unit_cost",
   cost: "unit_cost",
   price: "unit_cost",
@@ -75,15 +76,25 @@ const HEADER_ALIASES: Record<string, string> = {
   note: "notes",
   comment: "notes",
   comments: "notes",
-  // Welcoming Pages preset — `assets` and `consumables` tables
+  // Welcoming Pages parity — assets + consumables
   "quantity in stock": "quantity",
   "qty in stock": "quantity",
-  "min quantity": "reorder_level",
-  "minimum quantity": "reorder_level",
+  "min qty": "min_quantity",
+  "min quantity": "min_quantity",
+  "minimum quantity": "min_quantity",
+  minimum: "min_quantity",
+  min_quantity: "min_quantity",
   "cost per unit": "unit_cost",
   "per unit cost": "unit_cost",
-  tags: "notes",
-  status: "category",
+  tags: "tags",
+  status: "status",
+  barcode: "barcode",
+  "current hours": "current_hours",
+  current_hours: "current_hours",
+  "current miles": "current_miles",
+  current_miles: "current_miles",
+  "usage tracking": "usage_tracking",
+  usage_tracking: "usage_tracking",
 };
 
 function normalizeHeader(h: string): string {
@@ -230,6 +241,43 @@ function InventoryPage() {
                 }}
               />
               <Button
+                onClick={() => {
+                  if (items.length === 0) {
+                    toast.info("No inventory to export");
+                    return;
+                  }
+                  const csv = rowsToCsv(items as never, [
+                    { key: "sku", label: "sku" },
+                    { key: "name", label: "name" },
+                    { key: "description", label: "description" },
+                    { key: "category", label: "category" },
+                    { key: "location", label: "location" },
+                    { key: "quantity", label: "quantity" },
+                    { key: "unit", label: "unit" },
+                    { key: "min_quantity", label: "min_quantity" },
+                    { key: "reorder_level", label: "reorder_level" },
+                    { key: "unit_cost", label: "unit_cost" },
+                    { key: "vendor", label: "vendor" },
+                    { key: "status", label: "status" },
+                    { key: "tags", label: "tags" },
+                    { key: "barcode", label: "barcode" },
+                    { key: "current_hours", label: "current_hours" },
+                    { key: "current_miles", label: "current_miles" },
+                    { key: "usage_tracking", label: "usage_tracking" },
+                    { key: "notes", label: "notes" },
+                  ]);
+                  downloadCsv(
+                    `inventory_${new Date().toISOString().slice(0, 10)}.csv`,
+                    csv,
+                  );
+                  toast.success(`Exported ${items.length} item${items.length === 1 ? "" : "s"}`);
+                }}
+                variant="ghost"
+                className="text-neutral-400 hover:text-amber-400"
+              >
+                <Download className="h-4 w-4 mr-1" /> Export
+              </Button>
+              <Button
                 onClick={() => fileRef.current?.click()}
                 variant="outline"
                 className="border-amber-500/40 text-amber-400 hover:bg-amber-500/10"
@@ -241,6 +289,8 @@ function InventoryPage() {
               </Button>
             </div>
           </div>
+
+          <WelcomingPagesImportHelper kind="inventory" />
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
             {[

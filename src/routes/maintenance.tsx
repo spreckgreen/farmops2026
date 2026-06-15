@@ -17,10 +17,13 @@ import {
   Calendar,
   AlertTriangle,
   Upload,
+  Download,
   FileText,
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { rowsToCsv, downloadCsv } from "@/lib/csv";
+import { WelcomingPagesImportHelper } from "@/components/welcoming-pages-import-helper";
 
 export const Route = createFileRoute("/maintenance")({
   ssr: false,
@@ -43,9 +46,11 @@ const HEADER_ALIASES: Record<string, string> = {
   "asset name": "asset_name",
   equipment: "asset_name",
   item: "asset_name",
+  asset_id: "asset_id",
   service: "service_type",
   "service type": "service_type",
   type: "service_type",
+  title: "title",
   status: "status",
   state: "status",
   "performed at": "performed_at",
@@ -53,9 +58,16 @@ const HEADER_ALIASES: Record<string, string> = {
   "service date": "performed_at",
   date: "performed_at",
   "completed at": "performed_at",
+  "completed date": "completed_date",
+  "completed_date": "completed_date",
   "due at": "due_at",
   "next due": "due_at",
   "due date": "due_at",
+  "scheduled date": "scheduled_date",
+  "scheduled_date": "scheduled_date",
+  recurrence: "recurrence",
+  "consumables used": "consumables_used",
+  consumables_used: "consumables_used",
   cost: "cost",
   amount: "cost",
   price: "cost",
@@ -64,7 +76,7 @@ const HEADER_ALIASES: Record<string, string> = {
   technician: "vendor",
   notes: "notes",
   note: "notes",
-  description: "notes",
+  description: "description",
   comment: "notes",
   comments: "notes",
 };
@@ -199,6 +211,39 @@ function MaintenancePage() {
                 }}
               />
               <Button
+                onClick={() => {
+                  if (records.length === 0) {
+                    toast.info("No records to export");
+                    return;
+                  }
+                  const csv = rowsToCsv(records as never, [
+                    { key: "title", label: "title" },
+                    { key: "asset_name", label: "asset_name" },
+                    { key: "service_type", label: "service_type" },
+                    { key: "status", label: "status" },
+                    { key: "scheduled_date", label: "scheduled_date" },
+                    { key: "completed_date", label: "completed_date" },
+                    { key: "performed_at", label: "performed_at" },
+                    { key: "due_at", label: "due_at" },
+                    { key: "recurrence", label: "recurrence" },
+                    { key: "cost", label: "cost" },
+                    { key: "vendor", label: "vendor" },
+                    { key: "description", label: "description" },
+                    { key: "notes", label: "notes" },
+                    { key: "consumables_used", label: "consumables_used" },
+                  ]);
+                  downloadCsv(
+                    `maintenance_${new Date().toISOString().slice(0, 10)}.csv`,
+                    csv,
+                  );
+                  toast.success(`Exported ${records.length} record${records.length === 1 ? "" : "s"}`);
+                }}
+                variant="ghost"
+                className="text-neutral-400 hover:text-amber-400"
+              >
+                <Download className="h-4 w-4 mr-1" /> Export
+              </Button>
+              <Button
                 onClick={() => fileRef.current?.click()}
                 variant="outline"
                 className="border-amber-500/40 text-amber-400 hover:bg-amber-500/10"
@@ -210,6 +255,8 @@ function MaintenancePage() {
               </Button>
             </div>
           </div>
+
+          <WelcomingPagesImportHelper kind="maintenance" />
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
             {[
