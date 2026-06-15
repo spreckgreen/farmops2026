@@ -89,7 +89,9 @@ export const importMaintenance = createServerFn({ method: "POST" })
     let inserted = 0;
     for (let i = 0; i < rows.length; i += 500) {
       const chunk = rows.slice(i, i + 500);
-      const { error } = await supabase.from("maintenance_records").insert(chunk);
+      const { error } = await supabase
+        .from("maintenance_records")
+        .insert(chunk as never);
       if (error) throw new Error(error.message);
       inserted += chunk.length;
     }
