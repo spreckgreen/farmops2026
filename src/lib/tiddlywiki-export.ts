@@ -230,18 +230,73 @@ function pickShape(row: SummaryRow): SummaryShape {
 export function tiddlersFromSummaries(rows: SummaryRow[]): Tiddler[] {
   const now = tiddlyDate(new Date());
   const tiddlers: Tiddler[] = [];
+  const seenTitles = new Set<string>();
+  const pushUnique = (t: Tiddler) => {
+    let title = t.title;
+    let n = 2;
+    while (seenTitles.has(title)) title = `${t.title} (${n++})`;
+    seenTitles.add(title);
+    tiddlers.push({ ...t, title });
+  };
 
   for (const r of rows) {
     const shape = pickShape(r);
-    const title = summaryTitle(r);
-    const tagList = [
+    const baseTitle = summaryTitle(r);
+    const baseTags = [
       "Summary",
       `mode/${r.mode}`,
       ...(r.status ? [`status/${r.status}`] : []),
       ...(r.scope_task ? [`task/${r.scope_task.slug}`] : []),
     ];
+
+    // Per-project child tiddlers (one per project in by_project).
+    const projectTitles: string[] = [];
+    if (shape.by_project?.length) {
+      for (const p of shape.by_project) {
+        const pTitle = `${r.created_at.slice(0, 10)} — #project/${p.project}`;
+        const pLines: string[] = [];
+        pLines.push(`! ${pTitle}`, "");
+        if (r.period_start || r.period_end) {
+          pLines.push(`//Period: ${r.period_start ?? "?"} → ${r.period_end ?? "?"}//`, "");
+        }
+        if (p.summary) pLines.push(p.summary, "");
+        if (p.highlights?.length) {
+          pLines.push("!! Highlights");
+          for (const h of p.highlights) pLines.push(`* ${h}`);
+          pLines.push("");
+        }
+        pLines.push(`//From: [[${safeTitle(baseTitle)}]]//`);
+        pushUnique({
+          title: pTitle,
+          text: pLines.join("\n"),
+          tags: formatTags([...baseTags, `project/${p.project}`]),
+          type: "text/vnd.tiddlywiki",
+          created: tiddlyDate(r.created_at),
+          modified: tiddlyDate(r.created_at),
+          "summary-mode": r.mode,
+          "summary-status": r.status ?? "",
+          "period-start": r.period_start ?? "",
+          "period-end": r.period_end ?? "",
+          "scope-project": p.project,
+          "bostead-kind": "summary-project",
+          "bostead-payload": JSON.stringify({
+            parent_id: r.id,
+            mode: r.mode,
+            scope_project: p.project,
+            period_start: r.period_start,
+            period_end: r.period_end,
+            status: r.status,
+            created_at: r.created_at,
+            body: { project: p.project, summary: p.summary, highlights: p.highlights ?? [] },
+          }),
+        });
+        projectTitles.push(pTitle);
+      }
+    }
+
+    // Parent summary tiddler — overview only, links to per-project tiddlers.
     const lines: string[] = [];
-    lines.push(`! ${title}`, "");
+    lines.push(`! ${baseTitle}`, "");
     if (r.period_start || r.period_end) {
       lines.push(`//Period: ${r.period_start ?? "?"} → ${r.period_end ?? "?"}//`, "");
     }
@@ -261,21 +316,15 @@ export function tiddlersFromSummaries(rows: SummaryRow[]): Tiddler[] {
       for (const n of shape.next_steps) lines.push(`* ${n}`);
       lines.push("");
     }
-    if (shape.by_project?.length) {
-      lines.push("!! By project");
-      for (const p of shape.by_project) {
-        lines.push(`!!! ${p.project}`);
-        if (p.summary) lines.push(p.summary);
-        if (p.highlights?.length) {
-          for (const h of p.highlights) lines.push(`* ${h}`);
-        }
-        lines.push("");
-      }
+    if (projectTitles.length) {
+      lines.push("!! Projects");
+      for (const pt of projectTitles) lines.push(`* [[${safeTitle(pt)}]]`);
+      lines.push("");
     }
-    tiddlers.push({
-      title,
+    pushUnique({
+      title: baseTitle,
       text: lines.join("\n"),
-      tags: formatTags(tagList),
+      tags: formatTags(baseTags),
       type: "text/vnd.tiddlywiki",
       created: tiddlyDate(r.created_at),
       modified: tiddlyDate(r.created_at),
