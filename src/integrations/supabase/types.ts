@@ -89,6 +89,54 @@ export type Database = {
         }
         Relationships: []
       }
+      maintenance_records: {
+        Row: {
+          asset_name: string | null
+          cost: number | null
+          created_at: string
+          due_at: string | null
+          id: string
+          notes: string | null
+          performed_at: string | null
+          raw: Json
+          service_type: string | null
+          status: string | null
+          updated_at: string
+          user_id: string
+          vendor: string | null
+        }
+        Insert: {
+          asset_name?: string | null
+          cost?: number | null
+          created_at?: string
+          due_at?: string | null
+          id?: string
+          notes?: string | null
+          performed_at?: string | null
+          raw?: Json
+          service_type?: string | null
+          status?: string | null
+          updated_at?: string
+          user_id: string
+          vendor?: string | null
+        }
+        Update: {
+          asset_name?: string | null
+          cost?: number | null
+          created_at?: string
+          due_at?: string | null
+          id?: string
+          notes?: string | null
+          performed_at?: string | null
+          raw?: Json
+          service_type?: string | null
+          status?: string | null
+          updated_at?: string
+          user_id?: string
+          vendor?: string | null
+        }
+        Relationships: []
+      }
       projects: {
         Row: {
           created_at: string
