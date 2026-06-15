@@ -250,9 +250,14 @@ function MaintenancePage() {
               >
                 <Upload className="h-4 w-4 mr-1" /> Import file
               </Button>
-              <Button className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-glow">
-                <Plus className="h-4 w-4 mr-1" /> New record
-              </Button>
+              <NewRecordDialog
+                kind="maintenance"
+                trigger={
+                  <Button className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-glow">
+                    <Plus className="h-4 w-4 mr-1" /> New record
+                  </Button>
+                }
+              />
             </div>
           </div>
 
