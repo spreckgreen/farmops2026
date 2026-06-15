@@ -9,10 +9,57 @@ function normalizeLogLine(raw: string) {
   return (raw ?? "").replace(/\s+/g, " ").trim();
 }
 
-function normalizeTaskForDedupe(raw: string) {
+// ---- Configurable dedupe normalization ----
+//
+// The signature used for clustering near-duplicate task lines is tunable so
+// different vaults can opt into stricter or looser collapsing. Defaults are
+// chosen to handle the common Obsidian-style noise: bracket prefixes like
+// [WIP] / [URGENT], leading filler stop words, and arbitrary punctuation.
+
+export type DedupeConfig = {
+  /** Strip leading bracketed prefixes such as `[WIP]`, `[URGENT]`, `(draft)`. */
+  stripBracketPrefixes: boolean;
+  /** Lowercased tokens removed from the signature (the canonical line text is preserved). */
+  stopWords: string[];
+  /** Additional regex source strings stripped from the task body before tokenizing. */
+  extraStripPatterns: string[];
+  /** Number of leading words that make up the signature. */
+  signatureWords: number;
+  /** Minimum signature length before we fall back to the full normalized line. */
+  signatureMinChars: number;
+};
+
+export const DEFAULT_DEDUPE_CONFIG: DedupeConfig = {
+  stripBracketPrefixes: true,
+  stopWords: [
+    "the", "a", "an",
+    "to", "for", "of", "on", "in", "at", "with", "by", "from",
+    "and", "or",
+    "my", "our", "your",
+    "todo", "task",
+  ],
+  extraStripPatterns: [],
+  signatureWords: 3,
+  signatureMinChars: 6,
+};
+
+const BRACKET_PREFIX_RE = /^(?:[\[(][^\])]+[\])]\s*)+/;
+
+function normalizeTaskForDedupe(raw: string, config: DedupeConfig = DEFAULT_DEDUPE_CONFIG) {
   const taskMatch = normalizeLogLine(raw).match(/^-\s*\[[ xX]\]\s+(.+)$/);
   if (!taskMatch) return null;
-  return taskMatch[1]
+  let body = taskMatch[1];
+  if (config.stripBracketPrefixes) {
+    body = body.replace(BRACKET_PREFIX_RE, "");
+  }
+  for (const pattern of config.extraStripPatterns) {
+    try {
+      body = body.replace(new RegExp(pattern, "gi"), " ");
+    } catch {
+      // ignore invalid user-supplied patterns
+    }
+  }
+  return body
     .replace(/#project\/[a-z0-9][a-z0-9-_]*/gi, " ")
     .replace(/@start:\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(?::\d{2})?(?:Z|[+-]\d{2}:?\d{2})?/gi, " ")
     .replace(/@progress:\d{1,3}%?/gi, " ")
@@ -28,38 +75,43 @@ function normalizeTaskForDedupe(raw: string) {
 // "Follow-up", "Follow-up Bracket", "Follow-up Bracket/weld", …) all share
 // the same opening tokens, so we cluster task lines by the first few
 // normalized words and keep one canonical entry per cluster.
-const TASK_SIGNATURE_WORDS = 3;
-const TASK_SIGNATURE_MIN_CHARS = 6;
-
-function taskSignature(raw: string): string | null {
-  const normalized = normalizeTaskForDedupe(raw);
+function taskSignature(raw: string, config: DedupeConfig = DEFAULT_DEDUPE_CONFIG): string | null {
+  const normalized = normalizeTaskForDedupe(raw, config);
   if (!normalized) return null;
-  const words = normalized.split(" ").filter(Boolean);
-  if (words.length === 0) return null;
-  const head = words.slice(0, TASK_SIGNATURE_WORDS).join(" ");
-  if (head.length < TASK_SIGNATURE_MIN_CHARS && words.length >= TASK_SIGNATURE_WORDS) {
-    // Fall back to the full normalized string for ultra-short tasks so we
-    // don't collapse unrelated short items together.
-    return normalized;
+  const stop = new Set(config.stopWords.map((w) => w.toLowerCase()));
+  const words = normalized.split(" ").filter((w) => w && !stop.has(w));
+  if (words.length === 0) {
+    // Everything was a stop word — fall back to the raw normalized line so
+    // we don't collapse unrelated stop-word-only entries together.
+    return normalized || null;
+  }
+  const head = words.slice(0, config.signatureWords).join(" ");
+  if (head.length < config.signatureMinChars && words.length >= config.signatureWords) {
+    return words.join(" ");
   }
   return head;
 }
 
-function isBetterCanonicalLine(candidate: string, current: string) {
-  const candidateTask = normalizeTaskForDedupe(candidate);
-  const currentTask = normalizeTaskForDedupe(current);
+function isBetterCanonicalLine(
+  candidate: string,
+  current: string,
+  config: DedupeConfig = DEFAULT_DEDUPE_CONFIG,
+) {
+  const candidateTask = normalizeTaskForDedupe(candidate, config);
+  const currentTask = normalizeTaskForDedupe(current, config);
   if (candidateTask && currentTask && candidateTask.length !== currentTask.length) {
     return candidateTask.length > currentTask.length;
   }
   return normalizeLogLine(candidate).length > normalizeLogLine(current).length;
 }
 
-function dedupeLogEntries(entries: ActivityLogEntry[]) {
+function dedupeLogEntries(
+  entries: ActivityLogEntry[],
+  config: DedupeConfig = DEFAULT_DEDUPE_CONFIG,
+) {
   const kept: ActivityLogEntry[] = [];
   const duplicateIds: string[] = [];
-  // Cluster index for task lines: signature -> position in `kept`.
   const taskClusters = new Map<string, number>();
-  // Exact-match index for non-task lines (notes, blockers, decisions, …).
   const nonTaskIndex = new Map<string, number>();
 
   const sorted = [...entries].sort(
@@ -73,7 +125,7 @@ function dedupeLogEntries(entries: ActivityLogEntry[]) {
       continue;
     }
 
-    const signature = taskSignature(raw);
+    const signature = taskSignature(raw, config);
 
     if (signature) {
       const existingIdx = taskClusters.get(signature);
@@ -83,7 +135,7 @@ function dedupeLogEntries(entries: ActivityLogEntry[]) {
         continue;
       }
       const current = kept[existingIdx];
-      if (isBetterCanonicalLine(raw, current.raw_content)) {
+      if (isBetterCanonicalLine(raw, current.raw_content, config)) {
         if (current.id) duplicateIds.push(current.id);
         kept[existingIdx] = { ...e, raw_content: raw };
       } else if (e.id) {
@@ -103,16 +155,42 @@ function dedupeLogEntries(entries: ActivityLogEntry[]) {
   return { kept, duplicateIds };
 }
 
-// Used by the safe-merge step to decide whether a draft line is already
-// represented in the rebuilt-from-log markdown (or in the prior draft-only
-// buffer). Tasks match by signature; everything else by exact normalized text.
-function lineMatchesAny(lines: string[], candidate: string) {
+function lineMatchesAny(
+  lines: string[],
+  candidate: string,
+  config: DedupeConfig = DEFAULT_DEDUPE_CONFIG,
+) {
   const normalizedCandidate = normalizeLogLine(candidate);
-  const signature = taskSignature(normalizedCandidate);
+  const signature = taskSignature(normalizedCandidate, config);
   if (signature) {
-    return lines.some((line) => taskSignature(line) === signature);
+    return lines.some((line) => taskSignature(line, config) === signature);
   }
   return lines.some((line) => normalizeLogLine(line) === normalizedCandidate);
+}
+
+const dedupeConfigSchema = z
+  .object({
+    stripBracketPrefixes: z.boolean().optional(),
+    stopWords: z.array(z.string().min(1).max(40)).max(200).optional(),
+    extraStripPatterns: z.array(z.string().min(1).max(200)).max(50).optional(),
+    signatureWords: z.number().int().min(1).max(10).optional(),
+    signatureMinChars: z.number().int().min(1).max(40).optional(),
+  })
+  .optional();
+
+function resolveDedupeConfig(
+  override: z.infer<typeof dedupeConfigSchema>,
+): DedupeConfig {
+  if (!override) return DEFAULT_DEDUPE_CONFIG;
+  return {
+    stripBracketPrefixes: override.stripBracketPrefixes ?? DEFAULT_DEDUPE_CONFIG.stripBracketPrefixes,
+    stopWords: override.stopWords
+      ? override.stopWords.map((w) => w.toLowerCase())
+      : DEFAULT_DEDUPE_CONFIG.stopWords,
+    extraStripPatterns: override.extraStripPatterns ?? DEFAULT_DEDUPE_CONFIG.extraStripPatterns,
+    signatureWords: override.signatureWords ?? DEFAULT_DEDUPE_CONFIG.signatureWords,
+    signatureMinChars: override.signatureMinChars ?? DEFAULT_DEDUPE_CONFIG.signatureMinChars,
+  };
 }
 
 // Rebuild today's note markdown from existing activity_log entries.
@@ -125,11 +203,13 @@ export const refreshDailyNoteFromLog = createServerFn({ method: "POST" })
       .object({
         noteId: z.string().uuid(),
         currentMarkdown: z.string().optional(),
+        dedupeConfig: dedupeConfigSchema,
       })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
     const { supabase } = context;
+    const config = resolveDedupeConfig(data.dedupeConfig);
     const { data: entries, error } = await supabase
       .from("activity_log")
       .select("id, raw_content, created_at")
@@ -140,7 +220,7 @@ export const refreshDailyNoteFromLog = createServerFn({ method: "POST" })
     // Dedupe activity_log rows: exact duplicates and near-duplicate task
     // typing cascades collapse to the longest/canonical entry. Removes
     // duplicate IDs from the database so future refreshes stay clean.
-    const { kept, duplicateIds } = dedupeLogEntries(entries ?? []);
+    const { kept, duplicateIds } = dedupeLogEntries(entries ?? [], config);
     if (duplicateIds.length > 0) {
       const { error: delErr } = await supabase.from("activity_log").delete().in("id", duplicateIds);
       if (delErr) throw new Error(delErr.message);
@@ -157,8 +237,8 @@ export const refreshDailyNoteFromLog = createServerFn({ method: "POST" })
     for (const rawLine of (data.currentMarkdown ?? "").split("\n")) {
       const trimmed = normalizeLogLine(rawLine);
       if (!trimmed) continue;
-      if (lineMatchesAny(rebuiltLines, trimmed)) continue;
-      if (lineMatchesAny(draftOnly, trimmed)) continue;
+      if (lineMatchesAny(rebuiltLines, trimmed, config)) continue;
+      if (lineMatchesAny(draftOnly, trimmed, config)) continue;
       draftOnly.push(trimmed);
     }
     const markdown =
