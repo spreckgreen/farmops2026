@@ -266,11 +266,11 @@ function MaintenancePage() {
             ].map((s) => (
               <div
                 key={s.label}
-                className="rounded-xl border border-neutral-800 bg-neutral-900/60 p-5"
+                className="rounded-xl border border-border bg-gradient-card p-5 shadow-glow"
               >
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-neutral-400">{s.label}</span>
-                  <s.icon className="h-4 w-4 text-amber-400" />
+                  <span className="text-sm text-muted-foreground">{s.label}</span>
+                  <s.icon className="h-4 w-4 text-primary" />
                 </div>
                 <div className="text-3xl font-bold">{s.value}</div>
               </div>
