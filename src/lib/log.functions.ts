@@ -24,46 +24,48 @@ function normalizeTaskForDedupe(raw: string) {
     .toLowerCase();
 }
 
-function areNearDuplicateTaskLines(a: string, b: string) {
-  const left = normalizeTaskForDedupe(a);
-  const right = normalizeTaskForDedupe(b);
-  if (!left || !right) return false;
-  if (left === right) return true;
+// Signature-based clustering: derivative typing chains (e.g. "Follow",
+// "Follow-up", "Follow-up Bracket", "Follow-up Bracket/weld", …) all share
+// the same opening tokens, so we cluster task lines by the first few
+// normalized words and keep one canonical entry per cluster.
+const TASK_SIGNATURE_WORDS = 3;
+const TASK_SIGNATURE_MIN_CHARS = 6;
 
-  const [shorter, longer] = left.length <= right.length ? [left, right] : [right, left];
-  const shorterWords = shorter.split(" ").filter(Boolean).length;
-  return (
-    shorter.length >= 8 &&
-    longer.startsWith(shorter) &&
-    (shorterWords >= 2 || shorter.length >= 12 || shorter.length / longer.length >= 0.35)
-  );
+function taskSignature(raw: string): string | null {
+  const normalized = normalizeTaskForDedupe(raw);
+  if (!normalized) return null;
+  const words = normalized.split(" ").filter(Boolean);
+  if (words.length === 0) return null;
+  const head = words.slice(0, TASK_SIGNATURE_WORDS).join(" ");
+  if (head.length < TASK_SIGNATURE_MIN_CHARS && words.length >= TASK_SIGNATURE_WORDS) {
+    // Fall back to the full normalized string for ultra-short tasks so we
+    // don't collapse unrelated short items together.
+    return normalized;
+  }
+  return head;
 }
 
 function isBetterCanonicalLine(candidate: string, current: string) {
   const candidateTask = normalizeTaskForDedupe(candidate);
   const currentTask = normalizeTaskForDedupe(current);
-  if (candidateTask && currentTask) {
-    if (candidateTask.length !== currentTask.length) {
-      return candidateTask.length > currentTask.length;
-    }
+  if (candidateTask && currentTask && candidateTask.length !== currentTask.length) {
+    return candidateTask.length > currentTask.length;
   }
   return normalizeLogLine(candidate).length > normalizeLogLine(current).length;
-}
-
-function findDuplicateLineIndex(lines: string[], candidate: string) {
-  const normalized = normalizeLogLine(candidate);
-  return lines.findIndex((line) => {
-    const existing = normalizeLogLine(line);
-    return existing === normalized || areNearDuplicateTaskLines(existing, normalized);
-  });
 }
 
 function dedupeLogEntries(entries: ActivityLogEntry[]) {
   const kept: ActivityLogEntry[] = [];
   const duplicateIds: string[] = [];
+  // Cluster index for task lines: signature -> position in `kept`.
+  const taskClusters = new Map<string, number>();
+  // Exact-match index for non-task lines (notes, blockers, decisions, …).
+  const nonTaskIndex = new Map<string, number>();
+
   const sorted = [...entries].sort(
     (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
   );
+
   for (const e of sorted) {
     const raw = normalizeLogLine(e.raw_content);
     if (!raw) {
@@ -71,24 +73,46 @@ function dedupeLogEntries(entries: ActivityLogEntry[]) {
       continue;
     }
 
-    const duplicateIndex = findDuplicateLineIndex(
-      kept.map((entry) => entry.raw_content),
-      raw,
-    );
-    if (duplicateIndex === -1) {
-      kept.push({ ...e, raw_content: raw });
+    const signature = taskSignature(raw);
+
+    if (signature) {
+      const existingIdx = taskClusters.get(signature);
+      if (existingIdx === undefined) {
+        taskClusters.set(signature, kept.length);
+        kept.push({ ...e, raw_content: raw });
+        continue;
+      }
+      const current = kept[existingIdx];
+      if (isBetterCanonicalLine(raw, current.raw_content)) {
+        if (current.id) duplicateIds.push(current.id);
+        kept[existingIdx] = { ...e, raw_content: raw };
+      } else if (e.id) {
+        duplicateIds.push(e.id);
+      }
       continue;
     }
 
-    const current = kept[duplicateIndex];
-    if (isBetterCanonicalLine(raw, current.raw_content)) {
-      if (current.id) duplicateIds.push(current.id);
-      kept[duplicateIndex] = { ...e, raw_content: raw };
+    const existingIdx = nonTaskIndex.get(raw);
+    if (existingIdx === undefined) {
+      nonTaskIndex.set(raw, kept.length);
+      kept.push({ ...e, raw_content: raw });
     } else if (e.id) {
       duplicateIds.push(e.id);
     }
   }
   return { kept, duplicateIds };
+}
+
+// Used by the safe-merge step to decide whether a draft line is already
+// represented in the rebuilt-from-log markdown (or in the prior draft-only
+// buffer). Tasks match by signature; everything else by exact normalized text.
+function lineMatchesAny(lines: string[], candidate: string) {
+  const normalizedCandidate = normalizeLogLine(candidate);
+  const signature = taskSignature(normalizedCandidate);
+  if (signature) {
+    return lines.some((line) => taskSignature(line) === signature);
+  }
+  return lines.some((line) => normalizeLogLine(line) === normalizedCandidate);
 }
 
 // Rebuild today's note markdown from existing activity_log entries.
