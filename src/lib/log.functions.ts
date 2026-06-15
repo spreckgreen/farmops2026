@@ -559,3 +559,135 @@ export const deleteProject = createServerFn({ method: "POST" })
     await invalidateSummaries(context.supabase, context.userId);
     return { ok: true };
   });
+
+// ---- TiddlyWiki import upserts ----
+
+const TaskImportSchema = z.object({
+  slug: z.string().trim().min(1).max(120).regex(/^[a-z0-9](?:[a-z0-9-_]*[a-z0-9])?$/),
+  title: z.string().trim().min(1).max(500),
+  status: z.enum(["open", "blocked", "done"]),
+  project_tags: z.array(z.string().trim().min(1).max(64)).max(20),
+  start_at: z.string().nullable(),
+  percent_complete: z.number().int().min(0).max(100),
+  closed_at: z.string().nullable(),
+});
+
+export const importTasksFromTiddlers = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ tasks: z.array(TaskImportSchema).max(2000) }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    let inserted = 0;
+    let updated = 0;
+    for (const t of data.tasks) {
+      const { data: existing } = await supabase
+        .from("tasks")
+        .select("id")
+        .eq("slug", t.slug)
+        .maybeSingle();
+      const payload = {
+        user_id: userId,
+        slug: t.slug,
+        title: t.title,
+        status: t.status,
+        project_tags: t.project_tags,
+        start_at: t.start_at,
+        percent_complete: t.percent_complete,
+        closed_at: t.closed_at,
+      };
+      if (existing) {
+        const { error } = await supabase.from("tasks").update(payload).eq("id", existing.id);
+        if (error) throw new Error(error.message);
+        updated++;
+      } else {
+        const { error } = await supabase.from("tasks").insert(payload);
+        if (error) throw new Error(error.message);
+        inserted++;
+      }
+    }
+    return { ok: true as const, inserted, updated };
+  });
+
+const SummaryImportSchema = z.object({
+  id: z.string().uuid().nullable(),
+  mode: z.enum(["weekly_report", "project_rollup", "task_rollup", "daily_digest"]),
+  scope_project: z.string().trim().min(1).max(64).nullable(),
+  scope_task_slug: z.string().trim().min(1).max(120).nullable(),
+  period_start: z.string().nullable(),
+  period_end: z.string().nullable(),
+  status: z.enum(["draft", "reviewed", "published"]).nullable(),
+  created_at: z.string().nullable(),
+  body: z.any(),
+});
+
+export const importSummariesFromTiddlers = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ summaries: z.array(SummaryImportSchema).max(500) }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    let inserted = 0;
+    let updated = 0;
+    for (const s of data.summaries) {
+      // Resolve optional scope_task_id by slug.
+      let scope_task_id: string | null = null;
+      if (s.scope_task_slug) {
+        const { data: t } = await supabase
+          .from("tasks")
+          .select("id")
+          .eq("slug", s.scope_task_slug)
+          .maybeSingle();
+        scope_task_id = t?.id ?? null;
+      }
+      // Match existing row by id, or by (mode, scope, period) signature.
+      let existingId: string | null = null;
+      if (s.id) {
+        const { data: byId } = await supabase
+          .from("summaries")
+          .select("id")
+          .eq("id", s.id)
+          .maybeSingle();
+        existingId = byId?.id ?? null;
+      }
+      if (!existingId && s.period_start && s.period_end) {
+        const { data: bySig } = await supabase
+          .from("summaries")
+          .select("id")
+          .eq("mode", s.mode)
+          .eq("period_start", s.period_start)
+          .eq("period_end", s.period_end)
+          .maybeSingle();
+        existingId = bySig?.id ?? null;
+      }
+      const payload = {
+        user_id: userId,
+        mode: s.mode,
+        scope_project: s.scope_project,
+        scope_task_id,
+        period_start: s.period_start ?? new Date().toISOString(),
+        period_end: s.period_end ?? new Date().toISOString(),
+        edited_summary: s.body ?? null,
+        status: s.status ?? "draft",
+      };
+      if (existingId) {
+        const { error } = await supabase
+          .from("summaries")
+          .update(payload)
+          .eq("id", existingId);
+        if (error) throw new Error(error.message);
+        updated++;
+      } else {
+        // generated_summary is NOT NULL — seed with the same body if we have nothing else.
+        const { error } = await supabase.from("summaries").insert({
+          ...payload,
+          generated_summary: s.body ?? {},
+        });
+        if (error) throw new Error(error.message);
+        inserted++;
+      }
+    }
+    return { ok: true as const, inserted, updated };
+  });
