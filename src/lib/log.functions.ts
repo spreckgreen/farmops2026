@@ -30,8 +30,7 @@ function areNearDuplicateTaskLines(a: string, b: string) {
   if (!left || !right) return false;
   if (left === right) return true;
 
-  const [shorter, longer] =
-    left.length <= right.length ? [left, right] : [right, left];
+  const [shorter, longer] = left.length <= right.length ? [left, right] : [right, left];
   const shorterWords = shorter.split(" ").filter(Boolean).length;
   return (
     shorter.length >= 8 &&
@@ -138,7 +137,8 @@ export const refreshDailyNoteFromLog = createServerFn({ method: "POST" })
       if (findDuplicateLineIndex(draftOnly, trimmed) !== -1) continue;
       draftOnly.push(trimmed);
     }
-    const markdown = draftOnly.length > 0 ? (rebuilt ? rebuilt + "\n" : "") + draftOnly.join("\n") : rebuilt;
+    const markdown =
+      draftOnly.length > 0 ? (rebuilt ? rebuilt + "\n" : "") + draftOnly.join("\n") : rebuilt;
 
     const { error: updErr } = await supabase
       .from("daily_notes")
