@@ -17,6 +17,7 @@ import {
   tiddlersFromScheduledTasks,
   type ScheduledTaskRow,
 } from "@/lib/tiddlywiki-export";
+import { TiddlyWikiImportButton } from "@/components/tiddlywiki-import-button";
 import { toast } from "sonner";
 import {
   Select,
