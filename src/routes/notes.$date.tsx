@@ -276,6 +276,15 @@ function NotePage() {
             </span>
             <Button
               size="sm"
+              variant="outline"
+              onClick={() => refreshMutation.mutate()}
+              disabled={refreshMutation.isPending || !query.data}
+              title="Rebuild this note's markdown from today's activity log"
+            >
+              {refreshMutation.isPending ? "Refreshing…" : "Refresh from log"}
+            </Button>
+            <Button
+              size="sm"
               variant="default"
               onClick={() => commitMutation.mutate(draftRef.current)}
               disabled={commitMutation.isPending || !query.data}
