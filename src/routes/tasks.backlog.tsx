@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
+import { useState } from "react";
 import {
   listBacklog,
   addTaskToToday,
@@ -8,10 +9,12 @@ import {
   addMaintenanceToToday,
   listReorderInventory,
   addReorderToToday,
+  createBacklogTask,
 } from "@/lib/log.functions";
 import { AppLayout } from "@/components/app-layout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { requireAuthenticatedUser } from "@/lib/auth-route";
 import { toast } from "sonner";
 
@@ -29,7 +32,9 @@ function BacklogPage() {
   const addMaintFn = useServerFn(addMaintenanceToToday);
   const listReorderFn = useServerFn(listReorderInventory);
   const addReorderFn = useServerFn(addReorderToToday);
+  const createFn = useServerFn(createBacklogTask);
   const qc = useQueryClient();
+  const [newTitle, setNewTitle] = useState("");
 
   const { data, isLoading } = useQuery({
     queryKey: ["tasks", "backlog"],
@@ -86,6 +91,24 @@ function BacklogPage() {
     },
   });
 
+  const createMutation = useMutation({
+    mutationFn: (title: string) => createFn({ data: { title } }),
+    onSuccess: () => {
+      toast.success("Task added to backlog");
+      setNewTitle("");
+      qc.invalidateQueries({ queryKey: ["tasks", "backlog"] });
+    },
+    onError: (e: unknown) => {
+      toast.error(e instanceof Error ? e.message : "Failed to create task");
+    },
+  });
+
+  const submitNew = () => {
+    const t = newTitle.trim();
+    if (!t) return;
+    createMutation.mutate(t);
+  };
+
   const grouped = {
     open: (data ?? []).filter((t) => t.status === "open"),
     blocked: (data ?? []).filter((t) => t.status === "blocked"),
@@ -106,6 +129,26 @@ function BacklogPage() {
         <p className="text-xs text-muted-foreground font-mono mb-6">
           Queued tasks not yet pulled into today. Click "Add to today" to activate.
         </p>
+
+        <div className="flex gap-2 mb-6">
+          <Input
+            placeholder="New backlog task…"
+            value={newTitle}
+            onChange={(e) => setNewTitle(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                submitNew();
+              }
+            }}
+          />
+          <Button
+            onClick={submitNew}
+            disabled={createMutation.isPending || !newTitle.trim()}
+          >
+            {createMutation.isPending ? "Adding…" : "Add"}
+          </Button>
+        </div>
 
         {dueItems.length > 0 && (
           <section className="mb-8">
