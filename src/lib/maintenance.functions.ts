@@ -168,3 +168,44 @@ export const deleteMaintenance = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
+const CreateSchema = z.object({
+  title: z.string().trim().max(500).optional().nullable(),
+  asset_name: z.string().trim().min(1).max(500),
+  service_type: z.string().trim().max(500).optional().nullable(),
+  status: z.string().trim().max(100).optional().nullable(),
+  scheduled_date: z.string().trim().max(64).optional().nullable(),
+  performed_at: z.string().trim().max(64).optional().nullable(),
+  due_at: z.string().trim().max(64).optional().nullable(),
+  cost: z.union([z.number(), z.string()]).optional().nullable(),
+  vendor: z.string().trim().max(500).optional().nullable(),
+  notes: z.string().trim().max(5000).optional().nullable(),
+});
+
+export const createMaintenance = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => CreateSchema.parse(d))
+  .handler(async ({ data, context }) => {
+    const row = {
+      user_id: context.userId,
+      title: data.title ?? null,
+      asset_name: data.asset_name,
+      service_type: data.service_type ?? null,
+      status: data.status ?? "scheduled",
+      recurrence: "none",
+      consumables_used: [] as never,
+      performed_at: toDate(data.performed_at),
+      due_at: toDate(data.due_at),
+      scheduled_date: toISO(data.scheduled_date),
+      cost: toNumber(data.cost),
+      vendor: data.vendor ?? null,
+      notes: data.notes ?? null,
+    };
+    const { data: inserted, error } = await context.supabase
+      .from("maintenance_records")
+      .insert(row as never)
+      .select()
+      .single();
+    if (error) throw new Error(error.message);
+    return inserted;
+  });

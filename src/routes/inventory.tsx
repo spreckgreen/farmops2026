@@ -24,6 +24,7 @@ import {
 import { toast } from "sonner";
 import { rowsToCsv, downloadCsv } from "@/lib/csv";
 import { WelcomingPagesImportHelper } from "@/components/welcoming-pages-import-helper";
+import { NewRecordDialog } from "@/components/new-record-dialog";
 
 export const Route = createFileRoute("/inventory")({
   ssr: false,
@@ -284,9 +285,14 @@ function InventoryPage() {
               >
                 <Upload className="h-4 w-4 mr-1" /> Import file
               </Button>
-              <Button className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-glow">
-                <Plus className="h-4 w-4 mr-1" /> New item
-              </Button>
+              <NewRecordDialog
+                kind="inventory"
+                trigger={
+                  <Button className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-glow">
+                    <Plus className="h-4 w-4 mr-1" /> New item
+                  </Button>
+                }
+              />
             </div>
           </div>
 
@@ -422,9 +428,14 @@ function InventoryPage() {
                 >
                   <Upload className="h-4 w-4 mr-1" /> Import file
                 </Button>
-                <Button className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-glow">
-                  <Plus className="h-4 w-4 mr-1" /> New item
-                </Button>
+                <NewRecordDialog
+                  kind="inventory"
+                  trigger={
+                    <Button className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-glow">
+                      <Plus className="h-4 w-4 mr-1" /> New item
+                    </Button>
+                  }
+                />
               </div>
             </div>
           ) : (
