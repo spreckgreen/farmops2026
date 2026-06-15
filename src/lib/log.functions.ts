@@ -89,12 +89,6 @@ function dedupeLogEntries(entries: ActivityLogEntry[]) {
   return { kept, duplicateIds };
 }
 
-// Rebuild a clean markdown body from activity_log raw lines, preserving
-// chronological order and dropping exact and typing-cascade duplicate lines.
-function rebuildMarkdownFromEntries(entries: ActivityLogEntry[]) {
-  return dedupeLogEntries(entries).kept.map((entry) => entry.raw_content).join("\n");
-}
-
 // Rebuild today's note markdown from existing activity_log entries.
 // Used by the "Refresh from log" button when the textarea was cleared but
 // the underlying log still holds the data.
