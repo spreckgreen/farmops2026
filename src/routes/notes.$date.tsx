@@ -250,9 +250,20 @@ function NotePage() {
               <p className="text-xs text-muted-foreground font-mono">{date}</p>
             </div>
           </div>
-          <span className="text-xs text-muted-foreground">
-            {draft === lastSavedRef.current ? "saved" : "saving…"}
-          </span>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-muted-foreground">
+              {draft === lastSavedRef.current ? "saved" : "saving…"}
+            </span>
+            <Button
+              size="sm"
+              variant="default"
+              onClick={() => commitMutation.mutate(draftRef.current)}
+              disabled={commitMutation.isPending || !query.data}
+              title="Persist tasks and activity log entries from today's note"
+            >
+              {commitMutation.isPending ? "Committing…" : "Commit to log"}
+            </Button>
+          </div>
         </div>
 
         <div className="relative">
