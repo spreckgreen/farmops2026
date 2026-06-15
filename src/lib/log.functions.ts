@@ -686,24 +686,23 @@ export const listTasks = createServerFn({ method: "POST" })
       );
     }
 
-    // Day window (UTC) for task created_at fallback.
+    // Day window (UTC) for task created_at / closed_at fallback.
     const dayStart = `${date}T00:00:00.000Z`;
     const dayEnd = `${date}T23:59:59.999Z`;
 
-    const orFilters = [
-      `created_at.gte.${dayStart},created_at.lte.${dayEnd}`,
+    const conditions = [
+      `and(created_at.gte.${dayStart},created_at.lte.${dayEnd})`,
+      `and(closed_at.gte.${dayStart},closed_at.lte.${dayEnd})`,
     ];
-    let query = supabase.from("tasks").select("*");
     if (todayTaskIds.length) {
-      query = query.or(
-        `id.in.(${todayTaskIds.join(",")}),and(created_at.gte.${dayStart},created_at.lte.${dayEnd})`,
-      );
-    } else {
-      query = query.gte("created_at", dayStart).lte("created_at", dayEnd);
+      conditions.push(`id.in.(${todayTaskIds.join(",")})`);
     }
-    const { data: tasks, error } = await query.order("created_at", { ascending: false });
+    const { data: tasks, error } = await supabase
+      .from("tasks")
+      .select("*")
+      .or(conditions.join(","))
+      .order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
-    void orFilters;
 
     // Done tasks should only appear if they were actually accomplished today.
     const filtered = (tasks ?? []).filter((t) => {
