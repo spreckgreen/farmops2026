@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useParams } from "@tanstack/react-router";
+import { createFileRoute, Link, useParams, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -8,7 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { AppLayout } from "@/components/app-layout";
 import { requireAuthenticatedUser } from "@/lib/auth-route";
 import { toast } from "sonner";
-import { format } from "date-fns";
+import { format, addDays, parseISO } from "date-fns";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 
 export const Route = createFileRoute("/notes/$date")({
@@ -32,9 +33,16 @@ Untagged thoughts stay here in the note and don't enter the activity log.
 
 function NotePage() {
   const { date } = useParams({ from: "/notes/$date" });
+  const navigate = useNavigate();
   const fetchNote = useServerFn(getDailyNote);
   const saveFn = useServerFn(saveDailyNote);
   const qc = useQueryClient();
+
+  const today = format(new Date(), "yyyy-MM-dd");
+  const shift = (days: number) => {
+    const next = format(addDays(parseISO(date), days), "yyyy-MM-dd");
+    navigate({ to: "/notes/$date", params: { date: next } });
+  };
 
   const query = useQuery({
     queryKey: ["daily-note", date],
@@ -171,17 +179,44 @@ function NotePage() {
     <AppLayout>
       <div className="max-w-6xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6">
       <section className="min-w-0">
-        <div className="flex items-baseline justify-between mb-4">
-          <div>
-            <h1 className="text-2xl font-mono font-bold">
-              {format(new Date(date + "T00:00:00"), "EEEE, MMMM d")}
-            </h1>
-            <p className="text-xs text-muted-foreground font-mono">{date}</p>
+        <div className="flex items-baseline justify-between mb-4 gap-3 flex-wrap">
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="icon" onClick={() => shift(-1)} aria-label="Previous day">
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => shift(1)}
+              aria-label="Next day"
+              disabled={date >= today}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+            <input
+              type="date"
+              value={date}
+              max={today}
+              onChange={(e) => {
+                if (e.target.value) navigate({ to: "/notes/$date", params: { date: e.target.value } });
+              }}
+              className="bg-card border border-border rounded-md px-2 py-1 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+            {date !== today && (
+              <Button variant="ghost" size="sm" onClick={() => navigate({ to: "/notes/$date", params: { date: today } })}>
+                Today
+              </Button>
+            )}
+            <div className="ml-2">
+              <h1 className="text-2xl font-mono font-bold leading-tight">
+                {format(parseISO(date), "EEEE, MMMM d")}
+              </h1>
+              <p className="text-xs text-muted-foreground font-mono">{date}</p>
+            </div>
           </div>
           <span className="text-xs text-muted-foreground">
             {draft === lastSavedRef.current ? "saved" : "pending · saves on leave"}
           </span>
-
         </div>
 
         <div className="relative">
