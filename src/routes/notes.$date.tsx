@@ -66,14 +66,27 @@ function NotePage() {
       if (!query.data) return null;
       return saveFn({ data: { noteId: query.data.note.id, date, markdown } });
     },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Save failed"),
+  });
+
+  const commitMutation = useMutation({
+    mutationFn: async (markdown: string) => {
+      if (!query.data) return null;
+      return commitFn({ data: { noteId: query.data.note.id, date, markdown } });
+    },
     onSuccess: (res) => {
-      if (res?.newEntries) {
-        toast.success(`Saved · ${res.newEntries} new entr${res.newEntries === 1 ? "y" : "ies"} logged`);
+      if (res) {
+        toast.success(
+          res.newEntries
+            ? `Committed · ${res.newEntries} entr${res.newEntries === 1 ? "y" : "ies"} logged`
+            : "Committed",
+        );
         qc.invalidateQueries({ queryKey: ["tasks"] });
         qc.invalidateQueries({ queryKey: ["task"] });
+        qc.invalidateQueries({ queryKey: ["daily-note", date] });
       }
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Save failed"),
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Commit failed"),
   });
 
   // Keep a ref to the latest draft so flush callbacks see current text.
