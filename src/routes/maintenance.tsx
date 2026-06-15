@@ -353,25 +353,25 @@ function MaintenancePage() {
           )}
 
           {isLoading ? (
-            <div className="rounded-xl border border-neutral-800 bg-neutral-900/40 p-10 text-center text-neutral-400">
+            <div className="rounded-xl border border-border bg-card/40 p-10 text-center text-muted-foreground">
               Loading records…
             </div>
           ) : records.length === 0 ? (
-            <div className="rounded-xl border border-neutral-800 bg-neutral-900/40 p-10 text-center">
-              <Wrench className="h-10 w-10 text-amber-400 mx-auto mb-3" />
+            <div className="rounded-xl border border-border bg-card/40 p-10 text-center">
+              <Wrench className="h-10 w-10 text-primary mx-auto mb-3" />
               <h2 className="text-xl font-semibold mb-1">No maintenance records yet</h2>
-              <p className="text-neutral-400 mb-4">
+              <p className="text-muted-foreground mb-4">
                 Upload a CSV/JSON export to bring records forward, or add your first one.
               </p>
               <div className="flex justify-center gap-2">
                 <Button
                   variant="outline"
                   onClick={() => fileRef.current?.click()}
-                  className="border-amber-500/40 text-amber-400 hover:bg-amber-500/10"
+                  className="border-primary/40 text-primary hover:bg-primary/10"
                 >
                   <Upload className="h-4 w-4 mr-1" /> Import file
                 </Button>
-                <Button className="bg-amber-500 hover:bg-amber-400 text-neutral-950 font-semibold">
+                <Button className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-glow">
                   <Plus className="h-4 w-4 mr-1" /> New record
                 </Button>
               </div>
