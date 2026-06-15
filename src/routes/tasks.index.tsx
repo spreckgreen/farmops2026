@@ -26,7 +26,8 @@ function TasksPage() {
   return (
     <AppLayout>
       <div className="max-w-4xl mx-auto px-4 py-8">
-      <h1 className="text-2xl font-mono font-bold mb-6">Tasks</h1>
+      <h1 className="text-2xl font-mono font-bold mb-1">Today's tasks</h1>
+      <p className="text-xs text-muted-foreground font-mono mb-6">Tasks delivered or touched today</p>
       {isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
       {(["open", "blocked", "done"] as const).map((status) => (
         <section key={status} className="mb-8">
