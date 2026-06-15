@@ -256,6 +256,8 @@ function MaintenancePage() {
             </div>
           </div>
 
+          <WelcomingPagesImportHelper kind="maintenance" />
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
             {[
               { label: "Total records", value: String(stats.total), icon: Wrench },
