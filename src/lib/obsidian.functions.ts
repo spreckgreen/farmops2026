@@ -504,7 +504,7 @@ export const obsidianImport = createServerFn({ method: "POST" })
             cost_per_unit: num(meta.cost_per_unit) ?? 0,
           };
           if (/^[0-9a-f-]{36}$/i.test(id)) row.id = id;
-          const { error } = await supabase.from("consumables").upsert(row, { onConflict: "id" });
+          const { error } = await supabase.from("consumables").upsert(row as never, { onConflict: "id" });
           if (!error) consumables++;
         }
       } catch {
