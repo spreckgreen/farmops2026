@@ -41,6 +41,11 @@ function BacklogPage() {
     queryFn: () => listMaintFn({ data: {} }),
   });
 
+  const reorder = useQuery({
+    queryKey: ["tasks", "backlog", "reorder"],
+    queryFn: () => listReorderFn(),
+  });
+
   const invalidateAll = () => {
     qc.invalidateQueries({ queryKey: ["tasks", "backlog"] });
     qc.invalidateQueries({ queryKey: ["tasks", "today"] });
