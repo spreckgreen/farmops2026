@@ -13,14 +13,28 @@ export const Route = createFileRoute("/tasks/")({
   component: TasksPage,
 });
 
+function taskGroup(title: string): string {
+  const first = title.split(/\s+/)[0]?.toLowerCase().replace(/[^a-z]+$/, "") ?? "";
+  return first;
+}
+
+function sortByGroupThenTitle<T extends { title: string }>(tasks: T[]): T[] {
+  return [...tasks].sort((a, b) => {
+    const ga = taskGroup(a.title);
+    const gb = taskGroup(b.title);
+    if (ga !== gb) return ga.localeCompare(gb);
+    return a.title.localeCompare(b.title);
+  });
+}
+
 function TasksPage() {
   const fn = useServerFn(listTasks);
   const { data, isLoading } = useQuery({ queryKey: ["tasks", "today"], queryFn: () => fn({ data: {} }) });
 
   const grouped = {
-    open: (data ?? []).filter((t) => t.status === "open"),
-    blocked: (data ?? []).filter((t) => t.status === "blocked"),
-    done: (data ?? []).filter((t) => t.status === "done"),
+    open: sortByGroupThenTitle((data ?? []).filter((t) => t.status === "open")),
+    blocked: sortByGroupThenTitle((data ?? []).filter((t) => t.status === "blocked")),
+    done: sortByGroupThenTitle((data ?? []).filter((t) => t.status === "done")),
   };
 
   return (
@@ -38,23 +52,33 @@ function TasksPage() {
             {grouped[status].length === 0 && (
               <li className="px-4 py-3 text-sm text-muted-foreground">None</li>
             )}
-            {grouped[status].map((t) => (
-              <li key={t.id}>
-                <Link
-                  to="/tasks/$slug"
-                  params={{ slug: t.slug }}
-                  className="flex items-center justify-between px-4 py-3 hover:bg-accent transition-colors"
-                >
-                  <div className="min-w-0">
-                    <div className="font-medium truncate">{t.title}</div>
-                    <div className="text-xs text-muted-foreground font-mono">#{t.slug}</div>
-                  </div>
-                  <Badge variant={status === "done" ? "secondary" : status === "blocked" ? "destructive" : "outline"}>
-                    {status}
-                  </Badge>
-                </Link>
-              </li>
-            ))}
+            {grouped[status].map((t, i) => {
+              const prev = grouped[status][i - 1];
+              const group = taskGroup(t.title);
+              const showHeader = !prev || taskGroup(prev.title) !== group;
+              return (
+                <li key={t.id}>
+                  {showHeader && group && (
+                    <div className="px-4 pt-2 pb-0.5 text-[10px] font-mono uppercase tracking-wider text-muted-foreground/60">
+                      {group}
+                    </div>
+                  )}
+                  <Link
+                    to="/tasks/$slug"
+                    params={{ slug: t.slug }}
+                    className="flex items-center justify-between px-4 py-3 hover:bg-accent transition-colors"
+                  >
+                    <div className="min-w-0">
+                      <div className="font-medium truncate">{t.title}</div>
+                      <div className="text-xs text-muted-foreground font-mono">#{t.slug}</div>
+                    </div>
+                    <Badge variant={status === "done" ? "secondary" : status === "blocked" ? "destructive" : "outline"}>
+                      {status}
+                    </Badge>
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
         </section>
       ))}
