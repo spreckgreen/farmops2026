@@ -210,6 +210,39 @@ function MaintenancePage() {
                 }}
               />
               <Button
+                onClick={() => {
+                  if (records.length === 0) {
+                    toast.info("No records to export");
+                    return;
+                  }
+                  const csv = rowsToCsv(records as never, [
+                    { key: "title", label: "title" },
+                    { key: "asset_name", label: "asset_name" },
+                    { key: "service_type", label: "service_type" },
+                    { key: "status", label: "status" },
+                    { key: "scheduled_date", label: "scheduled_date" },
+                    { key: "completed_date", label: "completed_date" },
+                    { key: "performed_at", label: "performed_at" },
+                    { key: "due_at", label: "due_at" },
+                    { key: "recurrence", label: "recurrence" },
+                    { key: "cost", label: "cost" },
+                    { key: "vendor", label: "vendor" },
+                    { key: "description", label: "description" },
+                    { key: "notes", label: "notes" },
+                    { key: "consumables_used", label: "consumables_used" },
+                  ]);
+                  downloadCsv(
+                    `maintenance_${new Date().toISOString().slice(0, 10)}.csv`,
+                    csv,
+                  );
+                  toast.success(`Exported ${records.length} record${records.length === 1 ? "" : "s"}`);
+                }}
+                variant="ghost"
+                className="text-neutral-400 hover:text-amber-400"
+              >
+                <Download className="h-4 w-4 mr-1" /> Export
+              </Button>
+              <Button
                 onClick={() => fileRef.current?.click()}
                 variant="outline"
                 className="border-amber-500/40 text-amber-400 hover:bg-amber-500/10"
