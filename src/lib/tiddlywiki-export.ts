@@ -154,6 +154,16 @@ export function tiddlersFromScheduledTasks(
       "task-status": r.status,
       "task-progress": String(r.percent_complete ?? 0),
       "task-start": r.start_at ?? "",
+      "bostead-kind": "task",
+      "bostead-payload": JSON.stringify({
+        slug: r.slug,
+        title: r.title,
+        status: r.status,
+        project_tags: r.project_tags ?? [],
+        start_at: r.start_at,
+        percent_complete: r.percent_complete ?? 0,
+        closed_at: r.closed_at,
+      }),
     });
   }
 
