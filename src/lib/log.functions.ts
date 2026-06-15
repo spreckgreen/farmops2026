@@ -691,7 +691,6 @@ export const listTasks = createServerFn({ method: "POST" })
     const dayEnd = `${date}T23:59:59.999Z`;
 
     const conditions = [
-      `and(created_at.gte.${dayStart},created_at.lte.${dayEnd})`,
       `and(closed_at.gte.${dayStart},closed_at.lte.${dayEnd})`,
     ];
     if (todayTaskIds.length) {
