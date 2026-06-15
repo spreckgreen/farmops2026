@@ -217,12 +217,6 @@ function pickShape(row: SummaryRow): SummaryShape {
   return (row.generated_summary as SummaryShape | null) ?? {};
 }
 
-function pickShape(row: SummaryRow): SummaryShape {
-  const edited = row.edited_summary as SummaryShape | null;
-  if (edited && typeof edited === "object") return edited;
-  return (row.ai_summary as SummaryShape | null) ?? {};
-}
-
 export function tiddlersFromSummaries(rows: SummaryRow[]): Tiddler[] {
   const now = tiddlyDate(new Date());
   const tiddlers: Tiddler[] = [];
