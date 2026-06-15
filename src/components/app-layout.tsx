@@ -23,6 +23,13 @@ export function AppLayout({ children }: { children: ReactNode }) {
             </Link>
             <nav className="flex items-center gap-1 text-sm">
               <Link
+                to="/tasks/backlog"
+                className="px-3 py-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+                activeProps={{ className: "px-3 py-1.5 rounded-md bg-accent text-foreground" }}
+              >
+                Backlog
+              </Link>
+              <Link
                 to="/notes/$date"
                 params={{ date: today }}
                 className="px-3 py-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
@@ -36,13 +43,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 activeProps={{ className: "px-3 py-1.5 rounded-md bg-accent text-foreground" }}
               >
                 Tasks
-              </Link>
-              <Link
-                to="/tasks/backlog"
-                className="px-3 py-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
-                activeProps={{ className: "px-3 py-1.5 rounded-md bg-accent text-foreground" }}
-              >
-                Backlog
               </Link>
               <Link
                 to="/projects"
