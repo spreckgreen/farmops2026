@@ -115,23 +115,28 @@ function NotePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft, query.data?.note.id, date]);
 
-  // Flush on unmount / tab close so an in-flight debounce doesn't lose edits.
+  // Commit on unmount / tab close: persist the latest markdown AND parse it
+  // into tasks + activity_log. This is the only path that mutates Tasks and
+  // the activity log, so mid-typing autosaves stay quiet.
   useEffect(() => {
     if (!query.data) return;
     const noteId = query.data.note.id;
-    const flush = () => {
+    const flushCommit = () => {
       const current = draftRef.current;
-      if (current === lastSavedRef.current) return;
       lastSavedRef.current = current;
-      saveFn({ data: { noteId, date, markdown: current } })
-        .then(() => qc.invalidateQueries({ queryKey: ["daily-note", date] }))
+      commitFn({ data: { noteId, date, markdown: current } })
+        .then(() => {
+          qc.invalidateQueries({ queryKey: ["daily-note", date] });
+          qc.invalidateQueries({ queryKey: ["tasks"] });
+          qc.invalidateQueries({ queryKey: ["task"] });
+        })
         .catch(() => {});
     };
-    const onBeforeUnload = () => flush();
+    const onBeforeUnload = () => flushCommit();
     window.addEventListener("beforeunload", onBeforeUnload);
     return () => {
       window.removeEventListener("beforeunload", onBeforeUnload);
-      flush();
+      flushCommit();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query.data?.note.id, date]);
