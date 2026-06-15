@@ -225,7 +225,7 @@ export const refreshDailyNoteFromLog = createServerFn({ method: "POST" })
       .split("\n")
       .map(normalizeLogLine)
       .filter(Boolean);
-    let workingEntries = entries ?? [];
+    let workingEntries: ActivityLogEntry[] = entries ?? [];
     const explicitlyDeletedIds: string[] = [];
     if (draftLines.length > 0) {
       const draftSignatures = new Set<string>();
