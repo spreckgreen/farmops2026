@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
+import { useState } from "react";
 import {
   listBacklog,
   addTaskToToday,
@@ -8,10 +9,12 @@ import {
   addMaintenanceToToday,
   listReorderInventory,
   addReorderToToday,
+  createBacklogTask,
 } from "@/lib/log.functions";
 import { AppLayout } from "@/components/app-layout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { requireAuthenticatedUser } from "@/lib/auth-route";
 import { toast } from "sonner";
 
