@@ -1695,7 +1695,7 @@ export const addReorderToToday = createServerFn({ method: "POST" })
       note = created;
     }
 
-    const refLine = `- #task/${task.slug} ${task.title}`;
+    const refLine = buildTaskRefLine(task);
     const current = note.markdown_content ?? "";
     if (!current.includes(`#task/${task.slug}`)) {
       const next = current.trim().length ? `${current.trimEnd()}\n${refLine}\n` : `${refLine}\n`;
