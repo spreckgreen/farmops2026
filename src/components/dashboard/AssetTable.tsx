@@ -39,8 +39,9 @@ const AssetTable = ({ assets, onEdit, onDelete }: AssetTableProps) => {
             <tr className="border-b border-border bg-muted/30">
               <th className="text-left px-4 py-3 font-medium text-muted-foreground">Name</th>
               <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden md:table-cell">
-                Category
+                Inventory Type
               </th>
+
               <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden lg:table-cell">
                 Location
               </th>
