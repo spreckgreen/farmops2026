@@ -118,6 +118,60 @@ function SyncPage() {
     await pushToVault();
   };
 
+  const fallbackPush = async () => {
+    setBusy("Exporting…");
+    try {
+      const { files } = await doExport();
+      for (const f of files) {
+        const blob = new Blob([f.content], { type: "text/markdown" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = f.path.replace(/\//g, "_");
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+      setLastSync(new Date().toLocaleString());
+      toast.success(`Downloaded ${files.length} files`);
+    } catch (e) {
+      toast.error(`Export failed: ${(e as Error).message}`);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const fallbackPull = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = e.target.files;
+    if (!selected || selected.length === 0) return;
+    setBusy("Importing…");
+    try {
+      const files: ObsidianFile[] = [];
+      for (let i = 0; i < selected.length; i++) {
+        const file = selected[i];
+        if (!file.name.toLowerCase().endsWith(".md")) continue;
+        const content = await file.text();
+        const path = file.webkitRelativePath || file.name;
+        files.push({ path, content });
+      }
+      if (files.length === 0) {
+        toast.message("No markdown files selected.");
+        return;
+      }
+      const result = await doImport({ data: { files } });
+      setLastSync(new Date().toLocaleString());
+      toast.success(
+        `Imported ${result.dailyNotes} notes · ${result.tasks} tasks · ${result.projects} projects · ${result.summaries} summaries · ${result.inventory} inventory · ${result.maintenance} maintenance · ${result.consumables} consumables`,
+      );
+    } catch (err) {
+      toast.error(`Import failed: ${(err as Error).message}`);
+    } finally {
+      setBusy(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
   return (
     <AppLayout>
       <div className="max-w-3xl mx-auto px-4 py-8 space-y-6">
