@@ -116,7 +116,7 @@ function InventoryPage() {
     const headers = [
       "name",
       "description",
-      "category",
+      "item_type",
       "location",
       "quantity",
       "min_quantity",
@@ -128,7 +128,7 @@ function InventoryPage() {
       [
         a.name ?? "",
         a.description ?? "",
-        a.category ?? "",
+        a.item_type ?? "",
         a.location ?? "",
         a.quantity ?? 0,
         a.min_quantity ?? 0,
@@ -149,6 +149,7 @@ function InventoryPage() {
     URL.revokeObjectURL(url);
     toast.success("Exported successfully");
   };
+
 
   const handleImportCSV = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
