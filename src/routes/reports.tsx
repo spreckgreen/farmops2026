@@ -88,6 +88,7 @@ function ReportsPage() {
     { mode: "monthly_rollup", label: "Monthly Projects" },
     { mode: "quarter_review", label: "Quarterly Projects" },
     { mode: "yearly_rollup", label: "Yearly Projects" },
+    { mode: "project_rollup", label: "Portfolio" },
   ];
 
   return (
