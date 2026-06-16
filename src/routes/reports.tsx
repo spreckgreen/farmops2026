@@ -106,11 +106,26 @@ function ReportsPage() {
   // Newest summary for this mode (summaries are listed in desc order already).
   const latestForMode = visible[0];
   const latestDataChange = freshnessQ.data?.latest_at ?? null;
-  const isStale = (() => {
-    if (!latestForMode) return true; // no report yet
-    if (!latestDataChange) return false;
-    return new Date(latestDataChange).getTime() > new Date(latestForMode.created_at).getTime();
-  })();
+  const sources = freshnessQ.data?.sources ?? { today_at: null, tasks_at: null, projects_at: null };
+
+  const baseline = latestForMode ? new Date(latestForMode.created_at).getTime() : 0;
+  const SOURCE_LABELS: Record<keyof typeof sources, string> = {
+    today_at: "Today",
+    tasks_at: "Tasks",
+    projects_at: "Projects",
+  };
+  const newerSources = (Object.keys(sources) as Array<keyof typeof sources>)
+    .map((k) => ({ key: k, label: SOURCE_LABELS[k], at: sources[k] }))
+    .filter((s): s is { key: keyof typeof sources; label: string; at: string } =>
+      typeof s.at === "string" && new Date(s.at).getTime() > baseline,
+    )
+    .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
+
+  const isStale = !latestForMode
+    ? true
+    : latestDataChange
+      ? new Date(latestDataChange).getTime() > baseline
+      : false;
 
   // Auto-generate-on-tab-switch when stale. Guard against re-firing while a
   // generation is in flight and against re-running for the same mode after the
