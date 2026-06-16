@@ -82,10 +82,17 @@ async function main() {
       viewer.from("tasks").select("id").eq("user_id", viewerId).then((r) => ({ error: r.error })));
     await tryOp("viewer", "INSERT", "blocked", async () =>
       viewer.from("tasks").insert({ user_id: viewerId, title: "v-new", slug: `v-new-${stamp}`, status: "open" }));
-    await tryOp("viewer", "UPDATE own", "blocked", async () =>
-      viewer.from("tasks").update({ title: "hacked" }).eq("user_id", viewerId));
-    await tryOp("viewer", "DELETE own", "blocked", async () =>
-      viewer.from("tasks").delete().eq("user_id", viewerId));
+    await tryOp("viewer", "UPDATE own", "blocked", async () => {
+      const before = await admin.from("tasks").select("title").eq("user_id", viewerId).single();
+      const res = await viewer.from("tasks").update({ title: "hacked" }).eq("user_id", viewerId);
+      const after = await admin.from("tasks").select("title").eq("user_id", viewerId).single();
+      return { error: res.error ?? (before.data?.title !== after.data?.title ? null : { message: "RLS filter: 0 rows updated" }) };
+    });
+    await tryOp("viewer", "DELETE own", "blocked", async () => {
+      const res = await viewer.from("tasks").delete().eq("user_id", viewerId);
+      const after = await admin.from("tasks").select("id").eq("user_id", viewerId);
+      return { error: res.error ?? ((after.data?.length ?? 0) === 0 ? null : { message: "RLS filter: 0 rows deleted" }) };
+    });
 
     // Editor: own writes allowed; other-user writes blocked
     await tryOp("editor", "INSERT", "allowed", async () =>
