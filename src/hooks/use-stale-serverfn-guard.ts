@@ -66,9 +66,9 @@ function logEvent(event: StaleEvent) {
 }
 
 /** Inspect the URL we just POSTed to — the hashed serverFn ID is the basename. */
-function extractBuildHint(url: string): string | undefined {
+function extractServerFnId(url: string): string {
   const m = url.match(/\/_serverFn\/([^/?#]+)/);
-  return m?.[1]?.slice(0, 24);
+  return m?.[1] ?? "";
 }
 
 function autoReloadOnce(context: Omit<StaleEvent, "ts" | "action">): boolean {
