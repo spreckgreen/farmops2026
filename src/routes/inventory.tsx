@@ -21,6 +21,8 @@ import StatsCards from "@/components/dashboard/StatsCards";
 import BarcodeScanner from "@/components/dashboard/BarcodeScanner";
 import { requireAuthenticatedUser } from "@/lib/auth-route";
 import type { Asset, AssetFormData } from "@/components/dashboard/types";
+import { INVENTORY_TYPES } from "@/lib/obsidian-layout";
+
 
 export const Route = createFileRoute("/inventory")({
   ssr: false,
