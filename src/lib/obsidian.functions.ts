@@ -2,6 +2,22 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import { slugify } from "./slug";
+import {
+  DAILY_FOLDER,
+  WEEKLY_FOLDER,
+  MONTHLY_FOLDER,
+  QUARTERLY_FOLDER,
+  YEARLY_FOLDER,
+  TASKS_FOLDER,
+  MAINTENANCE_FOLDER,
+  CONSUMABLES_FOLDER,
+  inventoryFolderFor,
+  classifyPath,
+  monthlyFileName,
+  quarterlyFileName,
+  yearlyFileName,
+  isYearlyRollup,
+} from "./obsidian-layout";
 
 // ============================================================================
 // Obsidian markdown sync — shared types
