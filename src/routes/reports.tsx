@@ -318,7 +318,7 @@ function ReportsPage() {
                     </span>
                   </div>
                 </div>
-                <p className="text-sm leading-relaxed mb-3">{body.summary}</p>
+                <p className="text-sm leading-relaxed mb-3 whitespace-pre-line">{body.summary}</p>
 
                 {body.by_project && body.by_project.length > 0 && (
                   <div className="mb-3 space-y-3 border-l-2 border-border pl-3">
