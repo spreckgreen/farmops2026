@@ -1,0 +1,60 @@
+/**
+ * Detects stale-build server-fn calls. When Vite rebuilds, the content-hashed
+ * server-function IDs change; a tab holding an older bundle will POST to a
+ * /_serverFn/<old-id> the server no longer knows about, and the response body
+ * contains "Invalid server function ID". Instead of letting that bubble up as
+ * an opaque 500, we show a sticky toast that offers a hard reload.
+ */
+import { useEffect } from "react";
+import { toast } from "sonner";
+
+let installed = false;
+let prompted = false;
+
+function promptReload() {
+  if (prompted) return;
+  prompted = true;
+  toast.error("App was updated — please refresh", {
+    description: "Your tab is running an older build. Reload to pick up the latest version.",
+    duration: Infinity,
+    action: {
+      label: "Reload",
+      onClick: () => window.location.reload(),
+    },
+  });
+}
+
+function looksLikeStaleServerFn(url: string, status: number, body: string) {
+  if (!url.includes("/_serverFn/")) return false;
+  if (status !== 500 && status !== 404) return false;
+  return /Invalid server function ID/i.test(body);
+}
+
+export function useStaleServerFnGuard() {
+  useEffect(() => {
+    if (installed || typeof window === "undefined") return;
+    installed = true;
+
+    const originalFetch = window.fetch.bind(window);
+    window.fetch = async (input, init) => {
+      const res = await originalFetch(input, init);
+      try {
+        const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+        if (url.includes("/_serverFn/") && (res.status === 500 || res.status === 404)) {
+          const clone = res.clone();
+          const text = await clone.text();
+          if (looksLikeStaleServerFn(url, res.status, text)) {
+            promptReload();
+          }
+        }
+      } catch {
+        // best-effort detection — never break the original response
+      }
+      return res;
+    };
+
+    return () => {
+      // Keep the patch installed for the lifetime of the tab; nothing to clean up.
+    };
+  }, []);
+}

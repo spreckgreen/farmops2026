@@ -12,6 +12,7 @@ import { useEffect, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Toaster } from "sonner";
+import { useStaleServerFnGuard } from "../hooks/use-stale-serverfn-guard";
 
 function NotFoundComponent() {
   return (
@@ -126,6 +127,7 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  useStaleServerFnGuard();
 
   return (
     <QueryClientProvider client={queryClient}>
