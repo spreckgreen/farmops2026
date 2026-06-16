@@ -71,6 +71,37 @@ function extractServerFnId(url: string): string {
   return m?.[1] ?? "";
 }
 
+// Query/fragment values can carry tokens, emails, signed payloads, etc. We
+// keep parameter *names* (useful for debugging which call site fired) but
+// replace every value with "[redacted]". Fragments are dropped entirely —
+// they never reach the server and are the most common place client-side
+// tokens (e.g. OAuth implicit flow) end up. If the URL fails to parse we
+// fall back to path-only so we never forward a raw query string.
+function redactUrl(raw: string): string {
+  try {
+    const u = new URL(raw, typeof window !== "undefined" ? window.location.origin : "http://localhost");
+    const params = new URLSearchParams();
+    for (const [k] of u.searchParams) params.append(k, "[redacted]");
+    const qs = params.toString();
+    return u.origin + u.pathname + (qs ? `?${qs}` : "");
+  } catch {
+    return raw.split("?")[0].split("#")[0];
+  }
+}
+
+function redactRoute(pathname: string, search: string): string {
+  if (!search) return pathname;
+  try {
+    const params = new URLSearchParams(search);
+    const out = new URLSearchParams();
+    for (const [k] of params) out.append(k, "[redacted]");
+    const qs = out.toString();
+    return qs ? `${pathname}?${qs}` : pathname;
+  } catch {
+    return pathname;
+  }
+}
+
 function autoReloadOnce(context: Omit<StaleEvent, "ts" | "action">): boolean {
   if (reloading) return true;
   const alreadyTried = safeSession(() => sessionStorage.getItem(RETRY_FLAG), null);
@@ -158,8 +189,8 @@ export function useStaleServerFnGuard() {
             if (looksLikeStaleServerFn(url, res.status, text)) {
               const serverFnId = extractServerFnId(url);
               const context = {
-                url,
-                route: window.location.pathname + window.location.search,
+                url: redactUrl(url),
+                route: redactRoute(window.location.pathname, window.location.search),
                 serverFnId,
                 serverFnIdShort: serverFnId.slice(0, 24),
                 status: res.status,
