@@ -79,16 +79,13 @@ describe("redactUrl", () => {
     expect(out).not.toContain("access_token");
   });
 
-  it("falls back to a masked path when the input is not a parseable URL", () => {
-    // Pass something URL won't parse against the default base — use a path
-    // with raw spaces which throws in jsdom's URL constructor when the base
-    // is missing. In our environment URL accepts it, so simulate via an
-    // explicitly malformed input instead.
-    const bad = "::not a url::/users/3262d5a9-40fd-4cf4-a353-9549a732cb96?x=1";
-    const out = redactUrl(bad);
-    expect(out).not.toContain("?");
-    expect(out).toContain("[uuid]");
+  it("returns a path-only string when given a bare path (no origin)", () => {
+    const out = redactUrl("/users/3262d5a9-40fd-4cf4-a353-9549a732cb96?token=t#x");
+    expect(out).toContain("/users/[uuid]");
+    expect(out).not.toContain("#");
+    expect(out).not.toContain("=t");
   });
+
 });
 
 describe("redactRoute", () => {
