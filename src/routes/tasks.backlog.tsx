@@ -55,7 +55,9 @@ function BacklogPage() {
     qc.invalidateQueries({ queryKey: ["tasks", "backlog"] });
     qc.invalidateQueries({ queryKey: ["tasks", "today"] });
     qc.invalidateQueries({ queryKey: ["tasks", "backlog", "reorder"] });
+    qc.invalidateQueries({ queryKey: ["daily-note"] });
   };
+
 
   const mutation = useMutation({
     mutationFn: (taskId: string) => addFn({ data: { taskId } }),
