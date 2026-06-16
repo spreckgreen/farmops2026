@@ -287,7 +287,7 @@ function InventoryPage() {
             <Button
               size="sm"
               variant="outline"
-              onClick={() => navigate({ to: "/maintenance" })}
+              onClick={() => navigate({ to: "/service-scheduling" })}
             >
               <Wrench className="h-4 w-4 mr-1" /> Services
             </Button>
