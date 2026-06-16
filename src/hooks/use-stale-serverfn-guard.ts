@@ -8,8 +8,26 @@
 import { useEffect } from "react";
 import { toast } from "sonner";
 
+const RETRY_FLAG = "lovable:stale-srvfn-auto-reloaded";
+
 let installed = false;
 let prompted = false;
+let reloading = false;
+
+function autoReloadOnce(): boolean {
+  if (reloading) return true;
+  try {
+    if (sessionStorage.getItem(RETRY_FLAG)) return false; // already tried once
+    sessionStorage.setItem(RETRY_FLAG, String(Date.now()));
+  } catch {
+    return false; // sessionStorage blocked → fall back to manual prompt
+  }
+  reloading = true;
+  toast.message("Updating to the latest version…", { duration: 2000 });
+  // small delay so the toast actually paints before the navigation
+  setTimeout(() => window.location.reload(), 250);
+  return true;
+}
 
 function promptReload() {
   if (prompted) return;
@@ -40,11 +58,16 @@ export function useStaleServerFnGuard() {
       const res = await originalFetch(input, init);
       try {
         const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
-        if (url.includes("/_serverFn/") && (res.status === 500 || res.status === 404)) {
-          const clone = res.clone();
-          const text = await clone.text();
-          if (looksLikeStaleServerFn(url, res.status, text)) {
-            promptReload();
+        if (url.includes("/_serverFn/")) {
+          // Any successful server-fn response means the bundle is in sync —
+          // clear the retry flag so a future stale build still gets one auto-reload.
+          if (res.ok) {
+            try { sessionStorage.removeItem(RETRY_FLAG); } catch { /* ignore */ }
+          } else if (res.status === 500 || res.status === 404) {
+            const text = await res.clone().text();
+            if (looksLikeStaleServerFn(url, res.status, text)) {
+              if (!autoReloadOnce()) promptReload();
+            }
           }
         }
       } catch {
