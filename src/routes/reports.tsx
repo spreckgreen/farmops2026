@@ -185,6 +185,15 @@ function ReportsPage() {
               <Download className="h-4 w-4 mr-1.5" />
               Export TiddlyWiki
             </Button>
+            <Button
+              variant="outline"
+              disabled={visible.length === 0}
+              onClick={() => setPreviewOpen(true)}
+              title="Preview the Obsidian markdown that will be written for this tab's reports"
+            >
+              <Eye className="h-4 w-4 mr-1.5" />
+              Preview Markdown
+            </Button>
             <TiddlyWikiImportButton kind="summaries" />
           </div>
         </div>
