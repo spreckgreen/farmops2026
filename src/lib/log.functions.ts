@@ -1350,7 +1350,8 @@ export const addTaskToToday = createServerFn({ method: "POST" })
     }
 
     // Append a reference line if not already present in the markdown.
-    const refLine = `- #task/${task.slug} ${task.title}`;
+    const refLine = buildTaskRefLine(task);
+
     const current = note.markdown_content ?? "";
     if (!current.includes(`#task/${task.slug}`)) {
       const next = current.trim().length ? `${current.trimEnd()}\n${refLine}\n` : `${refLine}\n`;
