@@ -61,6 +61,7 @@ function SyncPage() {
   const [lastSync, setLastSync] = useState<string | null>(null);
   const doExport = useServerFn(obsidianExport);
   const doImport = useServerFn(obsidianImport);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const supported =
     typeof window !== "undefined" && "showDirectoryPicker" in window;
