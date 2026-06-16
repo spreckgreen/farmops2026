@@ -186,8 +186,49 @@ function SyncPage() {
         </header>
 
         {!supported ? (
-          <div className="border border-destructive/50 bg-destructive/10 text-destructive rounded-md p-4 text-sm">
-            Your browser doesn't support the File System Access API. Use Chrome, Edge, or Brave.
+          <div className="border border-border rounded-lg bg-card/40 p-5 space-y-4">
+            <div className="flex items-start gap-3">
+              <Monitor className="w-5 h-5 text-muted-foreground mt-0.5 shrink-0" />
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Folder sync requires a Chromium-based browser</p>
+                <p className="text-xs text-muted-foreground">
+                  The <strong>Pick folder</strong> feature uses the File System Access API, which is only available in Chrome, Edge, and Brave. Safari and Firefox do not support it yet.
+                </p>
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
+                  <span className="flex items-center gap-1 text-emerald-400"><CheckCircle2 className="w-3.5 h-3.5" /> Chrome</span>
+                  <span className="flex items-center gap-1 text-emerald-400"><CheckCircle2 className="w-3.5 h-3.5" /> Edge</span>
+                  <span className="flex items-center gap-1 text-emerald-400"><CheckCircle2 className="w-3.5 h-3.5" /> Brave</span>
+                  <span className="flex items-center gap-1 text-red-400"><XCircle className="w-3.5 h-3.5" /> Safari</span>
+                  <span className="flex items-center gap-1 text-red-400"><XCircle className="w-3.5 h-3.5" /> Firefox</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="border-t border-border pt-4 space-y-2">
+              <p className="text-xs font-medium text-muted-foreground">Manual fallback</p>
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" variant="secondary" onClick={fallbackPush} disabled={!!busy}>
+                  <Download className="w-4 h-4 mr-2" />
+                  Download all files
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={!!busy}>
+                  <FileText className="w-4 h-4 mr-2" />
+                  Import from files…
+                </Button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  accept=".md"
+                  className="hidden"
+                  onChange={fallbackPull}
+                />
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                <strong>Download</strong> exports every note as individual files you can drag into your vault.
+                <strong>Import</strong> lets you select vault markdown files to upload back into Bostead.
+              </p>
+            </div>
           </div>
         ) : null}
 
