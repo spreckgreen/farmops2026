@@ -59,21 +59,37 @@ function SyncPage() {
   const [vault, setVault] = useState<DirHandle | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [lastSync, setLastSync] = useState<string | null>(null);
+  const [pickerIssue, setPickerIssue] = useState<string | null>(null);
   const doExport = useServerFn(obsidianExport);
   const doImport = useServerFn(obsidianImport);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const supported =
     typeof window !== "undefined" && "showDirectoryPicker" in window;
+  const isEmbedded = (() => {
+    if (typeof window === "undefined") return false;
+    try {
+      return window.self !== window.top;
+    } catch {
+      return true;
+    }
+  })();
+  const isSecure = typeof window !== "undefined" ? window.isSecureContext : true;
 
   const pickVault = async () => {
+    setPickerIssue(null);
     try {
       // @ts-expect-error — FSA API
       const handle: DirHandle = await window.showDirectoryPicker({ mode: "readwrite" });
       setVault(handle);
       toast.success(`Vault selected: ${handle.name}`);
     } catch (e) {
-      if ((e as Error).name !== "AbortError") toast.error("Could not open folder");
+      const error = e as Error;
+      if (error.name !== "AbortError") {
+        const message = error.message || "Chrome blocked the folder picker in this view.";
+        setPickerIssue(message);
+        toast.error(`Could not open folder: ${message}`);
+      }
     }
   };
 
@@ -185,14 +201,14 @@ function SyncPage() {
           </p>
         </header>
 
-        {!supported ? (
+        {!supported || !isSecure || isEmbedded || pickerIssue ? (
           <div className="border border-border rounded-lg bg-card/40 p-5 space-y-4">
             <div className="flex items-start gap-3">
               <Monitor className="w-5 h-5 text-muted-foreground mt-0.5 shrink-0" />
               <div className="space-y-2">
-                <p className="text-sm font-medium">Folder sync requires a Chromium-based browser</p>
+                <p className="text-sm font-medium">Folder picker availability</p>
                 <p className="text-xs text-muted-foreground">
-                  The <strong>Pick folder</strong> feature uses the File System Access API, which is only available in Chrome, Edge, and Brave. Safari and Firefox do not support it yet.
+                  The <strong>Pick folder</strong> feature uses Chrome’s File System Access API. It works in Chrome, Edge, and Brave on secure pages, but Chrome can block it inside embedded preview frames. If you’re in Chrome on Mac and the picker doesn’t open, use the direct tab option below.
                 </p>
                 <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
                   <span className="flex items-center gap-1 text-emerald-400"><CheckCircle2 className="w-3.5 h-3.5" /> Chrome</span>
@@ -201,12 +217,31 @@ function SyncPage() {
                   <span className="flex items-center gap-1 text-red-400"><XCircle className="w-3.5 h-3.5" /> Safari</span>
                   <span className="flex items-center gap-1 text-red-400"><XCircle className="w-3.5 h-3.5" /> Firefox</span>
                 </div>
+                {isEmbedded ? (
+                  <p className="text-xs text-amber-300">
+                    You appear to be using the embedded preview. Open this page in its own Chrome tab, then click <strong>Pick folder</strong> again.
+                  </p>
+                ) : null}
+                {!isSecure ? (
+                  <p className="text-xs text-amber-300">
+                    Folder access requires a secure HTTPS page.
+                  </p>
+                ) : null}
+                {pickerIssue ? (
+                  <p className="text-xs text-amber-300">Chrome reported: {pickerIssue}</p>
+                ) : null}
               </div>
             </div>
 
             <div className="border-t border-border pt-4 space-y-2">
-              <p className="text-xs font-medium text-muted-foreground">Manual fallback</p>
+              <p className="text-xs font-medium text-muted-foreground">Fallback options</p>
               <div className="flex flex-wrap gap-2">
+                {isEmbedded ? (
+                  <Button size="sm" variant="secondary" onClick={() => window.open(window.location.href, "_blank", "noopener,noreferrer")}>
+                    <FolderOpen className="w-4 h-4 mr-2" />
+                    Open in Chrome tab
+                  </Button>
+                ) : null}
                 <Button size="sm" variant="secondary" onClick={fallbackPush} disabled={!!busy}>
                   <Download className="w-4 h-4 mr-2" />
                   Download all files
