@@ -100,9 +100,11 @@ export function maskSegment(segment: string): string {
 }
 
 export function redactPath(pathname: string): string {
+  // Output is for logs, not navigation — keep mask labels (`[uuid]`, `[id]`,
+  // …) human-readable rather than percent-encoding their brackets.
   return pathname
     .split("/")
-    .map((seg) => (seg ? encodeURIComponent(maskSegment(decodeSafe(seg))) : seg))
+    .map((seg) => (seg ? maskSegment(decodeSafe(seg)) : seg))
     .join("/");
 }
 
