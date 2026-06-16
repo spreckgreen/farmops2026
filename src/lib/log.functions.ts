@@ -918,6 +918,48 @@ export const listSummaries = createServerFn({ method: "GET" })
     return data ?? [];
   });
 
+// Latest mutation timestamp across the data sources that feed reports
+// (activity log, tasks, projects). Used by the Reports tab to decide if a
+// summary is stale and needs regeneration on tab switch.
+export const getLatestDataChange = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context;
+    const [a, t, p] = await Promise.all([
+      supabase
+        .from("activity_log")
+        .select("created_at")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from("tasks")
+        .select("updated_at, created_at")
+        .eq("user_id", userId)
+        .order("updated_at", { ascending: false, nullsFirst: false })
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from("projects")
+        .select("updated_at, created_at")
+        .eq("user_id", userId)
+        .order("updated_at", { ascending: false, nullsFirst: false })
+        .limit(1)
+        .maybeSingle(),
+    ]);
+    const candidates: string[] = [];
+    if (a.data?.created_at) candidates.push(a.data.created_at);
+    if (t.data?.updated_at) candidates.push(t.data.updated_at);
+    else if (t.data?.created_at) candidates.push(t.data.created_at);
+    if (p.data?.updated_at) candidates.push(p.data.updated_at);
+    else if (p.data?.created_at) candidates.push(p.data.created_at);
+    const latest = candidates
+      .map((s) => new Date(s).getTime())
+      .reduce((a, b) => (a > b ? a : b), 0);
+    return { latest_at: latest > 0 ? new Date(latest).toISOString() : null };
+  });
+
 export const updateSummary = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>

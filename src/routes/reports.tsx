@@ -1,15 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { listSummaries, updateSummary } from "@/lib/log.functions";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { listSummaries, updateSummary, getLatestDataChange } from "@/lib/log.functions";
 import { generateSummary } from "@/lib/summary.functions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AppLayout } from "@/components/app-layout";
 import { requireAuthenticatedUser } from "@/lib/auth-route";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { Download } from "lucide-react";
+import { Download, RefreshCw } from "lucide-react";
 import {
   assembleTiddlyWiki,
   downloadHtml,
@@ -42,32 +44,48 @@ type ReportMode =
   | "yearly_rollup"
   | "project_rollup";
 
+const TABS: { mode: ReportMode; label: string }[] = [
+  { mode: "daily_recap", label: "Daily" },
+  { mode: "weekly_report", label: "Weekly" },
+  { mode: "monthly_rollup", label: "Monthly" },
+  { mode: "quarter_review", label: "Quarterly" },
+  { mode: "yearly_rollup", label: "Yearly" },
+  { mode: "project_rollup", label: "Portfolio" },
+];
+
+const LABELS: Record<ReportMode, string> = {
+  daily_recap: "Daily Recap",
+  weekly_report: "Weekly Status",
+  monthly_rollup: "Monthly Projects",
+  quarter_review: "Quarterly Projects",
+  yearly_rollup: "Yearly Projects",
+  project_rollup: "Portfolio",
+};
+
 function ReportsPage() {
   const listFn = useServerFn(listSummaries);
   const updateFn = useServerFn(updateSummary);
   const generateFn = useServerFn(generateSummary);
+  const freshnessFn = useServerFn(getLatestDataChange);
   const qc = useQueryClient();
 
-  const q = useQuery({ queryKey: ["summaries"], queryFn: () => listFn() });
+  const [activeMode, setActiveMode] = useState<ReportMode>("daily_recap");
+
+  const summariesQ = useQuery({ queryKey: ["summaries"], queryFn: () => listFn() });
+  const freshnessQ = useQuery({
+    queryKey: ["reports", "latest-data-change"],
+    queryFn: () => freshnessFn(),
+  });
 
   const runReport = useMutation({
-    mutationFn: (mode: ReportMode) =>
-      generateFn({ data: { mode, period_days: 7 } }),
+    mutationFn: (mode: ReportMode) => generateFn({ data: { mode, period_days: 7 } }),
     onSuccess: (res, mode) => {
       if (!res.ok) {
-        toast.error(res.error);
+        toast.info(res.error);
         return;
       }
-      const labels: Record<ReportMode, string> = {
-        daily_recap: "Daily Recap",
-        weekly_report: "Weekly Status",
-        monthly_rollup: "Monthly Projects",
-        quarter_review: "Quarterly Projects",
-        yearly_rollup: "Yearly Projects",
-        project_rollup: "Portfolio",
-      };
       const count = "summaries" in res && res.summaries ? res.summaries.length : 1;
-      toast.success(`${labels[mode]} drafted (${count})`);
+      toast.success(`${LABELS[mode]} drafted (${count})`);
       qc.invalidateQueries({ queryKey: ["summaries"] });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
@@ -79,17 +97,41 @@ function ReportsPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["summaries"] }),
   });
 
-  const pendingMode = runReport.isPending ? (runReport.variables as ReportMode) : null;
-  const isAnyPending = runReport.isPending;
+  // Filter summaries to the active tab.
+  const visible = useMemo(
+    () => (summariesQ.data ?? []).filter((s) => s.mode === activeMode),
+    [summariesQ.data, activeMode],
+  );
 
-  const reportButtons: { mode: ReportMode; label: string }[] = [
-    { mode: "daily_recap", label: "Daily Recap" },
-    { mode: "weekly_report", label: "Weekly Status" },
-    { mode: "monthly_rollup", label: "Monthly Projects" },
-    { mode: "quarter_review", label: "Quarterly Projects" },
-    { mode: "yearly_rollup", label: "Yearly Projects" },
-    { mode: "project_rollup", label: "Portfolio" },
-  ];
+  // Newest summary for this mode (summaries are listed in desc order already).
+  const latestForMode = visible[0];
+  const latestDataChange = freshnessQ.data?.latest_at ?? null;
+  const isStale = (() => {
+    if (!latestForMode) return true; // no report yet
+    if (!latestDataChange) return false;
+    return new Date(latestDataChange).getTime() > new Date(latestForMode.created_at).getTime();
+  })();
+
+  // Auto-generate-on-tab-switch when stale. Guard against re-firing while a
+  // generation is in flight and against re-running for the same mode after the
+  // user dismisses it.
+  const autoFiredRef = useRef<Set<ReportMode>>(new Set());
+  useEffect(() => {
+    if (summariesQ.isLoading || freshnessQ.isLoading) return;
+    if (runReport.isPending) return;
+    if (!isStale) return;
+    if (autoFiredRef.current.has(activeMode)) return;
+    autoFiredRef.current.add(activeMode);
+    runReport.mutate(activeMode);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeMode, isStale, summariesQ.isLoading, freshnessQ.isLoading]);
+
+  // When underlying data changes, allow auto-fire to run again per tab.
+  useEffect(() => {
+    autoFiredRef.current.clear();
+  }, [latestDataChange]);
+
+  const pendingForActive = runReport.isPending && runReport.variables === activeMode;
 
   return (
     <AppLayout>
@@ -99,11 +141,11 @@ function ReportsPage() {
           <div className="flex gap-2 flex-wrap">
             <Button
               variant="outline"
-              disabled={!q.data || q.data.length === 0}
+              disabled={!summariesQ.data || summariesQ.data.length === 0}
               onClick={async () => {
                 try {
                   const tpl = await loadTemplate();
-                  const tiddlers = tiddlersFromSummaries((q.data ?? []) as SummaryRow[]);
+                  const tiddlers = tiddlersFromSummaries((summariesQ.data ?? []) as SummaryRow[]);
                   const html = assembleTiddlyWiki(tpl, tiddlers, {
                     siteTitle: "Bostead Farms — Reports",
                     subtitle: "Activity reports export",
@@ -124,28 +166,47 @@ function ReportsPage() {
           </div>
         </div>
 
-        <div className="flex gap-2 flex-wrap mb-6">
-          {reportButtons.map((b) => (
-            <Button
-              key={b.mode}
-              variant={b.mode === "weekly_report" ? "default" : "outline"}
-              disabled={isAnyPending}
-              onClick={() => runReport.mutate(b.mode)}
-            >
-              {pendingMode === b.mode ? "…" : b.label}
-            </Button>
-          ))}
+        <Tabs value={activeMode} onValueChange={(v) => setActiveMode(v as ReportMode)}>
+          <TabsList className="flex flex-wrap h-auto mb-4">
+            {TABS.map((t) => (
+              <TabsTrigger key={t.mode} value={t.mode}>
+                {t.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+
+        <div className="flex items-center justify-between mb-4 text-xs text-muted-foreground font-mono">
+          <span>
+            {LABELS[activeMode]}
+            {latestForMode && ` · last generated ${format(new Date(latestForMode.created_at), "MMM d, HH:mm")}`}
+            {isStale && !pendingForActive && " · stale"}
+          </span>
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={pendingForActive}
+            onClick={() => {
+              autoFiredRef.current.add(activeMode);
+              runReport.mutate(activeMode);
+            }}
+          >
+            <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${pendingForActive ? "animate-spin" : ""}`} />
+            {pendingForActive ? "Generating…" : "Regenerate"}
+          </Button>
         </div>
 
-        {q.isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
-        {q.data && q.data.length === 0 && (
+        {pendingForActive && visible.length === 0 && (
+          <p className="text-sm text-muted-foreground">Generating {LABELS[activeMode]}…</p>
+        )}
+        {!pendingForActive && visible.length === 0 && (
           <p className="text-sm text-muted-foreground">
-            No reports yet. Pick a report type above once you've logged some activity.
+            No {LABELS[activeMode]} yet. Log activity first, then it will generate automatically.
           </p>
         )}
 
         <ul className="space-y-4">
-          {q.data?.map((s) => {
+          {visible.map((s) => {
             const body = (s.edited_summary ?? s.generated_summary) as SummaryShape;
             const scope = (s as { scope_task?: { slug?: string; title?: string } | null }).scope_task;
             return (
