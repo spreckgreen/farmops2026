@@ -82,8 +82,9 @@ const AssetTable = ({ assets, onEdit, onDelete }: AssetTableProps) => {
                     </div>
                   </td>
                   <td className="px-4 py-3 hidden md:table-cell text-muted-foreground">
-                    {asset.category || "—"}
+                    {typeLabel(asset.item_type) || "—"}
                   </td>
+
                   <td className="px-4 py-3 hidden lg:table-cell text-muted-foreground">
                     {asset.location || "—"}
                   </td>
