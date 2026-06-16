@@ -104,13 +104,14 @@ const AssetDialog = ({ open, onOpenChange, onSave, asset }: AssetDialogProps) =>
               />
             </div>
             <div className="space-y-2">
-              <Label>Category</Label>
+              <Label>Location</Label>
               <Input
-                value={form.category}
-                onChange={(e) => setForm({ ...form, category: e.target.value })}
-                placeholder="e.g. Electronics"
+                value={form.location}
+                onChange={(e) => setForm({ ...form, location: e.target.value })}
+                placeholder="e.g. Warehouse A"
               />
             </div>
+
             <div className="space-y-2">
               <Label>Location</Label>
               <Input
