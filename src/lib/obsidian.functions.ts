@@ -194,9 +194,8 @@ export const obsidianExport = createServerFn({ method: "GET" })
     const { supabase } = context;
     const files: ObsidianFile[] = [];
 
-    const [notesQ, tasksQ, projectsQ, summariesQ, inventoryQ, maintenanceQ, consumablesQ] = await Promise.all([
+    const [notesQ, projectsQ, summariesQ, inventoryQ, maintenanceQ, consumablesQ] = await Promise.all([
       supabase.from("daily_notes").select("*").order("date", { ascending: true }),
-      supabase.from("tasks").select("*").order("created_at", { ascending: true }),
       supabase.from("projects").select("*").order("name", { ascending: true }),
       supabase.from("summaries").select("*").order("created_at", { ascending: true }),
       supabase.from("inventory_items").select("*").order("name", { ascending: true }),
@@ -213,19 +212,7 @@ export const obsidianExport = createServerFn({ method: "GET" })
       files.push({ path: `${DAILY_FOLDER}/${n.date}.md`, content: buildFile(meta, n.markdown_content || "") });
     }
 
-    for (const t of tasksQ.data ?? []) {
-      const meta = {
-        bostead: { kind: "task", id: t.id, slug: t.slug },
-        title: t.title,
-        status: t.status,
-        percent: t.percent_complete,
-        start_at: t.start_at ?? "",
-        closed_at: t.closed_at ?? "",
-        tags: (t.project_tags ?? []) as string[],
-      };
-      const body = `# ${t.title}\n\n*Status:* ${t.status} — ${t.percent_complete}%\n`;
-      files.push({ path: `${TASKS_FOLDER}/${t.slug}.md`, content: buildFile(meta, body) });
-    }
+
 
     for (const p of projectsQ.data ?? []) {
       const meta = {
