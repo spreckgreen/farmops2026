@@ -142,7 +142,7 @@ function SyncPage() {
     }
   };
 
-  const fallbackPull = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const fallbackPull = async (e: { target: HTMLInputElement }) => {
     const selected = e.target.files;
     if (!selected || selected.length === 0) return;
     setBusy("Importing…");
