@@ -8,6 +8,7 @@
 // non-admins so they don't get a confusing error.
 
 import { createFileRoute } from "@tanstack/react-router";
+import { requireAuthenticatedUser } from "@/lib/auth-route";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
