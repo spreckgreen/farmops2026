@@ -2,6 +2,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Edit, Trash2, AlertTriangle } from "lucide-react";
 import type { Asset } from "./types";
+import { INVENTORY_TYPES } from "@/lib/obsidian-layout";
+
+const typeLabel = (value: string | null | undefined) =>
+  INVENTORY_TYPES.find((t) => t.value === value)?.label ?? null;
+
 
 interface AssetTableProps {
   assets: Asset[];
