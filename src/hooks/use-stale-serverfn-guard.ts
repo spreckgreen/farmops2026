@@ -194,8 +194,8 @@ export function useStaleServerFnGuard() {
             if (looksLikeStaleServerFn(url, res.status, text)) {
               const serverFnId = extractServerFnId(url);
               const context = {
-                url,
-                route: window.location.pathname + window.location.search,
+                url: redactUrl(url),
+                route: redactRoute(window.location.pathname, window.location.search),
                 serverFnId,
                 serverFnIdShort: serverFnId.slice(0, 24),
                 status: res.status,
