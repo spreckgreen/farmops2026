@@ -225,7 +225,8 @@ export const obsidianExport = createServerFn({ method: "GET" })
       files.push({ path: `${MONTHLY_FOLDER}/_projects/${p.slug}.md`, content: buildFile(meta, body) });
     }
 
-    for (const s of summariesQ.data ?? []) {
+    const dedupedSummaries = dedupeWeekly(summariesQ.data ?? []);
+    for (const s of dedupedSummaries) {
       const meta = {
         bostead: { kind: "summary", id: s.id },
         mode: s.mode,
