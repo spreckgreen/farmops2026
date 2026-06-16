@@ -11,7 +11,7 @@ import { AppLayout } from "@/components/app-layout";
 import { requireAuthenticatedUser } from "@/lib/auth-route";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { Download, RefreshCw } from "lucide-react";
+import { Download, Eye, RefreshCw } from "lucide-react";
 import {
   assembleTiddlyWiki,
   downloadHtml,
@@ -20,6 +20,14 @@ import {
   type SummaryRow,
 } from "@/lib/tiddlywiki-export";
 import { TiddlyWikiImportButton } from "@/components/tiddlywiki-import-button";
+import { renderSummaryFile } from "@/lib/obsidian-markdown";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/reports")({
   ssr: false,
@@ -70,6 +78,7 @@ function ReportsPage() {
   const qc = useQueryClient();
 
   const [activeMode, setActiveMode] = useState<ReportMode>("daily_recap");
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   const summariesQ = useQuery({ queryKey: ["summaries"], queryFn: () => listFn() });
   const freshnessQ = useQuery({
@@ -176,6 +185,15 @@ function ReportsPage() {
             >
               <Download className="h-4 w-4 mr-1.5" />
               Export TiddlyWiki
+            </Button>
+            <Button
+              variant="outline"
+              disabled={visible.length === 0}
+              onClick={() => setPreviewOpen(true)}
+              title="Preview the Obsidian markdown that will be written for this tab's reports"
+            >
+              <Eye className="h-4 w-4 mr-1.5" />
+              Preview Markdown
             </Button>
             <TiddlyWikiImportButton kind="summaries" />
           </div>
@@ -365,7 +383,104 @@ function ReportsPage() {
           })}
         </ul>
       </div>
+      <ObsidianPreviewDialog
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+        label={LABELS[activeMode]}
+        rows={visible}
+      />
     </AppLayout>
+  );
+}
+
+function ObsidianPreviewDialog({
+  open,
+  onOpenChange,
+  label,
+  rows,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  label: string;
+  rows: Array<{
+    id: string;
+    mode: string;
+    status: string;
+    period_start: string;
+    period_end: string;
+    scope_project: string | null;
+    edited_summary: unknown;
+    generated_summary: unknown;
+  }>;
+}) {
+  const files = rows.map((r) => {
+    const tag = r.scope_project ?? null;
+    const base =
+      r.mode === "weekly_report"
+        ? `${r.period_start} ${tag ?? "weekly"}`.trim()
+        : r.mode === "daily_recap"
+          ? `${r.period_start.slice(0, 10)} recap`
+          : `${r.period_start.slice(0, 10)} ${tag ?? r.mode}`.trim();
+    const name = base.replace(/[\\/:*?"<>|]/g, "-").trim();
+    return { name: `${name}.md`, content: renderSummaryFile(r) };
+  });
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col">
+        <DialogHeader>
+          <DialogTitle>Obsidian markdown preview — {label}</DialogTitle>
+          <DialogDescription>
+            Exactly what will be written to your vault on export or sync. {files.length} file
+            {files.length === 1 ? "" : "s"}.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="flex-1 overflow-auto space-y-4">
+          {files.map((f) => (
+            <div key={f.name} className="border border-border rounded-md">
+              <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-border bg-muted/40">
+                <code className="text-xs font-mono truncate">{f.name}</code>
+                <div className="flex gap-2 shrink-0">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      navigator.clipboard.writeText(f.content);
+                      toast.success("Copied markdown");
+                    }}
+                  >
+                    Copy
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      const blob = new Blob([f.content], { type: "text/markdown;charset=utf-8" });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement("a");
+                      a.href = url;
+                      a.download = f.name;
+                      document.body.appendChild(a);
+                      a.click();
+                      document.body.removeChild(a);
+                      URL.revokeObjectURL(url);
+                    }}
+                  >
+                    <Download className="h-3.5 w-3.5 mr-1.5" />
+                    .md
+                  </Button>
+                </div>
+              </div>
+              <pre className="text-xs font-mono p-3 overflow-auto whitespace-pre-wrap break-words max-h-[50vh]">
+                {f.content}
+              </pre>
+            </div>
+          ))}
+          {files.length === 0 && (
+            <p className="text-sm text-muted-foreground">No reports in this tab yet.</p>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
