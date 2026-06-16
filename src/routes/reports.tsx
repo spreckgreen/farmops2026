@@ -183,33 +183,103 @@ function ReportsPage() {
 
         <Tabs value={activeMode} onValueChange={(v) => setActiveMode(v as ReportMode)}>
           <TabsList className="flex flex-wrap h-auto mb-4">
-            {TABS.map((t) => (
-              <TabsTrigger key={t.mode} value={t.mode}>
-                {t.label}
-              </TabsTrigger>
-            ))}
+            {TABS.map((t) => {
+              const latest = (summariesQ.data ?? []).find((s) => s.mode === t.mode);
+              const tabStale = !latest
+                ? true
+                : latestDataChange
+                  ? new Date(latestDataChange).getTime() > new Date(latest.created_at).getTime()
+                  : false;
+              return (
+                <TabsTrigger key={t.mode} value={t.mode} className="gap-1.5">
+                  {t.label}
+                  {tabStale && (
+                    <span
+                      aria-label="stale"
+                      className="inline-block h-1.5 w-1.5 rounded-full bg-amber-500"
+                    />
+                  )}
+                </TabsTrigger>
+              );
+            })}
           </TabsList>
         </Tabs>
 
-        <div className="flex items-center justify-between mb-4 text-xs text-muted-foreground font-mono">
-          <span>
-            {LABELS[activeMode]}
-            {latestForMode && ` · last generated ${format(new Date(latestForMode.created_at), "MMM d, HH:mm")}`}
-            {isStale && !pendingForActive && " · stale"}
-          </span>
-          <Button
-            size="sm"
-            variant="ghost"
-            disabled={pendingForActive}
-            onClick={() => {
-              autoFiredRef.current.add(activeMode);
-              runReport.mutate(activeMode);
-            }}
-          >
-            <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${pendingForActive ? "animate-spin" : ""}`} />
-            {pendingForActive ? "Generating…" : "Regenerate"}
-          </Button>
-        </div>
+        {isStale && !pendingForActive && (
+          <div className="mb-4 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
+            <div className="flex items-start justify-between gap-3">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="inline-block h-2 w-2 rounded-full bg-amber-500" />
+                  <span className="font-mono text-xs uppercase tracking-wider">
+                    {latestForMode ? "Out of date" : "Not generated yet"}
+                  </span>
+                </div>
+                {latestForMode && (
+                  <p className="text-xs text-muted-foreground">
+                    Last {LABELS[activeMode]} generated{" "}
+                    <span className="font-mono">
+                      {format(new Date(latestForMode.created_at), "MMM d, HH:mm")}
+                    </span>
+                    .
+                  </p>
+                )}
+                {newerSources.length > 0 ? (
+                  <ul className="text-xs space-y-0.5">
+                    {newerSources.map((s) => (
+                      <li key={s.key}>
+                        <span className="font-mono uppercase tracking-wider">{s.label}</span>{" "}
+                        changed{" "}
+                        <span className="font-mono">
+                          {format(new Date(s.at), "MMM d, HH:mm")}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  !latestForMode && (
+                    <p className="text-xs text-muted-foreground">
+                      Log activity in Today, Tasks, or Projects and this report will generate.
+                    </p>
+                  )
+                )}
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={pendingForActive}
+                onClick={() => {
+                  autoFiredRef.current.add(activeMode);
+                  runReport.mutate(activeMode);
+                }}
+              >
+                <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${pendingForActive ? "animate-spin" : ""}`} />
+                {pendingForActive ? "Generating…" : "Regenerate"}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {!isStale && (
+          <div className="flex items-center justify-between mb-4 text-xs text-muted-foreground font-mono">
+            <span>
+              {LABELS[activeMode]} · up to date
+              {latestForMode && ` · ${format(new Date(latestForMode.created_at), "MMM d, HH:mm")}`}
+            </span>
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={pendingForActive}
+              onClick={() => {
+                autoFiredRef.current.add(activeMode);
+                runReport.mutate(activeMode);
+              }}
+            >
+              <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${pendingForActive ? "animate-spin" : ""}`} />
+              Regenerate
+            </Button>
+          </div>
+        )}
 
         {pendingForActive && visible.length === 0 && (
           <p className="text-sm text-muted-foreground">Generating {LABELS[activeMode]}…</p>
