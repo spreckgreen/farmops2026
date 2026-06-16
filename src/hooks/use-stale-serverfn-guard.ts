@@ -8,8 +8,26 @@
 import { useEffect } from "react";
 import { toast } from "sonner";
 
+const RETRY_FLAG = "lovable:stale-srvfn-auto-reloaded";
+
 let installed = false;
 let prompted = false;
+let reloading = false;
+
+function autoReloadOnce(): boolean {
+  if (reloading) return true;
+  try {
+    if (sessionStorage.getItem(RETRY_FLAG)) return false; // already tried once
+    sessionStorage.setItem(RETRY_FLAG, String(Date.now()));
+  } catch {
+    return false; // sessionStorage blocked → fall back to manual prompt
+  }
+  reloading = true;
+  toast.message("Updating to the latest version…", { duration: 2000 });
+  // small delay so the toast actually paints before the navigation
+  setTimeout(() => window.location.reload(), 250);
+  return true;
+}
 
 function promptReload() {
   if (prompted) return;
