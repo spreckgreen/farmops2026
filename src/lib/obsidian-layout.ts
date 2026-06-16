@@ -25,6 +25,8 @@ export const INVENTORY_TYPES: InventoryTypeDef[] = [
   { value: "21_infrastructure_system", label: "21 Infrastructure System", folder: "21 Infrastructure systems" },
   { value: "22_infrastructure_component", label: "22 Infrastructure component", folder: "21 Infrastructure systems/22 Infrastructure components" },
   { value: "23_communication", label: "23 Communication", folder: "21 Infrastructure systems/23 Communication" },
+  { value: "23_1_network", label: "23.1 Network", folder: "21 Infrastructure systems/23 Communication/23.1 Network" },
+  { value: "23_2_ham_radio", label: "23.2 Ham Radio", folder: "21 Infrastructure systems/23 Communication/23.2 Ham Radio" },
   { value: "24_energy", label: "24 Energy", folder: "21 Infrastructure systems/24 Energy" },
   { value: "24_1_boiler", label: "24.1 Boiler", folder: "21 Infrastructure systems/24 Energy/24.1 Boiler" },
   { value: "24_2_farm_shop_electrical", label: "24.2 Farm Shop Electrical", folder: "21 Infrastructure systems/24 Energy/24.2 Farm Shop Electrical" },
