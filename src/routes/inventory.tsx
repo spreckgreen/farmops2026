@@ -21,6 +21,8 @@ import StatsCards from "@/components/dashboard/StatsCards";
 import BarcodeScanner from "@/components/dashboard/BarcodeScanner";
 import { requireAuthenticatedUser } from "@/lib/auth-route";
 import type { Asset, AssetFormData } from "@/components/dashboard/types";
+import { INVENTORY_TYPES } from "@/lib/obsidian-layout";
+
 
 export const Route = createFileRoute("/inventory")({
   ssr: false,
@@ -41,8 +43,9 @@ function InventoryPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [typeFilter, setTypeFilter] = useState<string>("all");
   const [showLowStock, setShowLowStock] = useState(false);
+
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
   const [scannerOpen, setScannerOpen] = useState(false);
@@ -113,7 +116,7 @@ function InventoryPage() {
     const headers = [
       "name",
       "description",
-      "category",
+      "item_type",
       "location",
       "quantity",
       "min_quantity",
@@ -125,7 +128,7 @@ function InventoryPage() {
       [
         a.name ?? "",
         a.description ?? "",
-        a.category ?? "",
+        a.item_type ?? "",
         a.location ?? "",
         a.quantity ?? 0,
         a.min_quantity ?? 0,
@@ -146,6 +149,7 @@ function InventoryPage() {
     URL.revokeObjectURL(url);
     toast.success("Exported successfully");
   };
+
 
   const handleImportCSV = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -168,7 +172,7 @@ function InventoryPage() {
         user_id: session!.user.id,
         name: r.name || "Unnamed",
         description: r.description || "",
-        category: r.category || "",
+        item_type: r.item_type || null,
         location: r.location || "",
         quantity: parseInt(r.quantity) || 1,
         min_quantity: parseInt(r.min_quantity) || 0,
@@ -177,6 +181,7 @@ function InventoryPage() {
           : "available",
         tags: r.tags ? r.tags.split(";").filter(Boolean) : [],
       }));
+
 
       const { error } = await supabase.from("inventory_items").insert(inserts);
       if (error) return toast.error("Import failed: " + error.message);
@@ -187,24 +192,28 @@ function InventoryPage() {
     e.target.value = "";
   };
 
-  const categories = [...new Set(assets.map((a) => a.category).filter(Boolean))] as string[];
+  const usedTypes = new Set(assets.map((a) => a.item_type).filter(Boolean) as string[]);
+  const availableTypes = INVENTORY_TYPES.filter((t) => usedTypes.has(t.value));
 
   const filtered = assets.filter((a) => {
     const q = search.toLowerCase();
+    const typeLabel =
+      INVENTORY_TYPES.find((t) => t.value === a.item_type)?.label.toLowerCase() ?? "";
     const matchesSearch =
       (a.name || "").toLowerCase().includes(q) ||
       (a.description || "").toLowerCase().includes(q) ||
-      (a.category || "").toLowerCase().includes(q) ||
+      typeLabel.includes(q) ||
       (a.location || "").toLowerCase().includes(q) ||
       (a.barcode || "").toLowerCase().includes(q) ||
       (a.tags || []).some((t) => t.toLowerCase().includes(q));
     const matchesStatus = statusFilter === "all" || a.status === statusFilter;
-    const matchesCategory = categoryFilter === "all" || a.category === categoryFilter;
+    const matchesType = typeFilter === "all" || a.item_type === typeFilter;
     const minQ = a.min_quantity ?? 0;
     const qty = a.quantity ?? 0;
     const matchesLowStock = !showLowStock || (minQ > 0 && qty <= minQ);
-    return matchesSearch && matchesStatus && matchesCategory && matchesLowStock;
+    return matchesSearch && matchesStatus && matchesType && matchesLowStock;
   });
+
 
   const lowStockCount = assets.filter((a) => {
     const minQ = a.min_quantity ?? 0;
@@ -247,17 +256,18 @@ function InventoryPage() {
             </select>
 
             <select
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
               className="rounded-md border border-border bg-card px-3 py-2 text-sm"
             >
-              <option value="all">All Categories</option>
-              {categories.map((c) => (
-                <option key={c} value={c}>
-                  {c}
+              <option value="all">All Inventory Types</option>
+              {availableTypes.map((t) => (
+                <option key={t.value} value={t.value}>
+                  {t.label}
                 </option>
               ))}
             </select>
+
 
             <Button
               variant={showLowStock ? "default" : "outline"}

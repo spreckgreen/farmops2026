@@ -19,7 +19,6 @@ interface AssetDialogProps {
 const emptyForm: AssetFormData = {
   name: "",
   description: "",
-  category: "",
   location: "",
   quantity: 1,
   min_quantity: 0,
@@ -32,6 +31,7 @@ const emptyForm: AssetFormData = {
   item_type: "",
 };
 
+
 const AssetDialog = ({ open, onOpenChange, onSave, asset }: AssetDialogProps) => {
   const [form, setForm] = useState<AssetFormData>(emptyForm);
   const [tagInput, setTagInput] = useState("");
@@ -42,8 +42,8 @@ const AssetDialog = ({ open, onOpenChange, onSave, asset }: AssetDialogProps) =>
       setForm({
         name: asset.name ?? "",
         description: asset.description ?? "",
-        category: asset.category ?? "",
         location: asset.location ?? "",
+
         quantity: Number(asset.quantity ?? 0),
         min_quantity: Number(asset.min_quantity ?? 0),
         status: asset.status ?? "available",
@@ -101,14 +101,6 @@ const AssetDialog = ({ open, onOpenChange, onSave, asset }: AssetDialogProps) =>
                 value={form.description}
                 onChange={(e) => setForm({ ...form, description: e.target.value })}
                 rows={2}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Category</Label>
-              <Input
-                value={form.category}
-                onChange={(e) => setForm({ ...form, category: e.target.value })}
-                placeholder="e.g. Electronics"
               />
             </div>
             <div className="space-y-2">

@@ -83,7 +83,7 @@ function DashboardPage() {
     const payload = {
       name: formData.name,
       description: formData.description,
-      category: formData.category,
+      item_type: formData.item_type || null,
       location: formData.location,
       quantity: formData.quantity,
       min_quantity: formData.min_quantity,

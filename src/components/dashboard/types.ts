@@ -21,7 +21,6 @@ export interface Asset {
 export interface AssetFormData {
   name: string;
   description: string;
-  category: string;
   location: string;
   quantity: number;
   min_quantity: number;
@@ -33,3 +32,4 @@ export interface AssetFormData {
   usage_tracking: string;
   item_type: string;
 }
+

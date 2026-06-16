@@ -2,6 +2,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Edit, Trash2, AlertTriangle } from "lucide-react";
 import type { Asset } from "./types";
+import { INVENTORY_TYPES } from "@/lib/obsidian-layout";
+
+const typeLabel = (value: string | null | undefined) =>
+  INVENTORY_TYPES.find((t) => t.value === value)?.label ?? null;
+
 
 interface AssetTableProps {
   assets: Asset[];
@@ -34,8 +39,9 @@ const AssetTable = ({ assets, onEdit, onDelete }: AssetTableProps) => {
             <tr className="border-b border-border bg-muted/30">
               <th className="text-left px-4 py-3 font-medium text-muted-foreground">Name</th>
               <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden md:table-cell">
-                Category
+                Inventory Type
               </th>
+
               <th className="text-left px-4 py-3 font-medium text-muted-foreground hidden lg:table-cell">
                 Location
               </th>
@@ -76,8 +82,9 @@ const AssetTable = ({ assets, onEdit, onDelete }: AssetTableProps) => {
                     </div>
                   </td>
                   <td className="px-4 py-3 hidden md:table-cell text-muted-foreground">
-                    {asset.category || "—"}
+                    {typeLabel(asset.item_type) || "—"}
                   </td>
+
                   <td className="px-4 py-3 hidden lg:table-cell text-muted-foreground">
                     {asset.location || "—"}
                   </td>
