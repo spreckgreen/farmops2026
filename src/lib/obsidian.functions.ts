@@ -244,7 +244,10 @@ export const obsidianExport = createServerFn({ method: "GET" })
         scope_project: s.scope_project ?? "",
       };
       const payload = s.edited_summary ?? s.generated_summary;
-      const body = "```json\n" + JSON.stringify(payload, null, 2) + "\n```\n";
+      const body =
+        renderSummaryMarkdown(payload, s.mode, s.period_start, s.period_end, s.scope_project) +
+        "\n\n<!-- structured payload below — used for round-trip import; safe to ignore -->\n" +
+        "```json\n" + JSON.stringify(payload, null, 2) + "\n```\n";
       const tag = s.scope_project ?? null;
       let folder: string;
       let fileName: string;
