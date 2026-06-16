@@ -1487,11 +1487,13 @@ export const addMaintenanceToToday = createServerFn({ method: "POST" })
           status: "open",
           project_tags: ["maintenance"],
         })
-        .select("id, slug, title")
+        .select("id, slug, title, project_tags, start_at, percent_complete")
         .single();
       if (insErr) throw new Error(insErr.message);
       task = created;
     }
+    if (!task) throw new Error("Failed to resolve maintenance task");
+
 
     // Reuse the same today-attach flow.
     const date = new Date().toLocaleDateString("en-CA", { timeZone: "UTC" });
