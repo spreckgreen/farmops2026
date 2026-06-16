@@ -23,6 +23,7 @@ import { Route as TasksScheduledRouteImport } from './routes/tasks.scheduled'
 import { Route as TasksBacklogRouteImport } from './routes/tasks.backlog'
 import { Route as TasksSlugRouteImport } from './routes/tasks.$slug'
 import { Route as NotesDateRouteImport } from './routes/notes.$date'
+import { Route as AdminUsersRouteImport } from './routes/admin.users'
 
 const SyncRoute = SyncRouteImport.update({
   id: '/sync',
@@ -94,6 +95,11 @@ const NotesDateRoute = NotesDateRouteImport.update({
   path: '/notes/$date',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminUsersRoute = AdminUsersRouteImport.update({
+  id: '/admin/users',
+  path: '/admin/users',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -105,6 +111,7 @@ export interface FileRoutesByFullPath {
   '/reports': typeof ReportsRoute
   '/service-scheduling': typeof ServiceSchedulingRoute
   '/sync': typeof SyncRoute
+  '/admin/users': typeof AdminUsersRoute
   '/notes/$date': typeof NotesDateRoute
   '/tasks/$slug': typeof TasksSlugRoute
   '/tasks/backlog': typeof TasksBacklogRoute
@@ -121,6 +128,7 @@ export interface FileRoutesByTo {
   '/reports': typeof ReportsRoute
   '/service-scheduling': typeof ServiceSchedulingRoute
   '/sync': typeof SyncRoute
+  '/admin/users': typeof AdminUsersRoute
   '/notes/$date': typeof NotesDateRoute
   '/tasks/$slug': typeof TasksSlugRoute
   '/tasks/backlog': typeof TasksBacklogRoute
@@ -138,6 +146,7 @@ export interface FileRoutesById {
   '/reports': typeof ReportsRoute
   '/service-scheduling': typeof ServiceSchedulingRoute
   '/sync': typeof SyncRoute
+  '/admin/users': typeof AdminUsersRoute
   '/notes/$date': typeof NotesDateRoute
   '/tasks/$slug': typeof TasksSlugRoute
   '/tasks/backlog': typeof TasksBacklogRoute
@@ -156,6 +165,7 @@ export interface FileRouteTypes {
     | '/reports'
     | '/service-scheduling'
     | '/sync'
+    | '/admin/users'
     | '/notes/$date'
     | '/tasks/$slug'
     | '/tasks/backlog'
@@ -172,6 +182,7 @@ export interface FileRouteTypes {
     | '/reports'
     | '/service-scheduling'
     | '/sync'
+    | '/admin/users'
     | '/notes/$date'
     | '/tasks/$slug'
     | '/tasks/backlog'
@@ -188,6 +199,7 @@ export interface FileRouteTypes {
     | '/reports'
     | '/service-scheduling'
     | '/sync'
+    | '/admin/users'
     | '/notes/$date'
     | '/tasks/$slug'
     | '/tasks/backlog'
@@ -205,6 +217,7 @@ export interface RootRouteChildren {
   ReportsRoute: typeof ReportsRoute
   ServiceSchedulingRoute: typeof ServiceSchedulingRoute
   SyncRoute: typeof SyncRoute
+  AdminUsersRoute: typeof AdminUsersRoute
   NotesDateRoute: typeof NotesDateRoute
   TasksSlugRoute: typeof TasksSlugRoute
   TasksBacklogRoute: typeof TasksBacklogRoute
@@ -312,6 +325,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof NotesDateRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/users': {
+      id: '/admin/users'
+      path: '/admin/users'
+      fullPath: '/admin/users'
+      preLoaderRoute: typeof AdminUsersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -325,6 +345,7 @@ const rootRouteChildren: RootRouteChildren = {
   ReportsRoute: ReportsRoute,
   ServiceSchedulingRoute: ServiceSchedulingRoute,
   SyncRoute: SyncRoute,
+  AdminUsersRoute: AdminUsersRoute,
   NotesDateRoute: NotesDateRoute,
   TasksSlugRoute: TasksSlugRoute,
   TasksBacklogRoute: TasksBacklogRoute,
