@@ -26,10 +26,11 @@ type EquipmentOption = { id: string; name: string | null };
 type FieldDef = {
   name: string;
   label: string;
-  type?: "text" | "number" | "date" | "textarea";
+  type?: "text" | "number" | "date" | "textarea" | "select";
   required?: boolean;
   placeholder?: string;
   colSpan?: 1 | 2;
+  options?: { value: string; label: string }[];
 };
 
 function FormFields({
@@ -58,6 +59,20 @@ function FormFields({
               className="mt-1 bg-card/60 border-border"
               rows={3}
             />
+          ) : f.type === "select" ? (
+            <select
+              id={f.name}
+              value={values[f.name] ?? ""}
+              onChange={(e) => setValues({ ...values, [f.name]: e.target.value })}
+              className="mt-1 w-full rounded-md border border-border bg-card/60 px-3 py-2 text-sm"
+            >
+              <option value="">{f.placeholder ?? "Select..."}</option>
+              {(f.options ?? []).map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
           ) : (
             <Input
               id={f.name}
