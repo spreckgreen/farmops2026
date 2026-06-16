@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState, useRef } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { AppLayout } from "@/components/app-layout";
+import { PublishStatusPanel } from "@/components/publish-status-panel";
 import { requireAuthenticatedUser } from "@/lib/auth-route";
 import { Button } from "@/components/ui/button";
 import { obsidianExport, obsidianImport, type ObsidianFile } from "@/lib/obsidian.functions";
@@ -211,6 +212,15 @@ function SyncPage() {
             <code>30 Equipment/31 Parts Catalog/</code>).
           </p>
         </header>
+
+        <section className="space-y-2">
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+            Publish status
+          </h2>
+          <PublishStatusPanel />
+        </section>
+
+
 
         {!supported || !isSecure || isEmbedded || pickerIssue ? (
           <div className="border border-border rounded-lg bg-card/40 p-5 space-y-4">
