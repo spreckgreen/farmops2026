@@ -36,7 +36,7 @@ import {
   type ManagedUser,
 } from "@/lib/admin.functions";
 
-export const Route = createFileRoute("/_authenticated/admin/users")({
+export const Route = createFileRoute("/admin/users")({
   ssr: false,
   head: () => ({ meta: [{ title: "User management — Bostead Farms" }] }),
   component: UsersPage,
