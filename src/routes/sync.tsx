@@ -6,7 +6,7 @@ import { requireAuthenticatedUser } from "@/lib/auth-route";
 import { Button } from "@/components/ui/button";
 import { obsidianExport, obsidianImport, type ObsidianFile } from "@/lib/obsidian.functions";
 import { toast } from "sonner";
-import { FolderOpen, Download, Upload, RefreshCw } from "lucide-react";
+import { FolderOpen, Download, Upload, RefreshCw, CheckCircle2, XCircle, Monitor, FileText } from "lucide-react";
 
 export const Route = createFileRoute("/sync")({
   ssr: false,
