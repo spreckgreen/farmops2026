@@ -327,7 +327,7 @@ function ReportsPage() {
                         <h3 className="text-xs font-mono uppercase tracking-wider mb-1">
                           #project/{p.project}
                         </h3>
-                        <p className="text-sm leading-relaxed mb-1">{p.summary}</p>
+                        <p className="text-sm leading-relaxed mb-1 whitespace-pre-line">{p.summary}</p>
                         {p.highlights?.length > 0 && (
                           <ul className="list-disc list-inside text-sm space-y-0.5 marker:text-muted-foreground">
                             {p.highlights.map((h, j) => <li key={j}>{h}</li>)}
