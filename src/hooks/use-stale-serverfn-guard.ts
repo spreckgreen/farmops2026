@@ -71,6 +71,42 @@ function extractServerFnId(url: string): string {
   return m?.[1] ?? "";
 }
 
+// Query/fragment values can carry tokens, emails, signed payloads, etc. We
+// keep parameter *names* (useful for debugging which call site fired) but
+// replace every value with "[redacted]". Anything that doesn't parse as a
+// URL is reduced to its path so we never accidentally forward raw query
+// strings or fragments.
+const SENSITIVE_KEY_RE = /^(?:.*(?:token|secret|key|auth|password|session|sig|signature|code|otp|email|jwt|bearer|access|refresh).*)$/i;
+
+function redactUrl(raw: string): string {
+  try {
+    const u = new URL(raw, typeof window !== "undefined" ? window.location.origin : "http://localhost");
+    const params = new URLSearchParams();
+    for (const [k] of u.searchParams) {
+      params.append(k, SENSITIVE_KEY_RE.test(k) ? "[redacted]" : "[redacted]");
+    }
+    const qs = params.toString();
+    // Drop fragment entirely — it never reaches the server and is the most
+    // common place client-side tokens (e.g. OAuth implicit flow) end up.
+    return u.origin + u.pathname + (qs ? `?${qs}` : "");
+  } catch {
+    return raw.split("?")[0].split("#")[0];
+  }
+}
+
+function redactRoute(pathname: string, search: string): string {
+  if (!search) return pathname;
+  try {
+    const params = new URLSearchParams(search);
+    const out = new URLSearchParams();
+    for (const [k] of params) out.append(k, "[redacted]");
+    const qs = out.toString();
+    return qs ? `${pathname}?${qs}` : pathname;
+  } catch {
+    return pathname;
+  }
+}
+
 function autoReloadOnce(context: Omit<StaleEvent, "ts" | "action">): boolean {
   if (reloading) return true;
   const alreadyTried = safeSession(() => sessionStorage.getItem(RETRY_FLAG), null);
