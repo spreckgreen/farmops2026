@@ -9,6 +9,32 @@ function normalizeLogLine(raw: string) {
   return (raw ?? "").replace(/\s+/g, " ").trim();
 }
 
+// Canonical markdown for a task pulled into a daily note. parseMarkdown
+// requires `#task/<slug>` to come first to register as a ref (and not as a
+// new task); after that we append the title and any metadata so the line
+// renders cleanly when the note is rebuilt from the activity log.
+function buildTaskRefLine(task: {
+  slug: string;
+  title: string | null;
+  project_tags?: string[] | null;
+  start_at?: string | null;
+  percent_complete?: number | null;
+}) {
+  const parts: string[] = [`- #task/${task.slug}`, (task.title ?? "").trim() || task.slug];
+  for (const tag of task.project_tags ?? []) {
+    if (tag && tag !== "maintenance") parts.push(`#project/${tag}`);
+  }
+  if (task.start_at) {
+    const iso = task.start_at.replace(/\.\d+/, "").replace(/Z$/, "");
+    parts.push(`@start:${iso}`);
+  }
+  if (typeof task.percent_complete === "number" && task.percent_complete > 0) {
+    parts.push(`@progress:${Math.round(task.percent_complete)}`);
+  }
+  return parts.join(" ");
+}
+
+
 // ---- Configurable dedupe normalization ----
 //
 // The signature used for clustering near-duplicate task lines is tunable so
