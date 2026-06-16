@@ -35,7 +35,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-export const Route = createFileRoute("/reports")({
+export const Route = createFileRoute("/tasks/scheduled")({
   ssr: false,
   beforeLoad: requireAuthenticatedUser,
   head: () => ({ meta: [{ title: "Reports — Bostead Farms" }] }),
