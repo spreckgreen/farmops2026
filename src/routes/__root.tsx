@@ -86,6 +86,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:title", content: "Bostead Farms" },
+      { name: "twitter:description", content: "Bostead Farms maintenance and inventory management" },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/959e2f9e-be5f-4fdd-8df8-320e812fc3e8/id-preview-49e576fb--3262d5a9-40fd-4cf4-a353-9549a732cb96.lovable.app-1781620976615.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/959e2f9e-be5f-4fdd-8df8-320e812fc3e8/id-preview-49e576fb--3262d5a9-40fd-4cf4-a353-9549a732cb96.lovable.app-1781620976615.png" },
     ],
     links: [
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
