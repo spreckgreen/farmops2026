@@ -109,39 +109,8 @@ function ReportsPage() {
                 </SelectContent>
               </Select>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={!tasksQ.data}
-              onClick={async () => {
-                try {
-                  const filterTag = tag === ALL ? null : tag;
-                  const tpl = await loadTemplate();
-                  const rows = (tasksQ.data ?? []) as ScheduledTaskRow[];
-                  const tiddlers = tiddlersFromScheduledTasks(rows, filterTag);
-                  const indexTitle = filterTag
-                    ? `Scheduled Tasks — #project/${filterTag}`
-                    : "Scheduled Tasks";
-                  const html = assembleTiddlyWiki(tpl, tiddlers, {
-                    siteTitle: "Bostead Farms — Reports",
-                    subtitle: indexTitle,
-                    defaultTiddlers: [indexTitle],
-                  });
-                  const stamp = format(new Date(), "yyyyMMdd-HHmm");
-                  downloadHtml(
-                    `bostead-reports-${filterTag ?? "all"}-${stamp}.html`,
-                    html,
-                  );
-                  toast.success("TiddlyWiki export downloaded");
-                } catch (e) {
-                  toast.error(e instanceof Error ? e.message : "Export failed");
-                }
-              }}
-            >
-              <Download className="h-4 w-4 mr-1.5" />
-              Export TiddlyWiki
-            </Button>
             <TiddlyWikiImportButton kind="tasks" />
+
           </div>
         </div>
 
