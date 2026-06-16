@@ -38,7 +38,7 @@ import {
 export const Route = createFileRoute("/tasks/scheduled")({
   ssr: false,
   beforeLoad: requireAuthenticatedUser,
-  head: () => ({ meta: [{ title: "Reports — Bostead Farms" }] }),
+  head: () => ({ meta: [{ title: "Scheduled tasks — Bostead Farms" }] }),
   component: ReportsPage,
 });
 
