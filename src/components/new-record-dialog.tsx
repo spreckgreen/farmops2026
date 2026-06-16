@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
@@ -17,14 +17,20 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { createInventory } from "@/lib/inventory.functions";
 import { createMaintenance } from "@/lib/maintenance.functions";
+import { supabase } from "@/integrations/supabase/client";
+
+const EQUIPMENT_ITEM_TYPE = "30_equipment";
+
+type EquipmentOption = { id: string; name: string | null };
 
 type FieldDef = {
   name: string;
   label: string;
-  type?: "text" | "number" | "date" | "textarea";
+  type?: "text" | "number" | "date" | "textarea" | "select";
   required?: boolean;
   placeholder?: string;
   colSpan?: 1 | 2;
+  options?: { value: string; label: string }[];
 };
 
 function FormFields({
@@ -53,6 +59,20 @@ function FormFields({
               className="mt-1 bg-card/60 border-border"
               rows={3}
             />
+          ) : f.type === "select" ? (
+            <select
+              id={f.name}
+              value={values[f.name] ?? ""}
+              onChange={(e) => setValues({ ...values, [f.name]: e.target.value })}
+              className="mt-1 w-full rounded-md border border-border bg-card/60 px-3 py-2 text-sm"
+            >
+              <option value="">{f.placeholder ?? "Select..."}</option>
+              {(f.options ?? []).map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
           ) : (
             <Input
               id={f.name}
@@ -82,8 +102,7 @@ const INVENTORY_FIELDS: FieldDef[] = [
   { name: "notes", label: "Notes", type: "textarea", colSpan: 2 },
 ];
 
-const MAINTENANCE_FIELDS: FieldDef[] = [
-  { name: "asset_name", label: "Asset", required: true, placeholder: "e.g. Tractor #3" },
+const MAINTENANCE_FIELDS_BASE: FieldDef[] = [
   { name: "title", label: "Title", placeholder: "Oil change" },
   { name: "service_type", label: "Service type", placeholder: "Routine / Repair" },
   { name: "status", label: "Status", placeholder: "scheduled / done" },
@@ -94,6 +113,27 @@ const MAINTENANCE_FIELDS: FieldDef[] = [
   { name: "vendor", label: "Vendor / Technician", placeholder: "" },
   { name: "notes", label: "Notes", type: "textarea", colSpan: 2 },
 ];
+
+function buildMaintenanceFields(equipment: EquipmentOption[]): FieldDef[] {
+  return [
+    {
+      name: "asset_name",
+      label: "Asset",
+      required: true,
+      type: "select",
+      placeholder:
+        equipment.length === 0
+          ? "No 30 Equipment items found — add one in Inventory"
+          : "Select equipment...",
+      options: equipment.map((e) => ({
+        value: e.name ?? "",
+        label: e.name ?? "(unnamed)",
+      })),
+    },
+    ...MAINTENANCE_FIELDS_BASE,
+  ];
+}
+
 
 export function NewRecordDialog({
   kind,
@@ -106,11 +146,30 @@ export function NewRecordDialog({
   const [open, setOpen] = useState(false);
   const [values, setValues] = useState<Record<string, string>>({});
 
+  const [equipment, setEquipment] = useState<EquipmentOption[]>([]);
+
+  useEffect(() => {
+    if (kind !== "maintenance" || !open) return;
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from("inventory_items")
+        .select("id, name")
+        .eq("item_type", EQUIPMENT_ITEM_TYPE)
+        .order("name", { ascending: true });
+      if (!cancelled && !error) setEquipment((data as EquipmentOption[]) ?? []);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [kind, open]);
+
   const createInv = useServerFn(createInventory);
   const createMnt = useServerFn(createMaintenance);
 
   const isInv = kind === "inventory";
-  const fields = isInv ? INVENTORY_FIELDS : MAINTENANCE_FIELDS;
+  const fields = isInv ? INVENTORY_FIELDS : buildMaintenanceFields(equipment);
+
   const queryKey = isInv ? ["inventory"] : ["maintenance"];
 
   const mut = useMutation({
