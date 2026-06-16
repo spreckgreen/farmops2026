@@ -948,16 +948,19 @@ export const getLatestDataChange = createServerFn({ method: "GET" })
         .limit(1)
         .maybeSingle(),
     ]);
-    const candidates: string[] = [];
-    if (a.data?.created_at) candidates.push(a.data.created_at);
-    if (t.data?.updated_at) candidates.push(t.data.updated_at);
-    else if (t.data?.created_at) candidates.push(t.data.created_at);
-    if (p.data?.updated_at) candidates.push(p.data.updated_at);
-    else if (p.data?.created_at) candidates.push(p.data.created_at);
+    const today_at = a.data?.created_at ?? null;
+    const tasks_at = t.data?.updated_at ?? t.data?.created_at ?? null;
+    const projects_at = p.data?.updated_at ?? p.data?.created_at ?? null;
+    const candidates = [today_at, tasks_at, projects_at].filter(
+      (s): s is string => typeof s === "string",
+    );
     const latest = candidates
       .map((s) => new Date(s).getTime())
       .reduce((a, b) => (a > b ? a : b), 0);
-    return { latest_at: latest > 0 ? new Date(latest).toISOString() : null };
+    return {
+      latest_at: latest > 0 ? new Date(latest).toISOString() : null,
+      sources: { today_at, tasks_at, projects_at },
+    };
   });
 
 export const updateSummary = createServerFn({ method: "POST" })
