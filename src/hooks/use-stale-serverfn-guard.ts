@@ -77,28 +77,62 @@ function extractServerFnId(url: string): string {
 // they never reach the server and are the most common place client-side
 // tokens (e.g. OAuth implicit flow) end up. If the URL fails to parse we
 // fall back to path-only so we never forward a raw query string.
+
+// Path-segment masks: opaque identifiers that almost never carry useful
+// debugging signal but frequently encode private data (user IDs, share
+// tokens, signed URLs, magic-link codes, email addresses).
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const HEX_TOKEN_RE = /^[0-9a-f]{16,}$/i;
+const BASE64URL_TOKEN_RE = /^[A-Za-z0-9_-]{20,}$/;
+const JWT_RE = /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/;
+const LONG_DIGITS_RE = /^\d{6,}$/;
+const EMAIL_RE = /^[^@\s/]+@[^@\s/]+\.[^@\s/]+$/;
+
+function maskSegment(segment: string): string {
+  if (!segment) return segment;
+  if (EMAIL_RE.test(segment)) return "[email]";
+  if (UUID_RE.test(segment)) return "[uuid]";
+  if (JWT_RE.test(segment)) return "[jwt]";
+  if (HEX_TOKEN_RE.test(segment)) return "[hex]";
+  if (LONG_DIGITS_RE.test(segment)) return "[id]";
+  if (BASE64URL_TOKEN_RE.test(segment)) return "[token]";
+  return segment;
+}
+
+function redactPath(pathname: string): string {
+  return pathname
+    .split("/")
+    .map((seg) => (seg ? encodeURIComponent(maskSegment(decodeSafe(seg))) : seg))
+    .join("/");
+}
+
+function decodeSafe(s: string): string {
+  try { return decodeURIComponent(s); } catch { return s; }
+}
+
 function redactUrl(raw: string): string {
   try {
     const u = new URL(raw, typeof window !== "undefined" ? window.location.origin : "http://localhost");
     const params = new URLSearchParams();
     for (const [k] of u.searchParams) params.append(k, "[redacted]");
     const qs = params.toString();
-    return u.origin + u.pathname + (qs ? `?${qs}` : "");
+    return u.origin + redactPath(u.pathname) + (qs ? `?${qs}` : "");
   } catch {
-    return raw.split("?")[0].split("#")[0];
+    return redactPath(raw.split("?")[0].split("#")[0]);
   }
 }
 
 function redactRoute(pathname: string, search: string): string {
-  if (!search) return pathname;
+  const safePath = redactPath(pathname);
+  if (!search) return safePath;
   try {
     const params = new URLSearchParams(search);
     const out = new URLSearchParams();
     for (const [k] of params) out.append(k, "[redacted]");
     const qs = out.toString();
-    return qs ? `${pathname}?${qs}` : pathname;
+    return qs ? `${safePath}?${qs}` : safePath;
   } catch {
-    return pathname;
+    return safePath;
   }
 }
 
