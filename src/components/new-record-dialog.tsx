@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
@@ -17,6 +17,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { createInventory } from "@/lib/inventory.functions";
 import { createMaintenance } from "@/lib/maintenance.functions";
+import { supabase } from "@/integrations/supabase/client";
+
+const EQUIPMENT_ITEM_TYPE = "30_equipment";
+
+type EquipmentOption = { id: string; name: string | null };
 
 type FieldDef = {
   name: string;
