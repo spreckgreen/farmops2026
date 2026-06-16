@@ -22,10 +22,12 @@ const LOG_MAX = 25;
 type StaleEvent = {
   ts: number;
   url: string;
+  route: string;
+  serverFnId: string;
+  serverFnIdShort: string;
   status: number;
   bodySnippet: string;
   action: "auto-reload" | "manual-prompt" | "auto-reload-succeeded" | "auto-reload-failed";
-  buildHint?: string;
   userAgent?: string;
 };
 
