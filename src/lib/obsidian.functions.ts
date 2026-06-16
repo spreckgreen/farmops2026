@@ -463,7 +463,14 @@ export const obsidianImport = createServerFn({ method: "POST" })
             {
               id,
               user_id: userId,
-              mode: mode as "project_rollup" | "task_update" | "weekly_report",
+              mode: mode as
+                | "project_rollup"
+                | "task_update"
+                | "weekly_report"
+                | "quarter_review"
+                | "daily_recap"
+                | "monthly_rollup"
+                | "yearly_rollup",
               period_start,
               period_end,
               status,
