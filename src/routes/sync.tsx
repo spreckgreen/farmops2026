@@ -1,12 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { AppLayout } from "@/components/app-layout";
 import { requireAuthenticatedUser } from "@/lib/auth-route";
 import { Button } from "@/components/ui/button";
 import { obsidianExport, obsidianImport, type ObsidianFile } from "@/lib/obsidian.functions";
 import { toast } from "sonner";
-import { FolderOpen, Download, Upload, RefreshCw } from "lucide-react";
+import { FolderOpen, Download, Upload, RefreshCw, CheckCircle2, XCircle, Monitor, FileText } from "lucide-react";
 
 export const Route = createFileRoute("/sync")({
   ssr: false,
@@ -61,6 +61,7 @@ function SyncPage() {
   const [lastSync, setLastSync] = useState<string | null>(null);
   const doExport = useServerFn(obsidianExport);
   const doImport = useServerFn(obsidianImport);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const supported =
     typeof window !== "undefined" && "showDirectoryPicker" in window;
@@ -117,6 +118,60 @@ function SyncPage() {
     await pushToVault();
   };
 
+  const fallbackPush = async () => {
+    setBusy("Exporting…");
+    try {
+      const { files } = await doExport();
+      for (const f of files) {
+        const blob = new Blob([f.content], { type: "text/markdown" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = f.path.replace(/\//g, "_");
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+      setLastSync(new Date().toLocaleString());
+      toast.success(`Downloaded ${files.length} files`);
+    } catch (e) {
+      toast.error(`Export failed: ${(e as Error).message}`);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const fallbackPull = async (e: { target: HTMLInputElement }) => {
+    const selected = e.target.files;
+    if (!selected || selected.length === 0) return;
+    setBusy("Importing…");
+    try {
+      const files: ObsidianFile[] = [];
+      for (let i = 0; i < selected.length; i++) {
+        const file = selected[i];
+        if (!file.name.toLowerCase().endsWith(".md")) continue;
+        const content = await file.text();
+        const path = file.webkitRelativePath || file.name;
+        files.push({ path, content });
+      }
+      if (files.length === 0) {
+        toast.message("No markdown files selected.");
+        return;
+      }
+      const result = await doImport({ data: { files } });
+      setLastSync(new Date().toLocaleString());
+      toast.success(
+        `Imported ${result.dailyNotes} notes · ${result.tasks} tasks · ${result.projects} projects · ${result.summaries} summaries · ${result.inventory} inventory · ${result.maintenance} maintenance · ${result.consumables} consumables`,
+      );
+    } catch (err) {
+      toast.error(`Import failed: ${(err as Error).message}`);
+    } finally {
+      setBusy(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
   return (
     <AppLayout>
       <div className="max-w-3xl mx-auto px-4 py-8 space-y-6">
@@ -131,8 +186,49 @@ function SyncPage() {
         </header>
 
         {!supported ? (
-          <div className="border border-destructive/50 bg-destructive/10 text-destructive rounded-md p-4 text-sm">
-            Your browser doesn't support the File System Access API. Use Chrome, Edge, or Brave.
+          <div className="border border-border rounded-lg bg-card/40 p-5 space-y-4">
+            <div className="flex items-start gap-3">
+              <Monitor className="w-5 h-5 text-muted-foreground mt-0.5 shrink-0" />
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Folder sync requires a Chromium-based browser</p>
+                <p className="text-xs text-muted-foreground">
+                  The <strong>Pick folder</strong> feature uses the File System Access API, which is only available in Chrome, Edge, and Brave. Safari and Firefox do not support it yet.
+                </p>
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
+                  <span className="flex items-center gap-1 text-emerald-400"><CheckCircle2 className="w-3.5 h-3.5" /> Chrome</span>
+                  <span className="flex items-center gap-1 text-emerald-400"><CheckCircle2 className="w-3.5 h-3.5" /> Edge</span>
+                  <span className="flex items-center gap-1 text-emerald-400"><CheckCircle2 className="w-3.5 h-3.5" /> Brave</span>
+                  <span className="flex items-center gap-1 text-red-400"><XCircle className="w-3.5 h-3.5" /> Safari</span>
+                  <span className="flex items-center gap-1 text-red-400"><XCircle className="w-3.5 h-3.5" /> Firefox</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="border-t border-border pt-4 space-y-2">
+              <p className="text-xs font-medium text-muted-foreground">Manual fallback</p>
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" variant="secondary" onClick={fallbackPush} disabled={!!busy}>
+                  <Download className="w-4 h-4 mr-2" />
+                  Download all files
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => fileInputRef.current?.click()} disabled={!!busy}>
+                  <FileText className="w-4 h-4 mr-2" />
+                  Import from files…
+                </Button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  accept=".md"
+                  className="hidden"
+                  onChange={fallbackPull}
+                />
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                <strong>Download</strong> exports every note as individual files you can drag into your vault.
+                <strong>Import</strong> lets you select vault markdown files to upload back into Bostead.
+              </p>
+            </div>
           </div>
         ) : null}
 
