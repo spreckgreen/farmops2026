@@ -9,6 +9,32 @@ function normalizeLogLine(raw: string) {
   return (raw ?? "").replace(/\s+/g, " ").trim();
 }
 
+// Canonical markdown for a task pulled into a daily note. parseMarkdown
+// requires `#task/<slug>` to come first to register as a ref (and not as a
+// new task); after that we append the title and any metadata so the line
+// renders cleanly when the note is rebuilt from the activity log.
+function buildTaskRefLine(task: {
+  slug: string;
+  title: string | null;
+  project_tags?: string[] | null;
+  start_at?: string | null;
+  percent_complete?: number | null;
+}) {
+  const parts: string[] = [`- #task/${task.slug}`, (task.title ?? "").trim() || task.slug];
+  for (const tag of task.project_tags ?? []) {
+    if (tag && tag !== "maintenance") parts.push(`#project/${tag}`);
+  }
+  if (task.start_at) {
+    const iso = task.start_at.replace(/\.\d+/, "").replace(/Z$/, "");
+    parts.push(`@start:${iso}`);
+  }
+  if (typeof task.percent_complete === "number" && task.percent_complete > 0) {
+    parts.push(`@progress:${Math.round(task.percent_complete)}`);
+  }
+  return parts.join(" ");
+}
+
+
 // ---- Configurable dedupe normalization ----
 //
 // The signature used for clustering near-duplicate task lines is tunable so
@@ -1299,7 +1325,8 @@ export const addTaskToToday = createServerFn({ method: "POST" })
 
     const { data: task, error: taskErr } = await supabase
       .from("tasks")
-      .select("id, slug, title")
+      .select("id, slug, title, project_tags, start_at, percent_complete")
+
       .eq("id", data.taskId)
       .maybeSingle();
     if (taskErr) throw new Error(taskErr.message);
@@ -1323,7 +1350,8 @@ export const addTaskToToday = createServerFn({ method: "POST" })
     }
 
     // Append a reference line if not already present in the markdown.
-    const refLine = `- #task/${task.slug} ${task.title}`;
+    const refLine = buildTaskRefLine(task);
+
     const current = note.markdown_content ?? "";
     if (!current.includes(`#task/${task.slug}`)) {
       const next = current.trim().length ? `${current.trimEnd()}\n${refLine}\n` : `${refLine}\n`;
@@ -1444,7 +1472,8 @@ export const addMaintenanceToToday = createServerFn({ method: "POST" })
     // Find or create task.
     let { data: task } = await supabase
       .from("tasks")
-      .select("id, slug, title")
+      .select("id, slug, title, project_tags, start_at, percent_complete")
+
       .eq("user_id", userId)
       .eq("slug", slug)
       .maybeSingle();
@@ -1458,11 +1487,13 @@ export const addMaintenanceToToday = createServerFn({ method: "POST" })
           status: "open",
           project_tags: ["maintenance"],
         })
-        .select("id, slug, title")
+        .select("id, slug, title, project_tags, start_at, percent_complete")
         .single();
       if (insErr) throw new Error(insErr.message);
       task = created;
     }
+    if (!task) throw new Error("Failed to resolve maintenance task");
+
 
     // Reuse the same today-attach flow.
     const date = new Date().toLocaleDateString("en-CA", { timeZone: "UTC" });
@@ -1482,7 +1513,8 @@ export const addMaintenanceToToday = createServerFn({ method: "POST" })
       note = created;
     }
 
-    const refLine = `- #task/${task.slug} ${task.title}`;
+    const refLine = buildTaskRefLine(task);
+
     const current = note.markdown_content ?? "";
     if (!current.includes(`#task/${task.slug}`)) {
       const next = current.trim().length ? `${current.trimEnd()}\n${refLine}\n` : `${refLine}\n`;
@@ -1624,7 +1656,7 @@ export const addReorderToToday = createServerFn({ method: "POST" })
 
     let { data: task } = await supabase
       .from("tasks")
-      .select("id, slug, title")
+      .select("id, slug, title, project_tags, start_at, percent_complete")
       .eq("user_id", userId)
       .eq("slug", slug)
       .maybeSingle();
@@ -1638,11 +1670,13 @@ export const addReorderToToday = createServerFn({ method: "POST" })
           status: "open",
           project_tags: ["inventory", "reorder"],
         })
-        .select("id, slug, title")
+        .select("id, slug, title, project_tags, start_at, percent_complete")
         .single();
       if (insErr) throw new Error(insErr.message);
       task = created;
     }
+    if (!task) throw new Error("Failed to resolve reorder task");
+
 
     const date = new Date().toLocaleDateString("en-CA", { timeZone: "UTC" });
     let { data: note } = await supabase
@@ -1661,7 +1695,7 @@ export const addReorderToToday = createServerFn({ method: "POST" })
       note = created;
     }
 
-    const refLine = `- #task/${task.slug} ${task.title}`;
+    const refLine = buildTaskRefLine(task);
     const current = note.markdown_content ?? "";
     if (!current.includes(`#task/${task.slug}`)) {
       const next = current.trim().length ? `${current.trimEnd()}\n${refLine}\n` : `${refLine}\n`;
