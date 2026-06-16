@@ -88,7 +88,7 @@ const JWT_RE = /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/;
 const LONG_DIGITS_RE = /^\d{6,}$/;
 const EMAIL_RE = /^[^@\s/]+@[^@\s/]+\.[^@\s/]+$/;
 
-function maskSegment(segment: string): string {
+export function maskSegment(segment: string): string {
   if (!segment) return segment;
   if (EMAIL_RE.test(segment)) return "[email]";
   if (UUID_RE.test(segment)) return "[uuid]";
@@ -99,10 +99,12 @@ function maskSegment(segment: string): string {
   return segment;
 }
 
-function redactPath(pathname: string): string {
+export function redactPath(pathname: string): string {
+  // Output is for logs, not navigation — keep mask labels (`[uuid]`, `[id]`,
+  // …) human-readable rather than percent-encoding their brackets.
   return pathname
     .split("/")
-    .map((seg) => (seg ? encodeURIComponent(maskSegment(decodeSafe(seg))) : seg))
+    .map((seg) => (seg ? maskSegment(decodeSafe(seg)) : seg))
     .join("/");
 }
 
@@ -110,7 +112,7 @@ function decodeSafe(s: string): string {
   try { return decodeURIComponent(s); } catch { return s; }
 }
 
-function redactUrl(raw: string): string {
+export function redactUrl(raw: string): string {
   try {
     const u = new URL(raw, typeof window !== "undefined" ? window.location.origin : "http://localhost");
     const params = new URLSearchParams();
@@ -122,7 +124,7 @@ function redactUrl(raw: string): string {
   }
 }
 
-function redactRoute(pathname: string, search: string): string {
+export function redactRoute(pathname: string, search: string): string {
   const safePath = redactPath(pathname);
   if (!search) return safePath;
   try {
