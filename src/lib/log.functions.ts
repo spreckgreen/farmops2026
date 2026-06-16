@@ -1325,7 +1325,8 @@ export const addTaskToToday = createServerFn({ method: "POST" })
 
     const { data: task, error: taskErr } = await supabase
       .from("tasks")
-      .select("id, slug, title")
+      .select("id, slug, title, project_tags, start_at, percent_complete")
+
       .eq("id", data.taskId)
       .maybeSingle();
     if (taskErr) throw new Error(taskErr.message);
