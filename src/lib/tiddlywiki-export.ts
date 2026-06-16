@@ -228,33 +228,15 @@ function pickShape(row: SummaryRow): SummaryShape {
   return (row.generated_summary as SummaryShape | null) ?? {};
 }
 
-function isoWeekKey(iso: string | null): string {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return iso;
-  const day = d.getUTCDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  d.setUTCDate(d.getUTCDate() + diff);
-  return d.toISOString().slice(0, 10);
-}
+import { dedupeWeeklyReports } from "./iso-week";
 
 export function tiddlersFromSummaries(rows: SummaryRow[]): Tiddler[] {
   // Collapse multiple weekly_report rows for the same ISO week + project to
-  // the most recently created one.
-  const weeklyWinners = new Map<string, SummaryRow>();
-  const passthrough: SummaryRow[] = [];
-  for (const r of rows) {
-    if (r.mode !== "weekly_report") {
-      passthrough.push(r);
-      continue;
-    }
-    const key = `${isoWeekKey(r.period_start)}|${r.scope_project ?? ""}`;
-    const prev = weeklyWinners.get(key);
-    if (!prev || (r.created_at ?? "") > (prev.created_at ?? "")) {
-      weeklyWinners.set(key, r);
-    }
-  }
-  const dedupedRows = [...passthrough, ...weeklyWinners.values()];
+  // the most recently created one. Shared with the Obsidian exporter via
+  // src/lib/iso-week.ts so the two never disagree on week boundaries.
+  const dedupedRows = dedupeWeeklyReports(rows);
+
+
 
   const now = tiddlyDate(new Date());
   const tiddlers: Tiddler[] = [];
