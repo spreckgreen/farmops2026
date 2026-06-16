@@ -124,7 +124,7 @@ function SyncPage() {
     try {
       const files = await readAllMarkdown(vault);
       if (files.length === 0) {
-        toast.message("No markdown files found in Daily/, Tasks/, Projects/, Summaries/, Inventory/, Maintenance/, Consumables/");
+        toast.message(`No markdown files found inside ${VAULT_ROOT}/`);
         return;
       }
       const result = await doImport({ data: { files } });
