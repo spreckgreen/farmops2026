@@ -489,6 +489,7 @@ export const obsidianImport = createServerFn({ method: "POST" })
             current_miles: num(meta.current_miles) ?? 0,
             usage_tracking: str(meta.usage_tracking) ?? "none",
             tags: Array.isArray(meta.tags) ? (meta.tags as string[]) : [],
+            item_type: str(meta.item_type),
             description,
           };
           if (/^[0-9a-f-]{36}$/i.test(id)) row.id = id;
