@@ -43,7 +43,7 @@ const AssetDialog = ({ open, onOpenChange, onSave, asset }: AssetDialogProps) =>
         name: asset.name ?? "",
         description: asset.description ?? "",
         location: asset.location ?? "",
-        location: asset.location ?? "",
+
         quantity: Number(asset.quantity ?? 0),
         min_quantity: Number(asset.min_quantity ?? 0),
         status: asset.status ?? "available",
