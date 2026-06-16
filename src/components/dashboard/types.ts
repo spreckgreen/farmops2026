@@ -13,6 +13,7 @@ export interface Asset {
   current_hours: number | null;
   current_miles: number | null;
   usage_tracking: string | null;
+  item_type: string | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -30,4 +31,5 @@ export interface AssetFormData {
   current_hours: number;
   current_miles: number;
   usage_tracking: string;
+  item_type: string;
 }
