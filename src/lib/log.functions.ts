@@ -1656,7 +1656,7 @@ export const addReorderToToday = createServerFn({ method: "POST" })
 
     let { data: task } = await supabase
       .from("tasks")
-      .select("id, slug, title")
+      .select("id, slug, title, project_tags, start_at, percent_complete")
       .eq("user_id", userId)
       .eq("slug", slug)
       .maybeSingle();
@@ -1670,11 +1670,13 @@ export const addReorderToToday = createServerFn({ method: "POST" })
           status: "open",
           project_tags: ["inventory", "reorder"],
         })
-        .select("id, slug, title")
+        .select("id, slug, title, project_tags, start_at, percent_complete")
         .single();
       if (insErr) throw new Error(insErr.message);
       task = created;
     }
+    if (!task) throw new Error("Failed to resolve reorder task");
+
 
     const date = new Date().toLocaleDateString("en-CA", { timeZone: "UTC" });
     let { data: note } = await supabase
