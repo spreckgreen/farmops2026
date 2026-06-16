@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SyncRouteImport } from './routes/sync'
 import { Route as SummariesRouteImport } from './routes/summaries'
+import { Route as ServiceSchedulingRouteImport } from './routes/service-scheduling'
 import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as ProjectsRouteImport } from './routes/projects'
 import { Route as MaintenanceRouteImport } from './routes/maintenance'
@@ -31,6 +32,11 @@ const SyncRoute = SyncRouteImport.update({
 const SummariesRoute = SummariesRouteImport.update({
   id: '/summaries',
   path: '/summaries',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ServiceSchedulingRoute = ServiceSchedulingRouteImport.update({
+  id: '/service-scheduling',
+  path: '/service-scheduling',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ReportsRoute = ReportsRouteImport.update({
@@ -97,6 +103,7 @@ export interface FileRoutesByFullPath {
   '/maintenance': typeof MaintenanceRoute
   '/projects': typeof ProjectsRoute
   '/reports': typeof ReportsRoute
+  '/service-scheduling': typeof ServiceSchedulingRoute
   '/summaries': typeof SummariesRoute
   '/sync': typeof SyncRoute
   '/notes/$date': typeof NotesDateRoute
@@ -112,6 +119,7 @@ export interface FileRoutesByTo {
   '/maintenance': typeof MaintenanceRoute
   '/projects': typeof ProjectsRoute
   '/reports': typeof ReportsRoute
+  '/service-scheduling': typeof ServiceSchedulingRoute
   '/summaries': typeof SummariesRoute
   '/sync': typeof SyncRoute
   '/notes/$date': typeof NotesDateRoute
@@ -128,6 +136,7 @@ export interface FileRoutesById {
   '/maintenance': typeof MaintenanceRoute
   '/projects': typeof ProjectsRoute
   '/reports': typeof ReportsRoute
+  '/service-scheduling': typeof ServiceSchedulingRoute
   '/summaries': typeof SummariesRoute
   '/sync': typeof SyncRoute
   '/notes/$date': typeof NotesDateRoute
@@ -145,6 +154,7 @@ export interface FileRouteTypes {
     | '/maintenance'
     | '/projects'
     | '/reports'
+    | '/service-scheduling'
     | '/summaries'
     | '/sync'
     | '/notes/$date'
@@ -160,6 +170,7 @@ export interface FileRouteTypes {
     | '/maintenance'
     | '/projects'
     | '/reports'
+    | '/service-scheduling'
     | '/summaries'
     | '/sync'
     | '/notes/$date'
@@ -175,6 +186,7 @@ export interface FileRouteTypes {
     | '/maintenance'
     | '/projects'
     | '/reports'
+    | '/service-scheduling'
     | '/summaries'
     | '/sync'
     | '/notes/$date'
@@ -191,6 +203,7 @@ export interface RootRouteChildren {
   MaintenanceRoute: typeof MaintenanceRoute
   ProjectsRoute: typeof ProjectsRoute
   ReportsRoute: typeof ReportsRoute
+  ServiceSchedulingRoute: typeof ServiceSchedulingRoute
   SummariesRoute: typeof SummariesRoute
   SyncRoute: typeof SyncRoute
   NotesDateRoute: typeof NotesDateRoute
@@ -213,6 +226,13 @@ declare module '@tanstack/react-router' {
       path: '/summaries'
       fullPath: '/summaries'
       preLoaderRoute: typeof SummariesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/service-scheduling': {
+      id: '/service-scheduling'
+      path: '/service-scheduling'
+      fullPath: '/service-scheduling'
+      preLoaderRoute: typeof ServiceSchedulingRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/reports': {
@@ -303,6 +323,7 @@ const rootRouteChildren: RootRouteChildren = {
   MaintenanceRoute: MaintenanceRoute,
   ProjectsRoute: ProjectsRoute,
   ReportsRoute: ReportsRoute,
+  ServiceSchedulingRoute: ServiceSchedulingRoute,
   SummariesRoute: SummariesRoute,
   SyncRoute: SyncRoute,
   NotesDateRoute: NotesDateRoute,
