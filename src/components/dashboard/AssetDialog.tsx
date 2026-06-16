@@ -52,6 +52,7 @@ const AssetDialog = ({ open, onOpenChange, onSave, asset }: AssetDialogProps) =>
         current_hours: Number(asset.current_hours ?? 0),
         current_miles: Number(asset.current_miles ?? 0),
         usage_tracking: asset.usage_tracking ?? "none",
+        item_type: asset.item_type ?? "",
       });
     } else {
       setForm(emptyForm);
