@@ -64,6 +64,7 @@ function ReportsPage() {
         monthly_rollup: "Monthly Projects",
         quarter_review: "Quarterly Projects",
         yearly_rollup: "Yearly Projects",
+        project_rollup: "Portfolio",
       };
       const count = "summaries" in res && res.summaries ? res.summaries.length : 1;
       toast.success(`${labels[mode]} drafted (${count})`);
