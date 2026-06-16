@@ -172,7 +172,7 @@ function InventoryPage() {
         user_id: session!.user.id,
         name: r.name || "Unnamed",
         description: r.description || "",
-        category: r.category || "",
+        item_type: r.item_type || null,
         location: r.location || "",
         quantity: parseInt(r.quantity) || 1,
         min_quantity: parseInt(r.min_quantity) || 0,
@@ -181,6 +181,7 @@ function InventoryPage() {
           : "available",
         tags: r.tags ? r.tags.split(";").filter(Boolean) : [],
       }));
+
 
       const { error } = await supabase.from("inventory_items").insert(inserts);
       if (error) return toast.error("Import failed: " + error.message);
