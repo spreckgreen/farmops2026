@@ -1472,7 +1472,8 @@ export const addMaintenanceToToday = createServerFn({ method: "POST" })
     // Find or create task.
     let { data: task } = await supabase
       .from("tasks")
-      .select("id, slug, title")
+      .select("id, slug, title, project_tags, start_at, percent_complete")
+
       .eq("user_id", userId)
       .eq("slug", slug)
       .maybeSingle();
