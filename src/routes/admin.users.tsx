@@ -39,6 +39,7 @@ import {
 
 export const Route = createFileRoute("/admin/users")({
   ssr: false,
+  beforeLoad: requireAuthenticatedUser,
   head: () => ({ meta: [{ title: "User management — Bostead Farms" }] }),
   component: UsersPage,
 });
