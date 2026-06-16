@@ -12,7 +12,9 @@
     "format": "prettier --write .",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:rls": "bun scripts/test-rls.ts",
     "verify": "vitest run && vite build",
+    "prepublish:check": "vitest run && bun scripts/test-rls.ts && echo '✅ Run the Deep Security Scan in the Lovable Security tab before clicking Publish.'",
     "dev:clean": "rimraf node_modules/.vite && vite dev"
   },
   "dependencies": {
