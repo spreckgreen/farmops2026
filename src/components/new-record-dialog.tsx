@@ -146,11 +146,30 @@ export function NewRecordDialog({
   const [open, setOpen] = useState(false);
   const [values, setValues] = useState<Record<string, string>>({});
 
+  const [equipment, setEquipment] = useState<EquipmentOption[]>([]);
+
+  useEffect(() => {
+    if (kind !== "maintenance" || !open) return;
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from("inventory_items")
+        .select("id, name")
+        .eq("item_type", EQUIPMENT_ITEM_TYPE)
+        .order("name", { ascending: true });
+      if (!cancelled && !error) setEquipment((data as EquipmentOption[]) ?? []);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [kind, open]);
+
   const createInv = useServerFn(createInventory);
   const createMnt = useServerFn(createMaintenance);
 
   const isInv = kind === "inventory";
-  const fields = isInv ? INVENTORY_FIELDS : MAINTENANCE_FIELDS;
+  const fields = isInv ? INVENTORY_FIELDS : buildMaintenanceFields(equipment);
+
   const queryKey = isInv ? ["inventory"] : ["maintenance"];
 
   const mut = useMutation({
