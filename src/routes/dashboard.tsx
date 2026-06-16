@@ -346,6 +346,13 @@ function DashboardPage() {
             <Button
               size="sm"
               variant="outline"
+              onClick={() => navigate({ to: "/inventory" })}
+            >
+              <LayoutDashboard className="h-4 w-4 mr-1" /> Inventory
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
               onClick={() => navigate({ to: "/maintenance" })}
             >
               <Wrench className="h-4 w-4 mr-1" /> Services
