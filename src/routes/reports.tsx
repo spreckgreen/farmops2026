@@ -39,7 +39,8 @@ type ReportMode =
   | "weekly_report"
   | "monthly_rollup"
   | "quarter_review"
-  | "yearly_rollup";
+  | "yearly_rollup"
+  | "project_rollup";
 
 function ReportsPage() {
   const listFn = useServerFn(listSummaries);
@@ -63,6 +64,7 @@ function ReportsPage() {
         monthly_rollup: "Monthly Projects",
         quarter_review: "Quarterly Projects",
         yearly_rollup: "Yearly Projects",
+        project_rollup: "Portfolio",
       };
       const count = "summaries" in res && res.summaries ? res.summaries.length : 1;
       toast.success(`${labels[mode]} drafted (${count})`);
@@ -86,6 +88,7 @@ function ReportsPage() {
     { mode: "monthly_rollup", label: "Monthly Projects" },
     { mode: "quarter_review", label: "Quarterly Projects" },
     { mode: "yearly_rollup", label: "Yearly Projects" },
+    { mode: "project_rollup", label: "Portfolio" },
   ];
 
   return (
