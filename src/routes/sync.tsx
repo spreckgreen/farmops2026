@@ -204,10 +204,11 @@ function SyncPage() {
         <header>
           <h1 className="text-2xl font-bold tracking-tight">Obsidian Sync</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Two-way sync between Bostead Farms and a local Obsidian vault folder. Files live
-            under <code>Daily/</code>, <code>Tasks/</code>, <code>Projects/</code>,{" "}
-            <code>Summaries/</code>, <code>Inventory/</code>, <code>Maintenance/</code>, and{" "}
-            <code>Consumables/</code> with YAML frontmatter for round-tripping.
+            Two-way sync between Bostead Farms and a local Obsidian vault folder. All files live
+            under a top-level <code>{VAULT_ROOT}/</code> folder, with daily notes, weekly status,
+            and monthly/quarterly/yearly project rollups under <code>00 Projects/</code> and
+            inventory items grouped by type (e.g. <code>20 Outbuildings/</code>,{" "}
+            <code>30 Equipment/31 Parts Catalog/</code>).
           </p>
         </header>
 
