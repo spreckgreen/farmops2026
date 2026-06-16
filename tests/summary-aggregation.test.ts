@@ -25,12 +25,12 @@ describe("report period boundaries", () => {
     expect(spanDays(start, end)).toBeCloseTo(1, 5);
   });
 
-  it("weekly_report covers Mon-Sun (7 days) ending on Sunday", () => {
-    const { start, end } = weekBoundsEndingSunday(REF); // Wed in week of Jun 15..21 2026
+  it("weekly_report covers Mon-Sun (7 days) ending on the most recent Sunday", () => {
+    const { start, end } = weekBoundsEndingSunday(REF); // Wed 6/17 → previous Sun 6/14
     expect(start.getUTCDay()).toBe(1); // Monday
     expect(end.getUTCDay()).toBe(0); // Sunday
-    expect(start.toISOString()).toBe("2026-06-15T00:00:00.000Z");
-    expect(end.toISOString()).toBe("2026-06-21T23:59:59.999Z");
+    expect(start.toISOString()).toBe("2026-06-08T00:00:00.000Z");
+    expect(end.toISOString()).toBe("2026-06-14T23:59:59.999Z");
     expect(spanDays(start, end)).toBeCloseTo(7, 5);
   });
 
