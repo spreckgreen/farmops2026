@@ -446,6 +446,9 @@ export type Database = {
         | "project_rollup"
         | "weekly_report"
         | "quarter_review"
+        | "daily_recap"
+        | "monthly_rollup"
+        | "yearly_rollup"
       summary_status: "draft" | "reviewed" | "published"
       task_status: "open" | "blocked" | "done"
     }
@@ -588,6 +591,9 @@ export const Constants = {
         "project_rollup",
         "weekly_report",
         "quarter_review",
+        "daily_recap",
+        "monthly_rollup",
+        "yearly_rollup",
       ],
       summary_status: ["draft", "reviewed", "published"],
       task_status: ["open", "blocked", "done"],
