@@ -11,7 +11,7 @@ import { AppLayout } from "@/components/app-layout";
 import { requireAuthenticatedUser } from "@/lib/auth-route";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { Download, RefreshCw } from "lucide-react";
+import { Download, Eye, RefreshCw } from "lucide-react";
 import {
   assembleTiddlyWiki,
   downloadHtml,
@@ -20,6 +20,14 @@ import {
   type SummaryRow,
 } from "@/lib/tiddlywiki-export";
 import { TiddlyWikiImportButton } from "@/components/tiddlywiki-import-button";
+import { renderSummaryFile } from "@/lib/obsidian-markdown";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/reports")({
   ssr: false,
