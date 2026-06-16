@@ -102,8 +102,7 @@ const INVENTORY_FIELDS: FieldDef[] = [
   { name: "notes", label: "Notes", type: "textarea", colSpan: 2 },
 ];
 
-const MAINTENANCE_FIELDS: FieldDef[] = [
-  { name: "asset_name", label: "Asset", required: true, placeholder: "e.g. Tractor #3" },
+const MAINTENANCE_FIELDS_BASE: FieldDef[] = [
   { name: "title", label: "Title", placeholder: "Oil change" },
   { name: "service_type", label: "Service type", placeholder: "Routine / Repair" },
   { name: "status", label: "Status", placeholder: "scheduled / done" },
@@ -114,6 +113,27 @@ const MAINTENANCE_FIELDS: FieldDef[] = [
   { name: "vendor", label: "Vendor / Technician", placeholder: "" },
   { name: "notes", label: "Notes", type: "textarea", colSpan: 2 },
 ];
+
+function buildMaintenanceFields(equipment: EquipmentOption[]): FieldDef[] {
+  return [
+    {
+      name: "asset_name",
+      label: "Asset",
+      required: true,
+      type: "select",
+      placeholder:
+        equipment.length === 0
+          ? "No 30 Equipment items found — add one in Inventory"
+          : "Select equipment...",
+      options: equipment.map((e) => ({
+        value: e.name ?? "",
+        label: e.name ?? "(unnamed)",
+      })),
+    },
+    ...MAINTENANCE_FIELDS_BASE,
+  ];
+}
+
 
 export function NewRecordDialog({
   kind,
