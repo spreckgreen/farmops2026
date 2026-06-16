@@ -177,23 +177,21 @@ function buildFallbackSummary(
 
 // ---- Date helpers --------------------------------------------------------
 
-function pad(n: number, w = 2) {
+export function pad(n: number, w = 2) {
   return String(n).padStart(w, "0");
 }
 
-function yyyymmdd(d: Date) {
+export function yyyymmdd(d: Date) {
   return `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}`;
 }
 
 // Returns Monday 00:00 UTC and Sunday 23:59:59.999 UTC for the week containing `ref`.
 // If `ref` is Sunday, that Sunday IS the week-end.
-function weekBoundsEndingSunday(ref: Date): { start: Date; end: Date } {
+export function weekBoundsEndingSunday(ref: Date): { start: Date; end: Date } {
   const end = new Date(Date.UTC(ref.getUTCFullYear(), ref.getUTCMonth(), ref.getUTCDate()));
   const dow = end.getUTCDay(); // 0 Sun..6 Sat
-  const daysAfterSunday = dow === 0 ? 0 : dow; // distance from Sunday going forward (we walk back to previous Sun if not Sun)
-  // Walk back to the most recent Sunday (today if today is Sunday)
+  const daysAfterSunday = dow === 0 ? 0 : dow;
   end.setUTCDate(end.getUTCDate() - daysAfterSunday + (dow === 0 ? 0 : 0));
-  // ^ when dow !== 0, daysAfterSunday equals dow, which subtracts to the prior Sunday.
   end.setUTCHours(23, 59, 59, 999);
   const start = new Date(end);
   start.setUTCDate(start.getUTCDate() - 6);
@@ -201,7 +199,7 @@ function weekBoundsEndingSunday(ref: Date): { start: Date; end: Date } {
   return { start, end };
 }
 
-function quarterBounds(year: number, q: number): { start: Date; end: Date } {
+export function quarterBounds(year: number, q: number): { start: Date; end: Date } {
   const startMonth = (q - 1) * 3;
   const start = new Date(Date.UTC(year, startMonth, 1, 0, 0, 0, 0));
   const end = new Date(Date.UTC(year, startMonth + 3, 1, 0, 0, 0, 0));
@@ -209,28 +207,28 @@ function quarterBounds(year: number, q: number): { start: Date; end: Date } {
   return { start, end };
 }
 
-function dayBounds(ref: Date): { start: Date; end: Date } {
+export function dayBounds(ref: Date): { start: Date; end: Date } {
   const start = new Date(Date.UTC(ref.getUTCFullYear(), ref.getUTCMonth(), ref.getUTCDate(), 0, 0, 0, 0));
   const end = new Date(start);
   end.setUTCHours(23, 59, 59, 999);
   return { start, end };
 }
 
-function monthBounds(year: number, monthIdx: number): { start: Date; end: Date } {
+export function monthBounds(year: number, monthIdx: number): { start: Date; end: Date } {
   const start = new Date(Date.UTC(year, monthIdx, 1, 0, 0, 0, 0));
   const end = new Date(Date.UTC(year, monthIdx + 1, 1, 0, 0, 0, 0));
   end.setUTCMilliseconds(end.getUTCMilliseconds() - 1);
   return { start, end };
 }
 
-function yearBounds(year: number): { start: Date; end: Date } {
+export function yearBounds(year: number): { start: Date; end: Date } {
   const start = new Date(Date.UTC(year, 0, 1, 0, 0, 0, 0));
   const end = new Date(Date.UTC(year + 1, 0, 1, 0, 0, 0, 0));
   end.setUTCMilliseconds(end.getUTCMilliseconds() - 1);
   return { start, end };
 }
 
-function lastNQuarters(n: number, ref = new Date()): { year: number; q: number }[] {
+export function lastNQuarters(n: number, ref = new Date()): { year: number; q: number }[] {
   const out: { year: number; q: number }[] = [];
   let year = ref.getUTCFullYear();
   let q = Math.floor(ref.getUTCMonth() / 3) + 1;
@@ -244,6 +242,55 @@ function lastNQuarters(n: number, ref = new Date()): { year: number; q: number }
   }
   return out;
 }
+
+// Returns boundary window for a given report mode at `ref`. Project-rollup
+// (portfolio) has no time window — the caller scans full history.
+export function boundsForMode(
+  mode:
+    | "daily_recap"
+    | "weekly_report"
+    | "monthly_rollup"
+    | "quarter_review"
+    | "yearly_rollup"
+    | "project_rollup",
+  ref: Date,
+): { start: Date; end: Date } | null {
+  switch (mode) {
+    case "daily_recap":
+      return dayBounds(ref);
+    case "weekly_report":
+      return weekBoundsEndingSunday(ref);
+    case "monthly_rollup":
+      return monthBounds(ref.getUTCFullYear(), ref.getUTCMonth());
+    case "quarter_review": {
+      const q = Math.floor(ref.getUTCMonth() / 3) + 1;
+      return quarterBounds(ref.getUTCFullYear(), q);
+    }
+    case "yearly_rollup":
+      return yearBounds(ref.getUTCFullYear());
+    case "project_rollup":
+      return null;
+  }
+}
+
+// Group entries by project tag. Entries with no tag fall under "Unassigned".
+// Entries with multiple tags appear in every matching bucket.
+export function groupEntriesByProject<T extends { tasks: { project_tags?: string[] } | null }>(
+  entries: T[],
+): Map<string, T[]> {
+  const out = new Map<string, T[]>();
+  for (const e of entries) {
+    const tags = e.tasks?.project_tags ?? [];
+    const keys = tags.length ? tags : ["Unassigned"];
+    for (const k of keys) {
+      if (!out.has(k)) out.set(k, []);
+      out.get(k)!.push(e);
+    }
+  }
+  return out;
+}
+
+
 
 // ---- Generate ------------------------------------------------------------
 
