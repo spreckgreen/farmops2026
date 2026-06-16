@@ -42,7 +42,7 @@ const AssetDialog = ({ open, onOpenChange, onSave, asset }: AssetDialogProps) =>
       setForm({
         name: asset.name ?? "",
         description: asset.description ?? "",
-        category: asset.category ?? "",
+        location: asset.location ?? "",
         location: asset.location ?? "",
         quantity: Number(asset.quantity ?? 0),
         min_quantity: Number(asset.min_quantity ?? 0),
