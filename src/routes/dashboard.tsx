@@ -15,6 +15,7 @@ import {
   Package,
   ScanLine,
   Wrench,
+  LayoutDashboard,
 } from "lucide-react";
 import AssetDialog from "@/components/dashboard/AssetDialog";
 import AssetTable from "@/components/dashboard/AssetTable";
