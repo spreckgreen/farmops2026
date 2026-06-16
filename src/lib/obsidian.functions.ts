@@ -37,6 +37,68 @@ import {
 
 export type ObsidianFile = { path: string; content: string };
 
+type SummaryPayload = {
+  summary?: string;
+  key_decisions?: string[];
+  blockers?: string[];
+  next_steps?: string[];
+  by_project?: { project: string; summary: string; highlights: string[] }[];
+};
+
+const MODE_HEADINGS: Record<string, string> = {
+  daily_recap: "Daily Recap",
+  weekly_report: "Weekly Status",
+  monthly_rollup: "Monthly Rollup",
+  quarter_review: "Quarterly Review",
+  yearly_rollup: "Yearly Rollup",
+  project_rollup: "Project Rollup",
+  task_update: "Task Update",
+};
+
+function renderSummaryMarkdown(
+  raw: unknown,
+  mode: string,
+  periodStart: string,
+  periodEnd: string,
+  scopeProject: string | null,
+): string {
+  const p = (raw ?? {}) as SummaryPayload;
+  const title = MODE_HEADINGS[mode] ?? "Summary";
+  const range =
+    periodStart && periodEnd
+      ? `${periodStart.slice(0, 10)} → ${periodEnd.slice(0, 10)}`
+      : "";
+  const lines: string[] = [];
+  lines.push(`# ${title}${scopeProject ? ` — #project/${scopeProject}` : ""}`);
+  if (range) lines.push("", `*${range}*`);
+  if (p.summary) lines.push("", "## Overview", "", p.summary);
+  if (p.by_project?.length) {
+    lines.push("", "## By Project");
+    for (const proj of p.by_project) {
+      lines.push("", `### #project/${proj.project}`);
+      if (proj.summary) lines.push("", proj.summary);
+      if (proj.highlights?.length) {
+        lines.push("");
+        for (const h of proj.highlights) lines.push(`- ${h}`);
+      }
+    }
+  }
+  if (p.key_decisions?.length) {
+    lines.push("", "## Key Decisions", "");
+    for (const d of p.key_decisions) lines.push(`- ${d}`);
+  }
+  if (p.blockers?.length) {
+    lines.push("", "## Blockers", "");
+    for (const b of p.blockers) lines.push(`- ${b}`);
+  }
+  if (p.next_steps?.length) {
+    lines.push("", "## Next Steps", "");
+    for (const n of p.next_steps) lines.push(`- ${n}`);
+  }
+  return lines.join("\n");
+}
+
+
 const FRONT_RE = /^---\n([\s\S]*?)\n---\n?([\s\S]*)$/;
 
 function escapeYaml(value: string): string {
@@ -244,7 +306,10 @@ export const obsidianExport = createServerFn({ method: "GET" })
         scope_project: s.scope_project ?? "",
       };
       const payload = s.edited_summary ?? s.generated_summary;
-      const body = "```json\n" + JSON.stringify(payload, null, 2) + "\n```\n";
+      const body =
+        renderSummaryMarkdown(payload, s.mode, s.period_start, s.period_end, s.scope_project) +
+        "\n\n<!-- structured payload below — used for round-trip import; safe to ignore -->\n" +
+        "```json\n" + JSON.stringify(payload, null, 2) + "\n```\n";
       const tag = s.scope_project ?? null;
       let folder: string;
       let fileName: string;
