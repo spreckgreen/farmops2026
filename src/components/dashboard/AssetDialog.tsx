@@ -19,7 +19,6 @@ interface AssetDialogProps {
 const emptyForm: AssetFormData = {
   name: "",
   description: "",
-  category: "",
   location: "",
   quantity: 1,
   min_quantity: 0,
@@ -31,6 +30,7 @@ const emptyForm: AssetFormData = {
   usage_tracking: "none",
   item_type: "",
 };
+
 
 const AssetDialog = ({ open, onOpenChange, onSave, asset }: AssetDialogProps) => {
   const [form, setForm] = useState<AssetFormData>(emptyForm);
