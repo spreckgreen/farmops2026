@@ -373,19 +373,9 @@ export const obsidianImport = createServerFn({ method: "POST" })
       const { meta, body } = parseFrontmatter(file.content);
       const bostead = (meta.bostead as Record<string, string> | undefined) ?? {};
       const kindFromBostead = bostead.kind;
-      const folder = file.path.split("/")[0]?.toLowerCase();
       const baseName = file.path.split("/").pop()?.replace(/\.md$/i, "") ?? "";
-
-      const folderKind: Record<string, string> = {
-        daily: "daily_note",
-        tasks: "task",
-        projects: "project",
-        summaries: "summary",
-        inventory: "inventory_item",
-        maintenance: "maintenance_record",
-        consumables: "consumable",
-      };
-      const kind = kindFromBostead || folderKind[folder ?? ""] || null;
+      const classified = classifyPath(file.path);
+      const kind = (kindFromBostead as string | undefined) || classified?.kind || null;
       if (!kind) continue;
 
       try {
