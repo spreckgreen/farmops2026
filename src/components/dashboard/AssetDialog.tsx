@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { X, ScanLine } from "lucide-react";
 import BarcodeScanner from "./BarcodeScanner";
 import type { Asset, AssetFormData } from "./types";
+import { INVENTORY_TYPES } from "@/lib/obsidian-layout";
 
 interface AssetDialogProps {
   open: boolean;
