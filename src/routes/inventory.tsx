@@ -192,24 +192,28 @@ function InventoryPage() {
     e.target.value = "";
   };
 
-  const categories = [...new Set(assets.map((a) => a.category).filter(Boolean))] as string[];
+  const usedTypes = new Set(assets.map((a) => a.item_type).filter(Boolean) as string[]);
+  const availableTypes = INVENTORY_TYPES.filter((t) => usedTypes.has(t.value));
 
   const filtered = assets.filter((a) => {
     const q = search.toLowerCase();
+    const typeLabel =
+      INVENTORY_TYPES.find((t) => t.value === a.item_type)?.label.toLowerCase() ?? "";
     const matchesSearch =
       (a.name || "").toLowerCase().includes(q) ||
       (a.description || "").toLowerCase().includes(q) ||
-      (a.category || "").toLowerCase().includes(q) ||
+      typeLabel.includes(q) ||
       (a.location || "").toLowerCase().includes(q) ||
       (a.barcode || "").toLowerCase().includes(q) ||
       (a.tags || []).some((t) => t.toLowerCase().includes(q));
     const matchesStatus = statusFilter === "all" || a.status === statusFilter;
-    const matchesCategory = categoryFilter === "all" || a.category === categoryFilter;
+    const matchesType = typeFilter === "all" || a.item_type === typeFilter;
     const minQ = a.min_quantity ?? 0;
     const qty = a.quantity ?? 0;
     const matchesLowStock = !showLowStock || (minQ > 0 && qty <= minQ);
-    return matchesSearch && matchesStatus && matchesCategory && matchesLowStock;
+    return matchesSearch && matchesStatus && matchesType && matchesLowStock;
   });
+
 
   const lowStockCount = assets.filter((a) => {
     const minQ = a.min_quantity ?? 0;
