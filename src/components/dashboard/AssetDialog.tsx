@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { X, ScanLine } from "lucide-react";
 import BarcodeScanner from "./BarcodeScanner";
 import type { Asset, AssetFormData } from "./types";
+import { INVENTORY_TYPES } from "@/lib/obsidian-layout";
 
 interface AssetDialogProps {
   open: boolean;
@@ -28,6 +29,7 @@ const emptyForm: AssetFormData = {
   current_hours: 0,
   current_miles: 0,
   usage_tracking: "none",
+  item_type: "",
 };
 
 const AssetDialog = ({ open, onOpenChange, onSave, asset }: AssetDialogProps) => {
@@ -50,6 +52,7 @@ const AssetDialog = ({ open, onOpenChange, onSave, asset }: AssetDialogProps) =>
         current_hours: Number(asset.current_hours ?? 0),
         current_miles: Number(asset.current_miles ?? 0),
         usage_tracking: asset.usage_tracking ?? "none",
+        item_type: asset.item_type ?? "",
       });
     } else {
       setForm(emptyForm);
@@ -137,6 +140,24 @@ const AssetDialog = ({ open, onOpenChange, onSave, asset }: AssetDialogProps) =>
                   setForm({ ...form, min_quantity: parseInt(e.target.value) || 0 })
                 }
               />
+            </div>
+            <div className="col-span-2 space-y-2">
+              <Label>Inventory Type</Label>
+              <select
+                value={form.item_type}
+                onChange={(e) => setForm({ ...form, item_type: e.target.value })}
+                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+              >
+                <option value="">— Unclassified —</option>
+                {INVENTORY_TYPES.map((t) => (
+                  <option key={t.value} value={t.value}>
+                    {t.label}
+                  </option>
+                ))}
+              </select>
+              <p className="text-[11px] text-muted-foreground">
+                Controls the Obsidian vault subfolder this item syncs into.
+              </p>
             </div>
             <div className="col-span-2 space-y-2">
               <Label>Status</Label>

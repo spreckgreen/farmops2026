@@ -140,6 +140,7 @@ export type Database = {
           current_miles: number
           description: string | null
           id: string
+          item_type: string | null
           location: string | null
           min_quantity: number | null
           name: string | null
@@ -165,6 +166,7 @@ export type Database = {
           current_miles?: number
           description?: string | null
           id?: string
+          item_type?: string | null
           location?: string | null
           min_quantity?: number | null
           name?: string | null
@@ -190,6 +192,7 @@ export type Database = {
           current_miles?: number
           description?: string | null
           id?: string
+          item_type?: string | null
           location?: string | null
           min_quantity?: number | null
           name?: string | null

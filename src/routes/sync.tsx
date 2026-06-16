@@ -5,6 +5,7 @@ import { AppLayout } from "@/components/app-layout";
 import { requireAuthenticatedUser } from "@/lib/auth-route";
 import { Button } from "@/components/ui/button";
 import { obsidianExport, obsidianImport, type ObsidianFile } from "@/lib/obsidian.functions";
+import { VAULT_ROOT, TOP_LEVEL_FOLDERS } from "@/lib/obsidian-layout";
 import { toast } from "sonner";
 import { FolderOpen, Download, Upload, RefreshCw, CheckCircle2, XCircle, Monitor, FileText } from "lucide-react";
 
@@ -17,14 +18,9 @@ export const Route = createFileRoute("/sync")({
 
 type DirHandle = FileSystemDirectoryHandle;
 
-const FOLDERS = ["Daily", "Tasks", "Projects", "Summaries", "Inventory", "Maintenance", "Consumables"];
-
-async function getOrCreateSubdir(root: DirHandle, name: string): Promise<DirHandle> {
-  return root.getDirectoryHandle(name, { create: true });
-}
-
 async function writeFile(root: DirHandle, path: string, content: string) {
-  const parts = path.split("/");
+  const fullPath = `${VAULT_ROOT}/${path}`;
+  const parts = fullPath.split("/");
   let dir: DirHandle = root;
   for (let i = 0; i < parts.length - 1; i++) {
     dir = await dir.getDirectoryHandle(parts[i], { create: true });
@@ -35,22 +31,36 @@ async function writeFile(root: DirHandle, path: string, content: string) {
   await writable.close();
 }
 
+async function readMarkdownRecursive(dir: DirHandle, prefix: string, out: ObsidianFile[]) {
+  for await (const entry of (dir as unknown as { values: () => AsyncIterable<FileSystemHandle> }).values()) {
+    const childPath = prefix ? `${prefix}/${entry.name}` : entry.name;
+    if (entry.kind === "directory") {
+      await readMarkdownRecursive(entry as FileSystemDirectoryHandle, childPath, out);
+    } else if (entry.name.toLowerCase().endsWith(".md")) {
+      const file = await (entry as FileSystemFileHandle).getFile();
+      const content = await file.text();
+      out.push({ path: childPath, content });
+    }
+  }
+}
+
 async function readAllMarkdown(root: DirHandle): Promise<ObsidianFile[]> {
   const out: ObsidianFile[] = [];
-  for (const folder of FOLDERS) {
+  let vaultDir: DirHandle;
+  try {
+    vaultDir = await root.getDirectoryHandle(VAULT_ROOT, { create: false });
+  } catch {
+    // fall back to treating the picked folder itself as the vault root
+    vaultDir = root;
+  }
+  for (const folder of TOP_LEVEL_FOLDERS) {
     let dir: DirHandle;
     try {
-      dir = await root.getDirectoryHandle(folder, { create: false });
+      dir = await vaultDir.getDirectoryHandle(folder, { create: false });
     } catch {
       continue;
     }
-    for await (const entry of (dir as unknown as { values: () => AsyncIterable<FileSystemHandle> }).values()) {
-      if (entry.kind !== "file") continue;
-      if (!entry.name.toLowerCase().endsWith(".md")) continue;
-      const file = await (entry as FileSystemFileHandle).getFile();
-      const content = await file.text();
-      out.push({ path: `${folder}/${entry.name}`, content });
-    }
+    await readMarkdownRecursive(dir, folder, out);
   }
   return out;
 }
@@ -114,7 +124,7 @@ function SyncPage() {
     try {
       const files = await readAllMarkdown(vault);
       if (files.length === 0) {
-        toast.message("No markdown files found in Daily/, Tasks/, Projects/, Summaries/, Inventory/, Maintenance/, Consumables/");
+        toast.message(`No markdown files found inside ${VAULT_ROOT}/`);
         return;
       }
       const result = await doImport({ data: { files } });
@@ -194,10 +204,11 @@ function SyncPage() {
         <header>
           <h1 className="text-2xl font-bold tracking-tight">Obsidian Sync</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Two-way sync between Bostead Farms and a local Obsidian vault folder. Files live
-            under <code>Daily/</code>, <code>Tasks/</code>, <code>Projects/</code>,{" "}
-            <code>Summaries/</code>, <code>Inventory/</code>, <code>Maintenance/</code>, and{" "}
-            <code>Consumables/</code> with YAML frontmatter for round-tripping.
+            Two-way sync between Bostead Farms and a local Obsidian vault folder. All files live
+            under a top-level <code>{VAULT_ROOT}/</code> folder, with daily notes, weekly status,
+            and monthly/quarterly/yearly project rollups under <code>00 Projects/</code> and
+            inventory items grouped by type (e.g. <code>20 Outbuildings/</code>,{" "}
+            <code>30 Equipment/31 Parts Catalog/</code>).
           </p>
         </header>
 

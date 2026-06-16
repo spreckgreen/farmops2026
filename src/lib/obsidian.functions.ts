@@ -2,6 +2,22 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import { slugify } from "./slug";
+import {
+  DAILY_FOLDER,
+  WEEKLY_FOLDER,
+  MONTHLY_FOLDER,
+  QUARTERLY_FOLDER,
+  YEARLY_FOLDER,
+  TASKS_FOLDER,
+  MAINTENANCE_FOLDER,
+  CONSUMABLES_FOLDER,
+  inventoryFolderFor,
+  classifyPath,
+  monthlyFileName,
+  quarterlyFileName,
+  yearlyFileName,
+  isYearlyRollup,
+} from "./obsidian-layout";
 
 // ============================================================================
 // Obsidian markdown sync — shared types
@@ -190,7 +206,7 @@ export const obsidianExport = createServerFn({ method: "GET" })
         date: n.date,
         updated: n.updated_at,
       };
-      files.push({ path: `Daily/${n.date}.md`, content: buildFile(meta, n.markdown_content || "") });
+      files.push({ path: `${DAILY_FOLDER}/${n.date}.md`, content: buildFile(meta, n.markdown_content || "") });
     }
 
     for (const t of tasksQ.data ?? []) {
@@ -204,7 +220,7 @@ export const obsidianExport = createServerFn({ method: "GET" })
         tags: (t.project_tags ?? []) as string[],
       };
       const body = `# ${t.title}\n\n*Status:* ${t.status} — ${t.percent_complete}%\n`;
-      files.push({ path: `Tasks/${t.slug}.md`, content: buildFile(meta, body) });
+      files.push({ path: `${TASKS_FOLDER}/${t.slug}.md`, content: buildFile(meta, body) });
     }
 
     for (const p of projectsQ.data ?? []) {
@@ -214,7 +230,8 @@ export const obsidianExport = createServerFn({ method: "GET" })
         start_date: p.start_date ?? "",
       };
       const body = `# ${p.name}\n\n${p.description ?? ""}\n`;
-      files.push({ path: `Projects/${p.slug}.md`, content: buildFile(meta, body) });
+      // Projects (lightweight metadata) live alongside the monthly rollups by default.
+      files.push({ path: `${MONTHLY_FOLDER}/_projects/${p.slug}.md`, content: buildFile(meta, body) });
     }
 
     for (const s of summariesQ.data ?? []) {
@@ -228,14 +245,39 @@ export const obsidianExport = createServerFn({ method: "GET" })
       };
       const payload = s.edited_summary ?? s.generated_summary;
       const body = "```json\n" + JSON.stringify(payload, null, 2) + "\n```\n";
-      files.push({ path: `Summaries/${s.id}.md`, content: buildFile(meta, body) });
+      const tag = s.scope_project ?? null;
+      let folder: string;
+      let fileName: string;
+      if (s.mode === "weekly_report") {
+        folder = WEEKLY_FOLDER;
+        fileName = `${s.period_start} ${tag ?? "weekly"}`.trim();
+      } else if (s.mode === "quarter_review") {
+        folder = QUARTERLY_FOLDER;
+        fileName = quarterlyFileName(s.period_start, tag);
+      } else if (s.mode === "project_rollup") {
+        if (isYearlyRollup(s.period_start, s.period_end)) {
+          folder = YEARLY_FOLDER;
+          fileName = yearlyFileName(s.period_start, tag);
+        } else {
+          folder = MONTHLY_FOLDER;
+          fileName = monthlyFileName(s.period_start, tag);
+        }
+      } else {
+        folder = `${MONTHLY_FOLDER}/_task_updates`;
+        fileName = s.id;
+      }
+      const safe = fileName.replace(/[\\/:*?"<>|]/g, "-").trim();
+      files.push({ path: `${folder}/${safe}.md`, content: buildFile(meta, body) });
     }
 
     for (const i of inventoryQ.data ?? []) {
       const slug = safeSlug(i.name || i.sku || "", i.id);
+      const itemType = (i as { item_type?: string | null }).item_type ?? null;
+      const folder = inventoryFolderFor(itemType);
       const meta = {
         bostead: { kind: "inventory_item", id: i.id, slug },
         name: i.name ?? "",
+        item_type: itemType ?? "",
         sku: i.sku ?? "",
         category: i.category ?? "",
         location: i.location ?? "",
@@ -253,7 +295,7 @@ export const obsidianExport = createServerFn({ method: "GET" })
         tags: (i.tags ?? []) as string[],
       };
       const body = `# ${i.name ?? "Inventory item"}\n\n${i.description ?? ""}\n\n${i.notes ?? ""}\n`;
-      files.push({ path: `Inventory/${slug}.md`, content: buildFile(meta, body) });
+      files.push({ path: `${folder}/${slug}.md`, content: buildFile(meta, body) });
     }
 
     for (const m of maintenanceQ.data ?? []) {
@@ -274,7 +316,7 @@ export const obsidianExport = createServerFn({ method: "GET" })
         consumables_used: m.consumables_used ?? [],
       };
       const body = `# ${m.title ?? m.asset_name ?? "Maintenance"}\n\n${m.description ?? ""}\n\n${m.notes ?? ""}\n`;
-      files.push({ path: `Maintenance/${m.id}.md`, content: buildFile(meta, body) });
+      files.push({ path: `${MAINTENANCE_FOLDER}/${m.id}.md`, content: buildFile(meta, body) });
     }
 
     for (const c of consumablesQ.data ?? []) {
@@ -289,7 +331,7 @@ export const obsidianExport = createServerFn({ method: "GET" })
         cost_per_unit: c.cost_per_unit ?? "",
       };
       const body = `# ${c.name}\n`;
-      files.push({ path: `Consumables/${slug}.md`, content: buildFile(meta, body) });
+      files.push({ path: `${CONSUMABLES_FOLDER}/${slug}.md`, content: buildFile(meta, body) });
     }
 
     return { files };
@@ -331,19 +373,9 @@ export const obsidianImport = createServerFn({ method: "POST" })
       const { meta, body } = parseFrontmatter(file.content);
       const bostead = (meta.bostead as Record<string, string> | undefined) ?? {};
       const kindFromBostead = bostead.kind;
-      const folder = file.path.split("/")[0]?.toLowerCase();
       const baseName = file.path.split("/").pop()?.replace(/\.md$/i, "") ?? "";
-
-      const folderKind: Record<string, string> = {
-        daily: "daily_note",
-        tasks: "task",
-        projects: "project",
-        summaries: "summary",
-        inventory: "inventory_item",
-        maintenance: "maintenance_record",
-        consumables: "consumable",
-      };
-      const kind = kindFromBostead || folderKind[folder ?? ""] || null;
+      const classified = classifyPath(file.path);
+      const kind = (kindFromBostead as string | undefined) || classified?.kind || null;
       if (!kind) continue;
 
       try {
@@ -457,6 +489,7 @@ export const obsidianImport = createServerFn({ method: "POST" })
             current_miles: num(meta.current_miles) ?? 0,
             usage_tracking: str(meta.usage_tracking) ?? "none",
             tags: Array.isArray(meta.tags) ? (meta.tags as string[]) : [],
+            item_type: str(meta.item_type),
             description,
           };
           if (/^[0-9a-f-]{36}$/i.test(id)) row.id = id;
