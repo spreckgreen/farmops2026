@@ -29,6 +29,7 @@ const emptyForm: AssetFormData = {
   current_hours: 0,
   current_miles: 0,
   usage_tracking: "none",
+  item_type: "",
 };
 
 const AssetDialog = ({ open, onOpenChange, onSave, asset }: AssetDialogProps) => {
