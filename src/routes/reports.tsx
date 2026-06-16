@@ -106,11 +106,24 @@ function ReportsPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["summaries"] }),
   });
 
-  // Filter summaries to the active tab.
-  const visible = useMemo(
-    () => (summariesQ.data ?? []).filter((s) => s.mode === activeMode),
-    [summariesQ.data, activeMode],
-  );
+  // Show only the freshest report(s) for the active tab — older runs for
+  // prior periods stay in history but should not clutter the active view.
+  // Portfolio (project_rollup) shows the latest entry per project; every
+  // other mode shows just the single most recent report for the current
+  // period.
+  const visible = useMemo(() => {
+    const all = (summariesQ.data ?? []).filter((s) => s.mode === activeMode);
+    if (activeMode === "project_rollup") {
+      const byProject = new Map<string, (typeof all)[number]>();
+      for (const s of all) {
+        const key = s.scope_project ?? "__none__";
+        if (!byProject.has(key)) byProject.set(key, s);
+      }
+      return Array.from(byProject.values());
+    }
+    return all.slice(0, 1);
+  }, [summariesQ.data, activeMode]);
+
 
   // Newest summary for this mode (summaries are listed in desc order already).
   const latestForMode = visible[0];
