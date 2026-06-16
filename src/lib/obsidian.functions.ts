@@ -254,6 +254,15 @@ export const obsidianExport = createServerFn({ method: "GET" })
       } else if (s.mode === "quarter_review") {
         folder = QUARTERLY_FOLDER;
         fileName = quarterlyFileName(s.period_start, tag);
+      } else if (s.mode === "monthly_rollup") {
+        folder = MONTHLY_FOLDER;
+        fileName = monthlyFileName(s.period_start, tag);
+      } else if (s.mode === "yearly_rollup") {
+        folder = YEARLY_FOLDER;
+        fileName = yearlyFileName(s.period_start, tag);
+      } else if (s.mode === "daily_recap") {
+        folder = DAILY_FOLDER;
+        fileName = `${s.period_start.slice(0, 10)} recap`;
       } else if (s.mode === "project_rollup") {
         if (isYearlyRollup(s.period_start, s.period_end)) {
           folder = YEARLY_FOLDER;
@@ -454,7 +463,14 @@ export const obsidianImport = createServerFn({ method: "POST" })
             {
               id,
               user_id: userId,
-              mode: mode as "project_rollup" | "task_update" | "weekly_report",
+              mode: mode as
+                | "project_rollup"
+                | "task_update"
+                | "weekly_report"
+                | "quarter_review"
+                | "daily_recap"
+                | "monthly_rollup"
+                | "yearly_rollup",
               period_start,
               period_end,
               status,

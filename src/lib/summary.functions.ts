@@ -4,7 +4,15 @@ import { z } from "zod";
 import { generateText } from "ai";
 
 const SummaryInput = z.object({
-  mode: z.enum(["task_update", "project_rollup", "weekly_report", "quarter_review"]),
+  mode: z.enum([
+    "task_update",
+    "project_rollup",
+    "weekly_report",
+    "quarter_review",
+    "daily_recap",
+    "monthly_rollup",
+    "yearly_rollup",
+  ]),
   scope_task_id: z.string().uuid().nullable().optional(),
   period_days: z.number().int().min(1).max(60).default(7),
   // Optional: target a specific quarter when mode === "quarter_review".
@@ -39,6 +47,12 @@ const MODE_INSTRUCTIONS: Record<string, string> = {
     "Write an executive weekly status report covering ONE Monday-Sunday week (week ending Sunday). Populate `by_project`: one entry per distinct project tag in the activity (use 'Unassigned' for entries with no tag), each with a 2-3 sentence past-tense narrative and 2-5 highlight bullets scoped strictly to that project's entries. Then write `summary` as a 100-150 word executive overview that references the projects by name. Past tense, plain language, lead with outcomes.",
   quarter_review:
     "Write a quarterly review for ONE project covering ONE calendar quarter. Focus on what was completed in the quarter (especially tasks closed in-period), key decisions made, blockers encountered, and what is next for the project going into the following quarter. Use `summary` for a 120-180 word narrative. Populate key_decisions / blockers / next_steps. Leave `by_project` empty.",
+  daily_recap:
+    "Write a daily recap covering ONE calendar day of activity. Populate `by_project`: one entry per distinct project tag (use 'Unassigned' for entries with no tag), each with a 1-2 sentence past-tense narrative and 1-4 highlight bullets scoped strictly to that project's entries. Then write `summary` as a 60-100 word recap of the day. Past tense, plain language.",
+  monthly_rollup:
+    "Write a monthly project rollup for ONE project covering ONE calendar month. Focus on what was accomplished in the month, key decisions, blockers, and what is next. Use `summary` for an 80-140 word narrative. Populate key_decisions / blockers / next_steps. Leave `by_project` empty.",
+  yearly_rollup:
+    "Write a yearly project rollup for ONE project covering ONE calendar year. Focus on the year's accomplishments, key decisions, blockers encountered, and what is next going into the following year. Use `summary` for a 150-220 word narrative. Populate key_decisions / blockers / next_steps. Leave `by_project` empty.",
 };
 
 type EntryRow = {
@@ -195,6 +209,27 @@ function quarterBounds(year: number, q: number): { start: Date; end: Date } {
   return { start, end };
 }
 
+function dayBounds(ref: Date): { start: Date; end: Date } {
+  const start = new Date(Date.UTC(ref.getUTCFullYear(), ref.getUTCMonth(), ref.getUTCDate(), 0, 0, 0, 0));
+  const end = new Date(start);
+  end.setUTCHours(23, 59, 59, 999);
+  return { start, end };
+}
+
+function monthBounds(year: number, monthIdx: number): { start: Date; end: Date } {
+  const start = new Date(Date.UTC(year, monthIdx, 1, 0, 0, 0, 0));
+  const end = new Date(Date.UTC(year, monthIdx + 1, 1, 0, 0, 0, 0));
+  end.setUTCMilliseconds(end.getUTCMilliseconds() - 1);
+  return { start, end };
+}
+
+function yearBounds(year: number): { start: Date; end: Date } {
+  const start = new Date(Date.UTC(year, 0, 1, 0, 0, 0, 0));
+  const end = new Date(Date.UTC(year + 1, 0, 1, 0, 0, 0, 0));
+  end.setUTCMilliseconds(end.getUTCMilliseconds() - 1);
+  return { start, end };
+}
+
 function lastNQuarters(n: number, ref = new Date()): { year: number; q: number }[] {
   const out: { year: number; q: number }[] = [];
   let year = ref.getUTCFullYear();
@@ -257,7 +292,14 @@ Return only valid JSON with this exact shape:
 Use empty arrays ([]) for lists that don't apply and empty strings ("") for unused text fields. Never omit a field. Do not wrap the JSON in markdown.`;
     };
 
-    type SummaryMode = "task_update" | "project_rollup" | "weekly_report" | "quarter_review";
+    type SummaryMode =
+      | "task_update"
+      | "project_rollup"
+      | "weekly_report"
+      | "quarter_review"
+      | "daily_recap"
+      | "monthly_rollup"
+      | "yearly_rollup";
     type InsertRow = {
       mode: SummaryMode;
       scope_project: string | null;
@@ -336,6 +378,152 @@ Use empty arrays ([]) for lists that don't apply and empty strings ("") for unus
         });
         return { ok: true as const, summary };
       }
+
+      // ----- DAILY RECAP: one row covering today (UTC) ---------------------
+      if (data.mode === "daily_recap") {
+        const { start, end } = dayBounds(new Date());
+        const { data: entriesRaw, error } = await supabase
+          .from("activity_log")
+          .select("created_at, entry_type, raw_content, task_id, tasks(title, slug, project_tags)")
+          .gte("created_at", start.toISOString())
+          .lte("created_at", end.toISOString())
+          .order("created_at", { ascending: true });
+        if (error) throw new Error(error.message);
+        const entries = (entriesRaw ?? []) as unknown as EntryRow[];
+        if (entries.length === 0) {
+          return {
+            ok: false as const,
+            error: `No activity logged for ${end.toISOString().slice(0, 10)}.`,
+          };
+        }
+        const output = await callAi(
+          buildPrompt({
+            scopeProject: null,
+            entriesForScope: entries,
+            extraContext: `DAY: ${start.toISOString().slice(0, 10)}.`,
+          }),
+          entries,
+          null,
+        );
+        const summary = await insertSummary({
+          mode: "daily_recap",
+          scope_project: null,
+          scope_task_id: null,
+          period_start: start.toISOString(),
+          period_end: end.toISOString(),
+          display_title: `Daily Recap ${start.toISOString().slice(0, 10)}`,
+          output,
+        });
+        return { ok: true as const, summary };
+      }
+
+      // ----- MONTHLY ROLLUP: per-project for the current calendar month ----
+      if (data.mode === "monthly_rollup") {
+        const now = new Date();
+        const { start, end } = monthBounds(now.getUTCFullYear(), now.getUTCMonth());
+        const yLabel = `${start.getUTCFullYear()}${pad(start.getUTCMonth() + 1)}`;
+        const { data: entriesRaw, error } = await supabase
+          .from("activity_log")
+          .select("created_at, entry_type, raw_content, task_id, tasks(title, slug, project_tags)")
+          .gte("created_at", start.toISOString())
+          .lte("created_at", end.toISOString())
+          .order("created_at", { ascending: true });
+        if (error) throw new Error(error.message);
+        const entries = (entriesRaw ?? []) as unknown as EntryRow[];
+        if (entries.length === 0) {
+          return { ok: false as const, error: `No activity logged for ${yLabel}.` };
+        }
+        const projects = new Map<string, EntryRow[]>();
+        for (const e of entries) {
+          const tags = e.tasks?.project_tags ?? [];
+          const keys = tags.length ? tags : ["Unassigned"];
+          for (const k of keys) {
+            if (!projects.has(k)) projects.set(k, []);
+            projects.get(k)!.push(e);
+          }
+        }
+        const summaries: InsertedSummary[] = [];
+        for (const [project, projectEntries] of projects) {
+          const output = await callAi(
+            buildPrompt({
+              scopeProject: project,
+              entriesForScope: projectEntries,
+              extraContext: `MONTH: ${yLabel} — ${start.toISOString().slice(0, 10)} through ${end.toISOString().slice(0, 10)}.`,
+            }),
+            projectEntries,
+            project,
+          );
+          const inserted = await insertSummary({
+            mode: "monthly_rollup",
+            scope_project: project,
+            scope_task_id: null,
+            period_start: start.toISOString(),
+            period_end: end.toISOString(),
+            display_title: `Monthly Rollup ${yLabel} — #project/${project}`,
+            output,
+          });
+          summaries.push(inserted);
+        }
+        if (summaries.length === 0) {
+          return { ok: false as const, error: `No project activity in ${yLabel}.` };
+        }
+        return { ok: true as const, summaries };
+      }
+
+      // ----- YEARLY ROLLUP: per-project for the current calendar year ------
+      if (data.mode === "yearly_rollup") {
+        const now = new Date();
+        const { start, end } = yearBounds(now.getUTCFullYear());
+        const yLabel = `${start.getUTCFullYear()}`;
+        const { data: entriesRaw, error } = await supabase
+          .from("activity_log")
+          .select("created_at, entry_type, raw_content, task_id, tasks(title, slug, project_tags)")
+          .gte("created_at", start.toISOString())
+          .lte("created_at", end.toISOString())
+          .order("created_at", { ascending: true });
+        if (error) throw new Error(error.message);
+        const entries = (entriesRaw ?? []) as unknown as EntryRow[];
+        if (entries.length === 0) {
+          return { ok: false as const, error: `No activity logged for ${yLabel}.` };
+        }
+        const projects = new Map<string, EntryRow[]>();
+        for (const e of entries) {
+          const tags = e.tasks?.project_tags ?? [];
+          const keys = tags.length ? tags : ["Unassigned"];
+          for (const k of keys) {
+            if (!projects.has(k)) projects.set(k, []);
+            projects.get(k)!.push(e);
+          }
+        }
+        const summaries: InsertedSummary[] = [];
+        for (const [project, projectEntries] of projects) {
+          const output = await callAi(
+            buildPrompt({
+              scopeProject: project,
+              entriesForScope: projectEntries,
+              extraContext: `YEAR: ${yLabel} — ${start.toISOString().slice(0, 10)} through ${end.toISOString().slice(0, 10)}.`,
+            }),
+            projectEntries,
+            project,
+          );
+          const inserted = await insertSummary({
+            mode: "yearly_rollup",
+            scope_project: project,
+            scope_task_id: null,
+            period_start: start.toISOString(),
+            period_end: end.toISOString(),
+            display_title: `Yearly Rollup ${yLabel} — #project/${project}`,
+            output,
+          });
+          summaries.push(inserted);
+        }
+        if (summaries.length === 0) {
+          return { ok: false as const, error: `No project activity in ${yLabel}.` };
+        }
+        return { ok: true as const, summaries };
+      }
+
+
 
 
       // ----- QUARTER REVIEW: per-quarter, per-project ----------------------

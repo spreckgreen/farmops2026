@@ -10,7 +10,6 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SyncRouteImport } from './routes/sync'
-import { Route as SummariesRouteImport } from './routes/summaries'
 import { Route as ServiceSchedulingRouteImport } from './routes/service-scheduling'
 import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as ProjectsRouteImport } from './routes/projects'
@@ -20,6 +19,7 @@ import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as TasksIndexRouteImport } from './routes/tasks.index'
+import { Route as TasksScheduledRouteImport } from './routes/tasks.scheduled'
 import { Route as TasksBacklogRouteImport } from './routes/tasks.backlog'
 import { Route as TasksSlugRouteImport } from './routes/tasks.$slug'
 import { Route as NotesDateRouteImport } from './routes/notes.$date'
@@ -27,11 +27,6 @@ import { Route as NotesDateRouteImport } from './routes/notes.$date'
 const SyncRoute = SyncRouteImport.update({
   id: '/sync',
   path: '/sync',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SummariesRoute = SummariesRouteImport.update({
-  id: '/summaries',
-  path: '/summaries',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ServiceSchedulingRoute = ServiceSchedulingRouteImport.update({
@@ -79,6 +74,11 @@ const TasksIndexRoute = TasksIndexRouteImport.update({
   path: '/tasks/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TasksScheduledRoute = TasksScheduledRouteImport.update({
+  id: '/tasks/scheduled',
+  path: '/tasks/scheduled',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TasksBacklogRoute = TasksBacklogRouteImport.update({
   id: '/tasks/backlog',
   path: '/tasks/backlog',
@@ -104,11 +104,11 @@ export interface FileRoutesByFullPath {
   '/projects': typeof ProjectsRoute
   '/reports': typeof ReportsRoute
   '/service-scheduling': typeof ServiceSchedulingRoute
-  '/summaries': typeof SummariesRoute
   '/sync': typeof SyncRoute
   '/notes/$date': typeof NotesDateRoute
   '/tasks/$slug': typeof TasksSlugRoute
   '/tasks/backlog': typeof TasksBacklogRoute
+  '/tasks/scheduled': typeof TasksScheduledRoute
   '/tasks/': typeof TasksIndexRoute
 }
 export interface FileRoutesByTo {
@@ -120,11 +120,11 @@ export interface FileRoutesByTo {
   '/projects': typeof ProjectsRoute
   '/reports': typeof ReportsRoute
   '/service-scheduling': typeof ServiceSchedulingRoute
-  '/summaries': typeof SummariesRoute
   '/sync': typeof SyncRoute
   '/notes/$date': typeof NotesDateRoute
   '/tasks/$slug': typeof TasksSlugRoute
   '/tasks/backlog': typeof TasksBacklogRoute
+  '/tasks/scheduled': typeof TasksScheduledRoute
   '/tasks': typeof TasksIndexRoute
 }
 export interface FileRoutesById {
@@ -137,11 +137,11 @@ export interface FileRoutesById {
   '/projects': typeof ProjectsRoute
   '/reports': typeof ReportsRoute
   '/service-scheduling': typeof ServiceSchedulingRoute
-  '/summaries': typeof SummariesRoute
   '/sync': typeof SyncRoute
   '/notes/$date': typeof NotesDateRoute
   '/tasks/$slug': typeof TasksSlugRoute
   '/tasks/backlog': typeof TasksBacklogRoute
+  '/tasks/scheduled': typeof TasksScheduledRoute
   '/tasks/': typeof TasksIndexRoute
 }
 export interface FileRouteTypes {
@@ -155,11 +155,11 @@ export interface FileRouteTypes {
     | '/projects'
     | '/reports'
     | '/service-scheduling'
-    | '/summaries'
     | '/sync'
     | '/notes/$date'
     | '/tasks/$slug'
     | '/tasks/backlog'
+    | '/tasks/scheduled'
     | '/tasks/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -171,11 +171,11 @@ export interface FileRouteTypes {
     | '/projects'
     | '/reports'
     | '/service-scheduling'
-    | '/summaries'
     | '/sync'
     | '/notes/$date'
     | '/tasks/$slug'
     | '/tasks/backlog'
+    | '/tasks/scheduled'
     | '/tasks'
   id:
     | '__root__'
@@ -187,11 +187,11 @@ export interface FileRouteTypes {
     | '/projects'
     | '/reports'
     | '/service-scheduling'
-    | '/summaries'
     | '/sync'
     | '/notes/$date'
     | '/tasks/$slug'
     | '/tasks/backlog'
+    | '/tasks/scheduled'
     | '/tasks/'
   fileRoutesById: FileRoutesById
 }
@@ -204,11 +204,11 @@ export interface RootRouteChildren {
   ProjectsRoute: typeof ProjectsRoute
   ReportsRoute: typeof ReportsRoute
   ServiceSchedulingRoute: typeof ServiceSchedulingRoute
-  SummariesRoute: typeof SummariesRoute
   SyncRoute: typeof SyncRoute
   NotesDateRoute: typeof NotesDateRoute
   TasksSlugRoute: typeof TasksSlugRoute
   TasksBacklogRoute: typeof TasksBacklogRoute
+  TasksScheduledRoute: typeof TasksScheduledRoute
   TasksIndexRoute: typeof TasksIndexRoute
 }
 
@@ -219,13 +219,6 @@ declare module '@tanstack/react-router' {
       path: '/sync'
       fullPath: '/sync'
       preLoaderRoute: typeof SyncRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/summaries': {
-      id: '/summaries'
-      path: '/summaries'
-      fullPath: '/summaries'
-      preLoaderRoute: typeof SummariesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/service-scheduling': {
@@ -291,6 +284,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TasksIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/tasks/scheduled': {
+      id: '/tasks/scheduled'
+      path: '/tasks/scheduled'
+      fullPath: '/tasks/scheduled'
+      preLoaderRoute: typeof TasksScheduledRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/tasks/backlog': {
       id: '/tasks/backlog'
       path: '/tasks/backlog'
@@ -324,11 +324,11 @@ const rootRouteChildren: RootRouteChildren = {
   ProjectsRoute: ProjectsRoute,
   ReportsRoute: ReportsRoute,
   ServiceSchedulingRoute: ServiceSchedulingRoute,
-  SummariesRoute: SummariesRoute,
   SyncRoute: SyncRoute,
   NotesDateRoute: NotesDateRoute,
   TasksSlugRoute: TasksSlugRoute,
   TasksBacklogRoute: TasksBacklogRoute,
+  TasksScheduledRoute: TasksScheduledRoute,
   TasksIndexRoute: TasksIndexRoute,
 }
 export const routeTree = rootRouteImport

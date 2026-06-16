@@ -1,39 +1,23 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { createFileRoute } from "@tanstack/react-router";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
-import { format } from "date-fns";
-import { Check, Download } from "lucide-react";
-import { listProjectTags, listScheduledTasks } from "@/lib/log.functions";
+import { listSummaries, updateSummary } from "@/lib/log.functions";
+import { generateSummary } from "@/lib/summary.functions";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { AppLayout } from "@/components/app-layout";
 import { requireAuthenticatedUser } from "@/lib/auth-route";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
+import { toast } from "sonner";
+import { format } from "date-fns";
+import { Download } from "lucide-react";
 import {
   assembleTiddlyWiki,
   downloadHtml,
   loadTemplate,
-  tiddlersFromScheduledTasks,
-  type ScheduledTaskRow,
+  tiddlersFromSummaries,
+  type SummaryRow,
 } from "@/lib/tiddlywiki-export";
 import { TiddlyWikiImportButton } from "@/components/tiddlywiki-import-button";
-import { toast } from "sonner";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 
 export const Route = createFileRoute("/reports")({
   ssr: false,
@@ -42,102 +26,88 @@ export const Route = createFileRoute("/reports")({
   component: ReportsPage,
 });
 
-const ALL = "__all__";
-const REPEAT_ALL = "__all__";
-const REPEAT_YES = "__repeat__";
-const REPEAT_NO = "__no_repeat__";
+type SummaryShape = {
+  summary: string;
+  key_decisions: string[];
+  blockers: string[];
+  next_steps: string[];
+  by_project?: { project: string; summary: string; highlights: string[] }[];
+};
 
-const fmt = (d: string | null | undefined) =>
-  d ? format(new Date(d), "MMM d, yyyy · HH:mm") : "—";
+type ReportMode =
+  | "daily_recap"
+  | "weekly_report"
+  | "monthly_rollup"
+  | "quarter_review"
+  | "yearly_rollup";
 
 function ReportsPage() {
-  const tagsFn = useServerFn(listProjectTags);
-  const tasksFn = useServerFn(listScheduledTasks);
-  const [tag, setTag] = useState<string>(ALL);
-  const [repeatFilter, setRepeatFilter] = useState<string>(REPEAT_ALL);
+  const listFn = useServerFn(listSummaries);
+  const updateFn = useServerFn(updateSummary);
+  const generateFn = useServerFn(generateSummary);
+  const qc = useQueryClient();
 
-  const tagsQ = useQuery({ queryKey: ["project-tags"], queryFn: () => tagsFn() });
-  const tasksQ = useQuery({
-    queryKey: ["scheduled-tasks", tag],
-    queryFn: () => tasksFn({ data: { tag: tag === ALL ? null : tag } }),
+  const q = useQuery({ queryKey: ["summaries"], queryFn: () => listFn() });
+
+  const runReport = useMutation({
+    mutationFn: (mode: ReportMode) =>
+      generateFn({ data: { mode, period_days: 7 } }),
+    onSuccess: (res, mode) => {
+      if (!res.ok) {
+        toast.error(res.error);
+        return;
+      }
+      const labels: Record<ReportMode, string> = {
+        daily_recap: "Daily Recap",
+        weekly_report: "Weekly Status",
+        monthly_rollup: "Monthly Projects",
+        quarter_review: "Quarterly Projects",
+        yearly_rollup: "Yearly Projects",
+      };
+      const count = "summaries" in res && res.summaries ? res.summaries.length : 1;
+      toast.success(`${labels[mode]} drafted (${count})`);
+      qc.invalidateQueries({ queryKey: ["summaries"] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
   });
 
-  const filteredTasks = (tasksQ.data ?? []).filter((t) => {
-    if (repeatFilter === REPEAT_ALL) return true;
-    const isRepeating = t.recurrence && t.recurrence !== "none";
-    if (repeatFilter === REPEAT_YES) return isRepeating;
-    return !isRepeating;
+  const setStatus = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: "draft" | "reviewed" | "published" }) =>
+      updateFn({ data: { id, status } }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["summaries"] }),
   });
+
+  const pendingMode = runReport.isPending ? (runReport.variables as ReportMode) : null;
+  const isAnyPending = runReport.isPending;
+
+  const reportButtons: { mode: ReportMode; label: string }[] = [
+    { mode: "daily_recap", label: "Daily Recap" },
+    { mode: "weekly_report", label: "Weekly Status" },
+    { mode: "monthly_rollup", label: "Monthly Projects" },
+    { mode: "quarter_review", label: "Quarterly Projects" },
+    { mode: "yearly_rollup", label: "Yearly Projects" },
+  ];
 
   return (
     <AppLayout>
-      <div className="max-w-6xl mx-auto px-4 py-8">
-        <div className="flex items-end justify-between gap-4 mb-6 flex-wrap">
-          <div>
-            <h1 className="text-2xl font-mono font-bold">Scheduled tasks</h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Tasks with a <code className="font-mono">@start:</code> date/time. Use{" "}
-              <code className="font-mono">@progress:NN</code> to set % complete and{" "}
-              <code className="font-mono">#project/&lt;tag&gt;</code> to group.
-            </p>
-          </div>
-          <div className="flex items-end gap-2">
-            <div className="w-64">
-              <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1 block">
-                Project tag
-              </label>
-              <Select value={tag} onValueChange={setTag}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All projects" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={ALL}>All projects</SelectItem>
-                  {(tagsQ.data ?? []).map((t) => (
-                    <SelectItem key={t} value={t}>
-                      #project/{t}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="w-48">
-              <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1 block">
-                Repeats
-              </label>
-              <Select value={repeatFilter} onValueChange={setRepeatFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={REPEAT_ALL}>All</SelectItem>
-                  <SelectItem value={REPEAT_YES}>Repeating only</SelectItem>
-                  <SelectItem value={REPEAT_NO}>Non-repeating only</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+      <div className="max-w-3xl mx-auto px-4 py-8">
+        <div className="flex items-center justify-between mb-6 flex-wrap gap-2">
+          <h1 className="text-2xl font-mono font-bold">Reports</h1>
+          <div className="flex gap-2 flex-wrap">
             <Button
               variant="outline"
-              size="sm"
-              disabled={!tasksQ.data}
+              disabled={!q.data || q.data.length === 0}
               onClick={async () => {
                 try {
-                  const filterTag = tag === ALL ? null : tag;
                   const tpl = await loadTemplate();
-                  const rows = (tasksQ.data ?? []) as ScheduledTaskRow[];
-                  const tiddlers = tiddlersFromScheduledTasks(rows, filterTag);
-                  const indexTitle = filterTag
-                    ? `Scheduled Tasks — #project/${filterTag}`
-                    : "Scheduled Tasks";
+                  const tiddlers = tiddlersFromSummaries((q.data ?? []) as SummaryRow[]);
                   const html = assembleTiddlyWiki(tpl, tiddlers, {
                     siteTitle: "Bostead Farms — Reports",
-                    subtitle: indexTitle,
-                    defaultTiddlers: [indexTitle],
+                    subtitle: "Activity reports export",
+                    defaultTiddlers: ["Summaries"],
                   });
                   const stamp = format(new Date(), "yyyyMMdd-HHmm");
-                  downloadHtml(
-                    `bostead-reports-${filterTag ?? "all"}-${stamp}.html`,
-                    html,
-                  );
+                  downloadHtml(`bostead-reports-${stamp}.html`, html);
                   toast.success("TiddlyWiki export downloaded");
                 } catch (e) {
                   toast.error(e instanceof Error ? e.message : "Export failed");
@@ -147,113 +117,116 @@ function ReportsPage() {
               <Download className="h-4 w-4 mr-1.5" />
               Export TiddlyWiki
             </Button>
-            <TiddlyWikiImportButton kind="tasks" />
+            <TiddlyWikiImportButton kind="summaries" />
           </div>
         </div>
 
-        {tasksQ.isLoading && (
-          <p className="text-sm text-muted-foreground">Loading…</p>
-        )}
-        {tasksQ.data && filteredTasks.length === 0 && (
+        <div className="flex gap-2 flex-wrap mb-6">
+          {reportButtons.map((b) => (
+            <Button
+              key={b.mode}
+              variant={b.mode === "weekly_report" ? "default" : "outline"}
+              disabled={isAnyPending}
+              onClick={() => runReport.mutate(b.mode)}
+            >
+              {pendingMode === b.mode ? "…" : b.label}
+            </Button>
+          ))}
+        </div>
+
+        {q.isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
+        {q.data && q.data.length === 0 && (
           <p className="text-sm text-muted-foreground">
-            No scheduled tasks{tag !== ALL ? ` for #project/${tag}` : ""}
-            {repeatFilter === REPEAT_YES ? " (repeating)" : repeatFilter === REPEAT_NO ? " (non-repeating)" : ""} yet.
+            No reports yet. Pick a report type above once you've logged some activity.
           </p>
         )}
 
-        {filteredTasks.length > 0 && (
-          <div className="border border-border rounded-lg overflow-hidden">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-8"></TableHead>
-                  <TableHead>Task</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="w-44">% Complete</TableHead>
-                  <TableHead>Start</TableHead>
-                  <TableHead>Repeats</TableHead>
-                  <TableHead>Completed</TableHead>
-                  <TableHead>Last update</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredTasks.map((t) => {
-                  const done = t.status === "done";
-                  return (
-                    <TableRow key={t.id}>
-                      <TableCell>
-                        <span
-                          className={
-                            "inline-flex h-5 w-5 items-center justify-center rounded border " +
-                            (done
-                              ? "bg-primary border-primary text-primary-foreground"
-                              : "border-border")
-                          }
-                          aria-label={done ? "Completed" : "Not completed"}
-                        >
-                          {done && <Check className="h-3.5 w-3.5" />}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <Link
-                          to="/tasks/$slug"
-                          params={{ slug: t.slug }}
-                          className="hover:underline"
-                        >
-                          <div className="font-medium">{t.title}</div>
-                          <div className="text-xs text-muted-foreground font-mono flex gap-2 flex-wrap mt-0.5">
-                            <span>#{t.slug}</span>
-                            {(t.project_tags ?? []).map((pt) => (
-                              <span key={pt}>· #project/{pt}</span>
-                            ))}
-                          </div>
-                        </Link>
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={
-                            done
-                              ? "secondary"
-                              : t.status === "blocked"
-                                ? "destructive"
-                                : "outline"
-                          }
-                        >
-                          {t.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Progress value={t.percent_complete ?? 0} className="h-2" />
-                          <span className="text-xs font-mono text-muted-foreground w-9 text-right">
-                            {t.percent_complete ?? 0}%
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-xs font-mono text-muted-foreground">
-                        {fmt(t.start_at) === "—" && t.recurrence_next_at ? fmt(t.recurrence_next_at) : fmt(t.start_at)}
-                      </TableCell>
-                      <TableCell>
-                        {t.recurrence && t.recurrence !== "none" ? (
-                          <Badge variant="outline" className="text-[10px] uppercase">↻ {t.recurrence}</Badge>
-                        ) : (
-                          <span className="text-xs font-mono text-muted-foreground">—</span>
+        <ul className="space-y-4">
+          {q.data?.map((s) => {
+            const body = (s.edited_summary ?? s.generated_summary) as SummaryShape;
+            const scope = (s as { scope_task?: { slug?: string; title?: string } | null }).scope_task;
+            return (
+              <li key={s.id} className="border border-border rounded-lg p-5 bg-card">
+                {(s as { display_title?: string | null }).display_title && (
+                  <h2 className="text-lg font-mono font-semibold mb-2">
+                    {(s as { display_title?: string }).display_title}
+                  </h2>
+                )}
+                <div className="flex items-center justify-between gap-2 mb-3">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="font-mono text-[10px] uppercase">{s.mode}</Badge>
+                    {(s as { scope_project?: string | null }).scope_project && (
+                      <Badge variant="secondary" className="font-mono text-[10px]">
+                        #project/{(s as { scope_project?: string }).scope_project}
+                      </Badge>
+                    )}
+                    {scope?.title && <span className="text-xs text-muted-foreground">→ {scope.title}</span>}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={s.status === "published" ? "default" : "secondary"}>{s.status}</Badge>
+                    <span className="text-xs text-muted-foreground font-mono">
+                      {format(new Date(s.created_at), "MMM d")}
+                    </span>
+                  </div>
+                </div>
+                <p className="text-sm leading-relaxed mb-3">{body.summary}</p>
+
+                {body.by_project && body.by_project.length > 0 && (
+                  <div className="mb-3 space-y-3 border-l-2 border-border pl-3">
+                    {body.by_project.map((p, i) => (
+                      <div key={i}>
+                        <h3 className="text-xs font-mono uppercase tracking-wider mb-1">
+                          #project/{p.project}
+                        </h3>
+                        <p className="text-sm leading-relaxed mb-1">{p.summary}</p>
+                        {p.highlights?.length > 0 && (
+                          <ul className="list-disc list-inside text-sm space-y-0.5 marker:text-muted-foreground">
+                            {p.highlights.map((h, j) => <li key={j}>{h}</li>)}
+                          </ul>
                         )}
-                      </TableCell>
-                      <TableCell className="text-xs font-mono text-muted-foreground">
-                        {fmt(t.closed_at)}
-                      </TableCell>
-                      <TableCell className="text-xs font-mono text-muted-foreground">
-                        {fmt(t.updated_at)}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </div>
-        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {body.key_decisions?.length > 0 && (
+                  <ReportSection title="Decisions" items={body.key_decisions} />
+                )}
+                {body.blockers?.length > 0 && (
+                  <ReportSection title="Blockers" items={body.blockers} />
+                )}
+                {body.next_steps?.length > 0 && (
+                  <ReportSection title="Next" items={body.next_steps} />
+                )}
+
+                <div className="flex gap-2 mt-4">
+                  {s.status === "draft" && (
+                    <Button size="sm" variant="outline" onClick={() => setStatus.mutate({ id: s.id, status: "reviewed" })}>
+                      Mark reviewed
+                    </Button>
+                  )}
+                  {s.status !== "published" && (
+                    <Button size="sm" onClick={() => setStatus.mutate({ id: s.id, status: "published" })}>
+                      Publish
+                    </Button>
+                  )}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
       </div>
     </AppLayout>
+  );
+}
+
+function ReportSection({ title, items }: { title: string; items: string[] }) {
+  return (
+    <div className="mb-2">
+      <h3 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1">{title}</h3>
+      <ul className="list-disc list-inside text-sm space-y-0.5 marker:text-muted-foreground">
+        {items.map((it, i) => <li key={i}>{it}</li>)}
+      </ul>
+    </div>
   );
 }

@@ -79,15 +79,15 @@ export const TOP_LEVEL_FOLDERS = [
  */
 export function classifyPath(relPath: string): {
   kind: "daily_note" | "task" | "project" | "summary" | "inventory_item" | "maintenance_record" | "consumable";
-  summaryMode?: "weekly_report" | "quarter_review" | "project_rollup";
+  summaryMode?: "weekly_report" | "quarter_review" | "project_rollup" | "daily_recap" | "monthly_rollup" | "yearly_rollup";
   rollupPeriod?: "monthly" | "yearly";
 } | null {
   const p = relPath.replace(/^\/+/, "");
   if (p.startsWith(`${DAILY_FOLDER}/`)) return { kind: "daily_note" };
   if (p.startsWith(`${WEEKLY_FOLDER}/`)) return { kind: "summary", summaryMode: "weekly_report" };
-  if (p.startsWith(`${MONTHLY_FOLDER}/`)) return { kind: "summary", summaryMode: "project_rollup", rollupPeriod: "monthly" };
+  if (p.startsWith(`${MONTHLY_FOLDER}/`)) return { kind: "summary", summaryMode: "monthly_rollup", rollupPeriod: "monthly" };
   if (p.startsWith(`${QUARTERLY_FOLDER}/`)) return { kind: "summary", summaryMode: "quarter_review" };
-  if (p.startsWith(`${YEARLY_FOLDER}/`)) return { kind: "summary", summaryMode: "project_rollup", rollupPeriod: "yearly" };
+  if (p.startsWith(`${YEARLY_FOLDER}/`)) return { kind: "summary", summaryMode: "yearly_rollup", rollupPeriod: "yearly" };
   if (p.startsWith(`${TASKS_FOLDER}/`)) return { kind: "task" };
   if (p.startsWith(`${MAINTENANCE_FOLDER}/`)) return { kind: "maintenance_record" };
   if (p.startsWith(`${CONSUMABLES_FOLDER}/`)) return { kind: "consumable" };
