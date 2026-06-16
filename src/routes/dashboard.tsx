@@ -15,6 +15,7 @@ import {
   Package,
   ScanLine,
   Wrench,
+  LayoutDashboard,
 } from "lucide-react";
 import AssetDialog from "@/components/dashboard/AssetDialog";
 import AssetTable from "@/components/dashboard/AssetTable";
@@ -341,6 +342,13 @@ function DashboardPage() {
             </label>
             <Button size="sm" variant="outline" onClick={() => setScannerOpen(true)}>
               <ScanLine className="h-4 w-4 mr-1" /> Scan
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => navigate({ to: "/inventory" })}
+            >
+              <LayoutDashboard className="h-4 w-4 mr-1" /> Inventory
             </Button>
             <Button
               size="sm"
