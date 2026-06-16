@@ -78,6 +78,7 @@ function ReportsPage() {
   const qc = useQueryClient();
 
   const [activeMode, setActiveMode] = useState<ReportMode>("daily_recap");
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   const summariesQ = useQuery({ queryKey: ["summaries"], queryFn: () => listFn() });
   const freshnessQ = useQuery({
