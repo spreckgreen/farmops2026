@@ -39,7 +39,8 @@ type ReportMode =
   | "weekly_report"
   | "monthly_rollup"
   | "quarter_review"
-  | "yearly_rollup";
+  | "yearly_rollup"
+  | "project_rollup";
 
 function ReportsPage() {
   const listFn = useServerFn(listSummaries);
