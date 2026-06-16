@@ -39,6 +39,37 @@ export type ObsidianFile = { path: string; content: string };
 
 import { renderSummaryMarkdown } from "./obsidian-markdown";
 
+// Group weekly_report rows by ISO week (Monday) + scope_project and keep the
+// most recently created row, so each week shows up exactly once per project.
+function isoWeekKey(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return iso;
+  const day = d.getUTCDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  d.setUTCDate(d.getUTCDate() + diff);
+  return d.toISOString().slice(0, 10);
+}
+function dedupeWeekly<T extends { mode: string; period_start: string | null; scope_project: string | null; created_at: string }>(
+  rows: T[],
+): T[] {
+  const winners = new Map<string, T>();
+  const out: T[] = [];
+  for (const r of rows) {
+    if (r.mode !== "weekly_report") {
+      out.push(r);
+      continue;
+    }
+    const key = `${isoWeekKey(r.period_start)}|${r.scope_project ?? ""}`;
+    const prev = winners.get(key);
+    if (!prev || (r.created_at ?? "") > (prev.created_at ?? "")) {
+      winners.set(key, r);
+    }
+  }
+  return [...out, ...winners.values()];
+}
+
+
 
 
 const FRONT_RE = /^---\n([\s\S]*?)\n---\n?([\s\S]*)$/;
@@ -225,7 +256,8 @@ export const obsidianExport = createServerFn({ method: "GET" })
       files.push({ path: `${MONTHLY_FOLDER}/_projects/${p.slug}.md`, content: buildFile(meta, body) });
     }
 
-    for (const s of summariesQ.data ?? []) {
+    const dedupedSummaries = dedupeWeekly(summariesQ.data ?? []);
+    for (const s of dedupedSummaries) {
       const meta = {
         bostead: { kind: "summary", id: s.id },
         mode: s.mode,
