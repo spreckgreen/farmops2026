@@ -156,11 +156,14 @@ export function useStaleServerFnGuard() {
           } else if (res.status === 500 || res.status === 404) {
             const text = await res.clone().text();
             if (looksLikeStaleServerFn(url, res.status, text)) {
+              const serverFnId = extractServerFnId(url);
               const context = {
                 url,
+                route: window.location.pathname + window.location.search,
+                serverFnId,
+                serverFnIdShort: serverFnId.slice(0, 24),
                 status: res.status,
                 bodySnippet: text.slice(0, 200),
-                buildHint: extractBuildHint(url),
                 userAgent: navigator.userAgent,
               };
               // If a previous reload attempt is still pending, it didn't help.
