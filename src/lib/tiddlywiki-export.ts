@@ -378,11 +378,11 @@ export function tiddlersFromSummaries(rows: SummaryRow[]): Tiddler[] {
   const indexLines: string[] = [];
   indexLines.push("! Summaries", "");
   indexLines.push(`Exported ${new Date().toISOString()} from Bostead Farms.`, "");
-  if (rows.length === 0) {
+  if (dedupedRows.length === 0) {
     indexLines.push("//No summaries yet.//");
   } else {
     indexLines.push(`|!Date |!Mode |!Scope |!Status |`);
-    for (const r of rows) {
+    for (const r of dedupedRows) {
       const t = summaryTitle(r);
       indexLines.push(
         `|${r.created_at.slice(0, 10)} |${r.mode} |[[${safeTitle(t)}]] |${r.status ?? "—"} |`,
