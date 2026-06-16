@@ -58,11 +58,16 @@ export function useStaleServerFnGuard() {
       const res = await originalFetch(input, init);
       try {
         const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
-        if (url.includes("/_serverFn/") && (res.status === 500 || res.status === 404)) {
-          const clone = res.clone();
-          const text = await clone.text();
-          if (looksLikeStaleServerFn(url, res.status, text)) {
-            promptReload();
+        if (url.includes("/_serverFn/")) {
+          // Any successful server-fn response means the bundle is in sync —
+          // clear the retry flag so a future stale build still gets one auto-reload.
+          if (res.ok) {
+            try { sessionStorage.removeItem(RETRY_FLAG); } catch { /* ignore */ }
+          } else if (res.status === 500 || res.status === 404) {
+            const text = await res.clone().text();
+            if (looksLikeStaleServerFn(url, res.status, text)) {
+              if (!autoReloadOnce()) promptReload();
+            }
           }
         }
       } catch {
