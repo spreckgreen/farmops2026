@@ -256,17 +256,18 @@ function InventoryPage() {
             </select>
 
             <select
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
               className="rounded-md border border-border bg-card px-3 py-2 text-sm"
             >
-              <option value="all">All Categories</option>
-              {categories.map((c) => (
-                <option key={c} value={c}>
-                  {c}
+              <option value="all">All Inventory Types</option>
+              {availableTypes.map((t) => (
+                <option key={t.value} value={t.value}>
+                  {t.label}
                 </option>
               ))}
             </select>
+
 
             <Button
               variant={showLowStock ? "default" : "outline"}
