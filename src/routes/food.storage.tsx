@@ -3,14 +3,19 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Package, Upload, Loader2, Search } from "lucide-react";
+import { Plus, Pencil, Trash2, Package, Upload, Loader2, Search, Download, Boxes, ClipboardList } from "lucide-react";
 import Papa from "papaparse";
 import {
   listFoodStorage,
   upsertFoodStorageItem,
   deleteFoodStorageItem,
   bulkInsertFoodStorage,
+  listFoodStoragePlan,
+  upsertFoodStoragePlanRow,
+  deleteFoodStoragePlanRow,
+  seedFoodStoragePlanFromPlan,
 } from "@/lib/food.functions";
+import { fmtUsd } from "@/lib/currency";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -32,8 +37,53 @@ import {
 } from "@/components/ui/select";
 
 export const Route = createFileRoute("/food/storage")({
-  component: StoragePage,
+  component: StorageRoute,
 });
+
+type SubTab = "inventory" | "plan";
+
+function StorageRoute() {
+  const [tab, setTab] = useState<SubTab>("inventory");
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-1 border-b border-border">
+        <SubTabBtn active={tab === "inventory"} onClick={() => setTab("inventory")} icon={<Boxes className="h-4 w-4" />}>
+          Inventory
+        </SubTabBtn>
+        <SubTabBtn active={tab === "plan"} onClick={() => setTab("plan")} icon={<ClipboardList className="h-4 w-4" />}>
+          Long term plan
+        </SubTabBtn>
+      </div>
+      {tab === "inventory" ? <InventoryPanel /> : <LongTermPlanPanel />}
+    </div>
+  );
+}
+
+function SubTabBtn({
+  active,
+  onClick,
+  icon,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`px-3 py-2 text-sm font-mono inline-flex items-center gap-2 border-b-2 -mb-px ${
+        active ? "text-foreground border-foreground" : "text-muted-foreground border-transparent hover:text-foreground"
+      }`}
+    >
+      {icon}
+      {children}
+    </button>
+  );
+}
+
+// ---------------------------------------------------------------- Inventory
 
 type StorageImportItem = {
   name: string;
@@ -95,7 +145,7 @@ const TYPE_COLORS: Record<string, string> = {
   Dessert: "bg-fuchsia-500/20 text-fuchsia-200 border-fuchsia-500/40",
 };
 
-function StoragePage() {
+function InventoryPanel() {
   const qc = useQueryClient();
   const list = useServerFn(listFoodStorage);
   const upsert = useServerFn(upsertFoodStorageItem);
@@ -211,7 +261,6 @@ function StoragePage() {
   function parseDate(s: string): string | null {
     const t = (s || "").trim();
     if (!t) return null;
-    // try dd-MMM-yy
     const m = /^(\d{1,2})-([A-Za-z]{3})-(\d{2,4})$/.exec(t);
     if (m) {
       const months: Record<string, string> = { jan: "01", feb: "02", mar: "03", apr: "04", may: "05", jun: "06", jul: "07", aug: "08", sep: "09", oct: "10", nov: "11", dec: "12" };
@@ -442,5 +491,422 @@ function StoragePage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------- Long term plan
+
+type PlanRow = {
+  id: string;
+  name: string;
+  category: string | null;
+  food_type: string | null;
+  pounds_per_year: number | string;
+  target_months: number | string;
+  price_per_pound: number | string | null;
+  notes: string | null;
+  sort_order: number;
+};
+
+type StorageRow = {
+  id: string;
+  name: string;
+  quantity: number | string;
+  unit: string;
+  status: string;
+};
+
+function normalizeName(s: string | null | undefined): string {
+  return (s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
+
+const emptyPlan = {
+  id: null as string | null,
+  name: "",
+  category: "",
+  food_type: "",
+  pounds_per_year: 0,
+  target_months: 12,
+  price_per_pound: "" as number | "",
+  notes: "",
+  sort_order: 0,
+};
+
+function LongTermPlanPanel() {
+  const qc = useQueryClient();
+  const listPlan = useServerFn(listFoodStoragePlan);
+  const listStorage = useServerFn(listFoodStorage);
+  const upsert = useServerFn(upsertFoodStoragePlanRow);
+  const remove = useServerFn(deleteFoodStoragePlanRow);
+  const seedFn = useServerFn(seedFoodStoragePlanFromPlan);
+
+  const { data: rows = [], isLoading } = useQuery({
+    queryKey: ["food-storage-plan"],
+    queryFn: () => listPlan(),
+  });
+  const { data: storage = [] } = useQuery({
+    queryKey: ["food-storage"],
+    queryFn: () => listStorage(),
+  });
+
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState(emptyPlan);
+
+  const onHandByName = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const s of storage as StorageRow[]) {
+      if (s.status !== "available") continue;
+      if (s.unit !== "lb") continue;
+      const key = normalizeName(s.name);
+      m.set(key, (m.get(key) ?? 0) + (Number(s.quantity) || 0));
+    }
+    return m;
+  }, [storage]);
+
+  const computed = useMemo(() => {
+    return (rows as PlanRow[]).map((r) => {
+      const ppY = Number(r.pounds_per_year) || 0;
+      const months = Number(r.target_months) || 0;
+      const targetLbs = (ppY * months) / 12;
+      const onHand = onHandByName.get(normalizeName(r.name)) ?? 0;
+      const gapLbs = Math.max(0, targetLbs - onHand);
+      const price = r.price_per_pound == null ? null : Number(r.price_per_pound);
+      const targetCost = price != null ? targetLbs * price : null;
+      const gapCost = price != null ? gapLbs * price : null;
+      return { row: r, targetLbs, onHand, gapLbs, targetCost, gapCost, price };
+    });
+  }, [rows, onHandByName]);
+
+  const totals = useMemo(() => {
+    let target = 0, onHand = 0, gap = 0, targetCost = 0, gapCost = 0;
+    for (const c of computed) {
+      target += c.targetLbs;
+      onHand += c.onHand;
+      gap += c.gapLbs;
+      if (c.targetCost) targetCost += c.targetCost;
+      if (c.gapCost) gapCost += c.gapCost;
+    }
+    return { target, onHand, gap, targetCost, gapCost };
+  }, [computed]);
+
+  const grouped = useMemo(() => {
+    const g = new Map<string, typeof computed>();
+    for (const c of computed) {
+      const k = c.row.category || "Uncategorized";
+      const arr = g.get(k) ?? [];
+      arr.push(c);
+      g.set(k, arr);
+    }
+    return Array.from(g.entries()).sort(([a], [b]) => a.localeCompare(b));
+  }, [computed]);
+
+  const upsertM = useMutation({
+    mutationFn: (v: typeof emptyPlan) =>
+      upsert({
+        data: {
+          id: v.id,
+          name: v.name,
+          category: v.category,
+          food_type: v.food_type,
+          pounds_per_year: Number(v.pounds_per_year) || 0,
+          target_months: Number(v.target_months) || 0,
+          price_per_pound: v.price_per_pound === "" ? null : Number(v.price_per_pound),
+          notes: v.notes,
+          sort_order: v.sort_order ?? 0,
+        },
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["food-storage-plan"] });
+      setOpen(false);
+      setForm(emptyPlan);
+      toast.success("Saved");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const inlineUpsertM = useMutation({
+    mutationFn: (row: PlanRow) =>
+      upsert({
+        data: {
+          id: row.id,
+          name: row.name,
+          category: row.category,
+          food_type: row.food_type,
+          pounds_per_year: Number(row.pounds_per_year) || 0,
+          target_months: Number(row.target_months) || 0,
+          price_per_pound: row.price_per_pound == null ? null : Number(row.price_per_pound),
+          notes: row.notes,
+          sort_order: row.sort_order,
+        },
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["food-storage-plan"] }),
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const deleteM = useMutation({
+    mutationFn: (id: string) => remove({ data: { id } }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["food-storage-plan"] });
+      toast.success("Removed");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const seedM = useMutation({
+    mutationFn: () => seedFn(),
+    onSuccess: (r) => {
+      qc.invalidateQueries({ queryKey: ["food-storage-plan"] });
+      toast.success(`Seeded ${r.inserted} foods from Plan tab`);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  function openNew() {
+    setForm(emptyPlan);
+    setOpen(true);
+  }
+  function openEdit(r: PlanRow) {
+    setForm({
+      id: r.id,
+      name: r.name,
+      category: r.category ?? "",
+      food_type: r.food_type ?? "",
+      pounds_per_year: Number(r.pounds_per_year) || 0,
+      target_months: Number(r.target_months) || 12,
+      price_per_pound: r.price_per_pound == null ? "" : Number(r.price_per_pound),
+      notes: r.notes ?? "",
+      sort_order: r.sort_order ?? 0,
+    });
+    setOpen(true);
+  }
+
+  if (isLoading) return <div className="text-sm text-muted-foreground">Loading…</div>;
+
+  if ((rows as PlanRow[]).length === 0) {
+    return (
+      <div className="space-y-4">
+        <div className="border border-dashed border-border rounded-lg p-10 text-center">
+          <ClipboardList className="h-8 w-8 mx-auto mb-2 opacity-50" />
+          <h3 className="font-mono font-semibold mb-1">No long-term plan yet</h3>
+          <p className="text-sm text-muted-foreground max-w-md mx-auto mb-4">
+            Seed the plan from the Plan tab (uses people × weekly servings × 52 to compute pounds/year per food)
+            or start from scratch by adding rows.
+          </p>
+          <div className="flex items-center gap-2 justify-center">
+            <Button onClick={() => seedM.mutate()} disabled={seedM.isPending}>
+              <Download className="h-4 w-4 mr-2" />
+              {seedM.isPending ? "Seeding…" : "Seed from Plan tab"}
+            </Button>
+            <Button variant="outline" onClick={openNew}>
+              <Plus className="h-4 w-4 mr-2" /> Add row
+            </Button>
+          </div>
+        </div>
+        <PlanEditDialog open={open} onOpenChange={setOpen} form={form} setForm={setForm}
+          onSave={() => upsertM.mutate(form)} saving={upsertM.isPending} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div>
+          <h2 className="text-lg font-mono font-semibold flex items-center gap-2">
+            <ClipboardList className="h-4 w-4" /> Long term storage plan
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            {(rows as PlanRow[]).length} foods · target {totals.target.toFixed(0)} lb · on hand {totals.onHand.toFixed(0)} lb · gap {totals.gap.toFixed(0)} lb
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => seedM.mutate()} disabled={seedM.isPending}>
+            <Download className="h-3.5 w-3.5 mr-2" />
+            Re-seed from Plan
+          </Button>
+          <Button onClick={openNew}>
+            <Plus className="h-4 w-4 mr-2" /> Add row
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+        <Stat label="Target lb" value={totals.target.toFixed(0)} />
+        <Stat label="On hand lb" value={totals.onHand.toFixed(0)} />
+        <Stat label="Gap lb" value={totals.gap.toFixed(0)} tone={totals.gap > 0 ? "red" : "green"} />
+        <Stat label="Target cost" value={fmtUsd(totals.targetCost)} />
+        <Stat label="Gap cost" value={fmtUsd(totals.gapCost)} tone={totals.gapCost > 0 ? "red" : "green"} />
+      </div>
+
+      <div className="border border-border rounded-lg overflow-auto">
+        <table className="w-full text-xs font-mono">
+          <thead className="bg-muted/40 text-[10px] uppercase text-muted-foreground">
+            <tr>
+              <th className="text-left px-2 py-2">Food</th>
+              <th className="text-right px-2 py-2 w-20">lb/yr</th>
+              <th className="text-right px-2 py-2 w-16">Months</th>
+              <th className="text-right px-2 py-2 w-20">Target lb</th>
+              <th className="text-right px-2 py-2 w-20">On hand</th>
+              <th className="text-right px-2 py-2 w-20">Gap lb</th>
+              <th className="text-right px-2 py-2 w-20">$/lb</th>
+              <th className="text-right px-2 py-2 w-24">Gap cost</th>
+              <th className="px-2 py-2 w-16"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {grouped.map(([cat, items]) => (
+              <>
+                <tr key={`cat-${cat}`} className="bg-muted/20 border-t border-border">
+                  <td colSpan={9} className="px-2 py-1 text-[10px] uppercase tracking-wider text-muted-foreground">{cat}</td>
+                </tr>
+                {items.map((c) => (
+                  <tr key={c.row.id} className="border-t border-border hover:bg-accent/20">
+                    <td className="px-2 py-1">
+                      <div>{c.row.name}</div>
+                      {c.row.food_type && <div className="text-[10px] text-muted-foreground">{c.row.food_type}</div>}
+                    </td>
+                    <td className="p-0 text-right">
+                      <input
+                        type="number" step="any" defaultValue={Number(c.row.pounds_per_year) || ""}
+                        className="w-full h-7 px-2 bg-transparent text-right focus:bg-accent outline-none"
+                        onBlur={(e) => {
+                          const v = parseFloat(e.target.value || "0") || 0;
+                          if (v === Number(c.row.pounds_per_year)) return;
+                          inlineUpsertM.mutate({ ...c.row, pounds_per_year: v });
+                        }}
+                      />
+                    </td>
+                    <td className="p-0 text-right">
+                      <input
+                        type="number" step="any" defaultValue={Number(c.row.target_months) || ""}
+                        className="w-full h-7 px-2 bg-transparent text-right focus:bg-accent outline-none"
+                        onBlur={(e) => {
+                          const v = parseFloat(e.target.value || "0") || 0;
+                          if (v === Number(c.row.target_months)) return;
+                          inlineUpsertM.mutate({ ...c.row, target_months: v });
+                        }}
+                      />
+                    </td>
+                    <td className="px-2 py-1 text-right">{c.targetLbs.toFixed(1)}</td>
+                    <td className="px-2 py-1 text-right text-muted-foreground">{c.onHand.toFixed(1)}</td>
+                    <td className={`px-2 py-1 text-right ${c.gapLbs > 0 ? "text-rose-400" : "text-emerald-400"}`}>
+                      {c.gapLbs.toFixed(1)}
+                    </td>
+                    <td className="p-0 text-right">
+                      <input
+                        type="number" step="any" defaultValue={c.price != null ? c.price : ""}
+                        className="w-full h-7 px-2 bg-transparent text-right focus:bg-accent outline-none"
+                        onBlur={(e) => {
+                          const t = e.target.value;
+                          const v = t === "" ? null : parseFloat(t) || 0;
+                          if (v === c.price) return;
+                          inlineUpsertM.mutate({ ...c.row, price_per_pound: v });
+                        }}
+                      />
+                    </td>
+                    <td className={`px-2 py-1 text-right ${c.gapCost && c.gapCost > 0 ? "text-rose-400" : "text-muted-foreground"}`}>
+                      {c.gapCost != null ? fmtUsd(c.gapCost) : "—"}
+                    </td>
+                    <td className="px-1 py-1 text-right">
+                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => openEdit(c.row)}>
+                        <Pencil className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        variant="ghost" size="sm" className="h-6 w-6 p-0 text-destructive"
+                        onClick={() => {
+                          if (confirm(`Remove "${c.row.name}" from plan?`)) deleteM.mutate(c.row.id);
+                        }}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <p className="text-xs text-muted-foreground">
+        Target lb = lb/yr × months ÷ 12. On-hand pulls from Inventory items (status available, unit lb) matched by name.
+      </p>
+
+      <PlanEditDialog open={open} onOpenChange={setOpen} form={form} setForm={setForm}
+        onSave={() => upsertM.mutate(form)} saving={upsertM.isPending} />
+    </div>
+  );
+}
+
+function Stat({ label, value, tone }: { label: string; value: string; tone?: "red" | "green" }) {
+  const toneCls = tone === "red" ? "text-rose-400" : tone === "green" ? "text-emerald-400" : "";
+  return (
+    <div className="border border-border rounded-md p-3">
+      <div className="text-[10px] uppercase text-muted-foreground tracking-wider font-mono">{label}</div>
+      <div className={`text-lg font-mono font-bold mt-0.5 ${toneCls}`}>{value}</div>
+    </div>
+  );
+}
+
+function PlanEditDialog({
+  open, onOpenChange, form, setForm, onSave, saving,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  form: typeof emptyPlan;
+  setForm: (v: typeof emptyPlan) => void;
+  onSave: () => void;
+  saving: boolean;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{form.id ? "Edit plan row" : "Add plan row"}</DialogTitle>
+        </DialogHeader>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="col-span-2">
+            <Label>Food name *</Label>
+            <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+          </div>
+          <div>
+            <Label>Category</Label>
+            <Input value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} placeholder="Breakfast / Lunch / Dinner / Other" />
+          </div>
+          <div>
+            <Label>Food type</Label>
+            <Input value={form.food_type} onChange={(e) => setForm({ ...form, food_type: e.target.value })} placeholder="Protein / Fruit / Vegetable" />
+          </div>
+          <div>
+            <Label>Pounds / year</Label>
+            <Input type="number" step="0.01" value={form.pounds_per_year}
+              onChange={(e) => setForm({ ...form, pounds_per_year: parseFloat(e.target.value) || 0 })} />
+          </div>
+          <div>
+            <Label>Target months</Label>
+            <Input type="number" step="1" value={form.target_months}
+              onChange={(e) => setForm({ ...form, target_months: parseFloat(e.target.value) || 0 })} />
+          </div>
+          <div>
+            <Label>Price / lb</Label>
+            <Input type="number" step="0.01" value={form.price_per_pound}
+              onChange={(e) => setForm({ ...form, price_per_pound: e.target.value === "" ? "" : parseFloat(e.target.value) })} />
+          </div>
+          <div>
+            <Label>Sort order</Label>
+            <Input type="number" step="1" value={form.sort_order}
+              onChange={(e) => setForm({ ...form, sort_order: parseInt(e.target.value) || 0 })} />
+          </div>
+          <div className="col-span-2">
+            <Label>Notes</Label>
+            <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={2} />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button onClick={onSave} disabled={saving || !form.name.trim()}>Save</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
