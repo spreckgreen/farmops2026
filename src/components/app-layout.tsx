@@ -59,6 +59,9 @@ export function AppLayout({ children }: { children: ReactNode }) {
               <Link to="/inventory" className={navItem} activeProps={navActive}>
                 Inventory
               </Link>
+              <Link to="/food" className={navItem} activeProps={navActive}>
+                Food
+              </Link>
               <Link to="/sync" className={navItem} activeProps={navActive}>
                 Sync
               </Link>
