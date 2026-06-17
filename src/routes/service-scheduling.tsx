@@ -12,13 +12,13 @@ import {
   ArrowLeft,
   Wrench,
   Package,
-  Download,
   Search,
   AlertTriangle,
   CheckCircle,
   Clock,
   CalendarDays,
 } from "lucide-react";
+import { CsvToolbar } from "@/components/csv-toolbar";
 import ScheduleDialog from "@/components/scheduling/ScheduleDialog";
 import ScheduleList from "@/components/scheduling/ScheduleList";
 import ConsumableDialog from "@/components/scheduling/ConsumableDialog";
@@ -340,67 +340,115 @@ function ServiceSchedulingPage() {
 
             <div className="flex gap-2">
               {activeTab === "schedules" && (
-                <Button size="sm" variant="outline" onClick={() => {
-                  if (schedules.length === 0) { toast.info("No schedules to export"); return; }
-                  const headers = ["Title","Asset","Service Type","Status","Scheduled Date","Completed Date","Recurrence","Description","Notes"];
-                  const escape = (v: string | null) => {
-                    if (!v) return "";
-                    const str = String(v).replace(/"/g, '""');
-                    return str.includes(",") || str.includes("\n") || str.includes('"') ? `"${str}"` : str;
-                  };
-                  const rows = schedules.map((s) => [
-                    escape(s.title),
-                    escape(getAssetName(s.asset_id)),
-                    escape(s.service_type),
-                    escape(s.status),
-                    escape(s.scheduled_date),
-                    escape(s.completed_date),
-                    escape(s.recurrence),
-                    escape(s.description),
-                    escape(s.notes),
-                  ].join(","));
-                  const csv = [headers.join(","), ...rows].join("\n");
-                  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement("a");
-                  a.href = url;
-                  a.download = `service_schedules_${new Date().toISOString().split("T")[0]}.csv`;
-                  document.body.appendChild(a);
-                  a.click();
-                  document.body.removeChild(a);
-                  URL.revokeObjectURL(url);
-                  toast.success("Schedules exported to CSV");
-                }}>
-                  <Download className="h-4 w-4 mr-1" /> Export CSV
-                </Button>
+                <CsvToolbar
+                  filename={`service_schedules_${new Date().toISOString().split("T")[0]}.csv`}
+                  columns={[
+                    { key: "title", label: "Title" },
+                    { key: "asset", label: "Asset" },
+                    { key: "service_type", label: "Service Type" },
+                    { key: "status", label: "Status" },
+                    { key: "scheduled_date", label: "Scheduled Date" },
+                    { key: "completed_date", label: "Completed Date" },
+                    { key: "recurrence", label: "Recurrence" },
+                    { key: "description", label: "Description" },
+                    { key: "notes", label: "Notes" },
+                  ]}
+                  rows={schedules.map((s) => ({
+                    title: s.title ?? "",
+                    asset: getAssetName(s.asset_id),
+                    service_type: s.service_type ?? "",
+                    status: s.status ?? "",
+                    scheduled_date: s.scheduled_date ?? "",
+                    completed_date: s.completed_date ?? "",
+                    recurrence: s.recurrence ?? "",
+                    description: s.description ?? "",
+                    notes: s.notes ?? "",
+                  }))}
+                  onImport={async (rows) => {
+                    if (!session) return;
+                    const inserts = rows
+                      .map((r) => {
+                        const title = String(r.title ?? r.Title ?? "").trim();
+                        if (!title) return null;
+                        const assetName = String(r.asset ?? r.Asset ?? "").trim();
+                        const assetId = assets.find((a) => a.name === assetName)?.id ?? null;
+                        return {
+                          user_id: session.user.id,
+                          title,
+                          asset_id: assetId,
+                          service_type: String(r.service_type ?? r["Service Type"] ?? "general").trim() || "general",
+                          status: String(r.status ?? r.Status ?? "scheduled").trim() || "scheduled",
+                          scheduled_date: String(r.scheduled_date ?? r["Scheduled Date"] ?? "").trim() || null,
+                          completed_date: String(r.completed_date ?? r["Completed Date"] ?? "").trim() || null,
+                          recurrence: String(r.recurrence ?? r.Recurrence ?? "").trim() || null,
+                          description: String(r.description ?? r.Description ?? "").trim() || null,
+                          notes: String(r.notes ?? r.Notes ?? "").trim() || null,
+                        };
+                      })
+                      .filter(Boolean) as Array<Record<string, unknown>>;
+                    if (!inserts.length) {
+                      toast.error("No valid rows. Required: title");
+                      return;
+                    }
+                    const { error } = await supabase.from("maintenance_records").insert(inserts as never);
+                    if (error) {
+                      toast.error("Import failed: " + error.message);
+                      return;
+                    }
+                    toast.success(`Imported ${inserts.length} schedules`);
+                    fetchAll();
+                  }}
+                />
               )}
               {activeTab === "consumables" && (
-                <Button size="sm" variant="outline" onClick={() => {
-                  if (consumables.length === 0) { toast.info("No consumables to export"); return; }
-                  const headers = ["Name","Category","Unit","Quantity in Stock","Min Quantity","Cost per Unit"];
-                  const escape = (v: string | number | null) => {
-                    if (v == null) return "";
-                    const str = String(v).replace(/"/g, '""');
-                    return str.includes(",") || str.includes("\n") || str.includes('"') ? `"${str}"` : str;
-                  };
-                  const rows = consumables.map((c) => [
-                    escape(c.name), escape(c.category), escape(c.unit),
-                    escape(c.quantity_in_stock), escape(c.min_quantity), escape(c.cost_per_unit),
-                  ].join(","));
-                  const csv = [headers.join(","), ...rows].join("\n");
-                  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement("a");
-                  a.href = url;
-                  a.download = `consumables_${new Date().toISOString().split("T")[0]}.csv`;
-                  document.body.appendChild(a);
-                  a.click();
-                  document.body.removeChild(a);
-                  URL.revokeObjectURL(url);
-                  toast.success("Consumables exported to CSV");
-                }}>
-                  <Download className="h-4 w-4 mr-1" /> Export CSV
-                </Button>
+                <CsvToolbar
+                  filename={`consumables_${new Date().toISOString().split("T")[0]}.csv`}
+                  columns={[
+                    { key: "name", label: "Name" },
+                    { key: "category", label: "Category" },
+                    { key: "unit", label: "Unit" },
+                    { key: "quantity_in_stock", label: "Quantity in Stock" },
+                    { key: "min_quantity", label: "Min Quantity" },
+                    { key: "cost_per_unit", label: "Cost per Unit" },
+                  ]}
+                  rows={consumables.map((c) => ({
+                    name: c.name ?? "",
+                    category: c.category ?? "",
+                    unit: c.unit ?? "",
+                    quantity_in_stock: c.quantity_in_stock ?? 0,
+                    min_quantity: c.min_quantity ?? 0,
+                    cost_per_unit: c.cost_per_unit ?? 0,
+                  }))}
+                  onImport={async (rows) => {
+                    if (!session) return;
+                    const inserts = rows
+                      .map((r) => {
+                        const name = String(r.name ?? r.Name ?? "").trim();
+                        if (!name) return null;
+                        return {
+                          user_id: session.user.id,
+                          name,
+                          category: String(r.category ?? r.Category ?? "").trim() || null,
+                          unit: String(r.unit ?? r.Unit ?? "ea").trim() || "ea",
+                          quantity_in_stock: parseFloat(String(r.quantity_in_stock ?? r["Quantity in Stock"] ?? "0")) || 0,
+                          min_quantity: parseFloat(String(r.min_quantity ?? r["Min Quantity"] ?? "0")) || 0,
+                          cost_per_unit: parseFloat(String(r.cost_per_unit ?? r["Cost per Unit"] ?? "0")) || 0,
+                        };
+                      })
+                      .filter(Boolean) as Array<Record<string, unknown>>;
+                    if (!inserts.length) {
+                      toast.error("No valid rows. Required: name");
+                      return;
+                    }
+                    const { error } = await supabase.from("consumables").insert(inserts as never);
+                    if (error) {
+                      toast.error("Import failed: " + error.message);
+                      return;
+                    }
+                    toast.success(`Imported ${inserts.length} consumables`);
+                    fetchAll();
+                  }}
+                />
               )}
               <Button
                 size="sm"
