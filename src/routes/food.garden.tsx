@@ -7,6 +7,13 @@ import { Sprout, Loader2, Upload, Printer } from "lucide-react";
 import { openPrintWindow, escapeHtml } from "@/lib/print";
 import Papa from "papaparse";
 import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
+import {
   listGardenPlots,
   upsertGardenPlot,
   deleteGardenPlot,
