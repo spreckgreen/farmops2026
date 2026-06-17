@@ -400,10 +400,16 @@ export const getFoodYieldProgress = createServerFn({ method: "GET" })
         planEntries.length === 0
       ) continue;
 
+      const fallbackCat =
+        cls === "livestock" ? "Animal protein"
+        : cls === "orchard" ? "Orchard (fruit/nut)"
+        : cls === "garden" ? "Vegetables"
+        : cls === "crops" ? "Field crops"
+        : "Uncategorized";
       rows.push({
         food_id: f.id,
         name: f.name,
-        category: f.category ?? "Uncategorized",
+        category: (f.category && f.category.trim()) || fallbackCat,
         source,
         expected_pounds: expectedPounds,
         estimated_pounds: estimatedPounds,
