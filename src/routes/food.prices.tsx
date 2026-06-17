@@ -373,6 +373,32 @@ function PriceHistoryPage() {
         </div>
       </div>
 
+      <div className="flex flex-wrap items-center gap-2 text-xs mb-3">
+        <span className="text-muted-foreground font-mono uppercase">Season legend:</span>
+        {SEASON_BUCKETS.map((b) => (
+          <button
+            key={b}
+            type="button"
+            onClick={() => setSeasonFilter((cur) => (cur === b ? "all" : b))}
+            className={`px-1.5 py-0.5 rounded border text-[10px] transition ${SEASON_COLORS[b]} ${seasonFilter === b ? "ring-1 ring-foreground/60" : "opacity-80 hover:opacity-100"}`}
+            title={`Filter to ${b}`}
+          >
+            {b}
+          </button>
+        ))}
+        {seasonFilter !== "all" && (
+          <button
+            type="button"
+            onClick={() => setSeasonFilter("all")}
+            className="text-muted-foreground underline ml-1"
+          >
+            Clear
+          </button>
+        )}
+      </div>
+
+
+
       {isLoading ? (
         <div className="text-sm text-muted-foreground">Loading…</div>
       ) : byFood.length === 0 ? (
