@@ -159,7 +159,7 @@ export const getFoodOverview = createServerFn({ method: "GET" })
         .neq("plant_name", ""),
       context.supabase
         .from("orchard_trees")
-        .select("id, species, variety, quantity, status, planted_on, updated_at"),
+        .select("id, species, variety, quantity, status, category, planted_on, updated_at"),
       context.supabase
         .from("crop_harvests")
         .select("id, harvested_on, quantity, unit, planting_id")
@@ -202,9 +202,18 @@ export const getFoodOverview = createServerFn({ method: "GET" })
       .sort((a, b) => (b.updated_at ?? "").localeCompare(a.updated_at ?? ""))
       .slice(0, 8);
 
+    const foodForestCount = orchardRows
+      .filter((r) => ["fruit", "nut"].includes(String(r.category ?? "").toLowerCase()))
+      .reduce((s, r) => s + (Number(r.quantity) || 1), 0);
+    const timberCount = orchardRows
+      .filter((r) => String(r.category ?? "").toLowerCase() === "hardwood")
+      .reduce((s, r) => s + (Number(r.quantity) || 1), 0);
+
     return {
       garden_plantings: gardenRows.length,
       orchard_trees: orchardTrees,
+      food_forest_count: foodForestCount,
+      timber_count: timberCount,
       orchard_entries: orchardRows.length,
       livestock_count: livestockCount,
       total_plantings: gardenRows.length + orchardRows.length,
