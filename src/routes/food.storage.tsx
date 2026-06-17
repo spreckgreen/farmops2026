@@ -826,7 +826,7 @@ function LongTermPlanPanel() {
                         onBlur={(e) => {
                           const v = parseFloat(e.target.value || "0") || 0;
                           if (v === Number(c.row.pounds_per_year)) return;
-                          inlineUpsertM.mutate({ ...c.row, pounds_per_year: v });
+                          inlineUpsertM.mutate({ row: { ...c.row, pounds_per_year: v }, field: "pounds_per_year" });
                         }}
                       />
                     </td>
