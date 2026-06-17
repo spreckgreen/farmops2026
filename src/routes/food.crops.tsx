@@ -150,6 +150,19 @@ function CropsPage() {
 
   const plantings = (q.data ?? []) as Planting[];
 
+      <YieldDashboard
+        data={dash}
+        labels={{
+          unit: "planting",
+          unitPlural: "plantings",
+          perUnitLabel: "lbs/planting",
+          needUnitsLabel: "Need plantings",
+          totalUnitsCardLabel: "Total plantings",
+          yieldPanelTitle: "Crops · harvested vs. plan",
+        }}
+      />
+
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
