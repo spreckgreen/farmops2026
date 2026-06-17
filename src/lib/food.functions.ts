@@ -554,7 +554,7 @@ export const upsertFoodPlanFood = createServerFn({ method: "POST" })
     const row = {
       user_id: context.userId,
       name: data.name.trim(),
-      category: emptyToNull(data.category ?? null),
+      category: normalizeFoodCategory(data.category ?? null),
       season: emptyToNull(data.season ?? null),
       meal: emptyToNull(data.meal ?? null),
       freeze_dry: !!data.freeze_dry,
