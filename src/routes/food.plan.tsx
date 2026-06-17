@@ -529,7 +529,7 @@ function FoodPlanPage() {
               const collapsed = collapsedGroups.has(group.category);
               const groupWeekly = group.foods.reduce((s, f) => s + dayTotalsForActive(f.id), 0);
               return (
-                <>
+                <Fragment key={group.category}>
                   <tr
                     key={`group-${group.category}`}
                     className="border-t border-border bg-muted/40 cursor-pointer hover:bg-muted/60"
