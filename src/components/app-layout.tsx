@@ -74,30 +74,42 @@ export function AppLayout({ children }: { children: ReactNode }) {
               <Link to="/sync" className={navItem} activeProps={navActive}>
                 Sync
               </Link>
-              {profile.data?.isAdmin && (
-                <Link
-                  to="/admin/users"
-                  className={`${navItem} flex items-center gap-1`}
-                  activeProps={navActive}
-                >
-                  <ShieldCheck className="h-3.5 w-3.5" />
-                  Users
-                </Link>
-              )}
-              {profile.data?.isAdmin && (
-                <Link
-                  to="/admin/reset"
-                  className={navItem}
-                  activeProps={navActive}
-                >
-                  Reset
-                </Link>
-              )}
             </nav>
           </div>
-          <Button variant="ghost" size="sm" onClick={signOut}>
-            Sign out
-          </Button>
+          <div className="flex items-center gap-2">
+            {profile.data?.isAdmin && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant={adminActive ? "secondary" : "ghost"}
+                    size="sm"
+                    className="gap-1"
+                  >
+                    <ShieldCheck className="h-3.5 w-3.5" />
+                    Admin
+                    <ChevronDown className="h-3.5 w-3.5 opacity-70" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem asChild>
+                    <Link to="/admin/users" className="flex items-center gap-2 cursor-pointer">
+                      <Users className="h-4 w-4" />
+                      User management
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/admin/reset" className="flex items-center gap-2 cursor-pointer">
+                      <Trash2 className="h-4 w-4" />
+                      Reset data
+                    </Link>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+            <Button variant="ghost" size="sm" onClick={signOut}>
+              Sign out
+            </Button>
+          </div>
         </div>
       </header>
       <main className="flex-1">
