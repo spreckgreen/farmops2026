@@ -3,13 +3,13 @@
     {
       "name": "Coffee",
       "price_per_pound": 3.75,
-      "season": "Fruit",
+      "season": null,
       "freeze_dry": true
     },
     {
       "name": "Milk",
       "price_per_pound": 3.78,
-      "season": "Fruit",
+      "season": null,
       "freeze_dry": true
     },
     {
@@ -27,19 +27,19 @@
     {
       "name": "Peanut Butter",
       "price_per_pound": null,
-      "season": "Fruit",
+      "season": null,
       "freeze_dry": true
     },
     {
       "name": "Breakfast Bar",
       "price_per_pound": 8.08,
-      "season": "Fruit",
+      "season": null,
       "freeze_dry": true
     },
     {
       "name": "Jam",
       "price_per_pound": null,
-      "season": "Fruit",
+      "season": null,
       "freeze_dry": true
     },
     {
@@ -111,19 +111,19 @@
     {
       "name": "Apricots",
       "price_per_pound": 2.45,
-      "season": "Vegitable",
+      "season": null,
       "freeze_dry": true
     },
     {
       "name": "Navel Oranges",
       "price_per_pound": 0.97,
-      "season": "Vegitable",
+      "season": null,
       "freeze_dry": true
     },
     {
       "name": "Apples",
       "price_per_pound": 1.07,
-      "season": "Vegitable",
+      "season": null,
       "freeze_dry": true
     },
     {
@@ -135,43 +135,43 @@
     {
       "name": "Pasta",
       "price_per_pound": null,
-      "season": "Vegitable",
+      "season": null,
       "freeze_dry": true
     },
     {
       "name": "Cheese",
       "price_per_pound": null,
-      "season": "Vegitable",
+      "season": null,
       "freeze_dry": true
     },
     {
       "name": "Chicken lunch",
       "price_per_pound": null,
-      "season": "Vegitable",
+      "season": null,
       "freeze_dry": true
     },
     {
       "name": "Ground Meat",
       "price_per_pound": null,
-      "season": "Vegitable",
+      "season": null,
       "freeze_dry": true
     },
     {
       "name": "Beef",
       "price_per_pound": 3.46,
-      "season": "Vegitable",
+      "season": null,
       "freeze_dry": true
     },
     {
       "name": "Steak",
       "price_per_pound": 3.59,
-      "season": "Vegitable",
+      "season": null,
       "freeze_dry": true
     },
     {
       "name": "Chicken breast",
       "price_per_pound": 5.6,
-      "season": "Vegitable",
+      "season": null,
       "freeze_dry": true
     },
     {
@@ -183,19 +183,19 @@
     {
       "name": "Kabasa",
       "price_per_pound": 3.72,
-      "season": "Vegitable",
+      "season": null,
       "freeze_dry": true
     },
     {
       "name": "Fish",
       "price_per_pound": 7.98,
-      "season": "Vegitable",
+      "season": null,
       "freeze_dry": true
     },
     {
       "name": "Rice",
       "price_per_pound": null,
-      "season": "Vegitable",
+      "season": null,
       "freeze_dry": true
     },
     {
