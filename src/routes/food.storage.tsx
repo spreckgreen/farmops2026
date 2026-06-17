@@ -903,12 +903,13 @@ function LongTermPlanPanel() {
   );
 }
 
-function Stat({ label, value, tone }: { label: string; value: string; tone?: "red" | "green" }) {
+function Stat({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone?: "red" | "green" }) {
   const toneCls = tone === "red" ? "text-rose-400" : tone === "green" ? "text-emerald-400" : "";
   return (
     <div className="border border-border rounded-md p-3">
       <div className="text-[10px] uppercase text-muted-foreground tracking-wider font-mono">{label}</div>
       <div className={`text-lg font-mono font-bold mt-0.5 ${toneCls}`}>{value}</div>
+      {sub && <div className="text-[10px] text-muted-foreground font-mono mt-0.5">{sub}</div>}
     </div>
   );
 }
