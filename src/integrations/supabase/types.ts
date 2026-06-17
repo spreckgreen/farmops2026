@@ -387,6 +387,66 @@ export type Database = {
           },
         ]
       }
+      food_storage_items: {
+        Row: {
+          acquired_on: string | null
+          best_by: string | null
+          category: string | null
+          created_at: string
+          description: string | null
+          food_type: string | null
+          id: string
+          location: string | null
+          name: string
+          notes: string | null
+          price: number | null
+          quantity: number
+          source_url: string | null
+          status: string
+          unit: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          acquired_on?: string | null
+          best_by?: string | null
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          food_type?: string | null
+          id?: string
+          location?: string | null
+          name: string
+          notes?: string | null
+          price?: number | null
+          quantity?: number
+          source_url?: string | null
+          status?: string
+          unit?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          acquired_on?: string | null
+          best_by?: string | null
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          food_type?: string | null
+          id?: string
+          location?: string | null
+          name?: string
+          notes?: string | null
+          price?: number | null
+          quantity?: number
+          source_url?: string | null
+          status?: string
+          unit?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       garden_plots: {
         Row: {
           created_at: string
