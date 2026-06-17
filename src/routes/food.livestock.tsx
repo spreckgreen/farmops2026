@@ -57,7 +57,7 @@ function LivestockComingSoon() {
       </div>
 
       <YieldDashboard
-        data={emptyDash}
+        data={dash}
         labels={{
           unit: "animal",
           unitPlural: "animals",
