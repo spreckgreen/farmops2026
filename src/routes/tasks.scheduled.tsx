@@ -175,9 +175,9 @@ function ReportsPage() {
                         >
                           <div className="font-medium">{t.title}</div>
                           <div className="text-xs text-muted-foreground font-mono flex gap-2 flex-wrap mt-0.5">
-                            <span>#{t.slug}</span>
-                            {(t.project_tags ?? []).map((pt) => (
-                              <span key={pt}>· #project/{pt}</span>
+                            {showSlugs && <span>#{t.slug}</span>}
+                            {(t.project_tags ?? []).map((pt, i) => (
+                              <span key={pt}>{showSlugs || i > 0 ? "· " : ""}#project/{pt}</span>
                             ))}
                           </div>
                         </Link>
