@@ -265,8 +265,22 @@ function GardenPage() {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
             <div className="border border-border rounded-md bg-card">
-              <div className="px-3 py-2 border-b border-border text-xs font-mono uppercase tracking-wider text-muted-foreground">
-                Plants · estimated seasonal yield
+              <div className="px-3 py-2 border-b border-border flex items-center justify-between gap-2">
+                <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+                  Plants · estimated seasonal yield
+                </span>
+                <Select value={seasonFilter} onValueChange={setSeasonFilter}>
+                  <SelectTrigger className="h-7 w-auto min-w-[7rem] text-xs">
+                    <SelectValue placeholder="Season" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="All">All seasons</SelectItem>
+                    <SelectItem value="Spring">Spring</SelectItem>
+                    <SelectItem value="Summer">Summer</SelectItem>
+                    <SelectItem value="Fall">Fall</SelectItem>
+                    <SelectItem value="Other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               {dash.plants.filter((p) => p.count > 0).length === 0 ? (
                 <p className="p-3 text-sm text-muted-foreground">No plants in garden yet.</p>
