@@ -501,6 +501,63 @@ export type Database = {
         }
         Relationships: []
       }
+      livestock_animals: {
+        Row: {
+          birth_date: string | null
+          breed: string | null
+          created_at: string
+          expected_yield_lbs: number | null
+          id: string
+          location: string | null
+          notes: string | null
+          purpose: string
+          quantity: number
+          sex: string | null
+          species: string
+          status: string
+          tag: string | null
+          updated_at: string
+          user_id: string
+          yield_unit: string
+        }
+        Insert: {
+          birth_date?: string | null
+          breed?: string | null
+          created_at?: string
+          expected_yield_lbs?: number | null
+          id?: string
+          location?: string | null
+          notes?: string | null
+          purpose?: string
+          quantity?: number
+          sex?: string | null
+          species: string
+          status?: string
+          tag?: string | null
+          updated_at?: string
+          user_id: string
+          yield_unit?: string
+        }
+        Update: {
+          birth_date?: string | null
+          breed?: string | null
+          created_at?: string
+          expected_yield_lbs?: number | null
+          id?: string
+          location?: string | null
+          notes?: string | null
+          purpose?: string
+          quantity?: number
+          sex?: string | null
+          species?: string
+          status?: string
+          tag?: string | null
+          updated_at?: string
+          user_id?: string
+          yield_unit?: string
+        }
+        Relationships: []
+      }
       maintenance_records: {
         Row: {
           asset_id: string | null
