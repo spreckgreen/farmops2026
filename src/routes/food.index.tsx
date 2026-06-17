@@ -226,8 +226,11 @@ function CategoryBlock({ cat }: { cat: Category }) {
             <span className="text-xs font-mono text-muted-foreground shrink-0">
               need {fmtLbs(cat.expected_pounds)} · est {fmtLbs(cat.estimated_pounds)} · harv {fmtLbs(cat.actual_pounds)} lbs
               {cat.expected_pounds > 0 && <> · {pct}%</>}
-              {cat.gap_pounds > 0 && (
-                <> · <span className="text-destructive">gap {fmtLbs(cat.gap_pounds)} lbs / {fmtUsd(cat.gap_value)}</span></>
+              {cat.planned_gap_pounds > 0 && (
+                <> · <span className="text-amber-500">plan gap {fmtLbs(cat.planned_gap_pounds)} lbs / {fmtUsd(cat.planned_gap_value)}</span></>
+              )}
+              {cat.actual_gap_pounds > 0 && (
+                <> · <span className="text-destructive">actual gap {fmtLbs(cat.actual_gap_pounds)} lbs / {fmtUsd(cat.actual_gap_value)}</span></>
               )}
             </span>
           </div>
