@@ -9,7 +9,8 @@ import { AppLayout } from "@/components/app-layout";
 import { requireAuthenticatedUser } from "@/lib/auth-route";
 import { toast } from "sonner";
 import { format, addDays, parseISO } from "date-fns";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Eye, EyeOff } from "lucide-react";
+import { DailyNotePreview } from "@/components/daily-note-preview";
 
 
 export const Route = createFileRoute("/notes/$date")({
