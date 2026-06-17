@@ -852,10 +852,17 @@ function LongTermPlanPanel() {
                         }}
                       />
                     </td>
-                    <td className="px-2 py-1 text-right">{c.targetLbs.toFixed(1)}</td>
-                    <td className="px-2 py-1 text-right text-muted-foreground">{c.onHand.toFixed(1)}</td>
+                    <td className="px-2 py-1 text-right">
+                      <div>{c.targetLbs.toFixed(1)}</div>
+                      <div className="text-[10px] text-muted-foreground">{fmtKcal(c.targetKcal)}</div>
+                    </td>
+                    <td className="px-2 py-1 text-right text-muted-foreground">
+                      <div>{c.onHand.toFixed(1)}</div>
+                      <div className="text-[10px]">{fmtKcal(c.onHandKcal)}</div>
+                    </td>
                     <td className={`px-2 py-1 text-right ${c.gapLbs > 0 ? "text-rose-400" : "text-emerald-400"}`}>
-                      {c.gapLbs.toFixed(1)}
+                      <div>{c.gapLbs.toFixed(1)}</div>
+                      <div className="text-[10px] opacity-80">{fmtKcal(c.gapKcal)}</div>
                     </td>
                     <td className="p-0 text-right">
                       <input
