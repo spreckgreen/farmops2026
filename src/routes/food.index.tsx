@@ -4,6 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useMemo, useState } from "react";
 import { getFoodOverview, getFoodYieldProgress } from "@/lib/food.functions";
 import { fmtUsd } from "@/lib/currency";
+import { kcalFromLbs, fmtKcal, DEFAULT_KCAL_PER_LB } from "@/lib/calories";
 import { format } from "date-fns";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { FOOD_CATEGORIES } from "@/lib/food-categories";
