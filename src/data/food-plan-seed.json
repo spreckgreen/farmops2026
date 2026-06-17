@@ -1,0 +1,758 @@
+{
+  "foods": [
+    {
+      "name": "Coffee",
+      "price_per_pound": 3.75,
+      "season": "Fruit",
+      "freeze_dry": true
+    },
+    {
+      "name": "Milk",
+      "price_per_pound": 3.78,
+      "season": "Fruit",
+      "freeze_dry": true
+    },
+    {
+      "name": "Bread breakfast",
+      "price_per_pound": null,
+      "season": null,
+      "freeze_dry": false
+    },
+    {
+      "name": "Cereal",
+      "price_per_pound": 1.82,
+      "season": null,
+      "freeze_dry": true
+    },
+    {
+      "name": "Peanut Butter",
+      "price_per_pound": null,
+      "season": "Fruit",
+      "freeze_dry": true
+    },
+    {
+      "name": "Breakfast Bar",
+      "price_per_pound": 8.08,
+      "season": "Fruit",
+      "freeze_dry": true
+    },
+    {
+      "name": "Jam",
+      "price_per_pound": null,
+      "season": "Fruit",
+      "freeze_dry": true
+    },
+    {
+      "name": "Orange Juice",
+      "price_per_pound": 0.89,
+      "season": "Fruit",
+      "freeze_dry": true
+    },
+    {
+      "name": "Banana",
+      "price_per_pound": 2.04,
+      "season": "Summer",
+      "freeze_dry": true
+    },
+    {
+      "name": "Mango",
+      "price_per_pound": 2.27,
+      "season": "Fruit",
+      "freeze_dry": true
+    },
+    {
+      "name": "Pineapple",
+      "price_per_pound": 2.07,
+      "season": "Fruit",
+      "freeze_dry": true
+    },
+    {
+      "name": "Blueberries",
+      "price_per_pound": 2.25,
+      "season": "Fruit",
+      "freeze_dry": true
+    },
+    {
+      "name": "Blackberries",
+      "price_per_pound": 4.79,
+      "season": "Fruit",
+      "freeze_dry": true
+    },
+    {
+      "name": "Boysenberries",
+      "price_per_pound": 2.45,
+      "season": null,
+      "freeze_dry": true
+    },
+    {
+      "name": "Raspberries",
+      "price_per_pound": 2.45,
+      "season": null,
+      "freeze_dry": true
+    },
+    {
+      "name": "Strawberries",
+      "price_per_pound": 2.54,
+      "season": null,
+      "freeze_dry": true
+    },
+    {
+      "name": "Lychee",
+      "price_per_pound": 2.45,
+      "season": null,
+      "freeze_dry": true
+    },
+    {
+      "name": "Peaches",
+      "price_per_pound": 2.45,
+      "season": null,
+      "freeze_dry": true
+    },
+    {
+      "name": "Apricots",
+      "price_per_pound": 2.45,
+      "season": "Vegitable",
+      "freeze_dry": true
+    },
+    {
+      "name": "Navel Oranges",
+      "price_per_pound": 0.97,
+      "season": "Vegitable",
+      "freeze_dry": true
+    },
+    {
+      "name": "Apples",
+      "price_per_pound": 1.07,
+      "season": "Vegitable",
+      "freeze_dry": true
+    },
+    {
+      "name": "Bread lunch",
+      "price_per_pound": null,
+      "season": null,
+      "freeze_dry": true
+    },
+    {
+      "name": "Pasta",
+      "price_per_pound": null,
+      "season": "Vegitable",
+      "freeze_dry": true
+    },
+    {
+      "name": "Cheese",
+      "price_per_pound": null,
+      "season": "Vegitable",
+      "freeze_dry": true
+    },
+    {
+      "name": "Chicken lunch",
+      "price_per_pound": null,
+      "season": "Vegitable",
+      "freeze_dry": true
+    },
+    {
+      "name": "Ground Meat",
+      "price_per_pound": null,
+      "season": "Vegitable",
+      "freeze_dry": true
+    },
+    {
+      "name": "Beef",
+      "price_per_pound": 3.46,
+      "season": "Vegitable",
+      "freeze_dry": true
+    },
+    {
+      "name": "Steak",
+      "price_per_pound": 3.59,
+      "season": "Vegitable",
+      "freeze_dry": true
+    },
+    {
+      "name": "Chicken breast",
+      "price_per_pound": 5.6,
+      "season": "Vegitable",
+      "freeze_dry": true
+    },
+    {
+      "name": "Chicken whole",
+      "price_per_pound": 1.19,
+      "season": null,
+      "freeze_dry": true
+    },
+    {
+      "name": "Kabasa",
+      "price_per_pound": 3.72,
+      "season": "Vegitable",
+      "freeze_dry": true
+    },
+    {
+      "name": "Fish",
+      "price_per_pound": 7.98,
+      "season": "Vegitable",
+      "freeze_dry": true
+    },
+    {
+      "name": "Rice",
+      "price_per_pound": null,
+      "season": "Vegitable",
+      "freeze_dry": true
+    },
+    {
+      "name": "Pinto Beans",
+      "price_per_pound": 0.47,
+      "season": null,
+      "freeze_dry": true
+    },
+    {
+      "name": "Black Beans",
+      "price_per_pound": 0.57,
+      "season": null,
+      "freeze_dry": true
+    },
+    {
+      "name": "Red Berry Wheat",
+      "price_per_pound": null,
+      "season": null,
+      "freeze_dry": true
+    },
+    {
+      "name": "Eikhorn",
+      "price_per_pound": null,
+      "season": null,
+      "freeze_dry": true
+    },
+    {
+      "name": "Durham",
+      "price_per_pound": null,
+      "season": null,
+      "freeze_dry": true
+    },
+    {
+      "name": "Onions",
+      "price_per_pound": 1.65,
+      "season": null,
+      "freeze_dry": true
+    },
+    {
+      "name": "Potatoes",
+      "price_per_pound": 1.0,
+      "season": null,
+      "freeze_dry": true
+    },
+    {
+      "name": "Basil",
+      "price_per_pound": 6.05,
+      "season": null,
+      "freeze_dry": true
+    },
+    {
+      "name": "Salad Mix",
+      "price_per_pound": 1.01,
+      "season": null,
+      "freeze_dry": true
+    },
+    {
+      "name": "Cilantro",
+      "price_per_pound": 3.25,
+      "season": null,
+      "freeze_dry": true
+    },
+    {
+      "name": "Broccoli",
+      "price_per_pound": 1.6,
+      "season": null,
+      "freeze_dry": true
+    },
+    {
+      "name": "Carrots",
+      "price_per_pound": 0.64,
+      "season": null,
+      "freeze_dry": true
+    },
+    {
+      "name": "Spinach",
+      "price_per_pound": 1.34,
+      "season": null,
+      "freeze_dry": true
+    },
+    {
+      "name": "Cucumber",
+      "price_per_pound": 0.51,
+      "season": null,
+      "freeze_dry": true
+    },
+    {
+      "name": "Zuccini",
+      "price_per_pound": 0.72,
+      "season": null,
+      "freeze_dry": true
+    },
+    {
+      "name": "Sweet Peppers",
+      "price_per_pound": 1.0,
+      "season": null,
+      "freeze_dry": true
+    },
+    {
+      "name": "Garlic",
+      "price_per_pound": 3.81,
+      "season": null,
+      "freeze_dry": true
+    },
+    {
+      "name": "Lettuce",
+      "price_per_pound": 1.08,
+      "season": null,
+      "freeze_dry": true
+    },
+    {
+      "name": "Tomatoes",
+      "price_per_pound": 2.19,
+      "season": null,
+      "freeze_dry": true
+    },
+    {
+      "name": "Mushrooms",
+      "price_per_pound": 2.8,
+      "season": null,
+      "freeze_dry": true
+    },
+    {
+      "name": "Sauerkraut",
+      "price_per_pound": null,
+      "season": null,
+      "freeze_dry": true
+    },
+    {
+      "name": "Parmesan",
+      "price_per_pound": 4.94,
+      "season": null,
+      "freeze_dry": true
+    },
+    {
+      "name": "All Spice",
+      "price_per_pound": null,
+      "season": null,
+      "freeze_dry": true
+    },
+    {
+      "name": "Sugar",
+      "price_per_pound": null,
+      "season": null,
+      "freeze_dry": true
+    },
+    {
+      "name": "Salt",
+      "price_per_pound": null,
+      "season": null,
+      "freeze_dry": true
+    },
+    {
+      "name": "Vegetable Oil",
+      "price_per_pound": null,
+      "season": null,
+      "freeze_dry": false
+    },
+    {
+      "name": "Olive Oil",
+      "price_per_pound": null,
+      "season": null,
+      "freeze_dry": false
+    }
+  ],
+  "plan": {
+    "R_1": {
+      "Coffee": 2.0,
+      "Milk": 2.0,
+      "Breakfast Bar": 3.0,
+      "Jam": 1.0,
+      "Orange Juice": 2.2,
+      "All Spice": 1.91,
+      "Sugar": 0.17,
+      "Salt": 0.52
+    },
+    "R_2": {
+      "Coffee": 2.0,
+      "Milk": 8.4,
+      "Bread breakfast": 17.0,
+      "Breakfast Bar": 1.0,
+      "All Spice": 1.91,
+      "Sugar": 0.17,
+      "Salt": 0.52
+    },
+    "R_3": {
+      "Coffee": 2.0,
+      "Milk": 2.0,
+      "Breakfast Bar": 3.0,
+      "Jam": 1.0,
+      "Orange Juice": 2.2,
+      "All Spice": 1.91,
+      "Sugar": 0.17,
+      "Salt": 0.52
+    },
+    "R_4": {
+      "Coffee": 2.0,
+      "Milk": 8.4,
+      "Bread breakfast": 17.0,
+      "Breakfast Bar": 1.0,
+      "All Spice": 1.91,
+      "Sugar": 0.17,
+      "Salt": 0.52
+    },
+    "R_5": {
+      "Coffee": 2.0,
+      "Milk": 2.0,
+      "Breakfast Bar": 3.0,
+      "Jam": 1.0,
+      "Orange Juice": 2.2,
+      "All Spice": 1.91,
+      "Sugar": 0.17,
+      "Salt": 0.52
+    },
+    "R_6": {
+      "Coffee": 2.0,
+      "Milk": 8.4,
+      "Bread breakfast": 17.0,
+      "Breakfast Bar": 1.0,
+      "All Spice": 1.91,
+      "Sugar": 0.17,
+      "Salt": 0.52
+    },
+    "R_7": {
+      "Coffee": 2.0,
+      "Milk": 2.0,
+      "Breakfast Bar": 3.0,
+      "Jam": 1.0,
+      "Orange Juice": 2.2,
+      "All Spice": 1.91,
+      "Sugar": 0.17,
+      "Salt": 0.52
+    },
+    "S_1": {
+      "Milk": 8.4,
+      "Bread breakfast": 217.0,
+      "Cereal": 3.0,
+      "Jam": 2.2,
+      "All Spice": 1.91,
+      "Sugar": 0.17,
+      "Salt": 0.52
+    },
+    "S_2": {
+      "All Spice": 1.91,
+      "Sugar": 0.17,
+      "Salt": 0.52
+    },
+    "S_3": {
+      "Bread breakfast": 2.0,
+      "Breakfast Bar": 3.0,
+      "Orange Juice": 2.2,
+      "All Spice": 1.91,
+      "Sugar": 0.17,
+      "Salt": 0.52
+    },
+    "S_4": {
+      "All Spice": 1.91,
+      "Sugar": 0.17,
+      "Salt": 0.52
+    },
+    "S_5": {
+      "Bread breakfast": 2.0,
+      "Breakfast Bar": 3.0,
+      "Orange Juice": 2.2,
+      "All Spice": 1.91,
+      "Sugar": 0.17,
+      "Salt": 0.52
+    },
+    "S_6": {
+      "All Spice": 1.91,
+      "Sugar": 0.17,
+      "Salt": 0.52
+    },
+    "S_7": {
+      "Bread breakfast": 2.0,
+      "Breakfast Bar": 3.0,
+      "Orange Juice": 2.2,
+      "All Spice": 1.91,
+      "Sugar": 0.17,
+      "Salt": 0.52
+    },
+    "B_1": {
+      "Milk": 8.4,
+      "Bread breakfast": 217.0,
+      "Cereal": 3.0,
+      "Peanut Butter": 1.0,
+      "Breakfast Bar": 2.2,
+      "Jam": 8.4,
+      "Orange Juice": 6.0,
+      "All Spice": 1.91,
+      "Sugar": 0.17,
+      "Salt": 0.52
+    },
+    "B_2": {
+      "Peanut Butter": 1.0,
+      "Banana": 6.0,
+      "All Spice": 1.91,
+      "Sugar": 0.17,
+      "Salt": 0.52
+    },
+    "B_3": {
+      "Milk": 8.4,
+      "Bread breakfast": 217.0,
+      "Cereal": 3.0,
+      "Peanut Butter": 1.0,
+      "Breakfast Bar": 2.2,
+      "Jam": 8.4,
+      "Orange Juice": 6.0,
+      "All Spice": 1.91,
+      "Sugar": 0.17,
+      "Salt": 0.52
+    },
+    "B_4": {
+      "Peanut Butter": 1.0,
+      "Banana": 6.0,
+      "All Spice": 1.91,
+      "Sugar": 0.17,
+      "Salt": 0.52
+    },
+    "B_5": {
+      "Milk": 8.4,
+      "Bread breakfast": 217.0,
+      "Cereal": 3.0,
+      "Peanut Butter": 1.0,
+      "Breakfast Bar": 2.2,
+      "Jam": 8.4,
+      "Orange Juice": 6.0,
+      "All Spice": 1.91,
+      "Sugar": 0.17,
+      "Salt": 0.52
+    },
+    "B_6": {
+      "Peanut Butter": 1.0,
+      "Banana": 6.0,
+      "All Spice": 1.91,
+      "Sugar": 0.17,
+      "Salt": 0.52
+    },
+    "B_7": {
+      "Milk": 8.4,
+      "Bread breakfast": 217.0,
+      "Cereal": 3.0,
+      "Peanut Butter": 1.0,
+      "Breakfast Bar": 2.2,
+      "Jam": 8.4,
+      "Orange Juice": 6.0,
+      "All Spice": 1.91,
+      "Sugar": 0.17,
+      "Salt": 0.52
+    },
+    "J_1": {
+      "Bread breakfast": 2.0,
+      "Cereal": 8.4,
+      "Peanut Butter": 8.4,
+      "Breakfast Bar": 8.4,
+      "Jam": 10.0,
+      "Banana": 8.4,
+      "Mango": 5.0,
+      "Pineapple": 4.0,
+      "Blueberries": 4.0,
+      "Blackberries": 15.0,
+      "All Spice": 1.91,
+      "Sugar": 0.17,
+      "Salt": 0.52
+    },
+    "J_2": {
+      "Cereal": 8.4,
+      "Peanut Butter": 8.4,
+      "Breakfast Bar": 8.4,
+      "Jam": 10.0,
+      "Orange Juice": 8.4,
+      "Mango": 8.0,
+      "Pineapple": 5.0,
+      "Blueberries": 4.0,
+      "Blackberries": 8.0,
+      "Boysenberries": 4.0,
+      "Raspberries": 15.0,
+      "All Spice": 1.91,
+      "Sugar": 0.17,
+      "Salt": 0.52
+    },
+    "J_3": {
+      "Bread breakfast": 2.0,
+      "Cereal": 8.4,
+      "Peanut Butter": 8.4,
+      "Breakfast Bar": 8.4,
+      "Jam": 10.0,
+      "Orange Juice": 8.4,
+      "Banana": 8.4,
+      "Mango": 5.0,
+      "Pineapple": 4.0,
+      "Blueberries": 4.0,
+      "Blackberries": 15.0,
+      "All Spice": 1.91,
+      "Sugar": 0.17,
+      "Salt": 0.52
+    },
+    "J_4": {
+      "Jam": 10.0,
+      "Mango": 8.0,
+      "Pineapple": 5.0,
+      "Blueberries": 4.0,
+      "Blackberries": 8.0,
+      "Boysenberries": 4.0,
+      "Raspberries": 15.0,
+      "All Spice": 1.91,
+      "Sugar": 0.17,
+      "Salt": 0.52
+    },
+    "J_5": {
+      "Bread breakfast": 2.0,
+      "Cereal": 8.4,
+      "Peanut Butter": 8.4,
+      "Breakfast Bar": 8.4,
+      "Jam": 10.0,
+      "Orange Juice": 8.4,
+      "Banana": 8.4,
+      "Mango": 5.0,
+      "Pineapple": 4.0,
+      "Blueberries": 4.0,
+      "Blackberries": 15.0,
+      "All Spice": 1.91,
+      "Sugar": 0.17,
+      "Salt": 0.52
+    },
+    "J_6": {
+      "Jam": 10.0,
+      "Mango": 8.0,
+      "Pineapple": 5.0,
+      "Blueberries": 4.0,
+      "Blackberries": 4.0,
+      "Boysenberries": 15.0,
+      "Raspberries": 8.0,
+      "All Spice": 1.91,
+      "Sugar": 0.17,
+      "Salt": 0.52
+    },
+    "J_7": {
+      "Bread breakfast": 2.0,
+      "Cereal": 8.4,
+      "Peanut Butter": 8.4,
+      "Breakfast Bar": 8.4,
+      "Jam": 10.0,
+      "Orange Juice": 8.4,
+      "Banana": 8.4,
+      "Mango": 5.0,
+      "Pineapple": 4.0,
+      "Blueberries": 4.0,
+      "Blackberries": 15.0,
+      "All Spice": 1.91,
+      "Sugar": 0.17,
+      "Salt": 0.52
+    },
+    "L_1": {
+      "Milk": 8.4,
+      "Bread breakfast": 217.0,
+      "Cereal": 3.0,
+      "Breakfast Bar": 2.2,
+      "Jam": 10.0,
+      "Mango": 5.0,
+      "Pineapple": 8.0,
+      "Blueberries": 2.0,
+      "Blackberries": 2.0,
+      "Boysenberries": 4.0,
+      "All Spice": 1.91,
+      "Sugar": 0.17,
+      "Salt": 0.52
+    },
+    "L_2": {
+      "Jam": 10.0,
+      "Mango": 8.0,
+      "Pineapple": 5.0,
+      "Blackberries": 2.0,
+      "Boysenberries": 8.0,
+      "Raspberries": 4.0,
+      "Strawberries": 15.0,
+      "All Spice": 1.91,
+      "Sugar": 0.17,
+      "Salt": 0.52
+    },
+    "L_3": {
+      "Milk": 8.4,
+      "Bread breakfast": 217.0,
+      "Cereal": 3.0,
+      "Breakfast Bar": 2.2,
+      "Jam": 10.0,
+      "Mango": 5.0,
+      "Pineapple": 8.0,
+      "Blueberries": 2.0,
+      "Blackberries": 2.0,
+      "Boysenberries": 4.0,
+      "Raspberries": 8.0,
+      "All Spice": 1.91,
+      "Sugar": 0.17,
+      "Salt": 0.52
+    },
+    "L_4": {
+      "Jam": 10.0,
+      "Mango": 8.0,
+      "Pineapple": 5.0,
+      "Blackberries": 2.0,
+      "Boysenberries": 8.0,
+      "Raspberries": 4.0,
+      "Strawberries": 15.0,
+      "All Spice": 1.91,
+      "Sugar": 0.17,
+      "Salt": 0.52
+    },
+    "L_5": {
+      "Milk": 8.4,
+      "Bread breakfast": 217.0,
+      "Cereal": 3.0,
+      "Breakfast Bar": 2.2,
+      "Jam": 10.0,
+      "Mango": 5.0,
+      "Pineapple": 8.0,
+      "Blueberries": 2.0,
+      "Blackberries": 2.0,
+      "Boysenberries": 4.0,
+      "All Spice": 1.91,
+      "Sugar": 0.17,
+      "Salt": 0.52
+    },
+    "L_6": {
+      "Jam": 10.0,
+      "Mango": 8.0,
+      "Pineapple": 5.0,
+      "Blackberries": 2.0,
+      "Raspberries": 4.0,
+      "Strawberries": 15.0,
+      "All Spice": 1.91,
+      "Sugar": 0.17,
+      "Salt": 0.52
+    },
+    "L_7": {
+      "Milk": 8.4,
+      "Bread breakfast": 217.0,
+      "Cereal": 3.0,
+      "Breakfast Bar": 2.2,
+      "Jam": 10.0,
+      "Mango": 5.0,
+      "Blueberries": 2.0,
+      "Blackberries": 2.0,
+      "Boysenberries": 2.5,
+      "Raspberries": 4.0,
+      "Strawberries": 8.0,
+      "Lychee": 1.0,
+      "All Spice": 1.91,
+      "Sugar": 0.17,
+      "Salt": 0.52
+    }
+  },
+  "persons": [
+    "R",
+    "S",
+    "B",
+    "J",
+    "L"
+  ]
+}

@@ -226,6 +226,129 @@ export type Database = {
         }
         Relationships: []
       }
+      food_plan_entries: {
+        Row: {
+          created_at: string
+          day_of_week: number
+          food_id: string
+          id: string
+          person_id: string
+          quantity: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          day_of_week: number
+          food_id: string
+          id?: string
+          person_id: string
+          quantity?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          day_of_week?: number
+          food_id?: string
+          id?: string
+          person_id?: string
+          quantity?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "food_plan_entries_food_id_fkey"
+            columns: ["food_id"]
+            isOneToOne: false
+            referencedRelation: "food_plan_foods"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "food_plan_entries_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "food_plan_people"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      food_plan_foods: {
+        Row: {
+          category: string | null
+          created_at: string
+          freeze_dry: boolean
+          id: string
+          meal: string | null
+          name: string
+          oz_per_serving: number | null
+          price_per_pound: number | null
+          season: string | null
+          sort_order: number
+          unit: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          freeze_dry?: boolean
+          id?: string
+          meal?: string | null
+          name: string
+          oz_per_serving?: number | null
+          price_per_pound?: number | null
+          season?: string | null
+          sort_order?: number
+          unit?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          freeze_dry?: boolean
+          id?: string
+          meal?: string | null
+          name?: string
+          oz_per_serving?: number | null
+          price_per_pound?: number | null
+          season?: string | null
+          sort_order?: number
+          unit?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      food_plan_people: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          sort_order: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          sort_order?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          sort_order?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       inventory_items: {
         Row: {
           barcode: string | null
