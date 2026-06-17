@@ -290,42 +290,90 @@ function OrchardPage() {
         }}
       />
 
-      {isLoading ? (
-        <div className="text-sm text-muted-foreground">Loading…</div>
-      ) : trees.length === 0 ? (
-        <div className="border border-dashed border-border rounded-lg p-10 text-center text-sm text-muted-foreground">
-          <TreeDeciduous className="h-8 w-8 mx-auto mb-2 opacity-50" />
-          No trees logged yet.
-        </div>
-      ) : (
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {(trees as Tree[]).map((t) => (
-            <div key={t.id} className="border border-border rounded-lg p-3 space-y-2">
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <div className="font-mono font-semibold">{t.species}</div>
-                  {t.variety && <div className="text-xs text-muted-foreground">{t.variety}</div>}
-                </div>
-                <Badge variant="outline" className={STATUS_COLORS[t.status] ?? ""}>{t.status}</Badge>
-              </div>
-              <div className="text-xs text-muted-foreground space-y-0.5">
-                <div>Qty: {t.quantity}</div>
-                {t.location && <div>Location: {t.location}</div>}
-                {t.planted_on && <div>Planted: {t.planted_on}</div>}
-                {t.notes && <div className="text-foreground/80 mt-1">{t.notes}</div>}
-              </div>
-              <div className="flex gap-1 pt-1">
-                <Button size="sm" variant="ghost" onClick={() => openEdit(t)}>
-                  <Pencil className="h-3.5 w-3.5" />
-                </Button>
-                <Button size="sm" variant="ghost" className="text-destructive" onClick={() => deleteM.mutate(t.id)}>
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
-              </div>
+      {(() => {
+        const all = trees as Tree[];
+        const counts = CATEGORIES.reduce<Record<string, number>>((acc, c) => {
+          acc[c] = all.filter((t) => t.category === c).reduce((s, t) => s + (t.quantity || 0), 0);
+          return acc;
+        }, {});
+        const uncategorized = all.filter((t) => !t.category).reduce((s, t) => s + (t.quantity || 0), 0);
+        const filtered = categoryFilter === "all"
+          ? all
+          : categoryFilter === "uncategorized"
+            ? all.filter((t) => !t.category)
+            : all.filter((t) => t.category === categoryFilter);
+        return (
+          <>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => setCategoryFilter("all")}
+                className={`text-xs px-2.5 py-1 rounded-md border ${categoryFilter === "all" ? "bg-foreground text-background border-foreground" : "border-border text-muted-foreground hover:bg-muted"}`}
+              >
+                All · {all.reduce((s, t) => s + (t.quantity || 0), 0)}
+              </button>
+              {CATEGORIES.map((c) => (
+                <button
+                  key={c}
+                  onClick={() => setCategoryFilter(c)}
+                  className={`text-xs px-2.5 py-1 rounded-md border capitalize ${categoryFilter === c ? "bg-foreground text-background border-foreground" : `${CATEGORY_COLORS[c]} hover:opacity-80`}`}
+                >
+                  {c} · {counts[c] ?? 0}
+                </button>
+              ))}
+              {uncategorized > 0 && (
+                <button
+                  onClick={() => setCategoryFilter("uncategorized")}
+                  className={`text-xs px-2.5 py-1 rounded-md border ${categoryFilter === "uncategorized" ? "bg-foreground text-background border-foreground" : "border-border text-muted-foreground hover:bg-muted"}`}
+                >
+                  Uncategorized · {uncategorized}
+                </button>
+              )}
             </div>
-          ))}
-        </div>
-      )}
+
+            {isLoading ? (
+              <div className="text-sm text-muted-foreground">Loading…</div>
+            ) : filtered.length === 0 ? (
+              <div className="border border-dashed border-border rounded-lg p-10 text-center text-sm text-muted-foreground">
+                <TreeDeciduous className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                {all.length === 0 ? "No trees logged yet." : "No trees in this category."}
+              </div>
+            ) : (
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {filtered.map((t) => (
+                  <div key={t.id} className="border border-border rounded-lg p-3 space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <div className="font-mono font-semibold">{t.species}</div>
+                        {t.variety && <div className="text-xs text-muted-foreground">{t.variety}</div>}
+                      </div>
+                      <div className="flex flex-col items-end gap-1">
+                        <Badge variant="outline" className={STATUS_COLORS[t.status] ?? ""}>{t.status}</Badge>
+                        {t.category && (
+                          <Badge variant="outline" className={`capitalize ${CATEGORY_COLORS[t.category] ?? ""}`}>{t.category}</Badge>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-xs text-muted-foreground space-y-0.5">
+                      <div>Qty: {t.quantity}</div>
+                      {t.location && <div>Location: {t.location}</div>}
+                      {t.planted_on && <div>Planted: {t.planted_on}</div>}
+                      {t.notes && <div className="text-foreground/80 mt-1">{t.notes}</div>}
+                    </div>
+                    <div className="flex gap-1 pt-1">
+                      <Button size="sm" variant="ghost" onClick={() => openEdit(t)}>
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button size="sm" variant="ghost" className="text-destructive" onClick={() => deleteM.mutate(t.id)}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        );
+      })()}
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
