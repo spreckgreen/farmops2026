@@ -1,11 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { getFoodOverview, getFoodYieldProgress } from "@/lib/food.functions";
 import { fmtUsd } from "@/lib/currency";
 import { format } from "date-fns";
 import { ChevronDown, ChevronRight } from "lucide-react";
+import { FOOD_CATEGORIES } from "@/lib/food-categories";
 
 export const Route = createFileRoute("/food/")({
   component: FoodOverviewPage,
