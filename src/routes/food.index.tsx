@@ -296,6 +296,14 @@ function FoodItemRow({ item }: { item: Category["items"][number] }) {
               {item.actual_gap_pounds > 0 && (
                 <> · <span className="text-destructive">actual gap {fmtLbs(item.actual_gap_pounds)} lbs{item.price_per_lb > 0 && <> / {fmtUsd(item.actual_gap_value)}</>}</span></>
               )}
+              {item.storage_pounds > 0 && (
+                <> · <span className="text-sky-500">storage {fmtLbs(item.storage_pounds)} lbs</span></>
+              )}
+              {item.actual_gap_pounds > 0 && (
+                <> · <span className={item.mitigated_gap_pounds > 0 ? "text-destructive" : "text-emerald-500"}>
+                  net gap {fmtLbs(item.mitigated_gap_pounds)} lbs{item.price_per_lb > 0 && <> / {fmtUsd(item.mitigated_gap_value)}</>}
+                </span></>
+              )}
             </span>
           </div>
           <div className="mt-1.5">
