@@ -148,9 +148,11 @@ export function DailyNotePreview({ markdown, tasks, compact = false }: Props) {
             .map((t) => (tasksBySlug.get(t.slug)?.title ?? t.slug).trim().toLowerCase())
             .filter(Boolean),
         );
-        const displayTokens = tokens.filter(
-          (t) => !(t.kind === "text" && refTitles.has(t.text.trim().toLowerCase())),
-        );
+        const displayTokens = tokens.filter((t) => {
+          if (t.kind === "text" && refTitles.has(t.text.trim().toLowerCase())) return false;
+          if (compact && (t.kind === "project" || t.kind === "start" || t.kind === "progress")) return false;
+          return true;
+        });
 
         // Build the rendered row.
         return (
