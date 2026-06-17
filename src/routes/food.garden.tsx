@@ -3,7 +3,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Sprout, Loader2, Upload } from "lucide-react";
+import { Sprout, Loader2, Upload, Printer } from "lucide-react";
+import { openPrintWindow, escapeHtml } from "@/lib/print";
 import Papa from "papaparse";
 import {
   listGardenPlots,
@@ -154,6 +155,29 @@ function GardenPage() {
     });
   }
 
+  function printGarden() {
+    const positions = Array.from({ length: DEFAULT_POSITIONS }, (_, i) => i + 1);
+    const head = `<tr><th></th>${positions.map((p) => `<th>P${String(p).padStart(2, "0")}</th>`).join("")}</tr>`;
+    const body = grid.rows
+      .map((row) => {
+        const cells = positions
+          .map((pos) => {
+            const plot = grid.map.get(`${row}_${pos}`);
+            if (!plot?.plant_name) return `<td class="empty">·</td>`;
+            return `<td class="filled">${escapeHtml(plot.plant_name)}</td>`;
+          })
+          .join("");
+        return `<tr><td class="row-label">${escapeHtml(row)}</td>${cells}</tr>`;
+      })
+      .join("");
+    const filled = plots.filter((p) => p.plant_name).length;
+    openPrintWindow(
+      "Garden Layout",
+      `<header><h1>Garden Layout</h1><div class="meta">${filled} plantings · printed ${new Date().toLocaleDateString()}</div></header>
+       <table class="grid"><thead>${head}</thead><tbody>${body}</tbody></table>`,
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-2">
@@ -162,6 +186,9 @@ function GardenPage() {
           <p className="text-sm text-muted-foreground">Click any cell to plan or update what's planted.</p>
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={printGarden} disabled={isLoading}>
+            <Printer className="h-4 w-4 mr-2" /> Print
+          </Button>
           <Label htmlFor="garden-csv" className="cursor-pointer">
             <span className="inline-flex items-center gap-2 border border-border rounded-md px-3 py-2 text-sm hover:bg-muted">
               {importM.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
