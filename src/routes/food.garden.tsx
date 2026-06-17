@@ -224,7 +224,7 @@ function GardenPage() {
 
       {dash && (
         <div className="space-y-3">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
             <DashStat label="Distinct plants" value={String(dash.summary.distinct_plants)} />
             <DashStat label="Total plants" value={String(dash.summary.total_plants)} />
             <DashStat
@@ -232,9 +232,14 @@ function GardenPage() {
               value={`${dash.summary.total_expected_yield_lbs.toFixed(0)} lbs`}
             />
             <DashStat
+              label="Yield value"
+              value={fmtUsd(dash.summary.total_expected_yield_value)}
+            />
+            <DashStat
               label="Plan need / season"
               value={`${dash.summary.total_needed_lbs.toFixed(0)} lbs`}
             />
+            <DashStat label="Gap value" value={fmtUsd(dash.summary.total_gap_value)} />
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
@@ -252,6 +257,8 @@ function GardenPage() {
                       <th className="text-right px-3 py-1.5 font-normal">Count</th>
                       <th className="text-right px-3 py-1.5 font-normal">lbs/plant</th>
                       <th className="text-right px-3 py-1.5 font-normal">Est. lbs</th>
+                      <th className="text-right px-3 py-1.5 font-normal">$/lb</th>
+                      <th className="text-right px-3 py-1.5 font-normal">Value</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -266,6 +273,12 @@ function GardenPage() {
                           </td>
                           <td className="px-3 py-1.5 text-right font-mono">
                             {p.expected_yield_lbs.toFixed(1)}
+                          </td>
+                          <td className="px-3 py-1.5 text-right font-mono text-muted-foreground">
+                            {p.price_per_lb > 0 ? fmtUsd(p.price_per_lb) : "—"}
+                          </td>
+                          <td className="px-3 py-1.5 text-right font-mono">
+                            {p.price_per_lb > 0 ? fmtUsd(p.expected_yield_value) : "—"}
                           </td>
                         </tr>
                       ))}
@@ -292,6 +305,7 @@ function GardenPage() {
                       <th className="text-right px-3 py-1.5 font-normal">Have</th>
                       <th className="text-right px-3 py-1.5 font-normal">Need plants</th>
                       <th className="text-right px-3 py-1.5 font-normal text-destructive">Gap</th>
+                      <th className="text-right px-3 py-1.5 font-normal text-destructive">Gap $</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -307,6 +321,9 @@ function GardenPage() {
                         <td className="px-3 py-1.5 text-right font-mono">{p.plants_needed}</td>
                         <td className="px-3 py-1.5 text-right font-mono text-destructive">
                           +{p.gap_plants}
+                        </td>
+                        <td className="px-3 py-1.5 text-right font-mono text-destructive">
+                          {p.price_per_lb > 0 ? fmtUsd(p.gap_value) : "—"}
                         </td>
                       </tr>
                     ))}
