@@ -20,6 +20,7 @@ import {
   type SummaryRow,
 } from "@/lib/tiddlywiki-export";
 import { TiddlyWikiImportButton } from "@/components/tiddlywiki-import-button";
+import { CsvToolbar } from "@/components/csv-toolbar";
 import { renderSummaryFile } from "@/lib/obsidian-markdown";
 import {
   Dialog,
@@ -223,6 +224,26 @@ function ReportsPage() {
               <Eye className="h-4 w-4 mr-1.5" />
               Preview Markdown
             </Button>
+            <CsvToolbar
+              filename={`reports-${format(new Date(), "yyyyMMdd")}.csv`}
+              columns={[
+                { key: "mode", label: "mode" },
+                { key: "period_start", label: "period_start" },
+                { key: "period_end", label: "period_end" },
+                { key: "created_at", label: "created_at" },
+                { key: "summary", label: "summary" },
+              ]}
+              rows={(summariesQ.data ?? []).map((s) => {
+                const body = (s as { body?: SummaryShape }).body;
+                return {
+                  mode: s.mode,
+                  period_start: s.period_start ?? "",
+                  period_end: s.period_end ?? "",
+                  created_at: s.created_at ?? "",
+                  summary: body?.summary ?? "",
+                };
+              })}
+            />
             <TiddlyWikiImportButton kind="summaries" />
           </div>
         </div>
