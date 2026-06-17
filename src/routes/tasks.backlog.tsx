@@ -29,6 +29,7 @@ export const Route = createFileRoute("/tasks/backlog")({
 
 function BacklogPage() {
   const listFn = useServerFn(listBacklog);
+  const [showSlugs, toggleSlugs] = useShowTaskSlugs();
   const addFn = useServerFn(addTaskToToday);
   const listMaintFn = useServerFn(listDueMaintenance);
   const addMaintFn = useServerFn(addMaintenanceToToday);
