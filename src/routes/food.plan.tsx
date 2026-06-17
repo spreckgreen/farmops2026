@@ -334,11 +334,18 @@ function FoodPlanPage() {
       </div>
 
       <div className="flex justify-between items-center">
-        <Button size="sm" variant="outline" onClick={() => setFoodDialog(true)}>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => {
+            setEditingFood(null);
+            setFoodDialog(true);
+          }}
+        >
           <Plus className="h-3 w-3 mr-1" /> Add food
         </Button>
         <p className="text-xs text-muted-foreground">
-          Quantities are per day. Edit a cell to update. Weekly cost assumes quantity is in ounces.
+          Quantities are per day. Click the pencil to edit a food's category, season, price, or serving size.
         </p>
       </div>
 
