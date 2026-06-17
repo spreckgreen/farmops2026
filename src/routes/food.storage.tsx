@@ -779,7 +779,9 @@ function LongTermPlanPanel() {
             <ClipboardList className="h-4 w-4" /> Long term storage plan
           </h2>
           <p className="text-sm text-muted-foreground">
-            {(rows as PlanRow[]).length} foods · target {totals.target.toFixed(0)} lb · on hand {totals.onHand.toFixed(0)} lb · gap {totals.gap.toFixed(0)} lb
+            {(rows as PlanRow[]).length} foods · target {totals.target.toFixed(0)} lb ({fmtKcal(totals.targetKcal)})
+            {" · "}on hand {totals.onHand.toFixed(0)} lb ({fmtKcal(totals.onHandKcal)})
+            {" · "}gap {totals.gap.toFixed(0)} lb ({fmtKcal(totals.gapKcal)})
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -794,9 +796,9 @@ function LongTermPlanPanel() {
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-        <Stat label="Target lb" value={totals.target.toFixed(0)} />
-        <Stat label="On hand lb" value={totals.onHand.toFixed(0)} />
-        <Stat label="Gap lb" value={totals.gap.toFixed(0)} tone={totals.gap > 0 ? "red" : "green"} />
+        <Stat label="Target lb" value={totals.target.toFixed(0)} sub={fmtKcal(totals.targetKcal)} />
+        <Stat label="On hand lb" value={totals.onHand.toFixed(0)} sub={fmtKcal(totals.onHandKcal)} />
+        <Stat label="Gap lb" value={totals.gap.toFixed(0)} sub={fmtKcal(totals.gapKcal)} tone={totals.gap > 0 ? "red" : "green"} />
         <Stat label="Target cost" value={fmtUsd(totals.targetCost)} />
         <Stat label="Gap cost" value={fmtUsd(totals.gapCost)} tone={totals.gapCost > 0 ? "red" : "green"} />
       </div>
