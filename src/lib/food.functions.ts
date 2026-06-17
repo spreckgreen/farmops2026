@@ -410,9 +410,16 @@ export const getFoodYieldProgress = createServerFn({ method: "GET" })
       // in pounds is therefore weekly_ounces × 52 / 16.
       const weeklyOunces = planEntries.reduce((s, e) => s + e.quantity, 0);
       const expectedPounds = (weeklyOunces * 52) / 16;
-      const matched = harvestByName.get(normalizeName(f.name));
-      const actualPounds = matched?.pounds ?? 0;
-      const harvestEntries = (matched?.entries ?? []).map((h: any) => ({
+      // Match harvests by word-boundary name (symmetric with plantings/storage).
+      // A food row picks up every harvest whose crop name matches the food.
+      let actualPounds = 0;
+      const matchedHarvestEntries: any[] = [];
+      for (const [key, val] of harvestByName) {
+        if (!nameMatches(f.name, key)) continue;
+        actualPounds += val.pounds;
+        for (const h of val.entries as any[]) matchedHarvestEntries.push(h);
+      }
+      const harvestEntries = matchedHarvestEntries.map((h: any) => ({
         id: h.id,
         harvested_on: h.harvested_on,
         quantity: Number(h.quantity) || 0,
