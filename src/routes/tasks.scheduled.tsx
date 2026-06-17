@@ -50,6 +50,7 @@ function ReportsPage() {
   const tasksFn = useServerFn(listScheduledTasks);
   const [tag, setTag] = useState<string>(ALL);
   const [repeatFilter, setRepeatFilter] = useState<string>(REPEAT_ALL);
+  const [showSlugs, toggleSlugs] = useShowTaskSlugs();
 
   const tagsQ = useQuery({ queryKey: ["project-tags"], queryFn: () => tagsFn() });
   const tasksQ = useQuery({
