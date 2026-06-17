@@ -1008,8 +1008,12 @@ Rules:
 - Use the exact food name string from the list, do not rename.
 - price_per_pound is a plain number (e.g. 3.49), no currency symbol.
 - Omit items you have no reasonable Southern Ohio reference for; do not guess wildly.
-- Eggs: report price per dozen converted to per pound (1 dozen large eggs ≈ 1.5 lb).
+- Eggs: report price per dozen converted to per pound (1 dozen large eggs ≈ 1.5 lb; duck ≈ 2.25 lb/dozen; quail ≈ 0.75 lb/dozen).
 - Milk: report per gallon converted to per pound (1 gallon ≈ 8.6 lb).
+- Cream: report per pint converted to per pound (1 pint ≈ 1 lb).
+- Cheese, butter, yogurt, ghee, whey: report per pound directly (retail block / tub).
+- Meat (chicken, turkey, duck, goose, rabbit, beef, pork, lamb, mutton, goat, venison, bison, ham, bacon, sausage): report retail per pound.
+- Fiber (wool raw fleece, wool clean, mohair, cashmere, alpaca, llama, angora rabbit, horsehair): report wholesale/farmgate USD per pound of fiber as priced at Midwest/Ohio fiber mills and fleece auctions.
 
 ITEMS:
 ${itemsBlock}`;
