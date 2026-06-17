@@ -154,6 +154,7 @@ function PriceHistoryPage() {
           items: sorted,
           latest: sorted[0],
           category: sorted.find((e) => e.category)?.category ?? null,
+          unit: sorted.find((e) => e.unit)?.unit ?? null,
         };
       })
       .sort((a, b) => a.name.localeCompare(b.name));
