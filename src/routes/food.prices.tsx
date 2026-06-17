@@ -236,6 +236,25 @@ function PriceHistoryPage() {
           <Button
             variant="outline"
             size="sm"
+            onClick={() => {
+              const overwrite = confirm(
+                "Auto-classify food categories?\n\nOK = overwrite ALL recognizable items (recommended to fix wrong categories like 'Chicken' as a vegetable).\nCancel = fill only empty/Uncategorized items.",
+              );
+              classifyM.mutate(overwrite);
+            }}
+            disabled={classifyM.isPending || foods.length === 0}
+            title="Auto-assign categories on the source pricing table based on food name"
+          >
+            {classifyM.isPending ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Tags className="h-4 w-4 mr-2" />
+            )}
+            Auto-classify
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => refreshM.mutate()}
             disabled={refreshM.isPending || foods.length === 0}
             title="Refresh prices from Southern Ohio regional reference"
