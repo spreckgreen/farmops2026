@@ -2,7 +2,7 @@
   "rows": ["Row01","Row02","Row03","Row04","Row05","Row06","Row07","Row08"],
   "positions": 16,
   "plants": {
-    "Row01": ["Pepper","Pepper","Pepper","Pepper","Tomatoes","Tomatoes","Tomatoes","Tomatoes","Tomatoes","Tomatoes","Tomatoes","Tomatoes",null,null,null,null],
+    "Row01": ["Peppers","Peppers","Peppers","Peppers","Tomatoes","Tomatoes","Tomatoes","Tomatoes","Tomatoes","Tomatoes","Tomatoes","Tomatoes",null,null,null,null],
     "Row02": ["Cucumbers","Cucumbers","Cucumbers","Cabbage","Cabbage","Cabbage","Cabbage","Cabbage","Cabbage","Cabbage","Cabbage","Cabbage","Cabbage","Cabbage",null,null],
     "Row03": ["Cucumber","Cucumber","Cucumber","Cucumber","Cucumber","Cucumber","Cucumber","Cucumber","Cucumber","Cucumber","Cucumber","Cucumber",null,null,null,null],
     "Row04": ["Summer Squash","Summer Squash","Summer Squash","Common Beans","Common Beans","Common Beans","Common Beans","Beets","Beets","Beets","Tomatoes","Tomatoes","Tomatoes",null,null,null],
