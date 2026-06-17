@@ -405,6 +405,8 @@ function PriceHistoryPage() {
                     <div className="text-lg font-mono font-semibold">{detail.name}</div>
                     <div className="text-xs text-muted-foreground mt-0.5">
                       Category: <span className="font-mono">{detail.category ?? "—"}</span>
+                      <span className="mx-2 opacity-50">·</span>
+                      Unit: <span className="font-mono">{detail.unit ?? "lb"}</span>
                     </div>
                   </div>
                   <Button size="sm" variant="outline" onClick={() => openAdd(detail.name)}>
