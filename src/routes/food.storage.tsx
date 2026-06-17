@@ -755,8 +755,8 @@ function LongTermPlanPanel() {
           </thead>
           <tbody>
             {grouped.map(([cat, items]) => (
-              <>
-                <tr key={`cat-${cat}`} className="bg-muted/20 border-t border-border">
+              <FragmentGroup key={`cat-${cat}`}>
+                <tr className="bg-muted/20 border-t border-border">
                   <td colSpan={9} className="px-2 py-1 text-[10px] uppercase tracking-wider text-muted-foreground">{cat}</td>
                 </tr>
                 {items.map((c) => (
