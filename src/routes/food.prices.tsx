@@ -462,6 +462,236 @@ function PriceHistoryPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <BulkCategoryDialog
+        open={bulkOpen}
+        onOpenChange={setBulkOpen}
+        foods={foods}
+        saving={bulkM.isPending}
+        onSave={(updates) => bulkM.mutate(updates)}
+      />
     </div>
+  );
+}
+
+const FOOD_CATEGORIES = [
+  "Vegetables",
+  "Orchard (fruit/nut)",
+  "Field crops",
+  "Animal protein",
+  "Dairy",
+  "Eggs",
+  "Fiber",
+  "Beverages",
+  "Pantry / staples",
+  "Other",
+];
+
+function BulkCategoryDialog({
+  open,
+  onOpenChange,
+  foods,
+  saving,
+  onSave,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  foods: Food[];
+  saving: boolean;
+  onSave: (updates: Array<{ id: string; category: string | null }>) => void;
+}) {
+  const [draft, setDraft] = useState<Record<string, string>>({});
+  const [filter, setFilter] = useState("");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkValue, setBulkValue] = useState<string>("");
+
+  // initialize draft when the dialog opens
+  useMemo(() => {
+    if (open) {
+      const next: Record<string, string> = {};
+      for (const f of foods) next[f.id] = f.category ?? "";
+      setDraft(next);
+      setSelected(new Set());
+      setBulkValue("");
+      setFilter("");
+    }
+  }, [open, foods]);
+
+  const filtered = useMemo(() => {
+    const q = filter.trim().toLowerCase();
+    const list = [...foods].sort((a, b) =>
+      (a.category ?? "~").localeCompare(b.category ?? "~") || a.name.localeCompare(b.name),
+    );
+    return q ? list.filter((f) => f.name.toLowerCase().includes(q) || (f.category ?? "").toLowerCase().includes(q)) : list;
+  }, [foods, filter]);
+
+  const toggleAll = (checked: boolean) => {
+    if (checked) setSelected(new Set(filtered.map((f) => f.id)));
+    else setSelected(new Set());
+  };
+  const toggleOne = (id: string, checked: boolean) => {
+    const next = new Set(selected);
+    if (checked) next.add(id); else next.delete(id);
+    setSelected(next);
+  };
+  const applyToSelected = () => {
+    if (!bulkValue || selected.size === 0) return;
+    const next = { ...draft };
+    const value = bulkValue === "__none" ? "" : bulkValue;
+    for (const id of selected) next[id] = value;
+    setDraft(next);
+  };
+  const save = () => {
+    const updates: Array<{ id: string; category: string | null }> = [];
+    for (const f of foods) {
+      const current = (f.category ?? "").trim();
+      const nextVal = (draft[f.id] ?? "").trim();
+      if (current !== nextVal) {
+        updates.push({ id: f.id, category: nextVal ? nextVal : null });
+      }
+    }
+    if (updates.length === 0) {
+      toast.info("No category changes to save");
+      return;
+    }
+    onSave(updates);
+  };
+
+  const changedCount = foods.reduce((n, f) => {
+    const current = (f.category ?? "").trim();
+    const nextVal = (draft[f.id] ?? "").trim();
+    return n + (current !== nextVal ? 1 : 0);
+  }, 0);
+
+  const allChecked = filtered.length > 0 && filtered.every((f) => selected.has(f.id));
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>Bulk edit categories</DialogTitle>
+          <DialogDescription>
+            Edit categories in the source pricing table. Changes apply to every
+            tab that groups by category (Plan, Overview, Yield dashboards).
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <Input
+            placeholder="Filter by name or category…"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            className="max-w-xs"
+          />
+          <div className="flex items-center gap-2 ml-auto">
+            <span className="text-xs text-muted-foreground">
+              {selected.size} selected
+            </span>
+            <Select value={bulkValue} onValueChange={setBulkValue}>
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="Set category to…" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none">— Uncategorized —</SelectItem>
+                {FOOD_CATEGORIES.map((c) => (
+                  <SelectItem key={c} value={c}>{c}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={applyToSelected}
+              disabled={!bulkValue || selected.size === 0}
+            >
+              Apply to selected
+            </Button>
+          </div>
+        </div>
+
+        <div className="border border-border rounded-md max-h-[55vh] overflow-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-card sticky top-0 z-10">
+              <tr className="text-left">
+                <th className="p-2 w-8">
+                  <input
+                    type="checkbox"
+                    checked={allChecked}
+                    onChange={(e) => toggleAll(e.target.checked)}
+                  />
+                </th>
+                <th className="p-2">Food</th>
+                <th className="p-2">Current</th>
+                <th className="p-2">New category</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((f) => {
+                const current = (f.category ?? "").trim();
+                const nextVal = (draft[f.id] ?? "").trim();
+                const changed = current !== nextVal;
+                return (
+                  <tr
+                    key={f.id}
+                    className={`border-t border-border ${changed ? "bg-accent/40" : ""}`}
+                  >
+                    <td className="p-2">
+                      <input
+                        type="checkbox"
+                        checked={selected.has(f.id)}
+                        onChange={(e) => toggleOne(f.id, e.target.checked)}
+                      />
+                    </td>
+                    <td className="p-2 font-medium">{f.name}</td>
+                    <td className="p-2 text-muted-foreground text-xs font-mono">
+                      {current || "—"}
+                    </td>
+                    <td className="p-2">
+                      <Select
+                        value={nextVal || "__none"}
+                        onValueChange={(v) =>
+                          setDraft({ ...draft, [f.id]: v === "__none" ? "" : v })
+                        }
+                      >
+                        <SelectTrigger className="h-8">
+                          <SelectValue placeholder="Uncategorized" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none">— Uncategorized —</SelectItem>
+                          {FOOD_CATEGORIES.map((c) => (
+                            <SelectItem key={c} value={c}>{c}</SelectItem>
+                          ))}
+                          {nextVal && !FOOD_CATEGORIES.includes(nextVal) && (
+                            <SelectItem value={nextVal}>{nextVal} (current)</SelectItem>
+                          )}
+                        </SelectContent>
+                      </Select>
+                    </td>
+                  </tr>
+                );
+              })}
+              {filtered.length === 0 && (
+                <tr>
+                  <td colSpan={4} className="p-4 text-center text-muted-foreground">
+                    No foods match this filter.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        <DialogFooter>
+          <span className="text-xs text-muted-foreground mr-auto">
+            {changedCount} pending change{changedCount === 1 ? "" : "s"}
+          </span>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button onClick={save} disabled={saving || changedCount === 0}>
+            {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+            Save {changedCount > 0 ? `(${changedCount})` : ""}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
