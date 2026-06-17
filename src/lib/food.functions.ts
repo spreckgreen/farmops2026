@@ -660,6 +660,7 @@ export const seedFoodPlanFromTemplate = createServerFn({ method: "POST" })
     const foodRows = seed.foods.map((f, i) => ({
       user_id: context.userId,
       name: f.name,
+      category: normalizeFoodCategory(null, classFallbackCategory(classifyFood(f.name))),
       season: f.season,
       freeze_dry: f.freeze_dry,
       price_per_pound: f.price_per_pound,
