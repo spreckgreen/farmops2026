@@ -97,6 +97,19 @@ function PriceHistoryPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const seedM = useMutation({
+    mutationFn: () => seedLivestock(),
+    onSuccess: (r) => {
+      qc.invalidateQueries({ queryKey: ["food-plan"] });
+      toast.success(
+        r.inserted
+          ? `Added ${r.inserted} livestock items (${r.skipped} already present). Run Refresh to price them.`
+          : "All livestock items already in catalog.",
+      );
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const byFood = useMemo(() => {
     const groups = new Map<string, Entry[]>();
     (entries as Entry[]).forEach((e) => {
