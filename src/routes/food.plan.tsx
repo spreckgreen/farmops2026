@@ -454,7 +454,7 @@ function FoodEditDialog({
   const [freezeDry, setFreezeDry] = useState(false);
 
   // reset whenever dialog opens
-  useMemo(() => {
+  useEffect(() => {
     if (open) {
       setName(food?.name ?? "");
       setCategory(food?.category ?? "");
