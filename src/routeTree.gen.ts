@@ -27,6 +27,7 @@ import { Route as TasksSlugRouteImport } from './routes/tasks.$slug'
 import { Route as NotesDateRouteImport } from './routes/notes.$date'
 import { Route as FoodStorageRouteImport } from './routes/food.storage'
 import { Route as FoodProcessingRouteImport } from './routes/food.processing'
+import { Route as FoodPricesRouteImport } from './routes/food.prices'
 import { Route as FoodPlanRouteImport } from './routes/food.plan'
 import { Route as FoodOrchardRouteImport } from './routes/food.orchard'
 import { Route as FoodLivestockRouteImport } from './routes/food.livestock'
@@ -124,6 +125,11 @@ const FoodProcessingRoute = FoodProcessingRouteImport.update({
   path: '/processing',
   getParentRoute: () => FoodRoute,
 } as any)
+const FoodPricesRoute = FoodPricesRouteImport.update({
+  id: '/prices',
+  path: '/prices',
+  getParentRoute: () => FoodRoute,
+} as any)
 const FoodPlanRoute = FoodPlanRouteImport.update({
   id: '/plan',
   path: '/plan',
@@ -172,6 +178,7 @@ export interface FileRoutesByFullPath {
   '/food/livestock': typeof FoodLivestockRoute
   '/food/orchard': typeof FoodOrchardRoute
   '/food/plan': typeof FoodPlanRoute
+  '/food/prices': typeof FoodPricesRoute
   '/food/processing': typeof FoodProcessingRoute
   '/food/storage': typeof FoodStorageRoute
   '/notes/$date': typeof NotesDateRoute
@@ -197,6 +204,7 @@ export interface FileRoutesByTo {
   '/food/livestock': typeof FoodLivestockRoute
   '/food/orchard': typeof FoodOrchardRoute
   '/food/plan': typeof FoodPlanRoute
+  '/food/prices': typeof FoodPricesRoute
   '/food/processing': typeof FoodProcessingRoute
   '/food/storage': typeof FoodStorageRoute
   '/notes/$date': typeof NotesDateRoute
@@ -224,6 +232,7 @@ export interface FileRoutesById {
   '/food/livestock': typeof FoodLivestockRoute
   '/food/orchard': typeof FoodOrchardRoute
   '/food/plan': typeof FoodPlanRoute
+  '/food/prices': typeof FoodPricesRoute
   '/food/processing': typeof FoodProcessingRoute
   '/food/storage': typeof FoodStorageRoute
   '/notes/$date': typeof NotesDateRoute
@@ -252,6 +261,7 @@ export interface FileRouteTypes {
     | '/food/livestock'
     | '/food/orchard'
     | '/food/plan'
+    | '/food/prices'
     | '/food/processing'
     | '/food/storage'
     | '/notes/$date'
@@ -277,6 +287,7 @@ export interface FileRouteTypes {
     | '/food/livestock'
     | '/food/orchard'
     | '/food/plan'
+    | '/food/prices'
     | '/food/processing'
     | '/food/storage'
     | '/notes/$date'
@@ -303,6 +314,7 @@ export interface FileRouteTypes {
     | '/food/livestock'
     | '/food/orchard'
     | '/food/plan'
+    | '/food/prices'
     | '/food/processing'
     | '/food/storage'
     | '/notes/$date'
@@ -460,6 +472,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof FoodProcessingRouteImport
       parentRoute: typeof FoodRoute
     }
+    '/food/prices': {
+      id: '/food/prices'
+      path: '/prices'
+      fullPath: '/food/prices'
+      preLoaderRoute: typeof FoodPricesRouteImport
+      parentRoute: typeof FoodRoute
+    }
     '/food/plan': {
       id: '/food/plan'
       path: '/plan'
@@ -511,6 +530,7 @@ interface FoodRouteChildren {
   FoodLivestockRoute: typeof FoodLivestockRoute
   FoodOrchardRoute: typeof FoodOrchardRoute
   FoodPlanRoute: typeof FoodPlanRoute
+  FoodPricesRoute: typeof FoodPricesRoute
   FoodProcessingRoute: typeof FoodProcessingRoute
   FoodStorageRoute: typeof FoodStorageRoute
   FoodIndexRoute: typeof FoodIndexRoute
@@ -522,6 +542,7 @@ const FoodRouteChildren: FoodRouteChildren = {
   FoodLivestockRoute: FoodLivestockRoute,
   FoodOrchardRoute: FoodOrchardRoute,
   FoodPlanRoute: FoodPlanRoute,
+  FoodPricesRoute: FoodPricesRoute,
   FoodProcessingRoute: FoodProcessingRoute,
   FoodStorageRoute: FoodStorageRoute,
   FoodIndexRoute: FoodIndexRoute,
