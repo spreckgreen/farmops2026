@@ -1,0 +1,842 @@
+[
+  {
+    "name": "Apples",
+    "kind": "Fruit",
+    "season": "Late Summer->Fall",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Apricots",
+    "kind": "Fruit",
+    "season": "Late Spring->Summer",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Artichokes",
+    "kind": "Vegitable",
+    "season": "Spring",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Artichokes",
+    "kind": "Vegitable",
+    "season": "Winter",
+    "lead": "",
+    "notes": "early fall"
+  },
+  {
+    "name": "Arugula",
+    "kind": "Vegitable",
+    "season": "All Year",
+    "lead": "",
+    "notes": "best in spring and fall"
+  },
+  {
+    "name": "Asparagus",
+    "kind": "Vegitable",
+    "season": "Spring",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Avocados",
+    "kind": "Vegitable",
+    "season": "All Year",
+    "lead": "",
+    "notes": "classically summer"
+  },
+  {
+    "name": "Banana",
+    "kind": "Fruit",
+    "season": "All Year",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Basil",
+    "kind": "Vegitable",
+    "season": "Summer",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Beets",
+    "kind": "Vegitable",
+    "season": "All Year",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Belgian Endive",
+    "kind": "Vegitable",
+    "season": "All Year",
+    "lead": "",
+    "notes": "best in fall and winter"
+  },
+  {
+    "name": "Blackberries",
+    "kind": "Fruit",
+    "season": "Summer",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Blueberries",
+    "kind": "Fruit",
+    "season": "Summer",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Bok Choy",
+    "kind": "Vegitable",
+    "season": "Fall->Spring",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Boysenberries",
+    "kind": "Fruit",
+    "season": "Summer",
+    "lead": "",
+    "notes": "early summer"
+  },
+  {
+    "name": "Broccoli",
+    "kind": "Vegitable",
+    "season": "All Year",
+    "lead": "",
+    "notes": "best in fall and winter"
+  },
+  {
+    "name": "Broccoli Raab (Rapini)",
+    "kind": "Vegitable",
+    "season": "Fall->Spring",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Brussels Sprouts, late fall into winter",
+    "kind": "Vegitable",
+    "season": "Fall, Winter",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Butternut Squash",
+    "kind": "Vegitable",
+    "season": "Fall, Winter",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Cabbage",
+    "kind": "Vegitable",
+    "season": "All Year",
+    "lead": "",
+    "notes": "best in fall and winter"
+  },
+  {
+    "name": "Cantaloupes",
+    "kind": "Fruit",
+    "season": "Summer",
+    "lead": "",
+    "notes": "late summer"
+  },
+  {
+    "name": "Cardoons",
+    "kind": "Vegitable",
+    "season": "Winter->Spring",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Carrots",
+    "kind": "Vegitable",
+    "season": "All Year",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Cauliflower",
+    "kind": "Vegitable",
+    "season": "All Year",
+    "lead": "",
+    "notes": "best in fall and winter"
+  },
+  {
+    "name": "Celeriac/Celery Root",
+    "kind": "Vegitable",
+    "season": "Fall, Winter",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Celery",
+    "kind": "Vegitable",
+    "season": "All Year",
+    "lead": "",
+    "notes": "best in fall and winter"
+  },
+  {
+    "name": "Chard (Swiss, Red, Rainbow)",
+    "kind": "Vegitable",
+    "season": "Late Summer->Fall",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Cherries",
+    "kind": "Fruit",
+    "season": "Late Spring->Summer",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Chickpeas (Garbanzo Beans)",
+    "kind": "Vegitable",
+    "season": "Summer",
+    "lead": "",
+    "notes": "fresh in summer and dried year-round"
+  },
+  {
+    "name": "Chicories",
+    "kind": "Vegitable",
+    "season": "Fall, Winter",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Chile Peppers",
+    "kind": "Vegitable",
+    "season": "Summer",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Cilantro",
+    "kind": "Vegitable",
+    "season": "Fall->Spring",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Collard Greens",
+    "kind": "Vegitable",
+    "season": "All Year",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Corn",
+    "kind": "Vegitable",
+    "season": "Summer",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Cranberries",
+    "kind": "Fruit",
+    "season": "Winter",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Cucumber",
+    "kind": "Vegitable",
+    "season": "Summer",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Delicata Squash",
+    "kind": "Vegitable",
+    "season": "Fall, Winter",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Edamame",
+    "kind": "Vegitable",
+    "season": "Winter",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Eggplant",
+    "kind": "Vegitable",
+    "season": "Late Summer->Fall",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Escarole",
+    "kind": "Vegitable",
+    "season": "Fall, Winter",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Fava Beans",
+    "kind": "Vegitable",
+    "season": "Spring",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Fennel",
+    "kind": "Vegitable",
+    "season": "Fall->Spring",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Fiddleheads",
+    "kind": "Vegitable",
+    "season": "Spring",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Figs",
+    "kind": "Vegitable",
+    "season": "Late Summer->Fall",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Garlic Scapes (Green Garlic)",
+    "kind": "Vegitable",
+    "season": "Spring",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Garlic stored year-round",
+    "kind": "Vegitable",
+    "season": "Late Summer->Fall",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Gooseberries",
+    "kind": "Fruit",
+    "season": "Summer",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Grapefruit",
+    "kind": "Fruit",
+    "season": "Winter->Spring",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Grapes",
+    "kind": "Fruit",
+    "season": "Late Summer->Fall",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Green Beans",
+    "kind": "Vegitable",
+    "season": "Late Summer->Fall",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Green Onions (Scallions)",
+    "kind": "Vegitable",
+    "season": "Spring->Fall",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Herbs, most varieties",
+    "kind": "Vegitable",
+    "season": "All Year",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Horseradish",
+    "kind": "Vegitable",
+    "season": "Fall, Winter",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Huckleberries",
+    "kind": "Fruit",
+    "season": "Late Summer->Fall",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Kale, available year-round",
+    "kind": "Vegitable",
+    "season": "Fall, Winter",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Kiwis",
+    "kind": "Fruit",
+    "season": "Winter->Spring",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Kohlrabi",
+    "kind": "Vegitable",
+    "season": "Fall->Spring",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Kumquats",
+    "kind": "Fruit",
+    "season": "Winter->Spring",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Leeks",
+    "kind": "Vegitable",
+    "season": "Fall->Spring",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Lemongrass",
+    "kind": "Vegitable",
+    "season": "Late Summer->Fall",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Lemons",
+    "kind": "Fruit",
+    "season": "Winter->Spring",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Lettuce",
+    "kind": "Vegitable",
+    "season": "All Year",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Limes",
+    "kind": "Fruit",
+    "season": "Late Summer->Fall",
+    "lead": "",
+    "notes": "best in spring"
+  },
+  {
+    "name": "Mango",
+    "kind": "Fruit",
+    "season": "Summer",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Marionberries",
+    "kind": "Fruit",
+    "season": "Summer",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Melons",
+    "kind": "Fruit",
+    "season": "Late Summer->Fall",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Mint",
+    "kind": "Vegitable",
+    "season": "All Year",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Morels",
+    "kind": "Vegitable",
+    "season": "Spring",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Mushrooms",
+    "kind": "Vegitable",
+    "season": "All Year",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Mushrooms, wild",
+    "kind": "Vegitable",
+    "season": "Spring->Fall",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Navel Oranges",
+    "kind": "Fruit",
+    "season": "Winter->Spring",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Nettles",
+    "kind": "Vegitable",
+    "season": "Spring",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "New Potatoes",
+    "kind": "Vegitable",
+    "season": "Late Spring->Summer",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Okra",
+    "kind": "Vegitable",
+    "season": "Late Summer->Fall",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Onions",
+    "kind": "Vegitable",
+    "season": "Spring->Fall",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Oregano",
+    "kind": "Vegitable",
+    "season": "All Year",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Parsley",
+    "kind": "Vegitable",
+    "season": "All Year",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Parsnips",
+    "kind": "Vegitable",
+    "season": "Fall->Spring",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Pea Greens",
+    "kind": "Vegitable",
+    "season": "Spring",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Peaches",
+    "kind": "Fruit",
+    "season": "Summer",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Pears",
+    "kind": "Fruit",
+    "season": "Winter",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Peas and Pea Pods",
+    "kind": "Vegitable",
+    "season": "Late Spring->Summer",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Persimmons",
+    "kind": "Fruit",
+    "season": "Fall, Winter",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Plums and Pluots",
+    "kind": "Fruit",
+    "season": "Summer",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Pomegranates",
+    "kind": "Fruit",
+    "season": "Fall, Winter",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Potatoes",
+    "kind": "Vegitable",
+    "season": "Late Summer->Fall",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Pumpkins",
+    "kind": "Vegitable",
+    "season": "Winter",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Quinces",
+    "kind": "Vegitable",
+    "season": "Winter",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Radicchio",
+    "kind": "Vegitable",
+    "season": "Late Spring->Summer",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Radishes",
+    "kind": "Vegitable",
+    "season": "Spring->Fall",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Radishes, daikon, watermelon, other large varieties",
+    "kind": "Vegitable",
+    "season": "Fall, Winter",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Raspberries",
+    "kind": "Fruit",
+    "season": "Summer",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Rhubarb",
+    "kind": "Vegitable",
+    "season": "Late Spring->Summer",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Rosemary",
+    "kind": "Vegitable",
+    "season": "All Year",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Rutabagas",
+    "kind": "Vegitable",
+    "season": "Fall, Winter",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Sage",
+    "kind": "Vegitable",
+    "season": "All Year",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Salsify",
+    "kind": "Vegitable",
+    "season": "Fall, Winter",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Shallots, available from storage through winter",
+    "kind": "Vegitable",
+    "season": "Late Summer->Fall",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Shelling Beans",
+    "kind": "Vegitable",
+    "season": "Late Summer->Fall",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Snap Peas, Snow Peas, and Pea Pods",
+    "kind": "Vegitable",
+    "season": "Spring",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Sorrel",
+    "kind": "Vegitable",
+    "season": "All Year",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Spinach",
+    "kind": "Vegitable",
+    "season": "All Year",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Spring Onions",
+    "kind": "Vegitable",
+    "season": "Late Spring->Summer",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Sprouts",
+    "kind": "Vegitable",
+    "season": "All Year",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Stinging Nettles",
+    "kind": "Vegitable",
+    "season": "Spring",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Strawberries",
+    "kind": "Fruit",
+    "season": "Late Spring->Summer",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Summer Squash",
+    "kind": "Vegitable",
+    "season": "Summer",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Sunchokes (Jerusalem Artichokes)",
+    "kind": "Vegitable",
+    "season": "Fall, Winter",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Sweet Onions",
+    "kind": "Vegitable",
+    "season": "Late Spring->Summer",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Sweet Peppers",
+    "kind": "Vegitable",
+    "season": "Late Summer->Fall",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Sweet Potatoes",
+    "kind": "Vegitable",
+    "season": "Fall, Winter",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Thyme",
+    "kind": "Vegitable",
+    "season": "All Year",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Tomatillos",
+    "kind": "Vegitable",
+    "season": "Late Summer->Fall",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Tomatoes",
+    "kind": "Vegitable",
+    "season": "Summer",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Turnips",
+    "kind": "Vegitable",
+    "season": "Fall->Spring",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Valencia Oranges",
+    "kind": "Vegitable",
+    "season": "Late Spring->Summer",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Watercress",
+    "kind": "Vegitable",
+    "season": "All Year",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Watermelons",
+    "kind": "Fruit",
+    "season": "Summer",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Winter Squash",
+    "kind": "Vegitable",
+    "season": "Fall, Winter",
+    "lead": "",
+    "notes": ""
+  },
+  {
+    "name": "Zuccini",
+    "kind": "Vegitable",
+    "season": "Summer",
+    "lead": "",
+    "notes": ""
+  }
+]
