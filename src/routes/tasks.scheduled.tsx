@@ -78,6 +78,14 @@ function ReportsPage() {
             </p>
           </div>
           <div className="flex items-end gap-2">
+            <button
+              type="button"
+              onClick={toggleSlugs}
+              className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground hover:text-foreground border border-border rounded px-2 py-1 self-end"
+              title="Debug: show or hide the #task-slug under each title"
+            >
+              slugs · {showSlugs ? "on" : "off"}
+            </button>
             <div className="w-64">
               <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1 block">
                 Project tag
