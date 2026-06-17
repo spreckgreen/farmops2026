@@ -59,9 +59,10 @@ function FoodOverviewPage() {
         sub-tabs above to drill in.
       </p>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <StatCard label="Garden plantings" value={data?.garden_plantings ?? 0} to="/food/garden" />
-        <StatCard label="Orchard trees" value={data?.orchard_trees ?? 0} to="/food/orchard" />
+        <StatCard label="Food forest" value={data?.food_forest_count ?? 0} to="/food/orchard" />
+        <StatCard label="Timber" value={data?.timber_count ?? 0} to="/food/orchard" />
         <StatCard label="Livestock" value={data?.livestock_count ?? 0} to="/food/livestock" />
         <StatCard label="Recent harvests" value={data?.recent_harvests?.length ?? 0} to="/food/crops" />
       </div>
