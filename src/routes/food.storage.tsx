@@ -16,6 +16,7 @@ import {
   seedFoodStoragePlanFromPlan,
 } from "@/lib/food.functions";
 import { fmtUsd } from "@/lib/currency";
+import { kcalFromLbs, fmtKcal } from "@/lib/calories";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -585,20 +586,28 @@ function LongTermPlanPanel() {
       const price = r.price_per_pound == null ? null : Number(r.price_per_pound);
       const targetCost = price != null ? targetLbs * price : null;
       const gapCost = price != null ? gapLbs * price : null;
-      return { row: r, targetLbs, onHand, gapLbs, targetCost, gapCost, price };
+      const targetKcal = kcalFromLbs(r.name, targetLbs);
+      const onHandKcal = kcalFromLbs(r.name, onHand);
+      const gapKcal = kcalFromLbs(r.name, gapLbs);
+      const ppYKcal = kcalFromLbs(r.name, ppY);
+      return { row: r, targetLbs, onHand, gapLbs, targetCost, gapCost, price, targetKcal, onHandKcal, gapKcal, ppYKcal };
     });
   }, [rows, onHandByName]);
 
   const totals = useMemo(() => {
     let target = 0, onHand = 0, gap = 0, targetCost = 0, gapCost = 0;
+    let targetKcal = 0, onHandKcal = 0, gapKcal = 0;
     for (const c of computed) {
       target += c.targetLbs;
       onHand += c.onHand;
       gap += c.gapLbs;
       if (c.targetCost) targetCost += c.targetCost;
       if (c.gapCost) gapCost += c.gapCost;
+      targetKcal += c.targetKcal;
+      onHandKcal += c.onHandKcal;
+      gapKcal += c.gapKcal;
     }
-    return { target, onHand, gap, targetCost, gapCost };
+    return { target, onHand, gap, targetCost, gapCost, targetKcal, onHandKcal, gapKcal };
   }, [computed]);
 
   const grouped = useMemo(() => {
@@ -770,7 +779,9 @@ function LongTermPlanPanel() {
             <ClipboardList className="h-4 w-4" /> Long term storage plan
           </h2>
           <p className="text-sm text-muted-foreground">
-            {(rows as PlanRow[]).length} foods · target {totals.target.toFixed(0)} lb · on hand {totals.onHand.toFixed(0)} lb · gap {totals.gap.toFixed(0)} lb
+            {(rows as PlanRow[]).length} foods · target {totals.target.toFixed(0)} lb ({fmtKcal(totals.targetKcal)})
+            {" · "}on hand {totals.onHand.toFixed(0)} lb ({fmtKcal(totals.onHandKcal)})
+            {" · "}gap {totals.gap.toFixed(0)} lb ({fmtKcal(totals.gapKcal)})
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -785,9 +796,9 @@ function LongTermPlanPanel() {
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-        <Stat label="Target lb" value={totals.target.toFixed(0)} />
-        <Stat label="On hand lb" value={totals.onHand.toFixed(0)} />
-        <Stat label="Gap lb" value={totals.gap.toFixed(0)} tone={totals.gap > 0 ? "red" : "green"} />
+        <Stat label="Target lb" value={totals.target.toFixed(0)} sub={fmtKcal(totals.targetKcal)} />
+        <Stat label="On hand lb" value={totals.onHand.toFixed(0)} sub={fmtKcal(totals.onHandKcal)} />
+        <Stat label="Gap lb" value={totals.gap.toFixed(0)} sub={fmtKcal(totals.gapKcal)} tone={totals.gap > 0 ? "red" : "green"} />
         <Stat label="Target cost" value={fmtUsd(totals.targetCost)} />
         <Stat label="Gap cost" value={fmtUsd(totals.gapCost)} tone={totals.gapCost > 0 ? "red" : "green"} />
       </div>
@@ -841,10 +852,17 @@ function LongTermPlanPanel() {
                         }}
                       />
                     </td>
-                    <td className="px-2 py-1 text-right">{c.targetLbs.toFixed(1)}</td>
-                    <td className="px-2 py-1 text-right text-muted-foreground">{c.onHand.toFixed(1)}</td>
+                    <td className="px-2 py-1 text-right">
+                      <div>{c.targetLbs.toFixed(1)}</div>
+                      <div className="text-[10px] text-muted-foreground">{fmtKcal(c.targetKcal)}</div>
+                    </td>
+                    <td className="px-2 py-1 text-right text-muted-foreground">
+                      <div>{c.onHand.toFixed(1)}</div>
+                      <div className="text-[10px]">{fmtKcal(c.onHandKcal)}</div>
+                    </td>
                     <td className={`px-2 py-1 text-right ${c.gapLbs > 0 ? "text-rose-400" : "text-emerald-400"}`}>
-                      {c.gapLbs.toFixed(1)}
+                      <div>{c.gapLbs.toFixed(1)}</div>
+                      <div className="text-[10px] opacity-80">{fmtKcal(c.gapKcal)}</div>
                     </td>
                     <td className="p-0 text-right">
                       <input
@@ -892,12 +910,13 @@ function LongTermPlanPanel() {
   );
 }
 
-function Stat({ label, value, tone }: { label: string; value: string; tone?: "red" | "green" }) {
+function Stat({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone?: "red" | "green" }) {
   const toneCls = tone === "red" ? "text-rose-400" : tone === "green" ? "text-emerald-400" : "";
   return (
     <div className="border border-border rounded-md p-3">
       <div className="text-[10px] uppercase text-muted-foreground tracking-wider font-mono">{label}</div>
       <div className={`text-lg font-mono font-bold mt-0.5 ${toneCls}`}>{value}</div>
+      {sub && <div className="text-[10px] text-muted-foreground font-mono mt-0.5">{sub}</div>}
     </div>
   );
 }

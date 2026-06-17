@@ -4,6 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useMemo, useState } from "react";
 import { getFoodOverview, getFoodYieldProgress } from "@/lib/food.functions";
 import { fmtUsd } from "@/lib/currency";
+import { kcalFromLbs, fmtKcal, DEFAULT_KCAL_PER_LB } from "@/lib/calories";
 import { format } from "date-fns";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { FOOD_CATEGORIES } from "@/lib/food-categories";
@@ -19,6 +20,17 @@ function fmtLbs(n: number): string {
   if (n >= 100) return n.toFixed(0);
   if (n >= 10) return n.toFixed(1);
   return n.toFixed(2);
+}
+
+function kcalTotal(lbs: number): string {
+  return fmtKcal((lbs || 0) * DEFAULT_KCAL_PER_LB);
+}
+
+function KcalSpan({ name, lbs }: { name?: string | null; lbs: number }) {
+  if (!lbs) return null;
+  return (
+    <span className="opacity-70"> ({fmtKcal(kcalFromLbs(name, lbs))})</span>
+  );
 }
 
 function FoodOverviewPage() {
@@ -104,13 +116,14 @@ function FoodOverviewPage() {
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3 mb-3">
-          <SummaryStat label="Plan need" value={`${fmtLbs(totals?.expected_pounds ?? 0)} lbs`} />
-          <SummaryStat label="Est. yield (planted)" value={`${fmtLbs(totals?.estimated_pounds ?? 0)} lbs`} />
-          <SummaryStat label="Harvested" value={`${fmtLbs(totals?.actual_pounds ?? 0)} lbs`} />
+          <SummaryStat label="Plan need" value={`${fmtLbs(totals?.expected_pounds ?? 0)} lbs`} kcal={kcalTotal(totals?.expected_pounds ?? 0)} />
+          <SummaryStat label="Est. yield (planted)" value={`${fmtLbs(totals?.estimated_pounds ?? 0)} lbs`} kcal={kcalTotal(totals?.estimated_pounds ?? 0)} />
+          <SummaryStat label="Harvested" value={`${fmtLbs(totals?.actual_pounds ?? 0)} lbs`} kcal={kcalTotal(totals?.actual_pounds ?? 0)} />
           <SummaryStat
             label="Planned gap"
             sublabel="need − planted"
             value={`${fmtLbs(totals?.planned_gap_pounds ?? 0)} lbs`}
+            kcal={kcalTotal(totals?.planned_gap_pounds ?? 0)}
             secondary={fmtUsd(totals?.planned_gap_value ?? 0)}
             accent
           />
@@ -118,6 +131,7 @@ function FoodOverviewPage() {
             label="Actual gap"
             sublabel="need − harvested"
             value={`${fmtLbs(totals?.actual_gap_pounds ?? 0)} lbs`}
+            kcal={kcalTotal(totals?.actual_gap_pounds ?? 0)}
             secondary={fmtUsd(totals?.actual_gap_value ?? 0)}
             accent
           />
@@ -125,11 +139,13 @@ function FoodOverviewPage() {
             label="Storage supplement"
             sublabel="pantry on hand"
             value={`${fmtLbs(totals?.storage_pounds ?? 0)} lbs`}
+            kcal={kcalTotal(totals?.storage_pounds ?? 0)}
           />
           <SummaryStat
             label="Net gap"
             sublabel="actual − storage"
             value={`${fmtLbs(totals?.mitigated_gap_pounds ?? 0)} lbs`}
+            kcal={kcalTotal(totals?.mitigated_gap_pounds ?? 0)}
             secondary={fmtUsd(totals?.mitigated_gap_value ?? 0)}
             accent
           />
@@ -237,19 +253,20 @@ function CategoryBlock({ cat }: { cat: Category }) {
             <span className="font-medium truncate">{cat.category}</span>
             <span className="text-xs font-mono text-muted-foreground shrink-0">
               need {fmtLbs(cat.expected_pounds)} · est {fmtLbs(cat.estimated_pounds)} · harv {fmtLbs(cat.actual_pounds)} lbs
+              <KcalSpan name={cat.category} lbs={cat.expected_pounds} />
               {cat.expected_pounds > 0 && <> · {pct}%</>}
               {cat.planned_gap_pounds > 0 && (
-                <> · <span className="text-amber-500">plan gap {fmtLbs(cat.planned_gap_pounds)} lbs / {fmtUsd(cat.planned_gap_value)}</span></>
+                <> · <span className="text-amber-500">plan gap {fmtLbs(cat.planned_gap_pounds)} lbs<KcalSpan name={cat.category} lbs={cat.planned_gap_pounds} /> / {fmtUsd(cat.planned_gap_value)}</span></>
               )}
               {cat.actual_gap_pounds > 0 && (
-                <> · <span className="text-destructive">actual gap {fmtLbs(cat.actual_gap_pounds)} lbs / {fmtUsd(cat.actual_gap_value)}</span></>
+                <> · <span className="text-destructive">actual gap {fmtLbs(cat.actual_gap_pounds)} lbs<KcalSpan name={cat.category} lbs={cat.actual_gap_pounds} /> / {fmtUsd(cat.actual_gap_value)}</span></>
               )}
               {cat.storage_pounds > 0 && (
-                <> · <span className="text-sky-500">storage {fmtLbs(cat.storage_pounds)} lbs</span></>
+                <> · <span className="text-sky-500">storage {fmtLbs(cat.storage_pounds)} lbs<KcalSpan name={cat.category} lbs={cat.storage_pounds} /></span></>
               )}
               {cat.actual_gap_pounds > 0 && (
                 <> · <span className={cat.mitigated_gap_pounds > 0 ? "text-destructive" : "text-emerald-500"}>
-                  net gap {fmtLbs(cat.mitigated_gap_pounds)} lbs / {fmtUsd(cat.mitigated_gap_value)}
+                  net gap {fmtLbs(cat.mitigated_gap_pounds)} lbs<KcalSpan name={cat.category} lbs={cat.mitigated_gap_pounds} /> / {fmtUsd(cat.mitigated_gap_value)}
                 </span></>
               )}
             </span>
@@ -290,18 +307,19 @@ function FoodItemRow({ item }: { item: Category["items"][number] }) {
             </span>
             <span className="text-xs font-mono text-muted-foreground shrink-0">
               need {fmtLbs(item.expected_pounds)} · est {fmtLbs(item.estimated_pounds)} · harv {fmtLbs(item.actual_pounds)} lbs
+              <KcalSpan name={item.name} lbs={item.expected_pounds} />
               {item.planned_gap_pounds > 0 && (
-                <> · <span className="text-amber-500">plan gap {fmtLbs(item.planned_gap_pounds)} lbs{item.price_per_lb > 0 && <> / {fmtUsd(item.planned_gap_value)}</>}</span></>
+                <> · <span className="text-amber-500">plan gap {fmtLbs(item.planned_gap_pounds)} lbs<KcalSpan name={item.name} lbs={item.planned_gap_pounds} />{item.price_per_lb > 0 && <> / {fmtUsd(item.planned_gap_value)}</>}</span></>
               )}
               {item.actual_gap_pounds > 0 && (
-                <> · <span className="text-destructive">actual gap {fmtLbs(item.actual_gap_pounds)} lbs{item.price_per_lb > 0 && <> / {fmtUsd(item.actual_gap_value)}</>}</span></>
+                <> · <span className="text-destructive">actual gap {fmtLbs(item.actual_gap_pounds)} lbs<KcalSpan name={item.name} lbs={item.actual_gap_pounds} />{item.price_per_lb > 0 && <> / {fmtUsd(item.actual_gap_value)}</>}</span></>
               )}
               {item.storage_pounds > 0 && (
-                <> · <span className="text-sky-500">storage {fmtLbs(item.storage_pounds)} lbs</span></>
+                <> · <span className="text-sky-500">storage {fmtLbs(item.storage_pounds)} lbs<KcalSpan name={item.name} lbs={item.storage_pounds} /></span></>
               )}
               {item.actual_gap_pounds > 0 && (
                 <> · <span className={item.mitigated_gap_pounds > 0 ? "text-destructive" : "text-emerald-500"}>
-                  net gap {fmtLbs(item.mitigated_gap_pounds)} lbs{item.price_per_lb > 0 && <> / {fmtUsd(item.mitigated_gap_value)}</>}
+                  net gap {fmtLbs(item.mitigated_gap_pounds)} lbs<KcalSpan name={item.name} lbs={item.mitigated_gap_pounds} />{item.price_per_lb > 0 && <> / {fmtUsd(item.mitigated_gap_value)}</>}
                 </span></>
               )}
             </span>
@@ -334,6 +352,7 @@ function FoodItemRow({ item }: { item: Category["items"][number] }) {
                     <span className="font-mono whitespace-nowrap">
                       {p.count} × {p.yield_per_unit_lbs.toFixed(1)} lbs ={" "}
                       <span className="text-foreground">{fmtLbs(p.estimated_pounds)} lbs</span>
+                      <KcalSpan name={item.name} lbs={p.estimated_pounds} />
                     </span>
                   </li>
                 ))}
@@ -376,7 +395,7 @@ function FoodItemRow({ item }: { item: Category["items"][number] }) {
                     </span>
                     <span>
                       {h.quantity} {h.unit}{" "}
-                      <span className="text-muted-foreground">({fmtLbs(h.pounds)} lbs)</span>
+                      <span className="text-muted-foreground">({fmtLbs(h.pounds)} lbs<KcalSpan name={item.name} lbs={h.pounds} />)</span>
                     </span>
                   </li>
                 ))}
@@ -393,12 +412,14 @@ function SummaryStat({
   label,
   sublabel,
   value,
+  kcal,
   secondary,
   accent,
 }: {
   label: string;
   sublabel?: string;
   value: string;
+  kcal?: string;
   secondary?: string;
   accent?: boolean;
 }) {
@@ -415,6 +436,9 @@ function SummaryStat({
       <div className={`text-xl font-mono font-semibold mt-1 ${accent ? "text-destructive" : ""}`}>
         {value}
       </div>
+      {kcal && (
+        <div className="text-[10px] font-mono text-muted-foreground mt-0.5">≈ {kcal}</div>
+      )}
       {secondary && (
         <div className="text-xs font-mono text-muted-foreground mt-0.5">{secondary}</div>
       )}
