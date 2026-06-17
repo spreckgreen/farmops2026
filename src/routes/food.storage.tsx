@@ -3,8 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Fragment as FragmentGroup, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Package, Loader2, Search, Boxes, ClipboardList, Sprout } from "lucide-react";
-import Papa from "papaparse";
+import { Plus, Pencil, Trash2, Package, Search, Boxes, ClipboardList, Sprout } from "lucide-react";
 import { CsvToolbar } from "@/components/csv-toolbar";
 import {
   listFoodStorage,
