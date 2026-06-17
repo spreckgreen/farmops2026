@@ -50,6 +50,21 @@ const PURPOSES = ["meat", "dairy", "eggs", "fiber", "breeding", "other"] as cons
 const STATUSES = ["active", "sold", "processed", "deceased"] as const;
 const YIELD_UNITS = ["lbs", "gal_milk", "dozen_eggs", "eggs", "other"] as const;
 
+type AnimalInput = {
+  species: string;
+  breed: string | null;
+  tag: string | null;
+  sex: string | null;
+  birth_date: string | null;
+  quantity: number;
+  purpose: (typeof PURPOSES)[number];
+  expected_yield_lbs: number | null;
+  yield_unit: (typeof YIELD_UNITS)[number];
+  status: (typeof STATUSES)[number];
+  location: string | null;
+  notes: string | null;
+};
+
 const STATUS_COLORS: Record<string, string> = {
   active: "bg-emerald-500/20 text-emerald-200 border-emerald-500/40",
   sold: "bg-sky-500/20 text-sky-200 border-sky-500/40",
