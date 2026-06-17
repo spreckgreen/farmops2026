@@ -156,33 +156,8 @@ function GardenPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  function handleImport(file: File) {
-    Papa.parse<Record<string, string>>(file, {
-      header: true,
-      skipEmptyLines: true,
-      complete: (res) => {
-        const plots: Array<{ row_label: string; position: number; plant_name: string; notes: string }> = [];
-        for (const row of res.data) {
-          const rowLabel = String(row.row_label ?? row.row ?? row.Row ?? "").trim();
-          const pos = parseInt(String(row.position ?? row.pos ?? row.Position ?? ""), 10);
-          const plant = String(row.plant_name ?? row.plant ?? row.Plant ?? "").trim();
-          if (!rowLabel || !Number.isFinite(pos) || !plant) continue;
-          plots.push({
-            row_label: rowLabel,
-            position: pos,
-            plant_name: plant,
-            notes: String(row.notes ?? "").trim(),
-          });
-        }
-        if (!plots.length) {
-          toast.error("No valid rows. Expect columns: row_label, position, plant_name, notes");
-          return;
-        }
-        importM.mutate(plots);
-      },
-      error: (err) => toast.error(`Parse error: ${err.message}`),
-    });
-  }
+
+
 
   function printGarden() {
     const positions = Array.from({ length: DEFAULT_POSITIONS }, (_, i) => i + 1);
