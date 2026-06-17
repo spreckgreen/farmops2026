@@ -368,23 +368,68 @@ function InventoryPanel() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Label htmlFor="storage-csv" className="cursor-pointer">
-            <span className="inline-flex items-center gap-2 border border-border rounded-md px-3 py-2 text-sm hover:bg-muted">
-              {importM.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-              Import CSV
-            </span>
-            <input
-              id="storage-csv"
-              type="file"
-              accept=".csv,text/csv"
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) handleImport(f);
-                e.currentTarget.value = "";
-              }}
-            />
-          </Label>
+          <CsvToolbar
+            filename="food-storage.csv"
+            columns={[
+              { key: "name", label: "name" },
+              { key: "description", label: "description" },
+              { key: "category", label: "category" },
+              { key: "food_type", label: "food_type" },
+              { key: "location", label: "location" },
+              { key: "quantity", label: "quantity" },
+              { key: "unit", label: "unit" },
+              { key: "acquired_on", label: "acquired_on" },
+              { key: "best_by", label: "best_by" },
+              { key: "status", label: "status" },
+              { key: "source_url", label: "source_url" },
+              { key: "price", label: "price" },
+              { key: "notes", label: "notes" },
+            ]}
+            rows={filtered.map((i) => ({
+              name: i.name,
+              description: i.description ?? "",
+              category: i.category ?? "",
+              food_type: i.food_type ?? "",
+              location: i.location ?? "",
+              quantity: i.quantity,
+              unit: i.unit,
+              acquired_on: i.acquired_on ?? "",
+              best_by: i.best_by ?? "",
+              status: i.status,
+              source_url: i.source_url ?? "",
+              price: i.price ?? "",
+              notes: i.notes ?? "",
+            }))}
+            onImport={(rows) => {
+              const items = rows
+                .map((row) => {
+                  const name = String(row.itemTitle ?? row.name ?? "").trim();
+                  if (!name) return null;
+                  return {
+                    name,
+                    description: String(row.itemDesc ?? row.description ?? "").trim() || null,
+                    category: String(row.itemCatTitle ?? row.category ?? "").trim() || null,
+                    food_type: String(row["Food Type"] ?? row.food_type ?? "").trim() || null,
+                    location: String(row.PackTitle ?? row.location ?? "").trim() || null,
+                    quantity: parseFloat(String(row.itemWeight ?? row.quantity ?? "0")) || 0,
+                    unit: String(row.unit ?? "lb").trim() || "lb",
+                    acquired_on: parseDate(String(row.itemAcquired ?? row.acquired_on ?? "")),
+                    best_by: parseDate(String(row.best_by ?? "")),
+                    status: "available",
+                    source_url: String(row.itemURL ?? row.source_url ?? "").trim() || null,
+                    price: row.itemPrice ? parseFloat(String(row.itemPrice)) || null : null,
+                    notes: String(row.notes ?? "").trim() || null,
+                  };
+                })
+                .filter(Boolean) as StorageImportItem[];
+              if (!items.length) {
+                toast.error("No valid rows. Required: itemTitle or name");
+                return;
+              }
+              importM.mutate(items);
+            }}
+            importing={importM.isPending}
+          />
           <Button onClick={openNew}>
             <Plus className="h-4 w-4 mr-2" /> Add item
           </Button>
