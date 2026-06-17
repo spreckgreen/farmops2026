@@ -157,7 +157,8 @@ function FoodPlanPage() {
   const [personDialog, setPersonDialog] = useState(false);
   const [personName, setPersonName] = useState("");
   const [foodDialog, setFoodDialog] = useState(false);
-  const [foodName, setFoodName] = useState("");
+  const [editingFood, setEditingFood] = useState<Food | null>(null);
+
 
   if (isLoading) return <div className="text-muted-foreground font-mono text-sm">Loading…</div>;
 
