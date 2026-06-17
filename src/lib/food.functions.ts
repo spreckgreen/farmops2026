@@ -845,7 +845,7 @@ export const getGardenDashboard = createServerFn({ method: "GET" })
         .select("plant_name")
         .not("plant_name", "is", null)
         .neq("plant_name", ""),
-      context.supabase.from("food_plan_foods").select("id, name, oz_per_serving"),
+      context.supabase.from("food_plan_foods").select("id, name, oz_per_serving, price_per_pound"),
       context.supabase.from("food_plan_entries").select("food_id, quantity"),
     ]);
     if (plots.error) throw new Error(plots.error.message);
@@ -875,8 +875,11 @@ export const getGardenDashboard = createServerFn({ method: "GET" })
     for (const e of entries.data ?? []) {
       weeklyByFood.set(e.food_id, (weeklyByFood.get(e.food_id) ?? 0) + (Number(e.quantity) || 0));
     }
+    const priceByName = new Map<string, number>();
     const neededByName = new Map<string, { needed_lbs: number; display: string }>();
     for (const f of foods.data ?? []) {
+      const price = Number(f.price_per_pound) || 0;
+      if (price > 0) priceByName.set(norm(f.name), price);
       const weekly = weeklyByFood.get(f.id) ?? 0;
       if (weekly === 0) continue;
       const oz = Number(f.oz_per_serving) || 0;
@@ -895,6 +898,8 @@ export const getGardenDashboard = createServerFn({ method: "GET" })
       const neededLbs = need?.needed_lbs ?? 0;
       const plantsNeeded = neededLbs > 0 ? Math.ceil(neededLbs / ypp) : 0;
       const gapPlants = Math.max(0, plantsNeeded - count);
+      const gapLbs = Math.max(0, neededLbs - expectedYield);
+      const pricePerLb = priceByName.get(k) ?? 0;
       return {
         key: k,
         name: c?.display || need?.display || k,
@@ -904,7 +909,10 @@ export const getGardenDashboard = createServerFn({ method: "GET" })
         needed_lbs: neededLbs,
         plants_needed: plantsNeeded,
         gap_plants: gapPlants,
-        gap_lbs: Math.max(0, neededLbs - expectedYield),
+        gap_lbs: gapLbs,
+        price_per_lb: pricePerLb,
+        expected_yield_value: expectedYield * pricePerLb,
+        gap_value: gapLbs * pricePerLb,
       };
     });
 
@@ -913,6 +921,8 @@ export const getGardenDashboard = createServerFn({ method: "GET" })
       distinct_plants: plants.filter((p) => p.count > 0).length,
       total_expected_yield_lbs: plants.reduce((s, p) => s + p.expected_yield_lbs, 0),
       total_needed_lbs: plants.reduce((s, p) => s + p.needed_lbs, 0),
+      total_expected_yield_value: plants.reduce((s, p) => s + p.expected_yield_value, 0),
+      total_gap_value: plants.reduce((s, p) => s + p.gap_value, 0),
     };
 
     return {
