@@ -1715,11 +1715,6 @@ export const addReorderToToday = createServerFn({ method: "POST" })
     }
 
     const refLine = buildTaskRefLine(task);
-    const current = note.markdown_content ?? "";
-    if (!current.includes(`#task/${task.slug}`)) {
-      const next = current.trim().length ? `${current.trimEnd()}\n${refLine}\n` : `${refLine}\n`;
-      await supabase.from("daily_notes").update({ markdown_content: next }).eq("id", note.id);
-    }
 
     const { data: existing } = await supabase
       .from("activity_log")
@@ -1728,7 +1723,15 @@ export const addReorderToToday = createServerFn({ method: "POST" })
       .eq("daily_note_id", note.id)
       .eq("task_id", task.id)
       .limit(1);
-    if (!existing || existing.length === 0) {
+    const alreadyOnToday = !!existing && existing.length > 0;
+
+    if (!alreadyOnToday) {
+      const current = note.markdown_content ?? "";
+      const next = appendTaskRefLine(current, refLine);
+      if (next !== current) {
+        await supabase.from("daily_notes").update({ markdown_content: next }).eq("id", note.id);
+      }
+
       await supabase.from("activity_log").insert({
         user_id: userId,
         task_id: task.id,
