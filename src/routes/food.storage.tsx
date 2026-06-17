@@ -615,7 +615,7 @@ function LongTermPlanPanel() {
       if (s.status !== "available") continue;
       if (s.unit !== "lb") continue;
       const key = normalizeName(s.name);
-      m.set(key, (m.get(key) ?? 0) + (Number(s.quantity) || 0));
+      m.set(key, (m.get(key) ?? 0) + reconstitutedLbs(Number(s.quantity) || 0, s.unit, s.category));
     }
     return m;
   }, [storage]);
