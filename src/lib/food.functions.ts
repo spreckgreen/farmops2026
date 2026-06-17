@@ -870,6 +870,111 @@ export const listPriceHistory = createServerFn({ method: "GET" })
     return data ?? [];
   });
 
+// Add/update a price for a food. The food_price_history trigger logs the change
+// automatically when food_plan_foods.price_per_pound is updated/inserted.
+export const recordFoodPrice = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({
+      food_id: z.string().uuid(),
+      new_price: z.union([z.number(), z.string()]).transform((v) => toNumber(v)),
+    }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase
+      .from("food_plan_foods")
+      .update({ price_per_pound: data.new_price })
+      .eq("id", data.food_id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+// Refresh prices from Southern Ohio regional reference pricing.
+// Uses Lovable AI gateway to estimate current retail $/lb based on the model's
+// knowledge of Southern Ohio (Cincinnati / Dayton / Columbus metro) grocery
+// and farmers' market pricing.
+export const refreshPricesSouthernOhio = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const apiKey = process.env.LOVABLE_API_KEY;
+    if (!apiKey) throw new Error("Missing LOVABLE_API_KEY");
+
+    const { data: foods, error } = await context.supabase
+      .from("food_plan_foods")
+      .select("id, name, category, unit, price_per_pound");
+    if (error) throw new Error(error.message);
+    const list = (foods ?? []) as Array<{
+      id: string; name: string; category: string | null; unit: string | null; price_per_pound: number | null;
+    }>;
+    if (list.length === 0) return { updated: 0, unchanged: 0, source: "Southern Ohio regional reference (USDA AMS + retail avg)" };
+
+    const { createLovableAiGatewayProvider } = await import("./ai-gateway.server");
+    const { generateText } = await import("ai");
+    const gateway = createLovableAiGatewayProvider(apiKey);
+
+    const itemsBlock = list
+      .map((f) => `- ${f.name}${f.category ? ` [${f.category}]` : ""}`)
+      .join("\n");
+
+    const prompt = `You are a USDA AMS market reporter. Return current retail reference prices in USD per pound for Southern Ohio (Cincinnati / Dayton / Columbus metro), averaging conventional grocery and regional farmers' markets as of the latest available data.
+
+Return ONLY a strict JSON object of the form:
+{"prices":[{"name":"<exact food name from list>","price_per_pound":<number>}]}
+
+Rules:
+- Use the exact food name string from the list, do not rename.
+- price_per_pound is a plain number (e.g. 3.49), no currency symbol.
+- Omit items you have no reasonable Southern Ohio reference for; do not guess wildly.
+- Eggs: report price per dozen converted to per pound (1 dozen large eggs ≈ 1.5 lb).
+- Milk: report per gallon converted to per pound (1 gallon ≈ 8.6 lb).
+
+ITEMS:
+${itemsBlock}`;
+
+    const { text } = await generateText({
+      model: gateway("google/gemini-2.5-flash"),
+      prompt,
+    });
+
+    // Extract JSON object from the model output.
+    let parsed: { prices?: Array<{ name: string; price_per_pound: number }> } = {};
+    const match = text.match(/\{[\s\S]*\}/);
+    if (match) {
+      try { parsed = JSON.parse(match[0]); } catch { /* ignore */ }
+    }
+    const prices = Array.isArray(parsed.prices) ? parsed.prices : [];
+    const byName = new Map<string, number>();
+    for (const p of prices) {
+      if (p && typeof p.name === "string" && Number.isFinite(Number(p.price_per_pound))) {
+        byName.set(p.name.trim().toLowerCase(), Number(p.price_per_pound));
+      }
+    }
+
+    let updated = 0;
+    let unchanged = 0;
+    for (const f of list) {
+      const next = byName.get(f.name.trim().toLowerCase());
+      if (next === undefined) { unchanged++; continue; }
+      const rounded = Math.round(next * 100) / 100;
+      if (f.price_per_pound != null && Math.abs(Number(f.price_per_pound) - rounded) < 0.005) {
+        unchanged++;
+        continue;
+      }
+      const { error: upErr } = await context.supabase
+        .from("food_plan_foods")
+        .update({ price_per_pound: rounded })
+        .eq("id", f.id);
+      if (!upErr) updated++;
+    }
+
+    return {
+      updated,
+      unchanged,
+      source: "Southern Ohio regional reference (Cincinnati / Dayton / Columbus retail + farmers' market avg)",
+    };
+  });
+
+
 // ----------------------------------------------------------------------
 // Bulk import
 // ----------------------------------------------------------------------
