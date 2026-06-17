@@ -2152,7 +2152,7 @@ export const upsertFoodStoragePlanRow = createServerFn({ method: "POST" })
     }
 
     const { data: out, error } = await sb
-      .from("food_storage_plan").update(toWrite).eq("id", data.id).select().single();
+      .from("food_storage_plan").update(toWrite as never).eq("id", data.id).select().single();
     if (error) throw new Error(error.message);
     return {
       row: out,
