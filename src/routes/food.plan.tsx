@@ -228,7 +228,7 @@ function FoodPlanPage() {
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <Stat label="People" value={String(people.length)} />
-        <Stat label="Foods" value={`${visibleFoods.length}${showFreezeDryOnly ? ` / ${foods.length}` : ""}`} />
+        <Stat label="Foods" value={`${visibleFoods.length}${hasActiveFilters ? ` / ${foods.length}` : ""}`} />
         <Stat label="Est. weekly cost" value={fmtUsd(totals.weeklyCost)} />
       </div>
 
