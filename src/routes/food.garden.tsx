@@ -12,6 +12,7 @@ import {
   deleteGardenPlot,
   seedGardenFromTemplate,
   bulkUpsertGardenPlots,
+  getGardenDashboard,
 } from "@/lib/food.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -64,6 +65,12 @@ function GardenPage() {
   const { data: plots = [], isLoading } = useQuery({
     queryKey: ["garden-plots"],
     queryFn: () => list(),
+  });
+
+  const dashFn = useServerFn(getGardenDashboard);
+  const { data: dash } = useQuery({
+    queryKey: ["garden-dashboard"],
+    queryFn: () => dashFn(),
   });
 
   const [editing, setEditing] = useState<{ row: string; position: number; plot: Plot | null } | null>(null);
@@ -215,6 +222,102 @@ function GardenPage() {
         </div>
       </div>
 
+      {dash && (
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <DashStat label="Distinct plants" value={String(dash.summary.distinct_plants)} />
+            <DashStat label="Total plants" value={String(dash.summary.total_plants)} />
+            <DashStat
+              label="Est. yield / season"
+              value={`${dash.summary.total_expected_yield_lbs.toFixed(0)} lbs`}
+            />
+            <DashStat
+              label="Plan need / season"
+              value={`${dash.summary.total_needed_lbs.toFixed(0)} lbs`}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            <div className="border border-border rounded-md bg-card">
+              <div className="px-3 py-2 border-b border-border text-xs font-mono uppercase tracking-wider text-muted-foreground">
+                Plants · estimated seasonal yield
+              </div>
+              {dash.plants.filter((p) => p.count > 0).length === 0 ? (
+                <p className="p-3 text-sm text-muted-foreground">No plants in garden yet.</p>
+              ) : (
+                <table className="w-full text-xs">
+                  <thead className="text-muted-foreground">
+                    <tr className="border-b border-border">
+                      <th className="text-left px-3 py-1.5 font-normal">Plant</th>
+                      <th className="text-right px-3 py-1.5 font-normal">Count</th>
+                      <th className="text-right px-3 py-1.5 font-normal">lbs/plant</th>
+                      <th className="text-right px-3 py-1.5 font-normal">Est. lbs</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {dash.plants
+                      .filter((p) => p.count > 0)
+                      .map((p) => (
+                        <tr key={p.key} className="border-b border-border/50 last:border-0">
+                          <td className="px-3 py-1.5 capitalize">{p.name}</td>
+                          <td className="px-3 py-1.5 text-right font-mono">{p.count}</td>
+                          <td className="px-3 py-1.5 text-right font-mono text-muted-foreground">
+                            {p.yield_per_plant_lbs}
+                          </td>
+                          <td className="px-3 py-1.5 text-right font-mono">
+                            {p.expected_yield_lbs.toFixed(1)}
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+            <div className="border border-border rounded-md bg-card">
+              <div className="px-3 py-2 border-b border-border text-xs font-mono uppercase tracking-wider text-muted-foreground flex justify-between">
+                <span>Gaps · need vs. planted</span>
+                <span>{dash.gaps.length} short</span>
+              </div>
+              {dash.gaps.length === 0 ? (
+                <p className="p-3 text-sm text-muted-foreground">
+                  No gaps — every planned food is covered (or no plan entries).
+                </p>
+              ) : (
+                <table className="w-full text-xs">
+                  <thead className="text-muted-foreground">
+                    <tr className="border-b border-border">
+                      <th className="text-left px-3 py-1.5 font-normal">Plant</th>
+                      <th className="text-right px-3 py-1.5 font-normal">Need lbs</th>
+                      <th className="text-right px-3 py-1.5 font-normal">Have</th>
+                      <th className="text-right px-3 py-1.5 font-normal">Need plants</th>
+                      <th className="text-right px-3 py-1.5 font-normal text-destructive">Gap</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {dash.gaps.map((p) => (
+                      <tr key={p.key} className="border-b border-border/50 last:border-0">
+                        <td className="px-3 py-1.5 capitalize">{p.name}</td>
+                        <td className="px-3 py-1.5 text-right font-mono">
+                          {p.needed_lbs.toFixed(1)}
+                        </td>
+                        <td className="px-3 py-1.5 text-right font-mono text-muted-foreground">
+                          {p.count}
+                        </td>
+                        <td className="px-3 py-1.5 text-right font-mono">{p.plants_needed}</td>
+                        <td className="px-3 py-1.5 text-right font-mono text-destructive">
+                          +{p.gap_plants}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {isLoading ? (
         <div className="text-sm text-muted-foreground">Loading…</div>
       ) : (
@@ -303,6 +406,17 @@ function GardenPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function DashStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="border border-border rounded-md p-3 bg-card">
+      <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+        {label}
+      </div>
+      <div className="text-xl font-mono font-semibold mt-1">{value}</div>
     </div>
   );
 }
