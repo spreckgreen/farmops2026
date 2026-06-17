@@ -32,6 +32,7 @@ function sortByGroupThenTitle<T extends { title: string }>(tasks: T[]): T[] {
 function TasksPage() {
   const fn = useServerFn(listTasks);
   const today = todayDateString();
+  const [showSlugs, toggleSlugs] = useShowTaskSlugs();
   const { data, isLoading } = useQuery({
     queryKey: ["tasks", "today", today],
     queryFn: () => fn({ data: { date: today } }),
