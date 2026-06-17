@@ -3,11 +3,13 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, TreeDeciduous } from "lucide-react";
+import { Plus, Pencil, Trash2, TreeDeciduous, Upload, Loader2 } from "lucide-react";
+import Papa from "papaparse";
 import {
   listOrchardTrees,
   upsertOrchardTree,
   deleteOrchardTree,
+  bulkInsertOrchardTrees,
 } from "@/lib/food.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -130,6 +132,66 @@ function OrchardPage() {
     setOpen(true);
   }
 
+  const bulk = useServerFn(bulkInsertOrchardTrees);
+  const importM = useMutation({
+    mutationFn: (trees: Array<{
+      species: string;
+      variety: string | null;
+      quantity: number;
+      location: string | null;
+      planted_on: string | null;
+      status: (typeof STATUSES)[number];
+      notes: string | null;
+    }>) => bulk({ data: { trees } }),
+    onSuccess: (r) => {
+      qc.invalidateQueries({ queryKey: ["orchard-trees"] });
+      toast.success(`Imported ${r.inserted} trees`);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  function handleImport(file: File) {
+    Papa.parse<Record<string, string>>(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: (res) => {
+        const trees: Array<{
+          species: string;
+          variety: string | null;
+          quantity: number;
+          location: string | null;
+          planted_on: string | null;
+          status: (typeof STATUSES)[number];
+          notes: string | null;
+        }> = [];
+        for (const row of res.data) {
+          const species = String(row.species ?? row.Species ?? "").trim();
+          if (!species) continue;
+          const rawStatus = String(row.status ?? "healthy").trim().toLowerCase();
+          const status = (STATUSES as readonly string[]).includes(rawStatus)
+            ? (rawStatus as (typeof STATUSES)[number])
+            : "healthy";
+          const qty = parseInt(String(row.quantity ?? "1"), 10);
+          trees.push({
+            species,
+            variety: String(row.variety ?? "").trim() || null,
+            quantity: Number.isFinite(qty) && qty > 0 ? qty : 1,
+            location: String(row.location ?? "").trim() || null,
+            planted_on: String(row.planted_on ?? "").trim() || null,
+            status,
+            notes: String(row.notes ?? "").trim() || null,
+          });
+        }
+        if (!trees.length) {
+          toast.error("No valid rows. Required column: species");
+          return;
+        }
+        importM.mutate(trees);
+      },
+      error: (err) => toast.error(`Parse error: ${err.message}`),
+    });
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-2">
@@ -137,9 +199,28 @@ function OrchardPage() {
           <h2 className="text-lg font-mono font-semibold">Orchard</h2>
           <p className="text-sm text-muted-foreground">Track fruit and nut trees on the property.</p>
         </div>
-        <Button onClick={openNew}>
-          <Plus className="h-4 w-4 mr-2" /> Add tree
-        </Button>
+        <div className="flex items-center gap-2">
+          <Label htmlFor="orchard-csv" className="cursor-pointer">
+            <span className="inline-flex items-center gap-2 border border-border rounded-md px-3 py-2 text-sm hover:bg-muted">
+              {importM.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+              Import CSV
+            </span>
+            <input
+              id="orchard-csv"
+              type="file"
+              accept=".csv,text/csv"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) handleImport(f);
+                e.currentTarget.value = "";
+              }}
+            />
+          </Label>
+          <Button onClick={openNew}>
+            <Plus className="h-4 w-4 mr-2" /> Add tree
+          </Button>
+        </div>
       </div>
 
       {isLoading ? (

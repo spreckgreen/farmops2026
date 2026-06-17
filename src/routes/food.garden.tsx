@@ -3,12 +3,14 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Sprout, Loader2 } from "lucide-react";
+import { Sprout, Loader2, Upload } from "lucide-react";
+import Papa from "papaparse";
 import {
   listGardenPlots,
   upsertGardenPlot,
   deleteGardenPlot,
   seedGardenFromTemplate,
+  bulkUpsertGardenPlots,
 } from "@/lib/food.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -113,6 +115,45 @@ function GardenPage() {
     setNotes(plot?.notes ?? "");
   }
 
+  const bulk = useServerFn(bulkUpsertGardenPlots);
+  const importM = useMutation({
+    mutationFn: (plots: Array<{ row_label: string; position: number; plant_name: string; notes: string }>) =>
+      bulk({ data: { plots } }),
+    onSuccess: (r) => {
+      qc.invalidateQueries({ queryKey: ["garden-plots"] });
+      toast.success(`Imported ${r.inserted} plots`);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  function handleImport(file: File) {
+    Papa.parse<Record<string, string>>(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: (res) => {
+        const plots: Array<{ row_label: string; position: number; plant_name: string; notes: string }> = [];
+        for (const row of res.data) {
+          const rowLabel = String(row.row_label ?? row.row ?? row.Row ?? "").trim();
+          const pos = parseInt(String(row.position ?? row.pos ?? row.Position ?? ""), 10);
+          const plant = String(row.plant_name ?? row.plant ?? row.Plant ?? "").trim();
+          if (!rowLabel || !Number.isFinite(pos) || !plant) continue;
+          plots.push({
+            row_label: rowLabel,
+            position: pos,
+            plant_name: plant,
+            notes: String(row.notes ?? "").trim(),
+          });
+        }
+        if (!plots.length) {
+          toast.error("No valid rows. Expect columns: row_label, position, plant_name, notes");
+          return;
+        }
+        importM.mutate(plots);
+      },
+      error: (err) => toast.error(`Parse error: ${err.message}`),
+    });
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-2">
@@ -120,12 +161,31 @@ function GardenPage() {
           <h2 className="text-lg font-mono font-semibold">Garden</h2>
           <p className="text-sm text-muted-foreground">Click any cell to plan or update what's planted.</p>
         </div>
-        {plots.length === 0 && !isLoading && (
-          <Button onClick={() => seedM.mutate()} disabled={seedM.isPending} variant="outline">
-            {seedM.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Sprout className="h-4 w-4 mr-2" />}
-            Load template
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          <Label htmlFor="garden-csv" className="cursor-pointer">
+            <span className="inline-flex items-center gap-2 border border-border rounded-md px-3 py-2 text-sm hover:bg-muted">
+              {importM.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+              Import CSV
+            </span>
+            <input
+              id="garden-csv"
+              type="file"
+              accept=".csv,text/csv"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) handleImport(f);
+                e.currentTarget.value = "";
+              }}
+            />
+          </Label>
+          {plots.length === 0 && !isLoading && (
+            <Button onClick={() => seedM.mutate()} disabled={seedM.isPending} variant="outline">
+              {seedM.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Sprout className="h-4 w-4 mr-2" />}
+              Load template
+            </Button>
+          )}
+        </div>
       </div>
 
       {isLoading ? (
