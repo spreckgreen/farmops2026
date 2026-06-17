@@ -103,6 +103,7 @@ function PriceHistoryPage() {
   );
 
   const [filter, setFilter] = useState("");
+  const [seasonFilter, setSeasonFilter] = useState<string>("all");
   const [selected, setSelected] = useState<string | null>(null);
 
   const [addOpen, setAddOpen] = useState(false);
