@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { format, addDays, parseISO } from "date-fns";
 import { ChevronLeft, ChevronRight, Eye, EyeOff } from "lucide-react";
 import { DailyNotePreview } from "@/components/daily-note-preview";
+import { useShowTaskSlugs } from "@/hooks/use-show-task-slugs";
 
 
 export const Route = createFileRoute("/notes/$date")({
@@ -40,6 +41,7 @@ function NotePage() {
   const commitFn = useServerFn(commitDailyNote);
   const refreshFn = useServerFn(refreshDailyNoteFromLog);
   const qc = useQueryClient();
+  const [showSlugs, toggleSlugs] = useShowTaskSlugs();
 
   const today = format(new Date(), "yyyy-MM-dd");
   const shift = (days: number) => {
@@ -197,8 +199,8 @@ function NotePage() {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const [caret, setCaret] = useState(0);
   const [acIndex, setAcIndex] = useState(0);
-  const [showPreview, setShowPreview] = useState(true);
-  const [compactPreview, setCompactPreview] = useState(false);
+  const [showSource, setShowSource] = useState(false);
+  const [compactPreview, setCompactPreview] = useState(true);
 
   const acToken = useMemo(() => {
     if (!textareaRef.current) return null;
@@ -233,6 +235,14 @@ function NotePage() {
         setCaret(newCaret);
       }
     });
+  };
+
+  const displayLogContent = (raw: string, task?: { slug: string; title: string } | null) => {
+    if (showSlugs || !task) return raw;
+    return raw
+      .replace(new RegExp(`#task/${task.slug}\\b`, "g"), "")
+      .replace(/\s+/g, " ")
+      .trim();
   };
 
   const onTextareaKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -303,13 +313,13 @@ function NotePage() {
             <Button
               size="sm"
               variant="outline"
-              onClick={() => setShowPreview((v) => !v)}
-              title={showPreview ? "Hide rendered preview" : "Show rendered preview"}
+              onClick={() => setShowSource((v) => !v)}
+              title={showSource ? "Hide raw markdown" : "Edit raw markdown"}
             >
-              {showPreview ? (
-                <><EyeOff className="h-3.5 w-3.5 mr-1.5" />Hide preview</>
+              {showSource ? (
+                <><EyeOff className="h-3.5 w-3.5 mr-1.5" />Hide markdown</>
               ) : (
-                <><Eye className="h-3.5 w-3.5 mr-1.5" />Show preview</>
+                <><Eye className="h-3.5 w-3.5 mr-1.5" />Edit markdown</>
               )}
             </Button>
             <Button
@@ -333,76 +343,76 @@ function NotePage() {
           </div>
         </div>
 
-        <div className="relative">
-          <textarea
-            ref={textareaRef}
-            value={draft}
-            onChange={(e) => {
-              setDraft(e.target.value);
-              setCaret(e.target.selectionStart ?? 0);
-            }}
-            onKeyDown={onTextareaKeyDown}
-            onKeyUp={syncCaret}
-            onClick={syncCaret}
-            onSelect={syncCaret}
-            placeholder={PLACEHOLDER}
-            spellCheck={false}
-            className="w-full min-h-[70vh] bg-card border border-border rounded-lg p-4 font-mono text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-ring resize-y"
-          />
-          {acMatches.length > 0 && (
-            <div className="absolute left-3 bottom-3 z-10 w-72 bg-popover border border-border rounded-md shadow-md overflow-hidden">
-              <div className="px-3 py-1.5 text-[10px] uppercase tracking-wider font-mono text-muted-foreground border-b border-border">
-                #project/ — ↑↓ Enter
-              </div>
-              <ul>
-                {acMatches.map((p, i) => (
-                  <li key={p.slug}>
-                    <button
-                      type="button"
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        applyCompletion(p.slug);
-                      }}
-                      onMouseEnter={() => setAcIndex(i)}
-                      className={`w-full text-left px-3 py-1.5 text-sm flex items-baseline justify-between gap-2 ${
-                        i === acIndex ? "bg-accent text-accent-foreground" : ""
-                      }`}
-                    >
-                      <span className="font-mono truncate">{p.slug}</span>
-                      <span className="text-xs text-muted-foreground truncate">{p.name}</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
+        <section
+          aria-label="Rendered preview"
+          className="bg-card border border-border rounded-lg p-4"
+        >
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+              Today
+            </h2>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setCompactPreview((v) => !v)}
+                className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
+                title={compactPreview ? "Show full metadata (projects, @start, @progress)" : "Hide secondary metadata, keep task titles"}
+              >
+                {compactPreview ? "compact ·on" : "compact ·off"}
+              </button>
+              <span className="text-[10px] font-mono text-muted-foreground">
+                live · click task titles to open
+              </span>
             </div>
-          )}
-        </div>
+          </div>
+          <DailyNotePreview markdown={draft} tasks={tasks} compact={compactPreview} />
+        </section>
 
-        {showPreview && (
-          <section
-            aria-label="Rendered preview"
-            className="mt-4 bg-card border border-border rounded-lg p-4"
-          >
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
-                Preview
-              </h2>
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => setCompactPreview((v) => !v)}
-                  className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
-                  title={compactPreview ? "Show full metadata (projects, @start, @progress)" : "Hide secondary metadata, keep task titles"}
-                >
-                  {compactPreview ? "compact ·on" : "compact ·off"}
-                </button>
-                <span className="text-[10px] font-mono text-muted-foreground">
-                  live · click task titles to open
-                </span>
+        {showSource && (
+          <div className="relative mt-4">
+            <textarea
+              ref={textareaRef}
+              value={draft}
+              onChange={(e) => {
+                setDraft(e.target.value);
+                setCaret(e.target.selectionStart ?? 0);
+              }}
+              onKeyDown={onTextareaKeyDown}
+              onKeyUp={syncCaret}
+              onClick={syncCaret}
+              onSelect={syncCaret}
+              placeholder={PLACEHOLDER}
+              spellCheck={false}
+              className="w-full min-h-[55vh] bg-card border border-border rounded-lg p-4 font-mono text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-ring resize-y"
+            />
+            {acMatches.length > 0 && (
+              <div className="absolute left-3 bottom-3 z-10 w-72 bg-popover border border-border rounded-md shadow-md overflow-hidden">
+                <div className="px-3 py-1.5 text-[10px] uppercase tracking-wider font-mono text-muted-foreground border-b border-border">
+                  #project/ — ↑↓ Enter
+                </div>
+                <ul>
+                  {acMatches.map((p, i) => (
+                    <li key={p.slug}>
+                      <button
+                        type="button"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          applyCompletion(p.slug);
+                        }}
+                        onMouseEnter={() => setAcIndex(i)}
+                        className={`w-full text-left px-3 py-1.5 text-sm flex items-baseline justify-between gap-2 ${
+                          i === acIndex ? "bg-accent text-accent-foreground" : ""
+                        }`}
+                      >
+                        <span className="font-mono truncate">{p.slug}</span>
+                        <span className="text-xs text-muted-foreground truncate">{p.name}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
               </div>
-            </div>
-            <DailyNotePreview markdown={draft} tasks={tasks} compact={compactPreview} />
-          </section>
+            )}
+          </div>
         )}
 
 
@@ -421,9 +431,19 @@ Untagged lines stay in this note only.`}</pre>
 
       <aside className="lg:border-l lg:border-border lg:pl-6 space-y-6">
         <div>
-          <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-3">
-            Today's log · {(query.data?.entries ?? []).length}
-          </h2>
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+              Today's log · {(query.data?.entries ?? []).length}
+            </h2>
+            <button
+              type="button"
+              onClick={toggleSlugs}
+              className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground hover:text-foreground border border-border rounded px-2 py-1"
+              title="Debug: show or hide #task slugs in today's log"
+            >
+              slugs · {showSlugs ? "on" : "off"}
+            </button>
+          </div>
           <ul className="space-y-2">
             {(query.data?.entries ?? []).length === 0 && (
               <li className="text-xs text-muted-foreground">
@@ -448,11 +468,11 @@ Untagged lines stay in this note only.`}</pre>
                       params={{ slug: e.tasks.slug }}
                       className="text-[10px] font-mono text-muted-foreground hover:text-foreground truncate"
                     >
-                      #{e.tasks.slug}
+                      {showSlugs ? `#${e.tasks.slug}` : e.tasks.title}
                     </Link>
                   )}
                 </div>
-                <p className="text-xs font-mono whitespace-pre-wrap break-words">{e.raw_content}</p>
+                <p className="text-xs font-mono whitespace-pre-wrap break-words">{displayLogContent(e.raw_content, e.tasks)}</p>
               </li>
             ))}
           </ul>
