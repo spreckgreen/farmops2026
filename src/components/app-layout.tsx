@@ -75,6 +75,15 @@ export function AppLayout({ children }: { children: ReactNode }) {
                   Users
                 </Link>
               )}
+              {profile.data?.isAdmin && (
+                <Link
+                  to="/admin/reset"
+                  className={navItem}
+                  activeProps={navActive}
+                >
+                  Reset
+                </Link>
+              )}
             </nav>
           </div>
           <Button variant="ghost" size="sm" onClick={signOut}>
