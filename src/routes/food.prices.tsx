@@ -34,6 +34,7 @@ type Entry = {
   food_id: string | null;
   food_name: string;
   category: string | null;
+  unit: string | null;
   old_price: number | null;
   new_price: number | null;
   changed_at: string;
@@ -153,6 +154,7 @@ function PriceHistoryPage() {
           items: sorted,
           latest: sorted[0],
           category: sorted.find((e) => e.category)?.category ?? null,
+          unit: sorted.find((e) => e.unit)?.unit ?? null,
         };
       })
       .sort((a, b) => a.name.localeCompare(b.name));
@@ -184,13 +186,13 @@ function PriceHistoryPage() {
       const s = v === null || v === undefined ? "" : String(v);
       return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
     };
-    const header = ["food_name", "category", "changed_at", "old_price_per_lb", "new_price_per_lb", "delta"];
+    const header = ["food_name", "category", "unit", "changed_at", "old_price_per_lb", "new_price_per_lb", "delta"];
     const body = rows.map((e) => {
       const delta =
         e.old_price !== null && e.new_price !== null
           ? (e.new_price - e.old_price).toFixed(4)
           : "";
-      return [e.food_name, e.category ?? "", e.changed_at, e.old_price ?? "", e.new_price ?? "", delta]
+      return [e.food_name, e.category ?? "", e.unit ?? "", e.changed_at, e.old_price ?? "", e.new_price ?? "", delta]
         .map(esc)
         .join(",");
     });
@@ -337,6 +339,7 @@ function PriceHistoryPage() {
                 <tr>
                   <th className="text-left p-2">Food</th>
                   <th className="text-left p-2">Category</th>
+                  <th className="text-left p-2">Unit</th>
                   <th className="text-right p-2">Current</th>
                   <th className="text-right p-2">Δ</th>
                   <th className="text-right p-2">Last change</th>
@@ -359,6 +362,9 @@ function PriceHistoryPage() {
                       <td className="p-2">{g.name}</td>
                       <td className="p-2 text-xs text-muted-foreground">
                         {g.category ?? <span className="italic opacity-60">—</span>}
+                      </td>
+                      <td className="p-2 text-xs text-muted-foreground">
+                        {g.unit ?? <span className="italic opacity-60">lb</span>}
                       </td>
                       <td className="p-2 text-right">{fmt(e.new_price)}</td>
                       <td className="p-2 text-right">
@@ -399,6 +405,8 @@ function PriceHistoryPage() {
                     <div className="text-lg font-mono font-semibold">{detail.name}</div>
                     <div className="text-xs text-muted-foreground mt-0.5">
                       Category: <span className="font-mono">{detail.category ?? "—"}</span>
+                      <span className="mx-2 opacity-50">·</span>
+                      Unit: <span className="font-mono">{detail.unit ?? "lb"}</span>
                     </div>
                   </div>
                   <Button size="sm" variant="outline" onClick={() => openAdd(detail.name)}>
