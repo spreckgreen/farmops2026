@@ -246,7 +246,7 @@ function nameMatches(foodName: string, recordName: string): boolean {
 export const getFoodYieldProgress = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const [foods, people, entries, plantings, harvests, gardenPlots, orchardTrees] = await Promise.all([
+    const [foods, people, entries, plantings, harvests, gardenPlots, orchardTrees, storage] = await Promise.all([
       context.supabase.from("food_plan_foods").select("id, name, category, oz_per_serving, unit, price_per_pound"),
       context.supabase.from("food_plan_people").select("id, name"),
       context.supabase.from("food_plan_entries").select("food_id, person_id, day_of_week, quantity"),
@@ -254,6 +254,7 @@ export const getFoodYieldProgress = createServerFn({ method: "GET" })
       context.supabase.from("crop_harvests").select("id, planting_id, harvested_on, quantity, unit, quality, notes"),
       context.supabase.from("garden_plots").select("plant_name").not("plant_name", "is", null).neq("plant_name", ""),
       context.supabase.from("orchard_trees").select("species, quantity, status").neq("status", "removed"),
+      context.supabase.from("food_storage_items").select("name, quantity, unit, status").eq("status", "available"),
     ]);
     if (foods.error) throw new Error(foods.error.message);
     if (people.error) throw new Error(people.error.message);
@@ -262,6 +263,16 @@ export const getFoodYieldProgress = createServerFn({ method: "GET" })
     if (harvests.error) throw new Error(harvests.error.message);
     if (gardenPlots.error) throw new Error(gardenPlots.error.message);
     if (orchardTrees.error) throw new Error(orchardTrees.error.message);
+    if (storage.error) throw new Error(storage.error.message);
+
+    // Storage on hand, indexed by normalized name
+    const storageByName = new Map<string, number>();
+    for (const s of storage.data ?? []) {
+      const key = normalizeName(s.name);
+      if (!key) continue;
+      const lbs = toPounds(Number(s.quantity) || 0, s.unit);
+      storageByName.set(key, (storageByName.get(key) ?? 0) + lbs);
+    }
 
     // Aggregate garden plots → distinct plant name + count
     const gardenAgg = new Map<string, { display: string; count: number }>();
@@ -330,6 +341,9 @@ export const getFoodYieldProgress = createServerFn({ method: "GET" })
       planned_gap_value: number;
       actual_gap_pounds: number;
       actual_gap_value: number;
+      storage_pounds: number;
+      mitigated_gap_pounds: number;
+      mitigated_gap_value: number;
       price_per_lb: number;
       progress: number;
       plantings: PlantingContrib[];
@@ -401,11 +415,16 @@ export const getFoodYieldProgress = createServerFn({ method: "GET" })
       // harvested so far (are we tracking against the plan?).
       const plannedGapPounds = Math.max(0, expectedPounds - estimatedPounds);
       const actualGapPounds = Math.max(0, expectedPounds - actualPounds);
+      // Storage on hand for this food (matched by normalized name) offsets the
+      // actual gap — a "supplement" the pantry can cover.
+      const storagePounds = storageByName.get(normalizeName(f.name)) ?? 0;
+      const mitigatedGapPounds = Math.max(0, actualGapPounds - storagePounds);
 
       if (
         expectedPounds === 0 &&
         actualPounds === 0 &&
         estimatedPounds === 0 &&
+        storagePounds === 0 &&
         planEntries.length === 0
       ) continue;
 
@@ -422,6 +441,9 @@ export const getFoodYieldProgress = createServerFn({ method: "GET" })
         planned_gap_value: plannedGapPounds * pricePerLb,
         actual_gap_pounds: actualGapPounds,
         actual_gap_value: actualGapPounds * pricePerLb,
+        storage_pounds: storagePounds,
+        mitigated_gap_pounds: mitigatedGapPounds,
+        mitigated_gap_value: mitigatedGapPounds * pricePerLb,
         price_per_lb: pricePerLb,
         progress: expectedPounds > 0 ? actualPounds / expectedPounds : 0,
         plantings: plantingContribs.sort((a, b) => b.estimated_pounds - a.estimated_pounds),
@@ -448,6 +470,9 @@ export const getFoodYieldProgress = createServerFn({ method: "GET" })
         const plannedGapValue = items.reduce((s, r) => s + r.planned_gap_value, 0);
         const actualGap = items.reduce((s, r) => s + r.actual_gap_pounds, 0);
         const actualGapValue = items.reduce((s, r) => s + r.actual_gap_value, 0);
+        const storage = items.reduce((s, r) => s + r.storage_pounds, 0);
+        const mitigatedGap = items.reduce((s, r) => s + r.mitigated_gap_pounds, 0);
+        const mitigatedGapValue = items.reduce((s, r) => s + r.mitigated_gap_value, 0);
         return {
           category,
           expected_pounds: expected,
@@ -457,6 +482,9 @@ export const getFoodYieldProgress = createServerFn({ method: "GET" })
           planned_gap_value: plannedGapValue,
           actual_gap_pounds: actualGap,
           actual_gap_value: actualGapValue,
+          storage_pounds: storage,
+          mitigated_gap_pounds: mitigatedGap,
+          mitigated_gap_value: mitigatedGapValue,
           progress: expected > 0 ? actual / expected : 0,
           items: items.sort((a, b) => b.expected_pounds - a.expected_pounds),
         };
@@ -471,6 +499,9 @@ export const getFoodYieldProgress = createServerFn({ method: "GET" })
       planned_gap_value: rows.reduce((s, r) => s + r.planned_gap_value, 0),
       actual_gap_pounds: rows.reduce((s, r) => s + r.actual_gap_pounds, 0),
       actual_gap_value: rows.reduce((s, r) => s + r.actual_gap_value, 0),
+      storage_pounds: rows.reduce((s, r) => s + r.storage_pounds, 0),
+      mitigated_gap_pounds: rows.reduce((s, r) => s + r.mitigated_gap_pounds, 0),
+      mitigated_gap_value: rows.reduce((s, r) => s + r.mitigated_gap_value, 0),
     };
 
     return { categories, totals };

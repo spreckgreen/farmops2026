@@ -103,7 +103,7 @@ function FoodOverviewPage() {
           })}
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-3">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3 mb-3">
           <SummaryStat label="Plan need" value={`${fmtLbs(totals?.expected_pounds ?? 0)} lbs`} />
           <SummaryStat label="Est. yield (planted)" value={`${fmtLbs(totals?.estimated_pounds ?? 0)} lbs`} />
           <SummaryStat label="Harvested" value={`${fmtLbs(totals?.actual_pounds ?? 0)} lbs`} />
@@ -119,6 +119,18 @@ function FoodOverviewPage() {
             sublabel="need − harvested"
             value={`${fmtLbs(totals?.actual_gap_pounds ?? 0)} lbs`}
             secondary={fmtUsd(totals?.actual_gap_value ?? 0)}
+            accent
+          />
+          <SummaryStat
+            label="Storage supplement"
+            sublabel="pantry on hand"
+            value={`${fmtLbs(totals?.storage_pounds ?? 0)} lbs`}
+          />
+          <SummaryStat
+            label="Net gap"
+            sublabel="actual − storage"
+            value={`${fmtLbs(totals?.mitigated_gap_pounds ?? 0)} lbs`}
+            secondary={fmtUsd(totals?.mitigated_gap_value ?? 0)}
             accent
           />
         </div>
@@ -232,6 +244,14 @@ function CategoryBlock({ cat }: { cat: Category }) {
               {cat.actual_gap_pounds > 0 && (
                 <> · <span className="text-destructive">actual gap {fmtLbs(cat.actual_gap_pounds)} lbs / {fmtUsd(cat.actual_gap_value)}</span></>
               )}
+              {cat.storage_pounds > 0 && (
+                <> · <span className="text-sky-500">storage {fmtLbs(cat.storage_pounds)} lbs</span></>
+              )}
+              {cat.actual_gap_pounds > 0 && (
+                <> · <span className={cat.mitigated_gap_pounds > 0 ? "text-destructive" : "text-emerald-500"}>
+                  net gap {fmtLbs(cat.mitigated_gap_pounds)} lbs / {fmtUsd(cat.mitigated_gap_value)}
+                </span></>
+              )}
             </span>
           </div>
           <div className="mt-1.5">
@@ -275,6 +295,14 @@ function FoodItemRow({ item }: { item: Category["items"][number] }) {
               )}
               {item.actual_gap_pounds > 0 && (
                 <> · <span className="text-destructive">actual gap {fmtLbs(item.actual_gap_pounds)} lbs{item.price_per_lb > 0 && <> / {fmtUsd(item.actual_gap_value)}</>}</span></>
+              )}
+              {item.storage_pounds > 0 && (
+                <> · <span className="text-sky-500">storage {fmtLbs(item.storage_pounds)} lbs</span></>
+              )}
+              {item.actual_gap_pounds > 0 && (
+                <> · <span className={item.mitigated_gap_pounds > 0 ? "text-destructive" : "text-emerald-500"}>
+                  net gap {fmtLbs(item.mitigated_gap_pounds)} lbs{item.price_per_lb > 0 && <> / {fmtUsd(item.mitigated_gap_value)}</>}
+                </span></>
               )}
             </span>
           </div>
