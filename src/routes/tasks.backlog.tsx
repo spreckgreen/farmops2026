@@ -19,6 +19,7 @@ import { requireAuthenticatedUser } from "@/lib/auth-route";
 import { toast } from "sonner";
 import { todayDateString } from "@/lib/slug";
 import { useShowTaskSlugs } from "@/hooks/use-show-task-slugs";
+import { CsvToolbar } from "@/components/csv-toolbar";
 
 export const Route = createFileRoute("/tasks/backlog")({
   ssr: false,
@@ -129,6 +130,32 @@ function BacklogPage() {
         <div className="flex items-baseline justify-between mb-1">
           <h1 className="text-2xl font-mono font-bold">Backlog</h1>
           <div className="flex items-center gap-3">
+            <CsvToolbar
+              filename="tasks-backlog.csv"
+              columns={[
+                { key: "title", label: "title" },
+                { key: "slug", label: "slug" },
+                { key: "status", label: "status" },
+                { key: "recurrence", label: "recurrence" },
+              ]}
+              rows={(data ?? []).map((t) => ({
+                title: t.title,
+                slug: t.slug,
+                status: t.status,
+                recurrence: (t as { recurrence?: string }).recurrence ?? "none",
+              }))}
+              onImport={async (rows) => {
+                let n = 0;
+                for (const row of rows) {
+                  const title = String(row.title ?? "").trim();
+                  if (!title) continue;
+                  await createFn({ data: { title } });
+                  n++;
+                }
+                invalidateAll();
+                toast.success(`Imported ${n} tasks`);
+              }}
+            />
             <button
               type="button"
               onClick={toggleSlugs}

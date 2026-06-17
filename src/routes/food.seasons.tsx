@@ -14,6 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { CsvToolbar } from "@/components/csv-toolbar";
 
 export const Route = createFileRoute("/food/seasons")({
   component: SeasonsPage,
@@ -135,6 +136,25 @@ function SeasonsPage() {
             {rows.length} entries · {matchedCount} matched to pricing categories
           </p>
         </div>
+        <CsvToolbar
+          filename="plant-seasons.csv"
+          columns={[
+            { key: "name", label: "name" },
+            { key: "kind", label: "kind" },
+            { key: "category", label: "category" },
+            { key: "season", label: "season" },
+            { key: "lead", label: "lead" },
+            { key: "notes", label: "notes" },
+          ]}
+          rows={filtered.map((r) => ({
+            name: r.name,
+            kind: r.kind,
+            category: r.category ?? "",
+            season: r.season,
+            lead: r.lead,
+            notes: r.notes,
+          }))}
+        />
       </div>
 
       <div className="flex flex-wrap gap-2 items-center">

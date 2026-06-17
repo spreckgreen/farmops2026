@@ -3,9 +3,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Sprout, Loader2, Upload, Printer } from "lucide-react";
+import { Sprout, Loader2, Printer } from "lucide-react";
 import { openPrintWindow, escapeHtml } from "@/lib/print";
-import Papa from "papaparse";
+
+import { CsvToolbar } from "@/components/csv-toolbar";
 import {
   Select,
   SelectTrigger,
@@ -155,33 +156,8 @@ function GardenPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  function handleImport(file: File) {
-    Papa.parse<Record<string, string>>(file, {
-      header: true,
-      skipEmptyLines: true,
-      complete: (res) => {
-        const plots: Array<{ row_label: string; position: number; plant_name: string; notes: string }> = [];
-        for (const row of res.data) {
-          const rowLabel = String(row.row_label ?? row.row ?? row.Row ?? "").trim();
-          const pos = parseInt(String(row.position ?? row.pos ?? row.Position ?? ""), 10);
-          const plant = String(row.plant_name ?? row.plant ?? row.Plant ?? "").trim();
-          if (!rowLabel || !Number.isFinite(pos) || !plant) continue;
-          plots.push({
-            row_label: rowLabel,
-            position: pos,
-            plant_name: plant,
-            notes: String(row.notes ?? "").trim(),
-          });
-        }
-        if (!plots.length) {
-          toast.error("No valid rows. Expect columns: row_label, position, plant_name, notes");
-          return;
-        }
-        importM.mutate(plots);
-      },
-      error: (err) => toast.error(`Parse error: ${err.message}`),
-    });
-  }
+
+
 
   function printGarden() {
     const positions = Array.from({ length: DEFAULT_POSITIONS }, (_, i) => i + 1);
@@ -217,23 +193,37 @@ function GardenPage() {
           <Button variant="outline" size="sm" onClick={printGarden} disabled={isLoading}>
             <Printer className="h-4 w-4 mr-2" /> Print
           </Button>
-          <Label htmlFor="garden-csv" className="cursor-pointer">
-            <span className="inline-flex items-center gap-2 border border-border rounded-md px-3 py-2 text-sm hover:bg-muted">
-              {importM.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-              Import CSV
-            </span>
-            <input
-              id="garden-csv"
-              type="file"
-              accept=".csv,text/csv"
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) handleImport(f);
-                e.currentTarget.value = "";
-              }}
-            />
-          </Label>
+          <CsvToolbar
+            filename="garden-plots.csv"
+            columns={[
+              { key: "row_label", label: "row_label" },
+              { key: "position", label: "position" },
+              { key: "plant_name", label: "plant_name" },
+              { key: "notes", label: "notes" },
+            ]}
+            rows={plots.map((p) => ({
+              row_label: p.row_label,
+              position: p.position,
+              plant_name: p.plant_name ?? "",
+              notes: p.notes ?? "",
+            }))}
+            onImport={(rows) => {
+              const parsed: Array<{ row_label: string; position: number; plant_name: string; notes: string }> = [];
+              for (const row of rows) {
+                const rowLabel = String(row.row_label ?? row.row ?? row.Row ?? "").trim();
+                const pos = parseInt(String(row.position ?? row.pos ?? row.Position ?? ""), 10);
+                const plant = String(row.plant_name ?? row.plant ?? row.Plant ?? "").trim();
+                if (!rowLabel || !Number.isFinite(pos) || !plant) continue;
+                parsed.push({ row_label: rowLabel, position: pos, plant_name: plant, notes: String(row.notes ?? "").trim() });
+              }
+              if (!parsed.length) {
+                toast.error("No valid rows. Expect columns: row_label, position, plant_name, notes");
+                return;
+              }
+              importM.mutate(parsed);
+            }}
+            importing={importM.isPending}
+          />
           {plots.length === 0 && !isLoading && (
             <Button onClick={() => seedM.mutate()} disabled={seedM.isPending} variant="outline">
               {seedM.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Sprout className="h-4 w-4 mr-2" />}

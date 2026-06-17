@@ -3,8 +3,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Fragment as FragmentGroup, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Package, Upload, Loader2, Search, Download, Boxes, ClipboardList } from "lucide-react";
-import Papa from "papaparse";
+import { Plus, Pencil, Trash2, Package, Search, Boxes, ClipboardList, Sprout } from "lucide-react";
+import { CsvToolbar } from "@/components/csv-toolbar";
 import {
   listFoodStorage,
   upsertFoodStorageItem,
@@ -318,41 +318,8 @@ function InventoryPanel() {
     return null;
   }
 
-  function handleImport(file: File) {
-    Papa.parse<Record<string, string>>(file, {
-      header: true,
-      skipEmptyLines: true,
-      complete: (res) => {
-        const items = res.data
-          .map((row) => {
-            const name = String(row.itemTitle ?? row.name ?? "").trim();
-            if (!name) return null;
-            return {
-              name,
-              description: String(row.itemDesc ?? row.description ?? "").trim() || null,
-              category: String(row.itemCatTitle ?? row.category ?? "").trim() || null,
-              food_type: String(row["Food Type"] ?? row.food_type ?? "").trim() || null,
-              location: String(row.PackTitle ?? row.location ?? "").trim() || null,
-              quantity: parseFloat(String(row.itemWeight ?? row.quantity ?? "0")) || 0,
-              unit: String(row.unit ?? "lb").trim() || "lb",
-              acquired_on: parseDate(String(row.itemAcquired ?? row.acquired_on ?? "")),
-              best_by: parseDate(String(row.best_by ?? "")),
-              status: "available",
-              source_url: String(row.itemURL ?? row.source_url ?? "").trim() || null,
-              price: row.itemPrice ? parseFloat(String(row.itemPrice)) || null : null,
-              notes: String(row.notes ?? "").trim() || null,
-            };
-          })
-          .filter(Boolean) as StorageImportItem[];
-        if (!items.length) {
-          toast.error("No valid rows. Required: itemTitle or name");
-          return;
-        }
-        importM.mutate(items);
-      },
-      error: (err) => toast.error(`Parse error: ${err.message}`),
-    });
-  }
+
+
 
   return (
     <div className="space-y-4">
@@ -367,23 +334,68 @@ function InventoryPanel() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Label htmlFor="storage-csv" className="cursor-pointer">
-            <span className="inline-flex items-center gap-2 border border-border rounded-md px-3 py-2 text-sm hover:bg-muted">
-              {importM.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-              Import CSV
-            </span>
-            <input
-              id="storage-csv"
-              type="file"
-              accept=".csv,text/csv"
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) handleImport(f);
-                e.currentTarget.value = "";
-              }}
-            />
-          </Label>
+          <CsvToolbar
+            filename="food-storage.csv"
+            columns={[
+              { key: "name", label: "name" },
+              { key: "description", label: "description" },
+              { key: "category", label: "category" },
+              { key: "food_type", label: "food_type" },
+              { key: "location", label: "location" },
+              { key: "quantity", label: "quantity" },
+              { key: "unit", label: "unit" },
+              { key: "acquired_on", label: "acquired_on" },
+              { key: "best_by", label: "best_by" },
+              { key: "status", label: "status" },
+              { key: "source_url", label: "source_url" },
+              { key: "price", label: "price" },
+              { key: "notes", label: "notes" },
+            ]}
+            rows={filtered.map((i) => ({
+              name: i.name,
+              description: i.description ?? "",
+              category: i.category ?? "",
+              food_type: i.food_type ?? "",
+              location: i.location ?? "",
+              quantity: i.quantity,
+              unit: i.unit,
+              acquired_on: i.acquired_on ?? "",
+              best_by: i.best_by ?? "",
+              status: i.status,
+              source_url: i.source_url ?? "",
+              price: i.price ?? "",
+              notes: i.notes ?? "",
+            }))}
+            onImport={(rows) => {
+              const items = rows
+                .map((row) => {
+                  const name = String(row.itemTitle ?? row.name ?? "").trim();
+                  if (!name) return null;
+                  return {
+                    name,
+                    description: String(row.itemDesc ?? row.description ?? "").trim() || null,
+                    category: String(row.itemCatTitle ?? row.category ?? "").trim() || null,
+                    food_type: String(row["Food Type"] ?? row.food_type ?? "").trim() || null,
+                    location: String(row.PackTitle ?? row.location ?? "").trim() || null,
+                    quantity: parseFloat(String(row.itemWeight ?? row.quantity ?? "0")) || 0,
+                    unit: String(row.unit ?? "lb").trim() || "lb",
+                    acquired_on: parseDate(String(row.itemAcquired ?? row.acquired_on ?? "")),
+                    best_by: parseDate(String(row.best_by ?? "")),
+                    status: "available",
+                    source_url: String(row.itemURL ?? row.source_url ?? "").trim() || null,
+                    price: row.itemPrice ? parseFloat(String(row.itemPrice)) || null : null,
+                    notes: String(row.notes ?? "").trim() || null,
+                  };
+                })
+                .filter(Boolean) as StorageImportItem[];
+              if (!items.length) {
+                toast.error("No valid rows. Required: itemTitle or name");
+                return;
+              }
+              importM.mutate(items);
+            }}
+            importing={importM.isPending}
+          />
           <Button onClick={openNew}>
             <Plus className="h-4 w-4 mr-2" /> Add item
           </Button>
@@ -851,7 +863,7 @@ function LongTermPlanPanel() {
           </p>
           <div className="flex items-center gap-2 justify-center">
             <Button onClick={() => seedM.mutate()} disabled={seedM.isPending}>
-              <Download className="h-4 w-4 mr-2" />
+              <Sprout className="h-4 w-4 mr-2" />
               {seedM.isPending ? "Seeding…" : "Seed from Plan tab"}
             </Button>
             <Button variant="outline" onClick={openNew}>
@@ -879,8 +891,54 @@ function LongTermPlanPanel() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <CsvToolbar
+            filename="storage-plan.csv"
+            columns={[
+              { key: "name", label: "name" },
+              { key: "category", label: "category" },
+              { key: "food_type", label: "food_type" },
+              { key: "pounds_per_year", label: "pounds_per_year" },
+              { key: "target_months", label: "target_months" },
+              { key: "price_per_pound", label: "price_per_pound" },
+              { key: "notes", label: "notes" },
+              { key: "sort_order", label: "sort_order" },
+            ]}
+            rows={(rows as PlanRow[]).map((r) => ({
+              name: r.name,
+              category: r.category ?? "",
+              food_type: r.food_type ?? "",
+              pounds_per_year: r.pounds_per_year ?? 0,
+              target_months: r.target_months ?? 12,
+              price_per_pound: r.price_per_pound ?? "",
+              notes: r.notes ?? "",
+              sort_order: r.sort_order ?? 0,
+            }))}
+            onImport={async (rows) => {
+              let n = 0;
+              for (const row of rows) {
+                const name = String(row.name ?? "").trim();
+                if (!name) continue;
+                await upsert({
+                  data: {
+                    id: undefined,
+                    name,
+                    category: String(row.category ?? "").trim() || null,
+                    food_type: String(row.food_type ?? "").trim() || null,
+                    pounds_per_year: parseFloat(String(row.pounds_per_year ?? "0")) || 0,
+                    target_months: parseInt(String(row.target_months ?? "12"), 10) || 12,
+                    price_per_pound: row.price_per_pound ? parseFloat(String(row.price_per_pound)) : null,
+                    notes: String(row.notes ?? "").trim() || null,
+                    sort_order: parseInt(String(row.sort_order ?? "0"), 10) || 0,
+                  },
+                });
+                n++;
+              }
+              qc.invalidateQueries({ queryKey: ["food-storage-plan"] });
+              toast.success(`Imported ${n} plan rows`);
+            }}
+          />
           <Button variant="outline" size="sm" onClick={() => seedM.mutate()} disabled={seedM.isPending}>
-            <Download className="h-3.5 w-3.5 mr-2" />
+            <Sprout className="h-3.5 w-3.5 mr-2" />
             Re-seed from Plan
           </Button>
           <Button onClick={openNew}>

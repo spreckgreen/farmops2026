@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { TiddlyWikiImportButton } from "@/components/tiddlywiki-import-button";
 import { useShowTaskSlugs } from "@/hooks/use-show-task-slugs";
+import { CsvToolbar } from "@/components/csv-toolbar";
 
 
 import {
@@ -119,6 +120,31 @@ function ReportsPage() {
                 </SelectContent>
               </Select>
             </div>
+            <CsvToolbar
+              filename="tasks-scheduled.csv"
+              columns={[
+                { key: "title", label: "title" },
+                { key: "slug", label: "slug" },
+                { key: "status", label: "status" },
+                { key: "percent_complete", label: "percent_complete" },
+                { key: "start_at", label: "start_at" },
+                { key: "recurrence", label: "recurrence" },
+                { key: "closed_at", label: "closed_at" },
+                { key: "updated_at", label: "updated_at" },
+                { key: "project_tags", label: "project_tags" },
+              ]}
+              rows={filteredTasks.map((t) => ({
+                title: t.title,
+                slug: t.slug,
+                status: t.status,
+                percent_complete: t.percent_complete ?? 0,
+                start_at: t.start_at ?? "",
+                recurrence: t.recurrence ?? "none",
+                closed_at: t.closed_at ?? "",
+                updated_at: t.updated_at ?? "",
+                project_tags: (t.project_tags ?? []).join(";"),
+              }))}
+            />
             <TiddlyWikiImportButton kind="tasks" />
 
           </div>
