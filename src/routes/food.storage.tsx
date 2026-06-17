@@ -432,7 +432,7 @@ function InventoryPanel() {
                       const recon = reconstitutedLbs(qty, i.unit, i.category);
                       return (
                         <>
-                          <div>{qty.toFixed(2)} {i.unit}{fd ? " dry" : ""}</div>
+                          <div>{qty.toFixed(2)} {i.unit}{fd ? " stored" : ""}</div>
                           {fd && (
                             <div className="text-xs text-muted-foreground">
                               ≈ {recon.toFixed(2)} lb reconstituted
