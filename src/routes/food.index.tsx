@@ -52,6 +52,36 @@ function FoodOverviewPage() {
     [allCats, categoryFilter],
   );
 
+  const filteredTotals = useMemo(() => {
+    if (categoryFilter === "all") return totals;
+    return visibleCats.reduce(
+      (acc, cat) => ({
+        expected_pounds: acc.expected_pounds + cat.expected_pounds,
+        estimated_pounds: acc.estimated_pounds + cat.estimated_pounds,
+        actual_pounds: acc.actual_pounds + cat.actual_pounds,
+        planned_gap_pounds: acc.planned_gap_pounds + cat.planned_gap_pounds,
+        planned_gap_value: acc.planned_gap_value + cat.planned_gap_value,
+        actual_gap_pounds: acc.actual_gap_pounds + cat.actual_gap_pounds,
+        actual_gap_value: acc.actual_gap_value + cat.actual_gap_value,
+        storage_pounds: acc.storage_pounds + cat.storage_pounds,
+        mitigated_gap_pounds: acc.mitigated_gap_pounds + cat.mitigated_gap_pounds,
+        mitigated_gap_value: acc.mitigated_gap_value + cat.mitigated_gap_value,
+      }),
+      {
+        expected_pounds: 0,
+        estimated_pounds: 0,
+        actual_pounds: 0,
+        planned_gap_pounds: 0,
+        planned_gap_value: 0,
+        actual_gap_pounds: 0,
+        actual_gap_value: 0,
+        storage_pounds: 0,
+        mitigated_gap_pounds: 0,
+        mitigated_gap_value: 0,
+      },
+    );
+  }, [categoryFilter, visibleCats, totals]);
+
   return (
     <div className="space-y-6">
       <p className="text-sm text-muted-foreground">
