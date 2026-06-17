@@ -15,14 +15,20 @@ import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as ProjectsRouteImport } from './routes/projects'
 import { Route as MaintenanceRouteImport } from './routes/maintenance'
 import { Route as InventoryRouteImport } from './routes/inventory'
+import { Route as FoodRouteImport } from './routes/food'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as TasksIndexRouteImport } from './routes/tasks.index'
+import { Route as FoodIndexRouteImport } from './routes/food.index'
 import { Route as TasksScheduledRouteImport } from './routes/tasks.scheduled'
 import { Route as TasksBacklogRouteImport } from './routes/tasks.backlog'
 import { Route as TasksSlugRouteImport } from './routes/tasks.$slug'
 import { Route as NotesDateRouteImport } from './routes/notes.$date'
+import { Route as FoodStorageRouteImport } from './routes/food.storage'
+import { Route as FoodProcessingRouteImport } from './routes/food.processing'
+import { Route as FoodLivestockRouteImport } from './routes/food.livestock'
+import { Route as FoodCropsRouteImport } from './routes/food.crops'
 import { Route as AdminUsersRouteImport } from './routes/admin.users'
 
 const SyncRoute = SyncRouteImport.update({
@@ -55,6 +61,11 @@ const InventoryRoute = InventoryRouteImport.update({
   path: '/inventory',
   getParentRoute: () => rootRouteImport,
 } as any)
+const FoodRoute = FoodRouteImport.update({
+  id: '/food',
+  path: '/food',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DashboardRoute = DashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -74,6 +85,11 @@ const TasksIndexRoute = TasksIndexRouteImport.update({
   id: '/tasks/',
   path: '/tasks/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const FoodIndexRoute = FoodIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => FoodRoute,
 } as any)
 const TasksScheduledRoute = TasksScheduledRouteImport.update({
   id: '/tasks/scheduled',
@@ -95,6 +111,26 @@ const NotesDateRoute = NotesDateRouteImport.update({
   path: '/notes/$date',
   getParentRoute: () => rootRouteImport,
 } as any)
+const FoodStorageRoute = FoodStorageRouteImport.update({
+  id: '/storage',
+  path: '/storage',
+  getParentRoute: () => FoodRoute,
+} as any)
+const FoodProcessingRoute = FoodProcessingRouteImport.update({
+  id: '/processing',
+  path: '/processing',
+  getParentRoute: () => FoodRoute,
+} as any)
+const FoodLivestockRoute = FoodLivestockRouteImport.update({
+  id: '/livestock',
+  path: '/livestock',
+  getParentRoute: () => FoodRoute,
+} as any)
+const FoodCropsRoute = FoodCropsRouteImport.update({
+  id: '/crops',
+  path: '/crops',
+  getParentRoute: () => FoodRoute,
+} as any)
 const AdminUsersRoute = AdminUsersRouteImport.update({
   id: '/admin/users',
   path: '/admin/users',
@@ -105,6 +141,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/dashboard': typeof DashboardRoute
+  '/food': typeof FoodRouteWithChildren
   '/inventory': typeof InventoryRoute
   '/maintenance': typeof MaintenanceRoute
   '/projects': typeof ProjectsRoute
@@ -112,10 +149,15 @@ export interface FileRoutesByFullPath {
   '/service-scheduling': typeof ServiceSchedulingRoute
   '/sync': typeof SyncRoute
   '/admin/users': typeof AdminUsersRoute
+  '/food/crops': typeof FoodCropsRoute
+  '/food/livestock': typeof FoodLivestockRoute
+  '/food/processing': typeof FoodProcessingRoute
+  '/food/storage': typeof FoodStorageRoute
   '/notes/$date': typeof NotesDateRoute
   '/tasks/$slug': typeof TasksSlugRoute
   '/tasks/backlog': typeof TasksBacklogRoute
   '/tasks/scheduled': typeof TasksScheduledRoute
+  '/food/': typeof FoodIndexRoute
   '/tasks/': typeof TasksIndexRoute
 }
 export interface FileRoutesByTo {
@@ -129,10 +171,15 @@ export interface FileRoutesByTo {
   '/service-scheduling': typeof ServiceSchedulingRoute
   '/sync': typeof SyncRoute
   '/admin/users': typeof AdminUsersRoute
+  '/food/crops': typeof FoodCropsRoute
+  '/food/livestock': typeof FoodLivestockRoute
+  '/food/processing': typeof FoodProcessingRoute
+  '/food/storage': typeof FoodStorageRoute
   '/notes/$date': typeof NotesDateRoute
   '/tasks/$slug': typeof TasksSlugRoute
   '/tasks/backlog': typeof TasksBacklogRoute
   '/tasks/scheduled': typeof TasksScheduledRoute
+  '/food': typeof FoodIndexRoute
   '/tasks': typeof TasksIndexRoute
 }
 export interface FileRoutesById {
@@ -140,6 +187,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/dashboard': typeof DashboardRoute
+  '/food': typeof FoodRouteWithChildren
   '/inventory': typeof InventoryRoute
   '/maintenance': typeof MaintenanceRoute
   '/projects': typeof ProjectsRoute
@@ -147,10 +195,15 @@ export interface FileRoutesById {
   '/service-scheduling': typeof ServiceSchedulingRoute
   '/sync': typeof SyncRoute
   '/admin/users': typeof AdminUsersRoute
+  '/food/crops': typeof FoodCropsRoute
+  '/food/livestock': typeof FoodLivestockRoute
+  '/food/processing': typeof FoodProcessingRoute
+  '/food/storage': typeof FoodStorageRoute
   '/notes/$date': typeof NotesDateRoute
   '/tasks/$slug': typeof TasksSlugRoute
   '/tasks/backlog': typeof TasksBacklogRoute
   '/tasks/scheduled': typeof TasksScheduledRoute
+  '/food/': typeof FoodIndexRoute
   '/tasks/': typeof TasksIndexRoute
 }
 export interface FileRouteTypes {
@@ -159,6 +212,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/dashboard'
+    | '/food'
     | '/inventory'
     | '/maintenance'
     | '/projects'
@@ -166,10 +220,15 @@ export interface FileRouteTypes {
     | '/service-scheduling'
     | '/sync'
     | '/admin/users'
+    | '/food/crops'
+    | '/food/livestock'
+    | '/food/processing'
+    | '/food/storage'
     | '/notes/$date'
     | '/tasks/$slug'
     | '/tasks/backlog'
     | '/tasks/scheduled'
+    | '/food/'
     | '/tasks/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -183,16 +242,22 @@ export interface FileRouteTypes {
     | '/service-scheduling'
     | '/sync'
     | '/admin/users'
+    | '/food/crops'
+    | '/food/livestock'
+    | '/food/processing'
+    | '/food/storage'
     | '/notes/$date'
     | '/tasks/$slug'
     | '/tasks/backlog'
     | '/tasks/scheduled'
+    | '/food'
     | '/tasks'
   id:
     | '__root__'
     | '/'
     | '/auth'
     | '/dashboard'
+    | '/food'
     | '/inventory'
     | '/maintenance'
     | '/projects'
@@ -200,10 +265,15 @@ export interface FileRouteTypes {
     | '/service-scheduling'
     | '/sync'
     | '/admin/users'
+    | '/food/crops'
+    | '/food/livestock'
+    | '/food/processing'
+    | '/food/storage'
     | '/notes/$date'
     | '/tasks/$slug'
     | '/tasks/backlog'
     | '/tasks/scheduled'
+    | '/food/'
     | '/tasks/'
   fileRoutesById: FileRoutesById
 }
@@ -211,6 +281,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthRoute: typeof AuthRoute
   DashboardRoute: typeof DashboardRoute
+  FoodRoute: typeof FoodRouteWithChildren
   InventoryRoute: typeof InventoryRoute
   MaintenanceRoute: typeof MaintenanceRoute
   ProjectsRoute: typeof ProjectsRoute
@@ -269,6 +340,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InventoryRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/food': {
+      id: '/food'
+      path: '/food'
+      fullPath: '/food'
+      preLoaderRoute: typeof FoodRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/dashboard': {
       id: '/dashboard'
       path: '/dashboard'
@@ -296,6 +374,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/tasks/'
       preLoaderRoute: typeof TasksIndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/food/': {
+      id: '/food/'
+      path: '/'
+      fullPath: '/food/'
+      preLoaderRoute: typeof FoodIndexRouteImport
+      parentRoute: typeof FoodRoute
     }
     '/tasks/scheduled': {
       id: '/tasks/scheduled'
@@ -325,6 +410,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof NotesDateRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/food/storage': {
+      id: '/food/storage'
+      path: '/storage'
+      fullPath: '/food/storage'
+      preLoaderRoute: typeof FoodStorageRouteImport
+      parentRoute: typeof FoodRoute
+    }
+    '/food/processing': {
+      id: '/food/processing'
+      path: '/processing'
+      fullPath: '/food/processing'
+      preLoaderRoute: typeof FoodProcessingRouteImport
+      parentRoute: typeof FoodRoute
+    }
+    '/food/livestock': {
+      id: '/food/livestock'
+      path: '/livestock'
+      fullPath: '/food/livestock'
+      preLoaderRoute: typeof FoodLivestockRouteImport
+      parentRoute: typeof FoodRoute
+    }
+    '/food/crops': {
+      id: '/food/crops'
+      path: '/crops'
+      fullPath: '/food/crops'
+      preLoaderRoute: typeof FoodCropsRouteImport
+      parentRoute: typeof FoodRoute
+    }
     '/admin/users': {
       id: '/admin/users'
       path: '/admin/users'
@@ -335,10 +448,29 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface FoodRouteChildren {
+  FoodCropsRoute: typeof FoodCropsRoute
+  FoodLivestockRoute: typeof FoodLivestockRoute
+  FoodProcessingRoute: typeof FoodProcessingRoute
+  FoodStorageRoute: typeof FoodStorageRoute
+  FoodIndexRoute: typeof FoodIndexRoute
+}
+
+const FoodRouteChildren: FoodRouteChildren = {
+  FoodCropsRoute: FoodCropsRoute,
+  FoodLivestockRoute: FoodLivestockRoute,
+  FoodProcessingRoute: FoodProcessingRoute,
+  FoodStorageRoute: FoodStorageRoute,
+  FoodIndexRoute: FoodIndexRoute,
+}
+
+const FoodRouteWithChildren = FoodRoute._addFileChildren(FoodRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRoute: AuthRoute,
   DashboardRoute: DashboardRoute,
+  FoodRoute: FoodRouteWithChildren,
   InventoryRoute: InventoryRoute,
   MaintenanceRoute: MaintenanceRoute,
   ProjectsRoute: ProjectsRoute,

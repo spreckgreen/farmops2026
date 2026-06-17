@@ -104,6 +104,101 @@ export type Database = {
         }
         Relationships: []
       }
+      crop_harvests: {
+        Row: {
+          created_at: string
+          harvested_on: string
+          id: string
+          notes: string | null
+          planting_id: string | null
+          quality: string | null
+          quantity: number
+          raw: Json
+          unit: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          harvested_on?: string
+          id?: string
+          notes?: string | null
+          planting_id?: string | null
+          quality?: string | null
+          quantity?: number
+          raw?: Json
+          unit?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          harvested_on?: string
+          id?: string
+          notes?: string | null
+          planting_id?: string | null
+          quality?: string | null
+          quantity?: number
+          raw?: Json
+          unit?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crop_harvests_planting_id_fkey"
+            columns: ["planting_id"]
+            isOneToOne: false
+            referencedRelation: "crop_plantings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crop_plantings: {
+        Row: {
+          area: string | null
+          created_at: string
+          crop: string
+          expected_harvest: string | null
+          id: string
+          notes: string | null
+          planted_on: string | null
+          raw: Json
+          status: string
+          updated_at: string
+          user_id: string
+          variety: string | null
+        }
+        Insert: {
+          area?: string | null
+          created_at?: string
+          crop: string
+          expected_harvest?: string | null
+          id?: string
+          notes?: string | null
+          planted_on?: string | null
+          raw?: Json
+          status?: string
+          updated_at?: string
+          user_id: string
+          variety?: string | null
+        }
+        Update: {
+          area?: string | null
+          created_at?: string
+          crop?: string
+          expected_harvest?: string | null
+          id?: string
+          notes?: string | null
+          planted_on?: string | null
+          raw?: Json
+          status?: string
+          updated_at?: string
+          user_id?: string
+          variety?: string | null
+        }
+        Relationships: []
+      }
       daily_notes: {
         Row: {
           created_at: string
