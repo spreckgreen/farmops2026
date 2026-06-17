@@ -81,6 +81,72 @@ const PURPOSE_COLORS: Record<string, string> = {
   other: "bg-muted text-muted-foreground border-border",
 };
 
+// Per-head seasonal yield fallback by species & purpose.
+// Keep meat row aligned with server YIELD_PER_ANIMAL_LBS.
+const FALLBACK_PER_HEAD: Record<string, { meat: number; dairy: number; eggs: number; fiber: number }> = {
+  chicken: { meat: 4, dairy: 0, eggs: 240, fiber: 0 },
+  broiler: { meat: 4, dairy: 0, eggs: 0, fiber: 0 },
+  turkey:  { meat: 15, dairy: 0, eggs: 0, fiber: 0 },
+  duck:    { meat: 4, dairy: 0, eggs: 180, fiber: 0 },
+  goose:   { meat: 8, dairy: 0, eggs: 40, fiber: 0 },
+  quail:   { meat: 0.5, dairy: 0, eggs: 250, fiber: 0 },
+  rabbit:  { meat: 3, dairy: 0, eggs: 0, fiber: 0 },
+  pig:     { meat: 150, dairy: 0, eggs: 0, fiber: 0 },
+  hog:     { meat: 150, dairy: 0, eggs: 0, fiber: 0 },
+  pork:    { meat: 150, dairy: 0, eggs: 0, fiber: 0 },
+  cow:     { meat: 500, dairy: 1500, eggs: 0, fiber: 0 },
+  cattle:  { meat: 500, dairy: 1500, eggs: 0, fiber: 0 },
+  beef:    { meat: 500, dairy: 0, eggs: 0, fiber: 0 },
+  steer:   { meat: 500, dairy: 0, eggs: 0, fiber: 0 },
+  heifer:  { meat: 400, dairy: 1500, eggs: 0, fiber: 0 },
+  bull:    { meat: 600, dairy: 0, eggs: 0, fiber: 0 },
+  sheep:   { meat: 50, dairy: 100, eggs: 0, fiber: 8 },
+  lamb:    { meat: 50, dairy: 0, eggs: 0, fiber: 0 },
+  goat:    { meat: 40, dairy: 200, eggs: 0, fiber: 4 },
+  alpaca:  { meat: 0, dairy: 0, eggs: 0, fiber: 6 },
+  llama:   { meat: 0, dairy: 0, eggs: 0, fiber: 4 },
+  bison:   { meat: 550, dairy: 0, eggs: 0, fiber: 0 },
+  venison: { meat: 80, dairy: 0, eggs: 0, fiber: 0 },
+  deer:    { meat: 80, dairy: 0, eggs: 0, fiber: 0 },
+};
+
+function fallbackForSpecies(species: string, purpose: string): number {
+  const k = species.trim().toLowerCase();
+  let entry = FALLBACK_PER_HEAD[k];
+  if (!entry) {
+    for (const [key, val] of Object.entries(FALLBACK_PER_HEAD)) {
+      if (k.includes(key)) { entry = val; break; }
+    }
+  }
+  if (!entry) return purpose === "meat" ? 50 : 0;
+  return (entry as Record<string, number>)[purpose] ?? 0;
+}
+
+const UNIT_LABEL: Record<string, string> = {
+  lbs: "lbs",
+  gal_milk: "gal",
+  dozen_eggs: "dozen",
+  eggs: "eggs",
+  other: "",
+};
+
+function computeSeasonYield(a: Animal): { perHead: number; total: number; unit: string } {
+  const unit = a.yield_unit || "lbs";
+  const perHead =
+    a.expected_yield_lbs != null && Number.isFinite(a.expected_yield_lbs)
+      ? Number(a.expected_yield_lbs)
+      : fallbackForSpecies(a.species, a.purpose);
+  const qty = Number(a.quantity) || 0;
+  return { perHead, total: perHead * qty, unit };
+}
+
+function fmtYield(n: number, unit: string): string {
+  if (!Number.isFinite(n) || n === 0) return "—";
+  const label = UNIT_LABEL[unit] ?? unit;
+  const decimals = unit === "lbs" || unit === "gal_milk" ? 1 : 0;
+  return `${n.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}${label ? ` ${label}` : ""}`;
+}
+
 const empty = {
   id: null as string | null,
   species: "",
