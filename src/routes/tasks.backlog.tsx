@@ -141,6 +141,7 @@ function BacklogPage() {
               Today's tasks →
             </Link>
           </div>
+        </div>
         <p className="text-xs text-muted-foreground font-mono mb-6">
           Queued tasks not yet pulled into today. Click "Add to today" to activate.
         </p>
