@@ -396,7 +396,11 @@ export const getFoodYieldProgress = createServerFn({ method: "GET" })
       }
       const estimatedPounds = plantingContribs.reduce((s, p) => s + p.estimated_pounds, 0);
       const pricePerLb = Number(f.price_per_pound) || 0;
-      const gapPounds = Math.max(0, expectedPounds - Math.max(estimatedPounds, actualPounds));
+      // Planned gap: plan need vs what we've planted (do we have enough in the
+      // ground to meet the plan?). Actual gap: plan need vs what's been
+      // harvested so far (are we tracking against the plan?).
+      const plannedGapPounds = Math.max(0, expectedPounds - estimatedPounds);
+      const actualGapPounds = Math.max(0, expectedPounds - actualPounds);
 
       if (
         expectedPounds === 0 &&
@@ -414,8 +418,10 @@ export const getFoodYieldProgress = createServerFn({ method: "GET" })
         expected_pounds: expectedPounds,
         estimated_pounds: estimatedPounds,
         actual_pounds: actualPounds,
-        gap_pounds: gapPounds,
-        gap_value: gapPounds * pricePerLb,
+        planned_gap_pounds: plannedGapPounds,
+        planned_gap_value: plannedGapPounds * pricePerLb,
+        actual_gap_pounds: actualGapPounds,
+        actual_gap_value: actualGapPounds * pricePerLb,
         price_per_lb: pricePerLb,
         progress: expectedPounds > 0 ? actualPounds / expectedPounds : 0,
         plantings: plantingContribs.sort((a, b) => b.estimated_pounds - a.estimated_pounds),
@@ -438,15 +444,19 @@ export const getFoodYieldProgress = createServerFn({ method: "GET" })
         const expected = items.reduce((s, r) => s + r.expected_pounds, 0);
         const estimated = items.reduce((s, r) => s + r.estimated_pounds, 0);
         const actual = items.reduce((s, r) => s + r.actual_pounds, 0);
-        const gap = items.reduce((s, r) => s + r.gap_pounds, 0);
-        const gapValue = items.reduce((s, r) => s + r.gap_value, 0);
+        const plannedGap = items.reduce((s, r) => s + r.planned_gap_pounds, 0);
+        const plannedGapValue = items.reduce((s, r) => s + r.planned_gap_value, 0);
+        const actualGap = items.reduce((s, r) => s + r.actual_gap_pounds, 0);
+        const actualGapValue = items.reduce((s, r) => s + r.actual_gap_value, 0);
         return {
           category,
           expected_pounds: expected,
           estimated_pounds: estimated,
           actual_pounds: actual,
-          gap_pounds: gap,
-          gap_value: gapValue,
+          planned_gap_pounds: plannedGap,
+          planned_gap_value: plannedGapValue,
+          actual_gap_pounds: actualGap,
+          actual_gap_value: actualGapValue,
           progress: expected > 0 ? actual / expected : 0,
           items: items.sort((a, b) => b.expected_pounds - a.expected_pounds),
         };
@@ -457,8 +467,10 @@ export const getFoodYieldProgress = createServerFn({ method: "GET" })
       expected_pounds: rows.reduce((s, r) => s + r.expected_pounds, 0),
       estimated_pounds: rows.reduce((s, r) => s + r.estimated_pounds, 0),
       actual_pounds: rows.reduce((s, r) => s + r.actual_pounds, 0),
-      gap_pounds: rows.reduce((s, r) => s + r.gap_pounds, 0),
-      gap_value: rows.reduce((s, r) => s + r.gap_value, 0),
+      planned_gap_pounds: rows.reduce((s, r) => s + r.planned_gap_pounds, 0),
+      planned_gap_value: rows.reduce((s, r) => s + r.planned_gap_value, 0),
+      actual_gap_pounds: rows.reduce((s, r) => s + r.actual_gap_pounds, 0),
+      actual_gap_value: rows.reduce((s, r) => s + r.actual_gap_value, 0),
     };
 
     return { categories, totals };
