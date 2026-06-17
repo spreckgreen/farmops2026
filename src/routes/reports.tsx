@@ -160,6 +160,9 @@ function ReportsPage() {
   // data snapshot, the mode is as fresh as it can be — don't show "out of date".
   const isStale =
     rawStale && noDataAt[activeMode] !== (latestDataChange ?? null);
+  const noActivity =
+    noDataAt[activeMode] !== undefined &&
+    noDataAt[activeMode] === (latestDataChange ?? null);
 
   // Auto-generate-on-tab-switch when stale. Guard against re-firing while a
   // generation is in flight and against re-running for the same mode after the
