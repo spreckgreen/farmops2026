@@ -121,6 +121,20 @@ type Item = {
 
 const STATUSES = ["available", "consumed", "expired", "reserved"] as const;
 
+// Freeze-dried foods are stored dry; one pound reconstitutes to roughly three
+// pounds of as-eaten food. Calorie estimates in the kcal table assume
+// as-eaten weight, so we convert freeze-dried qty to reconstituted lbs for
+// any weight/kcal displays or roll-ups.
+const RECONSTITUTION_FACTOR = 3;
+function isFreezeDried(category: string | null | undefined): boolean {
+  return !!category && /freeze/i.test(category);
+}
+function reconstitutedLbs(quantity: number, unit: string | null | undefined, category: string | null | undefined): number {
+  const qty = Number(quantity) || 0;
+  if ((unit ?? "lb") !== "lb") return qty;
+  return isFreezeDried(category) ? qty * RECONSTITUTION_FACTOR : qty;
+}
+
 const empty = {
   id: null as string | null,
   name: "",
@@ -186,7 +200,15 @@ function InventoryPanel() {
     });
   }, [items, q, cat, type]);
 
-  const totalLbs = filtered.reduce((s, i) => s + (i.unit === "lb" ? Number(i.quantity) || 0 : 0), 0);
+  const totalLbs = filtered.reduce(
+    (s, i) => s + reconstitutedLbs(Number(i.quantity) || 0, i.unit, i.category),
+    0,
+  );
+  const totalKcal = filtered.reduce(
+    (s, i) => s + kcalFromLbs(i.name, reconstitutedLbs(Number(i.quantity) || 0, i.unit, i.category)),
+    0,
+  );
+  const freezeDriedCount = filtered.filter((i) => isFreezeDried(i.category)).length;
 
   const upsertM = useMutation({
     mutationFn: (v: typeof empty) =>
@@ -319,7 +341,8 @@ function InventoryPanel() {
             <Package className="h-4 w-4" /> Food storage
           </h2>
           <p className="text-sm text-muted-foreground">
-            {filtered.length} items · {totalLbs.toFixed(2)} lb total
+            {filtered.length} items · {totalLbs.toFixed(2)} lb reconstituted · {fmtKcal(totalKcal)}
+            {freezeDriedCount > 0 ? ` · ${freezeDriedCount} freeze-dried (×${RECONSTITUTION_FACTOR})` : ""}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -383,6 +406,7 @@ function InventoryPanel() {
                 <th className="text-left px-3 py-2">Type</th>
                 <th className="text-left px-3 py-2">Location</th>
                 <th className="text-right px-3 py-2">Qty</th>
+                <th className="text-right px-3 py-2">Kcal</th>
                 <th className="text-left px-3 py-2">Acquired</th>
                 <th className="text-left px-3 py-2">Best by</th>
                 <th className="px-3 py-2 w-20"></th>
@@ -401,7 +425,26 @@ function InventoryPanel() {
                     )}
                   </td>
                   <td className="px-3 py-2 text-muted-foreground">{i.location}</td>
-                  <td className="px-3 py-2 text-right font-mono">{Number(i.quantity).toFixed(2)} {i.unit}</td>
+                  <td className="px-3 py-2 text-right font-mono">
+                    {(() => {
+                      const qty = Number(i.quantity) || 0;
+                      const fd = isFreezeDried(i.category) && (i.unit ?? "lb") === "lb";
+                      const recon = reconstitutedLbs(qty, i.unit, i.category);
+                      return (
+                        <>
+                          <div>{qty.toFixed(2)} {i.unit}{fd ? " dry" : ""}</div>
+                          {fd && (
+                            <div className="text-xs text-muted-foreground">
+                              ≈ {recon.toFixed(2)} lb reconstituted
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </td>
+                  <td className="px-3 py-2 text-right font-mono text-muted-foreground">
+                    {fmtKcal(kcalFromLbs(i.name, reconstitutedLbs(Number(i.quantity) || 0, i.unit, i.category)))}
+                  </td>
                   <td className="px-3 py-2 text-muted-foreground">{i.acquired_on ?? ""}</td>
                   <td className="px-3 py-2 text-muted-foreground">{i.best_by ?? ""}</td>
                   <td className="px-3 py-2 text-right">
@@ -524,6 +567,7 @@ type PlanField =
 type StorageRow = {
   id: string;
   name: string;
+  category: string | null;
   quantity: number | string;
   unit: string;
   status: string;
@@ -571,7 +615,7 @@ function LongTermPlanPanel() {
       if (s.status !== "available") continue;
       if (s.unit !== "lb") continue;
       const key = normalizeName(s.name);
-      m.set(key, (m.get(key) ?? 0) + (Number(s.quantity) || 0));
+      m.set(key, (m.get(key) ?? 0) + reconstitutedLbs(Number(s.quantity) || 0, s.unit, s.category));
     }
     return m;
   }, [storage]);
