@@ -184,13 +184,13 @@ function PriceHistoryPage() {
       const s = v === null || v === undefined ? "" : String(v);
       return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
     };
-    const header = ["food_name", "changed_at", "old_price_per_lb", "new_price_per_lb", "delta"];
+    const header = ["food_name", "category", "changed_at", "old_price_per_lb", "new_price_per_lb", "delta"];
     const body = rows.map((e) => {
       const delta =
         e.old_price !== null && e.new_price !== null
           ? (e.new_price - e.old_price).toFixed(4)
           : "";
-      return [e.food_name, e.changed_at, e.old_price ?? "", e.new_price ?? "", delta]
+      return [e.food_name, e.category ?? "", e.changed_at, e.old_price ?? "", e.new_price ?? "", delta]
         .map(esc)
         .join(",");
     });
