@@ -198,6 +198,7 @@ function NotePage() {
   const [caret, setCaret] = useState(0);
   const [acIndex, setAcIndex] = useState(0);
   const [showPreview, setShowPreview] = useState(true);
+  const [compactPreview, setCompactPreview] = useState(false);
 
   const acToken = useMemo(() => {
     if (!textareaRef.current) return null;
