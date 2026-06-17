@@ -264,17 +264,86 @@ function FoodPlanPage() {
         )}
       </div>
 
-      {/* Freeze-dry filter */}
-      <div className="flex items-center gap-2">
-        <Switch
-          id="freeze-dry-filter"
-          checked={showFreezeDryOnly}
-          onCheckedChange={setShowFreezeDryOnly}
-        />
-        <Label htmlFor="freeze-dry-filter" className="text-sm cursor-pointer flex items-center gap-1">
-          <Snowflake className="h-3 w-3 text-blue-500" />
-          Show freeze-dry only
-        </Label>
+      {/* Filter chips */}
+      <div className="space-y-2">
+        {FOOD_CATEGORIES.length > 0 && (
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-[10px] uppercase text-muted-foreground tracking-wider font-mono mr-1">Category</span>
+            {FOOD_CATEGORIES.map((cat) => {
+              const active = activeCategories.has(cat);
+              return (
+                <button
+                  key={cat}
+                  onClick={() => {
+                    setActiveCategories((prev) => {
+                      const next = new Set(prev);
+                      if (active) next.delete(cat); else next.add(cat);
+                      return next;
+                    });
+                  }}
+                  className={`px-2 py-0.5 rounded-full text-xs font-mono border transition-colors ${
+                    active ? "bg-foreground text-background border-foreground" : "border-border hover:bg-accent"
+                  }`}
+                >
+                  {cat}
+                </button>
+              );
+            })}
+            {activeCategories.size > 0 && (
+              <button
+                onClick={() => setActiveCategories(new Set())}
+                className="text-[10px] text-muted-foreground hover:text-foreground underline ml-1"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+        )}
+        {allSeasons.length > 0 && (
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-[10px] uppercase text-muted-foreground tracking-wider font-mono mr-1">Season</span>
+            {allSeasons.map((season) => {
+              const active = activeSeasons.has(season);
+              return (
+                <button
+                  key={season}
+                  onClick={() => {
+                    setActiveSeasons((prev) => {
+                      const next = new Set(prev);
+                      if (active) next.delete(season); else next.add(season);
+                      return next;
+                    });
+                  }}
+                  className={`px-2 py-0.5 rounded-full text-xs font-mono border transition-colors ${
+                    active ? "bg-foreground text-background border-foreground" : "border-border hover:bg-accent"
+                  }`}
+                >
+                  {season}
+                </button>
+              );
+            })}
+            {activeSeasons.size > 0 && (
+              <button
+                onClick={() => setActiveSeasons(new Set())}
+                className="text-[10px] text-muted-foreground hover:text-foreground underline ml-1"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+        )}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="text-[10px] uppercase text-muted-foreground tracking-wider font-mono mr-1">Other</span>
+          <button
+            onClick={() => setShowFreezeDryOnly((v) => !v)}
+            className={`px-2 py-0.5 rounded-full text-xs font-mono border transition-colors flex items-center gap-1 ${
+              showFreezeDryOnly ? "bg-foreground text-background border-foreground" : "border-border hover:bg-accent"
+            }`}
+          >
+            <Snowflake className="h-3 w-3" />
+            Freeze-dry
+          </button>
+        </div>
       </div>
 
       {/* Matrix */}
