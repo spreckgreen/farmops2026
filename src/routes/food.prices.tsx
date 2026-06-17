@@ -55,6 +55,8 @@ function PriceHistoryPage() {
   const refresh = useServerFn(refreshPricesSouthernOhio);
   const seedLivestock = useServerFn(seedLivestockProducts);
   const reclassify = useServerFn(autoClassifyFoodCategories);
+  const bulkUpdate = useServerFn(bulkUpdateFoodCategories);
+  const [bulkOpen, setBulkOpen] = useState(false);
 
   const { data: entries = [], isLoading } = useQuery({
     queryKey: ["food-price-history"],
