@@ -160,6 +160,9 @@ function ReportsPage() {
   // data snapshot, the mode is as fresh as it can be — don't show "out of date".
   const isStale =
     rawStale && noDataAt[activeMode] !== (latestDataChange ?? null);
+  const noActivity =
+    noDataAt[activeMode] !== undefined &&
+    noDataAt[activeMode] === (latestDataChange ?? null);
 
   // Auto-generate-on-tab-switch when stale. Guard against re-firing while a
   // generation is in flight and against re-running for the same mode after the
@@ -328,7 +331,18 @@ function ReportsPage() {
         {pendingForActive && visible.length === 0 && (
           <p className="text-sm text-muted-foreground">Generating {LABELS[activeMode]}…</p>
         )}
-        {!pendingForActive && visible.length === 0 && (
+        {!pendingForActive && visible.length === 0 && noActivity && (
+          <div className="rounded-md border border-border bg-muted/30 p-4 text-sm">
+            <p className="font-mono text-xs uppercase tracking-wider mb-1">
+              No activity this {activeMode === "weekly_report" ? "week" : "period"}
+            </p>
+            <p className="text-muted-foreground">
+              Nothing was logged in Today, Tasks, or Projects for the current {LABELS[activeMode]} window.
+              This report is up to date — it will regenerate automatically once new activity is logged.
+            </p>
+          </div>
+        )}
+        {!pendingForActive && visible.length === 0 && !noActivity && (
           <p className="text-sm text-muted-foreground">
             No {LABELS[activeMode]} yet. Log activity first, then it will generate automatically.
           </p>
