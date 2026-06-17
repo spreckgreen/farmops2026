@@ -453,6 +453,15 @@ function PriceHistoryPage() {
                       Category: <span className="font-mono">{detail.category ?? "—"}</span>
                       <span className="mx-2 opacity-50">·</span>
                       Unit: <span className="font-mono">{detail.unit ?? "lb"}</span>
+                      {detail.season && (
+                        <>
+                          <span className="mx-2 opacity-50">·</span>
+                          Season: <span className="font-mono">{detail.season.season}</span>
+                          {detail.season.notes && (
+                            <span className="ml-1 italic opacity-70">({detail.season.notes})</span>
+                          )}
+                        </>
+                      )}
                     </div>
                   </div>
                   <Button size="sm" variant="outline" onClick={() => openAdd(detail.name)}>
