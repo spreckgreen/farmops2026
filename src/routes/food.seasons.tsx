@@ -1,11 +1,18 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Calendar, Search } from "lucide-react";
-import seasonsData from "@/data/plant-seasons.json";
-import { listFoodPlan } from "@/lib/food.functions";
+import { Calendar, Search, Plus, Trash2, RotateCcw, Wand2 } from "lucide-react";
+import {
+  listFoodPlan,
+  listPlantSeasons,
+  upsertPlantSeason,
+  deletePlantSeason,
+  resetPlantSeasons,
+  applySeasonsToFoodPlan,
+} from "@/lib/food.functions";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Select,
@@ -15,17 +22,20 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { CsvToolbar } from "@/components/csv-toolbar";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/food/seasons")({
   component: SeasonsPage,
 });
 
 type Row = {
+  id: string;
   name: string;
   kind: string;
   season: string;
   lead: string;
   notes: string;
+  sort_order?: number;
 };
 
 const SEASON_BUCKETS = [
@@ -65,27 +75,69 @@ function normalizeName(s: string): string {
 }
 
 function SeasonsPage() {
-  const rows = seasonsData as Row[];
+  const qc = useQueryClient();
+  const listFn = useServerFn(listPlantSeasons);
+  const upsertFn = useServerFn(upsertPlantSeason);
+  const deleteFn = useServerFn(deletePlantSeason);
+  const resetFn = useServerFn(resetPlantSeasons);
+  const applyFn = useServerFn(applySeasonsToFoodPlan);
+  const planFn = useServerFn(listFoodPlan);
+
+  const seasonsQ = useQuery({
+    queryKey: ["plant-seasons"],
+    queryFn: () => listFn() as Promise<Row[]>,
+  });
+  const planQ = useQuery({ queryKey: ["food-plan"], queryFn: () => planFn() });
+
+  const rows: Row[] = seasonsQ.data ?? [];
+
   const [q, setQ] = useState("");
   const [cat, setCat] = useState<string>("all");
   const [bucket, setBucket] = useState<string>("all");
+  const [editing, setEditing] = useState<Record<string, Partial<Row>>>({});
+  const [adding, setAdding] = useState<{ name: string; kind: string; season: string; lead: string; notes: string }>({
+    name: "", kind: "", season: "", lead: "", notes: "",
+  });
 
-  const plan = useServerFn(listFoodPlan);
-  const { data: planData } = useQuery({
-    queryKey: ["food-plan"],
-    queryFn: () => plan(),
+  const upsertMut = useMutation({
+    mutationFn: (data: Partial<Row> & { name: string }) => upsertFn({ data }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["plant-seasons"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  const deleteMut = useMutation({
+    mutationFn: (id: string) => deleteFn({ data: { id } }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["plant-seasons"] }),
+    onError: (e: Error) => toast.error(e.message),
+  });
+  const resetMut = useMutation({
+    mutationFn: () => resetFn(),
+    onSuccess: (res) => {
+      toast.success(`Reset to defaults (${res.inserted} entries)`);
+      qc.invalidateQueries({ queryKey: ["plant-seasons"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  const applyMut = useMutation({
+    mutationFn: () => applyFn(),
+    onSuccess: (res) => {
+      toast.success(`Updated season on ${res.updated} food plan items (${res.matched} plants matched)`);
+      qc.invalidateQueries({ queryKey: ["food-plan"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const categoryByName = useMemo(() => {
     const map = new Map<string, string>();
-    const foods = (planData?.foods ?? []) as Array<{ name: string; category: string | null }>;
+    const foods = (planQ.data?.foods ?? []) as Array<{ name: string; category: string | null }>;
     for (const f of foods) {
       if (!f.category) continue;
       const key = normalizeName(f.name);
       if (key) map.set(key, f.category);
     }
     return map;
-  }, [planData]);
+  }, [planQ.data]);
 
   const enriched = useMemo(
     () =>
@@ -125,6 +177,39 @@ function SeasonsPage() {
 
   const matchedCount = enriched.filter((r) => r.category).length;
 
+  function getField<K extends keyof Row>(r: Row, k: K): Row[K] {
+    const e = editing[r.id];
+    if (e && k in e) return e[k] as Row[K];
+    return r[k];
+  }
+  function setField<K extends keyof Row>(id: string, k: K, value: Row[K]) {
+    setEditing((s) => ({ ...s, [id]: { ...(s[id] ?? {}), [k]: value } }));
+  }
+  function saveRow(r: Row) {
+    const e = editing[r.id];
+    if (!e) return;
+    upsertMut.mutate({
+      id: r.id,
+      name: (e.name ?? r.name).trim() || r.name,
+      kind: e.kind ?? r.kind,
+      season: e.season ?? r.season,
+      lead: e.lead ?? r.lead,
+      notes: e.notes ?? r.notes,
+      sort_order: r.sort_order,
+    });
+    setEditing((s) => {
+      const { [r.id]: _, ...rest } = s;
+      return rest;
+    });
+  }
+
+  function addRow() {
+    const name = adding.name.trim();
+    if (!name) return;
+    upsertMut.mutate({ name, kind: adding.kind, season: adding.season, lead: adding.lead, notes: adding.notes });
+    setAdding({ name: "", kind: "", season: "", lead: "", notes: "" });
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
@@ -133,28 +218,52 @@ function SeasonsPage() {
             <Calendar className="h-4 w-4" /> Plant seasons reference
           </h2>
           <p className="text-sm text-muted-foreground">
-            {rows.length} entries · {matchedCount} matched to pricing categories
+            {rows.length} entries · {matchedCount} matched to food plan categories
           </p>
         </div>
-        <CsvToolbar
-          filename="plant-seasons.csv"
-          columns={[
-            { key: "name", label: "name" },
-            { key: "kind", label: "kind" },
-            { key: "category", label: "category" },
-            { key: "season", label: "season" },
-            { key: "lead", label: "lead" },
-            { key: "notes", label: "notes" },
-          ]}
-          rows={filtered.map((r) => ({
-            name: r.name,
-            kind: r.kind,
-            category: r.category ?? "",
-            season: r.season,
-            lead: r.lead,
-            notes: r.notes,
-          }))}
-        />
+        <div className="flex flex-wrap gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => applyMut.mutate()}
+            disabled={applyMut.isPending}
+          >
+            <Wand2 className="h-3 w-3 mr-1" />
+            Apply to Food Plan
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              if (confirm("Reset Plant seasons to defaults? Your custom edits will be lost.")) {
+                resetMut.mutate();
+              }
+            }}
+            disabled={resetMut.isPending}
+          >
+            <RotateCcw className="h-3 w-3 mr-1" />
+            Reset
+          </Button>
+          <CsvToolbar
+            filename="plant-seasons.csv"
+            columns={[
+              { key: "name", label: "name" },
+              { key: "kind", label: "kind" },
+              { key: "category", label: "category" },
+              { key: "season", label: "season" },
+              { key: "lead", label: "lead" },
+              { key: "notes", label: "notes" },
+            ]}
+            rows={filtered.map((r) => ({
+              name: r.name,
+              kind: r.kind,
+              category: r.category ?? "",
+              season: r.season,
+              lead: r.lead,
+              notes: r.notes,
+            }))}
+          />
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-2 items-center">
@@ -193,42 +302,132 @@ function SeasonsPage() {
           <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
             <tr>
               <th className="text-left px-3 py-2">Name</th>
+              <th className="text-left px-3 py-2">Kind</th>
               <th className="text-left px-3 py-2">Category</th>
               <th className="text-left px-3 py-2">Season</th>
               <th className="text-left px-3 py-2">Notes</th>
+              <th className="w-16"></th>
             </tr>
           </thead>
           <tbody>
-            {filtered.map((r, i) => (
-              <tr key={`${r.name}-${i}`} className="border-t border-border">
-                <td className="px-3 py-2 font-mono">{r.name}</td>
-                <td className="px-3 py-2">
-                  {r.category ? (
-                    <Badge variant="outline">{r.category}</Badge>
-                  ) : (
-                    <span className="text-xs text-muted-foreground">—</span>
-                  )}
-                </td>
-                <td className="px-3 py-2">
-                  <div className="flex flex-wrap gap-1 items-center">
-                    {seasonBadges(r.season).map((t) => (
-                      <Badge key={t} variant="outline" className={SEASON_COLORS[t] ?? ""}>
-                        {t}
-                      </Badge>
-                    ))}
-                    {r.season &&
-                      SEASON_BUCKETS.some((b) => matchBucket(r.season, b)) &&
-                      !SEASON_BUCKETS.includes(r.season as (typeof SEASON_BUCKETS)[number]) && (
-                        <span className="text-xs text-muted-foreground ml-1">({r.season})</span>
-                      )}
-                  </div>
-                </td>
-                <td className="px-3 py-2 text-muted-foreground">{r.notes}</td>
-              </tr>
-            ))}
+            <tr className="border-t border-border bg-muted/20">
+              <td className="px-2 py-2">
+                <Input
+                  value={adding.name}
+                  onChange={(e) => setAdding((s) => ({ ...s, name: e.target.value }))}
+                  placeholder="New plant name"
+                  className="h-8"
+                />
+              </td>
+              <td className="px-2 py-2">
+                <Input
+                  value={adding.kind}
+                  onChange={(e) => setAdding((s) => ({ ...s, kind: e.target.value }))}
+                  placeholder="Vegetable"
+                  className="h-8"
+                />
+              </td>
+              <td className="px-2 py-2 text-xs text-muted-foreground">—</td>
+              <td className="px-2 py-2">
+                <Input
+                  value={adding.season}
+                  onChange={(e) => setAdding((s) => ({ ...s, season: e.target.value }))}
+                  placeholder="Spring->Summer"
+                  className="h-8"
+                />
+              </td>
+              <td className="px-2 py-2">
+                <Input
+                  value={adding.notes}
+                  onChange={(e) => setAdding((s) => ({ ...s, notes: e.target.value }))}
+                  placeholder="notes"
+                  className="h-8"
+                />
+              </td>
+              <td className="px-2 py-2 text-right">
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-8 w-8"
+                  onClick={addRow}
+                  disabled={!adding.name.trim() || upsertMut.isPending}
+                  aria-label="Add"
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </td>
+            </tr>
+            {filtered.map((r) => {
+              const dirty = !!editing[r.id];
+              return (
+                <tr key={r.id} className="border-t border-border">
+                  <td className="px-2 py-1">
+                    <Input
+                      value={String(getField(r, "name"))}
+                      onChange={(e) => setField(r.id, "name", e.target.value)}
+                      onBlur={() => dirty && saveRow(r)}
+                      className="h-8 font-mono"
+                    />
+                  </td>
+                  <td className="px-2 py-1">
+                    <Input
+                      value={String(getField(r, "kind"))}
+                      onChange={(e) => setField(r.id, "kind", e.target.value)}
+                      onBlur={() => dirty && saveRow(r)}
+                      className="h-8"
+                    />
+                  </td>
+                  <td className="px-2 py-1">
+                    {r.category ? (
+                      <Badge variant="outline">{r.category}</Badge>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
+                  </td>
+                  <td className="px-2 py-1">
+                    <div className="flex items-center gap-2">
+                      <Input
+                        value={String(getField(r, "season"))}
+                        onChange={(e) => setField(r.id, "season", e.target.value)}
+                        onBlur={() => dirty && saveRow(r)}
+                        className="h-8 max-w-[180px]"
+                      />
+                      <div className="flex flex-wrap gap-1">
+                        {seasonBadges(String(getField(r, "season"))).map((t) => (
+                          <Badge key={t} variant="outline" className={SEASON_COLORS[t] ?? ""}>
+                            {t}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-2 py-1">
+                    <Input
+                      value={String(getField(r, "notes"))}
+                      onChange={(e) => setField(r.id, "notes", e.target.value)}
+                      onBlur={() => dirty && saveRow(r)}
+                      className="h-8"
+                    />
+                  </td>
+                  <td className="px-2 py-1 text-right">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8 text-destructive"
+                      onClick={() => {
+                        if (confirm(`Delete "${r.name}"?`)) deleteMut.mutate(r.id);
+                      }}
+                      aria-label="Delete"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </td>
+                </tr>
+              );
+            })}
             {!filtered.length && (
               <tr>
-                <td colSpan={4} className="px-3 py-8 text-center text-muted-foreground">
+                <td colSpan={6} className="px-3 py-8 text-center text-muted-foreground">
                   No matches.
                 </td>
               </tr>
@@ -236,6 +435,11 @@ function SeasonsPage() {
           </tbody>
         </table>
       </div>
+
+      <p className="text-xs text-muted-foreground">
+        Tip: edit a cell and click outside (blur) to save. Use <strong>Apply to Food Plan</strong>{" "}
+        to copy the season bucket (Spring/Summer/Fall/Winter/All Year) onto matching food plan items.
+      </p>
     </div>
   );
 }

@@ -785,6 +785,45 @@ export type Database = {
         }
         Relationships: []
       }
+      plant_seasons: {
+        Row: {
+          created_at: string
+          id: string
+          kind: string
+          lead: string
+          name: string
+          notes: string
+          season: string
+          sort_order: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          kind?: string
+          lead?: string
+          name: string
+          notes?: string
+          season?: string
+          sort_order?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          kind?: string
+          lead?: string
+          name?: string
+          notes?: string
+          season?: string
+          sort_order?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
