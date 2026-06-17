@@ -567,6 +567,7 @@ type PlanField =
 type StorageRow = {
   id: string;
   name: string;
+  category: string | null;
   quantity: number | string;
   unit: string;
   status: string;
