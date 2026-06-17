@@ -125,6 +125,18 @@ function PriceHistoryPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const bulkM = useMutation({
+    mutationFn: (updates: Array<{ id: string; category: string | null }>) =>
+      bulkUpdate({ data: { updates } }),
+    onSuccess: (r) => {
+      qc.invalidateQueries({ queryKey: ["food-plan"] });
+      qc.invalidateQueries({ queryKey: ["food", "yield-progress"] });
+      toast.success(`Updated ${r.updated} food categories`);
+      setBulkOpen(false);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const byFood = useMemo(() => {
     const groups = new Map<string, Entry[]>();
     (entries as Entry[]).forEach((e) => {
