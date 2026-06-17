@@ -1,18 +1,24 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Download, Printer, RefreshCw } from "lucide-react";
+import { z } from "zod";
+import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { getFoodReports } from "@/lib/food-reports.functions";
 import { downloadCsv } from "@/lib/csv";
 import { reportCsv, reportMarkdownFile, type FoodReport } from "@/lib/food-reports";
 import { ReportView } from "@/components/report-view";
 
+const searchSchema = z.object({
+  report: fallback(z.string(), "").default(""),
+});
+
 export const Route = createFileRoute("/food/reports")({
+  validateSearch: zodValidator(searchSchema),
   head: () => ({ meta: [{ title: "Food Reports — Bostead Farms" }] }),
   component: FoodReportsPage,
 });
