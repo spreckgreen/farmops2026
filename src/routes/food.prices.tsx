@@ -598,18 +598,6 @@ function PriceHistoryPage() {
   );
 }
 
-const FOOD_CATEGORIES = [
-  "Vegetables",
-  "Orchard (fruit/nut)",
-  "Field crops",
-  "Animal protein",
-  "Dairy",
-  "Eggs",
-  "Fiber",
-  "Beverages",
-  "Pantry / staples",
-  "Other",
-];
 
 function BulkCategoryDialog({
   open,
