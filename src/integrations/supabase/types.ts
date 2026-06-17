@@ -349,6 +349,44 @@ export type Database = {
         }
         Relationships: []
       }
+      food_price_history: {
+        Row: {
+          changed_at: string
+          food_id: string | null
+          food_name: string
+          id: string
+          new_price: number | null
+          old_price: number | null
+          user_id: string
+        }
+        Insert: {
+          changed_at?: string
+          food_id?: string | null
+          food_name: string
+          id?: string
+          new_price?: number | null
+          old_price?: number | null
+          user_id: string
+        }
+        Update: {
+          changed_at?: string
+          food_id?: string | null
+          food_name?: string
+          id?: string
+          new_price?: number | null
+          old_price?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "food_price_history_food_id_fkey"
+            columns: ["food_id"]
+            isOneToOne: false
+            referencedRelation: "food_plan_foods"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       garden_plots: {
         Row: {
           created_at: string
