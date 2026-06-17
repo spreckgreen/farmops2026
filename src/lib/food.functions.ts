@@ -568,3 +568,19 @@ export const deleteOrchardTree = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
+// ----------------------------------------------------------------------
+// Price history
+// ----------------------------------------------------------------------
+
+export const listPriceHistory = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data, error } = await context.supabase
+      .from("food_price_history")
+      .select("id, food_id, food_name, old_price, new_price, changed_at")
+      .order("changed_at", { ascending: false })
+      .limit(2000);
+    if (error) throw new Error(error.message);
+    return data ?? [];
+  });
