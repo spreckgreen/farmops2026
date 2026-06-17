@@ -622,7 +622,7 @@ function FoodPlanPage() {
                       </tr>
                     );
                   })}
-                </>
+                </Fragment>
               );
             })}
           </tbody>
