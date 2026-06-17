@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Plus, Trash2, Snowflake, Download } from "lucide-react";
+import { Plus, Trash2, Snowflake, Download, Pencil } from "lucide-react";
 import {
   listFoodPlan,
   upsertFoodPlanPerson,
@@ -16,7 +16,16 @@ import {
 import { fmtUsd } from "@/lib/currency";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -24,6 +33,19 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+
+const FOOD_CATEGORIES = [
+  "Vegetables",
+  "Orchard (fruit/nut)",
+  "Field crops",
+  "Animal protein",
+  "Dairy",
+  "Eggs",
+  "Fiber",
+  "Beverages",
+  "Pantry / staples",
+  "Other",
+];
 
 export const Route = createFileRoute("/food/plan")({
   component: FoodPlanPage,
