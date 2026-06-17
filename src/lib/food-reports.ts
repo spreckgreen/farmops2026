@@ -20,7 +20,7 @@ export type FoodReport = {
   description: string;
   markdown: string;
   csvColumns: CsvColumn[];
-  csvRows: Record<string, unknown>[];
+  csvRows: Record<string, string | number>[];
   obsidianPath: string; // relative to vault root
 };
 
@@ -487,7 +487,7 @@ function buildGardenLayout(i: ReportInputs): FoodReport {
     gridLines.push(`**${r}**: ${cells.join(" | ")}`);
   }
 
-  const csvRows: Record<string, unknown>[] = [];
+  const csvRows: Record<string, string | number>[] = [];
   for (const r of rows) {
     const m = rowMap.get(r)!;
     for (let pos = 1; pos <= maxPos; pos++) {
@@ -656,7 +656,7 @@ function buildOptimizedGardenLayout(i: ReportInputs): FoodReport {
   ].join("\n");
 
   // CSV rows: one row per plant block in the layout
-  const csvRows: Record<string, unknown>[] = [];
+  const csvRows: Record<string, string | number>[] = [];
   layout.forEach((row, idx) => {
     row.forEach((a) => {
       csvRows.push({
@@ -701,7 +701,7 @@ export function buildAllReports(inputs: ReportInputs): FoodReport[] {
 }
 
 export function reportCsv(report: FoodReport): string {
-  return rowsToCsv(report.csvRows as Array<Record<string, unknown>>, report.csvColumns as ReadonlyArray<{ key: string; label: string }>);
+  return rowsToCsv(report.csvRows as Array<Record<string, string | number>>, report.csvColumns as ReadonlyArray<{ key: string; label: string }>);
 }
 
 export function reportMarkdownFile(report: FoodReport): string {
