@@ -377,6 +377,25 @@ function NotePage() {
           )}
         </div>
 
+        {showPreview && (
+          <section
+            aria-label="Rendered preview"
+            className="mt-4 bg-card border border-border rounded-lg p-4"
+          >
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+                Preview
+              </h2>
+              <span className="text-[10px] font-mono text-muted-foreground">
+                live · click task titles to open
+              </span>
+            </div>
+            <DailyNotePreview markdown={draft} tasks={tasks} />
+          </section>
+        )}
+
+
+
 
         <details className="mt-3 text-xs text-muted-foreground">
           <summary className="cursor-pointer hover:text-foreground">Syntax cheatsheet</summary>
