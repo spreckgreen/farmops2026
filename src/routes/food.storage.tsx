@@ -156,7 +156,6 @@ const empty = {
 const TYPE_COLORS: Record<string, string> = {
   Protein: "bg-rose-500/20 text-rose-200 border-rose-500/40",
   Vegetable: "bg-emerald-500/20 text-emerald-200 border-emerald-500/40",
-  Vegetable: "bg-emerald-500/20 text-emerald-200 border-emerald-500/40",
   Fruit: "bg-amber-500/20 text-amber-200 border-amber-500/40",
   Dessert: "bg-fuchsia-500/20 text-fuchsia-200 border-fuchsia-500/40",
 };
