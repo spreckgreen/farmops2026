@@ -228,11 +228,12 @@ function ReportsPage() {
           <TabsList className="flex flex-wrap h-auto mb-4">
             {TABS.map((t) => {
               const latest = (summariesQ.data ?? []).find((s) => s.mode === t.mode);
-              const tabStale = !latest
+              const tabRawStale = !latest
                 ? true
                 : latestDataChange
                   ? new Date(latestDataChange).getTime() > new Date(latest.created_at).getTime()
                   : false;
+              const tabStale = tabRawStale && noDataAt[t.mode] !== (latestDataChange ?? null);
               return (
                 <TabsTrigger key={t.mode} value={t.mode} className="gap-1.5">
                   {t.label}
