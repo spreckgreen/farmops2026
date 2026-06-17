@@ -336,6 +336,7 @@ function PriceHistoryPage() {
               <thead className="bg-muted/30 text-xs text-muted-foreground">
                 <tr>
                   <th className="text-left p-2">Food</th>
+                  <th className="text-left p-2">Category</th>
                   <th className="text-right p-2">Current</th>
                   <th className="text-right p-2">Δ</th>
                   <th className="text-right p-2">Last change</th>
