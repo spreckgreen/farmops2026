@@ -395,7 +395,7 @@ function FoodItemRow({ item }: { item: Category["items"][number] }) {
                     </span>
                     <span>
                       {h.quantity} {h.unit}{" "}
-                      <span className="text-muted-foreground">({fmtLbs(h.pounds)} lbs)</span>
+                      <span className="text-muted-foreground">({fmtLbs(h.pounds)} lbs<KcalSpan name={item.name} lbs={h.pounds} />)</span>
                     </span>
                   </li>
                 ))}
