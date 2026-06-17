@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState } from "react";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { Plus, Trash2, Snowflake, Download, Pencil } from "lucide-react";
 import {
@@ -158,6 +159,7 @@ function FoodPlanPage() {
   const [personName, setPersonName] = useState("");
   const [foodDialog, setFoodDialog] = useState(false);
   const [editingFood, setEditingFood] = useState<Food | null>(null);
+  const [showFreezeDryOnly, setShowFreezeDryOnly] = useState(false);
 
 
   if (isLoading) return <div className="text-muted-foreground font-mono text-sm">Loading…</div>;
@@ -201,12 +203,14 @@ function FoodPlanPage() {
   const dayTotalsForActive = (food_id: string) =>
     DAYS.reduce((s, d) => s + (entryMap.get(`${activePerson}|${food_id}|${d}`) ?? 0), 0);
 
+  const visibleFoods = showFreezeDryOnly ? foods.filter((f) => f.freeze_dry) : foods;
+
   return (
     <div className="space-y-6">
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <Stat label="People" value={String(people.length)} />
-        <Stat label="Foods" value={String(foods.length)} />
+        <Stat label="Foods" value={`${visibleFoods.length}${showFreezeDryOnly ? ` / ${foods.length}` : ""}`} />
         <Stat label="Est. weekly cost" value={fmtUsd(totals.weeklyCost)} />
       </div>
 
@@ -242,6 +246,19 @@ function FoodPlanPage() {
         )}
       </div>
 
+      {/* Freeze-dry filter */}
+      <div className="flex items-center gap-2">
+        <Switch
+          id="freeze-dry-filter"
+          checked={showFreezeDryOnly}
+          onCheckedChange={setShowFreezeDryOnly}
+        />
+        <Label htmlFor="freeze-dry-filter" className="text-sm cursor-pointer flex items-center gap-1">
+          <Snowflake className="h-3 w-3 text-blue-500" />
+          Show freeze-dry only
+        </Label>
+      </div>
+
       {/* Matrix */}
       <div className="border border-border rounded-md overflow-auto max-h-[70vh]">
         <table className="text-xs font-mono w-full">
@@ -257,7 +274,7 @@ function FoodPlanPage() {
             </tr>
           </thead>
           <tbody>
-            {foods.map((f) => {
+            {visibleFoods.map((f) => {
               const weekly = dayTotalsForActive(f.id);
               return (
                 <tr key={f.id} className="border-t border-border hover:bg-accent/30">
