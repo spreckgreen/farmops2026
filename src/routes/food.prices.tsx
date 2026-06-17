@@ -51,6 +51,7 @@ function PriceHistoryPage() {
   const listPlan = useServerFn(listFoodPlan);
   const record = useServerFn(recordFoodPrice);
   const refresh = useServerFn(refreshPricesSouthernOhio);
+  const seedLivestock = useServerFn(seedLivestockProducts);
 
   const { data: entries = [], isLoading } = useQuery({
     queryKey: ["food-price-history"],
