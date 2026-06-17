@@ -639,9 +639,21 @@ function LongTermPlanPanel() {
           sort_order: row.sort_order,
         },
       }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["food-storage-plan"] }),
-    onError: (e: Error) => toast.error(e.message),
+    onMutate: async (row) => {
+      await qc.cancelQueries({ queryKey: ["food-storage-plan"] });
+      const prev = qc.getQueryData<PlanRow[]>(["food-storage-plan"]);
+      qc.setQueryData<PlanRow[]>(["food-storage-plan"], (old) =>
+        (old ?? []).map((r) => (r.id === row.id ? { ...r, ...row } : r)),
+      );
+      return { prev };
+    },
+    onError: (e: Error, _row, ctx) => {
+      if (ctx?.prev) qc.setQueryData(["food-storage-plan"], ctx.prev);
+      toast.error(e.message);
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ["food-storage-plan"] }),
   });
+
 
   const deleteM = useMutation({
     mutationFn: (id: string) => remove({ data: { id } }),
