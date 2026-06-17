@@ -125,14 +125,6 @@ function OrchardPage() {
     },
     onError: (e: Error) => toast.error(e.message),
   });
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["orchard-trees"] });
-      setOpen(false);
-      setForm(empty);
-      toast.success("Saved");
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
 
   const deleteM = useMutation({
     mutationFn: (id: string) => remove({ data: { id } }),
