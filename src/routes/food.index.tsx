@@ -72,7 +72,7 @@ function FoodOverviewPage() {
           <h2 className="text-sm font-semibold">Annual production by food category</h2>
           <p className="text-xs text-muted-foreground mt-1">
             Each grouping below is a food category (e.g., Vegetables, Fruits). It compares how much you
-            <em a={"planned to eat"} className="underline decoration-dotted" title="Based on weekly food plan quantities">plan to eat</span>{" "}
+            <span className="underline decoration-dotted" title="Based on weekly food plan quantities">plan to eat</span>{" "}
             versus how much you have
             <span className="underline decoration-dotted" title="Estimated from garden plantings and orchard trees">planted</span>{" "}
             and
