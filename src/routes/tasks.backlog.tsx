@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { requireAuthenticatedUser } from "@/lib/auth-route";
 import { toast } from "sonner";
 import { todayDateString } from "@/lib/slug";
+import { useShowTaskSlugs } from "@/hooks/use-show-task-slugs";
 
 export const Route = createFileRoute("/tasks/backlog")({
   ssr: false,
