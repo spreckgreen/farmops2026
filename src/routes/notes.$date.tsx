@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { format, addDays, parseISO } from "date-fns";
 import { ChevronLeft, ChevronRight, Eye, EyeOff } from "lucide-react";
 import { DailyNotePreview } from "@/components/daily-note-preview";
+import { useShowTaskSlugs } from "@/hooks/use-show-task-slugs";
 
 
 export const Route = createFileRoute("/notes/$date")({
@@ -40,6 +41,7 @@ function NotePage() {
   const commitFn = useServerFn(commitDailyNote);
   const refreshFn = useServerFn(refreshDailyNoteFromLog);
   const qc = useQueryClient();
+  const [showSlugs, toggleSlugs] = useShowTaskSlugs();
 
   const today = format(new Date(), "yyyy-MM-dd");
   const shift = (days: number) => {
@@ -235,6 +237,14 @@ function NotePage() {
     });
   };
 
+  const displayLogContent = (raw: string, task?: { slug: string; title: string } | null) => {
+    if (showSlugs || !task) return raw;
+    return raw
+      .replace(new RegExp(`#task/${task.slug}\\b`, "g"), "")
+      .replace(/\s+/g, " ")
+      .trim();
+  };
+
   const onTextareaKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (!acMatches.length) return;
     if (e.key === "ArrowDown") {
@@ -421,9 +431,19 @@ Untagged lines stay in this note only.`}</pre>
 
       <aside className="lg:border-l lg:border-border lg:pl-6 space-y-6">
         <div>
-          <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-3">
-            Today's log · {(query.data?.entries ?? []).length}
-          </h2>
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+              Today's log · {(query.data?.entries ?? []).length}
+            </h2>
+            <button
+              type="button"
+              onClick={toggleSlugs}
+              className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground hover:text-foreground border border-border rounded px-2 py-1"
+              title="Debug: show or hide #task slugs in today's log"
+            >
+              slugs · {showSlugs ? "on" : "off"}
+            </button>
+          </div>
           <ul className="space-y-2">
             {(query.data?.entries ?? []).length === 0 && (
               <li className="text-xs text-muted-foreground">
@@ -448,11 +468,11 @@ Untagged lines stay in this note only.`}</pre>
                       params={{ slug: e.tasks.slug }}
                       className="text-[10px] font-mono text-muted-foreground hover:text-foreground truncate"
                     >
-                      #{e.tasks.slug}
+                      {showSlugs ? `#${e.tasks.slug}` : e.tasks.title}
                     </Link>
                   )}
                 </div>
-                <p className="text-xs font-mono whitespace-pre-wrap break-words">{e.raw_content}</p>
+                <p className="text-xs font-mono whitespace-pre-wrap break-words">{displayLogContent(e.raw_content, e.tasks)}</p>
               </li>
             ))}
           </ul>
