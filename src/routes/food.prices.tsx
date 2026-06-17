@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useMemo, useState } from "react";
 import { format } from "date-fns";
-import { ArrowDown, ArrowUp, Minus, History, Download, Plus, RefreshCw, Loader2, Globe, Beef } from "lucide-react";
+import { ArrowDown, ArrowUp, Minus, History, Download, Plus, RefreshCw, Loader2, Globe, Beef, Tags } from "lucide-react";
 import { toast } from "sonner";
 import {
   listPriceHistory,
@@ -11,6 +11,7 @@ import {
   recordFoodPrice,
   refreshPricesSouthernOhio,
   seedLivestockProducts,
+  autoClassifyFoodCategories,
 } from "@/lib/food.functions";
 import { fmtUsd, fmtUsdSigned } from "@/lib/currency";
 import { Input } from "@/components/ui/input";
@@ -52,6 +53,7 @@ function PriceHistoryPage() {
   const record = useServerFn(recordFoodPrice);
   const refresh = useServerFn(refreshPricesSouthernOhio);
   const seedLivestock = useServerFn(seedLivestockProducts);
+  const reclassify = useServerFn(autoClassifyFoodCategories);
 
   const { data: entries = [], isLoading } = useQuery({
     queryKey: ["food-price-history"],
@@ -106,6 +108,16 @@ function PriceHistoryPage() {
           ? `Added ${r.inserted} livestock items (${r.skipped} already present). Run Refresh to price them.`
           : "All livestock items already in catalog.",
       );
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const classifyM = useMutation({
+    mutationFn: (overwrite: boolean) => reclassify({ data: { overwriteExisting: overwrite } }),
+    onSuccess: (r) => {
+      qc.invalidateQueries({ queryKey: ["food-plan"] });
+      qc.invalidateQueries({ queryKey: ["food", "yield-progress"] });
+      toast.success(`Categories: ${r.updated} updated, ${r.unchanged} unchanged`);
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -220,6 +232,25 @@ function PriceHistoryPage() {
               <Beef className="h-4 w-4 mr-2" />
             )}
             Seed livestock items
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              const overwrite = confirm(
+                "Auto-classify food categories?\n\nOK = overwrite ALL recognizable items (recommended to fix wrong categories like 'Chicken' as a vegetable).\nCancel = fill only empty/Uncategorized items.",
+              );
+              classifyM.mutate(overwrite);
+            }}
+            disabled={classifyM.isPending || foods.length === 0}
+            title="Auto-assign categories on the source pricing table based on food name"
+          >
+            {classifyM.isPending ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Tags className="h-4 w-4 mr-2" />
+            )}
+            Auto-classify
           </Button>
           <Button
             variant="outline"
