@@ -4,7 +4,9 @@
   "sideEffects": false,
   "type": "module",
   "scripts": {
-    "dev": "rimraf node_modules/.vite && vite dev",
+    "dev:clean": "rimraf node_modules/.vite",
+    "predev": "bun run dev:clean",
+    "dev": "vite dev",
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
@@ -14,8 +16,7 @@
     "test:watch": "vitest",
     "test:rls": "bun scripts/test-rls.ts",
     "verify": "vitest run && vite build",
-    "prepublish:check": "vitest run && bun scripts/test-rls.ts && echo '✅ Run the Deep Security Scan in the Lovable Security tab before clicking Publish.'",
-    "dev:clean": "rimraf node_modules/.vite && vite dev"
+    "prepublish:check": "vitest run && bun scripts/test-rls.ts && echo '✅ Run the Deep Security Scan in the Lovable Security tab before clicking Publish.'"
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "^2.0.48",
