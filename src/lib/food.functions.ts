@@ -1155,6 +1155,7 @@ export const getCropsDashboard = createServerFn({ method: "GET" })
       if (price > 0) priceByName.set(norm(f.name), price);
       const weekly = weeklyByFood.get(f.id) ?? 0;
       if (weekly === 0) continue;
+      if (classifyFood(f.name) !== "crops") continue;
       const oz = Number(f.oz_per_serving) || 0;
       const lbs = (weekly * 26 * oz) / 16;
       if (lbs <= 0) continue;
