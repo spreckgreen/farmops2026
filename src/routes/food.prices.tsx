@@ -34,6 +34,7 @@ type Entry = {
   food_id: string | null;
   food_name: string;
   category: string | null;
+  unit: string | null;
   old_price: number | null;
   new_price: number | null;
   changed_at: string;
