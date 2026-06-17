@@ -191,44 +191,8 @@ function OrchardPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  function handleImport(file: File) {
-    Papa.parse<Record<string, string>>(file, {
-      header: true,
-      skipEmptyLines: true,
-      complete: (res) => {
-        const trees: ImportRow[] = [];
-        for (const row of res.data) {
-          const species = String(row.species ?? row.Species ?? "").trim();
-          if (!species) continue;
-          const rawStatus = String(row.status ?? "healthy").trim().toLowerCase();
-          const status = (STATUSES as readonly string[]).includes(rawStatus)
-            ? (rawStatus as (typeof STATUSES)[number])
-            : "healthy";
-          const rawCat = String(row.category ?? "").trim().toLowerCase();
-          const category = (CATEGORIES as readonly string[]).includes(rawCat)
-            ? (rawCat as Category)
-            : null;
-          const qty = parseInt(String(row.quantity ?? "1"), 10);
-          trees.push({
-            species,
-            variety: String(row.variety ?? "").trim() || null,
-            quantity: Number.isFinite(qty) && qty > 0 ? qty : 1,
-            location: String(row.location ?? "").trim() || null,
-            planted_on: String(row.planted_on ?? "").trim() || null,
-            status,
-            category,
-            notes: String(row.notes ?? "").trim() || null,
-          });
-        }
-        if (!trees.length) {
-          toast.error("No valid rows. Required column: species");
-          return;
-        }
-        importM.mutate(trees);
-      },
-      error: (err) => toast.error(`Parse error: ${err.message}`),
-    });
-  }
+
+
 
   function printOrchard() {
     const list = trees as Tree[];
