@@ -264,7 +264,7 @@ export const upsertFoodPlanFood = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => FoodSchema.parse(d))
   .handler(async ({ data, context }) => {
-    const row: Record<string, unknown> = {
+    const row = {
       user_id: context.userId,
       name: data.name.trim(),
       category: emptyToNull(data.category ?? null),
