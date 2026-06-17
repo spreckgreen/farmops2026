@@ -113,9 +113,18 @@ function OrchardPage() {
           location: vars.location || null,
           planted_on: vars.planted_on || null,
           status: vars.status,
+          category: vars.category || null,
           notes: vars.notes || null,
         },
       }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["orchard-trees"] });
+      setOpen(false);
+      setForm(empty);
+      toast.success("Saved");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["orchard-trees"] });
       setOpen(false);
