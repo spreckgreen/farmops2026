@@ -415,11 +415,16 @@ export const getFoodYieldProgress = createServerFn({ method: "GET" })
       // harvested so far (are we tracking against the plan?).
       const plannedGapPounds = Math.max(0, expectedPounds - estimatedPounds);
       const actualGapPounds = Math.max(0, expectedPounds - actualPounds);
+      // Storage on hand for this food (matched by normalized name) offsets the
+      // actual gap — a "supplement" the pantry can cover.
+      const storagePounds = storageByName.get(normalizeName(f.name)) ?? 0;
+      const mitigatedGapPounds = Math.max(0, actualGapPounds - storagePounds);
 
       if (
         expectedPounds === 0 &&
         actualPounds === 0 &&
         estimatedPounds === 0 &&
+        storagePounds === 0 &&
         planEntries.length === 0
       ) continue;
 
@@ -436,6 +441,9 @@ export const getFoodYieldProgress = createServerFn({ method: "GET" })
         planned_gap_value: plannedGapPounds * pricePerLb,
         actual_gap_pounds: actualGapPounds,
         actual_gap_value: actualGapPounds * pricePerLb,
+        storage_pounds: storagePounds,
+        mitigated_gap_pounds: mitigatedGapPounds,
+        mitigated_gap_value: mitigatedGapPounds * pricePerLb,
         price_per_lb: pricePerLb,
         progress: expectedPounds > 0 ? actualPounds / expectedPounds : 0,
         plantings: plantingContribs.sort((a, b) => b.estimated_pounds - a.estimated_pounds),
