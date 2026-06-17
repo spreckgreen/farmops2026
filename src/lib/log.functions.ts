@@ -1373,10 +1373,8 @@ export const addTaskToToday = createServerFn({ method: "POST" })
 
     if (!alreadyOnToday) {
       const current = note.markdown_content ?? "";
-      const lines = current.split("\n");
-      const refAlreadyPresentAsLine = lines.some((l) => l.trim() === refLine.trim());
-      if (!refAlreadyPresentAsLine) {
-        const next = current.trim().length ? `${current.trimEnd()}\n${refLine}\n` : `${refLine}\n`;
+      const next = appendTaskRefLine(current, refLine);
+      if (next !== current) {
         await supabase
           .from("daily_notes")
           .update({ markdown_content: next })
