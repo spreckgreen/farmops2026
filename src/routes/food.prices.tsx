@@ -15,6 +15,7 @@ import {
   bulkUpdateFoodCategories,
 } from "@/lib/food.functions";
 import seasonsData from "@/data/plant-seasons.json";
+import { FOOD_CATEGORIES } from "@/lib/food-categories";
 
 const SEASON_BUCKETS = ["All Year", "Spring", "Summer", "Fall", "Winter"] as const;
 const SEASON_COLORS: Record<string, string> = {
@@ -597,18 +598,6 @@ function PriceHistoryPage() {
   );
 }
 
-const FOOD_CATEGORIES = [
-  "Vegetables",
-  "Orchard (fruit/nut)",
-  "Field crops",
-  "Animal protein",
-  "Dairy",
-  "Eggs",
-  "Fiber",
-  "Beverages",
-  "Pantry / staples",
-  "Other",
-];
 
 function BulkCategoryDialog({
   open,
@@ -784,7 +773,7 @@ function BulkCategoryDialog({
                           {FOOD_CATEGORIES.map((c) => (
                             <SelectItem key={c} value={c}>{c}</SelectItem>
                           ))}
-                          {nextVal && !FOOD_CATEGORIES.includes(nextVal) && (
+                          {nextVal && !(FOOD_CATEGORIES as readonly string[]).includes(nextVal) && (
                             <SelectItem value={nextVal}>{nextVal} (current)</SelectItem>
                           )}
                         </SelectContent>
