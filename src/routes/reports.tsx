@@ -86,15 +86,23 @@ function ReportsPage() {
     queryFn: () => freshnessFn(),
   });
 
+  // Per-mode snapshot of `latestDataChange` for which regen returned
+  // "no activity". Used to suppress the stale banner — otherwise modes whose
+  // period has no activity (e.g. weekly with nothing logged this week) loop
+  // forever: stale → regen → ok:false → still stale.
+  const [noDataAt, setNoDataAt] = useState<Partial<Record<ReportMode, string | null>>>({});
+
   const runReport = useMutation({
     mutationFn: (mode: ReportMode) => generateFn({ data: { mode, period_days: 7 } }),
     onSuccess: (res, mode) => {
       if (!res.ok) {
         toast.info(res.error);
+        setNoDataAt((m) => ({ ...m, [mode]: latestDataChange ?? null }));
         return;
       }
       const count = "summaries" in res && res.summaries ? res.summaries.length : 1;
       toast.success(`${LABELS[mode]} drafted (${count})`);
+      setNoDataAt((m) => ({ ...m, [mode]: undefined }));
       qc.invalidateQueries({ queryKey: ["summaries"] });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
