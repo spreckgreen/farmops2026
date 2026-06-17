@@ -3,9 +3,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Sprout, Loader2, Upload, Printer } from "lucide-react";
+import { Sprout, Loader2, Printer } from "lucide-react";
 import { openPrintWindow, escapeHtml } from "@/lib/print";
 import Papa from "papaparse";
+import { CsvToolbar } from "@/components/csv-toolbar";
 import {
   Select,
   SelectTrigger,
