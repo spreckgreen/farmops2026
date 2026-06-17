@@ -14,6 +14,35 @@ import {
   autoClassifyFoodCategories,
   bulkUpdateFoodCategories,
 } from "@/lib/food.functions";
+import seasonsData from "@/data/plant-seasons.json";
+
+const SEASON_BUCKETS = ["All Year", "Spring", "Summer", "Fall", "Winter"] as const;
+const SEASON_COLORS: Record<string, string> = {
+  "All Year": "bg-muted text-muted-foreground border-border",
+  Spring: "bg-emerald-500/20 text-emerald-200 border-emerald-500/40",
+  Summer: "bg-amber-500/20 text-amber-200 border-amber-500/40",
+  Fall: "bg-orange-500/20 text-orange-200 border-orange-500/40",
+  Winter: "bg-sky-500/20 text-sky-200 border-sky-500/40",
+};
+function normalizeSeasonKey(s: string): string {
+  return s.toLowerCase().replace(/\(.*?\)/g, "").replace(/[^a-z0-9]+/g, " ").trim();
+}
+function matchSeasonBucket(season: string, bucket: string): boolean {
+  const s = season.toLowerCase();
+  if (bucket === "All Year") return s.includes("all year");
+  return s.includes(bucket.toLowerCase());
+}
+const SEASON_BY_NAME: Map<string, { season: string; notes: string }> = (() => {
+  const m = new Map<string, { season: string; notes: string }>();
+  for (const r of seasonsData as Array<{ name: string; season: string; notes: string }>) {
+    const k = normalizeSeasonKey(r.name);
+    if (k && !m.has(k)) m.set(k, { season: r.season, notes: r.notes });
+  }
+  return m;
+})();
+function lookupSeason(name: string): { season: string; notes: string } | null {
+  return SEASON_BY_NAME.get(normalizeSeasonKey(name)) ?? null;
+}
 import { fmtUsd, fmtUsdSigned } from "@/lib/currency";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -155,6 +184,7 @@ function PriceHistoryPage() {
           latest: sorted[0],
           category: sorted.find((e) => e.category)?.category ?? null,
           unit: sorted.find((e) => e.unit)?.unit ?? null,
+          season: lookupSeason(name),
         };
       })
       .sort((a, b) => a.name.localeCompare(b.name));
@@ -186,13 +216,14 @@ function PriceHistoryPage() {
       const s = v === null || v === undefined ? "" : String(v);
       return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
     };
-    const header = ["food_name", "category", "unit", "changed_at", "old_price_per_lb", "new_price_per_lb", "delta"];
+    const header = ["food_name", "category", "season", "unit", "changed_at", "old_price_per_lb", "new_price_per_lb", "delta"];
     const body = rows.map((e) => {
       const delta =
         e.old_price !== null && e.new_price !== null
           ? (e.new_price - e.old_price).toFixed(4)
           : "";
-      return [e.food_name, e.category ?? "", e.unit ?? "", e.changed_at, e.old_price ?? "", e.new_price ?? "", delta]
+      const s = lookupSeason(e.food_name);
+      return [e.food_name, e.category ?? "", s?.season ?? "", e.unit ?? "", e.changed_at, e.old_price ?? "", e.new_price ?? "", delta]
         .map(esc)
         .join(",");
     });
@@ -339,6 +370,7 @@ function PriceHistoryPage() {
                 <tr>
                   <th className="text-left p-2">Food</th>
                   <th className="text-left p-2">Category</th>
+                  <th className="text-left p-2">Season</th>
                   <th className="text-left p-2">Unit</th>
                   <th className="text-right p-2">Current</th>
                   <th className="text-right p-2">Δ</th>
@@ -362,6 +394,20 @@ function PriceHistoryPage() {
                       <td className="p-2">{g.name}</td>
                       <td className="p-2 text-xs text-muted-foreground">
                         {g.category ?? <span className="italic opacity-60">—</span>}
+                      </td>
+                      <td className="p-2 text-xs">
+                        {g.season ? (
+                          <div className="flex flex-wrap gap-1">
+                            {SEASON_BUCKETS.filter((b) => matchSeasonBucket(g.season!.season, b)).map((t) => (
+                              <span key={t} className={`px-1.5 py-0.5 rounded border text-[10px] ${SEASON_COLORS[t]}`}>{t}</span>
+                            ))}
+                            {!SEASON_BUCKETS.some((b) => matchSeasonBucket(g.season!.season, b)) && (
+                              <span className="text-muted-foreground">{g.season.season}</span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="italic opacity-60 text-muted-foreground">—</span>
+                        )}
                       </td>
                       <td className="p-2 text-xs text-muted-foreground">
                         {g.unit ?? <span className="italic opacity-60">lb</span>}
@@ -407,6 +453,15 @@ function PriceHistoryPage() {
                       Category: <span className="font-mono">{detail.category ?? "—"}</span>
                       <span className="mx-2 opacity-50">·</span>
                       Unit: <span className="font-mono">{detail.unit ?? "lb"}</span>
+                      {detail.season && (
+                        <>
+                          <span className="mx-2 opacity-50">·</span>
+                          Season: <span className="font-mono">{detail.season.season}</span>
+                          {detail.season.notes && (
+                            <span className="ml-1 italic opacity-70">({detail.season.notes})</span>
+                          )}
+                        </>
+                      )}
                     </div>
                   </div>
                   <Button size="sm" variant="outline" onClick={() => openAdd(detail.name)}>
