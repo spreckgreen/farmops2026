@@ -854,7 +854,7 @@ function LongTermPlanPanel() {
                           const t = e.target.value;
                           const v = t === "" ? null : parseFloat(t) || 0;
                           if (v === c.price) return;
-                          inlineUpsertM.mutate({ ...c.row, price_per_pound: v });
+                          inlineUpsertM.mutate({ row: { ...c.row, price_per_pound: v }, field: "price_per_pound" });
                         }}
                       />
                     </td>
