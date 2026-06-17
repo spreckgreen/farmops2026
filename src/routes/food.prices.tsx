@@ -112,6 +112,16 @@ function PriceHistoryPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const classifyM = useMutation({
+    mutationFn: (overwrite: boolean) => reclassify({ data: { overwriteExisting: overwrite } }),
+    onSuccess: (r) => {
+      qc.invalidateQueries({ queryKey: ["food-plan"] });
+      qc.invalidateQueries({ queryKey: ["food", "yield-progress"] });
+      toast.success(`Categories: ${r.updated} updated, ${r.unchanged} unchanged`);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const byFood = useMemo(() => {
     const groups = new Map<string, Entry[]>();
     (entries as Entry[]).forEach((e) => {
