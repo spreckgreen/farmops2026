@@ -280,6 +280,16 @@ function PriceHistoryPage() {
             onChange={(e) => setFilter(e.target.value)}
             className="w-60"
           />
+          <Select value={seasonFilter} onValueChange={setSeasonFilter}>
+            <SelectTrigger className="w-[150px]"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All seasons</SelectItem>
+              <SelectItem value="__none__">Unmapped</SelectItem>
+              {SEASON_BUCKETS.map((b) => (
+                <SelectItem key={b} value={b}>{b}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Button size="sm" onClick={() => openAdd(selected ?? undefined)}>
             <Plus className="h-4 w-4 mr-2" />
             Add price entry
