@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, TreeDeciduous, Upload, Loader2, Printer } from "lucide-react";
+import { Plus, Pencil, Trash2, TreeDeciduous, Upload, Loader2, Printer, Check, X } from "lucide-react";
 import { openPrintWindow, escapeHtml } from "@/lib/print";
 import Papa from "papaparse";
 import {
@@ -102,6 +102,8 @@ function OrchardPage() {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(empty);
   const [categoryFilter, setCategoryFilter] = useState<"all" | Category | "uncategorized">("all");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState(empty);
 
   const upsertM = useMutation({
     mutationFn: (vars: typeof empty) =>
@@ -118,10 +120,13 @@ function OrchardPage() {
           notes: vars.notes || null,
         },
       }),
-    onSuccess: () => {
+    onSuccess: (_d, vars) => {
       qc.invalidateQueries({ queryKey: ["orchard-trees"] });
-      setOpen(false);
-      setForm(empty);
+      if (vars.id && editingId === vars.id) setEditingId(null);
+      if (!vars.id) {
+        setOpen(false);
+        setForm(empty);
+      }
       toast.success("Saved");
     },
     onError: (e: Error) => toast.error(e.message),
@@ -141,8 +146,9 @@ function OrchardPage() {
     setOpen(true);
   }
 
-  function openEdit(t: Tree) {
-    setForm({
+  function startInlineEdit(t: Tree) {
+    setEditingId(t.id);
+    setEditDraft({
       id: t.id,
       species: t.species,
       variety: t.variety ?? "",
@@ -153,7 +159,16 @@ function OrchardPage() {
       category: (CATEGORIES as readonly string[]).includes(t.category ?? "") ? (t.category as Category) : "",
       notes: t.notes ?? "",
     });
-    setOpen(true);
+  }
+  function cancelInlineEdit() {
+    setEditingId(null);
+  }
+  function saveInlineEdit() {
+    if (!editDraft.species.trim()) {
+      toast.error("Species is required");
+      return;
+    }
+    upsertM.mutate(editDraft);
   }
 
   const bulk = useServerFn(bulkInsertOrchardTrees);
@@ -383,29 +398,92 @@ function OrchardPage() {
                                 </tr>
                               </thead>
                               <tbody>
-                                {g.items.map((t) => (
-                                  <tr key={t.id} className="border-t border-border hover:bg-muted/30">
-                                    <td className="px-3 py-2 font-mono">{t.species}</td>
-                                    <td className="px-3 py-2 text-muted-foreground">{t.variety ?? ""}</td>
-                                    <td className="px-3 py-2 text-right tabular-nums">{t.quantity}</td>
-                                    <td className="px-3 py-2 text-muted-foreground">{t.location ?? ""}</td>
-                                    <td className="px-3 py-2 text-muted-foreground">{t.planted_on ?? ""}</td>
-                                    <td className="px-3 py-2">
-                                      <Badge variant="outline" className={STATUS_COLORS[t.status] ?? ""}>{t.status}</Badge>
-                                    </td>
-                                    <td className="px-3 py-2 text-muted-foreground max-w-xs truncate" title={t.notes ?? ""}>{t.notes ?? ""}</td>
-                                    <td className="px-3 py-2">
-                                      <div className="flex justify-end gap-1">
-                                        <Button size="sm" variant="ghost" onClick={() => openEdit(t)}>
-                                          <Pencil className="h-3.5 w-3.5" />
-                                        </Button>
-                                        <Button size="sm" variant="ghost" className="text-destructive" onClick={() => deleteM.mutate(t.id)}>
-                                          <Trash2 className="h-3.5 w-3.5" />
-                                        </Button>
-                                      </div>
-                                    </td>
-                                  </tr>
-                                ))}
+                                {g.items.map((t) => {
+                                  const isEditing = editingId === t.id;
+                                  if (!isEditing) {
+                                    return (
+                                      <tr key={t.id} className="border-t border-border hover:bg-muted/30">
+                                        <td className="px-3 py-2 font-mono">{t.species}</td>
+                                        <td className="px-3 py-2 text-muted-foreground">{t.variety ?? ""}</td>
+                                        <td className="px-3 py-2 text-right tabular-nums">{t.quantity}</td>
+                                        <td className="px-3 py-2 text-muted-foreground">{t.location ?? ""}</td>
+                                        <td className="px-3 py-2 text-muted-foreground">{t.planted_on ?? ""}</td>
+                                        <td className="px-3 py-2">
+                                          <Badge variant="outline" className={STATUS_COLORS[t.status] ?? ""}>{t.status}</Badge>
+                                        </td>
+                                        <td className="px-3 py-2 text-muted-foreground max-w-xs truncate" title={t.notes ?? ""}>{t.notes ?? ""}</td>
+                                        <td className="px-3 py-2">
+                                          <div className="flex justify-end gap-1">
+                                            <Button size="sm" variant="ghost" onClick={() => startInlineEdit(t)} title="Edit">
+                                              <Pencil className="h-3.5 w-3.5" />
+                                            </Button>
+                                            <Button size="sm" variant="ghost" className="text-destructive" onClick={() => deleteM.mutate(t.id)} title="Delete">
+                                              <Trash2 className="h-3.5 w-3.5" />
+                                            </Button>
+                                          </div>
+                                        </td>
+                                      </tr>
+                                    );
+                                  }
+                                  return (
+                                    <tr key={t.id} className="border-t border-border bg-muted/20 align-top">
+                                      <td className="px-2 py-2">
+                                        <Input className="h-8" value={editDraft.species} onChange={(e) => setEditDraft({ ...editDraft, species: e.target.value })} />
+                                      </td>
+                                      <td className="px-2 py-2">
+                                        <Input className="h-8" value={editDraft.variety} onChange={(e) => setEditDraft({ ...editDraft, variety: e.target.value })} />
+                                      </td>
+                                      <td className="px-2 py-2">
+                                        <Input type="number" min={1} className="h-8 w-20 text-right" value={editDraft.quantity} onChange={(e) => setEditDraft({ ...editDraft, quantity: parseInt(e.target.value) || 1 })} />
+                                      </td>
+                                      <td className="px-2 py-2">
+                                        <Input className="h-8" value={editDraft.location} onChange={(e) => setEditDraft({ ...editDraft, location: e.target.value })} />
+                                      </td>
+                                      <td className="px-2 py-2">
+                                        <Input type="date" className="h-8" value={editDraft.planted_on} onChange={(e) => setEditDraft({ ...editDraft, planted_on: e.target.value })} />
+                                      </td>
+                                      <td className="px-2 py-2">
+                                        <Select value={editDraft.status} onValueChange={(v) => setEditDraft({ ...editDraft, status: v as (typeof STATUSES)[number] })}>
+                                          <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                                          <SelectContent>
+                                            {STATUSES.map((s) => (
+                                              <SelectItem key={s} value={s}>{s}</SelectItem>
+                                            ))}
+                                          </SelectContent>
+                                        </Select>
+                                        <Select
+                                          value={editDraft.category || "none"}
+                                          onValueChange={(v) => setEditDraft({ ...editDraft, category: v === "none" ? "" : (v as Category) })}
+                                        >
+                                          <SelectTrigger className="h-8 mt-1"><SelectValue /></SelectTrigger>
+                                          <SelectContent>
+                                            <SelectItem value="none">— Unset —</SelectItem>
+                                            {CATEGORIES.map((c) => (
+                                              <SelectItem key={c} value={c} className="capitalize">{c}</SelectItem>
+                                            ))}
+                                          </SelectContent>
+                                        </Select>
+                                      </td>
+                                      <td className="px-2 py-2">
+                                        <Textarea
+                                          className="min-h-[2rem] h-16"
+                                          value={editDraft.notes}
+                                          onChange={(e) => setEditDraft({ ...editDraft, notes: e.target.value })}
+                                        />
+                                      </td>
+                                      <td className="px-2 py-2">
+                                        <div className="flex justify-end gap-1">
+                                          <Button size="sm" variant="ghost" className="text-emerald-400" onClick={saveInlineEdit} disabled={upsertM.isPending} title="Save">
+                                            {upsertM.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                                          </Button>
+                                          <Button size="sm" variant="ghost" onClick={cancelInlineEdit} title="Cancel">
+                                            <X className="h-3.5 w-3.5" />
+                                          </Button>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
                               </tbody>
                             </table>
                           </div>
