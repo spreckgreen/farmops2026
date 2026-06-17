@@ -96,6 +96,7 @@ function GardenPage() {
   const [editing, setEditing] = useState<{ row: string; position: number; plot: Plot | null } | null>(null);
   const [name, setName] = useState("");
   const [notes, setNotes] = useState("");
+  const [seasonFilter, setSeasonFilter] = useState<string>("All");
 
   const grid = useMemo(() => {
     const rows = new Set<string>(DEFAULT_ROWS);
