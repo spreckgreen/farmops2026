@@ -352,6 +352,7 @@ function FoodItemRow({ item }: { item: Category["items"][number] }) {
                     <span className="font-mono whitespace-nowrap">
                       {p.count} × {p.yield_per_unit_lbs.toFixed(1)} lbs ={" "}
                       <span className="text-foreground">{fmtLbs(p.estimated_pounds)} lbs</span>
+                      <KcalSpan name={item.name} lbs={p.estimated_pounds} />
                     </span>
                   </li>
                 ))}
