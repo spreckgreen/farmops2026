@@ -204,10 +204,26 @@ function FoodOverviewPage() {
             </button>
           </p>
         )}
-        <div className="space-y-3">
-          {visibleCats.map((cat) => (
-            <CategoryBlock key={cat.category} cat={cat} />
-          ))}
+        <div className="overflow-x-auto border border-border rounded-md bg-card">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/50 text-xs font-mono uppercase tracking-wider text-muted-foreground">
+              <tr>
+                <th className="p-2 text-left">Category</th>
+                <th className="p-2 text-right">Foods</th>
+                <th className="p-2 text-right">Annual need</th>
+                <th className="p-2 text-right">Planted estimate</th>
+                <th className="p-2 text-right">Harvested</th>
+                <th className="p-2 text-right">Pantry</th>
+                <th className="p-2 text-right">Net gap</th>
+                <th className="p-2 text-left">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {visibleCats.map((cat) => (
+                <CategoryBlock key={cat.category} cat={cat} />
+              ))}
+            </tbody>
+          </table>
         </div>
       </section>
 
