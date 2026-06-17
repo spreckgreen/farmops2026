@@ -270,6 +270,16 @@ function PriceHistoryPage() {
           <Button
             variant="outline"
             size="sm"
+            onClick={() => setBulkOpen(true)}
+            disabled={foods.length === 0}
+            title="Open bulk category editor"
+          >
+            <ListChecks className="h-4 w-4 mr-2" />
+            Bulk edit categories
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => refreshM.mutate()}
             disabled={refreshM.isPending || foods.length === 0}
             title="Refresh prices from Southern Ohio regional reference"
