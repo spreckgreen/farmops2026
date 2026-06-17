@@ -116,13 +116,14 @@ function FoodOverviewPage() {
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3 mb-3">
-          <SummaryStat label="Plan need" value={`${fmtLbs(totals?.expected_pounds ?? 0)} lbs`} />
-          <SummaryStat label="Est. yield (planted)" value={`${fmtLbs(totals?.estimated_pounds ?? 0)} lbs`} />
-          <SummaryStat label="Harvested" value={`${fmtLbs(totals?.actual_pounds ?? 0)} lbs`} />
+          <SummaryStat label="Plan need" value={`${fmtLbs(totals?.expected_pounds ?? 0)} lbs`} kcal={kcalTotal(totals?.expected_pounds ?? 0)} />
+          <SummaryStat label="Est. yield (planted)" value={`${fmtLbs(totals?.estimated_pounds ?? 0)} lbs`} kcal={kcalTotal(totals?.estimated_pounds ?? 0)} />
+          <SummaryStat label="Harvested" value={`${fmtLbs(totals?.actual_pounds ?? 0)} lbs`} kcal={kcalTotal(totals?.actual_pounds ?? 0)} />
           <SummaryStat
             label="Planned gap"
             sublabel="need − planted"
             value={`${fmtLbs(totals?.planned_gap_pounds ?? 0)} lbs`}
+            kcal={kcalTotal(totals?.planned_gap_pounds ?? 0)}
             secondary={fmtUsd(totals?.planned_gap_value ?? 0)}
             accent
           />
@@ -130,6 +131,7 @@ function FoodOverviewPage() {
             label="Actual gap"
             sublabel="need − harvested"
             value={`${fmtLbs(totals?.actual_gap_pounds ?? 0)} lbs`}
+            kcal={kcalTotal(totals?.actual_gap_pounds ?? 0)}
             secondary={fmtUsd(totals?.actual_gap_value ?? 0)}
             accent
           />
@@ -137,11 +139,13 @@ function FoodOverviewPage() {
             label="Storage supplement"
             sublabel="pantry on hand"
             value={`${fmtLbs(totals?.storage_pounds ?? 0)} lbs`}
+            kcal={kcalTotal(totals?.storage_pounds ?? 0)}
           />
           <SummaryStat
             label="Net gap"
             sublabel="actual − storage"
             value={`${fmtLbs(totals?.mitigated_gap_pounds ?? 0)} lbs`}
+            kcal={kcalTotal(totals?.mitigated_gap_pounds ?? 0)}
             secondary={fmtUsd(totals?.mitigated_gap_value ?? 0)}
             accent
           />
