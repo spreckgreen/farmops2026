@@ -64,6 +64,17 @@ function plantColor(name: string | null | undefined): string {
   return "bg-sky-500/20 text-sky-100 border-sky-500/40";
 }
 
+function getPlantSeason(name: string): string {
+  const k = name.toLowerCase();
+  const spring = ["pea", "spinach", "lettuce", "cabbage", "radish", "beet", "broccoli", "kale", "cauliflower", "brussels", "carrot", "onion", "potato", "turnip", "parsnip", "leek", "asparagus", "rhubarb"];
+  const summer = ["tomato", "pepper", "cucumber", "melon", "squash", "bean", "corn", "eggplant", "basil", "zucchini", "okra", "berry", "berries"];
+  const fall = ["garlic", "pumpkin", "sweet potato", "yam", "winter squash"];
+  if (spring.some((s) => k.includes(s))) return "Spring";
+  if (summer.some((s) => k.includes(s))) return "Summer";
+  if (fall.some((s) => k.includes(s))) return "Fall";
+  return "Other";
+}
+
 function GardenPage() {
   const qc = useQueryClient();
   const list = useServerFn(listGardenPlots);
