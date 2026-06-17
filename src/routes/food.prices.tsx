@@ -773,7 +773,7 @@ function BulkCategoryDialog({
                           {FOOD_CATEGORIES.map((c) => (
                             <SelectItem key={c} value={c}>{c}</SelectItem>
                           ))}
-                          {nextVal && !FOOD_CATEGORIES.includes(nextVal) && (
+                          {nextVal && !(FOOD_CATEGORIES as readonly string[]).includes(nextVal) && (
                             <SelectItem value={nextVal}>{nextVal} (current)</SelectItem>
                           )}
                         </SelectContent>
