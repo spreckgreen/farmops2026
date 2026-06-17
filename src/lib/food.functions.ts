@@ -2055,3 +2055,116 @@ export const bulkInsertFoodStorage = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { inserted: rows.length };
   });
+
+// ----------------------------------------------------------------------
+// Long term storage plan
+// ----------------------------------------------------------------------
+
+const StoragePlanRowSchema = z.object({
+  id: z.string().uuid().nullable().optional(),
+  name: z.string().trim().min(1).max(200),
+  category: z.string().trim().max(100).nullable().optional(),
+  food_type: z.string().trim().max(100).nullable().optional(),
+  pounds_per_year: z.union([z.number(), z.string()]).optional(),
+  target_months: z.union([z.number(), z.string()]).optional(),
+  price_per_pound: z.union([z.number(), z.string()]).nullable().optional(),
+  notes: z.string().max(5000).nullable().optional(),
+  sort_order: z.number().int().optional(),
+});
+
+export const listFoodStoragePlan = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data, error } = await context.supabase
+      .from("food_storage_plan")
+      .select("*")
+      .order("sort_order", { ascending: true })
+      .order("name", { ascending: true });
+    if (error) throw new Error(error.message);
+    return data ?? [];
+  });
+
+export const upsertFoodStoragePlanRow = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => StoragePlanRowSchema.parse(d))
+  .handler(async ({ data, context }) => {
+    const row = {
+      user_id: context.userId,
+      name: data.name.trim(),
+      category: emptyToNull(data.category ?? null),
+      food_type: emptyToNull(data.food_type ?? null),
+      pounds_per_year: toNumber(data.pounds_per_year ?? 0),
+      target_months: toNumber(data.target_months ?? 12),
+      price_per_pound:
+        data.price_per_pound == null || data.price_per_pound === ""
+          ? null
+          : toNumber(data.price_per_pound),
+      notes: emptyToNull(data.notes ?? null),
+      sort_order: data.sort_order ?? 0,
+    };
+    if (data.id) {
+      const { data: out, error } = await context.supabase
+        .from("food_storage_plan").update(row).eq("id", data.id).select().single();
+      if (error) throw new Error(error.message);
+      return out;
+    }
+    const { data: out, error } = await context.supabase
+      .from("food_storage_plan").insert(row).select().single();
+    if (error) throw new Error(error.message);
+    return out;
+  });
+
+export const deleteFoodStoragePlanRow = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase
+      .from("food_storage_plan").delete().eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const seedFoodStoragePlanFromPlan = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const sb = context.supabase;
+    const [foodsR, peopleR, entriesR] = await Promise.all([
+      sb.from("food_plan_foods").select("id,name,category,price_per_pound,sort_order"),
+      sb.from("food_plan_people").select("id"),
+      sb.from("food_plan_entries").select("food_id,quantity"),
+    ]);
+    if (foodsR.error) throw new Error(foodsR.error.message);
+    if (peopleR.error) throw new Error(peopleR.error.message);
+    if (entriesR.error) throw new Error(entriesR.error.message);
+    const foods = foodsR.data ?? [];
+    const peopleCount = (peopleR.data ?? []).length || 1;
+    const ozPerFood = new Map<string, number>();
+    for (const e of entriesR.data ?? []) {
+      ozPerFood.set(e.food_id, (ozPerFood.get(e.food_id) ?? 0) + Number(e.quantity ?? 0));
+    }
+    // weekly oz (sum of per-day quantities across all 7 days for ONE person)
+    // pounds per year = weekly_oz * peopleCount * 52 / 16
+    const rows = foods
+      .map((f, idx) => {
+        const weeklyOz = ozPerFood.get(f.id) ?? 0;
+        const lbsYear = (weeklyOz * peopleCount * 52) / 16;
+        return {
+          user_id: context.userId,
+          name: f.name,
+          category: f.category ?? null,
+          food_type: null as string | null,
+          pounds_per_year: Number(lbsYear.toFixed(2)),
+          target_months: 12,
+          price_per_pound: f.price_per_pound ?? null,
+          notes: null,
+          sort_order: f.sort_order ?? idx,
+        };
+      })
+      .filter((r) => r.pounds_per_year > 0 || r.price_per_pound != null);
+    if (!rows.length) return { inserted: 0 };
+    // clear existing
+    await sb.from("food_storage_plan").delete().eq("user_id", context.userId);
+    const { error } = await sb.from("food_storage_plan").insert(rows);
+    if (error) throw new Error(error.message);
+    return { inserted: rows.length };
+  });
