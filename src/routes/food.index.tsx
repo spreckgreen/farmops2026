@@ -22,12 +22,20 @@ function FoodOverviewPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
         <StatCard
-          label="Plantings"
-          value={data?.total_plantings ?? 0}
-          to="/food/crops"
+          label="Garden plantings"
+          value={data?.garden_plantings ?? 0}
+          to="/food/garden"
         />
-        <StatCard label="Growing" value={data?.planting_counts?.growing ?? 0} to="/food/crops" />
-        <StatCard label="Planned" value={data?.planting_counts?.planned ?? 0} to="/food/crops" />
+        <StatCard
+          label="Orchard trees"
+          value={data?.orchard_trees ?? 0}
+          to="/food/orchard"
+        />
+        <StatCard
+          label="Livestock"
+          value={data?.livestock_count ?? 0}
+          to="/food/livestock"
+        />
         <StatCard
           label="Recent harvests"
           value={data?.recent_harvests?.length ?? 0}
@@ -37,12 +45,34 @@ function FoodOverviewPage() {
 
       <section>
         <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-2">
-          Recent harvests
+          Recent plantings
         </h2>
         {q.isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
+        {!q.isLoading && (data?.recent_plantings?.length ?? 0) === 0 && (
+          <p className="text-sm text-muted-foreground">
+            No plantings yet — add rows under Garden or Orchard.
+          </p>
+        )}
+        <ul className="divide-y divide-border border border-border rounded-md">
+          {(data?.recent_plantings ?? []).map((p) => (
+            <li key={p.id} className="flex items-center justify-between px-3 py-2 text-sm gap-3">
+              <span className="font-mono text-xs uppercase tracking-wider text-muted-foreground w-20 shrink-0">
+                {p.source}
+              </span>
+              <span className="flex-1 truncate">{p.name}</span>
+              <span className="text-muted-foreground text-xs">{p.detail}</span>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section>
+        <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-2">
+          Recent harvests
+        </h2>
         {!q.isLoading && (data?.recent_harvests?.length ?? 0) === 0 && (
           <p className="text-sm text-muted-foreground">
-            No harvests yet — add a planting and log a harvest under Crops.
+            No harvests yet — log one under Crops.
           </p>
         )}
         <ul className="divide-y divide-border border border-border rounded-md">

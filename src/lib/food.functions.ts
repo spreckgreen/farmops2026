@@ -150,25 +150,55 @@ export const deleteCropHarvest = createServerFn({ method: "POST" })
 export const getFoodOverview = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const [plantings, harvests] = await Promise.all([
+    const [garden, orchard, harvests] = await Promise.all([
       context.supabase
-        .from("crop_plantings")
-        .select("id, status", { count: "exact", head: false }),
+        .from("garden_plots")
+        .select("id, row_label, position, plant_name, notes, updated_at")
+        .not("plant_name", "is", null)
+        .neq("plant_name", ""),
+      context.supabase
+        .from("orchard_trees")
+        .select("id, species, variety, quantity, status, planted_on, updated_at"),
       context.supabase
         .from("crop_harvests")
         .select("id, harvested_on, quantity, unit, planting_id")
         .order("harvested_on", { ascending: false })
         .limit(5),
     ]);
-    if (plantings.error) throw new Error(plantings.error.message);
+    if (garden.error) throw new Error(garden.error.message);
+    if (orchard.error) throw new Error(orchard.error.message);
     if (harvests.error) throw new Error(harvests.error.message);
-    const counts = (plantings.data ?? []).reduce<Record<string, number>>(
-      (acc, r) => ((acc[r.status ?? "planned"] = (acc[r.status ?? "planned"] ?? 0) + 1), acc),
-      {},
-    );
+
+    const gardenRows = garden.data ?? [];
+    const orchardRows = orchard.data ?? [];
+    const orchardTrees = orchardRows.reduce((s, r) => s + (Number(r.quantity) || 1), 0);
+
+    const recentPlantings = [
+      ...gardenRows.map((r) => ({
+        id: `g-${r.id}`,
+        source: "Garden" as const,
+        name: r.plant_name ?? "",
+        detail: `${r.row_label}${r.position}`,
+        updated_at: r.updated_at,
+      })),
+      ...orchardRows.map((r) => ({
+        id: `o-${r.id}`,
+        source: "Orchard" as const,
+        name: r.variety ? `${r.species} — ${r.variety}` : r.species,
+        detail: `${r.quantity ?? 1} tree${(r.quantity ?? 1) === 1 ? "" : "s"}`,
+        updated_at: r.updated_at,
+      })),
+    ]
+      .sort((a, b) => (b.updated_at ?? "").localeCompare(a.updated_at ?? ""))
+      .slice(0, 8);
+
     return {
-      planting_counts: counts,
-      total_plantings: plantings.data?.length ?? 0,
+      garden_plantings: gardenRows.length,
+      orchard_trees: orchardTrees,
+      orchard_entries: orchardRows.length,
+      livestock_count: 0,
+      total_plantings: gardenRows.length + orchardRows.length,
+      recent_plantings: recentPlantings,
       recent_harvests: harvests.data ?? [],
     };
   });
