@@ -5,6 +5,7 @@ import { listTasks } from "@/lib/log.functions";
 import { Badge } from "@/components/ui/badge";
 import { AppLayout } from "@/components/app-layout";
 import { requireAuthenticatedUser } from "@/lib/auth-route";
+import { todayDateString } from "@/lib/slug";
 
 export const Route = createFileRoute("/tasks/")({
   ssr: false,
@@ -29,7 +30,11 @@ function sortByGroupThenTitle<T extends { title: string }>(tasks: T[]): T[] {
 
 function TasksPage() {
   const fn = useServerFn(listTasks);
-  const { data, isLoading } = useQuery({ queryKey: ["tasks", "today"], queryFn: () => fn({ data: {} }) });
+  const today = todayDateString();
+  const { data, isLoading } = useQuery({
+    queryKey: ["tasks", "today", today],
+    queryFn: () => fn({ data: { date: today } }),
+  });
 
   const grouped = {
     open: sortByGroupThenTitle((data ?? []).filter((t) => t.status === "open")),
