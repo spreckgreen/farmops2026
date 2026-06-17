@@ -253,19 +253,20 @@ function CategoryBlock({ cat }: { cat: Category }) {
             <span className="font-medium truncate">{cat.category}</span>
             <span className="text-xs font-mono text-muted-foreground shrink-0">
               need {fmtLbs(cat.expected_pounds)} · est {fmtLbs(cat.estimated_pounds)} · harv {fmtLbs(cat.actual_pounds)} lbs
+              <KcalSpan name={cat.category} lbs={cat.expected_pounds} />
               {cat.expected_pounds > 0 && <> · {pct}%</>}
               {cat.planned_gap_pounds > 0 && (
-                <> · <span className="text-amber-500">plan gap {fmtLbs(cat.planned_gap_pounds)} lbs / {fmtUsd(cat.planned_gap_value)}</span></>
+                <> · <span className="text-amber-500">plan gap {fmtLbs(cat.planned_gap_pounds)} lbs<KcalSpan name={cat.category} lbs={cat.planned_gap_pounds} /> / {fmtUsd(cat.planned_gap_value)}</span></>
               )}
               {cat.actual_gap_pounds > 0 && (
-                <> · <span className="text-destructive">actual gap {fmtLbs(cat.actual_gap_pounds)} lbs / {fmtUsd(cat.actual_gap_value)}</span></>
+                <> · <span className="text-destructive">actual gap {fmtLbs(cat.actual_gap_pounds)} lbs<KcalSpan name={cat.category} lbs={cat.actual_gap_pounds} /> / {fmtUsd(cat.actual_gap_value)}</span></>
               )}
               {cat.storage_pounds > 0 && (
-                <> · <span className="text-sky-500">storage {fmtLbs(cat.storage_pounds)} lbs</span></>
+                <> · <span className="text-sky-500">storage {fmtLbs(cat.storage_pounds)} lbs<KcalSpan name={cat.category} lbs={cat.storage_pounds} /></span></>
               )}
               {cat.actual_gap_pounds > 0 && (
                 <> · <span className={cat.mitigated_gap_pounds > 0 ? "text-destructive" : "text-emerald-500"}>
-                  net gap {fmtLbs(cat.mitigated_gap_pounds)} lbs / {fmtUsd(cat.mitigated_gap_value)}
+                  net gap {fmtLbs(cat.mitigated_gap_pounds)} lbs<KcalSpan name={cat.category} lbs={cat.mitigated_gap_pounds} /> / {fmtUsd(cat.mitigated_gap_value)}
                 </span></>
               )}
             </span>
