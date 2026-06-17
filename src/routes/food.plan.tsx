@@ -1,9 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Plus, Trash2, Snowflake, Download } from "lucide-react";
+import { Plus, Trash2, Snowflake, Download, Pencil } from "lucide-react";
 import {
   listFoodPlan,
   upsertFoodPlanPerson,
@@ -16,7 +16,16 @@ import {
 import { fmtUsd } from "@/lib/currency";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -24,6 +33,19 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+
+const FOOD_CATEGORIES = [
+  "Vegetables",
+  "Orchard (fruit/nut)",
+  "Field crops",
+  "Animal protein",
+  "Dairy",
+  "Eggs",
+  "Fiber",
+  "Beverages",
+  "Pantry / staples",
+  "Other",
+];
 
 export const Route = createFileRoute("/food/plan")({
   component: FoodPlanPage,
@@ -87,9 +109,13 @@ function FoodPlanPage() {
     mutationFn: (id: string) => delPerson({ data: { id } }),
     onSuccess: () => invalidate(),
   });
-  const addFood = useMutation({
-    mutationFn: (name: string) => upsertFood({ data: { name, sort_order: (data?.foods.length ?? 0) } }),
-    onSuccess: () => invalidate(),
+  const saveFood = useMutation({
+    mutationFn: (v: Partial<Food> & { name: string }) =>
+      upsertFood({ data: { ...v, sort_order: v.sort_order ?? (data?.foods.length ?? 0) } as any }),
+    onSuccess: () => {
+      invalidate();
+      toast.success("Food saved");
+    },
     onError: (e: Error) => toast.error(e.message),
   });
   const removeFood = useMutation({
@@ -131,7 +157,8 @@ function FoodPlanPage() {
   const [personDialog, setPersonDialog] = useState(false);
   const [personName, setPersonName] = useState("");
   const [foodDialog, setFoodDialog] = useState(false);
-  const [foodName, setFoodName] = useState("");
+  const [editingFood, setEditingFood] = useState<Food | null>(null);
+
 
   if (isLoading) return <div className="text-muted-foreground font-mono text-sm">Loading…</div>;
 
@@ -273,16 +300,31 @@ function FoodPlanPage() {
                     {weekly ? weekly.toFixed(2) : ""}
                   </td>
                   <td className="p-1">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 w-7 p-0"
-                      onClick={() => {
-                        if (confirm(`Delete "${f.name}" and all its entries?`)) removeFood.mutate(f.id);
-                      }}
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
+                    <div className="flex items-center gap-0.5 justify-end">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0"
+                        title="Edit food"
+                        onClick={() => {
+                          setEditingFood(f);
+                          setFoodDialog(true);
+                        }}
+                      >
+                        <Pencil className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0"
+                        title="Delete food"
+                        onClick={() => {
+                          if (confirm(`Delete "${f.name}" and all its entries?`)) removeFood.mutate(f.id);
+                        }}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               );
@@ -292,11 +334,18 @@ function FoodPlanPage() {
       </div>
 
       <div className="flex justify-between items-center">
-        <Button size="sm" variant="outline" onClick={() => setFoodDialog(true)}>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => {
+            setEditingFood(null);
+            setFoodDialog(true);
+          }}
+        >
           <Plus className="h-3 w-3 mr-1" /> Add food
         </Button>
         <p className="text-xs text-muted-foreground">
-          Quantities are per day. Edit a cell to update. Weekly cost assumes quantity is in ounces.
+          Quantities are per day. Click the pencil to edit a food's category, season, price, or serving size.
         </p>
       </div>
 
@@ -312,16 +361,17 @@ function FoodPlanPage() {
           setPersonDialog(false);
         }}
       />
-      <FoodDialog
+      <FoodEditDialog
         open={foodDialog}
-        onOpenChange={setFoodDialog}
-        name={foodName}
-        setName={setFoodName}
-        onSubmit={() => {
-          if (!foodName.trim()) return;
-          addFood.mutate(foodName.trim());
-          setFoodName("");
+        onOpenChange={(v) => {
+          setFoodDialog(v);
+          if (!v) setEditingFood(null);
+        }}
+        food={editingFood}
+        onSubmit={(payload) => {
+          saveFood.mutate(payload);
           setFoodDialog(false);
+          setEditingFood(null);
         }}
       />
     </div>
@@ -372,35 +422,142 @@ function PersonDialog({
   );
 }
 
-function FoodDialog({
+type FoodPayload = {
+  id?: string;
+  name: string;
+  category: string | null;
+  season: string | null;
+  unit: string | null;
+  oz_per_serving: number | null;
+  price_per_pound: number | null;
+  freeze_dry: boolean;
+};
+
+function FoodEditDialog({
   open,
   onOpenChange,
-  name,
-  setName,
+  food,
   onSubmit,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  name: string;
-  setName: (v: string) => void;
-  onSubmit: () => void;
+  food: Food | null;
+  onSubmit: (payload: FoodPayload) => void;
 }) {
+  const isEdit = !!food;
+  const [name, setName] = useState("");
+  const [category, setCategory] = useState<string>("");
+  const [season, setSeason] = useState<string>("");
+  const [unit, setUnit] = useState<string>("");
+  const [oz, setOz] = useState<string>("");
+  const [price, setPrice] = useState<string>("");
+  const [freezeDry, setFreezeDry] = useState(false);
+
+  // reset whenever dialog opens
+  useEffect(() => {
+    if (open) {
+      setName(food?.name ?? "");
+      setCategory(food?.category ?? "");
+      setSeason(food?.season ?? "");
+      setUnit(food?.unit ?? "");
+      setOz(food?.oz_per_serving != null ? String(food.oz_per_serving) : "");
+      setPrice(food?.price_per_pound != null ? String(food.price_per_pound) : "");
+      setFreezeDry(!!food?.freeze_dry);
+    }
+  }, [open, food]);
+
+  const submit = () => {
+    if (!name.trim()) return;
+    onSubmit({
+      id: food?.id,
+      name: name.trim(),
+      category: category.trim() ? category.trim() : null,
+      season: season.trim() ? season.trim() : null,
+      unit: unit.trim() ? unit.trim() : null,
+      oz_per_serving: oz.trim() ? Number(oz) : null,
+      price_per_pound: price.trim() ? Number(price) : null,
+      freeze_dry: freezeDry,
+    });
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Add food</DialogTitle>
+          <DialogTitle>{isEdit ? "Edit food" : "Add food"}</DialogTitle>
         </DialogHeader>
-        <Input
-          placeholder="Food name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          autoFocus
-          onKeyDown={(e) => e.key === "Enter" && onSubmit()}
-        />
+        <div className="space-y-3">
+          <div>
+            <Label>Name</Label>
+            <Input value={name} onChange={(e) => setName(e.target.value)} autoFocus />
+          </div>
+          <div>
+            <Label>Category</Label>
+            <Select value={category || "__none"} onValueChange={(v) => setCategory(v === "__none" ? "" : v)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Uncategorized" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none">Uncategorized</SelectItem>
+                {FOOD_CATEGORIES.map((c) => (
+                  <SelectItem key={c} value={c}>{c}</SelectItem>
+                ))}
+                {category && !FOOD_CATEGORIES.includes(category) && (
+                  <SelectItem value={category}>{category} (current)</SelectItem>
+                )}
+              </SelectContent>
+            </Select>
+            <p className="text-[10px] text-muted-foreground mt-1">
+              Drives grouping on the Food Overview dashboard.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>Season</Label>
+              <Input
+                placeholder="e.g. Summer"
+                value={season}
+                onChange={(e) => setSeason(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label>Unit</Label>
+              <Input
+                placeholder="lb, oz, dozen…"
+                value={unit}
+                onChange={(e) => setUnit(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label>Oz / serving</Label>
+              <Input
+                type="number"
+                step="any"
+                value={oz}
+                onChange={(e) => setOz(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label>Price / lb (USD)</Label>
+              <Input
+                type="number"
+                step="any"
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+              />
+            </div>
+          </div>
+          <label className="flex items-center gap-2 text-sm">
+            <Checkbox
+              checked={freezeDry}
+              onCheckedChange={(v) => setFreezeDry(!!v)}
+            />
+            Freeze-dry candidate
+          </label>
+        </div>
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={onSubmit}>Add</Button>
+          <Button onClick={submit}>{isEdit ? "Save" : "Add"}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
