@@ -1354,19 +1354,13 @@ export const addTaskToToday = createServerFn({ method: "POST" })
       note = created;
     }
 
-    // Append a reference line if not already present in the markdown.
+    // Append a reference line for today. We intentionally do NOT skip when
+    // the slug already appears in the markdown — today's note is seeded from
+    // the prior day, so `#task/<slug>` may be carried over from yesterday's
+    // entries. Dedupe instead against today's activity_log so repeated
+    // "Add to today" clicks don't append twice.
     const refLine = buildTaskRefLine(task);
 
-    const current = note.markdown_content ?? "";
-    if (!current.includes(`#task/${task.slug}`)) {
-      const next = current.trim().length ? `${current.trimEnd()}\n${refLine}\n` : `${refLine}\n`;
-      await supabase
-        .from("daily_notes")
-        .update({ markdown_content: next })
-        .eq("id", note.id);
-    }
-
-    // Insert activity log entry so listTasks picks it up immediately.
     const { data: existing } = await supabase
       .from("activity_log")
       .select("id")
@@ -1374,7 +1368,20 @@ export const addTaskToToday = createServerFn({ method: "POST" })
       .eq("daily_note_id", note.id)
       .eq("task_id", task.id)
       .limit(1);
-    if (!existing || existing.length === 0) {
+    const alreadyOnToday = !!existing && existing.length > 0;
+
+    if (!alreadyOnToday) {
+      const current = note.markdown_content ?? "";
+      const lines = current.split("\n");
+      const refAlreadyPresentAsLine = lines.some((l) => l.trim() === refLine.trim());
+      if (!refAlreadyPresentAsLine) {
+        const next = current.trim().length ? `${current.trimEnd()}\n${refLine}\n` : `${refLine}\n`;
+        await supabase
+          .from("daily_notes")
+          .update({ markdown_content: next })
+          .eq("id", note.id);
+      }
+
       await supabase.from("activity_log").insert({
         user_id: userId,
         task_id: task.id,
