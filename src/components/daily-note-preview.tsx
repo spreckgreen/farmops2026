@@ -104,7 +104,7 @@ function formatStartLabel(iso: string): string {
   return `${dateStr} ${timeStr}`;
 }
 
-export function DailyNotePreview({ markdown, tasks }: Props) {
+export function DailyNotePreview({ markdown, tasks, compact = false }: Props) {
   const tasksBySlug = new Map(tasks.map((t) => [t.slug, t]));
   const lines = markdown.split("\n");
 
