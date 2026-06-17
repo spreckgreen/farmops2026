@@ -584,3 +584,55 @@ export const listPriceHistory = createServerFn({ method: "GET" })
     if (error) throw new Error(error.message);
     return data ?? [];
   });
+
+// ----------------------------------------------------------------------
+// Bulk import
+// ----------------------------------------------------------------------
+
+export const bulkUpsertGardenPlots = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({
+      plots: z.array(GardenPlotSchema.omit({ id: true })).min(1).max(2000),
+    }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const rows = data.plots
+      .map((p) => ({
+        user_id: context.userId,
+        row_label: p.row_label,
+        position: p.position,
+        plant_name: emptyToNull(p.plant_name ?? null),
+        notes: emptyToNull(p.notes ?? null),
+      }))
+      .filter((r) => r.plant_name);
+    if (!rows.length) return { inserted: 0 };
+    const { error } = await context.supabase
+      .from("garden_plots")
+      .upsert(rows, { onConflict: "user_id,row_label,position" });
+    if (error) throw new Error(error.message);
+    return { inserted: rows.length };
+  });
+
+export const bulkInsertOrchardTrees = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({
+      trees: z.array(OrchardTreeSchema.omit({ id: true })).min(1).max(1000),
+    }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const rows = data.trees.map((t) => ({
+      user_id: context.userId,
+      species: t.species.trim(),
+      variety: emptyToNull(t.variety ?? null),
+      quantity: t.quantity ?? 1,
+      location: emptyToNull(t.location ?? null),
+      planted_on: emptyToNull(t.planted_on ?? null),
+      status: t.status ?? "healthy",
+      notes: emptyToNull(t.notes ?? null),
+    }));
+    const { error } = await context.supabase.from("orchard_trees").insert(rows);
+    if (error) throw new Error(error.message);
+    return { inserted: rows.length };
+  });
