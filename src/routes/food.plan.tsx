@@ -4,7 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState } from "react";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Plus, Trash2, Snowflake, Download, Pencil } from "lucide-react";
+import { Plus, Trash2, Snowflake, Download, Pencil, ChevronRight, ChevronDown } from "lucide-react";
 import {
   listFoodPlan,
   upsertFoodPlanPerson,
