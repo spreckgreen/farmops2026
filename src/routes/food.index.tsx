@@ -173,49 +173,6 @@ function FoodOverviewPage() {
         </div>
       </section>
 
-      <section>
-        <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-2">
-          Recent plantings
-        </h2>
-        {q.isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
-        {!q.isLoading && (data?.recent_plantings?.length ?? 0) === 0 && (
-          <p className="text-sm text-muted-foreground">
-            No plantings yet — add rows under Garden or Orchard.
-          </p>
-        )}
-        <ul className="divide-y divide-border border border-border rounded-md">
-          {(data?.recent_plantings ?? []).map((p) => (
-            <li key={p.id} className="flex items-center justify-between px-3 py-2 text-sm gap-3">
-              <span className="font-mono text-xs uppercase tracking-wider text-muted-foreground w-20 shrink-0">
-                {p.source}
-              </span>
-              <span className="flex-1 truncate">{p.name}</span>
-              <span className="text-muted-foreground text-xs">{p.detail}</span>
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      <section>
-        <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-2">
-          Recent harvests
-        </h2>
-        {!q.isLoading && (data?.recent_harvests?.length ?? 0) === 0 && (
-          <p className="text-sm text-muted-foreground">
-            No harvests yet — log one under Crops.
-          </p>
-        )}
-        <ul className="divide-y divide-border border border-border rounded-md">
-          {(data?.recent_harvests ?? []).map((h) => (
-            <li key={h.id} className="flex items-center justify-between px-3 py-2 text-sm">
-              <span className="font-mono">{format(new Date(h.harvested_on), "MMM d")}</span>
-              <span>
-                {h.quantity} {h.unit}
-              </span>
-            </li>
-          ))}
-        </ul>
-      </section>
     </div>
   );
 }
