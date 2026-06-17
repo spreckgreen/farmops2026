@@ -9,7 +9,8 @@ import { AppLayout } from "@/components/app-layout";
 import { requireAuthenticatedUser } from "@/lib/auth-route";
 import { toast } from "sonner";
 import { format, addDays, parseISO } from "date-fns";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Eye, EyeOff } from "lucide-react";
+import { DailyNotePreview } from "@/components/daily-note-preview";
 
 
 export const Route = createFileRoute("/notes/$date")({
@@ -196,6 +197,7 @@ function NotePage() {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const [caret, setCaret] = useState(0);
   const [acIndex, setAcIndex] = useState(0);
+  const [showPreview, setShowPreview] = useState(true);
 
   const acToken = useMemo(() => {
     if (!textareaRef.current) return null;
@@ -300,6 +302,18 @@ function NotePage() {
             <Button
               size="sm"
               variant="outline"
+              onClick={() => setShowPreview((v) => !v)}
+              title={showPreview ? "Hide rendered preview" : "Show rendered preview"}
+            >
+              {showPreview ? (
+                <><EyeOff className="h-3.5 w-3.5 mr-1.5" />Hide preview</>
+              ) : (
+                <><Eye className="h-3.5 w-3.5 mr-1.5" />Show preview</>
+              )}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
               onClick={() => refreshMutation.mutate()}
               disabled={refreshMutation.isPending || !query.data}
               title="Rebuild this note's markdown from today's activity log"
@@ -362,6 +376,25 @@ function NotePage() {
             </div>
           )}
         </div>
+
+        {showPreview && (
+          <section
+            aria-label="Rendered preview"
+            className="mt-4 bg-card border border-border rounded-lg p-4"
+          >
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+                Preview
+              </h2>
+              <span className="text-[10px] font-mono text-muted-foreground">
+                live · click task titles to open
+              </span>
+            </div>
+            <DailyNotePreview markdown={draft} tasks={tasks} />
+          </section>
+        )}
+
+
 
 
         <details className="mt-3 text-xs text-muted-foreground">
