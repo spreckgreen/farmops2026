@@ -35,6 +35,22 @@ export const Route = createFileRoute("/food/storage")({
   component: StoragePage,
 });
 
+type StorageImportItem = {
+  name: string;
+  description: string | null;
+  category: string | null;
+  food_type: string | null;
+  location: string | null;
+  quantity: number;
+  unit: string;
+  acquired_on: string | null;
+  best_by: string | null;
+  status: string;
+  source_url: string | null;
+  price: number | null;
+  notes: string | null;
+};
+
 type Item = {
   id: string;
   name: string;
@@ -160,7 +176,7 @@ function StoragePage() {
   });
 
   const importM = useMutation({
-    mutationFn: (its: Parameters<typeof bulk>[0]["data"]["items"]) => bulk({ data: { items: its } }),
+    mutationFn: (its: StorageImportItem[]) => bulk({ data: { items: its } }),
     onSuccess: (r) => {
       qc.invalidateQueries({ queryKey: ["food-storage"] });
       toast.success(`Imported ${r.inserted} items`);
@@ -234,7 +250,7 @@ function StoragePage() {
               notes: String(row.notes ?? "").trim() || null,
             };
           })
-          .filter(Boolean) as Parameters<typeof bulk>[0]["data"]["items"];
+          .filter(Boolean) as StorageImportItem[];
         if (!items.length) {
           toast.error("No valid rows. Required: itemTitle or name");
           return;
