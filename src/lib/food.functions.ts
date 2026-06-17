@@ -802,3 +802,122 @@ export const bulkInsertOrchardTrees = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { inserted: rows.length };
   });
+
+// ----------------------------------------------------------------------
+// Garden dashboard — plant counts, expected seasonal yield, gaps vs. food plan
+// ----------------------------------------------------------------------
+
+const YIELD_PER_PLANT_LBS: Record<string, number> = {
+  tomato: 10, tomatoes: 10,
+  pepper: 3, peppers: 3,
+  cucumber: 5, cucumbers: 5,
+  cabbage: 3,
+  squash: 8, zucchini: 10,
+  melon: 6, watermelon: 15, cantaloupe: 8,
+  bean: 0.5, beans: 0.5,
+  pea: 0.3, peas: 0.3,
+  spinach: 0.5,
+  basil: 0.5, herb: 0.25, herbs: 0.25,
+  beet: 0.4, beets: 0.4,
+  radish: 0.1, radishes: 0.1,
+  carrot: 0.25, carrots: 0.25,
+  onion: 0.4, onions: 0.4,
+  garlic: 0.15,
+  potato: 2, potatoes: 2,
+  lettuce: 0.5,
+  kale: 1,
+  broccoli: 1,
+  cauliflower: 1.5,
+  corn: 0.5,
+  strawberry: 1, strawberries: 1,
+  blueberry: 5, blueberries: 5,
+  raspberry: 2, raspberries: 2,
+};
+const DEFAULT_YIELD_LBS = 1;
+const GROWING_WEEKS = 26;
+
+export const getGardenDashboard = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const [plots, foods, entries] = await Promise.all([
+      context.supabase
+        .from("garden_plots")
+        .select("plant_name")
+        .not("plant_name", "is", null)
+        .neq("plant_name", ""),
+      context.supabase.from("food_plan_foods").select("id, name, oz_per_serving"),
+      context.supabase.from("food_plan_entries").select("food_id, quantity"),
+    ]);
+    if (plots.error) throw new Error(plots.error.message);
+    if (foods.error) throw new Error(foods.error.message);
+    if (entries.error) throw new Error(entries.error.message);
+
+    const norm = (s: string | null | undefined) => (s ?? "").trim().toLowerCase();
+    const yieldFor = (name: string) => {
+      const k = norm(name);
+      if (YIELD_PER_PLANT_LBS[k] !== undefined) return YIELD_PER_PLANT_LBS[k];
+      for (const [key, val] of Object.entries(YIELD_PER_PLANT_LBS)) {
+        if (k.includes(key)) return val;
+      }
+      return DEFAULT_YIELD_LBS;
+    };
+
+    const counts = new Map<string, { display: string; count: number }>();
+    for (const p of plots.data ?? []) {
+      const key = norm(p.plant_name);
+      if (!key) continue;
+      const cur = counts.get(key) ?? { display: (p.plant_name ?? "").trim(), count: 0 };
+      cur.count += 1;
+      counts.set(key, cur);
+    }
+
+    const weeklyByFood = new Map<string, number>();
+    for (const e of entries.data ?? []) {
+      weeklyByFood.set(e.food_id, (weeklyByFood.get(e.food_id) ?? 0) + (Number(e.quantity) || 0));
+    }
+    const neededByName = new Map<string, { needed_lbs: number; display: string }>();
+    for (const f of foods.data ?? []) {
+      const weekly = weeklyByFood.get(f.id) ?? 0;
+      if (weekly === 0) continue;
+      const oz = Number(f.oz_per_serving) || 0;
+      const lbs = (weekly * GROWING_WEEKS * oz) / 16;
+      if (lbs <= 0) continue;
+      neededByName.set(norm(f.name), { needed_lbs: lbs, display: f.name });
+    }
+
+    const keys = new Set<string>([...counts.keys(), ...neededByName.keys()]);
+    const plants = Array.from(keys).map((k) => {
+      const c = counts.get(k);
+      const need = neededByName.get(k);
+      const ypp = yieldFor(k);
+      const count = c?.count ?? 0;
+      const expectedYield = count * ypp;
+      const neededLbs = need?.needed_lbs ?? 0;
+      const plantsNeeded = neededLbs > 0 ? Math.ceil(neededLbs / ypp) : 0;
+      const gapPlants = Math.max(0, plantsNeeded - count);
+      return {
+        key: k,
+        name: c?.display || need?.display || k,
+        count,
+        yield_per_plant_lbs: ypp,
+        expected_yield_lbs: expectedYield,
+        needed_lbs: neededLbs,
+        plants_needed: plantsNeeded,
+        gap_plants: gapPlants,
+        gap_lbs: Math.max(0, neededLbs - expectedYield),
+      };
+    });
+
+    const summary = {
+      total_plants: plants.reduce((s, p) => s + p.count, 0),
+      distinct_plants: plants.filter((p) => p.count > 0).length,
+      total_expected_yield_lbs: plants.reduce((s, p) => s + p.expected_yield_lbs, 0),
+      total_needed_lbs: plants.reduce((s, p) => s + p.needed_lbs, 0),
+    };
+
+    return {
+      summary,
+      plants: plants.sort((a, b) => b.expected_yield_lbs - a.expected_yield_lbs),
+      gaps: plants.filter((p) => p.gap_plants > 0).sort((a, b) => b.gap_lbs - a.gap_lbs),
+    };
+  });
