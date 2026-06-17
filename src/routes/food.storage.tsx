@@ -852,7 +852,7 @@ function LongTermPlanPanel() {
           </p>
           <div className="flex items-center gap-2 justify-center">
             <Button onClick={() => seedM.mutate()} disabled={seedM.isPending}>
-              <Download className="h-4 w-4 mr-2" />
+              <Sprout className="h-4 w-4 mr-2" />
               {seedM.isPending ? "Seeding…" : "Seed from Plan tab"}
             </Button>
             <Button variant="outline" onClick={openNew}>
@@ -881,7 +881,7 @@ function LongTermPlanPanel() {
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => seedM.mutate()} disabled={seedM.isPending}>
-            <Download className="h-3.5 w-3.5 mr-2" />
+            <Sprout className="h-3.5 w-3.5 mr-2" />
             Re-seed from Plan
           </Button>
           <Button onClick={openNew}>
