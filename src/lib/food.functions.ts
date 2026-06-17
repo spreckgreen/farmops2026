@@ -836,6 +836,43 @@ const YIELD_PER_PLANT_LBS: Record<string, number> = {
 const DEFAULT_YIELD_LBS = 1;
 const GROWING_WEEKS = 26;
 
+// ---- Plan-food classifier: maps a food plan item to one production category
+// so each dashboard's "need" list is scoped (e.g. Apple → orchard, Chicken →
+// livestock). Priority: livestock > orchard > crops > garden.
+const LIVESTOCK_KEYWORDS = [
+  "beef", "steak", "ground beef", "ribs", "brisket", "veal",
+  "pork", "ham", "bacon", "sausage", "pepperoni", "salami", "hot dog",
+  "chicken", "poultry", "turkey", "duck", "goose",
+  "lamb", "mutton", "goat", "rabbit", "venison",
+  "fish", "salmon", "tuna", "tilapia", "cod", "trout", "shrimp", "crab", "lobster",
+  "egg", "eggs",
+  "milk", "cream", "butter", "cheese", "yogurt", "whey", "ghee",
+  "jerky", "meat",
+];
+const ORCHARD_KEYWORDS = Object.keys(YIELD_PER_TREE_LBS).concat([
+  "berries", "berry", "citrus", "stone fruit", "tropical",
+  "pineapple", "banana", "lychee", "boysenberr", "strawberr",
+  "kiwi", "papaya", "passion fruit", "guava", "pomegranate",
+]);
+const CROPS_KEYWORDS = [
+  "wheat", "flour", "bread", "pasta", "cereal", "oats", "oat", "barley",
+  "rye", "rice", "quinoa", "millet", "buckwheat", "cornmeal", "popcorn",
+  "lentil", "chickpea", "garbanzo", "kidney bean", "pinto bean", "black bean",
+  "soy", "tofu", "tempeh", "sugar", "honey", "molasses", "syrup", "oil",
+];
+const GARDEN_KEYWORDS = Object.keys(YIELD_PER_PLANT_LBS);
+
+function classifyFood(name: string): "livestock" | "orchard" | "crops" | "garden" | null {
+  const n = (name ?? "").trim().toLowerCase();
+  if (!n) return null;
+  const hit = (list: string[]) => list.some((k) => n.includes(k));
+  if (hit(LIVESTOCK_KEYWORDS)) return "livestock";
+  if (hit(ORCHARD_KEYWORDS)) return "orchard";
+  if (hit(CROPS_KEYWORDS)) return "crops";
+  if (hit(GARDEN_KEYWORDS)) return "garden";
+  return null;
+}
+
 export const getGardenDashboard = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
