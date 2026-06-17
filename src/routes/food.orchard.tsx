@@ -101,6 +101,7 @@ function OrchardPage() {
 
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(empty);
+  const [categoryFilter, setCategoryFilter] = useState<"all" | Category | "uncategorized">("all");
 
   const upsertM = useMutation({
     mutationFn: (vars: typeof empty) =>
