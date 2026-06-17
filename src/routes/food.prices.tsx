@@ -1,13 +1,26 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useMemo, useState } from "react";
 import { format } from "date-fns";
-import { ArrowDown, ArrowUp, Minus, History, Download } from "lucide-react";
-import { listPriceHistory } from "@/lib/food.functions";
+import { ArrowDown, ArrowUp, Minus, History, Download, Plus, RefreshCw, Loader2, Globe } from "lucide-react";
+import { toast } from "sonner";
+import {
+  listPriceHistory,
+  listFoodPlan,
+  recordFoodPrice,
+  refreshPricesSouthernOhio,
+} from "@/lib/food.functions";
 import { fmtUsd, fmtUsdSigned } from "@/lib/currency";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
+} from "@/components/ui/dialog";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 
 export const Route = createFileRoute("/food/prices")({
   component: PriceHistoryPage,
@@ -22,20 +35,65 @@ type Entry = {
   changed_at: string;
 };
 
+type Food = { id: string; name: string; price_per_pound: number | null };
+
+const SOURCE_LABEL = "Southern Ohio regional reference (Cincinnati / Dayton / Columbus retail + farmers' market avg)";
+
 function fmt(n: number | null): string {
   if (n === null || n === undefined) return "—";
   return fmtUsd(Number(n));
 }
 
 function PriceHistoryPage() {
+  const qc = useQueryClient();
   const list = useServerFn(listPriceHistory);
+  const listPlan = useServerFn(listFoodPlan);
+  const record = useServerFn(recordFoodPrice);
+  const refresh = useServerFn(refreshPricesSouthernOhio);
+
   const { data: entries = [], isLoading } = useQuery({
     queryKey: ["food-price-history"],
     queryFn: () => list(),
   });
+  const { data: plan } = useQuery({
+    queryKey: ["food-plan"],
+    queryFn: () => listPlan(),
+  });
+  const foods: Food[] = useMemo(
+    () => (((plan as { foods?: Food[] } | undefined)?.foods) ?? []).slice().sort((a, b) => a.name.localeCompare(b.name)),
+    [plan],
+  );
 
   const [filter, setFilter] = useState("");
   const [selected, setSelected] = useState<string | null>(null);
+
+  const [addOpen, setAddOpen] = useState(false);
+  const [addFoodId, setAddFoodId] = useState<string>("");
+  const [addPrice, setAddPrice] = useState<string>("");
+
+  const addM = useMutation({
+    mutationFn: (vars: { food_id: string; new_price: number }) =>
+      record({ data: vars }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["food-price-history"] });
+      qc.invalidateQueries({ queryKey: ["food-plan"] });
+      toast.success("Price recorded");
+      setAddOpen(false);
+      setAddFoodId("");
+      setAddPrice("");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const refreshM = useMutation({
+    mutationFn: () => refresh(),
+    onSuccess: (r) => {
+      qc.invalidateQueries({ queryKey: ["food-price-history"] });
+      qc.invalidateQueries({ queryKey: ["food-plan"] });
+      toast.success(`Refreshed: ${r.updated} updated, ${r.unchanged} unchanged`);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   const byFood = useMemo(() => {
     const groups = new Map<string, Entry[]>();
@@ -100,6 +158,17 @@ function PriceHistoryPage() {
     URL.revokeObjectURL(url);
   }
 
+  function openAdd(prefillName?: string) {
+    if (prefillName) {
+      const f = foods.find((x) => x.name === prefillName);
+      if (f) {
+        setAddFoodId(f.id);
+        setAddPrice(f.price_per_pound != null ? String(f.price_per_pound) : "");
+      }
+    }
+    setAddOpen(true);
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between flex-wrap gap-2">
@@ -107,6 +176,9 @@ function PriceHistoryPage() {
           <h2 className="text-lg font-mono font-semibold">Price History</h2>
           <p className="text-sm text-muted-foreground">
             Tracks every $/lb change to your food catalog.
+          </p>
+          <p className="text-xs text-muted-foreground mt-1 inline-flex items-center gap-1">
+            <Globe className="h-3 w-3" /> Reference source: {SOURCE_LABEL}
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -116,6 +188,24 @@ function PriceHistoryPage() {
             onChange={(e) => setFilter(e.target.value)}
             className="w-60"
           />
+          <Button size="sm" onClick={() => openAdd(selected ?? undefined)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add price entry
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => refreshM.mutate()}
+            disabled={refreshM.isPending || foods.length === 0}
+            title="Refresh prices from Southern Ohio regional reference"
+          >
+            {refreshM.isPending ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4 mr-2" />
+            )}
+            Refresh from S. Ohio
+          </Button>
           <Button
             variant="outline"
             size="sm"
@@ -143,7 +233,7 @@ function PriceHistoryPage() {
       ) : byFood.length === 0 ? (
         <div className="border border-dashed border-border rounded-lg p-10 text-center text-sm text-muted-foreground">
           <History className="h-8 w-8 mx-auto mb-2 opacity-50" />
-          No price changes recorded yet. Update a price on the Plan tab to log it here.
+          No price changes recorded yet. Add an entry or refresh from the regional reference to seed history.
         </div>
       ) : (
         <div className="grid lg:grid-cols-2 gap-6">
@@ -205,9 +295,14 @@ function PriceHistoryPage() {
               <div className="text-sm text-muted-foreground">Select a food to see its full history.</div>
             ) : (
               <div className="space-y-3">
-                <div>
-                  <div className="text-xs text-muted-foreground font-mono">PRICE HISTORY</div>
-                  <div className="text-lg font-mono font-semibold">{detail.name}</div>
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="text-xs text-muted-foreground font-mono">PRICE HISTORY</div>
+                    <div className="text-lg font-mono font-semibold">{detail.name}</div>
+                  </div>
+                  <Button size="sm" variant="outline" onClick={() => openAdd(detail.name)}>
+                    <Plus className="h-4 w-4 mr-1" /> New entry
+                  </Button>
                 </div>
                 <ol className="space-y-2">
                   {detail.items.map((e) => {
@@ -235,6 +330,53 @@ function PriceHistoryPage() {
           </div>
         </div>
       )}
+
+      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add price entry</DialogTitle>
+            <DialogDescription>
+              Updates the food's current $/lb and logs a new entry to history.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label>Food</Label>
+              <Select value={addFoodId} onValueChange={setAddFoodId}>
+                <SelectTrigger><SelectValue placeholder="Select a food…" /></SelectTrigger>
+                <SelectContent>
+                  {foods.map((f) => (
+                    <SelectItem key={f.id} value={f.id}>
+                      {f.name}{f.price_per_pound != null ? ` — ${fmtUsd(Number(f.price_per_pound))}/lb` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>New price ($/lb)</Label>
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                value={addPrice}
+                onChange={(e) => setAddPrice(e.target.value)}
+                placeholder="3.49"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
+            <Button
+              onClick={() => addM.mutate({ food_id: addFoodId, new_price: Number(addPrice) })}
+              disabled={addM.isPending || !addFoodId || addPrice === "" || !Number.isFinite(Number(addPrice))}
+            >
+              {addM.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
