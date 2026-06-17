@@ -260,9 +260,11 @@ function BacklogPage() {
                       className="min-w-0 flex-1"
                     >
                       <div className="font-medium truncate">{t.title}</div>
-                      <div className="text-xs text-muted-foreground font-mono">
-                        #{t.slug}
-                      </div>
+                      {showSlugs && (
+                        <div className="text-xs text-muted-foreground font-mono">
+                          #{t.slug}
+                        </div>
+                      )}
                     </Link>
                     {t.recurrence && t.recurrence !== "none" && (
                       <Badge variant="outline" className="text-[10px] uppercase">↻ {t.recurrence}</Badge>
