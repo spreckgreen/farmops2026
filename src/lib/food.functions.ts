@@ -1263,6 +1263,37 @@ export const autoClassifyFoodCategories = createServerFn({ method: "POST" })
     return { updated, unchanged };
   });
 
+export const bulkUpdateFoodCategories = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        updates: z
+          .array(
+            z.object({
+              id: z.string().uuid(),
+              category: z.string().trim().max(100).nullable(),
+            }),
+          )
+          .min(1)
+          .max(500),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    let updated = 0;
+    for (const u of data.updates) {
+      const cat = u.category && u.category.trim() ? u.category.trim() : null;
+      const { error } = await context.supabase
+        .from("food_plan_foods")
+        .update({ category: cat })
+        .eq("id", u.id);
+      if (error) throw new Error(error.message);
+      updated += 1;
+    }
+    return { updated };
+  });
+
 function classifyFood(name: string): "livestock" | "orchard" | "crops" | "garden" | null {
   const n = (name ?? "").trim().toLowerCase();
   if (!n) return null;
