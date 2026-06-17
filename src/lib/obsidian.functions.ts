@@ -344,6 +344,36 @@ export const obsidianExport = createServerFn({ method: "GET" })
       files.push({ path: `${CONSUMABLES_FOLDER}/${slug}.md`, content: buildFile(meta, body) });
     }
 
+    // Food Reports — generated markdown derived from food plan, storage,
+    // harvests, and garden. Lives under 27 Food Production/Reports.
+    try {
+      const [foodsR, peopleR, entriesR, storageR, plantingsR, harvestsR, gardenR] = await Promise.all([
+        supabase.from("food_plan_foods").select("id, name, category, oz_per_serving, price_per_pound, season").order("sort_order"),
+        supabase.from("food_plan_people").select("id, name").order("sort_order"),
+        supabase.from("food_plan_entries").select("food_id, person_id, day_of_week, quantity"),
+        supabase.from("food_storage_plan").select("name, category, food_type, pounds_per_year, target_months, price_per_pound, notes").order("sort_order"),
+        supabase.from("crop_plantings").select("id, crop, variety, status, planted_on, expected_harvest"),
+        supabase.from("crop_harvests").select("id, planting_id, harvested_on, quantity, unit, quality, notes"),
+        supabase.from("garden_plots").select("row_label, position, plant_name").order("row_label").order("position"),
+      ]);
+      const { buildAllReports, reportMarkdownFile } = await import("./food-reports");
+      const reports = buildAllReports({
+        foods: (foodsR.data ?? []) as never,
+        people: (peopleR.data ?? []) as never,
+        entries: (entriesR.data ?? []) as never,
+        storagePlan: (storageR.data ?? []) as never,
+        plantings: (plantingsR.data ?? []) as never,
+        harvests: (harvestsR.data ?? []) as never,
+        garden: (gardenR.data ?? []) as never,
+        generatedAt: new Date().toISOString(),
+      });
+      for (const r of reports) {
+        files.push({ path: r.obsidianPath, content: reportMarkdownFile(r) });
+      }
+    } catch (err) {
+      console.error("[obsidian] food reports export failed", err);
+    }
+
     return { files };
   });
 

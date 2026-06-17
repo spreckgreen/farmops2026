@@ -18,7 +18,7 @@ export const Route = createFileRoute("/food")({
   component: FoodLayout,
 });
 
-const TABS: Array<{ to: "/food" | "/food/crops" | "/food/garden" | "/food/orchard" | "/food/livestock" | "/food/processing" | "/food/storage" | "/food/plan" | "/food/prices" | "/food/seasons"; label: string; exact?: boolean }> = [
+const TABS: Array<{ to: "/food" | "/food/crops" | "/food/garden" | "/food/orchard" | "/food/livestock" | "/food/processing" | "/food/storage" | "/food/plan" | "/food/prices" | "/food/seasons" | "/food/reports"; label: string; exact?: boolean }> = [
   { to: "/food", label: "Overview", exact: true },
   { to: "/food/crops", label: "Crops" },
   { to: "/food/garden", label: "Garden" },
@@ -29,6 +29,7 @@ const TABS: Array<{ to: "/food" | "/food/crops" | "/food/garden" | "/food/orchar
   { to: "/food/plan", label: "Plan" },
   { to: "/food/prices", label: "Prices" },
   { to: "/food/seasons", label: "Seasons" },
+  { to: "/food/reports", label: "Reports" },
 ];
 
 function FoodLayout() {
