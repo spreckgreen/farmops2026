@@ -197,7 +197,7 @@ function LivestockPage() {
       header: true,
       skipEmptyLines: true,
       complete: (res) => {
-        const rows: Array<Parameters<typeof bulk>[0]["data"]["animals"][number]> = [];
+        const rows: AnimalInput[] = [];
         for (const r of res.data) {
           const species = String(r.species ?? r.Species ?? "").trim();
           if (!species) continue;
