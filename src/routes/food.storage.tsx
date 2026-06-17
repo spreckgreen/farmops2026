@@ -586,20 +586,28 @@ function LongTermPlanPanel() {
       const price = r.price_per_pound == null ? null : Number(r.price_per_pound);
       const targetCost = price != null ? targetLbs * price : null;
       const gapCost = price != null ? gapLbs * price : null;
-      return { row: r, targetLbs, onHand, gapLbs, targetCost, gapCost, price };
+      const targetKcal = kcalFromLbs(r.name, targetLbs);
+      const onHandKcal = kcalFromLbs(r.name, onHand);
+      const gapKcal = kcalFromLbs(r.name, gapLbs);
+      const ppYKcal = kcalFromLbs(r.name, ppY);
+      return { row: r, targetLbs, onHand, gapLbs, targetCost, gapCost, price, targetKcal, onHandKcal, gapKcal, ppYKcal };
     });
   }, [rows, onHandByName]);
 
   const totals = useMemo(() => {
     let target = 0, onHand = 0, gap = 0, targetCost = 0, gapCost = 0;
+    let targetKcal = 0, onHandKcal = 0, gapKcal = 0;
     for (const c of computed) {
       target += c.targetLbs;
       onHand += c.onHand;
       gap += c.gapLbs;
       if (c.targetCost) targetCost += c.targetCost;
       if (c.gapCost) gapCost += c.gapCost;
+      targetKcal += c.targetKcal;
+      onHandKcal += c.onHandKcal;
+      gapKcal += c.gapKcal;
     }
-    return { target, onHand, gap, targetCost, gapCost };
+    return { target, onHand, gap, targetCost, gapCost, targetKcal, onHandKcal, gapKcal };
   }, [computed]);
 
   const grouped = useMemo(() => {
