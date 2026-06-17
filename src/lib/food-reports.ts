@@ -94,12 +94,20 @@ function norm(s: string | null | undefined): string {
   return (s ?? "").trim().toLowerCase();
 }
 
+// Word-boundary match so e.g. "pea" does not match "peanut", and
+// "bean" does not match "beanie". Multi-word keys like "summer squash"
+// are matched as a phrase.
+function matchesKeyword(haystack: string, keyword: string): boolean {
+  const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`\\b${escaped}\\b`).test(haystack);
+}
+
 function lookup<T>(table: Record<string, T>, name: string, fallback: T): T {
   const k = norm(name);
   if (!k) return fallback;
   if (table[k] !== undefined) return table[k];
   for (const [key, val] of Object.entries(table)) {
-    if (k.includes(key)) return val;
+    if (matchesKeyword(k, key)) return val;
   }
   return fallback;
 }
@@ -112,11 +120,17 @@ export function spacingFor(name: string): number {
   return lookup(IN_ROW_SPACING_IN, name, DEFAULT_SPACING);
 }
 
+// Foods that should never be treated as garden plants even if a substring
+// would match (e.g. "peanut butter" — peanut is a legume but here it's the
+// orchard/pantry product, not a garden crop).
+const NON_GARDEN_OVERRIDES = ["peanut butter", "peanut", "nut butter"];
+
 const GARDEN_KEYWORDS = Object.keys(YIELD_PER_PLANT_LBS);
 export function isGardenPlant(name: string): boolean {
   const k = norm(name);
   if (!k) return false;
-  return GARDEN_KEYWORDS.some((g) => k.includes(g));
+  if (NON_GARDEN_OVERRIDES.some((o) => k.includes(o))) return false;
+  return GARDEN_KEYWORDS.some((g) => matchesKeyword(k, g));
 }
 
 function pad(n: number, w = 2): string {
