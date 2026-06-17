@@ -270,23 +270,61 @@ function OrchardPage() {
           <Button variant="outline" size="sm" onClick={printOrchard} disabled={isLoading}>
             <Printer className="h-4 w-4 mr-2" /> Print
           </Button>
-          <Label htmlFor="orchard-csv" className="cursor-pointer">
-            <span className="inline-flex items-center gap-2 border border-border rounded-md px-3 py-2 text-sm hover:bg-muted">
-              {importM.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-              Import CSV
-            </span>
-            <input
-              id="orchard-csv"
-              type="file"
-              accept=".csv,text/csv"
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) handleImport(f);
-                e.currentTarget.value = "";
-              }}
-            />
-          </Label>
+          <CsvToolbar
+            filename="orchard-trees.csv"
+            columns={[
+              { key: "species", label: "species" },
+              { key: "variety", label: "variety" },
+              { key: "quantity", label: "quantity" },
+              { key: "location", label: "location" },
+              { key: "planted_on", label: "planted_on" },
+              { key: "status", label: "status" },
+              { key: "category", label: "category" },
+              { key: "notes", label: "notes" },
+            ]}
+            rows={(trees as Tree[]).map((t) => ({
+              species: t.species,
+              variety: t.variety ?? "",
+              quantity: t.quantity,
+              location: t.location ?? "",
+              planted_on: t.planted_on ?? "",
+              status: t.status,
+              category: t.category ?? "",
+              notes: t.notes ?? "",
+            }))}
+            onImport={(rows) => {
+              const out: ImportRow[] = [];
+              for (const row of rows) {
+                const species = String(row.species ?? row.Species ?? "").trim();
+                if (!species) continue;
+                const rawStatus = String(row.status ?? "healthy").trim().toLowerCase();
+                const status = (STATUSES as readonly string[]).includes(rawStatus)
+                  ? (rawStatus as (typeof STATUSES)[number])
+                  : "healthy";
+                const rawCat = String(row.category ?? "").trim().toLowerCase();
+                const category = (CATEGORIES as readonly string[]).includes(rawCat)
+                  ? (rawCat as Category)
+                  : null;
+                const qty = parseInt(String(row.quantity ?? "1"), 10);
+                out.push({
+                  species,
+                  variety: String(row.variety ?? "").trim() || null,
+                  quantity: Number.isFinite(qty) && qty > 0 ? qty : 1,
+                  location: String(row.location ?? "").trim() || null,
+                  planted_on: String(row.planted_on ?? "").trim() || null,
+                  status,
+                  category,
+                  notes: String(row.notes ?? "").trim() || null,
+                });
+              }
+              if (!out.length) {
+                toast.error("No valid rows. Required column: species");
+                return;
+              }
+              importM.mutate(out);
+            }}
+            importing={importM.isPending}
+          />
           <Button onClick={openNew}>
             <Plus className="h-4 w-4 mr-2" /> Add tree
           </Button>
