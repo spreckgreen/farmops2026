@@ -3,9 +3,10 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useMemo, useState } from "react";
 import { format } from "date-fns";
-import { ArrowDown, ArrowUp, Minus, History } from "lucide-react";
+import { ArrowDown, ArrowUp, Minus, History, Download } from "lucide-react";
 import { listPriceHistory } from "@/lib/food.functions";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/food/prices")({
   component: PriceHistoryPage,
@@ -59,6 +60,45 @@ function PriceHistoryPage() {
 
   const detail = selected ? byFood.find((g) => g.name === selected) : null;
 
+  function exportCsv(scope: "all" | "selected") {
+    const rows: Entry[] =
+      scope === "selected" && detail
+        ? detail.items
+        : (entries as Entry[]).slice().sort(
+            (a, b) =>
+              a.food_name.localeCompare(b.food_name) ||
+              b.changed_at.localeCompare(a.changed_at),
+          );
+    if (rows.length === 0) return;
+    const esc = (v: unknown) => {
+      const s = v === null || v === undefined ? "" : String(v);
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const header = ["food_name", "changed_at", "old_price_per_lb", "new_price_per_lb", "delta"];
+    const body = rows.map((e) => {
+      const delta =
+        e.old_price !== null && e.new_price !== null
+          ? (e.new_price - e.old_price).toFixed(4)
+          : "";
+      return [e.food_name, e.changed_at, e.old_price ?? "", e.new_price ?? "", delta]
+        .map(esc)
+        .join(",");
+    });
+    const csv = [header.join(","), ...body].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const stamp = new Date().toISOString().slice(0, 10);
+    const name =
+      scope === "selected" && detail
+        ? `price-history-${detail.name.replace(/\s+/g, "_").toLowerCase()}-${stamp}.csv`
+        : `price-history-${stamp}.csv`;
+    a.href = url;
+    a.download = name;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between flex-wrap gap-2">
@@ -68,12 +108,33 @@ function PriceHistoryPage() {
             Tracks every $/lb change to your food catalog.
           </p>
         </div>
-        <Input
-          placeholder="Filter by food…"
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          className="w-60"
-        />
+        <div className="flex items-center gap-2 flex-wrap">
+          <Input
+            placeholder="Filter by food…"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            className="w-60"
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => exportCsv("selected")}
+            disabled={!detail || detail.items.length === 0}
+            title={detail ? `Export ${detail.name}` : "Select a food first"}
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Export selected
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => exportCsv("all")}
+            disabled={(entries as Entry[]).length === 0}
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Export all
+          </Button>
+        </div>
       </div>
 
       {isLoading ? (
