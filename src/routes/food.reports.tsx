@@ -65,14 +65,15 @@ async function syncReportToObsidian(report: FoodReport): Promise<"ok" | "unsuppo
 }
 
 function FoodReportsPage() {
+  const { report } = Route.useSearch();
+  const navigate = useNavigate({ from: Route.id });
   const reportsFn = useServerFn(getFoodReports);
   const reportsQ = useQuery({
     queryKey: ["food-reports"],
     queryFn: () => reportsFn(),
   });
   const reports = reportsQ.data?.reports ?? [];
-  const [active, setActive] = useState<string | null>(null);
-  const current = reports.find((r) => r.slug === active) ?? reports[0];
+  const current = reports.find((r) => r.slug === report) ?? reports[0];
 
   return (
     <div className="space-y-4">
@@ -103,7 +104,7 @@ function FoodReportsPage() {
       ) : (
         <Tabs
           value={current?.slug}
-          onValueChange={setActive}
+          onValueChange={(slug) => navigate({ search: (prev) => ({ ...prev, report: slug }) })}
           className="space-y-4"
         >
           <TabsList className="no-print flex flex-wrap h-auto">
