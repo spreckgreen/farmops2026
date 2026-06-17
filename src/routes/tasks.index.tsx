@@ -75,7 +75,6 @@ function TasksPage() {
                   >
                     <div className="min-w-0">
                       <div className="font-medium truncate">{t.title}</div>
-                      <div className="text-xs text-muted-foreground font-mono">#{t.slug}</div>
                     </div>
                     <div className="flex items-center gap-2">
                       {t.recurrence && t.recurrence !== "none" && (
