@@ -496,6 +496,21 @@ function FoodPlanPage() {
       </div>
 
       {/* Matrix */}
+      <div className="flex items-center justify-end gap-2 -mb-3">
+        <button
+          onClick={() => setAllCollapsed(false)}
+          className="text-[10px] text-muted-foreground hover:text-foreground underline font-mono"
+        >
+          Expand all
+        </button>
+        <span className="text-[10px] text-muted-foreground">·</span>
+        <button
+          onClick={() => setAllCollapsed(true)}
+          className="text-[10px] text-muted-foreground hover:text-foreground underline font-mono"
+        >
+          Collapse all
+        </button>
+      </div>
       <div className="border border-border rounded-md overflow-auto max-h-[70vh]">
         <table className="text-xs font-mono w-full">
           <thead className="bg-card sticky top-0 z-10">
@@ -510,76 +525,104 @@ function FoodPlanPage() {
             </tr>
           </thead>
           <tbody>
-            {visibleFoods.map((f) => {
-              const weekly = dayTotalsForActive(f.id);
+            {groupedFoods.map((group) => {
+              const collapsed = collapsedGroups.has(group.category);
+              const groupWeekly = group.foods.reduce((s, f) => s + dayTotalsForActive(f.id), 0);
               return (
-                <tr key={f.id} className="border-t border-border hover:bg-accent/30">
-                  <td className="p-2 sticky left-0 bg-background border-r border-border">
-                    <div className="flex items-center gap-1">
-                      {f.freeze_dry && <Snowflake className="h-3 w-3 text-blue-500 shrink-0" />}
-                      <span>{f.name}</span>
-                      {f.season && <Badge variant="outline" className="text-[10px] px-1 py-0">{f.season}</Badge>}
-                    </div>
-                  </td>
-                  <td className="p-1 border-r border-border text-right text-muted-foreground">
-                    {f.price_per_pound != null ? fmtUsd(Number(f.price_per_pound)) : "—"}
-                  </td>
-                  {DAYS.map((d) => {
-                    const key = `${activePerson}|${f.id}|${d}`;
-                    const v = entryMap.get(key) ?? 0;
+                <>
+                  <tr
+                    key={`group-${group.category}`}
+                    className="border-t border-border bg-muted/40 cursor-pointer hover:bg-muted/60"
+                    onClick={() => toggleGroup(group.category)}
+                  >
+                    <td className="p-2 sticky left-0 bg-muted/40 border-r border-border">
+                      <div className="flex items-center gap-1.5 font-semibold uppercase tracking-wider text-[11px]">
+                        {collapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                        <span>{group.category}</span>
+                        <span className="text-muted-foreground font-normal normal-case tracking-normal">
+                          ({group.foods.length})
+                        </span>
+                      </div>
+                    </td>
+                    <td className="p-2 border-r border-border" colSpan={DAYS.length + 1}></td>
+                    <td className="p-2 border-r border-border text-right font-semibold">
+                      {groupWeekly ? groupWeekly.toFixed(2) : ""}
+                    </td>
+                    <td className="p-1"></td>
+                  </tr>
+                  {!collapsed && group.foods.map((f) => {
+                    const weekly = dayTotalsForActive(f.id);
                     return (
-                      <td key={d} className="p-0 border-r border-border">
-                        <input
-                          type="number"
-                          step="any"
-                          defaultValue={v || ""}
-                          className="w-full h-8 px-2 bg-transparent text-right focus:bg-accent outline-none"
-                          onBlur={(e) => {
-                            const newVal = parseFloat(e.target.value || "0") || 0;
-                            if (newVal === v) return;
-                            if (!activePerson) return;
-                            updateEntry.mutate({
-                              person_id: activePerson,
-                              food_id: f.id,
-                              day_of_week: d,
-                              quantity: newVal,
-                            });
-                          }}
-                        />
-                      </td>
+                      <tr key={f.id} className="border-t border-border hover:bg-accent/30">
+                        <td className="p-2 sticky left-0 bg-background border-r border-border">
+                          <div className="flex items-center gap-1 pl-4">
+                            {f.freeze_dry && <Snowflake className="h-3 w-3 text-blue-500 shrink-0" />}
+                            <span>{f.name}</span>
+                            {f.season && <Badge variant="outline" className="text-[10px] px-1 py-0">{f.season}</Badge>}
+                          </div>
+                        </td>
+                        <td className="p-1 border-r border-border text-right text-muted-foreground">
+                          {f.price_per_pound != null ? fmtUsd(Number(f.price_per_pound)) : "—"}
+                        </td>
+                        {DAYS.map((d) => {
+                          const key = `${activePerson}|${f.id}|${d}`;
+                          const v = entryMap.get(key) ?? 0;
+                          return (
+                            <td key={d} className="p-0 border-r border-border">
+                              <input
+                                type="number"
+                                step="any"
+                                defaultValue={v || ""}
+                                className="w-full h-8 px-2 bg-transparent text-right focus:bg-accent outline-none"
+                                onBlur={(e) => {
+                                  const newVal = parseFloat(e.target.value || "0") || 0;
+                                  if (newVal === v) return;
+                                  if (!activePerson) return;
+                                  updateEntry.mutate({
+                                    person_id: activePerson,
+                                    food_id: f.id,
+                                    day_of_week: d,
+                                    quantity: newVal,
+                                  });
+                                }}
+                              />
+                            </td>
+                          );
+                        })}
+                        <td className="p-2 border-r border-border text-right font-semibold">
+                          {weekly ? weekly.toFixed(2) : ""}
+                        </td>
+                        <td className="p-1">
+                          <div className="flex items-center gap-0.5 justify-end">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 w-7 p-0"
+                              title="Edit food"
+                              onClick={() => {
+                                setEditingFood(f);
+                                setFoodDialog(true);
+                              }}
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 w-7 p-0"
+                              title="Delete food"
+                              onClick={() => {
+                                if (confirm(`Delete "${f.name}" and all its entries?`)) removeFood.mutate(f.id);
+                              }}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
                     );
                   })}
-                  <td className="p-2 border-r border-border text-right font-semibold">
-                    {weekly ? weekly.toFixed(2) : ""}
-                  </td>
-                  <td className="p-1">
-                    <div className="flex items-center gap-0.5 justify-end">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 w-7 p-0"
-                        title="Edit food"
-                        onClick={() => {
-                          setEditingFood(f);
-                          setFoodDialog(true);
-                        }}
-                      >
-                        <Pencil className="h-3 w-3" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 w-7 p-0"
-                        title="Delete food"
-                        onClick={() => {
-                          if (confirm(`Delete "${f.name}" and all its entries?`)) removeFood.mutate(f.id);
-                        }}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
+                </>
               );
             })}
           </tbody>
