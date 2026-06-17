@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import { slugify } from "./slug";
+import { appendTaskRefLine } from "./daily-note-append";
 
 type ActivityLogEntry = { id?: string; raw_content: string; created_at: string };
 
@@ -1372,10 +1373,8 @@ export const addTaskToToday = createServerFn({ method: "POST" })
 
     if (!alreadyOnToday) {
       const current = note.markdown_content ?? "";
-      const lines = current.split("\n");
-      const refAlreadyPresentAsLine = lines.some((l) => l.trim() === refLine.trim());
-      if (!refAlreadyPresentAsLine) {
-        const next = current.trim().length ? `${current.trimEnd()}\n${refLine}\n` : `${refLine}\n`;
+      const next = appendTaskRefLine(current, refLine);
+      if (next !== current) {
         await supabase
           .from("daily_notes")
           .update({ markdown_content: next })
@@ -1532,12 +1531,6 @@ export const addMaintenanceToToday = createServerFn({ method: "POST" })
 
     const refLine = buildTaskRefLine(task);
 
-    const current = note.markdown_content ?? "";
-    if (!current.includes(`#task/${task.slug}`)) {
-      const next = current.trim().length ? `${current.trimEnd()}\n${refLine}\n` : `${refLine}\n`;
-      await supabase.from("daily_notes").update({ markdown_content: next }).eq("id", note.id);
-    }
-
     const { data: existing } = await supabase
       .from("activity_log")
       .select("id")
@@ -1545,7 +1538,15 @@ export const addMaintenanceToToday = createServerFn({ method: "POST" })
       .eq("daily_note_id", note.id)
       .eq("task_id", task.id)
       .limit(1);
-    if (!existing || existing.length === 0) {
+    const alreadyOnToday = !!existing && existing.length > 0;
+
+    if (!alreadyOnToday) {
+      const current = note.markdown_content ?? "";
+      const next = appendTaskRefLine(current, refLine);
+      if (next !== current) {
+        await supabase.from("daily_notes").update({ markdown_content: next }).eq("id", note.id);
+      }
+
       await supabase.from("activity_log").insert({
         user_id: userId,
         task_id: task.id,
@@ -1714,11 +1715,6 @@ export const addReorderToToday = createServerFn({ method: "POST" })
     }
 
     const refLine = buildTaskRefLine(task);
-    const current = note.markdown_content ?? "";
-    if (!current.includes(`#task/${task.slug}`)) {
-      const next = current.trim().length ? `${current.trimEnd()}\n${refLine}\n` : `${refLine}\n`;
-      await supabase.from("daily_notes").update({ markdown_content: next }).eq("id", note.id);
-    }
 
     const { data: existing } = await supabase
       .from("activity_log")
@@ -1727,7 +1723,15 @@ export const addReorderToToday = createServerFn({ method: "POST" })
       .eq("daily_note_id", note.id)
       .eq("task_id", task.id)
       .limit(1);
-    if (!existing || existing.length === 0) {
+    const alreadyOnToday = !!existing && existing.length > 0;
+
+    if (!alreadyOnToday) {
+      const current = note.markdown_content ?? "";
+      const next = appendTaskRefLine(current, refLine);
+      if (next !== current) {
+        await supabase.from("daily_notes").update({ markdown_content: next }).eq("id", note.id);
+      }
+
       await supabase.from("activity_log").insert({
         user_id: userId,
         task_id: task.id,
