@@ -442,50 +442,72 @@ function InventoryPanel() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((i) => (
-                <tr key={i.id} className="border-t border-border hover:bg-muted/20">
-                  <td className="px-3 py-2 font-mono">
-                    <div>{i.name}</div>
-                    {i.description && <div className="text-xs text-muted-foreground">{i.description}</div>}
-                  </td>
-                  <td className="px-3 py-2">
-                    {i.food_type && (
-                      <Badge variant="outline" className={TYPE_COLORS[i.food_type] ?? ""}>{i.food_type}</Badge>
-                    )}
-                  </td>
-                  <td className="px-3 py-2 text-muted-foreground">{i.location}</td>
-                  <td className="px-3 py-2 text-right font-mono">
-                    {(() => {
-                      const qty = Number(i.quantity) || 0;
-                      const fd = isFreezeDried(i.category) && (i.unit ?? "lb") === "lb";
-                      const recon = reconstitutedLbs(qty, i.unit, i.category);
-                      return (
-                        <>
-                          <div>{qty.toFixed(2)} {i.unit}{fd ? " stored" : ""}</div>
-                          {fd && (
-                            <div className="text-xs text-muted-foreground">
-                              ≈ {recon.toFixed(2)} lb reconstituted
-                            </div>
+              {grouped.map(([catName, groupItems]) => {
+                const groupLbs = groupItems.reduce(
+                  (s, i) => s + reconstitutedLbs(Number(i.quantity) || 0, i.unit, i.category),
+                  0,
+                );
+                const groupKcal = groupItems.reduce(
+                  (s, i) => s + kcalFromLbs(i.name, reconstitutedLbs(Number(i.quantity) || 0, i.unit, i.category)),
+                  0,
+                );
+                return (
+                  <FragmentGroup key={`cat-${catName}`}>
+                    <tr className="bg-muted/20 border-t border-border">
+                      <td colSpan={8} className="px-3 py-1 text-[10px] uppercase tracking-wider text-muted-foreground">
+                        <span className="font-semibold">{catName}</span>
+                        <span className="ml-2 normal-case tracking-normal">
+                          · {groupItems.length} items · {groupLbs.toFixed(2)} lb · {fmtKcal(groupKcal)}
+                        </span>
+                      </td>
+                    </tr>
+                    {groupItems.map((i) => (
+                      <tr key={i.id} className="border-t border-border hover:bg-muted/20">
+                        <td className="px-3 py-2 font-mono">
+                          <div>{i.name}</div>
+                          {i.description && <div className="text-xs text-muted-foreground">{i.description}</div>}
+                        </td>
+                        <td className="px-3 py-2">
+                          {i.food_type && (
+                            <Badge variant="outline" className={TYPE_COLORS[i.food_type] ?? ""}>{i.food_type}</Badge>
                           )}
-                        </>
-                      );
-                    })()}
-                  </td>
-                  <td className="px-3 py-2 text-right font-mono text-muted-foreground">
-                    {fmtKcal(kcalFromLbs(i.name, reconstitutedLbs(Number(i.quantity) || 0, i.unit, i.category)))}
-                  </td>
-                  <td className="px-3 py-2 text-muted-foreground">{i.acquired_on ?? ""}</td>
-                  <td className="px-3 py-2 text-muted-foreground">{i.best_by ?? ""}</td>
-                  <td className="px-3 py-2 text-right">
-                    <Button size="sm" variant="ghost" onClick={() => openEdit(i)}>
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button size="sm" variant="ghost" className="text-destructive" onClick={() => deleteM.mutate(i.id)}>
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </td>
-                </tr>
-              ))}
+                        </td>
+                        <td className="px-3 py-2 text-muted-foreground">{i.location}</td>
+                        <td className="px-3 py-2 text-right font-mono">
+                          {(() => {
+                            const qty = Number(i.quantity) || 0;
+                            const fd = isFreezeDried(i.category) && (i.unit ?? "lb") === "lb";
+                            const recon = reconstitutedLbs(qty, i.unit, i.category);
+                            return (
+                              <>
+                                <div>{qty.toFixed(2)} {i.unit}{fd ? " stored" : ""}</div>
+                                {fd && (
+                                  <div className="text-xs text-muted-foreground">
+                                    ≈ {recon.toFixed(2)} lb reconstituted
+                                  </div>
+                                )}
+                              </>
+                            );
+                          })()}
+                        </td>
+                        <td className="px-3 py-2 text-right font-mono text-muted-foreground">
+                          {fmtKcal(kcalFromLbs(i.name, reconstitutedLbs(Number(i.quantity) || 0, i.unit, i.category)))}
+                        </td>
+                        <td className="px-3 py-2 text-muted-foreground">{i.acquired_on ?? ""}</td>
+                        <td className="px-3 py-2 text-muted-foreground">{i.best_by ?? ""}</td>
+                        <td className="px-3 py-2 text-right">
+                          <Button size="sm" variant="ghost" onClick={() => openEdit(i)}>
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button size="sm" variant="ghost" className="text-destructive" onClick={() => deleteM.mutate(i.id)}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </FragmentGroup>
+                );
+              })}
             </tbody>
           </table>
         </div>
