@@ -252,13 +252,31 @@ function yieldForPlant(name: string): number {
   return DEFAULT_YIELD_LBS;
 }
 
-// Match a food plan item to one of our planting data sets by normalized name
-// (or substring), case-insensitive. Returns true if foodName ~ recordName.
+// Tokenize a normalized name into word tokens (letters/digits only) so we can
+// do word-boundary matching instead of raw substring matching. Without this,
+// "pea" would match "peanut", "bean" would match "soybean", and a single
+// "Cherry Tomato" plot would be counted under both the "Tomato" food row and
+// the "Cherry Tomato" food row.
+function tokenize(s: string): string[] {
+  return normalizeName(s)
+    .split(/[^a-z0-9]+/)
+    .filter((t) => t.length > 0);
+}
+
+// Symmetric word-boundary match: two names match iff their token sets are
+// equal, or one's tokens are fully contained in the other's (e.g. "Tomato" ⊂
+// "Cherry Tomato"). "Pea" no longer matches "Peanut" — different tokens.
+// Used identically for plantings, harvests, and pantry storage so the three
+// numbers for the same food are computed from a consistent universe of rows.
 function nameMatches(foodName: string, recordName: string): boolean {
-  const a = normalizeName(foodName);
-  const b = normalizeName(recordName);
-  if (!a || !b) return false;
-  return a === b || a.includes(b) || b.includes(a);
+  const a = tokenize(foodName);
+  const b = tokenize(recordName);
+  if (a.length === 0 || b.length === 0) return false;
+  const setA = new Set(a);
+  const setB = new Set(b);
+  const aInB = a.every((t) => setB.has(t));
+  const bInA = b.every((t) => setA.has(t));
+  return aInB || bInA;
 }
 
 export const getFoodYieldProgress = createServerFn({ method: "GET" })
