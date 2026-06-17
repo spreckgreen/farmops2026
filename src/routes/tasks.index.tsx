@@ -7,6 +7,7 @@ import { AppLayout } from "@/components/app-layout";
 import { requireAuthenticatedUser } from "@/lib/auth-route";
 import { todayDateString } from "@/lib/slug";
 import { useShowTaskSlugs } from "@/hooks/use-show-task-slugs";
+import { CsvToolbar } from "@/components/csv-toolbar";
 
 export const Route = createFileRoute("/tasks/")({
   ssr: false,
@@ -52,14 +53,31 @@ function TasksPage() {
           <h1 className="text-2xl font-mono font-bold mb-1">Today's tasks</h1>
           <p className="text-xs text-muted-foreground font-mono">Tasks delivered or touched today</p>
         </div>
-        <button
-          type="button"
-          onClick={toggleSlugs}
-          className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground hover:text-foreground border border-border rounded px-2 py-1"
-          title="Debug: show or hide the #task-slug under each title"
-        >
-          slugs · {showSlugs ? "on" : "off"}
-        </button>
+        <div className="flex items-center gap-2">
+          <CsvToolbar
+            filename={`tasks-today-${today}.csv`}
+            columns={[
+              { key: "title", label: "title" },
+              { key: "slug", label: "slug" },
+              { key: "status", label: "status" },
+              { key: "recurrence", label: "recurrence" },
+            ]}
+            rows={(data ?? []).map((t) => ({
+              title: t.title,
+              slug: t.slug,
+              status: t.status,
+              recurrence: (t as { recurrence?: string }).recurrence ?? "none",
+            }))}
+          />
+          <button
+            type="button"
+            onClick={toggleSlugs}
+            className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground hover:text-foreground border border-border rounded px-2 py-1"
+            title="Debug: show or hide the #task-slug under each title"
+          >
+            slugs · {showSlugs ? "on" : "off"}
+          </button>
+        </div>
       </div>
       {isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
       {(["open", "blocked", "done"] as const).map((status) => (
