@@ -361,16 +361,17 @@ function FoodPlanPage() {
           setPersonDialog(false);
         }}
       />
-      <FoodDialog
+      <FoodEditDialog
         open={foodDialog}
-        onOpenChange={setFoodDialog}
-        name={foodName}
-        setName={setFoodName}
-        onSubmit={() => {
-          if (!foodName.trim()) return;
-          addFood.mutate(foodName.trim());
-          setFoodName("");
+        onOpenChange={(v) => {
+          setFoodDialog(v);
+          if (!v) setEditingFood(null);
+        }}
+        food={editingFood}
+        onSubmit={(payload) => {
+          saveFood.mutate(payload);
           setFoodDialog(false);
+          setEditingFood(null);
         }}
       />
     </div>
