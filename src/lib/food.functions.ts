@@ -931,3 +931,225 @@ export const getGardenDashboard = createServerFn({ method: "GET" })
       gaps: plants.filter((p) => p.gap_plants > 0).sort((a, b) => b.gap_lbs - a.gap_lbs),
     };
   });
+
+// ----------------------------------------------------------------------
+// Orchard dashboard — trees x yield/tree, gaps vs. food plan
+// ----------------------------------------------------------------------
+
+const YIELD_PER_TREE_LBS: Record<string, number> = {
+  apple: 150, pear: 100, peach: 100, nectarine: 100,
+  plum: 60, cherry: 75, apricot: 75, fig: 50, persimmon: 75,
+  almond: 30, walnut: 50, pecan: 75, chestnut: 50, hazelnut: 15,
+  orange: 150, lemon: 100, lime: 60, grapefruit: 200, mandarin: 100,
+  avocado: 150, mango: 200, olive: 50,
+  blueberry: 8, raspberry: 4, blackberry: 6, grape: 20,
+};
+const DEFAULT_TREE_YIELD_LBS = 50;
+
+function yieldForTree(name: string): number {
+  const k = name.trim().toLowerCase();
+  if (YIELD_PER_TREE_LBS[k] !== undefined) return YIELD_PER_TREE_LBS[k];
+  for (const [key, val] of Object.entries(YIELD_PER_TREE_LBS)) {
+    if (k.includes(key)) return val;
+  }
+  return DEFAULT_TREE_YIELD_LBS;
+}
+
+export const getOrchardDashboard = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const [trees, foods, entries] = await Promise.all([
+      context.supabase
+        .from("orchard_trees")
+        .select("species, quantity, status")
+        .neq("status", "removed"),
+      context.supabase.from("food_plan_foods").select("id, name, oz_per_serving, price_per_pound"),
+      context.supabase.from("food_plan_entries").select("food_id, quantity"),
+    ]);
+    if (trees.error) throw new Error(trees.error.message);
+    if (foods.error) throw new Error(foods.error.message);
+    if (entries.error) throw new Error(entries.error.message);
+
+    const norm = (s: string | null | undefined) => (s ?? "").trim().toLowerCase();
+
+    const counts = new Map<string, { display: string; count: number }>();
+    for (const t of trees.data ?? []) {
+      const key = norm(t.species);
+      if (!key) continue;
+      const cur = counts.get(key) ?? { display: (t.species ?? "").trim(), count: 0 };
+      cur.count += Number(t.quantity) || 1;
+      counts.set(key, cur);
+    }
+
+    const weeklyByFood = new Map<string, number>();
+    for (const e of entries.data ?? []) {
+      weeklyByFood.set(e.food_id, (weeklyByFood.get(e.food_id) ?? 0) + (Number(e.quantity) || 0));
+    }
+    const priceByName = new Map<string, number>();
+    const neededByName = new Map<string, { needed_lbs: number; display: string }>();
+    for (const f of foods.data ?? []) {
+      const price = Number(f.price_per_pound) || 0;
+      if (price > 0) priceByName.set(norm(f.name), price);
+      const weekly = weeklyByFood.get(f.id) ?? 0;
+      if (weekly === 0) continue;
+      const oz = Number(f.oz_per_serving) || 0;
+      const lbs = (weekly * 52 * oz) / 16; // orchard fruits = year-round consumption assumption
+      if (lbs <= 0) continue;
+      neededByName.set(norm(f.name), { needed_lbs: lbs, display: f.name });
+    }
+
+    const keys = new Set<string>([...counts.keys(), ...neededByName.keys()]);
+    const items = Array.from(keys).map((k) => {
+      const c = counts.get(k);
+      const need = neededByName.get(k);
+      const ypu = yieldForTree(k);
+      const count = c?.count ?? 0;
+      const expectedYield = count * ypu;
+      const neededLbs = need?.needed_lbs ?? 0;
+      const unitsNeeded = neededLbs > 0 ? Math.ceil(neededLbs / ypu) : 0;
+      const gapUnits = Math.max(0, unitsNeeded - count);
+      const gapLbs = Math.max(0, neededLbs - expectedYield);
+      const price = priceByName.get(k) ?? 0;
+      return {
+        key: k,
+        name: c?.display || need?.display || k,
+        count,
+        yield_per_unit_lbs: ypu,
+        expected_yield_lbs: expectedYield,
+        needed_lbs: neededLbs,
+        units_needed: unitsNeeded,
+        gap_units: gapUnits,
+        gap_lbs: gapLbs,
+        price_per_lb: price,
+        expected_yield_value: expectedYield * price,
+        gap_value: gapLbs * price,
+      };
+    });
+
+    const summary = {
+      distinct_items: items.filter((i) => i.count > 0).length,
+      total_units: items.reduce((s, i) => s + i.count, 0),
+      total_expected_yield_lbs: items.reduce((s, i) => s + i.expected_yield_lbs, 0),
+      total_needed_lbs: items.reduce((s, i) => s + i.needed_lbs, 0),
+      total_expected_yield_value: items.reduce((s, i) => s + i.expected_yield_value, 0),
+      total_gap_value: items.reduce((s, i) => s + i.gap_value, 0),
+    };
+
+    return {
+      summary,
+      items: items.sort((a, b) => b.expected_yield_lbs - a.expected_yield_lbs),
+      gaps: items.filter((i) => i.gap_units > 0).sort((a, b) => b.gap_lbs - a.gap_lbs),
+    };
+  });
+
+// ----------------------------------------------------------------------
+// Crops dashboard — plantings, actual harvested vs. plan need
+// ----------------------------------------------------------------------
+
+export const getCropsDashboard = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const [plantings, harvests, foods, entries] = await Promise.all([
+      context.supabase.from("crop_plantings").select("id, crop, status"),
+      context.supabase.from("crop_harvests").select("planting_id, quantity, unit"),
+      context.supabase.from("food_plan_foods").select("id, name, oz_per_serving, price_per_pound"),
+      context.supabase.from("food_plan_entries").select("food_id, quantity"),
+    ]);
+    if (plantings.error) throw new Error(plantings.error.message);
+    if (harvests.error) throw new Error(harvests.error.message);
+    if (foods.error) throw new Error(foods.error.message);
+    if (entries.error) throw new Error(entries.error.message);
+
+    const norm = (s: string | null | undefined) => (s ?? "").trim().toLowerCase();
+    const toLbs = (qty: number, unit: string | null | undefined) => {
+      const u = (unit ?? "").toLowerCase().trim();
+      if (["lb", "lbs", "pound", "pounds", ""].includes(u)) return qty;
+      if (["oz", "ounce", "ounces"].includes(u)) return qty / 16;
+      if (["kg", "kilogram", "kilograms"].includes(u)) return qty * 2.20462;
+      if (["g", "gram", "grams"].includes(u)) return qty * 0.00220462;
+      return qty;
+    };
+
+    // group plantings by crop
+    const byCrop = new Map<string, { display: string; plantings: number; planting_ids: Set<string> }>();
+    for (const p of plantings.data ?? []) {
+      const k = norm(p.crop);
+      if (!k) continue;
+      const cur = byCrop.get(k) ?? { display: (p.crop ?? "").trim(), plantings: 0, planting_ids: new Set<string>() };
+      cur.plantings += 1;
+      cur.planting_ids.add(p.id);
+      byCrop.set(k, cur);
+    }
+
+    // harvested lbs per crop (via planting_id lookup)
+    const plantingToCrop = new Map<string, string>();
+    for (const p of plantings.data ?? []) plantingToCrop.set(p.id, norm(p.crop));
+    const harvestedByCrop = new Map<string, number>();
+    for (const h of harvests.data ?? []) {
+      if (!h.planting_id) continue;
+      const k = plantingToCrop.get(h.planting_id);
+      if (!k) continue;
+      harvestedByCrop.set(k, (harvestedByCrop.get(k) ?? 0) + toLbs(Number(h.quantity) || 0, h.unit));
+    }
+
+    // plan need per crop name
+    const weeklyByFood = new Map<string, number>();
+    for (const e of entries.data ?? []) {
+      weeklyByFood.set(e.food_id, (weeklyByFood.get(e.food_id) ?? 0) + (Number(e.quantity) || 0));
+    }
+    const priceByName = new Map<string, number>();
+    const neededByName = new Map<string, { needed_lbs: number; display: string }>();
+    for (const f of foods.data ?? []) {
+      const price = Number(f.price_per_pound) || 0;
+      if (price > 0) priceByName.set(norm(f.name), price);
+      const weekly = weeklyByFood.get(f.id) ?? 0;
+      if (weekly === 0) continue;
+      const oz = Number(f.oz_per_serving) || 0;
+      const lbs = (weekly * 26 * oz) / 16;
+      if (lbs <= 0) continue;
+      neededByName.set(norm(f.name), { needed_lbs: lbs, display: f.name });
+    }
+
+    const keys = new Set<string>([...byCrop.keys(), ...neededByName.keys()]);
+    const items = Array.from(keys).map((k) => {
+      const c = byCrop.get(k);
+      const need = neededByName.get(k);
+      const count = c?.plantings ?? 0;
+      const harvested = harvestedByCrop.get(k) ?? 0;
+      const neededLbs = need?.needed_lbs ?? 0;
+      const lbsPerPlanting = count > 0 ? harvested / count : 0;
+      const unitsNeeded = neededLbs > 0 && lbsPerPlanting > 0 ? Math.ceil(neededLbs / lbsPerPlanting) : 0;
+      const gapUnits = Math.max(0, unitsNeeded - count);
+      const gapLbs = Math.max(0, neededLbs - harvested);
+      const price = priceByName.get(k) ?? 0;
+      return {
+        key: k,
+        name: c?.display || need?.display || k,
+        count,
+        yield_per_unit_lbs: lbsPerPlanting,
+        expected_yield_lbs: harvested,
+        needed_lbs: neededLbs,
+        units_needed: unitsNeeded,
+        gap_units: gapUnits,
+        gap_lbs: gapLbs,
+        price_per_lb: price,
+        expected_yield_value: harvested * price,
+        gap_value: gapLbs * price,
+      };
+    });
+
+    const summary = {
+      distinct_items: items.filter((i) => i.count > 0).length,
+      total_units: items.reduce((s, i) => s + i.count, 0),
+      total_expected_yield_lbs: items.reduce((s, i) => s + i.expected_yield_lbs, 0),
+      total_needed_lbs: items.reduce((s, i) => s + i.needed_lbs, 0),
+      total_expected_yield_value: items.reduce((s, i) => s + i.expected_yield_value, 0),
+      total_gap_value: items.reduce((s, i) => s + i.gap_value, 0),
+    };
+
+    return {
+      summary,
+      items: items.sort((a, b) => b.expected_yield_lbs - a.expected_yield_lbs),
+      gaps: items.filter((i) => i.gap_lbs > 0).sort((a, b) => b.gap_lbs - a.gap_lbs),
+    };
+  });
