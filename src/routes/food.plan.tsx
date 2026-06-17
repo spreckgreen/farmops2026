@@ -160,6 +160,9 @@ function FoodPlanPage() {
   const [foodDialog, setFoodDialog] = useState(false);
   const [editingFood, setEditingFood] = useState<Food | null>(null);
   const [showFreezeDryOnly, setShowFreezeDryOnly] = useState(false);
+  const [activeCategories, setActiveCategories] = useState<Set<string>>(new Set());
+  const [activeSeasons, setActiveSeasons] = useState<Set<string>>(new Set());
+
 
 
   if (isLoading) return <div className="text-muted-foreground font-mono text-sm">Loading…</div>;
