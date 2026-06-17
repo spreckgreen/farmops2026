@@ -244,6 +244,14 @@ function CategoryBlock({ cat }: { cat: Category }) {
               {cat.actual_gap_pounds > 0 && (
                 <> · <span className="text-destructive">actual gap {fmtLbs(cat.actual_gap_pounds)} lbs / {fmtUsd(cat.actual_gap_value)}</span></>
               )}
+              {cat.storage_pounds > 0 && (
+                <> · <span className="text-sky-500">storage {fmtLbs(cat.storage_pounds)} lbs</span></>
+              )}
+              {cat.actual_gap_pounds > 0 && (
+                <> · <span className={cat.mitigated_gap_pounds > 0 ? "text-destructive" : "text-emerald-500"}>
+                  net gap {fmtLbs(cat.mitigated_gap_pounds)} lbs / {fmtUsd(cat.mitigated_gap_value)}
+                </span></>
+              )}
             </span>
           </div>
           <div className="mt-1.5">
