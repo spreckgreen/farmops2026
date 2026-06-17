@@ -68,13 +68,17 @@ function FoodOverviewPage() {
       </div>
 
         <section>
-        <div className="flex items-baseline justify-between mb-2 gap-3 flex-wrap">
-          <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
-            Plan need vs. estimated yield
-          </h2>
-          <span className="text-xs text-muted-foreground">
-            Annual plan · estimate from planted units · logged harvests
-          </span>
+        <div className="mb-3">
+          <h2 className="text-sm font-semibold">Annual production by food category</h2>
+          <p className="text-xs text-muted-foreground mt-1">
+            Each grouping below is a food category (e.g., Vegetables, Fruits). It compares how much you
+            <em a={"planned to eat"} className="underline decoration-dotted" title="Based on weekly food plan quantities">plan to eat</span>{" "}
+            versus how much you have
+            <span className="underline decoration-dotted" title="Estimated from garden plantings and orchard trees">planted</span>{" "}
+            and
+            <span className="underline decoration-dotted" title="Logged harvests">actually harvested</span>.
+            Expand a category to see individual foods and their gaps.
+          </p>
         </div>
 
         <div className="flex items-center gap-2 mb-3 flex-wrap">
