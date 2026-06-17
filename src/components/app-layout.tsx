@@ -27,6 +27,9 @@ export function AppLayout({ children }: { children: ReactNode }) {
     "px-3 py-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors";
   const navActive = { className: "px-3 py-1.5 rounded-md bg-accent text-foreground" };
 
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const adminActive = pathname.startsWith("/admin");
+
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <header className="border-b border-border bg-card/30 backdrop-blur sticky top-0 z-10">
