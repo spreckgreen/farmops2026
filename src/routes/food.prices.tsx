@@ -16,6 +16,7 @@ import {
 } from "@/lib/food.functions";
 import seasonsData from "@/data/plant-seasons.json";
 import { FOOD_CATEGORIES } from "@/lib/food-categories";
+import { CsvToolbar } from "@/components/csv-toolbar";
 
 const SEASON_BUCKETS = ["All Year", "Spring", "Summer", "Fall", "Winter"] as const;
 const SEASON_COLORS: Record<string, string> = {
@@ -371,6 +372,30 @@ function PriceHistoryPage() {
             <Download className="h-4 w-4 mr-2" />
             Export all
           </Button>
+          <CsvToolbar
+            filename="price-history-template.csv"
+            columns={[
+              { key: "food_name", label: "food_name" },
+              { key: "new_price_per_lb", label: "new_price_per_lb" },
+            ]}
+            rows={[]}
+            onImport={async (rows) => {
+              let n = 0;
+              for (const r of rows) {
+                const name = String(r.food_name ?? r.name ?? "").trim();
+                const price = parseFloat(String(r.new_price_per_lb ?? r.price ?? ""));
+                if (!name || !Number.isFinite(price)) continue;
+                const food = foods.find((f) => f.name.toLowerCase() === name.toLowerCase());
+                if (!food) continue;
+                await record({ data: { foodId: food.id, pricePerPound: price } });
+                n++;
+              }
+              qc.invalidateQueries({ queryKey: ["food-price-history"] });
+              qc.invalidateQueries({ queryKey: ["food-plan"] });
+              toast.success(`Imported ${n} price updates`);
+            }}
+            importLabel="Import prices"
+          />
         </div>
       </div>
 
