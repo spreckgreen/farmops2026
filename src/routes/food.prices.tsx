@@ -15,6 +15,7 @@ import {
   bulkUpdateFoodCategories,
 } from "@/lib/food.functions";
 import seasonsData from "@/data/plant-seasons.json";
+import { FOOD_CATEGORIES } from "@/lib/food-categories";
 
 const SEASON_BUCKETS = ["All Year", "Spring", "Summer", "Fall", "Winter"] as const;
 const SEASON_COLORS: Record<string, string> = {
