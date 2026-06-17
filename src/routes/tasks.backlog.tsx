@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { requireAuthenticatedUser } from "@/lib/auth-route";
 import { toast } from "sonner";
 import { todayDateString } from "@/lib/slug";
+import { useShowTaskSlugs } from "@/hooks/use-show-task-slugs";
 
 export const Route = createFileRoute("/tasks/backlog")({
   ssr: false,
@@ -28,6 +29,7 @@ export const Route = createFileRoute("/tasks/backlog")({
 
 function BacklogPage() {
   const listFn = useServerFn(listBacklog);
+  const [showSlugs, toggleSlugs] = useShowTaskSlugs();
   const addFn = useServerFn(addTaskToToday);
   const listMaintFn = useServerFn(listDueMaintenance);
   const addMaintFn = useServerFn(addMaintenanceToToday);
@@ -126,9 +128,19 @@ function BacklogPage() {
       <div className="max-w-4xl mx-auto px-4 py-8">
         <div className="flex items-baseline justify-between mb-1">
           <h1 className="text-2xl font-mono font-bold">Backlog</h1>
-          <Link to="/tasks" className="text-xs font-mono text-muted-foreground hover:text-foreground">
-            Today's tasks →
-          </Link>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={toggleSlugs}
+              className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground hover:text-foreground border border-border rounded px-2 py-1"
+              title="Debug: show or hide the #task-slug under each title"
+            >
+              slugs · {showSlugs ? "on" : "off"}
+            </button>
+            <Link to="/tasks" className="text-xs font-mono text-muted-foreground hover:text-foreground">
+              Today's tasks →
+            </Link>
+          </div>
         </div>
         <p className="text-xs text-muted-foreground font-mono mb-6">
           Queued tasks not yet pulled into today. Click "Add to today" to activate.
@@ -248,9 +260,11 @@ function BacklogPage() {
                       className="min-w-0 flex-1"
                     >
                       <div className="font-medium truncate">{t.title}</div>
-                      <div className="text-xs text-muted-foreground font-mono">
-                        #{t.slug}
-                      </div>
+                      {showSlugs && (
+                        <div className="text-xs text-muted-foreground font-mono">
+                          #{t.slug}
+                        </div>
+                      )}
                     </Link>
                     {t.recurrence && t.recurrence !== "none" && (
                       <Badge variant="outline" className="text-[10px] uppercase">↻ {t.recurrence}</Badge>

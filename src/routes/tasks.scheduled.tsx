@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { TiddlyWikiImportButton } from "@/components/tiddlywiki-import-button";
+import { useShowTaskSlugs } from "@/hooks/use-show-task-slugs";
 
 
 import {
@@ -49,6 +50,7 @@ function ReportsPage() {
   const tasksFn = useServerFn(listScheduledTasks);
   const [tag, setTag] = useState<string>(ALL);
   const [repeatFilter, setRepeatFilter] = useState<string>(REPEAT_ALL);
+  const [showSlugs, toggleSlugs] = useShowTaskSlugs();
 
   const tagsQ = useQuery({ queryKey: ["project-tags"], queryFn: () => tagsFn() });
   const tasksQ = useQuery({
@@ -76,6 +78,14 @@ function ReportsPage() {
             </p>
           </div>
           <div className="flex items-end gap-2">
+            <button
+              type="button"
+              onClick={toggleSlugs}
+              className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground hover:text-foreground border border-border rounded px-2 py-1 self-end"
+              title="Debug: show or hide the #task-slug under each title"
+            >
+              slugs · {showSlugs ? "on" : "off"}
+            </button>
             <div className="w-64">
               <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1 block">
                 Project tag
@@ -165,9 +175,9 @@ function ReportsPage() {
                         >
                           <div className="font-medium">{t.title}</div>
                           <div className="text-xs text-muted-foreground font-mono flex gap-2 flex-wrap mt-0.5">
-                            <span>#{t.slug}</span>
-                            {(t.project_tags ?? []).map((pt) => (
-                              <span key={pt}>· #project/{pt}</span>
+                            {showSlugs && <span>#{t.slug}</span>}
+                            {(t.project_tags ?? []).map((pt, i) => (
+                              <span key={pt}>{showSlugs || i > 0 ? "· " : ""}#project/{pt}</span>
                             ))}
                           </div>
                         </Link>

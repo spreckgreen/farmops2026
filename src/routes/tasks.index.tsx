@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { AppLayout } from "@/components/app-layout";
 import { requireAuthenticatedUser } from "@/lib/auth-route";
 import { todayDateString } from "@/lib/slug";
+import { useShowTaskSlugs } from "@/hooks/use-show-task-slugs";
 
 export const Route = createFileRoute("/tasks/")({
   ssr: false,
@@ -31,6 +32,7 @@ function sortByGroupThenTitle<T extends { title: string }>(tasks: T[]): T[] {
 function TasksPage() {
   const fn = useServerFn(listTasks);
   const today = todayDateString();
+  const [showSlugs, toggleSlugs] = useShowTaskSlugs();
   const { data, isLoading } = useQuery({
     queryKey: ["tasks", "today", today],
     queryFn: () => fn({ data: { date: today } }),
@@ -45,8 +47,20 @@ function TasksPage() {
   return (
     <AppLayout>
       <div className="max-w-4xl mx-auto px-4 py-8">
-      <h1 className="text-2xl font-mono font-bold mb-1">Today's tasks</h1>
-      <p className="text-xs text-muted-foreground font-mono mb-6">Tasks delivered or touched today</p>
+      <div className="flex items-start justify-between mb-6 gap-3">
+        <div>
+          <h1 className="text-2xl font-mono font-bold mb-1">Today's tasks</h1>
+          <p className="text-xs text-muted-foreground font-mono">Tasks delivered or touched today</p>
+        </div>
+        <button
+          type="button"
+          onClick={toggleSlugs}
+          className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground hover:text-foreground border border-border rounded px-2 py-1"
+          title="Debug: show or hide the #task-slug under each title"
+        >
+          slugs · {showSlugs ? "on" : "off"}
+        </button>
+      </div>
       {isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
       {(["open", "blocked", "done"] as const).map((status) => (
         <section key={status} className="mb-8">
@@ -75,6 +89,9 @@ function TasksPage() {
                   >
                     <div className="min-w-0">
                       <div className="font-medium truncate">{t.title}</div>
+                      {showSlugs && (
+                        <div className="text-xs text-muted-foreground font-mono">#{t.slug}</div>
+                      )}
                     </div>
                     <div className="flex items-center gap-2">
                       {t.recurrence && t.recurrence !== "none" && (
