@@ -1910,3 +1910,104 @@ export const getLivestockDashboard = createServerFn({ method: "GET" })
   });
 
 
+
+// ----------------------------------------------------------------------
+// Food storage items
+// ----------------------------------------------------------------------
+
+const StorageItemSchema = z.object({
+  id: z.string().uuid().nullable().optional(),
+  name: z.string().trim().min(1).max(200),
+  description: z.string().max(2000).nullable().optional(),
+  category: z.string().max(100).nullable().optional(),
+  food_type: z.string().max(100).nullable().optional(),
+  location: z.string().max(200).nullable().optional(),
+  quantity: z.union([z.number(), z.string()]).optional(),
+  unit: z.string().trim().max(50).optional(),
+  acquired_on: z.string().nullable().optional(),
+  best_by: z.string().nullable().optional(),
+  status: z.string().max(50).optional(),
+  source_url: z.string().max(500).nullable().optional(),
+  price: z.union([z.number(), z.string()]).nullable().optional(),
+  notes: z.string().max(5000).nullable().optional(),
+});
+
+export const listFoodStorage = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data, error } = await context.supabase
+      .from("food_storage_items")
+      .select("*")
+      .order("category", { ascending: true, nullsFirst: false })
+      .order("food_type", { ascending: true, nullsFirst: false })
+      .order("name", { ascending: true });
+    if (error) throw new Error(error.message);
+    return data ?? [];
+  });
+
+export const upsertFoodStorageItem = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => StorageItemSchema.parse(d))
+  .handler(async ({ data, context }) => {
+    const row = {
+      user_id: context.userId,
+      name: data.name.trim(),
+      description: emptyToNull(data.description ?? null),
+      category: emptyToNull(data.category ?? null),
+      food_type: emptyToNull(data.food_type ?? null),
+      location: emptyToNull(data.location ?? null),
+      quantity: toNumber(data.quantity ?? 0),
+      unit: (data.unit || "lb").trim(),
+      acquired_on: emptyToNull(data.acquired_on ?? null),
+      best_by: emptyToNull(data.best_by ?? null),
+      status: data.status || "available",
+      source_url: emptyToNull(data.source_url ?? null),
+      price: data.price == null || data.price === "" ? null : toNumber(data.price),
+      notes: emptyToNull(data.notes ?? null),
+    };
+    if (data.id) {
+      const { data: out, error } = await context.supabase
+        .from("food_storage_items").update(row).eq("id", data.id).select().single();
+      if (error) throw new Error(error.message);
+      return out;
+    }
+    const { data: out, error } = await context.supabase
+      .from("food_storage_items").insert(row).select().single();
+    if (error) throw new Error(error.message);
+    return out;
+  });
+
+export const deleteFoodStorageItem = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase
+      .from("food_storage_items").delete().eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const bulkInsertFoodStorage = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ items: z.array(StorageItemSchema).max(2000) }).parse(d))
+  .handler(async ({ data, context }) => {
+    const rows = data.items.map((i) => ({
+      user_id: context.userId,
+      name: i.name.trim(),
+      description: emptyToNull(i.description ?? null),
+      category: emptyToNull(i.category ?? null),
+      food_type: emptyToNull(i.food_type ?? null),
+      location: emptyToNull(i.location ?? null),
+      quantity: toNumber(i.quantity ?? 0),
+      unit: (i.unit || "lb").trim(),
+      acquired_on: emptyToNull(i.acquired_on ?? null),
+      best_by: emptyToNull(i.best_by ?? null),
+      status: i.status || "available",
+      source_url: emptyToNull(i.source_url ?? null),
+      price: i.price == null || i.price === "" ? null : toNumber(i.price),
+      notes: emptyToNull(i.notes ?? null),
+    }));
+    const { error } = await context.supabase.from("food_storage_items").insert(rows);
+    if (error) throw new Error(error.message);
+    return { inserted: rows.length };
+  });
