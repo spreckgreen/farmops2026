@@ -40,11 +40,14 @@ type Plot = {
 const DEFAULT_ROWS = ["Row01","Row02","Row03","Row04","Row05","Row06","Row07","Row08"];
 const DEFAULT_POSITIONS = 16;
 
+const USD = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
 function fmtUsd(n: number): string {
-  if (!Number.isFinite(n) || n === 0) return "$0";
-  return n >= 100
-    ? `$${n.toFixed(0)}`
-    : `$${n.toFixed(2)}`;
+  return USD.format(Number.isFinite(n) ? n : 0);
 }
 
 function plantColor(name: string | null | undefined): string {
