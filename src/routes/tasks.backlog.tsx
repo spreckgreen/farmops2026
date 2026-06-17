@@ -128,10 +128,19 @@ function BacklogPage() {
       <div className="max-w-4xl mx-auto px-4 py-8">
         <div className="flex items-baseline justify-between mb-1">
           <h1 className="text-2xl font-mono font-bold">Backlog</h1>
-          <Link to="/tasks" className="text-xs font-mono text-muted-foreground hover:text-foreground">
-            Today's tasks →
-          </Link>
-        </div>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={toggleSlugs}
+              className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground hover:text-foreground border border-border rounded px-2 py-1"
+              title="Debug: show or hide the #task-slug under each title"
+            >
+              slugs · {showSlugs ? "on" : "off"}
+            </button>
+            <Link to="/tasks" className="text-xs font-mono text-muted-foreground hover:text-foreground">
+              Today's tasks →
+            </Link>
+          </div>
         <p className="text-xs text-muted-foreground font-mono mb-6">
           Queued tasks not yet pulled into today. Click "Add to today" to activate.
         </p>
