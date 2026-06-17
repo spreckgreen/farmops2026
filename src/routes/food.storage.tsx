@@ -406,6 +406,7 @@ function InventoryPanel() {
                 <th className="text-left px-3 py-2">Type</th>
                 <th className="text-left px-3 py-2">Location</th>
                 <th className="text-right px-3 py-2">Qty</th>
+                <th className="text-right px-3 py-2">Kcal</th>
                 <th className="text-left px-3 py-2">Acquired</th>
                 <th className="text-left px-3 py-2">Best by</th>
                 <th className="px-3 py-2 w-20"></th>
