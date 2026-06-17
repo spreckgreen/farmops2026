@@ -20,6 +20,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { CsvToolbar } from "@/components/csv-toolbar";
 
 export const Route = createFileRoute("/projects")({
   ssr: false,
@@ -108,14 +109,50 @@ function ProjectsPage() {
               your notes. Add a description and start date for each one.
             </p>
           </div>
-          <Button
-            onClick={() => {
-              setDraft(empty);
-              setOpen(true);
-            }}
-          >
-            <Plus className="h-4 w-4 mr-1" /> New project
-          </Button>
+          <div className="flex items-center gap-2">
+            <CsvToolbar
+              filename="projects.csv"
+              columns={[
+                { key: "slug", label: "slug" },
+                { key: "name", label: "name" },
+                { key: "description", label: "description" },
+                { key: "start_date", label: "start_date" },
+              ]}
+              rows={(q.data as ProjectRow[] | undefined ?? []).map((p) => ({
+                slug: p.slug,
+                name: p.name,
+                description: p.description ?? "",
+                start_date: p.start_date ?? "",
+              }))}
+              onImport={async (rows) => {
+                let n = 0;
+                for (const row of rows) {
+                  const name = String(row.name ?? "").trim();
+                  if (!name) continue;
+                  await upsertFn({
+                    data: {
+                      id: null,
+                      slug: slugify(String(row.slug ?? name)),
+                      name,
+                      description: String(row.description ?? "").trim() || null,
+                      start_date: String(row.start_date ?? "").trim() || null,
+                    },
+                  });
+                  n++;
+                }
+                qc.invalidateQueries({ queryKey: ["projects"] });
+                toast.success(`Imported ${n} projects`);
+              }}
+            />
+            <Button
+              onClick={() => {
+                setDraft(empty);
+                setOpen(true);
+              }}
+            >
+              <Plus className="h-4 w-4 mr-1" /> New project
+            </Button>
+          </div>
         </div>
 
         {q.isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
