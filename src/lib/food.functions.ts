@@ -246,7 +246,7 @@ function nameMatches(foodName: string, recordName: string): boolean {
 export const getFoodYieldProgress = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const [foods, people, entries, plantings, harvests, gardenPlots, orchardTrees] = await Promise.all([
+    const [foods, people, entries, plantings, harvests, gardenPlots, orchardTrees, storage] = await Promise.all([
       context.supabase.from("food_plan_foods").select("id, name, category, oz_per_serving, unit, price_per_pound"),
       context.supabase.from("food_plan_people").select("id, name"),
       context.supabase.from("food_plan_entries").select("food_id, person_id, day_of_week, quantity"),
@@ -254,6 +254,7 @@ export const getFoodYieldProgress = createServerFn({ method: "GET" })
       context.supabase.from("crop_harvests").select("id, planting_id, harvested_on, quantity, unit, quality, notes"),
       context.supabase.from("garden_plots").select("plant_name").not("plant_name", "is", null).neq("plant_name", ""),
       context.supabase.from("orchard_trees").select("species, quantity, status").neq("status", "removed"),
+      context.supabase.from("food_storage_items").select("name, quantity, unit, status").eq("status", "available"),
     ]);
     if (foods.error) throw new Error(foods.error.message);
     if (people.error) throw new Error(people.error.message);
@@ -262,6 +263,16 @@ export const getFoodYieldProgress = createServerFn({ method: "GET" })
     if (harvests.error) throw new Error(harvests.error.message);
     if (gardenPlots.error) throw new Error(gardenPlots.error.message);
     if (orchardTrees.error) throw new Error(orchardTrees.error.message);
+    if (storage.error) throw new Error(storage.error.message);
+
+    // Storage on hand, indexed by normalized name
+    const storageByName = new Map<string, number>();
+    for (const s of storage.data ?? []) {
+      const key = normalizeName(s.name);
+      if (!key) continue;
+      const lbs = toPounds(Number(s.quantity) || 0, s.unit);
+      storageByName.set(key, (storageByName.get(key) ?? 0) + lbs);
+    }
 
     // Aggregate garden plots → distinct plant name + count
     const gardenAgg = new Map<string, { display: string; count: number }>();
