@@ -103,12 +103,24 @@ function FoodOverviewPage() {
           })}
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-3">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-3">
           <SummaryStat label="Plan need" value={`${fmtLbs(totals?.expected_pounds ?? 0)} lbs`} />
           <SummaryStat label="Est. yield (planted)" value={`${fmtLbs(totals?.estimated_pounds ?? 0)} lbs`} />
           <SummaryStat label="Harvested" value={`${fmtLbs(totals?.actual_pounds ?? 0)} lbs`} />
-          <SummaryStat label="Gap" value={`${fmtLbs(totals?.gap_pounds ?? 0)} lbs`} accent />
-          <SummaryStat label="Gap value" value={fmtUsd(totals?.gap_value ?? 0)} accent />
+          <SummaryStat
+            label="Planned gap"
+            sublabel="need − planted"
+            value={`${fmtLbs(totals?.planned_gap_pounds ?? 0)} lbs`}
+            secondary={fmtUsd(totals?.planned_gap_value ?? 0)}
+            accent
+          />
+          <SummaryStat
+            label="Actual gap"
+            sublabel="need − harvested"
+            value={`${fmtLbs(totals?.actual_gap_pounds ?? 0)} lbs`}
+            secondary={fmtUsd(totals?.actual_gap_value ?? 0)}
+            accent
+          />
         </div>
 
         {yq.isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
@@ -214,8 +226,11 @@ function CategoryBlock({ cat }: { cat: Category }) {
             <span className="text-xs font-mono text-muted-foreground shrink-0">
               need {fmtLbs(cat.expected_pounds)} · est {fmtLbs(cat.estimated_pounds)} · harv {fmtLbs(cat.actual_pounds)} lbs
               {cat.expected_pounds > 0 && <> · {pct}%</>}
-              {cat.gap_pounds > 0 && (
-                <> · <span className="text-destructive">gap {fmtLbs(cat.gap_pounds)} lbs / {fmtUsd(cat.gap_value)}</span></>
+              {cat.planned_gap_pounds > 0 && (
+                <> · <span className="text-amber-500">plan gap {fmtLbs(cat.planned_gap_pounds)} lbs / {fmtUsd(cat.planned_gap_value)}</span></>
+              )}
+              {cat.actual_gap_pounds > 0 && (
+                <> · <span className="text-destructive">actual gap {fmtLbs(cat.actual_gap_pounds)} lbs / {fmtUsd(cat.actual_gap_value)}</span></>
               )}
             </span>
           </div>
@@ -255,8 +270,11 @@ function FoodItemRow({ item }: { item: Category["items"][number] }) {
             </span>
             <span className="text-xs font-mono text-muted-foreground shrink-0">
               need {fmtLbs(item.expected_pounds)} · est {fmtLbs(item.estimated_pounds)} · harv {fmtLbs(item.actual_pounds)} lbs
-              {item.gap_pounds > 0 && (
-                <> · <span className="text-destructive">gap {fmtLbs(item.gap_pounds)} lbs{item.price_per_lb > 0 && <> / {fmtUsd(item.gap_value)}</>}</span></>
+              {item.planned_gap_pounds > 0 && (
+                <> · <span className="text-amber-500">plan gap {fmtLbs(item.planned_gap_pounds)} lbs{item.price_per_lb > 0 && <> / {fmtUsd(item.planned_gap_value)}</>}</span></>
+              )}
+              {item.actual_gap_pounds > 0 && (
+                <> · <span className="text-destructive">actual gap {fmtLbs(item.actual_gap_pounds)} lbs{item.price_per_lb > 0 && <> / {fmtUsd(item.actual_gap_value)}</>}</span></>
               )}
             </span>
           </div>
@@ -343,15 +361,35 @@ function FoodItemRow({ item }: { item: Category["items"][number] }) {
   );
 }
 
-function SummaryStat({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
+function SummaryStat({
+  label,
+  sublabel,
+  value,
+  secondary,
+  accent,
+}: {
+  label: string;
+  sublabel?: string;
+  value: string;
+  secondary?: string;
+  accent?: boolean;
+}) {
   return (
     <div className="border border-border rounded-md p-3 bg-card">
       <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
         {label}
       </div>
+      {sublabel && (
+        <div className="text-[10px] font-mono text-muted-foreground/70 mt-0.5">
+          {sublabel}
+        </div>
+      )}
       <div className={`text-xl font-mono font-semibold mt-1 ${accent ? "text-destructive" : ""}`}>
         {value}
       </div>
+      {secondary && (
+        <div className="text-xs font-mono text-muted-foreground mt-0.5">{secondary}</div>
+      )}
     </div>
   );
 }
