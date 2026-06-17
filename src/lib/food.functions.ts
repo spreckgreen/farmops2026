@@ -345,9 +345,11 @@ export const getFoodYieldProgress = createServerFn({ method: "GET" })
     const rows: FoodRow[] = [];
     for (const f of foods.data ?? []) {
       const planEntries = entriesByFood.get(f.id) ?? [];
-      const weeklyServings = planEntries.reduce((s, e) => s + e.quantity, 0);
-      const ozPerServing = Number(f.oz_per_serving) || 0;
-      const expectedPounds = (weeklyServings * 52 * ozPerServing) / 16;
+      // Plan quantities are stored as ounces per person per day (matches the
+      // Plan tab's weekly-cost math: price_per_pound × qty / 16). Annual need
+      // in pounds is therefore weekly_ounces × 52 / 16.
+      const weeklyOunces = planEntries.reduce((s, e) => s + e.quantity, 0);
+      const expectedPounds = (weeklyOunces * 52) / 16;
       const matched = harvestByName.get(normalizeName(f.name));
       const actualPounds = matched?.pounds ?? 0;
       const harvestEntries = (matched?.entries ?? []).map((h: any) => ({
