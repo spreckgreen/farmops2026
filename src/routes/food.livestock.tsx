@@ -253,7 +253,7 @@ function LivestockPage() {
       notes: a.notes ?? "",
     }));
     const csv = Papa.unparse(rows.length ? rows : [{
-      species: "", breed: "", tag: "", sex: "", birth_date: "", quantity: "",
+      species: "", breed: "", tag: "", sex: "", birth_date: "", quantity: 0,
       purpose: "", expected_yield_lbs: "", yield_unit: "", status: "", location: "", notes: "",
     }]);
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
