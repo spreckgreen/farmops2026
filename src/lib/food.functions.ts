@@ -846,6 +846,7 @@ export const seedGardenFromTemplate = createServerFn({ method: "POST" })
 // ----------------------------------------------------------------------
 
 const ORCHARD_STATUSES = ["healthy", "young", "producing", "diseased", "removed"] as const;
+const ORCHARD_CATEGORIES = ["fruit", "nut", "hardwood", "softwood", "other"] as const;
 
 const OrchardTreeSchema = z.object({
   id: z.string().uuid().nullable().optional(),
@@ -855,6 +856,7 @@ const OrchardTreeSchema = z.object({
   location: z.string().trim().max(200).nullable().optional(),
   planted_on: z.string().nullable().optional(),
   status: z.enum(ORCHARD_STATUSES).optional(),
+  category: z.enum(ORCHARD_CATEGORIES).nullable().optional(),
   notes: z.string().max(5000).nullable().optional(),
 });
 
