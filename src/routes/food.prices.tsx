@@ -103,6 +103,7 @@ function PriceHistoryPage() {
   );
 
   const [filter, setFilter] = useState("");
+  const [seasonFilter, setSeasonFilter] = useState<string>("all");
   const [selected, setSelected] = useState<string | null>(null);
 
   const [addOpen, setAddOpen] = useState(false);
@@ -192,13 +193,20 @@ function PriceHistoryPage() {
 
   const filtered = useMemo(() => {
     const q = filter.trim().toLowerCase();
-    if (!q) return byFood;
-    return byFood.filter(
-      (g) =>
+    return byFood.filter((g) => {
+      if (seasonFilter !== "all") {
+        if (seasonFilter === "__none__") {
+          if (g.season) return false;
+        } else if (!g.season || !matchSeasonBucket(g.season.season, seasonFilter)) return false;
+      }
+      if (!q) return true;
+      return (
         g.name.toLowerCase().includes(q) ||
-        (g.category ?? "").toLowerCase().includes(q),
-    );
-  }, [byFood, filter]);
+        (g.category ?? "").toLowerCase().includes(q) ||
+        (g.season?.season ?? "").toLowerCase().includes(q)
+      );
+    });
+  }, [byFood, filter, seasonFilter]);
 
   const detail = selected ? byFood.find((g) => g.name === selected) : null;
 
@@ -272,6 +280,16 @@ function PriceHistoryPage() {
             onChange={(e) => setFilter(e.target.value)}
             className="w-60"
           />
+          <Select value={seasonFilter} onValueChange={setSeasonFilter}>
+            <SelectTrigger className="w-[150px]"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All seasons</SelectItem>
+              <SelectItem value="__none__">Unmapped</SelectItem>
+              {SEASON_BUCKETS.map((b) => (
+                <SelectItem key={b} value={b}>{b}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Button size="sm" onClick={() => openAdd(selected ?? undefined)}>
             <Plus className="h-4 w-4 mr-2" />
             Add price entry
@@ -354,6 +372,32 @@ function PriceHistoryPage() {
           </Button>
         </div>
       </div>
+
+      <div className="flex flex-wrap items-center gap-2 text-xs mb-3">
+        <span className="text-muted-foreground font-mono uppercase">Season legend:</span>
+        {SEASON_BUCKETS.map((b) => (
+          <button
+            key={b}
+            type="button"
+            onClick={() => setSeasonFilter((cur) => (cur === b ? "all" : b))}
+            className={`px-1.5 py-0.5 rounded border text-[10px] transition ${SEASON_COLORS[b]} ${seasonFilter === b ? "ring-1 ring-foreground/60" : "opacity-80 hover:opacity-100"}`}
+            title={`Filter to ${b}`}
+          >
+            {b}
+          </button>
+        ))}
+        {seasonFilter !== "all" && (
+          <button
+            type="button"
+            onClick={() => setSeasonFilter("all")}
+            className="text-muted-foreground underline ml-1"
+          >
+            Clear
+          </button>
+        )}
+      </div>
+
+
 
       {isLoading ? (
         <div className="text-sm text-muted-foreground">Loading…</div>
