@@ -246,6 +246,19 @@ function FoodPlanPage() {
         )}
       </div>
 
+      {/* Freeze-dry filter */}
+      <div className="flex items-center gap-2">
+        <Switch
+          id="freeze-dry-filter"
+          checked={showFreezeDryOnly}
+          onCheckedChange={setShowFreezeDryOnly}
+        />
+        <Label htmlFor="freeze-dry-filter" className="text-sm cursor-pointer flex items-center gap-1">
+          <Snowflake className="h-3 w-3 text-blue-500" />
+          Show freeze-dry only
+        </Label>
+      </div>
+
       {/* Matrix */}
       <div className="border border-border rounded-md overflow-auto max-h-[70vh]">
         <table className="text-xs font-mono w-full">
