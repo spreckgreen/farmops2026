@@ -255,6 +255,48 @@ function FoodPlanPage() {
     });
   }, [foods, showFreezeDryOnly, activeCategories, activeSeasons]);
 
+  const UNCATEGORIZED = "Uncategorized";
+  const groupedFoods = useMemo(() => {
+    const groups = new Map<string, Food[]>();
+    for (const f of visibleFoods) {
+      const key = f.category && f.category.trim() ? f.category : UNCATEGORIZED;
+      const arr = groups.get(key);
+      if (arr) arr.push(f); else groups.set(key, [f]);
+    }
+    // Order: follow FOOD_CATEGORIES, then any extras alphabetically, then Uncategorized
+    const ordered: { category: string; foods: Food[] }[] = [];
+    for (const cat of FOOD_CATEGORIES) {
+      const arr = groups.get(cat);
+      if (arr) { ordered.push({ category: cat, foods: arr }); groups.delete(cat); }
+    }
+    const extras = Array.from(groups.keys()).filter((k) => k !== UNCATEGORIZED).sort();
+    for (const k of extras) ordered.push({ category: k, foods: groups.get(k)! });
+    if (groups.has(UNCATEGORIZED)) ordered.push({ category: UNCATEGORIZED, foods: groups.get(UNCATEGORIZED)! });
+    return ordered;
+  }, [visibleFoods]);
+
+  const COLLAPSED_KEY = "food-plan-collapsed-groups";
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(COLLAPSED_KEY);
+      if (raw) setCollapsedGroups(new Set(JSON.parse(raw)));
+    } catch {}
+  }, []);
+  const toggleGroup = (cat: string) => {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(cat)) next.delete(cat); else next.add(cat);
+      try { localStorage.setItem(COLLAPSED_KEY, JSON.stringify(Array.from(next))); } catch {}
+      return next;
+    });
+  };
+  const setAllCollapsed = (collapsed: boolean) => {
+    const next = collapsed ? new Set(groupedFoods.map((g) => g.category)) : new Set<string>();
+    setCollapsedGroups(next);
+    try { localStorage.setItem(COLLAPSED_KEY, JSON.stringify(Array.from(next))); } catch {}
+  };
+
   return (
     <div className="space-y-6">
       {/* Stats */}
