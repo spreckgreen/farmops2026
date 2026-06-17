@@ -3,7 +3,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, TreeDeciduous, Upload, Loader2 } from "lucide-react";
+import { Plus, Pencil, Trash2, TreeDeciduous, Upload, Loader2, Printer } from "lucide-react";
+import { openPrintWindow, escapeHtml } from "@/lib/print";
 import Papa from "papaparse";
 import {
   listOrchardTrees,
@@ -192,6 +193,35 @@ function OrchardPage() {
     });
   }
 
+  function printOrchard() {
+    const list = trees as Tree[];
+    const totalTrees = list.reduce((s, t) => s + (t.quantity || 0), 0);
+    const rows = list
+      .map(
+        (t) => `<tr>
+          <td>${escapeHtml(t.species)}</td>
+          <td>${escapeHtml(t.variety)}</td>
+          <td style="text-align:right">${t.quantity}</td>
+          <td>${escapeHtml(t.location)}</td>
+          <td>${escapeHtml(t.planted_on)}</td>
+          <td><span class="badge">${escapeHtml(t.status)}</span></td>
+          <td>${escapeHtml(t.notes)}</td>
+        </tr>`,
+      )
+      .join("");
+    const body = list.length
+      ? `<table>
+          <thead><tr><th>Species</th><th>Variety</th><th>Qty</th><th>Location</th><th>Planted</th><th>Status</th><th>Notes</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>`
+      : `<div class="empty-note">No trees logged.</div>`;
+    openPrintWindow(
+      "Orchard",
+      `<header><h1>Orchard</h1><div class="meta">${list.length} entries · ${totalTrees} trees · printed ${new Date().toLocaleDateString()}</div></header>
+       ${body}`,
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-2">
@@ -200,6 +230,9 @@ function OrchardPage() {
           <p className="text-sm text-muted-foreground">Track fruit and nut trees on the property.</p>
         </div>
         <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={printOrchard} disabled={isLoading}>
+            <Printer className="h-4 w-4 mr-2" /> Print
+          </Button>
           <Label htmlFor="orchard-csv" className="cursor-pointer">
             <span className="inline-flex items-center gap-2 border border-border rounded-md px-3 py-2 text-sm hover:bg-muted">
               {importM.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
