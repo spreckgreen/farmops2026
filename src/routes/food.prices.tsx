@@ -3,13 +3,14 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useMemo, useState } from "react";
 import { format } from "date-fns";
-import { ArrowDown, ArrowUp, Minus, History, Download, Plus, RefreshCw, Loader2, Globe } from "lucide-react";
+import { ArrowDown, ArrowUp, Minus, History, Download, Plus, RefreshCw, Loader2, Globe, Beef } from "lucide-react";
 import { toast } from "sonner";
 import {
   listPriceHistory,
   listFoodPlan,
   recordFoodPrice,
   refreshPricesSouthernOhio,
+  seedLivestockProducts,
 } from "@/lib/food.functions";
 import { fmtUsd, fmtUsdSigned } from "@/lib/currency";
 import { Input } from "@/components/ui/input";
