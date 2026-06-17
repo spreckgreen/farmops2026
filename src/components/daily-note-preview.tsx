@@ -20,6 +20,12 @@ type TaskLite = { slug: string; title: string; status?: string };
 type Props = {
   markdown: string;
   tasks: TaskLite[];
+  /**
+   * Compact mode hides secondary metadata (project badges, @start, @progress,
+   * !entry-type badges) and keeps just checkboxes, plain text, and clickable
+   * task titles. Useful for skimming a day at a glance.
+   */
+  compact?: boolean;
 };
 
 type Token =
@@ -98,7 +104,7 @@ function formatStartLabel(iso: string): string {
   return `${dateStr} ${timeStr}`;
 }
 
-export function DailyNotePreview({ markdown, tasks }: Props) {
+export function DailyNotePreview({ markdown, tasks, compact = false }: Props) {
   const tasksBySlug = new Map(tasks.map((t) => [t.slug, t]));
   const lines = markdown.split("\n");
 
@@ -142,9 +148,11 @@ export function DailyNotePreview({ markdown, tasks }: Props) {
             .map((t) => (tasksBySlug.get(t.slug)?.title ?? t.slug).trim().toLowerCase())
             .filter(Boolean),
         );
-        const displayTokens = tokens.filter(
-          (t) => !(t.kind === "text" && refTitles.has(t.text.trim().toLowerCase())),
-        );
+        const displayTokens = tokens.filter((t) => {
+          if (t.kind === "text" && refTitles.has(t.text.trim().toLowerCase())) return false;
+          if (compact && (t.kind === "project" || t.kind === "start" || t.kind === "progress")) return false;
+          return true;
+        });
 
         // Build the rendered row.
         return (
@@ -213,6 +221,12 @@ export function DailyNotePreview({ markdown, tasks }: Props) {
                 // text
                 const typed = getEntryTypePrefix(tok.text);
                 if (typed) {
+                  if (compact) {
+                    // Drop the !type marker, keep only the human-readable rest.
+                    return typed.rest ? (
+                      <span key={i} className="break-words">{typed.rest}</span>
+                    ) : null;
+                  }
                   return (
                     <span key={i} className="inline-flex items-center gap-2">
                       <Badge variant="outline" className="text-[10px] uppercase">
