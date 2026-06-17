@@ -432,14 +432,18 @@ function LivestockPage() {
                 <th className="text-left px-3 py-2">Tag</th>
                 <th className="text-right px-3 py-2">Qty</th>
                 <th className="text-left px-3 py-2">Purpose</th>
-                <th className="text-right px-3 py-2">Est. yield</th>
+                <th className="text-right px-3 py-2">Per head</th>
+                <th className="text-right px-3 py-2">Season total</th>
                 <th className="text-left px-3 py-2">Status</th>
                 <th className="text-left px-3 py-2">Location</th>
                 <th className="px-3 py-2"></th>
               </tr>
             </thead>
             <tbody>
-              {(animals as Animal[]).map((a) => (
+              {(animals as Animal[]).map((a) => {
+                const y = computeSeasonYield(a);
+                const isFallback = a.expected_yield_lbs == null;
+                return (
                 <tr key={a.id} className="border-t border-border">
                   <td className="px-3 py-2 font-mono">{a.species}</td>
                   <td className="px-3 py-2 text-muted-foreground">{a.breed ?? "—"}</td>
@@ -450,8 +454,14 @@ function LivestockPage() {
                       {a.purpose}
                     </Badge>
                   </td>
-                  <td className="px-3 py-2 text-right font-mono text-muted-foreground">
-                    {a.expected_yield_lbs != null ? `${a.expected_yield_lbs} ${a.yield_unit}` : "—"}
+                  <td
+                    className={`px-3 py-2 text-right font-mono ${isFallback ? "text-muted-foreground/70 italic" : "text-muted-foreground"}`}
+                    title={isFallback ? "Estimated from species defaults" : "Explicit per-head yield"}
+                  >
+                    {fmtYield(y.perHead, y.unit)}
+                  </td>
+                  <td className="px-3 py-2 text-right font-mono">
+                    {fmtYield(y.total, y.unit)}
                   </td>
                   <td className="px-3 py-2">
                     <Badge variant="outline" className={STATUS_COLORS[a.status] ?? ""}>
@@ -468,7 +478,8 @@ function LivestockPage() {
                     </Button>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
