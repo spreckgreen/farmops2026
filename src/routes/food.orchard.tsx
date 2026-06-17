@@ -368,32 +368,46 @@ function OrchardPage() {
                               {g.items.length} {g.items.length === 1 ? "entry" : "entries"} · {qty} {qty === 1 ? "tree" : "trees"}
                             </span>
                           </div>
-                          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                            {g.items.map((t) => (
-                              <div key={t.id} className="border border-border rounded-lg p-3 space-y-2">
-                                <div className="flex items-start justify-between gap-2">
-                                  <div>
-                                    <div className="font-mono font-semibold">{t.species}</div>
-                                    {t.variety && <div className="text-xs text-muted-foreground">{t.variety}</div>}
-                                  </div>
-                                  <Badge variant="outline" className={STATUS_COLORS[t.status] ?? ""}>{t.status}</Badge>
-                                </div>
-                                <div className="text-xs text-muted-foreground space-y-0.5">
-                                  <div>Qty: {t.quantity}</div>
-                                  {t.location && <div>Location: {t.location}</div>}
-                                  {t.planted_on && <div>Planted: {t.planted_on}</div>}
-                                  {t.notes && <div className="text-foreground/80 mt-1">{t.notes}</div>}
-                                </div>
-                                <div className="flex gap-1 pt-1">
-                                  <Button size="sm" variant="ghost" onClick={() => openEdit(t)}>
-                                    <Pencil className="h-3.5 w-3.5" />
-                                  </Button>
-                                  <Button size="sm" variant="ghost" className="text-destructive" onClick={() => deleteM.mutate(t.id)}>
-                                    <Trash2 className="h-3.5 w-3.5" />
-                                  </Button>
-                                </div>
-                              </div>
-                            ))}
+                          <div className="border border-border rounded-md overflow-x-auto">
+                            <table className="w-full text-sm">
+                              <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
+                                <tr>
+                                  <th className="text-left font-medium px-3 py-2">Species</th>
+                                  <th className="text-left font-medium px-3 py-2">Variety</th>
+                                  <th className="text-right font-medium px-3 py-2">Qty</th>
+                                  <th className="text-left font-medium px-3 py-2">Location</th>
+                                  <th className="text-left font-medium px-3 py-2">Planted</th>
+                                  <th className="text-left font-medium px-3 py-2">Status</th>
+                                  <th className="text-left font-medium px-3 py-2">Notes</th>
+                                  <th className="w-20 px-3 py-2"></th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {g.items.map((t) => (
+                                  <tr key={t.id} className="border-t border-border hover:bg-muted/30">
+                                    <td className="px-3 py-2 font-mono">{t.species}</td>
+                                    <td className="px-3 py-2 text-muted-foreground">{t.variety ?? ""}</td>
+                                    <td className="px-3 py-2 text-right tabular-nums">{t.quantity}</td>
+                                    <td className="px-3 py-2 text-muted-foreground">{t.location ?? ""}</td>
+                                    <td className="px-3 py-2 text-muted-foreground">{t.planted_on ?? ""}</td>
+                                    <td className="px-3 py-2">
+                                      <Badge variant="outline" className={STATUS_COLORS[t.status] ?? ""}>{t.status}</Badge>
+                                    </td>
+                                    <td className="px-3 py-2 text-muted-foreground max-w-xs truncate" title={t.notes ?? ""}>{t.notes ?? ""}</td>
+                                    <td className="px-3 py-2">
+                                      <div className="flex justify-end gap-1">
+                                        <Button size="sm" variant="ghost" onClick={() => openEdit(t)}>
+                                          <Pencil className="h-3.5 w-3.5" />
+                                        </Button>
+                                        <Button size="sm" variant="ghost" className="text-destructive" onClick={() => deleteM.mutate(t.id)}>
+                                          <Trash2 className="h-3.5 w-3.5" />
+                                        </Button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
                           </div>
                         </section>
                       );
