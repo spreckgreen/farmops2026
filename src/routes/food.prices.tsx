@@ -395,6 +395,20 @@ function PriceHistoryPage() {
                       <td className="p-2 text-xs text-muted-foreground">
                         {g.category ?? <span className="italic opacity-60">—</span>}
                       </td>
+                      <td className="p-2 text-xs">
+                        {g.season ? (
+                          <div className="flex flex-wrap gap-1">
+                            {SEASON_BUCKETS.filter((b) => matchSeasonBucket(g.season!.season, b)).map((t) => (
+                              <span key={t} className={`px-1.5 py-0.5 rounded border text-[10px] ${SEASON_COLORS[t]}`}>{t}</span>
+                            ))}
+                            {!SEASON_BUCKETS.some((b) => matchSeasonBucket(g.season!.season, b)) && (
+                              <span className="text-muted-foreground">{g.season.season}</span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="italic opacity-60 text-muted-foreground">—</span>
+                        )}
+                      </td>
                       <td className="p-2 text-xs text-muted-foreground">
                         {g.unit ?? <span className="italic opacity-60">lb</span>}
                       </td>
