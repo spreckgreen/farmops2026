@@ -276,7 +276,7 @@ export type Database = {
       }
       food_plan_foods: {
         Row: {
-          category: string | null
+          category: string
           created_at: string
           freeze_dry: boolean
           id: string
@@ -291,7 +291,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
-          category?: string | null
+          category: string
           created_at?: string
           freeze_dry?: boolean
           id?: string
@@ -306,7 +306,7 @@ export type Database = {
           user_id: string
         }
         Update: {
-          category?: string | null
+          category?: string
           created_at?: string
           freeze_dry?: boolean
           id?: string
