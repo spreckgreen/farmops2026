@@ -15,6 +15,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:rls": "bun scripts/test-rls.ts",
+    "test:e2e": "playwright test",
+    "test:e2e:install": "playwright install --with-deps chromium",
     "verify": "vitest run && vite build",
     "prepublish:check": "vitest run && bun scripts/test-rls.ts && echo '✅ Run the Deep Security Scan in the Lovable Security tab before clicking Publish.'"
   },
@@ -80,6 +82,7 @@
   "devDependencies": {
     "@eslint/js": "^9.32.0",
     "@lovable.dev/vite-tanstack-config": "^2.3.2",
+    "@playwright/test": "^1.61.0",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
