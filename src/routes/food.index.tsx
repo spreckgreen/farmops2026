@@ -409,12 +409,14 @@ function SummaryStat({
   label,
   sublabel,
   value,
+  kcal,
   secondary,
   accent,
 }: {
   label: string;
   sublabel?: string;
   value: string;
+  kcal?: string;
   secondary?: string;
   accent?: boolean;
 }) {
@@ -431,6 +433,9 @@ function SummaryStat({
       <div className={`text-xl font-mono font-semibold mt-1 ${accent ? "text-destructive" : ""}`}>
         {value}
       </div>
+      {kcal && (
+        <div className="text-[10px] font-mono text-muted-foreground mt-0.5">≈ {kcal}</div>
+      )}
       {secondary && (
         <div className="text-xs font-mono text-muted-foreground mt-0.5">{secondary}</div>
       )}
