@@ -701,7 +701,7 @@ export function buildAllReports(inputs: ReportInputs): FoodReport[] {
 }
 
 export function reportCsv(report: FoodReport): string {
-  return rowsToCsv(report.csvRows as Array<Record<string, string | number>>, report.csvColumns as ReadonlyArray<{ key: string; label: string }>);
+  return rowsToCsv(report.csvRows, report.csvColumns);
 }
 
 export function reportMarkdownFile(report: FoodReport): string {
