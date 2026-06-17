@@ -156,16 +156,18 @@ function OrchardPage() {
   }
 
   const bulk = useServerFn(bulkInsertOrchardTrees);
+  type ImportRow = {
+    species: string;
+    variety: string | null;
+    quantity: number;
+    location: string | null;
+    planted_on: string | null;
+    status: (typeof STATUSES)[number];
+    category: Category | null;
+    notes: string | null;
+  };
   const importM = useMutation({
-    mutationFn: (trees: Array<{
-      species: string;
-      variety: string | null;
-      quantity: number;
-      location: string | null;
-      planted_on: string | null;
-      status: (typeof STATUSES)[number];
-      notes: string | null;
-    }>) => bulk({ data: { trees } }),
+    mutationFn: (trees: ImportRow[]) => bulk({ data: { trees } }),
     onSuccess: (r) => {
       qc.invalidateQueries({ queryKey: ["orchard-trees"] });
       toast.success(`Imported ${r.inserted} trees`);
@@ -178,15 +180,7 @@ function OrchardPage() {
       header: true,
       skipEmptyLines: true,
       complete: (res) => {
-        const trees: Array<{
-          species: string;
-          variety: string | null;
-          quantity: number;
-          location: string | null;
-          planted_on: string | null;
-          status: (typeof STATUSES)[number];
-          notes: string | null;
-        }> = [];
+        const trees: ImportRow[] = [];
         for (const row of res.data) {
           const species = String(row.species ?? row.Species ?? "").trim();
           if (!species) continue;
@@ -194,6 +188,10 @@ function OrchardPage() {
           const status = (STATUSES as readonly string[]).includes(rawStatus)
             ? (rawStatus as (typeof STATUSES)[number])
             : "healthy";
+          const rawCat = String(row.category ?? "").trim().toLowerCase();
+          const category = (CATEGORIES as readonly string[]).includes(rawCat)
+            ? (rawCat as Category)
+            : null;
           const qty = parseInt(String(row.quantity ?? "1"), 10);
           trees.push({
             species,
@@ -202,6 +200,7 @@ function OrchardPage() {
             location: String(row.location ?? "").trim() || null,
             planted_on: String(row.planted_on ?? "").trim() || null,
             status,
+            category,
             notes: String(row.notes ?? "").trim() || null,
           });
         }
