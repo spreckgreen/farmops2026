@@ -425,7 +425,26 @@ function InventoryPanel() {
                     )}
                   </td>
                   <td className="px-3 py-2 text-muted-foreground">{i.location}</td>
-                  <td className="px-3 py-2 text-right font-mono">{Number(i.quantity).toFixed(2)} {i.unit}</td>
+                  <td className="px-3 py-2 text-right font-mono">
+                    {(() => {
+                      const qty = Number(i.quantity) || 0;
+                      const fd = isFreezeDried(i.category) && (i.unit ?? "lb") === "lb";
+                      const recon = reconstitutedLbs(qty, i.unit, i.category);
+                      return (
+                        <>
+                          <div>{qty.toFixed(2)} {i.unit}{fd ? " dry" : ""}</div>
+                          {fd && (
+                            <div className="text-xs text-muted-foreground">
+                              ≈ {recon.toFixed(2)} lb reconstituted
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </td>
+                  <td className="px-3 py-2 text-right font-mono text-muted-foreground">
+                    {fmtKcal(kcalFromLbs(i.name, reconstitutedLbs(Number(i.quantity) || 0, i.unit, i.category)))}
+                  </td>
                   <td className="px-3 py-2 text-muted-foreground">{i.acquired_on ?? ""}</td>
                   <td className="px-3 py-2 text-muted-foreground">{i.best_by ?? ""}</td>
                   <td className="px-3 py-2 text-right">
