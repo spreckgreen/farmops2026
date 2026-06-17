@@ -338,38 +338,69 @@ function OrchardPage() {
                 {all.length === 0 ? "No trees logged yet." : "No trees in this category."}
               </div>
             ) : (
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {filtered.map((t) => (
-                  <div key={t.id} className="border border-border rounded-lg p-3 space-y-2">
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <div className="font-mono font-semibold">{t.species}</div>
-                        {t.variety && <div className="text-xs text-muted-foreground">{t.variety}</div>}
-                      </div>
-                      <div className="flex flex-col items-end gap-1">
-                        <Badge variant="outline" className={STATUS_COLORS[t.status] ?? ""}>{t.status}</Badge>
-                        {t.category && (
-                          <Badge variant="outline" className={`capitalize ${CATEGORY_COLORS[t.category] ?? ""}`}>{t.category}</Badge>
-                        )}
-                      </div>
-                    </div>
-                    <div className="text-xs text-muted-foreground space-y-0.5">
-                      <div>Qty: {t.quantity}</div>
-                      {t.location && <div>Location: {t.location}</div>}
-                      {t.planted_on && <div>Planted: {t.planted_on}</div>}
-                      {t.notes && <div className="text-foreground/80 mt-1">{t.notes}</div>}
-                    </div>
-                    <div className="flex gap-1 pt-1">
-                      <Button size="sm" variant="ghost" onClick={() => openEdit(t)}>
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button size="sm" variant="ghost" className="text-destructive" onClick={() => deleteM.mutate(t.id)}>
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
+              (() => {
+                const groupOrder: Array<Category | "uncategorized"> = [
+                  ...CATEGORIES,
+                  "uncategorized",
+                ];
+                const groups = groupOrder
+                  .map((g) => ({
+                    key: g,
+                    items: filtered.filter((t) =>
+                      g === "uncategorized" ? !t.category : t.category === g,
+                    ),
+                  }))
+                  .filter((g) => g.items.length > 0);
+                return (
+                  <div className="space-y-6">
+                    {groups.map((g) => {
+                      const qty = g.items.reduce((s, t) => s + (t.quantity || 0), 0);
+                      const swatch =
+                        g.key === "uncategorized"
+                          ? "border-border text-muted-foreground"
+                          : CATEGORY_COLORS[g.key];
+                      return (
+                        <section key={g.key} className="space-y-3">
+                          <div className="flex items-center gap-2 border-b border-border pb-2">
+                            <span className={`inline-block w-2 h-2 rounded-full ${swatch?.split(" ")[0] ?? "bg-muted"}`} />
+                            <h3 className="text-sm font-mono font-semibold capitalize">{g.key}</h3>
+                            <span className="text-xs text-muted-foreground">
+                              {g.items.length} {g.items.length === 1 ? "entry" : "entries"} · {qty} {qty === 1 ? "tree" : "trees"}
+                            </span>
+                          </div>
+                          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                            {g.items.map((t) => (
+                              <div key={t.id} className="border border-border rounded-lg p-3 space-y-2">
+                                <div className="flex items-start justify-between gap-2">
+                                  <div>
+                                    <div className="font-mono font-semibold">{t.species}</div>
+                                    {t.variety && <div className="text-xs text-muted-foreground">{t.variety}</div>}
+                                  </div>
+                                  <Badge variant="outline" className={STATUS_COLORS[t.status] ?? ""}>{t.status}</Badge>
+                                </div>
+                                <div className="text-xs text-muted-foreground space-y-0.5">
+                                  <div>Qty: {t.quantity}</div>
+                                  {t.location && <div>Location: {t.location}</div>}
+                                  {t.planted_on && <div>Planted: {t.planted_on}</div>}
+                                  {t.notes && <div className="text-foreground/80 mt-1">{t.notes}</div>}
+                                </div>
+                                <div className="flex gap-1 pt-1">
+                                  <Button size="sm" variant="ghost" onClick={() => openEdit(t)}>
+                                    <Pencil className="h-3.5 w-3.5" />
+                                  </Button>
+                                  <Button size="sm" variant="ghost" className="text-destructive" onClick={() => deleteM.mutate(t.id)}>
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </Button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </section>
+                      );
+                    })}
                   </div>
-                ))}
-              </div>
+                );
+              })()
             )}
           </>
         );
