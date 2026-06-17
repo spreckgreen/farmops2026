@@ -2260,3 +2260,182 @@ export const seedFoodStoragePlanFromPlan = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { inserted: rows.length };
   });
+
+// ----------------------------------------------------------------------
+// Plant seasons reference — per-user editable, seeded from JSON
+// ----------------------------------------------------------------------
+
+import plantSeasonsSeed from "@/data/plant-seasons.json";
+
+const PlantSeasonSchema = z.object({
+  id: z.string().uuid().nullable().optional(),
+  name: z.string().trim().min(1).max(200),
+  kind: z.string().trim().max(100).optional().default(""),
+  season: z.string().trim().max(200).optional().default(""),
+  lead: z.string().trim().max(200).optional().default(""),
+  notes: z.string().trim().max(2000).optional().default(""),
+  sort_order: z.number().int().optional(),
+});
+
+export const listPlantSeasons = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const sb = context.supabase;
+    const { data, error } = await sb
+      .from("plant_seasons")
+      .select("*")
+      .order("sort_order", { ascending: true })
+      .order("name", { ascending: true });
+    if (error) throw new Error(error.message);
+
+    if ((data?.length ?? 0) > 0) return data ?? [];
+
+    // First visit — seed from bundled JSON so the user has the starter set.
+    const seed = (plantSeasonsSeed as Array<{ name: string; kind?: string; season?: string; lead?: string; notes?: string }>)
+      .map((r, idx) => ({
+        user_id: context.userId,
+        name: (r.name ?? "").trim(),
+        kind: (r.kind ?? "").trim(),
+        season: (r.season ?? "").trim(),
+        lead: (r.lead ?? "").trim(),
+        notes: (r.notes ?? "").trim(),
+        sort_order: idx,
+      }))
+      .filter((r) => r.name);
+    if (!seed.length) return [];
+    const { data: inserted, error: insErr } = await sb
+      .from("plant_seasons")
+      .insert(seed)
+      .select();
+    if (insErr) throw new Error(insErr.message);
+    return inserted ?? [];
+  });
+
+export const upsertPlantSeason = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => PlantSeasonSchema.parse(d))
+  .handler(async ({ data, context }) => {
+    const row = {
+      user_id: context.userId,
+      name: data.name.trim(),
+      kind: data.kind ?? "",
+      season: data.season ?? "",
+      lead: data.lead ?? "",
+      notes: data.notes ?? "",
+      sort_order: data.sort_order ?? 0,
+    };
+    if (data.id) {
+      const { data: out, error } = await context.supabase
+        .from("plant_seasons").update(row).eq("id", data.id).select().single();
+      if (error) throw new Error(error.message);
+      return out;
+    }
+    const { data: out, error } = await context.supabase
+      .from("plant_seasons").insert(row).select().single();
+    if (error) throw new Error(error.message);
+    return out;
+  });
+
+export const deletePlantSeason = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase
+      .from("plant_seasons").delete().eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const resetPlantSeasons = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const sb = context.supabase;
+    await sb.from("plant_seasons").delete().eq("user_id", context.userId);
+    const seed = (plantSeasonsSeed as Array<{ name: string; kind?: string; season?: string; lead?: string; notes?: string }>)
+      .map((r, idx) => ({
+        user_id: context.userId,
+        name: (r.name ?? "").trim(),
+        kind: (r.kind ?? "").trim(),
+        season: (r.season ?? "").trim(),
+        lead: (r.lead ?? "").trim(),
+        notes: (r.notes ?? "").trim(),
+        sort_order: idx,
+      }))
+      .filter((r) => r.name);
+    if (!seed.length) return { inserted: 0 };
+    const { error } = await sb.from("plant_seasons").insert(seed);
+    if (error) throw new Error(error.message);
+    return { inserted: seed.length };
+  });
+
+// Normalize "Late Summer->Fall" / "early fall" etc. into a comma-separated
+// list of season buckets (Spring/Summer/Fall/Winter/All Year). Returns "" if
+// the source string doesn't reference any bucket.
+function summarizeSeasonBuckets(raw: string | null | undefined): string {
+  const s = (raw ?? "").toLowerCase();
+  if (!s) return "";
+  if (s.includes("all year") || s.includes("year-round") || s.includes("year round"))
+    return "All Year";
+  const buckets: string[] = [];
+  if (/spring/.test(s)) buckets.push("Spring");
+  if (/summer/.test(s)) buckets.push("Summer");
+  if (/fall|autumn/.test(s)) buckets.push("Fall");
+  if (/winter/.test(s)) buckets.push("Winter");
+  return buckets.join(", ");
+}
+
+function normalizeSeasonKey(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/\(.*?\)/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+// Push the per-name season bucket string from plant_seasons onto each
+// matching food_plan_foods row's `season` column. Returns counts.
+export const applySeasonsToFoodPlan = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const sb = context.supabase;
+    const [seasonsR, foodsR] = await Promise.all([
+      sb.from("plant_seasons").select("name, season"),
+      sb.from("food_plan_foods").select("id, name, season"),
+    ]);
+    if (seasonsR.error) throw new Error(seasonsR.error.message);
+    if (foodsR.error) throw new Error(foodsR.error.message);
+
+    // Merge multiple reference rows for the same plant (e.g. Spring and Winter
+    // entries for Artichokes) into one combined bucket string.
+    const byKey = new Map<string, Set<string>>();
+    for (const row of seasonsR.data ?? []) {
+      const key = normalizeSeasonKey(row.name ?? "");
+      if (!key) continue;
+      const bucket = summarizeSeasonBuckets(row.season);
+      if (!bucket) continue;
+      const cur = byKey.get(key) ?? new Set<string>();
+      for (const b of bucket.split(",").map((x) => x.trim()).filter(Boolean)) cur.add(b);
+      byKey.set(key, cur);
+    }
+    const ORDER = ["Spring", "Summer", "Fall", "Winter", "All Year"];
+    const merged = new Map<string, string>();
+    for (const [key, set] of byKey) {
+      const list = ORDER.filter((b) => set.has(b));
+      merged.set(key, list.join(", "));
+    }
+
+    let updated = 0;
+    let skipped = 0;
+    for (const f of foodsR.data ?? []) {
+      const target = merged.get(normalizeSeasonKey(f.name ?? ""));
+      if (!target) { skipped++; continue; }
+      if ((f.season ?? "") === target) continue;
+      const { error } = await sb
+        .from("food_plan_foods")
+        .update({ season: target })
+        .eq("id", f.id);
+      if (error) throw new Error(error.message);
+      updated++;
+    }
+    return { updated, skipped, matched: merged.size };
+  });
