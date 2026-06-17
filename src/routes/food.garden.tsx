@@ -40,6 +40,13 @@ type Plot = {
 const DEFAULT_ROWS = ["Row01","Row02","Row03","Row04","Row05","Row06","Row07","Row08"];
 const DEFAULT_POSITIONS = 16;
 
+function fmtUsd(n: number): string {
+  if (!Number.isFinite(n) || n === 0) return "$0";
+  return n >= 100
+    ? `$${n.toFixed(0)}`
+    : `$${n.toFixed(2)}`;
+}
+
 function plantColor(name: string | null | undefined): string {
   if (!name) return "bg-muted/30 text-muted-foreground";
   const key = name.toLowerCase();
