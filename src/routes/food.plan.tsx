@@ -422,35 +422,142 @@ function PersonDialog({
   );
 }
 
-function FoodDialog({
+type FoodPayload = {
+  id?: string;
+  name: string;
+  category: string | null;
+  season: string | null;
+  unit: string | null;
+  oz_per_serving: number | null;
+  price_per_pound: number | null;
+  freeze_dry: boolean;
+};
+
+function FoodEditDialog({
   open,
   onOpenChange,
-  name,
-  setName,
+  food,
   onSubmit,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  name: string;
-  setName: (v: string) => void;
-  onSubmit: () => void;
+  food: Food | null;
+  onSubmit: (payload: FoodPayload) => void;
 }) {
+  const isEdit = !!food;
+  const [name, setName] = useState("");
+  const [category, setCategory] = useState<string>("");
+  const [season, setSeason] = useState<string>("");
+  const [unit, setUnit] = useState<string>("");
+  const [oz, setOz] = useState<string>("");
+  const [price, setPrice] = useState<string>("");
+  const [freezeDry, setFreezeDry] = useState(false);
+
+  // reset whenever dialog opens
+  useMemo(() => {
+    if (open) {
+      setName(food?.name ?? "");
+      setCategory(food?.category ?? "");
+      setSeason(food?.season ?? "");
+      setUnit(food?.unit ?? "");
+      setOz(food?.oz_per_serving != null ? String(food.oz_per_serving) : "");
+      setPrice(food?.price_per_pound != null ? String(food.price_per_pound) : "");
+      setFreezeDry(!!food?.freeze_dry);
+    }
+  }, [open, food]);
+
+  const submit = () => {
+    if (!name.trim()) return;
+    onSubmit({
+      id: food?.id,
+      name: name.trim(),
+      category: category.trim() ? category.trim() : null,
+      season: season.trim() ? season.trim() : null,
+      unit: unit.trim() ? unit.trim() : null,
+      oz_per_serving: oz.trim() ? Number(oz) : null,
+      price_per_pound: price.trim() ? Number(price) : null,
+      freeze_dry: freezeDry,
+    });
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Add food</DialogTitle>
+          <DialogTitle>{isEdit ? "Edit food" : "Add food"}</DialogTitle>
         </DialogHeader>
-        <Input
-          placeholder="Food name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          autoFocus
-          onKeyDown={(e) => e.key === "Enter" && onSubmit()}
-        />
+        <div className="space-y-3">
+          <div>
+            <Label>Name</Label>
+            <Input value={name} onChange={(e) => setName(e.target.value)} autoFocus />
+          </div>
+          <div>
+            <Label>Category</Label>
+            <Select value={category || "__none"} onValueChange={(v) => setCategory(v === "__none" ? "" : v)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Uncategorized" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none">Uncategorized</SelectItem>
+                {FOOD_CATEGORIES.map((c) => (
+                  <SelectItem key={c} value={c}>{c}</SelectItem>
+                ))}
+                {category && !FOOD_CATEGORIES.includes(category) && (
+                  <SelectItem value={category}>{category} (current)</SelectItem>
+                )}
+              </SelectContent>
+            </Select>
+            <p className="text-[10px] text-muted-foreground mt-1">
+              Drives grouping on the Food Overview dashboard.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>Season</Label>
+              <Input
+                placeholder="e.g. Summer"
+                value={season}
+                onChange={(e) => setSeason(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label>Unit</Label>
+              <Input
+                placeholder="lb, oz, dozen…"
+                value={unit}
+                onChange={(e) => setUnit(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label>Oz / serving</Label>
+              <Input
+                type="number"
+                step="any"
+                value={oz}
+                onChange={(e) => setOz(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label>Price / lb (USD)</Label>
+              <Input
+                type="number"
+                step="any"
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+              />
+            </div>
+          </div>
+          <label className="flex items-center gap-2 text-sm">
+            <Checkbox
+              checked={freezeDry}
+              onCheckedChange={(v) => setFreezeDry(!!v)}
+            />
+            Freeze-dry candidate
+          </label>
+        </div>
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={onSubmit}>Add</Button>
+          <Button onClick={submit}>{isEdit ? "Save" : "Add"}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
