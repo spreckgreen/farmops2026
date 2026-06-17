@@ -837,7 +837,7 @@ function LongTermPlanPanel() {
                         onBlur={(e) => {
                           const v = parseFloat(e.target.value || "0") || 0;
                           if (v === Number(c.row.target_months)) return;
-                          inlineUpsertM.mutate({ ...c.row, target_months: v });
+                          inlineUpsertM.mutate({ row: { ...c.row, target_months: v }, field: "target_months" });
                         }}
                       />
                     </td>
