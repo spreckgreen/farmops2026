@@ -1205,3 +1205,95 @@ export const getCropsDashboard = createServerFn({ method: "GET" })
       gaps: items.filter((i) => i.gap_lbs > 0).sort((a, b) => b.gap_lbs - a.gap_lbs),
     };
   });
+
+// ----------------------------------------------------------------------
+// Livestock dashboard — animal-protein plan need, gap = full need until a
+// livestock data model lands.
+// ----------------------------------------------------------------------
+
+const YIELD_PER_ANIMAL_LBS: Record<string, number> = {
+  chicken: 4, broiler: 4, poultry: 4,
+  turkey: 15, duck: 4, goose: 8, rabbit: 3,
+  pork: 150, ham: 150, bacon: 150, sausage: 150, pepperoni: 150, salami: 150,
+  beef: 500, steak: 500, brisket: 500, veal: 200, "ground beef": 500,
+  lamb: 50, mutton: 50, goat: 40, venison: 80,
+  fish: 1, salmon: 5, tuna: 30, tilapia: 1, cod: 5, trout: 1,
+  shrimp: 0.1, crab: 1, lobster: 1,
+  egg: 0.5, eggs: 0.5,
+  milk: 1500, cream: 1500, butter: 100, cheese: 300, yogurt: 500, whey: 100, ghee: 100,
+  jerky: 50, meat: 100,
+};
+function yieldForAnimal(name: string): number {
+  const k = name.trim().toLowerCase();
+  if (YIELD_PER_ANIMAL_LBS[k] !== undefined) return YIELD_PER_ANIMAL_LBS[k];
+  for (const [key, val] of Object.entries(YIELD_PER_ANIMAL_LBS)) {
+    if (k.includes(key)) return val;
+  }
+  return 50;
+}
+
+export const getLivestockDashboard = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const [foods, entries] = await Promise.all([
+      context.supabase.from("food_plan_foods").select("id, name, oz_per_serving, price_per_pound"),
+      context.supabase.from("food_plan_entries").select("food_id, quantity"),
+    ]);
+    if (foods.error) throw new Error(foods.error.message);
+    if (entries.error) throw new Error(entries.error.message);
+
+    const norm = (s: string | null | undefined) => (s ?? "").trim().toLowerCase();
+    const weeklyByFood = new Map<string, number>();
+    for (const e of entries.data ?? []) {
+      weeklyByFood.set(e.food_id, (weeklyByFood.get(e.food_id) ?? 0) + (Number(e.quantity) || 0));
+    }
+
+    const items = [] as Array<{
+      key: string; name: string; count: number; yield_per_unit_lbs: number;
+      expected_yield_lbs: number; needed_lbs: number; units_needed: number;
+      gap_units: number; gap_lbs: number; price_per_lb: number;
+      expected_yield_value: number; gap_value: number;
+    }>;
+
+    for (const f of foods.data ?? []) {
+      const weekly = weeklyByFood.get(f.id) ?? 0;
+      if (weekly === 0) continue;
+      if (classifyFood(f.name) !== "livestock") continue;
+      const oz = Number(f.oz_per_serving) || 0;
+      const neededLbs = (weekly * 52 * oz) / 16;
+      if (neededLbs <= 0) continue;
+      const ypu = yieldForAnimal(f.name);
+      const price = Number(f.price_per_pound) || 0;
+      const unitsNeeded = ypu > 0 ? Math.ceil(neededLbs / ypu) : 0;
+      items.push({
+        key: norm(f.name),
+        name: f.name,
+        count: 0,
+        yield_per_unit_lbs: ypu,
+        expected_yield_lbs: 0,
+        needed_lbs: neededLbs,
+        units_needed: unitsNeeded,
+        gap_units: unitsNeeded,
+        gap_lbs: neededLbs,
+        price_per_lb: price,
+        expected_yield_value: 0,
+        gap_value: neededLbs * price,
+      });
+    }
+
+    const summary = {
+      distinct_items: items.length,
+      total_units: 0,
+      total_expected_yield_lbs: 0,
+      total_needed_lbs: items.reduce((s, i) => s + i.needed_lbs, 0),
+      total_expected_yield_value: 0,
+      total_gap_value: items.reduce((s, i) => s + i.gap_value, 0),
+    };
+
+    return {
+      summary,
+      items: items.sort((a, b) => b.needed_lbs - a.needed_lbs),
+      gaps: items.sort((a, b) => b.gap_lbs - a.gap_lbs),
+    };
+  });
+
