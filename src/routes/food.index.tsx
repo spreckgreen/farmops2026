@@ -270,8 +270,11 @@ function FoodItemRow({ item }: { item: Category["items"][number] }) {
             </span>
             <span className="text-xs font-mono text-muted-foreground shrink-0">
               need {fmtLbs(item.expected_pounds)} · est {fmtLbs(item.estimated_pounds)} · harv {fmtLbs(item.actual_pounds)} lbs
-              {item.gap_pounds > 0 && (
-                <> · <span className="text-destructive">gap {fmtLbs(item.gap_pounds)} lbs{item.price_per_lb > 0 && <> / {fmtUsd(item.gap_value)}</>}</span></>
+              {item.planned_gap_pounds > 0 && (
+                <> · <span className="text-amber-500">plan gap {fmtLbs(item.planned_gap_pounds)} lbs{item.price_per_lb > 0 && <> / {fmtUsd(item.planned_gap_value)}</>}</span></>
+              )}
+              {item.actual_gap_pounds > 0 && (
+                <> · <span className="text-destructive">actual gap {fmtLbs(item.actual_gap_pounds)} lbs{item.price_per_lb > 0 && <> / {fmtUsd(item.actual_gap_value)}</>}</span></>
               )}
             </span>
           </div>
