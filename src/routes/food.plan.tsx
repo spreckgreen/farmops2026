@@ -300,16 +300,31 @@ function FoodPlanPage() {
                     {weekly ? weekly.toFixed(2) : ""}
                   </td>
                   <td className="p-1">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 w-7 p-0"
-                      onClick={() => {
-                        if (confirm(`Delete "${f.name}" and all its entries?`)) removeFood.mutate(f.id);
-                      }}
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
+                    <div className="flex items-center gap-0.5 justify-end">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0"
+                        title="Edit food"
+                        onClick={() => {
+                          setEditingFood(f);
+                          setFoodDialog(true);
+                        }}
+                      >
+                        <Pencil className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0"
+                        title="Delete food"
+                        onClick={() => {
+                          if (confirm(`Delete "${f.name}" and all its entries?`)) removeFood.mutate(f.id);
+                        }}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               );
