@@ -1,35 +1,75 @@
-## Changes
+# Food Production tab
 
-### 1. Weekly report = week ending Sunday
-- `generateSummary({ mode: "weekly_report" })` ignores `period_days` and instead computes the most recent week that ends on Sunday (Mon–Sun). If today is Sunday, today is the week-end; otherwise the previous Sunday is.
-- `period_start` / `period_end` stored as that Mon 00:00 → Sun 23:59:59.
-- New stored field `display_title` on the summary row = `Status WE YYYYMMDD` (week-ending date).
-- Re-runs replace the existing row for that exact week (delete-then-insert keyed on mode + week_end).
+A new top-level `/food` section in the app nav that manages four related domains, each on its own sub-tab, all backed by per-user RLS and the existing TanStack Start + server-function pattern used elsewhere in the app.
 
-### 2. Per-project running summary (existing `project_rollup`)
-- Already produces one summary per project from full history. Keep behavior; just give each row a stable `display_title` = `Running Summary — #project/<name>`.
-- Continues to delete + re-insert per (mode, scope_project) on each run, so it stays a single running record per project.
+## Navigation
 
-### 3. Quarterly rollup — last 2 years
-- New mode `quarter_review`. For each of the last 8 quarters (including the current in-progress one), build one summary per project that had any closed task in that quarter.
-- Period bounds = quarter start/end. Entries scoped to that quarter's `activity_log`, plus the project's tasks `closed_at` within the quarter to drive "completed in quarter".
-- `display_title` = `Quarter Review YYYYQNN — #project/<name>` (e.g. `Quarter Review 2026Q01 — #project/orchard`).
-- Triggered by a new "Quarterly review (2y)" button on `/summaries`. Generates all missing quarter/project rows; existing rows for the same (quarter, project) are replaced.
+- New entry "Food" in the main nav, between Inventory and Maintenance.
+- Route layout: `/food` (overview + sub-tab nav) with children:
+  - `/food/crops` — plantings & harvests
+  - `/food/livestock` — animals & events
+  - `/food/processing` — processing batches (canning, butchering, dairy, etc.)
+  - `/food/storage` — food storage inventory (pantry / freezer / cellar)
+- All routes live under `_authenticated/` so they inherit the existing auth gate.
 
-### 4. UI + export plumbing
-- `src/routes/summaries.tsx`: add Quarterly button; show `display_title` as the card heading; group/sort by mode then period_end desc.
-- `src/lib/tiddlywiki-export.ts`: `summaryTitle()` returns `display_title` when present; falls back to current format. Per-project child tiddlers (added last turn) keep using the project-specific title derived from `display_title`.
+## Data model (new tables, all RLS-on, scoped to `auth.uid()`)
 
-## Technical details
+```text
+crop_plantings        crop, variety, area/bed, planted_on, expected_harvest, status, notes
+crop_harvests         planting_id, harvested_on, quantity, unit, quality, notes
+livestock_animals     species, breed, tag/name, sex, born_on, status, notes
+livestock_events      animal_id, event_type (weight|feed|birth|treatment|sale|cull),
+                      occurred_on, value (numeric), unit, notes
+processing_batches    batch_type (canning|butchering|dairy|baking|other),
+                      product, started_on, finished_on, yield_qty, yield_unit, status, notes
+processing_inputs     batch_id, source_kind (crop_harvest|livestock_animal|food_storage|consumable|free_text),
+                      source_id (nullable), label, quantity, unit
+food_storage_items    name, category (produce|meat|dairy|grain|preserved|other),
+                      location (pantry|fridge|freezer|cellar|other),
+                      quantity, unit, packaged_on, best_by, source_batch_id (nullable), notes
+food_storage_moves    item_id, direction (in|out|adjust), quantity, occurred_on, reason, notes
+```
 
-- DB: add `display_title text` column to `public.summaries` (nullable; backfill not needed — code falls back when null). Migration runs first.
-- `summary.functions.ts`:
-  - Add helpers `weekEndingSunday(d)`, `quarterBounds(year, q)`, `lastNQuarters(n)`.
-  - Extend `SummaryInput` to accept `mode: "quarter_review"` plus optional `quarter: { year, q }` (when omitted, server iterates last 8).
-  - `weekly_report` branch computes Mon–Sun bounds, sets `display_title`, dedupe-replaces on (user, mode, week_end).
-  - `quarter_review` branch iterates quarters × projects, only emits a row when that project has any activity or `closed_at` in the quarter; dedupe-replaces on (user, mode, scope_project, period_start, period_end).
-- `tiddlywiki-export.ts`: read `display_title`; per-project tiddler title = `${display_title} — #project/${p.project}` when parent has `by_project`, else just `display_title`.
+Every table includes `id`, `user_id`, `created_at`, `updated_at`, `raw jsonb` for forward-compat fields, an `updated_at` trigger, and the standard `GRANT SELECT, INSERT, UPDATE, DELETE … TO authenticated; GRANT ALL … TO service_role;` block. No `anon` grants — this is private data.
 
-## Out of scope
-- No backfill of historical weekly reports.
-- AI prompts unchanged except a sentence noting the week/quarter bounds.
+RLS policies use `auth.uid() = user_id` for select/insert/update/delete on every table.
+
+## Server layer
+
+New `src/lib/food.functions.ts` with `createServerFn` + `requireSupabaseAuth` for:
+
+- `listCrops`, `upsertCropPlanting`, `deleteCropPlanting`, `addHarvest`, `deleteHarvest`
+- `listLivestock`, `upsertAnimal`, `deleteAnimal`, `addLivestockEvent`, `deleteLivestockEvent`
+- `listProcessingBatches`, `upsertBatch`, `deleteBatch`, `setBatchInputs`
+- `listFoodStorage`, `upsertFoodStorageItem`, `deleteFoodStorageItem`, `recordStorageMove`
+
+Reads return plain DTOs joined for the UI (e.g. `CropPlantingWithHarvests`, `BatchWithInputs`).
+
+## UI
+
+- `src/routes/food.tsx` — layout route with sub-tab nav + `<Outlet />`, plus a small "this week" overview (recent harvests, open batches, low-stock storage items).
+- One route file per sub-tab, each with:
+  - A table/list view of records with filter + sort
+  - "New" / "Edit" dialog driven by react-hook-form + zod
+  - Inline quick actions (record harvest, log event, log move) using the same dialog pattern
+- All dialogs follow the existing `AssetDialog` / `ConsumableDialog` style so it feels consistent with the rest of the app.
+
+## Activity log & reports
+
+- Every create/update on the new tables also writes a row to `activity_log` (using the existing entry-type pattern) so harvests, processing runs, and storage moves show up in Today and roll into weekly / monthly reports automatically — no separate summary plumbing needed.
+
+## Technical notes
+
+- One migration per domain (4 migrations) to keep approval diffs reviewable. Each migration creates its table(s), grants, RLS, policies, and `updated_at` trigger.
+- Generated Supabase types refresh after each migration, then the matching `food.functions.ts` slice and route file land in the same turn as that migration.
+- No new dependencies; reuses `@tanstack/react-query`, `react-hook-form`, `zod`, shadcn `Dialog` / `Table` / `Tabs` already in the project.
+- No edge functions, no service-role usage — pure user-scoped RLS through `requireSupabaseAuth`.
+
+## Out of scope for v1 (call out so we agree)
+
+- Sales / customers / orders (you didn't pick it).
+- Cost accounting / P&L per batch.
+- Barcode scanning for food storage (can reuse existing scanner later).
+- Multi-user / farm-share visibility — everything is per-user only.
+
+If this matches what you want, I'll start with the crops migration + `/food/crops` and work through the four sub-tabs in order.
