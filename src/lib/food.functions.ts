@@ -846,6 +846,7 @@ export const seedGardenFromTemplate = createServerFn({ method: "POST" })
 // ----------------------------------------------------------------------
 
 const ORCHARD_STATUSES = ["healthy", "young", "producing", "diseased", "removed"] as const;
+const ORCHARD_CATEGORIES = ["fruit", "nut", "hardwood", "softwood", "other"] as const;
 
 const OrchardTreeSchema = z.object({
   id: z.string().uuid().nullable().optional(),
@@ -855,6 +856,7 @@ const OrchardTreeSchema = z.object({
   location: z.string().trim().max(200).nullable().optional(),
   planted_on: z.string().nullable().optional(),
   status: z.enum(ORCHARD_STATUSES).optional(),
+  category: z.enum(ORCHARD_CATEGORIES).nullable().optional(),
   notes: z.string().max(5000).nullable().optional(),
 });
 
@@ -863,7 +865,7 @@ export const listOrchardTrees = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const { data, error } = await context.supabase
       .from("orchard_trees")
-      .select("id, species, variety, quantity, location, planted_on, status, notes, created_at")
+      .select("id, species, variety, quantity, location, planted_on, status, category, notes, created_at")
       .order("species", { ascending: true });
     if (error) throw new Error(error.message);
     return data ?? [];
@@ -881,6 +883,7 @@ export const upsertOrchardTree = createServerFn({ method: "POST" })
       location: emptyToNull(data.location ?? null),
       planted_on: emptyToNull(data.planted_on ?? null),
       status: data.status ?? "healthy",
+      category: data.category ?? null,
       notes: emptyToNull(data.notes ?? null),
     };
     if (data.id) {
@@ -1170,6 +1173,7 @@ export const bulkInsertOrchardTrees = createServerFn({ method: "POST" })
       location: emptyToNull(t.location ?? null),
       planted_on: emptyToNull(t.planted_on ?? null),
       status: t.status ?? "healthy",
+      category: t.category ?? null,
       notes: emptyToNull(t.notes ?? null),
     }));
     const { error } = await context.supabase.from("orchard_trees").insert(rows);

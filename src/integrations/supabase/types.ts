@@ -742,6 +742,7 @@ export type Database = {
       }
       orchard_trees: {
         Row: {
+          category: string | null
           created_at: string
           id: string
           location: string | null
@@ -755,6 +756,7 @@ export type Database = {
           variety: string | null
         }
         Insert: {
+          category?: string | null
           created_at?: string
           id?: string
           location?: string | null
@@ -768,6 +770,7 @@ export type Database = {
           variety?: string | null
         }
         Update: {
+          category?: string | null
           created_at?: string
           id?: string
           location?: string | null
