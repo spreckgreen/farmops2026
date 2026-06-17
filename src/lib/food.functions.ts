@@ -402,6 +402,77 @@ export const getFoodYieldProgress = createServerFn({ method: "GET" })
       }>;
     };
 
+    // Assign each external record (garden plot name, orchard species, harvest
+    // crop, pantry item) to its single best-matching food. Without this, a
+    // "Cherry Tomato" planting would be counted under both the "Tomato" food
+    // row and the "Cherry Tomato" food row, double-counting the category.
+    // Best match = matches by word-boundary nameMatches AND has the most
+    // overlapping tokens; ties broken by the more specific (longer) food name.
+    type FoodMeta = { id: string; name: string; cls: ReturnType<typeof classifyFood> };
+    const foodList: FoodMeta[] = (foods.data ?? []).map((f) => ({
+      id: f.id,
+      name: f.name,
+      cls: classifyFood(f.name),
+    }));
+    function pickBestFood(
+      recordName: string,
+      allow: (m: FoodMeta) => boolean,
+    ): string | null {
+      const recTokens = new Set(tokenize(recordName));
+      if (recTokens.size === 0) return null;
+      let bestId: string | null = null;
+      let bestOverlap = -1;
+      let bestNameLen = -1;
+      for (const f of foodList) {
+        if (!allow(f)) continue;
+        if (!nameMatches(f.name, recordName)) continue;
+        const fTokens = tokenize(f.name);
+        const overlap = fTokens.filter((t) => recTokens.has(t)).length;
+        const nameLen = fTokens.length;
+        if (
+          overlap > bestOverlap ||
+          (overlap === bestOverlap && nameLen > bestNameLen)
+        ) {
+          bestOverlap = overlap;
+          bestNameLen = nameLen;
+          bestId = f.id;
+        }
+      }
+      return bestId;
+    }
+
+    const gardenByFood = new Map<string, Array<{ key: string; display: string; count: number }>>();
+    for (const [key, g] of gardenAgg) {
+      const id = pickBestFood(key, (m) => m.cls === "garden" || m.cls === null);
+      if (!id) continue;
+      const arr = gardenByFood.get(id) ?? [];
+      arr.push({ key, display: g.display, count: g.count });
+      gardenByFood.set(id, arr);
+    }
+    const orchardByFood = new Map<string, Array<{ key: string; display: string; count: number }>>();
+    for (const [key, t] of orchardAgg) {
+      const id = pickBestFood(key, (m) => m.cls === "orchard" || m.cls === null);
+      if (!id) continue;
+      const arr = orchardByFood.get(id) ?? [];
+      arr.push({ key, display: t.display, count: t.count });
+      orchardByFood.set(id, arr);
+    }
+    const harvestByFood = new Map<string, { pounds: number; entries: any[] }>();
+    for (const [key, val] of harvestByName) {
+      const id = pickBestFood(key, () => true);
+      if (!id) continue;
+      const cur = harvestByFood.get(id) ?? { pounds: 0, entries: [] };
+      cur.pounds += val.pounds;
+      for (const h of val.entries as any[]) cur.entries.push(h);
+      harvestByFood.set(id, cur);
+    }
+    const storageByFood = new Map<string, number>();
+    for (const [key, lbs] of storageByName) {
+      const id = pickBestFood(key, () => true);
+      if (!id) continue;
+      storageByFood.set(id, (storageByFood.get(id) ?? 0) + lbs);
+    }
+
     const rows: FoodRow[] = [];
     for (const f of foods.data ?? []) {
       const planEntries = entriesByFood.get(f.id) ?? [];
@@ -410,16 +481,10 @@ export const getFoodYieldProgress = createServerFn({ method: "GET" })
       // in pounds is therefore weekly_ounces × 52 / 16.
       const weeklyOunces = planEntries.reduce((s, e) => s + e.quantity, 0);
       const expectedPounds = (weeklyOunces * 52) / 16;
-      // Match harvests by word-boundary name (symmetric with plantings/storage).
-      // A food row picks up every harvest whose crop name matches the food.
-      let actualPounds = 0;
-      const matchedHarvestEntries: any[] = [];
-      for (const [key, val] of harvestByName) {
-        if (!nameMatches(f.name, key)) continue;
-        actualPounds += val.pounds;
-        for (const h of val.entries as any[]) matchedHarvestEntries.push(h);
-      }
-      const harvestEntries = matchedHarvestEntries.map((h: any) => ({
+
+      const harvestMatch = harvestByFood.get(f.id);
+      const actualPounds = harvestMatch?.pounds ?? 0;
+      const harvestEntries = (harvestMatch?.entries ?? []).map((h: any) => ({
         id: h.id,
         harvested_on: h.harvested_on,
         quantity: Number(h.quantity) || 0,
@@ -431,33 +496,26 @@ export const getFoodYieldProgress = createServerFn({ method: "GET" })
       const cls = classifyFood(f.name);
       const source: Source = cls ?? "other";
 
-      // Estimated pounds from planted records matching this food's name
       const plantingContribs: PlantingContrib[] = [];
-      if (cls === "garden" || cls === null) {
-        for (const [key, g] of gardenAgg) {
-          if (!nameMatches(f.name, key)) continue;
-          const ypu = yieldForPlant(key);
-          plantingContribs.push({
-            source: "garden",
-            name: g.display,
-            count: g.count,
-            yield_per_unit_lbs: ypu,
-            estimated_pounds: g.count * ypu,
-          });
-        }
+      for (const g of gardenByFood.get(f.id) ?? []) {
+        const ypu = yieldForPlant(g.key);
+        plantingContribs.push({
+          source: "garden",
+          name: g.display,
+          count: g.count,
+          yield_per_unit_lbs: ypu,
+          estimated_pounds: g.count * ypu,
+        });
       }
-      if (cls === "orchard" || cls === null) {
-        for (const [key, t] of orchardAgg) {
-          if (!nameMatches(f.name, key)) continue;
-          const ypu = yieldForTree(key);
-          plantingContribs.push({
-            source: "orchard",
-            name: t.display,
-            count: t.count,
-            yield_per_unit_lbs: ypu,
-            estimated_pounds: t.count * ypu,
-          });
-        }
+      for (const t of orchardByFood.get(f.id) ?? []) {
+        const ypu = yieldForTree(t.key);
+        plantingContribs.push({
+          source: "orchard",
+          name: t.display,
+          count: t.count,
+          yield_per_unit_lbs: ypu,
+          estimated_pounds: t.count * ypu,
+        });
       }
       const estimatedPounds = plantingContribs.reduce((s, p) => s + p.estimated_pounds, 0);
       const pricePerLb = Number(f.price_per_pound) || 0;
