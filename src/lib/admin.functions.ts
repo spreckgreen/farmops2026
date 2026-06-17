@@ -217,3 +217,64 @@ export const setUserRoles = createServerFn({ method: "POST" })
     }
     return { ok: true };
   });
+
+// ---- Reset application data (self-host fresh start) ---------------------
+//
+// Wipes every row of operational app data so a freshly self-hosted instance
+// can start clean for a new farm. Preserves user accounts, profiles, and
+// role assignments so the admin who runs this stays signed in and in charge.
+
+const RESET_TABLES = [
+  "activity_log",
+  "summaries",
+  "daily_notes",
+  "tasks",
+  "projects",
+  "maintenance_records",
+  "consumables",
+  "inventory_items",
+  "crop_harvests",
+  "crop_plantings",
+  "garden_plots",
+  "orchard_trees",
+  "livestock_animals",
+  "plant_seasons",
+  "food_storage_items",
+  "food_storage_plan",
+  "food_plan_entries",
+  "food_plan_foods",
+  "food_plan_people",
+  "food_price_history",
+] as const;
+
+export type ResetSummary = { table: string; deleted: number | null; error?: string };
+
+export const resetApplicationData = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { confirm: string }) => {
+    if (d?.confirm !== "RESET") {
+      throw new Error('Confirmation text must be exactly "RESET".');
+    }
+    return d;
+  })
+  .handler(async ({ context }): Promise<{ ok: true; results: ResetSummary[] }> => {
+    const { supabase, userId } = context;
+    await requireAdmin(supabase, userId);
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const results: ResetSummary[] = [];
+    for (const table of RESET_TABLES) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error, count } = await (supabaseAdmin as any)
+        .from(table)
+        .delete({ count: "exact" })
+        .not("id", "is", null);
+      results.push({
+        table,
+        deleted: error ? null : (count ?? 0),
+        error: error?.message,
+      });
+    }
+    return { ok: true, results };
+  });
