@@ -121,6 +121,20 @@ type Item = {
 
 const STATUSES = ["available", "consumed", "expired", "reserved"] as const;
 
+// Freeze-dried foods are stored dry; one pound reconstitutes to roughly three
+// pounds of as-eaten food. Calorie estimates in the kcal table assume
+// as-eaten weight, so we convert freeze-dried qty to reconstituted lbs for
+// any weight/kcal displays or roll-ups.
+const RECONSTITUTION_FACTOR = 3;
+function isFreezeDried(category: string | null | undefined): boolean {
+  return !!category && /freeze/i.test(category);
+}
+function reconstitutedLbs(quantity: number, unit: string | null | undefined, category: string | null | undefined): number {
+  const qty = Number(quantity) || 0;
+  if ((unit ?? "lb") !== "lb") return qty;
+  return isFreezeDried(category) ? qty * RECONSTITUTION_FACTOR : qty;
+}
+
 const empty = {
   id: null as string | null,
   name: "",
