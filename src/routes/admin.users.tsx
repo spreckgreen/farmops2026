@@ -27,6 +27,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { CsvToolbar } from "@/components/csv-toolbar";
 import { useCurrentProfile } from "@/hooks/use-current-profile";
 import {
   listUsers,
@@ -91,15 +92,34 @@ function UsersPage() {
               <strong>admin</strong> can also manage users and app-level settings.
             </p>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => usersQ.refetch()}
-            disabled={usersQ.isFetching}
-          >
-            <RefreshCw className={`h-4 w-4 mr-2 ${usersQ.isFetching ? "animate-spin" : ""}`} />
-            Refresh
-          </Button>
+          <div className="flex items-center gap-2">
+            <CsvToolbar
+              filename="users.csv"
+              columns={[
+                { key: "email", label: "email" },
+                { key: "display_name", label: "display_name" },
+                { key: "status", label: "status" },
+                { key: "roles", label: "roles" },
+                { key: "reviewed_at", label: "reviewed_at" },
+              ]}
+              rows={(usersQ.data ?? []).map((u) => ({
+                email: u.email ?? "",
+                display_name: u.display_name ?? "",
+                status: u.status ?? "",
+                roles: (u.roles ?? []).join(";"),
+                reviewed_at: u.reviewed_at ?? "",
+              }))}
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => usersQ.refetch()}
+              disabled={usersQ.isFetching}
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${usersQ.isFetching ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
+          </div>
         </header>
 
         {usersQ.isLoading ? (
