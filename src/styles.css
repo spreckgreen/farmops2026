@@ -169,3 +169,18 @@
     background: linear-gradient(145deg, oklch(0.18 0.01 250) 0%, oklch(0.12 0.01 250) 100%);
   }
 }
+
+/* Print styles for Food Reports */
+@media print {
+  body { background: white !important; color: black !important; }
+  nav, header, aside, [data-app-shell-nav], [role="tablist"], .no-print {
+    display: none !important;
+  }
+  .report-print-root, .report-print-root * { visibility: visible; }
+  .report-doc { color: black; }
+  .report-doc table { page-break-inside: auto; }
+  .report-doc tr { page-break-inside: avoid; }
+  .report-doc h1, .report-doc h2 { page-break-after: avoid; }
+  @page { margin: 0.6in; }
+}
+
