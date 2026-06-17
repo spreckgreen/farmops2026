@@ -46,10 +46,13 @@ type Tree = {
   location: string | null;
   planted_on: string | null;
   status: string;
+  category: string | null;
   notes: string | null;
 };
 
 const STATUSES = ["healthy", "young", "producing", "diseased", "removed"] as const;
+const CATEGORIES = ["fruit", "nut", "hardwood", "softwood", "other"] as const;
+type Category = (typeof CATEGORIES)[number];
 
 const STATUS_COLORS: Record<string, string> = {
   healthy: "bg-emerald-500/20 text-emerald-200 border-emerald-500/40",
@@ -57,6 +60,14 @@ const STATUS_COLORS: Record<string, string> = {
   producing: "bg-amber-500/20 text-amber-200 border-amber-500/40",
   diseased: "bg-orange-500/20 text-orange-200 border-orange-500/40",
   removed: "bg-muted text-muted-foreground border-border",
+};
+
+const CATEGORY_COLORS: Record<string, string> = {
+  fruit: "bg-rose-500/20 text-rose-200 border-rose-500/40",
+  nut: "bg-amber-700/20 text-amber-200 border-amber-700/40",
+  hardwood: "bg-stone-500/20 text-stone-200 border-stone-500/40",
+  softwood: "bg-teal-500/20 text-teal-200 border-teal-500/40",
+  other: "bg-muted text-muted-foreground border-border",
 };
 
 const empty = {
@@ -67,6 +78,7 @@ const empty = {
   location: "",
   planted_on: "",
   status: "healthy" as (typeof STATUSES)[number],
+  category: "" as "" | Category,
   notes: "",
 };
 
