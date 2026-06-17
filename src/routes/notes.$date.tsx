@@ -302,6 +302,18 @@ function NotePage() {
             <Button
               size="sm"
               variant="outline"
+              onClick={() => setShowPreview((v) => !v)}
+              title={showPreview ? "Hide rendered preview" : "Show rendered preview"}
+            >
+              {showPreview ? (
+                <><EyeOff className="h-3.5 w-3.5 mr-1.5" />Hide preview</>
+              ) : (
+                <><Eye className="h-3.5 w-3.5 mr-1.5" />Show preview</>
+              )}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
               onClick={() => refreshMutation.mutate()}
               disabled={refreshMutation.isPending || !query.data}
               title="Rebuild this note's markdown from today's activity log"
