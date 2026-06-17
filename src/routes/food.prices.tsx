@@ -370,6 +370,7 @@ function PriceHistoryPage() {
                 <tr>
                   <th className="text-left p-2">Food</th>
                   <th className="text-left p-2">Category</th>
+                  <th className="text-left p-2">Season</th>
                   <th className="text-left p-2">Unit</th>
                   <th className="text-right p-2">Current</th>
                   <th className="text-right p-2">Δ</th>
