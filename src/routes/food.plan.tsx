@@ -203,12 +203,14 @@ function FoodPlanPage() {
   const dayTotalsForActive = (food_id: string) =>
     DAYS.reduce((s, d) => s + (entryMap.get(`${activePerson}|${food_id}|${d}`) ?? 0), 0);
 
+  const visibleFoods = showFreezeDryOnly ? foods.filter((f) => f.freeze_dry) : foods;
+
   return (
     <div className="space-y-6">
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <Stat label="People" value={String(people.length)} />
-        <Stat label="Foods" value={String(foods.length)} />
+        <Stat label="Foods" value={`${visibleFoods.length}${showFreezeDryOnly ? ` / ${foods.length}` : ""}`} />
         <Stat label="Est. weekly cost" value={fmtUsd(totals.weeklyCost)} />
       </div>
 
