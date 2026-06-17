@@ -37,7 +37,7 @@ type Entry = {
   changed_at: string;
 };
 
-type Food = { id: string; name: string; price_per_pound: number | null };
+type Food = { id: string; name: string; price_per_pound: number | null; category: string | null };
 
 const SOURCE_LABEL = "Southern Ohio regional reference (Cincinnati / Dayton / Columbus retail + farmers' market avg)";
 
