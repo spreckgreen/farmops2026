@@ -554,7 +554,7 @@ export const upsertFoodPlanFood = createServerFn({ method: "POST" })
     const row = {
       user_id: context.userId,
       name: data.name.trim(),
-      category: emptyToNull(data.category ?? null),
+      category: normalizeFoodCategory(data.category ?? null),
       season: emptyToNull(data.season ?? null),
       meal: emptyToNull(data.meal ?? null),
       freeze_dry: !!data.freeze_dry,
@@ -660,6 +660,7 @@ export const seedFoodPlanFromTemplate = createServerFn({ method: "POST" })
     const foodRows = seed.foods.map((f, i) => ({
       user_id: context.userId,
       name: f.name,
+      category: normalizeFoodCategory(null, classFallbackCategory(classifyFood(f.name))),
       season: f.season,
       freeze_dry: f.freeze_dry,
       price_per_pound: f.price_per_pound,
@@ -1292,7 +1293,7 @@ export const bulkUpdateFoodCategories = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     let updated = 0;
     for (const u of data.updates) {
-      const cat = u.category && u.category.trim() ? u.category.trim() : null;
+      const cat = normalizeFoodCategory(u.category ?? null);
       const { error } = await context.supabase
         .from("food_plan_foods")
         .update({ category: cat })
