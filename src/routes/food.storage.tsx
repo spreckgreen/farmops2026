@@ -841,7 +841,7 @@ function LongTermPlanPanel() {
 
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         <Stat label="Target lb" value={totals.target.toFixed(0)} sub={fmtKcal(totals.targetKcal)} />
-        <Stat label="On hand lb" value={totals.onHand.toFixed(0)} sub={fmtKcal(totals.onHandKcal)} />
+        <Stat label="On hand lb (reconstituted)" value={totals.onHand.toFixed(0)} sub={fmtKcal(totals.onHandKcal)} />
         <Stat label="Gap lb" value={totals.gap.toFixed(0)} sub={fmtKcal(totals.gapKcal)} tone={totals.gap > 0 ? "red" : "green"} />
         <Stat label="Target cost" value={fmtUsd(totals.targetCost)} />
         <Stat label="Gap cost" value={fmtUsd(totals.gapCost)} tone={totals.gapCost > 0 ? "red" : "green"} />
