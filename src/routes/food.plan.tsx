@@ -109,9 +109,13 @@ function FoodPlanPage() {
     mutationFn: (id: string) => delPerson({ data: { id } }),
     onSuccess: () => invalidate(),
   });
-  const addFood = useMutation({
-    mutationFn: (name: string) => upsertFood({ data: { name, sort_order: (data?.foods.length ?? 0) } }),
-    onSuccess: () => invalidate(),
+  const saveFood = useMutation({
+    mutationFn: (v: Partial<Food> & { name: string }) =>
+      upsertFood({ data: { ...v, sort_order: v.sort_order ?? (data?.foods.length ?? 0) } as any }),
+    onSuccess: () => {
+      invalidate();
+      toast.success("Food saved");
+    },
     onError: (e: Error) => toast.error(e.message),
   });
   const removeFood = useMutation({
