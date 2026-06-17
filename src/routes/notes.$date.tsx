@@ -197,6 +197,7 @@ function NotePage() {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const [caret, setCaret] = useState(0);
   const [acIndex, setAcIndex] = useState(0);
+  const [showPreview, setShowPreview] = useState(true);
 
   const acToken = useMemo(() => {
     if (!textareaRef.current) return null;
