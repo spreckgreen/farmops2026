@@ -176,6 +176,7 @@ function InventoryPanel() {
   const [q, setQ] = useState("");
   const [cat, setCat] = useState("all");
   const [type, setType] = useState("all");
+  const [loc, setLoc] = useState("all");
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(empty);
 
@@ -187,19 +188,39 @@ function InventoryPanel() {
     () => Array.from(new Set((items as Item[]).map((i) => i.food_type).filter(Boolean))) as string[],
     [items],
   );
+  const locations = useMemo(
+    () => Array.from(new Set((items as Item[]).map((i) => i.location).filter(Boolean))) as string[],
+    [items],
+  );
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
     return (items as Item[]).filter((i) => {
       if (cat !== "all" && i.category !== cat) return false;
       if (type !== "all" && i.food_type !== type) return false;
+      if (loc !== "all" && (i.location ?? "") !== loc) return false;
       if (needle) {
         const hay = `${i.name} ${i.description ?? ""} ${i.location ?? ""}`.toLowerCase();
         if (!hay.includes(needle)) return false;
       }
       return true;
     });
-  }, [items, q, cat, type]);
+  }, [items, q, cat, type, loc]);
+
+  const grouped = useMemo(() => {
+    const g = new Map<string, Item[]>();
+    for (const i of filtered) {
+      const k = normalizeFoodCategory(i.category ?? null);
+      const arr = g.get(k) ?? [];
+      arr.push(i);
+      g.set(k, arr);
+    }
+    return Array.from(g.entries()).sort(([a], [b]) => {
+      const ia = FOOD_CATEGORIES.indexOf(a as (typeof FOOD_CATEGORIES)[number]);
+      const ib = FOOD_CATEGORIES.indexOf(b as (typeof FOOD_CATEGORIES)[number]);
+      return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
+    });
+  }, [filtered]);
 
   const totalLbs = filtered.reduce(
     (s, i) => s + reconstitutedLbs(Number(i.quantity) || 0, i.unit, i.category),
