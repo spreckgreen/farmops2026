@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { getFoodOverview, getFoodYieldProgress } from "@/lib/food.functions";
+import { fmtUsd } from "@/lib/currency";
 import { format } from "date-fns";
 import { ChevronDown, ChevronRight } from "lucide-react";
 
@@ -25,6 +26,7 @@ function FoodOverviewPage() {
   const q = useQuery({ queryKey: ["food", "overview"], queryFn: () => overviewFn() });
   const yq = useQuery({ queryKey: ["food", "yield-progress"], queryFn: () => yieldFn() });
   const data = q.data;
+  const totals = yq.data?.totals;
 
   return (
     <div className="space-y-6">
@@ -43,12 +45,21 @@ function FoodOverviewPage() {
       <section>
         <div className="flex items-baseline justify-between mb-2">
           <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
-            Expected yield progress
+            Plan need vs. estimated yield
           </h2>
           <span className="text-xs text-muted-foreground">
-            Annual plan vs. logged harvests (lbs)
+            Annual plan · estimate from planted units · logged harvests
           </span>
         </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-3">
+          <SummaryStat label="Plan need" value={`${fmtLbs(totals?.expected_pounds ?? 0)} lbs`} />
+          <SummaryStat label="Est. yield (planted)" value={`${fmtLbs(totals?.estimated_pounds ?? 0)} lbs`} />
+          <SummaryStat label="Harvested" value={`${fmtLbs(totals?.actual_pounds ?? 0)} lbs`} />
+          <SummaryStat label="Gap" value={`${fmtLbs(totals?.gap_pounds ?? 0)} lbs`} accent />
+          <SummaryStat label="Gap value" value={fmtUsd(totals?.gap_value ?? 0)} accent />
+        </div>
+
         {yq.isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
         {!yq.isLoading && (yq.data?.categories.length ?? 0) === 0 && (
           <p className="text-sm text-muted-foreground">
@@ -142,8 +153,11 @@ function CategoryBlock({ cat }: { cat: Category }) {
           <div className="flex items-baseline justify-between gap-3">
             <span className="font-medium truncate">{cat.category}</span>
             <span className="text-xs font-mono text-muted-foreground shrink-0">
-              {fmtLbs(cat.actual_pounds)} / {fmtLbs(cat.expected_pounds)} lbs
+              need {fmtLbs(cat.expected_pounds)} · est {fmtLbs(cat.estimated_pounds)} · harv {fmtLbs(cat.actual_pounds)} lbs
               {cat.expected_pounds > 0 && <> · {pct}%</>}
+              {cat.gap_pounds > 0 && (
+                <> · <span className="text-destructive">gap {fmtLbs(cat.gap_pounds)} lbs / {fmtUsd(cat.gap_value)}</span></>
+              )}
             </span>
           </div>
           <div className="mt-1.5">
@@ -164,7 +178,6 @@ function CategoryBlock({ cat }: { cat: Category }) {
 
 function FoodItemRow({ item }: { item: Category["items"][number] }) {
   const [open, setOpen] = useState(false);
-  const pct = item.expected_pounds > 0 ? Math.round(item.progress * 100) : 0;
   return (
     <li>
       <button
@@ -175,10 +188,17 @@ function FoodItemRow({ item }: { item: Category["items"][number] }) {
         {open ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
         <div className="flex-1 min-w-0">
           <div className="flex items-baseline justify-between gap-3">
-            <span className="truncate">{item.name}</span>
+            <span className="truncate">
+              {item.name}{" "}
+              <span className="text-[10px] font-mono uppercase text-muted-foreground ml-1">
+                {item.source}
+              </span>
+            </span>
             <span className="text-xs font-mono text-muted-foreground shrink-0">
-              {fmtLbs(item.actual_pounds)} / {fmtLbs(item.expected_pounds)} lbs
-              {item.expected_pounds > 0 && <> · {pct}%</>}
+              need {fmtLbs(item.expected_pounds)} · est {fmtLbs(item.estimated_pounds)} · harv {fmtLbs(item.actual_pounds)} lbs
+              {item.gap_pounds > 0 && (
+                <> · <span className="text-destructive">gap {fmtLbs(item.gap_pounds)} lbs{item.price_per_lb > 0 && <> / {fmtUsd(item.gap_value)}</>}</span></>
+              )}
             </span>
           </div>
           <div className="mt-1.5">
@@ -187,7 +207,34 @@ function FoodItemRow({ item }: { item: Category["items"][number] }) {
         </div>
       </button>
       {open && (
-        <div className="px-3 pb-3 pt-1 grid grid-cols-1 md:grid-cols-2 gap-4 bg-muted/30">
+        <div className="px-3 pb-3 pt-1 grid grid-cols-1 md:grid-cols-3 gap-4 bg-muted/30">
+          <div>
+            <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1">
+              Planted units ({item.plantings.length})
+            </div>
+            {item.plantings.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                Nothing planted matching this food yet.
+              </p>
+            ) : (
+              <ul className="text-xs space-y-1">
+                {item.plantings.map((p, i) => (
+                  <li key={i} className="flex justify-between gap-2">
+                    <span className="capitalize truncate">
+                      <span className="text-[10px] font-mono uppercase text-muted-foreground mr-1">
+                        {p.source}
+                      </span>
+                      {p.name}
+                    </span>
+                    <span className="font-mono whitespace-nowrap">
+                      {p.count} × {p.yield_per_unit_lbs.toFixed(1)} lbs ={" "}
+                      <span className="text-foreground">{fmtLbs(p.estimated_pounds)} lbs</span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
           <div>
             <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1">
               Plan entries ({item.plan_entries.length})
@@ -234,6 +281,19 @@ function FoodItemRow({ item }: { item: Category["items"][number] }) {
         </div>
       )}
     </li>
+  );
+}
+
+function SummaryStat({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
+  return (
+    <div className="border border-border rounded-md p-3 bg-card">
+      <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+        {label}
+      </div>
+      <div className={`text-xl font-mono font-semibold mt-1 ${accent ? "text-destructive" : ""}`}>
+        {value}
+      </div>
+    </div>
   );
 }
 

@@ -222,21 +222,64 @@ function toPounds(qty: number, unit: string | null | undefined): number {
   return qty;
 }
 
+// Lookup yield per garden plant (declared further down at module scope; safe at call time)
+function yieldForPlant(name: string): number {
+  const k = normalizeName(name);
+  if (!k) return 0;
+  if (YIELD_PER_PLANT_LBS[k] !== undefined) return YIELD_PER_PLANT_LBS[k];
+  for (const [key, val] of Object.entries(YIELD_PER_PLANT_LBS)) {
+    if (k.includes(key)) return val;
+  }
+  return DEFAULT_YIELD_LBS;
+}
+
+// Match a food plan item to one of our planting data sets by normalized name
+// (or substring), case-insensitive. Returns true if foodName ~ recordName.
+function nameMatches(foodName: string, recordName: string): boolean {
+  const a = normalizeName(foodName);
+  const b = normalizeName(recordName);
+  if (!a || !b) return false;
+  return a === b || a.includes(b) || b.includes(a);
+}
+
 export const getFoodYieldProgress = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const [foods, people, entries, plantings, harvests] = await Promise.all([
+    const [foods, people, entries, plantings, harvests, gardenPlots, orchardTrees] = await Promise.all([
       context.supabase.from("food_plan_foods").select("id, name, category, oz_per_serving, unit, price_per_pound"),
       context.supabase.from("food_plan_people").select("id, name"),
       context.supabase.from("food_plan_entries").select("food_id, person_id, day_of_week, quantity"),
       context.supabase.from("crop_plantings").select("id, crop, variety, status, planted_on, expected_harvest"),
       context.supabase.from("crop_harvests").select("id, planting_id, harvested_on, quantity, unit, quality, notes"),
+      context.supabase.from("garden_plots").select("plant_name").not("plant_name", "is", null).neq("plant_name", ""),
+      context.supabase.from("orchard_trees").select("species, quantity, status").neq("status", "removed"),
     ]);
     if (foods.error) throw new Error(foods.error.message);
     if (people.error) throw new Error(people.error.message);
     if (entries.error) throw new Error(entries.error.message);
     if (plantings.error) throw new Error(plantings.error.message);
     if (harvests.error) throw new Error(harvests.error.message);
+    if (gardenPlots.error) throw new Error(gardenPlots.error.message);
+    if (orchardTrees.error) throw new Error(orchardTrees.error.message);
+
+    // Aggregate garden plots → distinct plant name + count
+    const gardenAgg = new Map<string, { display: string; count: number }>();
+    for (const p of gardenPlots.data ?? []) {
+      const key = normalizeName(p.plant_name);
+      if (!key) continue;
+      const cur = gardenAgg.get(key) ?? { display: (p.plant_name ?? "").trim(), count: 0 };
+      cur.count += 1;
+      gardenAgg.set(key, cur);
+    }
+    // Aggregate orchard trees → distinct species + count (skip removed)
+    const orchardAgg = new Map<string, { display: string; count: number }>();
+    for (const t of orchardTrees.data ?? []) {
+      const key = normalizeName(t.species);
+      if (!key) continue;
+      const cur = orchardAgg.get(key) ?? { display: (t.species ?? "").trim(), count: 0 };
+      cur.count += Number(t.quantity) || 1;
+      orchardAgg.set(key, cur);
+    }
 
     const peopleById = new Map((people.data ?? []).map((p) => [p.id, p.name]));
     const plantingById = new Map((plantings.data ?? []).map((p) => [p.id, p]));
@@ -266,13 +309,27 @@ export const getFoodYieldProgress = createServerFn({ method: "GET" })
       entriesByFood.set(e.food_id, arr);
     }
 
+    type Source = "garden" | "orchard" | "crops" | "livestock" | "other";
+    type PlantingContrib = {
+      source: Source;
+      name: string;
+      count: number;
+      yield_per_unit_lbs: number;
+      estimated_pounds: number;
+    };
     type FoodRow = {
       food_id: string;
       name: string;
       category: string;
+      source: Source;
       expected_pounds: number;
+      estimated_pounds: number;
       actual_pounds: number;
+      gap_pounds: number;
+      gap_value: number;
+      price_per_lb: number;
       progress: number;
+      plantings: PlantingContrib[];
       plan_entries: Array<{ person: string; day_of_week: number; quantity: number }>;
       harvest_entries: Array<{
         id: string;
@@ -300,14 +357,62 @@ export const getFoodYieldProgress = createServerFn({ method: "GET" })
         pounds: toPounds(Number(h.quantity) || 0, h.unit),
         notes: h.notes ?? null,
       }));
-      if (expectedPounds === 0 && actualPounds === 0 && planEntries.length === 0) continue;
+
+      const cls = classifyFood(f.name);
+      const source: Source = cls ?? "other";
+
+      // Estimated pounds from planted records matching this food's name
+      const plantingContribs: PlantingContrib[] = [];
+      if (cls === "garden" || cls === null) {
+        for (const [key, g] of gardenAgg) {
+          if (!nameMatches(f.name, key)) continue;
+          const ypu = yieldForPlant(key);
+          plantingContribs.push({
+            source: "garden",
+            name: g.display,
+            count: g.count,
+            yield_per_unit_lbs: ypu,
+            estimated_pounds: g.count * ypu,
+          });
+        }
+      }
+      if (cls === "orchard" || cls === null) {
+        for (const [key, t] of orchardAgg) {
+          if (!nameMatches(f.name, key)) continue;
+          const ypu = yieldForTree(key);
+          plantingContribs.push({
+            source: "orchard",
+            name: t.display,
+            count: t.count,
+            yield_per_unit_lbs: ypu,
+            estimated_pounds: t.count * ypu,
+          });
+        }
+      }
+      const estimatedPounds = plantingContribs.reduce((s, p) => s + p.estimated_pounds, 0);
+      const pricePerLb = Number(f.price_per_pound) || 0;
+      const gapPounds = Math.max(0, expectedPounds - Math.max(estimatedPounds, actualPounds));
+
+      if (
+        expectedPounds === 0 &&
+        actualPounds === 0 &&
+        estimatedPounds === 0 &&
+        planEntries.length === 0
+      ) continue;
+
       rows.push({
         food_id: f.id,
         name: f.name,
         category: f.category ?? "Uncategorized",
+        source,
         expected_pounds: expectedPounds,
+        estimated_pounds: estimatedPounds,
         actual_pounds: actualPounds,
+        gap_pounds: gapPounds,
+        gap_value: gapPounds * pricePerLb,
+        price_per_lb: pricePerLb,
         progress: expectedPounds > 0 ? actualPounds / expectedPounds : 0,
+        plantings: plantingContribs.sort((a, b) => b.estimated_pounds - a.estimated_pounds),
         plan_entries: planEntries.sort((a, b) => a.day_of_week - b.day_of_week),
         harvest_entries: harvestEntries.sort((a, b) =>
           (b.harvested_on ?? "").localeCompare(a.harvested_on ?? ""),
@@ -325,18 +430,32 @@ export const getFoodYieldProgress = createServerFn({ method: "GET" })
     const categories = Array.from(byCategory.entries())
       .map(([category, items]) => {
         const expected = items.reduce((s, r) => s + r.expected_pounds, 0);
+        const estimated = items.reduce((s, r) => s + r.estimated_pounds, 0);
         const actual = items.reduce((s, r) => s + r.actual_pounds, 0);
+        const gap = items.reduce((s, r) => s + r.gap_pounds, 0);
+        const gapValue = items.reduce((s, r) => s + r.gap_value, 0);
         return {
           category,
           expected_pounds: expected,
+          estimated_pounds: estimated,
           actual_pounds: actual,
+          gap_pounds: gap,
+          gap_value: gapValue,
           progress: expected > 0 ? actual / expected : 0,
           items: items.sort((a, b) => b.expected_pounds - a.expected_pounds),
         };
       })
       .sort((a, b) => b.expected_pounds - a.expected_pounds);
 
-    return { categories };
+    const totals = {
+      expected_pounds: rows.reduce((s, r) => s + r.expected_pounds, 0),
+      estimated_pounds: rows.reduce((s, r) => s + r.estimated_pounds, 0),
+      actual_pounds: rows.reduce((s, r) => s + r.actual_pounds, 0),
+      gap_pounds: rows.reduce((s, r) => s + r.gap_pounds, 0),
+      gap_value: rows.reduce((s, r) => s + r.gap_value, 0),
+    };
+
+    return { categories, totals };
   });
 
 // ----------------------------------------------------------------------
