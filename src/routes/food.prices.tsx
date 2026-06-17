@@ -363,6 +363,9 @@ function PriceHistoryPage() {
                       <td className="p-2 text-xs text-muted-foreground">
                         {g.category ?? <span className="italic opacity-60">—</span>}
                       </td>
+                      <td className="p-2 text-xs text-muted-foreground">
+                        {g.unit ?? <span className="italic opacity-60">lb</span>}
+                      </td>
                       <td className="p-2 text-right">{fmt(e.new_price)}</td>
                       <td className="p-2 text-right">
                         {diff === null ? (
