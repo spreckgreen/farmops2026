@@ -172,6 +172,3 @@ function ReportCard({ report }: { report: FoodReport }) {
     </Card>
   );
 }
-
-// silence unused warning for Input/Label kept for future row-length control
-void Input; void Label;
