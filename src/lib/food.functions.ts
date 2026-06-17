@@ -1290,6 +1290,12 @@ function inferCategoryLabel(name: string): string | null {
   const n = (name ?? "").trim().toLowerCase();
   if (!n) return null;
   const hit = (list: string[]) => list.some((k) => n.includes(k));
+  // Explicit name overrides (checked before generic keyword rules)
+  if (n.includes("peanut butter") || n.includes("almond butter") || n.includes("nut butter"))
+    return "Animal protein";
+  if (n.includes("sauerkraut") || n.includes("kimchi") || n.includes("pickle"))
+    return "Vegetables";
+
   // Livestock-derived: split into protein / eggs / dairy / fiber
   if (hit(["wool", "mohair", "alpaca", "cashmere", "angora", "fiber", "fleece"]))
     return "Fiber";
