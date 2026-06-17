@@ -52,6 +52,36 @@ function FoodOverviewPage() {
     [allCats, categoryFilter],
   );
 
+  const filteredTotals = useMemo(() => {
+    if (categoryFilter === "all") return totals;
+    return visibleCats.reduce(
+      (acc, cat) => ({
+        expected_pounds: acc.expected_pounds + cat.expected_pounds,
+        estimated_pounds: acc.estimated_pounds + cat.estimated_pounds,
+        actual_pounds: acc.actual_pounds + cat.actual_pounds,
+        planned_gap_pounds: acc.planned_gap_pounds + cat.planned_gap_pounds,
+        planned_gap_value: acc.planned_gap_value + cat.planned_gap_value,
+        actual_gap_pounds: acc.actual_gap_pounds + cat.actual_gap_pounds,
+        actual_gap_value: acc.actual_gap_value + cat.actual_gap_value,
+        storage_pounds: acc.storage_pounds + cat.storage_pounds,
+        mitigated_gap_pounds: acc.mitigated_gap_pounds + cat.mitigated_gap_pounds,
+        mitigated_gap_value: acc.mitigated_gap_value + cat.mitigated_gap_value,
+      }),
+      {
+        expected_pounds: 0,
+        estimated_pounds: 0,
+        actual_pounds: 0,
+        planned_gap_pounds: 0,
+        planned_gap_value: 0,
+        actual_gap_pounds: 0,
+        actual_gap_value: 0,
+        storage_pounds: 0,
+        mitigated_gap_pounds: 0,
+        mitigated_gap_value: 0,
+      },
+    );
+  }, [categoryFilter, visibleCats, totals]);
+
   return (
     <div className="space-y-6">
       <p className="text-sm text-muted-foreground">
@@ -120,38 +150,41 @@ function FoodOverviewPage() {
           })}
         </div>
 
+        <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+          {categoryFilter === "all" ? "All categories" : categoryFilter}
+        </div>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3 mb-3">
-          <SummaryStat label="Plan need" value={`${fmtLbs(totals?.expected_pounds ?? 0)} lbs`} kcal={kcalTotal(totals?.expected_pounds ?? 0)} />
-          <SummaryStat label="Est. yield (planted)" value={`${fmtLbs(totals?.estimated_pounds ?? 0)} lbs`} kcal={kcalTotal(totals?.estimated_pounds ?? 0)} />
-          <SummaryStat label="Harvested" value={`${fmtLbs(totals?.actual_pounds ?? 0)} lbs`} kcal={kcalTotal(totals?.actual_pounds ?? 0)} />
+          <SummaryStat label="Plan need" value={`${fmtLbs(filteredTotals?.expected_pounds ?? 0)} lbs`} kcal={kcalTotal(filteredTotals?.expected_pounds ?? 0)} />
+          <SummaryStat label="Est. yield (planted)" value={`${fmtLbs(filteredTotals?.estimated_pounds ?? 0)} lbs`} kcal={kcalTotal(filteredTotals?.estimated_pounds ?? 0)} />
+          <SummaryStat label="Harvested" value={`${fmtLbs(filteredTotals?.actual_pounds ?? 0)} lbs`} kcal={kcalTotal(filteredTotals?.actual_pounds ?? 0)} />
           <SummaryStat
             label="Planned gap"
             sublabel="need − planted"
-            value={`${fmtLbs(totals?.planned_gap_pounds ?? 0)} lbs`}
-            kcal={kcalTotal(totals?.planned_gap_pounds ?? 0)}
-            secondary={fmtUsd(totals?.planned_gap_value ?? 0)}
+            value={`${fmtLbs(filteredTotals?.planned_gap_pounds ?? 0)} lbs`}
+            kcal={kcalTotal(filteredTotals?.planned_gap_pounds ?? 0)}
+            secondary={fmtUsd(filteredTotals?.planned_gap_value ?? 0)}
             accent
           />
           <SummaryStat
             label="Actual gap"
             sublabel="need − harvested"
-            value={`${fmtLbs(totals?.actual_gap_pounds ?? 0)} lbs`}
-            kcal={kcalTotal(totals?.actual_gap_pounds ?? 0)}
-            secondary={fmtUsd(totals?.actual_gap_value ?? 0)}
+            value={`${fmtLbs(filteredTotals?.actual_gap_pounds ?? 0)} lbs`}
+            kcal={kcalTotal(filteredTotals?.actual_gap_pounds ?? 0)}
+            secondary={fmtUsd(filteredTotals?.actual_gap_value ?? 0)}
             accent
           />
           <SummaryStat
             label="Storage supplement"
             sublabel="pantry on hand (reconstituted)"
-            value={`${fmtLbs(totals?.storage_pounds ?? 0)} lbs`}
-            kcal={kcalTotal(totals?.storage_pounds ?? 0)}
+            value={`${fmtLbs(filteredTotals?.storage_pounds ?? 0)} lbs`}
+            kcal={kcalTotal(filteredTotals?.storage_pounds ?? 0)}
           />
           <SummaryStat
             label="Net gap"
             sublabel="actual − storage"
-            value={`${fmtLbs(totals?.mitigated_gap_pounds ?? 0)} lbs`}
-            kcal={kcalTotal(totals?.mitigated_gap_pounds ?? 0)}
-            secondary={fmtUsd(totals?.mitigated_gap_value ?? 0)}
+            value={`${fmtLbs(filteredTotals?.mitigated_gap_pounds ?? 0)} lbs`}
+            kcal={kcalTotal(filteredTotals?.mitigated_gap_pounds ?? 0)}
+            secondary={fmtUsd(filteredTotals?.mitigated_gap_value ?? 0)}
             accent
           />
         </div>
