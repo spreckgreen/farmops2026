@@ -426,3 +426,145 @@ export const seedFoodPlanFromTemplate = createServerFn({ method: "POST" })
 
     return { people: peopleData!.length, foods: foodData!.length, entries: entries.length };
   });
+
+// ----------------------------------------------------------------------
+// Garden
+// ----------------------------------------------------------------------
+
+const GardenPlotSchema = z.object({
+  id: z.string().uuid().nullable().optional(),
+  row_label: z.string().trim().min(1).max(50),
+  position: z.number().int().min(1).max(999),
+  plant_name: z.string().trim().max(200).nullable().optional(),
+  notes: z.string().max(5000).nullable().optional(),
+});
+
+export const listGardenPlots = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data, error } = await context.supabase
+      .from("garden_plots")
+      .select("id, row_label, position, plant_name, notes")
+      .order("row_label", { ascending: true })
+      .order("position", { ascending: true });
+    if (error) throw new Error(error.message);
+    return data ?? [];
+  });
+
+export const upsertGardenPlot = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => GardenPlotSchema.parse(d))
+  .handler(async ({ data, context }) => {
+    const row = {
+      user_id: context.userId,
+      row_label: data.row_label,
+      position: data.position,
+      plant_name: emptyToNull(data.plant_name ?? null),
+      notes: emptyToNull(data.notes ?? null),
+    };
+    const { data: out, error } = await context.supabase
+      .from("garden_plots")
+      .upsert(row, { onConflict: "user_id,row_label,position" })
+      .select()
+      .single();
+    if (error) throw new Error(error.message);
+    return out;
+  });
+
+export const deleteGardenPlot = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase.from("garden_plots").delete().eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const seedGardenFromTemplate = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { default: seed } = await import("@/data/garden-seed.json");
+    const rows: Array<{ user_id: string; row_label: string; position: number; plant_name: string | null }> = [];
+    for (const rowLabel of seed.rows) {
+      const plants = (seed.plants as Record<string, Array<string | null>>)[rowLabel] ?? [];
+      plants.forEach((plant, idx) => {
+        if (!plant) return;
+        rows.push({
+          user_id: context.userId,
+          row_label: rowLabel,
+          position: idx + 1,
+          plant_name: plant,
+        });
+      });
+    }
+    if (rows.length) {
+      const { error } = await context.supabase
+        .from("garden_plots")
+        .upsert(rows, { onConflict: "user_id,row_label,position" });
+      if (error) throw new Error(error.message);
+    }
+    return { inserted: rows.length };
+  });
+
+// ----------------------------------------------------------------------
+// Orchard
+// ----------------------------------------------------------------------
+
+const ORCHARD_STATUSES = ["healthy", "young", "producing", "diseased", "removed"] as const;
+
+const OrchardTreeSchema = z.object({
+  id: z.string().uuid().nullable().optional(),
+  species: z.string().trim().min(1).max(200),
+  variety: z.string().trim().max(200).nullable().optional(),
+  quantity: z.number().int().min(1).max(99999).optional(),
+  location: z.string().trim().max(200).nullable().optional(),
+  planted_on: z.string().nullable().optional(),
+  status: z.enum(ORCHARD_STATUSES).optional(),
+  notes: z.string().max(5000).nullable().optional(),
+});
+
+export const listOrchardTrees = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data, error } = await context.supabase
+      .from("orchard_trees")
+      .select("id, species, variety, quantity, location, planted_on, status, notes, created_at")
+      .order("species", { ascending: true });
+    if (error) throw new Error(error.message);
+    return data ?? [];
+  });
+
+export const upsertOrchardTree = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => OrchardTreeSchema.parse(d))
+  .handler(async ({ data, context }) => {
+    const row = {
+      user_id: context.userId,
+      species: data.species.trim(),
+      variety: emptyToNull(data.variety ?? null),
+      quantity: data.quantity ?? 1,
+      location: emptyToNull(data.location ?? null),
+      planted_on: emptyToNull(data.planted_on ?? null),
+      status: data.status ?? "healthy",
+      notes: emptyToNull(data.notes ?? null),
+    };
+    if (data.id) {
+      const { data: out, error } = await context.supabase
+        .from("orchard_trees").update(row).eq("id", data.id).select().single();
+      if (error) throw new Error(error.message);
+      return out;
+    }
+    const { data: out, error } = await context.supabase
+      .from("orchard_trees").insert(row).select().single();
+    if (error) throw new Error(error.message);
+    return out;
+  });
+
+export const deleteOrchardTree = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase.from("orchard_trees").delete().eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
