@@ -26,8 +26,12 @@ function LivestockComingSoon() {
     );
   }
 
-  // Placeholder dashboard until livestock data model is implemented.
-  const emptyDash = {
+  const fetchDash = useServerFn(getLivestockDashboard);
+  const { data } = useQuery({
+    queryKey: ["livestock-dashboard"],
+    queryFn: () => fetchDash(),
+  });
+  const dash = data ?? {
     summary: {
       distinct_items: 0,
       total_units: 0,
