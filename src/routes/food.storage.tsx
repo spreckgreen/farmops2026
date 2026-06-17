@@ -891,6 +891,52 @@ function LongTermPlanPanel() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <CsvToolbar
+            filename="storage-plan.csv"
+            columns={[
+              { key: "name", label: "name" },
+              { key: "category", label: "category" },
+              { key: "food_type", label: "food_type" },
+              { key: "pounds_per_year", label: "pounds_per_year" },
+              { key: "target_months", label: "target_months" },
+              { key: "price_per_pound", label: "price_per_pound" },
+              { key: "notes", label: "notes" },
+              { key: "sort_order", label: "sort_order" },
+            ]}
+            rows={(rows as PlanRow[]).map((r) => ({
+              name: r.name,
+              category: r.category ?? "",
+              food_type: r.food_type ?? "",
+              pounds_per_year: r.pounds_per_year ?? 0,
+              target_months: r.target_months ?? 12,
+              price_per_pound: r.price_per_pound ?? "",
+              notes: r.notes ?? "",
+              sort_order: r.sort_order ?? 0,
+            }))}
+            onImport={async (rows) => {
+              let n = 0;
+              for (const row of rows) {
+                const name = String(row.name ?? "").trim();
+                if (!name) continue;
+                await upsert({
+                  data: {
+                    id: undefined,
+                    name,
+                    category: String(row.category ?? "").trim() || null,
+                    food_type: String(row.food_type ?? "").trim() || null,
+                    pounds_per_year: parseFloat(String(row.pounds_per_year ?? "0")) || 0,
+                    target_months: parseInt(String(row.target_months ?? "12"), 10) || 12,
+                    price_per_pound: row.price_per_pound ? parseFloat(String(row.price_per_pound)) : null,
+                    notes: String(row.notes ?? "").trim() || null,
+                    sort_order: parseInt(String(row.sort_order ?? "0"), 10) || 0,
+                  },
+                });
+                n++;
+              }
+              qc.invalidateQueries({ queryKey: ["food-storage-plan"] });
+              toast.success(`Imported ${n} plan rows`);
+            }}
+          />
           <Button variant="outline" size="sm" onClick={() => seedM.mutate()} disabled={seedM.isPending}>
             <Sprout className="h-3.5 w-3.5 mr-2" />
             Re-seed from Plan
