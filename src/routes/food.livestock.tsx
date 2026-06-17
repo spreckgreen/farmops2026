@@ -1,18 +1,43 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { Printer } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { openPrintWindow } from "@/lib/print";
 
 export const Route = createFileRoute("/food/livestock")({
   component: LivestockComingSoon,
 });
 
 function LivestockComingSoon() {
+  function printLivestock() {
+    openPrintWindow(
+      "Livestock",
+      `<header><h1>Livestock</h1><div class="meta">printed ${new Date().toLocaleDateString()}</div></header>
+       <table>
+         <thead><tr><th>Tag</th><th>Species</th><th>Breed</th><th>Sex</th><th>Birth date</th><th>Weight</th><th>Notes</th></tr></thead>
+         <tbody>${Array.from({ length: 20 })
+           .map(() => `<tr><td>&nbsp;</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>`)
+           .join("")}</tbody>
+       </table>
+       <p style="font-size:10px;color:#666;margin-top:8px">Blank intake sheet. Livestock tracking in the app is coming soon.</p>`,
+    );
+  }
+
   return (
-    <div className="border border-dashed border-border rounded-md p-10 text-center">
-      <h2 className="text-lg font-mono font-semibold mb-2">Livestock</h2>
-      <p className="text-sm text-muted-foreground">
-        Animals, weights, feed, births, treatments, and sales.
-        <br />
-        Coming in the next pass of the Food Production rollout.
-      </p>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div>
+          <h2 className="text-lg font-mono font-semibold">Livestock</h2>
+          <p className="text-sm text-muted-foreground">Animals, weights, feed, births, treatments, and sales.</p>
+        </div>
+        <Button variant="outline" size="sm" onClick={printLivestock}>
+          <Printer className="h-4 w-4 mr-2" /> Print blank sheet
+        </Button>
+      </div>
+      <div className="border border-dashed border-border rounded-md p-10 text-center">
+        <p className="text-sm text-muted-foreground">
+          Full tracking is coming in the next pass. In the meantime you can print a blank intake sheet to record animals on paper.
+        </p>
+      </div>
     </div>
   );
 }
