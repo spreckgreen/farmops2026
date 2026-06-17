@@ -341,6 +341,9 @@ export const getFoodYieldProgress = createServerFn({ method: "GET" })
       planned_gap_value: number;
       actual_gap_pounds: number;
       actual_gap_value: number;
+      storage_pounds: number;
+      mitigated_gap_pounds: number;
+      mitigated_gap_value: number;
       price_per_lb: number;
       progress: number;
       plantings: PlantingContrib[];
