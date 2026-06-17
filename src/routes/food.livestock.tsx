@@ -1,8 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Printer } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { Button } from "@/components/ui/button";
 import { openPrintWindow } from "@/lib/print";
 import { YieldDashboard } from "@/components/yield-dashboard";
+import { getLivestockDashboard } from "@/lib/food.functions";
 
 export const Route = createFileRoute("/food/livestock")({
   component: LivestockComingSoon,
@@ -23,8 +26,12 @@ function LivestockComingSoon() {
     );
   }
 
-  // Placeholder dashboard until livestock data model is implemented.
-  const emptyDash = {
+  const fetchDash = useServerFn(getLivestockDashboard);
+  const { data } = useQuery({
+    queryKey: ["livestock-dashboard"],
+    queryFn: () => fetchDash(),
+  });
+  const dash = data ?? {
     summary: {
       distinct_items: 0,
       total_units: 0,
@@ -50,7 +57,7 @@ function LivestockComingSoon() {
       </div>
 
       <YieldDashboard
-        data={emptyDash}
+        data={dash}
         labels={{
           unit: "animal",
           unitPlural: "animals",
