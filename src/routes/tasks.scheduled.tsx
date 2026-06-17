@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { TiddlyWikiImportButton } from "@/components/tiddlywiki-import-button";
+import { useShowTaskSlugs } from "@/hooks/use-show-task-slugs";
 
 
 import {
