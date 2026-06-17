@@ -931,6 +931,7 @@ export const getGardenDashboard = createServerFn({ method: "GET" })
       if (price > 0) priceByName.set(norm(f.name), price);
       const weekly = weeklyByFood.get(f.id) ?? 0;
       if (weekly === 0) continue;
+      if (classifyFood(f.name) !== "garden") continue;
       const oz = Number(f.oz_per_serving) || 0;
       const lbs = (weekly * GROWING_WEEKS * oz) / 16;
       if (lbs <= 0) continue;
