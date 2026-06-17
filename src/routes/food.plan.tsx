@@ -274,7 +274,7 @@ function FoodPlanPage() {
             </tr>
           </thead>
           <tbody>
-            {foods.map((f) => {
+            {visibleFoods.map((f) => {
               const weekly = dayTotalsForActive(f.id);
               return (
                 <tr key={f.id} className="border-t border-border hover:bg-accent/30">
