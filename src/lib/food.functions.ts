@@ -151,7 +151,7 @@ export const deleteCropHarvest = createServerFn({ method: "POST" })
 export const getFoodOverview = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const [garden, orchard, harvests] = await Promise.all([
+    const [garden, orchard, harvests, livestock] = await Promise.all([
       context.supabase
         .from("garden_plots")
         .select("id, row_label, position, plant_name, notes, updated_at")
@@ -165,14 +165,23 @@ export const getFoodOverview = createServerFn({ method: "GET" })
         .select("id, harvested_on, quantity, unit, planting_id")
         .order("harvested_on", { ascending: false })
         .limit(5),
+      context.supabase
+        .from("livestock_animals")
+        .select("species, quantity, status"),
     ]);
     if (garden.error) throw new Error(garden.error.message);
     if (orchard.error) throw new Error(orchard.error.message);
     if (harvests.error) throw new Error(harvests.error.message);
+    if (livestock.error) throw new Error(livestock.error.message);
 
     const gardenRows = garden.data ?? [];
     const orchardRows = orchard.data ?? [];
     const orchardTrees = orchardRows.reduce((s, r) => s + (Number(r.quantity) || 1), 0);
+    const livestockRows = livestock.data ?? [];
+    const inactiveStatuses = new Set(["sold", "butchered", "dead", "removed"]);
+    const livestockCount = livestockRows
+      .filter((a) => !inactiveStatuses.has(String(a.status ?? "").toLowerCase()))
+      .reduce((s, a) => s + (Number(a.quantity) || 0), 0);
 
     const recentPlantings = [
       ...gardenRows.map((r) => ({
@@ -197,7 +206,7 @@ export const getFoodOverview = createServerFn({ method: "GET" })
       garden_plantings: gardenRows.length,
       orchard_trees: orchardTrees,
       orchard_entries: orchardRows.length,
-      livestock_count: 0,
+      livestock_count: livestockCount,
       total_plantings: gardenRows.length + orchardRows.length,
       recent_plantings: recentPlantings,
       recent_harvests: harvests.data ?? [],
