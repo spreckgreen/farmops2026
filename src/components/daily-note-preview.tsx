@@ -221,6 +221,12 @@ export function DailyNotePreview({ markdown, tasks, compact = false }: Props) {
                 // text
                 const typed = getEntryTypePrefix(tok.text);
                 if (typed) {
+                  if (compact) {
+                    // Drop the !type marker, keep only the human-readable rest.
+                    return typed.rest ? (
+                      <span key={i} className="break-words">{typed.rest}</span>
+                    ) : null;
+                  }
                   return (
                     <span key={i} className="inline-flex items-center gap-2">
                       <Badge variant="outline" className="text-[10px] uppercase">
