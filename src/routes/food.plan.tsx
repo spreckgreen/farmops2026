@@ -206,7 +206,22 @@ function FoodPlanPage() {
   const dayTotalsForActive = (food_id: string) =>
     DAYS.reduce((s, d) => s + (entryMap.get(`${activePerson}|${food_id}|${d}`) ?? 0), 0);
 
-  const visibleFoods = showFreezeDryOnly ? foods.filter((f) => f.freeze_dry) : foods;
+  const allSeasons = useMemo(() => {
+    const set = new Set<string>();
+    for (const f of foods) if (f.season) set.add(f.season);
+    return Array.from(set).sort();
+  }, [foods]);
+
+  const hasActiveFilters = showFreezeDryOnly || activeCategories.size > 0 || activeSeasons.size > 0;
+
+  const visibleFoods = useMemo(() => {
+    return foods.filter((f) => {
+      if (showFreezeDryOnly && !f.freeze_dry) return false;
+      if (activeCategories.size > 0 && !activeCategories.has(f.category ?? "")) return false;
+      if (activeSeasons.size > 0 && !activeSeasons.has(f.season ?? "")) return false;
+      return true;
+    });
+  }, [foods, showFreezeDryOnly, activeCategories, activeSeasons]);
 
   return (
     <div className="space-y-6">
