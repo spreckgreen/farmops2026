@@ -210,6 +210,20 @@ function PriceHistoryPage() {
           <Button
             variant="outline"
             size="sm"
+            onClick={() => seedM.mutate()}
+            disabled={seedM.isPending}
+            title="Add livestock-derived items (meat, eggs, dairy, fiber) to the catalog"
+          >
+            {seedM.isPending ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Beef className="h-4 w-4 mr-2" />
+            )}
+            Seed livestock items
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => refreshM.mutate()}
             disabled={refreshM.isPending || foods.length === 0}
             title="Refresh prices from Southern Ohio regional reference"
