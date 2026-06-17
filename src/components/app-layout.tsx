@@ -30,6 +30,9 @@ export function AppLayout({ children }: { children: ReactNode }) {
               Bostead Farms
             </Link>
             <nav className="flex items-center gap-1 text-sm">
+              <Link to="/food" className={navItem} activeProps={navActive}>
+                Food
+              </Link>
               <Link to="/tasks/backlog" className={navItem} activeProps={navActive}>
                 Backlog
               </Link>
@@ -58,9 +61,6 @@ export function AppLayout({ children }: { children: ReactNode }) {
               </Link>
               <Link to="/inventory" className={navItem} activeProps={navActive}>
                 Inventory
-              </Link>
-              <Link to="/food" className={navItem} activeProps={navActive}>
-                Food
               </Link>
               <Link to="/sync" className={navItem} activeProps={navActive}>
                 Sync
