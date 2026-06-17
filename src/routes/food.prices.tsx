@@ -33,6 +33,7 @@ type Entry = {
   id: string;
   food_id: string | null;
   food_name: string;
+  category: string | null;
   old_price: number | null;
   new_price: number | null;
   changed_at: string;
@@ -145,18 +146,26 @@ function PriceHistoryPage() {
       groups.set(e.food_name, arr);
     });
     return Array.from(groups.entries())
-      .map(([name, items]) => ({
-        name,
-        items: items.sort((a, b) => b.changed_at.localeCompare(a.changed_at)),
-        latest: items[0],
-      }))
+      .map(([name, items]) => {
+        const sorted = items.sort((a, b) => b.changed_at.localeCompare(a.changed_at));
+        return {
+          name,
+          items: sorted,
+          latest: sorted[0],
+          category: sorted.find((e) => e.category)?.category ?? null,
+        };
+      })
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [entries]);
 
   const filtered = useMemo(() => {
     const q = filter.trim().toLowerCase();
     if (!q) return byFood;
-    return byFood.filter((g) => g.name.toLowerCase().includes(q));
+    return byFood.filter(
+      (g) =>
+        g.name.toLowerCase().includes(q) ||
+        (g.category ?? "").toLowerCase().includes(q),
+    );
   }, [byFood, filter]);
 
   const detail = selected ? byFood.find((g) => g.name === selected) : null;
@@ -175,13 +184,13 @@ function PriceHistoryPage() {
       const s = v === null || v === undefined ? "" : String(v);
       return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
     };
-    const header = ["food_name", "changed_at", "old_price_per_lb", "new_price_per_lb", "delta"];
+    const header = ["food_name", "category", "changed_at", "old_price_per_lb", "new_price_per_lb", "delta"];
     const body = rows.map((e) => {
       const delta =
         e.old_price !== null && e.new_price !== null
           ? (e.new_price - e.old_price).toFixed(4)
           : "";
-      return [e.food_name, e.changed_at, e.old_price ?? "", e.new_price ?? "", delta]
+      return [e.food_name, e.category ?? "", e.changed_at, e.old_price ?? "", e.new_price ?? "", delta]
         .map(esc)
         .join(",");
     });
@@ -327,6 +336,7 @@ function PriceHistoryPage() {
               <thead className="bg-muted/30 text-xs text-muted-foreground">
                 <tr>
                   <th className="text-left p-2">Food</th>
+                  <th className="text-left p-2">Category</th>
                   <th className="text-right p-2">Current</th>
                   <th className="text-right p-2">Δ</th>
                   <th className="text-right p-2">Last change</th>
@@ -347,6 +357,9 @@ function PriceHistoryPage() {
                       className={`border-t border-border cursor-pointer hover:bg-muted/30 ${isSel ? "bg-muted/40" : ""}`}
                     >
                       <td className="p-2">{g.name}</td>
+                      <td className="p-2 text-xs text-muted-foreground">
+                        {g.category ?? <span className="italic opacity-60">—</span>}
+                      </td>
                       <td className="p-2 text-right">{fmt(e.new_price)}</td>
                       <td className="p-2 text-right">
                         {diff === null ? (
@@ -384,6 +397,9 @@ function PriceHistoryPage() {
                   <div>
                     <div className="text-xs text-muted-foreground font-mono">PRICE HISTORY</div>
                     <div className="text-lg font-mono font-semibold">{detail.name}</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">
+                      Category: <span className="font-mono">{detail.category ?? "—"}</span>
+                    </div>
                   </div>
                   <Button size="sm" variant="outline" onClick={() => openAdd(detail.name)}>
                     <Plus className="h-4 w-4 mr-1" /> New entry
