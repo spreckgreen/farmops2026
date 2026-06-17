@@ -1,0 +1,1 @@
+UPDATE public.garden_plots SET plant_name = 'Peppers' WHERE plant_name = 'Pepper';
