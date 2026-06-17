@@ -883,6 +883,7 @@ export const upsertOrchardTree = createServerFn({ method: "POST" })
       location: emptyToNull(data.location ?? null),
       planted_on: emptyToNull(data.planted_on ?? null),
       status: data.status ?? "healthy",
+      category: data.category ?? null,
       notes: emptyToNull(data.notes ?? null),
     };
     if (data.id) {
