@@ -1173,6 +1173,7 @@ export const bulkInsertOrchardTrees = createServerFn({ method: "POST" })
       location: emptyToNull(t.location ?? null),
       planted_on: emptyToNull(t.planted_on ?? null),
       status: t.status ?? "healthy",
+      category: t.category ?? null,
       notes: emptyToNull(t.notes ?? null),
     }));
     const { error } = await context.supabase.from("orchard_trees").insert(rows);
