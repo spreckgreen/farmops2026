@@ -864,7 +864,15 @@ const CROPS_KEYWORDS = [
   "lentil", "chickpea", "garbanzo", "kidney bean", "pinto bean", "black bean",
   "soy", "tofu", "tempeh", "sugar", "honey", "molasses", "syrup", "oil",
 ];
-const GARDEN_KEYWORDS = Object.keys(YIELD_PER_PLANT_LBS);
+const GARDEN_KEYWORDS = [
+  "tomato", "pepper", "cucumber", "cabbage", "squash", "zucchini",
+  "melon", "watermelon", "cantaloupe", "bean", "pea", "spinach",
+  "basil", "herb", "beet", "radish", "carrot", "onion", "garlic",
+  "potato", "lettuce", "kale", "broccoli", "cauliflower", "corn",
+  "asparagus", "celery", "chard", "arugula", "eggplant", "okra",
+  "leek", "scallion", "parsley", "cilantro", "dill", "mint", "thyme",
+  "rosemary", "sage", "oregano", "chive",
+];
 
 function classifyFood(name: string): "livestock" | "orchard" | "crops" | "garden" | null {
   const n = (name ?? "").trim().toLowerCase();
