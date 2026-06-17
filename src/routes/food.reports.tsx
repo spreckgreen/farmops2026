@@ -1,17 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Download, Eye, FileText, RefreshCw } from "lucide-react";
+import { Download, Printer, RefreshCw } from "lucide-react";
 import { getFoodReports } from "@/lib/food-reports.functions";
 import { downloadCsv } from "@/lib/csv";
 import { reportCsv, reportMarkdownFile, type FoodReport } from "@/lib/food-reports";
-import {
-  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
-} from "@/components/ui/dialog";
+import { ReportView } from "@/components/report-view";
 
 export const Route = createFileRoute("/food/reports")({
   head: () => ({ meta: [{ title: "Food Reports — Bostead Farms" }] }),
@@ -35,7 +34,6 @@ async function syncReportToObsidian(report: FoodReport): Promise<"ok" | "unsuppo
   if (typeof window === "undefined" || !w.showDirectoryPicker) return "unsupported";
   try {
     const root = await w.showDirectoryPicker();
-    // Ensure VAULT_ROOT exists; create if missing.
     let vault: FileSystemDirectoryHandle;
     try {
       vault = await root.getDirectoryHandle("BosteadFarms", { create: false });
@@ -62,20 +60,21 @@ async function syncReportToObsidian(report: FoodReport): Promise<"ok" | "unsuppo
 
 function FoodReportsPage() {
   const reportsFn = useServerFn(getFoodReports);
-  const [rowLengthFt] = useState(30);
   const reportsQ = useQuery({
-    queryKey: ["food-reports", rowLengthFt],
+    queryKey: ["food-reports"],
     queryFn: () => reportsFn(),
   });
   const reports = reportsQ.data?.reports ?? [];
+  const [active, setActive] = useState<string | null>(null);
+  const current = reports.find((r) => r.slug === active) ?? reports[0];
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-start justify-between flex-wrap gap-3">
+    <div className="space-y-4">
+      <div className="flex items-start justify-between flex-wrap gap-3 no-print">
         <div>
           <h2 className="text-xl font-mono font-semibold">Food Reports</h2>
           <p className="text-sm text-muted-foreground mt-1">
-            Pre-built reports derived from your food plan, storage, harvests, and garden. Each one can be previewed, downloaded as markdown or CSV, or synced into your Obsidian vault.
+            Pre-built reports derived from your food plan, storage, harvests, and garden. Preview, print, download, or sync to your Obsidian vault.
           </p>
         </div>
         <Button
@@ -93,82 +92,67 @@ function FoodReportsPage() {
         <p className="text-sm text-muted-foreground">Loading reports…</p>
       ) : reportsQ.isError ? (
         <p className="text-sm text-destructive">Failed to load reports.</p>
+      ) : reports.length === 0 ? (
+        <p className="text-sm text-muted-foreground">No reports available.</p>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2">
+        <Tabs
+          value={current?.slug}
+          onValueChange={setActive}
+          className="space-y-4"
+        >
+          <TabsList className="no-print flex flex-wrap h-auto">
+            {reports.map((r) => (
+              <TabsTrigger key={r.slug} value={r.slug} className="text-xs">
+                {r.title}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+
           {reports.map((r) => (
-            <ReportCard key={r.slug} report={r} />
+            <TabsContent key={r.slug} value={r.slug} className="mt-0">
+              <div className="flex flex-wrap gap-2 mb-3 no-print">
+                <Button size="sm" variant="outline" onClick={() => window.print()}>
+                  <Printer className="h-4 w-4 mr-1" /> Print
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => downloadText(`${r.slug}.md`, reportMarkdownFile(r))}
+                >
+                  <Download className="h-4 w-4 mr-1" /> Markdown
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => downloadCsv(`${r.slug}.csv`, reportCsv(r))}
+                >
+                  <Download className="h-4 w-4 mr-1" /> CSV
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={async () => {
+                    const result = await syncReportToObsidian(r);
+                    if (result === "ok") toast.success(`Wrote ${r.obsidianPath} to vault`);
+                    else if (result === "unsupported")
+                      toast.error("Your browser doesn't support folder picking. Use Download instead.");
+                    else if (result === "error") toast.error("Failed to write to vault");
+                  }}
+                >
+                  Sync to Obsidian
+                </Button>
+                <span className="text-[10px] text-muted-foreground font-mono self-center ml-auto">
+                  Vault: BosteadFarms/{r.obsidianPath}
+                </span>
+              </div>
+
+              <Card className="report-print-root p-6 sm:p-10 bg-card print:bg-white print:shadow-none print:border-0 print:p-0">
+                <ReportView markdown={r.markdown} />
+              </Card>
+            </TabsContent>
           ))}
-        </div>
+        </Tabs>
       )}
     </div>
-  );
-}
-
-function ReportCard({ report }: { report: FoodReport }) {
-  const [open, setOpen] = useState(false);
-  const previewLines = useMemo(() => report.markdown.split("\n").slice(0, 30).join("\n"), [report.markdown]);
-
-  const baseName = report.slug;
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="font-mono text-base flex items-center gap-2">
-          <FileText className="h-4 w-4 text-muted-foreground" />
-          {report.title}
-        </CardTitle>
-        <p className="text-xs text-muted-foreground">{report.description}</p>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <pre className="text-xs bg-muted rounded p-3 overflow-hidden max-h-40 font-mono">
-{previewLines}
-        </pre>
-        <div className="flex flex-wrap gap-2">
-          <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
-            <Eye className="h-4 w-4 mr-1" /> Preview
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => downloadText(`${baseName}.md`, reportMarkdownFile(report))}
-          >
-            <Download className="h-4 w-4 mr-1" /> Markdown
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => downloadCsv(`${baseName}.csv`, reportCsv(report))}
-          >
-            <Download className="h-4 w-4 mr-1" /> CSV
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={async () => {
-              const result = await syncReportToObsidian(report);
-              if (result === "ok") toast.success(`Wrote ${report.obsidianPath} to vault`);
-              else if (result === "unsupported")
-                toast.error("Your browser doesn't support folder picking. Use Download instead.");
-              else if (result === "error") toast.error("Failed to write to vault");
-            }}
-          >
-            Sync to Obsidian
-          </Button>
-        </div>
-        <p className="text-[10px] text-muted-foreground font-mono">
-          Vault path: BosteadFarms/{report.obsidianPath}
-        </p>
-      </CardContent>
-
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{report.title}</DialogTitle>
-            <DialogDescription>{report.description}</DialogDescription>
-          </DialogHeader>
-          <pre className="text-xs whitespace-pre-wrap font-mono">{report.markdown}</pre>
-        </DialogContent>
-      </Dialog>
-    </Card>
   );
 }
