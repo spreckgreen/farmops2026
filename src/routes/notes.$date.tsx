@@ -387,11 +387,21 @@ function NotePage() {
               <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
                 Preview
               </h2>
-              <span className="text-[10px] font-mono text-muted-foreground">
-                live · click task titles to open
-              </span>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setCompactPreview((v) => !v)}
+                  className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
+                  title={compactPreview ? "Show full metadata (projects, @start, @progress)" : "Hide secondary metadata, keep task titles"}
+                >
+                  {compactPreview ? "compact ·on" : "compact ·off"}
+                </button>
+                <span className="text-[10px] font-mono text-muted-foreground">
+                  live · click task titles to open
+                </span>
+              </div>
             </div>
-            <DailyNotePreview markdown={draft} tasks={tasks} />
+            <DailyNotePreview markdown={draft} tasks={tasks} compact={compactPreview} />
           </section>
         )}
 
