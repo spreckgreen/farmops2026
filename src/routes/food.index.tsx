@@ -204,10 +204,26 @@ function FoodOverviewPage() {
             </button>
           </p>
         )}
-        <div className="space-y-3">
-          {visibleCats.map((cat) => (
-            <CategoryBlock key={cat.category} cat={cat} />
-          ))}
+        <div className="overflow-x-auto border border-border rounded-md bg-card">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/50 text-xs font-mono uppercase tracking-wider text-muted-foreground">
+              <tr>
+                <th className="p-2 text-left">Category</th>
+                <th className="p-2 text-right">Foods</th>
+                <th className="p-2 text-right">Annual need</th>
+                <th className="p-2 text-right">Planted estimate</th>
+                <th className="p-2 text-right">Harvested</th>
+                <th className="p-2 text-right">Pantry</th>
+                <th className="p-2 text-right">Net gap</th>
+                <th className="p-2 text-left">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {visibleCats.map((cat) => (
+                <CategoryBlock key={cat.category} cat={cat} />
+              ))}
+            </tbody>
+          </table>
         </div>
       </section>
 
@@ -235,97 +251,99 @@ function ProgressBar({ progress }: { progress: number }) {
 function CategoryBlock({ cat }: { cat: Category }) {
   const [open, setOpen] = useState(false);
   const pct = cat.expected_pounds > 0 ? Math.round(cat.progress * 100) : 0;
+  const pantryCovered = cat.actual_gap_pounds > 0 && cat.mitigated_gap_pounds <= 0;
   return (
-    <div className="border border-border rounded-md bg-card">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-accent rounded-t-md"
-      >
-        {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-baseline justify-between gap-3">
-            <span className="font-medium truncate">{cat.category}</span>
-            <span className="text-xs font-mono text-muted-foreground shrink-0">
-              need {fmtLbs(cat.expected_pounds)} · est {fmtLbs(cat.estimated_pounds)} · harv {fmtLbs(cat.actual_pounds)} lbs
-              <KcalSpan name={cat.category} lbs={cat.expected_pounds} />
-              {cat.expected_pounds > 0 && <> · {pct}%</>}
-              {cat.planned_gap_pounds > 0 && (
-                <> · <span className="text-amber-500">plan gap {fmtLbs(cat.planned_gap_pounds)} lbs<KcalSpan name={cat.category} lbs={cat.planned_gap_pounds} /> / {fmtUsd(cat.planned_gap_value)}</span></>
-              )}
-              {cat.actual_gap_pounds > 0 && (
-                <> · <span className="text-destructive">actual gap {fmtLbs(cat.actual_gap_pounds)} lbs<KcalSpan name={cat.category} lbs={cat.actual_gap_pounds} /> / {fmtUsd(cat.actual_gap_value)}</span></>
-              )}
-              {cat.storage_pounds > 0 && (
-                <> · <span className="text-sky-500">storage {fmtLbs(cat.storage_pounds)} lbs<KcalSpan name={cat.category} lbs={cat.storage_pounds} /></span></>
-              )}
-              {cat.actual_gap_pounds > 0 && (
-                <> · <span className={cat.mitigated_gap_pounds > 0 ? "text-destructive" : "text-emerald-500"}>
-                  net gap {fmtLbs(cat.mitigated_gap_pounds)} lbs<KcalSpan name={cat.category} lbs={cat.mitigated_gap_pounds} /> / {fmtUsd(cat.mitigated_gap_value)}
-                </span></>
-              )}
-            </span>
-          </div>
-          <div className="mt-1.5">
-            <ProgressBar progress={cat.progress} />
-          </div>
-        </div>
-      </button>
+    <>
+      <tr className="hover:bg-accent/50">
+        <td className="p-2 align-top">
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            className="flex items-center gap-2 font-medium text-left hover:underline"
+          >
+            {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+            <span>{cat.category}</span>
+          </button>
+          <div className="mt-1"><ProgressBar progress={cat.progress} /></div>
+        </td>
+        <td className="p-2 text-right font-mono align-top">{cat.items.length}</td>
+        <td className="p-2 text-right font-mono align-top">{fmtLbs(cat.expected_pounds)} lbs</td>
+        <td className="p-2 text-right font-mono align-top">{fmtLbs(cat.estimated_pounds)} lbs</td>
+        <td className="p-2 text-right font-mono align-top">{fmtLbs(cat.actual_pounds)} lbs</td>
+        <td className="p-2 text-right font-mono align-top">{fmtLbs(cat.storage_pounds)} lbs</td>
+        <td className={`p-2 text-right font-mono align-top ${cat.mitigated_gap_pounds > 0 ? "text-destructive" : "text-emerald-500"}`}>
+          {fmtLbs(cat.mitigated_gap_pounds)} lbs
+        </td>
+        <td className="p-2 align-top text-xs text-muted-foreground">
+          {cat.mitigated_gap_pounds > 0
+            ? `${fmtUsd(cat.mitigated_gap_value)} short after harvest + pantry`
+            : pantryCovered
+              ? "Pantry covers current harvest gap"
+              : pct >= 100
+                ? "Harvest target met"
+                : `${pct}% harvested`}
+        </td>
+      </tr>
       {open && (
-        <ul className="divide-y divide-border border-t border-border">
-          {cat.items.map((item) => (
-            <FoodItemRow key={item.food_id} item={item} />
-          ))}
-        </ul>
+        <tr>
+          <td colSpan={8} className="p-0 bg-muted/20">
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead className="text-muted-foreground font-mono uppercase">
+                  <tr>
+                    <th className="p-2 text-left">Food</th>
+                    <th className="p-2 text-right">Need</th>
+                    <th className="p-2 text-right">Planted</th>
+                    <th className="p-2 text-right">Harvested</th>
+                    <th className="p-2 text-right">Pantry</th>
+                    <th className="p-2 text-right">Net gap</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {cat.items.map((item) => (
+                    <FoodItemRow key={item.food_id} item={item} />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </td>
+        </tr>
       )}
-    </div>
+    </>
   );
 }
 
 function FoodItemRow({ item }: { item: Category["items"][number] }) {
   const [open, setOpen] = useState(false);
   return (
-    <li>
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-accent text-sm"
-      >
-        {open ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-baseline justify-between gap-3">
-            <span className="truncate">
-              {item.name}{" "}
-              <span className="text-[10px] font-mono uppercase text-muted-foreground ml-1">
-                {item.source}
-              </span>
-            </span>
-            <span className="text-xs font-mono text-muted-foreground shrink-0">
-              need {fmtLbs(item.expected_pounds)} · est {fmtLbs(item.estimated_pounds)} · harv {fmtLbs(item.actual_pounds)} lbs
-              <KcalSpan name={item.name} lbs={item.expected_pounds} />
-              {item.planned_gap_pounds > 0 && (
-                <> · <span className="text-amber-500">plan gap {fmtLbs(item.planned_gap_pounds)} lbs<KcalSpan name={item.name} lbs={item.planned_gap_pounds} />{item.price_per_lb > 0 && <> / {fmtUsd(item.planned_gap_value)}</>}</span></>
-              )}
-              {item.actual_gap_pounds > 0 && (
-                <> · <span className="text-destructive">actual gap {fmtLbs(item.actual_gap_pounds)} lbs<KcalSpan name={item.name} lbs={item.actual_gap_pounds} />{item.price_per_lb > 0 && <> / {fmtUsd(item.actual_gap_value)}</>}</span></>
-              )}
-              {item.storage_pounds > 0 && (
-                <> · <span className="text-sky-500">storage {fmtLbs(item.storage_pounds)} lbs<KcalSpan name={item.name} lbs={item.storage_pounds} /></span></>
-              )}
-              {item.actual_gap_pounds > 0 && (
-                <> · <span className={item.mitigated_gap_pounds > 0 ? "text-destructive" : "text-emerald-500"}>
-                  net gap {fmtLbs(item.mitigated_gap_pounds)} lbs<KcalSpan name={item.name} lbs={item.mitigated_gap_pounds} />{item.price_per_lb > 0 && <> / {fmtUsd(item.mitigated_gap_value)}</>}
-                </span></>
-              )}
-            </span>
-          </div>
-          <div className="mt-1.5">
-            <ProgressBar progress={item.progress} />
-          </div>
-        </div>
-      </button>
+    <>
+      <tr className="hover:bg-accent/50">
+        <td className="p-2">
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            className="flex items-center gap-2 text-left hover:underline"
+          >
+            {open ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+            <span>{item.name}</span>
+            <span className="text-[10px] font-mono uppercase text-muted-foreground">{item.source}</span>
+          </button>
+        </td>
+        <td className="p-2 text-right font-mono">{fmtLbs(item.expected_pounds)} lbs</td>
+        <td className="p-2 text-right font-mono">{fmtLbs(item.estimated_pounds)} lbs</td>
+        <td className="p-2 text-right font-mono">{fmtLbs(item.actual_pounds)} lbs</td>
+        <td className="p-2 text-right font-mono">{fmtLbs(item.storage_pounds)} lbs</td>
+        <td className={`p-2 text-right font-mono ${item.mitigated_gap_pounds > 0 ? "text-destructive" : "text-emerald-500"}`}>
+          {fmtLbs(item.mitigated_gap_pounds)} lbs
+          {item.price_per_lb > 0 && item.mitigated_gap_pounds > 0 && (
+            <span className="block text-[10px] text-muted-foreground">{fmtUsd(item.mitigated_gap_value)}</span>
+          )}
+        </td>
+      </tr>
       {open && (
-        <div className="px-3 pb-3 pt-1 grid grid-cols-1 md:grid-cols-3 gap-4 bg-muted/30">
+        <tr>
+          <td colSpan={6} className="p-3 bg-muted/30">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-1">
               Planted units ({item.plantings.length})
@@ -397,9 +415,11 @@ function FoodItemRow({ item }: { item: Category["items"][number] }) {
               </ul>
             )}
           </div>
-        </div>
+            </div>
+          </td>
+        </tr>
       )}
-    </li>
+    </>
   );
 }
 
