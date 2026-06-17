@@ -17,6 +17,7 @@ import {
 } from "@/lib/food.functions";
 import { fmtUsd } from "@/lib/currency";
 import { kcalFromLbs, fmtKcal } from "@/lib/calories";
+import { FOOD_CATEGORIES, normalizeFoodCategory } from "@/lib/food-categories";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -175,6 +176,7 @@ function InventoryPanel() {
   const [q, setQ] = useState("");
   const [cat, setCat] = useState("all");
   const [type, setType] = useState("all");
+  const [loc, setLoc] = useState("all");
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(empty);
 
@@ -186,19 +188,39 @@ function InventoryPanel() {
     () => Array.from(new Set((items as Item[]).map((i) => i.food_type).filter(Boolean))) as string[],
     [items],
   );
+  const locations = useMemo(
+    () => Array.from(new Set((items as Item[]).map((i) => i.location).filter(Boolean))) as string[],
+    [items],
+  );
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
     return (items as Item[]).filter((i) => {
       if (cat !== "all" && i.category !== cat) return false;
       if (type !== "all" && i.food_type !== type) return false;
+      if (loc !== "all" && (i.location ?? "") !== loc) return false;
       if (needle) {
         const hay = `${i.name} ${i.description ?? ""} ${i.location ?? ""}`.toLowerCase();
         if (!hay.includes(needle)) return false;
       }
       return true;
     });
-  }, [items, q, cat, type]);
+  }, [items, q, cat, type, loc]);
+
+  const grouped = useMemo(() => {
+    const g = new Map<string, Item[]>();
+    for (const i of filtered) {
+      const k = normalizeFoodCategory(i.category ?? null);
+      const arr = g.get(k) ?? [];
+      arr.push(i);
+      g.set(k, arr);
+    }
+    return Array.from(g.entries()).sort(([a], [b]) => {
+      const ia = FOOD_CATEGORIES.indexOf(a as (typeof FOOD_CATEGORIES)[number]);
+      const ib = FOOD_CATEGORIES.indexOf(b as (typeof FOOD_CATEGORIES)[number]);
+      return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
+    });
+  }, [filtered]);
 
   const totalLbs = filtered.reduce(
     (s, i) => s + reconstitutedLbs(Number(i.quantity) || 0, i.unit, i.category),
@@ -388,6 +410,13 @@ function InventoryPanel() {
             {types.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
           </SelectContent>
         </Select>
+        <Select value={loc} onValueChange={setLoc}>
+          <SelectTrigger className="w-[160px]"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All locations</SelectItem>
+            {locations.map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}
+          </SelectContent>
+        </Select>
       </div>
 
       {isLoading ? (
@@ -413,50 +442,72 @@ function InventoryPanel() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((i) => (
-                <tr key={i.id} className="border-t border-border hover:bg-muted/20">
-                  <td className="px-3 py-2 font-mono">
-                    <div>{i.name}</div>
-                    {i.description && <div className="text-xs text-muted-foreground">{i.description}</div>}
-                  </td>
-                  <td className="px-3 py-2">
-                    {i.food_type && (
-                      <Badge variant="outline" className={TYPE_COLORS[i.food_type] ?? ""}>{i.food_type}</Badge>
-                    )}
-                  </td>
-                  <td className="px-3 py-2 text-muted-foreground">{i.location}</td>
-                  <td className="px-3 py-2 text-right font-mono">
-                    {(() => {
-                      const qty = Number(i.quantity) || 0;
-                      const fd = isFreezeDried(i.category) && (i.unit ?? "lb") === "lb";
-                      const recon = reconstitutedLbs(qty, i.unit, i.category);
-                      return (
-                        <>
-                          <div>{qty.toFixed(2)} {i.unit}{fd ? " stored" : ""}</div>
-                          {fd && (
-                            <div className="text-xs text-muted-foreground">
-                              ≈ {recon.toFixed(2)} lb reconstituted
-                            </div>
+              {grouped.map(([catName, groupItems]) => {
+                const groupLbs = groupItems.reduce(
+                  (s, i) => s + reconstitutedLbs(Number(i.quantity) || 0, i.unit, i.category),
+                  0,
+                );
+                const groupKcal = groupItems.reduce(
+                  (s, i) => s + kcalFromLbs(i.name, reconstitutedLbs(Number(i.quantity) || 0, i.unit, i.category)),
+                  0,
+                );
+                return (
+                  <FragmentGroup key={`cat-${catName}`}>
+                    <tr className="bg-muted/20 border-t border-border">
+                      <td colSpan={8} className="px-3 py-1 text-[10px] uppercase tracking-wider text-muted-foreground">
+                        <span className="font-semibold">{catName}</span>
+                        <span className="ml-2 normal-case tracking-normal">
+                          · {groupItems.length} items · {groupLbs.toFixed(2)} lb · {fmtKcal(groupKcal)}
+                        </span>
+                      </td>
+                    </tr>
+                    {groupItems.map((i) => (
+                      <tr key={i.id} className="border-t border-border hover:bg-muted/20">
+                        <td className="px-3 py-2 font-mono">
+                          <div>{i.name}</div>
+                          {i.description && <div className="text-xs text-muted-foreground">{i.description}</div>}
+                        </td>
+                        <td className="px-3 py-2">
+                          {i.food_type && (
+                            <Badge variant="outline" className={TYPE_COLORS[i.food_type] ?? ""}>{i.food_type}</Badge>
                           )}
-                        </>
-                      );
-                    })()}
-                  </td>
-                  <td className="px-3 py-2 text-right font-mono text-muted-foreground">
-                    {fmtKcal(kcalFromLbs(i.name, reconstitutedLbs(Number(i.quantity) || 0, i.unit, i.category)))}
-                  </td>
-                  <td className="px-3 py-2 text-muted-foreground">{i.acquired_on ?? ""}</td>
-                  <td className="px-3 py-2 text-muted-foreground">{i.best_by ?? ""}</td>
-                  <td className="px-3 py-2 text-right">
-                    <Button size="sm" variant="ghost" onClick={() => openEdit(i)}>
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button size="sm" variant="ghost" className="text-destructive" onClick={() => deleteM.mutate(i.id)}>
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </td>
-                </tr>
-              ))}
+                        </td>
+                        <td className="px-3 py-2 text-muted-foreground">{i.location}</td>
+                        <td className="px-3 py-2 text-right font-mono">
+                          {(() => {
+                            const qty = Number(i.quantity) || 0;
+                            const fd = isFreezeDried(i.category) && (i.unit ?? "lb") === "lb";
+                            const recon = reconstitutedLbs(qty, i.unit, i.category);
+                            return (
+                              <>
+                                <div>{qty.toFixed(2)} {i.unit}{fd ? " stored" : ""}</div>
+                                {fd && (
+                                  <div className="text-xs text-muted-foreground">
+                                    ≈ {recon.toFixed(2)} lb reconstituted
+                                  </div>
+                                )}
+                              </>
+                            );
+                          })()}
+                        </td>
+                        <td className="px-3 py-2 text-right font-mono text-muted-foreground">
+                          {fmtKcal(kcalFromLbs(i.name, reconstitutedLbs(Number(i.quantity) || 0, i.unit, i.category)))}
+                        </td>
+                        <td className="px-3 py-2 text-muted-foreground">{i.acquired_on ?? ""}</td>
+                        <td className="px-3 py-2 text-muted-foreground">{i.best_by ?? ""}</td>
+                        <td className="px-3 py-2 text-right">
+                          <Button size="sm" variant="ghost" onClick={() => openEdit(i)}>
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button size="sm" variant="ghost" className="text-destructive" onClick={() => deleteM.mutate(i.id)}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </FragmentGroup>
+                );
+              })}
             </tbody>
           </table>
         </div>
