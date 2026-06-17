@@ -14,6 +14,35 @@ import {
   autoClassifyFoodCategories,
   bulkUpdateFoodCategories,
 } from "@/lib/food.functions";
+import seasonsData from "@/data/plant-seasons.json";
+
+const SEASON_BUCKETS = ["All Year", "Spring", "Summer", "Fall", "Winter"] as const;
+const SEASON_COLORS: Record<string, string> = {
+  "All Year": "bg-muted text-muted-foreground border-border",
+  Spring: "bg-emerald-500/20 text-emerald-200 border-emerald-500/40",
+  Summer: "bg-amber-500/20 text-amber-200 border-amber-500/40",
+  Fall: "bg-orange-500/20 text-orange-200 border-orange-500/40",
+  Winter: "bg-sky-500/20 text-sky-200 border-sky-500/40",
+};
+function normalizeSeasonKey(s: string): string {
+  return s.toLowerCase().replace(/\(.*?\)/g, "").replace(/[^a-z0-9]+/g, " ").trim();
+}
+function matchSeasonBucket(season: string, bucket: string): boolean {
+  const s = season.toLowerCase();
+  if (bucket === "All Year") return s.includes("all year");
+  return s.includes(bucket.toLowerCase());
+}
+const SEASON_BY_NAME: Map<string, { season: string; notes: string }> = (() => {
+  const m = new Map<string, { season: string; notes: string }>();
+  for (const r of seasonsData as Array<{ name: string; season: string; notes: string }>) {
+    const k = normalizeSeasonKey(r.name);
+    if (k && !m.has(k)) m.set(k, { season: r.season, notes: r.notes });
+  }
+  return m;
+})();
+function lookupSeason(name: string): { season: string; notes: string } | null {
+  return SEASON_BY_NAME.get(normalizeSeasonKey(name)) ?? null;
+}
 import { fmtUsd, fmtUsdSigned } from "@/lib/currency";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
