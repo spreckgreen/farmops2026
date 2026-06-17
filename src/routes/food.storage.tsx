@@ -200,7 +200,15 @@ function InventoryPanel() {
     });
   }, [items, q, cat, type]);
 
-  const totalLbs = filtered.reduce((s, i) => s + (i.unit === "lb" ? Number(i.quantity) || 0 : 0), 0);
+  const totalLbs = filtered.reduce(
+    (s, i) => s + reconstitutedLbs(Number(i.quantity) || 0, i.unit, i.category),
+    0,
+  );
+  const totalKcal = filtered.reduce(
+    (s, i) => s + kcalFromLbs(i.name, reconstitutedLbs(Number(i.quantity) || 0, i.unit, i.category)),
+    0,
+  );
+  const freezeDriedCount = filtered.filter((i) => isFreezeDried(i.category)).length;
 
   const upsertM = useMutation({
     mutationFn: (v: typeof empty) =>
