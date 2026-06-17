@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { requireAuthenticatedUser } from "@/lib/auth-route";
 import { toast } from "sonner";
+import { todayDateString } from "@/lib/slug";
 
 export const Route = createFileRoute("/tasks/backlog")({
   ssr: false,
@@ -35,15 +36,16 @@ function BacklogPage() {
   const createFn = useServerFn(createBacklogTask);
   const qc = useQueryClient();
   const [newTitle, setNewTitle] = useState("");
+  const today = todayDateString();
 
   const { data, isLoading } = useQuery({
-    queryKey: ["tasks", "backlog"],
-    queryFn: () => listFn({ data: {} }),
+    queryKey: ["tasks", "backlog", today],
+    queryFn: () => listFn({ data: { date: today } }),
   });
 
   const maint = useQuery({
-    queryKey: ["tasks", "backlog", "maintenance-due"],
-    queryFn: () => listMaintFn({ data: {} }),
+    queryKey: ["tasks", "backlog", "maintenance-due", today],
+    queryFn: () => listMaintFn({ data: { date: today } }),
   });
 
   const reorder = useQuery({
@@ -60,7 +62,7 @@ function BacklogPage() {
 
 
   const mutation = useMutation({
-    mutationFn: (taskId: string) => addFn({ data: { taskId } }),
+    mutationFn: (taskId: string) => addFn({ data: { taskId, date: today } }),
     onSuccess: () => {
       toast.success("Added to today");
       invalidateAll();
@@ -71,7 +73,7 @@ function BacklogPage() {
   });
 
   const maintMutation = useMutation({
-    mutationFn: (maintenanceId: string) => addMaintFn({ data: { maintenanceId } }),
+    mutationFn: (maintenanceId: string) => addMaintFn({ data: { maintenanceId, date: today } }),
     onSuccess: () => {
       toast.success("Maintenance added to today");
       invalidateAll();
@@ -83,7 +85,7 @@ function BacklogPage() {
 
   const reorderMutation = useMutation({
     mutationFn: (vars: { kind: "inventory" | "consumable"; itemId: string }) =>
-      addReorderFn({ data: vars }),
+      addReorderFn({ data: { ...vars, date: today } }),
     onSuccess: () => {
       toast.success("Re-order added to today");
       invalidateAll();
