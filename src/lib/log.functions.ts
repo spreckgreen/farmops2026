@@ -1317,11 +1317,16 @@ export const createBacklogTask = createServerFn({ method: "POST" })
 export const addTaskToToday = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
-    z.object({ taskId: z.string().uuid() }).parse(d),
+    z
+      .object({
+        taskId: z.string().uuid(),
+        date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+      })
+      .parse(d),
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    const date = new Date().toLocaleDateString("en-CA", { timeZone: "UTC" });
+    const date = data.date ?? new Date().toLocaleDateString("en-CA", { timeZone: "UTC" });
 
     const { data: task, error: taskErr } = await supabase
       .from("tasks")
@@ -1451,7 +1456,12 @@ export const listDueMaintenance = createServerFn({ method: "POST" })
 export const addMaintenanceToToday = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
-    z.object({ maintenanceId: z.string().uuid() }).parse(d),
+    z
+      .object({
+        maintenanceId: z.string().uuid(),
+        date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+      })
+      .parse(d),
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
@@ -1496,7 +1506,7 @@ export const addMaintenanceToToday = createServerFn({ method: "POST" })
 
 
     // Reuse the same today-attach flow.
-    const date = new Date().toLocaleDateString("en-CA", { timeZone: "UTC" });
+    const date = data.date ?? new Date().toLocaleDateString("en-CA", { timeZone: "UTC" });
     let { data: note } = await supabase
       .from("daily_notes")
       .select("id, markdown_content")
@@ -1622,6 +1632,7 @@ export const addReorderToToday = createServerFn({ method: "POST" })
       .object({
         kind: z.enum(["inventory", "consumable"]),
         itemId: z.string().uuid(),
+        date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
       })
       .parse(d),
   )
@@ -1678,7 +1689,7 @@ export const addReorderToToday = createServerFn({ method: "POST" })
     if (!task) throw new Error("Failed to resolve reorder task");
 
 
-    const date = new Date().toLocaleDateString("en-CA", { timeZone: "UTC" });
+    const date = data.date ?? new Date().toLocaleDateString("en-CA", { timeZone: "UTC" });
     let { data: note } = await supabase
       .from("daily_notes")
       .select("id, markdown_content")
