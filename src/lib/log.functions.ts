@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import { slugify } from "./slug";
+import { appendTaskRefLine } from "./daily-note-append";
 
 type ActivityLogEntry = { id?: string; raw_content: string; created_at: string };
 
