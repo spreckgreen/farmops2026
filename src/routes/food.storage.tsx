@@ -341,7 +341,8 @@ function InventoryPanel() {
             <Package className="h-4 w-4" /> Food storage
           </h2>
           <p className="text-sm text-muted-foreground">
-            {filtered.length} items · {totalLbs.toFixed(2)} lb total
+            {filtered.length} items · {totalLbs.toFixed(2)} lb reconstituted · {fmtKcal(totalKcal)}
+            {freezeDriedCount > 0 ? ` · ${freezeDriedCount} freeze-dried (×${RECONSTITUTION_FACTOR})` : ""}
           </p>
         </div>
         <div className="flex items-center gap-2">
