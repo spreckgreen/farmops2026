@@ -1191,6 +1191,78 @@ const GARDEN_KEYWORDS = [
   "rosemary", "sage", "oregano", "chive",
 ];
 
+// Map a food name to a display category label used by the dashboard / plan UI.
+function inferCategoryLabel(name: string): string | null {
+  const n = (name ?? "").trim().toLowerCase();
+  if (!n) return null;
+  const hit = (list: string[]) => list.some((k) => n.includes(k));
+  // Livestock-derived: split into protein / eggs / dairy / fiber
+  if (hit(["wool", "mohair", "alpaca", "cashmere", "angora", "fiber", "fleece"]))
+    return "Fiber";
+  if (hit(["egg", "eggs"])) return "Eggs";
+  if (hit(["milk", "cream", "butter", "cheese", "yogurt", "whey", "ghee"]))
+    return "Dairy";
+  if (
+    hit([
+      "beef", "steak", "ground beef", "ribs", "brisket", "veal",
+      "pork", "ham", "bacon", "sausage", "pepperoni", "salami", "hot dog",
+      "chicken", "poultry", "turkey", "duck", "goose",
+      "lamb", "mutton", "goat", "rabbit", "venison",
+      "fish", "salmon", "tuna", "tilapia", "cod", "trout", "shrimp", "crab", "lobster",
+      "jerky", "meat",
+    ])
+  )
+    return "Animal protein";
+  if (hit(ORCHARD_KEYWORDS)) return "Orchard (fruit/nut)";
+  if (hit(GARDEN_KEYWORDS)) return "Vegetables";
+  if (hit(CROPS_KEYWORDS)) return "Field crops";
+  if (hit(["coffee", "tea", "juice", "wine", "beer", "soda", "drink"]))
+    return "Beverages";
+  return null;
+}
+
+export const autoClassifyFoodCategories = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({ overwriteExisting: z.boolean().optional() })
+      .parse(d ?? {}),
+  )
+  .handler(async ({ data, context }) => {
+    const overwrite = !!data.overwriteExisting;
+    const { data: foods, error } = await context.supabase
+      .from("food_plan_foods")
+      .select("id, name, category");
+    if (error) throw new Error(error.message);
+
+    let updated = 0;
+    let unchanged = 0;
+    for (const f of foods ?? []) {
+      const current = (f.category ?? "").trim();
+      const isEmpty = !current || current.toLowerCase() === "uncategorized";
+      const inferred = inferCategoryLabel(f.name);
+      if (!inferred) {
+        unchanged += 1;
+        continue;
+      }
+      if (!isEmpty && !overwrite) {
+        unchanged += 1;
+        continue;
+      }
+      if (current === inferred) {
+        unchanged += 1;
+        continue;
+      }
+      const { error: upErr } = await context.supabase
+        .from("food_plan_foods")
+        .update({ category: inferred })
+        .eq("id", f.id);
+      if (upErr) throw new Error(upErr.message);
+      updated += 1;
+    }
+    return { updated, unchanged };
+  });
+
 function classifyFood(name: string): "livestock" | "orchard" | "crops" | "garden" | null {
   const n = (name ?? "").trim().toLowerCase();
   if (!n) return null;
