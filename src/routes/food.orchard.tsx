@@ -148,6 +148,7 @@ function OrchardPage() {
       location: t.location ?? "",
       planted_on: t.planted_on ?? "",
       status: (STATUSES as readonly string[]).includes(t.status) ? (t.status as (typeof STATUSES)[number]) : "healthy",
+      category: (CATEGORIES as readonly string[]).includes(t.category ?? "") ? (t.category as Category) : "",
       notes: t.notes ?? "",
     });
     setOpen(true);
