@@ -54,14 +54,53 @@ function FoodOverviewPage() {
         <StatCard label="Recent harvests" value={data?.recent_harvests?.length ?? 0} to="/food/crops" />
       </div>
 
-      <section>
-        <div className="flex items-baseline justify-between mb-2">
+        <section>
+        <div className="flex items-baseline justify-between mb-2 gap-3 flex-wrap">
           <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
             Plan need vs. estimated yield
           </h2>
           <span className="text-xs text-muted-foreground">
             Annual plan · estimate from planted units · logged harvests
           </span>
+        </div>
+
+        <div className="flex items-center gap-2 mb-3 flex-wrap">
+          <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+            Category
+          </span>
+          <button
+            type="button"
+            onClick={() => setCategoryFilter("all")}
+            className={`text-xs px-2 py-1 rounded border transition-colors ${
+              categoryFilter === "all"
+                ? "bg-primary text-primary-foreground border-primary"
+                : "border-border hover:bg-accent"
+            }`}
+          >
+            All ({allCats.length})
+          </button>
+          {FOOD_CATEGORIES.map((c) => {
+            const has = availableCats.has(c);
+            const active = categoryFilter === c;
+            return (
+              <button
+                key={c}
+                type="button"
+                disabled={!has}
+                onClick={() => setCategoryFilter(c)}
+                className={`text-xs px-2 py-1 rounded border transition-colors ${
+                  active
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : has
+                      ? "border-border hover:bg-accent"
+                      : "border-border opacity-40 cursor-not-allowed"
+                }`}
+                title={has ? c : `${c} (no items)`}
+              >
+                {c}
+              </button>
+            );
+          })}
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-3">
@@ -73,14 +112,22 @@ function FoodOverviewPage() {
         </div>
 
         {yq.isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
-        {!yq.isLoading && (yq.data?.categories.length ?? 0) === 0 && (
+        {!yq.isLoading && allCats.length === 0 && (
           <p className="text-sm text-muted-foreground">
             No plan data yet — add foods and weekly quantities under{" "}
             <Link to="/food/plan" className="underline">Food Plan</Link>.
           </p>
         )}
+        {!yq.isLoading && allCats.length > 0 && visibleCats.length === 0 && (
+          <p className="text-sm text-muted-foreground">
+            No items in <span className="font-mono">{categoryFilter}</span>.{" "}
+            <button type="button" onClick={() => setCategoryFilter("all")} className="underline">
+              Clear filter
+            </button>
+          </p>
+        )}
         <div className="space-y-3">
-          {(yq.data?.categories ?? []).map((cat) => (
+          {visibleCats.map((cat) => (
             <CategoryBlock key={cat.category} cat={cat} />
           ))}
         </div>
