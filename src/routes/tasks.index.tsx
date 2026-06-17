@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { AppLayout } from "@/components/app-layout";
 import { requireAuthenticatedUser } from "@/lib/auth-route";
 import { todayDateString } from "@/lib/slug";
+import { useShowTaskSlugs } from "@/hooks/use-show-task-slugs";
 
 export const Route = createFileRoute("/tasks/")({
   ssr: false,
