@@ -506,7 +506,19 @@ type PlanRow = {
   price_per_pound: number | string | null;
   notes: string | null;
   sort_order: number;
+  updated_at?: string | null;
 };
+
+type PlanField =
+  | "name"
+  | "category"
+  | "food_type"
+  | "pounds_per_year"
+  | "target_months"
+  | "price_per_pound"
+  | "notes"
+  | "sort_order";
+
 
 type StorageRow = {
   id: string;
