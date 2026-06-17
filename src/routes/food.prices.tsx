@@ -161,7 +161,11 @@ function PriceHistoryPage() {
   const filtered = useMemo(() => {
     const q = filter.trim().toLowerCase();
     if (!q) return byFood;
-    return byFood.filter((g) => g.name.toLowerCase().includes(q));
+    return byFood.filter(
+      (g) =>
+        g.name.toLowerCase().includes(q) ||
+        (g.category ?? "").toLowerCase().includes(q),
+    );
   }, [byFood, filter]);
 
   const detail = selected ? byFood.find((g) => g.name === selected) : null;
