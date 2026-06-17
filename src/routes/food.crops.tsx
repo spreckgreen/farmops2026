@@ -11,7 +11,9 @@ import {
   deleteCropPlanting,
   listCropPlantings,
   upsertCropPlanting,
+  getCropsDashboard,
 } from "@/lib/food.functions";
+import { YieldDashboard } from "@/components/yield-dashboard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -74,6 +76,12 @@ function CropsPage() {
   const delHarvestFn = useServerFn(deleteCropHarvest);
 
   const q = useQuery({ queryKey: ["food", "crops"], queryFn: () => listFn() });
+
+  const dashFn = useServerFn(getCropsDashboard);
+  const { data: dash } = useQuery({
+    queryKey: ["food", "crops-dashboard"],
+    queryFn: () => dashFn(),
+  });
 
   const [editing, setEditing] = useState<Partial<Planting> | null>(null);
   const [harvestFor, setHarvestFor] = useState<Planting | null>(null);

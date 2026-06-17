@@ -11,7 +11,9 @@ import {
   upsertOrchardTree,
   deleteOrchardTree,
   bulkInsertOrchardTrees,
+  getOrchardDashboard,
 } from "@/lib/food.functions";
+import { YieldDashboard } from "@/components/yield-dashboard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -77,6 +79,12 @@ function OrchardPage() {
   const { data: trees = [], isLoading } = useQuery({
     queryKey: ["orchard-trees"],
     queryFn: () => list(),
+  });
+
+  const dashFn = useServerFn(getOrchardDashboard);
+  const { data: dash } = useQuery({
+    queryKey: ["orchard-dashboard"],
+    queryFn: () => dashFn(),
   });
 
   const [open, setOpen] = useState(false);
@@ -255,6 +263,18 @@ function OrchardPage() {
           </Button>
         </div>
       </div>
+
+      <YieldDashboard
+        data={dash}
+        labels={{
+          unit: "tree",
+          unitPlural: "trees",
+          perUnitLabel: "lbs/tree",
+          needUnitsLabel: "Need trees",
+          totalUnitsCardLabel: "Total trees",
+          yieldPanelTitle: "Trees · estimated seasonal yield",
+        }}
+      />
 
       {isLoading ? (
         <div className="text-sm text-muted-foreground">Loading…</div>
