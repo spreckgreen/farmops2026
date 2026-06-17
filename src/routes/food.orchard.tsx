@@ -413,6 +413,21 @@ function OrchardPage() {
                 <Label>Planted on</Label>
                 <Input type="date" value={form.planted_on} onChange={(e) => setForm({ ...form, planted_on: e.target.value })} />
               </div>
+              <div>
+                <Label>Category</Label>
+                <Select
+                  value={form.category || "none"}
+                  onValueChange={(v) => setForm({ ...form, category: v === "none" ? "" : (v as Category) })}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">— Unset —</SelectItem>
+                    {CATEGORIES.map((c) => (
+                      <SelectItem key={c} value={c} className="capitalize">{c}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <div>
               <Label>Notes</Label>
