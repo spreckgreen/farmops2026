@@ -151,11 +151,15 @@ function ReportsPage() {
     )
     .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
 
-  const isStale = !latestForMode
+  const rawStale = !latestForMode
     ? true
     : latestDataChange
       ? new Date(latestDataChange).getTime() > baseline
       : false;
+  // If a prior regen for this mode returned "no activity" against the current
+  // data snapshot, the mode is as fresh as it can be — don't show "out of date".
+  const isStale =
+    rawStale && noDataAt[activeMode] !== (latestDataChange ?? null);
 
   // Auto-generate-on-tab-switch when stale. Guard against re-firing while a
   // generation is in flight and against re-running for the same mode after the
