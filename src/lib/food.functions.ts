@@ -524,13 +524,9 @@ export const getFoodYieldProgress = createServerFn({ method: "GET" })
       // harvested so far (are we tracking against the plan?).
       const plannedGapPounds = Math.max(0, expectedPounds - estimatedPounds);
       const actualGapPounds = Math.max(0, expectedPounds - actualPounds);
-      // Storage on hand for this food (word-boundary match, symmetric with
-      // plantings/harvests) offsets the actual gap.
-      let storagePounds = 0;
-      for (const [key, lbs] of storageByName) {
-        if (!nameMatches(f.name, key)) continue;
-        storagePounds += lbs;
-      }
+      // Pantry on hand for this food (assigned via best-match above, so each
+      // pantry item contributes to exactly one food) offsets the actual gap.
+      const storagePounds = storageByFood.get(f.id) ?? 0;
       const mitigatedGapPounds = Math.max(0, actualGapPounds - storagePounds);
 
       if (
