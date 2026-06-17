@@ -3,13 +3,14 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useMemo, useState } from "react";
 import { format } from "date-fns";
-import { ArrowDown, ArrowUp, Minus, History, Download, Plus, RefreshCw, Loader2, Globe } from "lucide-react";
+import { ArrowDown, ArrowUp, Minus, History, Download, Plus, RefreshCw, Loader2, Globe, Beef } from "lucide-react";
 import { toast } from "sonner";
 import {
   listPriceHistory,
   listFoodPlan,
   recordFoodPrice,
   refreshPricesSouthernOhio,
+  seedLivestockProducts,
 } from "@/lib/food.functions";
 import { fmtUsd, fmtUsdSigned } from "@/lib/currency";
 import { Input } from "@/components/ui/input";
@@ -50,6 +51,7 @@ function PriceHistoryPage() {
   const listPlan = useServerFn(listFoodPlan);
   const record = useServerFn(recordFoodPrice);
   const refresh = useServerFn(refreshPricesSouthernOhio);
+  const seedLivestock = useServerFn(seedLivestockProducts);
 
   const { data: entries = [], isLoading } = useQuery({
     queryKey: ["food-price-history"],
@@ -91,6 +93,19 @@ function PriceHistoryPage() {
       qc.invalidateQueries({ queryKey: ["food-price-history"] });
       qc.invalidateQueries({ queryKey: ["food-plan"] });
       toast.success(`Refreshed: ${r.updated} updated, ${r.unchanged} unchanged`);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const seedM = useMutation({
+    mutationFn: () => seedLivestock(),
+    onSuccess: (r) => {
+      qc.invalidateQueries({ queryKey: ["food-plan"] });
+      toast.success(
+        r.inserted
+          ? `Added ${r.inserted} livestock items (${r.skipped} already present). Run Refresh to price them.`
+          : "All livestock items already in catalog.",
+      );
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -191,6 +206,20 @@ function PriceHistoryPage() {
           <Button size="sm" onClick={() => openAdd(selected ?? undefined)}>
             <Plus className="h-4 w-4 mr-2" />
             Add price entry
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => seedM.mutate()}
+            disabled={seedM.isPending}
+            title="Add livestock-derived items (meat, eggs, dairy, fiber) to the catalog"
+          >
+            {seedM.isPending ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Beef className="h-4 w-4 mr-2" />
+            )}
+            Seed livestock items
           </Button>
           <Button
             variant="outline"

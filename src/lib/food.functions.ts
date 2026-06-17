@@ -889,7 +889,90 @@ export const recordFoodPrice = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-// Refresh prices from Southern Ohio regional reference pricing.
+// Seed (or top up) the food catalog with livestock-derived products so they
+// appear in the Pricing page and can be priced/refreshed: meats, eggs, dairy,
+// and fiber (wool/mohair/alpaca/cashmere/hair). Existing entries (matched
+// case-insensitively by name) are left alone.
+export const seedLivestockProducts = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    type Seed = { name: string; category: string; unit: string; oz_per_serving: number | null };
+    const SEEDS: Seed[] = [
+      // Meat
+      { name: "Chicken (whole)",     category: "livestock-meat", unit: "lb", oz_per_serving: 4 },
+      { name: "Chicken breast",      category: "livestock-meat", unit: "lb", oz_per_serving: 4 },
+      { name: "Turkey",              category: "livestock-meat", unit: "lb", oz_per_serving: 4 },
+      { name: "Duck",                category: "livestock-meat", unit: "lb", oz_per_serving: 4 },
+      { name: "Goose",               category: "livestock-meat", unit: "lb", oz_per_serving: 4 },
+      { name: "Rabbit",              category: "livestock-meat", unit: "lb", oz_per_serving: 4 },
+      { name: "Beef (ground)",       category: "livestock-meat", unit: "lb", oz_per_serving: 4 },
+      { name: "Beef (steak)",        category: "livestock-meat", unit: "lb", oz_per_serving: 6 },
+      { name: "Beef (roast)",        category: "livestock-meat", unit: "lb", oz_per_serving: 4 },
+      { name: "Pork (chops)",        category: "livestock-meat", unit: "lb", oz_per_serving: 4 },
+      { name: "Pork (ground)",       category: "livestock-meat", unit: "lb", oz_per_serving: 4 },
+      { name: "Bacon",               category: "livestock-meat", unit: "lb", oz_per_serving: 2 },
+      { name: "Ham",                 category: "livestock-meat", unit: "lb", oz_per_serving: 4 },
+      { name: "Sausage",             category: "livestock-meat", unit: "lb", oz_per_serving: 3 },
+      { name: "Lamb",                category: "livestock-meat", unit: "lb", oz_per_serving: 4 },
+      { name: "Mutton",              category: "livestock-meat", unit: "lb", oz_per_serving: 4 },
+      { name: "Goat",                category: "livestock-meat", unit: "lb", oz_per_serving: 4 },
+      { name: "Venison",             category: "livestock-meat", unit: "lb", oz_per_serving: 4 },
+      { name: "Bison",               category: "livestock-meat", unit: "lb", oz_per_serving: 4 },
+      // Eggs (priced per lb; ~1 dozen large eggs ≈ 1.5 lb)
+      { name: "Chicken eggs",        category: "livestock-eggs", unit: "dozen", oz_per_serving: 3.5 },
+      { name: "Duck eggs",           category: "livestock-eggs", unit: "dozen", oz_per_serving: 4.5 },
+      { name: "Quail eggs",          category: "livestock-eggs", unit: "dozen", oz_per_serving: 1.5 },
+      { name: "Goose eggs",          category: "livestock-eggs", unit: "each",  oz_per_serving: 5 },
+      // Dairy
+      { name: "Cow milk",            category: "livestock-dairy", unit: "gallon", oz_per_serving: 8 },
+      { name: "Goat milk",           category: "livestock-dairy", unit: "gallon", oz_per_serving: 8 },
+      { name: "Sheep milk",          category: "livestock-dairy", unit: "gallon", oz_per_serving: 8 },
+      { name: "Cream",               category: "livestock-dairy", unit: "pint",   oz_per_serving: 2 },
+      { name: "Butter",              category: "livestock-dairy", unit: "lb",     oz_per_serving: 1 },
+      { name: "Cheese (cheddar)",    category: "livestock-dairy", unit: "lb",     oz_per_serving: 1.5 },
+      { name: "Cheese (mozzarella)", category: "livestock-dairy", unit: "lb",     oz_per_serving: 1.5 },
+      { name: "Cheese (feta)",       category: "livestock-dairy", unit: "lb",     oz_per_serving: 1 },
+      { name: "Cheese (chevre)",     category: "livestock-dairy", unit: "lb",     oz_per_serving: 1 },
+      { name: "Yogurt",              category: "livestock-dairy", unit: "lb",     oz_per_serving: 6 },
+      { name: "Ghee",                category: "livestock-dairy", unit: "lb",     oz_per_serving: 0.5 },
+      { name: "Whey",                category: "livestock-dairy", unit: "lb",     oz_per_serving: 8 },
+      // Fiber (priced per lb of raw / clean fiber)
+      { name: "Wool (raw fleece)",   category: "livestock-fiber", unit: "lb", oz_per_serving: null },
+      { name: "Wool (clean)",        category: "livestock-fiber", unit: "lb", oz_per_serving: null },
+      { name: "Mohair",              category: "livestock-fiber", unit: "lb", oz_per_serving: null },
+      { name: "Cashmere",            category: "livestock-fiber", unit: "lb", oz_per_serving: null },
+      { name: "Alpaca fiber",        category: "livestock-fiber", unit: "lb", oz_per_serving: null },
+      { name: "Llama fiber",         category: "livestock-fiber", unit: "lb", oz_per_serving: null },
+      { name: "Angora (rabbit hair)",category: "livestock-fiber", unit: "lb", oz_per_serving: null },
+      { name: "Horsehair",           category: "livestock-fiber", unit: "lb", oz_per_serving: null },
+    ];
+
+    const { data: existing, error: exErr } = await context.supabase
+      .from("food_plan_foods")
+      .select("name");
+    if (exErr) throw new Error(exErr.message);
+    const have = new Set(((existing ?? []) as Array<{ name: string }>).map((r) => r.name.trim().toLowerCase()));
+
+    const rows = SEEDS
+      .filter((s) => !have.has(s.name.trim().toLowerCase()))
+      .map((s, i) => ({
+        user_id: context.userId,
+        name: s.name,
+        category: s.category,
+        unit: s.unit,
+        oz_per_serving: s.oz_per_serving,
+        freeze_dry: false,
+        price_per_pound: null,
+        sort_order: 1000 + i,
+      }));
+
+    if (rows.length === 0) return { inserted: 0, skipped: SEEDS.length };
+
+    const { error } = await context.supabase.from("food_plan_foods").insert(rows);
+    if (error) throw new Error(error.message);
+    return { inserted: rows.length, skipped: SEEDS.length - rows.length };
+  });
+
 // Uses Lovable AI gateway to estimate current retail $/lb based on the model's
 // knowledge of Southern Ohio (Cincinnati / Dayton / Columbus metro) grocery
 // and farmers' market pricing.
@@ -925,8 +1008,12 @@ Rules:
 - Use the exact food name string from the list, do not rename.
 - price_per_pound is a plain number (e.g. 3.49), no currency symbol.
 - Omit items you have no reasonable Southern Ohio reference for; do not guess wildly.
-- Eggs: report price per dozen converted to per pound (1 dozen large eggs ≈ 1.5 lb).
+- Eggs: report price per dozen converted to per pound (1 dozen large eggs ≈ 1.5 lb; duck ≈ 2.25 lb/dozen; quail ≈ 0.75 lb/dozen).
 - Milk: report per gallon converted to per pound (1 gallon ≈ 8.6 lb).
+- Cream: report per pint converted to per pound (1 pint ≈ 1 lb).
+- Cheese, butter, yogurt, ghee, whey: report per pound directly (retail block / tub).
+- Meat (chicken, turkey, duck, goose, rabbit, beef, pork, lamb, mutton, goat, venison, bison, ham, bacon, sausage): report retail per pound.
+- Fiber (wool raw fleece, wool clean, mohair, cashmere, alpaca, llama, angora rabbit, horsehair): report wholesale/farmgate USD per pound of fiber as priced at Midwest/Ohio fiber mills and fleece auctions.
 
 ITEMS:
 ${itemsBlock}`;
