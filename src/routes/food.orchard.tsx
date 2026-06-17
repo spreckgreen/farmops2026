@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, TreeDeciduous, Printer, Check, X } from "lucide-react";
+import { Plus, Pencil, Trash2, TreeDeciduous, Loader2, Printer, Check, X } from "lucide-react";
 import { openPrintWindow, escapeHtml } from "@/lib/print";
 import { CsvToolbar } from "@/components/csv-toolbar";
 import {
