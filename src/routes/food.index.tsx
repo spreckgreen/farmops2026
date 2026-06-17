@@ -361,15 +361,35 @@ function FoodItemRow({ item }: { item: Category["items"][number] }) {
   );
 }
 
-function SummaryStat({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
+function SummaryStat({
+  label,
+  sublabel,
+  value,
+  secondary,
+  accent,
+}: {
+  label: string;
+  sublabel?: string;
+  value: string;
+  secondary?: string;
+  accent?: boolean;
+}) {
   return (
     <div className="border border-border rounded-md p-3 bg-card">
       <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
         {label}
       </div>
+      {sublabel && (
+        <div className="text-[10px] font-mono text-muted-foreground/70 mt-0.5">
+          {sublabel}
+        </div>
+      )}
       <div className={`text-xl font-mono font-semibold mt-1 ${accent ? "text-destructive" : ""}`}>
         {value}
       </div>
+      {secondary && (
+        <div className="text-xs font-mono text-muted-foreground mt-0.5">{secondary}</div>
+      )}
     </div>
   );
 }
