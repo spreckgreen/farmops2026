@@ -193,13 +193,20 @@ function PriceHistoryPage() {
 
   const filtered = useMemo(() => {
     const q = filter.trim().toLowerCase();
-    if (!q) return byFood;
-    return byFood.filter(
-      (g) =>
+    return byFood.filter((g) => {
+      if (seasonFilter !== "all") {
+        if (seasonFilter === "__none__") {
+          if (g.season) return false;
+        } else if (!g.season || !matchSeasonBucket(g.season.season, seasonFilter)) return false;
+      }
+      if (!q) return true;
+      return (
         g.name.toLowerCase().includes(q) ||
-        (g.category ?? "").toLowerCase().includes(q),
-    );
-  }, [byFood, filter]);
+        (g.category ?? "").toLowerCase().includes(q) ||
+        (g.season?.season ?? "").toLowerCase().includes(q)
+      );
+    });
+  }, [byFood, filter, seasonFilter]);
 
   const detail = selected ? byFood.find((g) => g.name === selected) : null;
 
