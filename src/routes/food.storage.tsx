@@ -506,7 +506,19 @@ type PlanRow = {
   price_per_pound: number | string | null;
   notes: string | null;
   sort_order: number;
+  updated_at?: string | null;
 };
+
+type PlanField =
+  | "name"
+  | "category"
+  | "food_type"
+  | "pounds_per_year"
+  | "target_months"
+  | "price_per_pound"
+  | "notes"
+  | "sort_order";
+
 
 type StorageRow = {
   id: string;
@@ -600,9 +612,17 @@ function LongTermPlanPanel() {
     return Array.from(g.entries()).sort(([a], [b]) => a.localeCompare(b));
   }, [computed]);
 
+  const ALL_PLAN_FIELDS: PlanField[] = [
+    "name", "category", "food_type", "pounds_per_year",
+    "target_months", "price_per_pound", "notes", "sort_order",
+  ];
+
   const upsertM = useMutation({
-    mutationFn: (v: typeof emptyPlan) =>
-      upsert({
+    mutationFn: (v: typeof emptyPlan) => {
+      const current = v.id
+        ? (qc.getQueryData<PlanRow[]>(["food-storage-plan"]) ?? []).find((r) => r.id === v.id)
+        : undefined;
+      return upsert({
         data: {
           id: v.id,
           name: v.name,
@@ -613,19 +633,26 @@ function LongTermPlanPanel() {
           price_per_pound: v.price_per_pound === "" ? null : Number(v.price_per_pound),
           notes: v.notes,
           sort_order: v.sort_order ?? 0,
+          expected_updated_at: current?.updated_at ?? null,
+          changed_fields: ALL_PLAN_FIELDS,
         },
-      }),
-    onSuccess: () => {
+      });
+    },
+    onSuccess: (res) => {
       qc.invalidateQueries({ queryKey: ["food-storage-plan"] });
       setOpen(false);
       setForm(emptyPlan);
-      toast.success("Saved");
+      if (res.conflict) {
+        toast.warning("Saved — but the row had changed elsewhere. Your edits were merged on top.");
+      } else {
+        toast.success("Saved");
+      }
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
   const inlineUpsertM = useMutation({
-    mutationFn: (row: PlanRow) =>
+    mutationFn: ({ row, field }: { row: PlanRow; field: PlanField }) =>
       upsert({
         data: {
           id: row.id,
@@ -637,9 +664,11 @@ function LongTermPlanPanel() {
           price_per_pound: row.price_per_pound == null ? null : Number(row.price_per_pound),
           notes: row.notes,
           sort_order: row.sort_order,
+          expected_updated_at: row.updated_at ?? null,
+          changed_fields: [field],
         },
       }),
-    onMutate: async (row) => {
+    onMutate: async ({ row }) => {
       await qc.cancelQueries({ queryKey: ["food-storage-plan"] });
       const prev = qc.getQueryData<PlanRow[]>(["food-storage-plan"]);
       qc.setQueryData<PlanRow[]>(["food-storage-plan"], (old) =>
@@ -647,12 +676,25 @@ function LongTermPlanPanel() {
       );
       return { prev };
     },
-    onError: (e: Error, _row, ctx) => {
+    onSuccess: (res, { field }) => {
+      // Replace the row in cache with the authoritative server row (so updated_at
+      // advances and any concurrent server-side changes show through).
+      qc.setQueryData<PlanRow[]>(["food-storage-plan"], (old) =>
+        (old ?? []).map((r) => (r.id === res.row.id ? (res.row as PlanRow) : r)),
+      );
+      if (res.conflict) {
+        toast.warning(
+          `Merged change to ${field.replace(/_/g, " ")} — another edit landed first, so other fields were kept.`,
+        );
+      }
+    },
+    onError: (e: Error, _v, ctx) => {
       if (ctx?.prev) qc.setQueryData(["food-storage-plan"], ctx.prev);
       toast.error(e.message);
     },
     onSettled: () => qc.invalidateQueries({ queryKey: ["food-storage-plan"] }),
   });
+
 
 
   const deleteM = useMutation({
@@ -784,7 +826,7 @@ function LongTermPlanPanel() {
                         onBlur={(e) => {
                           const v = parseFloat(e.target.value || "0") || 0;
                           if (v === Number(c.row.pounds_per_year)) return;
-                          inlineUpsertM.mutate({ ...c.row, pounds_per_year: v });
+                          inlineUpsertM.mutate({ row: { ...c.row, pounds_per_year: v }, field: "pounds_per_year" });
                         }}
                       />
                     </td>
@@ -795,7 +837,7 @@ function LongTermPlanPanel() {
                         onBlur={(e) => {
                           const v = parseFloat(e.target.value || "0") || 0;
                           if (v === Number(c.row.target_months)) return;
-                          inlineUpsertM.mutate({ ...c.row, target_months: v });
+                          inlineUpsertM.mutate({ row: { ...c.row, target_months: v }, field: "target_months" });
                         }}
                       />
                     </td>
@@ -812,7 +854,7 @@ function LongTermPlanPanel() {
                           const t = e.target.value;
                           const v = t === "" ? null : parseFloat(t) || 0;
                           if (v === c.price) return;
-                          inlineUpsertM.mutate({ ...c.row, price_per_pound: v });
+                          inlineUpsertM.mutate({ row: { ...c.row, price_per_pound: v }, field: "price_per_pound" });
                         }}
                       />
                     </td>

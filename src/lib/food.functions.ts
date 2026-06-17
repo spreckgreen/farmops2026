@@ -2070,7 +2070,24 @@ const StoragePlanRowSchema = z.object({
   price_per_pound: z.union([z.number(), z.string()]).nullable().optional(),
   notes: z.string().max(5000).nullable().optional(),
   sort_order: z.number().int().optional(),
+  // Optimistic-concurrency token: the updated_at value the client last saw.
+  // When present on update, the row only writes if updated_at still matches.
+  expected_updated_at: z.string().nullable().optional(),
+  // Which fields the user actually changed in this edit. Used for server-side
+  // field-level merge when a conflict is detected.
+  changed_fields: z.array(z.string()).optional(),
 });
+
+const PLAN_MERGEABLE_FIELDS = [
+  "name",
+  "category",
+  "food_type",
+  "pounds_per_year",
+  "target_months",
+  "price_per_pound",
+  "notes",
+  "sort_order",
+] as const;
 
 export const listFoodStoragePlan = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -2088,7 +2105,8 @@ export const upsertFoodStoragePlanRow = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => StoragePlanRowSchema.parse(d))
   .handler(async ({ data, context }) => {
-    const row = {
+    const sb = context.supabase;
+    const fullRow = {
       user_id: context.userId,
       name: data.name.trim(),
       category: emptyToNull(data.category ?? null),
@@ -2102,17 +2120,48 @@ export const upsertFoodStoragePlanRow = createServerFn({ method: "POST" })
       notes: emptyToNull(data.notes ?? null),
       sort_order: data.sort_order ?? 0,
     };
-    if (data.id) {
-      const { data: out, error } = await context.supabase
-        .from("food_storage_plan").update(row).eq("id", data.id).select().single();
+
+    if (!data.id) {
+      const { data: out, error } = await sb
+        .from("food_storage_plan").insert(fullRow).select().single();
       if (error) throw new Error(error.message);
-      return out;
+      return { row: out, conflict: false as const };
     }
-    const { data: out, error } = await context.supabase
-      .from("food_storage_plan").insert(row).select().single();
+
+    // Fetch current server row for conflict check + field merge
+    const { data: current, error: curErr } = await sb
+      .from("food_storage_plan").select("*").eq("id", data.id).maybeSingle();
+    if (curErr) throw new Error(curErr.message);
+    if (!current) throw new Error("Plan row not found");
+
+    const expected = data.expected_updated_at ?? null;
+    const isConflict = expected != null && current.updated_at !== expected;
+
+    let toWrite: Record<string, unknown> = fullRow;
+    if (isConflict) {
+      // Field-level merge: keep server values, then re-apply only the fields
+      // this client changed. Falls back to writing all fields if changed_fields
+      // wasn't sent (old client).
+      const changed = new Set(data.changed_fields ?? PLAN_MERGEABLE_FIELDS);
+      toWrite = { user_id: context.userId };
+      for (const f of PLAN_MERGEABLE_FIELDS) {
+        toWrite[f] = changed.has(f)
+          ? (fullRow as Record<string, unknown>)[f]
+          : (current as Record<string, unknown>)[f];
+      }
+    }
+
+    const { data: out, error } = await sb
+      .from("food_storage_plan").update(toWrite as never).eq("id", data.id).select().single();
     if (error) throw new Error(error.message);
-    return out;
+    return {
+      row: out,
+      conflict: isConflict,
+      server: isConflict ? current : null,
+      merged_fields: isConflict ? Array.from(data.changed_fields ?? []) : [],
+    };
   });
+
 
 export const deleteFoodStoragePlanRow = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
