@@ -1293,7 +1293,7 @@ export const bulkUpdateFoodCategories = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     let updated = 0;
     for (const u of data.updates) {
-      const cat = u.category && u.category.trim() ? u.category.trim() : null;
+      const cat = normalizeFoodCategory(u.category ?? null);
       const { error } = await context.supabase
         .from("food_plan_foods")
         .update({ category: cat })
