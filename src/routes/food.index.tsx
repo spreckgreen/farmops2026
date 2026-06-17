@@ -28,6 +28,17 @@ function FoodOverviewPage() {
   const yq = useQuery({ queryKey: ["food", "yield-progress"], queryFn: () => yieldFn() });
   const data = q.data;
   const totals = yq.data?.totals;
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+
+  const allCats = yq.data?.categories ?? [];
+  const availableCats = useMemo(
+    () => new Set(allCats.map((c) => c.category)),
+    [allCats],
+  );
+  const visibleCats = useMemo(
+    () => (categoryFilter === "all" ? allCats : allCats.filter((c) => c.category === categoryFilter)),
+    [allCats, categoryFilter],
+  );
 
   return (
     <div className="space-y-6">
