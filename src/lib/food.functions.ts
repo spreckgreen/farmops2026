@@ -470,6 +470,9 @@ export const getFoodYieldProgress = createServerFn({ method: "GET" })
         const plannedGapValue = items.reduce((s, r) => s + r.planned_gap_value, 0);
         const actualGap = items.reduce((s, r) => s + r.actual_gap_pounds, 0);
         const actualGapValue = items.reduce((s, r) => s + r.actual_gap_value, 0);
+        const storage = items.reduce((s, r) => s + r.storage_pounds, 0);
+        const mitigatedGap = items.reduce((s, r) => s + r.mitigated_gap_pounds, 0);
+        const mitigatedGapValue = items.reduce((s, r) => s + r.mitigated_gap_value, 0);
         return {
           category,
           expected_pounds: expected,
@@ -479,6 +482,9 @@ export const getFoodYieldProgress = createServerFn({ method: "GET" })
           planned_gap_value: plannedGapValue,
           actual_gap_pounds: actualGap,
           actual_gap_value: actualGapValue,
+          storage_pounds: storage,
+          mitigated_gap_pounds: mitigatedGap,
+          mitigated_gap_value: mitigatedGapValue,
           progress: expected > 0 ? actual / expected : 0,
           items: items.sort((a, b) => b.expected_pounds - a.expected_pounds),
         };
@@ -493,6 +499,9 @@ export const getFoodYieldProgress = createServerFn({ method: "GET" })
       planned_gap_value: rows.reduce((s, r) => s + r.planned_gap_value, 0),
       actual_gap_pounds: rows.reduce((s, r) => s + r.actual_gap_pounds, 0),
       actual_gap_value: rows.reduce((s, r) => s + r.actual_gap_value, 0),
+      storage_pounds: rows.reduce((s, r) => s + r.storage_pounds, 0),
+      mitigated_gap_pounds: rows.reduce((s, r) => s + r.mitigated_gap_pounds, 0),
+      mitigated_gap_value: rows.reduce((s, r) => s + r.mitigated_gap_value, 0),
     };
 
     return { categories, totals };
