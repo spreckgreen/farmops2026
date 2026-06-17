@@ -145,8 +145,7 @@ function LivestockPage() {
   });
 
   const importM = useMutation({
-    mutationFn: (rows: Array<Parameters<typeof bulk>[0]["data"]["animals"][number]>) =>
-      bulk({ data: { animals: rows } }),
+    mutationFn: (rows: AnimalInput[]) => bulk({ data: { animals: rows } }),
     onSuccess: (r) => {
       qc.invalidateQueries({ queryKey: ["livestock"] });
       qc.invalidateQueries({ queryKey: ["livestock-dashboard"] });
