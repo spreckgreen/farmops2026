@@ -300,6 +300,7 @@ function GardenPage() {
                   <tbody>
                     {dash.plants
                       .filter((p) => p.count > 0)
+                      .filter((p) => seasonFilter === "All" || getPlantSeason(p.name) === seasonFilter)
                       .map((p) => (
                         <tr key={p.key} className="border-b border-border/50 last:border-0">
                           <td className="px-3 py-1.5 capitalize">{p.name}</td>
