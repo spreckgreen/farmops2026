@@ -28,7 +28,9 @@ import { Route as NotesDateRouteImport } from './routes/notes.$date'
 import { Route as FoodStorageRouteImport } from './routes/food.storage'
 import { Route as FoodProcessingRouteImport } from './routes/food.processing'
 import { Route as FoodPlanRouteImport } from './routes/food.plan'
+import { Route as FoodOrchardRouteImport } from './routes/food.orchard'
 import { Route as FoodLivestockRouteImport } from './routes/food.livestock'
+import { Route as FoodGardenRouteImport } from './routes/food.garden'
 import { Route as FoodCropsRouteImport } from './routes/food.crops'
 import { Route as AdminUsersRouteImport } from './routes/admin.users'
 
@@ -127,9 +129,19 @@ const FoodPlanRoute = FoodPlanRouteImport.update({
   path: '/plan',
   getParentRoute: () => FoodRoute,
 } as any)
+const FoodOrchardRoute = FoodOrchardRouteImport.update({
+  id: '/orchard',
+  path: '/orchard',
+  getParentRoute: () => FoodRoute,
+} as any)
 const FoodLivestockRoute = FoodLivestockRouteImport.update({
   id: '/livestock',
   path: '/livestock',
+  getParentRoute: () => FoodRoute,
+} as any)
+const FoodGardenRoute = FoodGardenRouteImport.update({
+  id: '/garden',
+  path: '/garden',
   getParentRoute: () => FoodRoute,
 } as any)
 const FoodCropsRoute = FoodCropsRouteImport.update({
@@ -156,7 +168,9 @@ export interface FileRoutesByFullPath {
   '/sync': typeof SyncRoute
   '/admin/users': typeof AdminUsersRoute
   '/food/crops': typeof FoodCropsRoute
+  '/food/garden': typeof FoodGardenRoute
   '/food/livestock': typeof FoodLivestockRoute
+  '/food/orchard': typeof FoodOrchardRoute
   '/food/plan': typeof FoodPlanRoute
   '/food/processing': typeof FoodProcessingRoute
   '/food/storage': typeof FoodStorageRoute
@@ -179,7 +193,9 @@ export interface FileRoutesByTo {
   '/sync': typeof SyncRoute
   '/admin/users': typeof AdminUsersRoute
   '/food/crops': typeof FoodCropsRoute
+  '/food/garden': typeof FoodGardenRoute
   '/food/livestock': typeof FoodLivestockRoute
+  '/food/orchard': typeof FoodOrchardRoute
   '/food/plan': typeof FoodPlanRoute
   '/food/processing': typeof FoodProcessingRoute
   '/food/storage': typeof FoodStorageRoute
@@ -204,7 +220,9 @@ export interface FileRoutesById {
   '/sync': typeof SyncRoute
   '/admin/users': typeof AdminUsersRoute
   '/food/crops': typeof FoodCropsRoute
+  '/food/garden': typeof FoodGardenRoute
   '/food/livestock': typeof FoodLivestockRoute
+  '/food/orchard': typeof FoodOrchardRoute
   '/food/plan': typeof FoodPlanRoute
   '/food/processing': typeof FoodProcessingRoute
   '/food/storage': typeof FoodStorageRoute
@@ -230,7 +248,9 @@ export interface FileRouteTypes {
     | '/sync'
     | '/admin/users'
     | '/food/crops'
+    | '/food/garden'
     | '/food/livestock'
+    | '/food/orchard'
     | '/food/plan'
     | '/food/processing'
     | '/food/storage'
@@ -253,7 +273,9 @@ export interface FileRouteTypes {
     | '/sync'
     | '/admin/users'
     | '/food/crops'
+    | '/food/garden'
     | '/food/livestock'
+    | '/food/orchard'
     | '/food/plan'
     | '/food/processing'
     | '/food/storage'
@@ -277,7 +299,9 @@ export interface FileRouteTypes {
     | '/sync'
     | '/admin/users'
     | '/food/crops'
+    | '/food/garden'
     | '/food/livestock'
+    | '/food/orchard'
     | '/food/plan'
     | '/food/processing'
     | '/food/storage'
@@ -443,11 +467,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof FoodPlanRouteImport
       parentRoute: typeof FoodRoute
     }
+    '/food/orchard': {
+      id: '/food/orchard'
+      path: '/orchard'
+      fullPath: '/food/orchard'
+      preLoaderRoute: typeof FoodOrchardRouteImport
+      parentRoute: typeof FoodRoute
+    }
     '/food/livestock': {
       id: '/food/livestock'
       path: '/livestock'
       fullPath: '/food/livestock'
       preLoaderRoute: typeof FoodLivestockRouteImport
+      parentRoute: typeof FoodRoute
+    }
+    '/food/garden': {
+      id: '/food/garden'
+      path: '/garden'
+      fullPath: '/food/garden'
+      preLoaderRoute: typeof FoodGardenRouteImport
       parentRoute: typeof FoodRoute
     }
     '/food/crops': {
@@ -469,7 +507,9 @@ declare module '@tanstack/react-router' {
 
 interface FoodRouteChildren {
   FoodCropsRoute: typeof FoodCropsRoute
+  FoodGardenRoute: typeof FoodGardenRoute
   FoodLivestockRoute: typeof FoodLivestockRoute
+  FoodOrchardRoute: typeof FoodOrchardRoute
   FoodPlanRoute: typeof FoodPlanRoute
   FoodProcessingRoute: typeof FoodProcessingRoute
   FoodStorageRoute: typeof FoodStorageRoute
@@ -478,7 +518,9 @@ interface FoodRouteChildren {
 
 const FoodRouteChildren: FoodRouteChildren = {
   FoodCropsRoute: FoodCropsRoute,
+  FoodGardenRoute: FoodGardenRoute,
   FoodLivestockRoute: FoodLivestockRoute,
+  FoodOrchardRoute: FoodOrchardRoute,
   FoodPlanRoute: FoodPlanRoute,
   FoodProcessingRoute: FoodProcessingRoute,
   FoodStorageRoute: FoodStorageRoute,

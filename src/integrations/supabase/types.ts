@@ -349,6 +349,39 @@ export type Database = {
         }
         Relationships: []
       }
+      garden_plots: {
+        Row: {
+          created_at: string
+          id: string
+          notes: string | null
+          plant_name: string | null
+          position: number
+          row_label: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          plant_name?: string | null
+          position: number
+          row_label: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          plant_name?: string | null
+          position?: number
+          row_label?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       inventory_items: {
         Row: {
           barcode: string | null
@@ -506,6 +539,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      orchard_trees: {
+        Row: {
+          created_at: string
+          id: string
+          location: string | null
+          notes: string | null
+          planted_on: string | null
+          quantity: number
+          species: string
+          status: string
+          updated_at: string
+          user_id: string
+          variety: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          location?: string | null
+          notes?: string | null
+          planted_on?: string | null
+          quantity?: number
+          species: string
+          status?: string
+          updated_at?: string
+          user_id: string
+          variety?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          location?: string | null
+          notes?: string | null
+          planted_on?: string | null
+          quantity?: number
+          species?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+          variety?: string | null
+        }
+        Relationships: []
       }
       profiles: {
         Row: {
