@@ -263,8 +263,8 @@ function FoodPlanPage() {
                 <tr key={f.id} className="border-t border-border hover:bg-accent/30">
                   <td className="p-2 sticky left-0 bg-background border-r border-border">
                     <div className="flex items-center gap-1">
+                      {f.freeze_dry && <Snowflake className="h-3 w-3 text-blue-500 shrink-0" />}
                       <span>{f.name}</span>
-                      {f.freeze_dry && <Snowflake className="h-3 w-3 text-blue-500" />}
                       {f.season && <Badge variant="outline" className="text-[10px] px-1 py-0">{f.season}</Badge>}
                     </div>
                   </td>
