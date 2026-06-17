@@ -103,12 +103,24 @@ function FoodOverviewPage() {
           })}
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-3">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-3">
           <SummaryStat label="Plan need" value={`${fmtLbs(totals?.expected_pounds ?? 0)} lbs`} />
           <SummaryStat label="Est. yield (planted)" value={`${fmtLbs(totals?.estimated_pounds ?? 0)} lbs`} />
           <SummaryStat label="Harvested" value={`${fmtLbs(totals?.actual_pounds ?? 0)} lbs`} />
-          <SummaryStat label="Gap" value={`${fmtLbs(totals?.gap_pounds ?? 0)} lbs`} accent />
-          <SummaryStat label="Gap value" value={fmtUsd(totals?.gap_value ?? 0)} accent />
+          <SummaryStat
+            label="Planned gap"
+            sublabel="need − planted"
+            value={`${fmtLbs(totals?.planned_gap_pounds ?? 0)} lbs`}
+            secondary={fmtUsd(totals?.planned_gap_value ?? 0)}
+            accent
+          />
+          <SummaryStat
+            label="Actual gap"
+            sublabel="need − harvested"
+            value={`${fmtLbs(totals?.actual_gap_pounds ?? 0)} lbs`}
+            secondary={fmtUsd(totals?.actual_gap_value ?? 0)}
+            accent
+          />
         </div>
 
         {yq.isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
