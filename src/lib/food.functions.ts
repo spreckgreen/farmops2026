@@ -849,11 +849,15 @@ const LIVESTOCK_KEYWORDS = [
   "milk", "cream", "butter", "cheese", "yogurt", "whey", "ghee",
   "jerky", "meat",
 ];
-const ORCHARD_KEYWORDS = Object.keys(YIELD_PER_TREE_LBS).concat([
-  "berries", "berry", "citrus", "stone fruit", "tropical",
-  "pineapple", "banana", "lychee", "boysenberr", "strawberr",
+const ORCHARD_KEYWORDS = [
+  "apple", "pear", "peach", "nectarine", "plum", "cherry", "apricot", "fig", "persimmon",
+  "almond", "walnut", "pecan", "chestnut", "hazelnut",
+  "orange", "lemon", "lime", "grapefruit", "mandarin",
+  "avocado", "mango", "olive", "grape",
+  "blueberr", "raspberr", "blackberr", "boysenberr", "strawberr",
+  "berries", "berry", "citrus", "pineapple", "banana", "lychee",
   "kiwi", "papaya", "passion fruit", "guava", "pomegranate",
-]);
+];
 const CROPS_KEYWORDS = [
   "wheat", "flour", "bread", "pasta", "cereal", "oats", "oat", "barley",
   "rye", "rice", "quinoa", "millet", "buckwheat", "cornmeal", "popcorn",
