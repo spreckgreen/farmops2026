@@ -18,13 +18,13 @@ export const Route = createFileRoute("/food")({
   component: FoodLayout,
 });
 
-const TABS = [
+const TABS: Array<{ to: "/food" | "/food/crops" | "/food/livestock" | "/food/processing" | "/food/storage"; label: string; exact?: boolean }> = [
   { to: "/food", label: "Overview", exact: true },
   { to: "/food/crops", label: "Crops" },
   { to: "/food/livestock", label: "Livestock" },
   { to: "/food/processing", label: "Processing" },
   { to: "/food/storage", label: "Storage" },
-] as const;
+];
 
 function FoodLayout() {
   return (
