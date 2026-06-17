@@ -7,6 +7,13 @@ import { Sprout, Loader2, Upload, Printer } from "lucide-react";
 import { openPrintWindow, escapeHtml } from "@/lib/print";
 import Papa from "papaparse";
 import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
+import {
   listGardenPlots,
   upsertGardenPlot,
   deleteGardenPlot,
@@ -57,6 +64,17 @@ function plantColor(name: string | null | undefined): string {
   return "bg-sky-500/20 text-sky-100 border-sky-500/40";
 }
 
+function getPlantSeason(name: string): string {
+  const k = name.toLowerCase();
+  const spring = ["pea", "spinach", "lettuce", "cabbage", "radish", "beet", "broccoli", "kale", "cauliflower", "brussels", "carrot", "onion", "potato", "turnip", "parsnip", "leek", "asparagus", "rhubarb"];
+  const summer = ["tomato", "pepper", "cucumber", "melon", "squash", "bean", "corn", "eggplant", "basil", "zucchini", "okra", "berry", "berries"];
+  const fall = ["garlic", "pumpkin", "sweet potato", "yam", "winter squash"];
+  if (spring.some((s) => k.includes(s))) return "Spring";
+  if (summer.some((s) => k.includes(s))) return "Summer";
+  if (fall.some((s) => k.includes(s))) return "Fall";
+  return "Other";
+}
+
 function GardenPage() {
   const qc = useQueryClient();
   const list = useServerFn(listGardenPlots);
@@ -78,6 +96,7 @@ function GardenPage() {
   const [editing, setEditing] = useState<{ row: string; position: number; plot: Plot | null } | null>(null);
   const [name, setName] = useState("");
   const [notes, setNotes] = useState("");
+  const [seasonFilter, setSeasonFilter] = useState<string>("All");
 
   const grid = useMemo(() => {
     const rows = new Set<string>(DEFAULT_ROWS);
@@ -246,8 +265,22 @@ function GardenPage() {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
             <div className="border border-border rounded-md bg-card">
-              <div className="px-3 py-2 border-b border-border text-xs font-mono uppercase tracking-wider text-muted-foreground">
-                Plants · estimated seasonal yield
+              <div className="px-3 py-2 border-b border-border flex items-center justify-between gap-2">
+                <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+                  Plants · estimated seasonal yield
+                </span>
+                <Select value={seasonFilter} onValueChange={setSeasonFilter}>
+                  <SelectTrigger className="h-7 w-auto min-w-[7rem] text-xs">
+                    <SelectValue placeholder="Season" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="All">All seasons</SelectItem>
+                    <SelectItem value="Spring">Spring</SelectItem>
+                    <SelectItem value="Summer">Summer</SelectItem>
+                    <SelectItem value="Fall">Fall</SelectItem>
+                    <SelectItem value="Other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               {dash.plants.filter((p) => p.count > 0).length === 0 ? (
                 <p className="p-3 text-sm text-muted-foreground">No plants in garden yet.</p>
@@ -267,6 +300,7 @@ function GardenPage() {
                   <tbody>
                     {dash.plants
                       .filter((p) => p.count > 0)
+                      .filter((p) => seasonFilter === "All" || getPlantSeason(p.name) === seasonFilter)
                       .map((p) => (
                         <tr key={p.key} className="border-b border-border/50 last:border-0">
                           <td className="px-3 py-1.5 capitalize">{p.name}</td>
