@@ -47,8 +47,20 @@ function TasksPage() {
   return (
     <AppLayout>
       <div className="max-w-4xl mx-auto px-4 py-8">
-      <h1 className="text-2xl font-mono font-bold mb-1">Today's tasks</h1>
-      <p className="text-xs text-muted-foreground font-mono mb-6">Tasks delivered or touched today</p>
+      <div className="flex items-start justify-between mb-6 gap-3">
+        <div>
+          <h1 className="text-2xl font-mono font-bold mb-1">Today's tasks</h1>
+          <p className="text-xs text-muted-foreground font-mono">Tasks delivered or touched today</p>
+        </div>
+        <button
+          type="button"
+          onClick={toggleSlugs}
+          className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground hover:text-foreground border border-border rounded px-2 py-1"
+          title="Debug: show or hide the #task-slug under each title"
+        >
+          slugs · {showSlugs ? "on" : "off"}
+        </button>
+      </div>
       {isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
       {(["open", "blocked", "done"] as const).map((status) => (
         <section key={status} className="mb-8">
