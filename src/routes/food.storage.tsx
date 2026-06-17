@@ -319,41 +319,8 @@ function InventoryPanel() {
     return null;
   }
 
-  function handleImport(file: File) {
-    Papa.parse<Record<string, string>>(file, {
-      header: true,
-      skipEmptyLines: true,
-      complete: (res) => {
-        const items = res.data
-          .map((row) => {
-            const name = String(row.itemTitle ?? row.name ?? "").trim();
-            if (!name) return null;
-            return {
-              name,
-              description: String(row.itemDesc ?? row.description ?? "").trim() || null,
-              category: String(row.itemCatTitle ?? row.category ?? "").trim() || null,
-              food_type: String(row["Food Type"] ?? row.food_type ?? "").trim() || null,
-              location: String(row.PackTitle ?? row.location ?? "").trim() || null,
-              quantity: parseFloat(String(row.itemWeight ?? row.quantity ?? "0")) || 0,
-              unit: String(row.unit ?? "lb").trim() || "lb",
-              acquired_on: parseDate(String(row.itemAcquired ?? row.acquired_on ?? "")),
-              best_by: parseDate(String(row.best_by ?? "")),
-              status: "available",
-              source_url: String(row.itemURL ?? row.source_url ?? "").trim() || null,
-              price: row.itemPrice ? parseFloat(String(row.itemPrice)) || null : null,
-              notes: String(row.notes ?? "").trim() || null,
-            };
-          })
-          .filter(Boolean) as StorageImportItem[];
-        if (!items.length) {
-          toast.error("No valid rows. Required: itemTitle or name");
-          return;
-        }
-        importM.mutate(items);
-      },
-      error: (err) => toast.error(`Parse error: ${err.message}`),
-    });
-  }
+
+
 
   return (
     <div className="space-y-4">
