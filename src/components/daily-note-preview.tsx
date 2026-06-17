@@ -133,6 +133,19 @@ export function DailyNotePreview({ markdown, tasks }: Props) {
           );
         }
 
+        // Drop text tokens that just repeat the resolved task title (the
+        // canonical refLine duplicates the title on disk for parser
+        // resilience, but in the preview that reads as "Title  Title").
+        const refTitles = new Set(
+          tokens
+            .filter((t): t is Extract<Token, { kind: "task-ref" }> => t.kind === "task-ref")
+            .map((t) => (tasksBySlug.get(t.slug)?.title ?? t.slug).trim().toLowerCase())
+            .filter(Boolean),
+        );
+        const displayTokens = tokens.filter(
+          (t) => !(t.kind === "text" && refTitles.has(t.text.trim().toLowerCase())),
+        );
+
         // Build the rendered row.
         return (
           <div key={idx} className="flex items-start gap-2 text-sm leading-relaxed">
@@ -146,7 +159,7 @@ export function DailyNotePreview({ markdown, tasks }: Props) {
               )}
             </span>
             <div className="min-w-0 flex-1 flex flex-wrap items-center gap-x-2 gap-y-1">
-              {tokens.map((tok, i) => {
+              {displayTokens.map((tok, i) => {
                 if (tok.kind === "task-ref") {
                   const task = tasksBySlug.get(tok.slug);
                   const label = task?.title ?? tok.slug;
