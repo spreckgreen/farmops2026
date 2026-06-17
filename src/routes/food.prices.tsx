@@ -146,11 +146,15 @@ function PriceHistoryPage() {
       groups.set(e.food_name, arr);
     });
     return Array.from(groups.entries())
-      .map(([name, items]) => ({
-        name,
-        items: items.sort((a, b) => b.changed_at.localeCompare(a.changed_at)),
-        latest: items[0],
-      }))
+      .map(([name, items]) => {
+        const sorted = items.sort((a, b) => b.changed_at.localeCompare(a.changed_at));
+        return {
+          name,
+          items: sorted,
+          latest: sorted[0],
+          category: sorted.find((e) => e.category)?.category ?? null,
+        };
+      })
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [entries]);
 
