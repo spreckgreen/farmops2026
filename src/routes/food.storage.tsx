@@ -17,6 +17,7 @@ import {
 } from "@/lib/food.functions";
 import { fmtUsd } from "@/lib/currency";
 import { kcalFromLbs, fmtKcal } from "@/lib/calories";
+import { FOOD_CATEGORIES, normalizeFoodCategory } from "@/lib/food-categories";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
