@@ -341,8 +341,8 @@ function InventoryPanel() {
             <Package className="h-4 w-4" /> Food storage
           </h2>
           <p className="text-sm text-muted-foreground">
-            {filtered.length} items · {totalLbs.toFixed(2)} lb reconstituted · {fmtKcal(totalKcal)}
-            {freezeDriedCount > 0 ? ` · ${freezeDriedCount} freeze-dried (×${RECONSTITUTION_FACTOR})` : ""}
+            {filtered.length} items · {totalLbs.toFixed(2)} lb reconstituted (consumable) · {fmtKcal(totalKcal)}
+            {freezeDriedCount > 0 ? ` · ${freezeDriedCount} freeze-dried (stored ×${RECONSTITUTION_FACTOR} = reconstituted)` : ""}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -405,8 +405,8 @@ function InventoryPanel() {
                 <th className="text-left px-3 py-2">Name</th>
                 <th className="text-left px-3 py-2">Type</th>
                 <th className="text-left px-3 py-2">Location</th>
-                <th className="text-right px-3 py-2">Qty</th>
-                <th className="text-right px-3 py-2">Kcal</th>
+                <th className="text-right px-3 py-2">Stored qty</th>
+                <th className="text-right px-3 py-2">Reconstituted kcal</th>
                 <th className="text-left px-3 py-2">Acquired</th>
                 <th className="text-left px-3 py-2">Best by</th>
                 <th className="px-3 py-2 w-20"></th>
@@ -432,7 +432,7 @@ function InventoryPanel() {
                       const recon = reconstitutedLbs(qty, i.unit, i.category);
                       return (
                         <>
-                          <div>{qty.toFixed(2)} {i.unit}{fd ? " dry" : ""}</div>
+                          <div>{qty.toFixed(2)} {i.unit}{fd ? " stored" : ""}</div>
                           {fd && (
                             <div className="text-xs text-muted-foreground">
                               ≈ {recon.toFixed(2)} lb reconstituted
@@ -824,7 +824,7 @@ function LongTermPlanPanel() {
           </h2>
           <p className="text-sm text-muted-foreground">
             {(rows as PlanRow[]).length} foods · target {totals.target.toFixed(0)} lb ({fmtKcal(totals.targetKcal)})
-            {" · "}on hand {totals.onHand.toFixed(0)} lb ({fmtKcal(totals.onHandKcal)})
+            {" · "}on hand {totals.onHand.toFixed(0)} lb reconstituted ({fmtKcal(totals.onHandKcal)})
             {" · "}gap {totals.gap.toFixed(0)} lb ({fmtKcal(totals.gapKcal)})
           </p>
         </div>
@@ -841,7 +841,7 @@ function LongTermPlanPanel() {
 
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         <Stat label="Target lb" value={totals.target.toFixed(0)} sub={fmtKcal(totals.targetKcal)} />
-        <Stat label="On hand lb" value={totals.onHand.toFixed(0)} sub={fmtKcal(totals.onHandKcal)} />
+        <Stat label="On hand lb (reconstituted)" value={totals.onHand.toFixed(0)} sub={fmtKcal(totals.onHandKcal)} />
         <Stat label="Gap lb" value={totals.gap.toFixed(0)} sub={fmtKcal(totals.gapKcal)} tone={totals.gap > 0 ? "red" : "green"} />
         <Stat label="Target cost" value={fmtUsd(totals.targetCost)} />
         <Stat label="Gap cost" value={fmtUsd(totals.gapCost)} tone={totals.gapCost > 0 ? "red" : "green"} />

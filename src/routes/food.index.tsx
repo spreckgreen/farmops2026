@@ -137,7 +137,7 @@ function FoodOverviewPage() {
           />
           <SummaryStat
             label="Storage supplement"
-            sublabel="pantry on hand"
+            sublabel="pantry on hand (reconstituted)"
             value={`${fmtLbs(totals?.storage_pounds ?? 0)} lbs`}
             kcal={kcalTotal(totals?.storage_pounds ?? 0)}
           />

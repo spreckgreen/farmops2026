@@ -263,7 +263,7 @@ export const getFoodYieldProgress = createServerFn({ method: "GET" })
       context.supabase.from("crop_harvests").select("id, planting_id, harvested_on, quantity, unit, quality, notes"),
       context.supabase.from("garden_plots").select("plant_name").not("plant_name", "is", null).neq("plant_name", ""),
       context.supabase.from("orchard_trees").select("species, quantity, status").neq("status", "removed"),
-      context.supabase.from("food_storage_items").select("name, quantity, unit, status").eq("status", "available"),
+      context.supabase.from("food_storage_items").select("name, category, quantity, unit, status").eq("status", "available"),
     ]);
     if (foods.error) throw new Error(foods.error.message);
     if (people.error) throw new Error(people.error.message);
@@ -274,12 +274,20 @@ export const getFoodYieldProgress = createServerFn({ method: "GET" })
     if (orchardTrees.error) throw new Error(orchardTrees.error.message);
     if (storage.error) throw new Error(storage.error.message);
 
-    // Storage on hand, indexed by normalized name
+    // Storage on hand, indexed by normalized name. Freeze-dried items are
+    // stored dry but consumed reconstituted at ~3× weight, so we convert
+    // stored weight → reconstituted (consumable) weight before aggregating.
+    // All downstream consumers (Storage supplement, Net gap, per-food rows)
+    // therefore see consumable lbs / kcal, not raw stored lbs.
+    const FREEZE_DRIED_RECON = 3;
     const storageByName = new Map<string, number>();
     for (const s of storage.data ?? []) {
       const key = normalizeName(s.name);
       if (!key) continue;
-      const lbs = toPounds(Number(s.quantity) || 0, s.unit);
+      let lbs = toPounds(Number(s.quantity) || 0, s.unit);
+      if (s.category && /freeze/i.test(s.category) && (s.unit ?? "lb") === "lb") {
+        lbs = lbs * FREEZE_DRIED_RECON;
+      }
       storageByName.set(key, (storageByName.get(key) ?? 0) + lbs);
     }
 
