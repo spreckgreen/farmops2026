@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
-import { classFallbackCategory, normalizeFoodCategory } from "./food-categories";
+import { classFallbackCategory, FOOD_CATEGORIES, normalizeFoodCategory } from "./food-categories";
 
 // ----------------------------------------------------------------------
 // Crops & harvests
