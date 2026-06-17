@@ -515,7 +515,14 @@ export const getFoodYieldProgress = createServerFn({ method: "GET" })
           items: items.sort((a, b) => b.expected_pounds - a.expected_pounds),
         };
       })
-      .sort((a, b) => b.expected_pounds - a.expected_pounds);
+      .sort((a, b) => {
+        const idxA = FOOD_CATEGORIES.indexOf(a.category as any);
+        const idxB = FOOD_CATEGORIES.indexOf(b.category as any);
+        if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+        if (idxA !== -1) return -1;
+        if (idxB !== -1) return 1;
+        return b.expected_pounds - a.expected_pounds;
+      });
 
     const totals = {
       expected_pounds: rows.reduce((s, r) => s + r.expected_pounds, 0),
