@@ -204,6 +204,142 @@ export const getFoodOverview = createServerFn({ method: "GET" })
   });
 
 // ----------------------------------------------------------------------
+// Yield progress dashboard — expected (from food plan) vs actual (harvests)
+// ----------------------------------------------------------------------
+
+function normalizeName(s: string | null | undefined): string {
+  return (s ?? "").trim().toLowerCase();
+}
+
+function toPounds(qty: number, unit: string | null | undefined): number {
+  const u = (unit ?? "").toLowerCase().trim();
+  if (!u) return qty;
+  if (["lb", "lbs", "pound", "pounds"].includes(u)) return qty;
+  if (["oz", "ounce", "ounces"].includes(u)) return qty / 16;
+  if (["kg", "kilogram", "kilograms"].includes(u)) return qty * 2.20462;
+  if (["g", "gram", "grams"].includes(u)) return qty * 0.00220462;
+  // counts (each, head, bunch, dozen) — treat as 1 lb proxy so they still register
+  return qty;
+}
+
+export const getFoodYieldProgress = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const [foods, people, entries, plantings, harvests] = await Promise.all([
+      context.supabase.from("food_plan_foods").select("id, name, category, oz_per_serving, unit, price_per_pound"),
+      context.supabase.from("food_plan_people").select("id, name"),
+      context.supabase.from("food_plan_entries").select("food_id, person_id, day_of_week, quantity"),
+      context.supabase.from("crop_plantings").select("id, crop, variety, status, planted_on, expected_harvest"),
+      context.supabase.from("crop_harvests").select("id, planting_id, harvested_on, quantity, unit, quality, notes"),
+    ]);
+    if (foods.error) throw new Error(foods.error.message);
+    if (people.error) throw new Error(people.error.message);
+    if (entries.error) throw new Error(entries.error.message);
+    if (plantings.error) throw new Error(plantings.error.message);
+    if (harvests.error) throw new Error(harvests.error.message);
+
+    const peopleById = new Map((people.data ?? []).map((p) => [p.id, p.name]));
+    const plantingById = new Map((plantings.data ?? []).map((p) => [p.id, p]));
+
+    // Harvest totals indexed by normalized crop name
+    const harvestByName = new Map<string, { pounds: number; entries: typeof harvests.data }>();
+    for (const h of harvests.data ?? []) {
+      const planting = h.planting_id ? plantingById.get(h.planting_id) : null;
+      const name = normalizeName(planting?.crop);
+      if (!name) continue;
+      const lbs = toPounds(Number(h.quantity) || 0, h.unit);
+      const cur = harvestByName.get(name) ?? { pounds: 0, entries: [] as any };
+      cur.pounds += lbs;
+      (cur.entries as any[]).push({ ...h, planting });
+      harvestByName.set(name, cur);
+    }
+
+    // Plan entries indexed by food
+    const entriesByFood = new Map<string, Array<{ person: string; day_of_week: number; quantity: number }>>();
+    for (const e of entries.data ?? []) {
+      const arr = entriesByFood.get(e.food_id) ?? [];
+      arr.push({
+        person: peopleById.get(e.person_id) ?? "—",
+        day_of_week: e.day_of_week,
+        quantity: Number(e.quantity) || 0,
+      });
+      entriesByFood.set(e.food_id, arr);
+    }
+
+    type FoodRow = {
+      food_id: string;
+      name: string;
+      category: string;
+      expected_pounds: number;
+      actual_pounds: number;
+      progress: number;
+      plan_entries: Array<{ person: string; day_of_week: number; quantity: number }>;
+      harvest_entries: Array<{
+        id: string;
+        harvested_on: string;
+        quantity: number;
+        unit: string;
+        pounds: number;
+        notes: string | null;
+      }>;
+    };
+
+    const rows: FoodRow[] = [];
+    for (const f of foods.data ?? []) {
+      const planEntries = entriesByFood.get(f.id) ?? [];
+      const weeklyServings = planEntries.reduce((s, e) => s + e.quantity, 0);
+      const ozPerServing = Number(f.oz_per_serving) || 0;
+      const expectedPounds = (weeklyServings * 52 * ozPerServing) / 16;
+      const matched = harvestByName.get(normalizeName(f.name));
+      const actualPounds = matched?.pounds ?? 0;
+      const harvestEntries = (matched?.entries ?? []).map((h: any) => ({
+        id: h.id,
+        harvested_on: h.harvested_on,
+        quantity: Number(h.quantity) || 0,
+        unit: h.unit,
+        pounds: toPounds(Number(h.quantity) || 0, h.unit),
+        notes: h.notes ?? null,
+      }));
+      if (expectedPounds === 0 && actualPounds === 0 && planEntries.length === 0) continue;
+      rows.push({
+        food_id: f.id,
+        name: f.name,
+        category: f.category ?? "Uncategorized",
+        expected_pounds: expectedPounds,
+        actual_pounds: actualPounds,
+        progress: expectedPounds > 0 ? actualPounds / expectedPounds : 0,
+        plan_entries: planEntries.sort((a, b) => a.day_of_week - b.day_of_week),
+        harvest_entries: harvestEntries.sort((a, b) =>
+          (b.harvested_on ?? "").localeCompare(a.harvested_on ?? ""),
+        ),
+      });
+    }
+
+    // Group by category
+    const byCategory = new Map<string, FoodRow[]>();
+    for (const r of rows) {
+      const arr = byCategory.get(r.category) ?? [];
+      arr.push(r);
+      byCategory.set(r.category, arr);
+    }
+    const categories = Array.from(byCategory.entries())
+      .map(([category, items]) => {
+        const expected = items.reduce((s, r) => s + r.expected_pounds, 0);
+        const actual = items.reduce((s, r) => s + r.actual_pounds, 0);
+        return {
+          category,
+          expected_pounds: expected,
+          actual_pounds: actual,
+          progress: expected > 0 ? actual / expected : 0,
+          items: items.sort((a, b) => b.expected_pounds - a.expected_pounds),
+        };
+      })
+      .sort((a, b) => b.expected_pounds - a.expected_pounds);
+
+    return { categories };
+  });
+
+// ----------------------------------------------------------------------
 // Food Plan: people / foods / weekly entries matrix
 // ----------------------------------------------------------------------
 
