@@ -447,6 +447,51 @@ export type Database = {
         }
         Relationships: []
       }
+      food_storage_plan: {
+        Row: {
+          category: string | null
+          created_at: string
+          food_type: string | null
+          id: string
+          name: string
+          notes: string | null
+          pounds_per_year: number
+          price_per_pound: number | null
+          sort_order: number
+          target_months: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          food_type?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          pounds_per_year?: number
+          price_per_pound?: number | null
+          sort_order?: number
+          target_months?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          food_type?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          pounds_per_year?: number
+          price_per_pound?: number | null
+          sort_order?: number
+          target_months?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       garden_plots: {
         Row: {
           created_at: string
