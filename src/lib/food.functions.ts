@@ -867,13 +867,23 @@ export const deleteOrchardTree = createServerFn({ method: "POST" })
 export const listPriceHistory = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { data, error } = await context.supabase
-      .from("food_price_history")
-      .select("id, food_id, food_name, old_price, new_price, changed_at")
-      .order("changed_at", { ascending: false })
-      .limit(2000);
-    if (error) throw new Error(error.message);
-    return data ?? [];
+    const [hist, foods] = await Promise.all([
+      context.supabase
+        .from("food_price_history")
+        .select("id, food_id, food_name, old_price, new_price, changed_at")
+        .order("changed_at", { ascending: false })
+        .limit(2000),
+      context.supabase.from("food_plan_foods").select("id, category"),
+    ]);
+    if (hist.error) throw new Error(hist.error.message);
+    if (foods.error) throw new Error(foods.error.message);
+    const catById = new Map(
+      (foods.data ?? []).map((f) => [f.id as string, (f.category as string | null) ?? null]),
+    );
+    return (hist.data ?? []).map((row) => ({
+      ...row,
+      category: row.food_id ? catById.get(row.food_id) ?? null : null,
+    }));
   });
 
 // Add/update a price for a food. The food_price_history trigger logs the change
