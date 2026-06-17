@@ -86,15 +86,23 @@ function ReportsPage() {
     queryFn: () => freshnessFn(),
   });
 
+  // Per-mode snapshot of `latestDataChange` for which regen returned
+  // "no activity". Used to suppress the stale banner — otherwise modes whose
+  // period has no activity (e.g. weekly with nothing logged this week) loop
+  // forever: stale → regen → ok:false → still stale.
+  const [noDataAt, setNoDataAt] = useState<Partial<Record<ReportMode, string | null>>>({});
+
   const runReport = useMutation({
     mutationFn: (mode: ReportMode) => generateFn({ data: { mode, period_days: 7 } }),
     onSuccess: (res, mode) => {
       if (!res.ok) {
         toast.info(res.error);
+        setNoDataAt((m) => ({ ...m, [mode]: latestDataChange ?? null }));
         return;
       }
       const count = "summaries" in res && res.summaries ? res.summaries.length : 1;
       toast.success(`${LABELS[mode]} drafted (${count})`);
+      setNoDataAt((m) => ({ ...m, [mode]: undefined }));
       qc.invalidateQueries({ queryKey: ["summaries"] });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
@@ -143,11 +151,15 @@ function ReportsPage() {
     )
     .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
 
-  const isStale = !latestForMode
+  const rawStale = !latestForMode
     ? true
     : latestDataChange
       ? new Date(latestDataChange).getTime() > baseline
       : false;
+  // If a prior regen for this mode returned "no activity" against the current
+  // data snapshot, the mode is as fresh as it can be — don't show "out of date".
+  const isStale =
+    rawStale && noDataAt[activeMode] !== (latestDataChange ?? null);
 
   // Auto-generate-on-tab-switch when stale. Guard against re-firing while a
   // generation is in flight and against re-running for the same mode after the
@@ -216,11 +228,12 @@ function ReportsPage() {
           <TabsList className="flex flex-wrap h-auto mb-4">
             {TABS.map((t) => {
               const latest = (summariesQ.data ?? []).find((s) => s.mode === t.mode);
-              const tabStale = !latest
+              const tabRawStale = !latest
                 ? true
                 : latestDataChange
                   ? new Date(latestDataChange).getTime() > new Date(latest.created_at).getTime()
                   : false;
+              const tabStale = tabRawStale && noDataAt[t.mode] !== (latestDataChange ?? null);
               return (
                 <TabsTrigger key={t.mode} value={t.mode} className="gap-1.5">
                   {t.label}
