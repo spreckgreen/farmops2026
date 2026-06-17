@@ -865,7 +865,7 @@ export const listOrchardTrees = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const { data, error } = await context.supabase
       .from("orchard_trees")
-      .select("id, species, variety, quantity, location, planted_on, status, notes, created_at")
+      .select("id, species, variety, quantity, location, planted_on, status, category, notes, created_at")
       .order("species", { ascending: true });
     if (error) throw new Error(error.message);
     return data ?? [];
