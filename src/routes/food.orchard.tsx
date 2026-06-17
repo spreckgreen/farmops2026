@@ -102,6 +102,8 @@ function OrchardPage() {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(empty);
   const [categoryFilter, setCategoryFilter] = useState<"all" | Category | "uncategorized">("all");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState(empty);
 
   const upsertM = useMutation({
     mutationFn: (vars: typeof empty) =>
@@ -118,10 +120,13 @@ function OrchardPage() {
           notes: vars.notes || null,
         },
       }),
-    onSuccess: () => {
+    onSuccess: (_d, vars) => {
       qc.invalidateQueries({ queryKey: ["orchard-trees"] });
-      setOpen(false);
-      setForm(empty);
+      if (vars.id && editingId === vars.id) setEditingId(null);
+      if (!vars.id) {
+        setOpen(false);
+        setForm(empty);
+      }
       toast.success("Saved");
     },
     onError: (e: Error) => toast.error(e.message),
@@ -141,8 +146,9 @@ function OrchardPage() {
     setOpen(true);
   }
 
-  function openEdit(t: Tree) {
-    setForm({
+  function startInlineEdit(t: Tree) {
+    setEditingId(t.id);
+    setEditDraft({
       id: t.id,
       species: t.species,
       variety: t.variety ?? "",
@@ -153,7 +159,16 @@ function OrchardPage() {
       category: (CATEGORIES as readonly string[]).includes(t.category ?? "") ? (t.category as Category) : "",
       notes: t.notes ?? "",
     });
-    setOpen(true);
+  }
+  function cancelInlineEdit() {
+    setEditingId(null);
+  }
+  function saveInlineEdit() {
+    if (!editDraft.species.trim()) {
+      toast.error("Species is required");
+      return;
+    }
+    upsertM.mutate(editDraft);
   }
 
   const bulk = useServerFn(bulkInsertOrchardTrees);
