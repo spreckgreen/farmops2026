@@ -14,6 +14,7 @@ import {
   bulkUpsertGardenPlots,
   getGardenDashboard,
 } from "@/lib/food.functions";
+import { fmtUsd } from "@/lib/currency";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -40,15 +41,6 @@ type Plot = {
 const DEFAULT_ROWS = ["Row01","Row02","Row03","Row04","Row05","Row06","Row07","Row08"];
 const DEFAULT_POSITIONS = 16;
 
-const USD = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "USD",
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
-function fmtUsd(n: number): string {
-  return USD.format(Number.isFinite(n) ? n : 0);
-}
 
 function plantColor(name: string | null | undefined): string {
   if (!name) return "bg-muted/30 text-muted-foreground";

@@ -13,6 +13,7 @@ import {
   setFoodPlanEntry,
   seedFoodPlanFromTemplate,
 } from "@/lib/food.functions";
+import { fmtUsd } from "@/lib/currency";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -179,7 +180,7 @@ function FoodPlanPage() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <Stat label="People" value={String(people.length)} />
         <Stat label="Foods" value={String(foods.length)} />
-        <Stat label="Est. weekly cost" value={`$${totals.weeklyCost.toFixed(2)}`} />
+        <Stat label="Est. weekly cost" value={fmtUsd(totals.weeklyCost)} />
       </div>
 
       {/* People bar */}
@@ -241,7 +242,7 @@ function FoodPlanPage() {
                     </div>
                   </td>
                   <td className="p-1 border-r border-border text-right text-muted-foreground">
-                    {f.price_per_pound != null ? `$${Number(f.price_per_pound).toFixed(2)}` : "—"}
+                    {f.price_per_pound != null ? fmtUsd(Number(f.price_per_pound)) : "—"}
                   </td>
                   {DAYS.map((d) => {
                     const key = `${activePerson}|${f.id}|${d}`;

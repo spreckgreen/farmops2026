@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { format } from "date-fns";
 import { ArrowDown, ArrowUp, Minus, History, Download } from "lucide-react";
 import { listPriceHistory } from "@/lib/food.functions";
+import { fmtUsd, fmtUsdSigned } from "@/lib/currency";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
@@ -23,7 +24,7 @@ type Entry = {
 
 function fmt(n: number | null): string {
   if (n === null || n === undefined) return "—";
-  return `$${Number(n).toFixed(2)}`;
+  return fmtUsd(Number(n));
 }
 
 function PriceHistoryPage() {
@@ -179,11 +180,11 @@ function PriceHistoryPage() {
                           </span>
                         ) : diff > 0 ? (
                           <span className="text-red-400 inline-flex items-center gap-1 justify-end">
-                            <ArrowUp className="h-3 w-3" />${diff.toFixed(2)}
+                            <ArrowUp className="h-3 w-3" />{fmtUsd(diff)}
                           </span>
                         ) : diff < 0 ? (
                           <span className="text-emerald-400 inline-flex items-center gap-1 justify-end">
-                            <ArrowDown className="h-3 w-3" />${Math.abs(diff).toFixed(2)}
+                            <ArrowDown className="h-3 w-3" />{fmtUsd(Math.abs(diff))}
                           </span>
                         ) : (
                           <span className="text-muted-foreground">—</span>
@@ -222,7 +223,7 @@ function PriceHistoryPage() {
                         </div>
                         {diff !== null && diff !== 0 && (
                           <span className={`text-xs ${diff > 0 ? "text-red-400" : "text-emerald-400"}`}>
-                            {diff > 0 ? "+" : "-"}${Math.abs(diff).toFixed(2)}
+                            {fmtUsdSigned(diff)}
                           </span>
                         )}
                       </li>
