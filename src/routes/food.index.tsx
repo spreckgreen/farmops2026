@@ -22,6 +22,17 @@ function fmtLbs(n: number): string {
   return n.toFixed(2);
 }
 
+function kcalTotal(lbs: number): string {
+  return fmtKcal((lbs || 0) * DEFAULT_KCAL_PER_LB);
+}
+
+function KcalSpan({ name, lbs }: { name?: string | null; lbs: number }) {
+  if (!lbs) return null;
+  return (
+    <span className="opacity-70"> ({fmtKcal(kcalFromLbs(name, lbs))})</span>
+  );
+}
+
 function FoodOverviewPage() {
   const overviewFn = useServerFn(getFoodOverview);
   const yieldFn = useServerFn(getFoodYieldProgress);
