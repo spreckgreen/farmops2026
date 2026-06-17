@@ -20,6 +20,12 @@ type TaskLite = { slug: string; title: string; status?: string };
 type Props = {
   markdown: string;
   tasks: TaskLite[];
+  /**
+   * Compact mode hides secondary metadata (project badges, @start, @progress,
+   * !entry-type badges) and keeps just checkboxes, plain text, and clickable
+   * task titles. Useful for skimming a day at a glance.
+   */
+  compact?: boolean;
 };
 
 type Token =
