@@ -163,6 +163,38 @@ function FoodPlanPage() {
   const [activeCategories, setActiveCategories] = useState<Set<string>>(new Set());
   const [activeSeasons, setActiveSeasons] = useState<Set<string>>(new Set());
 
+  type FilterPreset = {
+    name: string;
+    freezeDry: boolean;
+    categories: string[];
+    seasons: string[];
+  };
+  const PRESETS_KEY = "food-plan-filter-presets";
+  const [presets, setPresets] = useState<FilterPreset[]>([]);
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(PRESETS_KEY);
+      if (raw) setPresets(JSON.parse(raw));
+    } catch {}
+  }, []);
+  const savePresets = (next: FilterPreset[]) => {
+    setPresets(next);
+    try {
+      localStorage.setItem(PRESETS_KEY, JSON.stringify(next));
+    } catch {}
+  };
+  const applyPreset = (p: FilterPreset) => {
+    setShowFreezeDryOnly(p.freezeDry);
+    setActiveCategories(new Set(p.categories));
+    setActiveSeasons(new Set(p.seasons));
+  };
+  const currentMatchesPreset = (p: FilterPreset) =>
+    p.freezeDry === showFreezeDryOnly &&
+    p.categories.length === activeCategories.size &&
+    p.categories.every((c) => activeCategories.has(c)) &&
+    p.seasons.length === activeSeasons.size &&
+    p.seasons.every((s) => activeSeasons.has(s));
+
 
 
   if (isLoading) return <div className="text-muted-foreground font-mono text-sm">Loading…</div>;
@@ -266,6 +298,81 @@ function FoodPlanPage() {
 
       {/* Filter chips */}
       <div className="space-y-2">
+        {/* Presets */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="text-[10px] uppercase text-muted-foreground tracking-wider font-mono mr-1">Presets</span>
+          {presets.length === 0 && (
+            <span className="text-[10px] text-muted-foreground font-mono italic">none saved</span>
+          )}
+          {presets.map((p) => {
+            const active = currentMatchesPreset(p);
+            return (
+              <span key={p.name} className="inline-flex items-center">
+                <button
+                  onClick={() => applyPreset(p)}
+                  className={`px-2 py-0.5 rounded-l-full text-xs font-mono border transition-colors ${
+                    active ? "bg-foreground text-background border-foreground" : "border-border hover:bg-accent"
+                  }`}
+                  title={[
+                    p.freezeDry ? "freeze-dry" : null,
+                    ...p.categories,
+                    ...p.seasons,
+                  ].filter(Boolean).join(" · ") || "no filters"}
+                >
+                  {p.name}
+                </button>
+                <button
+                  onClick={() => {
+                    if (confirm(`Delete preset "${p.name}"?`)) {
+                      savePresets(presets.filter((x) => x.name !== p.name));
+                    }
+                  }}
+                  className={`px-1.5 py-0.5 rounded-r-full text-xs font-mono border border-l-0 transition-colors ${
+                    active ? "bg-foreground text-background border-foreground" : "border-border hover:bg-accent text-muted-foreground"
+                  }`}
+                  title="Delete preset"
+                >
+                  ×
+                </button>
+              </span>
+            );
+          })}
+          {hasActiveFilters && !presets.some(currentMatchesPreset) && (
+            <button
+              onClick={() => {
+                const name = prompt("Name this preset:")?.trim();
+                if (!name) return;
+                if (presets.some((p) => p.name === name)) {
+                  if (!confirm(`Overwrite preset "${name}"?`)) return;
+                }
+                const next: FilterPreset = {
+                  name,
+                  freezeDry: showFreezeDryOnly,
+                  categories: Array.from(activeCategories),
+                  seasons: Array.from(activeSeasons),
+                };
+                savePresets([...presets.filter((p) => p.name !== name), next]);
+              }}
+              className="px-2 py-0.5 rounded-full text-xs font-mono border border-dashed border-border hover:bg-accent text-muted-foreground"
+              title="Save current filters as a preset"
+            >
+              + Save current
+            </button>
+          )}
+          {hasActiveFilters && (
+            <button
+              onClick={() => {
+                setShowFreezeDryOnly(false);
+                setActiveCategories(new Set());
+                setActiveSeasons(new Set());
+              }}
+              className="text-[10px] text-muted-foreground hover:text-foreground underline ml-1"
+            >
+              Reset all
+            </button>
+          )}
+        </div>
+
         {FOOD_CATEGORIES.length > 0 && (
           <div className="flex items-center gap-1.5 flex-wrap">
             <span className="text-[10px] uppercase text-muted-foreground tracking-wider font-mono mr-1">Category</span>
