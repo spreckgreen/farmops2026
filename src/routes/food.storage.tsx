@@ -824,7 +824,7 @@ function LongTermPlanPanel() {
           </h2>
           <p className="text-sm text-muted-foreground">
             {(rows as PlanRow[]).length} foods · target {totals.target.toFixed(0)} lb ({fmtKcal(totals.targetKcal)})
-            {" · "}on hand {totals.onHand.toFixed(0)} lb ({fmtKcal(totals.onHandKcal)})
+            {" · "}on hand {totals.onHand.toFixed(0)} lb reconstituted ({fmtKcal(totals.onHandKcal)})
             {" · "}gap {totals.gap.toFixed(0)} lb ({fmtKcal(totals.gapKcal)})
           </p>
         </div>
