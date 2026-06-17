@@ -163,6 +163,38 @@ function FoodPlanPage() {
   const [activeCategories, setActiveCategories] = useState<Set<string>>(new Set());
   const [activeSeasons, setActiveSeasons] = useState<Set<string>>(new Set());
 
+  type FilterPreset = {
+    name: string;
+    freezeDry: boolean;
+    categories: string[];
+    seasons: string[];
+  };
+  const PRESETS_KEY = "food-plan-filter-presets";
+  const [presets, setPresets] = useState<FilterPreset[]>([]);
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(PRESETS_KEY);
+      if (raw) setPresets(JSON.parse(raw));
+    } catch {}
+  }, []);
+  const savePresets = (next: FilterPreset[]) => {
+    setPresets(next);
+    try {
+      localStorage.setItem(PRESETS_KEY, JSON.stringify(next));
+    } catch {}
+  };
+  const applyPreset = (p: FilterPreset) => {
+    setShowFreezeDryOnly(p.freezeDry);
+    setActiveCategories(new Set(p.categories));
+    setActiveSeasons(new Set(p.seasons));
+  };
+  const currentMatchesPreset = (p: FilterPreset) =>
+    p.freezeDry === showFreezeDryOnly &&
+    p.categories.length === activeCategories.size &&
+    p.categories.every((c) => activeCategories.has(c)) &&
+    p.seasons.length === activeSeasons.size &&
+    p.seasons.every((s) => activeSeasons.has(s));
+
 
 
   if (isLoading) return <div className="text-muted-foreground font-mono text-sm">Loading…</div>;
