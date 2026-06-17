@@ -822,7 +822,7 @@ function LongTermPlanPanel() {
                     </td>
                   </tr>
                 ))}
-              </>
+              </FragmentGroup>
             ))}
           </tbody>
         </table>
