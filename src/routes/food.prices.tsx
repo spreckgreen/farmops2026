@@ -357,6 +357,9 @@ function PriceHistoryPage() {
                       className={`border-t border-border cursor-pointer hover:bg-muted/30 ${isSel ? "bg-muted/40" : ""}`}
                     >
                       <td className="p-2">{g.name}</td>
+                      <td className="p-2 text-xs text-muted-foreground">
+                        {g.category ?? <span className="italic opacity-60">—</span>}
+                      </td>
                       <td className="p-2 text-right">{fmt(e.new_price)}</td>
                       <td className="p-2 text-right">
                         {diff === null ? (
