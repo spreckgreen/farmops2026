@@ -216,13 +216,14 @@ function PriceHistoryPage() {
       const s = v === null || v === undefined ? "" : String(v);
       return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
     };
-    const header = ["food_name", "category", "unit", "changed_at", "old_price_per_lb", "new_price_per_lb", "delta"];
+    const header = ["food_name", "category", "season", "unit", "changed_at", "old_price_per_lb", "new_price_per_lb", "delta"];
     const body = rows.map((e) => {
       const delta =
         e.old_price !== null && e.new_price !== null
           ? (e.new_price - e.old_price).toFixed(4)
           : "";
-      return [e.food_name, e.category ?? "", e.unit ?? "", e.changed_at, e.old_price ?? "", e.new_price ?? "", delta]
+      const s = lookupSeason(e.food_name);
+      return [e.food_name, e.category ?? "", s?.season ?? "", e.unit ?? "", e.changed_at, e.old_price ?? "", e.new_price ?? "", delta]
         .map(esc)
         .join(",");
     });
