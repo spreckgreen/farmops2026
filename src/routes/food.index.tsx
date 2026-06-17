@@ -251,50 +251,65 @@ function ProgressBar({ progress }: { progress: number }) {
 function CategoryBlock({ cat }: { cat: Category }) {
   const [open, setOpen] = useState(false);
   const pct = cat.expected_pounds > 0 ? Math.round(cat.progress * 100) : 0;
+  const pantryCovered = cat.actual_gap_pounds > 0 && cat.mitigated_gap_pounds <= 0;
   return (
-    <div className="border border-border rounded-md bg-card">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-accent rounded-t-md"
-      >
-        {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-baseline justify-between gap-3">
-            <span className="font-medium truncate">{cat.category}</span>
-            <span className="text-xs font-mono text-muted-foreground shrink-0">
-              need {fmtLbs(cat.expected_pounds)} · est {fmtLbs(cat.estimated_pounds)} · harv {fmtLbs(cat.actual_pounds)} lbs
-              <KcalSpan name={cat.category} lbs={cat.expected_pounds} />
-              {cat.expected_pounds > 0 && <> · {pct}%</>}
-              {cat.planned_gap_pounds > 0 && (
-                <> · <span className="text-amber-500">plan gap {fmtLbs(cat.planned_gap_pounds)} lbs<KcalSpan name={cat.category} lbs={cat.planned_gap_pounds} /> / {fmtUsd(cat.planned_gap_value)}</span></>
-              )}
-              {cat.actual_gap_pounds > 0 && (
-                <> · <span className="text-destructive">actual gap {fmtLbs(cat.actual_gap_pounds)} lbs<KcalSpan name={cat.category} lbs={cat.actual_gap_pounds} /> / {fmtUsd(cat.actual_gap_value)}</span></>
-              )}
-              {cat.storage_pounds > 0 && (
-                <> · <span className="text-sky-500">storage {fmtLbs(cat.storage_pounds)} lbs<KcalSpan name={cat.category} lbs={cat.storage_pounds} /></span></>
-              )}
-              {cat.actual_gap_pounds > 0 && (
-                <> · <span className={cat.mitigated_gap_pounds > 0 ? "text-destructive" : "text-emerald-500"}>
-                  net gap {fmtLbs(cat.mitigated_gap_pounds)} lbs<KcalSpan name={cat.category} lbs={cat.mitigated_gap_pounds} /> / {fmtUsd(cat.mitigated_gap_value)}
-                </span></>
-              )}
-            </span>
-          </div>
-          <div className="mt-1.5">
-            <ProgressBar progress={cat.progress} />
-          </div>
-        </div>
-      </button>
+    <>
+      <tr className="hover:bg-accent/50">
+        <td className="p-2 align-top">
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            className="flex items-center gap-2 font-medium text-left hover:underline"
+          >
+            {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+            <span>{cat.category}</span>
+          </button>
+          <div className="mt-1"><ProgressBar progress={cat.progress} /></div>
+        </td>
+        <td className="p-2 text-right font-mono align-top">{cat.items.length}</td>
+        <td className="p-2 text-right font-mono align-top">{fmtLbs(cat.expected_pounds)} lbs</td>
+        <td className="p-2 text-right font-mono align-top">{fmtLbs(cat.estimated_pounds)} lbs</td>
+        <td className="p-2 text-right font-mono align-top">{fmtLbs(cat.actual_pounds)} lbs</td>
+        <td className="p-2 text-right font-mono align-top">{fmtLbs(cat.storage_pounds)} lbs</td>
+        <td className={`p-2 text-right font-mono align-top ${cat.mitigated_gap_pounds > 0 ? "text-destructive" : "text-emerald-500"}`}>
+          {fmtLbs(cat.mitigated_gap_pounds)} lbs
+        </td>
+        <td className="p-2 align-top text-xs text-muted-foreground">
+          {cat.mitigated_gap_pounds > 0
+            ? `${fmtUsd(cat.mitigated_gap_value)} short after harvest + pantry`
+            : pantryCovered
+              ? "Pantry covers current harvest gap"
+              : pct >= 100
+                ? "Harvest target met"
+                : `${pct}% harvested`}
+        </td>
+      </tr>
       {open && (
-        <ul className="divide-y divide-border border-t border-border">
-          {cat.items.map((item) => (
-            <FoodItemRow key={item.food_id} item={item} />
-          ))}
-        </ul>
+        <tr>
+          <td colSpan={8} className="p-0 bg-muted/20">
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead className="text-muted-foreground font-mono uppercase">
+                  <tr>
+                    <th className="p-2 text-left">Food</th>
+                    <th className="p-2 text-right">Need</th>
+                    <th className="p-2 text-right">Planted</th>
+                    <th className="p-2 text-right">Harvested</th>
+                    <th className="p-2 text-right">Pantry</th>
+                    <th className="p-2 text-right">Net gap</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {cat.items.map((item) => (
+                    <FoodItemRow key={item.food_id} item={item} />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </td>
+        </tr>
       )}
-    </div>
+    </>
   );
 }
 
