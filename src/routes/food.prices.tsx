@@ -53,6 +53,7 @@ function PriceHistoryPage() {
   const record = useServerFn(recordFoodPrice);
   const refresh = useServerFn(refreshPricesSouthernOhio);
   const seedLivestock = useServerFn(seedLivestockProducts);
+  const reclassify = useServerFn(autoClassifyFoodCategories);
 
   const { data: entries = [], isLoading } = useQuery({
     queryKey: ["food-price-history"],
