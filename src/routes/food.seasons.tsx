@@ -1,7 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { Calendar, Search } from "lucide-react";
 import seasonsData from "@/data/plant-seasons.json";
+import { listFoodPlan } from "@/lib/food.functions";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -52,27 +55,74 @@ function seasonBadges(season: string) {
   return tags;
 }
 
+function normalizeName(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/\(.*?\)/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
 function SeasonsPage() {
   const rows = seasonsData as Row[];
   const [q, setQ] = useState("");
-  const [kind, setKind] = useState<string>("all");
+  const [cat, setCat] = useState<string>("all");
   const [bucket, setBucket] = useState<string>("all");
+
+  const plan = useServerFn(listFoodPlan);
+  const { data: planData } = useQuery({
+    queryKey: ["food-plan"],
+    queryFn: () => plan(),
+  });
+
+  const categoryByName = useMemo(() => {
+    const map = new Map<string, string>();
+    const foods = (planData?.foods ?? []) as Array<{ name: string; category: string | null }>;
+    for (const f of foods) {
+      if (!f.category) continue;
+      const key = normalizeName(f.name);
+      if (key) map.set(key, f.category);
+    }
+    return map;
+  }, [planData]);
+
+  const enriched = useMemo(
+    () =>
+      rows.map((r) => ({
+        ...r,
+        category: categoryByName.get(normalizeName(r.name)) ?? null,
+      })),
+    [rows, categoryByName],
+  );
+
+  const categories = useMemo(() => {
+    const set = new Set<string>();
+    for (const r of enriched) if (r.category) set.add(r.category);
+    return Array.from(set).sort();
+  }, [enriched]);
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
-    return rows.filter((r) => {
-      if (kind !== "all" && r.kind.toLowerCase() !== kind) return false;
+    return enriched.filter((r) => {
+      if (cat !== "all") {
+        if (cat === "__none__") {
+          if (r.category) return false;
+        } else if (r.category !== cat) return false;
+      }
       if (bucket !== "all" && !matchBucket(r.season, bucket)) return false;
       if (
         needle &&
         !r.name.toLowerCase().includes(needle) &&
         !r.season.toLowerCase().includes(needle) &&
-        !r.notes.toLowerCase().includes(needle)
+        !r.notes.toLowerCase().includes(needle) &&
+        !(r.category ?? "").toLowerCase().includes(needle)
       )
         return false;
       return true;
     });
-  }, [rows, q, kind, bucket]);
+  }, [enriched, q, cat, bucket]);
+
+  const matchedCount = enriched.filter((r) => r.category).length;
 
   return (
     <div className="space-y-4">
@@ -82,7 +132,7 @@ function SeasonsPage() {
             <Calendar className="h-4 w-4" /> Plant seasons reference
           </h2>
           <p className="text-sm text-muted-foreground">
-            Seasonal availability for {rows.length} fruits and vegetables.
+            {rows.length} entries · {matchedCount} matched to pricing categories
           </p>
         </div>
       </div>
@@ -93,16 +143,18 @@ function SeasonsPage() {
           <Input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search name, season, notes…"
+            placeholder="Search name, season, category, notes…"
             className="pl-8"
           />
         </div>
-        <Select value={kind} onValueChange={setKind}>
-          <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
+        <Select value={cat} onValueChange={setCat}>
+          <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All kinds</SelectItem>
-            <SelectItem value="fruit">Fruit</SelectItem>
-            <SelectItem value="vegitable">Vegetable</SelectItem>
+            <SelectItem value="all">All categories</SelectItem>
+            <SelectItem value="__none__">Unmatched</SelectItem>
+            {categories.map((c) => (
+              <SelectItem key={c} value={c}>{c}</SelectItem>
+            ))}
           </SelectContent>
         </Select>
         <Select value={bucket} onValueChange={setBucket}>
@@ -121,7 +173,7 @@ function SeasonsPage() {
           <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
             <tr>
               <th className="text-left px-3 py-2">Name</th>
-              <th className="text-left px-3 py-2">Kind</th>
+              <th className="text-left px-3 py-2">Category</th>
               <th className="text-left px-3 py-2">Season</th>
               <th className="text-left px-3 py-2">Notes</th>
             </tr>
@@ -130,23 +182,22 @@ function SeasonsPage() {
             {filtered.map((r, i) => (
               <tr key={`${r.name}-${i}`} className="border-t border-border">
                 <td className="px-3 py-2 font-mono">{r.name}</td>
-                <td className="px-3 py-2 text-muted-foreground">{r.kind}</td>
                 <td className="px-3 py-2">
-                  <div className="flex flex-wrap gap-1">
+                  {r.category ? (
+                    <Badge variant="outline">{r.category}</Badge>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">—</span>
+                  )}
+                </td>
+                <td className="px-3 py-2">
+                  <div className="flex flex-wrap gap-1 items-center">
                     {seasonBadges(r.season).map((t) => (
-                      <Badge
-                        key={t}
-                        variant="outline"
-                        className={SEASON_COLORS[t] ?? ""}
-                      >
-                        {t === r.season ? t : t}
+                      <Badge key={t} variant="outline" className={SEASON_COLORS[t] ?? ""}>
+                        {t}
                       </Badge>
                     ))}
-                    {r.season && !SEASON_BUCKETS.some((b) => matchBucket(r.season, b)) && (
-                      <span className="text-xs text-muted-foreground">{r.season}</span>
-                    )}
-                    {SEASON_BUCKETS.some((b) => matchBucket(r.season, b)) &&
-                      r.season &&
+                    {r.season &&
+                      SEASON_BUCKETS.some((b) => matchBucket(r.season, b)) &&
                       !SEASON_BUCKETS.includes(r.season as (typeof SEASON_BUCKETS)[number]) && (
                         <span className="text-xs text-muted-foreground ml-1">({r.season})</span>
                       )}
