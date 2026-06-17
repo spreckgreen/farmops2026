@@ -1042,6 +1042,7 @@ export const getOrchardDashboard = createServerFn({ method: "GET" })
       if (price > 0) priceByName.set(norm(f.name), price);
       const weekly = weeklyByFood.get(f.id) ?? 0;
       if (weekly === 0) continue;
+      if (classifyFood(f.name) !== "orchard") continue;
       const oz = Number(f.oz_per_serving) || 0;
       const lbs = (weekly * 52 * oz) / 16; // orchard fruits = year-round consumption assumption
       if (lbs <= 0) continue;
