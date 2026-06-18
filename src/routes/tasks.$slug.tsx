@@ -1,7 +1,8 @@
 import { createFileRoute, useParams, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { getTaskBySlug, setTaskStatus, updateTask, deleteTask, RECURRENCE_VALUES, type Recurrence } from "@/lib/log.functions";
+import { getTaskBySlug, setTaskStatus, updateTask, deleteTask, addTaskNote, RECURRENCE_VALUES, type Recurrence } from "@/lib/log.functions";
+import { Textarea } from "@/components/ui/textarea";
 import { generateSummary } from "@/lib/summary.functions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
