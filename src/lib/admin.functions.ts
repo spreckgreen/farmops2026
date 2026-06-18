@@ -278,3 +278,49 @@ export const resetApplicationData = createServerFn({ method: "POST" })
     }
     return { ok: true, results };
   });
+
+// ---- Export snapshot of all operational data ---------------------------
+//
+// Dumps every row of every operational table as JSON so a freshly deployed
+// self-hosted instance can be seeded from an existing farm's data. Admin-only.
+
+export type SnapshotTable = {
+  table: string;
+  rows: Record<string, unknown>[];
+  error?: string;
+};
+
+export type Snapshot = {
+  generated_at: string;
+  generated_by: string;
+  app: "bostead";
+  version: 1;
+  tables: SnapshotTable[];
+};
+
+export const exportApplicationData = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<Snapshot> => {
+    const { supabase, userId } = context;
+    await requireAdmin(supabase, userId);
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const tables: SnapshotTable[] = [];
+    for (const table of RESET_TABLES) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabaseAdmin as any).from(table).select("*");
+      tables.push({
+        table,
+        rows: error ? [] : ((data as Record<string, unknown>[]) ?? []),
+        error: error?.message,
+      });
+    }
+    return {
+      generated_at: new Date().toISOString(),
+      generated_by: userId,
+      app: "bostead",
+      version: 1,
+      tables,
+    };
+  });
