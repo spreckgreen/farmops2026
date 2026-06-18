@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { format } from "date-fns";
-import { Pencil, Trash2, Plus } from "lucide-react";
+import { Pencil, Trash2, Plus, ChevronDown, ChevronRight } from "lucide-react";
 import { listProjects, upsertProject, deleteProject } from "@/lib/log.functions";
 import { slugify } from "@/lib/slug";
 import { AppLayout } from "@/components/app-layout";
