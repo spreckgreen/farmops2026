@@ -92,10 +92,15 @@ function ReportsPage() {
   // period has no activity (e.g. weekly with nothing logged this week) loop
   // forever: stale → regen → ok:false → still stale.
   const [noDataAt, setNoDataAt] = useState<Partial<Record<ReportMode, string | null>>>({});
+  // Snapshot of `latestDataChange` captured at the moment a mode was
+  // successfully (re)generated. Used as a freshness baseline so that clock
+  // skew between `summary.created_at` and source-table timestamps can't make
+  // a just-regen'd report read as stale.
+  const [coveredAt, setCoveredAt] = useState<Partial<Record<ReportMode, string | null>>>({});
 
   const runReport = useMutation({
     mutationFn: (mode: ReportMode) => generateFn({ data: { mode, period_days: 7 } }),
-    onSuccess: (res, mode) => {
+    onSuccess: async (res, mode) => {
       if (!res.ok) {
         toast.info(res.error);
         setNoDataAt((m) => ({ ...m, [mode]: latestDataChange ?? null }));
@@ -104,6 +109,14 @@ function ReportsPage() {
       const count = "summaries" in res && res.summaries ? res.summaries.length : 1;
       toast.success(`${LABELS[mode]} drafted (${count})`);
       setNoDataAt((m) => ({ ...m, [mode]: undefined }));
+      // Re-read freshness AFTER regen, then snapshot it as the covered marker
+      // so subsequent isStale checks compare against this exact data state.
+      await qc.invalidateQueries({ queryKey: ["reports", "latest-data-change"] });
+      const fresh = await qc.fetchQuery({
+        queryKey: ["reports", "latest-data-change"],
+        queryFn: () => freshnessFn(),
+      });
+      setCoveredAt((m) => ({ ...m, [mode]: fresh?.latest_at ?? null }));
       qc.invalidateQueries({ queryKey: ["summaries"] });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
@@ -139,7 +152,13 @@ function ReportsPage() {
   const latestDataChange = freshnessQ.data?.latest_at ?? null;
   const sources = freshnessQ.data?.sources ?? { today_at: null, tasks_at: null, projects_at: null };
 
-  const baseline = latestForMode ? new Date(latestForMode.created_at).getTime() : 0;
+  // Baseline = MAX(summary.created_at, post-regen covered snapshot). The
+  // covered snapshot wins when source-table `updated_at` values drift past the
+  // summary's own `created_at` for reasons unrelated to new user activity.
+  const summaryBaseline = latestForMode ? new Date(latestForMode.created_at).getTime() : 0;
+  const coveredSnapshot = coveredAt[activeMode];
+  const coveredBaseline = coveredSnapshot ? new Date(coveredSnapshot).getTime() : 0;
+  const baseline = Math.max(summaryBaseline, coveredBaseline);
   const SOURCE_LABELS: Record<keyof typeof sources, string> = {
     today_at: "Today",
     tasks_at: "Tasks",
