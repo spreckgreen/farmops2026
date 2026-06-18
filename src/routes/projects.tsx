@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { CsvToolbar } from "@/components/csv-toolbar";
+import { ProjectDesignElements } from "@/components/project-design-elements";
 
 export const Route = createFileRoute("/projects")({
   ssr: false,
