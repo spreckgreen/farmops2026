@@ -286,7 +286,8 @@ export const resetApplicationData = createServerFn({ method: "POST" })
 
 export type SnapshotTable = {
   table: string;
-  rows: Record<string, unknown>[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  rows: any[];
   error?: string;
 };
 
