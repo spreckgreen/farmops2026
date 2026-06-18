@@ -313,7 +313,8 @@ export const exportApplicationData = createServerFn({ method: "GET" })
       const { data, error } = await (supabaseAdmin as any).from(table).select("*");
       tables.push({
         table,
-        rows: error ? [] : ((data as Record<string, unknown>[]) ?? []),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        rows: error ? [] : ((data as any[]) ?? []),
         error: error?.message,
       });
     }
