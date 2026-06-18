@@ -1458,6 +1458,88 @@ export const assignTaskToProjectAsDesignElement = createServerFn({ method: "POST
   });
 
 
+// ============================================================
+// Execution tasks for a design element
+// ------------------------------------------------------------
+// A design element can have many small "execution" tasks under it. They are
+// regular tasks (so they flow through the daily-note / today pipeline like
+// any other), linked back to the parent element via tasks.design_element_id.
+// ============================================================
+
+export const listDesignElementTasks = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ design_element_id: z.string().uuid() }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { data: rows, error } = await supabase
+      .from("tasks")
+      .select("id, slug, title, status, start_at, percent_complete, project_tags")
+      .eq("user_id", userId)
+      .eq("design_element_id", data.design_element_id)
+      .order("status", { ascending: true })
+      .order("created_at", { ascending: true });
+    if (error) throw new Error(error.message);
+    return rows ?? [];
+  });
+
+export const createDesignElementTask = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        design_element_id: z.string().uuid(),
+        title: z.string().trim().min(1).max(500),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+
+    // Load the parent element so we can inherit its project slug onto the
+    // child task and surface it in project rollups.
+    const { data: element, error: elErr } = await supabase
+      .from("project_design_elements")
+      .select("id, project_id, projects(slug)")
+      .eq("id", data.design_element_id)
+      .maybeSingle();
+    if (elErr) throw new Error(elErr.message);
+    if (!element) throw new Error("Design element not found");
+    const projectSlug =
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (Array.isArray((element as any).projects)
+        ? (element as any).projects[0]?.slug
+        : (element as any).projects?.slug) ?? null;
+
+    const base = slugify(data.title).slice(0, 80) || "task";
+    let slug = base;
+    for (let i = 0; i < 50; i++) {
+      const { data: clash } = await supabase
+        .from("tasks")
+        .select("id")
+        .eq("slug", slug)
+        .maybeSingle();
+      if (!clash) break;
+      slug = `${base}-${Math.random().toString(36).slice(2, 6)}`;
+    }
+
+    const { data: row, error } = await supabase
+      .from("tasks")
+      .insert({
+        user_id: userId,
+        slug,
+        title: data.title.trim(),
+        status: "open",
+        project_tags: projectSlug ? [projectSlug] : [],
+        design_element_id: data.design_element_id,
+      })
+      .select("id, slug, title, status, start_at, percent_complete, project_tags")
+      .single();
+    if (error) throw new Error(error.message);
+    return row;
+  });
+
 
 // ---- TiddlyWiki import upserts ----
 
