@@ -11,7 +11,7 @@ import {
 import { todayDateString } from "@/lib/slug";
 import { ProfileGate } from "@/components/profile-gate";
 import { useCurrentProfile } from "@/hooks/use-current-profile";
-import { ShieldCheck, ChevronDown, Users, Trash2 } from "lucide-react";
+import { ShieldCheck, ChevronDown, Users, Trash2, Download } from "lucide-react";
 
 export function AppLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
@@ -95,6 +95,12 @@ export function AppLayout({ children }: { children: ReactNode }) {
                     <Link to="/admin/users" className="flex items-center gap-2 cursor-pointer">
                       <Users className="h-4 w-4" />
                       User management
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/admin/export" className="flex items-center gap-2 cursor-pointer">
+                      <Download className="h-4 w-4" />
+                      Export snapshot
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>

@@ -37,6 +37,7 @@ import { Route as FoodGardenRouteImport } from './routes/food.garden'
 import { Route as FoodCropsRouteImport } from './routes/food.crops'
 import { Route as AdminUsersRouteImport } from './routes/admin.users'
 import { Route as AdminResetRouteImport } from './routes/admin.reset'
+import { Route as AdminExportRouteImport } from './routes/admin.export'
 
 const SyncRoute = SyncRouteImport.update({
   id: '/sync',
@@ -178,6 +179,11 @@ const AdminResetRoute = AdminResetRouteImport.update({
   path: '/admin/reset',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminExportRoute = AdminExportRouteImport.update({
+  id: '/admin/export',
+  path: '/admin/export',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -190,6 +196,7 @@ export interface FileRoutesByFullPath {
   '/reports': typeof ReportsRoute
   '/service-scheduling': typeof ServiceSchedulingRoute
   '/sync': typeof SyncRoute
+  '/admin/export': typeof AdminExportRoute
   '/admin/reset': typeof AdminResetRoute
   '/admin/users': typeof AdminUsersRoute
   '/food/crops': typeof FoodCropsRoute
@@ -219,6 +226,7 @@ export interface FileRoutesByTo {
   '/reports': typeof ReportsRoute
   '/service-scheduling': typeof ServiceSchedulingRoute
   '/sync': typeof SyncRoute
+  '/admin/export': typeof AdminExportRoute
   '/admin/reset': typeof AdminResetRoute
   '/admin/users': typeof AdminUsersRoute
   '/food/crops': typeof FoodCropsRoute
@@ -250,6 +258,7 @@ export interface FileRoutesById {
   '/reports': typeof ReportsRoute
   '/service-scheduling': typeof ServiceSchedulingRoute
   '/sync': typeof SyncRoute
+  '/admin/export': typeof AdminExportRoute
   '/admin/reset': typeof AdminResetRoute
   '/admin/users': typeof AdminUsersRoute
   '/food/crops': typeof FoodCropsRoute
@@ -282,6 +291,7 @@ export interface FileRouteTypes {
     | '/reports'
     | '/service-scheduling'
     | '/sync'
+    | '/admin/export'
     | '/admin/reset'
     | '/admin/users'
     | '/food/crops'
@@ -311,6 +321,7 @@ export interface FileRouteTypes {
     | '/reports'
     | '/service-scheduling'
     | '/sync'
+    | '/admin/export'
     | '/admin/reset'
     | '/admin/users'
     | '/food/crops'
@@ -341,6 +352,7 @@ export interface FileRouteTypes {
     | '/reports'
     | '/service-scheduling'
     | '/sync'
+    | '/admin/export'
     | '/admin/reset'
     | '/admin/users'
     | '/food/crops'
@@ -372,6 +384,7 @@ export interface RootRouteChildren {
   ReportsRoute: typeof ReportsRoute
   ServiceSchedulingRoute: typeof ServiceSchedulingRoute
   SyncRoute: typeof SyncRoute
+  AdminExportRoute: typeof AdminExportRoute
   AdminResetRoute: typeof AdminResetRoute
   AdminUsersRoute: typeof AdminUsersRoute
   NotesDateRoute: typeof NotesDateRoute
@@ -579,6 +592,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminResetRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/export': {
+      id: '/admin/export'
+      path: '/admin/export'
+      fullPath: '/admin/export'
+      preLoaderRoute: typeof AdminExportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -623,6 +643,7 @@ const rootRouteChildren: RootRouteChildren = {
   ReportsRoute: ReportsRoute,
   ServiceSchedulingRoute: ServiceSchedulingRoute,
   SyncRoute: SyncRoute,
+  AdminExportRoute: AdminExportRoute,
   AdminResetRoute: AdminResetRoute,
   AdminUsersRoute: AdminUsersRoute,
   NotesDateRoute: NotesDateRoute,
