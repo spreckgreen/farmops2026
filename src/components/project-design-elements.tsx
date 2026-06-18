@@ -103,17 +103,26 @@ export function ProjectDesignElements({ projectId }: { projectId: string }) {
 
   const elements = q.data ?? [];
 
-  const { totalWeight, completedWeight, pct } = useMemo(() => {
+  const { totalWeight, completedWeight, pct, otherWeight, remaining } = useMemo(() => {
     const total = elements.reduce((s, e) => s + Number(e.weight ?? 0), 0);
     const done = elements
       .filter((e) => e.completed || e.task?.status === "done")
+      .reduce((s, e) => s + Number(e.weight ?? 0), 0);
+    const other = elements
+      .filter((e) => e.id !== editId)
       .reduce((s, e) => s + Number(e.weight ?? 0), 0);
     return {
       totalWeight: total,
       completedWeight: done,
       pct: total > 0 ? Math.round((done / total) * 100) : 0,
+      otherWeight: other,
+      remaining: Math.max(0, 100 - other),
     };
-  }, [elements]);
+  }, [elements, editId]);
+
+  const draftWeightNum = Number(draftWeight) || 0;
+  const overCap = draftWeightNum > remaining;
+
 
   const startEdit = (el: Element) => {
     setEditId(el.id);
