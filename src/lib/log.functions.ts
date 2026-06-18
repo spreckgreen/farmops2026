@@ -1213,11 +1213,10 @@ export const upsertProject = createServerFn({ method: "POST" })
 // as a `#project/<slug>` tag. Scoped to a single user via RLS + explicit
 // user_id filters. Idempotent — safe to re-run.
 async function cascadeRenameProjectSlug(
-  // Use a structural type rather than importing SupabaseClient<Database> here
-  // to avoid widening the module's type-import surface.
-  supabase: Parameters<typeof requireSupabaseAuth>[0] extends never
-    ? never
-    : Awaited<ReturnType<Awaited<ReturnType<typeof requireSupabaseAuth>>["server"]>>["context"]["supabase"] | any,
+  // Supabase client type is large/generated; using `any` here keeps this
+  // helper portable without importing the generated DB types.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
   userId: string,
   oldSlug: string,
   newSlug: string,
