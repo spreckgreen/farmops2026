@@ -1182,7 +1182,169 @@ export const deleteProject = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-// ---- TiddlyWiki import upserts ----
+// ---- Project design elements (key attributes of project design) ----
+//
+// Each project can have a list of design elements that capture the project's
+// intent (features, deliverables, success criteria). Each element carries a
+// `weight` representing its share of the design value (typically 0-100). The
+// project's overall completeness = sum(weight where completed) / sum(weight).
+// Elements can be promoted into the backlog: a `tasks` row is created (no
+// start_at, status=open) tagged with the project's slug, and `task_id` is
+// linked so future completion of the task can flip the element.
+
+export const listProjectDesignElements = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ project_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { data: rows, error } = await context.supabase
+      .from("project_design_elements")
+      .select("*, task:tasks(id, slug, status, percent_complete)")
+      .eq("project_id", data.project_id)
+      .order("sort_order", { ascending: true })
+      .order("created_at", { ascending: true });
+    if (error) throw new Error(error.message);
+    return rows ?? [];
+  });
+
+export const upsertProjectDesignElement = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        id: z.string().uuid().nullable().optional(),
+        project_id: z.string().uuid(),
+        title: z.string().trim().min(1).max(200),
+        description: z.string().trim().max(2000).nullable().optional(),
+        weight: z.number().min(0).max(100),
+        completed: z.boolean().optional(),
+        sort_order: z.number().int().min(0).max(10000).optional(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const payload = {
+      user_id: userId,
+      project_id: data.project_id,
+      title: data.title,
+      description: data.description ?? null,
+      weight: data.weight,
+      completed: data.completed ?? false,
+      sort_order: data.sort_order ?? 0,
+    };
+    if (data.id) {
+      const { error } = await supabase
+        .from("project_design_elements")
+        .update(payload)
+        .eq("id", data.id);
+      if (error) throw new Error(error.message);
+      return { ok: true as const, id: data.id };
+    }
+    const { data: inserted, error } = await supabase
+      .from("project_design_elements")
+      .insert(payload)
+      .select("id")
+      .single();
+    if (error) throw new Error(error.message);
+    return { ok: true as const, id: inserted.id };
+  });
+
+export const setProjectDesignElementCompleted = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ id: z.string().uuid(), completed: z.boolean() }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase
+      .from("project_design_elements")
+      .update({ completed: data.completed })
+      .eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const deleteProjectDesignElement = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase
+      .from("project_design_elements")
+      .delete()
+      .eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+// Promote a design element into the backlog by creating an open task (no
+// start_at) tagged with the project slug. If the element already has a linked
+// task, this is a no-op and returns the existing task slug.
+export const promoteDesignElementToBacklog = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { data: element, error: getErr } = await supabase
+      .from("project_design_elements")
+      .select("id, title, description, project_id, task_id, projects(slug)")
+      .eq("id", data.id)
+      .maybeSingle();
+    if (getErr) throw new Error(getErr.message);
+    if (!element) throw new Error("Design element not found");
+    const el = element as unknown as {
+      id: string;
+      title: string;
+      description: string | null;
+      project_id: string;
+      task_id: string | null;
+      projects: { slug: string } | { slug: string }[] | null;
+    };
+    if (el.task_id) {
+      const { data: existing } = await supabase
+        .from("tasks")
+        .select("slug")
+        .eq("id", el.task_id)
+        .maybeSingle();
+      return { ok: true as const, already: true, slug: existing?.slug ?? null };
+    }
+    const projectSlug = Array.isArray(el.projects) ? el.projects[0]?.slug : el.projects?.slug;
+    const baseSlug = slugify(el.title);
+    let candidate = baseSlug;
+    let n = 2;
+    // Ensure unique slug
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const { data: clash } = await supabase
+        .from("tasks")
+        .select("id")
+        .eq("slug", candidate)
+        .maybeSingle();
+      if (!clash) break;
+      candidate = `${baseSlug}-${n++}`;
+      if (n > 50) throw new Error("Could not allocate a unique task slug");
+    }
+    const { data: created, error: insErr } = await supabase
+      .from("tasks")
+      .insert({
+        user_id: userId,
+        slug: candidate,
+        title: el.title,
+        status: "open",
+        project_tags: projectSlug ? [projectSlug] : [],
+        percent_complete: 0,
+      })
+      .select("id, slug")
+      .single();
+    if (insErr) throw new Error(insErr.message);
+    const { error: linkErr } = await supabase
+      .from("project_design_elements")
+      .update({ task_id: created.id })
+      .eq("id", el.id);
+    if (linkErr) throw new Error(linkErr.message);
+    await invalidateSummaries(supabase, userId);
+    return { ok: true as const, already: false, slug: created.slug };
+  });
+
+
 
 const TaskImportSchema = z.object({
   slug: z.string().trim().min(1).max(120).regex(/^[a-z0-9](?:[a-z0-9-_]*[a-z0-9])?$/),
