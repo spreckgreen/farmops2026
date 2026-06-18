@@ -809,10 +809,74 @@ function advanceRecurrence(from: Date, kind: Recurrence): Date | null {
   }
 }
 
+// Log a task modification (status / recurrence / title change) plus optional
+// user-supplied note into activity_log. The entry is linked to the task so it
+// shows in the task's activity history AND is picked up by AI summary
+// generation (weekly_report, project_rollup, etc.). When today's daily note
+// exists it's also linked there so the change appears in the day's recap.
+async function logTaskChange(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  args: {
+    userId: string;
+    taskId: string;
+    summary: string;
+    note?: string | null;
+    entryType?: "status" | "decision" | "note" | "blocker";
+  },
+) {
+  const trimmed = (args.note ?? "").trim();
+  const raw = trimmed ? `${args.summary} — ${trimmed}` : args.summary;
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "UTC" });
+  const { data: note } = await supabase
+    .from("daily_notes")
+    .select("id")
+    .eq("user_id", args.userId)
+    .eq("date", today)
+    .maybeSingle();
+  await supabase.from("activity_log").insert({
+    user_id: args.userId,
+    task_id: args.taskId,
+    daily_note_id: note?.id ?? null,
+    entry_type: args.entryType ?? "status",
+    raw_content: raw,
+  });
+}
+
+export const addTaskNote = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        id: z.string().uuid(),
+        note: z.string().trim().min(1).max(4000),
+        entry_type: z.enum(["note", "decision", "blocker"]).optional(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await logTaskChange(supabase, {
+      userId,
+      taskId: data.id,
+      summary: "Note",
+      note: data.note,
+      entryType: data.entry_type ?? "note",
+    });
+    await invalidateSummaries(supabase, userId);
+    return { ok: true };
+  });
+
 export const setTaskStatus = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
-    z.object({ id: z.string().uuid(), status: z.enum(["open", "blocked", "done"]) }).parse(d),
+    z
+      .object({
+        id: z.string().uuid(),
+        status: z.enum(["open", "blocked", "done"]),
+        note: z.string().trim().max(4000).optional(),
+      })
+      .parse(d),
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
@@ -820,10 +884,11 @@ export const setTaskStatus = createServerFn({ method: "POST" })
 
     const { data: existing } = await supabase
       .from("tasks")
-      .select("recurrence, recurrence_next_at, start_at")
+      .select("status, recurrence, recurrence_next_at, start_at")
       .eq("id", data.id)
       .maybeSingle();
 
+    const prevStatus = (existing as { status?: string } | null)?.status ?? "open";
     const recurrence = ((existing as { recurrence?: string } | null)?.recurrence ?? "none") as Recurrence;
     const isRepeating = data.status === "done" && recurrence !== "none";
 
@@ -848,6 +913,16 @@ export const setTaskStatus = createServerFn({ method: "POST" })
 
     const { error } = await supabase.from("tasks").update(update as never).eq("id", data.id);
     if (error) throw new Error(error.message);
+
+    if (prevStatus !== data.status || (data.note ?? "").trim()) {
+      await logTaskChange(supabase, {
+        userId,
+        taskId: data.id,
+        summary: `Status: ${prevStatus} → ${data.status}${isRepeating ? " (repeats; rescheduled)" : ""}`,
+        note: data.note,
+      });
+    }
+
     await invalidateSummaries(supabase, userId);
     return { ok: true, repeated: isRepeating };
   });
@@ -860,13 +935,26 @@ export const updateTask = createServerFn({ method: "POST" })
         id: z.string().uuid(),
         title: z.string().trim().min(1).max(500).optional(),
         recurrence: z.enum(RECURRENCE_VALUES).optional(),
+        note: z.string().trim().max(4000).optional(),
       })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { data: existing } = await supabase
+      .from("tasks")
+      .select("title, recurrence")
+      .eq("id", data.id)
+      .maybeSingle();
+    const prev = (existing ?? {}) as { title?: string | null; recurrence?: string | null };
+
     const patch: Record<string, unknown> = {};
-    if (data.title !== undefined) patch.title = data.title;
-    if (data.recurrence !== undefined) {
+    const changes: string[] = [];
+    if (data.title !== undefined && data.title !== prev.title) {
+      patch.title = data.title;
+      changes.push(`Title: "${prev.title ?? ""}" → "${data.title}"`);
+    }
+    if (data.recurrence !== undefined && data.recurrence !== (prev.recurrence ?? "none")) {
       patch.recurrence = data.recurrence;
       if (data.recurrence === "none") {
         patch.recurrence_next_at = null;
@@ -874,14 +962,24 @@ export const updateTask = createServerFn({ method: "POST" })
         const next = advanceRecurrence(new Date(), data.recurrence);
         if (next) patch.recurrence_next_at = next.toISOString();
       }
+      changes.push(`Recurrence: ${prev.recurrence ?? "none"} → ${data.recurrence}`);
     }
-    if (Object.keys(patch).length === 0) return { ok: true };
-    const { error } = await context.supabase
-      .from("tasks")
-      .update(patch as never)
-      .eq("id", data.id);
-    if (error) throw new Error(error.message);
-    await invalidateSummaries(context.supabase, context.userId);
+
+    if (Object.keys(patch).length > 0) {
+      const { error } = await supabase.from("tasks").update(patch as never).eq("id", data.id);
+      if (error) throw new Error(error.message);
+    }
+
+    if (changes.length > 0 || (data.note ?? "").trim()) {
+      await logTaskChange(supabase, {
+        userId,
+        taskId: data.id,
+        summary: changes.length > 0 ? changes.join("; ") : "Note",
+        note: data.note,
+      });
+    }
+
+    await invalidateSummaries(supabase, userId);
     return { ok: true };
   });
 
