@@ -1157,10 +1157,47 @@ export const upsertProject = createServerFn({ method: "POST" })
       start_date: data.start_date ?? null,
     };
     if (data.id) {
-      const { error } = await supabase.from("projects").update(payload).eq("id", data.id);
+      // Detect slug change so we can cascade-rename references everywhere
+      // the slug is used as a tag (#project/<slug>) or denormalized value.
+      const { data: prev, error: prevErr } = await supabase
+        .from("projects")
+        .select("slug")
+        .eq("id", data.id)
+        .maybeSingle();
+      if (prevErr) throw new Error(prevErr.message);
+      const oldSlug = prev?.slug ?? null;
+      const newSlug = data.slug;
+      const slugChanged = !!oldSlug && oldSlug !== newSlug;
+
+      if (slugChanged) {
+        // Reject if the target slug is already taken by another project
+        // owned by this user (Data API has no unique constraint on slug).
+        const { data: clash } = await supabase
+          .from("projects")
+          .select("id")
+          .eq("user_id", userId)
+          .eq("slug", newSlug)
+          .neq("id", data.id)
+          .maybeSingle();
+        if (clash) {
+          throw new Error(
+            `Slug "${newSlug}" is already used by another project.`,
+          );
+        }
+      }
+
+      const { error } = await supabase
+        .from("projects")
+        .update(payload)
+        .eq("id", data.id);
       if (error) throw new Error(error.message);
+
+      if (slugChanged && oldSlug) {
+        await cascadeRenameProjectSlug(supabase, userId, oldSlug, newSlug);
+      }
+
       await invalidateSummaries(supabase, userId);
-      return { ok: true as const, id: data.id };
+      return { ok: true as const, id: data.id, slugChanged };
     }
     const { data: inserted, error } = await supabase
       .from("projects")
@@ -1169,8 +1206,83 @@ export const upsertProject = createServerFn({ method: "POST" })
       .single();
     if (error) throw new Error(error.message);
     await invalidateSummaries(supabase, userId);
-    return { ok: true as const, id: inserted.id };
+    return { ok: true as const, id: inserted.id, slugChanged: false };
   });
+
+// Cascade-rename a project slug across every place it is used as a value or
+// as a `#project/<slug>` tag. Scoped to a single user via RLS + explicit
+// user_id filters. Idempotent — safe to re-run.
+async function cascadeRenameProjectSlug(
+  // Supabase client type is large/generated; using `any` here keeps this
+  // helper portable without importing the generated DB types.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  userId: string,
+  oldSlug: string,
+  newSlug: string,
+): Promise<void> {
+  const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  // `(?![a-z0-9_-])` ensures we only match the whole tag, not a prefix of a
+  // longer slug (e.g. renaming `garden` must not touch `#project/garden-2026`).
+  const tagRe = new RegExp(`#project/${escapeRegex(oldSlug)}(?![a-z0-9_-])`, "g");
+  const newTag = `#project/${newSlug}`;
+
+  // 1. tasks.project_tags — array column, replace old slug with new.
+  const { data: tasks } = await supabase
+    .from("tasks")
+    .select("id, project_tags")
+    .eq("user_id", userId)
+    .contains("project_tags", [oldSlug]);
+  for (const t of tasks ?? []) {
+    const tags = (t.project_tags ?? []) as string[];
+    const next = Array.from(
+      new Set(tags.map((x) => (x === oldSlug ? newSlug : x))),
+    );
+    await supabase.from("tasks").update({ project_tags: next }).eq("id", t.id);
+  }
+
+  // 2. daily_notes.markdown_content — rewrite #project/<old> tokens.
+  const { data: notes } = await supabase
+    .from("daily_notes")
+    .select("id, markdown_content")
+    .eq("user_id", userId)
+    .ilike("markdown_content", `%#project/${oldSlug}%`);
+  for (const n of notes ?? []) {
+    const current = (n.markdown_content ?? "") as string;
+    const next = current.replace(tagRe, newTag);
+    if (next !== current) {
+      await supabase
+        .from("daily_notes")
+        .update({ markdown_content: next })
+        .eq("id", n.id);
+    }
+  }
+
+  // 3. activity_log.raw_content — same token rewrite.
+  const { data: logs } = await supabase
+    .from("activity_log")
+    .select("id, raw_content")
+    .eq("user_id", userId)
+    .ilike("raw_content", `%#project/${oldSlug}%`);
+  for (const l of logs ?? []) {
+    const current = (l.raw_content ?? "") as string;
+    const next = current.replace(tagRe, newTag);
+    if (next !== current) {
+      await supabase
+        .from("activity_log")
+        .update({ raw_content: next })
+        .eq("id", l.id);
+    }
+  }
+
+  // 4. summaries.scope_project — denormalized slug column on AI reports.
+  await supabase
+    .from("summaries")
+    .update({ scope_project: newSlug })
+    .eq("user_id", userId)
+    .eq("scope_project", oldSlug);
+}
+
 
 export const deleteProject = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

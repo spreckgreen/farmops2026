@@ -254,12 +254,18 @@ function ProjectsPage() {
                 value={draft.slug}
                 onChange={(e) => setDraft((d) => ({ ...d, slug: slugify(e.target.value) }))}
                 placeholder="marketing-site"
-                disabled={!!draft.id}
               />
               <p className="text-xs text-muted-foreground font-mono mt-1">
                 Used as #project/{draft.slug || "<slug>"}
               </p>
+              {draft.id && (
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  Renaming the slug rewrites <code className="font-mono">#project/</code> tags
+                  across tasks, daily notes, activity log, and AI report scopes.
+                </p>
+              )}
             </div>
+
             <div>
               <Label htmlFor="start">Start date</Label>
               <Input
