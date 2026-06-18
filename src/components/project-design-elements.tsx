@@ -192,17 +192,24 @@ export function ProjectDesignElements({ projectId }: { projectId: string }) {
             value={draftDesc}
             onChange={(e) => setDraftDesc(e.target.value)}
           />
-          <div className="flex items-center gap-2">
-            <label className="text-xs font-mono text-muted-foreground">Weight (% of design value)</label>
+          <div className="flex items-center gap-2 flex-wrap">
+            <label className="text-xs font-mono text-muted-foreground">
+              Weight (% of design value)
+            </label>
             <Input
               type="number"
               min={0}
-              max={100}
+              max={remaining}
               step={1}
               className="w-24"
               value={draftWeight}
               onChange={(e) => setDraftWeight(e.target.value)}
             />
+            <span
+              className={`text-[10px] font-mono ${overCap ? "text-destructive" : "text-muted-foreground"}`}
+            >
+              {remaining.toFixed(0)}% remaining (others: {otherWeight.toFixed(0)}%)
+            </span>
             <div className="ml-auto flex gap-2">
               <Button size="sm" variant="ghost" onClick={reset}>
                 <X className="h-3.5 w-3.5 mr-1" /> Cancel
@@ -210,13 +217,20 @@ export function ProjectDesignElements({ projectId }: { projectId: string }) {
               <Button
                 size="sm"
                 onClick={() => save.mutate()}
-                disabled={save.isPending || !draftTitle.trim()}
+                disabled={save.isPending || !draftTitle.trim() || overCap}
+                title={overCap ? `Exceeds remaining ${remaining.toFixed(0)}%` : undefined}
               >
                 <Check className="h-3.5 w-3.5 mr-1" />
                 {save.isPending ? "Saving…" : editId ? "Save" : "Add"}
               </Button>
             </div>
           </div>
+          {overCap && (
+            <p className="text-[10px] font-mono text-destructive">
+              Total design weight cannot exceed 100%. Reduce this element or lower others first.
+            </p>
+          )}
+
         </div>
       )}
 
