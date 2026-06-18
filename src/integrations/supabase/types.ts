@@ -1007,6 +1007,7 @@ export type Database = {
         Row: {
           closed_at: string | null
           created_at: string
+          design_element_id: string | null
           id: string
           percent_complete: number
           project_tags: string[]
@@ -1022,6 +1023,7 @@ export type Database = {
         Insert: {
           closed_at?: string | null
           created_at?: string
+          design_element_id?: string | null
           id?: string
           percent_complete?: number
           project_tags?: string[]
@@ -1037,6 +1039,7 @@ export type Database = {
         Update: {
           closed_at?: string | null
           created_at?: string
+          design_element_id?: string | null
           id?: string
           percent_complete?: number
           project_tags?: string[]
@@ -1049,7 +1052,15 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "tasks_design_element_id_fkey"
+            columns: ["design_element_id"]
+            isOneToOne: false
+            referencedRelation: "project_design_elements"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
