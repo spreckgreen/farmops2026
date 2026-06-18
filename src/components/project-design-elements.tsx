@@ -2,7 +2,8 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Link } from "@tanstack/react-router";
-import { Plus, Trash2, ArrowRight, Pencil, Check, X } from "lucide-react";
+import { Plus, Trash2, ArrowRight, Pencil, Check, X, ChevronDown, ChevronRight } from "lucide-react";
+import { DesignElementTasks, DesignElementTasksCount } from "@/components/design-element-tasks";
 import { toast } from "sonner";
 import {
   listProjectDesignElements,
@@ -48,6 +49,14 @@ export function ProjectDesignElements({ projectId }: { projectId: string }) {
   const [draftTitle, setDraftTitle] = useState("");
   const [draftDesc, setDraftDesc] = useState("");
   const [draftWeight, setDraftWeight] = useState<string>("10");
+  const [expandedTaskIds, setExpandedTaskIds] = useState<Set<string>>(new Set());
+  const toggleTasks = (id: string) =>
+    setExpandedTaskIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   const reset = () => {
     setAdding(false);
@@ -245,77 +254,96 @@ export function ProjectDesignElements({ projectId }: { projectId: string }) {
         {elements.map((el) => {
           const doneByTask = el.task?.status === "done";
           const isDone = el.completed || doneByTask;
+          const expanded = expandedTaskIds.has(el.id);
           return (
             <li
               key={el.id}
-              className="flex items-start gap-2 rounded-md border border-border bg-card/40 px-3 py-2"
+              className="rounded-md border border-border bg-card/40 px-3 py-2"
             >
-              <Checkbox
-                checked={isDone}
-                onCheckedChange={(v) =>
-                  toggle.mutate({ id: el.id, completed: !!v })
-                }
-                className="mt-0.5"
-              />
-              <div className="min-w-0 flex-1">
-                <div className="flex items-baseline gap-2 flex-wrap">
-                  <span
-                    className={`text-sm font-medium ${isDone ? "line-through text-muted-foreground" : ""}`}
-                  >
-                    {el.title}
-                  </span>
-                  <Badge variant="secondary" className="font-mono text-[10px]">
-                    {Number(el.weight).toFixed(0)} pts
-                  </Badge>
-                  {el.task?.slug && (
-                    <Link
-                      to="/tasks/$slug"
-                      params={{ slug: el.task.slug }}
-                      className="text-[10px] font-mono text-muted-foreground hover:text-foreground"
+              <div className="flex items-start gap-2">
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-6 w-6 mt-0.5 shrink-0"
+                  onClick={() => toggleTasks(el.id)}
+                  title={expanded ? "Hide execution tasks" : "Show execution tasks"}
+                  aria-label={expanded ? "Collapse tasks" : "Expand tasks"}
+                >
+                  {expanded ? (
+                    <ChevronDown className="h-3.5 w-3.5" />
+                  ) : (
+                    <ChevronRight className="h-3.5 w-3.5" />
+                  )}
+                </Button>
+                <Checkbox
+                  checked={isDone}
+                  onCheckedChange={(v) =>
+                    toggle.mutate({ id: el.id, completed: !!v })
+                  }
+                  className="mt-1"
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-baseline gap-2 flex-wrap">
+                    <span
+                      className={`text-sm font-medium ${isDone ? "line-through text-muted-foreground" : ""}`}
                     >
-                      → #task/{el.task.slug}
-                      {doneByTask ? " (done)" : ""}
-                    </Link>
+                      {el.title}
+                    </span>
+                    <Badge variant="secondary" className="font-mono text-[10px]">
+                      {Number(el.weight).toFixed(0)} pts
+                    </Badge>
+                    <DesignElementTasksCount designElementId={el.id} />
+                    {el.task?.slug && (
+                      <Link
+                        to="/tasks/$slug"
+                        params={{ slug: el.task.slug }}
+                        className="text-[10px] font-mono text-muted-foreground hover:text-foreground"
+                      >
+                        → #task/{el.task.slug}
+                        {doneByTask ? " (done)" : ""}
+                      </Link>
+                    )}
+                  </div>
+                  {el.description && (
+                    <p className="text-xs text-muted-foreground whitespace-pre-wrap mt-0.5">
+                      {el.description}
+                    </p>
                   )}
                 </div>
-                {el.description && (
-                  <p className="text-xs text-muted-foreground whitespace-pre-wrap mt-0.5">
-                    {el.description}
-                  </p>
-                )}
-              </div>
-              <div className="flex items-center gap-1 shrink-0">
-                {!el.task_id && (
+                <div className="flex items-center gap-1 shrink-0">
+                  {!el.task_id && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      title="Move to backlog as a task"
+                      onClick={() => promote.mutate(el.id)}
+                      disabled={promote.isPending}
+                    >
+                      <ArrowRight className="h-3.5 w-3.5 mr-1" />
+                      Backlog
+                    </Button>
+                  )}
                   <Button
-                    size="sm"
+                    size="icon"
                     variant="ghost"
-                    title="Move to backlog as a task"
-                    onClick={() => promote.mutate(el.id)}
-                    disabled={promote.isPending}
+                    className="h-7 w-7"
+                    onClick={() => startEdit(el)}
                   >
-                    <ArrowRight className="h-3.5 w-3.5 mr-1" />
-                    Backlog
+                    <Pencil className="h-3.5 w-3.5" />
                   </Button>
-                )}
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-7 w-7"
-                  onClick={() => startEdit(el)}
-                >
-                  <Pencil className="h-3.5 w-3.5" />
-                </Button>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-7 w-7 text-destructive hover:text-destructive"
-                  onClick={() => {
-                    if (confirm(`Delete element "${el.title}"?`)) remove.mutate(el.id);
-                  }}
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-7 w-7 text-destructive hover:text-destructive"
+                    onClick={() => {
+                      if (confirm(`Delete element "${el.title}"?`)) remove.mutate(el.id);
+                    }}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
               </div>
+              {expanded && <DesignElementTasks designElementId={el.id} />}
             </li>
           );
         })}
@@ -323,3 +351,4 @@ export function ProjectDesignElements({ projectId }: { projectId: string }) {
     </div>
   );
 }
+
