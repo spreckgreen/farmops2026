@@ -144,12 +144,29 @@ export function ProjectDesignElements({ projectId }: { projectId: string }) {
               {pct}% complete · {completedWeight.toFixed(0)}/{totalWeight.toFixed(0)} pts
             </Badge>
           )}
+          <Badge
+            variant="outline"
+            className={`font-mono text-[10px] ${totalWeight > 100 ? "border-destructive text-destructive" : ""}`}
+          >
+            {totalWeight.toFixed(0)}/100 allocated
+          </Badge>
         </div>
         {!adding && (
-          <Button size="sm" variant="ghost" onClick={() => setAdding(true)}>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => {
+              setAdding(true);
+              // Default new element to whatever capacity is left (cap 10).
+              setDraftWeight(String(Math.min(10, Math.max(0, 100 - totalWeight))));
+            }}
+            disabled={totalWeight >= 100}
+            title={totalWeight >= 100 ? "Design weight is fully allocated (100%)" : undefined}
+          >
             <Plus className="h-3.5 w-3.5 mr-1" /> Add element
           </Button>
         )}
+
       </div>
 
       {elements.length > 0 && (
