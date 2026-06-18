@@ -100,6 +100,15 @@ function ProjectsPage() {
     setOpen(true);
   };
 
+  const toggleExpand = (id: string) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
   return (
     <AppLayout>
       <div className="max-w-4xl mx-auto px-4 py-8">
