@@ -248,6 +248,50 @@ function TaskPage() {
         )}
       </div>
 
+      <div className="mb-4 rounded-lg border border-border bg-card/40 px-4 py-3">
+        <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+          Note for next status change <span className="normal-case tracking-normal">(optional — appended to the next open/blocked/done switch)</span>
+        </label>
+        <Input
+          placeholder="e.g. blocked on parts shipment"
+          value={statusNote}
+          onChange={(e) => setStatusNote(e.target.value)}
+          className="mt-2 font-mono text-sm"
+        />
+      </div>
+
+      <div className="mb-6 rounded-lg border border-border bg-card/40 px-4 py-3">
+        <div className="flex items-center justify-between gap-2 mb-2">
+          <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+            Add note to this task
+          </label>
+          <Select value={noteKind} onValueChange={(v) => setNoteKind(v as "note" | "decision" | "blocker")}>
+            <SelectTrigger className="w-32 h-7 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="note">note</SelectItem>
+              <SelectItem value="decision">decision</SelectItem>
+              <SelectItem value="blocker">blocker</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <Textarea
+          placeholder="What changed, decided, or got in the way? Feeds the weekly report + project rollup."
+          value={newNote}
+          onChange={(e) => setNewNote(e.target.value)}
+          rows={3}
+          className="font-mono text-sm"
+        />
+        <div className="mt-2 flex justify-end">
+          <Button
+            size="sm"
+            disabled={!newNote.trim() || addNote.isPending}
+            onClick={() => addNote.mutate()}
+          >
+            {addNote.isPending ? "Adding…" : "Add note"}
+          </Button>
+        </div>
+      </div>
+
       <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-3">
         Activity log · {entries.length}
       </h2>
