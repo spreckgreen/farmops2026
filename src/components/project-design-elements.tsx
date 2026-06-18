@@ -49,6 +49,14 @@ export function ProjectDesignElements({ projectId }: { projectId: string }) {
   const [draftTitle, setDraftTitle] = useState("");
   const [draftDesc, setDraftDesc] = useState("");
   const [draftWeight, setDraftWeight] = useState<string>("10");
+  const [expandedTaskIds, setExpandedTaskIds] = useState<Set<string>>(new Set());
+  const toggleTasks = (id: string) =>
+    setExpandedTaskIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   const reset = () => {
     setAdding(false);
