@@ -288,11 +288,12 @@ function BacklogPage() {
                       className="min-w-0 flex-1"
                     >
                       <div className="font-medium truncate">{t.title}</div>
-                      {showSlugs && (
-                        <div className="text-xs text-muted-foreground font-mono">
-                          #{t.slug}
-                        </div>
-                      )}
+                      <div className="text-xs text-muted-foreground font-mono flex gap-2 flex-wrap">
+                        {showSlugs && <span>#{t.slug}</span>}
+                        {(t.project_tags ?? []).map((pt, i) => (
+                          <span key={pt}>{showSlugs || i > 0 ? "· " : ""}#project/{pt}</span>
+                        ))}
+                      </div>
                     </Link>
                     {t.recurrence && t.recurrence !== "none" && (
                       <Badge variant="outline" className="text-[10px] uppercase">↻ {t.recurrence}</Badge>
