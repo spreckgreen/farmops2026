@@ -183,6 +183,18 @@ function ProjectsPage() {
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-baseline gap-2 flex-wrap">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 -ml-1.5 mr-0.5"
+                      onClick={() => toggleExpand(p.id)}
+                    >
+                      {expandedIds.has(p.id) ? (
+                        <ChevronDown className="h-4 w-4" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4" />
+                      )}
+                    </Button>
                     <h2 className="font-medium">{p.name}</h2>
                     <code className="text-xs font-mono text-muted-foreground">
                       #project/{p.slug}
@@ -214,7 +226,7 @@ function ProjectsPage() {
                   </Button>
                 </div>
               </div>
-              <ProjectDesignElements projectId={p.id} />
+              {expandedIds.has(p.id) && <ProjectDesignElements projectId={p.id} />}
             </li>
           ))}
         </ul>
