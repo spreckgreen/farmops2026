@@ -302,6 +302,7 @@ function BacklogPage() {
                     >
                       {status}
                     </Badge>
+                    <AssignTaskToProject taskId={t.id} taskTitle={t.title} />
                     <Button
                       size="sm"
                       variant="secondary"
