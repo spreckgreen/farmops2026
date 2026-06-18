@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { CsvToolbar } from "@/components/csv-toolbar";
+import { ProjectDesignElements } from "@/components/project-design-elements";
 
 export const Route = createFileRoute("/projects")({
   ssr: false,
@@ -167,40 +168,43 @@ function ProjectsPage() {
           {(q.data as ProjectRow[] | undefined)?.map((p) => (
             <li
               key={p.id}
-              className="border border-border rounded-lg p-4 bg-card flex items-start justify-between gap-4"
+              className="border border-border rounded-lg p-4 bg-card"
             >
-              <div className="min-w-0 flex-1">
-                <div className="flex items-baseline gap-2 flex-wrap">
-                  <h2 className="font-medium">{p.name}</h2>
-                  <code className="text-xs font-mono text-muted-foreground">
-                    #project/{p.slug}
-                  </code>
-                </div>
-                {p.start_date && (
-                  <div className="text-xs font-mono text-muted-foreground mt-1">
-                    Started {format(new Date(p.start_date), "MMM d, yyyy")}
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-baseline gap-2 flex-wrap">
+                    <h2 className="font-medium">{p.name}</h2>
+                    <code className="text-xs font-mono text-muted-foreground">
+                      #project/{p.slug}
+                    </code>
                   </div>
-                )}
-                {p.description && (
-                  <p className="text-sm mt-2 whitespace-pre-wrap">{p.description}</p>
-                )}
+                  {p.start_date && (
+                    <div className="text-xs font-mono text-muted-foreground mt-1">
+                      Started {format(new Date(p.start_date), "MMM d, yyyy")}
+                    </div>
+                  )}
+                  {p.description && (
+                    <p className="text-sm mt-2 whitespace-pre-wrap">{p.description}</p>
+                  )}
+                </div>
+                <div className="flex gap-1 shrink-0">
+                  <Button variant="ghost" size="icon" onClick={() => startEdit(p)}>
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => {
+                      if (confirm(`Delete project "${p.name}"? This only removes metadata; tags on tasks are kept.`)) {
+                        remove.mutate(p.id);
+                      }
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
-              <div className="flex gap-1 shrink-0">
-                <Button variant="ghost" size="icon" onClick={() => startEdit(p)}>
-                  <Pencil className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => {
-                    if (confirm(`Delete project "${p.name}"? This only removes metadata; tags on tasks are kept.`)) {
-                      remove.mutate(p.id);
-                    }
-                  }}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
+              <ProjectDesignElements projectId={p.id} />
             </li>
           ))}
         </ul>

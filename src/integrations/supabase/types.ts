@@ -857,6 +857,63 @@ export type Database = {
         }
         Relationships: []
       }
+      project_design_elements: {
+        Row: {
+          completed: boolean
+          created_at: string
+          description: string | null
+          id: string
+          project_id: string
+          sort_order: number
+          task_id: string | null
+          title: string
+          updated_at: string
+          user_id: string
+          weight: number
+        }
+        Insert: {
+          completed?: boolean
+          created_at?: string
+          description?: string | null
+          id?: string
+          project_id: string
+          sort_order?: number
+          task_id?: string | null
+          title: string
+          updated_at?: string
+          user_id: string
+          weight?: number
+        }
+        Update: {
+          completed?: boolean
+          created_at?: string
+          description?: string | null
+          id?: string
+          project_id?: string
+          sort_order?: number
+          task_id?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+          weight?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_design_elements_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_design_elements_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       projects: {
         Row: {
           created_at: string
