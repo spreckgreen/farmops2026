@@ -58,6 +58,7 @@ function ProjectsPage() {
   const q = useQuery({ queryKey: ["projects"], queryFn: () => listFn() });
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<EditState>(empty);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
   const save = useMutation({
     mutationFn: () =>
