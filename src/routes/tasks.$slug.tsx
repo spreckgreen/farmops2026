@@ -58,11 +58,23 @@ function TaskPage() {
 
   const setStatus = useMutation({
     mutationFn: (status: "open" | "blocked" | "done") =>
-      statusFn({ data: { id: q.data!.task.id, status } }),
+      statusFn({ data: { id: q.data!.task.id, status, note: statusNote.trim() || undefined } }),
     onSuccess: () => {
+      setStatusNote("");
       qc.invalidateQueries({ queryKey: ["task", slug] });
       qc.invalidateQueries({ queryKey: ["tasks"] });
     },
+  });
+
+  const addNote = useMutation({
+    mutationFn: () =>
+      noteFn({ data: { id: q.data!.task.id, note: newNote.trim(), entry_type: noteKind } }),
+    onSuccess: () => {
+      toast.success("Note added");
+      setNewNote("");
+      qc.invalidateQueries({ queryKey: ["task", slug] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
   });
 
   const saveTitle = useMutation({
