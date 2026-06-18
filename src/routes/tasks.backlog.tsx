@@ -20,6 +20,7 @@ import { toast } from "sonner";
 import { todayDateString } from "@/lib/slug";
 import { useShowTaskSlugs } from "@/hooks/use-show-task-slugs";
 import { CsvToolbar } from "@/components/csv-toolbar";
+import { AssignTaskToProject } from "@/components/assign-task-to-project";
 
 export const Route = createFileRoute("/tasks/backlog")({
   ssr: false,
@@ -301,6 +302,7 @@ function BacklogPage() {
                     >
                       {status}
                     </Badge>
+                    <AssignTaskToProject taskId={t.id} taskTitle={t.title} />
                     <Button
                       size="sm"
                       variant="secondary"

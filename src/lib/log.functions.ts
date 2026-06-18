@@ -1344,6 +1344,85 @@ export const promoteDesignElementToBacklog = createServerFn({ method: "POST" })
     return { ok: true as const, already: false, slug: created.slug };
   });
 
+// Attach an existing task (e.g. from the backlog) to a project as a design
+// element. Creates a `project_design_elements` row pointing at the task, and
+// ensures the project's slug is present in `tasks.project_tags` so summaries
+// and groupings stay consistent. If the task is already linked to an element
+// for that project, returns it without creating a duplicate.
+export const assignTaskToProjectAsDesignElement = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        task_id: z.string().uuid(),
+        project_id: z.string().uuid(),
+        weight: z.number().min(0).max(100).default(10),
+        description: z.string().trim().max(2000).nullable().optional(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+
+    const { data: task, error: taskErr } = await supabase
+      .from("tasks")
+      .select("id, title, status, project_tags")
+      .eq("id", data.task_id)
+      .maybeSingle();
+    if (taskErr) throw new Error(taskErr.message);
+    if (!task) throw new Error("Task not found");
+
+    const { data: project, error: projErr } = await supabase
+      .from("projects")
+      .select("id, slug")
+      .eq("id", data.project_id)
+      .maybeSingle();
+    if (projErr) throw new Error(projErr.message);
+    if (!project) throw new Error("Project not found");
+
+    // Reuse an existing element if this task is already assigned to this project.
+    const { data: existing } = await supabase
+      .from("project_design_elements")
+      .select("id")
+      .eq("project_id", data.project_id)
+      .eq("task_id", data.task_id)
+      .maybeSingle();
+    if (existing) {
+      return { ok: true as const, already: true, id: existing.id };
+    }
+
+    const { data: inserted, error: insErr } = await supabase
+      .from("project_design_elements")
+      .insert({
+        user_id: userId,
+        project_id: data.project_id,
+        task_id: data.task_id,
+        title: task.title ?? "Untitled",
+        description: data.description ?? null,
+        weight: data.weight,
+        completed: task.status === "done",
+      })
+      .select("id")
+      .single();
+    if (insErr) throw new Error(insErr.message);
+
+    // Ensure the project slug is tagged on the task so it appears in the
+    // project's activity rollups going forward.
+    const tags = (task.project_tags ?? []) as string[];
+    if (!tags.includes(project.slug)) {
+      const { error: tagErr } = await supabase
+        .from("tasks")
+        .update({ project_tags: [...tags, project.slug] })
+        .eq("id", data.task_id);
+      if (tagErr) throw new Error(tagErr.message);
+    }
+
+    await invalidateSummaries(supabase, userId);
+    return { ok: true as const, already: false, id: inserted.id };
+  });
+
+
+
 // ---- TiddlyWiki import upserts ----
 
 
