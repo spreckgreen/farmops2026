@@ -103,17 +103,26 @@ export function ProjectDesignElements({ projectId }: { projectId: string }) {
 
   const elements = q.data ?? [];
 
-  const { totalWeight, completedWeight, pct } = useMemo(() => {
+  const { totalWeight, completedWeight, pct, otherWeight, remaining } = useMemo(() => {
     const total = elements.reduce((s, e) => s + Number(e.weight ?? 0), 0);
     const done = elements
       .filter((e) => e.completed || e.task?.status === "done")
+      .reduce((s, e) => s + Number(e.weight ?? 0), 0);
+    const other = elements
+      .filter((e) => e.id !== editId)
       .reduce((s, e) => s + Number(e.weight ?? 0), 0);
     return {
       totalWeight: total,
       completedWeight: done,
       pct: total > 0 ? Math.round((done / total) * 100) : 0,
+      otherWeight: other,
+      remaining: Math.max(0, 100 - other),
     };
-  }, [elements]);
+  }, [elements, editId]);
+
+  const draftWeightNum = Number(draftWeight) || 0;
+  const overCap = draftWeightNum > remaining;
+
 
   const startEdit = (el: Element) => {
     setEditId(el.id);
@@ -135,12 +144,29 @@ export function ProjectDesignElements({ projectId }: { projectId: string }) {
               {pct}% complete · {completedWeight.toFixed(0)}/{totalWeight.toFixed(0)} pts
             </Badge>
           )}
+          <Badge
+            variant="outline"
+            className={`font-mono text-[10px] ${totalWeight > 100 ? "border-destructive text-destructive" : ""}`}
+          >
+            {totalWeight.toFixed(0)}/100 allocated
+          </Badge>
         </div>
         {!adding && (
-          <Button size="sm" variant="ghost" onClick={() => setAdding(true)}>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => {
+              setAdding(true);
+              // Default new element to whatever capacity is left (cap 10).
+              setDraftWeight(String(Math.min(10, Math.max(0, 100 - totalWeight))));
+            }}
+            disabled={totalWeight >= 100}
+            title={totalWeight >= 100 ? "Design weight is fully allocated (100%)" : undefined}
+          >
             <Plus className="h-3.5 w-3.5 mr-1" /> Add element
           </Button>
         )}
+
       </div>
 
       {elements.length > 0 && (
@@ -166,17 +192,24 @@ export function ProjectDesignElements({ projectId }: { projectId: string }) {
             value={draftDesc}
             onChange={(e) => setDraftDesc(e.target.value)}
           />
-          <div className="flex items-center gap-2">
-            <label className="text-xs font-mono text-muted-foreground">Weight (% of design value)</label>
+          <div className="flex items-center gap-2 flex-wrap">
+            <label className="text-xs font-mono text-muted-foreground">
+              Weight (% of design value)
+            </label>
             <Input
               type="number"
               min={0}
-              max={100}
+              max={remaining}
               step={1}
               className="w-24"
               value={draftWeight}
               onChange={(e) => setDraftWeight(e.target.value)}
             />
+            <span
+              className={`text-[10px] font-mono ${overCap ? "text-destructive" : "text-muted-foreground"}`}
+            >
+              {remaining.toFixed(0)}% remaining (others: {otherWeight.toFixed(0)}%)
+            </span>
             <div className="ml-auto flex gap-2">
               <Button size="sm" variant="ghost" onClick={reset}>
                 <X className="h-3.5 w-3.5 mr-1" /> Cancel
@@ -184,13 +217,20 @@ export function ProjectDesignElements({ projectId }: { projectId: string }) {
               <Button
                 size="sm"
                 onClick={() => save.mutate()}
-                disabled={save.isPending || !draftTitle.trim()}
+                disabled={save.isPending || !draftTitle.trim() || overCap}
+                title={overCap ? `Exceeds remaining ${remaining.toFixed(0)}%` : undefined}
               >
                 <Check className="h-3.5 w-3.5 mr-1" />
                 {save.isPending ? "Saving…" : editId ? "Save" : "Add"}
               </Button>
             </div>
           </div>
+          {overCap && (
+            <p className="text-[10px] font-mono text-destructive">
+              Total design weight cannot exceed 100%. Reduce this element or lower others first.
+            </p>
+          )}
+
         </div>
       )}
 

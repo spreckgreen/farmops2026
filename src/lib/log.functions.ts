@@ -1223,6 +1223,23 @@ export const upsertProjectDesignElement = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
+
+    // Enforce: sum of weights for this project must not exceed 100%.
+    const { data: siblings, error: sumErr } = await supabase
+      .from("project_design_elements")
+      .select("id, weight")
+      .eq("project_id", data.project_id);
+    if (sumErr) throw new Error(sumErr.message);
+    const otherTotal = (siblings ?? [])
+      .filter((s) => s.id !== data.id)
+      .reduce((acc, s) => acc + Number(s.weight ?? 0), 0);
+    const remaining = Math.max(0, 100 - otherTotal);
+    if (otherTotal + data.weight > 100) {
+      throw new Error(
+        `Weight would exceed 100% (other elements use ${otherTotal.toFixed(0)}%, ${remaining.toFixed(0)}% remaining).`,
+      );
+    }
+
     const payload = {
       user_id: userId,
       project_id: data.project_id,
@@ -1248,6 +1265,7 @@ export const upsertProjectDesignElement = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true as const, id: inserted.id };
   });
+
 
 export const setProjectDesignElementCompleted = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -1391,6 +1409,23 @@ export const assignTaskToProjectAsDesignElement = createServerFn({ method: "POST
       return { ok: true as const, already: true, id: existing.id };
     }
 
+    // Enforce: sum of weights for this project must not exceed 100%.
+    const { data: siblings, error: sumErr } = await supabase
+      .from("project_design_elements")
+      .select("weight")
+      .eq("project_id", data.project_id);
+    if (sumErr) throw new Error(sumErr.message);
+    const otherTotal = (siblings ?? []).reduce(
+      (acc, s) => acc + Number(s.weight ?? 0),
+      0,
+    );
+    if (otherTotal + data.weight > 100) {
+      const remaining = Math.max(0, 100 - otherTotal);
+      throw new Error(
+        `Weight would exceed 100% (other elements use ${otherTotal.toFixed(0)}%, ${remaining.toFixed(0)}% remaining).`,
+      );
+    }
+
     const { data: inserted, error: insErr } = await supabase
       .from("project_design_elements")
       .insert({
@@ -1405,6 +1440,7 @@ export const assignTaskToProjectAsDesignElement = createServerFn({ method: "POST
       .select("id")
       .single();
     if (insErr) throw new Error(insErr.message);
+
 
     // Ensure the project slug is tagged on the task so it appears in the
     // project's activity rollups going forward.
