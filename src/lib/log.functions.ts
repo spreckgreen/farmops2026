@@ -1310,7 +1310,7 @@ export const listProjectDesignElements = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { data: rows, error } = await context.supabase
       .from("project_design_elements")
-      .select("*, task:tasks(id, slug, status, percent_complete)")
+      .select("*, task:tasks!project_design_elements_task_id_fkey(id, slug, status, percent_complete)")
       .eq("project_id", data.project_id)
       .order("sort_order", { ascending: true })
       .order("created_at", { ascending: true });
