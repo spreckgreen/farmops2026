@@ -41,11 +41,15 @@ function TaskPage() {
   const statusFn = useServerFn(setTaskStatus);
   const updateFn = useServerFn(updateTask);
   const deleteFn = useServerFn(deleteTask);
+  const noteFn = useServerFn(addTaskNote);
   const summarizeFn = useServerFn(generateSummary);
   const qc = useQueryClient();
 
   const [editing, setEditing] = useState(false);
   const [draftTitle, setDraftTitle] = useState("");
+  const [statusNote, setStatusNote] = useState("");
+  const [newNote, setNewNote] = useState("");
+  const [noteKind, setNoteKind] = useState<"note" | "decision" | "blocker">("note");
 
   const q = useQuery({
     queryKey: ["task", slug],
