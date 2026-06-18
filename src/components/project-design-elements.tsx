@@ -2,7 +2,8 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Link } from "@tanstack/react-router";
-import { Plus, Trash2, ArrowRight, Pencil, Check, X } from "lucide-react";
+import { Plus, Trash2, ArrowRight, Pencil, Check, X, ChevronDown, ChevronRight } from "lucide-react";
+import { DesignElementTasks, DesignElementTasksCount } from "@/components/design-element-tasks";
 import { toast } from "sonner";
 import {
   listProjectDesignElements,
