@@ -81,6 +81,47 @@ Then open http://localhost:3000.
 2. **Stage 2 (`builder`)** — copies source, sets `NITRO_PRESET=node-server` to output a Node.js server instead of a Cloudflare Worker, and builds the app
 3. **Stage 3 (`runner`)** — creates a minimal production image with only the built output and production dependencies, runs as a non-root user, and exposes port 3000
 
+### User permissions (UID / GID)
+
+The container runs as a non-root user (`appuser`) with **UID 1001** and group (`nodejs`) with **GID 1001** by default.
+
+`useradd` and `groupadd` are used instead of `adduser`/`addgroup` to avoid the `SYS_UID_MAX 999` restriction some Debian-based images enforce for system accounts.
+
+#### Override UID/GID to match your host user
+
+If you mount host volumes into the container and need file ownership to match your local user, override at build time:
+
+**Via Docker Compose (recommended):**
+
+Add to your `.env` file or export in your shell:
+
+```bash
+UID=1000
+GID=1000
+```
+
+Then run:
+
+```bash
+docker compose up --build
+```
+
+The `docker-compose.yml` already passes `UID` and `GID` as build args with a default of `1001`.
+
+**Via plain `docker build`:**
+
+```bash
+docker build \
+  --build-arg UID=1000 \
+  --build-arg GID=1000 \
+  --build-arg VITE_SUPABASE_URL="$VITE_SUPABASE_URL" \
+  --build-arg VITE_SUPABASE_PUBLISHABLE_KEY="$VITE_SUPABASE_PUBLISHABLE_KEY" \
+  --build-arg VITE_SUPABASE_PROJECT_ID="$VITE_SUPABASE_PROJECT_ID" \
+  -t bostead:latest .
+```
+
+> **Tip:** Run `id -u` and `id -g` in your terminal to see your current user's UID and GID.
+
 ### Troubleshooting
 
 | Issue | Fix |
