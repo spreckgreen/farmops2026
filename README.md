@@ -89,37 +89,71 @@ The container runs as a non-root user (`appuser`) with **UID 1001** and group (`
 
 #### Override UID/GID to match your host user
 
-If you mount host volumes into the container and need file ownership to match your local user, override at build time:
+If you mount host volumes into the container and need file ownership to match your local user, override at build time.
+
+> **Quick one-liner** (uses your current shell user's UID/GID automatically):
+>
+> ```bash
+> export UID=$(id -u) GID=$(id -g) && docker compose up --build
+> ```
+
+---
 
 **Via Docker Compose (recommended):**
 
-Add to your `.env` file or export in your shell:
+Add to your `.env` file (create one in the project root if it doesn't exist):
 
 ```bash
+# Your local user's UID/GID — run `id` in your terminal to find these
 UID=1000
 GID=1000
+
+# Required Supabase build args
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=your-anon-key
+VITE_SUPABASE_PROJECT_ID=your-project-id
 ```
 
-Then run:
+Then build and run:
 
 ```bash
+# Build with your UID/GID baked in and start the container
 docker compose up --build
+
+# Or detached (background)
+docker compose up --build -d
 ```
 
-The `docker-compose.yml` already passes `UID` and `GID` as build args with a default of `1001`.
+The `docker-compose.yml` passes `UID` and `GID` as build args with a default of `1001`. If your `.env` sets `UID=1000` and `GID=1000`, the container will run as that user instead.
 
-**Via plain `docker build`:**
+---
+
+**Via plain `docker build` + `docker run`:**
+
+Build the image with your preferred UID/GID:
 
 ```bash
 docker build \
-  --build-arg UID=1000 \
-  --build-arg GID=1000 \
+  --build-arg UID=$(id -u) \
+  --build-arg GID=$(id -g) \
   --build-arg VITE_SUPABASE_URL="$VITE_SUPABASE_URL" \
   --build-arg VITE_SUPABASE_PUBLISHABLE_KEY="$VITE_SUPABASE_PUBLISHABLE_KEY" \
   --build-arg VITE_SUPABASE_PROJECT_ID="$VITE_SUPABASE_PROJECT_ID" \
   -t bostead:latest .
 ```
 
+Run it:
+
+```bash
+docker run -p 3000:3000 \
+  -e SUPABASE_URL="$SUPABASE_URL" \
+  -e SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY" \
+  -e SUPABASE_PROJECT_ID="$SUPABASE_PROJECT_ID" \
+  bostead:latest
+```
+
+> **Why override?** If you later mount a host directory (e.g. `-v $(pwd)/data:/app/data`), files written by the container will be owned by UID/GID 1001 by default. Setting them to match your host user (commonly 1000) prevents permission mismatches.
+>
 > **Tip:** Run `id -u` and `id -g` in your terminal to see your current user's UID and GID.
 
 ### Troubleshooting
