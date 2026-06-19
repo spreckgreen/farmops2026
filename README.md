@@ -357,6 +357,65 @@ docker run -d --name bostead -p 3000:3000 \
 
 > The entrypoint is a no-op when the container is already started as a non-root user (e.g. `docker run --user 1000:1000 ...`); in that case it just execs the command directly.
 
+#### Troubleshooting ownership issues
+
+If files on the host still show the wrong owner after the container starts, check the following in order:
+
+**1. Verify `PUID` / `PGID` values actually reached the container**
+
+```bash
+docker compose exec app id appuser
+# Expected: uid=1000(appuser) gid=1000(nodejs) ...
+```
+
+If the UID/GID do not match what you set, make sure the values are passed through correctly:
+
+- **In `docker-compose.yml`:** they must be under `services.app.environment`, not `build.args`.
+- **In a `.env` file:** variables used by Compose must be referenced in `docker-compose.yml` (e.g. `PUID: ${UID:-1001}`) — setting them only in `.env` is not enough unless the file explicitly imports them.
+
+**2. Check that the bind mount is actually active**
+
+```bash
+docker compose exec app ls -ld /app/data
+```
+
+If the directory is empty or does not exist inside the container, the host path may not be mounted. Confirm the volume line is present and the host path exists before starting the container.
+
+**3. Confirm the entrypoint ran the chown step**
+
+Look at the container logs for the startup sequence:
+
+```bash
+docker compose logs app | head -n 20
+```
+
+You should see lines like:
+
+```
+Setting user to 1000:1000
+chown -R 1000:1000 /app/data
+chown -R 1000:1000 /app/uploads
+```
+
+If these are missing, check whether `SKIP_CHOWN=1` is set or the entrypoint was overridden (e.g. `command:` in `docker-compose.yml`).
+
+**4. Check if `CHOWN_PATHS` was overridden to exclude your mount**
+
+If you set `CHOWN_PATHS` manually, it replaces the defaults entirely. For example, `CHOWN_PATHS: "/app/data"` will **not** chown `/app/uploads`, even if you mount it. Include every mounted path in the list, or remove `CHOWN_PATHS` to rely on the defaults.
+
+**5. Files were created before the first chown run**
+
+If the app already wrote files while the container was running as the wrong UID (e.g. 1001), those files remain owned by 1001. The entrypoint only chowns the mount point itself, not every nested file that was created later. Fix this by:
+
+- Stopping the container
+- Running `sudo chown -R $(id -u):$(id -g) ./data ./uploads` on the host
+- Setting `PUID` and `PGID` to your host UID/GID
+- Restarting the container
+
+**6. Host filesystem does not support `chown`**
+
+Some filesystems (e.g. FAT32/exFAT, or remote mounts via SSHFS/SMB) do not store Linux ownership metadata. In that case `chown` appears to succeed inside the container but `ls -n` on the host still shows the same owner. Move the data directory to an ext4/xfs/APFS (macOS) volume that supports POSIX ownership.
+
 
 ### Troubleshooting
 
