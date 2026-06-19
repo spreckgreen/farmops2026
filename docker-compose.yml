@@ -13,16 +13,21 @@ services:
       - "3000:3000"
     environment:
       NODE_ENV: production
-      SUPABASE_URL: ${SUPABASE_URL}
-      SUPABASE_PUBLISHABLE_KEY: ${SUPABASE_PUBLISHABLE_KEY}
-      SUPABASE_PROJECT_ID: ${SUPABASE_PROJECT_ID}
+      # Supabase credentials — required for the app to function. Provide them
+      # via a .env file or export them in your shell before running compose.
+      SUPABASE_URL: ${SUPABASE_URL:-}
+      SUPABASE_PUBLISHABLE_KEY: ${SUPABASE_PUBLISHABLE_KEY:-}
+      SUPABASE_PROJECT_ID: ${SUPABASE_PROJECT_ID:-}
       # Runtime UID/GID — the entrypoint re-maps appuser and chowns declared
-      # mount points so bind-mounts "just work".
+      # mount points so bind-mounts "just work". Defaults below work without
+      # a .env file; override only if you need them to match your host user.
       PUID: ${PUID:-1001}
       PGID: ${PGID:-1001}
-      # Space-separated paths to chown on startup. Defaults to "/app/data /app/uploads".
-      # Set to "" to disable defaults, or "1" to skip chown entirely for faster restarts.
-      # CHOWN_PATHS: "/app/data /app/uploads"
+      # Space-separated paths to chown on startup. These defaults cover the
+      # most common bind-mount targets. Set to "" to disable, or override.
+      CHOWN_PATHS: ${CHOWN_PATHS:-/app/data /app/uploads}
+      # Set to "1" to skip chown entirely (faster startup once permissions
+      # are already correct). Leave unset to let the entrypoint fix ownership.
       # SKIP_CHOWN: "1"
     volumes:
       - ./data:/app/data
