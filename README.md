@@ -161,8 +161,17 @@ docker run -p 3000:3000 \
 The image ships with `docker-entrypoint.sh`, which runs as root on container start and:
 
 1. Re-maps `appuser` / `nodejs` to the UID/GID you supply via `PUID` / `PGID` env vars (overrides the build-time defaults — no rebuild needed).
-2. Recursively `chown`s `/app` plus any extra paths listed in `CHOWN_PATHS` so bind-mounted host directories are writable.
+2. **Only chowns paths that need it.** It checks the current owner of each path before running `chown`, and skips any path already owned by the target UID/GID. This makes repeated container restarts fast.
 3. Drops privileges via `gosu` and execs the app as `appuser`. The app process itself never runs as root.
+
+**Default mount points:**
+
+By default, the entrypoint fixes ownership for:
+
+- `/app/data`
+- `/app/uploads`
+
+These are the most common bind-mount targets. The default paths are only touched if they exist, so if you don't mount them nothing happens.
 
 **Runtime env vars:**
 
@@ -170,8 +179,8 @@ The image ships with `docker-entrypoint.sh`, which runs as root on container sta
 | --- | --- | --- |
 | `PUID` | build-time `UID` (1001) | Numeric UID to run the app as |
 | `PGID` | build-time `GID` (1001) | Numeric GID to run the app as |
-| `CHOWN_PATHS` | _(empty)_ | Space-separated extra paths to chown (e.g. `"/app/data /app/uploads"`) |
-| `SKIP_CHOWN` | _(unset)_ | Set to `1` to skip the chown step (faster startup once permissions are correct) |
+| `CHOWN_PATHS` | `/app/data /app/uploads` | Space-separated paths to chown. Set to `""` to disable defaults and chown nothing. |
+| `SKIP_CHOWN` | _(unset)_ | Set to `1` to skip the chown step entirely (fastest startup once permissions are correct) |
 
 **Example — docker compose with bind mounts:**
 
@@ -181,7 +190,9 @@ services:
     environment:
       PUID: 1000
       PGID: 1000
-      CHOWN_PATHS: "/app/data /app/uploads"
+      # Defaults already include /app/data and /app/uploads,
+      # so CHOWN_PATHS can be omitted in most cases.
+      # CHOWN_PATHS: "/app/data /app/uploads /app/.cache"
     volumes:
       - ./data:/app/data
       - ./uploads:/app/uploads
@@ -192,8 +203,8 @@ services:
 ```bash
 docker run -d --name bostead -p 3000:3000 \
   -e PUID=$(id -u) -e PGID=$(id -g) \
-  -e CHOWN_PATHS="/app/data" \
   -v $(pwd)/data:/app/data \
+  -v $(pwd)/uploads:/app/uploads \
   bostead:latest
 ```
 
