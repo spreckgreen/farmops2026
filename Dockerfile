@@ -37,9 +37,15 @@ FROM oven/bun:1-slim AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 
+# Allow overriding UID/GID at build time to match host user for volume mounts
+ARG UID=1001
+ARG GID=1001
+ENV UID=${UID}
+ENV GID=${GID}
+
 # Create non-root user for security (useradd/groupadd avoid SYS_UID_MAX limits)
-RUN groupadd --system --gid 1001 nodejs && \
-    useradd --system --uid 1001 --gid nodejs --no-create-home appuser && \
+RUN groupadd --system --gid ${GID} nodejs && \
+    useradd --system --uid ${UID} --gid nodejs --no-create-home appuser && \
     chown -R appuser:nodejs /app
 USER appuser
 
