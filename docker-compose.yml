@@ -16,6 +16,16 @@ services:
       SUPABASE_URL: ${SUPABASE_URL}
       SUPABASE_PUBLISHABLE_KEY: ${SUPABASE_PUBLISHABLE_KEY}
       SUPABASE_PROJECT_ID: ${SUPABASE_PROJECT_ID}
+      # Runtime UID/GID — the entrypoint re-maps appuser and chowns /app
+      # plus any paths in CHOWN_PATHS so bind-mounts "just work".
+      PUID: ${PUID:-1001}
+      PGID: ${PGID:-1001}
+      # Space-separated extra paths to chown on startup (optional).
+      # CHOWN_PATHS: "/app/data /app/uploads"
+      # SKIP_CHOWN: "1"   # set when permissions are already correct
+    # volumes:
+    #   - ./data:/app/data
+    #   - ./uploads:/app/uploads
     healthcheck:
       test: ["CMD", "bun", "-e", "fetch('http://localhost:3000').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"]
       interval: 30s
