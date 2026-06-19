@@ -189,6 +189,84 @@ Setting `CHOWN_PATHS` **replaces** the default list entirely — it does not app
 
 > **Important:** `CHOWN_PATHS=""` (empty string) disables the default paths but still enters the chown loop. `SKIP_CHOWN=1` bypasses the loop completely for the fastest startup.
 
+#### Common `CHOWN_PATHS` override examples
+
+**1. Only `/app/data` mounted**
+
+Use this when you only persist a local database or state directory:
+
+```yaml
+services:
+  app:
+    environment:
+      PUID: 1000
+      PGID: 1000
+      CHOWN_PATHS: "/app/data"
+    volumes:
+      - ./data:/app/data
+```
+
+**2. Only `/app/uploads` mounted**
+
+Use this when you only need user-uploaded files to survive restarts:
+
+```yaml
+services:
+  app:
+    environment:
+      PUID: 1000
+      PGID: 1000
+      CHOWN_PATHS: "/app/uploads"
+    volumes:
+      - ./uploads:/app/uploads
+```
+
+**3. Both `/app/data` and `/app/uploads` mounted (most common)**
+
+This is the default — no `CHOWN_PATHS` override is needed, but shown here explicitly for clarity:
+
+```yaml
+services:
+  app:
+    environment:
+      PUID: 1000
+      PGID: 1000
+      CHOWN_PATHS: "/app/data /app/uploads"
+    volumes:
+      - ./data:/app/data
+      - ./uploads:/app/uploads
+```
+
+**4. Defaults plus an extra path (e.g. `/app/.cache`)**
+
+When you add a custom bind mount and still want the defaults handled:
+
+```yaml
+services:
+  app:
+    environment:
+      PUID: 1000
+      PGID: 1000
+      CHOWN_PATHS: "/app/data /app/uploads /app/.cache"
+    volumes:
+      - ./data:/app/data
+      - ./uploads:/app/uploads
+      - ./cache:/app/.cache
+```
+
+**5. Disable all chowning**
+
+If the mounted directories are already owned correctly and you want to guarantee zero filesystem changes:
+
+```yaml
+services:
+  app:
+    environment:
+      PUID: 1000
+      PGID: 1000
+      CHOWN_PATHS: ""
+```
+
 **Runtime env vars:**
 
 | Variable | Default | Purpose |
