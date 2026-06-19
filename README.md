@@ -164,6 +164,39 @@ The image ships with `docker-entrypoint.sh`, which runs as root on container sta
 2. **Only chowns paths that need it.** It checks the current owner of each path before running `chown`, and skips any path already owned by the target UID/GID. This makes repeated container restarts fast.
 3. Drops privileges via `gosu` and execs the app as `appuser`. The app process itself never runs as root.
 
+#### How `PUID` / `PGID` map to ownership changes
+
+`PUID` and `PGID` are **runtime overrides** for the container user's UID and GID. They control exactly which numeric owner the entrypoint assigns to your mounted directories.
+
+**What happens on startup:**
+
+1. The entrypoint reads `PUID` (default `1001`) and `PGID` (default `1001`).
+2. It updates the container's `appuser` and `nodejs` group to match those numbers:
+   ```bash
+   usermod -o -u "$PUID" appuser
+   groupmod -o -g "$PGID" nodejs
+   ```
+3. For every path in `CHOWN_PATHS`, it runs:
+   ```bash
+   chown "$PUID:$PGID" <path>
+   ```
+   …but only if the path exists and is **not already** owned by `$PUID:$PGID`.
+4. Finally it drops to `appuser` and starts the app.
+
+**What this means for your host filesystem:**
+
+When you bind-mount a host directory (e.g. `./data:/app/data`), the `chown` changes the numeric UID/GID of the files **on the host** as well, because bind mounts share the same underlying inode. So if you set:
+
+```yaml
+environment:
+  PUID: 1000
+  PGID: 1000
+```
+
+…then after the first start, `ls -n ./data` on your host will show owner `1000:1000`, matching your local user. The app inside the container also sees them as owned by its own `appuser`, so read/write access works perfectly in both directions.
+
+> **Tip:** If you already ran the container with the wrong UID/GID and now host files are owned by `1001`, simply stop the container, set `PUID`/`PGID` to your host user's UID/GID, and start again. The entrypoint will fix the ownership on the next launch.
+
 **Default `CHOWN_PATHS`**
 
 The entrypoint chowns exactly these paths on startup:
