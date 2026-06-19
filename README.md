@@ -164,14 +164,30 @@ The image ships with `docker-entrypoint.sh`, which runs as root on container sta
 2. **Only chowns paths that need it.** It checks the current owner of each path before running `chown`, and skips any path already owned by the target UID/GID. This makes repeated container restarts fast.
 3. Drops privileges via `gosu` and execs the app as `appuser`. The app process itself never runs as root.
 
-**Default mount points:**
+**Default `CHOWN_PATHS`**
 
-By default, the entrypoint fixes ownership for:
+The entrypoint chowns exactly these paths on startup:
 
-- `/app/data`
-- `/app/uploads`
+```
+/app/data
+/app/uploads
+```
 
-These are the most common bind-mount targets. The default paths are only touched if they exist, so if you don't mount them nothing happens.
+These are the most common bind-mount targets. Each path is only touched if it exists, so if you don't mount them nothing happens.
+
+**Overriding `CHOWN_PATHS` safely**
+
+Setting `CHOWN_PATHS` **replaces** the default list entirely — it does not append to it. To keep the defaults and add more paths, you must repeat them:
+
+| What you want | Value to set | Example |
+| --- | --- | --- |
+| Keep defaults (do nothing) | _(omit the variable)_ | `CHOWN_PATHS` is not set |
+| Replace defaults entirely | New space-separated list | `CHOWN_PATHS: "/app/.cache /app/logs"` |
+| Add to defaults | Defaults + new paths | `CHOWN_PATHS: "/app/data /app/uploads /app/.cache"` |
+| Disable all chowning | Empty string | `CHOWN_PATHS: ""` |
+| Skip chown loop entirely | `SKIP_CHOWN=1` | `SKIP_CHOWN: "1"` |
+
+> **Important:** `CHOWN_PATHS=""` (empty string) disables the default paths but still enters the chown loop. `SKIP_CHOWN=1` bypasses the loop completely for the fastest startup.
 
 **Runtime env vars:**
 
@@ -179,7 +195,7 @@ These are the most common bind-mount targets. The default paths are only touched
 | --- | --- | --- |
 | `PUID` | build-time `UID` (1001) | Numeric UID to run the app as |
 | `PGID` | build-time `GID` (1001) | Numeric GID to run the app as |
-| `CHOWN_PATHS` | `/app/data /app/uploads` | Space-separated paths to chown. Set to `""` to disable defaults and chown nothing. |
+| `CHOWN_PATHS` | `/app/data /app/uploads` | Space-separated paths to chown. **Replaces** defaults entirely. Set to `""` to disable defaults. |
 | `SKIP_CHOWN` | _(unset)_ | Set to `"1"` to skip the chown step entirely. |
 
 **`SKIP_CHOWN` behavior**
