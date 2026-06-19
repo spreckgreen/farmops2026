@@ -1,0 +1,16 @@
+node_modules
+.output
+dist
+.git
+.github
+.vscode
+.idea
+*.md
+e2e
+tests
+scripts
+.lovable
+.lovable_tmp_doc.html
+.env
+.env.local
+.env.*.local
