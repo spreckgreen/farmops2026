@@ -129,6 +129,7 @@ docker build \
 | Port 3000 already in use | Change the host port: `docker compose up --build` then edit `docker-compose.yml` to use `"3001:3000"` |
 | `.env` variables not loading | Ensure the `.env` file exists in the project root and values are not quoted |
 | Build fails with lockfile error | Run `bun install` locally first to ensure `bun.lock` is in sync with `package.json` |
+| Permission denied on mounted volumes | Set `UID` and `GID` in `.env` to match your host user (see [User permissions](#user-permissions-uid--gid)) |
 
 ---
 
