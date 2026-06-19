@@ -156,6 +156,50 @@ docker run -p 3000:3000 \
 >
 > **Tip:** Run `id -u` and `id -g` in your terminal to see your current user's UID and GID.
 
+#### Automatic permission fixing at runtime (entrypoint)
+
+The image ships with `docker-entrypoint.sh`, which runs as root on container start and:
+
+1. Re-maps `appuser` / `nodejs` to the UID/GID you supply via `PUID` / `PGID` env vars (overrides the build-time defaults — no rebuild needed).
+2. Recursively `chown`s `/app` plus any extra paths listed in `CHOWN_PATHS` so bind-mounted host directories are writable.
+3. Drops privileges via `gosu` and execs the app as `appuser`. The app process itself never runs as root.
+
+**Runtime env vars:**
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `PUID` | build-time `UID` (1001) | Numeric UID to run the app as |
+| `PGID` | build-time `GID` (1001) | Numeric GID to run the app as |
+| `CHOWN_PATHS` | _(empty)_ | Space-separated extra paths to chown (e.g. `"/app/data /app/uploads"`) |
+| `SKIP_CHOWN` | _(unset)_ | Set to `1` to skip the chown step (faster startup once permissions are correct) |
+
+**Example — docker compose with bind mounts:**
+
+```yaml
+services:
+  app:
+    environment:
+      PUID: 1000
+      PGID: 1000
+      CHOWN_PATHS: "/app/data /app/uploads"
+    volumes:
+      - ./data:/app/data
+      - ./uploads:/app/uploads
+```
+
+**Example — plain `docker run`:**
+
+```bash
+docker run -d --name bostead -p 3000:3000 \
+  -e PUID=$(id -u) -e PGID=$(id -g) \
+  -e CHOWN_PATHS="/app/data" \
+  -v $(pwd)/data:/app/data \
+  bostead:latest
+```
+
+> The entrypoint is a no-op when the container is already started as a non-root user (e.g. `docker run --user 1000:1000 ...`); in that case it just execs the command directly.
+
+
 ### Troubleshooting
 
 | Issue | Fix |
