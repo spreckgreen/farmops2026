@@ -37,9 +37,9 @@ FROM oven/bun:1-slim AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 
-# Create non-root user for security
-RUN addgroup --system --gid 1001 nodejs && \
-    adduser --system --uid 1001 appuser && \
+# Create non-root user for security (useradd/groupadd avoid SYS_UID_MAX limits)
+RUN groupadd --system --gid 1001 nodejs && \
+    useradd --system --uid 1001 --gid nodejs --no-create-home appuser && \
     chown -R appuser:nodejs /app
 USER appuser
 
