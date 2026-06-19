@@ -180,7 +180,25 @@ These are the most common bind-mount targets. The default paths are only touched
 | `PUID` | build-time `UID` (1001) | Numeric UID to run the app as |
 | `PGID` | build-time `GID` (1001) | Numeric GID to run the app as |
 | `CHOWN_PATHS` | `/app/data /app/uploads` | Space-separated paths to chown. Set to `""` to disable defaults and chown nothing. |
-| `SKIP_CHOWN` | _(unset)_ | Set to `1` to skip the chown step entirely (fastest startup once permissions are correct) |
+| `SKIP_CHOWN` | _(unset)_ | Set to `"1"` to skip the chown step entirely. |
+
+**`SKIP_CHOWN` behavior**
+
+`SKIP_CHOWN` is **unset by default** in `docker-compose.yml`, meaning the entrypoint will run the chown step on every container start. However, it is still fast because individual paths are skipped when their ownership is already correct.
+
+Set `SKIP_CHOWN=1` when you are sure permissions are correct and want to avoid even the ownership-check overhead (e.g. in CI or after the first successful start):
+
+```yaml
+services:
+  app:
+    environment:
+      SKIP_CHOWN: "1"
+```
+
+**Two levels of skipping:**
+
+1. **Per-path skip (default behavior, always active):** Even when `SKIP_CHOWN` is unset, the entrypoint calls `stat` on each path and skips `chown` if the path is already owned by the target UID/GID. This means repeated restarts are fast because no actual filesystem changes occur.
+2. **Global skip (`SKIP_CHOWN=1`):** The entire chown loop is bypassed. Use this when you know permissions are correct and want the absolute fastest startup.
 
 **Example — docker compose with bind mounts:**
 
@@ -193,6 +211,8 @@ services:
       # Defaults already include /app/data and /app/uploads,
       # so CHOWN_PATHS can be omitted in most cases.
       # CHOWN_PATHS: "/app/data /app/uploads /app/.cache"
+      # Uncomment to disable chown entirely after first successful run:
+      # SKIP_CHOWN: "1"
     volumes:
       - ./data:/app/data
       - ./uploads:/app/uploads
