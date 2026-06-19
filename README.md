@@ -87,6 +87,8 @@ The container runs as a non-root user (`appuser`) with **UID 1001** and group (`
 
 `useradd` and `groupadd` are used instead of `adduser`/`addgroup` to avoid the `SYS_UID_MAX 999` restriction some Debian-based images enforce for system accounts.
 
+> **No `.env` needed for permissions** — `docker-compose.yml` hardcodes sensible defaults for `PUID`, `PGID`, and `CHOWN_PATHS`. The permission system works out of the box. You only need a `.env` for Supabase credentials (see below).
+
 #### Override UID/GID to match your host user
 
 If you mount host volumes into the container and need file ownership to match your local user, override at build time.
@@ -101,23 +103,21 @@ If you mount host volumes into the container and need file ownership to match yo
 
 **Via Docker Compose (recommended):**
 
-Add to your `.env` file (create one in the project root if it doesn't exist):
+Create a `.env` file in the project root **only** for Supabase credentials. The permission variables have working defaults in `docker-compose.yml`:
 
 ```bash
-# Your local user's UID/GID — run `id` in your terminal to find these
-UID=1000
-GID=1000
-
 # Required Supabase build args
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_PUBLISHABLE_KEY=your-anon-key
 VITE_SUPABASE_PROJECT_ID=your-project-id
 ```
 
+> Optional: add `UID=1000` and `GID=1000` to the `.env` only if you want the container user to match your host user.
+
 Then build and run:
 
 ```bash
-# Build with your UID/GID baked in and start the container
+# Works even without a .env — permissions default to 1001:1001
 docker compose up --build
 
 # Or detached (background)
