@@ -91,10 +91,14 @@ RUN groupadd --system --gid ${GID} nodejs && \
 # Copy the built nitro output (server + client) and production deps.
 # Note: the lovable nitro config emits to `dist/` (server in dist/server,
 # client assets in dist/client), NOT `.output/`.
+RUN echo "=== Copying artifacts from builder stage ==="
 COPY --from=builder --chown=appuser:nodejs /app/dist ./dist
+RUN echo "  Copied: /app/dist -> ./dist"
 COPY --from=builder --chown=appuser:nodejs /app/package.json ./package.json
+RUN echo "  Copied: /app/package.json -> ./package.json"
 COPY --from=builder --chown=appuser:nodejs /app/bun.lock ./bun.lock
-RUN gosu appuser bun install --production
+RUN echo "  Copied: /app/bun.lock -> ./bun.lock"
+RUN echo "=== End artifact copy ===" && gosu appuser bun install --production
 
 # Entrypoint runs as root to chown mounts, then drops to appuser via gosu.
 COPY --chmod=755 docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
