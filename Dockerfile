@@ -31,6 +31,27 @@ COPY . .
 ENV NITRO_PRESET=node-server
 RUN bun run build
 
+# Verify the expected Nitro output layout exists before the runner stage tries
+# to COPY it. Without this, a missing/renamed output dir surfaces as an opaque
+# BuildKit error like:
+#   failed to compute cache key: "/app/dist": not found
+# This step fails fast with a clear message and a directory listing so it's
+# obvious whether Nitro emitted to `dist/`, `.output/`, or somewhere else.
+RUN set -eu; \
+    echo "Verifying Nitro build output..."; \
+    if [ ! -d /app/dist ] || [ ! -f /app/dist/server/index.mjs ]; then \
+      echo "ERROR: Expected Nitro output at /app/dist (with dist/server/index.mjs) was not found." >&2; \
+      echo "Contents of /app:" >&2; ls -la /app >&2; \
+      if [ -d /app/.output ]; then \
+        echo "Found /app/.output instead — Nitro fell back to the default output dir." >&2; \
+        echo "Check vite.config.ts: NITRO_PRESET must be forwarded and nitro.output.dir pinned to 'dist'." >&2; \
+        ls -la /app/.output >&2; \
+      fi; \
+      exit 1; \
+    fi; \
+    echo "OK: found /app/dist/server/index.mjs"
+
+
 # ==========================================
 # Stage 3: Production Runner
 # ==========================================
