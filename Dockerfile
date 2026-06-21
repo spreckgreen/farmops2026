@@ -31,34 +31,32 @@ COPY . .
 ENV NITRO_PRESET=node-server
 RUN bun run build
 
-# Verify the expected Nitro output layout exists before the runner stage tries
-# to COPY it. Without this, a missing/renamed output dir surfaces as an opaque
-# BuildKit error like:
-#   failed to compute cache key: "/app/dist": not found
-# This step fails fast with a clear message and a directory listing so it's
-# obvious whether Nitro emitted to `dist/`, `.output/`, or somewhere else.
+# Detect the actual Nitro output directory and normalize it to /app/dist so
+# the runner stage can COPY a single, known path. Nitro emits to `dist/` when
+# vite.config.ts pins `nitro.output.dir`; if that pin is missing or
+# NITRO_PRESET isn't forwarded it falls back to `.output/`. Rather than fail,
+# we auto-select whichever exists and rename it — both layouts produce
+# `server/index.mjs`, which is all the runner CMD needs.
 RUN set -eu; \
     echo "=== Nitro Build Output Detection ===" ; \
-    if [ -d /app/dist ]; then \
-      echo "Detected output directory: /app/dist"; \
-      echo "Server entrypoint: /app/dist/server/index.mjs"; \
-      echo "Paths that will be copied to runner image:"; \
-      find /app/dist -type f | sort | sed 's|^/app/dist|  ./dist|'; \
-      if [ ! -f /app/dist/server/index.mjs ]; then \
-        echo "WARNING: /app/dist exists but dist/server/index.mjs is missing" >&2; \
-      fi; \
-    elif [ -d /app/.output ]; then \
-      echo "Detected output directory: /app/.output (fallback/default Nitro output)"; \
-      echo "Paths that would be copied:"; \
-      find /app/.output -type f | sort | sed 's|^/app/.output|  ./.output|'; \
-      echo "ERROR: Expected /app/dist but found /app/.output" >&2; \
-      echo "Check vite.config.ts: NITRO_PRESET must be forwarded and nitro.output.dir pinned to 'dist'." >&2; \
-      exit 1; \
+    if [ -d /app/dist ] && [ -f /app/dist/server/index.mjs ]; then \
+      echo "Detected output directory: /app/dist (pinned via nitro.output.dir)"; \
+    elif [ -d /app/.output ] && [ -f /app/.output/server/index.mjs ]; then \
+      echo "Detected output directory: /app/.output (default Nitro layout)"; \
+      echo "Normalizing to /app/dist for the runner stage..."; \
+      rm -rf /app/dist; \
+      mv /app/.output /app/dist; \
     else \
-      echo "ERROR: No Nitro output directory found. Expected /app/dist or /app/.output" >&2; \
+      echo "ERROR: No usable Nitro output found." >&2; \
+      echo "Expected /app/dist/server/index.mjs or /app/.output/server/index.mjs" >&2; \
       echo "Contents of /app:" >&2; ls -la /app >&2; \
+      [ -d /app/dist ]    && { echo "Contents of /app/dist:"    >&2; find /app/dist    -maxdepth 3 >&2; } || true; \
+      [ -d /app/.output ] && { echo "Contents of /app/.output:" >&2; find /app/.output -maxdepth 3 >&2; } || true; \
       exit 1; \
     fi; \
+    echo "Server entrypoint: /app/dist/server/index.mjs"; \
+    echo "Paths that will be copied to runner image:"; \
+    find /app/dist -type f | sort | sed 's|^/app/dist|  ./dist|'; \
     echo "=== End Nitro Build Output Detection ==="
 
 
