@@ -26,7 +26,8 @@ ENV VITE_SUPABASE_PROJECT_ID=${VITE_SUPABASE_PROJECT_ID}
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Override Nitro preset to output a Node.js server instead of Cloudflare Worker
+# Build a Node-compatible server bundle instead of the default Cloudflare Worker.
+# vite.config.ts forwards NITRO_PRESET into the nitro plugin's `preset` option.
 ENV NITRO_PRESET=node-server
 RUN bun run build
 
@@ -55,8 +56,10 @@ RUN groupadd --system --gid ${GID} nodejs && \
     useradd --system --uid ${UID} --gid nodejs --no-create-home appuser && \
     chown -R appuser:nodejs /app
 
-# Copy built Nitro output and install only production dependencies.
-COPY --from=builder --chown=appuser:nodejs /app/.output ./.output
+# Copy the built nitro output (server + client) and production deps.
+# Note: the lovable nitro config emits to `dist/` (server in dist/server,
+# client assets in dist/client), NOT `.output/`.
+COPY --from=builder --chown=appuser:nodejs /app/dist ./dist
 COPY --from=builder --chown=appuser:nodejs /app/package.json ./package.json
 COPY --from=builder --chown=appuser:nodejs /app/bun.lock ./bun.lock
 RUN gosu appuser bun install --production
@@ -70,5 +73,5 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
   CMD bun -e "fetch('http://localhost:3000').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"
 
 ENTRYPOINT ["docker-entrypoint.sh"]
-CMD ["bun", ".output/server/index.mjs"]
+CMD ["bun", "dist/server/index.mjs"]
 
