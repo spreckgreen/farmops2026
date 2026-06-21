@@ -38,18 +38,29 @@ RUN bun run build
 # This step fails fast with a clear message and a directory listing so it's
 # obvious whether Nitro emitted to `dist/`, `.output/`, or somewhere else.
 RUN set -eu; \
-    echo "Verifying Nitro build output..."; \
-    if [ ! -d /app/dist ] || [ ! -f /app/dist/server/index.mjs ]; then \
-      echo "ERROR: Expected Nitro output at /app/dist (with dist/server/index.mjs) was not found." >&2; \
-      echo "Contents of /app:" >&2; ls -la /app >&2; \
-      if [ -d /app/.output ]; then \
-        echo "Found /app/.output instead — Nitro fell back to the default output dir." >&2; \
-        echo "Check vite.config.ts: NITRO_PRESET must be forwarded and nitro.output.dir pinned to 'dist'." >&2; \
-        ls -la /app/.output >&2; \
+    echo "=== Nitro Build Output Detection ===" ; \
+    if [ -d /app/dist ]; then \
+      echo "Detected output directory: /app/dist"; \
+      echo "Server entrypoint: /app/dist/server/index.mjs"; \
+      echo "Paths that will be copied to runner image:"; \
+      find /app/dist -type f | sort | sed 's|^/app/dist|  ./dist|'; \
+      if [ ! -f /app/dist/server/index.mjs ]; then \
+        echo "WARNING: /app/dist exists but dist/server/index.mjs is missing" >&2; \
       fi; \
+    elif [ -d /app/.output ]; then \
+      echo "Detected output directory: /app/.output (fallback/default Nitro output)"; \
+      echo "Paths that would be copied:"; \
+      find /app/.output -type f | sort | sed 's|^/app/.output|  ./.output|'; \
+      echo "ERROR: Expected /app/dist but found /app/.output" >&2; \
+      echo "Check vite.config.ts: NITRO_PRESET must be forwarded and nitro.output.dir pinned to 'dist'." >&2; \
+      exit 1; \
+    else \
+      echo "ERROR: No Nitro output directory found. Expected /app/dist or /app/.output" >&2; \
+      echo "Contents of /app:" >&2; ls -la /app >&2; \
       exit 1; \
     fi; \
-    echo "OK: found /app/dist/server/index.mjs"
+    echo "=== End Nitro Build Output Detection ==="
+
 
 
 # ==========================================
