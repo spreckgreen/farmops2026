@@ -7,7 +7,8 @@
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 
 // Allow overriding the nitro preset via env (e.g. NITRO_PRESET=node-server for Docker).
-// Without this, nitro defaults to cloudflare-module, which can't be run with `bun index.mjs`.
+// Outside Lovable's build environment, Nitro otherwise writes to `.output/` by default.
+// Keep Docker builds deterministic by pinning the output layout to `dist/`.
 const nitroPreset = process.env.NITRO_PRESET;
 
 export default defineConfig({
@@ -16,5 +17,16 @@ export default defineConfig({
     // nitro/vite builds from this
     server: { entry: "server" },
   },
-  ...(nitroPreset ? { nitro: { preset: nitroPreset } } : {}),
+  ...(nitroPreset
+    ? {
+        nitro: {
+          preset: nitroPreset,
+          output: {
+            dir: "dist",
+            serverDir: "dist/server",
+            publicDir: "dist/client",
+          },
+        },
+      }
+    : {}),
 });

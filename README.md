@@ -78,7 +78,7 @@ Then open http://localhost:3000.
 ### What the Dockerfile does
 
 1. **Stage 1 (`deps`)** — installs dependencies using `bun install --frozen-lockfile`
-2. **Stage 2 (`builder`)** — copies source, sets `NITRO_PRESET=node-server` to output a Node.js server instead of a Cloudflare Worker, and builds the app
+2. **Stage 2 (`builder`)** — copies source, sets `NITRO_PRESET=node-server` to output a Node.js server instead of a Cloudflare Worker, and builds the app into `dist/`
 3. **Stage 3 (`runner`)** — creates a minimal production image with only the built output and production dependencies, runs as a non-root user, and exposes port 3000
 
 ### User permissions (UID / GID)
