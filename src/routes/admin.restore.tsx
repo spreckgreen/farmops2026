@@ -18,6 +18,7 @@ import {
 
 import { AppLayout } from "@/components/app-layout";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -28,6 +29,12 @@ import {
   type ImportResult,
   type Snapshot,
 } from "@/lib/admin.functions";
+import { verifyIntegrity } from "@/lib/snapshot-integrity";
+
+type IntegrityStatus =
+  | { kind: "verified"; algo: string; value: string }
+  | { kind: "missing" }
+  | { kind: "mismatch"; reason: string; expected: string; actual: string };
 
 export const Route = createFileRoute("/admin/restore")({
   ssr: false,
@@ -44,16 +51,29 @@ function RestorePage() {
   const [mode, setMode] = useState<ImportMode>("merge");
   const [confirmText, setConfirmText] = useState("");
   const [result, setResult] = useState<ImportResult | null>(null);
+  const [integrity, setIntegrity] = useState<IntegrityStatus | null>(null);
+  const [allowMissingIntegrity, setAllowMissingIntegrity] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const mut = useMutation({
     mutationFn: () => {
       if (!snapshot) throw new Error("Pick a backup file first.");
+      if (integrity?.kind === "mismatch") {
+        throw new Error(
+          "Refusing to restore: snapshot integrity check failed. Re-download the file from the source.",
+        );
+      }
+      if (integrity?.kind === "missing" && !allowMissingIntegrity) {
+        throw new Error(
+          "Snapshot has no integrity digest. Tick the override box to import a legacy file.",
+        );
+      }
       return importFn({
         data: {
           snapshot,
           mode,
           confirm: mode === "replace" ? confirmText : undefined,
+          allowMissingIntegrity,
         },
       });
     },
@@ -73,6 +93,8 @@ function RestorePage() {
     setFileName(file.name);
     setSnapshot(null);
     setResult(null);
+    setIntegrity(null);
+    setAllowMissingIntegrity(false);
     try {
       const text = await file.text();
       const parsed = JSON.parse(text) as Snapshot;
@@ -80,6 +102,35 @@ function RestorePage() {
         toast.error("This file is not a Bostead v1 snapshot.");
         return;
       }
+
+      // Fail-fast: verify the embedded SHA-256 BEFORE the user can click
+      // Restore. We re-run the same check server-side so a tampered client
+      // cannot bypass it, but doing it here gives instant feedback.
+      if (parsed.integrity) {
+        const verdict = await verifyIntegrity(
+          { app: parsed.app, version: parsed.version, tables: parsed.tables },
+          parsed.integrity,
+        );
+        if (verdict.ok) {
+          setIntegrity({
+            kind: "verified",
+            algo: parsed.integrity.algo,
+            value: parsed.integrity.value,
+          });
+        } else {
+          setIntegrity({
+            kind: "mismatch",
+            reason: verdict.reason,
+            expected: verdict.expected,
+            actual: verdict.actual,
+          });
+          toast.error("Snapshot integrity check failed — see details below.");
+          return;
+        }
+      } else {
+        setIntegrity({ kind: "missing" });
+      }
+
       setSnapshot(parsed);
       const totalRows = parsed.tables.reduce((n, t) => n + (t.rows?.length ?? 0), 0);
       toast.success(`Loaded ${parsed.tables.length} tables (${totalRows} rows).`);
@@ -87,6 +138,7 @@ function RestorePage() {
       toast.error(`Could not parse file: ${(e as Error).message}`);
     }
   };
+
 
   if (profile.isLoading) {
     return (
@@ -161,7 +213,68 @@ function RestorePage() {
               )}
             </p>
           )}
+
+          {integrity && (
+            <div
+              className={
+                "rounded-md border p-3 text-xs space-y-2 " +
+                (integrity.kind === "verified"
+                  ? "border-emerald-500/40 bg-emerald-500/5"
+                  : integrity.kind === "mismatch"
+                    ? "border-destructive/40 bg-destructive/5"
+                    : "border-yellow-500/40 bg-yellow-500/5")
+              }
+            >
+              {integrity.kind === "verified" && (
+                <div className="flex items-center gap-2 text-emerald-700">
+                  <CheckCircle2 className="h-4 w-4" />
+                  <span>
+                    Integrity verified ({integrity.algo} ·{" "}
+                    <code className="font-mono">{integrity.value.slice(0, 16)}…</code>)
+                  </span>
+                </div>
+              )}
+              {integrity.kind === "mismatch" && (
+                <>
+                  <div className="flex items-center gap-2 text-destructive font-medium">
+                    <AlertTriangle className="h-4 w-4" />
+                    Integrity check FAILED — refusing to restore
+                  </div>
+                  <div className="text-muted-foreground">{integrity.reason}</div>
+                  <div className="font-mono text-[10px] text-muted-foreground">
+                    expected {integrity.expected.slice(0, 24)}…
+                    <br />
+                    actual&nbsp;&nbsp; {integrity.actual.slice(0, 24)}…
+                  </div>
+                  <div>
+                    Re-download the file from the source and try again. Do not
+                    edit snapshot files by hand.
+                  </div>
+                </>
+              )}
+              {integrity.kind === "missing" && (
+                <>
+                  <div className="flex items-center gap-2 text-yellow-700">
+                    <AlertTriangle className="h-4 w-4" />
+                    No integrity digest in this snapshot (legacy export)
+                  </div>
+                  <label className="flex items-center gap-2">
+                    <Checkbox
+                      checked={allowMissingIntegrity}
+                      onCheckedChange={(v) => setAllowMissingIntegrity(v === true)}
+                    />
+                    <span>
+                      Import anyway — I trust this file and accept that
+                      tampering or truncation cannot be detected.
+                    </span>
+                  </label>
+                </>
+              )}
+            </div>
+          )}
         </section>
+
+
 
         <section className="space-y-3">
           <Label className="text-sm font-medium">2. Pick a restore mode</Label>
@@ -216,7 +329,13 @@ function RestorePage() {
         <section>
           <Button
             onClick={() => mut.mutate()}
-            disabled={!snapshot || mut.isPending || replaceLocked}
+            disabled={
+              !snapshot ||
+              mut.isPending ||
+              replaceLocked ||
+              integrity?.kind === "mismatch" ||
+              (integrity?.kind === "missing" && !allowMissingIntegrity)
+            }
           >
             <Upload className="h-4 w-4 mr-2" />
             {mut.isPending ? "Restoring…" : `Restore (${mode})`}
