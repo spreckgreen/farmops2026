@@ -480,6 +480,120 @@ Some filesystems (e.g. FAT32/exFAT, or remote mounts via SSHFS/SMB) do not store
 
 ---
 
+---
+
+## B. Node.js runtime (no Docker)
+
+Run the production build directly on a host that has Node.js or Bun installed — no container required. Useful for a simple VPS, a systemd service, or running behind nginx/Caddy.
+
+### Prerequisites
+
+- **Bun** ≥ 1.1 (for install + build) — https://bun.sh
+- **Node.js** ≥ 20 (to run the built server at runtime; Bun also works)
+- A reverse proxy (nginx, Caddy, Traefik) if you want HTTPS / a public hostname
+- A `.env` file in the project root (see [common prerequisites](#self-hosting))
+
+### Install and build
+
+```bash
+# 1. Clone and enter the project
+git clone <your-fork-url> bostead && cd bostead
+
+# 2. Install dependencies (uses bun.lock)
+bun install --frozen-lockfile
+
+# 3. Build the Nitro Node server output
+NITRO_PRESET=node-server bun run build
+```
+
+The build emits a self-contained Node server to `./dist/` with the entrypoint at `dist/server/index.mjs`.
+
+### Run the server
+
+```bash
+# Load env vars and start the server
+set -a && source .env && set +a
+node dist/server/index.mjs
+```
+
+The app listens on `http://localhost:3000`. Override with `PORT=8080 node dist/server/index.mjs`.
+
+### Run as a systemd service
+
+Create `/etc/systemd/system/bostead.service`:
+
+```ini
+[Unit]
+Description=Bostead
+After=network.target
+
+[Service]
+Type=simple
+User=bostead
+WorkingDirectory=/opt/bostead
+EnvironmentFile=/opt/bostead/.env
+Environment=PORT=3000
+ExecStart=/usr/bin/node dist/server/index.mjs
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Then:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now bostead
+sudo journalctl -u bostead -f   # follow logs
+```
+
+### Reverse proxy (nginx example)
+
+```nginx
+server {
+    server_name bostead.example.com;
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+}
+```
+
+Pair with Certbot or use Caddy for automatic TLS.
+
+### Updating
+
+```bash
+git pull
+bun install --frozen-lockfile
+NITRO_PRESET=node-server bun run build
+sudo systemctl restart bostead
+```
+
+### Troubleshooting (Node.js runtime)
+
+| Issue | Fix |
+| --- | --- |
+| `dist/server/index.mjs` not found after build | Ensure you set `NITRO_PRESET=node-server` before `bun run build`. The default Cloudflare preset emits a different layout. |
+| `Cannot find module` errors at runtime | Re-run `bun install --frozen-lockfile`, then rebuild. Do **not** copy `dist/` to a host that hasn't run `bun install`. |
+| `EADDRINUSE: address already in use :::3000` | Another process owns the port. Set `PORT=3001` (or whatever is free) in `.env` / the systemd unit. |
+| 500s on every page, logs mention `VITE_SUPABASE_URL` | The Supabase env vars were not present **at build time**. They are inlined into the client bundle — rebuild with them exported. |
+| `Permission denied` writing to `./data` or `./uploads` | The Linux user running the service (e.g. `bostead`) must own those directories: `sudo chown -R bostead:bostead /opt/bostead/data /opt/bostead/uploads`. |
+| Service runs but reverse proxy returns 502 | Confirm `curl http://127.0.0.1:3000` works on the host first; if yes, the issue is the proxy config (host header, upstream port). |
+| Want to use Bun as the runtime instead of Node | Replace `ExecStart=/usr/bin/node dist/server/index.mjs` with `ExecStart=/usr/bin/bun dist/server/index.mjs`. Behaviour is identical. |
+
+> See also the Docker [troubleshooting table](#troubleshooting) above — items about Supabase env vars and lockfile sync apply to both architectures.
+
+---
+
 ## Local development (without Docker)
 
 ```bash
