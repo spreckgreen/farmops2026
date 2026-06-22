@@ -1,72 +1,115 @@
-# CSV Import/Export on Every Data Page
+## Goal
 
-Goal: every page that displays user data exposes both a "Import CSV" and "Export CSV" button using a consistent pattern.
+A single backup / restore mechanism that works identically on:
 
-## Current state
+- **Lovable-hosted** (managed Cloud, no `pg_dump`, no DB URL access)
+- **Self-hosted Docker** and **Self-hosted Node.js** (same Supabase backend, possibly self-managed)
 
-Already have CSV import (Papa.parse) on: Dashboard (assets), Maintenance, Inventory, Food Storage, Food Orchard, Food Livestock, Food Garden.
-Already have CSV export helpers in `src/lib/csv.ts` (`rowsToCsv`, `downloadCsv`).
-No page currently combines both — exports are inconsistent, several pages have neither.
+The same UI, server functions, and file format work in all three cases — no host-specific code paths.
 
-## Pages to cover
+## Scope
 
-Data pages getting both Import + Export buttons:
+In scope (v1):
+- Full backup of every `public.*` application table owned by the signed-in user (or all rows for admins).
+- Storage bucket file export (manifest only in v1 — file blobs are listed and downloadable, but bucket-to-bucket copy is admin-only).
+- Restore from a backup file with merge / replace modes.
+- Admin-only access gated by `has_role(auth.uid(), 'admin')`.
+- Works through HTTPS — no shell, no direct DB connection — so it's identical on Lovable and self-hosted.
 
-1. Dashboard — assets (import exists, add export)
-2. Inventory — inventory_items (import exists, add export)
-3. Maintenance — maintenance_records (import exists, add export)
-4. Service Scheduling — consumables + schedules (add both)
-5. Projects — projects (add both)
-6. Tasks (Today / Backlog / Scheduled) — tasks (add both, shared toolbar on each)
-7. Food / Plan — food_plan_foods + food_plan_entries (add both)
-8. Food / Storage — food_storage_items + food_storage_plan (import exists, add export)
-9. Food / Prices — food_price_history (add both)
-10. Food / Garden — garden_plots (import exists, add export)
-11. Food / Orchard — orchard_trees (import exists, add export)
-12. Food / Livestock — livestock_animals (import exists, add export)
-13. Food / Crops — crop_plantings + crop_harvests (add both)
-14. Food / Processing — processing entries (add both)
-15. Food / Seasons — seasonal data (add both)
-16. Reports — read-only aggregates: export only (no import)
-17. Admin / Users — user list: export only
+Out of scope (v1):
+- Auth users (managed by Supabase Auth — separate API, security-sensitive).
+- Schema / migrations (covered by source control + migration files).
+- Incremental / scheduled backups (manual on-demand only).
+- Bucket file blob restore (manifest restore only; users re-upload).
 
-Skipped (no tabular data or not user-owned): Auth, Sync, Notes (date journal), Food index landing, Tasks detail.
+## Architecture
 
-## Shared building block
+```text
+                       ┌─────────────────────────────┐
+                       │   /admin/backup  (UI page)  │
+                       │   Download / Restore        │
+                       └──────────────┬──────────────┘
+                                      │  useServerFn
+                ┌─────────────────────┴─────────────────────┐
+                ▼                                           ▼
+   exportBackup (createServerFn)              importBackup (createServerFn)
+   - requireSupabaseAuth                      - requireSupabaseAuth
+   - assert admin role                        - assert admin role
+   - supabaseAdmin (loaded inside handler)    - supabaseAdmin (loaded inside handler)
+   - SELECT * from every whitelisted table    - mode: "merge" (upsert) or "replace" (truncate+insert)
+   - return JSON DTO                          - validates schema_version + table_list
+```
 
-New `src/components/csv-toolbar.tsx`:
+Backup file format (`bostead-backup-YYYY-MM-DDTHH-MM-SS.json`):
 
-- Props: `filename`, `columns: { key; label }[]`, `rows: Record<string, unknown>[]`, `onImport?: (rows) => void`, `importTemplate?: string[]`, `disabled?`.
-- Renders two buttons ("Import CSV" hidden when `onImport` omitted, "Export CSV" always).
-- Export uses `rowsToCsv` + `downloadCsv` from `src/lib/csv.ts`.
-- Import uses `Papa.parse` with `header: true`, trims values, calls `onImport(parsed)`; toasts on parse error.
-- Same look as existing buttons (outline, sm, Upload/Download lucide icons).
+```json
+{
+  "schema_version": 1,
+  "app": "bostead",
+  "exported_at": "2026-06-22T14:00:00.000Z",
+  "exported_by": "<user-uuid>",
+  "host": { "kind": "lovable" | "self-hosted" },
+  "tables": {
+    "tasks":       [ { ...row }, ... ],
+    "projects":    [ ... ],
+    "inventory_items": [ ... ],
+    "crop_plantings":  [ ... ],
+    "...":         [ ... ]
+  },
+  "storage": {
+    "buckets": [ { "name": "...", "objects": [ { "name": "...", "size": 123 } ] } ]
+  }
+}
+```
 
-Each route imports the toolbar once, defines its column list, and (where applicable) provides an `onImport` that calls the matching server function. For tabs with multiple datasets (Plan, Storage, Crops), one toolbar per dataset.
+The whitelist is the 23 known `public.*` data tables (see knowledge), explicitly excluding `user_roles` (managed via admin UI) and `auth.*`.
 
-## Server functions
+## Files to add
 
-For pages that currently only had export (or neither), add a bulk-upsert `createServerFn` in the existing `*.functions.ts` file mirroring the pattern in `bulkUpsertGardenPlots`:
+- `src/lib/backup.functions.ts` — `exportBackup`, `importBackup` server functions (auth + admin-gated, service role loaded inside handler).
+- `src/lib/backup.shared.ts` — shared constants: `TABLE_WHITELIST`, `SCHEMA_VERSION`, TS types for the backup envelope.
+- `src/routes/admin.backup.tsx` — UI: "Download backup", file-picker + mode-toggle for restore, last-result panel.
+- `scripts/backup.sh` and `scripts/backup.ps1` — CLI alternative (self-hosted): hits the same server fn over HTTPS with a bearer token; writes the JSON to disk. Documented in README.
+- `README.md` — new "Backup & restore" section covering all three hosting models, with examples.
 
-- `bulkUpsertProjects`, `bulkUpsertTasks`, `bulkUpsertConsumables`, `bulkUpsertSchedules`, `bulkUpsertFoodPlanFoods`, `bulkUpsertFoodPlanEntries`, `bulkUpsertFoodPriceHistory`, `bulkUpsertCropPlantings`, `bulkUpsertCropHarvests`, `bulkUpsertProcessing`, `bulkUpsertSeasons`.
-- Each validates with Zod, uses `requireSupabaseAuth`, scopes writes to `auth.uid()`, returns `{ inserted }`.
-- Reports + Admin Users export only — no bulk-upsert needed.
+No DB schema changes. No new tables. No new secrets — uses the existing `SUPABASE_SERVICE_ROLE_KEY`.
 
-## Out of scope
+## Why this works on Lovable AND self-hosted
 
-- Schema-evolving "smart" imports — columns must match export headers (template downloadable via Export with empty filter).
-- Image/binary fields are skipped in export.
-- No background jobs or progress UI for huge files; client-side parse like today.
+| Concern | Lovable-hosted | Self-hosted |
+| --- | --- | --- |
+| No `pg_dump` available | Avoided — we use Data API via service role | Works either way; we still use Data API for parity |
+| No DB URL exposed | N/A — backup runs server-side through HTTPS | N/A — same path |
+| Service role key | Already provisioned in `SUPABASE_SERVICE_ROLE_KEY` | Already in `.env` (documented in `.env.example`) |
+| Admin auth | `has_role(_, 'admin')` already exists | Same |
+| Cross-host portability | Backup JSON has no host-specific IDs except `auth.users` UUIDs | Restore mode `merge` upserts by primary key |
 
-## Technical notes
+## Restore semantics
 
-- Reuse `Papa` (already a dep) and `src/lib/csv.ts`.
-- Keep the existing import handlers on pages that already have them — just swap their button row to render the new toolbar to avoid duplication.
-- Add a small `csvColumns` constant near each page's table definition so export columns stay in sync with what's shown.
-- No DB migrations required; bulk-upsert fns hit existing tables with existing RLS policies.
+Two modes, picked in the UI / CLI flag:
 
-## Rollout order
+- **`merge`** (default, safe) — upsert each row by primary key; never deletes. Good for migrating between environments.
+- **`replace`** — `DELETE FROM <table> WHERE user_id = auth.uid()` (or no filter for admin-wide), then insert. Destructive; confirmation dialog with typed phrase.
 
-1. Build `csv-toolbar.tsx` + wire it into the 7 pages that already import.
-2. Add export-only to Reports + Admin Users.
-3. Add bulk-upsert server fns + toolbars to remaining pages, grouped by `.functions.ts` file to minimize churn.
+Both run inside a single server function call but per-table (Supabase has no cross-table transactions over the Data API). The function returns a `{ table, inserted, updated, skipped, errors[] }[]` report shown in the UI.
+
+## Cross-host equivalence test
+
+After implementation, manually verify:
+1. Export from Lovable preview → JSON downloads.
+2. Run the Docker quickstart locally against a fresh Supabase project.
+3. Restore the JSON via the admin UI in the local container.
+4. Row counts match the source for every whitelisted table.
+
+Same JSON file also works via the `scripts/backup.sh restore <file>` CLI on the Node.js self-hosted setup.
+
+## Out-of-the-box guard rails
+
+- Backup endpoint is rate-limited to one call per minute per user (in-memory token bucket inside the server fn) so a leaked admin session cannot dump the DB in a loop.
+- Restore requires `admin` role AND a CSRF-style nonce returned by a preceding `prepareRestore` call, expiring after 60 s.
+- Backup JSON never contains the service role key, secrets, or raw auth records.
+- The UI clearly labels what the backup does and does NOT cover (auth users, schema, storage blobs).
+
+## README additions
+
+A new top-level "Backup & restore" section linked from the Features list, with three subsections — Lovable-hosted, Docker, Node.js — each showing the UI flow and (for self-hosted) the `scripts/backup.sh` / `.ps1` one-liner.
