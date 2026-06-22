@@ -573,14 +573,23 @@ These must be set in `.env` (or exported in the shell) for the Node.js runtime â
 
 ### Validate your env before running
 
-A bundled script checks that every required variable is set and not still using an example placeholder. It never prints values.
+Two bundled scripts check that every required variable is set and not still using an example placeholder. Neither script prints values. Pick the one matching your shell:
+
+**macOS / Linux / WSL (Bash):**
 
 ```bash
 set -a && source .env && set +a
 ./scripts/check-env.sh
 ```
 
-Sample output when something is wrong:
+**Windows (PowerShell 5.1+ or PowerShell 7+ on any OS):**
+
+```powershell
+# Loads the .env file itself â€” no `source` equivalent needed
+./scripts/check-env.ps1 -EnvFile .env
+```
+
+Both produce identical output and exit codes. Sample output when something is wrong:
 
 ```
   [MISSING]     SUPABASE_SERVICE_ROLE_KEY
@@ -588,7 +597,8 @@ Sample output when something is wrong:
 FAIL: 1 missing, 1 still using example placeholders.
 ```
 
-The script exits non-zero on failure, so you can chain it before `bun run build` or use it as a systemd `ExecStartPre=` guard.
+Each script exits non-zero on failure, so you can chain it before `bun run build`, use it as a systemd `ExecStartPre=` guard, or run it as a CI gate.
+
 
 ### Run the server
 
