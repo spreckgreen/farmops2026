@@ -6,7 +6,8 @@ A personal homestead & productivity application built with TanStack Start, React
 
 ## Features
 
-A summary of everything shipped to date.
+A summary of everything shipped to date. Want to run it yourself? Jump to the one-command quickstarts: [Docker](#quickstart-docker) · [Node.js](#quickstart-nodejs).
+
 
 ### Productivity & planning
 - **Dashboard** (`/dashboard`) — at-a-glance overview of today's tasks, upcoming work, and recent activity.
