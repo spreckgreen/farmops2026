@@ -95,6 +95,8 @@ One command — seeds `.env` from [`.env.example`](./.env.example) (only if miss
 
 Before the first run, edit `.env` and replace the `your-*` placeholders (`VITE_SUPABASE_*`, `SUPABASE_*`, `SUPABASE_SERVICE_ROLE_KEY`, `LOVABLE_API_KEY`) with real values, then re-run the command. The chain stops with a clear error if any required variable is missing or still set to its example default. Open <http://localhost:3000>. Full options in [B. Node.js runtime (no Docker)](#b-nodejs-runtime-no-docker).
 
+> **Seeding a fresh instance from an existing backup?** After either quickstart completes and you've signed up + granted yourself the `admin` role, jump to [Bootstrapping a clean environment from a snapshot](#bootstrapping-a-clean-environment-from-a-snapshot) to import a `bostead-snapshot-*.json` into the empty database.
+
 
 
 ---
