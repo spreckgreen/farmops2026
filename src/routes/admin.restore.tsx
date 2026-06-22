@@ -329,7 +329,13 @@ function RestorePage() {
         <section>
           <Button
             onClick={() => mut.mutate()}
-            disabled={!snapshot || mut.isPending || replaceLocked}
+            disabled={
+              !snapshot ||
+              mut.isPending ||
+              replaceLocked ||
+              integrity?.kind === "mismatch" ||
+              (integrity?.kind === "missing" && !allowMissingIntegrity)
+            }
           >
             <Upload className="h-4 w-4 mr-2" />
             {mut.isPending ? "Restoring…" : `Restore (${mode})`}
