@@ -4,7 +4,59 @@ A personal homestead & productivity application built with TanStack Start, React
 
 ---
 
-## Docker
+## Features
+
+A summary of everything shipped to date.
+
+### Productivity & planning
+- **Dashboard** (`/dashboard`) — at-a-glance overview of today's tasks, upcoming work, and recent activity.
+- **Tasks** — `/tasks`, `/tasks/scheduled`, `/tasks/backlog`, and per-task detail pages (`/tasks/$slug`) for scheduled, backlog and ad-hoc work.
+- **Projects** (`/projects`) — group related tasks and track progress against larger initiatives.
+- **Daily notes** (`/notes/$date`) — date-stamped journal/notes entries.
+- **Reports** (`/reports`) — cross-cutting summary reporting.
+
+### Homestead / food production
+- **Food hub** (`/food`) with dedicated modules:
+  - Garden (`/food/garden`), Crops (`/food/crops`), Orchard (`/food/orchard`), Livestock (`/food/livestock`)
+  - Seasons (`/food/seasons`) and Plan (`/food/plan`) for seasonal planning
+  - Processing (`/food/processing`) and Storage (`/food/storage`) for preserved/stored produce
+  - Prices (`/food/prices`) and Reports (`/food/reports`) for value tracking and yield analytics
+- **Inventory** (`/inventory`) — track supplies, consumables and equipment stock.
+- **Maintenance** (`/maintenance`) and **Service scheduling** (`/service-scheduling`) — recurring upkeep and service jobs.
+
+### Platform
+- **Auth** (`/auth`) — email + Google sign-in via Lovable Cloud (Supabase) with row-level security.
+- **Admin** — user management (`/admin/users`), data export (`/admin/export`), and reset tools (`/admin/reset`); gated by a `user_roles` table.
+- **Sync** (`/sync`) — manual sync controls for offline/edge scenarios.
+- **TanStack Start SSR** — server-rendered routes with typed `createServerFn` RPC for backend logic.
+- **Self-hostable** — ships with a multi-stage Dockerfile, Compose file, and entrypoint that handles UID/GID remapping for bind mounts (see below).
+
+---
+
+## Self-hosting
+
+Bostead can be self-hosted two ways. Pick the one that matches your environment:
+
+| Architecture | Best for | Jump to |
+| --- | --- | --- |
+| **A. Docker / Docker Compose** (recommended) | Servers, NAS, homelab, anything with Docker available. Isolated, reproducible, handles permissions automatically. | [Docker](#a-docker--docker-compose) |
+| **B. Node.js runtime (no Docker)** | VPS / bare-metal / systemd setups where you'd rather run the built Nitro server directly under Node or behind a reverse proxy. | [Node.js runtime](#b-nodejs-runtime-no-docker) |
+
+Both architectures build the same TanStack Start app with `NITRO_PRESET=node-server` and serve it on port `3000`. Pick one — you do not need both.
+
+Common prerequisites for either path:
+
+- A Supabase project (URL, anon/publishable key, project ID)
+- A `.env` file in the project root with at least:
+  ```bash
+  VITE_SUPABASE_URL=https://your-project.supabase.co
+  VITE_SUPABASE_PUBLISHABLE_KEY=your-anon-key
+  VITE_SUPABASE_PROJECT_ID=your-project-id
+  ```
+
+---
+
+## A. Docker / Docker Compose
 
 ### Prerequisites
 
