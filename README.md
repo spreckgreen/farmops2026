@@ -27,10 +27,11 @@ A summary of everything shipped to date. Want to run it yourself? Jump to the on
 
 ### Platform
 - **Auth** (`/auth`) — email + Google sign-in via Lovable Cloud (Supabase) with row-level security.
-- **Admin** — user management (`/admin/users`), data export (`/admin/export`), and reset tools (`/admin/reset`); gated by a `user_roles` table.
+- **Admin** — user management (`/admin/users`), data export (`/admin/export`), restore from backup (`/admin/restore`), and reset tools (`/admin/reset`); gated by a `user_roles` table.
 - **Sync** (`/sync`) — manual sync controls for offline/edge scenarios.
 - **TanStack Start SSR** — server-rendered routes with typed `createServerFn` RPC for backend logic.
 - **Self-hostable** — ships with a multi-stage Dockerfile, Compose file, and entrypoint that handles UID/GID remapping for bind mounts (see below).
+- **Backup & restore** — one snapshot format that works identically on Lovable-hosted, Docker, and Node.js deployments. See [Backup & restore](#backup--restore).
 
 ---
 
@@ -700,3 +701,108 @@ bun run dev
 ```
 
 The dev server runs at http://localhost:8080.
+
+---
+
+## Backup & restore
+
+Bostead ships with a complete, portable backup format that works on **every**
+hosting model — Lovable-hosted, Docker, and Node.js self-hosted — using the
+same UI, the same file format, and the same code path. There is no
+`pg_dump`, no direct database connection, and no host-specific tooling. Every
+operation flows through an authenticated, admin-only server function.
+
+### What's included
+
+A backup is a JSON file (`bostead-snapshot-<timestamp>.json`) containing
+every row of every operational table:
+
+`tasks` · `projects` · `daily_notes` · `summaries` · `activity_log` ·
+`maintenance_records` · `consumables` · `inventory_items` ·
+`crop_plantings` · `crop_harvests` · `garden_plots` · `orchard_trees` ·
+`livestock_animals` · `plant_seasons` · `food_plan_people` ·
+`food_plan_foods` · `food_plan_entries` · `food_storage_plan` ·
+`food_storage_items` · `food_price_history`
+
+Not included (intentionally):
+
+- **User accounts and roles** — managed via Supabase Auth + `/admin/users`.
+  This keeps backups portable between environments without leaking
+  credentials.
+- **Database schema / migrations** — versioned in `supabase/migrations/`.
+- **Storage bucket file blobs** — none are configured yet; re-upload after
+  restore if a future feature adds them.
+
+### Creating a backup (all hosting models)
+
+1. Sign in as an **admin** user.
+2. Open **Admin → Export snapshot** (`/admin/export`).
+3. Click **Generate snapshot** — the file is validated against the import
+   schema (required fields, duplicate ids, cross-table references) before
+   download.
+4. Click **Download JSON** to save `bostead-snapshot-<timestamp>.json` locally.
+
+Store the file somewhere safe — it contains all your farm data.
+
+### Restoring a backup (all hosting models)
+
+1. Sign in as an **admin** on the target deployment (Lovable, Docker, or Node).
+2. Open **Admin → Restore backup** (`/admin/restore`).
+3. Pick the `.json` file you exported earlier.
+4. Choose a restore mode:
+   - **Merge (safe)** — upserts every row by primary key. Existing rows not
+     in the backup are kept. Use this for migrating data between
+     environments, or for periodic syncs.
+   - **Replace (destructive)** — deletes every operational row first, then
+     re-imports from the backup. Requires typing `REPLACE` to confirm. Use
+     this only when restoring into an empty or wrong-state instance.
+5. Click **Restore**. A per-table report shows attempted / restored /
+   deleted-first / errors for each table.
+
+The restore goes through the same `importApplicationData` server function on
+every host, so a snapshot taken from Lovable can be restored into a Docker
+deployment, and vice versa.
+
+### Why this works the same everywhere
+
+| Concern | Lovable-hosted | Docker self-hosted | Node.js self-hosted |
+| --- | --- | --- | --- |
+| Mechanism | Admin server function over HTTPS | Same | Same |
+| Auth | Supabase JWT + `has_role(_, 'admin')` | Same | Same |
+| Requires DB shell access | No | No | No |
+| Requires `pg_dump` | No (not available on Lovable) | No | No |
+| Service-role key location | Managed by Lovable Cloud | `.env` → container env | `.env` loaded by the Node process |
+| File format | `bostead-snapshot-*.json` (v1) | Same | Same |
+
+### Cross-host migration recipes
+
+**Migrate from Lovable to self-hosted Docker:**
+
+1. On Lovable: `/admin/export` → download JSON.
+2. Stand up Docker per [Quickstart (Docker)](#quickstart-docker), sign up the
+   first user, grant them the `admin` role via `/admin/users` or a migration.
+3. On the Docker instance: `/admin/restore`, choose **Replace** mode if the
+   instance is empty.
+
+**Periodic backup of a self-hosted instance:**
+
+1. Bookmark `/admin/export` on your deployment.
+2. Generate + download a snapshot weekly (or however often suits you).
+3. Store the JSON files in your existing file backup system (rsync,
+   restic, Time Machine, Backblaze, …).
+
+**Promote a Docker test environment into Lovable production:**
+
+1. On the Docker test instance: `/admin/export` → download JSON.
+2. On the Lovable production instance: `/admin/restore`, choose **Merge** to
+   add the new data alongside whatever is already there.
+
+### Troubleshooting
+
+| Issue | Fix |
+| --- | --- |
+| "Admins only" message on `/admin/export` or `/admin/restore` | Grant your user the `admin` role via `/admin/users` (or insert into `user_roles` via a migration on a fresh self-hosted instance). |
+| "Not a Bostead snapshot" when picking a file | The file must have `"app": "bostead"` and `"version": 1`. Snapshots from other apps or future schema versions will not load. |
+| Restore reports `write failed at chunk N` for a table | The target schema is missing a column the snapshot contains, or a CHECK / RLS rule rejects a row. Apply any pending migrations on the target instance and retry. |
+| Replace button stays disabled | Type `REPLACE` exactly (uppercase, no quotes) into the confirmation field. |
+| Want to restore only some tables | Edit the JSON before uploading — remove unwanted entries from the `tables` array. The schema validator only requires the envelope fields. |
