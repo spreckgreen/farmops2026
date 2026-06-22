@@ -765,6 +765,126 @@ The restore goes through the same `importApplicationData` server function on
 every host, so a snapshot taken from Lovable can be restored into a Docker
 deployment, and vice versa.
 
+### Restoring from the command line (self-hosted only)
+
+Self-hosted operators who can't (or don't want to) use the admin UI — CI
+seeds, disaster recovery from a shell, scripted migrations — can run the
+same restore from a terminal with **`scripts/restore-snapshot.mjs`**. It
+loads `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` from `.env`, verifies
+the snapshot's SHA-256 digest, then performs the identical insert order
+and chunking used by `importApplicationData`.
+
+The CLI is not available on Lovable-hosted deployments (no shell access
+and `SUPABASE_SERVICE_ROLE_KEY` is managed for you); use `/admin/restore`
+there.
+
+**Flags:**
+
+| Flag | Required | Default | Purpose |
+| --- | --- | --- | --- |
+| `--file <path>` | yes | — | Snapshot JSON to restore. |
+| `--mode <merge\|replace>` | no | `merge` | `merge` upserts by `id`; `replace` deletes every operational row first. |
+| `--confirm REPLACE` | when `--mode replace` | — | Safety token, mirrors the UI's typed confirmation. |
+| `--allow-missing-integrity` | no | off | Permit pre-integrity (legacy) snapshots. |
+| `--yes`, `-y` | no | off | Skip the interactive `[y/N]` prompt (use in CI). |
+| `--env <path>` | no | `./.env` | Alternate `.env` file to load. |
+
+Exit codes: `0` success · `1` bad flags / missing env · `2` integrity
+failure (no rows written) · `3` one or more table writes failed.
+
+**Docker self-hosting** — run the script *inside* the running container so it
+inherits the bundled `node_modules` and the `.env` file mounted at
+`/app/.env`:
+
+```bash
+# Copy the snapshot into the container, then invoke the CLI.
+docker cp ./bostead-snapshot-2026-06-22.json bostead:/tmp/snap.json
+
+docker exec -it bostead \
+  node scripts/restore-snapshot.mjs \
+    --file /tmp/snap.json \
+    --mode merge
+```
+
+For a true clean-room restore into an instance you intend to overwrite:
+
+```bash
+docker exec -it bostead \
+  node scripts/restore-snapshot.mjs \
+    --file /tmp/snap.json \
+    --mode replace \
+    --confirm REPLACE \
+    --yes
+```
+
+**Node.js self-hosting** — run from the project root on the host (the same
+directory `npm start` runs from, so `.env` resolves):
+
+```bash
+node scripts/restore-snapshot.mjs \
+  --file ./bostead-snapshot-2026-06-22.json \
+  --mode merge
+```
+
+Destructive variant, non-interactive (suitable for a scheduled refresh
+from a known-good snapshot):
+
+```bash
+node scripts/restore-snapshot.mjs \
+  --file /var/backups/bostead/latest.json \
+  --mode replace \
+  --confirm REPLACE \
+  --yes
+```
+
+**Expected output** (merge mode, healthy run — Docker output is
+identical, just prefixed by your `docker exec` invocation):
+
+```text
+→ Reading snapshot: ./bostead-snapshot-2026-06-22.json
+→ Verifying SHA-256 integrity…
+  ✓ Verified (3f7a91c40e8b…)
+→ Target:  https://your-project.supabase.co
+→ Mode:    merge
+→ Tables:  20 in snapshot
+  ✓ food_price_history       upserted=128/128
+  ✓ food_plan_people         upserted=4/4
+  ✓ food_plan_foods          upserted=37/37
+  ✓ food_plan_entries        upserted=212/212
+  ✓ food_storage_plan        upserted=1/1
+  ✓ food_storage_items       upserted=86/86
+  ✓ plant_seasons            upserted=12/12
+  ✓ livestock_animals        upserted=9/9
+  ✓ orchard_trees            upserted=22/22
+  ✓ garden_plots             upserted=14/14
+  ✓ crop_plantings           upserted=58/58
+  ✓ crop_harvests            upserted=74/74
+  ✓ inventory_items          upserted=140/140
+  ✓ consumables              upserted=33/33
+  ✓ maintenance_records      upserted=18/18
+  ✓ projects                 upserted=7/7
+  ✓ tasks                    upserted=64/64
+  ✓ daily_notes              upserted=190/190
+  ✓ summaries                upserted=28/28
+  ✓ activity_log             upserted=512/512
+
+✓ Restore complete in 4821 ms.
+```
+
+In `--mode replace`, each row reads `deleted=<N> inserted=<M>/<M>`
+instead of `upserted=<M>/<M>`.
+
+**Expected output on integrity failure** (exit 2, no rows touched):
+
+```text
+→ Reading snapshot: ./tampered.json
+→ Verifying SHA-256 integrity…
+  ✗ Checksum mismatch — refusing to restore.
+    expected 3f7a91c40e8b4d2e9f1a6c0b7e8d5a4c3b2a1098…
+    actual   91ab7724ee0c4e1d8b3f2a4c5d6e7f8091a2b3c4…
+```
+
+
 ### Why this works the same everywhere
 
 | Concern | Lovable-hosted | Docker self-hosted | Node.js self-hosted |
