@@ -104,6 +104,12 @@ export function AppLayout({ children }: { children: ReactNode }) {
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
+                    <Link to="/admin/restore" className="flex items-center gap-2 cursor-pointer">
+                      <Upload className="h-4 w-4" />
+                      Restore backup
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
                     <Link to="/admin/reset" className="flex items-center gap-2 cursor-pointer">
                       <Trash2 className="h-4 w-4" />
                       Reset data
