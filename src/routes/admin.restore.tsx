@@ -18,6 +18,7 @@ import {
 
 import { AppLayout } from "@/components/app-layout";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -28,6 +29,12 @@ import {
   type ImportResult,
   type Snapshot,
 } from "@/lib/admin.functions";
+import { verifyIntegrity } from "@/lib/snapshot-integrity";
+
+type IntegrityStatus =
+  | { kind: "verified"; algo: string; value: string }
+  | { kind: "missing" }
+  | { kind: "mismatch"; reason: string; expected: string; actual: string };
 
 export const Route = createFileRoute("/admin/restore")({
   ssr: false,
@@ -44,16 +51,29 @@ function RestorePage() {
   const [mode, setMode] = useState<ImportMode>("merge");
   const [confirmText, setConfirmText] = useState("");
   const [result, setResult] = useState<ImportResult | null>(null);
+  const [integrity, setIntegrity] = useState<IntegrityStatus | null>(null);
+  const [allowMissingIntegrity, setAllowMissingIntegrity] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const mut = useMutation({
     mutationFn: () => {
       if (!snapshot) throw new Error("Pick a backup file first.");
+      if (integrity?.kind === "mismatch") {
+        throw new Error(
+          "Refusing to restore: snapshot integrity check failed. Re-download the file from the source.",
+        );
+      }
+      if (integrity?.kind === "missing" && !allowMissingIntegrity) {
+        throw new Error(
+          "Snapshot has no integrity digest. Tick the override box to import a legacy file.",
+        );
+      }
       return importFn({
         data: {
           snapshot,
           mode,
           confirm: mode === "replace" ? confirmText : undefined,
+          allowMissingIntegrity,
         },
       });
     },
@@ -73,6 +93,8 @@ function RestorePage() {
     setFileName(file.name);
     setSnapshot(null);
     setResult(null);
+    setIntegrity(null);
+    setAllowMissingIntegrity(false);
     try {
       const text = await file.text();
       const parsed = JSON.parse(text) as Snapshot;
@@ -80,6 +102,35 @@ function RestorePage() {
         toast.error("This file is not a Bostead v1 snapshot.");
         return;
       }
+
+      // Fail-fast: verify the embedded SHA-256 BEFORE the user can click
+      // Restore. We re-run the same check server-side so a tampered client
+      // cannot bypass it, but doing it here gives instant feedback.
+      if (parsed.integrity) {
+        const verdict = await verifyIntegrity(
+          { app: parsed.app, version: parsed.version, tables: parsed.tables },
+          parsed.integrity,
+        );
+        if (verdict.ok) {
+          setIntegrity({
+            kind: "verified",
+            algo: parsed.integrity.algo,
+            value: parsed.integrity.value,
+          });
+        } else {
+          setIntegrity({
+            kind: "mismatch",
+            reason: verdict.reason,
+            expected: verdict.expected,
+            actual: verdict.actual,
+          });
+          toast.error("Snapshot integrity check failed — see details below.");
+          return;
+        }
+      } else {
+        setIntegrity({ kind: "missing" });
+      }
+
       setSnapshot(parsed);
       const totalRows = parsed.tables.reduce((n, t) => n + (t.rows?.length ?? 0), 0);
       toast.success(`Loaded ${parsed.tables.length} tables (${totalRows} rows).`);
@@ -87,6 +138,7 @@ function RestorePage() {
       toast.error(`Could not parse file: ${(e as Error).message}`);
     }
   };
+
 
   if (profile.isLoading) {
     return (
