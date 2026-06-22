@@ -80,13 +80,18 @@ Replace the `your-*` placeholders with your actual Supabase project values, then
 ### Quickstart (Node.js)
 <a id="quickstart-nodejs"></a>
 
-With Bun ≥ 1.1 and Node.js ≥ 20 installed and a `.env` file present:
+One command — seeds `.env` from [`.env.example`](./.env.example) (only if missing), installs, builds, then starts the Node server with the env loaded:
 
 ```bash
-bun install --frozen-lockfile && NITRO_PRESET=node-server bun run build && set -a && source .env && set +a && node dist/server/index.mjs
+[ -f .env ] || cp .env.example .env && \
+  bun install --frozen-lockfile && \
+  NITRO_PRESET=node-server bun run build && \
+  set -a && source .env && set +a && \
+  node dist/server/index.mjs
 ```
 
-Then open <http://localhost:3000>. Full options below in [B. Node.js runtime (no Docker)](#b-nodejs-runtime-no-docker).
+Before the first run, edit `.env` and replace the `your-*` placeholders (`VITE_SUPABASE_*`, `SUPABASE_*`, `SUPABASE_SERVICE_ROLE_KEY`, `LOVABLE_API_KEY`) with real values, then re-run the command. Open <http://localhost:3000>. Full options in [B. Node.js runtime (no Docker)](#b-nodejs-runtime-no-docker).
+
 
 ---
 
