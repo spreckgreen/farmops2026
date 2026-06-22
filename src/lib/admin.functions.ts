@@ -326,3 +326,121 @@ export const exportApplicationData = createServerFn({ method: "GET" })
       tables,
     };
   });
+
+// ---- Restore snapshot (import) -----------------------------------------
+//
+// Re-imports a snapshot produced by `exportApplicationData`. Admin-only.
+// Two modes:
+//   - "merge"   (default) upsert each row by primary key `id`; never deletes
+//   - "replace" wipe each table first, then insert every row
+// Returns a per-table report so the UI can show what changed and where.
+
+export type ImportMode = "merge" | "replace";
+
+export type ImportTableResult = {
+  table: string;
+  attempted: number;
+  succeeded: number;
+  deleted: number; // only set in replace mode
+  error?: string;
+};
+
+export type ImportResult = {
+  ok: boolean;
+  mode: ImportMode;
+  started_at: string;
+  finished_at: string;
+  results: ImportTableResult[];
+};
+
+const RESTORE_INSERT_ORDER = [...RESET_TABLES].reverse(); // parents before children
+
+export const importApplicationData = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    (d: { snapshot: Snapshot; mode?: ImportMode; confirm?: string }) => {
+      if (!d || typeof d !== "object") throw new Error("Invalid payload");
+      if (!d.snapshot || d.snapshot.app !== "bostead") {
+        throw new Error('Not a Bostead snapshot (missing app: "bostead")');
+      }
+      if (d.snapshot.version !== 1) {
+        throw new Error(`Unsupported snapshot version: ${d.snapshot.version}`);
+      }
+      if (!Array.isArray(d.snapshot.tables)) {
+        throw new Error("Snapshot has no tables array");
+      }
+      const mode: ImportMode = d.mode === "replace" ? "replace" : "merge";
+      if (mode === "replace" && d.confirm !== "REPLACE") {
+        throw new Error('Replace mode requires confirm="REPLACE".');
+      }
+      return { snapshot: d.snapshot, mode, confirm: d.confirm };
+    },
+  )
+  .handler(async ({ data, context }): Promise<ImportResult> => {
+    const { supabase, userId } = context;
+    await requireAdmin(supabase, userId);
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const admin = supabaseAdmin as any;
+
+    const startedAt = new Date().toISOString();
+    const byTable = new Map<string, SnapshotTable>();
+    for (const t of data.snapshot.tables) byTable.set(t.table, t);
+
+    const results: ImportTableResult[] = [];
+
+    for (const table of RESTORE_INSERT_ORDER) {
+      const snap = byTable.get(table);
+      const rows = snap?.rows ?? [];
+      let deleted = 0;
+      let succeeded = 0;
+      let errorMessage: string | undefined;
+
+      try {
+        if (data.mode === "replace") {
+          const { error: delErr, count } = await admin
+            .from(table)
+            .delete({ count: "exact" })
+            .not("id", "is", null);
+          if (delErr) throw new Error(`delete failed: ${delErr.message}`);
+          deleted = count ?? 0;
+        }
+
+        if (rows.length > 0) {
+          // Insert/upsert in chunks to stay below request-size limits.
+          const CHUNK = 500;
+          for (let i = 0; i < rows.length; i += CHUNK) {
+            const chunk = rows.slice(i, i + CHUNK);
+            const query =
+              data.mode === "replace"
+                ? admin.from(table).insert(chunk)
+                : admin.from(table).upsert(chunk, { onConflict: "id" });
+            const { error: writeErr } = await query;
+            if (writeErr) throw new Error(`write failed at chunk ${i}: ${writeErr.message}`);
+            succeeded += chunk.length;
+          }
+        }
+      } catch (e) {
+        errorMessage = (e as Error).message;
+      }
+
+      results.push({
+        table,
+        attempted: rows.length,
+        succeeded,
+        deleted,
+        error: errorMessage,
+      });
+    }
+
+    const ok = results.every((r) => !r.error);
+    return {
+      ok,
+      mode: data.mode,
+      started_at: startedAt,
+      finished_at: new Date().toISOString(),
+      results,
+    };
+  });
+
