@@ -379,7 +379,12 @@ const RESTORE_INSERT_ORDER = [...RESET_TABLES].reverse(); // parents before chil
 export const importApplicationData = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(
-    (d: { snapshot: Snapshot; mode?: ImportMode; confirm?: string }) => {
+    (d: {
+      snapshot: Snapshot;
+      mode?: ImportMode;
+      confirm?: string;
+      allowMissingIntegrity?: boolean;
+    }) => {
       if (!d || typeof d !== "object") throw new Error("Invalid payload");
       if (!d.snapshot || d.snapshot.app !== "bostead") {
         throw new Error('Not a Bostead snapshot (missing app: "bostead")');
@@ -394,12 +399,42 @@ export const importApplicationData = createServerFn({ method: "POST" })
       if (mode === "replace" && d.confirm !== "REPLACE") {
         throw new Error('Replace mode requires confirm="REPLACE".');
       }
-      return { snapshot: d.snapshot, mode, confirm: d.confirm };
+      return {
+        snapshot: d.snapshot,
+        mode,
+        confirm: d.confirm,
+        allowMissingIntegrity: d.allowMissingIntegrity === true,
+      };
     },
   )
   .handler(async ({ data, context }): Promise<ImportResult> => {
     const { supabase, userId } = context;
     await requireAdmin(supabase, userId);
+
+    // Fail-fast integrity check BEFORE touching the database. A snapshot
+    // that was truncated mid-download, hand-edited, or corrupted on disk
+    // is rejected here so the restore can never partially apply.
+    if (data.snapshot.integrity) {
+      const verdict = await verifyIntegrity(
+        {
+          app: data.snapshot.app,
+          version: data.snapshot.version,
+          tables: data.snapshot.tables,
+        },
+        data.snapshot.integrity,
+      );
+      if (!verdict.ok) {
+        throw new Error(
+          `Snapshot integrity check failed: ${verdict.reason} ` +
+            `(expected ${verdict.expected.slice(0, 12)}…, got ${verdict.actual.slice(0, 12)}…)`,
+        );
+      }
+    } else if (!data.allowMissingIntegrity) {
+      throw new Error(
+        "Snapshot has no integrity digest. Re-export from a current Bostead " +
+          "instance, or pass allowMissingIntegrity: true to import a legacy file.",
+      );
+    }
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -408,6 +443,7 @@ export const importApplicationData = createServerFn({ method: "POST" })
     const startedAt = new Date().toISOString();
     const byTable = new Map<string, SnapshotTable>();
     for (const t of data.snapshot.tables) byTable.set(t.table, t);
+
 
     const results: ImportTableResult[] = [];
 
