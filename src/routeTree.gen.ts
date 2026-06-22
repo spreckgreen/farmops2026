@@ -36,6 +36,7 @@ import { Route as FoodLivestockRouteImport } from './routes/food.livestock'
 import { Route as FoodGardenRouteImport } from './routes/food.garden'
 import { Route as FoodCropsRouteImport } from './routes/food.crops'
 import { Route as AdminUsersRouteImport } from './routes/admin.users'
+import { Route as AdminRestoreRouteImport } from './routes/admin.restore'
 import { Route as AdminResetRouteImport } from './routes/admin.reset'
 import { Route as AdminExportRouteImport } from './routes/admin.export'
 
@@ -174,6 +175,11 @@ const AdminUsersRoute = AdminUsersRouteImport.update({
   path: '/admin/users',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminRestoreRoute = AdminRestoreRouteImport.update({
+  id: '/admin/restore',
+  path: '/admin/restore',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminResetRoute = AdminResetRouteImport.update({
   id: '/admin/reset',
   path: '/admin/reset',
@@ -198,6 +204,7 @@ export interface FileRoutesByFullPath {
   '/sync': typeof SyncRoute
   '/admin/export': typeof AdminExportRoute
   '/admin/reset': typeof AdminResetRoute
+  '/admin/restore': typeof AdminRestoreRoute
   '/admin/users': typeof AdminUsersRoute
   '/food/crops': typeof FoodCropsRoute
   '/food/garden': typeof FoodGardenRoute
@@ -228,6 +235,7 @@ export interface FileRoutesByTo {
   '/sync': typeof SyncRoute
   '/admin/export': typeof AdminExportRoute
   '/admin/reset': typeof AdminResetRoute
+  '/admin/restore': typeof AdminRestoreRoute
   '/admin/users': typeof AdminUsersRoute
   '/food/crops': typeof FoodCropsRoute
   '/food/garden': typeof FoodGardenRoute
@@ -260,6 +268,7 @@ export interface FileRoutesById {
   '/sync': typeof SyncRoute
   '/admin/export': typeof AdminExportRoute
   '/admin/reset': typeof AdminResetRoute
+  '/admin/restore': typeof AdminRestoreRoute
   '/admin/users': typeof AdminUsersRoute
   '/food/crops': typeof FoodCropsRoute
   '/food/garden': typeof FoodGardenRoute
@@ -293,6 +302,7 @@ export interface FileRouteTypes {
     | '/sync'
     | '/admin/export'
     | '/admin/reset'
+    | '/admin/restore'
     | '/admin/users'
     | '/food/crops'
     | '/food/garden'
@@ -323,6 +333,7 @@ export interface FileRouteTypes {
     | '/sync'
     | '/admin/export'
     | '/admin/reset'
+    | '/admin/restore'
     | '/admin/users'
     | '/food/crops'
     | '/food/garden'
@@ -354,6 +365,7 @@ export interface FileRouteTypes {
     | '/sync'
     | '/admin/export'
     | '/admin/reset'
+    | '/admin/restore'
     | '/admin/users'
     | '/food/crops'
     | '/food/garden'
@@ -386,6 +398,7 @@ export interface RootRouteChildren {
   SyncRoute: typeof SyncRoute
   AdminExportRoute: typeof AdminExportRoute
   AdminResetRoute: typeof AdminResetRoute
+  AdminRestoreRoute: typeof AdminRestoreRoute
   AdminUsersRoute: typeof AdminUsersRoute
   NotesDateRoute: typeof NotesDateRoute
   TasksSlugRoute: typeof TasksSlugRoute
@@ -585,6 +598,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminUsersRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/restore': {
+      id: '/admin/restore'
+      path: '/admin/restore'
+      fullPath: '/admin/restore'
+      preLoaderRoute: typeof AdminRestoreRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/reset': {
       id: '/admin/reset'
       path: '/admin/reset'
@@ -645,6 +665,7 @@ const rootRouteChildren: RootRouteChildren = {
   SyncRoute: SyncRoute,
   AdminExportRoute: AdminExportRoute,
   AdminResetRoute: AdminResetRoute,
+  AdminRestoreRoute: AdminRestoreRoute,
   AdminUsersRoute: AdminUsersRoute,
   NotesDateRoute: NotesDateRoute,
   TasksSlugRoute: TasksSlugRoute,
