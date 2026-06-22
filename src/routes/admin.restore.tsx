@@ -213,7 +213,68 @@ function RestorePage() {
               )}
             </p>
           )}
+
+          {integrity && (
+            <div
+              className={
+                "rounded-md border p-3 text-xs space-y-2 " +
+                (integrity.kind === "verified"
+                  ? "border-emerald-500/40 bg-emerald-500/5"
+                  : integrity.kind === "mismatch"
+                    ? "border-destructive/40 bg-destructive/5"
+                    : "border-yellow-500/40 bg-yellow-500/5")
+              }
+            >
+              {integrity.kind === "verified" && (
+                <div className="flex items-center gap-2 text-emerald-700">
+                  <CheckCircle2 className="h-4 w-4" />
+                  <span>
+                    Integrity verified ({integrity.algo} ·{" "}
+                    <code className="font-mono">{integrity.value.slice(0, 16)}…</code>)
+                  </span>
+                </div>
+              )}
+              {integrity.kind === "mismatch" && (
+                <>
+                  <div className="flex items-center gap-2 text-destructive font-medium">
+                    <AlertTriangle className="h-4 w-4" />
+                    Integrity check FAILED — refusing to restore
+                  </div>
+                  <div className="text-muted-foreground">{integrity.reason}</div>
+                  <div className="font-mono text-[10px] text-muted-foreground">
+                    expected {integrity.expected.slice(0, 24)}…
+                    <br />
+                    actual&nbsp;&nbsp; {integrity.actual.slice(0, 24)}…
+                  </div>
+                  <div>
+                    Re-download the file from the source and try again. Do not
+                    edit snapshot files by hand.
+                  </div>
+                </>
+              )}
+              {integrity.kind === "missing" && (
+                <>
+                  <div className="flex items-center gap-2 text-yellow-700">
+                    <AlertTriangle className="h-4 w-4" />
+                    No integrity digest in this snapshot (legacy export)
+                  </div>
+                  <label className="flex items-center gap-2">
+                    <Checkbox
+                      checked={allowMissingIntegrity}
+                      onCheckedChange={(v) => setAllowMissingIntegrity(v === true)}
+                    />
+                    <span>
+                      Import anyway — I trust this file and accept that
+                      tampering or truncation cannot be detected.
+                    </span>
+                  </label>
+                </>
+              )}
+            </div>
+          )}
         </section>
+
+
 
         <section className="space-y-3">
           <Label className="text-sm font-medium">2. Pick a restore mode</Label>
