@@ -27,10 +27,11 @@ A summary of everything shipped to date. Want to run it yourself? Jump to the on
 
 ### Platform
 - **Auth** (`/auth`) — email + Google sign-in via Lovable Cloud (Supabase) with row-level security.
-- **Admin** — user management (`/admin/users`), data export (`/admin/export`), and reset tools (`/admin/reset`); gated by a `user_roles` table.
+- **Admin** — user management (`/admin/users`), data export (`/admin/export`), restore from backup (`/admin/restore`), and reset tools (`/admin/reset`); gated by a `user_roles` table.
 - **Sync** (`/sync`) — manual sync controls for offline/edge scenarios.
 - **TanStack Start SSR** — server-rendered routes with typed `createServerFn` RPC for backend logic.
 - **Self-hostable** — ships with a multi-stage Dockerfile, Compose file, and entrypoint that handles UID/GID remapping for bind mounts (see below).
+- **Backup & restore** — one snapshot format that works identically on Lovable-hosted, Docker, and Node.js deployments. See [Backup & restore](#backup--restore).
 
 ---
 
