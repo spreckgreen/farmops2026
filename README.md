@@ -571,15 +571,35 @@ These must be set in `.env` (or exported in the shell) for the Node.js runtime â
 | `NODE_ENV` | recommended | Set to `production` for the built server |
 | `PORT` | optional | Listen port (defaults to `3000`) |
 
+### Validate your env before running
+
+A bundled script checks that every required variable is set and not still using an example placeholder. It never prints values.
+
+```bash
+set -a && source .env && set +a
+./scripts/check-env.sh
+```
+
+Sample output when something is wrong:
+
+```
+  [MISSING]     SUPABASE_SERVICE_ROLE_KEY
+  [PLACEHOLDER] VITE_SUPABASE_URL (still set to .env.example default)
+FAIL: 1 missing, 1 still using example placeholders.
+```
+
+The script exits non-zero on failure, so you can chain it before `bun run build` or use it as a systemd `ExecStartPre=` guard.
+
 ### Run the server
 
 ```bash
 # Load env vars from .env into the current shell, then start the server
 set -a && source .env && set +a
-node dist/server/index.mjs
+./scripts/check-env.sh && node dist/server/index.mjs
 ```
 
 The app listens on `http://localhost:3000`. Override with `PORT=8080 node dist/server/index.mjs`. Bun works as the runtime too: `bun dist/server/index.mjs`.
+
 
 
 ### Run as a systemd service
