@@ -3,10 +3,18 @@
 # running the Node.js quickstart (or systemd service).
 #
 # Usage:
-#   ./scripts/check-env.sh              # checks the current shell environment
+#   ./scripts/check-env.sh                    # check current shell env only
+#   ./scripts/check-env.sh --env-file .env    # parse .env, then check
 #   set -a && source .env && set +a && ./scripts/check-env.sh
 #
-# Exits 0 if everything required is set, 1 otherwise. Never prints values.
+# Exits 0 if everything required is set to a real value, 1 otherwise.
+# Never prints values. Robust .env parser supports:
+#   - blank lines and full-line comments (# ...)
+#   - optional leading `export `
+#   - single-quoted values (literal — no expansion, no escapes)
+#   - double-quoted values (with \n \r \t \\ \" escapes)
+#   - unquoted values (inline `#` starts a comment when preceded by whitespace)
+#   - CRLF line endings (Windows-edited .env files)
 
 set -u
 
@@ -25,27 +33,151 @@ OPTIONAL=(
   PORT
 )
 
+env_file=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --env-file)
+      env_file="${2-}"
+      shift 2
+      ;;
+    --env-file=*)
+      env_file="${1#--env-file=}"
+      shift
+      ;;
+    -h|--help)
+      sed -n '2,17p' "$0"
+      exit 0
+      ;;
+    *)
+      echo "Unknown argument: $1" >&2
+      exit 2
+      ;;
+  esac
+done
+
+# Parse a single quoted/unquoted value. Echoes the decoded value on stdout.
+# Args: $1 = raw RHS (after `KEY=`)
+parse_value() {
+  local raw="$1"
+  # Strip trailing CR (CRLF)
+  raw="${raw%$'\r'}"
+  # Trim leading whitespace
+  raw="${raw#"${raw%%[![:space:]]*}"}"
+
+  if [ -z "$raw" ]; then
+    printf '%s' ''
+    return
+  fi
+
+  local first="${raw:0:1}"
+  if [ "$first" = "'" ]; then
+    # Single-quoted: literal until next single quote
+    local rest="${raw:1}"
+    local closing="${rest%%\'*}"
+    printf '%s' "$closing"
+  elif [ "$first" = '"' ]; then
+    # Double-quoted: scan char by char honoring backslash escapes
+    local rest="${raw:1}"
+    local out=""
+    local i=0 len=${#rest} c next
+    while [ $i -lt $len ]; do
+      c="${rest:$i:1}"
+      if [ "$c" = '\' ] && [ $((i + 1)) -lt $len ]; then
+        next="${rest:$((i+1)):1}"
+        case "$next" in
+          n)  out+=$'\n' ;;
+          r)  out+=$'\r' ;;
+          t)  out+=$'\t' ;;
+          \\) out+='\' ;;
+          \") out+='"' ;;
+          *)  out+="$next" ;;
+        esac
+        i=$((i + 2))
+        continue
+      fi
+      if [ "$c" = '"' ]; then
+        break
+      fi
+      out+="$c"
+      i=$((i + 1))
+    done
+    printf '%s' "$out"
+  else
+    # Unquoted: strip inline comment (` #...` — hash preceded by whitespace)
+    # then trim trailing whitespace.
+    local stripped
+    # shellcheck disable=SC2001
+    stripped="$(printf '%s' "$raw" | sed -E 's/[[:space:]]+#.*$//')"
+    stripped="${stripped%"${stripped##*[![:space:]]}"}"
+    printf '%s' "$stripped"
+  fi
+}
+
+load_env_file() {
+  local file="$1"
+  if [ ! -f "$file" ]; then
+    echo "Env file not found: $file" >&2
+    exit 2
+  fi
+  local lineno=0 line key rhs val
+  while IFS= read -r line || [ -n "$line" ]; do
+    lineno=$((lineno + 1))
+    # Strip CR (CRLF)
+    line="${line%$'\r'}"
+    # Trim leading whitespace
+    line="${line#"${line%%[![:space:]]*}"}"
+    # Skip blank lines and full-line comments
+    [ -z "$line" ] && continue
+    case "$line" in \#*) continue ;; esac
+    # Strip optional `export ` prefix
+    case "$line" in
+      export\ *|export$'\t'*) line="${line#export}"; line="${line#"${line%%[![:space:]]*}"}" ;;
+    esac
+    # Must contain `=`
+    case "$line" in
+      *=*) ;;
+      *) echo "Warning: skipping malformed line $lineno in $file" >&2; continue ;;
+    esac
+    key="${line%%=*}"
+    rhs="${line#*=}"
+    # Trim trailing whitespace from key
+    key="${key%"${key##*[![:space:]]}"}"
+    # Validate key shape
+    case "$key" in
+      [A-Za-z_]*) ;;
+      *) echo "Warning: skipping invalid key on line $lineno: $key" >&2; continue ;;
+    esac
+    val="$(parse_value "$rhs")"
+    export "$key=$val"
+  done < "$file"
+}
+
+if [ -n "$env_file" ]; then
+  load_env_file "$env_file"
+fi
+
+is_placeholder() {
+  local v="$1"
+  case "$v" in
+    your-*|https://your-project.supabase.co) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 missing=()
 placeholder=()
-
-for var in "${REQUIRED[@]}"; do
-  val="${!var-}"
-  if [ -z "$val" ]; then
-    missing+=("$var")
-  elif [[ "$val" == your-* || "$val" == https://your-project.supabase.co ]]; then
-    placeholder+=("$var")
-  fi
-done
 
 echo "Checking required environment variables..."
 for var in "${REQUIRED[@]}"; do
   val="${!var-}"
   if [ -z "$val" ]; then
-    printf "  [MISSING] %s\n" "$var"
-  elif [[ "$val" == your-* || "$val" == https://your-project.supabase.co ]]; then
+    printf "  [MISSING]     %s\n" "$var"
+    missing+=("$var")
+  elif is_placeholder "$val"; then
     printf "  [PLACEHOLDER] %s (still set to .env.example default)\n" "$var"
+    placeholder+=("$var")
   else
-    printf "  [OK]      %s\n" "$var"
+    printf "  [OK]          %s\n" "$var"
   fi
 done
 
@@ -54,9 +186,9 @@ echo "Optional variables:"
 for var in "${OPTIONAL[@]}"; do
   val="${!var-}"
   if [ -z "$val" ]; then
-    printf "  [unset]   %s\n" "$var"
+    printf "  [unset]       %s\n" "$var"
   else
-    printf "  [OK]      %s\n" "$var"
+    printf "  [OK]          %s\n" "$var"
   fi
 done
 
@@ -64,7 +196,7 @@ if [ "${#missing[@]}" -gt 0 ] || [ "${#placeholder[@]}" -gt 0 ]; then
   echo
   echo "FAIL: ${#missing[@]} missing, ${#placeholder[@]} still using example placeholders."
   echo "Fix: copy .env.example to .env, edit it, then run:"
-  echo "  set -a && source .env && set +a && ./scripts/check-env.sh"
+  echo "  ./scripts/check-env.sh --env-file .env"
   exit 1
 fi
 
