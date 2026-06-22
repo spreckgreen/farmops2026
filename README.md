@@ -60,13 +60,22 @@ Common prerequisites for either path:
 ### Quickstart (Docker)
 <a id="quickstart-docker"></a>
 
-With Docker installed and a `.env` file present in the project root:
+One command — writes an example `.env` (only if missing) and starts the container in the background:
 
 ```bash
+[ -f .env ] || cat > .env <<'EOF'
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=your-anon-key
+VITE_SUPABASE_PROJECT_ID=your-project-id
+PUID=1000
+PGID=1000
+PORT=3000
+EOF
 docker compose up --build -d
 ```
 
-Then open <http://localhost:3000>. Full options below in [A. Docker / Docker Compose](#a-docker--docker-compose).
+Replace the `your-*` placeholders with your actual Supabase project values, then re-run the command. Open <http://localhost:3000>. Full options in [A. Docker / Docker Compose](#a-docker--docker-compose).
+
 
 ### Quickstart (Node.js)
 <a id="quickstart-nodejs"></a>
