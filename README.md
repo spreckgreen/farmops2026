@@ -6,7 +6,8 @@ A personal homestead & productivity application built with TanStack Start, React
 
 ## Features
 
-A summary of everything shipped to date.
+A summary of everything shipped to date. Want to run it yourself? Jump to the one-command quickstarts: [Docker](#quickstart-docker) · [Node.js](#quickstart-nodejs).
+
 
 ### Productivity & planning
 - **Dashboard** (`/dashboard`) — at-a-glance overview of today's tasks, upcoming work, and recent activity.
@@ -56,7 +57,33 @@ Common prerequisites for either path:
 
 ---
 
+### Quickstart (Docker)
+<a id="quickstart-docker"></a>
+
+With Docker installed and a `.env` file present in the project root:
+
+```bash
+docker compose up --build -d
+```
+
+Then open <http://localhost:3000>. Full options below in [A. Docker / Docker Compose](#a-docker--docker-compose).
+
+### Quickstart (Node.js)
+<a id="quickstart-nodejs"></a>
+
+With Bun ≥ 1.1 and Node.js ≥ 20 installed and a `.env` file present:
+
+```bash
+bun install --frozen-lockfile && NITRO_PRESET=node-server bun run build && set -a && source .env && set +a && node dist/server/index.mjs
+```
+
+Then open <http://localhost:3000>. Full options below in [B. Node.js runtime (no Docker)](#b-nodejs-runtime-no-docker).
+
+---
+
 ## A. Docker / Docker Compose
+
+
 
 ### Prerequisites
 
