@@ -48,12 +48,12 @@ Both architectures build the same TanStack Start app with `NITRO_PRESET=node-ser
 Common prerequisites for either path:
 
 - A Supabase project (URL, anon/publishable key, project ID)
-- A `.env` file in the project root with at least:
+- A `.env` file in the project root. The fastest way to create one is to copy the bundled example:
   ```bash
-  VITE_SUPABASE_URL=https://your-project.supabase.co
-  VITE_SUPABASE_PUBLISHABLE_KEY=your-anon-key
-  VITE_SUPABASE_PROJECT_ID=your-project-id
+  cp .env.example .env
   ```
+  Then edit `.env` and replace the `your-*` placeholders with your Supabase project values. See [`.env.example`](./.env.example) for the full list of supported variables (Supabase keys, `PUID`/`PGID`, `PORT`).
+
 
 ---
 
