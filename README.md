@@ -540,24 +540,45 @@ Run the production build directly on a host that has Node.js or Bun installed â€
 # 1. Clone and enter the project
 git clone <your-fork-url> bostead && cd bostead
 
-# 2. Install dependencies (uses bun.lock)
+# 2. Seed your env file from the example and edit it with real values
+cp .env.example .env
+$EDITOR .env   # fill in VITE_SUPABASE_*, SUPABASE_*, SUPABASE_SERVICE_ROLE_KEY, LOVABLE_API_KEY
+
+# 3. Install dependencies (uses bun.lock)
 bun install --frozen-lockfile
 
-# 3. Build the Nitro Node server output
+# 4. Build the Nitro Node server output
 NITRO_PRESET=node-server bun run build
 ```
 
 The build emits a self-contained Node server to `./dist/` with the entrypoint at `dist/server/index.mjs`.
 
+### Required environment variables
+
+These must be set in `.env` (or exported in the shell) for the Node.js runtime â€” see [`.env.example`](./.env.example) for the canonical list:
+
+| Variable | Required | Purpose |
+| --- | --- | --- |
+| `VITE_SUPABASE_URL` | yes (build) | Supabase URL, inlined into the client bundle |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | yes (build) | Supabase anon/publishable key, client bundle |
+| `VITE_SUPABASE_PROJECT_ID` | yes (build) | Supabase project ref, client bundle |
+| `SUPABASE_URL` | yes (runtime) | Server-side Supabase URL used by server functions |
+| `SUPABASE_PUBLISHABLE_KEY` | yes (runtime) | Server-side anon key for auth-aware server functions |
+| `SUPABASE_SERVICE_ROLE_KEY` | yes (runtime) | Service-role key for admin/maintenance server code |
+| `LOVABLE_API_KEY` | yes (AI features) | Lovable AI gateway key for `/food` and summary endpoints |
+| `NODE_ENV` | recommended | Set to `production` for the built server |
+| `PORT` | optional | Listen port (defaults to `3000`) |
+
 ### Run the server
 
 ```bash
-# Load env vars and start the server
+# Load env vars from .env into the current shell, then start the server
 set -a && source .env && set +a
 node dist/server/index.mjs
 ```
 
-The app listens on `http://localhost:3000`. Override with `PORT=8080 node dist/server/index.mjs`.
+The app listens on `http://localhost:3000`. Override with `PORT=8080 node dist/server/index.mjs`. Bun works as the runtime too: `bun dist/server/index.mjs`.
+
 
 ### Run as a systemd service
 
