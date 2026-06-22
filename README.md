@@ -776,7 +776,41 @@ deployment, and vice versa.
 | Service-role key location | Managed by Lovable Cloud | `.env` → container env | `.env` loaded by the Node process |
 | File format | `bostead-snapshot-*.json` (v1) | Same | Same |
 
+### Bootstrapping a clean environment from a snapshot
+<a id="bootstrapping-a-clean-environment-from-a-snapshot"></a>
+
+A "clean environment" here means a freshly provisioned Bostead instance
+(Lovable preview, Docker container, or Node.js host) where the database
+schema exists — i.e. `supabase/migrations/` has been applied — but the
+operational tables are empty. Use this flow whenever you stand up a new
+deployment and want it to start with data from an existing instance.
+
+1. **Provision the target.** Run the relevant quickstart end-to-end:
+   - Lovable-hosted — the schema is applied automatically.
+   - Docker — [Quickstart (Docker)](#quickstart-docker), then ensure
+     migrations have run against the configured Supabase project.
+   - Node.js — [Quickstart (Node.js)](#quickstart-nodejs); `check-env.sh`
+     must pass before you continue.
+2. **Create the first admin.** Sign up through the app's normal `/auth`
+   flow, then grant that user the `admin` role — either via `/admin/users`
+   from a second already-admin instance, or with a one-off SQL insert into
+   `public.user_roles` (`role = 'admin'`) on a brand-new self-hosted DB.
+3. **Verify the instance is empty.** Visit `/admin/restore`. If the target
+   already has data and you want a clean overwrite, you must use **Replace**
+   mode in the next step; otherwise **Merge** is safe.
+4. **Import the snapshot.** Pick your `bostead-snapshot-*.json`. The UI
+   verifies the SHA-256 digest before the **Restore** button enables — do
+   not proceed if the badge says *Integrity check failed*. Choose
+   **Replace** for a true clean-room restore, **Merge** to top up.
+5. **Confirm.** The per-table report should show `errors: 0` for every
+   table. Sign out, sign back in, and spot-check a few records.
+
+This is the only supported way to pre-populate a clean environment —
+there is no `pg_dump` / `psql` path, and SQL seeding is reserved for
+schema migrations, not user data.
+
 ### Cross-host migration recipes
+
 
 **Migrate from Lovable to self-hosted Docker:**
 
