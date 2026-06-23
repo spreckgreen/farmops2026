@@ -5,8 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import {
-  Plus, Trash2, Download, Upload, Pencil, Check, X, FileText, Save, ExternalLink,
+  Plus, Trash2, Download, Upload, Pencil, Check, X, FileText, Save, ExternalLink, Wand2,
 } from "lucide-react";
+import { tidyProcedure } from "@/lib/tidy-tinywiki";
+
 import {
   buildTinyWikiHtml,
   extractBodyWiki,
