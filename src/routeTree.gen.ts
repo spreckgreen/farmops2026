@@ -40,6 +40,7 @@ import { Route as AdminUsersRouteImport } from './routes/admin.users'
 import { Route as AdminRestoreRouteImport } from './routes/admin.restore'
 import { Route as AdminResetRouteImport } from './routes/admin.reset'
 import { Route as AdminExportRouteImport } from './routes/admin.export'
+import { Route as ApiPublicHealthProceduresRouteImport } from './routes/api/public/health.procedures'
 
 const SyncRoute = SyncRouteImport.update({
   id: '/sync',
@@ -196,6 +197,12 @@ const AdminExportRoute = AdminExportRouteImport.update({
   path: '/admin/export',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicHealthProceduresRoute =
+  ApiPublicHealthProceduresRouteImport.update({
+    id: '/api/public/health/procedures',
+    path: '/api/public/health/procedures',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -229,6 +236,7 @@ export interface FileRoutesByFullPath {
   '/tasks/scheduled': typeof TasksScheduledRoute
   '/food/': typeof FoodIndexRoute
   '/tasks/': typeof TasksIndexRoute
+  '/api/public/health/procedures': typeof ApiPublicHealthProceduresRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -261,6 +269,7 @@ export interface FileRoutesByTo {
   '/tasks/scheduled': typeof TasksScheduledRoute
   '/food': typeof FoodIndexRoute
   '/tasks': typeof TasksIndexRoute
+  '/api/public/health/procedures': typeof ApiPublicHealthProceduresRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -295,6 +304,7 @@ export interface FileRoutesById {
   '/tasks/scheduled': typeof TasksScheduledRoute
   '/food/': typeof FoodIndexRoute
   '/tasks/': typeof TasksIndexRoute
+  '/api/public/health/procedures': typeof ApiPublicHealthProceduresRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -330,6 +340,7 @@ export interface FileRouteTypes {
     | '/tasks/scheduled'
     | '/food/'
     | '/tasks/'
+    | '/api/public/health/procedures'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -362,6 +373,7 @@ export interface FileRouteTypes {
     | '/tasks/scheduled'
     | '/food'
     | '/tasks'
+    | '/api/public/health/procedures'
   id:
     | '__root__'
     | '/'
@@ -395,6 +407,7 @@ export interface FileRouteTypes {
     | '/tasks/scheduled'
     | '/food/'
     | '/tasks/'
+    | '/api/public/health/procedures'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -418,6 +431,7 @@ export interface RootRouteChildren {
   TasksBacklogRoute: typeof TasksBacklogRoute
   TasksScheduledRoute: typeof TasksScheduledRoute
   TasksIndexRoute: typeof TasksIndexRoute
+  ApiPublicHealthProceduresRoute: typeof ApiPublicHealthProceduresRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -639,6 +653,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminExportRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/health/procedures': {
+      id: '/api/public/health/procedures'
+      path: '/api/public/health/procedures'
+      fullPath: '/api/public/health/procedures'
+      preLoaderRoute: typeof ApiPublicHealthProceduresRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -693,17 +714,8 @@ const rootRouteChildren: RootRouteChildren = {
   TasksBacklogRoute: TasksBacklogRoute,
   TasksScheduledRoute: TasksScheduledRoute,
   TasksIndexRoute: TasksIndexRoute,
+  ApiPublicHealthProceduresRoute: ApiPublicHealthProceduresRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
