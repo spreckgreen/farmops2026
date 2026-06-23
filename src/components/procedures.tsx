@@ -221,8 +221,8 @@ export function Procedures() {
     } catch (e) {
       toast.error(`Obsidian sync failed: ${e instanceof Error ? e.message : String(e)}`);
     }
-  }
-  }
+
+
 
   async function onFilesPicked(files: FileList | null) {
     if (!files || !files.length) return;
