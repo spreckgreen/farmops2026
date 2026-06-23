@@ -186,6 +186,7 @@ export function Procedures() {
     if (!win) {
       const a = document.createElement("a");
       a.href = url; a.download = filenameForExport(w.name); a.click();
+    }
   }
 
   async function syncToObsidian() {
