@@ -221,6 +221,9 @@ export function Procedures() {
     } catch (e) {
       toast.error(`Obsidian sync failed: ${e instanceof Error ? e.message : String(e)}`);
     }
+  }
+
+
 
 
 
