@@ -203,50 +203,53 @@ function exposeDebugHelper() {
   (window as unknown as { __staleServerFnLog?: () => StaleEvent[] }).__staleServerFnLog = readLog;
 }
 
-export function useStaleServerFnGuard() {
-  useEffect(() => {
-    if (installed || typeof window === "undefined") return;
-    installed = true;
-    exposeDebugHelper();
+function installFetchPatch() {
+  if (installed || typeof window === "undefined") return;
+  installed = true;
+  exposeDebugHelper();
 
-    const originalFetch = window.fetch.bind(window);
-    window.fetch = async (input, init) => {
-      const res = await originalFetch(input, init);
-      try {
-        const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
-        if (url.includes("/_serverFn/")) {
-          if (res.ok) {
-            // The new bundle is in sync. If the previous tab attempted an
-            // auto-reload, this is proof it succeeded — log it once.
-            resolvePendingOutcome(true);
-            safeSession(() => sessionStorage.removeItem(RETRY_FLAG), undefined);
-          } else if (res.status === 500 || res.status === 404) {
-            const text = await res.clone().text();
-            if (looksLikeStaleServerFn(url, res.status, text)) {
-              const serverFnId = extractServerFnId(url);
-              const context = {
-                url: redactUrl(url),
-                route: redactRoute(window.location.pathname, window.location.search),
-                serverFnId,
-                serverFnIdShort: serverFnId.slice(0, 24),
-                status: res.status,
-                bodySnippet: text.slice(0, 200),
-                userAgent: navigator.userAgent,
-              };
-              // If a previous reload attempt is still pending, it didn't help.
-              resolvePendingOutcome(false);
-              if (!autoReloadOnce(context)) promptReload(context);
-            }
+  const originalFetch = window.fetch.bind(window);
+  window.fetch = async (input, init) => {
+    const res = await originalFetch(input, init);
+    try {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+      if (url.includes("/_serverFn/")) {
+        if (res.ok) {
+          resolvePendingOutcome(true);
+          safeSession(() => sessionStorage.removeItem(RETRY_FLAG), undefined);
+        } else if (res.status === 500 || res.status === 404) {
+          const text = await res.clone().text();
+          if (looksLikeStaleServerFn(url, res.status, text)) {
+            const serverFnId = extractServerFnId(url);
+            const context = {
+              url: redactUrl(url),
+              route: redactRoute(window.location.pathname, window.location.search),
+              serverFnId,
+              serverFnIdShort: serverFnId.slice(0, 24),
+              status: res.status,
+              bodySnippet: text.slice(0, 200),
+              userAgent: navigator.userAgent,
+            };
+            resolvePendingOutcome(false);
+            if (!autoReloadOnce(context)) promptReload(context);
           }
         }
-      } catch {
-        // best-effort detection — never break the original response
       }
-      return res;
-    };
+    } catch {
+      // best-effort detection — never break the original response
+    }
+    return res;
+  };
+}
 
-    return () => {
-      // Keep the patch installed for the lifetime of the tab; nothing to clean up.
-    };
+// Install at module load so the patch is live before any route loader fires
+// a serverFn call during initial hydration. useEffect would run too late and
+// miss the first stale call after a redeploy.
+installFetchPatch();
+
+export function useStaleServerFnGuard() {
+  useEffect(() => {
+    installFetchPatch();
   }, []);
 }
+
