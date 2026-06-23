@@ -127,7 +127,15 @@ export const updateVaultItem = createServerFn({ method: "POST" })
   })
   .handler(async ({ context, data }): Promise<VaultItem> => {
     const { seal } = await import("./vault-crypto.server");
-    const update: Record<string, unknown> = {};
+    const update: {
+      title?: string;
+      value_ciphertext?: string;
+      value_iv?: string;
+      value_tag?: string;
+      notes_ciphertext?: string | null;
+      notes_iv?: string | null;
+      notes_tag?: string | null;
+    } = {};
     if (data.title !== undefined) update.title = data.title;
     if (data.value !== undefined) {
       const v = seal(data.value);
@@ -153,6 +161,7 @@ export const updateVaultItem = createServerFn({ method: "POST" })
       .eq("id", data.id)
       .select("id, scope, title, notes_ciphertext, created_by, owner_user_id, created_at, updated_at")
       .single();
+
     if (error) throw new Error(error.message);
     return {
       id: row.id as string,

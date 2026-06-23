@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as VaultRouteImport } from './routes/vault'
 import { Route as SyncRouteImport } from './routes/sync'
 import { Route as ServiceSchedulingRouteImport } from './routes/service-scheduling'
 import { Route as ReportsRouteImport } from './routes/reports'
@@ -42,6 +43,11 @@ import { Route as AdminResetRouteImport } from './routes/admin.reset'
 import { Route as AdminExportRouteImport } from './routes/admin.export'
 import { Route as ApiPublicHealthProceduresRouteImport } from './routes/api/public/health.procedures'
 
+const VaultRoute = VaultRouteImport.update({
+  id: '/vault',
+  path: '/vault',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SyncRoute = SyncRouteImport.update({
   id: '/sync',
   path: '/sync',
@@ -216,6 +222,7 @@ export interface FileRoutesByFullPath {
   '/reports': typeof ReportsRoute
   '/service-scheduling': typeof ServiceSchedulingRoute
   '/sync': typeof SyncRoute
+  '/vault': typeof VaultRoute
   '/admin/export': typeof AdminExportRoute
   '/admin/reset': typeof AdminResetRoute
   '/admin/restore': typeof AdminRestoreRoute
@@ -249,6 +256,7 @@ export interface FileRoutesByTo {
   '/reports': typeof ReportsRoute
   '/service-scheduling': typeof ServiceSchedulingRoute
   '/sync': typeof SyncRoute
+  '/vault': typeof VaultRoute
   '/admin/export': typeof AdminExportRoute
   '/admin/reset': typeof AdminResetRoute
   '/admin/restore': typeof AdminRestoreRoute
@@ -284,6 +292,7 @@ export interface FileRoutesById {
   '/reports': typeof ReportsRoute
   '/service-scheduling': typeof ServiceSchedulingRoute
   '/sync': typeof SyncRoute
+  '/vault': typeof VaultRoute
   '/admin/export': typeof AdminExportRoute
   '/admin/reset': typeof AdminResetRoute
   '/admin/restore': typeof AdminRestoreRoute
@@ -320,6 +329,7 @@ export interface FileRouteTypes {
     | '/reports'
     | '/service-scheduling'
     | '/sync'
+    | '/vault'
     | '/admin/export'
     | '/admin/reset'
     | '/admin/restore'
@@ -353,6 +363,7 @@ export interface FileRouteTypes {
     | '/reports'
     | '/service-scheduling'
     | '/sync'
+    | '/vault'
     | '/admin/export'
     | '/admin/reset'
     | '/admin/restore'
@@ -387,6 +398,7 @@ export interface FileRouteTypes {
     | '/reports'
     | '/service-scheduling'
     | '/sync'
+    | '/vault'
     | '/admin/export'
     | '/admin/reset'
     | '/admin/restore'
@@ -422,6 +434,7 @@ export interface RootRouteChildren {
   ReportsRoute: typeof ReportsRoute
   ServiceSchedulingRoute: typeof ServiceSchedulingRoute
   SyncRoute: typeof SyncRoute
+  VaultRoute: typeof VaultRoute
   AdminExportRoute: typeof AdminExportRoute
   AdminResetRoute: typeof AdminResetRoute
   AdminRestoreRoute: typeof AdminRestoreRoute
@@ -436,6 +449,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/vault': {
+      id: '/vault'
+      path: '/vault'
+      fullPath: '/vault'
+      preLoaderRoute: typeof VaultRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/sync': {
       id: '/sync'
       path: '/sync'
@@ -705,6 +725,7 @@ const rootRouteChildren: RootRouteChildren = {
   ReportsRoute: ReportsRoute,
   ServiceSchedulingRoute: ServiceSchedulingRoute,
   SyncRoute: SyncRoute,
+  VaultRoute: VaultRoute,
   AdminExportRoute: AdminExportRoute,
   AdminResetRoute: AdminResetRoute,
   AdminRestoreRoute: AdminRestoreRoute,
