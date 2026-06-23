@@ -71,9 +71,13 @@ export function AppLayout({ children }: { children: ReactNode }) {
               <Link to="/inventory" className={navItem} activeProps={navActive}>
                 Inventory
               </Link>
+              <Link to="/procedures" className={navItem} activeProps={navActive}>
+                Procedures
+              </Link>
               <Link to="/sync" className={navItem} activeProps={navActive}>
                 Sync
               </Link>
+
             </nav>
           </div>
           <div className="flex items-center gap-2">
