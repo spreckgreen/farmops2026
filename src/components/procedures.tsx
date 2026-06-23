@@ -5,9 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import {
-  Plus, Trash2, Download, Upload, Pencil, Check, X, FileText, Save, ExternalLink, Wand2,
+  Plus, Trash2, Download, Upload, Pencil, Check, X, FileText, Save, ExternalLink, Wand2, FolderSync,
 } from "lucide-react";
 import { tidyProcedure } from "@/lib/tidy-tinywiki";
+import { tinyWikiToMarkdown } from "@/lib/tinywiki-to-md";
 
 import {
   buildTinyWikiHtml,
@@ -188,6 +189,44 @@ export function Procedures() {
     }
   }
 
+  async function syncToObsidian() {
+    const anyWindow = window as unknown as {
+      showDirectoryPicker?: (opts?: { mode?: "read" | "readwrite" }) => Promise<FileSystemDirectoryHandle>;
+    };
+    if (!anyWindow.showDirectoryPicker) {
+      toast.error("Your browser doesn't support folder access. Use Chrome, Edge, or another Chromium browser.");
+      return;
+    }
+    if (!wikis.length) { toast.info("No procedures to sync."); return; }
+    let vault: FileSystemDirectoryHandle;
+    try {
+      vault = await anyWindow.showDirectoryPicker({ mode: "readwrite" });
+    } catch {
+      return; // user cancelled
+    }
+    try {
+      const folder = await vault.getDirectoryHandle("50 Procedures", { create: true });
+      let written = 0;
+      for (const w of wikis) {
+        const body = extractBodyWiki(w.content, w.name);
+        const md = `# ${w.name}\n\n${tinyWikiToMarkdown(body).replace(/^#\s+.*\n+/, "")}`;
+        const safe = w.name.replace(/[\\/:*?"<>|]/g, "-");
+        const fh = await folder.getFileHandle(`${safe}.md`, { create: true });
+        const writable = await (fh as unknown as { createWritable: () => Promise<{ write: (d: string) => Promise<void>; close: () => Promise<void> }> }).createWritable();
+        await writable.write(md);
+        await writable.close();
+        written++;
+      }
+      toast.success(`Synced ${written} procedure${written === 1 ? "" : "s"} to “50 Procedures”.`);
+    } catch (e) {
+      toast.error(`Obsidian sync failed: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+
+
+
+
+
   async function onFilesPicked(files: FileList | null) {
     if (!files || !files.length) return;
     const imported: string[] = [];
@@ -242,6 +281,10 @@ export function Procedures() {
           <Button size="sm" variant="outline" onClick={() => fileRef.current?.click()}
             title="Import TinyWiki .html files (replaces same-name)">
             <Upload size={14}/>
+          </Button>
+          <Button size="sm" variant="outline" onClick={syncToObsidian}
+            title="Sync all procedures as Markdown into a “50 Procedures” folder in your chosen Obsidian vault">
+            <FolderSync size={14}/>
           </Button>
           <input
             ref={fileRef}
