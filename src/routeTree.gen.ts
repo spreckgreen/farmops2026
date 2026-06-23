@@ -13,6 +13,7 @@ import { Route as SyncRouteImport } from './routes/sync'
 import { Route as ServiceSchedulingRouteImport } from './routes/service-scheduling'
 import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as ProjectsRouteImport } from './routes/projects'
+import { Route as ProceduresRouteImport } from './routes/procedures'
 import { Route as MaintenanceRouteImport } from './routes/maintenance'
 import { Route as InventoryRouteImport } from './routes/inventory'
 import { Route as FoodRouteImport } from './routes/food'
@@ -58,6 +59,11 @@ const ReportsRoute = ReportsRouteImport.update({
 const ProjectsRoute = ProjectsRouteImport.update({
   id: '/projects',
   path: '/projects',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProceduresRoute = ProceduresRouteImport.update({
+  id: '/procedures',
+  path: '/procedures',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MaintenanceRoute = MaintenanceRouteImport.update({
@@ -198,6 +204,7 @@ export interface FileRoutesByFullPath {
   '/food': typeof FoodRouteWithChildren
   '/inventory': typeof InventoryRoute
   '/maintenance': typeof MaintenanceRoute
+  '/procedures': typeof ProceduresRoute
   '/projects': typeof ProjectsRoute
   '/reports': typeof ReportsRoute
   '/service-scheduling': typeof ServiceSchedulingRoute
@@ -229,6 +236,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof DashboardRoute
   '/inventory': typeof InventoryRoute
   '/maintenance': typeof MaintenanceRoute
+  '/procedures': typeof ProceduresRoute
   '/projects': typeof ProjectsRoute
   '/reports': typeof ReportsRoute
   '/service-scheduling': typeof ServiceSchedulingRoute
@@ -262,6 +270,7 @@ export interface FileRoutesById {
   '/food': typeof FoodRouteWithChildren
   '/inventory': typeof InventoryRoute
   '/maintenance': typeof MaintenanceRoute
+  '/procedures': typeof ProceduresRoute
   '/projects': typeof ProjectsRoute
   '/reports': typeof ReportsRoute
   '/service-scheduling': typeof ServiceSchedulingRoute
@@ -296,6 +305,7 @@ export interface FileRouteTypes {
     | '/food'
     | '/inventory'
     | '/maintenance'
+    | '/procedures'
     | '/projects'
     | '/reports'
     | '/service-scheduling'
@@ -327,6 +337,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/inventory'
     | '/maintenance'
+    | '/procedures'
     | '/projects'
     | '/reports'
     | '/service-scheduling'
@@ -359,6 +370,7 @@ export interface FileRouteTypes {
     | '/food'
     | '/inventory'
     | '/maintenance'
+    | '/procedures'
     | '/projects'
     | '/reports'
     | '/service-scheduling'
@@ -392,6 +404,7 @@ export interface RootRouteChildren {
   FoodRoute: typeof FoodRouteWithChildren
   InventoryRoute: typeof InventoryRoute
   MaintenanceRoute: typeof MaintenanceRoute
+  ProceduresRoute: typeof ProceduresRoute
   ProjectsRoute: typeof ProjectsRoute
   ReportsRoute: typeof ReportsRoute
   ServiceSchedulingRoute: typeof ServiceSchedulingRoute
@@ -435,6 +448,13 @@ declare module '@tanstack/react-router' {
       path: '/projects'
       fullPath: '/projects'
       preLoaderRoute: typeof ProjectsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/procedures': {
+      id: '/procedures'
+      path: '/procedures'
+      fullPath: '/procedures'
+      preLoaderRoute: typeof ProceduresRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/maintenance': {
@@ -659,6 +679,7 @@ const rootRouteChildren: RootRouteChildren = {
   FoodRoute: FoodRouteWithChildren,
   InventoryRoute: InventoryRoute,
   MaintenanceRoute: MaintenanceRoute,
+  ProceduresRoute: ProceduresRoute,
   ProjectsRoute: ProjectsRoute,
   ReportsRoute: ReportsRoute,
   ServiceSchedulingRoute: ServiceSchedulingRoute,

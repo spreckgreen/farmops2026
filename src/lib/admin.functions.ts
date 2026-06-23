@@ -245,7 +245,9 @@ const RESET_TABLES = [
   "food_plan_foods",
   "food_plan_people",
   "food_price_history",
+  "procedures",
 ] as const;
+
 
 export type ResetSummary = { table: string; deleted: number | null; error?: string };
 
