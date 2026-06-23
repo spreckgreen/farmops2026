@@ -577,6 +577,7 @@ These must be set in `.env` (or exported in the shell) for the Node.js runtime â
 | `SUPABASE_PUBLISHABLE_KEY` | yes (runtime) | Server-side anon key for auth-aware server functions |
 | `SUPABASE_SERVICE_ROLE_KEY` | yes (runtime) | Service-role key for admin/maintenance server code |
 | `LOVABLE_API_KEY` | yes (AI features) | Lovable AI gateway key for `/food` and summary endpoints |
+| `VAULT_ENCRYPTION_KEY` | yes (Vault) | 64-hex-char (32-byte) key used to AES-256-GCM encrypt secrets at rest. Generate with `openssl rand -hex 32`. **Treat as irreplaceable â€” losing it makes every stored secret unrecoverable.** |
 | `NODE_ENV` | recommended | Set to `production` for the built server |
 | `PORT` | optional | Listen port (defaults to `3000`) |
 
