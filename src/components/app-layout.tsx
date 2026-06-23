@@ -11,7 +11,7 @@ import {
 import { todayDateString } from "@/lib/slug";
 import { ProfileGate } from "@/components/profile-gate";
 import { useCurrentProfile } from "@/hooks/use-current-profile";
-import { ShieldCheck, ChevronDown, Users, Trash2, Download, Upload } from "lucide-react";
+import { ShieldCheck, ChevronDown, Users, Trash2, Download, Upload, KeyRound } from "lucide-react";
 
 export function AppLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
@@ -74,9 +74,13 @@ export function AppLayout({ children }: { children: ReactNode }) {
               <Link to="/procedures" className={navItem} activeProps={navActive}>
                 Procedures
               </Link>
+              <Link to="/vault" className={navItem} activeProps={navActive}>
+                <span className="inline-flex items-center gap-1"><KeyRound className="h-3.5 w-3.5"/> Vault</span>
+              </Link>
               <Link to="/sync" className={navItem} activeProps={navActive}>
                 Sync
               </Link>
+
 
             </nav>
           </div>
