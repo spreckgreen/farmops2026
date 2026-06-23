@@ -1005,6 +1005,42 @@ checkbox on `/admin/restore` (or pass `allowMissingIntegrity: true` to the
 server fn) to import a legacy file — at which point you accept that
 tampering or truncation cannot be detected.
 
+### Vault backup & recovery
+<a id="vault-backup--recovery"></a>
+
+The Secrets Vault (`/vault`) is deliberately **outside** the standard snapshot
+because every row is ciphertext bound to `VAULT_ENCRYPTION_KEY`. A backup
+strategy for the vault therefore has two distinct artefacts that must be
+treated differently:
+
+| Artefact | Where it lives | How to back it up | Sensitivity |
+| --- | --- | --- | --- |
+| `VAULT_ENCRYPTION_KEY` | `.env` (self-hosted) or Lovable Cloud secrets | Copy out-of-band into a password manager / hardware token / sealed envelope. Never commit to git. | **Highest** — losing the key permanently destroys every secret. |
+| `vault_secrets` rows | `public.vault_secrets` table | Either re-enter each item by hand on the new instance, or `pg_dump --data-only --table=public.vault_secrets` and `psql` it into the target. | High — ciphertext only, but a stolen DB dump + stolen key = full disclosure. |
+
+**Recovery rules:**
+
+1. **Key first, data second.** Restore (or re-set) `VAULT_ENCRYPTION_KEY` on
+   the target instance **before** importing any `vault_secrets` rows. Rows
+   inserted under a different key will fail decryption with an
+   "auth tag verification failed" error and cannot be recovered.
+2. **Never rotate the key in place.** There is no built-in re-encryption
+   migration. If you must rotate, decrypt every secret with the old key
+   (script that calls `revealVaultItem`), update the env var, then re-insert
+   the values via the Vault UI under the new key.
+3. **Storage separation.** Store the key and the ciphertext dump in
+   **different** backup locations (e.g. key in 1Password, dump alongside
+   `bostead-snapshot-*.json` in restic). Co-locating them defeats the point of
+   server-side encryption.
+4. **Lovable-hosted instances.** `VAULT_ENCRYPTION_KEY` is managed for you
+   and not exportable. To migrate vault entries off a Lovable instance, reveal
+   each item in `/vault`, copy the plaintext, and re-enter on the target.
+
+Standard `/admin/export` snapshots remain safe to share — they contain no
+vault data, no service-role key, and no encryption key.
+
+
+
 ### Troubleshooting
 
 | Issue | Fix |
