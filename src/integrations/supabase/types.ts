@@ -1113,6 +1113,54 @@ export type Database = {
         }
         Relationships: []
       }
+      vault_secrets: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          notes_ciphertext: string | null
+          notes_iv: string | null
+          notes_tag: string | null
+          owner_user_id: string | null
+          scope: string
+          title: string
+          updated_at: string
+          value_ciphertext: string
+          value_iv: string
+          value_tag: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          notes_ciphertext?: string | null
+          notes_iv?: string | null
+          notes_tag?: string | null
+          owner_user_id?: string | null
+          scope: string
+          title: string
+          updated_at?: string
+          value_ciphertext: string
+          value_iv: string
+          value_tag: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          notes_ciphertext?: string | null
+          notes_iv?: string | null
+          notes_tag?: string | null
+          owner_user_id?: string | null
+          scope?: string
+          title?: string
+          updated_at?: string
+          value_ciphertext?: string
+          value_iv?: string
+          value_tag?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
