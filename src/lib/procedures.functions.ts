@@ -4,6 +4,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { buildTinyWikiHtml, validateWikiName } from "@/lib/tinywiki";
+import { tidyProcedure } from "@/lib/tidy-tinywiki";
+
 
 export interface ProcedureRow {
   name: string;
@@ -43,12 +45,17 @@ export const getProcedure = createServerFn({ method: "GET" })
 /** Save with wiki-markup body; persisted as full TinyWiki HTML. */
 export const saveProcedureBody = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { name: string; body: string }) => {
+  .inputValidator((d: { name: string; body: string; tidy?: boolean }) => {
     const name = validateWikiName(String(d?.name ?? ""));
-    return { name, body: String(d?.body ?? "") };
+    return { name, body: String(d?.body ?? ""), tidy: d?.tidy !== false };
   })
   .handler(async ({ context, data }): Promise<ProcedureRow> => {
-    const html = buildTinyWikiHtml(data.name, data.body);
+    // Tidy the body server-side so stored content stays normalized regardless
+    // of which client wrote it (UI, API call, future import path).
+    const cleanBody = data.tidy
+      ? tidyProcedure(data.name, data.body).body
+      : data.body;
+    const html = buildTinyWikiHtml(data.name, cleanBody);
     const { data: row, error } = await context.supabase
       .from("procedures")
       .upsert(
@@ -60,6 +67,7 @@ export const saveProcedureBody = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return row as ProcedureRow;
   });
+
 
 /** Save an already-built HTML doc verbatim (used by import). */
 export const saveProcedureHtml = createServerFn({ method: "POST" })
