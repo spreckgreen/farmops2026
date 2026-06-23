@@ -186,7 +186,41 @@ export function Procedures() {
     if (!win) {
       const a = document.createElement("a");
       a.href = url; a.download = filenameForExport(w.name); a.click();
+  }
+
+  async function syncToObsidian() {
+    const anyWindow = window as unknown as {
+      showDirectoryPicker?: (opts?: { mode?: "read" | "readwrite" }) => Promise<FileSystemDirectoryHandle>;
+    };
+    if (!anyWindow.showDirectoryPicker) {
+      toast.error("Your browser doesn't support folder access. Use Chrome, Edge, or another Chromium browser.");
+      return;
     }
+    if (!wikis.length) { toast.info("No procedures to sync."); return; }
+    let vault: FileSystemDirectoryHandle;
+    try {
+      vault = await anyWindow.showDirectoryPicker({ mode: "readwrite" });
+    } catch {
+      return; // user cancelled
+    }
+    try {
+      const folder = await vault.getDirectoryHandle("50 Procedures", { create: true });
+      let written = 0;
+      for (const w of wikis) {
+        const body = extractBodyWiki(w.content, w.name);
+        const md = `# ${w.name}\n\n${tinyWikiToMarkdown(body).replace(/^#\s+.*\n+/, "")}`;
+        const safe = w.name.replace(/[\\/:*?"<>|]/g, "-");
+        const fh = await folder.getFileHandle(`${safe}.md`, { create: true });
+        const writable = await (fh as unknown as { createWritable: () => Promise<{ write: (d: string) => Promise<void>; close: () => Promise<void> }> }).createWritable();
+        await writable.write(md);
+        await writable.close();
+        written++;
+      }
+      toast.success(`Synced ${written} procedure${written === 1 ? "" : "s"} to “50 Procedures”.`);
+    } catch (e) {
+      toast.error(`Obsidian sync failed: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
   }
 
   async function onFilesPicked(files: FileList | null) {
