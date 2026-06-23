@@ -4,6 +4,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { buildTinyWikiHtml, validateWikiName } from "@/lib/tinywiki";
+import { tidyProcedure } from "@/lib/tidy-tinywiki";
+
 
 export interface ProcedureRow {
   name: string;
