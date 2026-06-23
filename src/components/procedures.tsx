@@ -131,8 +131,22 @@ export function Procedures() {
 
   function save() {
     if (!selected) return;
-    saveBodyMut.mutate({ name: selected, body: content });
+    // Server tidies on save too, but apply locally first so the editor
+    // immediately reflects the normalized content.
+    const { body } = tidyProcedure(selected, content);
+    if (body !== content) { setContent(body); }
+    saveBodyMut.mutate({ name: selected, body });
   }
+
+  function tidyNow() {
+    if (!selected) return;
+    const { body, changes } = tidyProcedure(selected, content);
+    if (body === content) { toast.info("Already tidy."); return; }
+    setContent(body);
+    setDirty(true);
+    toast.success(`Tidied ${changes} line${changes === 1 ? "" : "s"} — save to keep changes.`);
+  }
+
 
   function remove() {
     if (!selected) return;
@@ -299,9 +313,13 @@ export function Procedures() {
               <Button size="sm" variant="outline" onClick={exportOne} title="Export this procedure as TinyWiki .html">
                 <Download size={13}/> Export
               </Button>
+              <Button size="sm" variant="outline" onClick={tidyNow} title="Tidy: normalize headings, internal link slugs, and whitespace">
+                <Wand2 size={13}/> Tidy
+              </Button>
               <Button size="sm" variant={dirty ? "default" : "secondary"} onClick={save} disabled={!dirty || saveBodyMut.isPending}>
                 <Save size={13}/> Save
               </Button>
+
               <Button size="sm" variant="ghost" onClick={remove} title="Delete">
                 <Trash2 size={13} className="text-destructive"/>
               </Button>
