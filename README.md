@@ -730,7 +730,7 @@ every row of every operational table:
 `crop_plantings` · `crop_harvests` · `garden_plots` · `orchard_trees` ·
 `livestock_animals` · `plant_seasons` · `food_plan_people` ·
 `food_plan_foods` · `food_plan_entries` · `food_storage_plan` ·
-`food_storage_items` · `food_price_history`
+`food_storage_items` · `food_price_history` · `procedures`
 
 Not included (intentionally):
 
@@ -738,6 +738,12 @@ Not included (intentionally):
   This keeps backups portable between environments without leaking
   credentials.
 - **Database schema / migrations** — versioned in `supabase/migrations/`.
+- **Vault secrets (`vault_secrets`)** — excluded by design. Rows are AES-256-GCM
+  ciphertext tied to `VAULT_ENCRYPTION_KEY`; shipping them inside a portable
+  JSON snapshot would either be useless on a target with a different key, or
+  smuggle ciphertext + IV + auth tag into backups that are routinely shared
+  between environments. See [Vault backup & recovery](#vault-backup--recovery)
+  for the supported flow.
 - **Storage bucket file blobs** — none are configured yet; re-upload after
   restore if a future feature adds them.
 
