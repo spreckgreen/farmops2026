@@ -206,22 +206,58 @@ export function Procedures() {
     }
     try {
       const folder = await vault.getDirectoryHandle("50 Procedures", { create: true });
-      let written = 0;
+
+      // Build the desired state: filename -> markdown content
+      const desired = new Map<string, string>();
       for (const w of wikis) {
         const body = extractBodyWiki(w.content, w.name);
         const md = `# ${w.name}\n\n${tinyWikiToMarkdown(body).replace(/^#\s+.*\n+/, "")}`;
         const safe = w.name.replace(/[\\/:*?"<>|]/g, "-");
-        const fh = await folder.getFileHandle(`${safe}.md`, { create: true });
-        const writable = await (fh as unknown as { createWritable: () => Promise<{ write: (d: string) => Promise<void>; close: () => Promise<void> }> }).createWritable();
-        await writable.write(md);
-        await writable.close();
-        written++;
+        desired.set(`${safe}.md`, md);
       }
-      toast.success(`Synced ${written} procedure${written === 1 ? "" : "s"} to “50 Procedures”.`);
+
+      // Snapshot existing .md files in the folder
+      const existing = new Map<string, FileSystemFileHandle>();
+      const dirAny = folder as unknown as { values: () => AsyncIterable<FileSystemHandle> };
+      for await (const entry of dirAny.values()) {
+        if (entry.kind === "file" && entry.name.toLowerCase().endsWith(".md")) {
+          existing.set(entry.name, entry as FileSystemFileHandle);
+        }
+      }
+
+      let added = 0, updated = 0, unchanged = 0, removed = 0;
+      for (const [fname, md] of desired) {
+        const existingHandle = existing.get(fname);
+        if (existingHandle) {
+          const file = await existingHandle.getFile();
+          const current = await file.text();
+          if (current === md) { unchanged++; continue; }
+          const writable = await (existingHandle as unknown as { createWritable: () => Promise<{ write: (d: string) => Promise<void>; close: () => Promise<void> }> }).createWritable();
+          await writable.write(md); await writable.close();
+          updated++;
+        } else {
+          const fh = await folder.getFileHandle(fname, { create: true });
+          const writable = await (fh as unknown as { createWritable: () => Promise<{ write: (d: string) => Promise<void>; close: () => Promise<void> }> }).createWritable();
+          await writable.write(md); await writable.close();
+          added++;
+        }
+      }
+
+      // Remove .md files that no longer correspond to a procedure
+      for (const fname of existing.keys()) {
+        if (!desired.has(fname)) {
+          await (folder as unknown as { removeEntry: (name: string) => Promise<void> }).removeEntry(fname);
+          removed++;
+        }
+      }
+
+      const parts = [`+${added}`, `~${updated}`, `=${unchanged}`, `−${removed}`].join(" ");
+      toast.success(`Obsidian sync complete (${parts}).`);
     } catch (e) {
       toast.error(`Obsidian sync failed: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
+
 
 
 
