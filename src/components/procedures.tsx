@@ -278,6 +278,10 @@ export function Procedures() {
             title="Import TinyWiki .html files (replaces same-name)">
             <Upload size={14}/>
           </Button>
+          <Button size="sm" variant="outline" onClick={syncToObsidian}
+            title="Sync all procedures as Markdown into a “50 Procedures” folder in your chosen Obsidian vault">
+            <FolderSync size={14}/>
+          </Button>
           <input
             ref={fileRef}
             type="file"
