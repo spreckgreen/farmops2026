@@ -25,6 +25,11 @@ A summary of everything shipped to date. Want to run it yourself? Jump to the on
 - **Inventory** (`/inventory`) — track supplies, consumables and equipment stock.
 - **Maintenance** (`/maintenance`) and **Service scheduling** (`/service-scheduling`) — recurring upkeep and service jobs.
 
+### Knowledge & secrets
+- **Procedures** (`/procedures`) — reusable step-by-step procedures / runbooks written in a lightweight wiki format, with versioning and tagging.
+- **Obsidian sync** — one-click button in the Procedures tab pushes every procedure to a chosen Obsidian vault's `50 Procedures/` folder as Markdown. Supports **incremental sync** (only changed procedures are rewritten) so large vaults stay fast.
+- **Secrets vault** (`/vault`) — encrypted store for passwords, API keys, and notes. Supports both **personal** (owner-only) and **shared** (workspace-wide) scopes. Values are AES-256-GCM encrypted server-side with `VAULT_ENCRYPTION_KEY`; plaintext never touches the database and is only decrypted on-demand via the "Reveal" action.
+
 ### Platform
 - **Auth** (`/auth`) — email + Google sign-in via Lovable Cloud (Supabase) with row-level security.
 - **Admin** — user management (`/admin/users`), data export (`/admin/export`), restore from backup (`/admin/restore`), and reset tools (`/admin/reset`); gated by a `user_roles` table.
