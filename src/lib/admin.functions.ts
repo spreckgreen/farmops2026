@@ -463,9 +463,13 @@ export const importApplicationData = createServerFn({ method: "POST" })
       );
     }
 
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    // Use the request-scoped (user JWT) client. The service-role client
+    // cannot be used on Lovable Cloud — PostgREST rejects the injected
+    // sb_secret_* key with "Expected 3 parts in JWT; got 1". RLS still
+    // applies, but in this single-farm app the admin owns every row.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const admin = supabaseAdmin as any;
+    const admin = supabase as any;
+
 
     const startedAt = new Date().toISOString();
     const byTable = new Map<string, SnapshotTable>();
