@@ -48,8 +48,6 @@ export type DedupeConfig = {
   stripBracketPrefixes: boolean;
   /** Lowercased tokens removed from the signature (the canonical line text is preserved). */
   stopWords: string[];
-  /** Additional regex source strings stripped from the task body before tokenizing. */
-  extraStripPatterns: string[];
   /** Number of leading words that make up the signature. */
   signatureWords: number;
   /** Minimum signature length before we fall back to the full normalized line. */
@@ -65,7 +63,6 @@ export const DEFAULT_DEDUPE_CONFIG: DedupeConfig = {
     "my", "our", "your",
     "todo", "task",
   ],
-  extraStripPatterns: [],
   signatureWords: 3,
   signatureMinChars: 6,
 };
@@ -79,13 +76,8 @@ function normalizeTaskForDedupe(raw: string, config: DedupeConfig = DEFAULT_DEDU
   if (config.stripBracketPrefixes) {
     body = body.replace(BRACKET_PREFIX_RE, "");
   }
-  for (const pattern of config.extraStripPatterns) {
-    try {
-      body = body.replace(new RegExp(pattern, "gi"), " ");
-    } catch {
-      // ignore invalid user-supplied patterns
-    }
-  }
+  // Additional user-supplied regex patterns were intentionally removed to
+  // eliminate ReDoS risk; only the safe built-in normalizations run below.
   return body
     .replace(/#project\/[a-z0-9][a-z0-9-_]*/gi, " ")
     .replace(/@start:\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(?::\d{2})?(?:Z|[+-]\d{2}:?\d{2})?/gi, " ")
@@ -199,7 +191,7 @@ const dedupeConfigSchema = z
   .object({
     stripBracketPrefixes: z.boolean().optional(),
     stopWords: z.array(z.string().min(1).max(40)).max(200).optional(),
-    extraStripPatterns: z.array(z.string().min(1).max(200)).max(50).optional(),
+    // extraStripPatterns removed: user-supplied regexes can cause ReDoS server-side.
     signatureWords: z.number().int().min(1).max(10).optional(),
     signatureMinChars: z.number().int().min(1).max(40).optional(),
   })
@@ -214,7 +206,6 @@ function resolveDedupeConfig(
     stopWords: override.stopWords
       ? override.stopWords.map((w) => w.toLowerCase())
       : DEFAULT_DEDUPE_CONFIG.stopWords,
-    extraStripPatterns: override.extraStripPatterns ?? DEFAULT_DEDUPE_CONFIG.extraStripPatterns,
     signatureWords: override.signatureWords ?? DEFAULT_DEDUPE_CONFIG.signatureWords,
     signatureMinChars: override.signatureMinChars ?? DEFAULT_DEDUPE_CONFIG.signatureMinChars,
   };
