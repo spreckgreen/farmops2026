@@ -530,30 +530,23 @@ export const importApplicationData = createServerFn({ method: "POST" })
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     async function collectDiagnostics(table: string): Promise<RestoreDebugInfo["diagnostics"]> {
       try {
-        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const sa = supabaseAdmin as any;
-        const [policiesRes, grantsRes, rlsRes, canInsertRes] = await Promise.all([
-          sa.from("pg_policies").select("policyname, cmd, roles, qual, with_check").eq("schemaname", "public").eq("tablename", table),
-          sa.from("information_schema.role_table_grants").select("grantee, privilege_type").eq("table_schema", "public").eq("table_name", table),
-          sa.rpc("pg_table_is_visible", {}).then(() => null).catch(() => null),
-          sa.rpc("has_table_privilege", { role: "authenticated", table: `public.${table}`, privilege: "INSERT" }).then(
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            (r: any) => (r?.error ? null : r?.data),
-            () => null,
-          ),
-        ]);
+        const { data: diag, error } = await (admin as any).rpc("restore_table_diagnostics", {
+          _table: table,
+        });
+        if (error) return { diagnosticsError: error.message };
+        const d = (diag ?? {}) as Record<string, unknown>;
         return {
-          rlsEnabled: rlsRes ?? undefined,
-          policies: policiesRes?.data ?? undefined,
-          grants: grantsRes?.data ?? undefined,
-          canInsertAsAuthenticated: typeof canInsertRes === "boolean" ? canInsertRes : undefined,
-          diagnosticsError: policiesRes?.error?.message ?? grantsRes?.error?.message,
+          rlsEnabled: d.rls_enabled as boolean | undefined,
+          policies: d.policies as RestoreDebugInfo["diagnostics"]["policies"],
+          grants: d.grants as RestoreDebugInfo["diagnostics"]["grants"],
+          canInsertAsAuthenticated: d.can_authenticated_insert as boolean | undefined,
         };
       } catch (e) {
         return { diagnosticsError: (e as Error).message };
       }
     }
+
 
     function safeSampleRow(row: unknown): string | undefined {
       try {
