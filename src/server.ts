@@ -3,6 +3,41 @@ import "./lib/error-capture";
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
 
+// ---------------------------------------------------------------------------
+// Startup banner — printed exactly once at module load, before Nitro starts
+// listening. Surfaces the resolved bind address, runtime env, and launch
+// command so "container is active but nothing renders" issues are debuggable
+// from `docker compose logs` alone.
+// ---------------------------------------------------------------------------
+(() => {
+  const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env ?? {};
+  const argv = (globalThis as { process?: { argv?: string[] } }).process?.argv ?? [];
+  const execPath = (globalThis as { process?: { execPath?: string } }).process?.execPath;
+  const pid = (globalThis as { process?: { pid?: number } }).process?.pid;
+  const host = env.HOST ?? env.NITRO_HOST ?? "(default 0.0.0.0)";
+  const port = env.PORT ?? env.NITRO_PORT ?? "(default 3000)";
+  const cmd = [execPath, ...argv.slice(1)].filter(Boolean).join(" ");
+
+  // eslint-disable-next-line no-console
+  console.log(
+    [
+      "=== [server] Startup banner ===",
+      `  pid:           ${pid ?? "<unknown>"}`,
+      `  HOST:          ${host}`,
+      `  PORT:          ${port}`,
+      `  NODE_ENV:      ${env.NODE_ENV ?? "<unset>"}`,
+      `  BUN_ENV:       ${env.BUN_ENV ?? "<unset>"}`,
+      `  NITRO_PRESET:  ${env.NITRO_PRESET ?? "<unset>"}`,
+      `  argv:          ${argv.join(" ") || "<unknown>"}`,
+      `  launch cmd:    ${cmd || "<unknown>"}`,
+      `  cwd:           ${(globalThis as { process?: { cwd?: () => string } }).process?.cwd?.() ?? "<unknown>"}`,
+      "=== [server] Initializing handler — about to start listening ===",
+    ].join("\n"),
+  );
+})();
+
+
+
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
 };
