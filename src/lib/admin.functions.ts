@@ -406,6 +406,19 @@ export type ImportResult = {
 
 const RESTORE_INSERT_ORDER = [...RESET_TABLES].reverse(); // parents before children
 
+const RESTORE_USER_SCOPED_COLUMNS = ["user_id"] as const;
+
+export function scopeRestoreRowsToUser(rows: SnapshotTable["rows"], userId: string): SnapshotTable["rows"] {
+  return rows.map((row) => {
+    if (!row || typeof row !== "object" || Array.isArray(row)) return row;
+    const scoped = { ...row } as Record<string, unknown>;
+    for (const column of RESTORE_USER_SCOPED_COLUMNS) {
+      if (column in scoped) scoped[column] = userId;
+    }
+    return scoped;
+  });
+}
+
 export const importApplicationData = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(
@@ -488,7 +501,13 @@ export const importApplicationData = createServerFn({ method: "POST" })
 
     for (const table of RESTORE_INSERT_ORDER) {
       const snap = byTable.get(table);
-      const rows = snap?.rows ?? [];
+      const sourceRows = snap?.rows ?? [];
+      // Snapshots are portable across Lovable backends. Rows exported from
+      // another backend contain that backend's auth user ids; replaying those
+      // values on this backend violates owner-scoped RLS/FK checks. Verify the
+      // original file above, then re-scope operational rows to the signed-in
+      // admin before writing.
+      const rows = scopeRestoreRowsToUser(sourceRows, userId);
       let deleted = 0;
       let succeeded = 0;
       let errorMessage: string | undefined;
