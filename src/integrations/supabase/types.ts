@@ -1113,6 +1113,78 @@ export type Database = {
         }
         Relationships: []
       }
+      vault_key_export_audit: {
+        Row: {
+          action: string
+          created_at: string
+          credential_id: string | null
+          detail: string | null
+          id: string
+          ip: string | null
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          credential_id?: string | null
+          detail?: string | null
+          id?: string
+          ip?: string | null
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          credential_id?: string | null
+          detail?: string | null
+          id?: string
+          ip?: string | null
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      vault_key_wrap_credentials: {
+        Row: {
+          created_at: string
+          credential_id: string
+          id: string
+          label: string
+          last_used_at: string | null
+          public_key: string
+          salt: string
+          sign_count: number
+          transports: string[]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          credential_id: string
+          id?: string
+          label: string
+          last_used_at?: string | null
+          public_key: string
+          salt: string
+          sign_count?: number
+          transports?: string[]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          credential_id?: string
+          id?: string
+          label?: string
+          last_used_at?: string | null
+          public_key?: string
+          salt?: string
+          sign_count?: number
+          transports?: string[]
+          user_id?: string
+        }
+        Relationships: []
+      }
       vault_secrets: {
         Row: {
           created_at: string
@@ -1158,6 +1230,33 @@ export type Database = {
           value_ciphertext?: string
           value_iv?: string
           value_tag?: string
+        }
+        Relationships: []
+      }
+      webauthn_challenges: {
+        Row: {
+          challenge: string
+          created_at: string
+          expires_at: string
+          id: string
+          purpose: string
+          user_id: string
+        }
+        Insert: {
+          challenge: string
+          created_at?: string
+          expires_at: string
+          id?: string
+          purpose: string
+          user_id: string
+        }
+        Update: {
+          challenge?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          purpose?: string
+          user_id?: string
         }
         Relationships: []
       }
