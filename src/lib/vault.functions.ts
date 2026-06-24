@@ -138,7 +138,7 @@ export const updateVaultItem = createServerFn({ method: "POST" })
     } = {};
     if (data.title !== undefined) update.title = data.title;
     if (data.value !== undefined) {
-      const v = seal(data.value);
+      const v = await seal(data.value);
       update.value_ciphertext = v.ciphertext;
       update.value_iv = v.iv;
       update.value_tag = v.tag;
@@ -149,7 +149,7 @@ export const updateVaultItem = createServerFn({ method: "POST" })
         update.notes_iv = null;
         update.notes_tag = null;
       } else {
-        const n = seal(data.notes);
+        const n = await seal(data.notes);
         update.notes_ciphertext = n.ciphertext;
         update.notes_iv = n.iv;
         update.notes_tag = n.tag;
