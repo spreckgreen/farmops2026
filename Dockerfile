@@ -8,10 +8,12 @@ WORKDIR /app
 COPY package.json bun.lock ./
 # Stream install output with a heartbeat so long silent steps don't look hung.
 # A background loop prints elapsed seconds every 10s while `bun install` runs.
-RUN echo "=============================================" && \
+RUN --mount=type=cache,target=/root/.bun/install/cache,sharing=locked \
+    echo "=============================================" && \
     echo "=== [deps] STAGE 1/3: Dependency install ===" && \
     echo "=== [deps] Command: bun install --frozen-lockfile --verbose" && \
     echo "=== [deps] Installs ALL deps (dev + prod) for the builder stage" && \
+    echo "=== [deps] BuildKit cache mount: /root/.bun/install/cache" && \
     echo "=== [deps] Started at $(date +%H:%M:%S)" && \
     echo "=============================================" && \
     ( while :; do sleep 10; echo "  [deps] still installing... ($(date +%H:%M:%S))"; done ) & \
