@@ -148,25 +148,44 @@ export async function verifyIntegrity(
   payload: Record<string, unknown>,
   integrity: IntegrityEnvelope,
 ): Promise<{ ok: true } | { ok: false; reason: string; expected: string; actual: string }> {
-  if (integrity.algo !== INTEGRITY_ALGO) {
+  // Defensive: callers may hand us a hand-edited or legacy envelope.
+  const envelope = (integrity ?? {}) as Partial<IntegrityEnvelope> & {
+    digest?: string;
+  };
+  const algo = envelope.algo ?? INTEGRITY_ALGO;
+  const expected = envelope.value ?? envelope.digest ?? "";
+  const covered = Array.isArray(envelope.covered)
+    ? envelope.covered
+    : Object.keys(payload).sort();
+
+  if (algo !== INTEGRITY_ALGO) {
     return {
       ok: false,
-      reason: `Unsupported checksum algorithm: ${integrity.algo}`,
-      expected: integrity.value,
+      reason: `Unsupported checksum algorithm: ${algo}`,
+      expected,
+      actual: "",
+    };
+  }
+  if (!expected) {
+    return {
+      ok: false,
+      reason: "Integrity envelope is missing the checksum value.",
+      expected: "",
       actual: "",
     };
   }
   const subset: Record<string, unknown> = {};
-  for (const k of integrity.covered) subset[k] = payload[k];
+  for (const k of covered) subset[k] = payload[k];
   const actual = await sha256Hex(canonicalStringify(subset));
-  if (actual !== integrity.value) {
+  if (actual !== expected) {
     return {
       ok: false,
       reason:
         "Checksum mismatch — the snapshot file has been modified or was not fully downloaded.",
-      expected: integrity.value,
+      expected,
       actual,
     };
   }
   return { ok: true };
 }
+

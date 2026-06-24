@@ -102,20 +102,54 @@ function RestorePage() {
         toast.error("This file is not a Bostead v1 snapshot.");
         return;
       }
+      if (!Array.isArray(parsed.tables)) {
+        toast.error("Snapshot is missing the 'tables' array.");
+        return;
+      }
 
       // Fail-fast: verify the embedded SHA-256 BEFORE the user can click
       // Restore. We re-run the same check server-side so a tampered client
       // cannot bypass it, but doing it here gives instant feedback.
-      if (parsed.integrity) {
-        const verdict = await verifyIntegrity(
-          { app: parsed.app, version: parsed.version, tables: parsed.tables },
-          parsed.integrity,
-        );
+      //
+      // Be permissive about the envelope shape: a few legacy exports stored
+      // the hash under `digest` instead of `value`, and we still want to
+      // verify those rather than blow up with "reading 'digest' of undefined".
+      const rawIntegrity = parsed.integrity as
+        | (Partial<typeof parsed.integrity> & { digest?: string })
+        | undefined;
+      const normalizedIntegrity =
+        rawIntegrity && typeof rawIntegrity === "object"
+          ? {
+              algo: rawIntegrity.algo ?? "sha-256",
+              value:
+                (rawIntegrity as { value?: string }).value ??
+                rawIntegrity.digest ??
+                "",
+              covered: Array.isArray(rawIntegrity.covered)
+                ? rawIntegrity.covered
+                : ["app", "tables", "version"],
+            }
+          : undefined;
+
+      if (normalizedIntegrity && normalizedIntegrity.value) {
+        let verdict: Awaited<ReturnType<typeof verifyIntegrity>>;
+        try {
+          verdict = await verifyIntegrity(
+            { app: parsed.app, version: parsed.version, tables: parsed.tables },
+            normalizedIntegrity,
+          );
+        } catch (err) {
+          toast.error(
+            `Could not verify snapshot integrity: ${(err as Error).message}. ` +
+              `Your browser may be blocking Web Crypto (insecure context).`,
+          );
+          return;
+        }
         if (verdict.ok) {
           setIntegrity({
             kind: "verified",
-            algo: parsed.integrity.algo,
-            value: parsed.integrity.value,
+            algo: normalizedIntegrity.algo,
+            value: normalizedIntegrity.value,
           });
         } else {
           setIntegrity({
@@ -138,6 +172,7 @@ function RestorePage() {
       toast.error(`Could not parse file: ${(e as Error).message}`);
     }
   };
+
 
 
   if (profile.isLoading) {
