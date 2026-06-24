@@ -304,7 +304,23 @@ function RestorePage() {
           )}
         </section>
 
-        <section>
+        <section className="space-y-2">
+          <label className="flex items-start gap-2 text-sm">
+            <Checkbox
+              checked={debugMode}
+              onCheckedChange={(v) => setDebugMode(v === true)}
+              className="mt-0.5"
+            />
+            <span>
+              <span className="font-medium">Debug mode</span>
+              <span className="block text-xs text-muted-foreground">
+                On the first failing chunk per table, capture the PostgREST error
+                (code, details, hint), a sample row, and live RLS / grant
+                diagnostics for that table.
+              </span>
+            </span>
+          </label>
+
           <Button
             onClick={() => mut.mutate()}
             disabled={
@@ -316,9 +332,10 @@ function RestorePage() {
             }
           >
             <Upload className="h-4 w-4 mr-2" />
-            {mut.isPending ? "Restoring…" : `Restore (${mode})`}
+            {mut.isPending ? "Restoring…" : `Restore (${mode}${debugMode ? " · debug" : ""})`}
           </Button>
         </section>
+
 
         {result && (
           <section
