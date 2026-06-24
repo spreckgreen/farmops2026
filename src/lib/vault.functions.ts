@@ -83,8 +83,8 @@ export const createVaultItem = createServerFn({ method: "POST" })
   }))
   .handler(async ({ context, data }): Promise<VaultItem> => {
     const { seal } = await import("./vault-crypto.server");
-    const v = seal(data.value);
-    const n = data.notes ? seal(data.notes) : null;
+    const v = await seal(data.value);
+    const n = data.notes ? await seal(data.notes) : null;
     const { data: row, error } = await context.supabase
       .from("vault_secrets")
       .insert({
@@ -138,7 +138,7 @@ export const updateVaultItem = createServerFn({ method: "POST" })
     } = {};
     if (data.title !== undefined) update.title = data.title;
     if (data.value !== undefined) {
-      const v = seal(data.value);
+      const v = await seal(data.value);
       update.value_ciphertext = v.ciphertext;
       update.value_iv = v.iv;
       update.value_tag = v.tag;
@@ -149,7 +149,7 @@ export const updateVaultItem = createServerFn({ method: "POST" })
         update.notes_iv = null;
         update.notes_tag = null;
       } else {
-        const n = seal(data.notes);
+        const n = await seal(data.notes);
         update.notes_ciphertext = n.ciphertext;
         update.notes_iv = n.iv;
         update.notes_tag = n.tag;
@@ -208,14 +208,14 @@ export const revealVaultItem = createServerFn({ method: "POST" })
       .single();
     if (error) throw new Error(error.message);
     const { open } = await import("./vault-crypto.server");
-    const value = open({
+    const value = await open({
       ciphertext: row.value_ciphertext as string,
       iv: row.value_iv as string,
       tag: row.value_tag as string,
     });
     let notes: string | null = null;
     if (row.notes_ciphertext && row.notes_iv && row.notes_tag) {
-      notes = open({
+      notes = await open({
         ciphertext: row.notes_ciphertext as string,
         iv: row.notes_iv as string,
         tag: row.notes_tag as string,
