@@ -60,17 +60,21 @@ const webProvider: Provider = {
     return buf;
   },
   sha256: async (data) =>
-    new Uint8Array(await globalThis.crypto.subtle.digest("SHA-256", data)),
+    new Uint8Array(await globalThis.crypto.subtle.digest("SHA-256", data as BufferSource)),
   aesGcmEncrypt: async (key, iv, plaintext) => {
     const ck = await globalThis.crypto.subtle.importKey(
       "raw",
-      key,
+      key as BufferSource,
       "AES-GCM",
       false,
       ["encrypt"],
     );
     const out = new Uint8Array(
-      await globalThis.crypto.subtle.encrypt({ name: "AES-GCM", iv }, ck, plaintext),
+      await globalThis.crypto.subtle.encrypt(
+        { name: "AES-GCM", iv: iv as BufferSource },
+        ck,
+        plaintext as BufferSource,
+      ),
     );
     // WebCrypto appends the 16-byte tag to the ciphertext.
     return {
@@ -81,7 +85,7 @@ const webProvider: Provider = {
   aesGcmDecrypt: async (key, iv, ciphertext, tag) => {
     const ck = await globalThis.crypto.subtle.importKey(
       "raw",
-      key,
+      key as BufferSource,
       "AES-GCM",
       false,
       ["decrypt"],
@@ -90,7 +94,11 @@ const webProvider: Provider = {
     joined.set(ciphertext, 0);
     joined.set(tag, ciphertext.length);
     return new Uint8Array(
-      await globalThis.crypto.subtle.decrypt({ name: "AES-GCM", iv }, ck, joined),
+      await globalThis.crypto.subtle.decrypt(
+        { name: "AES-GCM", iv: iv as BufferSource },
+        ck,
+        joined as BufferSource,
+      ),
     );
   },
 };
