@@ -1,12 +1,14 @@
 import { describe, it, expect } from "vitest";
 import {
   computeIntegrity,
+  normalizeIntegrityEnvelope,
   verifyIntegrity,
   canonicalStringify,
   sha256Hex,
   INTEGRITY_ALGO,
   type IntegrityEnvelope,
 } from "@/lib/snapshot-integrity";
+import { parseRestoreSnapshotJson } from "@/lib/snapshot-restore";
 
 // Representative snapshot payload mimicking what the export route
 // embeds (table rows + metadata). Keep small and deterministic.
@@ -140,6 +142,89 @@ describe("verifyIntegrity — partial / missing field envelopes", () => {
       null as unknown as IntegrityEnvelope,
     );
     expect(res.ok).toBe(false);
+  });
+
+  it("normalizes undefined and digest-only envelopes without direct property crashes", () => {
+    expect(normalizeIntegrityEnvelope(undefined, payload)).toBeNull();
+    expect(normalizeIntegrityEnvelope({ digest: "abc" }, payload)).toEqual({
+      algo: INTEGRITY_ALGO,
+      value: "abc",
+      covered: Object.keys(payload).sort(),
+    });
+  });
+
+  it("falls back when Web Crypto subtle.digest is unavailable", async () => {
+    const original = Object.getOwnPropertyDescriptor(globalThis, "crypto");
+    Object.defineProperty(globalThis, "crypto", {
+      configurable: true,
+      value: {},
+    });
+    try {
+      await expect(sha256Hex("fallback-ok")).resolves.toMatch(/^[0-9a-f]{64}$/);
+    } finally {
+      if (original) Object.defineProperty(globalThis, "crypto", original);
+    }
+  });
+});
+
+describe("parseRestoreSnapshotJson — import fixtures", () => {
+  const snapshotPayload = {
+    app: "bostead" as const,
+    version: 1 as const,
+    tables: payload.tables.map((table) => ({ table: table.name, rows: table.rows })),
+  };
+
+  it("accepts a current integrity envelope", async () => {
+    const integrity = await computeIntegrity(snapshotPayload);
+    const res = await parseRestoreSnapshotJson(
+      JSON.stringify({
+        generated_at: payload.exportedAt,
+        generated_by: payload.userId,
+        ...snapshotPayload,
+        integrity,
+      }),
+    );
+    expect(res.ok).toBe(true);
+    if (res.ok) expect(res.integrity.kind).toBe("verified");
+  });
+
+  it("accepts a legacy digest-only envelope", async () => {
+    const digest = await sha256Hex(canonicalStringify(snapshotPayload));
+    const res = await parseRestoreSnapshotJson(
+      JSON.stringify({
+        generated_at: payload.exportedAt,
+        generated_by: payload.userId,
+        ...snapshotPayload,
+        integrity: { digest },
+      }),
+    );
+    expect(res.ok).toBe(true);
+    if (res.ok) expect(res.integrity.kind).toBe("verified");
+  });
+
+  it("treats missing integrity as a legacy import instead of throwing", async () => {
+    const res = await parseRestoreSnapshotJson(
+      JSON.stringify({
+        generated_at: payload.exportedAt,
+        generated_by: payload.userId,
+        ...snapshotPayload,
+      }),
+    );
+    expect(res.ok).toBe(true);
+    if (res.ok) expect(res.integrity.kind).toBe("missing");
+  });
+
+  it("returns a clean mismatch for an integrity object missing checksum fields", async () => {
+    const res = await parseRestoreSnapshotJson(
+      JSON.stringify({
+        generated_at: payload.exportedAt,
+        generated_by: payload.userId,
+        ...snapshotPayload,
+        integrity: { algo: INTEGRITY_ALGO },
+      }),
+    );
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.message).toMatch(/integrity check failed/i);
   });
 });
 

@@ -26,6 +26,12 @@ export type IntegrityEnvelope = {
   covered: string[];
 };
 
+export type IntegrityEnvelopeInput =
+  | IntegrityEnvelope
+  | (Partial<IntegrityEnvelope> & { digest?: unknown })
+  | null
+  | undefined;
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function canonicalize(value: any): any {
   if (value === null || typeof value !== "object") return value;
@@ -144,19 +150,44 @@ export async function computeIntegrity(
   return { algo: INTEGRITY_ALGO, value, covered };
 }
 
+export function normalizeIntegrityEnvelope(
+  integrity: IntegrityEnvelopeInput | unknown,
+  payload?: Record<string, unknown>,
+): IntegrityEnvelope | null {
+  if (!integrity || typeof integrity !== "object") return null;
+
+  const envelope = integrity as Record<string, unknown>;
+  const rawAlgo = envelope.algo;
+  const rawValue = envelope.value ?? envelope.digest;
+  const rawCovered = envelope.covered;
+
+  return {
+    algo: (typeof rawAlgo === "string" ? rawAlgo : INTEGRITY_ALGO) as typeof INTEGRITY_ALGO,
+    value: typeof rawValue === "string" ? rawValue : "",
+    covered:
+      Array.isArray(rawCovered) && rawCovered.every((item) => typeof item === "string")
+        ? rawCovered
+        : Object.keys(payload ?? {}).sort(),
+  };
+}
+
 export async function verifyIntegrity(
   payload: Record<string, unknown>,
-  integrity: IntegrityEnvelope,
+  integrity: IntegrityEnvelopeInput,
 ): Promise<{ ok: true } | { ok: false; reason: string; expected: string; actual: string }> {
   // Defensive: callers may hand us a hand-edited or legacy envelope.
-  const envelope = (integrity ?? {}) as Partial<IntegrityEnvelope> & {
-    digest?: string;
-  };
+  const envelope = normalizeIntegrityEnvelope(integrity, payload);
+  if (!envelope) {
+    return {
+      ok: false,
+      reason: "Integrity envelope is missing the checksum value.",
+      expected: "",
+      actual: "",
+    };
+  }
   const algo = envelope.algo ?? INTEGRITY_ALGO;
-  const expected = envelope.value ?? envelope.digest ?? "";
-  const covered = Array.isArray(envelope.covered)
-    ? envelope.covered
-    : Object.keys(payload).sort();
+  const expected = envelope.value ?? "";
+  const covered = envelope.covered.length > 0 ? envelope.covered : Object.keys(payload).sort();
 
   if (algo !== INTEGRITY_ALGO) {
     return {
