@@ -376,7 +376,7 @@ export const finishExportVaultKey = createServerFn({ method: "POST" })
         expectedRPID: rpID,
         credential: {
           id: bytesToB64url(credentialIdBytes),
-          publicKey: byteaToBytes(stored.data.public_key),
+          publicKey: new Uint8Array(byteaToBytes(stored.data.public_key)) as Uint8Array<ArrayBuffer>,
           counter: Number(stored.data.sign_count ?? 0),
           transports: (stored.data.transports ?? []) as AuthenticatorTransport[],
         },
@@ -417,7 +417,7 @@ export const finishExportVaultKey = createServerFn({ method: "POST" })
       keyBytes = new Uint8Array(digest);
     }
 
-    const fingerprint = new Uint8Array(await crypto.subtle.digest("SHA-256", keyBytes));
+    const fingerprint = new Uint8Array(await crypto.subtle.digest("SHA-256", keyBytes.buffer as ArrayBuffer));
 
     await audit(supabase, userId, { credential_id: credentialIdBytes, action: "export_completed" });
 
