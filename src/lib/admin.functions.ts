@@ -388,12 +388,34 @@ export const exportApplicationData = createServerFn({ method: "GET" })
 
 export type ImportMode = "merge" | "replace";
 
+export type RestoreDebugInfo = {
+  stage: "delete" | "write";
+  chunkIndex?: number;
+  chunkSize?: number;
+  sampleRow?: Record<string, unknown>;
+  rowKeys?: string[];
+  postgrest: {
+    message: string;
+    code?: string;
+    details?: string;
+    hint?: string;
+  };
+  diagnostics: {
+    rlsEnabled?: boolean;
+    policies?: Array<{ policyname: string; cmd: string; roles: string[]; qual: string | null; with_check: string | null }>;
+    grants?: Array<{ grantee: string; privilege_type: string }>;
+    canInsertAsAuthenticated?: boolean;
+    diagnosticsError?: string;
+  };
+};
+
 export type ImportTableResult = {
   table: string;
   attempted: number;
   succeeded: number;
   deleted: number; // only set in replace mode
   error?: string;
+  debug?: RestoreDebugInfo;
 };
 
 export type ImportResult = {
@@ -402,7 +424,9 @@ export type ImportResult = {
   started_at: string;
   finished_at: string;
   results: ImportTableResult[];
+  debug?: boolean;
 };
+
 
 const RESTORE_INSERT_ORDER = [...RESET_TABLES].reverse(); // parents before children
 
