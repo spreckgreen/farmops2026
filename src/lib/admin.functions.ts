@@ -326,12 +326,18 @@ export const exportApplicationData = createServerFn({ method: "GET" })
     const { supabase, userId } = context;
     await requireAdmin(supabase, userId);
 
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    // Use the request-scoped (user JWT + publishable key) client for reads.
+    // The service-role client cannot be used for PostgREST GETs on Lovable
+    // Cloud because the injected key is not in JWT format and PostgREST
+    // rejects it with "Expected 3 parts in JWT; got 1". RLS still applies,
+    // but in this single-farm app every operational table is owned by the
+    // admin's user_id, so the admin sees every row.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const reader = supabase as any;
 
     const tables: SnapshotTable[] = [];
     for (const table of RESET_TABLES) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabaseAdmin as any).from(table).select("*");
+      const { data, error } = await reader.from(table).select("*");
       tables.push({
         table,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
