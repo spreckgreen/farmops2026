@@ -389,7 +389,64 @@ function RestorePage() {
                 </tbody>
               </table>
             </div>
+
+            {result.results.some((r) => r.debug) && (
+              <div className="mt-4 space-y-3">
+                <div className="text-xs font-medium text-muted-foreground">
+                  Debug diagnostics
+                </div>
+                {result.results
+                  .filter((r) => r.debug)
+                  .map((r) => (
+                    <details
+                      key={`debug-${r.table}`}
+                      className="rounded border bg-background p-3 text-xs"
+                      open
+                    >
+                      <summary className="cursor-pointer font-mono font-medium">
+                        {r.table} — {r.debug!.stage}
+                        {r.debug!.chunkIndex !== undefined
+                          ? ` · chunk ${r.debug!.chunkIndex} (${r.debug!.chunkSize} rows)`
+                          : ""}
+                      </summary>
+                      <div className="mt-2 space-y-2">
+                        <div>
+                          <div className="font-semibold">PostgREST error</div>
+                          <pre className="overflow-x-auto rounded bg-muted p-2 font-mono">
+{JSON.stringify(r.debug!.postgrest, null, 2)}
+                          </pre>
+                        </div>
+                        <div>
+                          <div className="font-semibold">
+                            RLS / grants for {r.table}
+                          </div>
+                          <pre className="overflow-x-auto rounded bg-muted p-2 font-mono">
+{JSON.stringify(r.debug!.diagnostics, null, 2)}
+                          </pre>
+                        </div>
+                        {r.debug!.sampleRowJson && (
+                          <div>
+                            <div className="font-semibold">
+                              Sample row (first in failing chunk)
+                            </div>
+                            <pre className="overflow-x-auto rounded bg-muted p-2 font-mono">
+{(() => {
+  try {
+    return JSON.stringify(JSON.parse(r.debug!.sampleRowJson!), null, 2);
+  } catch {
+    return r.debug!.sampleRowJson;
+  }
+})()}
+                            </pre>
+                          </div>
+                        )}
+                      </div>
+                    </details>
+                  ))}
+              </div>
+            )}
           </section>
+
         )}
       </div>
     </AppLayout>
