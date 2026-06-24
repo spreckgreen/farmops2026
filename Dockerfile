@@ -8,13 +8,18 @@ WORKDIR /app
 COPY package.json bun.lock ./
 # Stream install output with a heartbeat so long silent steps don't look hung.
 # A background loop prints elapsed seconds every 10s while `bun install` runs.
-RUN echo "=== [deps] Installing all dependencies (frozen lockfile) ===" && \
+RUN echo "=============================================" && \
+    echo "=== [deps] STAGE 1/3: Dependency install ===" && \
+    echo "=== [deps] Command: bun install --frozen-lockfile --verbose" && \
+    echo "=== [deps] Installs ALL deps (dev + prod) for the builder stage" && \
+    echo "=== [deps] Started at $(date +%H:%M:%S)" && \
+    echo "=============================================" && \
     ( while :; do sleep 10; echo "  [deps] still installing... ($(date +%H:%M:%S))"; done ) & \
     HEARTBEAT_PID=$!; \
     bun install --frozen-lockfile --verbose; \
     STATUS=$?; \
     kill $HEARTBEAT_PID 2>/dev/null || true; \
-    echo "=== [deps] Install finished with status $STATUS ===" && \
+    echo "=== [deps] bun install finished with status $STATUS at $(date +%H:%M:%S) ===" && \
     exit $STATUS
 
 # ==========================================
