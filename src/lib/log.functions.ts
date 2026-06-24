@@ -76,13 +76,8 @@ function normalizeTaskForDedupe(raw: string, config: DedupeConfig = DEFAULT_DEDU
   if (config.stripBracketPrefixes) {
     body = body.replace(BRACKET_PREFIX_RE, "");
   }
-  for (const pattern of config.extraStripPatterns) {
-    try {
-      body = body.replace(new RegExp(pattern, "gi"), " ");
-    } catch {
-      // ignore invalid user-supplied patterns
-    }
-  }
+  // Additional user-supplied regex patterns were intentionally removed to
+  // eliminate ReDoS risk; only the safe built-in normalizations run below.
   return body
     .replace(/#project\/[a-z0-9][a-z0-9-_]*/gi, " ")
     .replace(/@start:\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(?::\d{2})?(?:Z|[+-]\d{2}:?\d{2})?/gi, " ")
