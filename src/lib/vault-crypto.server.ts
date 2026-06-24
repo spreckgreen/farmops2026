@@ -1,6 +1,6 @@
 // Server-only AES-256-GCM helpers for the secrets vault.
 // Key is provided by the VAULT_ENCRYPTION_KEY env var (64 hex chars = 32 bytes).
-import { createCipheriv, createDecipheriv, randomBytes } from "crypto";
+import { createCipheriv, createDecipheriv, createHash, randomBytes } from "crypto";
 
 function getKey(): Buffer {
   const raw = process.env.VAULT_ENCRYPTION_KEY;
@@ -8,7 +8,6 @@ function getKey(): Buffer {
   // Accept hex (preferred) or treat as utf-8 fallback and hash-pad to 32 bytes.
   if (/^[0-9a-fA-F]{64}$/.test(raw)) return Buffer.from(raw, "hex");
   // Fallback: derive 32 bytes by SHA-256 (avoids hard failure if a non-hex secret was set).
-  const { createHash } = require("crypto") as typeof import("crypto");
   return createHash("sha256").update(raw, "utf8").digest();
 }
 
