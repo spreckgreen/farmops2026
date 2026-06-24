@@ -1166,7 +1166,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      restore_table_diagnostics: { Args: { _table: string }; Returns: Json }
     }
     Enums: {
       app_role: "viewer" | "editor" | "admin"
