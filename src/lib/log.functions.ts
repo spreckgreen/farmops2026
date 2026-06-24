@@ -191,7 +191,7 @@ const dedupeConfigSchema = z
   .object({
     stripBracketPrefixes: z.boolean().optional(),
     stopWords: z.array(z.string().min(1).max(40)).max(200).optional(),
-    extraStripPatterns: z.array(z.string().min(1).max(200)).max(50).optional(),
+    // extraStripPatterns removed: user-supplied regexes can cause ReDoS server-side.
     signatureWords: z.number().int().min(1).max(10).optional(),
     signatureMinChars: z.number().int().min(1).max(40).optional(),
   })
