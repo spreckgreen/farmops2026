@@ -227,6 +227,32 @@ describe("parseRestoreSnapshotJson — import fixtures", () => {
     expect(res.ok).toBe(false);
     if (!res.ok) expect(res.message).toMatch(/integrity check failed/i);
   });
+
+  it("returns parse debug for truncated JSON before any restore request", async () => {
+    const res = await parseRestoreSnapshotJson(
+      '{"app":"bostead","version":1,"tables":[{"table":"tasks","rows":[',
+      { fileName: "broken.json", fileSize: 64, lastModified: 123 },
+    );
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.message).toMatch(/truncated|incomplete/i);
+      expect(res.debug?.stage).toBe("local-file-parse");
+      expect(res.debug?.request.sentToServer).toBe(false);
+      expect(res.debug?.file?.name).toBe("broken.json");
+      expect(res.debug?.diagnostics.looksTruncated).toBe(true);
+    }
+  });
+
+  it("accepts common JSON wrappers and repairs trailing commas", async () => {
+    const res = await parseRestoreSnapshotJson(
+      `\uFEFF\`\`\`json\n${JSON.stringify({
+        generated_at: payload.exportedAt,
+        generated_by: payload.userId,
+        ...snapshotPayload,
+      }).replace(/}$/, ',}')}\n\`\`\``,
+    );
+    expect(res.ok).toBe(true);
+  });
 });
 
 describe("restore import row scoping", () => {
