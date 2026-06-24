@@ -6,7 +6,16 @@
 FROM oven/bun:1-slim AS deps
 WORKDIR /app
 COPY package.json bun.lock ./
-RUN bun install --frozen-lockfile
+# Stream install output with a heartbeat so long silent steps don't look hung.
+# A background loop prints elapsed seconds every 10s while `bun install` runs.
+RUN echo "=== [deps] Installing all dependencies (frozen lockfile) ===" && \
+    ( while :; do sleep 10; echo "  [deps] still installing... ($(date +%H:%M:%S))"; done ) & \
+    HEARTBEAT_PID=$!; \
+    bun install --frozen-lockfile --verbose; \
+    STATUS=$?; \
+    kill $HEARTBEAT_PID 2>/dev/null || true; \
+    echo "=== [deps] Install finished with status $STATUS ===" && \
+    exit $STATUS
 
 # ==========================================
 # Stage 2: Build
@@ -97,9 +106,14 @@ RUN echo "  Copied: /app/package.json -> ./package.json"
 COPY --from=builder --chown=appuser:nodejs /app/bun.lock ./bun.lock
 RUN echo "  Copied: /app/bun.lock -> ./bun.lock"
 RUN echo "=== End artifact copy ===" && \
-    echo "=== Installing production dependencies (cached on rebuilds) ===" && \
-    gosu appuser bun install --production --frozen-lockfile --verbose 2>&1 | tail -20 && \
-    echo "=== Production install complete ==="
+    echo "=== [runner] Installing production dependencies (cached on rebuilds) ===" && \
+    ( while :; do sleep 10; echo "  [runner] still installing... ($(date +%H:%M:%S))"; done ) & \
+    HEARTBEAT_PID=$!; \
+    gosu appuser bun install --production --frozen-lockfile --verbose; \
+    STATUS=$?; \
+    kill $HEARTBEAT_PID 2>/dev/null || true; \
+    echo "=== [runner] Production install finished with status $STATUS ===" && \
+    exit $STATUS
 
 # Entrypoint runs as root to chown mounts, then drops to appuser via gosu.
 COPY --chmod=755 docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
