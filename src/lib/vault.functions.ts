@@ -208,14 +208,14 @@ export const revealVaultItem = createServerFn({ method: "POST" })
       .single();
     if (error) throw new Error(error.message);
     const { open } = await import("./vault-crypto.server");
-    const value = open({
+    const value = await open({
       ciphertext: row.value_ciphertext as string,
       iv: row.value_iv as string,
       tag: row.value_tag as string,
     });
     let notes: string | null = null;
     if (row.notes_ciphertext && row.notes_iv && row.notes_tag) {
-      notes = open({
+      notes = await open({
         ciphertext: row.notes_ciphertext as string,
         iv: row.notes_iv as string,
         tag: row.notes_tag as string,
