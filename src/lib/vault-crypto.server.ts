@@ -1,42 +1,50 @@
 // Server-only AES-256-GCM helpers for the secrets vault.
 // Key is provided by the VAULT_ENCRYPTION_KEY env var (64 hex chars = 32 bytes).
-import { createCipheriv, createDecipheriv, createHash, randomBytes } from "crypto";
+import {
+  cryptoProvider,
+  b64encode,
+  b64decode,
+  utf8encode,
+  utf8decode,
+  type SealedBlob,
+} from "./crypto-provider.server";
 
-function getKey(): Buffer {
+export type { SealedBlob };
+
+async function getKey(): Promise<Uint8Array> {
   const raw = process.env.VAULT_ENCRYPTION_KEY;
   if (!raw) throw new Error("VAULT_ENCRYPTION_KEY is not configured");
-  // Accept hex (preferred) or treat as utf-8 fallback and hash-pad to 32 bytes.
-  if (/^[0-9a-fA-F]{64}$/.test(raw)) return Buffer.from(raw, "hex");
-  // Fallback: derive 32 bytes by SHA-256 (avoids hard failure if a non-hex secret was set).
-  return createHash("sha256").update(raw, "utf8").digest();
+  if (/^[0-9a-fA-F]{64}$/.test(raw)) {
+    const out = new Uint8Array(32);
+    for (let i = 0; i < 32; i++) out[i] = parseInt(raw.substr(i * 2, 2), 16);
+    return out;
+  }
+  // Fallback: derive 32 bytes via SHA-256.
+  return cryptoProvider.sha256(utf8encode(raw));
 }
 
-export interface SealedBlob {
-  ciphertext: string; // base64
-  iv: string;         // base64 (12 bytes)
-  tag: string;        // base64 (16 bytes)
-}
-
-export function seal(plaintext: string): SealedBlob {
-  const key = getKey();
-  const iv = randomBytes(12);
-  const cipher = createCipheriv("aes-256-gcm", key, iv);
-  const ct = Buffer.concat([cipher.update(plaintext, "utf8"), cipher.final()]);
-  const tag = cipher.getAuthTag();
+export async function seal(plaintext: string): Promise<SealedBlob> {
+  const key = await getKey();
+  const iv = cryptoProvider.randomBytes(12);
+  const { ciphertext, tag } = await cryptoProvider.aesGcmEncrypt(
+    key,
+    iv,
+    utf8encode(plaintext),
+  );
   return {
-    ciphertext: ct.toString("base64"),
-    iv: iv.toString("base64"),
-    tag: tag.toString("base64"),
+    ciphertext: b64encode(ciphertext),
+    iv: b64encode(iv),
+    tag: b64encode(tag),
   };
 }
 
-export function open(blob: SealedBlob): string {
-  const key = getKey();
-  const decipher = createDecipheriv("aes-256-gcm", key, Buffer.from(blob.iv, "base64"));
-  decipher.setAuthTag(Buffer.from(blob.tag, "base64"));
-  const pt = Buffer.concat([
-    decipher.update(Buffer.from(blob.ciphertext, "base64")),
-    decipher.final(),
-  ]);
-  return pt.toString("utf8");
+export async function open(blob: SealedBlob): Promise<string> {
+  const key = await getKey();
+  const pt = await cryptoProvider.aesGcmDecrypt(
+    key,
+    b64decode(blob.iv),
+    b64decode(blob.ciphertext),
+    b64decode(blob.tag),
+  );
+  return utf8decode(pt);
 }
