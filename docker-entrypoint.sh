@@ -64,9 +64,16 @@ if [ "$(id -u)" = "0" ]; then
     fi
 
     # Drop privileges and exec the real command as appuser.
+    echo "=== [entrypoint] Starting app as ${APP_USER} (uid=${TARGET_UID} gid=${TARGET_GID}) ==="
+    echo "=== [entrypoint] HOST=${HOST:-<unset>} PORT=${PORT:-<unset>} NODE_ENV=${NODE_ENV:-<unset>} ==="
+    echo "=== [entrypoint] CMD: $* ==="
     exec gosu "${APP_USER}" "$@"
 fi
 
 # Already non-root (e.g. `docker run --user 1000:1000 ...`): just exec.
+echo "=== [entrypoint] Starting app as $(id -un) (uid=$(id -u) gid=$(id -g)) ==="
+echo "=== [entrypoint] HOST=${HOST:-<unset>} PORT=${PORT:-<unset>} NODE_ENV=${NODE_ENV:-<unset>} ==="
+echo "=== [entrypoint] CMD: $* ==="
 exec "$@"
+
 
