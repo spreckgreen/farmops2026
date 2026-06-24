@@ -452,6 +452,7 @@ export const importApplicationData = createServerFn({ method: "POST" })
       mode?: ImportMode;
       confirm?: string;
       allowMissingIntegrity?: boolean;
+      debug?: boolean;
     }) => {
       if (!d || typeof d !== "object") throw new Error("Invalid payload");
       if (!d.snapshot || d.snapshot.app !== "bostead") {
@@ -472,8 +473,10 @@ export const importApplicationData = createServerFn({ method: "POST" })
         mode,
         confirm: d.confirm,
         allowMissingIntegrity: d.allowMissingIntegrity === true,
+        debug: d.debug === true,
       };
     },
+
   )
   .handler(async ({ data, context }): Promise<ImportResult> => {
     const { supabase, userId } = context;
