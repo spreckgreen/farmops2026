@@ -51,7 +51,9 @@ function RestorePage() {
   const [result, setResult] = useState<ImportResult | null>(null);
   const [integrity, setIntegrity] = useState<RestoreIntegrityStatus | null>(null);
   const [allowMissingIntegrity, setAllowMissingIntegrity] = useState(false);
+  const [debugMode, setDebugMode] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
 
   const mut = useMutation({
     mutationFn: () => {
