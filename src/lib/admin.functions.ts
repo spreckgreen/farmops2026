@@ -42,10 +42,12 @@ export type ManagedUser = {
 async function requireAdmin(supabase: NonNullable<unknown>, userId: string) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const client = supabase as any;
-  const { data, error } = await client.rpc("has_role", {
-    _user_id: userId,
-    _role: "admin",
-  });
+  const { data, error } = await client
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", userId)
+    .eq("role", "admin")
+    .maybeSingle();
   if (error) throw new Error(`Role check failed: ${error.message}`);
   if (!data) throw new Error("Forbidden: admin role required");
 }
