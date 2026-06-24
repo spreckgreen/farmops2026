@@ -13,11 +13,20 @@ services:
       - "3000:3000"
     environment:
       NODE_ENV: production
+      # Force the Nitro node-server to bind to all interfaces on port 3000 so
+      # the published port is actually reachable from the host. Without HOST=
+      # 0.0.0.0 some Nitro presets bind to 127.0.0.1 and the container looks
+      # "active" but nothing renders in the browser.
+      HOST: 0.0.0.0
+      PORT: "3000"
+      NITRO_HOST: 0.0.0.0
+      NITRO_PORT: "3000"
       # Supabase credentials — required for the app to function. Provide them
       # via a .env file or export them in your shell before running compose.
       SUPABASE_URL: ${SUPABASE_URL:-}
       SUPABASE_PUBLISHABLE_KEY: ${SUPABASE_PUBLISHABLE_KEY:-}
       SUPABASE_PROJECT_ID: ${SUPABASE_PROJECT_ID:-}
+
       # Runtime UID/GID — the entrypoint re-maps appuser and chowns declared
       # mount points so bind-mounts "just work". Defaults below work without
       # a .env file; override only if you need them to match your host user.
