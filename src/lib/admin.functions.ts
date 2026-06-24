@@ -296,6 +296,7 @@ export const resetApplicationData = createServerFn({ method: "POST" })
 
 import {
   computeIntegrity,
+  normalizeIntegrityEnvelope,
   verifyIntegrity,
   type IntegrityEnvelope,
 } from "./snapshot-integrity";
@@ -443,14 +444,19 @@ export const importApplicationData = createServerFn({ method: "POST" })
     // Fail-fast integrity check BEFORE touching the database. A snapshot
     // that was truncated mid-download, hand-edited, or corrupted on disk
     // is rejected here so the restore can never partially apply.
-    if (data.snapshot.integrity) {
+    const normalizedIntegrity = normalizeIntegrityEnvelope(data.snapshot.integrity, {
+      app: data.snapshot.app,
+      version: data.snapshot.version,
+      tables: data.snapshot.tables,
+    });
+    if (normalizedIntegrity) {
       const verdict = await verifyIntegrity(
         {
           app: data.snapshot.app,
           version: data.snapshot.version,
           tables: data.snapshot.tables,
         },
-        data.snapshot.integrity,
+        normalizedIntegrity,
       );
       if (!verdict.ok) {
         throw new Error(
