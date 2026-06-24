@@ -40,6 +40,7 @@ import { Route as FoodCropsRouteImport } from './routes/food.crops'
 import { Route as AdminUsersRouteImport } from './routes/admin.users'
 import { Route as AdminRestoreRouteImport } from './routes/admin.restore'
 import { Route as AdminResetRouteImport } from './routes/admin.reset'
+import { Route as AdminExportKeyRouteImport } from './routes/admin.export-key'
 import { Route as AdminExportRouteImport } from './routes/admin.export'
 import { Route as ApiPublicHealthProceduresRouteImport } from './routes/api/public/health.procedures'
 
@@ -198,6 +199,11 @@ const AdminResetRoute = AdminResetRouteImport.update({
   path: '/admin/reset',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminExportKeyRoute = AdminExportKeyRouteImport.update({
+  id: '/admin/export-key',
+  path: '/admin/export-key',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminExportRoute = AdminExportRouteImport.update({
   id: '/admin/export',
   path: '/admin/export',
@@ -224,6 +230,7 @@ export interface FileRoutesByFullPath {
   '/sync': typeof SyncRoute
   '/vault': typeof VaultRoute
   '/admin/export': typeof AdminExportRoute
+  '/admin/export-key': typeof AdminExportKeyRoute
   '/admin/reset': typeof AdminResetRoute
   '/admin/restore': typeof AdminRestoreRoute
   '/admin/users': typeof AdminUsersRoute
@@ -258,6 +265,7 @@ export interface FileRoutesByTo {
   '/sync': typeof SyncRoute
   '/vault': typeof VaultRoute
   '/admin/export': typeof AdminExportRoute
+  '/admin/export-key': typeof AdminExportKeyRoute
   '/admin/reset': typeof AdminResetRoute
   '/admin/restore': typeof AdminRestoreRoute
   '/admin/users': typeof AdminUsersRoute
@@ -294,6 +302,7 @@ export interface FileRoutesById {
   '/sync': typeof SyncRoute
   '/vault': typeof VaultRoute
   '/admin/export': typeof AdminExportRoute
+  '/admin/export-key': typeof AdminExportKeyRoute
   '/admin/reset': typeof AdminResetRoute
   '/admin/restore': typeof AdminRestoreRoute
   '/admin/users': typeof AdminUsersRoute
@@ -331,6 +340,7 @@ export interface FileRouteTypes {
     | '/sync'
     | '/vault'
     | '/admin/export'
+    | '/admin/export-key'
     | '/admin/reset'
     | '/admin/restore'
     | '/admin/users'
@@ -365,6 +375,7 @@ export interface FileRouteTypes {
     | '/sync'
     | '/vault'
     | '/admin/export'
+    | '/admin/export-key'
     | '/admin/reset'
     | '/admin/restore'
     | '/admin/users'
@@ -400,6 +411,7 @@ export interface FileRouteTypes {
     | '/sync'
     | '/vault'
     | '/admin/export'
+    | '/admin/export-key'
     | '/admin/reset'
     | '/admin/restore'
     | '/admin/users'
@@ -436,6 +448,7 @@ export interface RootRouteChildren {
   SyncRoute: typeof SyncRoute
   VaultRoute: typeof VaultRoute
   AdminExportRoute: typeof AdminExportRoute
+  AdminExportKeyRoute: typeof AdminExportKeyRoute
   AdminResetRoute: typeof AdminResetRoute
   AdminRestoreRoute: typeof AdminRestoreRoute
   AdminUsersRoute: typeof AdminUsersRoute
@@ -666,6 +679,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminResetRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/export-key': {
+      id: '/admin/export-key'
+      path: '/admin/export-key'
+      fullPath: '/admin/export-key'
+      preLoaderRoute: typeof AdminExportKeyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/export': {
       id: '/admin/export'
       path: '/admin/export'
@@ -727,6 +747,7 @@ const rootRouteChildren: RootRouteChildren = {
   SyncRoute: SyncRoute,
   VaultRoute: VaultRoute,
   AdminExportRoute: AdminExportRoute,
+  AdminExportKeyRoute: AdminExportKeyRoute,
   AdminResetRoute: AdminResetRoute,
   AdminRestoreRoute: AdminRestoreRoute,
   AdminUsersRoute: AdminUsersRoute,

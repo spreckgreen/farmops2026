@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Unwrap Bostead vault encryption key</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body { font: 15px/1.5 -apple-system, system-ui, sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; }
+    h1 { font-size: 1.4rem; }
+    .card { border: 1px solid #ccc4; border-radius: 8px; padding: 1rem; margin: 1rem 0; }
+    .warn { background: #fff3cd; border-color: #f0d27a; color: #50360b; }
+    pre { background: #1115; padding: .75rem; border-radius: 6px; overflow: auto; word-break: break-all; white-space: pre-wrap; }
+    button { padding: .5rem 1rem; border-radius: 6px; cursor: pointer; }
+    button.primary { background: #2563eb; color: white; border: 0; }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    .ok { color: #16a34a; }
+    .err { color: #dc2626; }
+    label { display: block; margin: .5rem 0 .25rem; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <h1>Unwrap Bostead vault encryption key</h1>
+  <p>
+    Drop in the <code>vault-key-export-*.json</code> file exported from the admin UI,
+    then touch the same YubiKey you used to wrap it. The decrypted
+    <code>VAULT_ENCRYPTION_KEY</code> value will appear below for you to paste into your
+    Docker environment.
+  </p>
+
+  <div class="card warn">
+    <strong>Security note.</strong> Run this page from a trusted machine (open the file
+    directly, or serve locally with <code>python3 -m http.server</code> from the same
+    directory). Do not host it publicly. The decrypted key is never sent over the network.
+    The page must be served from the <strong>same hostname (rpId)</strong> the YubiKey was
+    enrolled against, or the browser will refuse the assertion.
+  </div>
+
+  <div class="card">
+    <label for="file">1. Exported file</label>
+    <input id="file" type="file" accept="application/json" />
+    <div id="meta" style="margin-top:.5rem; font-size:.85em; color:#888;"></div>
+  </div>
+
+  <div class="card">
+    <label>2. Touch your YubiKey</label>
+    <button id="unwrap" class="primary" disabled>Unwrap key</button>
+    <div id="status" style="margin-top:.5rem;"></div>
+  </div>
+
+  <div class="card" id="result-card" hidden>
+    <label>3. VAULT_ENCRYPTION_KEY</label>
+    <pre id="result"></pre>
+    <button id="copy">Copy to clipboard</button>
+    <div id="fp" style="margin-top:.5rem; font-size:.85em; color:#888;"></div>
+  </div>
+
+  <script>
+    let payload = null;
+
+    function b64urlToBytes(s) {
+      const b64 = s.replace(/-/g, '+').replace(/_/g, '/') + '=='.slice((s.length + 3) % 4);
+      const bin = atob(b64);
+      const out = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+      return out;
+    }
+    function bytesToB64url(bytes) {
+      let s = '';
+      for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+      return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    }
+    function bytesToB64(bytes) {
+      let s = '';
+      for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+      return btoa(s);
+    }
+    async function sha256(bytes) {
+      return new Uint8Array(await crypto.subtle.digest('SHA-256', bytes));
+    }
+
+    const fileInput = document.getElementById('file');
+    const unwrapBtn = document.getElementById('unwrap');
+    const statusEl = document.getElementById('status');
+    const meta = document.getElementById('meta');
+    const resultCard = document.getElementById('result-card');
+    const resultEl = document.getElementById('result');
+    const fpEl = document.getElementById('fp');
+
+    fileInput.addEventListener('change', async () => {
+      const f = fileInput.files[0];
+      if (!f) return;
+      try {
+        payload = JSON.parse(await f.text());
+        if (payload.kdf !== 'webauthn-hmac-secret') throw new Error('Unsupported kdf: ' + payload.kdf);
+        meta.textContent = `rpId=${payload.rpId} · exportedBy=${payload.exportedBy} · exportedAt=${payload.exportedAt}`;
+        unwrapBtn.disabled = false;
+        statusEl.textContent = '';
+        if (location.hostname && payload.rpId && location.hostname !== payload.rpId) {
+          statusEl.innerHTML = `<span class="err">Hostname mismatch: page is on <b>${location.hostname}</b>, file expects <b>${payload.rpId}</b>. Host this file on the matching origin.</span>`;
+        }
+      } catch (e) {
+        meta.textContent = '';
+        unwrapBtn.disabled = true;
+        statusEl.innerHTML = `<span class="err">Invalid file: ${e.message}</span>`;
+      }
+    });
+
+    unwrapBtn.addEventListener('click', async () => {
+      if (!payload) return;
+      statusEl.textContent = 'Waiting for YubiKey…';
+      unwrapBtn.disabled = true;
+      try {
+        const credId = b64urlToBytes(payload.credentialId);
+        const salt = b64urlToBytes(payload.salt);
+        const challenge = crypto.getRandomValues(new Uint8Array(32));
+
+        const assertion = await navigator.credentials.get({
+          publicKey: {
+            challenge,
+            rpId: payload.rpId,
+            allowCredentials: [{ id: credId, type: 'public-key' }],
+            userVerification: 'preferred',
+            extensions: { hmacGetSecret: { salt1: salt } },
+            timeout: 60000,
+          },
+        });
+
+        const ext = assertion.getClientExtensionResults();
+        const out1 = ext && ext.hmacGetSecret && ext.hmacGetSecret.output1;
+        if (!out1) throw new Error('Authenticator did not return hmac-secret. Is this a FIDO2 YubiKey?');
+        const hmacSecret = new Uint8Array(out1).slice(0, 32);
+
+        const key = await crypto.subtle.importKey('raw', hmacSecret, { name: 'AES-GCM' }, false, ['decrypt']);
+        const iv = b64urlToBytes(payload.iv);
+        const ct = b64urlToBytes(payload.ciphertext);
+        const ptBuf = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ct);
+        const vaultKeyB64 = new TextDecoder().decode(ptBuf);
+        const vaultKey = atob(vaultKeyB64);
+
+        // Verify fingerprint
+        let keyBytes;
+        if (/^[0-9a-fA-F]{64}$/.test(vaultKey)) {
+          keyBytes = new Uint8Array(32);
+          for (let i = 0; i < 32; i++) keyBytes[i] = parseInt(vaultKey.substr(i * 2, 2), 16);
+        } else {
+          keyBytes = await sha256(new TextEncoder().encode(vaultKey));
+        }
+        const fp = bytesToB64url(await sha256(keyBytes));
+        const fpOk = fp === payload.keyFingerprint;
+
+        resultEl.textContent = vaultKey;
+        fpEl.innerHTML = fpOk
+          ? `<span class="ok">Fingerprint verified.</span>`
+          : `<span class="err">Fingerprint mismatch — file may be corrupted.</span>`;
+        resultCard.hidden = false;
+        statusEl.innerHTML = `<span class="ok">Decrypted successfully.</span>`;
+      } catch (e) {
+        statusEl.innerHTML = `<span class="err">${e.message || e}</span>`;
+      } finally {
+        unwrapBtn.disabled = false;
+      }
+    });
+
+    document.getElementById('copy').addEventListener('click', async () => {
+      await navigator.clipboard.writeText(resultEl.textContent);
+      statusEl.innerHTML = '<span class="ok">Copied. Paste as VAULT_ENCRYPTION_KEY in your Docker env.</span>';
+    });
+  </script>
+</body>
+</html>
