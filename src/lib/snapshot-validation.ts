@@ -125,6 +125,10 @@ const SCHEMA: Record<string, TableRules> = {
     required: ["id", "user_id", "food_name", "changed_at"],
     fks: [{ column: "food_id", refTable: "food_plan_foods", nullable: true }],
   },
+  procedures: {
+    required: ["id", "user_id", "name", "content"],
+    fks: [],
+  },
 };
 
 export type SnapshotIssue = {
