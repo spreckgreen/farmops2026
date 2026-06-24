@@ -8,13 +8,18 @@ WORKDIR /app
 COPY package.json bun.lock ./
 # Stream install output with a heartbeat so long silent steps don't look hung.
 # A background loop prints elapsed seconds every 10s while `bun install` runs.
-RUN echo "=== [deps] Installing all dependencies (frozen lockfile) ===" && \
+RUN echo "=============================================" && \
+    echo "=== [deps] STAGE 1/3: Dependency install ===" && \
+    echo "=== [deps] Command: bun install --frozen-lockfile --verbose" && \
+    echo "=== [deps] Installs ALL deps (dev + prod) for the builder stage" && \
+    echo "=== [deps] Started at $(date +%H:%M:%S)" && \
+    echo "=============================================" && \
     ( while :; do sleep 10; echo "  [deps] still installing... ($(date +%H:%M:%S))"; done ) & \
     HEARTBEAT_PID=$!; \
     bun install --frozen-lockfile --verbose; \
     STATUS=$?; \
     kill $HEARTBEAT_PID 2>/dev/null || true; \
-    echo "=== [deps] Install finished with status $STATUS ===" && \
+    echo "=== [deps] bun install finished with status $STATUS at $(date +%H:%M:%S) ===" && \
     exit $STATUS
 
 # ==========================================
@@ -38,7 +43,19 @@ COPY . .
 # Build a Node-compatible server bundle instead of the default Cloudflare Worker.
 # vite.config.ts forwards NITRO_PRESET into the nitro plugin's `preset` option.
 ENV NITRO_PRESET=node-server
-RUN bun run build
+RUN echo "=============================================" && \
+    echo "=== [builder] STAGE 2/3: Vite + Nitro build ===" && \
+    echo "=== [builder] Command: bun run build" && \
+    echo "=== [builder] NITRO_PRESET=$NITRO_PRESET" && \
+    echo "=== [builder] Started at $(date +%H:%M:%S)" && \
+    echo "=============================================" && \
+    ( while :; do sleep 15; echo "  [builder] still building... ($(date +%H:%M:%S))"; done ) & \
+    HEARTBEAT_PID=$!; \
+    bun run build; \
+    STATUS=$?; \
+    kill $HEARTBEAT_PID 2>/dev/null || true; \
+    echo "=== [builder] bun run build finished with status $STATUS at $(date +%H:%M:%S) ===" && \
+    exit $STATUS
 
 # Detect the actual Nitro output directory and normalize it to /app/dist so
 # the runner stage can COPY a single, known path. Nitro emits to `dist/` when
@@ -106,13 +123,18 @@ RUN echo "  Copied: /app/package.json -> ./package.json"
 COPY --from=builder --chown=appuser:nodejs /app/bun.lock ./bun.lock
 RUN echo "  Copied: /app/bun.lock -> ./bun.lock"
 RUN echo "=== End artifact copy ===" && \
-    echo "=== [runner] Installing production dependencies (cached on rebuilds) ===" && \
+    echo "=============================================" && \
+    echo "=== [runner] STAGE 3/3: Production install ===" && \
+    echo "=== [runner] Command: gosu appuser bun install --production --frozen-lockfile --verbose" && \
+    echo "=== [runner] Installs prod-only deps for the final runtime image" && \
+    echo "=== [runner] Started at $(date +%H:%M:%S)" && \
+    echo "=============================================" && \
     ( while :; do sleep 10; echo "  [runner] still installing... ($(date +%H:%M:%S))"; done ) & \
     HEARTBEAT_PID=$!; \
     gosu appuser bun install --production --frozen-lockfile --verbose; \
     STATUS=$?; \
     kill $HEARTBEAT_PID 2>/dev/null || true; \
-    echo "=== [runner] Production install finished with status $STATUS ===" && \
+    echo "=== [runner] bun install --production finished with status $STATUS at $(date +%H:%M:%S) ===" && \
     exit $STATUS
 
 # Entrypoint runs as root to chown mounts, then drops to appuser via gosu.
