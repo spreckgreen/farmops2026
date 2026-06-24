@@ -83,8 +83,8 @@ export const createVaultItem = createServerFn({ method: "POST" })
   }))
   .handler(async ({ context, data }): Promise<VaultItem> => {
     const { seal } = await import("./vault-crypto.server");
-    const v = seal(data.value);
-    const n = data.notes ? seal(data.notes) : null;
+    const v = await seal(data.value);
+    const n = data.notes ? await seal(data.notes) : null;
     const { data: row, error } = await context.supabase
       .from("vault_secrets")
       .insert({
