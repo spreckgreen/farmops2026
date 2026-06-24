@@ -6,7 +6,16 @@
 FROM oven/bun:1-slim AS deps
 WORKDIR /app
 COPY package.json bun.lock ./
-RUN bun install --frozen-lockfile
+# Stream install output with a heartbeat so long silent steps don't look hung.
+# A background loop prints elapsed seconds every 10s while `bun install` runs.
+RUN echo "=== [deps] Installing all dependencies (frozen lockfile) ===" && \
+    ( while :; do sleep 10; echo "  [deps] still installing... ($(date +%H:%M:%S))"; done ) & \
+    HEARTBEAT_PID=$!; \
+    bun install --frozen-lockfile --verbose; \
+    STATUS=$?; \
+    kill $HEARTBEAT_PID 2>/dev/null || true; \
+    echo "=== [deps] Install finished with status $STATUS ===" && \
+    exit $STATUS
 
 # ==========================================
 # Stage 2: Build
