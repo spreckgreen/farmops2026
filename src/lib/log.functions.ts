@@ -206,7 +206,6 @@ function resolveDedupeConfig(
     stopWords: override.stopWords
       ? override.stopWords.map((w) => w.toLowerCase())
       : DEFAULT_DEDUPE_CONFIG.stopWords,
-    extraStripPatterns: override.extraStripPatterns ?? DEFAULT_DEDUPE_CONFIG.extraStripPatterns,
     signatureWords: override.signatureWords ?? DEFAULT_DEDUPE_CONFIG.signatureWords,
     signatureMinChars: override.signatureMinChars ?? DEFAULT_DEDUPE_CONFIG.signatureMinChars,
   };
