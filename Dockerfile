@@ -124,16 +124,24 @@ COPY --from=builder --chown=appuser:nodejs /app/package.json ./package.json
 RUN echo "  Copied: /app/package.json -> ./package.json"
 COPY --from=builder --chown=appuser:nodejs /app/bun.lock ./bun.lock
 RUN echo "  Copied: /app/bun.lock -> ./bun.lock"
-RUN echo "=== End artifact copy ===" && \
+# BUN_INSTALL_CACHE_DIR pins bun's global cache to a path the appuser owns,
+# so the BuildKit cache mount below survives across rebuilds and is writable
+# by the dropped-privilege user.
+ENV BUN_INSTALL_CACHE_DIR=/bun-cache
+RUN install -d -o appuser -g nodejs /bun-cache
+RUN --mount=type=cache,target=/bun-cache,uid=${UID},gid=${GID},sharing=locked \
+    echo "=== End artifact copy ===" && \
     echo "=============================================" && \
     echo "=== [runner] STAGE 3/3: Production install ===" && \
     echo "=== [runner] Command: gosu appuser bun install --production --frozen-lockfile --verbose" && \
     echo "=== [runner] Installs prod-only deps for the final runtime image" && \
+    echo "=== [runner] BuildKit cache mount: /bun-cache (BUN_INSTALL_CACHE_DIR)" && \
     echo "=== [runner] Started at $(date +%H:%M:%S)" && \
     echo "=============================================" && \
     ( while :; do sleep 10; echo "  [runner] still installing... ($(date +%H:%M:%S))"; done ) & \
     HEARTBEAT_PID=$!; \
-    gosu appuser bun install --production --frozen-lockfile --verbose; \
+    gosu appuser env BUN_INSTALL_CACHE_DIR=/bun-cache \
+      bun install --production --frozen-lockfile --verbose; \
     STATUS=$?; \
     kill $HEARTBEAT_PID 2>/dev/null || true; \
     echo "=== [runner] bun install --production finished with status $STATUS at $(date +%H:%M:%S) ===" && \
