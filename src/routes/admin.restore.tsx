@@ -74,8 +74,10 @@ function RestorePage() {
           mode,
           confirm: mode === "replace" ? confirmText : undefined,
           allowMissingIntegrity,
+          debug: debugMode,
         },
       });
+
     },
     onSuccess: (r) => {
       setResult(r);
