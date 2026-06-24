@@ -9,6 +9,7 @@ import {
   type IntegrityEnvelope,
 } from "@/lib/snapshot-integrity";
 import { parseRestoreSnapshotJson } from "@/lib/snapshot-restore";
+import { scopeRestoreRowsToUser } from "@/lib/admin.functions";
 
 // Representative snapshot payload mimicking what the export route
 // embeds (table rows + metadata). Keep small and deterministic.
@@ -225,6 +226,35 @@ describe("parseRestoreSnapshotJson — import fixtures", () => {
     );
     expect(res.ok).toBe(false);
     if (!res.ok) expect(res.message).toMatch(/integrity check failed/i);
+  });
+});
+
+describe("restore import row scoping", () => {
+  it("rewrites exported row user_id values to the restoring admin id", () => {
+    const restoringUserId = "00000000-0000-0000-0000-000000000099";
+    const rows = [
+      {
+        id: "task-1",
+        user_id: "00000000-0000-0000-0000-000000000001",
+        title: "Portable backup row",
+      },
+      {
+        id: "task-2",
+        user_id: "00000000-0000-0000-0000-000000000002",
+        title: "Another backup row",
+      },
+    ];
+
+    expect(scopeRestoreRowsToUser(rows, restoringUserId)).toEqual([
+      { ...rows[0], user_id: restoringUserId },
+      { ...rows[1], user_id: restoringUserId },
+    ]);
+    expect(rows[0].user_id).toBe("00000000-0000-0000-0000-000000000001");
+  });
+
+  it("leaves rows without owner fields unchanged", () => {
+    const rows = [{ id: "row-1", name: "No owner column" }];
+    expect(scopeRestoreRowsToUser(rows, "00000000-0000-0000-0000-000000000099")).toEqual(rows);
   });
 });
 
