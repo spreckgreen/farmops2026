@@ -123,13 +123,18 @@ RUN echo "  Copied: /app/package.json -> ./package.json"
 COPY --from=builder --chown=appuser:nodejs /app/bun.lock ./bun.lock
 RUN echo "  Copied: /app/bun.lock -> ./bun.lock"
 RUN echo "=== End artifact copy ===" && \
-    echo "=== [runner] Installing production dependencies (cached on rebuilds) ===" && \
+    echo "=============================================" && \
+    echo "=== [runner] STAGE 3/3: Production install ===" && \
+    echo "=== [runner] Command: gosu appuser bun install --production --frozen-lockfile --verbose" && \
+    echo "=== [runner] Installs prod-only deps for the final runtime image" && \
+    echo "=== [runner] Started at $(date +%H:%M:%S)" && \
+    echo "=============================================" && \
     ( while :; do sleep 10; echo "  [runner] still installing... ($(date +%H:%M:%S))"; done ) & \
     HEARTBEAT_PID=$!; \
     gosu appuser bun install --production --frozen-lockfile --verbose; \
     STATUS=$?; \
     kill $HEARTBEAT_PID 2>/dev/null || true; \
-    echo "=== [runner] Production install finished with status $STATUS ===" && \
+    echo "=== [runner] bun install --production finished with status $STATUS at $(date +%H:%M:%S) ===" && \
     exit $STATUS
 
 # Entrypoint runs as root to chown mounts, then drops to appuser via gosu.
