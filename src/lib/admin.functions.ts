@@ -527,18 +527,69 @@ export const importApplicationData = createServerFn({ method: "POST" })
 
     const results: ImportTableResult[] = [];
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    async function collectDiagnostics(table: string): Promise<RestoreDebugInfo["diagnostics"]> {
+      try {
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const sa = supabaseAdmin as any;
+        const [policiesRes, grantsRes, rlsRes, canInsertRes] = await Promise.all([
+          sa.from("pg_policies").select("policyname, cmd, roles, qual, with_check").eq("schemaname", "public").eq("tablename", table),
+          sa.from("information_schema.role_table_grants").select("grantee, privilege_type").eq("table_schema", "public").eq("table_name", table),
+          sa.rpc("pg_table_is_visible", {}).then(() => null).catch(() => null),
+          sa.rpc("has_table_privilege", { role: "authenticated", table: `public.${table}`, privilege: "INSERT" }).then(
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (r: any) => (r?.error ? null : r?.data),
+            () => null,
+          ),
+        ]);
+        return {
+          rlsEnabled: rlsRes ?? undefined,
+          policies: policiesRes?.data ?? undefined,
+          grants: grantsRes?.data ?? undefined,
+          canInsertAsAuthenticated: typeof canInsertRes === "boolean" ? canInsertRes : undefined,
+          diagnosticsError: policiesRes?.error?.message ?? grantsRes?.error?.message,
+        };
+      } catch (e) {
+        return { diagnosticsError: (e as Error).message };
+      }
+    }
+
+    function safeSampleRow(row: unknown): string | undefined {
+      try {
+        return JSON.stringify(row);
+      } catch {
+        return undefined;
+      }
+    }
+
     for (const table of RESTORE_INSERT_ORDER) {
       const snap = byTable.get(table);
       const sourceRows = snap?.rows ?? [];
-      // Snapshots are portable across Lovable backends. Rows exported from
-      // another backend contain that backend's auth user ids; replaying those
-      // values on this backend violates owner-scoped RLS/FK checks. Verify the
-      // original file above, then re-scope operational rows to the signed-in
-      // admin before writing.
       const rows = scopeRestoreRowsToUser(sourceRows, userId);
       let deleted = 0;
       let succeeded = 0;
       let errorMessage: string | undefined;
+      let debug: RestoreDebugInfo | undefined;
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const captureDebug = async (stage: "delete" | "write", pgErr: any, chunkIndex?: number, chunk?: any[]) => {
+        if (!data.debug) return;
+        debug = {
+          stage,
+          chunkIndex,
+          chunkSize: chunk?.length,
+          sampleRowJson: chunk && chunk.length ? safeSampleRow(chunk[0]) : undefined,
+          rowKeys: chunk && chunk.length && chunk[0] && typeof chunk[0] === "object" ? Object.keys(chunk[0]) : undefined,
+          postgrest: {
+            message: pgErr?.message ?? String(pgErr),
+            code: pgErr?.code,
+            details: pgErr?.details,
+            hint: pgErr?.hint,
+          },
+          diagnostics: await collectDiagnostics(table),
+        };
+      };
 
       try {
         if (data.mode === "replace") {
@@ -546,12 +597,14 @@ export const importApplicationData = createServerFn({ method: "POST" })
             .from(table)
             .delete({ count: "exact" })
             .not("id", "is", null);
-          if (delErr) throw new Error(`delete failed: ${delErr.message}`);
+          if (delErr) {
+            await captureDebug("delete", delErr);
+            throw new Error(`delete failed: ${delErr.message}`);
+          }
           deleted = count ?? 0;
         }
 
         if (rows.length > 0) {
-          // Insert/upsert in chunks to stay below request-size limits.
           const CHUNK = 500;
           for (let i = 0; i < rows.length; i += CHUNK) {
             const chunk = rows.slice(i, i + CHUNK);
@@ -560,7 +613,10 @@ export const importApplicationData = createServerFn({ method: "POST" })
                 ? admin.from(table).insert(chunk)
                 : admin.from(table).upsert(chunk, { onConflict: "id" });
             const { error: writeErr } = await query;
-            if (writeErr) throw new Error(`write failed at chunk ${i}: ${writeErr.message}`);
+            if (writeErr) {
+              await captureDebug("write", writeErr, i, chunk);
+              throw new Error(`write failed at chunk ${i}: ${writeErr.message}`);
+            }
             succeeded += chunk.length;
           }
         }
@@ -574,6 +630,7 @@ export const importApplicationData = createServerFn({ method: "POST" })
         succeeded,
         deleted,
         error: errorMessage,
+        debug,
       });
     }
 
@@ -584,6 +641,8 @@ export const importApplicationData = createServerFn({ method: "POST" })
       started_at: startedAt,
       finished_at: new Date().toISOString(),
       results,
+      debug: data.debug,
     };
   });
+
 
