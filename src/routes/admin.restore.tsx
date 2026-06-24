@@ -168,7 +168,12 @@ function RestorePage() {
             </Link>
             . The same file works on Lovable-hosted, Docker, and Node.js
             self-hosted deployments — restore goes through the authenticated
-            server, not a database connection.
+            server, not a database connection. To move the vault encryption
+            key across instances, use{" "}
+            <Link to="/admin/export-key" className="underline">
+              Export encryption key
+            </Link>
+            .
           </p>
         </header>
 
