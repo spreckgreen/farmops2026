@@ -31,6 +31,7 @@ import {
 } from "@/lib/admin.functions";
 import {
   parseRestoreSnapshotJson,
+  type RestoreParseDebugInfo,
   type RestoreIntegrityStatus,
 } from "@/lib/snapshot-restore";
 
@@ -50,6 +51,7 @@ function RestorePage() {
   const [confirmText, setConfirmText] = useState("");
   const [result, setResult] = useState<ImportResult | null>(null);
   const [integrity, setIntegrity] = useState<RestoreIntegrityStatus | null>(null);
+  const [parseDebug, setParseDebug] = useState<RestoreParseDebugInfo | null>(null);
   const [allowMissingIntegrity, setAllowMissingIntegrity] = useState(false);
   const [debugMode, setDebugMode] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -96,17 +98,24 @@ function RestorePage() {
     setSnapshot(null);
     setResult(null);
     setIntegrity(null);
+    setParseDebug(null);
     setAllowMissingIntegrity(false);
     try {
       const text = await file.text();
-      const parsed = await parseRestoreSnapshotJson(text);
+      const parsed = await parseRestoreSnapshotJson(text, {
+        fileName: file.name,
+        fileSize: file.size,
+        lastModified: file.lastModified,
+      });
       if (!parsed.ok) {
         if (parsed.integrity) setIntegrity(parsed.integrity);
+        if (parsed.debug) setParseDebug(parsed.debug);
         toast.error(parsed.message);
         return;
       }
 
       setIntegrity(parsed.integrity);
+      setParseDebug(null);
       setSnapshot(parsed.snapshot);
       toast.success(
         `Loaded ${parsed.snapshot.tables.length} tables (${parsed.totalRows} rows).`,
@@ -249,6 +258,34 @@ function RestorePage() {
                 </>
               )}
             </div>
+          )}
+
+          {parseDebug && debugMode && (
+            <details className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-xs" open>
+              <summary className="cursor-pointer font-medium text-destructive">
+                JSON parse debug — no restore request was sent
+              </summary>
+              <div className="mt-2 space-y-2">
+                <div>
+                  <div className="font-semibold">Failing request</div>
+                  <pre className="overflow-x-auto rounded bg-background p-2 font-mono">
+{JSON.stringify(parseDebug.request, null, 2)}
+                  </pre>
+                </div>
+                <div>
+                  <div className="font-semibold">Parser error</div>
+                  <pre className="overflow-x-auto rounded bg-background p-2 font-mono">
+{JSON.stringify(parseDebug.parser, null, 2)}
+                  </pre>
+                </div>
+                <div>
+                  <div className="font-semibold">File diagnostics</div>
+                  <pre className="overflow-x-auto rounded bg-background p-2 font-mono">
+{JSON.stringify({ file: parseDebug.file, diagnostics: parseDebug.diagnostics }, null, 2)}
+                  </pre>
+                </div>
+              </div>
+            </details>
           )}
         </section>
 
