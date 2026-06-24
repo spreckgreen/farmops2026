@@ -38,7 +38,19 @@ COPY . .
 # Build a Node-compatible server bundle instead of the default Cloudflare Worker.
 # vite.config.ts forwards NITRO_PRESET into the nitro plugin's `preset` option.
 ENV NITRO_PRESET=node-server
-RUN bun run build
+RUN echo "=============================================" && \
+    echo "=== [builder] STAGE 2/3: Vite + Nitro build ===" && \
+    echo "=== [builder] Command: bun run build" && \
+    echo "=== [builder] NITRO_PRESET=$NITRO_PRESET" && \
+    echo "=== [builder] Started at $(date +%H:%M:%S)" && \
+    echo "=============================================" && \
+    ( while :; do sleep 15; echo "  [builder] still building... ($(date +%H:%M:%S))"; done ) & \
+    HEARTBEAT_PID=$!; \
+    bun run build; \
+    STATUS=$?; \
+    kill $HEARTBEAT_PID 2>/dev/null || true; \
+    echo "=== [builder] bun run build finished with status $STATUS at $(date +%H:%M:%S) ===" && \
+    exit $STATUS
 
 # Detect the actual Nitro output directory and normalize it to /app/dist so
 # the runner stage can COPY a single, known path. Nitro emits to `dist/` when
