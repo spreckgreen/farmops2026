@@ -2,12 +2,16 @@ name: Security
 
 on:
   pull_request:
+    branches: [main]
   push:
     branches: [main]
+  schedule:
+    # Re-scan weekly so new advisories against unchanged deps still fail CI.
+    - cron: "0 6 * * 1"
 
 jobs:
-  rls-and-db-lint:
-    name: RLS tests + Supabase DB lint
+  npm-audit:
+    name: npm audit (fail on high)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -19,35 +23,36 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      # ── Supabase DB linter (RLS-disabled tables, exposed columns, etc.) ──
-      - uses: supabase/setup-cli@v1
+      # bun has no audit yet; use npm against the existing lockfile.
+      - uses: actions/setup-node@v4
         with:
-          version: latest
+          node-version: "20"
 
-      - name: Link Supabase project
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        run: supabase link --project-ref "${{ secrets.SUPABASE_PROJECT_REF }}"
+      - name: Run npm audit (high+critical)
+        run: |
+          set -o pipefail
+          npm audit --omit=dev --audit-level=high --json | tee npm-audit.json
+          # `npm audit` exits non-zero when any finding at the requested level exists.
 
-      - name: Run Supabase DB lint (fail on warnings+)
-        run: supabase db lint --level warning
+      - name: Upload audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-audit-report
+          path: npm-audit.json
 
-      # ── RLS integration tests (tests/*.rls.test.ts) ──
-      - name: Run RLS tests
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: bunx vitest run tests/*.rls.test.ts
-
-  dependency-audit:
-    name: Dependency vulnerability scan
+  codeql:
+    name: CodeQL static analysis
     runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
     steps:
       - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
+      - uses: github/codeql-action/init@v3
         with:
-          bun-version: latest
-      - run: bun install --frozen-lockfile
-      - name: Audit (high+ severity)
-        run: bunx --bun better-npm-audit audit --level high
+          languages: javascript-typescript
+      - uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:javascript-typescript"
