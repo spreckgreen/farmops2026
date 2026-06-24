@@ -48,8 +48,6 @@ export type DedupeConfig = {
   stripBracketPrefixes: boolean;
   /** Lowercased tokens removed from the signature (the canonical line text is preserved). */
   stopWords: string[];
-  /** Additional regex source strings stripped from the task body before tokenizing. */
-  extraStripPatterns: string[];
   /** Number of leading words that make up the signature. */
   signatureWords: number;
   /** Minimum signature length before we fall back to the full normalized line. */
@@ -65,7 +63,6 @@ export const DEFAULT_DEDUPE_CONFIG: DedupeConfig = {
     "my", "our", "your",
     "todo", "task",
   ],
-  extraStripPatterns: [],
   signatureWords: 3,
   signatureMinChars: 6,
 };
