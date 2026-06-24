@@ -388,12 +388,35 @@ export const exportApplicationData = createServerFn({ method: "GET" })
 
 export type ImportMode = "merge" | "replace";
 
+export type RestoreDebugInfo = {
+  stage: "delete" | "write";
+  chunkIndex?: number;
+  chunkSize?: number;
+  sampleRowJson?: string;
+
+  rowKeys?: string[];
+  postgrest: {
+    message: string;
+    code?: string;
+    details?: string;
+    hint?: string;
+  };
+  diagnostics: {
+    rlsEnabled?: boolean;
+    policies?: Array<{ policyname: string; cmd: string; roles: string[]; qual: string | null; with_check: string | null }>;
+    grants?: Array<{ grantee: string; privilege_type: string }>;
+    canInsertAsAuthenticated?: boolean;
+    diagnosticsError?: string;
+  };
+};
+
 export type ImportTableResult = {
   table: string;
   attempted: number;
   succeeded: number;
   deleted: number; // only set in replace mode
   error?: string;
+  debug?: RestoreDebugInfo;
 };
 
 export type ImportResult = {
@@ -402,7 +425,9 @@ export type ImportResult = {
   started_at: string;
   finished_at: string;
   results: ImportTableResult[];
+  debug?: boolean;
 };
+
 
 const RESTORE_INSERT_ORDER = [...RESET_TABLES].reverse(); // parents before children
 
@@ -427,6 +452,7 @@ export const importApplicationData = createServerFn({ method: "POST" })
       mode?: ImportMode;
       confirm?: string;
       allowMissingIntegrity?: boolean;
+      debug?: boolean;
     }) => {
       if (!d || typeof d !== "object") throw new Error("Invalid payload");
       if (!d.snapshot || d.snapshot.app !== "bostead") {
@@ -447,8 +473,10 @@ export const importApplicationData = createServerFn({ method: "POST" })
         mode,
         confirm: d.confirm,
         allowMissingIntegrity: d.allowMissingIntegrity === true,
+        debug: d.debug === true,
       };
     },
+
   )
   .handler(async ({ data, context }): Promise<ImportResult> => {
     const { supabase, userId } = context;
@@ -499,18 +527,62 @@ export const importApplicationData = createServerFn({ method: "POST" })
 
     const results: ImportTableResult[] = [];
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    async function collectDiagnostics(table: string): Promise<RestoreDebugInfo["diagnostics"]> {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: diag, error } = await (admin as any).rpc("restore_table_diagnostics", {
+          _table: table,
+        });
+        if (error) return { diagnosticsError: error.message };
+        const d = (diag ?? {}) as Record<string, unknown>;
+        return {
+          rlsEnabled: d.rls_enabled as boolean | undefined,
+          policies: d.policies as RestoreDebugInfo["diagnostics"]["policies"],
+          grants: d.grants as RestoreDebugInfo["diagnostics"]["grants"],
+          canInsertAsAuthenticated: d.can_authenticated_insert as boolean | undefined,
+        };
+      } catch (e) {
+        return { diagnosticsError: (e as Error).message };
+      }
+    }
+
+
+    function safeSampleRow(row: unknown): string | undefined {
+      try {
+        return JSON.stringify(row);
+      } catch {
+        return undefined;
+      }
+    }
+
     for (const table of RESTORE_INSERT_ORDER) {
       const snap = byTable.get(table);
       const sourceRows = snap?.rows ?? [];
-      // Snapshots are portable across Lovable backends. Rows exported from
-      // another backend contain that backend's auth user ids; replaying those
-      // values on this backend violates owner-scoped RLS/FK checks. Verify the
-      // original file above, then re-scope operational rows to the signed-in
-      // admin before writing.
       const rows = scopeRestoreRowsToUser(sourceRows, userId);
       let deleted = 0;
       let succeeded = 0;
       let errorMessage: string | undefined;
+      let debug: RestoreDebugInfo | undefined;
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const captureDebug = async (stage: "delete" | "write", pgErr: any, chunkIndex?: number, chunk?: any[]) => {
+        if (!data.debug) return;
+        debug = {
+          stage,
+          chunkIndex,
+          chunkSize: chunk?.length,
+          sampleRowJson: chunk && chunk.length ? safeSampleRow(chunk[0]) : undefined,
+          rowKeys: chunk && chunk.length && chunk[0] && typeof chunk[0] === "object" ? Object.keys(chunk[0]) : undefined,
+          postgrest: {
+            message: pgErr?.message ?? String(pgErr),
+            code: pgErr?.code,
+            details: pgErr?.details,
+            hint: pgErr?.hint,
+          },
+          diagnostics: await collectDiagnostics(table),
+        };
+      };
 
       try {
         if (data.mode === "replace") {
@@ -518,12 +590,14 @@ export const importApplicationData = createServerFn({ method: "POST" })
             .from(table)
             .delete({ count: "exact" })
             .not("id", "is", null);
-          if (delErr) throw new Error(`delete failed: ${delErr.message}`);
+          if (delErr) {
+            await captureDebug("delete", delErr);
+            throw new Error(`delete failed: ${delErr.message}`);
+          }
           deleted = count ?? 0;
         }
 
         if (rows.length > 0) {
-          // Insert/upsert in chunks to stay below request-size limits.
           const CHUNK = 500;
           for (let i = 0; i < rows.length; i += CHUNK) {
             const chunk = rows.slice(i, i + CHUNK);
@@ -532,7 +606,10 @@ export const importApplicationData = createServerFn({ method: "POST" })
                 ? admin.from(table).insert(chunk)
                 : admin.from(table).upsert(chunk, { onConflict: "id" });
             const { error: writeErr } = await query;
-            if (writeErr) throw new Error(`write failed at chunk ${i}: ${writeErr.message}`);
+            if (writeErr) {
+              await captureDebug("write", writeErr, i, chunk);
+              throw new Error(`write failed at chunk ${i}: ${writeErr.message}`);
+            }
             succeeded += chunk.length;
           }
         }
@@ -546,6 +623,7 @@ export const importApplicationData = createServerFn({ method: "POST" })
         succeeded,
         deleted,
         error: errorMessage,
+        debug,
       });
     }
 
@@ -556,6 +634,8 @@ export const importApplicationData = createServerFn({ method: "POST" })
       started_at: startedAt,
       finished_at: new Date().toISOString(),
       results,
+      debug: data.debug,
     };
   });
+
 
