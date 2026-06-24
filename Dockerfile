@@ -96,7 +96,10 @@ COPY --from=builder --chown=appuser:nodejs /app/package.json ./package.json
 RUN echo "  Copied: /app/package.json -> ./package.json"
 COPY --from=builder --chown=appuser:nodejs /app/bun.lock ./bun.lock
 RUN echo "  Copied: /app/bun.lock -> ./bun.lock"
-RUN echo "=== End artifact copy ===" && gosu appuser bun install --production
+RUN echo "=== End artifact copy ===" && \
+    echo "=== Installing production dependencies (cached on rebuilds) ===" && \
+    gosu appuser bun install --production --frozen-lockfile --verbose 2>&1 | tail -20 && \
+    echo "=== Production install complete ==="
 
 # Entrypoint runs as root to chown mounts, then drops to appuser via gosu.
 COPY --chmod=755 docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
