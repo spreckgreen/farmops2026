@@ -392,7 +392,8 @@ export type RestoreDebugInfo = {
   stage: "delete" | "write";
   chunkIndex?: number;
   chunkSize?: number;
-  sampleRow?: Record<string, unknown>;
+  sampleRowJson?: string;
+
   rowKeys?: string[];
   postgrest: {
     message: string;
