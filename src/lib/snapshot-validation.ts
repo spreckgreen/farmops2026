@@ -125,6 +125,10 @@ const SCHEMA: Record<string, TableRules> = {
     required: ["id", "user_id", "food_name", "changed_at"],
     fks: [{ column: "food_id", refTable: "food_plan_foods", nullable: true }],
   },
+  procedures: {
+    required: ["id", "user_id", "name", "content"],
+    fks: [],
+  },
 };
 
 export type SnapshotIssue = {
@@ -152,10 +156,12 @@ export type SnapshotValidation = {
 };
 
 function isEmpty(v: unknown): boolean {
-  if (v === null || v === undefined) return true;
-  if (typeof v === "string" && v === "") return true;
-  if (Array.isArray(v) && v.length === 0) return false; // empty arrays are valid
-  return false;
+  // Treat only null/undefined as missing. Empty strings, empty arrays, and
+  // 0/false are all valid values that roundtrip through the DB's NOT NULL
+  // columns (which often default to '' or 0). The earlier "empty string is
+  // missing" rule produced hundreds of false positives on text NOT NULL
+  // columns like plant_seasons.lead/notes that legitimately store ''.
+  return v === null || v === undefined;
 }
 
 export function validateSnapshot(snapshot: Snapshot): SnapshotValidation {

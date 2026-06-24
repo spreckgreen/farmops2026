@@ -336,14 +336,33 @@ export const exportApplicationData = createServerFn({ method: "GET" })
     const reader = supabase as any;
 
     const tables: SnapshotTable[] = [];
+    // PostgREST caps a single response at ~1000 rows. Page through every
+    // table with explicit ranges so large tables (activity_log) are exported
+    // in full instead of being silently truncated.
+    const PAGE_SIZE = 1000;
     for (const table of RESET_TABLES) {
-      const { data, error } = await reader.from(table).select("*");
-      tables.push({
-        table,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const rows: any[] = [];
+      let pageError: string | undefined;
+      let from = 0;
+      // Hard cap defends against accidental infinite loops if a page ever
+      // returns more rows than requested.
+      for (let page = 0; page < 1000; page++) {
+        const { data, error } = await reader
+          .from(table)
+          .select("*")
+          .range(from, from + PAGE_SIZE - 1);
+        if (error) {
+          pageError = error.message;
+          break;
+        }
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        rows: error ? [] : ((data as any[]) ?? []),
-        error: error?.message,
-      });
+        const batch = (data as any[]) ?? [];
+        rows.push(...batch);
+        if (batch.length < PAGE_SIZE) break;
+        from += PAGE_SIZE;
+      }
+      tables.push({ table, rows: pageError ? [] : rows, error: pageError });
     }
     const payload = { app: "bostead" as const, version: 1 as const, tables };
     const integrity = await computeIntegrity(payload);
