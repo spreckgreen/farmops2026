@@ -29,6 +29,8 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import { SendToGhostButton } from "@/components/send-to-ghost-button";
+import { activitySummaryToGhost } from "@/lib/report-html";
 
 export const Route = createFileRoute("/reports")({
   ssr: false,
@@ -451,7 +453,7 @@ function ReportsPage() {
                   <ReportSection title="Next" items={body.next_steps} />
                 )}
 
-                <div className="flex gap-2 mt-4">
+                <div className="flex flex-wrap gap-2 mt-4">
                   {s.status === "draft" && (
                     <Button size="sm" variant="outline" onClick={() => setStatus.mutate({ id: s.id, status: "reviewed" })}>
                       Mark reviewed
@@ -462,6 +464,18 @@ function ReportsPage() {
                       Publish
                     </Button>
                   )}
+                  <SendToGhostButton
+                    build={() =>
+                      activitySummaryToGhost({
+                        modeLabel: LABELS[s.mode as ReportMode] ?? s.mode,
+                        body,
+                        periodStart: s.period_start,
+                        periodEnd: s.period_end,
+                        displayTitle: (s as { display_title?: string | null }).display_title ?? null,
+                        scopeProject: (s as { scope_project?: string | null }).scope_project ?? null,
+                      })
+                    }
+                  />
                 </div>
               </li>
             );

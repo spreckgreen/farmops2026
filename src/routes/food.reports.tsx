@@ -12,6 +12,8 @@ import { getFoodReports } from "@/lib/food-reports.functions";
 import { downloadCsv } from "@/lib/csv";
 import { reportCsv, reportMarkdownFile, type FoodReport } from "@/lib/food-reports";
 import { ReportView } from "@/components/report-view";
+import { SendToGhostButton } from "@/components/send-to-ghost-button";
+import { markdownReportToGhost } from "@/lib/report-html";
 
 const searchSchema = z.object({
   report: fallback(z.string(), "").default(""),
@@ -148,6 +150,15 @@ function FoodReportsPage() {
                 >
                   Sync to Obsidian
                 </Button>
+                <SendToGhostButton
+                  build={() =>
+                    markdownReportToGhost({
+                      title: r.title,
+                      markdown: r.markdown,
+                      extraTags: ["food", r.slug],
+                    })
+                  }
+                />
                 <span className="text-[10px] text-muted-foreground font-mono self-center ml-auto">
                   Vault: BosteadFarms/{r.obsidianPath}
                 </span>
