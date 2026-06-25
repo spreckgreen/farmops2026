@@ -42,14 +42,20 @@ async function signGhostJwt(adminKey: string): Promise<string> {
   const header = { alg: "HS256", typ: "JWT", kid: id };
   const payload = { iat, exp: iat + 5 * 60, aud: "/admin/" };
   const signingInput = `${b64urlJson(header)}.${b64urlJson(payload)}`;
+  const keyBytes = hexToBytes(secretHex);
   const key = await crypto.subtle.importKey(
     "raw",
-    hexToBytes(secretHex),
+    keyBytes.buffer.slice(keyBytes.byteOffset, keyBytes.byteOffset + keyBytes.byteLength) as ArrayBuffer,
     { name: "HMAC", hash: "SHA-256" },
     false,
     ["sign"],
   );
-  const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(signingInput));
+  const msg = new TextEncoder().encode(signingInput);
+  const sig = await crypto.subtle.sign(
+    "HMAC",
+    key,
+    msg.buffer.slice(msg.byteOffset, msg.byteOffset + msg.byteLength) as ArrayBuffer,
+  );
   return `${signingInput}.${b64url(sig)}`;
 }
 
