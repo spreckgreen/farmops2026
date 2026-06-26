@@ -11,7 +11,7 @@
     "build:dev": "vite build --mode development",
     "build:progress": "node scripts/build-with-progress.mjs",
     "build:progress:quiet": "BUILD_QUIET=1 node scripts/build-with-progress.mjs",
-    "build:ci": "BUILD_QUIET=1 BUILD_STALL_SECS=240 BUILD_MAX_SECS=1800 node scripts/build-with-progress.mjs",
+    "build:ci": "BUILD_QUIET=1 BUILD_STALL_SECS=600 BUILD_MAX_SECS=2700 node scripts/build-with-progress.mjs",
     "preview": "vite preview",
 
     "lint": "eslint .",
