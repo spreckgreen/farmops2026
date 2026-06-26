@@ -8,7 +8,12 @@ dist
 *.md
 e2e
 tests
-scripts
+# scripts/ is needed by the Docker builder (build-with-progress.mjs).
+# Exclude only the subdirectories that aren't required at build time.
+scripts/unwrap-vault-key
+scripts/check-env.ps1
+scripts/test-rls.ts
+scripts/restore-snapshot.mjs
 .lovable
 .lovable_tmp_doc.html
 .env
