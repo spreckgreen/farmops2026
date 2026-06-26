@@ -30,6 +30,9 @@ RUN --mount=type=cache,target=/root/.bun/install/cache,sharing=locked \
 # ==========================================
 FROM oven/bun:1-slim AS builder
 WORKDIR /app
+# Use bash so PIPESTATUS works for the grep-filtered build pipeline below.
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
 
 # Public env vars baked into the client bundle at build time.
 # Pass these as --build-arg when building the image.
