@@ -178,8 +178,16 @@ function promptReload(context: Omit<StaleEvent, "ts" | "action">) {
 function looksLikeStaleServerFn(url: string, status: number, body: string) {
   if (!url.includes("/_serverFn/")) return false;
   if (status !== 500 && status !== 404) return false;
-  return /Invalid server function ID/i.test(body);
+  // Classic dev-server signal.
+  if (/Invalid server function ID/i.test(body)) return true;
+  // Production wrapper signal: TanStack/h3 returns an opaque
+  // {"unhandled":true,"message":"HTTPError"} for an unknown serverFn ID after
+  // a redeploy. 404s on /_serverFn/* always mean the ID is gone.
+  if (status === 404) return true;
+  if (/"unhandled"\s*:\s*true/.test(body) && /"message"\s*:\s*"HTTPError"/.test(body)) return true;
+  return false;
 }
+
 
 function resolvePendingOutcome(success: boolean) {
   const pendingRaw = safeSession(() => sessionStorage.getItem(PENDING_OUTCOME_KEY), null);
