@@ -67,19 +67,28 @@ RUN --mount=type=cache,target=/app/node_modules/.vite,sharing=locked \
     echo "=== [builder] Stall guard: BUILD_STALL_SECS=240, hard cap BUILD_MAX_SECS=1800" && \
     echo "=== [builder] Started at $(date +%H:%M:%S)" && \
     echo "=== [builder] Verifying scripts/ directory is present in build context ===" && \
+    PROGRESS_SCRIPT=/app/scripts/build-with-progress.mjs && \
     if [ ! -d /app/scripts ]; then \
-      echo "ERROR: /app/scripts directory is missing from the builder image." >&2; \
+      echo "ERROR: missing path: /app/scripts (directory not present in builder image)" >&2; \
       echo "Check .dockerignore — scripts/ must NOT be excluded wholesale." >&2; \
       exit 1; \
     fi && \
     echo "--- /app/scripts listing ---" && \
     ls -la /app/scripts && \
-    if [ ! -f /app/scripts/build-with-progress.mjs ]; then \
-      echo "ERROR: /app/scripts/build-with-progress.mjs is missing." >&2; \
+    if [ ! -f "$PROGRESS_SCRIPT" ]; then \
+      echo "ERROR: missing file: $PROGRESS_SCRIPT" >&2; \
       echo "build:ci cannot run without this wrapper script." >&2; \
       exit 1; \
     fi && \
-    echo "--- build-with-progress.mjs found ($(wc -l < /app/scripts/build-with-progress.mjs) lines) ---" && \
+    if [ ! -x "$PROGRESS_SCRIPT" ]; then \
+      echo "WARN: $PROGRESS_SCRIPT is not executable; applying chmod +x" >&2; \
+      chmod +x "$PROGRESS_SCRIPT"; \
+    fi && \
+    if [ ! -x "$PROGRESS_SCRIPT" ]; then \
+      echo "ERROR: not executable: $PROGRESS_SCRIPT (chmod +x failed)" >&2; \
+      exit 1; \
+    fi && \
+    echo "--- build-with-progress.mjs found, executable ($(wc -l < "$PROGRESS_SCRIPT") lines, mode $(stat -c '%a' "$PROGRESS_SCRIPT")) ---" && \
     echo "=============================================" && \
     bun run build:ci; \
     STATUS=$?; \
