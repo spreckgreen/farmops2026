@@ -82,14 +82,18 @@ const heartbeat = setInterval(() => {
   log(`heartbeat — idle ${fmt(idle)}, phases done: ${[...seen].join(",") || "(none yet)"}`);
 }, HEARTBEAT_MS);
 
+// Stall detection is advisory only. Vite is largely silent in non-TTY mode
+// (Docker) during long transform/render phases, so killing on silence
+// produces false-positive failures. Log a warning instead of killing; the
+// hard MAX_MS ceiling still guarantees the build can't hang forever.
+let warnedStall = false;
 const stallTimer = setInterval(() => {
-  if (performance.now() - lastOutput > STALL_MS) {
-    log(`STALL: no output for >${STALL_MS / 1000}s. Killing build.`);
-    clearAll();
-    child.kill("SIGKILL");
-    process.exitCode = 124;
+  if (performance.now() - lastOutput > STALL_MS && !warnedStall) {
+    warnedStall = true;
+    log(`WARN: no output for >${STALL_MS / 1000}s (Vite is often silent during transform in non-TTY). Build continues; hard cap is ${MAX_MS / 1000}s.`);
   }
 }, 5000);
+
 
 const maxTimer = setTimeout(() => {
   log(`TIMEOUT: build exceeded ${MAX_MS / 1000}s. Killing.`);
