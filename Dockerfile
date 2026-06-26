@@ -11,24 +11,28 @@ COPY package.json bun.lock ./
 RUN --mount=type=cache,target=/root/.bun/install/cache,sharing=locked \
     echo "=============================================" && \
     echo "=== [deps] STAGE 1/3: Dependency install ===" && \
-    echo "=== [deps] Command: bun install --frozen-lockfile --verbose" && \
+    echo "=== [deps] Command: bun install --frozen-lockfile" && \
     echo "=== [deps] Installs ALL deps (dev + prod) for the builder stage" && \
     echo "=== [deps] BuildKit cache mount: /root/.bun/install/cache" && \
     echo "=== [deps] Started at $(date +%H:%M:%S)" && \
     echo "=============================================" && \
     ( while :; do sleep 10; echo "  [deps] still installing... ($(date +%H:%M:%S))"; done ) & \
     HEARTBEAT_PID=$!; \
-    bun install --frozen-lockfile --verbose; \
+    bun install --frozen-lockfile; \
     STATUS=$?; \
     kill $HEARTBEAT_PID 2>/dev/null || true; \
     echo "=== [deps] bun install finished with status $STATUS at $(date +%H:%M:%S) ===" && \
     exit $STATUS
+
 
 # ==========================================
 # Stage 2: Build
 # ==========================================
 FROM oven/bun:1-slim AS builder
 WORKDIR /app
+# Use bash so PIPESTATUS works for the grep-filtered build pipeline below.
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
 
 # Public env vars baked into the client bundle at build time.
 # Pass these as --build-arg when building the image.
@@ -45,19 +49,31 @@ COPY . .
 # Build a Node-compatible server bundle instead of the default Cloudflare Worker.
 # vite.config.ts forwards NITRO_PRESET into the nitro plugin's `preset` option.
 ENV NITRO_PRESET=node-server
-RUN echo "=============================================" && \
+# Give Rollup/Vite enough heap on small hosts (nginx + node + builder on one box)
+# and silence the noisy "use client" directive warnings that flood the log and
+# make the build look hung behind an nginx SSL terminator.
+ENV NODE_OPTIONS=--max-old-space-size=4096
+ENV ROLLUP_NO_NATIVE=1
+ENV VITE_CJS_IGNORE_WARNING=true
+# Persistent Vite/Rollup transform cache survives across `docker build` runs
+# via a BuildKit cache mount, cutting bundle time substantially on rebuilds.
+RUN --mount=type=cache,target=/app/node_modules/.vite,sharing=locked \
+    --mount=type=cache,target=/root/.cache,sharing=locked \
+    echo "=============================================" && \
     echo "=== [builder] STAGE 2/3: Vite + Nitro build ===" && \
     echo "=== [builder] Command: bun run build" && \
     echo "=== [builder] NITRO_PRESET=$NITRO_PRESET" && \
+    echo "=== [builder] NODE_OPTIONS=$NODE_OPTIONS" && \
     echo "=== [builder] Started at $(date +%H:%M:%S)" && \
     echo "=============================================" && \
     ( while :; do sleep 15; echo "  [builder] still building... ($(date +%H:%M:%S))"; done ) & \
     HEARTBEAT_PID=$!; \
-    bun run build; \
-    STATUS=$?; \
+    bun run build 2>&1 | grep -v -E '"use client" in "node_modules/' || true; \
+    STATUS=${PIPESTATUS[0]}; \
     kill $HEARTBEAT_PID 2>/dev/null || true; \
     echo "=== [builder] bun run build finished with status $STATUS at $(date +%H:%M:%S) ===" && \
     exit $STATUS
+
 
 # Detect the actual Nitro output directory and normalize it to /app/dist so
 # the runner stage can COPY a single, known path. Nitro emits to `dist/` when
@@ -133,7 +149,7 @@ RUN --mount=type=cache,target=/bun-cache,uid=${UID},gid=${GID},sharing=locked \
     echo "=== End artifact copy ===" && \
     echo "=============================================" && \
     echo "=== [runner] STAGE 3/3: Production install ===" && \
-    echo "=== [runner] Command: gosu appuser bun install --production --frozen-lockfile --verbose" && \
+    echo "=== [runner] Command: gosu appuser bun install --production --frozen-lockfile" && \
     echo "=== [runner] Installs prod-only deps for the final runtime image" && \
     echo "=== [runner] BuildKit cache mount: /bun-cache (BUN_INSTALL_CACHE_DIR)" && \
     echo "=== [runner] Started at $(date +%H:%M:%S)" && \
@@ -141,11 +157,12 @@ RUN --mount=type=cache,target=/bun-cache,uid=${UID},gid=${GID},sharing=locked \
     ( while :; do sleep 10; echo "  [runner] still installing... ($(date +%H:%M:%S))"; done ) & \
     HEARTBEAT_PID=$!; \
     gosu appuser env BUN_INSTALL_CACHE_DIR=/bun-cache \
-      bun install --production --frozen-lockfile --verbose; \
+      bun install --production --frozen-lockfile; \
     STATUS=$?; \
     kill $HEARTBEAT_PID 2>/dev/null || true; \
     echo "=== [runner] bun install --production finished with status $STATUS at $(date +%H:%M:%S) ===" && \
     exit $STATUS
+
 
 # Entrypoint runs as root to chown mounts, then drops to appuser via gosu.
 COPY --chmod=755 docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
