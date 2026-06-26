@@ -61,18 +61,17 @@ RUN --mount=type=cache,target=/app/node_modules/.vite,sharing=locked \
     --mount=type=cache,target=/root/.cache,sharing=locked \
     echo "=============================================" && \
     echo "=== [builder] STAGE 2/3: Vite + Nitro build ===" && \
-    echo "=== [builder] Command: bun run build" && \
+    echo "=== [builder] Command: bun run build:ci (scripts/build-with-progress.mjs)" && \
     echo "=== [builder] NITRO_PRESET=$NITRO_PRESET" && \
     echo "=== [builder] NODE_OPTIONS=$NODE_OPTIONS" && \
+    echo "=== [builder] Stall guard: BUILD_STALL_SECS=240, hard cap BUILD_MAX_SECS=1800" && \
     echo "=== [builder] Started at $(date +%H:%M:%S)" && \
     echo "=============================================" && \
-    ( while :; do sleep 15; echo "  [builder] still building... ($(date +%H:%M:%S))"; done ) & \
-    HEARTBEAT_PID=$!; \
-    bun run build 2>&1 | grep -v -E '"use client" in "node_modules/' || true; \
-    STATUS=${PIPESTATUS[0]}; \
-    kill $HEARTBEAT_PID 2>/dev/null || true; \
-    echo "=== [builder] bun run build finished with status $STATUS at $(date +%H:%M:%S) ===" && \
+    bun run build:ci; \
+    STATUS=$?; \
+    echo "=== [builder] build:ci finished with status $STATUS at $(date +%H:%M:%S) ===" && \
     exit $STATUS
+
 
 
 # Detect the actual Nitro output directory and normalize it to /app/dist so
