@@ -64,7 +64,7 @@ RUN --mount=type=cache,target=/app/node_modules/.vite,sharing=locked \
     echo "=== [builder] Command: bun run build:ci (scripts/build-with-progress.mjs)" && \
     echo "=== [builder] NITRO_PRESET=$NITRO_PRESET" && \
     echo "=== [builder] NODE_OPTIONS=$NODE_OPTIONS" && \
-    echo "=== [builder] Stall guard: BUILD_STALL_SECS=240, hard cap BUILD_MAX_SECS=1800" && \
+    echo "=== [builder] Stall guard: BUILD_STALL_SECS=600, hard cap BUILD_MAX_SECS=2700" && \
     echo "=== [builder] Started at $(date +%H:%M:%S)" && \
     echo "=== [builder] Verifying scripts/ directory is present in build context ===" && \
     PROGRESS_SCRIPT=/app/scripts/build-with-progress.mjs && \
@@ -89,9 +89,20 @@ RUN --mount=type=cache,target=/app/node_modules/.vite,sharing=locked \
       exit 1; \
     fi && \
     echo "--- build-with-progress.mjs found, executable ($(wc -l < "$PROGRESS_SCRIPT") lines, mode $(stat -c '%a' "$PROGRESS_SCRIPT")) ---" && \
+    echo "--- If you see a '[sudo] password' prompt, that is from the host shell before Docker starts; this image does not run sudo during build. ---" && \
     echo "=============================================" && \
-    bun run build:ci; \
-    STATUS=$?; \
+    BUILD_LOG=/tmp/bostead-build-ci.log; \
+    rm -f "$BUILD_LOG"; \
+    bun run build:ci 2>&1 | tee "$BUILD_LOG"; \
+    STATUS=${PIPESTATUS[0]}; \
+    if [ "$STATUS" -ne 0 ]; then \
+      echo "=== [builder] ERROR: build:ci failed with status $STATUS at $(date +%H:%M:%S) ===" >&2; \
+      echo "=== [builder] Last 200 build log lines ===" >&2; \
+      tail -n 200 "$BUILD_LOG" >&2 || true; \
+      echo "=== [builder] Error-looking lines from build log ===" >&2; \
+      grep -Ein "error|failed|exception|cannot|not found|permission denied|sudo|authenticate|timeout|killed|oom|heap" "$BUILD_LOG" | tail -n 80 >&2 || true; \
+      exit "$STATUS"; \
+    fi; \
     echo "=== [builder] build:ci finished with status $STATUS at $(date +%H:%M:%S) ===" && \
     exit $STATUS
 
