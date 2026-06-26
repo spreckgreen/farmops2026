@@ -14,3 +14,21 @@ scripts
 .env
 .env.local
 .env.*.local
+# Extra excludes to shrink build context and speed Vite+Nitro bundling
+coverage
+.cache
+.vite
+.turbo
+*.log
+*.tsbuildinfo
+.DS_Store
+supabase/.branches
+supabase/.temp
+playwright-report
+test-results
+.workspace
+.agents
+.claude
+docs
+README*.md
+CHANGELOG*.md
