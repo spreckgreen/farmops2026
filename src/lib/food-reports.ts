@@ -712,6 +712,230 @@ function buildOptimizedGardenLayout(i: ReportInputs): FoodReport {
 }
 
 // ---------------------------------------------------------------------------
+// 6. Weather Pattern for Season
+//    Growing season = (LAST_SPRING_FROST - 1 month) through
+//                     (FIRST_FALL_FROST + 1 month), labeled by the year of
+//                     the fall frost.
+// ---------------------------------------------------------------------------
+
+// Configurable frost dates (MM-DD). Tweak here if the farmhouse zone shifts.
+export const LAST_SPRING_FROST_MMDD = "04-15";
+export const FIRST_FALL_FROST_MMDD = "10-15";
+
+function addMonths(date: Date, months: number): Date {
+  const d = new Date(date);
+  d.setUTCMonth(d.getUTCMonth() + months);
+  return d;
+}
+
+function ymd(d: Date): string {
+  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;
+}
+
+function daysBetween(a: Date, b: Date): number {
+  return Math.round((b.getTime() - a.getTime()) / 86400000);
+}
+
+type SeasonWindow = {
+  year: number;
+  start: Date;       // 1 month before last spring frost
+  lastFrost: Date;   // last spring frost
+  firstFrost: Date;  // first fall frost
+  end: Date;         // 1 month after first fall frost
+};
+
+function seasonForYear(year: number): SeasonWindow {
+  const [lsm, lsd] = LAST_SPRING_FROST_MMDD.split("-").map(Number);
+  const [ffm, ffd] = FIRST_FALL_FROST_MMDD.split("-").map(Number);
+  const lastFrost = new Date(Date.UTC(year, lsm - 1, lsd));
+  const firstFrost = new Date(Date.UTC(year, ffm - 1, ffd));
+  return {
+    year,
+    start: addMonths(lastFrost, -1),
+    lastFrost,
+    firstFrost,
+    end: addMonths(firstFrost, 1),
+  };
+}
+
+function buildWeatherPatternForSeason(i: ReportInputs): FoodReport {
+  const weather = (i.weather ?? []).slice().sort((a, b) => a.forecast_date.localeCompare(b.forecast_date));
+  const today = new Date(i.generatedAt.slice(0, 10) + "T00:00:00Z");
+
+  // Determine the set of years to render: any year that has weather data
+  // within its season window, plus the current year.
+  const years = new Set<number>([today.getUTCFullYear()]);
+  for (const w of weather) {
+    const y = Number(w.forecast_date.slice(0, 4));
+    if (Number.isFinite(y)) {
+      years.add(y);
+      // Weather in Jan-Feb may belong to previous fall's growing season tail
+      // — handled naturally because each season window is keyed by the
+      // fall-frost year, which equals the start year here.
+    }
+  }
+
+  type SeasonStats = {
+    season: SeasonWindow;
+    inWindow: typeof weather;
+    daysCaptured: number;
+    totalSeasonDays: number;
+    avgHigh: number | null;
+    avgLow: number | null;
+    minLow: number | null;
+    maxHigh: number | null;
+    precipDays: number;
+    isCurrent: boolean;
+    dayOfSeason: number | null; // null if outside the window
+  };
+
+  const stats: SeasonStats[] = Array.from(years)
+    .sort((a, b) => b - a) // newest first
+    .map((year) => {
+      const season = seasonForYear(year);
+      const inWindow = weather.filter(
+        (w) => w.forecast_date >= ymd(season.start) && w.forecast_date <= ymd(season.end),
+      );
+      const totalSeasonDays = daysBetween(season.start, season.end) + 1;
+      const highs = inWindow.map((w) => Number(w.high_temp_f)).filter((n) => Number.isFinite(n));
+      const lows = inWindow.map((w) => Number(w.low_temp_f)).filter((n) => Number.isFinite(n));
+      const precipDays = inWindow.filter(
+        (w) => Number(w.precip_probability ?? 0) >= 50 || (w.precip_type && w.precip_type !== "none"),
+      ).length;
+      const isCurrent = today >= season.start && today <= season.end;
+      const dayOfSeason = isCurrent ? daysBetween(season.start, today) + 1 : null;
+      return {
+        season,
+        inWindow,
+        daysCaptured: inWindow.length,
+        totalSeasonDays,
+        avgHigh: highs.length ? highs.reduce((s, n) => s + n, 0) / highs.length : null,
+        avgLow: lows.length ? lows.reduce((s, n) => s + n, 0) / lows.length : null,
+        minLow: lows.length ? Math.min(...lows) : null,
+        maxHigh: highs.length ? Math.max(...highs) : null,
+        precipDays,
+        isCurrent,
+        dayOfSeason,
+      };
+    });
+
+  const current = stats.find((s) => s.isCurrent);
+
+  const lines: string[] = [
+    `# Weather Pattern for Season`,
+    ``,
+    `*Generated ${i.generatedAt.slice(0, 10)} — station BosteadFarmHouse (119722)*`,
+    ``,
+    `## Season Definition`,
+    ``,
+    `- **Start:** 1 month before last spring frost (${LAST_SPRING_FROST_MMDD})`,
+    `- **End:** 1 month after first fall frost (${FIRST_FALL_FROST_MMDD})`,
+    `- Seasons are labeled by year of the fall frost.`,
+    ``,
+  ];
+
+  if (current) {
+    const pct = current.totalSeasonDays
+      ? Math.round((current.daysCaptured / current.totalSeasonDays) * 100)
+      : 0;
+    lines.push(
+      `## Current Season — ${current.season.year}`,
+      ``,
+      `- **Window:** ${ymd(current.season.start)} → ${ymd(current.season.end)} (${current.totalSeasonDays} days)`,
+      `- **Day of season:** ${current.dayOfSeason} of ${current.totalSeasonDays}`,
+      `- **Weather days captured:** ${current.daysCaptured} (${pct}% of season)`,
+      `- **Estimated growing days remaining:** ${Math.max(0, current.totalSeasonDays - (current.dayOfSeason ?? 0))}`,
+      current.avgHigh != null
+        ? `- **Avg high so far:** ${fmt(current.avgHigh, 1)}°F · **Avg low:** ${fmt(current.avgLow ?? 0, 1)}°F`
+        : `- _No weather samples captured yet._`,
+      current.maxHigh != null
+        ? `- **Max high:** ${fmt(current.maxHigh, 0)}°F · **Min low:** ${fmt(current.minLow ?? 0, 0)}°F · **Wet days:** ${current.precipDays}`
+        : ``,
+      ``,
+    );
+  }
+
+  const past = stats.filter((s) => !s.isCurrent && s.daysCaptured > 0);
+  if (past.length) {
+    lines.push(
+      `## Previous Seasons`,
+      ``,
+      mdTable(
+        ["Season", "Window", "Total days", "Days captured", "Avg high °F", "Avg low °F", "Max high", "Min low", "Wet days"],
+        past.map((s) => [
+          s.season.year,
+          `${ymd(s.season.start)} → ${ymd(s.season.end)}`,
+          s.totalSeasonDays,
+          s.daysCaptured,
+          s.avgHigh != null ? fmt(s.avgHigh, 1) : "—",
+          s.avgLow != null ? fmt(s.avgLow, 1) : "—",
+          s.maxHigh != null ? fmt(s.maxHigh, 0) : "—",
+          s.minLow != null ? fmt(s.minLow, 0) : "—",
+          s.precipDays,
+        ]),
+      ),
+      ``,
+    );
+  } else if (!current) {
+    lines.push(`_No weather data recorded yet for any growing season._`, ``);
+  }
+
+  // Detailed daily log for each season with data
+  for (const s of stats) {
+    if (s.daysCaptured === 0) continue;
+    lines.push(
+      `## ${s.season.year} Daily Log`,
+      ``,
+      mdTable(
+        ["Date", "High °F", "Low °F", "Conditions", "Precip %"],
+        s.inWindow.map((w) => [
+          w.forecast_date,
+          w.high_temp_f != null ? fmt(Number(w.high_temp_f), 0) : "—",
+          w.low_temp_f != null ? fmt(Number(w.low_temp_f), 0) : "—",
+          (w.conditions ?? "").replace(/\|/g, "\\|"),
+          w.precip_probability != null ? fmt(Number(w.precip_probability), 0) : "—",
+        ]),
+      ),
+      ``,
+    );
+  }
+
+  const csvRows: Record<string, string | number>[] = [];
+  for (const s of stats) {
+    for (const w of s.inWindow) {
+      csvRows.push({
+        season_year: s.season.year,
+        date: w.forecast_date,
+        high_f: w.high_temp_f ?? "",
+        low_f: w.low_temp_f ?? "",
+        conditions: w.conditions ?? "",
+        precip_probability: w.precip_probability ?? "",
+        precip_type: w.precip_type ?? "",
+      });
+    }
+  }
+
+  return {
+    slug: "weather-pattern-season",
+    title: "Weather Pattern for Season",
+    description:
+      "Per-year growing season weather (1 month before last spring frost through 1 month after first fall frost).",
+    markdown: lines.join("\n"),
+    csvColumns: [
+      { key: "season_year", label: "Season year" },
+      { key: "date", label: "Date" },
+      { key: "high_f", label: "High °F" },
+      { key: "low_f", label: "Low °F" },
+      { key: "conditions", label: "Conditions" },
+      { key: "precip_probability", label: "Precip %" },
+      { key: "precip_type", label: "Precip type" },
+    ],
+    csvRows,
+    obsidianPath: "27 Food Production/Reports/Weather Pattern for Season.md",
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Public entry point
 // ---------------------------------------------------------------------------
 
@@ -722,8 +946,10 @@ export function buildAllReports(inputs: ReportInputs): FoodReport[] {
     buildHarvestReport(inputs),
     buildGardenLayout(inputs),
     buildOptimizedGardenLayout(inputs),
+    buildWeatherPatternForSeason(inputs),
   ];
 }
+
 
 export function reportCsv(report: FoodReport): string {
   return rowsToCsv(report.csvRows, report.csvColumns);
