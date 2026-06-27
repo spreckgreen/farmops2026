@@ -244,12 +244,33 @@ function VaultEditor({
             <Label htmlFor="v-notes">Notes</Label>
             <Textarea id="v-notes" value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} disabled={!loaded && !!item} />
           </div>
+          {scope === "shared" && (
+            <div>
+              <Label htmlFor="v-env-key">
+                Expose as environment variable <span className="text-muted-foreground font-normal">(optional)</span>
+              </Label>
+              <Input
+                id="v-env-key"
+                value={envKey}
+                onChange={(e) => setEnvKey(e.target.value.toUpperCase())}
+                placeholder="e.g. GHOST_ADMIN_API_KEY"
+                className="font-mono text-sm"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                When set, server code can read this secret via <code>getServerEnv(&quot;{envKeyTrimmed || "NAME"}&quot;)</code>,
+                overriding any matching <code>process.env</code> value. Cached 60s per process.
+              </p>
+              {!envKeyValid && (
+                <p className="text-xs text-destructive mt-1">UPPER_SNAKE_CASE only (A–Z, 0–9, _).</p>
+              )}
+            </div>
+          )}
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={onCancel}>Cancel</Button>
           <Button
-            disabled={submitting || !title.trim() || (!item && !value)}
-            onClick={() => onSubmit({ title: title.trim(), value, notes })}
+            disabled={submitting || !title.trim() || (!item && !value) || !envKeyValid}
+            onClick={() => onSubmit({ title: title.trim(), value, notes, env_key: envKeyTrimmed })}
           >
             {submitting ? "Saving…" : "Save"}
           </Button>
