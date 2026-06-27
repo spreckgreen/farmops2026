@@ -146,9 +146,10 @@ function FoodReportsPage() {
       ) : (
         <Tabs
           value={current?.slug}
-          onValueChange={(slug) => navigate({ search: { report: slug } })}
+          onValueChange={(slug) => navigate({ search: { report: slug, season } })}
           className="space-y-4"
         >
+
           <TabsList className="no-print flex flex-wrap h-auto">
             {reports.map((r) => (
               <TabsTrigger key={r.slug} value={r.slug} className="text-xs">
