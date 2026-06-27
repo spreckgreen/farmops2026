@@ -178,9 +178,18 @@ export type ReportInputs = {
   plantings: Array<{ id: string; crop: string; variety: string | null; status: string | null; planted_on: string | null; expected_harvest: string | null }>;
   harvests: Array<{ id: string; planting_id: string | null; harvested_on: string; quantity: number | string; unit: string; quality: string | null; notes: string | null }>;
   garden: Array<{ row_label: string; position: number; plant_name: string | null }>;
+  weather?: Array<{
+    forecast_date: string;
+    high_temp_f: number | null;
+    low_temp_f: number | null;
+    conditions: string | null;
+    precip_probability: number | null;
+    precip_type: string | null;
+  }>;
   rowLengthFt?: number;
   generatedAt: string; // ISO
 };
+
 
 function toNum(v: unknown): number {
   if (typeof v === "number") return Number.isFinite(v) ? v : 0;
