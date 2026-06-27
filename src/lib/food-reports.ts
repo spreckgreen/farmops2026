@@ -973,11 +973,16 @@ function buildWeatherPatternForSeason(i: ReportInputs): FoodReport {
   const csvRows: Record<string, string | number>[] = [];
   for (const s of stats) {
     for (const w of s.inWindow) {
+      const grow = isGrowingDay(
+        w.high_temp_f != null ? Number(w.high_temp_f) : null,
+        w.low_temp_f != null ? Number(w.low_temp_f) : null,
+      );
       csvRows.push({
         season_year: s.season.year,
         date: w.forecast_date,
         high_f: w.high_temp_f ?? "",
         low_f: w.low_temp_f ?? "",
+        growing_day: grow ? "yes" : "no",
         conditions: w.conditions ?? "",
         precip_probability: w.precip_probability ?? "",
         precip_type: w.precip_type ?? "",
@@ -996,10 +1001,12 @@ function buildWeatherPatternForSeason(i: ReportInputs): FoodReport {
       { key: "date", label: "Date" },
       { key: "high_f", label: "High °F" },
       { key: "low_f", label: "Low °F" },
+      { key: "growing_day", label: "Growing day" },
       { key: "conditions", label: "Conditions" },
       { key: "precip_probability", label: "Precip %" },
       { key: "precip_type", label: "Precip type" },
     ],
+
     csvRows,
     obsidianPath: "27 Food Production/Reports/Weather Pattern for Season.md",
   };
