@@ -61,38 +61,72 @@ function validateNotes(n: unknown): string | null {
   return s;
 }
 
+const SELECT_COLS =
+  "id, scope, title, notes_ciphertext, env_key, created_by, owner_user_id, created_at, updated_at";
+
+type Row = {
+  id: string;
+  scope: VaultScope;
+  title: string;
+  notes_ciphertext: string | null;
+  env_key: string | null;
+  created_by: string;
+  owner_user_id: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+function toItem(r: Row): VaultItem {
+  return {
+    id: r.id,
+    scope: r.scope,
+    title: r.title,
+    has_notes: Boolean(r.notes_ciphertext),
+    env_key: r.env_key ?? null,
+    created_by: r.created_by,
+    owner_user_id: r.owner_user_id ?? null,
+    created_at: r.created_at,
+    updated_at: r.updated_at,
+  };
+}
+
+async function bustEnvCache(name: string | null | undefined) {
+  if (!name) return;
+  try {
+    const { invalidateServerEnv } = await import("./server-env.server");
+    invalidateServerEnv(name);
+  } catch {
+    /* ignore */
+  }
+}
+
 export const listVaultItems = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: { scope: VaultScope }) => ({ scope: validateScope(d?.scope) }))
   .handler(async ({ context, data }): Promise<VaultItem[]> => {
     let q = context.supabase
       .from("vault_secrets")
-      .select("id, scope, title, notes_ciphertext, created_by, owner_user_id, created_at, updated_at")
+      .select(SELECT_COLS)
       .eq("scope", data.scope)
       .order("title", { ascending: true });
     if (data.scope === "personal") q = q.eq("owner_user_id", context.userId);
     const { data: rows, error } = await q;
     if (error) throw new Error(error.message);
-    return (rows ?? []).map((r) => ({
-      id: r.id as string,
-      scope: r.scope as VaultScope,
-      title: r.title as string,
-      has_notes: Boolean(r.notes_ciphertext),
-      created_by: r.created_by as string,
-      owner_user_id: (r.owner_user_id as string | null) ?? null,
-      created_at: r.created_at as string,
-      updated_at: r.updated_at as string,
-    }));
+    return (rows ?? []).map((r) => toItem(r as unknown as Row));
   });
 
 export const createVaultItem = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { scope: VaultScope; title: string; value: string; notes?: string | null }) => ({
-    scope: validateScope(d?.scope),
-    title: validateTitle(d?.title),
-    value: validateValue(d?.value),
-    notes: validateNotes(d?.notes),
-  }))
+  .inputValidator((d: { scope: VaultScope; title: string; value: string; notes?: string | null; env_key?: string | null }) => {
+    const scope = validateScope(d?.scope);
+    return {
+      scope,
+      title: validateTitle(d?.title),
+      value: validateValue(d?.value),
+      notes: validateNotes(d?.notes),
+      env_key: validateEnvKey(d?.env_key, scope),
+    };
+  })
   .handler(async ({ context, data }): Promise<VaultItem> => {
     const { seal } = await import("./vault-crypto.server");
     const v = await seal(data.value);
@@ -110,31 +144,28 @@ export const createVaultItem = createServerFn({ method: "POST" })
         notes_ciphertext: n?.ciphertext ?? null,
         notes_iv: n?.iv ?? null,
         notes_tag: n?.tag ?? null,
+        env_key: data.env_key,
       })
-      .select("id, scope, title, notes_ciphertext, created_by, owner_user_id, created_at, updated_at")
+      .select(SELECT_COLS)
       .single();
     if (error) throw new Error(error.message);
-    return {
-      id: row.id as string,
-      scope: row.scope as VaultScope,
-      title: row.title as string,
-      has_notes: Boolean(row.notes_ciphertext),
-      created_by: row.created_by as string,
-      owner_user_id: (row.owner_user_id as string | null) ?? null,
-      created_at: row.created_at as string,
-      updated_at: row.updated_at as string,
-    };
+    await bustEnvCache(data.env_key);
+    return toItem(row as unknown as Row);
   });
 
 export const updateVaultItem = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { id: string; title?: string; value?: string; notes?: string | null }) => {
+  .inputValidator((d: { id: string; title?: string; value?: string; notes?: string | null; env_key?: string | null }) => {
     const id = String(d?.id ?? "");
     if (!id) throw new Error("id is required");
-    const patch: { id: string; title?: string; value?: string; notes?: string | null } = { id };
+    const patch: { id: string; title?: string; value?: string; notes?: string | null; env_key?: string | null } = { id };
     if (d?.title !== undefined) patch.title = validateTitle(d.title);
     if (d?.value !== undefined) patch.value = validateValue(d.value);
     if (d?.notes !== undefined) patch.notes = validateNotes(d.notes);
+    if (d?.env_key !== undefined) {
+      // Scope is validated server-side after we read the existing row.
+      patch.env_key = d.env_key == null || d.env_key === "" ? null : String(d.env_key).trim();
+    }
     return patch;
   })
   .handler(async ({ context, data }): Promise<VaultItem> => {
@@ -147,6 +178,7 @@ export const updateVaultItem = createServerFn({ method: "POST" })
       notes_ciphertext?: string | null;
       notes_iv?: string | null;
       notes_tag?: string | null;
+      env_key?: string | null;
     } = {};
     if (data.title !== undefined) update.title = data.title;
     if (data.value !== undefined) {
@@ -167,24 +199,29 @@ export const updateVaultItem = createServerFn({ method: "POST" })
         update.notes_tag = n.tag;
       }
     }
+    let previousEnvKey: string | null = null;
+    if (data.env_key !== undefined) {
+      const { data: existing, error: readErr } = await context.supabase
+        .from("vault_secrets")
+        .select("scope, env_key")
+        .eq("id", data.id)
+        .single();
+      if (readErr) throw new Error(readErr.message);
+      previousEnvKey = (existing?.env_key as string | null) ?? null;
+      update.env_key = validateEnvKey(data.env_key, existing.scope as VaultScope);
+    }
     const { data: row, error } = await context.supabase
       .from("vault_secrets")
       .update(update)
       .eq("id", data.id)
-      .select("id, scope, title, notes_ciphertext, created_by, owner_user_id, created_at, updated_at")
+      .select(SELECT_COLS)
       .single();
 
     if (error) throw new Error(error.message);
-    return {
-      id: row.id as string,
-      scope: row.scope as VaultScope,
-      title: row.title as string,
-      has_notes: Boolean(row.notes_ciphertext),
-      created_by: row.created_by as string,
-      owner_user_id: (row.owner_user_id as string | null) ?? null,
-      created_at: row.created_at as string,
-      updated_at: row.updated_at as string,
-    };
+    const finalItem = toItem(row as unknown as Row);
+    await bustEnvCache(previousEnvKey);
+    await bustEnvCache(finalItem.env_key);
+    return finalItem;
   });
 
 export const deleteVaultItem = createServerFn({ method: "POST" })
