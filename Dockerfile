@@ -145,6 +145,17 @@ RUN mkdir -p /app/dist && cp /install-log/install.log /app/dist/install.log || t
 FROM oven/bun:1-slim AS runner
 WORKDIR /app
 ENV NODE_ENV=production
+# Use bash so install-log.sh's pipeline works in the runner stage too.
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+# Bring install-log.sh and the unified install log forward so the runner
+# stage appends to the same /install-log/install.log and so a copy ships
+# inside the image at /app/install.log.
+COPY --from=builder /usr/local/bin/install-log.sh /usr/local/bin/install-log.sh
+COPY --from=builder /install-log /install-log
+RUN chmod +x /usr/local/bin/install-log.sh
+ENV INSTALL_LOG=/install-log/install.log
+
 
 # Install gosu for safe privilege de-escalation in the entrypoint.
 RUN apt-get update && \
