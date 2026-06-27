@@ -51,7 +51,7 @@ export const Route = createFileRoute("/api/public/hooks/rachio-sync")({
                     serial_number: dev.serialNumber ?? null,
                     status: dev.status ?? null,
                     last_synced_at: now,
-                    raw: dev as unknown as Record<string, unknown>,
+                    raw: dev as any,
                   },
                   { onConflict: "user_id,rachio_id" },
                 )
@@ -69,7 +69,7 @@ export const Route = createFileRoute("/api/public/hooks/rachio-sync")({
                     enabled: z.enabled ?? true,
                     nozzle: z.customNozzle?.name ?? null,
                     area_sqft: z.yardAreaSquareFeet ?? null,
-                    raw: z as unknown as Record<string, unknown>,
+                    raw: z as any,
                   },
                   { onConflict: "user_id,rachio_id" },
                 );
@@ -103,7 +103,7 @@ export const Route = createFileRoute("/api/public/hooks/rachio-sync")({
                     gallons: dataMap.gallons ? Number(dataMap.gallons) : null,
                     source: (dataMap.source || "scheduled").toLowerCase(),
                     status,
-                    raw: ev as unknown as Record<string, unknown>,
+                    raw: ev as any,
                   },
                   { onConflict: "user_id,rachio_event_id" },
                 );

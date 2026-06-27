@@ -149,7 +149,7 @@ export const syncRachioInventory = createServerFn({ method: "POST" })
             serial_number: dev.serialNumber ?? null,
             status: dev.status ?? null,
             last_synced_at: now,
-            raw: dev as unknown as Record<string, unknown>,
+            raw: dev as any,
           },
           { onConflict: "user_id,rachio_id" },
         )
@@ -169,7 +169,7 @@ export const syncRachioInventory = createServerFn({ method: "POST" })
             nozzle: z.customNozzle?.name ?? null,
             area_sqft: z.yardAreaSquareFeet ?? null,
             last_run_at: z.lastWateredDate ? new Date(z.lastWateredDate).toISOString() : null,
-            raw: z as unknown as Record<string, unknown>,
+            raw: z as any,
           },
           { onConflict: "user_id,rachio_id" },
         );
@@ -240,7 +240,7 @@ export const syncRachioRecentRuns = createServerFn({ method: "POST" })
             gallons: dataMap.gallons ? Number(dataMap.gallons) : null,
             source,
             status,
-            raw: ev as unknown as Record<string, unknown>,
+            raw: ev as any,
           },
           { onConflict: "user_id,rachio_event_id" },
         );
