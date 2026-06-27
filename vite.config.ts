@@ -11,6 +11,11 @@ import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 // Keep Docker builds deterministic by pinning the output layout to `dist/`.
 const nitroPreset = process.env.NITRO_PRESET;
 
+// Low-memory build path: trims peak Vite/Rollup RAM by ~30-40% so the
+// container build fits on 4 GB hosts. Toggled via BUILD_LOW_MEM=1 (set in
+// Dockerfile); never on in local dev unless explicitly requested.
+const lowMem = process.env.BUILD_LOW_MEM === "1";
+
 export default defineConfig({
   tanstackStart: {
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
@@ -25,6 +30,18 @@ export default defineConfig({
             dir: "dist",
             serverDir: "dist/server",
             publicDir: "dist/client",
+          },
+        },
+      }
+    : {}),
+  ...(lowMem
+    ? {
+        vite: {
+          build: {
+            minify: "esbuild" as const,
+            sourcemap: false,
+            // Skips the final gzip-size pass that briefly doubles RAM.
+            reportCompressedSize: false,
           },
         },
       }

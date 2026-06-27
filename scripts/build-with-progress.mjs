@@ -31,6 +31,8 @@ const log = (msg) => console.log(`[build ${stamp()} +${fmt(performance.now() - s
 const PHASES = [
   { re: /transforming\.\.\./i, name: "transform" },
   { re: /rendering chunks/i, name: "render-chunks" },
+  { re: /generating bundle/i, name: "rollup-generate" },
+  { re: /writing.*(assets|bundle)/i, name: "rollup-write" },
   { re: /computing gzip size/i, name: "gzip" },
   { re: /built in /i, name: "client-built" },
   { re: /\[nitro\]/i, name: "nitro" },
@@ -39,9 +41,26 @@ const PHASES = [
 ];
 const seen = new Set();
 
+// Read host memory once at startup, then RSS deltas on each heartbeat.
+import { readFileSync } from "node:fs";
+function hostMemMB() {
+  try {
+    const m = readFileSync("/proc/meminfo", "utf8");
+    const total = /MemTotal:\s+(\d+)/.exec(m)?.[1];
+    const avail = /MemAvailable:\s+(\d+)/.exec(m)?.[1];
+    if (!total) return null;
+    return { totalMB: Math.round(+total / 1024), availMB: avail ? Math.round(+avail / 1024) : null };
+  } catch {
+    return null;
+  }
+}
+const HOST = hostMemMB();
+const HEAP_CAP = /max-old-space-size=(\d+)/.exec(process.env.NODE_OPTIONS ?? "")?.[1];
+
 log(`starting vite build (heartbeat=${HEARTBEAT_MS / 1000}s stall=${STALL_MS / 1000}s max=${MAX_MS / 1000}s)`);
 log(`node=${process.version} platform=${process.platform} cwd=${process.cwd()}`);
-log(`NITRO_PRESET=${process.env.NITRO_PRESET ?? "(default)"}`);
+log(`NITRO_PRESET=${process.env.NITRO_PRESET ?? "(default)"} BUILD_LOW_MEM=${process.env.BUILD_LOW_MEM ?? "0"}`);
+log(`heap cap=${HEAP_CAP ?? "(node default)"}MB host=${HOST ? `${HOST.totalMB}MB total, ${HOST.availMB}MB avail` : "(unknown)"}`);
 
 const args = ["vite", "build", ...process.argv.slice(2)];
 const child = spawn("bunx", args, {
@@ -79,7 +98,11 @@ wire(child.stderr, "stderr");
 
 const heartbeat = setInterval(() => {
   const idle = performance.now() - lastOutput;
-  log(`heartbeat — idle ${fmt(idle)}, phases done: ${[...seen].join(",") || "(none yet)"}`);
+  const mu = process.memoryUsage();
+  const rssMB = Math.round(mu.rss / 1024 / 1024);
+  const host = hostMemMB();
+  const hostStr = host?.availMB != null ? ` host-avail=${host.availMB}MB` : "";
+  log(`heartbeat — idle ${fmt(idle)} wrapper-rss=${rssMB}MB${hostStr} phases: ${[...seen].join(",") || "(none yet)"}`);
 }, HEARTBEAT_MS);
 
 // Stall detection is advisory only. Vite is largely silent in non-TTY mode
@@ -112,7 +135,24 @@ child.on("exit", (code, signal) => {
   clearAll();
   log(`vite build exited code=${code} signal=${signal ?? "none"} elapsed=${fmt(performance.now() - start)}`);
   if (code !== 0) {
-    log(`FAIL — last phase reached: ${[...seen].pop() ?? "(none)"}`);
+    const lastPhase = [...seen].pop() ?? "(none)";
+    log(`FAIL — last phase reached: ${lastPhase}`);
+    // OOM signature: SIGKILL with no exit code, or code 134/137, or an
+    // unfinished transform phase on a tight heap. Surface a targeted hint
+    // so the install log clearly points at memory, not at a code bug.
+    const looksOom =
+      signal === "SIGKILL" ||
+      code === 137 ||
+      code === 134 ||
+      (lastPhase === "transform" && HEAP_CAP && Number(HEAP_CAP) <= 3072);
+    if (looksOom) {
+      const host = hostMemMB();
+      log(
+        `FAIL: likely OOM — heap cap was ${HEAP_CAP ?? "(default)"}MB, host has ${
+          host?.totalMB ?? "?"
+        }MB total. Rebuild with --build-arg NODE_HEAP_MB=<value> (use ~60% of host RAM), or free memory on the host.`,
+      );
+    }
     process.exit(code ?? 1);
   }
   log(`SUCCESS — phases: ${[...seen].join(",") || "(none detected)"}`);

@@ -28,7 +28,7 @@ fi
 
 LOG="${INSTALL_LOG:-/tmp/bostead-install.log}"
 TAIL_LINES="${TAIL_LINES:-80}"
-ERROR_GREP="${ERROR_GREP:-error|failed|exception|cannot|not found|permission denied|sudo|authenticate|timeout|killed|oom|heap|enospc|eacces}"
+ERROR_GREP="${ERROR_GREP:-error|failed|exception|cannot|not found|permission denied|sudo|authenticate|timeout|killed|oom|out of memory|heap|signal 9|exit(ed)? (with )?(code )?(137|134)|enospc|eacces}"
 
 mkdir -p "$(dirname "$LOG")" 2>/dev/null || true
 touch "$LOG" 2>/dev/null || {
