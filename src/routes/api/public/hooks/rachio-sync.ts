@@ -58,6 +58,7 @@ export const Route = createFileRoute("/api/public/hooks/rachio-sync")({
                 .select("id")
                 .single();
               ctrlCount++;
+              if (!ctrl?.id) continue;
               for (const z of dev.zones ?? []) {
                 await supabaseAdmin.from("rachio_zones").upsert(
                   {
