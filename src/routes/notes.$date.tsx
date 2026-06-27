@@ -55,6 +55,17 @@ function NotePage() {
     queryFn: () => fetchNote({ data: { date } }),
   });
 
+  const fetchForecast = useServerFn(getDailyForecast);
+  const weatherQuery = useQuery({
+    queryKey: ["weather", date],
+    queryFn: () => fetchForecast({ data: { date } }),
+    staleTime: 5 * 60 * 1000,
+  });
+  const refreshWeather = useMutation({
+    mutationFn: () => fetchForecast({ data: { date, refresh: true } }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["weather", date] }),
+  });
+
   const [draft, setDraft] = useState<string>("");
   const lastSavedRef = useRef<string>("");
 
