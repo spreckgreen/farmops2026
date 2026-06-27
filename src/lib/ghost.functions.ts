@@ -73,8 +73,9 @@ export const publishToGhost = createServerFn({ method: "POST" })
     } satisfies Required<Input>;
   })
   .handler(async ({ data }) => {
-    const url = process.env.GHOST_API_URL;
-    const adminKey = process.env.GHOST_ADMIN_API_KEY;
+    const { getServerEnv } = await import("./server-env.server");
+    const url = await getServerEnv("GHOST_API_URL");
+    const adminKey = await getServerEnv("GHOST_ADMIN_API_KEY");
     if (!url) throw new Error("GHOST_API_URL is not configured on the server.");
     if (!adminKey) throw new Error("GHOST_ADMIN_API_KEY is not configured on the server.");
 
