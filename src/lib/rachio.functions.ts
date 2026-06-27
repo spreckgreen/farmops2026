@@ -83,7 +83,9 @@ export const saveRachioToken = createServerFn({ method: "POST" })
   .inputValidator((d: { token: string }) => {
     const t = String(d?.token ?? "").trim();
     if (!t) throw new Error("token is required");
-    if (t.length > 1024) throw new Error("token too long");
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(t)) {
+      throw new Error("Invalid Rachio token format (expected UUID)");
+    }
     return { token: t };
   })
   .handler(async ({ context, data }): Promise<{ ok: true; personId: string }> => {
