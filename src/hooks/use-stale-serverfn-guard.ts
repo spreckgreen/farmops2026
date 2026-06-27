@@ -227,18 +227,37 @@ function installFetchPatch() {
           safeSession(() => sessionStorage.removeItem(RETRY_FLAG), undefined);
         } else if (res.status === 500 || res.status === 404) {
           const text = await res.clone().text();
-          if (looksLikeStaleServerFn(url, res.status, text)) {
-            const serverFnId = extractServerFnId(url);
+          const detection = looksLikeStaleServerFn(url, res.status, text);
+          const serverFnId = extractServerFnId(url);
+          const bodySnippet = text.slice(0, 200);
+          // eslint-disable-next-line no-console
+          console.warn("[stale-serverfn] detected non-OK /_serverFn/ response", {
+            url: redactUrl(url),
+            status: res.status,
+            stale: detection.stale,
+            reason: detection.reason,
+            serverFnIdShort: serverFnId.slice(0, 24),
+            bodySnippet,
+          });
+          if (detection.stale) {
             const context = {
               url: redactUrl(url),
               route: redactRoute(window.location.pathname, window.location.search),
               serverFnId,
               serverFnIdShort: serverFnId.slice(0, 24),
               status: res.status,
-              bodySnippet: text.slice(0, 200),
+              bodySnippet: `[${detection.reason}] ${bodySnippet}`,
               userAgent: navigator.userAgent,
             };
             resolvePendingOutcome(false);
+            const alreadyTried = safeSession(() => sessionStorage.getItem(RETRY_FLAG), null);
+            // eslint-disable-next-line no-console
+            console.warn("[stale-serverfn] triggering refresh action", {
+              action: alreadyTried ? "manual-prompt" : "auto-reload",
+              previousAutoReloadAt: alreadyTried,
+              reason: detection.reason,
+              route: context.route,
+            });
             if (!autoReloadOnce(context)) promptReload(context);
           }
         }
