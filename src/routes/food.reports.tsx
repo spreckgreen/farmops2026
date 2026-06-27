@@ -161,9 +161,33 @@ function FoodReportsPage() {
           {reports.map((r) => (
             <TabsContent key={r.slug} value={r.slug} className="mt-0">
               <div className="flex flex-wrap gap-2 mb-3 no-print">
+                {r.slug === "weather-pattern-season" && (
+                  <>
+                    <Select
+                      value={selectedSeason}
+                      onValueChange={(v) => navigate({ search: { report: r.slug, season: v } })}
+                    >
+                      <SelectTrigger className="h-8 w-[140px] text-xs">
+                        <SelectValue placeholder="Season" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {seasonYears.map((y) => (
+                          <SelectItem key={y} value={String(y)} className="text-xs">
+                            {y} season
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button size="sm" variant="outline" onClick={handleBackfill} disabled={backfilling}>
+                      <CloudDownload className={`h-4 w-4 mr-1 ${backfilling ? "animate-pulse" : ""}`} />
+                      {backfilling ? "Pulling…" : `Backfill ${selectedSeason}`}
+                    </Button>
+                  </>
+                )}
                 <Button size="sm" variant="outline" onClick={() => window.print()}>
                   <Printer className="h-4 w-4 mr-1" /> Print
                 </Button>
+
                 <Button
                   size="sm"
                   variant="outline"
