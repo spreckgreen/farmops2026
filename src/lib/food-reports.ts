@@ -10,7 +10,9 @@ export type ReportSlug =
   | "long-term-storage-plan"
   | "harvest-report"
   | "garden-layout"
-  | "optimized-garden-layout";
+  | "optimized-garden-layout"
+  | "weather-pattern-season";
+
 
 export type CsvColumn = { key: string; label: string };
 
