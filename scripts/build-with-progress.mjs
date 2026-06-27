@@ -31,6 +31,8 @@ const log = (msg) => console.log(`[build ${stamp()} +${fmt(performance.now() - s
 const PHASES = [
   { re: /transforming\.\.\./i, name: "transform" },
   { re: /rendering chunks/i, name: "render-chunks" },
+  { re: /generating bundle/i, name: "rollup-generate" },
+  { re: /writing.*(assets|bundle)/i, name: "rollup-write" },
   { re: /computing gzip size/i, name: "gzip" },
   { re: /built in /i, name: "client-built" },
   { re: /\[nitro\]/i, name: "nitro" },
@@ -38,6 +40,22 @@ const PHASES = [
   { re: /You can preview this build/i, name: "done" },
 ];
 const seen = new Set();
+
+// Read host memory once at startup, then RSS deltas on each heartbeat.
+import { readFileSync } from "node:fs";
+function hostMemMB() {
+  try {
+    const m = readFileSync("/proc/meminfo", "utf8");
+    const total = /MemTotal:\s+(\d+)/.exec(m)?.[1];
+    const avail = /MemAvailable:\s+(\d+)/.exec(m)?.[1];
+    if (!total) return null;
+    return { totalMB: Math.round(+total / 1024), availMB: avail ? Math.round(+avail / 1024) : null };
+  } catch {
+    return null;
+  }
+}
+const HOST = hostMemMB();
+const HEAP_CAP = /max-old-space-size=(\d+)/.exec(process.env.NODE_OPTIONS ?? "")?.[1];
 
 log(`starting vite build (heartbeat=${HEARTBEAT_MS / 1000}s stall=${STALL_MS / 1000}s max=${MAX_MS / 1000}s)`);
 log(`node=${process.version} platform=${process.platform} cwd=${process.cwd()}`);
