@@ -54,16 +54,27 @@ ENV VITE_SUPABASE_PUBLISHABLE_KEY=${VITE_SUPABASE_PUBLISHABLE_KEY}
 ENV VITE_SUPABASE_PROJECT_ID=${VITE_SUPABASE_PROJECT_ID}
 
 COPY --from=deps /app/node_modules ./node_modules
+# Bring the unified install log forward from the deps stage so the runner
+# image carries one consolidated log file covering every build phase.
+COPY --from=deps /install-log /install-log
 COPY . .
+
+# Make install-log.sh available on PATH and pin INSTALL_LOG for the builder.
+RUN cp /app/scripts/install-log.sh /usr/local/bin/install-log.sh && \
+    chmod +x /usr/local/bin/install-log.sh
+ENV INSTALL_LOG=/install-log/install.log
 
 # ------------------------------------------------------------------
 # Up-front preflight: delegate to scripts/docker-preflight.sh so the
 # same validation runs locally and inside the builder. Fails fast with
 # ERROR: missing file: <path> / ERROR: not executable: <path> before
-# any privileged or long-running build command.
+# any privileged or long-running build command. Routed through
+# install-log.sh so the failure shows up in /install-log/install.log
+# with a [preflight] tag.
 # ------------------------------------------------------------------
 RUN chmod +x /app/scripts/docker-preflight.sh 2>/dev/null || true && \
-    APP_ROOT=/app CHECK_NODE_MODULES=1 bash /app/scripts/docker-preflight.sh
+    APP_ROOT=/app CHECK_NODE_MODULES=1 \
+      install-log.sh preflight bash /app/scripts/docker-preflight.sh
 
 
 # Build a Node-compatible server bundle instead of the default Cloudflare Worker.
@@ -81,50 +92,15 @@ RUN --mount=type=cache,target=/app/node_modules/.vite,sharing=locked \
     --mount=type=cache,target=/root/.cache,sharing=locked \
     echo "=============================================" && \
     echo "=== [builder] STAGE 2/3: Vite + Nitro build ===" && \
-    echo "=== [builder] Command: bun run build:ci (scripts/build-with-progress.mjs)" && \
+    echo "=== [builder] Command: install-log.sh build bun run build:ci" && \
     echo "=== [builder] NITRO_PRESET=$NITRO_PRESET" && \
     echo "=== [builder] NODE_OPTIONS=$NODE_OPTIONS" && \
+    echo "=== [builder] INSTALL_LOG=$INSTALL_LOG" && \
     echo "=== [builder] Stall guard: BUILD_STALL_SECS=600, hard cap BUILD_MAX_SECS=2700" && \
     echo "=== [builder] Started at $(date +%H:%M:%S)" && \
-    echo "=== [builder] Verifying scripts/ directory is present in build context ===" && \
-    PROGRESS_SCRIPT=/app/scripts/build-with-progress.mjs && \
-    if [ ! -d /app/scripts ]; then \
-      echo "ERROR: missing path: /app/scripts (directory not present in builder image)" >&2; \
-      echo "Check .dockerignore — scripts/ must NOT be excluded wholesale." >&2; \
-      exit 1; \
-    fi && \
-    echo "--- /app/scripts listing ---" && \
-    ls -la /app/scripts && \
-    if [ ! -f "$PROGRESS_SCRIPT" ]; then \
-      echo "ERROR: missing file: $PROGRESS_SCRIPT" >&2; \
-      echo "build:ci cannot run without this wrapper script." >&2; \
-      exit 1; \
-    fi && \
-    if [ ! -x "$PROGRESS_SCRIPT" ]; then \
-      echo "WARN: $PROGRESS_SCRIPT is not executable; applying chmod +x" >&2; \
-      chmod +x "$PROGRESS_SCRIPT"; \
-    fi && \
-    if [ ! -x "$PROGRESS_SCRIPT" ]; then \
-      echo "ERROR: not executable: $PROGRESS_SCRIPT (chmod +x failed)" >&2; \
-      exit 1; \
-    fi && \
-    echo "--- build-with-progress.mjs found, executable ($(wc -l < "$PROGRESS_SCRIPT") lines, mode $(stat -c '%a' "$PROGRESS_SCRIPT")) ---" && \
-    echo "--- If you see a '[sudo] password' prompt, that is from the host shell before Docker starts; this image does not run sudo during build. ---" && \
     echo "=============================================" && \
-    BUILD_LOG=/tmp/bostead-build-ci.log; \
-    rm -f "$BUILD_LOG"; \
-    bun run build:ci 2>&1 | tee "$BUILD_LOG"; \
-    STATUS=${PIPESTATUS[0]}; \
-    if [ "$STATUS" -ne 0 ]; then \
-      echo "=== [builder] ERROR: build:ci failed with status $STATUS at $(date +%H:%M:%S) ===" >&2; \
-      echo "=== [builder] Last 200 build log lines ===" >&2; \
-      tail -n 200 "$BUILD_LOG" >&2 || true; \
-      echo "=== [builder] Error-looking lines from build log ===" >&2; \
-      grep -Ein "error|failed|exception|cannot|not found|permission denied|sudo|authenticate|timeout|killed|oom|heap" "$BUILD_LOG" | tail -n 80 >&2 || true; \
-      exit "$STATUS"; \
-    fi; \
-    echo "=== [builder] build:ci finished with status $STATUS at $(date +%H:%M:%S) ===" && \
-    exit $STATUS
+    install-log.sh build bun run build:ci
+
 
 
 
