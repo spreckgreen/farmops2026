@@ -98,7 +98,11 @@ wire(child.stderr, "stderr");
 
 const heartbeat = setInterval(() => {
   const idle = performance.now() - lastOutput;
-  log(`heartbeat — idle ${fmt(idle)}, phases done: ${[...seen].join(",") || "(none yet)"}`);
+  const mu = process.memoryUsage();
+  const rssMB = Math.round(mu.rss / 1024 / 1024);
+  const host = hostMemMB();
+  const hostStr = host?.availMB != null ? ` host-avail=${host.availMB}MB` : "";
+  log(`heartbeat — idle ${fmt(idle)} wrapper-rss=${rssMB}MB${hostStr} phases: ${[...seen].join(",") || "(none yet)"}`);
 }, HEARTBEAT_MS);
 
 // Stall detection is advisory only. Vite is largely silent in non-TTY mode
