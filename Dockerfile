@@ -46,6 +46,84 @@ ENV VITE_SUPABASE_PROJECT_ID=${VITE_SUPABASE_PROJECT_ID}
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
+# ------------------------------------------------------------------
+# Up-front preflight: validate ALL required files and permissions
+# BEFORE any privileged or long-running build commands. Fail fast
+# with a clear "ERROR: missing file: <path>" / "ERROR: not executable:
+# <path>" message so Docker logs pinpoint the exact problem instead
+# of crashing deep inside the Vite/Nitro bundle step.
+# ------------------------------------------------------------------
+RUN set -eu; \
+    echo "============================================="; \
+    echo "=== [preflight] Validating build context at $(date +%H:%M:%S) ==="; \
+    echo "============================================="; \
+    REQUIRED_FILES="\
+      /app/package.json \
+      /app/bun.lock \
+      /app/vite.config.ts \
+      /app/tsconfig.json \
+      /app/src/router.tsx \
+      /app/src/server.ts \
+      /app/src/start.ts \
+      /app/src/routes/__root.tsx \
+      /app/src/routes/index.tsx \
+    "; \
+    REQUIRED_DIRS="\
+      /app/src \
+      /app/src/routes \
+      /app/src/lib \
+      /app/src/components \
+      /app/node_modules \
+      /app/scripts \
+    "; \
+    REQUIRED_EXEC="\
+      /app/scripts/build-with-progress.mjs \
+    "; \
+    fail=0; \
+    for d in $REQUIRED_DIRS; do \
+      if [ ! -d "$d" ]; then \
+        echo "ERROR: missing directory: $d" >&2; \
+        fail=1; \
+      else \
+        echo "  ok dir : $d"; \
+      fi; \
+    done; \
+    for f in $REQUIRED_FILES; do \
+      if [ ! -f "$f" ]; then \
+        echo "ERROR: missing file: $f" >&2; \
+        fail=1; \
+      else \
+        echo "  ok file: $f ($(wc -c < "$f") bytes)"; \
+      fi; \
+    done; \
+    for f in $REQUIRED_EXEC; do \
+      if [ ! -f "$f" ]; then \
+        echo "ERROR: missing file: $f" >&2; \
+        fail=1; \
+        continue; \
+      fi; \
+      if [ ! -x "$f" ]; then \
+        echo "WARN: $f is not executable; applying chmod +x" >&2; \
+        chmod +x "$f" || true; \
+      fi; \
+      if [ ! -x "$f" ]; then \
+        echo "ERROR: not executable: $f" >&2; \
+        fail=1; \
+      else \
+        echo "  ok exec: $f (mode $(stat -c '%a' "$f"))"; \
+      fi; \
+    done; \
+    if [ ! -d /app/node_modules/vite ]; then \
+      echo "ERROR: missing directory: /app/node_modules/vite (deps stage did not copy correctly)" >&2; \
+      fail=1; \
+    fi; \
+    if [ "$fail" -ne 0 ]; then \
+      echo "=== [preflight] FAILED — fix the ERROR lines above before retrying ===" >&2; \
+      echo "    Common causes: overly broad .dockerignore, missing source file, broken deps copy" >&2; \
+      exit 1; \
+    fi; \
+    echo "=== [preflight] PASSED — all required files, dirs, and exec bits present ==="
+
 # Build a Node-compatible server bundle instead of the default Cloudflare Worker.
 # vite.config.ts forwards NITRO_PRESET into the nitro plugin's `preset` option.
 ENV NITRO_PRESET=node-server
