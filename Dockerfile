@@ -194,19 +194,24 @@ RUN --mount=type=cache,target=/bun-cache,uid=${UID},gid=${GID},sharing=locked \
     echo "=== End artifact copy ===" && \
     echo "=============================================" && \
     echo "=== [runner] STAGE 3/3: Production install ===" && \
-    echo "=== [runner] Command: gosu appuser bun install --production --frozen-lockfile" && \
-    echo "=== [runner] Installs prod-only deps for the final runtime image" && \
+    echo "=== [runner] Command: install-log.sh runner-install gosu appuser bun install --production --frozen-lockfile" && \
+    echo "=== [runner] INSTALL_LOG=$INSTALL_LOG" && \
     echo "=== [runner] BuildKit cache mount: /bun-cache (BUN_INSTALL_CACHE_DIR)" && \
-    echo "=== [runner] Started at $(date +%H:%M:%S)" && \
     echo "=============================================" && \
     ( while :; do sleep 10; echo "  [runner] still installing... ($(date +%H:%M:%S))"; done ) & \
     HEARTBEAT_PID=$!; \
-    gosu appuser env BUN_INSTALL_CACHE_DIR=/bun-cache \
+    install-log.sh runner-install gosu appuser env BUN_INSTALL_CACHE_DIR=/bun-cache \
       bun install --production --frozen-lockfile; \
     STATUS=$?; \
     kill $HEARTBEAT_PID 2>/dev/null || true; \
-    echo "=== [runner] bun install --production finished with status $STATUS at $(date +%H:%M:%S) ===" && \
     exit $STATUS
+
+# Persist the final unified install log into the image so it can be inspected
+# via `docker cp <container>:/app/install.log` or via the bind mount at
+# /var/log/bostead/install.log (see docker-compose.yml).
+RUN cp /install-log/install.log /app/install.log 2>/dev/null || true && \
+    chown appuser:nodejs /app/install.log 2>/dev/null || true
+
 
 
 # Entrypoint runs as root to chown mounts, then drops to appuser via gosu.
