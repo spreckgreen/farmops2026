@@ -59,7 +59,8 @@ const HEAP_CAP = /max-old-space-size=(\d+)/.exec(process.env.NODE_OPTIONS ?? "")
 
 log(`starting vite build (heartbeat=${HEARTBEAT_MS / 1000}s stall=${STALL_MS / 1000}s max=${MAX_MS / 1000}s)`);
 log(`node=${process.version} platform=${process.platform} cwd=${process.cwd()}`);
-log(`NITRO_PRESET=${process.env.NITRO_PRESET ?? "(default)"}`);
+log(`NITRO_PRESET=${process.env.NITRO_PRESET ?? "(default)"} BUILD_LOW_MEM=${process.env.BUILD_LOW_MEM ?? "0"}`);
+log(`heap cap=${HEAP_CAP ?? "(node default)"}MB host=${HOST ? `${HOST.totalMB}MB total, ${HOST.availMB}MB avail` : "(unknown)"}`);
 
 const args = ["vite", "build", ...process.argv.slice(2)];
 const child = spawn("bunx", args, {
