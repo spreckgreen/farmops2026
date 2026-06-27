@@ -52,13 +52,13 @@ function VaultPane({ scope }: { scope: VaultScope }) {
   const [editing, setEditing] = useState<VaultItem | "new" | null>(null);
 
   const createMut = useMutation({
-    mutationFn: (v: { title: string; value: string; notes: string }) =>
-      create({ data: { scope, title: v.title, value: v.value, notes: v.notes || null } }),
+    mutationFn: (v: { title: string; value: string; notes: string; env_key: string }) =>
+      create({ data: { scope, title: v.title, value: v.value, notes: v.notes || null, env_key: scope === "shared" ? (v.env_key || null) : null } }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["vault", scope] }); setEditing(null); toast.success("Secret saved"); },
     onError: (e) => toast.error(e instanceof Error ? e.message : String(e)),
   });
   const updateMut = useMutation({
-    mutationFn: (v: { id: string; title: string; value?: string; notes?: string | null }) =>
+    mutationFn: (v: { id: string; title: string; value?: string; notes?: string | null; env_key?: string | null }) =>
       update({ data: v }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["vault", scope] }); setEditing(null); toast.success("Updated"); },
     onError: (e) => toast.error(e instanceof Error ? e.message : String(e)),
