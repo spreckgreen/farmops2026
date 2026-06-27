@@ -42,7 +42,7 @@ export const Route = createFileRoute("/api/public/webhooks/rachio")({
             signature_ok: signatureOk,
             event_type: eventType || null,
             external_id: externalId || null,
-            payload,
+            payload: payload as any,
           })
           .select("id")
           .single();
