@@ -72,20 +72,55 @@ async function syncReportToObsidian(report: FoodReport): Promise<"ok" | "unsuppo
 }
 
 function FoodReportsPage() {
-  const { report } = Route.useSearch();
+  const { report, season } = Route.useSearch();
   const navigate = useNavigate({ from: Route.id });
   const reportsFn = useServerFn(getFoodReports);
+  const backfillFn = useServerFn(backfillSeasonWeather);
   const reportsQ = useQuery({
     queryKey: ["food-reports"],
     queryFn: () => reportsFn(),
   });
   const reports = reportsQ.data?.reports ?? [];
   const current = reports.find((r) => r.slug === report) ?? reports[0];
+  const [backfilling, setBackfilling] = useState(false);
+
+  // Build the list of selectable seasons: 2010 → next year.
+  const currentYear = new Date().getUTCFullYear();
+  const seasonYears: number[] = [];
+  for (let y = currentYear + 1; y >= 2010; y--) seasonYears.push(y);
+  const selectedSeason = season || String(currentYear);
+
+  async function handleBackfill() {
+    const year = Number(selectedSeason);
+    if (!Number.isFinite(year)) return;
+    const [lsm, lsd] = LAST_SPRING_FROST_MMDD.split("-").map(Number);
+    const [ffm, ffd] = FIRST_FALL_FROST_MMDD.split("-").map(Number);
+    const start = new Date(Date.UTC(year, lsm - 1, lsd));
+    start.setUTCMonth(start.getUTCMonth() - 1);
+    const end = new Date(Date.UTC(year, ffm - 1, ffd));
+    end.setUTCMonth(end.getUTCMonth() + 1);
+    const fmt = (d: Date) => d.toISOString().slice(0, 10);
+    setBackfilling(true);
+    try {
+      const res = await backfillFn({ data: { startDate: fmt(start), endDate: fmt(end) } });
+      toast.success(
+        `Backfilled ${res.inserted} day${res.inserted === 1 ? "" : "s"} for ${year} (source: ${res.source}${res.skipped ? `, skipped ${res.skipped} cached` : ""})`,
+      );
+      await reportsQ.refetch();
+    } catch (e) {
+      toast.error(`Backfill failed: ${(e as Error).message}`);
+    } finally {
+      setBackfilling(false);
+    }
+  }
+
+  const isWeatherReport = current?.slug === "weather-pattern-season";
 
   return (
     <div className="space-y-4">
       <div className="flex items-start justify-between flex-wrap gap-3 no-print">
         <div>
+
           <h2 className="text-xl font-mono font-semibold">Food Reports</h2>
           <p className="text-sm text-muted-foreground mt-1">
             Pre-built reports derived from your food plan, storage, harvests, and garden. Preview, print, download, or sync to your Obsidian vault.
