@@ -16,6 +16,7 @@ import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as ProjectsRouteImport } from './routes/projects'
 import { Route as ProceduresRouteImport } from './routes/procedures'
 import { Route as MaintenanceRouteImport } from './routes/maintenance'
+import { Route as IrrigationRouteImport } from './routes/irrigation'
 import { Route as InventoryRouteImport } from './routes/inventory'
 import { Route as FoodRouteImport } from './routes/food'
 import { Route as DashboardRouteImport } from './routes/dashboard'
@@ -79,6 +80,11 @@ const ProceduresRoute = ProceduresRouteImport.update({
 const MaintenanceRoute = MaintenanceRouteImport.update({
   id: '/maintenance',
   path: '/maintenance',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IrrigationRoute = IrrigationRouteImport.update({
+  id: '/irrigation',
+  path: '/irrigation',
   getParentRoute: () => rootRouteImport,
 } as any)
 const InventoryRoute = InventoryRouteImport.update({
@@ -235,6 +241,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRoute
   '/food': typeof FoodRouteWithChildren
   '/inventory': typeof InventoryRoute
+  '/irrigation': typeof IrrigationRoute
   '/maintenance': typeof MaintenanceRoute
   '/procedures': typeof ProceduresRoute
   '/projects': typeof ProjectsRoute
@@ -272,6 +279,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/dashboard': typeof DashboardRoute
   '/inventory': typeof InventoryRoute
+  '/irrigation': typeof IrrigationRoute
   '/maintenance': typeof MaintenanceRoute
   '/procedures': typeof ProceduresRoute
   '/projects': typeof ProjectsRoute
@@ -311,6 +319,7 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRoute
   '/food': typeof FoodRouteWithChildren
   '/inventory': typeof InventoryRoute
+  '/irrigation': typeof IrrigationRoute
   '/maintenance': typeof MaintenanceRoute
   '/procedures': typeof ProceduresRoute
   '/projects': typeof ProjectsRoute
@@ -351,6 +360,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/food'
     | '/inventory'
+    | '/irrigation'
     | '/maintenance'
     | '/procedures'
     | '/projects'
@@ -388,6 +398,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/dashboard'
     | '/inventory'
+    | '/irrigation'
     | '/maintenance'
     | '/procedures'
     | '/projects'
@@ -426,6 +437,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/food'
     | '/inventory'
+    | '/irrigation'
     | '/maintenance'
     | '/procedures'
     | '/projects'
@@ -465,6 +477,7 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRoute
   FoodRoute: typeof FoodRouteWithChildren
   InventoryRoute: typeof InventoryRoute
+  IrrigationRoute: typeof IrrigationRoute
   MaintenanceRoute: typeof MaintenanceRoute
   ProceduresRoute: typeof ProceduresRoute
   ProjectsRoute: typeof ProjectsRoute
@@ -536,6 +549,13 @@ declare module '@tanstack/react-router' {
       path: '/maintenance'
       fullPath: '/maintenance'
       preLoaderRoute: typeof MaintenanceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/irrigation': {
+      id: '/irrigation'
+      path: '/irrigation'
+      fullPath: '/irrigation'
+      preLoaderRoute: typeof IrrigationRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/inventory': {
@@ -780,6 +800,7 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRoute,
   FoodRoute: FoodRouteWithChildren,
   InventoryRoute: InventoryRoute,
+  IrrigationRoute: IrrigationRoute,
   MaintenanceRoute: MaintenanceRoute,
   ProceduresRoute: ProceduresRoute,
   ProjectsRoute: ProjectsRoute,
