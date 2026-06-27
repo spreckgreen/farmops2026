@@ -4,19 +4,23 @@ import { useServerFn } from "@tanstack/react-start";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Download, Printer, RefreshCw } from "lucide-react";
+import { Download, Printer, RefreshCw, CloudDownload } from "lucide-react";
+import { useState } from "react";
 import { z } from "zod";
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { getFoodReports } from "@/lib/food-reports.functions";
+import { backfillSeasonWeather } from "@/lib/weather.functions";
 import { downloadCsv } from "@/lib/csv";
-import { reportCsv, reportMarkdownFile, type FoodReport } from "@/lib/food-reports";
+import { reportCsv, reportMarkdownFile, type FoodReport, LAST_SPRING_FROST_MMDD, FIRST_FALL_FROST_MMDD } from "@/lib/food-reports";
 import { ReportView } from "@/components/report-view";
 import { SendToGhostButton } from "@/components/send-to-ghost-button";
 import { markdownReportToGhost } from "@/lib/report-html";
 
 const searchSchema = z.object({
   report: fallback(z.string(), "").default(""),
+  season: fallback(z.string(), "").default(""),
 });
 
 export const Route = createFileRoute("/food/reports")({
@@ -24,6 +28,7 @@ export const Route = createFileRoute("/food/reports")({
   head: () => ({ meta: [{ title: "Food Reports — Bostead Farms" }] }),
   component: FoodReportsPage,
 });
+
 
 function downloadText(filename: string, text: string, mime = "text/markdown;charset=utf-8") {
   const blob = new Blob([text], { type: mime });
