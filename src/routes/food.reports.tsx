@@ -114,7 +114,8 @@ function FoodReportsPage() {
     }
   }
 
-  const isWeatherReport = current?.slug === "weather-pattern-season";
+
+
 
   return (
     <div className="space-y-4">
