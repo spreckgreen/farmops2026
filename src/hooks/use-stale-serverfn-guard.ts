@@ -184,8 +184,19 @@ function looksLikeStaleServerFn(url: string, status: number, body: string) {
     return { stale: true, reason: "h3-unhandled-httperror" };
   if (/no stack was captured/i.test(body)) return { stale: true, reason: "no-stack-captured" };
   if (/handled by a (route|error) boundary/i.test(body)) return { stale: true, reason: "handled-by-boundary" };
-  return { stale: false, reason: "500-with-stack" };
+  // Our SSR wrapper (src/server.ts) returns this HTML fallback whenever it
+  // catches a thrown error OR normalizes an h3-swallowed HTTPError response.
+  // Either way, the original request is unrecoverable in this tab — a one-shot
+  // reload is the only way out, since the user sees a blank screen otherwise.
+  if (/<title>This page didn't load<\/title>/i.test(body))
+    return { stale: true, reason: "ssr-wrapper-error-page" };
+  // Any 500 on /_serverFn/ with no captured stack indicates the SSR boundary
+  // ate the error. Trigger the one-shot reload guard rather than leaving the
+  // user with a blank screen.
+  if (status === 500) return { stale: true, reason: "500-on-serverfn" };
+  return { stale: false, reason: `status-${status}` };
 }
+
 
 
 
