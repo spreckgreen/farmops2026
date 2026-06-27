@@ -48,6 +48,20 @@ if [ "$(id -u)" = "0" ]; then
         usermod -o -u "${TARGET_UID}" -g "${TARGET_GID}" "${APP_USER}"
     fi
 
+    # Surface the build-time install log on the host bind mount, if present,
+    # so failures and successes from `docker build` are visible from the host
+    # via `tail -f ./logs/install.log` even after the image is shipped.
+    if [ -d /var/log/bostead ]; then
+        if [ -f /app/install.log ]; then
+            cp /app/install.log /var/log/bostead/install.log 2>/dev/null || \
+                echo "warn: could not copy /app/install.log to /var/log/bostead/" >&2
+            chown "${TARGET_UID}:${TARGET_GID}" /var/log/bostead/install.log 2>/dev/null || true
+            echo "=== [entrypoint] Install log copied to /var/log/bostead/install.log ==="
+        fi
+        chown "${TARGET_UID}:${TARGET_GID}" /var/log/bostead 2>/dev/null || true
+    fi
+
+
     if [ "${SKIP_CHOWN}" != "1" ]; then
         for path in ${CHOWN_LIST}; do
             # Only chown paths that actually exist.
