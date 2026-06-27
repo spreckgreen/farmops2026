@@ -13,7 +13,9 @@ COPY package.json bun.lock ./
 # require node_modules or any source files.
 COPY scripts/install-log.sh /usr/local/bin/install-log.sh
 RUN chmod +x /usr/local/bin/install-log.sh
-ENV INSTALL_LOG=/tmp/bostead-install.log
+ENV INSTALL_LOG=/install-log/install.log
+RUN mkdir -p /install-log
+
 # Stream install output with a heartbeat so long silent steps don't look hung.
 # A background loop prints elapsed seconds every 10s while `bun install` runs.
 RUN --mount=type=cache,target=/root/.bun/install/cache,sharing=locked \
