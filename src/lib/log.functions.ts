@@ -330,7 +330,19 @@ export const getDailyNote = createServerFn({ method: "POST" })
         .limit(1)
         .maybeSingle();
 
-      const seed = prior?.markdown_content ?? "";
+      let seed = prior?.markdown_content ?? "";
+
+      // Auto-prepend Tempest weather block for the day on first creation.
+      try {
+        const { getDailyForecast, formatWeatherMarkdown } = await import("@/lib/weather.functions");
+        const w = await getDailyForecast({ data: { date: data.date } });
+        if (w && !/^##\s+Weather\b/m.test(seed)) {
+          seed = `${formatWeatherMarkdown(w)}\n${seed}`;
+        }
+      } catch (e) {
+        console.error("[daily-note] weather seed failed", e);
+      }
+
       const { data: created, error } = await supabase
         .from("daily_notes")
         .insert({ date: data.date, user_id: userId, markdown_content: seed })
@@ -338,6 +350,14 @@ export const getDailyNote = createServerFn({ method: "POST" })
         .single();
       if (error) throw new Error(error.message);
       note = created;
+    } else {
+      // Refresh today's forecast in the background cache on each open.
+      try {
+        const { getDailyForecast } = await import("@/lib/weather.functions");
+        await getDailyForecast({ data: { date: data.date } });
+      } catch (e) {
+        console.error("[daily-note] weather refresh failed", e);
+      }
     }
 
     const { data: tasks } = await supabase
