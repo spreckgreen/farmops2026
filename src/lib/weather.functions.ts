@@ -157,12 +157,14 @@ const WMO: Record<number, string> = {
   95: "Thunderstorm", 96: "Thunderstorm w/ hail", 99: "Severe thunderstorm w/ hail",
 };
 
-async function fetchOpenMeteoRange(start: string, end: string): Promise<Array<{
+async function fetchOpenMeteoOne(
+  base: string,
+  start: string,
+  end: string,
+): Promise<Array<{
   date: string; high: number | null; low: number | null;
   precipProb: number | null; precipSum: number | null; conditions: string | null;
 }>> {
-  // Open-Meteo Archive (no key required). Falls back to forecast endpoint
-  // for the most recent ~5 days the archive hasn't ingested yet.
   const params = new URLSearchParams({
     latitude: String(FALLBACK_LAT),
     longitude: String(FALLBACK_LON),
@@ -173,11 +175,6 @@ async function fetchOpenMeteoRange(start: string, end: string): Promise<Array<{
     precipitation_unit: "inch",
     timezone: "America/New_York",
   });
-  const today = new Date().toISOString().slice(0, 10);
-  const useForecast = end >= today;
-  const base = useForecast
-    ? "https://api.open-meteo.com/v1/forecast"
-    : "https://archive-api.open-meteo.com/v1/archive";
   const res = await fetch(`${base}?${params.toString()}`);
   if (!res.ok) throw new Error(`Open-Meteo ${res.status}: ${await res.text()}`);
   const json = (await res.json()) as OpenMeteoArchive;
@@ -195,6 +192,54 @@ async function fetchOpenMeteoRange(start: string, end: string): Promise<Array<{
     })(),
   }));
 }
+
+function addDaysISO(iso: string, days: number): string {
+  const d = new Date(`${iso}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+async function fetchOpenMeteoRange(start: string, end: string): Promise<Array<{
+  date: string; high: number | null; low: number | null;
+  precipProb: number | null; precipSum: number | null; conditions: string | null;
+}>> {
+  // Archive lags ~2 days; forecast covers ~today-2..today+16. Split the
+  // range and skip anything beyond the forecast horizon (future seasons).
+  const today = new Date().toISOString().slice(0, 10);
+  const archiveCutoff = addDaysISO(today, -3);
+  const forecastEndMax = addDaysISO(today, 15);
+
+  const out: Array<{
+    date: string; high: number | null; low: number | null;
+    precipProb: number | null; precipSum: number | null; conditions: string | null;
+  }> = [];
+
+  if (start <= archiveCutoff) {
+    const aEnd = end < archiveCutoff ? end : archiveCutoff;
+    try {
+      out.push(...await fetchOpenMeteoOne(
+        "https://archive-api.open-meteo.com/v1/archive", start, aEnd,
+      ));
+    } catch (e) {
+      console.warn("[weather] open-meteo archive failed", e);
+    }
+  }
+
+  const fStart = start > archiveCutoff ? start : addDaysISO(archiveCutoff, 1);
+  const fEnd = end < forecastEndMax ? end : forecastEndMax;
+  if (fStart <= fEnd && fStart <= end) {
+    try {
+      out.push(...await fetchOpenMeteoOne(
+        "https://api.open-meteo.com/v1/forecast", fStart, fEnd,
+      ));
+    } catch (e) {
+      console.warn("[weather] open-meteo forecast failed", e);
+    }
+  }
+
+  return out;
+}
+
 
 export const backfillSeasonWeather = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
