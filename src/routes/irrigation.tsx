@@ -3,7 +3,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Droplets, RefreshCw, Link2, Copy } from "lucide-react";
+import { Droplets, RefreshCw, Link2, Copy, Eye, EyeOff } from "lucide-react";
+
+const RACHIO_TOKEN_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 import { AppLayout } from "@/components/app-layout";
 import { Button } from "@/components/ui/button";
@@ -287,14 +289,26 @@ function SetupPane({
   data, onChanged,
 }: { data: Awaited<ReturnType<typeof listRachioDashboard>>; onChanged: () => void }) {
   const [token, setToken] = useState("");
+  const [reveal, setReveal] = useState(false);
   const save = useServerFn(saveRachioToken);
   const sync = useServerFn(syncRachioInventory);
+
+  const trimmed = token.trim();
+  const isValid = RACHIO_TOKEN_RE.test(trimmed);
+  const validationError =
+    trimmed.length === 0
+      ? null
+      : isValid
+        ? null
+        : "Expected a Rachio Personal API token in UUID format (8-4-4-4-12 hex).";
+
   const saveMut = useMutation({
     mutationFn: async () => {
-      await save({ data: { token } });
+      if (!isValid) throw new Error("Invalid Rachio token format");
+      await save({ data: { token: trimmed } });
       await sync({});
     },
-    onSuccess: () => { toast.success("Connected to Rachio"); setToken(""); onChanged(); },
+    onSuccess: () => { toast.success("Connected to Rachio"); setToken(""); setReveal(false); onChanged(); },
     onError: (e) => toast.error(e instanceof Error ? e.message : String(e)),
   });
 
@@ -316,14 +330,43 @@ function SetupPane({
         </p>
         <div className="space-y-2">
           <Label htmlFor="rachio-token">Personal API token</Label>
-          <Input
-            id="rachio-token"
-            type="password"
-            value={token}
-            onChange={(e) => setToken(e.target.value)}
-            placeholder={data.status.connected ? "•••• (already saved — paste a new value to replace)" : ""}
-          />
-          <Button onClick={() => saveMut.mutate()} disabled={!token || saveMut.isPending}>
+          <div className="relative">
+            <Input
+              id="rachio-token"
+              type={reveal ? "text" : "password"}
+              autoComplete="off"
+              spellCheck={false}
+              autoCapitalize="off"
+              autoCorrect="off"
+              inputMode="text"
+              value={token}
+              onChange={(e) => setToken(e.target.value)}
+              onBlur={() => setReveal(false)}
+              onPaste={(e) => {
+                const pasted = e.clipboardData.getData("text").trim();
+                if (pasted) {
+                  e.preventDefault();
+                  setToken(pasted);
+                }
+              }}
+              placeholder={data.status.connected ? "•••• (already saved — paste a new value to replace)" : "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"}
+              aria-invalid={validationError ? true : undefined}
+              className={`pr-10 font-mono ${validationError ? "border-destructive focus-visible:ring-destructive" : ""}`}
+            />
+            <button
+              type="button"
+              onClick={() => setReveal((r) => !r)}
+              className="absolute inset-y-0 right-0 px-3 text-muted-foreground hover:text-foreground"
+              aria-label={reveal ? "Hide token" : "Show token"}
+              tabIndex={-1}
+            >
+              {reveal ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
+          {validationError && (
+            <p className="text-xs text-destructive">{validationError}</p>
+          )}
+          <Button onClick={() => saveMut.mutate()} disabled={!isValid || saveMut.isPending}>
             {saveMut.isPending ? "Validating…" : data.status.connected ? "Replace token" : "Connect"}
           </Button>
           {data.status.connected && (
