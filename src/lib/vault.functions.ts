@@ -232,11 +232,17 @@ export const deleteVaultItem = createServerFn({ method: "POST" })
     return { id };
   })
   .handler(async ({ context, data }): Promise<{ ok: true }> => {
+    const { data: existing } = await context.supabase
+      .from("vault_secrets")
+      .select("env_key")
+      .eq("id", data.id)
+      .maybeSingle();
     const { error } = await context.supabase
       .from("vault_secrets")
       .delete()
       .eq("id", data.id);
     if (error) throw new Error(error.message);
+    await bustEnvCache((existing?.env_key as string | null) ?? null);
     return { ok: true };
   });
 
