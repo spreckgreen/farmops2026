@@ -4,19 +4,23 @@ import { useServerFn } from "@tanstack/react-start";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Download, Printer, RefreshCw } from "lucide-react";
+import { Download, Printer, RefreshCw, CloudDownload } from "lucide-react";
+import { useState } from "react";
 import { z } from "zod";
 import { zodValidator, fallback } from "@tanstack/zod-adapter";
 import { getFoodReports } from "@/lib/food-reports.functions";
+import { backfillSeasonWeather } from "@/lib/weather.functions";
 import { downloadCsv } from "@/lib/csv";
-import { reportCsv, reportMarkdownFile, type FoodReport } from "@/lib/food-reports";
+import { reportCsv, reportMarkdownFile, type FoodReport, LAST_SPRING_FROST_MMDD, FIRST_FALL_FROST_MMDD } from "@/lib/food-reports";
 import { ReportView } from "@/components/report-view";
 import { SendToGhostButton } from "@/components/send-to-ghost-button";
 import { markdownReportToGhost } from "@/lib/report-html";
 
 const searchSchema = z.object({
   report: fallback(z.string(), "").default(""),
+  season: fallback(z.string(), "").default(""),
 });
 
 export const Route = createFileRoute("/food/reports")({
@@ -24,6 +28,7 @@ export const Route = createFileRoute("/food/reports")({
   head: () => ({ meta: [{ title: "Food Reports — Bostead Farms" }] }),
   component: FoodReportsPage,
 });
+
 
 function downloadText(filename: string, text: string, mime = "text/markdown;charset=utf-8") {
   const blob = new Blob([text], { type: mime });
@@ -67,20 +72,56 @@ async function syncReportToObsidian(report: FoodReport): Promise<"ok" | "unsuppo
 }
 
 function FoodReportsPage() {
-  const { report } = Route.useSearch();
+  const { report, season } = Route.useSearch();
   const navigate = useNavigate({ from: Route.id });
   const reportsFn = useServerFn(getFoodReports);
+  const backfillFn = useServerFn(backfillSeasonWeather);
   const reportsQ = useQuery({
     queryKey: ["food-reports"],
     queryFn: () => reportsFn(),
   });
   const reports = reportsQ.data?.reports ?? [];
   const current = reports.find((r) => r.slug === report) ?? reports[0];
+  const [backfilling, setBackfilling] = useState(false);
+
+  // Build the list of selectable seasons: 2010 → next year.
+  const currentYear = new Date().getUTCFullYear();
+  const seasonYears: number[] = [];
+  for (let y = currentYear + 1; y >= 2010; y--) seasonYears.push(y);
+  const selectedSeason = season || String(currentYear);
+
+  async function handleBackfill() {
+    const year = Number(selectedSeason);
+    if (!Number.isFinite(year)) return;
+    const [lsm, lsd] = LAST_SPRING_FROST_MMDD.split("-").map(Number);
+    const [ffm, ffd] = FIRST_FALL_FROST_MMDD.split("-").map(Number);
+    const start = new Date(Date.UTC(year, lsm - 1, lsd));
+    start.setUTCMonth(start.getUTCMonth() - 1);
+    const end = new Date(Date.UTC(year, ffm - 1, ffd));
+    end.setUTCMonth(end.getUTCMonth() + 1);
+    const fmt = (d: Date) => d.toISOString().slice(0, 10);
+    setBackfilling(true);
+    try {
+      const res = await backfillFn({ data: { startDate: fmt(start), endDate: fmt(end) } });
+      toast.success(
+        `Backfilled ${res.inserted} day${res.inserted === 1 ? "" : "s"} for ${year} (source: ${res.source}${res.skipped ? `, skipped ${res.skipped} cached` : ""})`,
+      );
+      await reportsQ.refetch();
+    } catch (e) {
+      toast.error(`Backfill failed: ${(e as Error).message}`);
+    } finally {
+      setBackfilling(false);
+    }
+  }
+
+
+
 
   return (
     <div className="space-y-4">
       <div className="flex items-start justify-between flex-wrap gap-3 no-print">
         <div>
+
           <h2 className="text-xl font-mono font-semibold">Food Reports</h2>
           <p className="text-sm text-muted-foreground mt-1">
             Pre-built reports derived from your food plan, storage, harvests, and garden. Preview, print, download, or sync to your Obsidian vault.
@@ -106,9 +147,10 @@ function FoodReportsPage() {
       ) : (
         <Tabs
           value={current?.slug}
-          onValueChange={(slug) => navigate({ search: { report: slug } })}
+          onValueChange={(slug) => navigate({ search: { report: slug, season } })}
           className="space-y-4"
         >
+
           <TabsList className="no-print flex flex-wrap h-auto">
             {reports.map((r) => (
               <TabsTrigger key={r.slug} value={r.slug} className="text-xs">
@@ -120,9 +162,33 @@ function FoodReportsPage() {
           {reports.map((r) => (
             <TabsContent key={r.slug} value={r.slug} className="mt-0">
               <div className="flex flex-wrap gap-2 mb-3 no-print">
+                {r.slug === "weather-pattern-season" && (
+                  <>
+                    <Select
+                      value={selectedSeason}
+                      onValueChange={(v) => navigate({ search: { report: r.slug, season: v } })}
+                    >
+                      <SelectTrigger className="h-8 w-[140px] text-xs">
+                        <SelectValue placeholder="Season" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {seasonYears.map((y) => (
+                          <SelectItem key={y} value={String(y)} className="text-xs">
+                            {y} season
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button size="sm" variant="outline" onClick={handleBackfill} disabled={backfilling}>
+                      <CloudDownload className={`h-4 w-4 mr-1 ${backfilling ? "animate-pulse" : ""}`} />
+                      {backfilling ? "Pulling…" : `Backfill ${selectedSeason}`}
+                    </Button>
+                  </>
+                )}
                 <Button size="sm" variant="outline" onClick={() => window.print()}>
                   <Printer className="h-4 w-4 mr-1" /> Print
                 </Button>
+
                 <Button
                   size="sm"
                   variant="outline"

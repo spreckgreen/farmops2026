@@ -5,6 +5,10 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { getServerEnv } from "@/lib/server-env.server";
 
 const STATION_ID = "119722"; // BosteadFarmHouse
+// Greenfield, OH (fallback historical source: Open-Meteo Archive API).
+const FALLBACK_LAT = 39.3531;
+const FALLBACK_LON = -83.3827;
+
 
 type DailyForecast = {
   day_start_local: number;
@@ -122,3 +126,188 @@ export function formatWeatherMarkdown(w: WeatherRow): string {
   const precip = w.precip_probability != null ? ` · ${Math.round(Number(w.precip_probability))}% precip` : "";
   return `## Weather · BosteadFarmHouse\n${cond} · High ${hi} / Low ${lo}${precip}\n`;
 }
+
+// ---------------------------------------------------------------------------
+// Historical backfill — Tempest first, Open-Meteo Archive as fallback for
+// Greenfield, OH. Pulls daily highs/lows/precip for an arbitrary date range
+// and upserts into weather_forecasts.
+// ---------------------------------------------------------------------------
+
+type OpenMeteoArchive = {
+  daily?: {
+    time?: string[];
+    temperature_2m_max?: (number | null)[];
+    temperature_2m_min?: (number | null)[];
+    precipitation_sum?: (number | null)[];
+    precipitation_probability_max?: (number | null)[];
+    weather_code?: (number | null)[];
+  };
+};
+
+// Minimal WMO weather code → label map (good enough for the report).
+const WMO: Record<number, string> = {
+  0: "Clear", 1: "Mainly clear", 2: "Partly cloudy", 3: "Overcast",
+  45: "Fog", 48: "Rime fog",
+  51: "Light drizzle", 53: "Drizzle", 55: "Dense drizzle",
+  61: "Light rain", 63: "Rain", 65: "Heavy rain",
+  66: "Freezing rain", 67: "Heavy freezing rain",
+  71: "Light snow", 73: "Snow", 75: "Heavy snow", 77: "Snow grains",
+  80: "Rain showers", 81: "Heavy rain showers", 82: "Violent rain showers",
+  85: "Snow showers", 86: "Heavy snow showers",
+  95: "Thunderstorm", 96: "Thunderstorm w/ hail", 99: "Severe thunderstorm w/ hail",
+};
+
+async function fetchOpenMeteoRange(start: string, end: string): Promise<Array<{
+  date: string; high: number | null; low: number | null;
+  precipProb: number | null; precipSum: number | null; conditions: string | null;
+}>> {
+  // Open-Meteo Archive (no key required). Falls back to forecast endpoint
+  // for the most recent ~5 days the archive hasn't ingested yet.
+  const params = new URLSearchParams({
+    latitude: String(FALLBACK_LAT),
+    longitude: String(FALLBACK_LON),
+    start_date: start,
+    end_date: end,
+    daily: "temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,weather_code",
+    temperature_unit: "fahrenheit",
+    precipitation_unit: "inch",
+    timezone: "America/New_York",
+  });
+  const today = new Date().toISOString().slice(0, 10);
+  const useForecast = end >= today;
+  const base = useForecast
+    ? "https://api.open-meteo.com/v1/forecast"
+    : "https://archive-api.open-meteo.com/v1/archive";
+  const res = await fetch(`${base}?${params.toString()}`);
+  if (!res.ok) throw new Error(`Open-Meteo ${res.status}: ${await res.text()}`);
+  const json = (await res.json()) as OpenMeteoArchive;
+  const d = json.daily;
+  if (!d?.time) return [];
+  return d.time.map((date, idx) => ({
+    date,
+    high: d.temperature_2m_max?.[idx] ?? null,
+    low: d.temperature_2m_min?.[idx] ?? null,
+    precipSum: d.precipitation_sum?.[idx] ?? null,
+    precipProb: d.precipitation_probability_max?.[idx] ?? null,
+    conditions: (() => {
+      const code = d.weather_code?.[idx];
+      return code != null ? (WMO[code] ?? `Code ${code}`) : null;
+    })(),
+  }));
+}
+
+export const backfillSeasonWeather = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({
+      startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      overwrite: z.boolean().optional(),
+    }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { startDate, endDate, overwrite } = data;
+    if (endDate < startDate) throw new Error("endDate must be ≥ startDate");
+
+    // Skip dates already cached unless overwrite=true.
+    let existingDates = new Set<string>();
+    if (!overwrite) {
+      const { data: existing } = await context.supabase
+        .from("weather_forecasts")
+        .select("forecast_date")
+        .eq("user_id", context.userId)
+        .eq("station_id", STATION_ID)
+        .gte("forecast_date", startDate)
+        .lte("forecast_date", endDate);
+      existingDates = new Set((existing ?? []).map((r) => r.forecast_date as string));
+    }
+
+    let source: "tempest" | "open-meteo" = "open-meteo";
+    let days: Array<{ date: string; high: number | null; low: number | null;
+      precipProb: number | null; precipSum: number | null; conditions: string | null }> = [];
+
+    // Try Tempest first for any portion that's within its ~10-day forecast window.
+    // Tempest's better_forecast covers ~today + 10 days; for true history we use Open-Meteo.
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      if (endDate >= today) {
+        const token = await getServerEnv("TEMPEST_API_TOKEN");
+        if (token) {
+          const url = `https://swd.weatherflow.com/swd/rest/better_forecast?station_id=${STATION_ID}&units_temp=f&units_wind=mph&units_pressure=inhg&units_precip=in&units_distance=mi&token=${token}`;
+          const res = await fetch(url);
+          if (res.ok) {
+            const json = (await res.json()) as { forecast?: { daily?: DailyForecast[] } };
+            const tempDays = (json.forecast?.daily ?? [])
+              .map((d) => ({
+                date: d.day_start_local ? new Date(d.day_start_local * 1000).toISOString().slice(0, 10) : "",
+                high: d.air_temp_high ?? null,
+                low: d.air_temp_low ?? null,
+                precipProb: d.precip_probability ?? null,
+                precipSum: null,
+                conditions: d.conditions ?? null,
+              }))
+              .filter((d) => d.date >= startDate && d.date <= endDate);
+            if (tempDays.length) {
+              days = tempDays;
+              source = "tempest";
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("[weather] tempest backfill failed, will use Open-Meteo", e);
+    }
+
+    // Cover the rest of the range with Open-Meteo.
+    const haveDates = new Set(days.map((d) => d.date));
+    const missingStart = startDate;
+    const missingEnd = endDate;
+    try {
+      const omDays = await fetchOpenMeteoRange(missingStart, missingEnd);
+      for (const d of omDays) {
+        if (!haveDates.has(d.date)) days.push(d);
+      }
+    } catch (e) {
+      console.error("[weather] open-meteo backfill failed", e);
+      if (days.length === 0) throw new Error(`Backfill failed: ${(e as Error).message}`);
+    }
+
+    // Filter to range + dedup + skip cached.
+    const seen = new Set<string>();
+    const rows = days
+      .filter((d) => d.date >= startDate && d.date <= endDate)
+      .filter((d) => (seen.has(d.date) ? false : (seen.add(d.date), true)))
+      .filter((d) => overwrite || !existingDates.has(d.date))
+      .map((d) => ({
+        user_id: context.userId,
+        station_id: STATION_ID,
+        forecast_date: d.date,
+        high_temp_f: d.high,
+        low_temp_f: d.low,
+        conditions: d.conditions,
+        icon: null,
+        precip_probability: d.precipProb,
+        precip_type: (d.precipSum != null && d.precipSum > 0) ? "rain" : null,
+        sunrise: null,
+        sunset: null,
+        raw: { source, precip_sum_in: d.precipSum } as unknown as never,
+        fetched_at: new Date().toISOString(),
+      }));
+
+    if (rows.length === 0) {
+      return { inserted: 0, skipped: existingDates.size, source, range: { startDate, endDate } };
+    }
+
+    // Upsert in chunks of 200 to stay friendly to PostgREST.
+    let inserted = 0;
+    for (let i = 0; i < rows.length; i += 200) {
+      const chunk = rows.slice(i, i + 200);
+      const { error } = await context.supabase
+        .from("weather_forecasts")
+        .upsert(chunk, { onConflict: "user_id,station_id,forecast_date" });
+      if (error) throw new Error(error.message);
+      inserted += chunk.length;
+    }
+    return { inserted, skipped: existingDates.size, source, range: { startDate, endDate } };
+  });
+
