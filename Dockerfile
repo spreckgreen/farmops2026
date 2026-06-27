@@ -5,7 +5,15 @@
 # ==========================================
 FROM oven/bun:1-slim AS deps
 WORKDIR /app
+# Use bash so install-log.sh's PIPESTATUS / set -o pipefail behaves correctly.
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 COPY package.json bun.lock ./
+# install-log.sh is copied early so every stage can route through the same
+# unified log file (/tmp/bostead-install.log). The script itself does not
+# require node_modules or any source files.
+COPY scripts/install-log.sh /usr/local/bin/install-log.sh
+RUN chmod +x /usr/local/bin/install-log.sh
+ENV INSTALL_LOG=/tmp/bostead-install.log
 # Stream install output with a heartbeat so long silent steps don't look hung.
 # A background loop prints elapsed seconds every 10s while `bun install` runs.
 RUN --mount=type=cache,target=/root/.bun/install/cache,sharing=locked \
@@ -14,15 +22,15 @@ RUN --mount=type=cache,target=/root/.bun/install/cache,sharing=locked \
     echo "=== [deps] Command: bun install --frozen-lockfile" && \
     echo "=== [deps] Installs ALL deps (dev + prod) for the builder stage" && \
     echo "=== [deps] BuildKit cache mount: /root/.bun/install/cache" && \
-    echo "=== [deps] Started at $(date +%H:%M:%S)" && \
+    echo "=== [deps] INSTALL_LOG=$INSTALL_LOG" && \
     echo "=============================================" && \
     ( while :; do sleep 10; echo "  [deps] still installing... ($(date +%H:%M:%S))"; done ) & \
     HEARTBEAT_PID=$!; \
-    bun install --frozen-lockfile; \
+    install-log.sh deps bun install --frozen-lockfile; \
     STATUS=$?; \
     kill $HEARTBEAT_PID 2>/dev/null || true; \
-    echo "=== [deps] bun install finished with status $STATUS at $(date +%H:%M:%S) ===" && \
     exit $STATUS
+
 
 
 # ==========================================
