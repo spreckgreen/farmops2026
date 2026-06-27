@@ -6,7 +6,7 @@ export const getFoodReports = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const sb = context.supabase;
-    const [foods, people, entries, storage, plantings, harvests, garden] = await Promise.all([
+    const [foods, people, entries, storage, plantings, harvests, garden, weather] = await Promise.all([
       sb.from("food_plan_foods").select("id, name, category, oz_per_serving, price_per_pound, season").order("sort_order"),
       sb.from("food_plan_people").select("id, name").order("sort_order"),
       sb.from("food_plan_entries").select("food_id, person_id, day_of_week, quantity"),
@@ -14,8 +14,11 @@ export const getFoodReports = createServerFn({ method: "GET" })
       sb.from("crop_plantings").select("id, crop, variety, status, planted_on, expected_harvest"),
       sb.from("crop_harvests").select("id, planting_id, harvested_on, quantity, unit, quality, notes"),
       sb.from("garden_plots").select("row_label, position, plant_name").order("row_label").order("position"),
+      sb.from("weather_forecasts")
+        .select("forecast_date, high_temp_f, low_temp_f, conditions, precip_probability, precip_type")
+        .order("forecast_date"),
     ]);
-    for (const r of [foods, people, entries, storage, plantings, harvests, garden]) {
+    for (const r of [foods, people, entries, storage, plantings, harvests, garden, weather]) {
       if (r.error) throw new Error(r.error.message);
     }
 
@@ -27,7 +30,9 @@ export const getFoodReports = createServerFn({ method: "GET" })
       plantings: (plantings.data ?? []) as ReportInputs["plantings"],
       harvests: (harvests.data ?? []) as ReportInputs["harvests"],
       garden: (garden.data ?? []) as ReportInputs["garden"],
+      weather: (weather.data ?? []) as ReportInputs["weather"],
       generatedAt: new Date().toISOString(),
     };
     return { reports: buildAllReports(inputs) };
   });
+
