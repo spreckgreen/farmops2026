@@ -3,13 +3,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { commitDailyNote, getDailyNote, listProjects, refreshDailyNoteFromLog, saveDailyNote } from "@/lib/log.functions";
+import { getDailyForecast } from "@/lib/weather.functions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AppLayout } from "@/components/app-layout";
 import { requireAuthenticatedUser } from "@/lib/auth-route";
 import { toast } from "sonner";
 import { format, addDays, parseISO } from "date-fns";
-import { ChevronLeft, ChevronRight, Eye, EyeOff } from "lucide-react";
+import { ChevronLeft, ChevronRight, Eye, EyeOff, Cloud, RefreshCw } from "lucide-react";
 import { DailyNotePreview } from "@/components/daily-note-preview";
 import { useShowTaskSlugs } from "@/hooks/use-show-task-slugs";
 
