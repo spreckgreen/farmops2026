@@ -149,7 +149,17 @@ function VaultRow({ item, onEdit, onDelete }: { item: VaultItem; onEdit: () => v
   return (
     <li className="p-3 flex items-start gap-3">
       <div className="flex-1 min-w-0">
-        <div className="font-medium truncate">{item.title}</div>
+        <div className="font-medium truncate flex items-center gap-2">
+          <span className="truncate">{item.title}</span>
+          {item.env_key && (
+            <span
+              className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20 flex-shrink-0"
+              title={`Exposed to server as process env "${item.env_key}"`}
+            >
+              ENV: {item.env_key}
+            </span>
+          )}
+        </div>
         <div className="mt-1 font-mono text-xs break-all">
           {revealed ? revealed.value : "•".repeat(12)}
         </div>
@@ -173,18 +183,23 @@ function VaultRow({ item, onEdit, onDelete }: { item: VaultItem; onEdit: () => v
 }
 
 function VaultEditor({
-  item, onCancel, onSubmit, submitting,
+  scope, item, onCancel, onSubmit, submitting,
 }: {
+  scope: VaultScope;
   item: VaultItem | null;
   onCancel: () => void;
-  onSubmit: (v: { title: string; value: string; notes: string }) => void;
+  onSubmit: (v: { title: string; value: string; notes: string; env_key: string }) => void;
   submitting: boolean;
 }) {
   const reveal = useServerFn(revealVaultItem);
   const [title, setTitle] = useState(item?.title ?? "");
   const [value, setValue] = useState("");
   const [notes, setNotes] = useState("");
+  const [envKey, setEnvKey] = useState(item?.env_key ?? "");
   const [loaded, setLoaded] = useState(!item);
+
+  const envKeyTrimmed = envKey.trim();
+  const envKeyValid = envKeyTrimmed === "" || /^[A-Z_][A-Z0-9_]{0,127}$/.test(envKeyTrimmed);
 
   async function loadExisting() {
     if (!item) return;
