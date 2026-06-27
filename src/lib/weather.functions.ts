@@ -96,7 +96,7 @@ export const getDailyForecast = createServerFn({ method: "POST" })
       precip_type: forecast.precip_type ?? null,
       sunrise: forecast.sunrise ? new Date(forecast.sunrise * 1000).toISOString() : null,
       sunset: forecast.sunset ? new Date(forecast.sunset * 1000).toISOString() : null,
-      raw: forecast as unknown as Record<string, unknown>,
+      raw: forecast as unknown as Record<string, unknown> as never,
       fetched_at: new Date().toISOString(),
     };
 
