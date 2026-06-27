@@ -202,6 +202,31 @@ Each line is formatted as `[<UTC timestamp>] [<stage>] <message>`, so a stage fa
 [2026-06-27T00:57:41Z] [build]         FAIL   exit=1 (279s)
 ```
 
+#### Build hangs or times out at `builder 8/10` (Vite + Nitro)
+
+Symptom: build stays on the `bun run build:ci` step for many minutes and eventually exits with code 124 (hard cap) or 137 (SIGKILL from the OOM killer). The host has ≤ 4 GB RAM and the process is being swap-thrashed or killed.
+
+Defaults are tuned for a 4 GB host:
+
+- `NODE_HEAP_MB=2560` — Node's old-space cap. Lower than host RAM so the kernel keeps room for bun, rollup native code, and the page cache.
+- `BUILD_LOW_MEM=1` — disables sourcemaps and the post-bundle gzip-size pass in `vite.config.ts`. Cuts peak RAM by ~30%.
+- `BUILD_HEARTBEAT_SECS=5` — every heartbeat in `install.log` now includes `wrapper-rss=…MB host-avail=…MB`, so you can see whether memory is climbing toward the cap.
+
+If you have more RAM, increase the heap (rule of thumb: ~60% of host RAM):
+
+```bash
+docker compose build --build-arg NODE_HEAP_MB=6144     # 8 GB host
+docker compose build --build-arg NODE_HEAP_MB=10240    # 16 GB host
+```
+
+If the build still dies, grep the install log for the targeted hint the wrapper writes on OOM-shaped exits:
+
+```bash
+grep -E 'likely OOM|signal 9|exit.*(137|134)' ./logs/install.log
+```
+
+
+
 
 ### User permissions (UID / GID)
 
