@@ -722,6 +722,19 @@ function buildOptimizedGardenLayout(i: ReportInputs): FoodReport {
 export const LAST_SPRING_FROST_MMDD = "04-15";
 export const FIRST_FALL_FROST_MMDD = "10-15";
 
+// Configurable temperature thresholds for what counts as a "growing day".
+// A day is counted when its observed low > MIN_LOW_F and high < MAX_HIGH_F.
+// Days inside the season window with no observation are *estimated* —
+// assumed to be growing days (since they sit between expected frost dates).
+export const GROWING_DAY_MIN_LOW_F = 40;   // frost-risk cutoff
+export const GROWING_DAY_MAX_HIGH_F = 95;  // heat-stress cutoff
+
+function isGrowingDay(high: number | null, low: number | null): boolean {
+  if (high == null || low == null) return false;
+  return low > GROWING_DAY_MIN_LOW_F && high < GROWING_DAY_MAX_HIGH_F;
+}
+
+
 function addMonths(date: Date, months: number): Date {
   const d = new Date(date);
   d.setUTCMonth(d.getUTCMonth() + months);
