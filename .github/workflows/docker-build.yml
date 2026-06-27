@@ -7,6 +7,11 @@ on:
     branches: [main]
   workflow_dispatch:
 
+env:
+  # Initial heap; retry will halve this on OOM-like failures.
+  NODE_HEAP_MB_INITIAL: "2560"
+  NODE_HEAP_MB_RETRY: "1536"
+
 jobs:
   docker-build:
     name: Build Docker image
@@ -20,19 +25,59 @@ jobs:
       - name: Prepare log output dir
         run: mkdir -p ./logs
 
-      - name: Build image (capture install log on failure)
-        id: build
+      - name: Build image (attempt 1)
+        id: build1
+        continue-on-error: true
         run: |
           set -o pipefail
-          # Build with a named target so we can extract the install log even on failure.
-          # BuildKit must be enabled (default for buildx).
+          echo "::group::docker buildx build (NODE_HEAP_MB=${NODE_HEAP_MB_INITIAL})"
           docker buildx build \
             --progress=plain \
             --load \
+            --build-arg NODE_HEAP_MB="${NODE_HEAP_MB_INITIAL}" \
             --tag bostead:ci \
             --output type=docker \
             . 2>&1 | tee ./logs/docker-build.log
-        continue-on-error: false
+          status=${PIPESTATUS[0]}
+          echo "::endgroup::"
+          echo "exit_code=${status}" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Detect OOM-like failure
+        id: oom
+        if: steps.build1.outputs.exit_code != '0'
+        run: |
+          log=./logs/docker-build.log
+          if grep -qE 'signal 9|exit (code )?137|Killed|out of memory|JavaScript heap out of memory|FATAL ERROR:.*allocation failed|likely OOM' "$log"; then
+            echo "oom=true" >> "$GITHUB_OUTPUT"
+            echo "First build failed with OOM-like signals — will retry with NODE_HEAP_MB=${NODE_HEAP_MB_RETRY}."
+          else
+            echo "oom=false" >> "$GITHUB_OUTPUT"
+            echo "First build failed without OOM signals — no retry."
+          fi
+
+      - name: Build image (retry with lower heap)
+        id: build2
+        if: steps.build1.outputs.exit_code != '0' && steps.oom.outputs.oom == 'true'
+        run: |
+          set -o pipefail
+          mv ./logs/docker-build.log ./logs/docker-build.attempt1.log || true
+          echo "::group::docker buildx build retry (NODE_HEAP_MB=${NODE_HEAP_MB_RETRY})"
+          docker buildx build \
+            --progress=plain \
+            --load \
+            --no-cache \
+            --build-arg NODE_HEAP_MB="${NODE_HEAP_MB_RETRY}" \
+            --tag bostead:ci \
+            --output type=docker \
+            . 2>&1 | tee ./logs/docker-build.log
+          echo "::endgroup::"
+
+      - name: Mark job failed if build never succeeded
+        if: steps.build1.outputs.exit_code != '0' && steps.oom.outputs.oom != 'true'
+        run: |
+          echo "First build failed and the failure did not look like OOM — failing the job."
+          exit 1
 
       # Always attempt to recover /app/install.log from the image (or last stage cache)
       # so the artifact upload has something to publish even when the build failed.
@@ -41,14 +86,12 @@ jobs:
         run: |
           set +e
           mkdir -p ./logs
-          # Try the tagged image first (success path).
           if docker image inspect bostead:ci >/dev/null 2>&1; then
             cid=$(docker create bostead:ci)
             docker cp "$cid:/app/install.log" ./logs/install.log 2>/dev/null || \
               echo "install.log not present in final image" > ./logs/install.log.missing
             docker rm -f "$cid" >/dev/null 2>&1 || true
           fi
-          # On failure, BuildKit keeps intermediate layers; surface the build transcript.
           if [ ! -f ./logs/install.log ] && [ -f ./logs/docker-build.log ]; then
             cp ./logs/docker-build.log ./logs/install.log
           fi
@@ -59,8 +102,14 @@ jobs:
         run: |
           chmod +x scripts/summarize-build-failure.sh
           scripts/summarize-build-failure.sh ./logs ./logs/build-failure-summary.md
-          # Surface the summary in the GitHub Actions job summary panel.
-          if [ -n "${GITHUB_STEP_SUMMARY:-}" ] && [ -f ./logs/build-failure-summary.md ]; then
+          {
+            echo ""
+            echo "## Retry status"
+            echo "- attempt 1 exit: ${{ steps.build1.outputs.exit_code }}"
+            echo "- OOM-like detected: ${{ steps.oom.outputs.oom || 'n/a' }}"
+            echo "- retry executed: ${{ steps.build2.outcome || 'no' }}"
+          } >> ./logs/build-failure-summary.md
+          if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
             cat ./logs/build-failure-summary.md >> "$GITHUB_STEP_SUMMARY"
           fi
 
@@ -72,6 +121,7 @@ jobs:
           path: |
             logs/install.log
             logs/docker-build.log
+            logs/docker-build.attempt1.log
             logs/install.log.missing
             logs/build-failure-summary.md
           if-no-files-found: warn
@@ -85,4 +135,5 @@ jobs:
           path: logs/build-failure-summary.md
           if-no-files-found: warn
           retention-days: 30
+
 
