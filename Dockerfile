@@ -5,7 +5,17 @@
 # ==========================================
 FROM oven/bun:1-slim AS deps
 WORKDIR /app
+# Use bash so install-log.sh's PIPESTATUS / set -o pipefail behaves correctly.
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 COPY package.json bun.lock ./
+# install-log.sh is copied early so every stage can route through the same
+# unified log file (/tmp/bostead-install.log). The script itself does not
+# require node_modules or any source files.
+COPY scripts/install-log.sh /usr/local/bin/install-log.sh
+RUN chmod +x /usr/local/bin/install-log.sh
+ENV INSTALL_LOG=/install-log/install.log
+RUN mkdir -p /install-log
+
 # Stream install output with a heartbeat so long silent steps don't look hung.
 # A background loop prints elapsed seconds every 10s while `bun install` runs.
 RUN --mount=type=cache,target=/root/.bun/install/cache,sharing=locked \
@@ -14,15 +24,15 @@ RUN --mount=type=cache,target=/root/.bun/install/cache,sharing=locked \
     echo "=== [deps] Command: bun install --frozen-lockfile" && \
     echo "=== [deps] Installs ALL deps (dev + prod) for the builder stage" && \
     echo "=== [deps] BuildKit cache mount: /root/.bun/install/cache" && \
-    echo "=== [deps] Started at $(date +%H:%M:%S)" && \
+    echo "=== [deps] INSTALL_LOG=$INSTALL_LOG" && \
     echo "=============================================" && \
     ( while :; do sleep 10; echo "  [deps] still installing... ($(date +%H:%M:%S))"; done ) & \
     HEARTBEAT_PID=$!; \
-    bun install --frozen-lockfile; \
+    install-log.sh deps bun install --frozen-lockfile; \
     STATUS=$?; \
     kill $HEARTBEAT_PID 2>/dev/null || true; \
-    echo "=== [deps] bun install finished with status $STATUS at $(date +%H:%M:%S) ===" && \
     exit $STATUS
+
 
 
 # ==========================================
@@ -44,16 +54,27 @@ ENV VITE_SUPABASE_PUBLISHABLE_KEY=${VITE_SUPABASE_PUBLISHABLE_KEY}
 ENV VITE_SUPABASE_PROJECT_ID=${VITE_SUPABASE_PROJECT_ID}
 
 COPY --from=deps /app/node_modules ./node_modules
+# Bring the unified install log forward from the deps stage so the runner
+# image carries one consolidated log file covering every build phase.
+COPY --from=deps /install-log /install-log
 COPY . .
+
+# Make install-log.sh available on PATH and pin INSTALL_LOG for the builder.
+RUN cp /app/scripts/install-log.sh /usr/local/bin/install-log.sh && \
+    chmod +x /usr/local/bin/install-log.sh
+ENV INSTALL_LOG=/install-log/install.log
 
 # ------------------------------------------------------------------
 # Up-front preflight: delegate to scripts/docker-preflight.sh so the
 # same validation runs locally and inside the builder. Fails fast with
 # ERROR: missing file: <path> / ERROR: not executable: <path> before
-# any privileged or long-running build command.
+# any privileged or long-running build command. Routed through
+# install-log.sh so the failure shows up in /install-log/install.log
+# with a [preflight] tag.
 # ------------------------------------------------------------------
 RUN chmod +x /app/scripts/docker-preflight.sh 2>/dev/null || true && \
-    APP_ROOT=/app CHECK_NODE_MODULES=1 bash /app/scripts/docker-preflight.sh
+    APP_ROOT=/app CHECK_NODE_MODULES=1 \
+      install-log.sh preflight bash /app/scripts/docker-preflight.sh
 
 
 # Build a Node-compatible server bundle instead of the default Cloudflare Worker.
@@ -71,50 +92,15 @@ RUN --mount=type=cache,target=/app/node_modules/.vite,sharing=locked \
     --mount=type=cache,target=/root/.cache,sharing=locked \
     echo "=============================================" && \
     echo "=== [builder] STAGE 2/3: Vite + Nitro build ===" && \
-    echo "=== [builder] Command: bun run build:ci (scripts/build-with-progress.mjs)" && \
+    echo "=== [builder] Command: install-log.sh build bun run build:ci" && \
     echo "=== [builder] NITRO_PRESET=$NITRO_PRESET" && \
     echo "=== [builder] NODE_OPTIONS=$NODE_OPTIONS" && \
+    echo "=== [builder] INSTALL_LOG=$INSTALL_LOG" && \
     echo "=== [builder] Stall guard: BUILD_STALL_SECS=600, hard cap BUILD_MAX_SECS=2700" && \
     echo "=== [builder] Started at $(date +%H:%M:%S)" && \
-    echo "=== [builder] Verifying scripts/ directory is present in build context ===" && \
-    PROGRESS_SCRIPT=/app/scripts/build-with-progress.mjs && \
-    if [ ! -d /app/scripts ]; then \
-      echo "ERROR: missing path: /app/scripts (directory not present in builder image)" >&2; \
-      echo "Check .dockerignore — scripts/ must NOT be excluded wholesale." >&2; \
-      exit 1; \
-    fi && \
-    echo "--- /app/scripts listing ---" && \
-    ls -la /app/scripts && \
-    if [ ! -f "$PROGRESS_SCRIPT" ]; then \
-      echo "ERROR: missing file: $PROGRESS_SCRIPT" >&2; \
-      echo "build:ci cannot run without this wrapper script." >&2; \
-      exit 1; \
-    fi && \
-    if [ ! -x "$PROGRESS_SCRIPT" ]; then \
-      echo "WARN: $PROGRESS_SCRIPT is not executable; applying chmod +x" >&2; \
-      chmod +x "$PROGRESS_SCRIPT"; \
-    fi && \
-    if [ ! -x "$PROGRESS_SCRIPT" ]; then \
-      echo "ERROR: not executable: $PROGRESS_SCRIPT (chmod +x failed)" >&2; \
-      exit 1; \
-    fi && \
-    echo "--- build-with-progress.mjs found, executable ($(wc -l < "$PROGRESS_SCRIPT") lines, mode $(stat -c '%a' "$PROGRESS_SCRIPT")) ---" && \
-    echo "--- If you see a '[sudo] password' prompt, that is from the host shell before Docker starts; this image does not run sudo during build. ---" && \
     echo "=============================================" && \
-    BUILD_LOG=/tmp/bostead-build-ci.log; \
-    rm -f "$BUILD_LOG"; \
-    bun run build:ci 2>&1 | tee "$BUILD_LOG"; \
-    STATUS=${PIPESTATUS[0]}; \
-    if [ "$STATUS" -ne 0 ]; then \
-      echo "=== [builder] ERROR: build:ci failed with status $STATUS at $(date +%H:%M:%S) ===" >&2; \
-      echo "=== [builder] Last 200 build log lines ===" >&2; \
-      tail -n 200 "$BUILD_LOG" >&2 || true; \
-      echo "=== [builder] Error-looking lines from build log ===" >&2; \
-      grep -Ein "error|failed|exception|cannot|not found|permission denied|sudo|authenticate|timeout|killed|oom|heap" "$BUILD_LOG" | tail -n 80 >&2 || true; \
-      exit "$STATUS"; \
-    fi; \
-    echo "=== [builder] build:ci finished with status $STATUS at $(date +%H:%M:%S) ===" && \
-    exit $STATUS
+    install-log.sh build bun run build:ci
+
 
 
 
@@ -125,7 +111,7 @@ RUN --mount=type=cache,target=/app/node_modules/.vite,sharing=locked \
 # NITRO_PRESET isn't forwarded it falls back to `.output/`. Rather than fail,
 # we auto-select whichever exists and rename it — both layouts produce
 # `server/index.mjs`, which is all the runner CMD needs.
-RUN set -eu; \
+RUN install-log.sh nitro-detect bash -euc '\
     echo "=== Nitro Build Output Detection ===" ; \
     if [ -d /app/dist ] && [ -f /app/dist/server/index.mjs ]; then \
       echo "Detected output directory: /app/dist (pinned via nitro.output.dir)"; \
@@ -144,8 +130,12 @@ RUN set -eu; \
     fi; \
     echo "Server entrypoint: /app/dist/server/index.mjs"; \
     echo "Paths that will be copied to runner image:"; \
-    find /app/dist -type f | sort | sed 's|^/app/dist|  ./dist|'; \
-    echo "=== End Nitro Build Output Detection ==="
+    find /app/dist -type f | sort | sed "s|^/app/dist|  ./dist|"; \
+    echo "=== End Nitro Build Output Detection ==="'
+
+# Stage the unified install log so it ships in the runner image at /app/install.log.
+RUN mkdir -p /app/dist && cp /install-log/install.log /app/dist/install.log || true
+
 
 
 
@@ -155,6 +145,17 @@ RUN set -eu; \
 FROM oven/bun:1-slim AS runner
 WORKDIR /app
 ENV NODE_ENV=production
+# Use bash so install-log.sh's pipeline works in the runner stage too.
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+# Bring install-log.sh and the unified install log forward so the runner
+# stage appends to the same /install-log/install.log and so a copy ships
+# inside the image at /app/install.log.
+COPY --from=builder /usr/local/bin/install-log.sh /usr/local/bin/install-log.sh
+COPY --from=builder /install-log /install-log
+RUN chmod +x /usr/local/bin/install-log.sh
+ENV INSTALL_LOG=/install-log/install.log
+
 
 # Install gosu for safe privilege de-escalation in the entrypoint.
 RUN apt-get update && \
@@ -193,19 +194,24 @@ RUN --mount=type=cache,target=/bun-cache,uid=${UID},gid=${GID},sharing=locked \
     echo "=== End artifact copy ===" && \
     echo "=============================================" && \
     echo "=== [runner] STAGE 3/3: Production install ===" && \
-    echo "=== [runner] Command: gosu appuser bun install --production --frozen-lockfile" && \
-    echo "=== [runner] Installs prod-only deps for the final runtime image" && \
+    echo "=== [runner] Command: install-log.sh runner-install gosu appuser bun install --production --frozen-lockfile" && \
+    echo "=== [runner] INSTALL_LOG=$INSTALL_LOG" && \
     echo "=== [runner] BuildKit cache mount: /bun-cache (BUN_INSTALL_CACHE_DIR)" && \
-    echo "=== [runner] Started at $(date +%H:%M:%S)" && \
     echo "=============================================" && \
     ( while :; do sleep 10; echo "  [runner] still installing... ($(date +%H:%M:%S))"; done ) & \
     HEARTBEAT_PID=$!; \
-    gosu appuser env BUN_INSTALL_CACHE_DIR=/bun-cache \
+    install-log.sh runner-install gosu appuser env BUN_INSTALL_CACHE_DIR=/bun-cache \
       bun install --production --frozen-lockfile; \
     STATUS=$?; \
     kill $HEARTBEAT_PID 2>/dev/null || true; \
-    echo "=== [runner] bun install --production finished with status $STATUS at $(date +%H:%M:%S) ===" && \
     exit $STATUS
+
+# Persist the final unified install log into the image so it can be inspected
+# via `docker cp <container>:/app/install.log` or via the bind mount at
+# /var/log/bostead/install.log (see docker-compose.yml).
+RUN cp /install-log/install.log /app/install.log 2>/dev/null || true && \
+    chown appuser:nodejs /app/install.log 2>/dev/null || true
+
 
 
 # Entrypoint runs as root to chown mounts, then drops to appuser via gosu.

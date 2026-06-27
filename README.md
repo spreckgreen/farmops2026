@@ -185,6 +185,24 @@ Then open http://localhost:3000.
 2. **Stage 2 (`builder`)** — copies source, sets `NITRO_PRESET=node-server` to output a Node.js server instead of a Cloudflare Worker, and builds the app into `dist/`
 3. **Stage 3 (`runner`)** — creates a minimal production image with only the built output and production dependencies, runs as a non-root user, and exposes port 3000
 
+Every stage routes through `scripts/install-log.sh`, which writes a single timestamped, stage-tagged log to `/install-log/install.log` inside the build and ships a copy at `/app/install.log` in the final image.
+
+### Where to find install logs
+
+When `docker compose build` fails, the failing stage prints its captured tail (last 80 lines + any lines matching `error|failed|cannot|denied|oom|killed|timeout`) directly into the Docker build output, prefixed with the stage name (`preflight`, `deps`, `build`, `nitro-detect`, `runner-install`). The same lines are in the unified log.
+
+- **Inside a running container**: `/app/install.log`
+- **On the host** (via the bind mount in `docker-compose.yml`): `./logs/install.log` — `tail -f ./logs/install.log` to watch, `grep -E 'FAIL|ERROR' ./logs/install.log` to find failures
+- **Inside the build context locally**: `INSTALL_LOG=./install.log bash scripts/docker-preflight.sh`
+- **From a failed build layer**: rerun `docker compose build --progress=plain` to scroll the full per-stage output, or `docker build --target builder -o type=local,dest=./out .` to extract `/install-log/install.log`
+
+Each line is formatted as `[<UTC timestamp>] [<stage>] <message>`, so a stage failure looks like:
+
+```
+[2026-06-27T00:57:41Z] [build]         FAIL   exit=1 (279s)
+```
+
+
 ### User permissions (UID / GID)
 
 The container runs as a non-root user (`appuser`) with **UID 1001** and group (`nodejs`) with **GID 1001** by default.

@@ -41,6 +41,11 @@ services:
     volumes:
       - ./data:/app/data
       - ./uploads:/app/uploads
+      # Surfaces the unified install log on the host at ./logs/install.log
+      # so build-time failures are visible without `docker cp`. The
+      # entrypoint copies /app/install.log into this mount on container start.
+      - ./logs:/var/log/bostead
+
     healthcheck:
       test: ["CMD", "bun", "-e", "fetch('http://localhost:3000').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"]
       interval: 30s

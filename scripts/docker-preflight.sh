@@ -19,10 +19,30 @@ APP_ROOT="${APP_ROOT:-.}"
 # Normalize trailing slash.
 APP_ROOT="${APP_ROOT%/}"
 
+# Append a stage marker to the unified install log when one is configured,
+# so a preflight failure shows up in the same rollup as deps/build/runner.
+INSTALL_LOG="${INSTALL_LOG:-/tmp/bostead-install.log}"
+mkdir -p "$(dirname "$INSTALL_LOG")" 2>/dev/null || true
+touch "$INSTALL_LOG" 2>/dev/null || true
+ts() { date -u +%Y-%m-%dT%H:%M:%SZ; }
+echo "[$(ts)] [preflight]    START  scripts/docker-preflight.sh APP_ROOT=$APP_ROOT" | tee -a "$INSTALL_LOG"
+PREFLIGHT_START=$(date +%s)
+trap '
+  STATUS=$?
+  ELAPSED=$(( $(date +%s) - PREFLIGHT_START ))
+  if [ "$STATUS" -eq 0 ]; then
+    echo "[$(ts)] [preflight]    OK     (${ELAPSED}s)" | tee -a "$INSTALL_LOG"
+  else
+    echo "[$(ts)] [preflight]    FAIL   exit=${STATUS} (${ELAPSED}s)" | tee -a "$INSTALL_LOG" >&2
+  fi
+' EXIT
+
 echo "============================================="
 echo "=== [preflight] Validating build context at $(date +%H:%M:%S) ==="
 echo "=== [preflight] APP_ROOT=$APP_ROOT"
+echo "=== [preflight] INSTALL_LOG=$INSTALL_LOG"
 echo "============================================="
+
 
 REQUIRED_FILES="\
   $APP_ROOT/package.json \
