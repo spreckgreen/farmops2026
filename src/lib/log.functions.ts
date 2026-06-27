@@ -334,8 +334,8 @@ export const getDailyNote = createServerFn({ method: "POST" })
 
       // Auto-prepend Tempest weather block for the day on first creation.
       try {
-        const { getDailyForecast, formatWeatherMarkdown } = await import("@/lib/weather.functions");
-        const w = await getDailyForecast({ data: { date: data.date } });
+        const { fetchAndCacheForecast, formatWeatherMarkdown } = await import("@/lib/weather.functions");
+        const w = await fetchAndCacheForecast(supabase, userId, data.date);
         if (w && !/^##\s+Weather\b/m.test(seed)) {
           seed = `${formatWeatherMarkdown(w)}\n${seed}`;
         }
@@ -353,8 +353,8 @@ export const getDailyNote = createServerFn({ method: "POST" })
     } else {
       // Refresh today's forecast in the background cache on each open.
       try {
-        const { getDailyForecast } = await import("@/lib/weather.functions");
-        await getDailyForecast({ data: { date: data.date } });
+        const { fetchAndCacheForecast } = await import("@/lib/weather.functions");
+        await fetchAndCacheForecast(supabase, userId, data.date);
       } catch (e) {
         console.error("[daily-note] weather refresh failed", e);
       }
