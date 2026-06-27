@@ -99,11 +99,18 @@ function VaultPane({ scope }: { scope: VaultScope }) {
 
       {editing && (
         <VaultEditor
+          scope={scope}
           item={editing === "new" ? null : editing}
           onCancel={() => setEditing(null)}
           onSubmit={(v) => {
             if (editing === "new") createMut.mutate(v);
-            else updateMut.mutate({ id: editing.id, title: v.title, value: v.value || undefined, notes: v.notes });
+            else updateMut.mutate({
+              id: editing.id,
+              title: v.title,
+              value: v.value || undefined,
+              notes: v.notes,
+              env_key: scope === "shared" ? (v.env_key || null) : undefined,
+            });
           }}
           submitting={createMut.isPending || updateMut.isPending}
         />
