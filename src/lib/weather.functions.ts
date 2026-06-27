@@ -5,6 +5,10 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { getServerEnv } from "@/lib/server-env.server";
 
 const STATION_ID = "119722"; // BosteadFarmHouse
+// Greenfield, OH (fallback historical source: Open-Meteo Archive API).
+const FALLBACK_LAT = 39.3531;
+const FALLBACK_LON = -83.3827;
+
 
 type DailyForecast = {
   day_start_local: number;
