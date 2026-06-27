@@ -913,7 +913,7 @@ function buildWeatherPatternForSeason(i: ReportInputs): FoodReport {
     );
   }
 
-  const past = stats.filter((s) => !s.isCurrent && (s.daysCaptured > 0 || s.season.end < today));
+  const past = stats.filter((s) => !s.isCurrent && s.season.end < today);
   if (past.length) {
     lines.push(
       `## Previous Seasons`,
@@ -942,9 +942,31 @@ function buildWeatherPatternForSeason(i: ReportInputs): FoodReport {
     lines.push(`_No weather data recorded yet for any growing season._`, ``);
   }
 
-  // Detailed daily log for each season with data
+  // Future seasons — summary-only estimation (no daily log, no observations yet).
+  const future = stats.filter((s) => !s.isCurrent && s.season.start > today);
+  if (future.length) {
+    lines.push(
+      `## Future Seasons (Estimated)`,
+      ``,
+      mdTable(
+        ["Season", "Window", "Total days", "Estimated growing days"],
+        future.map((s) => [
+          s.season.year,
+          `${ymd(s.season.start)} → ${ymd(s.season.end)}`,
+          s.totalSeasonDays,
+          s.totalSeasonDays,
+        ]),
+      ),
+      ``,
+      `_Future seasons have no captured weather yet. Estimated growing days assume the full frost-bracketed window is frost-free. No daily log is shown until observations exist._`,
+      ``,
+    );
+  }
+
+  // Detailed daily log for each season with data (skip future seasons).
   for (const s of stats) {
     if (s.daysCaptured === 0) continue;
+    if (s.season.start > today) continue;
     lines.push(
       `## ${s.season.year} Daily Log`,
       ``,
@@ -968,6 +990,7 @@ function buildWeatherPatternForSeason(i: ReportInputs): FoodReport {
       ``,
     );
   }
+
 
 
   const csvRows: Record<string, string | number>[] = [];
