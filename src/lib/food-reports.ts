@@ -793,6 +793,11 @@ function buildWeatherPatternForSeason(i: ReportInputs): FoodReport {
     inWindow: typeof weather;
     daysCaptured: number;
     totalSeasonDays: number;
+    observedGrowingDays: number;     // observations meeting thresholds
+    observedNonGrowingDays: number;  // observations failing thresholds
+    estimatedGrowingDays: number;    // unobserved days inside the window (assumed)
+    totalGrowingDays: number;        // observed + estimated
+    confidencePct: number;           // observed / total season days * 100
     avgHigh: number | null;
     avgLow: number | null;
     minLow: number | null;
@@ -800,6 +805,7 @@ function buildWeatherPatternForSeason(i: ReportInputs): FoodReport {
     precipDays: number;
     isCurrent: boolean;
     dayOfSeason: number | null; // null if outside the window
+    elapsedDays: number;        // days from season start through today (or full season if past)
   };
 
   const stats: SeasonStats[] = Array.from(years)
@@ -817,11 +823,40 @@ function buildWeatherPatternForSeason(i: ReportInputs): FoodReport {
       ).length;
       const isCurrent = today >= season.start && today <= season.end;
       const dayOfSeason = isCurrent ? daysBetween(season.start, today) + 1 : null;
+      const elapsedDays = isCurrent
+        ? Math.min(totalSeasonDays, daysBetween(season.start, today) + 1)
+        : today > season.end
+          ? totalSeasonDays
+          : 0;
+
+      let observedGrowingDays = 0;
+      let observedNonGrowingDays = 0;
+      for (const w of inWindow) {
+        if (isGrowingDay(
+          w.high_temp_f != null ? Number(w.high_temp_f) : null,
+          w.low_temp_f != null ? Number(w.low_temp_f) : null,
+        )) observedGrowingDays += 1;
+        else observedNonGrowingDays += 1;
+      }
+      // Estimated = elapsed days minus what we actually observed.
+      // Assumption: unobserved days within the frost-bracketed window are
+      // treated as growing days.
+      const estimatedGrowingDays = Math.max(0, elapsedDays - inWindow.length);
+      const totalGrowingDays = observedGrowingDays + estimatedGrowingDays;
+      const confidencePct = elapsedDays > 0
+        ? Math.round((inWindow.length / elapsedDays) * 100)
+        : 0;
+
       return {
         season,
         inWindow,
         daysCaptured: inWindow.length,
         totalSeasonDays,
+        observedGrowingDays,
+        observedNonGrowingDays,
+        estimatedGrowingDays,
+        totalGrowingDays,
+        confidencePct,
         avgHigh: highs.length ? highs.reduce((s, n) => s + n, 0) / highs.length : null,
         avgLow: lows.length ? lows.reduce((s, n) => s + n, 0) / lows.length : null,
         minLow: lows.length ? Math.min(...lows) : null,
@@ -829,6 +864,7 @@ function buildWeatherPatternForSeason(i: ReportInputs): FoodReport {
         precipDays,
         isCurrent,
         dayOfSeason,
+        elapsedDays,
       };
     });
 
@@ -845,6 +881,12 @@ function buildWeatherPatternForSeason(i: ReportInputs): FoodReport {
     `- **End:** 1 month after first fall frost (${FIRST_FALL_FROST_MMDD})`,
     `- Seasons are labeled by year of the fall frost.`,
     ``,
+    `## Growing-Day Rule`,
+    ``,
+    `- A day is counted as a **growing day** when observed **low > ${GROWING_DAY_MIN_LOW_F}°F** and **high < ${GROWING_DAY_MAX_HIGH_F}°F**.`,
+    `- Days inside the window with **no captured observation** are **estimated** as growing days (assumed frost-free between expected frost dates).`,
+    `- Confidence = captured observations ÷ elapsed season days.`,
+    ``,
   ];
 
   if (current) {
@@ -857,10 +899,13 @@ function buildWeatherPatternForSeason(i: ReportInputs): FoodReport {
       `- **Window:** ${ymd(current.season.start)} → ${ymd(current.season.end)} (${current.totalSeasonDays} days)`,
       `- **Day of season:** ${current.dayOfSeason} of ${current.totalSeasonDays}`,
       `- **Weather days captured:** ${current.daysCaptured} (${pct}% of season)`,
-      `- **Estimated growing days remaining:** ${Math.max(0, current.totalSeasonDays - (current.dayOfSeason ?? 0))}`,
+      `- **Growing days so far:** ${current.totalGrowingDays} (${current.observedGrowingDays} observed + ${current.estimatedGrowingDays} estimated)`,
+      `- **Non-growing observations:** ${current.observedNonGrowingDays} (failed low/high thresholds)`,
+      `- **Estimated days remaining:** ${Math.max(0, current.totalSeasonDays - (current.dayOfSeason ?? 0))}`,
+      `- **Confidence:** ${current.confidencePct}% of elapsed days have captured weather data.`,
       current.avgHigh != null
         ? `- **Avg high so far:** ${fmt(current.avgHigh, 1)}°F · **Avg low:** ${fmt(current.avgLow ?? 0, 1)}°F`
-        : `- _No weather samples captured yet._`,
+        : `- _No weather samples captured yet — totals are 100% estimated._`,
       current.maxHigh != null
         ? `- **Max high:** ${fmt(current.maxHigh, 0)}°F · **Min low:** ${fmt(current.minLow ?? 0, 0)}°F · **Wet days:** ${current.precipDays}`
         : ``,
@@ -868,25 +913,29 @@ function buildWeatherPatternForSeason(i: ReportInputs): FoodReport {
     );
   }
 
-  const past = stats.filter((s) => !s.isCurrent && s.daysCaptured > 0);
+  const past = stats.filter((s) => !s.isCurrent && (s.daysCaptured > 0 || s.season.end < today));
   if (past.length) {
     lines.push(
       `## Previous Seasons`,
       ``,
       mdTable(
-        ["Season", "Window", "Total days", "Days captured", "Avg high °F", "Avg low °F", "Max high", "Min low", "Wet days"],
+        ["Season", "Window", "Total days", "Captured", "Growing (obs)", "Growing (est)", "Total growing", "Confidence", "Avg high", "Avg low", "Wet days"],
         past.map((s) => [
           s.season.year,
           `${ymd(s.season.start)} → ${ymd(s.season.end)}`,
           s.totalSeasonDays,
           s.daysCaptured,
+          s.observedGrowingDays,
+          s.estimatedGrowingDays,
+          s.totalGrowingDays,
+          `${s.confidencePct}%`,
           s.avgHigh != null ? fmt(s.avgHigh, 1) : "—",
           s.avgLow != null ? fmt(s.avgLow, 1) : "—",
-          s.maxHigh != null ? fmt(s.maxHigh, 0) : "—",
-          s.minLow != null ? fmt(s.minLow, 0) : "—",
           s.precipDays,
         ]),
       ),
+      ``,
+      `_Estimated growing days assume any uncaptured day within the frost-bracketed window was a growing day. Lower confidence = more reliance on that assumption._`,
       ``,
     );
   } else if (!current) {
@@ -900,18 +949,26 @@ function buildWeatherPatternForSeason(i: ReportInputs): FoodReport {
       `## ${s.season.year} Daily Log`,
       ``,
       mdTable(
-        ["Date", "High °F", "Low °F", "Conditions", "Precip %"],
-        s.inWindow.map((w) => [
-          w.forecast_date,
-          w.high_temp_f != null ? fmt(Number(w.high_temp_f), 0) : "—",
-          w.low_temp_f != null ? fmt(Number(w.low_temp_f), 0) : "—",
-          (w.conditions ?? "").replace(/\|/g, "\\|"),
-          w.precip_probability != null ? fmt(Number(w.precip_probability), 0) : "—",
-        ]),
+        ["Date", "High °F", "Low °F", "Growing?", "Conditions", "Precip %"],
+        s.inWindow.map((w) => {
+          const grow = isGrowingDay(
+            w.high_temp_f != null ? Number(w.high_temp_f) : null,
+            w.low_temp_f != null ? Number(w.low_temp_f) : null,
+          );
+          return [
+            w.forecast_date,
+            w.high_temp_f != null ? fmt(Number(w.high_temp_f), 0) : "—",
+            w.low_temp_f != null ? fmt(Number(w.low_temp_f), 0) : "—",
+            grow ? "✓" : "✗",
+            (w.conditions ?? "").replace(/\|/g, "\\|"),
+            w.precip_probability != null ? fmt(Number(w.precip_probability), 0) : "—",
+          ];
+        }),
       ),
       ``,
     );
   }
+
 
   const csvRows: Record<string, string | number>[] = [];
   for (const s of stats) {
