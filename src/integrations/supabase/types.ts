@@ -1446,6 +1446,63 @@ export type Database = {
         }
         Relationships: []
       }
+      weather_forecasts: {
+        Row: {
+          conditions: string | null
+          created_at: string
+          fetched_at: string
+          forecast_date: string
+          high_temp_f: number | null
+          icon: string | null
+          id: string
+          low_temp_f: number | null
+          precip_probability: number | null
+          precip_type: string | null
+          raw: Json | null
+          station_id: string
+          sunrise: string | null
+          sunset: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          conditions?: string | null
+          created_at?: string
+          fetched_at?: string
+          forecast_date: string
+          high_temp_f?: number | null
+          icon?: string | null
+          id?: string
+          low_temp_f?: number | null
+          precip_probability?: number | null
+          precip_type?: string | null
+          raw?: Json | null
+          station_id: string
+          sunrise?: string | null
+          sunset?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          conditions?: string | null
+          created_at?: string
+          fetched_at?: string
+          forecast_date?: string
+          high_temp_f?: number | null
+          icon?: string | null
+          id?: string
+          low_temp_f?: number | null
+          precip_probability?: number | null
+          precip_type?: string | null
+          raw?: Json | null
+          station_id?: string
+          sunrise?: string | null
+          sunset?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       webauthn_challenges: {
         Row: {
           challenge: string

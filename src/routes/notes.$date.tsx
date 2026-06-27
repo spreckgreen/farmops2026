@@ -3,13 +3,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { commitDailyNote, getDailyNote, listProjects, refreshDailyNoteFromLog, saveDailyNote } from "@/lib/log.functions";
+import { getDailyForecast } from "@/lib/weather.functions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AppLayout } from "@/components/app-layout";
 import { requireAuthenticatedUser } from "@/lib/auth-route";
 import { toast } from "sonner";
 import { format, addDays, parseISO } from "date-fns";
-import { ChevronLeft, ChevronRight, Eye, EyeOff } from "lucide-react";
+import { ChevronLeft, ChevronRight, Eye, EyeOff, Cloud, RefreshCw } from "lucide-react";
 import { DailyNotePreview } from "@/components/daily-note-preview";
 import { useShowTaskSlugs } from "@/hooks/use-show-task-slugs";
 
@@ -52,6 +53,17 @@ function NotePage() {
   const query = useQuery({
     queryKey: ["daily-note", date],
     queryFn: () => fetchNote({ data: { date } }),
+  });
+
+  const fetchForecast = useServerFn(getDailyForecast);
+  const weatherQuery = useQuery({
+    queryKey: ["weather", date],
+    queryFn: () => fetchForecast({ data: { date } }),
+    staleTime: 5 * 60 * 1000,
+  });
+  const refreshWeather = useMutation({
+    mutationFn: () => fetchForecast({ data: { date, refresh: true } }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["weather", date] }),
   });
 
   const [draft, setDraft] = useState<string>("");
@@ -430,6 +442,52 @@ Untagged lines stay in this note only.`}</pre>
       </section>
 
       <aside className="lg:border-l lg:border-border lg:pl-6 space-y-6">
+        <div>
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+              <Cloud className="h-3.5 w-3.5" /> Weather · BosteadFarmHouse
+            </h2>
+            <button
+              type="button"
+              onClick={() => refreshWeather.mutate()}
+              disabled={refreshWeather.isPending}
+              className="text-muted-foreground hover:text-foreground"
+              title="Refresh forecast"
+            >
+              <RefreshCw className={`h-3 w-3 ${refreshWeather.isPending ? "animate-spin" : ""}`} />
+            </button>
+          </div>
+          {weatherQuery.isLoading ? (
+            <p className="text-xs text-muted-foreground">Loading forecast…</p>
+          ) : weatherQuery.data ? (
+            <div className="border border-border rounded p-2 bg-card text-xs font-mono space-y-1">
+              <div className="text-sm font-semibold">{weatherQuery.data.conditions ?? "—"}</div>
+              <div className="text-muted-foreground">
+                High{" "}
+                <span className="text-foreground">
+                  {weatherQuery.data.high_temp_f != null
+                    ? `${Math.round(Number(weatherQuery.data.high_temp_f))}°F`
+                    : "—"}
+                </span>
+                {" · "}Low{" "}
+                <span className="text-foreground">
+                  {weatherQuery.data.low_temp_f != null
+                    ? `${Math.round(Number(weatherQuery.data.low_temp_f))}°F`
+                    : "—"}
+                </span>
+              </div>
+              {weatherQuery.data.precip_probability != null && (
+                <div className="text-muted-foreground">
+                  Precip {Math.round(Number(weatherQuery.data.precip_probability))}%
+                  {weatherQuery.data.precip_type ? ` · ${weatherQuery.data.precip_type}` : ""}
+                </div>
+              )}
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">No forecast available.</p>
+          )}
+        </div>
+
         <div>
           <div className="flex items-center justify-between gap-3 mb-3">
             <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
