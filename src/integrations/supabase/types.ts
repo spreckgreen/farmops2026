@@ -974,6 +974,216 @@ export type Database = {
         }
         Relationships: []
       }
+      rachio_controllers: {
+        Row: {
+          created_at: string
+          id: string
+          last_synced_at: string | null
+          model: string | null
+          name: string | null
+          rachio_id: string
+          raw: Json | null
+          serial_number: string | null
+          status: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          last_synced_at?: string | null
+          model?: string | null
+          name?: string | null
+          rachio_id: string
+          raw?: Json | null
+          serial_number?: string | null
+          status?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          last_synced_at?: string | null
+          model?: string | null
+          name?: string | null
+          rachio_id?: string
+          raw?: Json | null
+          serial_number?: string | null
+          status?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      rachio_runs: {
+        Row: {
+          created_at: string
+          duration_seconds: number | null
+          ended_at: string | null
+          gallons: number | null
+          id: string
+          rachio_event_id: string | null
+          raw: Json | null
+          source: string | null
+          started_at: string
+          status: string | null
+          updated_at: string
+          user_id: string
+          zone_id: string
+        }
+        Insert: {
+          created_at?: string
+          duration_seconds?: number | null
+          ended_at?: string | null
+          gallons?: number | null
+          id?: string
+          rachio_event_id?: string | null
+          raw?: Json | null
+          source?: string | null
+          started_at: string
+          status?: string | null
+          updated_at?: string
+          user_id: string
+          zone_id: string
+        }
+        Update: {
+          created_at?: string
+          duration_seconds?: number | null
+          ended_at?: string | null
+          gallons?: number | null
+          id?: string
+          rachio_event_id?: string | null
+          raw?: Json | null
+          source?: string | null
+          started_at?: string
+          status?: string | null
+          updated_at?: string
+          user_id?: string
+          zone_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rachio_runs_zone_id_fkey"
+            columns: ["zone_id"]
+            isOneToOne: false
+            referencedRelation: "rachio_zones"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rachio_webhook_events: {
+        Row: {
+          error: string | null
+          event_type: string | null
+          external_id: string | null
+          id: string
+          payload: Json | null
+          processed_at: string | null
+          received_at: string
+          signature_ok: boolean
+        }
+        Insert: {
+          error?: string | null
+          event_type?: string | null
+          external_id?: string | null
+          id?: string
+          payload?: Json | null
+          processed_at?: string | null
+          received_at?: string
+          signature_ok: boolean
+        }
+        Update: {
+          error?: string | null
+          event_type?: string | null
+          external_id?: string | null
+          id?: string
+          payload?: Json | null
+          processed_at?: string | null
+          received_at?: string
+          signature_ok?: boolean
+        }
+        Relationships: []
+      }
+      rachio_zones: {
+        Row: {
+          area_sqft: number | null
+          controller_id: string
+          created_at: string
+          enabled: boolean | null
+          garden_plot_id: string | null
+          id: string
+          last_run_at: string | null
+          name: string | null
+          next_run_at: string | null
+          nozzle: string | null
+          orchard_tree_id: string | null
+          rachio_id: string
+          raw: Json | null
+          updated_at: string
+          user_id: string
+          zone_number: number | null
+        }
+        Insert: {
+          area_sqft?: number | null
+          controller_id: string
+          created_at?: string
+          enabled?: boolean | null
+          garden_plot_id?: string | null
+          id?: string
+          last_run_at?: string | null
+          name?: string | null
+          next_run_at?: string | null
+          nozzle?: string | null
+          orchard_tree_id?: string | null
+          rachio_id: string
+          raw?: Json | null
+          updated_at?: string
+          user_id: string
+          zone_number?: number | null
+        }
+        Update: {
+          area_sqft?: number | null
+          controller_id?: string
+          created_at?: string
+          enabled?: boolean | null
+          garden_plot_id?: string | null
+          id?: string
+          last_run_at?: string | null
+          name?: string | null
+          next_run_at?: string | null
+          nozzle?: string | null
+          orchard_tree_id?: string | null
+          rachio_id?: string
+          raw?: Json | null
+          updated_at?: string
+          user_id?: string
+          zone_number?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rachio_zones_controller_id_fkey"
+            columns: ["controller_id"]
+            isOneToOne: false
+            referencedRelation: "rachio_controllers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rachio_zones_garden_plot_id_fkey"
+            columns: ["garden_plot_id"]
+            isOneToOne: false
+            referencedRelation: "garden_plots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rachio_zones_orchard_tree_id_fkey"
+            columns: ["orchard_tree_id"]
+            isOneToOne: false
+            referencedRelation: "orchard_trees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       summaries: {
         Row: {
           created_at: string

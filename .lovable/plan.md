@@ -1,47 +1,126 @@
-## Problem
+# Rachio irrigation integration
 
-Docker build reaches `builder 8/10` (`bun run build:ci` → Vite+Nitro) and runs until the 2700s hard cap kills it. On a 4 GB host this is almost certainly memory starvation: Node is launched with `--max-old-space-size=4096`, which equals the host's entire RAM. The kernel ends up swapping (or the OOM killer pauses progress without printing a clean error), so Vite makes no measurable progress and the stall guard / max timer eventually fires.
+Read-only dashboard + watering log + webhook-driven activity, authenticated
+with a single household Rachio Personal API token stored in the Vault, with
+zones optionally linkable to garden plots and orchard trees.
 
-The fix is to stop competing with the host for memory and to add real visibility into what Vite is doing during that 45-minute window so we can confirm the diagnosis from the next run's log.
+## What you'll see in the app
 
-## Plan
+- **New `/irrigation` route** (under `_authenticated`) with three panes:
+  1. **Controllers & zones** — controller name/status, per-zone card
+     (name, area, nozzle, link to plot/tree), last run, next scheduled run.
+  2. **Recent watering** — table of runs (zone, start, duration, gallons,
+     source: scheduled/manual/skipped), filterable by date and zone.
+  3. **Setup** — "Connect Rachio" panel: paste Personal API token (stored
+     server-side via Vault), test connection, copy webhook URL to register
+     in Rachio's app.
+- **Zone linking UI** — on each zone card, a "Link to…" picker writes
+  `garden_plot_id` / `orchard_tree_id` onto `rachio_zones`. Garden plot
+  and orchard tree detail pages get an "Irrigation" section showing the
+  linked zone's last/next run and last 30 days of gallons.
+- **Activity log** — each completed Rachio run produces an
+  `activity_log` row (`type: 'irrigation'`, summary "Zone X watered for
+  Y min / Z gal"), so it appears in the daily note feed automatically.
 
-### 1. Right-size Node heap for 4 GB hosts
-- In `Dockerfile` builder stage, lower `NODE_OPTIONS` default from `--max-old-space-size=4096` to `--max-old-space-size=2560`, but allow override via build arg `NODE_HEAP_MB`.
-- Add `ARG NODE_HEAP_MB=2560` so users on 8 GB+ hosts can pass `--build-arg NODE_HEAP_MB=6144`.
-- Document the knob in `README.md` (Docker section): "If your host has ≤ 4 GB RAM, keep the default; on 8 GB+ pass `--build-arg NODE_HEAP_MB=6144`."
+## Auth model
 
-### 2. Reduce Vite peak memory
-- In `vite.config.ts`, when `process.env.BUILD_LOW_MEM === "1"`, set:
-  - `build.minify: "esbuild"` (already default, but force it; drop terser if pulled in)
-  - `build.sourcemap: false`
-  - `build.reportCompressedSize: false` (skips the gzip pass that doubles RAM near the end)
-  - `build.rollupOptions.cache: false`
-- Set `BUILD_LOW_MEM=1` in the Dockerfile builder stage so the in-container build always uses the lean settings; local dev is unaffected.
+Single Rachio Personal API token per household, kept in the existing
+**shared Vault** under a reserved title (`rachio.personal_api_token`).
+The token is fetched server-side at call time via the existing
+`vault.functions.ts` reveal path — never shipped to the browser. Setup UI
+writes it through `createVaultItem`; sync code reads it through a new
+`getRachioToken()` server-only helper that calls the same decryption path.
 
-### 3. Make the stall visible instead of silent
-- `scripts/build-with-progress.mjs`: shorten the default heartbeat from 10 s to 5 s inside Docker (`BUILD_HEARTBEAT_SECS=5` in Dockerfile) and add a memory line to each heartbeat (`process.memoryUsage().rss` of the wrapper plus a best-effort `/proc/meminfo` read for the host). This way the next failed log shows whether RSS is climbing, flat, or thrashing — distinguishing OOM from a genuine infinite loop.
-- Add a new phase marker for Rollup's `generating bundle` / `writing assets` lines so we can tell whether the stall is in `transform` (most expensive) or later.
+## Data model (new tables, all RLS-protected)
 
-### 4. Fail fast and loud on OOM
-- In `scripts/build-with-progress.mjs`, when the child exits with signal `SIGKILL` or code `137`, print a clear `FAIL: likely OOM — current heap cap was Xmb, host RAM is Ymb. Rebuild with --build-arg NODE_HEAP_MB=…` message before exiting.
-- In `scripts/install-log.sh`, add `oom|killed|137|signal 9|out of memory` to the highlighted error patterns so the failure surface in `install.log` points straight at the cause.
+```text
+rachio_controllers   id, household_id, rachio_id (unique), name, model,
+                     serial_number, status, last_synced_at, raw jsonb
+rachio_zones         id, household_id, controller_id (fk), rachio_id (unique),
+                     zone_number, name, enabled, nozzle, area_sqft,
+                     garden_plot_id (fk, nullable), orchard_tree_id (fk, nullable),
+                     last_run_at, next_run_at, raw jsonb
+rachio_runs          id, household_id, zone_id (fk), rachio_event_id (unique),
+                     started_at, ended_at, duration_seconds, gallons,
+                     source (scheduled|manual|api|skipped),
+                     status (completed|skipped|aborted), raw jsonb
+rachio_webhook_events id, received_at, signature_ok bool, event_type,
+                     payload jsonb, processed_at, error  -- audit trail
+```
 
-### 5. README troubleshooting entry
-Add a short "Docker build times out at builder 8/10" section to `README.md` linking the three knobs above (`NODE_HEAP_MB`, `BUILD_LOW_MEM`, host RAM guidance) and explaining how to read the new heartbeat memory line.
+All four tables: GRANT to authenticated + service_role, RLS scoped via
+the existing household membership helper (same pattern as `vault_secrets`
+shared scope). `service_role` is what the webhook handler uses.
 
-## Files touched
+## Server functions (`src/lib/rachio.functions.ts`)
 
-- `Dockerfile` — `ARG NODE_HEAP_MB`, lower default, set `BUILD_LOW_MEM=1`, set `BUILD_HEARTBEAT_SECS=5`.
-- `vite.config.ts` — gated low-memory build options.
-- `scripts/build-with-progress.mjs` — memory in heartbeat, OOM-aware exit message, extra phase markers.
-- `scripts/install-log.sh` — extend `ERROR_GREP` with OOM patterns.
-- `README.md` — Docker low-RAM troubleshooting note.
+- `getRachioConnectionStatus()` — returns `{ connected, lastSyncAt,
+  controllerCount }` for the Setup pane.
+- `saveRachioToken({ token })` — validates token with a `GET /1/public/person/info`
+  call, then upserts the shared vault entry.
+- `syncRachioInventory()` — pulls person → devices → zones, upserts
+  controllers/zones, preserves existing plot/tree links by `rachio_id`.
+- `syncRachioRecentRuns({ days = 7 })` — pulls
+  `/1/public/device/{id}/event` for each controller, upserts into
+  `rachio_runs`, mirrors completed ones into `activity_log`. Used by the
+  manual "Sync now" button and a daily cron as a webhook safety net.
+- `linkRachioZone({ zoneId, gardenPlotId?, orchardTreeId? })` —
+  updates the zone's link columns.
+- `listRachioDashboard({ days })` — single read used by `/irrigation`
+  loader (controllers, zones with links resolved, runs window).
 
-No application code or runtime behavior changes; this is build-pipeline only.
+All use `requireSupabaseAuth`. Rachio HTTP calls go through a small
+`rachio-client.server.ts` helper that reads the token once per request.
 
-## What you'll do after I implement
+## Webhook endpoint (Rachio → Bostead)
 
-Re-run the Docker build. Expected outcomes:
-- On a 4 GB host the build should finish (smaller heap + skipped gzip-size pass keeps RSS under ~2.8 GB).
-- If it still fails, the new heartbeat memory line and OOM-aware exit message will tell us definitively whether it's RAM, an infinite loop in a plugin, or something else — and we can target the next fix precisely instead of guessing.
+- New file `src/routes/api/public/webhooks/rachio.ts` (TanStack server
+  route under `/api/public/*` so published auth doesn't block it).
+- Validates Rachio's `X-Rachio-Signature` HMAC against a new
+  `RACHIO_WEBHOOK_SECRET` (random 32-byte; created via
+  `generate_secret`).
+- Inserts into `rachio_webhook_events` (audit), then for
+  `DEVICE_ZONE_RUN_COMPLETED` / `_STARTED` / `_SKIPPED` upserts
+  `rachio_runs` and writes/updates the matching `activity_log` row.
+- Returns 200 fast; defers any heavy enrichment to the daily sync job.
+- Setup pane displays the public webhook URL
+  (`https://bostead.lovable.app/api/public/webhooks/rachio`) plus the
+  webhook secret for the user to paste into Rachio's webhook config.
+
+## Background sync
+
+- Reuse the existing pg_cron pattern (see `schedule-jobs-modern`) to call
+  `/api/public/hooks/rachio-sync` once daily, which invokes
+  `syncRachioInventory` + `syncRachioRecentRuns({ days: 2 })` server-side
+  as a backstop in case a webhook was missed.
+
+## Files touched / created
+
+- New: `src/lib/rachio.functions.ts`, `src/lib/rachio-client.server.ts`,
+  `src/routes/_authenticated/irrigation.tsx`,
+  `src/routes/api/public/webhooks/rachio.ts`,
+  `src/routes/api/public/hooks/rachio-sync.ts`,
+  `src/components/irrigation/` (ControllerCard, ZoneCard, RunsTable,
+  SetupPanel, LinkZoneDialog).
+- Modified: `src/components/app-layout.tsx` (nav entry "Irrigation"),
+  `src/routes/food.garden.tsx` + `src/routes/food.orchard.tsx` (small
+  "Irrigation" sub-panel showing the linked zone summary).
+- Migrations: four new tables above + RLS/grants + indexes
+  (`rachio_runs(zone_id, started_at desc)`,
+  `rachio_zones(garden_plot_id)`, `rachio_zones(orchard_tree_id)`).
+- Secret: `RACHIO_WEBHOOK_SECRET` (auto-generated). No third-party API
+  key requested up-front — the user pastes their Rachio Personal API
+  token into the in-app Setup panel.
+
+## What I'll need from you after build
+
+1. A **Rachio Personal API token** (Rachio app → Account Settings → Get
+   API Key) — paste into the in-app Setup panel; it lands in the shared
+   Vault, not in env.
+2. **Register the webhook** in Rachio (app or `POST /1/public/notification/webhook`)
+   pointing at the URL shown in Setup, using the secret shown next to it.
+3. Optional: link each zone to the plot/tree it actually waters.
+
+After that, the dashboard, watering log, and daily-note activity entries
+populate automatically; the daily cron acts as a safety net for missed
+webhooks.
