@@ -80,12 +80,18 @@ RUN chmod +x /app/scripts/docker-preflight.sh 2>/dev/null || true && \
 # Build a Node-compatible server bundle instead of the default Cloudflare Worker.
 # vite.config.ts forwards NITRO_PRESET into the nitro plugin's `preset` option.
 ENV NITRO_PRESET=node-server
-# Give Rollup/Vite enough heap on small hosts (nginx + node + builder on one box)
-# and silence the noisy "use client" directive warnings that flood the log and
-# make the build look hung behind an nginx SSL terminator.
-ENV NODE_OPTIONS=--max-old-space-size=4096
+# Node heap cap. Default 2560 MB fits a 4 GB host (leaves ~1.4 GB for the
+# kernel + bun + rollup native overhead). On 8 GB+ hosts pass
+# --build-arg NODE_HEAP_MB=6144 to speed transforms.
+ARG NODE_HEAP_MB=2560
+ENV NODE_OPTIONS=--max-old-space-size=${NODE_HEAP_MB}
 ENV ROLLUP_NO_NATIVE=1
 ENV VITE_CJS_IGNORE_WARNING=true
+# Low-memory build path: vite.config.ts disables sourcemaps, gzip-size
+# reporting, and rollup cache when this is set. Always on inside Docker.
+ENV BUILD_LOW_MEM=1
+# Heartbeat every 5s in Docker so memory drift is visible in the log.
+ENV BUILD_HEARTBEAT_SECS=5
 # Persistent Vite/Rollup transform cache survives across `docker build` runs
 # via a BuildKit cache mount, cutting bundle time substantially on rebuilds.
 RUN --mount=type=cache,target=/app/node_modules/.vite,sharing=locked \
@@ -94,7 +100,9 @@ RUN --mount=type=cache,target=/app/node_modules/.vite,sharing=locked \
     echo "=== [builder] STAGE 2/3: Vite + Nitro build ===" && \
     echo "=== [builder] Command: install-log.sh build bun run build:ci" && \
     echo "=== [builder] NITRO_PRESET=$NITRO_PRESET" && \
-    echo "=== [builder] NODE_OPTIONS=$NODE_OPTIONS" && \
+    echo "=== [builder] NODE_OPTIONS=$NODE_OPTIONS (heap=${NODE_HEAP_MB}MB)" && \
+    echo "=== [builder] BUILD_LOW_MEM=$BUILD_LOW_MEM BUILD_HEARTBEAT_SECS=$BUILD_HEARTBEAT_SECS" && \
+    echo "=== [builder] Host memory:" && (grep -E '^(MemTotal|MemAvailable)' /proc/meminfo || true) && \
     echo "=== [builder] INSTALL_LOG=$INSTALL_LOG" && \
     echo "=== [builder] Stall guard: BUILD_STALL_SECS=600, hard cap BUILD_MAX_SECS=2700" && \
     echo "=== [builder] Started at $(date +%H:%M:%S)" && \
