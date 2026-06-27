@@ -135,7 +135,24 @@ child.on("exit", (code, signal) => {
   clearAll();
   log(`vite build exited code=${code} signal=${signal ?? "none"} elapsed=${fmt(performance.now() - start)}`);
   if (code !== 0) {
-    log(`FAIL — last phase reached: ${[...seen].pop() ?? "(none)"}`);
+    const lastPhase = [...seen].pop() ?? "(none)";
+    log(`FAIL — last phase reached: ${lastPhase}`);
+    // OOM signature: SIGKILL with no exit code, or code 134/137, or an
+    // unfinished transform phase on a tight heap. Surface a targeted hint
+    // so the install log clearly points at memory, not at a code bug.
+    const looksOom =
+      signal === "SIGKILL" ||
+      code === 137 ||
+      code === 134 ||
+      (lastPhase === "transform" && HEAP_CAP && Number(HEAP_CAP) <= 3072);
+    if (looksOom) {
+      const host = hostMemMB();
+      log(
+        `FAIL: likely OOM — heap cap was ${HEAP_CAP ?? "(default)"}MB, host has ${
+          host?.totalMB ?? "?"
+        }MB total. Rebuild with --build-arg NODE_HEAP_MB=<value> (use ~60% of host RAM), or free memory on the host.`,
+      );
+    }
     process.exit(code ?? 1);
   }
   log(`SUCCESS — phases: ${[...seen].join(",") || "(none detected)"}`);
