@@ -1,126 +1,49 @@
-# Rachio irrigation integration
+## Goal
 
-Read-only dashboard + watering log + webhook-driven activity, authenticated
-with a single household Rachio Personal API token stored in the Vault, with
-zones optionally linkable to garden plots and orchard trees.
+Add a vault-backed env layer so app-level secrets (Ghost, Rachio webhook, future third-party keys) can live in `vault_secrets` instead of `.env` / docker-compose, while bootstrap secrets stay in the environment.
 
-## What you'll see in the app
+## Scope
 
-- **New `/irrigation` route** (under `_authenticated`) with three panes:
-  1. **Controllers & zones** — controller name/status, per-zone card
-     (name, area, nozzle, link to plot/tree), last run, next scheduled run.
-  2. **Recent watering** — table of runs (zone, start, duration, gallons,
-     source: scheduled/manual/skipped), filterable by date and zone.
-  3. **Setup** — "Connect Rachio" panel: paste Personal API token (stored
-     server-side via Vault), test connection, copy webhook URL to register
-     in Rachio's app.
-- **Zone linking UI** — on each zone card, a "Link to…" picker writes
-  `garden_plot_id` / `orchard_tree_id` onto `rachio_zones`. Garden plot
-  and orchard tree detail pages get an "Irrigation" section showing the
-  linked zone's last/next run and last 30 days of gallons.
-- **Activity log** — each completed Rachio run produces an
-  `activity_log` row (`type: 'irrigation'`, summary "Zone X watered for
-  Y min / Z gal"), so it appears in the daily note feed automatically.
+**In the vault layer:** `GHOST_API_URL`, `GHOST_ADMIN_API_KEY`, `RACHIO_WEBHOOK_SECRET`, any future third-party API key.
 
-## Auth model
+**Stays in process.env (bootstrap tier):** `VAULT_ENCRYPTION_KEY`, `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `LOVABLE_API_KEY`, `SUPABASE_DB_URL`. These are required to *reach* and *decrypt* the vault — they cannot live inside it.
 
-Single Rachio Personal API token per household, kept in the existing
-**shared Vault** under a reserved title (`rachio.personal_api_token`).
-The token is fetched server-side at call time via the existing
-`vault.functions.ts` reveal path — never shipped to the browser. Setup UI
-writes it through `createVaultItem`; sync code reads it through a new
-`getRachioToken()` server-only helper that calls the same decryption path.
+## Changes
 
-## Data model (new tables, all RLS-protected)
+### 1. Schema — add `env_key` to `vault_secrets`
+Migration adds a nullable `env_key text` column with a partial unique index (`env_key IS NOT NULL`), so each env var maps to at most one shared vault row. Only Shared-scope rows participate; personal rows ignore the column.
 
-```text
-rachio_controllers   id, household_id, rachio_id (unique), name, model,
-                     serial_number, status, last_synced_at, raw jsonb
-rachio_zones         id, household_id, controller_id (fk), rachio_id (unique),
-                     zone_number, name, enabled, nozzle, area_sqft,
-                     garden_plot_id (fk, nullable), orchard_tree_id (fk, nullable),
-                     last_run_at, next_run_at, raw jsonb
-rachio_runs          id, household_id, zone_id (fk), rachio_event_id (unique),
-                     started_at, ended_at, duration_seconds, gallons,
-                     source (scheduled|manual|api|skipped),
-                     status (completed|skipped|aborted), raw jsonb
-rachio_webhook_events id, received_at, signature_ok bool, event_type,
-                     payload jsonb, processed_at, error  -- audit trail
-```
+### 2. Server helper — `src/lib/server-env.server.ts`
+Exports `getServerEnv(name)`:
+1. Check in-memory cache (60s TTL).
+2. If miss, query `vault_secrets` (admin client) where `scope='shared'` and `env_key=name`.
+3. Decrypt with existing `open()` from `vault-crypto.server`.
+4. Fall back to `process.env[name]` if no row found.
+5. Cache the result.
 
-All four tables: GRANT to authenticated + service_role, RLS scoped via
-the existing household membership helper (same pattern as `vault_secrets`
-shared scope). `service_role` is what the webhook handler uses.
+Also exports `invalidateServerEnv(name?)` so the UI can bust the cache after a vault edit.
 
-## Server functions (`src/lib/rachio.functions.ts`)
+### 3. Wire existing call sites
+Replace `process.env.GHOST_API_URL`, `process.env.GHOST_ADMIN_API_KEY`, `process.env.RACHIO_WEBHOOK_SECRET` reads inside `src/lib/ghost.functions.ts` and `src/routes/api/public/webhooks/rachio.ts` with `await getServerEnv(...)`. No other files change — `vault-crypto.server.ts` still reads `VAULT_ENCRYPTION_KEY` directly from `process.env` (bootstrap).
 
-- `getRachioConnectionStatus()` — returns `{ connected, lastSyncAt,
-  controllerCount }` for the Setup pane.
-- `saveRachioToken({ token })` — validates token with a `GET /1/public/person/info`
-  call, then upserts the shared vault entry.
-- `syncRachioInventory()` — pulls person → devices → zones, upserts
-  controllers/zones, preserves existing plot/tree links by `rachio_id`.
-- `syncRachioRecentRuns({ days = 7 })` — pulls
-  `/1/public/device/{id}/event` for each controller, upserts into
-  `rachio_runs`, mirrors completed ones into `activity_log`. Used by the
-  manual "Sync now" button and a daily cron as a webhook safety net.
-- `linkRachioZone({ zoneId, gardenPlotId?, orchardTreeId? })` —
-  updates the zone's link columns.
-- `listRachioDashboard({ days })` — single read used by `/irrigation`
-  loader (controllers, zones with links resolved, runs window).
+### 4. UI — Vault editor
+Add an optional **"Expose as environment variable"** field to the Shared-scope vault editor in `src/components/vault.tsx`. Empty = normal secret. Filled (e.g. `GHOST_ADMIN_API_KEY`) = readable via `getServerEnv`. List view shows an `ENV` badge on rows with `env_key` set. Saving/updating/deleting any `env_key` row calls a server fn that invalidates the cache.
 
-All use `requireSupabaseAuth`. Rachio HTTP calls go through a small
-`rachio-client.server.ts` helper that reads the token once per request.
+### 5. Docs
+Update `README.md` and `.env.example`:
+- Document the three-tier model (bootstrap env / vault-backed app secrets / per-user secrets).
+- List which vars **must** remain in env and which can migrate to the vault.
+- Note the 60-second cache and how to force refresh.
 
-## Webhook endpoint (Rachio → Bostead)
+## Technical notes (skip if not interested)
 
-- New file `src/routes/api/public/webhooks/rachio.ts` (TanStack server
-  route under `/api/public/*` so published auth doesn't block it).
-- Validates Rachio's `X-Rachio-Signature` HMAC against a new
-  `RACHIO_WEBHOOK_SECRET` (random 32-byte; created via
-  `generate_secret`).
-- Inserts into `rachio_webhook_events` (audit), then for
-  `DEVICE_ZONE_RUN_COMPLETED` / `_STARTED` / `_SKIPPED` upserts
-  `rachio_runs` and writes/updates the matching `activity_log` row.
-- Returns 200 fast; defers any heavy enrichment to the daily sync job.
-- Setup pane displays the public webhook URL
-  (`https://bostead.lovable.app/api/public/webhooks/rachio`) plus the
-  webhook secret for the user to paste into Rachio's webhook config.
+- Cache is per-process; on multi-instance deploys each instance refreshes independently within 60s — acceptable for config-style secrets.
+- `getServerEnv` is async; existing sync `process.env.X` reads at module scope are left alone (they're bootstrap or build-time). Only handler-body reads migrate.
+- RLS: shared vault rows are already readable by all signed-in users; `env_key` doesn't change that. The admin client bypasses RLS for the env lookup path, which is fine because it runs only in server handlers.
+- No change to encryption format, key wrap/export flow, or YubiKey unwrap.
 
-## Background sync
+## Out of scope
 
-- Reuse the existing pg_cron pattern (see `schedule-jobs-modern`) to call
-  `/api/public/hooks/rachio-sync` once daily, which invokes
-  `syncRachioInventory` + `syncRachioRecentRuns({ days: 2 })` server-side
-  as a backstop in case a webhook was missed.
-
-## Files touched / created
-
-- New: `src/lib/rachio.functions.ts`, `src/lib/rachio-client.server.ts`,
-  `src/routes/_authenticated/irrigation.tsx`,
-  `src/routes/api/public/webhooks/rachio.ts`,
-  `src/routes/api/public/hooks/rachio-sync.ts`,
-  `src/components/irrigation/` (ControllerCard, ZoneCard, RunsTable,
-  SetupPanel, LinkZoneDialog).
-- Modified: `src/components/app-layout.tsx` (nav entry "Irrigation"),
-  `src/routes/food.garden.tsx` + `src/routes/food.orchard.tsx` (small
-  "Irrigation" sub-panel showing the linked zone summary).
-- Migrations: four new tables above + RLS/grants + indexes
-  (`rachio_runs(zone_id, started_at desc)`,
-  `rachio_zones(garden_plot_id)`, `rachio_zones(orchard_tree_id)`).
-- Secret: `RACHIO_WEBHOOK_SECRET` (auto-generated). No third-party API
-  key requested up-front — the user pastes their Rachio Personal API
-  token into the in-app Setup panel.
-
-## What I'll need from you after build
-
-1. A **Rachio Personal API token** (Rachio app → Account Settings → Get
-   API Key) — paste into the in-app Setup panel; it lands in the shared
-   Vault, not in env.
-2. **Register the webhook** in Rachio (app or `POST /1/public/notification/webhook`)
-   pointing at the URL shown in Setup, using the secret shown next to it.
-3. Optional: link each zone to the plot/tree it actually waters.
-
-After that, the dashboard, watering log, and daily-note activity entries
-populate automatically; the daily cron acts as a safety net for missed
-webhooks.
+- Migrating `SUPABASE_*` or `VAULT_ENCRYPTION_KEY` into the vault (impossible — bootstrap paradox).
+- Migrating `VITE_*` client-visible vars (inlined at build time).
+- Multi-region cache invalidation / pub-sub (60s TTL is the contract).

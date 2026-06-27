@@ -52,13 +52,13 @@ function VaultPane({ scope }: { scope: VaultScope }) {
   const [editing, setEditing] = useState<VaultItem | "new" | null>(null);
 
   const createMut = useMutation({
-    mutationFn: (v: { title: string; value: string; notes: string }) =>
-      create({ data: { scope, title: v.title, value: v.value, notes: v.notes || null } }),
+    mutationFn: (v: { title: string; value: string; notes: string; env_key: string }) =>
+      create({ data: { scope, title: v.title, value: v.value, notes: v.notes || null, env_key: scope === "shared" ? (v.env_key || null) : null } }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["vault", scope] }); setEditing(null); toast.success("Secret saved"); },
     onError: (e) => toast.error(e instanceof Error ? e.message : String(e)),
   });
   const updateMut = useMutation({
-    mutationFn: (v: { id: string; title: string; value?: string; notes?: string | null }) =>
+    mutationFn: (v: { id: string; title: string; value?: string; notes?: string | null; env_key?: string | null }) =>
       update({ data: v }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["vault", scope] }); setEditing(null); toast.success("Updated"); },
     onError: (e) => toast.error(e instanceof Error ? e.message : String(e)),
@@ -99,11 +99,18 @@ function VaultPane({ scope }: { scope: VaultScope }) {
 
       {editing && (
         <VaultEditor
+          scope={scope}
           item={editing === "new" ? null : editing}
           onCancel={() => setEditing(null)}
           onSubmit={(v) => {
             if (editing === "new") createMut.mutate(v);
-            else updateMut.mutate({ id: editing.id, title: v.title, value: v.value || undefined, notes: v.notes });
+            else updateMut.mutate({
+              id: editing.id,
+              title: v.title,
+              value: v.value || undefined,
+              notes: v.notes,
+              env_key: scope === "shared" ? (v.env_key || null) : undefined,
+            });
           }}
           submitting={createMut.isPending || updateMut.isPending}
         />
@@ -142,7 +149,17 @@ function VaultRow({ item, onEdit, onDelete }: { item: VaultItem; onEdit: () => v
   return (
     <li className="p-3 flex items-start gap-3">
       <div className="flex-1 min-w-0">
-        <div className="font-medium truncate">{item.title}</div>
+        <div className="font-medium truncate flex items-center gap-2">
+          <span className="truncate">{item.title}</span>
+          {item.env_key && (
+            <span
+              className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-primary/10 text-primary border border-primary/20 flex-shrink-0"
+              title={`Exposed to server as process env "${item.env_key}"`}
+            >
+              ENV: {item.env_key}
+            </span>
+          )}
+        </div>
         <div className="mt-1 font-mono text-xs break-all">
           {revealed ? revealed.value : "•".repeat(12)}
         </div>
@@ -166,18 +183,23 @@ function VaultRow({ item, onEdit, onDelete }: { item: VaultItem; onEdit: () => v
 }
 
 function VaultEditor({
-  item, onCancel, onSubmit, submitting,
+  scope, item, onCancel, onSubmit, submitting,
 }: {
+  scope: VaultScope;
   item: VaultItem | null;
   onCancel: () => void;
-  onSubmit: (v: { title: string; value: string; notes: string }) => void;
+  onSubmit: (v: { title: string; value: string; notes: string; env_key: string }) => void;
   submitting: boolean;
 }) {
   const reveal = useServerFn(revealVaultItem);
   const [title, setTitle] = useState(item?.title ?? "");
   const [value, setValue] = useState("");
   const [notes, setNotes] = useState("");
+  const [envKey, setEnvKey] = useState(item?.env_key ?? "");
   const [loaded, setLoaded] = useState(!item);
+
+  const envKeyTrimmed = envKey.trim();
+  const envKeyValid = envKeyTrimmed === "" || /^[A-Z_][A-Z0-9_]{0,127}$/.test(envKeyTrimmed);
 
   async function loadExisting() {
     if (!item) return;
@@ -222,12 +244,33 @@ function VaultEditor({
             <Label htmlFor="v-notes">Notes</Label>
             <Textarea id="v-notes" value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} disabled={!loaded && !!item} />
           </div>
+          {scope === "shared" && (
+            <div>
+              <Label htmlFor="v-env-key">
+                Expose as environment variable <span className="text-muted-foreground font-normal">(optional)</span>
+              </Label>
+              <Input
+                id="v-env-key"
+                value={envKey}
+                onChange={(e) => setEnvKey(e.target.value.toUpperCase())}
+                placeholder="e.g. GHOST_ADMIN_API_KEY"
+                className="font-mono text-sm"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                When set, server code can read this secret via <code>getServerEnv(&quot;{envKeyTrimmed || "NAME"}&quot;)</code>,
+                overriding any matching <code>process.env</code> value. Cached 60s per process.
+              </p>
+              {!envKeyValid && (
+                <p className="text-xs text-destructive mt-1">UPPER_SNAKE_CASE only (A–Z, 0–9, _).</p>
+              )}
+            </div>
+          )}
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={onCancel}>Cancel</Button>
           <Button
-            disabled={submitting || !title.trim() || (!item && !value)}
-            onClick={() => onSubmit({ title: title.trim(), value, notes })}
+            disabled={submitting || !title.trim() || (!item && !value) || !envKeyValid}
+            onClick={() => onSubmit({ title: title.trim(), value, notes, env_key: envKeyTrimmed })}
           >
             {submitting ? "Saving…" : "Save"}
           </Button>

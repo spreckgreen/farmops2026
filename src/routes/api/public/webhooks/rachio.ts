@@ -11,7 +11,8 @@ export const Route = createFileRoute("/api/public/webhooks/rachio")({
       POST: async ({ request }) => {
         const url = new URL(request.url);
         const externalId = url.searchParams.get("token") || url.searchParams.get("external_id") || "";
-        const expectedSecret = process.env.RACHIO_WEBHOOK_SECRET ?? "";
+        const { getServerEnv } = await import("@/lib/server-env.server");
+        const expectedSecret = (await getServerEnv("RACHIO_WEBHOOK_SECRET")) ?? "";
         const rawBody = await request.text();
 
         let signatureOk = false;

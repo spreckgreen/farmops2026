@@ -1399,6 +1399,7 @@ export type Database = {
         Row: {
           created_at: string
           created_by: string
+          env_key: string | null
           id: string
           notes_ciphertext: string | null
           notes_iv: string | null
@@ -1414,6 +1415,7 @@ export type Database = {
         Insert: {
           created_at?: string
           created_by: string
+          env_key?: string | null
           id?: string
           notes_ciphertext?: string | null
           notes_iv?: string | null
@@ -1429,6 +1431,7 @@ export type Database = {
         Update: {
           created_at?: string
           created_by?: string
+          env_key?: string | null
           id?: string
           notes_ciphertext?: string | null
           notes_iv?: string | null
