@@ -75,9 +75,6 @@ export const Route = createFileRoute("/api/public/webhooks/rachio")({
   },
 });
 
-type Admin = Awaited<ReturnType<typeof import("@/integrations/supabase/client.server")["__noop"]>> extends never
-  ? never : never;
-// We can't easily type the admin client here; use `any` shape internally.
 async function processRachioEvent(
   admin: { from: (t: string) => any },
   payload: Record<string, unknown>,
