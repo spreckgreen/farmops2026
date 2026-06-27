@@ -111,7 +111,7 @@ RUN --mount=type=cache,target=/app/node_modules/.vite,sharing=locked \
 # NITRO_PRESET isn't forwarded it falls back to `.output/`. Rather than fail,
 # we auto-select whichever exists and rename it — both layouts produce
 # `server/index.mjs`, which is all the runner CMD needs.
-RUN set -eu; \
+RUN install-log.sh nitro-detect bash -euc '\
     echo "=== Nitro Build Output Detection ===" ; \
     if [ -d /app/dist ] && [ -f /app/dist/server/index.mjs ]; then \
       echo "Detected output directory: /app/dist (pinned via nitro.output.dir)"; \
@@ -130,8 +130,12 @@ RUN set -eu; \
     fi; \
     echo "Server entrypoint: /app/dist/server/index.mjs"; \
     echo "Paths that will be copied to runner image:"; \
-    find /app/dist -type f | sort | sed 's|^/app/dist|  ./dist|'; \
-    echo "=== End Nitro Build Output Detection ==="
+    find /app/dist -type f | sort | sed "s|^/app/dist|  ./dist|"; \
+    echo "=== End Nitro Build Output Detection ==="'
+
+# Stage the unified install log so it ships in the runner image at /app/install.log.
+RUN mkdir -p /app/dist && cp /install-log/install.log /app/dist/install.log || true
+
 
 
 
