@@ -83,7 +83,8 @@ ENV NITRO_PRESET=node-server
 # Node heap cap. Default 2560 MB fits a 4 GB host (leaves ~1.4 GB for the
 # kernel + bun + rollup native overhead). On 8 GB+ hosts pass
 # --build-arg NODE_HEAP_MB=6144 to speed transforms.
-ARG NODE_HEAP_MB=2560
+# Default is 1536 MB to fit a 4 GB host with no swap. Raise on larger hosts.
+ARG NODE_HEAP_MB=1536
 ENV NODE_OPTIONS=--max-old-space-size=${NODE_HEAP_MB}
 ENV ROLLUP_NO_NATIVE=1
 ENV VITE_CJS_IGNORE_WARNING=true
