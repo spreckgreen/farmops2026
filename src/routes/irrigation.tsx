@@ -3,7 +3,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Droplets, RefreshCw, Link2, Copy } from "lucide-react";
+import { Droplets, RefreshCw, Link2, Copy, Eye, EyeOff } from "lucide-react";
+
+const RACHIO_TOKEN_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 import { AppLayout } from "@/components/app-layout";
 import { Button } from "@/components/ui/button";
