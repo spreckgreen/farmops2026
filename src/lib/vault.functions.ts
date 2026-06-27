@@ -11,6 +11,7 @@ export interface VaultItem {
   scope: VaultScope;
   title: string;
   has_notes: boolean;
+  env_key: string | null;
   created_by: string;
   owner_user_id: string | null;
   created_at: string;
@@ -21,6 +22,17 @@ export interface VaultRevealed {
   id: string;
   value: string;
   notes: string | null;
+}
+
+const ENV_KEY_RE = /^[A-Z_][A-Z0-9_]{0,127}$/;
+function validateEnvKey(v: unknown, scope: VaultScope): string | null {
+  if (v == null || v === "") return null;
+  if (scope !== "shared") throw new Error("env_key is only allowed on shared secrets");
+  const s = String(v).trim();
+  if (!ENV_KEY_RE.test(s)) {
+    throw new Error("env_key must be UPPER_SNAKE_CASE (letters, digits, underscore)");
+  }
+  return s;
 }
 
 function validateScope(s: unknown): VaultScope {
