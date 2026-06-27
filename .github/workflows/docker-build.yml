@@ -54,6 +54,16 @@ jobs:
           fi
           ls -la ./logs/ || true
 
+      - name: Summarize build failure
+        if: failure()
+        run: |
+          chmod +x scripts/summarize-build-failure.sh
+          scripts/summarize-build-failure.sh ./logs ./logs/build-failure-summary.md
+          # Surface the summary in the GitHub Actions job summary panel.
+          if [ -n "${GITHUB_STEP_SUMMARY:-}" ] && [ -f ./logs/build-failure-summary.md ]; then
+            cat ./logs/build-failure-summary.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+
       - name: Upload install log artifact
         if: always()
         uses: actions/upload-artifact@v4
@@ -63,5 +73,16 @@ jobs:
             logs/install.log
             logs/docker-build.log
             logs/install.log.missing
+            logs/build-failure-summary.md
           if-no-files-found: warn
           retention-days: 14
+
+      - name: Upload failure summary artifact
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-build-failure-summary
+          path: logs/build-failure-summary.md
+          if-no-files-found: warn
+          retention-days: 30
+
