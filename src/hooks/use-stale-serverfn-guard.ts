@@ -185,6 +185,11 @@ function looksLikeStaleServerFn(url: string, status: number, body: string) {
   // a redeploy. 404s on /_serverFn/* always mean the ID is gone.
   if (status === 404) return true;
   if (/"unhandled"\s*:\s*true/.test(body) && /"message"\s*:\s*"HTTPError"/.test(body)) return true;
+  // Lovable dev wrapper signal: a 500 with "no stack was captured" / "handled
+  // by a route or error boundary" almost always means the serverFn ID is gone
+  // after a hot rebuild — the handler never actually ran, so there's no stack.
+  if (/no stack was captured/i.test(body)) return true;
+  if (/handled by a (route|error) boundary/i.test(body)) return true;
   return false;
 }
 
