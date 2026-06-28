@@ -134,9 +134,13 @@ async function syncProcedureBodyLinks(
     .eq("name", procedureName);
 }
 
+export const listProcedureLinks = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { procedureName: string }) => {
     if (!d?.procedureName) throw new Error("procedureName required");
     return { procedureName: String(d.procedureName) };
   })
+
   .handler(async ({ context, data }): Promise<ProcedureLinkRow[]> => {
     const procId = await resolveProcedureId(
       context.supabase as unknown as Parameters<typeof resolveProcedureId>[0],
