@@ -55,8 +55,13 @@ const ScheduleList = ({ schedules, assets, onEdit, onDelete, onComplete }: Sched
   return (
     <div className="space-y-3">
       {schedules.map((s) => {
-        const isOverdue = s.status === "scheduled" && new Date(s.scheduled_date) < new Date();
-        const displayStatus = isOverdue ? "overdue" : s.status;
+        const asset = assets.find((a) => a.id === s.asset_id);
+        const reminder = computeReminder(s, asset);
+        const usageOverdue = reminder.kind !== "date" && reminder.status === "overdue";
+        const isDateOverdue = s.status === "scheduled" && new Date(s.scheduled_date) < new Date();
+        const displayStatus = s.status === "completed"
+          ? "completed"
+          : (usageOverdue || isDateOverdue) ? "overdue" : s.status;
 
         return (
           <Card key={s.id} className="p-4 bg-card border-border hover:border-primary/20 transition-colors">
@@ -76,6 +81,16 @@ const ScheduleList = ({ schedules, assets, onEdit, onDelete, onComplete }: Sched
                       })() : s.recurrence}
                     </Badge>
                   )}
+                  {s.status !== "completed" && (
+                    <Badge variant="outline" className={`text-xs ${reminderColors[reminder.status]}`}>
+                      {reminder.kind === "date" ? (
+                        <Bell className="h-3 w-3 mr-1" />
+                      ) : (
+                        <Gauge className="h-3 w-3 mr-1" />
+                      )}
+                      {reminder.label}
+                    </Badge>
+                  )}
                 </div>
                 <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap">
                   <span className="flex items-center gap-1">
@@ -83,6 +98,23 @@ const ScheduleList = ({ schedules, assets, onEdit, onDelete, onComplete }: Sched
                     {format(new Date(s.scheduled_date), "MMM d, yyyy h:mm a")}
                   </span>
                   <span>Asset: <span className="text-foreground">{getAssetName(s.asset_id)}</span></span>
+                  {reminder.kind !== "date" && reminder.progress != null && (
+                    <span className="flex items-center gap-2 min-w-[140px]">
+                      <span className="h-1.5 flex-1 rounded-full bg-muted overflow-hidden">
+                        <span
+                          className={`block h-full ${
+                            reminder.status === "overdue"
+                              ? "bg-red-400"
+                              : reminder.status === "soon" || reminder.status === "due"
+                                ? "bg-amber-400"
+                                : "bg-emerald-400"
+                          }`}
+                          style={{ width: `${Math.round(reminder.progress * 100)}%` }}
+                        />
+                      </span>
+                      <span className="text-xs">{Math.round(reminder.progress * 100)}%</span>
+                    </span>
+                  )}
                 </div>
                 {s.consumables_used && s.consumables_used.length > 0 && (
                   <div className="flex gap-1 mt-2 flex-wrap">
