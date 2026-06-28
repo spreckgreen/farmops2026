@@ -125,13 +125,13 @@ export const createProcedureLink = createServerFn({ method: "POST" })
       context.userId,
       data.procedureName,
     );
-    const payload: Record<string, unknown> = {
+    const payload = {
       user_id: context.userId,
       procedure_id: procId,
       notes: data.notes,
+      inventory_item_id: data.kind === "inventory" ? data.targetId : null,
+      maintenance_record_id: data.kind === "maintenance" ? data.targetId : null,
     };
-    if (data.kind === "inventory") payload.inventory_item_id = data.targetId;
-    else payload.maintenance_record_id = data.targetId;
     const { error } = await context.supabase.from("procedure_links").insert(payload);
     if (error) {
       if (/duplicate|unique/i.test(error.message)) throw new Error("This procedure is already linked to that item.");
