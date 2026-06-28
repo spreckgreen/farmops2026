@@ -209,7 +209,7 @@ const ScheduleDialog = ({ open, onOpenChange, onSave, schedule, assets, consumab
               </div>
             )}
 
-            {form.recurrence === "custom" && (
+            {form.trigger_type === "date" && form.recurrence === "custom" && (
               <div className="col-span-2 space-y-2">
                 <Label>Repeat every</Label>
                 <div className="flex gap-2 items-center">
@@ -229,18 +229,8 @@ const ScheduleDialog = ({ open, onOpenChange, onSave, schedule, assets, consumab
                     <option value="weeks">Week(s)</option>
                     <option value="months">Month(s)</option>
                     <option value="years">Year(s)</option>
-                    <option value="hours">Operating Hour(s)</option>
-                    <option value="miles">Mile(s)</option>
                   </select>
                 </div>
-                {(form.recurrence_unit === "hours" || form.recurrence_unit === "miles") && (
-                  <p className="text-xs text-muted-foreground">
-                    Service triggers after {form.recurrence_interval} {form.recurrence_unit} of accumulated use.
-                    {selectedAsset && selectedAsset.usage_tracking === "none" && (
-                      <span className="text-destructive ml-1">⚠ Selected asset has no usage tracking enabled.</span>
-                    )}
-                  </p>
-                )}
               </div>
             )}
 
