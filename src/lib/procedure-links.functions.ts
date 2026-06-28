@@ -236,8 +236,10 @@ export const createProcedureLink = createServerFn({ method: "POST" })
       if (/duplicate|unique/i.test(error.message)) throw new Error("This procedure is already linked to that item.");
       throw new Error(error.message);
     }
+    await syncProcedureBodyLinks(context.supabase, context.userId, data.procedureName, procId);
     return { ok: true as const };
   });
+
 
 export const deleteProcedureLink = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
