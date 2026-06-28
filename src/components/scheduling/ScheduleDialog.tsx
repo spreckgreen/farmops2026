@@ -46,6 +46,8 @@ const ScheduleDialog = ({ open, onOpenChange, onSave, schedule, assets, consumab
         interval = parseInt(parts[0]) || 1;
         unit = parts[1] || "days";
       }
+      const triggerType =
+        rec.startsWith("custom:") && (unit === "hours" || unit === "miles") ? unit : "date";
       setForm({
         asset_id: schedule.asset_id,
         title: schedule.title,
@@ -55,8 +57,8 @@ const ScheduleDialog = ({ open, onOpenChange, onSave, schedule, assets, consumab
         recurrence: rec.startsWith("custom:") ? "custom" : rec,
         recurrence_interval: interval,
         recurrence_unit: unit,
-        trigger_type: "date",
-        trigger_value: 0,
+        trigger_type: triggerType,
+        trigger_value: interval,
         consumables_used: schedule.consumables_used || [],
         notes: schedule.notes || "",
       });
@@ -95,7 +97,12 @@ const ScheduleDialog = ({ open, onOpenChange, onSave, schedule, assets, consumab
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const submitData: ServiceScheduleFormData = { ...form };
-    if (form.recurrence === "custom") {
+    if (form.trigger_type === "hours" || form.trigger_type === "miles") {
+      // Usage-based triggers persist as custom:<interval>:<hours|miles>
+      submitData.recurrence = `custom:${form.trigger_value || 1}:${form.trigger_type}`;
+      submitData.recurrence_interval = form.trigger_value || 1;
+      submitData.recurrence_unit = form.trigger_type;
+    } else if (form.recurrence === "custom") {
       submitData.recurrence = `custom:${form.recurrence_interval}:${form.recurrence_unit}`;
     }
     onSave(submitData);
@@ -146,24 +153,63 @@ const ScheduleDialog = ({ open, onOpenChange, onSave, schedule, assets, consumab
             </div>
 
             <div className="space-y-2">
-              <Label>Recurrence</Label>
+              <Label>Trigger</Label>
               <select
-                value={form.recurrence}
-                onChange={(e) => setForm({ ...form, recurrence: e.target.value })}
+                value={form.trigger_type}
+                onChange={(e) => setForm({ ...form, trigger_type: e.target.value })}
                 className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
               >
-                <option value="none">One-time</option>
-                <option value="daily">Daily</option>
-                <option value="weekly">Weekly</option>
-                <option value="biweekly">Bi-weekly</option>
-                <option value="monthly">Monthly</option>
-                <option value="quarterly">Quarterly</option>
-                <option value="yearly">Yearly</option>
-                <option value="custom">Custom interval...</option>
+                <option value="date">Date / calendar</option>
+                <option value="hours">Operating hours</option>
+                <option value="miles">Mileage</option>
               </select>
             </div>
 
-            {form.recurrence === "custom" && (
+            {form.trigger_type === "date" && (
+              <div className="space-y-2">
+                <Label>Recurrence</Label>
+                <select
+                  value={form.recurrence}
+                  onChange={(e) => setForm({ ...form, recurrence: e.target.value })}
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                >
+                  <option value="none">One-time</option>
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="biweekly">Bi-weekly</option>
+                  <option value="monthly">Monthly</option>
+                  <option value="quarterly">Quarterly</option>
+                  <option value="yearly">Yearly</option>
+                  <option value="custom">Custom interval...</option>
+                </select>
+              </div>
+            )}
+
+            {(form.trigger_type === "hours" || form.trigger_type === "miles") && (
+              <div className="col-span-2 space-y-2">
+                <Label>
+                  Service every {form.trigger_type === "hours" ? "(operating hours)" : "(miles)"}
+                </Label>
+                <Input
+                  type="number"
+                  min={1}
+                  value={form.trigger_value || ""}
+                  onChange={(e) => setForm({ ...form, trigger_value: parseInt(e.target.value) || 0 })}
+                  placeholder={form.trigger_type === "hours" ? "e.g. 100" : "e.g. 5000"}
+                  required
+                />
+                <p className="text-xs text-muted-foreground">
+                  Service triggers after {form.trigger_value || 0} {form.trigger_type} of accumulated use since the last service.
+                  {selectedAsset && selectedAsset.usage_tracking === "none" && (
+                    <span className="text-destructive ml-1">
+                      ⚠ Selected asset has no usage tracking enabled — enable {form.trigger_type} tracking on the asset for this trigger to fire.
+                    </span>
+                  )}
+                </p>
+              </div>
+            )}
+
+            {form.trigger_type === "date" && form.recurrence === "custom" && (
               <div className="col-span-2 space-y-2">
                 <Label>Repeat every</Label>
                 <div className="flex gap-2 items-center">
@@ -183,18 +229,8 @@ const ScheduleDialog = ({ open, onOpenChange, onSave, schedule, assets, consumab
                     <option value="weeks">Week(s)</option>
                     <option value="months">Month(s)</option>
                     <option value="years">Year(s)</option>
-                    <option value="hours">Operating Hour(s)</option>
-                    <option value="miles">Mile(s)</option>
                   </select>
                 </div>
-                {(form.recurrence_unit === "hours" || form.recurrence_unit === "miles") && (
-                  <p className="text-xs text-muted-foreground">
-                    Service triggers after {form.recurrence_interval} {form.recurrence_unit} of accumulated use.
-                    {selectedAsset && selectedAsset.usage_tracking === "none" && (
-                      <span className="text-destructive ml-1">⚠ Selected asset has no usage tracking enabled.</span>
-                    )}
-                  </p>
-                )}
               </div>
             )}
 
