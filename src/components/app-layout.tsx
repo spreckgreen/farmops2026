@@ -65,67 +65,73 @@ export function AppLayout({ children }: { children: ReactNode }) {
               <Link to="/tasks/scheduled" className={navItem} activeProps={navActive}>
                 Scheduled
               </Link>
-              <Link to="/maintenance" className={navItem} activeProps={navActive}>
-                Maintenance
-              </Link>
               <Link to="/inventory" className={navItem} activeProps={navActive}>
                 Inventory
+              </Link>
+              <Link to="/maintenance" className={navItem} activeProps={navActive}>
+                Maintenance
               </Link>
               <Link to="/procedures" className={navItem} activeProps={navActive}>
                 Procedures
               </Link>
-              <Link to="/vault" className={navItem} activeProps={navActive}>
-                <span className="inline-flex items-center gap-1"><KeyRound className="h-3.5 w-3.5"/> Vault</span>
-              </Link>
-              <Link to="/sync" className={navItem} activeProps={navActive}>
-                Sync
-              </Link>
-
-
             </nav>
           </div>
           <div className="flex items-center gap-2">
-            {profile.data?.isAdmin && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant={adminActive ? "secondary" : "ghost"}
-                    size="sm"
-                    className="gap-1"
-                  >
-                    <ShieldCheck className="h-3.5 w-3.5" />
-                    Admin
-                    <ChevronDown className="h-3.5 w-3.5 opacity-70" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuItem asChild>
-                    <Link to="/admin/users" className="flex items-center gap-2 cursor-pointer">
-                      <Users className="h-4 w-4" />
-                      User management
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link to="/admin/export" className="flex items-center gap-2 cursor-pointer">
-                      <Download className="h-4 w-4" />
-                      Export snapshot
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link to="/admin/restore" className="flex items-center gap-2 cursor-pointer">
-                      <Upload className="h-4 w-4" />
-                      Restore backup
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link to="/admin/reset" className="flex items-center gap-2 cursor-pointer">
-                      <Trash2 className="h-4 w-4" />
-                      Reset data
-                    </Link>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant={adminActive || pathname.startsWith("/vault") || pathname.startsWith("/sync") ? "secondary" : "ghost"}
+                  size="sm"
+                  className="gap-1"
+                >
+                  <ShieldCheck className="h-3.5 w-3.5" />
+                  Admin
+                  <ChevronDown className="h-3.5 w-3.5 opacity-70" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem asChild>
+                  <Link to="/vault" className="flex items-center gap-2 cursor-pointer">
+                    <KeyRound className="h-4 w-4" />
+                    Vault
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/sync" className="flex items-center gap-2 cursor-pointer">
+                    <RefreshCw className="h-4 w-4" />
+                    Sync
+                  </Link>
+                </DropdownMenuItem>
+                {profile.data?.isAdmin && (
+                  <>
+                    <DropdownMenuItem asChild>
+                      <Link to="/admin/users" className="flex items-center gap-2 cursor-pointer">
+                        <Users className="h-4 w-4" />
+                        User management
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link to="/admin/export" className="flex items-center gap-2 cursor-pointer">
+                        <Download className="h-4 w-4" />
+                        Export snapshot
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link to="/admin/restore" className="flex items-center gap-2 cursor-pointer">
+                        <Upload className="h-4 w-4" />
+                        Restore backup
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link to="/admin/reset" className="flex items-center gap-2 cursor-pointer">
+                        <Trash2 className="h-4 w-4" />
+                        Reset data
+                      </Link>
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button variant="ghost" size="sm" onClick={signOut}>
               Sign out
             </Button>
