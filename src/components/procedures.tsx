@@ -26,6 +26,7 @@ import {
   deleteProcedure,
   type ProcedureRow,
 } from "@/lib/procedures.functions";
+import { ProcedureLinks } from "@/components/procedure-links";
 
 export function Procedures() {
   const qc = useQueryClient();
@@ -414,6 +415,7 @@ export function Procedures() {
               <span>{content.length.toLocaleString()} chars · {content.split(/\s+/).filter(Boolean).length.toLocaleString()} words</span>
               {dirty && <span className="text-amber-500">● unsaved</span>}
             </div>
+            <ProcedureLinks procedureName={selected} />
           </>
         ) : (
           <div className="flex-1 flex flex-col items-center justify-center text-center gap-3 text-muted-foreground border border-dashed border-border rounded-md p-8">
