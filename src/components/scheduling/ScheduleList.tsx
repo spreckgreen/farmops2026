@@ -23,6 +23,14 @@ const statusColors: Record<string, string> = {
   cancelled: "bg-muted text-muted-foreground border-border",
 };
 
+const reminderColors: Record<ReminderStatus, string> = {
+  ok: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
+  soon: "bg-amber-500/15 text-amber-300 border-amber-500/30",
+  due: "bg-orange-500/20 text-orange-300 border-orange-500/30",
+  overdue: "bg-red-500/20 text-red-300 border-red-500/30",
+  unknown: "bg-muted text-muted-foreground border-border",
+};
+
 const typeIcons: Record<string, string> = {
   maintenance: "🔧",
   inspection: "🔍",
