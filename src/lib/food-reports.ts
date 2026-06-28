@@ -874,12 +874,23 @@ function buildWeatherPatternForSeason(i: ReportInputs): FoodReport {
     });
 
   const current = stats.find((s) => s.isCurrent);
+  const selected = stats[0]; // when seasonYear is pinned, this is the single season rendered
 
   const lines: string[] = [
     `# Weather Pattern for Season`,
     ``,
     `*Generated ${i.generatedAt.slice(0, 10)} — station BosteadFarmHouse (119722)*`,
     ``,
+  ];
+
+  if (selected) {
+    lines.push(
+      `**Season window:** ${ymd(selected.season.start)} → ${ymd(selected.season.end)} (${selected.totalSeasonDays} days)`,
+      ``,
+    );
+  }
+
+  lines.push(
     `## Season Definition`,
     ``,
     `- **Start:** 1 month before last spring frost (${LAST_SPRING_FROST_MMDD})`,
@@ -892,7 +903,7 @@ function buildWeatherPatternForSeason(i: ReportInputs): FoodReport {
     `- Days inside the window with **no captured observation** are **estimated** as growing days (assumed frost-free between expected frost dates).`,
     `- Confidence = captured observations ÷ elapsed season days.`,
     ``,
-  ];
+  );
 
   if (current) {
     const pct = current.totalSeasonDays
