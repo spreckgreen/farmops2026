@@ -4,7 +4,8 @@ import { Card } from "@/components/ui/card";
 import type { ServiceSchedule } from "@/types/scheduling";
 import type { Asset } from "@/components/dashboard/types";
 import { format } from "date-fns";
-import { Calendar, CheckCircle, Edit, Trash2, Wrench } from "lucide-react";
+import { Bell, Calendar, CheckCircle, Edit, Gauge, Trash2, Wrench } from "lucide-react";
+import { computeReminder, type ReminderStatus } from "@/lib/maintenance-reminders";
 
 interface ScheduleListProps {
   schedules: ServiceSchedule[];
@@ -20,6 +21,14 @@ const statusColors: Record<string, string> = {
   completed: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
   overdue: "bg-red-500/20 text-red-400 border-red-500/30",
   cancelled: "bg-muted text-muted-foreground border-border",
+};
+
+const reminderColors: Record<ReminderStatus, string> = {
+  ok: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
+  soon: "bg-amber-500/15 text-amber-300 border-amber-500/30",
+  due: "bg-orange-500/20 text-orange-300 border-orange-500/30",
+  overdue: "bg-red-500/20 text-red-300 border-red-500/30",
+  unknown: "bg-muted text-muted-foreground border-border",
 };
 
 const typeIcons: Record<string, string> = {
@@ -46,8 +55,13 @@ const ScheduleList = ({ schedules, assets, onEdit, onDelete, onComplete }: Sched
   return (
     <div className="space-y-3">
       {schedules.map((s) => {
-        const isOverdue = s.status === "scheduled" && new Date(s.scheduled_date) < new Date();
-        const displayStatus = isOverdue ? "overdue" : s.status;
+        const asset = assets.find((a) => a.id === s.asset_id);
+        const reminder = computeReminder(s, asset);
+        const usageOverdue = reminder.kind !== "date" && reminder.status === "overdue";
+        const isDateOverdue = s.status === "scheduled" && new Date(s.scheduled_date) < new Date();
+        const displayStatus = s.status === "completed"
+          ? "completed"
+          : (usageOverdue || isDateOverdue) ? "overdue" : s.status;
 
         return (
           <Card key={s.id} className="p-4 bg-card border-border hover:border-primary/20 transition-colors">
@@ -67,6 +81,16 @@ const ScheduleList = ({ schedules, assets, onEdit, onDelete, onComplete }: Sched
                       })() : s.recurrence}
                     </Badge>
                   )}
+                  {s.status !== "completed" && (
+                    <Badge variant="outline" className={`text-xs ${reminderColors[reminder.status]}`}>
+                      {reminder.kind === "date" ? (
+                        <Bell className="h-3 w-3 mr-1" />
+                      ) : (
+                        <Gauge className="h-3 w-3 mr-1" />
+                      )}
+                      {reminder.label}
+                    </Badge>
+                  )}
                 </div>
                 <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap">
                   <span className="flex items-center gap-1">
@@ -74,6 +98,23 @@ const ScheduleList = ({ schedules, assets, onEdit, onDelete, onComplete }: Sched
                     {format(new Date(s.scheduled_date), "MMM d, yyyy h:mm a")}
                   </span>
                   <span>Asset: <span className="text-foreground">{getAssetName(s.asset_id)}</span></span>
+                  {reminder.kind !== "date" && reminder.progress != null && (
+                    <span className="flex items-center gap-2 min-w-[140px]">
+                      <span className="h-1.5 flex-1 rounded-full bg-muted overflow-hidden">
+                        <span
+                          className={`block h-full ${
+                            reminder.status === "overdue"
+                              ? "bg-red-400"
+                              : reminder.status === "soon" || reminder.status === "due"
+                                ? "bg-amber-400"
+                                : "bg-emerald-400"
+                          }`}
+                          style={{ width: `${Math.round(reminder.progress * 100)}%` }}
+                        />
+                      </span>
+                      <span className="text-xs">{Math.round(reminder.progress * 100)}%</span>
+                    </span>
+                  )}
                 </div>
                 {s.consumables_used && s.consumables_used.length > 0 && (
                   <div className="flex gap-1 mt-2 flex-wrap">

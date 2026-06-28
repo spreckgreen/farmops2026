@@ -32,6 +32,7 @@ import type {
   ConsumableFormData,
   ConsumableUsage,
 } from "@/types/scheduling";
+import { buildUsageBaselineRaw, parseUsageRecurrence } from "@/lib/maintenance-reminders";
 
 export const Route = createFileRoute("/service-scheduling")({
   ssr: false,
@@ -98,12 +99,20 @@ function ServiceSchedulingPage() {
 
   const handleSaveSchedule = async (formData: ServiceScheduleFormData) => {
     const { recurrence_interval, recurrence_unit, trigger_type, trigger_value, ...dbFields } = formData;
-    void recurrence_interval; void recurrence_unit; void trigger_type; void trigger_value;
+    void recurrence_interval; void recurrence_unit;
+    const asset = assets.find((a) => a.id === formData.asset_id);
+    const existingRaw =
+      (editingSchedule as unknown as { raw?: Record<string, unknown> } | null)?.raw ?? null;
+    const raw =
+      trigger_type === "hours" || trigger_type === "miles"
+        ? buildUsageBaselineRaw(trigger_type, trigger_value || 1, asset, existingRaw)
+        : existingRaw;
     const saveData = {
       ...dbFields,
       scheduled_date: new Date(formData.scheduled_date).toISOString(),
       consumables_used: formData.consumables_used as unknown as never,
       status: editingSchedule?.status ?? "scheduled",
+      ...(raw ? { raw: raw as unknown as never } : {}),
     };
 
     if (editingSchedule) {
@@ -146,9 +155,24 @@ function ServiceSchedulingPage() {
       }
     }
 
+    // For usage-based reminders, roll the baseline forward to the asset's
+    // current reading so the next threshold = current + interval.
+    const usage = schedule ? parseUsageRecurrence(schedule.recurrence) : null;
+    const asset = schedule ? assets.find((a) => a.id === schedule.asset_id) : undefined;
+    const existingRaw =
+      (schedule as unknown as { raw?: Record<string, unknown> } | null | undefined)?.raw ?? null;
+    const rolledRaw =
+      usage && schedule
+        ? buildUsageBaselineRaw(usage.unit, usage.interval, asset, existingRaw)
+        : null;
+
     const { error } = await supabase
       .from("maintenance_records")
-      .update({ status: "completed", completed_date: new Date().toISOString() })
+      .update({
+        status: "completed",
+        completed_date: new Date().toISOString(),
+        ...(rolledRaw ? { raw: rolledRaw as unknown as never } : {}),
+      })
       .eq("id", id);
     if (error) { toast.error("Failed to complete"); return; }
     toast.success("Service completed");
