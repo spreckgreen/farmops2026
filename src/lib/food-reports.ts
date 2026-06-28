@@ -187,8 +187,10 @@ export type ReportInputs = {
     precip_type: string | null;
   }>;
   rowLengthFt?: number;
+  seasonYear?: number; // when set, the weather report renders only this season
   generatedAt: string; // ISO
 };
+
 
 
 function toNum(v: unknown): number {
