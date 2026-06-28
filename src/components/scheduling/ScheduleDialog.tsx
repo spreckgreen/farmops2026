@@ -97,7 +97,12 @@ const ScheduleDialog = ({ open, onOpenChange, onSave, schedule, assets, consumab
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const submitData: ServiceScheduleFormData = { ...form };
-    if (form.recurrence === "custom") {
+    if (form.trigger_type === "hours" || form.trigger_type === "miles") {
+      // Usage-based triggers persist as custom:<interval>:<hours|miles>
+      submitData.recurrence = `custom:${form.trigger_value || 1}:${form.trigger_type}`;
+      submitData.recurrence_interval = form.trigger_value || 1;
+      submitData.recurrence_unit = form.trigger_type;
+    } else if (form.recurrence === "custom") {
       submitData.recurrence = `custom:${form.recurrence_interval}:${form.recurrence_unit}`;
     }
     onSave(submitData);
