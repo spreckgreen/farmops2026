@@ -116,6 +116,17 @@ function renderNotePage() {
   };
 }
 
+async function openMarkdownEditor() {
+  await userClick(screen.getByRole("button", { name: /edit markdown/i }));
+  return (await screen.findByRole("textbox")) as HTMLTextAreaElement;
+}
+
+async function userClick(element: HTMLElement) {
+  await act(async () => {
+    fireEvent.click(element);
+  });
+}
+
 // ----- Tests --------------------------------------------------------------
 
 describe("Today autosave race", () => {
@@ -133,7 +144,7 @@ describe("Today autosave race", () => {
   it("flushes pending edits on unmount and a remount sees the newest content", async () => {
     // First mount: load, edit, unmount before the 800ms debounce fires.
     const first = renderNotePage();
-    const textarea = (await screen.findByRole("textbox")) as HTMLTextAreaElement;
+    const textarea = await openMarkdownEditor();
     await waitFor(() => expect(textarea.value).toBe("initial content"));
 
     fireEvent.change(textarea, { target: { value: "edited on Today" } });
@@ -154,13 +165,13 @@ describe("Today autosave race", () => {
     // Second mount: come straight back to Today. Refetch must serve the
     // saved content — never the original stale string.
     renderNotePage();
-    const remounted = (await screen.findByRole("textbox")) as HTMLTextAreaElement;
+    const remounted = await openMarkdownEditor();
     await waitFor(() => expect(remounted.value).toBe("edited on Today"));
   });
 
   it("debounced typing eventually persists without unmounting", async () => {
     renderNotePage();
-    const textarea = (await screen.findByRole("textbox")) as HTMLTextAreaElement;
+    const textarea = await openMarkdownEditor();
     await waitFor(() => expect(textarea.value).toBe("initial content"));
 
     fireEvent.change(textarea, { target: { value: "live edit" } });
