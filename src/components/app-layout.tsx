@@ -1,6 +1,7 @@
 import { Link, useRouter, useRouterState } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -15,12 +16,15 @@ import { ShieldCheck, ChevronDown, Users, Trash2, Download, Upload, KeyRound, Re
 
 export function AppLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const today = todayDateString();
   const profile = useCurrentProfile();
 
   const signOut = async () => {
+    await queryClient.cancelQueries();
+    queryClient.clear();
     await supabase.auth.signOut();
-    router.navigate({ to: "/auth" });
+    router.navigate({ to: "/auth", replace: true });
   };
 
   const navItem =
