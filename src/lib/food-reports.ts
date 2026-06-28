@@ -187,8 +187,10 @@ export type ReportInputs = {
     precip_type: string | null;
   }>;
   rowLengthFt?: number;
+  seasonYear?: number; // when set, the weather report renders only this season
   generatedAt: string; // ISO
 };
+
 
 
 function toNum(v: unknown): number {
@@ -775,18 +777,21 @@ function buildWeatherPatternForSeason(i: ReportInputs): FoodReport {
   const weather = (i.weather ?? []).slice().sort((a, b) => a.forecast_date.localeCompare(b.forecast_date));
   const today = new Date(i.generatedAt.slice(0, 10) + "T00:00:00Z");
 
-  // Determine the set of years to render: any year that has weather data
-  // within its season window, plus the current year.
-  const years = new Set<number>([today.getUTCFullYear()]);
-  for (const w of weather) {
-    const y = Number(w.forecast_date.slice(0, 4));
-    if (Number.isFinite(y)) {
-      years.add(y);
-      // Weather in Jan-Feb may belong to previous fall's growing season tail
-      // — handled naturally because each season window is keyed by the
-      // fall-frost year, which equals the start year here.
+  // Determine the set of years to render. When the caller picks a specific
+  // season year, render *only* that one — previous/future selections must
+  // not pull in data from other years. Otherwise default to the current
+  // year plus any year that has captured weather rows.
+  const years = new Set<number>();
+  if (i.seasonYear && Number.isFinite(i.seasonYear)) {
+    years.add(i.seasonYear);
+  } else {
+    years.add(today.getUTCFullYear());
+    for (const w of weather) {
+      const y = Number(w.forecast_date.slice(0, 4));
+      if (Number.isFinite(y)) years.add(y);
     }
   }
+
 
   type SeasonStats = {
     season: SeasonWindow;

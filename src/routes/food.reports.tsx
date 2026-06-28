@@ -76,19 +76,22 @@ function FoodReportsPage() {
   const navigate = useNavigate({ from: Route.id });
   const reportsFn = useServerFn(getFoodReports);
   const backfillFn = useServerFn(backfillSeasonWeather);
-  const reportsQ = useQuery({
-    queryKey: ["food-reports"],
-    queryFn: () => reportsFn(),
-  });
-  const reports = reportsQ.data?.reports ?? [];
-  const current = reports.find((r) => r.slug === report) ?? reports[0];
-  const [backfilling, setBackfilling] = useState(false);
 
   // Build the list of selectable seasons: 2010 → next year.
   const currentYear = new Date().getUTCFullYear();
   const seasonYears: number[] = [];
   for (let y = currentYear + 1; y >= 2010; y--) seasonYears.push(y);
   const selectedSeason = season || String(currentYear);
+  const selectedSeasonYear = Number(selectedSeason);
+
+  const reportsQ = useQuery({
+    queryKey: ["food-reports", selectedSeasonYear],
+    queryFn: () => reportsFn({ data: { seasonYear: selectedSeasonYear } }),
+  });
+  const reports = reportsQ.data?.reports ?? [];
+  const current = reports.find((r) => r.slug === report) ?? reports[0];
+  const [backfilling, setBackfilling] = useState(false);
+
 
   async function handleBackfill() {
     const year = Number(selectedSeason);
