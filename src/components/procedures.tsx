@@ -26,6 +26,7 @@ import {
   deleteProcedure,
   type ProcedureRow,
 } from "@/lib/procedures.functions";
+import { ProcedureLinks } from "@/components/procedure-links";
 
 export function Procedures() {
   const qc = useQueryClient();
