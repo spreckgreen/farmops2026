@@ -98,12 +98,20 @@ function ServiceSchedulingPage() {
 
   const handleSaveSchedule = async (formData: ServiceScheduleFormData) => {
     const { recurrence_interval, recurrence_unit, trigger_type, trigger_value, ...dbFields } = formData;
-    void recurrence_interval; void recurrence_unit; void trigger_type; void trigger_value;
+    void recurrence_interval; void recurrence_unit;
+    const asset = assets.find((a) => a.id === formData.asset_id);
+    const existingRaw =
+      (editingSchedule as unknown as { raw?: Record<string, unknown> } | null)?.raw ?? null;
+    const raw =
+      trigger_type === "hours" || trigger_type === "miles"
+        ? buildUsageBaselineRaw(trigger_type, trigger_value || 1, asset, existingRaw)
+        : existingRaw;
     const saveData = {
       ...dbFields,
       scheduled_date: new Date(formData.scheduled_date).toISOString(),
       consumables_used: formData.consumables_used as unknown as never,
       status: editingSchedule?.status ?? "scheduled",
+      ...(raw ? { raw: raw as unknown as never } : {}),
     };
 
     if (editingSchedule) {
