@@ -1,8 +1,15 @@
 // Server functions backing the Procedure ↔ Inventory/Maintenance link manager.
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { buildTinyWikiHtml } from "@/lib/tinywiki";
+import {
+  composeBodyWithLinks,
+  extractBodyFromHtml,
+  type ManagedLink,
+} from "@/lib/procedure-link-section";
 
 export type LinkTargetKind = "inventory" | "maintenance";
+
 
 export interface ProcedureLinkRow {
   id: string;
