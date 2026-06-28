@@ -63,10 +63,11 @@ export function buildTinyWikiHtml(name: string, body: string): string {
     tiddlers[t]={title:t,text:pre?pre.textContent:'',tags:d.getAttribute('tags')||'',type:d.getAttribute('type')||'text/vnd.tiddlywiki'};
   }
   function wikiToHtml(text){
+    function slug(s){return String(s).toLowerCase().replace(/&[a-z]+;/g,' ').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,80);}
     var html=text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-      .replace(/^!!! (.*$)/gim,'<h3>$1</h3>')
-      .replace(/^!! (.*$)/gim,'<h2>$1</h2>')
-      .replace(/^! (.*$)/gim,'<h1>$1</h1>')
+      .replace(/^!!! (.*$)/gim,function(m,s){return '<h3 id="'+slug(s)+'">'+s+'</h3>';})
+      .replace(/^!! (.*$)/gim,function(m,s){return '<h2 id="'+slug(s)+'">'+s+'</h2>';})
+      .replace(/^! (.*$)/gim,function(m,s){return '<h1 id="'+slug(s)+'">'+s+'</h1>';})
       .replace(/^----$/gim,'<hr>')
       .replace(/''(.*?)''/g,'<strong>$1</strong>')
       .replace(/\\/\\/(.*?)\\/\\//g,'<em>$1</em>')
