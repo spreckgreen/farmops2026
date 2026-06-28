@@ -12,7 +12,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 // ----- Fake backend with controllable save latency ------------------------
 
-const { store, getDailyNoteImpl, saveDailyNoteImpl, listProjectsImpl } = vi.hoisted(() => {
+const { store, getDailyNoteImpl, saveDailyNoteImpl, commitDailyNoteImpl, refreshDailyNoteFromLogImpl, listProjectsImpl } = vi.hoisted(() => {
   const store = {
     noteId: "note-1",
     date: "2026-06-15",
@@ -37,7 +37,14 @@ const { store, getDailyNoteImpl, saveDailyNoteImpl, listProjectsImpl } = vi.hois
     },
   );
   const listProjectsImpl = vi.fn(async () => [] as Array<{ slug: string; name: string }>);
-  return { store, getDailyNoteImpl, saveDailyNoteImpl, listProjectsImpl };
+  const commitDailyNoteImpl = vi.fn(async () => ({ saved: true, newEntries: 0 }));
+  const refreshDailyNoteFromLogImpl = vi.fn(async () => ({
+    markdown: store.markdown,
+    restored: 0,
+    preserved: 0,
+    deduped: 0,
+  }));
+  return { store, getDailyNoteImpl, saveDailyNoteImpl, commitDailyNoteImpl, refreshDailyNoteFromLogImpl, listProjectsImpl };
 });
 
 // ----- Mocks --------------------------------------------------------------
@@ -45,6 +52,8 @@ const { store, getDailyNoteImpl, saveDailyNoteImpl, listProjectsImpl } = vi.hois
 vi.mock("@/lib/log.functions", () => ({
   getDailyNote: getDailyNoteImpl,
   saveDailyNote: saveDailyNoteImpl,
+  commitDailyNote: commitDailyNoteImpl,
+  refreshDailyNoteFromLog: refreshDailyNoteFromLogImpl,
   listProjects: listProjectsImpl,
 }));
 
