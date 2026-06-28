@@ -108,6 +108,7 @@ async function syncProcedureBodyLinks(
     if (r.inventory_item_id) {
       const inv = r.inventory_items;
       return {
+        id: r.inventory_item_id,
         kind: "inventory" as const,
         label: [inv?.name || "(unnamed)", inv?.sku].filter(Boolean).join(" · "),
         notes: r.notes,
@@ -115,6 +116,7 @@ async function syncProcedureBodyLinks(
     }
     const m = r.maintenance_records;
     return {
+      id: r.maintenance_record_id ?? "",
       kind: "maintenance" as const,
       label: [m?.title || m?.service_type || "Maintenance", m?.asset_name, m?.performed_at]
         .filter(Boolean)

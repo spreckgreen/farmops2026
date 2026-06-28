@@ -63,14 +63,15 @@ export function buildTinyWikiHtml(name: string, body: string): string {
     tiddlers[t]={title:t,text:pre?pre.textContent:'',tags:d.getAttribute('tags')||'',type:d.getAttribute('type')||'text/vnd.tiddlywiki'};
   }
   function wikiToHtml(text){
+    function slug(s){return String(s).toLowerCase().replace(/&[a-z]+;/g,' ').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,80);}
     var html=text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-      .replace(/^!!! (.*$)/gim,'<h3>$1</h3>')
-      .replace(/^!! (.*$)/gim,'<h2>$1</h2>')
-      .replace(/^! (.*$)/gim,'<h1>$1</h1>')
+      .replace(/^!!! (.*$)/gim,function(m,s){return '<h3 id="'+slug(s)+'">'+s+'</h3>';})
+      .replace(/^!! (.*$)/gim,function(m,s){return '<h2 id="'+slug(s)+'">'+s+'</h2>';})
+      .replace(/^! (.*$)/gim,function(m,s){return '<h1 id="'+slug(s)+'">'+s+'</h1>';})
       .replace(/^----$/gim,'<hr>')
       .replace(/''(.*?)''/g,'<strong>$1</strong>')
       .replace(/\\/\\/(.*?)\\/\\//g,'<em>$1</em>')
-      .replace(/\\[\\[([^\\]|]+)\\|([^\\]]+)\\]\\]/g,'<a href="$2" target="_blank" rel="noopener">$1</a>')
+      .replace(/\\[\\[([^\\]|]+)\\|([^\\]]+)\\]\\]/g,function(m,lbl,tgt){if(tgt.charAt(0)==='#')return '<a href="'+tgt+'">'+lbl+'</a>';return '<a href="'+tgt+'" target="_blank" rel="noopener">'+lbl+'</a>';})
       .replace(/\\[\\[([^\\]]+)\\]\\]/g,'<a href="#" data-tiddler="$1">$1</a>')
       .replace(/\\[img\\[([^\\]]+)\\]\\]/g,function(m,fn){var it=tiddlers[fn];if(it&&it.type&&it.type.indexOf('image/')===0)return '<img src="data:'+it.type+';base64,'+it.text.trim()+'" alt="'+fn+'" style="max-width:100%">';return '<span>[img['+fn+']]</span>';})
       .replace(/&lt;&lt;&lt;\\n([\\s\\S]*?)&lt;&lt;&lt;/g,'<blockquote>$1</blockquote>')
