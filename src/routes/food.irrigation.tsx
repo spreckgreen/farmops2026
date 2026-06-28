@@ -3,11 +3,10 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Droplets, RefreshCw, Link2, Copy, Eye, EyeOff } from "lucide-react";
+import { RefreshCw, Link2, Copy, Eye, EyeOff } from "lucide-react";
 
 const RACHIO_TOKEN_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-import { AppLayout } from "@/components/app-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,19 +24,15 @@ import {
   type RachioZoneRow,
 } from "@/lib/rachio.functions";
 
-export const Route = createFileRoute("/irrigation")({
+export const Route = createFileRoute("/food/irrigation")({
   component: IrrigationPage,
   errorComponent: ({ error }) => (
-    <AppLayout>
-      <div className="max-w-3xl mx-auto p-6 text-sm text-destructive">
-        Failed to load irrigation: {error.message}
-      </div>
-    </AppLayout>
+    <div className="p-6 text-sm text-destructive">
+      Failed to load irrigation: {error.message}
+    </div>
   ),
   notFoundComponent: () => (
-    <AppLayout>
-      <div className="max-w-3xl mx-auto p-6 text-sm text-muted-foreground">Not found.</div>
-    </AppLayout>
+    <div className="p-6 text-sm text-muted-foreground">Not found.</div>
   ),
 });
 
@@ -52,43 +47,30 @@ function IrrigationPage() {
   const invalidate = () => qc.invalidateQueries({ queryKey: ["rachio"] });
 
   return (
-    <AppLayout>
-      <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
-        <header className="flex items-start justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-              <Droplets className="h-6 w-6 text-sky-500" /> Irrigation
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              Rachio controller status, zone configuration, and recent watering runs.
-            </p>
-          </div>
-        </header>
-
-        {dashboard.isLoading && <div className="text-sm text-muted-foreground">Loading…</div>}
-        {dashboard.error && (
-          <div className="text-sm text-destructive">{(dashboard.error as Error).message}</div>
-        )}
-        {dashboard.data && (
-          <Tabs defaultValue={dashboard.data.status.connected ? "zones" : "setup"}>
-            <TabsList>
-              <TabsTrigger value="zones">Controllers &amp; Zones</TabsTrigger>
-              <TabsTrigger value="runs">Recent Watering</TabsTrigger>
-              <TabsTrigger value="setup">Setup</TabsTrigger>
-            </TabsList>
-            <TabsContent value="zones" className="mt-4">
-              <ZonesPane data={dashboard.data} onChanged={invalidate} />
-            </TabsContent>
-            <TabsContent value="runs" className="mt-4">
-              <RunsPane data={dashboard.data} />
-            </TabsContent>
-            <TabsContent value="setup" className="mt-4">
-              <SetupPane data={dashboard.data} onChanged={invalidate} />
-            </TabsContent>
-          </Tabs>
-        )}
-      </div>
-    </AppLayout>
+    <div className="space-y-6">
+      {dashboard.isLoading && <div className="text-sm text-muted-foreground">Loading…</div>}
+      {dashboard.error && (
+        <div className="text-sm text-destructive">{(dashboard.error as Error).message}</div>
+      )}
+      {dashboard.data && (
+        <Tabs defaultValue={dashboard.data.status.connected ? "zones" : "setup"}>
+          <TabsList>
+            <TabsTrigger value="zones">Controllers &amp; Zones</TabsTrigger>
+            <TabsTrigger value="runs">Recent Watering</TabsTrigger>
+            <TabsTrigger value="setup">Setup</TabsTrigger>
+          </TabsList>
+          <TabsContent value="zones" className="mt-4">
+            <ZonesPane data={dashboard.data} onChanged={invalidate} />
+          </TabsContent>
+          <TabsContent value="runs" className="mt-4">
+            <RunsPane data={dashboard.data} />
+          </TabsContent>
+          <TabsContent value="setup" className="mt-4">
+            <SetupPane data={dashboard.data} onChanged={invalidate} />
+          </TabsContent>
+        </Tabs>
+      )}
+    </div>
   );
 }
 

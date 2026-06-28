@@ -21,6 +21,7 @@ export const Route = createFileRoute("/food")({
 const TABS: Array<{ to: string; label: string; exact?: boolean }> = [
   { to: "/food/plan", label: "Plan" },
   { to: "/food", label: "Overview", exact: true },
+  { to: "/food/irrigation", label: "Irrigation" },
   { to: "/food/crops", label: "Crops" },
   { to: "/food/garden", label: "Garden" },
   { to: "/food/orchard", label: "Orchard" },
