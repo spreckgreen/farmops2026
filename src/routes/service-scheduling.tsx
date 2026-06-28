@@ -155,9 +155,24 @@ function ServiceSchedulingPage() {
       }
     }
 
+    // For usage-based reminders, roll the baseline forward to the asset's
+    // current reading so the next threshold = current + interval.
+    const usage = schedule ? parseUsageRecurrence(schedule.recurrence) : null;
+    const asset = schedule ? assets.find((a) => a.id === schedule.asset_id) : undefined;
+    const existingRaw =
+      (schedule as unknown as { raw?: Record<string, unknown> } | null | undefined)?.raw ?? null;
+    const rolledRaw =
+      usage && schedule
+        ? buildUsageBaselineRaw(usage.unit, usage.interval, asset, existingRaw)
+        : null;
+
     const { error } = await supabase
       .from("maintenance_records")
-      .update({ status: "completed", completed_date: new Date().toISOString() })
+      .update({
+        status: "completed",
+        completed_date: new Date().toISOString(),
+        ...(rolledRaw ? { raw: rolledRaw as unknown as never } : {}),
+      })
       .eq("id", id);
     if (error) { toast.error("Failed to complete"); return; }
     toast.success("Service completed");
