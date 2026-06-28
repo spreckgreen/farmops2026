@@ -19,6 +19,7 @@ const { store, getDailyNoteImpl, saveDailyNoteImpl, commitDailyNoteImpl, refresh
     markdown: "initial content",
     saveLatencyMs: 50,
     saveCalls: 0,
+    commitCalls: 0,
     fetchCalls: 0,
   };
   const getDailyNoteImpl = vi.fn(async () => {
@@ -37,7 +38,14 @@ const { store, getDailyNoteImpl, saveDailyNoteImpl, commitDailyNoteImpl, refresh
     },
   );
   const listProjectsImpl = vi.fn(async () => [] as Array<{ slug: string; name: string }>);
-  const commitDailyNoteImpl = vi.fn(async () => ({ saved: true, newEntries: 0 }));
+  const commitDailyNoteImpl = vi.fn(
+    async ({ data }: { data: { noteId: string; date: string; markdown: string } }) => {
+      store.commitCalls++;
+      await new Promise((r) => setTimeout(r, store.saveLatencyMs));
+      store.markdown = data.markdown;
+      return { saved: true, newEntries: 0 };
+    },
+  );
   const refreshDailyNoteFromLogImpl = vi.fn(async () => ({
     markdown: store.markdown,
     restored: 0,
@@ -136,6 +144,7 @@ describe("Today autosave race", () => {
     store.markdown = "initial content";
     store.saveLatencyMs = 50;
     store.saveCalls = 0;
+    store.commitCalls = 0;
     store.fetchCalls = 0;
     getDailyNoteImpl.mockClear();
     saveDailyNoteImpl.mockClear();
@@ -159,7 +168,7 @@ describe("Today autosave race", () => {
       await new Promise((r) => setTimeout(r, store.saveLatencyMs + 100));
     });
 
-    expect(store.saveCalls).toBeGreaterThanOrEqual(1);
+    expect(store.commitCalls).toBeGreaterThanOrEqual(1);
     expect(store.markdown).toBe("edited on Today");
 
     // Second mount: come straight back to Today. Refetch must serve the
