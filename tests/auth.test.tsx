@@ -72,7 +72,14 @@ describe("Auth page", () => {
       email: "a@b.co",
       password: "secret123",
     });
-    expect(navigate).toHaveBeenCalledWith({ to: "/" });
+    expect(navigate).toHaveBeenCalledWith({ to: "/", replace: true });
+  });
+
+  it("replaces the auth page when an existing session is detected", async () => {
+    getUser.mockResolvedValueOnce({ data: { user: { id: "u1" } }, error: null });
+    render(<AuthPage />);
+    expect(await screen.findByRole("button", { name: /^sign in$/i })).toBeInTheDocument();
+    expect(navigate).toHaveBeenCalledWith({ to: "/", replace: true });
   });
 
   it("submits sign-up with email/password and shows success toast", async () => {

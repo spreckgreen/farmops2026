@@ -12,13 +12,14 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 // ----- Fake backend with controllable save latency ------------------------
 
-const { store, getDailyNoteImpl, saveDailyNoteImpl, listProjectsImpl } = vi.hoisted(() => {
+const { store, getDailyNoteImpl, saveDailyNoteImpl, commitDailyNoteImpl, refreshDailyNoteFromLogImpl, listProjectsImpl } = vi.hoisted(() => {
   const store = {
     noteId: "note-1",
     date: "2026-06-15",
     markdown: "initial content",
     saveLatencyMs: 50,
     saveCalls: 0,
+    commitCalls: 0,
     fetchCalls: 0,
   };
   const getDailyNoteImpl = vi.fn(async () => {
@@ -37,7 +38,21 @@ const { store, getDailyNoteImpl, saveDailyNoteImpl, listProjectsImpl } = vi.hois
     },
   );
   const listProjectsImpl = vi.fn(async () => [] as Array<{ slug: string; name: string }>);
-  return { store, getDailyNoteImpl, saveDailyNoteImpl, listProjectsImpl };
+  const commitDailyNoteImpl = vi.fn(
+    async ({ data }: { data: { noteId: string; date: string; markdown: string } }) => {
+      store.commitCalls++;
+      await new Promise((r) => setTimeout(r, store.saveLatencyMs));
+      store.markdown = data.markdown;
+      return { saved: true, newEntries: 0 };
+    },
+  );
+  const refreshDailyNoteFromLogImpl = vi.fn(async () => ({
+    markdown: store.markdown,
+    restored: 0,
+    preserved: 0,
+    deduped: 0,
+  }));
+  return { store, getDailyNoteImpl, saveDailyNoteImpl, commitDailyNoteImpl, refreshDailyNoteFromLogImpl, listProjectsImpl };
 });
 
 // ----- Mocks --------------------------------------------------------------
@@ -45,6 +60,8 @@ const { store, getDailyNoteImpl, saveDailyNoteImpl, listProjectsImpl } = vi.hois
 vi.mock("@/lib/log.functions", () => ({
   getDailyNote: getDailyNoteImpl,
   saveDailyNote: saveDailyNoteImpl,
+  commitDailyNote: commitDailyNoteImpl,
+  refreshDailyNoteFromLog: refreshDailyNoteFromLogImpl,
   listProjects: listProjectsImpl,
 }));
 
@@ -59,6 +76,21 @@ vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("@tanstack/react-start", () => ({
   // Identity passthrough: useServerFn(fn) returns the same callable.
   useServerFn: (fn: unknown) => fn,
+  createMiddleware: () => ({
+    server: (fn: unknown) => fn,
+    client: (fn: unknown) => fn,
+  }),
+  createServerFn: () => ({
+    middleware() {
+      return this;
+    },
+    inputValidator() {
+      return this;
+    },
+    handler(fn: unknown) {
+      return fn;
+    },
+  }),
 }));
 
 vi.mock("@tanstack/react-router", () => ({
@@ -92,6 +124,17 @@ function renderNotePage() {
   };
 }
 
+async function openMarkdownEditor() {
+  await userClick(screen.getByRole("button", { name: /edit markdown/i }));
+  return (await screen.findByRole("textbox")) as HTMLTextAreaElement;
+}
+
+async function userClick(element: HTMLElement) {
+  await act(async () => {
+    fireEvent.click(element);
+  });
+}
+
 // ----- Tests --------------------------------------------------------------
 
 describe("Today autosave race", () => {
@@ -101,6 +144,7 @@ describe("Today autosave race", () => {
     store.markdown = "initial content";
     store.saveLatencyMs = 50;
     store.saveCalls = 0;
+    store.commitCalls = 0;
     store.fetchCalls = 0;
     getDailyNoteImpl.mockClear();
     saveDailyNoteImpl.mockClear();
@@ -109,7 +153,7 @@ describe("Today autosave race", () => {
   it("flushes pending edits on unmount and a remount sees the newest content", async () => {
     // First mount: load, edit, unmount before the 800ms debounce fires.
     const first = renderNotePage();
-    const textarea = (await screen.findByRole("textbox")) as HTMLTextAreaElement;
+    const textarea = await openMarkdownEditor();
     await waitFor(() => expect(textarea.value).toBe("initial content"));
 
     fireEvent.change(textarea, { target: { value: "edited on Today" } });
@@ -124,19 +168,19 @@ describe("Today autosave race", () => {
       await new Promise((r) => setTimeout(r, store.saveLatencyMs + 100));
     });
 
-    expect(store.saveCalls).toBeGreaterThanOrEqual(1);
+    expect(store.commitCalls).toBeGreaterThanOrEqual(1);
     expect(store.markdown).toBe("edited on Today");
 
     // Second mount: come straight back to Today. Refetch must serve the
     // saved content — never the original stale string.
     renderNotePage();
-    const remounted = (await screen.findByRole("textbox")) as HTMLTextAreaElement;
+    const remounted = await openMarkdownEditor();
     await waitFor(() => expect(remounted.value).toBe("edited on Today"));
   });
 
   it("debounced typing eventually persists without unmounting", async () => {
     renderNotePage();
-    const textarea = (await screen.findByRole("textbox")) as HTMLTextAreaElement;
+    const textarea = await openMarkdownEditor();
     await waitFor(() => expect(textarea.value).toBe("initial content"));
 
     fireEvent.change(textarea, { target: { value: "live edit" } });

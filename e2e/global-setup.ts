@@ -41,6 +41,14 @@ export default async function globalSetup(config: FullConfig) {
   if (userErr || !created.user) throw userErr ?? new Error("createUser failed");
   const userId = created.user.id;
 
+  // Approve the test account so ProfileGate allows the app shell to render.
+  const { error: profileErr } = await admin.from("profiles").upsert({
+    id: userId,
+    email,
+    status: "approved",
+  });
+  if (profileErr) throw profileErr;
+
   // Grant editor role so write policies allow tasks/daily_notes inserts.
   await admin.from("user_roles").insert({ user_id: userId, role: "editor" });
 
@@ -92,7 +100,7 @@ export default async function globalSetup(config: FullConfig) {
   await writeFile(
     path.join(authDir, "seed.json"),
     JSON.stringify(
-      { userId, email, taskId: task.id, taskSlug: task.slug, taskTitle: task.title },
+      { userId, email, password, taskId: task.id, taskSlug: task.slug, taskTitle: task.title },
       null,
       2,
     ),

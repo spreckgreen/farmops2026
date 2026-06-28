@@ -3,9 +3,11 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import React from "react";
 
-const { navigate, signOut } = vi.hoisted(() => ({
+const { navigate, signOut, cancelQueries, clear } = vi.hoisted(() => ({
   navigate: vi.fn(),
   signOut: vi.fn().mockResolvedValue({ error: null }),
+  cancelQueries: vi.fn().mockResolvedValue(undefined),
+  clear: vi.fn(),
 }));
 
 vi.mock("@tanstack/react-router", () => ({
@@ -21,10 +23,27 @@ vi.mock("@tanstack/react-router", () => ({
     );
   },
   useRouter: () => ({ navigate }),
+  useRouterState: ({ select }: any) => select({ location: { pathname: "/notes/2026-06-28" } }),
 }));
+
+vi.mock("@tanstack/react-query", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@tanstack/react-query")>();
+  return {
+    ...actual,
+    useQueryClient: () => ({ cancelQueries, clear }),
+  };
+});
 
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: { auth: { signOut } },
+}));
+
+vi.mock("@/hooks/use-current-profile", () => ({
+  useCurrentProfile: () => ({ data: { isAdmin: false }, isLoading: false }),
+}));
+
+vi.mock("@/components/profile-gate", () => ({
+  ProfileGate: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
 import { AppLayout } from "@/components/app-layout";
@@ -33,6 +52,8 @@ describe("AppLayout top navigation", () => {
   beforeEach(() => {
     navigate.mockReset();
     signOut.mockClear();
+    cancelQueries.mockClear();
+    clear.mockClear();
   });
 
   it("renders all primary nav links", () => {
@@ -46,9 +67,12 @@ describe("AppLayout top navigation", () => {
       "Tasks",
       "Projects",
       "Reports",
-      "Summaries",
-      "Maintenance",
+      "Scheduled",
       "Inventory",
+      "Maintenance",
+      "Procedures",
+      "Food",
+      "Backlog",
     ]) {
       expect(screen.getByRole("link", { name: label })).toBeInTheDocument();
     }
@@ -62,6 +86,16 @@ describe("AppLayout top navigation", () => {
     );
     expect(screen.getByRole("link", { name: "Maintenance" })).toHaveAttribute("href", "/maintenance");
     expect(screen.getByRole("link", { name: "Inventory" })).toHaveAttribute("href", "/inventory");
+  });
+
+  it("places Maintenance after Inventory in the primary nav", () => {
+    render(
+      <AppLayout>
+        <div />
+      </AppLayout>,
+    );
+    const labels = screen.getAllByRole("link").map((link) => link.textContent?.trim());
+    expect(labels.indexOf("Inventory")).toBeLessThan(labels.indexOf("Maintenance"));
   });
 
   it("Today link points at /notes/<today>", () => {
@@ -81,8 +115,12 @@ describe("AppLayout top navigation", () => {
       </AppLayout>,
     );
     await userEvent.click(screen.getByRole("button", { name: /sign out/i }));
+    expect(cancelQueries).toHaveBeenCalledOnce();
+    expect(clear).toHaveBeenCalledOnce();
     expect(signOut).toHaveBeenCalledOnce();
-    expect(navigate).toHaveBeenCalledWith({ to: "/auth" });
+    expect(navigate).toHaveBeenCalledWith({ to: "/auth", replace: true });
+    expect(cancelQueries.mock.invocationCallOrder[0]).toBeLessThan(signOut.mock.invocationCallOrder[0]);
+    expect(clear.mock.invocationCallOrder[0]).toBeLessThan(signOut.mock.invocationCallOrder[0]);
   });
 
   it("renders children inside main", () => {
