@@ -71,7 +71,7 @@ export function buildTinyWikiHtml(name: string, body: string): string {
       .replace(/^----$/gim,'<hr>')
       .replace(/''(.*?)''/g,'<strong>$1</strong>')
       .replace(/\\/\\/(.*?)\\/\\//g,'<em>$1</em>')
-      .replace(/\\[\\[([^\\]|]+)\\|([^\\]]+)\\]\\]/g,'<a href="$2" target="_blank" rel="noopener">$1</a>')
+      .replace(/\\[\\[([^\\]|]+)\\|([^\\]]+)\\]\\]/g,function(m,lbl,tgt){if(tgt.charAt(0)==='#')return '<a href="'+tgt+'">'+lbl+'</a>';return '<a href="'+tgt+'" target="_blank" rel="noopener">'+lbl+'</a>';})
       .replace(/\\[\\[([^\\]]+)\\]\\]/g,'<a href="#" data-tiddler="$1">$1</a>')
       .replace(/\\[img\\[([^\\]]+)\\]\\]/g,function(m,fn){var it=tiddlers[fn];if(it&&it.type&&it.type.indexOf('image/')===0)return '<img src="data:'+it.type+';base64,'+it.text.trim()+'" alt="'+fn+'" style="max-width:100%">';return '<span>[img['+fn+']]</span>';})
       .replace(/&lt;&lt;&lt;\\n([\\s\\S]*?)&lt;&lt;&lt;/g,'<blockquote>$1</blockquote>')
