@@ -248,14 +248,31 @@ export const deleteProcedureLink = createServerFn({ method: "POST" })
     return { id: String(d.id) };
   })
   .handler(async ({ context, data }) => {
+    // Look up the procedure first so we can resync its body after deletion.
+    const { data: row } = await context.supabase
+      .from("procedure_links")
+      .select("procedure_id, procedures(name)")
+      .eq("user_id", context.userId)
+      .eq("id", data.id)
+      .maybeSingle();
     const { error } = await context.supabase
       .from("procedure_links")
       .delete()
       .eq("user_id", context.userId)
       .eq("id", data.id);
     if (error) throw new Error(error.message);
+    const procRow = row as { procedure_id: string; procedures: { name: string | null } | null } | null;
+    if (procRow?.procedure_id && procRow.procedures?.name) {
+      await syncProcedureBodyLinks(
+        context.supabase,
+        context.userId,
+        procRow.procedures.name,
+        procRow.procedure_id,
+      );
+    }
     return { ok: true as const };
   });
+
 
 export const listLinkTargets = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
