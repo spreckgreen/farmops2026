@@ -1,8 +1,15 @@
 // Server functions backing the Procedure ↔ Inventory/Maintenance link manager.
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { buildTinyWikiHtml } from "@/lib/tinywiki";
+import {
+  composeBodyWithLinks,
+  extractBodyFromHtml,
+  type ManagedLink,
+} from "@/lib/procedure-link-section";
 
 export type LinkTargetKind = "inventory" | "maintenance";
+
 
 export interface ProcedureLinkRow {
   id: string;
@@ -36,12 +43,104 @@ async function resolveProcedureId(
   return data.id;
 }
 
+/** Fetch current links for a procedure and rebuild its body so the managed
+ *  "Linked Items" section reflects them. Safe no-op if the row is missing. */
+type SupabaseLike = {
+  from: (t: string) => {
+    select: (c: string) => unknown;
+    update: (v: Record<string, unknown>) => {
+      eq: (c: string, v: string) => { eq: (c: string, v: string) => Promise<{ error: { message: string } | null }> };
+    };
+  };
+};
+
+async function syncProcedureBodyLinks(
+  supabase: unknown,
+  userId: string,
+  procedureName: string,
+  procedureId: string,
+): Promise<void> {
+  const sb = supabase as {
+    from: (t: string) => {
+      select: (c: string) => {
+        eq: (c: string, v: string) => {
+          eq: (c: string, v: string) => {
+            maybeSingle: () => Promise<{ data: { content: string } | null; error: { message: string } | null }>;
+            order?: (c: string, o: { ascending: boolean }) => Promise<{
+              data: Array<{
+                inventory_item_id: string | null;
+                maintenance_record_id: string | null;
+                notes: string | null;
+                inventory_items: { name: string | null; sku: string | null } | null;
+                maintenance_records: { title: string | null; asset_name: string | null; service_type: string | null; performed_at: string | null } | null;
+              }> | null;
+              error: { message: string } | null;
+            }>;
+          };
+        };
+      };
+      update: (v: Record<string, unknown>) => {
+        eq: (c: string, v: string) => { eq: (c: string, v: string) => Promise<{ error: { message: string } | null }> };
+      };
+    };
+  };
+
+  const procQ = await sb
+    .from("procedures")
+    .select("content")
+    .eq("user_id", userId)
+    .eq("name", procedureName)
+    .maybeSingle();
+  if (procQ.error || !procQ.data) return;
+
+  const linksQ = await sb
+    .from("procedure_links")
+    .select(
+      "inventory_item_id, maintenance_record_id, notes, " +
+        "inventory_items(name, sku), maintenance_records(title, asset_name, service_type, performed_at)",
+    )
+    .eq("user_id", userId)
+    .eq("procedure_id", procedureId)
+    .order!("created_at", { ascending: true });
+  if (linksQ.error) return;
+
+  const managed: ManagedLink[] = (linksQ.data ?? []).map((r) => {
+    if (r.inventory_item_id) {
+      const inv = r.inventory_items;
+      return {
+        kind: "inventory" as const,
+        label: [inv?.name || "(unnamed)", inv?.sku].filter(Boolean).join(" · "),
+        notes: r.notes,
+      };
+    }
+    const m = r.maintenance_records;
+    return {
+      kind: "maintenance" as const,
+      label: [m?.title || m?.service_type || "Maintenance", m?.asset_name, m?.performed_at]
+        .filter(Boolean)
+        .join(" · "),
+      notes: r.notes,
+    };
+  });
+
+  const prevBody = extractBodyFromHtml(procQ.data.content || "", procedureName);
+  const nextBody = composeBodyWithLinks(prevBody, managed);
+  const nextHtml = buildTinyWikiHtml(procedureName, nextBody);
+  const sbUp = supabase as SupabaseLike;
+  await sbUp
+    .from("procedures")
+    .update({ content: nextHtml })
+    .eq("user_id", userId)
+    .eq("name", procedureName);
+}
+
 export const listProcedureLinks = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: { procedureName: string }) => {
     if (!d?.procedureName) throw new Error("procedureName required");
     return { procedureName: String(d.procedureName) };
   })
+
   .handler(async ({ context, data }): Promise<ProcedureLinkRow[]> => {
     const procId = await resolveProcedureId(
       context.supabase as unknown as Parameters<typeof resolveProcedureId>[0],
@@ -137,8 +236,10 @@ export const createProcedureLink = createServerFn({ method: "POST" })
       if (/duplicate|unique/i.test(error.message)) throw new Error("This procedure is already linked to that item.");
       throw new Error(error.message);
     }
+    await syncProcedureBodyLinks(context.supabase, context.userId, data.procedureName, procId);
     return { ok: true as const };
   });
+
 
 export const deleteProcedureLink = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -147,14 +248,31 @@ export const deleteProcedureLink = createServerFn({ method: "POST" })
     return { id: String(d.id) };
   })
   .handler(async ({ context, data }) => {
+    // Look up the procedure first so we can resync its body after deletion.
+    const { data: row } = await context.supabase
+      .from("procedure_links")
+      .select("procedure_id, procedures(name)")
+      .eq("user_id", context.userId)
+      .eq("id", data.id)
+      .maybeSingle();
     const { error } = await context.supabase
       .from("procedure_links")
       .delete()
       .eq("user_id", context.userId)
       .eq("id", data.id);
     if (error) throw new Error(error.message);
+    const procRow = row as { procedure_id: string; procedures: { name: string | null } | null } | null;
+    if (procRow?.procedure_id && procRow.procedures?.name) {
+      await syncProcedureBodyLinks(
+        context.supabase,
+        context.userId,
+        procRow.procedures.name,
+        procRow.procedure_id,
+      );
+    }
     return { ok: true as const };
   });
+
 
 export const listLinkTargets = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])

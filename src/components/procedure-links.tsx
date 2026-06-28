@@ -43,6 +43,7 @@ export function ProcedureLinks({ procedureName }: { procedureName: string }) {
       toast.success("Linked");
       setAdding(false);
       qc.invalidateQueries({ queryKey: key });
+      qc.invalidateQueries({ queryKey: ["procedures"] });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : String(e)),
   });
@@ -52,9 +53,11 @@ export function ProcedureLinks({ procedureName }: { procedureName: string }) {
     onSuccess: () => {
       toast.success("Link removed");
       qc.invalidateQueries({ queryKey: key });
+      qc.invalidateQueries({ queryKey: ["procedures"] });
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : String(e)),
   });
+
 
   return (
     <div className="border border-border/60 rounded-md p-3 space-y-2">
