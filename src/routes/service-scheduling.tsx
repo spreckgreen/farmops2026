@@ -32,6 +32,7 @@ import type {
   ConsumableFormData,
   ConsumableUsage,
 } from "@/types/scheduling";
+import { buildUsageBaselineRaw, computeReminder, parseUsageRecurrence } from "@/lib/maintenance-reminders";
 
 export const Route = createFileRoute("/service-scheduling")({
   ssr: false,
