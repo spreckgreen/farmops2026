@@ -8,9 +8,28 @@ export const MANAGED_HEADING = "!! Linked Items";
 const MANAGED_NOTE = "//Auto-generated from links — edits below this heading will be overwritten.//";
 
 export interface ManagedLink {
+  /** Stable identifier (target id) used to build a deterministic anchor slug. */
+  id: string;
   kind: LinkTargetKind;
   label: string;
   notes: string | null;
+}
+
+/** Wiki-heading slug must mirror the renderer in src/lib/tinywiki.ts. */
+export function slugifyHeading(s: string): string {
+  return String(s)
+    .toLowerCase()
+    .replace(/&[a-z]+;/g, " ")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
+}
+
+/** Anchor slug for a specific linked item — stable across renames. */
+export function linkAnchorSlug(kind: LinkTargetKind, id: string): string {
+  // Heading text used below is "<Kind>: <label> [<short-id>]" so this must
+  // match what slugifyHeading would produce for that exact heading.
+  return `${kind}-${id}`.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 80);
 }
 
 /** Unescape the entities introduced by buildTinyWikiHtml's escPre. */
@@ -23,7 +42,6 @@ function unescapePre(s: string): string {
  * Server-safe (no DOMParser). Returns "" when not parseable.
  */
 export function extractBodyFromHtml(html: string, name: string): string {
-  // Look for the main content tiddler div by title.
   const esc = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const re = new RegExp(
     `<div[^>]*title="${esc}"[^>]*>\\s*<pre>([\\s\\S]*?)<\\/pre>\\s*<\\/div>`,
@@ -49,23 +67,46 @@ export function buildManagedSection(links: ManagedLink[]): string {
 
   const lines: string[] = ["", MANAGED_HEADING, MANAGED_NOTE, ""];
 
+  // Mini table of contents — uses [[label|#slug]] which the renderer turns
+  // into in-page anchor links (not new-tab links).
+  lines.push("''On this page:''");
+  if (inv.length) lines.push(`* [[Inventory|#inventory]]`);
+  for (const l of inv) {
+    const heading = headingFor(l);
+    lines.push(`** [[${l.label}|#${slugifyHeading(heading)}]]`);
+  }
+  if (maint.length) lines.push(`* [[Maintenance|#maintenance]]`);
+  for (const l of maint) {
+    const heading = headingFor(l);
+    lines.push(`** [[${l.label}|#${slugifyHeading(heading)}]]`);
+  }
+  lines.push("");
+
   if (inv.length) {
     lines.push("!!! Inventory");
-    for (const l of inv) {
-      const note = l.notes ? ` — ${l.notes}` : "";
-      lines.push(`* ${l.label}${note}`);
-    }
     lines.push("");
+    for (const l of inv) {
+      lines.push(`!!! ${headingFor(l)}`);
+      if (l.notes) lines.push(l.notes);
+      lines.push("");
+    }
   }
   if (maint.length) {
     lines.push("!!! Maintenance");
-    for (const l of maint) {
-      const note = l.notes ? ` — ${l.notes}` : "";
-      lines.push(`* ${l.label}${note}`);
-    }
     lines.push("");
+    for (const l of maint) {
+      lines.push(`!!! ${headingFor(l)}`);
+      if (l.notes) lines.push(l.notes);
+      lines.push("");
+    }
   }
   return lines.join("\n");
+}
+
+/** Heading text for a linked item — embeds the stable anchor token so the
+ *  renderer-generated slug matches `linkAnchorSlug`. */
+function headingFor(l: ManagedLink): string {
+  return `${l.kind} ${l.id} ${l.label}`;
 }
 
 /** Compose a fresh body = previous body (minus old section) + new section. */
