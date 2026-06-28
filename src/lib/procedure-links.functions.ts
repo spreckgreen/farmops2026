@@ -43,9 +43,97 @@ async function resolveProcedureId(
   return data.id;
 }
 
-export const listProcedureLinks = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d: { procedureName: string }) => {
+/** Fetch current links for a procedure and rebuild its body so the managed
+ *  "Linked Items" section reflects them. Safe no-op if the row is missing. */
+type SupabaseLike = {
+  from: (t: string) => {
+    select: (c: string) => unknown;
+    update: (v: Record<string, unknown>) => {
+      eq: (c: string, v: string) => { eq: (c: string, v: string) => Promise<{ error: { message: string } | null }> };
+    };
+  };
+};
+
+async function syncProcedureBodyLinks(
+  supabase: unknown,
+  userId: string,
+  procedureName: string,
+  procedureId: string,
+): Promise<void> {
+  const sb = supabase as {
+    from: (t: string) => {
+      select: (c: string) => {
+        eq: (c: string, v: string) => {
+          eq: (c: string, v: string) => {
+            maybeSingle: () => Promise<{ data: { content: string } | null; error: { message: string } | null }>;
+            order?: (c: string, o: { ascending: boolean }) => Promise<{
+              data: Array<{
+                inventory_item_id: string | null;
+                maintenance_record_id: string | null;
+                notes: string | null;
+                inventory_items: { name: string | null; sku: string | null } | null;
+                maintenance_records: { title: string | null; asset_name: string | null; service_type: string | null; performed_at: string | null } | null;
+              }> | null;
+              error: { message: string } | null;
+            }>;
+          };
+        };
+      };
+      update: (v: Record<string, unknown>) => {
+        eq: (c: string, v: string) => { eq: (c: string, v: string) => Promise<{ error: { message: string } | null }> };
+      };
+    };
+  };
+
+  const procQ = await sb
+    .from("procedures")
+    .select("content")
+    .eq("user_id", userId)
+    .eq("name", procedureName)
+    .maybeSingle();
+  if (procQ.error || !procQ.data) return;
+
+  const linksQ = await sb
+    .from("procedure_links")
+    .select(
+      "inventory_item_id, maintenance_record_id, notes, " +
+        "inventory_items(name, sku), maintenance_records(title, asset_name, service_type, performed_at)",
+    )
+    .eq("user_id", userId)
+    .eq("procedure_id", procedureId)
+    .order!("created_at", { ascending: true });
+  if (linksQ.error) return;
+
+  const managed: ManagedLink[] = (linksQ.data ?? []).map((r) => {
+    if (r.inventory_item_id) {
+      const inv = r.inventory_items;
+      return {
+        kind: "inventory" as const,
+        label: [inv?.name || "(unnamed)", inv?.sku].filter(Boolean).join(" · "),
+        notes: r.notes,
+      };
+    }
+    const m = r.maintenance_records;
+    return {
+      kind: "maintenance" as const,
+      label: [m?.title || m?.service_type || "Maintenance", m?.asset_name, m?.performed_at]
+        .filter(Boolean)
+        .join(" · "),
+      notes: r.notes,
+    };
+  });
+
+  const prevBody = extractBodyFromHtml(procQ.data.content || "", procedureName);
+  const nextBody = composeBodyWithLinks(prevBody, managed);
+  const nextHtml = buildTinyWikiHtml(procedureName, nextBody);
+  const sbUp = supabase as SupabaseLike;
+  await sbUp
+    .from("procedures")
+    .update({ content: nextHtml })
+    .eq("user_id", userId)
+    .eq("name", procedureName);
+}
+
     if (!d?.procedureName) throw new Error("procedureName required");
     return { procedureName: String(d.procedureName) };
   })
