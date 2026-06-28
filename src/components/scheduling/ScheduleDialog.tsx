@@ -46,6 +46,8 @@ const ScheduleDialog = ({ open, onOpenChange, onSave, schedule, assets, consumab
         interval = parseInt(parts[0]) || 1;
         unit = parts[1] || "days";
       }
+      const triggerType =
+        rec.startsWith("custom:") && (unit === "hours" || unit === "miles") ? unit : "date";
       setForm({
         asset_id: schedule.asset_id,
         title: schedule.title,
@@ -55,8 +57,8 @@ const ScheduleDialog = ({ open, onOpenChange, onSave, schedule, assets, consumab
         recurrence: rec.startsWith("custom:") ? "custom" : rec,
         recurrence_interval: interval,
         recurrence_unit: unit,
-        trigger_type: "date",
-        trigger_value: 0,
+        trigger_type: triggerType,
+        trigger_value: interval,
         consumables_used: schedule.consumables_used || [],
         notes: schedule.notes || "",
       });
