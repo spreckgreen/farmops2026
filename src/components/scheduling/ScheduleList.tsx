@@ -4,7 +4,8 @@ import { Card } from "@/components/ui/card";
 import type { ServiceSchedule } from "@/types/scheduling";
 import type { Asset } from "@/components/dashboard/types";
 import { format } from "date-fns";
-import { Calendar, CheckCircle, Edit, Trash2, Wrench } from "lucide-react";
+import { Bell, Calendar, CheckCircle, Edit, Gauge, Trash2, Wrench } from "lucide-react";
+import { computeReminder, type ReminderStatus } from "@/lib/maintenance-reminders";
 
 interface ScheduleListProps {
   schedules: ServiceSchedule[];
