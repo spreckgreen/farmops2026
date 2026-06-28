@@ -59,6 +59,21 @@ vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("@tanstack/react-start", () => ({
   // Identity passthrough: useServerFn(fn) returns the same callable.
   useServerFn: (fn: unknown) => fn,
+  createMiddleware: () => ({
+    server: (fn: unknown) => fn,
+    client: (fn: unknown) => fn,
+  }),
+  createServerFn: () => ({
+    middleware() {
+      return this;
+    },
+    inputValidator() {
+      return this;
+    },
+    handler(fn: unknown) {
+      return fn;
+    },
+  }),
 }));
 
 vi.mock("@tanstack/react-router", () => ({
