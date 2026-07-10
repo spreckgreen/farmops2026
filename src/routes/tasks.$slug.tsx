@@ -4,6 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { getTaskBySlug, setTaskStatus, updateTask, deleteTask, addTaskNote, RECURRENCE_VALUES, type Recurrence } from "@/lib/log.functions";
 import { Textarea } from "@/components/ui/textarea";
 import { generateSummary } from "@/lib/summary.functions";
+import { useAiUnavailable } from "@/hooks/use-self-host-config";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -43,6 +44,7 @@ function TaskPage() {
   const deleteFn = useServerFn(deleteTask);
   const noteFn = useServerFn(addTaskNote);
   const summarizeFn = useServerFn(generateSummary);
+  const aiOff = useAiUnavailable();
   const qc = useQueryClient();
 
   const [editing, setEditing] = useState(false);
@@ -187,8 +189,12 @@ function TaskPage() {
               <SelectItem value="done">done</SelectItem>
             </SelectContent>
           </Select>
-          <Button onClick={() => summarize.mutate()} disabled={summarize.isPending || entries.length === 0}>
-            {summarize.isPending ? "Summarizing…" : "Summarize"}
+          <Button
+            onClick={() => summarize.mutate()}
+            disabled={summarize.isPending || entries.length === 0 || aiOff}
+            title={aiOff ? "AI features disabled — see Settings › Self-host" : undefined}
+          >
+            {summarize.isPending ? "Summarizing…" : aiOff ? "AI disabled" : "Summarize"}
           </Button>
           <AlertDialog>
             <AlertDialogTrigger asChild>

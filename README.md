@@ -624,6 +624,7 @@ These must be set in `.env` (or exported in the shell) for the Node.js runtime �
 | `CUSTOM_AI_API_KEY` | optional | Bearer token for `CUSTOM_AI_BASE_URL`. Sent as `Authorization: Bearer <key>`. |
 | `CUSTOM_AI_MODEL` | optional | Overrides the model id passed to the custom endpoint (e.g. `gpt-4o-mini`). Falls back to the built-in Gemini model ids. |
 | `PUBLIC_APP_URL` | recommended (self-hosted) | Externally reachable origin of this deployment (e.g. `https://farm.example.com`). Used to build the Rachio webhook callback URL shown on the irrigation settings page. Defaults to `https://bostead.lovable.app`. |
+| `SELF_HOST_MODE` | optional | Set to `true` to hide Lovable-hosted-only UI (publish-status panel on `/sync`). Visible at *Admin › Self-host settings*. |
 | `VAULT_ENCRYPTION_KEY` | yes (Vault) | 64-hex-char (32-byte) key used to AES-256-GCM encrypt secrets at rest. Generate with `openssl rand -hex 32`. **Treat as irreplaceable — losing it makes every stored secret unrecoverable.** |
 | `NODE_ENV` | recommended | Set to `production` for the built server |
 | `PORT` | optional | Listen port (defaults to `3000`) |

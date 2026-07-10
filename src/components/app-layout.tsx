@@ -12,7 +12,7 @@ import {
 import { todayDateString } from "@/lib/slug";
 import { ProfileGate } from "@/components/profile-gate";
 import { useCurrentProfile } from "@/hooks/use-current-profile";
-import { ShieldCheck, ChevronDown, Users, Trash2, Download, Upload, KeyRound, RefreshCw } from "lucide-react";
+import { ShieldCheck, ChevronDown, Users, Trash2, Download, Upload, KeyRound, RefreshCw, Server } from "lucide-react";
 
 export function AppLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
@@ -104,6 +104,12 @@ export function AppLayout({ children }: { children: ReactNode }) {
                   <Link to="/sync" className="flex items-center gap-2 cursor-pointer">
                     <RefreshCw className="h-4 w-4" />
                     Sync
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/settings/self-host" className="flex items-center gap-2 cursor-pointer">
+                    <Server className="h-4 w-4" />
+                    Self-host settings
                   </Link>
                 </DropdownMenuItem>
                 {profile.data?.isAdmin && (

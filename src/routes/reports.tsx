@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AppLayout } from "@/components/app-layout";
 import { requireAuthenticatedUser } from "@/lib/auth-route";
+import { useAiUnavailable } from "@/hooks/use-self-host-config";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { Download, Eye, RefreshCw } from "lucide-react";
@@ -79,6 +80,7 @@ function ReportsPage() {
   const generateFn = useServerFn(generateSummary);
   const freshnessFn = useServerFn(getLatestDataChange);
   const qc = useQueryClient();
+  const aiOff = useAiUnavailable();
 
   const [activeMode, setActiveMode] = useState<ReportMode>("daily_recap");
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -193,6 +195,7 @@ function ReportsPage() {
   useEffect(() => {
     if (summariesQ.isLoading || freshnessQ.isLoading) return;
     if (runReport.isPending) return;
+    if (aiOff) return;
     if (!isStale) return;
     if (autoFiredRef.current.has(activeMode)) return;
     autoFiredRef.current.add(activeMode);
@@ -299,7 +302,23 @@ function ReportsPage() {
           </TabsList>
         </Tabs>
 
-        {isStale && !pendingForActive && (
+        {aiOff && (
+          <div className="mb-4 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
+            <div className="font-mono text-xs uppercase tracking-wider mb-1">
+              AI features disabled
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Report drafts require an AI provider. Configure{" "}
+              <code>LOVABLE_API_KEY</code> or a custom endpoint under{" "}
+              <a href="/settings/self-host" className="underline">
+                Settings › Self-host
+              </a>
+              . Existing reports remain readable and editable.
+            </p>
+          </div>
+        )}
+
+        {isStale && !pendingForActive && !aiOff && (
           <div className="mb-4 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
             <div className="flex items-start justify-between gap-3">
               <div className="space-y-1">
@@ -341,7 +360,7 @@ function ReportsPage() {
               <Button
                 size="sm"
                 variant="outline"
-                disabled={pendingForActive}
+                disabled={pendingForActive || aiOff}
                 onClick={() => {
                   autoFiredRef.current.add(activeMode);
                   runReport.mutate(activeMode);
@@ -363,7 +382,7 @@ function ReportsPage() {
             <Button
               size="sm"
               variant="ghost"
-              disabled={pendingForActive}
+              disabled={pendingForActive || aiOff}
               onClick={() => {
                 autoFiredRef.current.add(activeMode);
                 runReport.mutate(activeMode);
