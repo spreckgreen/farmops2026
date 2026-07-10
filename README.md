@@ -42,6 +42,10 @@ A summary of everything shipped to date. Want to run it yourself? Jump to the on
 
 ## Self-hosting
 
+> **Deployment guide:** for a single-page walkthrough covering Supabase setup,
+> every env var, Docker/Compose/Node commands, verification, and backups,
+> see [`docs/SELF_HOSTING.md`](docs/SELF_HOSTING.md).
+
 Bostead can be self-hosted two ways. Pick the one that matches your environment:
 
 | Architecture | Best for | Jump to |
