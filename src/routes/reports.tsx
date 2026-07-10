@@ -382,7 +382,7 @@ function ReportsPage() {
             <Button
               size="sm"
               variant="ghost"
-              disabled={pendingForActive}
+              disabled={pendingForActive || aiOff}
               onClick={() => {
                 autoFiredRef.current.add(activeMode);
                 runReport.mutate(activeMode);
