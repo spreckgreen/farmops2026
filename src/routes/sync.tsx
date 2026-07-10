@@ -3,6 +3,7 @@ import { useState, useRef } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { AppLayout } from "@/components/app-layout";
 import { PublishStatusPanel } from "@/components/publish-status-panel";
+import { useSelfHostConfig } from "@/hooks/use-self-host-config";
 import { requireAuthenticatedUser } from "@/lib/auth-route";
 import { Button } from "@/components/ui/button";
 import { obsidianExport, obsidianImport, type ObsidianFile } from "@/lib/obsidian.functions";
