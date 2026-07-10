@@ -14,6 +14,7 @@ import {
   autoClassifyFoodCategories,
   bulkUpdateFoodCategories,
 } from "@/lib/food.functions";
+import { useAiUnavailable } from "@/hooks/use-self-host-config";
 import seasonsData from "@/data/plant-seasons.json";
 import { FOOD_CATEGORIES } from "@/lib/food-categories";
 import { CsvToolbar } from "@/components/csv-toolbar";
@@ -81,6 +82,7 @@ function fmt(n: number | null): string {
 }
 
 function PriceHistoryPage() {
+  const aiOff = useAiUnavailable();
   const qc = useQueryClient();
   const list = useServerFn(listPriceHistory);
   const listPlan = useServerFn(listFoodPlan);
@@ -343,8 +345,12 @@ function PriceHistoryPage() {
             variant="outline"
             size="sm"
             onClick={() => refreshM.mutate()}
-            disabled={refreshM.isPending || foods.length === 0}
-            title="Refresh prices from Southern Ohio regional reference"
+            disabled={refreshM.isPending || foods.length === 0 || aiOff}
+            title={
+              aiOff
+                ? "AI features disabled — configure LOVABLE_API_KEY or CUSTOM_AI_* (see Settings › Self-host)"
+                : "Refresh prices from Southern Ohio regional reference"
+            }
           >
             {refreshM.isPending ? (
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
