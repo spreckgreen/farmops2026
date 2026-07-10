@@ -54,9 +54,9 @@ export interface RachioDashboard {
 }
 
 function publicWebhookUrl(): string {
-  const base =
-    process.env.PUBLIC_APP_URL ||
-    (process.env.SUPABASE_URL ? "https://bostead.lovable.app" : "https://bostead.lovable.app");
+  // PUBLIC_APP_URL should be the externally reachable origin of this app
+  // (e.g. https://farm.example.com). Falls back to the hosted default.
+  const base = process.env.PUBLIC_APP_URL || "https://bostead.lovable.app";
   return `${base.replace(/\/+$/, "")}/api/public/webhooks/rachio`;
 }
 
