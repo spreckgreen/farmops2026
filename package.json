@@ -13,7 +13,6 @@
     "build:progress:quiet": "BUILD_QUIET=1 node scripts/build-with-progress.mjs",
     "build:ci": "BUILD_QUIET=1 BUILD_STALL_SECS=600 BUILD_MAX_SECS=2700 node scripts/build-with-progress.mjs",
     "preview": "vite preview",
-
     "lint": "eslint .",
     "format": "prettier --write .",
     "test": "vitest run",
@@ -91,7 +90,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.32.0",
-    "@lovable.dev/vite-tanstack-config": "2.6.2",
+    "@lovable.dev/vite-tanstack-config": "2.7.1",
     "@playwright/test": "^1.61.0",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
