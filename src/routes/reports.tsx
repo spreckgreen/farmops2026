@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AppLayout } from "@/components/app-layout";
 import { requireAuthenticatedUser } from "@/lib/auth-route";
+import { useAiUnavailable } from "@/hooks/use-self-host-config";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { Download, Eye, RefreshCw } from "lucide-react";
