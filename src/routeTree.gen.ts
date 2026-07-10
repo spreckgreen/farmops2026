@@ -26,6 +26,7 @@ import { Route as FoodIndexRouteImport } from './routes/food.index'
 import { Route as TasksScheduledRouteImport } from './routes/tasks.scheduled'
 import { Route as TasksBacklogRouteImport } from './routes/tasks.backlog'
 import { Route as TasksSlugRouteImport } from './routes/tasks.$slug'
+import { Route as SettingsSelfHostRouteImport } from './routes/settings.self-host'
 import { Route as NotesDateRouteImport } from './routes/notes.$date'
 import { Route as FoodStorageRouteImport } from './routes/food.storage'
 import { Route as FoodSeasonsRouteImport } from './routes/food.seasons'
@@ -130,6 +131,11 @@ const TasksBacklogRoute = TasksBacklogRouteImport.update({
 const TasksSlugRoute = TasksSlugRouteImport.update({
   id: '/tasks/$slug',
   path: '/tasks/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsSelfHostRoute = SettingsSelfHostRouteImport.update({
+  id: '/settings/self-host',
+  path: '/settings/self-host',
   getParentRoute: () => rootRouteImport,
 } as any)
 const NotesDateRoute = NotesDateRouteImport.update({
@@ -265,6 +271,7 @@ export interface FileRoutesByFullPath {
   '/food/seasons': typeof FoodSeasonsRoute
   '/food/storage': typeof FoodStorageRoute
   '/notes/$date': typeof NotesDateRoute
+  '/settings/self-host': typeof SettingsSelfHostRoute
   '/tasks/$slug': typeof TasksSlugRoute
   '/tasks/backlog': typeof TasksBacklogRoute
   '/tasks/scheduled': typeof TasksScheduledRoute
@@ -303,6 +310,7 @@ export interface FileRoutesByTo {
   '/food/seasons': typeof FoodSeasonsRoute
   '/food/storage': typeof FoodStorageRoute
   '/notes/$date': typeof NotesDateRoute
+  '/settings/self-host': typeof SettingsSelfHostRoute
   '/tasks/$slug': typeof TasksSlugRoute
   '/tasks/backlog': typeof TasksBacklogRoute
   '/tasks/scheduled': typeof TasksScheduledRoute
@@ -343,6 +351,7 @@ export interface FileRoutesById {
   '/food/seasons': typeof FoodSeasonsRoute
   '/food/storage': typeof FoodStorageRoute
   '/notes/$date': typeof NotesDateRoute
+  '/settings/self-host': typeof SettingsSelfHostRoute
   '/tasks/$slug': typeof TasksSlugRoute
   '/tasks/backlog': typeof TasksBacklogRoute
   '/tasks/scheduled': typeof TasksScheduledRoute
@@ -384,6 +393,7 @@ export interface FileRouteTypes {
     | '/food/seasons'
     | '/food/storage'
     | '/notes/$date'
+    | '/settings/self-host'
     | '/tasks/$slug'
     | '/tasks/backlog'
     | '/tasks/scheduled'
@@ -422,6 +432,7 @@ export interface FileRouteTypes {
     | '/food/seasons'
     | '/food/storage'
     | '/notes/$date'
+    | '/settings/self-host'
     | '/tasks/$slug'
     | '/tasks/backlog'
     | '/tasks/scheduled'
@@ -461,6 +472,7 @@ export interface FileRouteTypes {
     | '/food/seasons'
     | '/food/storage'
     | '/notes/$date'
+    | '/settings/self-host'
     | '/tasks/$slug'
     | '/tasks/backlog'
     | '/tasks/scheduled'
@@ -490,6 +502,7 @@ export interface RootRouteChildren {
   AdminRestoreRoute: typeof AdminRestoreRoute
   AdminUsersRoute: typeof AdminUsersRoute
   NotesDateRoute: typeof NotesDateRoute
+  SettingsSelfHostRoute: typeof SettingsSelfHostRoute
   TasksSlugRoute: typeof TasksSlugRoute
   TasksBacklogRoute: typeof TasksBacklogRoute
   TasksScheduledRoute: typeof TasksScheduledRoute
@@ -618,6 +631,13 @@ declare module '@tanstack/react-router' {
       path: '/tasks/$slug'
       fullPath: '/tasks/$slug'
       preLoaderRoute: typeof TasksSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings/self-host': {
+      id: '/settings/self-host'
+      path: '/settings/self-host'
+      fullPath: '/settings/self-host'
+      preLoaderRoute: typeof SettingsSelfHostRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/notes/$date': {
@@ -814,6 +834,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRestoreRoute: AdminRestoreRoute,
   AdminUsersRoute: AdminUsersRoute,
   NotesDateRoute: NotesDateRoute,
+  SettingsSelfHostRoute: SettingsSelfHostRoute,
   TasksSlugRoute: TasksSlugRoute,
   TasksBacklogRoute: TasksBacklogRoute,
   TasksScheduledRoute: TasksScheduledRoute,
