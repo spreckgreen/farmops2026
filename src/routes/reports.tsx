@@ -302,7 +302,23 @@ function ReportsPage() {
           </TabsList>
         </Tabs>
 
-        {isStale && !pendingForActive && (
+        {aiOff && (
+          <div className="mb-4 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
+            <div className="font-mono text-xs uppercase tracking-wider mb-1">
+              AI features disabled
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Report drafts require an AI provider. Configure{" "}
+              <code>LOVABLE_API_KEY</code> or a custom endpoint under{" "}
+              <a href="/settings/self-host" className="underline">
+                Settings › Self-host
+              </a>
+              . Existing reports remain readable and editable.
+            </p>
+          </div>
+        )}
+
+        {isStale && !pendingForActive && !aiOff && (
           <div className="mb-4 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
             <div className="flex items-start justify-between gap-3">
               <div className="space-y-1">
@@ -344,7 +360,7 @@ function ReportsPage() {
               <Button
                 size="sm"
                 variant="outline"
-                disabled={pendingForActive}
+                disabled={pendingForActive || aiOff}
                 onClick={() => {
                   autoFiredRef.current.add(activeMode);
                   runReport.mutate(activeMode);
