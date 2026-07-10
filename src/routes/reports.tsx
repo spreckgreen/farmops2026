@@ -195,6 +195,7 @@ function ReportsPage() {
   useEffect(() => {
     if (summariesQ.isLoading || freshnessQ.isLoading) return;
     if (runReport.isPending) return;
+    if (aiOff) return;
     if (!isStale) return;
     if (autoFiredRef.current.has(activeMode)) return;
     autoFiredRef.current.add(activeMode);
