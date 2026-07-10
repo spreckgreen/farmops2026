@@ -80,6 +80,7 @@ function ReportsPage() {
   const generateFn = useServerFn(generateSummary);
   const freshnessFn = useServerFn(getLatestDataChange);
   const qc = useQueryClient();
+  const aiOff = useAiUnavailable();
 
   const [activeMode, setActiveMode] = useState<ReportMode>("daily_recap");
   const [previewOpen, setPreviewOpen] = useState(false);
