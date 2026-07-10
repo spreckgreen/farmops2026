@@ -299,15 +299,14 @@ export const generateSummary = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => SummaryInput.parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    const apiKey = process.env.LOVABLE_API_KEY;
-    if (!apiKey) throw new Error("Missing LOVABLE_API_KEY");
 
-    const { createLovableAiGatewayProvider } = await import("./ai-gateway.server");
-    const gateway = createLovableAiGatewayProvider(apiKey);
+    const { createAiProvider } = await import("./ai-gateway.server");
+    const { provider: gateway, modelOverride } = createAiProvider();
+    const modelId = modelOverride ?? "google/gemini-3-flash-preview";
 
     const callAi = async (prompt: string, entriesForScope: EntryRow[], scopeProject: string | null): Promise<SummaryOutput> => {
       const { text } = await generateText({
-        model: gateway("google/gemini-3-flash-preview"),
+        model: gateway(modelId),
         prompt,
       });
       try {
