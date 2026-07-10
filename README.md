@@ -619,7 +619,10 @@ These must be set in `.env` (or exported in the shell) for the Node.js runtime â
 | `SUPABASE_URL` | yes (runtime) | Server-side Supabase URL used by server functions |
 | `SUPABASE_PUBLISHABLE_KEY` | yes (runtime) | Server-side anon key for auth-aware server functions |
 | `SUPABASE_SERVICE_ROLE_KEY` | yes (runtime) | Service-role key for admin/maintenance server code |
-| `LOVABLE_API_KEY` | yes (AI features) | Lovable AI gateway key for `/food` and summary endpoints |
+| `LOVABLE_API_KEY` | yes (AI features, unless overridden) | Lovable AI gateway key for `/food` and summary endpoints. Not required if `CUSTOM_AI_BASE_URL` + `CUSTOM_AI_API_KEY` are set. |
+| `CUSTOM_AI_BASE_URL` | optional | Route AI summaries and food-plan calls to any OpenAI-compatible endpoint (e.g. `https://api.openai.com/v1`, `https://openrouter.ai/api/v1`, self-hosted). Overrides Lovable AI gateway when set together with `CUSTOM_AI_API_KEY`. |
+| `CUSTOM_AI_API_KEY` | optional | Bearer token for `CUSTOM_AI_BASE_URL`. Sent as `Authorization: Bearer <key>`. |
+| `CUSTOM_AI_MODEL` | optional | Overrides the model id passed to the custom endpoint (e.g. `gpt-4o-mini`). Falls back to the built-in Gemini model ids. |
 | `VAULT_ENCRYPTION_KEY` | yes (Vault) | 64-hex-char (32-byte) key used to AES-256-GCM encrypt secrets at rest. Generate with `openssl rand -hex 32`. **Treat as irreplaceable â€” losing it makes every stored secret unrecoverable.** |
 | `NODE_ENV` | recommended | Set to `production` for the built server |
 | `PORT` | optional | Listen port (defaults to `3000`) |
