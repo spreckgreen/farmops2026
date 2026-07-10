@@ -68,6 +68,8 @@ async function readAllMarkdown(root: DirHandle): Promise<ObsidianFile[]> {
 }
 
 function SyncPage() {
+  const selfHost = useSelfHostConfig();
+  const hidePublish = selfHost.data?.selfHostMode ?? false;
   const [vault, setVault] = useState<DirHandle | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [lastSync, setLastSync] = useState<string | null>(null);
@@ -214,12 +216,15 @@ function SyncPage() {
           </p>
         </header>
 
-        <section className="space-y-2">
-          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-            Publish status
-          </h2>
-          <PublishStatusPanel />
-        </section>
+        {!hidePublish && (
+          <section className="space-y-2">
+            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+              Publish status
+            </h2>
+            <PublishStatusPanel />
+          </section>
+        )}
+
 
 
 
