@@ -1161,9 +1161,6 @@ export const seedLivestockProducts = createServerFn({ method: "POST" })
 export const refreshPricesSouthernOhio = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const apiKey = process.env.LOVABLE_API_KEY;
-    if (!apiKey) throw new Error("Missing LOVABLE_API_KEY");
-
     const { data: foods, error } = await context.supabase
       .from("food_plan_foods")
       .select("id, name, category, unit, price_per_pound");
@@ -1173,9 +1170,9 @@ export const refreshPricesSouthernOhio = createServerFn({ method: "POST" })
     }>;
     if (list.length === 0) return { updated: 0, unchanged: 0, source: "Southern Ohio regional reference (USDA AMS + retail avg)" };
 
-    const { createLovableAiGatewayProvider } = await import("./ai-gateway.server");
+    const { createAiProvider } = await import("./ai-gateway.server");
     const { generateText } = await import("ai");
-    const gateway = createLovableAiGatewayProvider(apiKey);
+    const { provider: gateway, modelOverride } = createAiProvider();
 
     const itemsBlock = list
       .map((f) => `- ${f.name}${f.category ? ` [${f.category}]` : ""}`)
@@ -1201,7 +1198,7 @@ ITEMS:
 ${itemsBlock}`;
 
     const { text } = await generateText({
-      model: gateway("google/gemini-2.5-flash"),
+      model: gateway(modelOverride ?? "google/gemini-2.5-flash"),
       prompt,
     });
 
