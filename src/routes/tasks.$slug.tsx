@@ -189,8 +189,12 @@ function TaskPage() {
               <SelectItem value="done">done</SelectItem>
             </SelectContent>
           </Select>
-          <Button onClick={() => summarize.mutate()} disabled={summarize.isPending || entries.length === 0}>
-            {summarize.isPending ? "Summarizing…" : "Summarize"}
+          <Button
+            onClick={() => summarize.mutate()}
+            disabled={summarize.isPending || entries.length === 0 || aiOff}
+            title={aiOff ? "AI features disabled — see Settings › Self-host" : undefined}
+          >
+            {summarize.isPending ? "Summarizing…" : aiOff ? "AI disabled" : "Summarize"}
           </Button>
           <AlertDialog>
             <AlertDialogTrigger asChild>
