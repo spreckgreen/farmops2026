@@ -623,6 +623,7 @@ These must be set in `.env` (or exported in the shell) for the Node.js runtime â
 | `CUSTOM_AI_BASE_URL` | optional | Route AI summaries and food-plan calls to any OpenAI-compatible endpoint (e.g. `https://api.openai.com/v1`, `https://openrouter.ai/api/v1`, self-hosted). Overrides Lovable AI gateway when set together with `CUSTOM_AI_API_KEY`. |
 | `CUSTOM_AI_API_KEY` | optional | Bearer token for `CUSTOM_AI_BASE_URL`. Sent as `Authorization: Bearer <key>`. |
 | `CUSTOM_AI_MODEL` | optional | Overrides the model id passed to the custom endpoint (e.g. `gpt-4o-mini`). Falls back to the built-in Gemini model ids. |
+| `PUBLIC_APP_URL` | recommended (self-hosted) | Externally reachable origin of this deployment (e.g. `https://farm.example.com`). Used to build the Rachio webhook callback URL shown on the irrigation settings page. Defaults to `https://bostead.lovable.app`. |
 | `VAULT_ENCRYPTION_KEY` | yes (Vault) | 64-hex-char (32-byte) key used to AES-256-GCM encrypt secrets at rest. Generate with `openssl rand -hex 32`. **Treat as irreplaceable â€” losing it makes every stored secret unrecoverable.** |
 | `NODE_ENV` | recommended | Set to `production` for the built server |
 | `PORT` | optional | Listen port (defaults to `3000`) |
