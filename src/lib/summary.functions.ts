@@ -301,7 +301,7 @@ export const generateSummary = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
 
     const { createAiProvider } = await import("./ai-gateway.server");
-    const { provider: gateway, modelOverride } = createAiProvider();
+    const { provider: gateway, modelOverride } = await createAiProvider();
     const modelId = modelOverride ?? "google/gemini-3-flash-preview";
 
     const callAi = async (prompt: string, entriesForScope: EntryRow[], scopeProject: string | null): Promise<SummaryOutput> => {
