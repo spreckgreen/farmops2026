@@ -140,8 +140,14 @@ describe("createAiProvider – Lovable fallback", () => {
     expect(body.model).toBe("google/gemini-3-flash-preview");
   });
 
-  it("throws when neither custom nor Lovable credentials are configured", async () => {
-    const createAiProvider = await loadFactory();
-    expect(() => createAiProvider()).toThrow(/Missing AI credentials/);
+  it("falls back to the bundled Ollama endpoint when no credentials are configured", async () => {
+    const { calls } = mockChatFetch();
+    await callChat("google/gemini-3-flash-preview");
+    expect(calls[0].url.startsWith("http://ollama:11434/v1")).toBe(true);
+    const headers = new Headers(calls[0].init?.headers);
+    expect(headers.get("authorization")).toBe("Bearer ollama");
+    const body = JSON.parse(String(calls[0].init?.body ?? "{}"));
+    expect(body.model).toBe("llama3.2:3b");
   });
+
 });
