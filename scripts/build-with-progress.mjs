@@ -57,6 +57,30 @@ function hostMemMB() {
 const HOST = hostMemMB();
 const HEAP_CAP = /max-old-space-size=(\d+)/.exec(process.env.NODE_OPTIONS ?? "")?.[1];
 
+// Ensure a safe default AI backend is selected at build time so any prerender
+// or module-load path that eagerly initializes the AI provider does not fail
+// with "Missing AI credentials". These match the bundled Ollama service in
+// docker-compose.yml and are overridden by real values in .env / runtime.
+// Setting them here (build-time only) never overrides an operator's config
+// because we only fill in blanks.
+const DEFAULT_AI = {
+  CUSTOM_AI_BASE_URL: "http://ollama:11434/v1",
+  CUSTOM_AI_API_KEY: "ollama",
+  CUSTOM_AI_MODEL: "llama3.2:3b",
+};
+const aiApplied = [];
+for (const [k, v] of Object.entries(DEFAULT_AI)) {
+  if (!process.env[k] && !process.env.LOVABLE_API_KEY) {
+    process.env[k] = v;
+    aiApplied.push(k);
+  }
+}
+if (aiApplied.length) {
+  log(`AI defaults applied for build: ${aiApplied.join(", ")} (override in .env for prod)`);
+} else {
+  log(`AI env already configured (LOVABLE_API_KEY or CUSTOM_AI_* set) — leaving as-is`);
+}
+
 log(`starting vite build (heartbeat=${HEARTBEAT_MS / 1000}s stall=${STALL_MS / 1000}s max=${MAX_MS / 1000}s)`);
 log(`node=${process.version} platform=${process.platform} cwd=${process.cwd()}`);
 log(`NITRO_PRESET=${process.env.NITRO_PRESET ?? "(default)"} BUILD_LOW_MEM=${process.env.BUILD_LOW_MEM ?? "0"}`);
@@ -67,6 +91,7 @@ const child = spawn("bunx", args, {
   stdio: ["ignore", "pipe", "pipe"],
   env: { ...process.env, FORCE_COLOR: "0" },
 });
+
 
 let lastOutput = performance.now();
 const bump = () => {
