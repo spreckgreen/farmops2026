@@ -288,3 +288,199 @@ function SelfHostSettingsPage() {
     </AppLayout>
   );
 }
+
+function formatBytes(bytes: number | null | undefined): string {
+  if (!bytes || bytes <= 0) return "";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let v = bytes;
+  let i = 0;
+  while (v >= 1024 && i < units.length - 1) {
+    v /= 1024;
+    i++;
+  }
+  return `${v.toFixed(v >= 10 || i === 0 ? 0 : 1)} ${units[i]}`;
+}
+
+function ModelPickerCard() {
+  const qc = useQueryClient();
+  const listFn = useServerFn(getAiModelPickerState);
+  const saveFn = useServerFn(setAiModel);
+  const pullFn = useServerFn(pullAiModel);
+
+  const state = useQuery({
+    queryKey: ["ai-model-picker"],
+    queryFn: () => listFn(),
+    staleTime: 30 * 1000,
+  });
+
+  const [selected, setSelected] = useState<string>("");
+  const [pullInput, setPullInput] = useState<string>("");
+
+  const save = useMutation({
+    mutationFn: (model: string) => saveFn({ data: { model } }),
+    onSuccess: (res) => {
+      toast.success(`AI model set to ${res.model}`);
+      qc.invalidateQueries({ queryKey: ["ai-model-picker"] });
+      qc.invalidateQueries({ queryKey: ["self-host-config"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const pull = useMutation({
+    mutationFn: (model: string) => pullFn({ data: { model } }),
+    onSuccess: (res) => {
+      toast.success(`Pulled ${res.model}`);
+      setPullInput("");
+      qc.invalidateQueries({ queryKey: ["ai-model-picker"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const s = state.data;
+  const effective = selected || s?.currentModel || "";
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <Sparkles className="h-4 w-4" />
+          AI model picker
+          {s?.isOllama && (
+            <Badge variant="secondary" className="ml-2">
+              Ollama
+            </Badge>
+          )}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="text-xs text-muted-foreground">
+          Endpoint:{" "}
+          <code>{s?.baseUrl ?? "(none configured)"}</code>
+          {" · "}Current model:{" "}
+          <code>{s?.currentModel ?? "(provider default)"}</code>
+        </div>
+
+        {state.isLoading && (
+          <div className="text-sm text-muted-foreground">
+            Loading available models…
+          </div>
+        )}
+
+        {s && !state.isLoading && (
+          <>
+            {s.error && (
+              <div className="rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 p-3 text-sm text-amber-900 dark:text-amber-100">
+                <div className="font-semibold flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4" />
+                  Couldn't list models
+                </div>
+                <div className="mt-1 font-mono text-xs">{s.error}</div>
+                <div className="mt-1 text-xs">
+                  You can still type a model id manually below.
+                </div>
+              </div>
+            )}
+
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+              <div className="flex-1 min-w-0">
+                {s.models.length > 0 ? (
+                  <Select
+                    value={effective}
+                    onValueChange={setSelected}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choose a model…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {s.models.map((m) => (
+                        <SelectItem key={m.id} value={m.id}>
+                          <span className="font-mono">{m.id}</span>
+                          {m.size ? (
+                            <span className="ml-2 text-xs text-muted-foreground">
+                              {formatBytes(m.size)}
+                              {m.detail ? ` · ${m.detail}` : ""}
+                            </span>
+                          ) : null}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Input
+                    placeholder="Model id (e.g. llama3.2:3b)"
+                    value={effective}
+                    onChange={(e) => setSelected(e.target.value)}
+                  />
+                )}
+              </div>
+              <Button
+                variant="outline"
+                onClick={() => state.refetch()}
+                title="Refresh model list"
+                disabled={state.isFetching}
+              >
+                <RefreshCw
+                  className={`h-4 w-4 ${state.isFetching ? "animate-spin" : ""}`}
+                />
+              </Button>
+              <Button
+                onClick={() => effective && save.mutate(effective)}
+                disabled={
+                  !effective ||
+                  effective === s.currentModel ||
+                  save.isPending
+                }
+              >
+                <Save className="h-4 w-4 mr-1" />
+                {save.isPending ? "Saving…" : "Save as active"}
+              </Button>
+            </div>
+
+            <p className="text-xs text-muted-foreground">
+              Persists <code>CUSTOM_AI_MODEL</code> to the encrypted secrets
+              vault (shared scope). Overrides the environment variable on
+              this deployment without a redeploy.
+            </p>
+
+            {s.isOllama && (
+              <div className="pt-3 border-t space-y-2">
+                <div className="text-sm font-medium flex items-center gap-2">
+                  <Download className="h-4 w-4" />
+                  Pull a new Ollama model
+                </div>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <Input
+                    className="flex-1"
+                    placeholder="qwen2.5:3b, llama3.1:8b, phi3:mini…"
+                    value={pullInput}
+                    onChange={(e) => setPullInput(e.target.value)}
+                  />
+                  <Button
+                    variant="secondary"
+                    onClick={() => pullInput.trim() && pull.mutate(pullInput.trim())}
+                    disabled={!pullInput.trim() || pull.isPending}
+                  >
+                    {pull.isPending ? "Pulling…" : "Pull"}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Downloads via Ollama's <code>/api/pull</code>. Small models
+                  are a few GB; the request stays open until the pull
+                  finishes (up to 10 minutes).
+                </p>
+              </div>
+            )}
+
+            {s.models.length > 0 && (
+              <div className="pt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                {s.models.length} model{s.models.length === 1 ? "" : "s"} available
+              </div>
+            )}
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
