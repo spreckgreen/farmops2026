@@ -13,42 +13,86 @@ services:
       - "3000:3000"
     environment:
       NODE_ENV: production
-      # Force the Nitro node-server to bind to all interfaces on port 3000 so
-      # the published port is actually reachable from the host. Without HOST=
-      # 0.0.0.0 some Nitro presets bind to 127.0.0.1 and the container looks
-      # "active" but nothing renders in the browser.
       HOST: 0.0.0.0
       PORT: "3000"
       NITRO_HOST: 0.0.0.0
       NITRO_PORT: "3000"
-      # Supabase credentials — required for the app to function. Provide them
-      # via a .env file or export them in your shell before running compose.
       SUPABASE_URL: ${SUPABASE_URL:-}
       SUPABASE_PUBLISHABLE_KEY: ${SUPABASE_PUBLISHABLE_KEY:-}
       SUPABASE_PROJECT_ID: ${SUPABASE_PROJECT_ID:-}
 
-      # Runtime UID/GID — the entrypoint re-maps appuser and chowns declared
-      # mount points so bind-mounts "just work". Defaults below work without
-      # a .env file; override only if you need them to match your host user.
+      # --- AI routing ---------------------------------------------------------
+      # By default, self-hosted installs use the bundled Ollama service below
+      # (llama3.2:3b, ~2GB, fully offline). Override any of these in .env to
+      # point at OpenAI, OpenRouter, or the Lovable AI Gateway instead.
+      CUSTOM_AI_BASE_URL: ${CUSTOM_AI_BASE_URL:-http://ollama:11434/v1}
+      CUSTOM_AI_API_KEY: ${CUSTOM_AI_API_KEY:-ollama}
+      CUSTOM_AI_MODEL: ${CUSTOM_AI_MODEL:-llama3.2:3b}
+      LOVABLE_API_KEY: ${LOVABLE_API_KEY:-}
+      SELF_HOST_MODE: ${SELF_HOST_MODE:-true}
+      PUBLIC_APP_URL: ${PUBLIC_APP_URL:-}
+
       PUID: ${PUID:-1001}
       PGID: ${PGID:-1001}
-      # Space-separated paths to chown on startup. These defaults cover the
-      # most common bind-mount targets. Set to "" to disable, or override.
       CHOWN_PATHS: ${CHOWN_PATHS:-/app/data /app/uploads}
-      # Set to "1" to skip chown entirely (faster startup once permissions
-      # are already correct). Leave unset to let the entrypoint fix ownership.
-      # SKIP_CHOWN: "1"
     volumes:
       - ./data:/app/data
       - ./uploads:/app/uploads
-      # Surfaces the unified install log on the host at ./logs/install.log
-      # so build-time failures are visible without `docker cp`. The
-      # entrypoint copies /app/install.log into this mount on container start.
       - ./logs:/var/log/bostead
-
+    depends_on:
+      ollama-pull:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "bun", "-e", "fetch('http://localhost:3000').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"]
       interval: 30s
       timeout: 5s
       retries: 3
       start_period: 5s
+
+  # --- Bundled small-model AI (fully offline, no API keys) --------------------
+  # Ollama serves an OpenAI-compatible /v1 endpoint that the app talks to via
+  # CUSTOM_AI_BASE_URL above. Model weights persist in the `ollama` named
+  # volume so the ~2GB download only happens on first boot.
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    volumes:
+      - ollama:/root/.ollama
+    # Expose 11434 on the host only if you want to hit Ollama directly for
+    # debugging. The app reaches it over the compose network as `ollama:11434`.
+    # ports:
+    #   - "11434:11434"
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
+
+  # One-shot init: pulls the small model on first boot, then exits.
+  # `app` waits for this to complete successfully before starting, so the
+  # first AI call never races the model download.
+  ollama-pull:
+    image: ollama/ollama:latest
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+      OLLAMA_MODEL: ${CUSTOM_AI_MODEL:-llama3.2:3b}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -e
+        echo "=== [ollama-pull] Ensuring model ${OLLAMA_MODEL} is present ==="
+        if ollama list | awk '{print $1}' | grep -qx "${OLLAMA_MODEL}"; then
+          echo "=== [ollama-pull] Model already present, skipping download ==="
+        else
+          echo "=== [ollama-pull] Pulling ${OLLAMA_MODEL} (first boot only, ~2GB) ==="
+          ollama pull "${OLLAMA_MODEL}"
+        fi
+        echo "=== [ollama-pull] Done ==="
+    restart: "no"
+
+volumes:
+  ollama:
