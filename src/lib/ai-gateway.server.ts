@@ -18,6 +18,14 @@ export function createLovableAiGatewayProvider(apiKey: string) {
  * so it can be updated at runtime from the self-host settings UI without a
  * redeploy.
  */
+// Bundled Ollama defaults — match docker-compose.yml's `ollama` service.
+// Used as a last-resort fallback when no CUSTOM_AI_* env vars are set and no
+// LOVABLE_API_KEY is available, so a fresh install (or a dev shell without a
+// .env) still has a working AI backend instead of throwing at first call.
+const BUNDLED_OLLAMA_BASE_URL = "http://ollama:11434/v1";
+const BUNDLED_OLLAMA_API_KEY = "ollama";
+const BUNDLED_OLLAMA_MODEL = "llama3.2:3b";
+
 export async function createAiProvider(): Promise<{
   provider: ReturnType<typeof createOpenAICompatible>;
   modelOverride: string | undefined;
@@ -36,13 +44,23 @@ export async function createAiProvider(): Promise<{
     };
   }
   const apiKey = process.env.LOVABLE_API_KEY;
-  if (!apiKey) {
-    throw new Error(
-      "Missing AI credentials: set CUSTOM_AI_BASE_URL + CUSTOM_AI_API_KEY, or LOVABLE_API_KEY",
-    );
+  if (apiKey) {
+    return {
+      provider: createLovableAiGatewayProvider(apiKey),
+      modelOverride,
+    };
   }
+  // Last-resort fallback: bundled Ollama. Never throws — if the container
+  // isn't actually running, the outgoing chat request will fail with a
+  // network error at call time, which is easier to diagnose than a
+  // module-init throw during SSR/prerender.
   return {
-    provider: createLovableAiGatewayProvider(apiKey),
-    modelOverride,
+    provider: createOpenAICompatible({
+      name: "bundled-ollama",
+      baseURL: BUNDLED_OLLAMA_BASE_URL,
+      headers: { Authorization: `Bearer ${BUNDLED_OLLAMA_API_KEY}` },
+    }),
+    modelOverride: modelOverride ?? BUNDLED_OLLAMA_MODEL,
   };
 }
+
