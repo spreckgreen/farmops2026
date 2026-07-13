@@ -1172,7 +1172,7 @@ export const refreshPricesSouthernOhio = createServerFn({ method: "POST" })
 
     const { createAiProvider } = await import("./ai-gateway.server");
     const { generateText } = await import("ai");
-    const { provider: gateway, modelOverride } = createAiProvider();
+    const { provider: gateway, modelOverride } = await createAiProvider();
 
     const itemsBlock = list
       .map((f) => `- ${f.name}${f.category ? ` [${f.category}]` : ""}`)
