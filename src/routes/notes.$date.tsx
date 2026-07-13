@@ -179,9 +179,13 @@ function NotePage() {
   useEffect(() => {
     if (!query.data) return;
     const noteId = query.data.note.id;
-    const flushCommit = () => {
+    const flushCommit = async () => {
       const current = draftRef.current;
       lastSavedRef.current = current;
+      // Skip if the user has signed out — the server fn would 401 without a bearer.
+      const { supabase } = await import("@/integrations/supabase/client");
+      const { data } = await supabase.auth.getSession();
+      if (!data.session) return;
       commitFn({ data: { noteId, date, markdown: current } })
         .then(() => {
           qc.invalidateQueries({ queryKey: ["daily-note", date] });
