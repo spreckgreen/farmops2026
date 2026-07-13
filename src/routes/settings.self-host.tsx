@@ -1,9 +1,27 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { AppLayout } from "@/components/app-layout";
 import { requireAuthenticatedUser } from "@/lib/auth-route";
 import { useSelfHostConfig } from "@/hooks/use-self-host-config";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { toast } from "sonner";
+import {
+  getAiModelPickerState,
+  setAiModel,
+  pullAiModel,
+} from "@/lib/ai-models.functions";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -12,7 +30,11 @@ import {
   Sparkles,
   Webhook,
   ExternalLink,
+  RefreshCw,
+  Download,
+  Save,
 } from "lucide-react";
+
 
 export const Route = createFileRoute("/settings/self-host")({
   ssr: false,
