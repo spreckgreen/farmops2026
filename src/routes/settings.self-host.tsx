@@ -219,6 +219,11 @@ function SelfHostSettingsPage() {
               </CardContent>
             </Card>
 
+            {/* Model picker (works for any OpenAI-compatible endpoint;
+                shows richer metadata and enables pull for Ollama). */}
+            {cfg.aiProvider !== "none" && <ModelPickerCard />}
+
+
             {/* Webhooks */}
             <Card>
               <CardHeader>
