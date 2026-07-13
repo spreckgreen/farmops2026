@@ -84,14 +84,17 @@ services:
     command:
       - |
         set -e
-        echo "=== [ollama-pull] Ensuring model ${OLLAMA_MODEL} is present ==="
-        if ollama list | awk '{print $1}' | grep -qx "${OLLAMA_MODEL}"; then
+        # $$ escapes compose interpolation so the shell (not docker compose)
+        # expands OLLAMA_MODEL at runtime from the container's environment.
+        echo "=== [ollama-pull] Ensuring model $${OLLAMA_MODEL} is present ==="
+        if ollama list | awk '{print $$1}' | grep -qx "$${OLLAMA_MODEL}"; then
           echo "=== [ollama-pull] Model already present, skipping download ==="
         else
-          echo "=== [ollama-pull] Pulling ${OLLAMA_MODEL} (first boot only, ~2GB) ==="
-          ollama pull "${OLLAMA_MODEL}"
+          echo "=== [ollama-pull] Pulling $${OLLAMA_MODEL} (first boot only, ~2GB) ==="
+          ollama pull "$${OLLAMA_MODEL}"
         fi
         echo "=== [ollama-pull] Done ==="
+
     restart: "no"
 
 volumes:
