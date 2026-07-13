@@ -60,28 +60,36 @@ change them and you must rebuild the image, not just restart it.
 Bostead uses AI for report drafts, task summaries, and the Southern-Ohio
 price refresh.
 
-**Option A — Lovable AI Gateway (default):**
+**Option A — Bundled Ollama (default, fully offline):**
 
-| Variable | Notes |
-| --- | --- |
-| `LOVABLE_API_KEY` | Get one from a Lovable project → *Project → Cloud → AI Gateway*. Billed to that Lovable workspace. |
+The docker-compose stack ships an `ollama` service and an `ollama-pull`
+init container that downloads `llama3.2:3b` (~2 GB) on first boot. The app
+auto-wires to it — no environment variables required. Weights persist in
+the `ollama` named volume, so the download only happens once.
 
-**Option B — Your own OpenAI-compatible endpoint** (any provider that
-implements `/v1/chat/completions`: OpenAI, OpenRouter, Groq, Together,
-Ollama, vLLM, LM Studio, self-hosted…):
+Pick a different Ollama model by setting `CUSTOM_AI_MODEL` in `.env`
+(e.g. `qwen2.5:3b`, `llama3.1:8b`); the init container will pull it on
+the next `docker compose up`.
+
+Minimum host RAM for `llama3.2:3b`: ~4 GB free.
+
+**Option B — Your own OpenAI-compatible endpoint** (OpenAI, OpenRouter,
+Groq, Together, a remote Ollama, vLLM, LM Studio…). Override the defaults
+in `.env`:
 
 | Variable | Notes |
 | --- | --- |
 | `CUSTOM_AI_BASE_URL` | Endpoint base URL, e.g. `https://api.openai.com/v1`. |
 | `CUSTOM_AI_API_KEY` | Sent as `Authorization: Bearer <key>`. |
-| `CUSTOM_AI_MODEL` | *(optional)* Model id override — required if the endpoint doesn't recognize `google/gemini-3-flash-preview`. E.g. `gpt-4o-mini`. |
+| `CUSTOM_AI_MODEL` | Model id, e.g. `gpt-4o-mini`. |
 
-When both `CUSTOM_AI_BASE_URL` and `CUSTOM_AI_API_KEY` are set, they take
-precedence and `LOVABLE_API_KEY` is not required.
+**Option C — Lovable AI Gateway.** Set `LOVABLE_API_KEY` and unset the
+`CUSTOM_AI_*` overrides. Requires an active Lovable workspace.
 
-**Option C — No AI.** Leave all four unset. The app runs; report/summary
-buttons are disabled with an explanatory banner. Visible at
-*Admin → Self-host settings*.
+**Option D — No AI.** Comment out the `ollama` / `ollama-pull` services and
+leave all AI env vars unset. Report/summary buttons show an explanatory
+banner at *Admin → Self-host settings*.
+
 
 ### 3.3 Webhooks & self-host UX
 
