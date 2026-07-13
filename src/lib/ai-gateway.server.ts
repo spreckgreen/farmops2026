@@ -1,4 +1,5 @@
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
+import { getServerEnv } from "./server-env.server";
 
 export function createLovableAiGatewayProvider(apiKey: string) {
   return createOpenAICompatible({
@@ -10,20 +11,20 @@ export function createLovableAiGatewayProvider(apiKey: string) {
 
 /**
  * Returns an OpenAI-compatible AI provider. If CUSTOM_AI_BASE_URL and
- * CUSTOM_AI_API_KEY are both set, requests are routed to that endpoint
- * (e.g. https://api.openai.com/v1, https://openrouter.ai/api/v1, or a
- * self-hosted OpenAI-compatible server). Otherwise falls back to the
- * Lovable AI Gateway using LOVABLE_API_KEY.
+ * CUSTOM_AI_API_KEY are both set, requests are routed to that endpoint.
+ * Otherwise falls back to the Lovable AI Gateway using LOVABLE_API_KEY.
  *
- * Optional CUSTOM_AI_MODEL overrides the model id passed by callers,
- * useful when the custom endpoint doesn't recognize the default ids.
+ * CUSTOM_AI_MODEL is resolved via getServerEnv (vault-first, env fallback)
+ * so it can be updated at runtime from the self-host settings UI without a
+ * redeploy.
  */
-export function createAiProvider(): {
+export async function createAiProvider(): Promise<{
   provider: ReturnType<typeof createOpenAICompatible>;
   modelOverride: string | undefined;
-} {
+}> {
   const customBase = process.env.CUSTOM_AI_BASE_URL;
   const customKey = process.env.CUSTOM_AI_API_KEY;
+  const modelOverride = (await getServerEnv("CUSTOM_AI_MODEL")) || undefined;
   if (customBase && customKey) {
     return {
       provider: createOpenAICompatible({
@@ -31,7 +32,7 @@ export function createAiProvider(): {
         baseURL: customBase,
         headers: { Authorization: `Bearer ${customKey}` },
       }),
-      modelOverride: process.env.CUSTOM_AI_MODEL || undefined,
+      modelOverride,
     };
   }
   const apiKey = process.env.LOVABLE_API_KEY;
@@ -42,6 +43,6 @@ export function createAiProvider(): {
   }
   return {
     provider: createLovableAiGatewayProvider(apiKey),
-    modelOverride: undefined,
+    modelOverride,
   };
 }
