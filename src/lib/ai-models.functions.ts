@@ -116,7 +116,7 @@ export const getAiModelPickerState = createServerFn({ method: "GET" })
             detail: m.details?.quantization_level ?? null,
           }))
           .sort((a, b) => a.id.localeCompare(b.id));
-        return { baseUrl, currentModel, isOllama: true, models, error: null };
+        return { ...common, baseUrl, isOllama: true, models, error: null };
       }
     } catch {
       /* fall through to OpenAI-style */
