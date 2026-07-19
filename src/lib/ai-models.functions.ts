@@ -14,6 +14,12 @@ import { z } from "zod";
 
 const MODEL_ENV_KEY = "CUSTOM_AI_MODEL";
 
+// Bundled self-hosted defaults — MUST match src/lib/ai-gateway.server.ts and
+// the `ollama` service in docker-compose.yml. Duplicated (not imported) so the
+// picker doesn't drag the AI-SDK provider factory into its module graph.
+const BUNDLED_OLLAMA_BASE_URL = "http://ollama:11434/v1";
+const BUNDLED_OLLAMA_MODEL = "llama3.2:3b";
+
 // Strip a trailing `/v1` (or `/v1/`) from an OpenAI-compatible base URL to
 // reach the provider's native root (needed for Ollama's /api/tags path).
 function nativeRoot(baseUrl: string): string {
