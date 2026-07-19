@@ -120,6 +120,94 @@ else
   say "  (.env or .env.example not found in $(pwd))"
 fi
 
+# --- 5b. Per-container effective env + port mappings ----------------------
+# Values are REDACTED. We only print:
+#   - variable name
+#   - SET (non-empty) / EMPTY
+#   - length (chars) so you can spot truncation without leaking the value
+#   - a fingerprint (first 3 chars + "…" + last 2 chars) ONLY for keys that
+#     are safe to preview (URLs, hosts, ports, model names, feature flags).
+#     Anything matching the sensitive-name allowlist below is NEVER previewed.
+#
+# The goal is to spot the classic "app booted with stale/blank env after
+# refresh" without ever writing a secret to the diagnostics bundle.
+SENSITIVE_RE='(KEY|SECRET|TOKEN|PASSWORD|PASSWD|PWD|DSN|CREDENTIAL|SESSION|COOKIE|SIGNING|WEBHOOK|SALT|PRIVATE|JWT|BEARER|AUTH)'
+
+redact_env_line() {
+  # stdin: one KEY=VALUE line from `docker inspect` container.Config.Env
+  local line="$1"
+  local key="${line%%=*}"
+  local val="${line#*=}"
+  local len="${#val}"
+  local status="SET"
+  [ -z "${val//[[:space:]]/}" ] && status="EMPTY"
+
+  if [[ "$key" =~ $SENSITIVE_RE ]]; then
+    printf '  %-6s %-32s len=%-4d value=<redacted>\n' "$status" "$key" "$len"
+  elif [ "$status" = "EMPTY" ]; then
+    printf '  %-6s %-32s len=0    value=(empty)\n'   "$status" "$key"
+  else
+    # Safe-ish preview: first 3 + last 2 chars, only if length >= 6.
+    local preview
+    if [ "$len" -ge 6 ]; then
+      preview="${val:0:3}…${val: -2}"
+    else
+      preview="(too short to preview)"
+    fi
+    printf '  %-6s %-32s len=%-4d value=%s\n' "$status" "$key" "$len" "$preview"
+  fi
+}
+
+say ""
+say "===== per-container env + ports (values REDACTED) ====="
+# Only run this section if we actually have docker access.
+if "${DC[@]}" ps -q >/dev/null 2>&1; then
+  # Iterate every running compose service (not just app/caddy/ollama — catches
+  # anything the operator has added locally, e.g. a custom sidecar).
+  SERVICES="$( "${DC[@]}" ps --services 2>/dev/null | sort -u )"
+  if [ -z "$SERVICES" ]; then
+    say "  (no compose services are running)"
+  fi
+  for svc in $SERVICES; do
+    cid="$( "${DC[@]}" ps -q "$svc" 2>/dev/null | head -n1 )"
+    if [ -z "$cid" ]; then
+      say ""
+      say "-- $svc: no running container --"
+      continue
+    fi
+
+    say ""
+    say "-- $svc  (container $cid) --"
+
+    # Image + state summary (short, one line).
+    "${DOCKER[@]}" inspect --format \
+      'image={{.Config.Image}}  status={{.State.Status}}  health={{if .State.Health}}{{.State.Health.Status}}{{else}}n/a{{end}}  restarts={{.RestartCount}}  started={{.State.StartedAt}}' \
+      "$cid" 2>&1 | sed 's/^/  /' | tee -a "$OUT" || true
+
+    # Port bindings: "container_port/proto -> host_ip:host_port" per line.
+    say "  ports:"
+    "${DOCKER[@]}" inspect --format \
+      '{{range $p, $bs := .NetworkSettings.Ports}}{{range $bs}}    {{$p}} -> {{.HostIp}}:{{.HostPort}}
+{{end}}{{end}}' \
+      "$cid" 2>/dev/null | sed '/^\s*$/d' | tee -a "$OUT"
+    # If nothing printed, note it explicitly so an empty ports block isn't ambiguous.
+    if [ -z "$( "${DOCKER[@]}" inspect --format '{{range $p, $bs := .NetworkSettings.Ports}}{{if $bs}}x{{end}}{{end}}' "$cid" 2>/dev/null )" ]; then
+      say "    (no host port bindings — service is internal only)"
+    fi
+
+    # Effective env: everything the container actually sees at PID 1.
+    # This includes Dockerfile ENV, compose `environment:`, and injected values.
+    say "  env:"
+    # Pull one KEY=VALUE per line; sort for stable diffs across runs.
+    while IFS= read -r line; do
+      [ -z "$line" ] && continue
+      redact_env_line "$line" | tee -a "$OUT"
+    done < <( "${DOCKER[@]}" inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$cid" 2>/dev/null | sort )
+  done
+else
+  say "  (docker unavailable — see section 2 above)"
+fi
+
 # --- 6. Git state ----------------------------------------------------------
 run git rev-parse --abbrev-ref HEAD
 run git log --oneline -n 5
