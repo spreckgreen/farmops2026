@@ -242,6 +242,27 @@ elif [ "$FAIL_COUNT" -eq 0 ]; then
   printf '%sVERDICT: PASS with warnings%s — %d warning(s), 0 failures.\n' "$YELLOW$BOLD" "$RESET" "$WARN_COUNT"
   exit 0
 else
+  # -----------------------------------------------------------------------
+  # Auto-collect recent container logs on FAIL. This lands in the same
+  # terminal (and refresh.sh's tee'd log) so operators don't need a second
+  # round-trip to `docker compose logs`. Disable with --no-logs.
+  # -----------------------------------------------------------------------
+  if [ "$DUMP_LOGS" -eq 1 ] && [ ${#DC[@]} -gt 0 ]; then
+    printf '\n%s\n' "${BOLD}──── Recent container logs (last ${LOG_TAIL} lines each) ────${RESET}" >&2
+    for svc in app caddy; do
+      printf '\n%s\n' "${BOLD}▸ ${svc} (docker compose logs --tail=${LOG_TAIL} ${svc})${RESET}" >&2
+      "${DC[@]}" logs --tail="$LOG_TAIL" --timestamps "$svc" 2>&1 | sed 's/^/    /' >&2 \
+        || printf '    (failed to read %s logs)\n' "$svc" >&2
+    done
+    # Caddy writes access logs to a JSON file inside the container; surface a
+    # short tail if it exists so TLS/upstream errors are visible even when the
+    # container's stdout is quiet.
+    printf '\n%s\n' "${BOLD}▸ caddy access log (tail -n ${LOG_TAIL} /var/log/caddy/access.log)${RESET}" >&2
+    "${DC[@]}" exec -T caddy sh -c "test -f /var/log/caddy/access.log && tail -n ${LOG_TAIL} /var/log/caddy/access.log || echo '(no access.log — file logging not enabled in Caddyfile)'" 2>&1 \
+      | sed 's/^/    /' >&2 || true
+    printf '%s\n\n' "${BOLD}──── end container logs ────${RESET}" >&2
+  fi
+
   printf '%sVERDICT: FAIL%s — %d failure(s), %d warning(s). Run: ./scripts/diagnose.sh\n' \
     "$RED$BOLD" "$RESET" "$FAIL_COUNT" "$WARN_COUNT"
   exit 1
