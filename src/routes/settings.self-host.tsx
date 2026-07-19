@@ -449,6 +449,14 @@ function ModelPickerCard() {
                 />
               </Button>
               <Button
+                variant="ghost"
+                onClick={() => setSelected(s.defaultModel)}
+                disabled={effective === s.defaultModel || save.isPending}
+                title={`Reset selection to self-hosted default (${s.defaultModel})`}
+              >
+                Self-hosted default
+              </Button>
+              <Button
                 onClick={() => effective && save.mutate(effective)}
                 disabled={
                   !effective ||
