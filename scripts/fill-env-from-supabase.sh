@@ -25,14 +25,14 @@
 #   scripts/fill-env-from-supabase.sh --out /tmp/bostead.env
 #
 #   # Refresh the checked-in template (values will be committed — think twice!)
-#   scripts/fill-env-from-supabase.sh --out docs/env.self-hosted-supabase.example --force
+#   scripts/fill-env-from-supabase.sh --out docs/env.self-hosted-supabase.example.tmpl --force
 # ─────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
 SUPABASE_DIR="/home/rpremo/supabase-project"
 OUT_FILE=".env"
 FORCE=0
-TEMPLATE="docs/env.self-hosted-supabase.example"
+TEMPLATE="docs/env.self-hosted-supabase.example.tmpl"
 
 die() { echo "❌ $*" >&2; exit 1; }
 info() { echo "ℹ️  $*"; }

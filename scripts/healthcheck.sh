@@ -125,7 +125,7 @@ else
     fi
   done < <(awk -F= '/^[A-Z]/{print}' .env.example)
 
-  # Detect unreplaced placeholders copied from docs/env.self-hosted-supabase.example
+  # Detect unreplaced placeholders copied from docs/env.self-hosted-supabase.example.tmpl
   placeholders=()
   while IFS= read -r line; do
     k="${line%%=*}"; v="${line#*=}"

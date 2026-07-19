@@ -3,7 +3,7 @@
 //
 // Imported at the top of `src/server.ts` so a container that still has
 // `.env` values like `CHANGE_ME_ANON_KEY_JWT` or `https://supabase.example.com`
-// (copied straight from `docs/env.self-hosted-supabase.example` without being
+// (copied straight from `docs/env.self-hosted-supabase.example.tmpl` without being
 // filled in by `scripts/fill-env-from-supabase.sh`) crashes on boot with a
 // clear error, instead of silently serving a broken app that can't reach
 // Supabase.
@@ -23,7 +23,7 @@ const SUPABASE_VARS = [
 ] as const;
 
 // Substrings that indicate a placeholder value from
-// docs/env.self-hosted-supabase.example was never replaced.
+// docs/env.self-hosted-supabase.example.tmpl was never replaced.
 const PLACEHOLDER_MARKERS = [
   "CHANGE_ME",
   "supabase.example.com",
@@ -58,7 +58,7 @@ export function assertNoPlaceholderSupabaseEnv(): void {
     "=== [startup] FATAL: Supabase env vars still contain placeholders ===",
     ...lines,
     "",
-    "These values come from docs/env.self-hosted-supabase.example and must be",
+    "These values come from docs/env.self-hosted-supabase.example.tmpl and must be",
     "replaced with the real keys from your self-hosted Supabase stack.",
     "",
     "Fix:",
@@ -74,7 +74,7 @@ export function assertNoPlaceholderSupabaseEnv(): void {
   throw new Error(
     `Refusing to start: placeholder Supabase env vars detected (${offenders
       .map((o) => o.name)
-      .join(", ")}). See docs/env.self-hosted-supabase.example.`,
+      .join(", ")}). See docs/env.self-hosted-supabase.example.tmpl.`,
   );
 }
 
