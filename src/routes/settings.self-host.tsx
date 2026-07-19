@@ -37,18 +37,6 @@ import {
   Save,
   Zap,
 } from "lucide-react";
-import {
-  AlertTriangle,
-  CheckCircle2,
-  Server,
-  Cloud,
-  Sparkles,
-  Webhook,
-  ExternalLink,
-  RefreshCw,
-  Download,
-  Save,
-} from "lucide-react";
 
 
 export const Route = createFileRoute("/settings/self-host")({
