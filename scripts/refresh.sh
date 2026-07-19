@@ -156,13 +156,44 @@ HC_FLAGS=()
 [ "$ALLOW_SUDO" -eq 0 ] && HC_FLAGS+=(--no-sudo)
 
 log "Running full healthcheck gate: $HC ${HC_FLAGS[*]:-}"
-if "$HC" "${HC_FLAGS[@]}"; then
+# Capture the probe output so we can echo it back after diagnose.sh runs —
+# by the time the operator scrolls up, the reason for the FAIL has usually
+# scrolled past the compose ps / diagnose output.
+HC_LOG="$(mktemp -t refresh-healthcheck.XXXXXX.log)"
+if "$HC" "${HC_FLAGS[@]}" 2>&1 | tee "$HC_LOG"; then
   log "✅ all probes PASS. Refresh complete."
+  rm -f "$HC_LOG"
   "${DOCKER[@]}" compose ps
   exit 0
 else
-  rc=$?
+  # `set -o pipefail` propagates healthcheck.sh's non-zero status through tee.
+  rc=${PIPESTATUS[0]}
   err "❌ healthcheck reported FAIL (exit=$rc) — refresh aborted."
-  err "   Triage:  ./scripts/diagnose.sh    Fast recovery:  ./scripts/remediate.sh"
+
+  # Auto-run diagnose.sh so the operator has a full bundle ready to share
+  # without a second round-trip. Never let diagnose.sh's own failure mask
+  # the underlying healthcheck exit code.
+  DIAG="$(dirname "$0")/diagnose.sh"
+  if [ -x "$DIAG" ]; then
+    err "   Running $DIAG to collect a diagnostics bundle…"
+    DIAG_FLAGS=()
+    [ "$ALLOW_SUDO" -eq 0 ] && DIAG_FLAGS+=(--no-sudo)
+    # diagnose.sh already tees to /tmp/bostead-diag-*.txt; we just let it
+    # print to the terminal so the operator sees the CHECKLIST inline.
+    "$DIAG" "${DIAG_FLAGS[@]}" || err "   (diagnose.sh itself exited non-zero — see output above)"
+  else
+    err "   scripts/diagnose.sh not found or not executable — skipping bundle."
+  fi
+
+  # Replay the healthcheck output last so the exact PASS/FAIL rows that
+  # aborted the refresh are the final thing on screen.
+  err ""
+  err "──── healthcheck.sh output (the reason refresh aborted) ────"
+  cat "$HC_LOG" >&2 || true
+  err "──── end healthcheck.sh output ────"
+  rm -f "$HC_LOG"
+
+  err ""
+  err "   Fast recovery attempt:  ./scripts/remediate.sh"
   exit "$rc"
 fi
