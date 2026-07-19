@@ -1,3 +1,4 @@
+import "./lib/env-startup-check.server";
 import "./lib/error-capture";
 
 import { consumeLastCapturedError } from "./lib/error-capture";

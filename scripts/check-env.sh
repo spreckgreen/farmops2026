@@ -160,6 +160,9 @@ is_placeholder() {
   local v="$1"
   case "$v" in
     your-*|https://your-project.supabase.co) return 0 ;;
+    *CHANGE_ME*) return 0 ;;
+    *supabase.example.com*) return 0 ;;
+    *your-project-ref*) return 0 ;;
     *) return 1 ;;
   esac
 }
@@ -195,7 +198,8 @@ done
 if [ "${#missing[@]}" -gt 0 ] || [ "${#placeholder[@]}" -gt 0 ]; then
   echo
   echo "FAIL: ${#missing[@]} missing, ${#placeholder[@]} still using example placeholders."
-  echo "Fix: copy .env.example to .env, edit it, then run:"
+  echo "Fix: populate .env from your self-hosted Supabase project, then re-run:"
+  echo "  sudo scripts/fill-env-from-supabase.sh    # auto-fill from docs/env.self-hosted-supabase.example"
   echo "  ./scripts/check-env.sh --env-file .env"
   exit 1
 fi

@@ -125,12 +125,23 @@ else
     fi
   done < <(awk -F= '/^[A-Z]/{print}' .env.example)
 
-  if [ ${#missing[@]} -eq 0 ] && [ ${#empty[@]} -eq 0 ]; then
+  # Detect unreplaced placeholders copied from docs/env.self-hosted-supabase.example
+  placeholders=()
+  while IFS= read -r line; do
+    k="${line%%=*}"; v="${line#*=}"
+    [[ "$k" =~ ^[A-Z] ]] || continue
+    case "$v" in
+      *CHANGE_ME*|*supabase.example.com*|*your-project-ref*) placeholders+=("$k") ;;
+    esac
+  done < .env
+
+  if [ ${#missing[@]} -eq 0 ] && [ ${#empty[@]} -eq 0 ] && [ ${#placeholders[@]} -eq 0 ]; then
     record PASS "env vars" "all required keys from .env.example are set"
   else
     detail=""
-    [ ${#missing[@]} -gt 0 ] && detail+="missing: $(IFS=,; echo "${missing[*]}") "
-    [ ${#empty[@]}   -gt 0 ] && detail+="empty: $(IFS=,; echo "${empty[*]}")"
+    [ ${#missing[@]}      -gt 0 ] && detail+="missing: $(IFS=,; echo "${missing[*]}") "
+    [ ${#empty[@]}        -gt 0 ] && detail+="empty: $(IFS=,; echo "${empty[*]}") "
+    [ ${#placeholders[@]} -gt 0 ] && detail+="placeholders (edit .env or run scripts/fill-env-from-supabase.sh): $(IFS=,; echo "${placeholders[*]}")"
     record FAIL "env vars" "$detail"
   fi
 fi
