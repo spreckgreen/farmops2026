@@ -101,33 +101,33 @@ fi
 
 # --- 2. Build ---------------------------------------------------------------
 log "Building app image (BuildKit cache will short-circuit unchanged layers)"
-DOCKER_BUILDKIT=1 docker compose build app
+DOCKER_BUILDKIT=1 "${DOCKER[@]}" compose build app
 
 # --- 3. Recreate changed containers ----------------------------------------
 log "Bringing stack up (recreates only containers with new image/config)"
-docker compose up -d --remove-orphans
+"${DOCKER[@]}" compose up -d --remove-orphans
 
 # --- 4. Reclaim disk --------------------------------------------------------
 log "Pruning dangling images from previous build"
-docker image prune -f >/dev/null
+"${DOCKER[@]}" image prune -f >/dev/null
 
 # --- 5. Wait for health -----------------------------------------------------
 log "Waiting up to 90s for app healthcheck…"
 for i in $(seq 1 45); do
-  status="$(docker compose ps --format '{{.Service}} {{.Health}}' 2>/dev/null | awk '$1=="app"{print $2}')"
+  status="$("${DOCKER[@]}" compose ps --format '{{.Service}} {{.Health}}' 2>/dev/null | awk '$1=="app"{print $2}')"
   case "$status" in
     healthy)
       log "✅ app is healthy. Refresh complete."
-      docker compose ps
+      "${DOCKER[@]}" compose ps
       exit 0 ;;
     unhealthy)
       err "app went unhealthy. Recent logs:"
-      docker compose logs --tail=80 app
+      "${DOCKER[@]}" compose logs --tail=80 app
       exit 1 ;;
   esac
   sleep 2
 done
 
 err "Timed out waiting for healthcheck. Recent logs:"
-docker compose logs --tail=80 app
+"${DOCKER[@]}" compose logs --tail=80 app
 exit 1
