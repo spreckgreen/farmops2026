@@ -25,12 +25,20 @@ REQUIRED=(
   SUPABASE_URL
   SUPABASE_PUBLISHABLE_KEY
   SUPABASE_SERVICE_ROLE_KEY
-  LOVABLE_API_KEY
+  VAULT_ENCRYPTION_KEY
 )
+
+# LOVABLE_API_KEY is only required when SELF_HOST_MODE is not "true"
+# (self-hosted installs use bundled Ollama and don't need the Lovable gateway).
+if [ "${SELF_HOST_MODE:-}" != "true" ]; then
+  REQUIRED+=(LOVABLE_API_KEY)
+fi
 
 OPTIONAL=(
   NODE_ENV
   PORT
+  LOVABLE_API_KEY
+  CUSTOM_AI_BASE_URL
 )
 
 env_file=""
