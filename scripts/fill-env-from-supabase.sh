@@ -32,17 +32,20 @@ set -euo pipefail
 SUPABASE_DIR="/home/rpremo/supabase-project"
 OUT_FILE=".env"
 FORCE=0
+VALIDATE_ONLY=0
 TEMPLATE="docs/env.self-hosted-supabase.example.tmpl"
 
-die() { echo "❌ $*" >&2; exit 1; }
+die()  { echo "❌ $*" >&2; exit 1; }
+warn() { echo "⚠️  $*" >&2; }
 info() { echo "ℹ️  $*"; }
-ok() { echo "✅ $*"; }
+ok()   { echo "✅ $*"; }
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --supabase-dir) SUPABASE_DIR="$2"; shift 2 ;;
     --out)          OUT_FILE="$2"; shift 2 ;;
     --force)        FORCE=1; shift ;;
+    --validate)     VALIDATE_ONLY=1; shift ;;
     -h|--help)      sed -n '2,30p' "$0"; exit 0 ;;
     *) die "Unknown flag: $1" ;;
   esac
