@@ -183,7 +183,11 @@ done
 
 # Bostead-side keys the app needs beyond Supabase. Warn (don't fail) when the
 # template still has CHANGE_ME — the operator fills these by hand.
-BOSTEAD_REQUIRED=(VAULT_ENCRYPTION_KEY LOVABLE_API_KEY)
+BOSTEAD_REQUIRED=(VAULT_ENCRYPTION_KEY)
+BOSTEAD_OPTIONAL=(LOVABLE_API_KEY CUSTOM_AI_BASE_URL)
+for k in "${BOSTEAD_OPTIONAL[@]}"; do
+  grep -qE "^${k}=" "$TEMPLATE" || warn "template has no ${k}= line (fine if unused)"
+done
 for k in "${BOSTEAD_REQUIRED[@]}"; do
   line=$(grep -E "^${k}=" "$TEMPLATE" || true)
   if [[ -z "$line" ]]; then
