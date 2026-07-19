@@ -123,6 +123,55 @@ elif [ -f .env ]; then
   ENV_FILE=".env"
 fi
 
+# --- 1b-i. Auto-heal an unreadable env file --------------------------------
+# fill-env-from-supabase.sh run via sudo used to leave .env.local as
+# root:root 0600, which the non-sudo refresh path can't read → check-env.sh
+# reports every var MISSING. Detect that case and repair it in place using
+# passwordless sudo, without ever changing the file's contents.
+autoheal_env_file() {
+  local f="$1"
+  [ -n "$f" ] && [ -e "$f" ] || return 0
+  [ -r "$f" ] && return 0   # already readable — nothing to do
+
+  local me; me="$(id -un)"
+  local owner; owner="$(stat -c '%U' "$f" 2>/dev/null || echo '?')"
+  local mode;  mode="$(stat -c '%a' "$f" 2>/dev/null || echo '?')"
+  log "Auto-heal: $f is unreadable (owner=$owner mode=$mode, running as $me)"
+
+  # Only try sudo if it's available AND passwordless (never prompt inside a script).
+  if ! command -v sudo >/dev/null 2>&1; then
+    err "  sudo not installed — run manually: chown $me: \"$f\" && chmod 600 \"$f\""
+    return 1
+  fi
+  if ! sudo -n true 2>/dev/null; then
+    err "  Passwordless sudo unavailable. Run manually:"
+    err "    sudo chown $me: \"$f\" && sudo chmod 600 \"$f\""
+    return 1
+  fi
+
+  # Safe repair: only chown (never touch content), keep 0600, restrict to
+  # the exact file inside the project root — never a symlink to elsewhere.
+  if [ -L "$f" ]; then
+    err "  Refusing to auto-heal a symlink: $f → $(readlink "$f")"
+    return 1
+  fi
+  local abs; abs="$(readlink -f "$f")"
+  case "$abs" in
+    "$PWD"/*) ;;
+    *) err "  Refusing to auto-heal file outside project root: $abs"; return 1 ;;
+  esac
+
+  if sudo chown "$me:" "$f" && sudo chmod 600 "$f"; then
+    log "Auto-heal: repaired $f (now $me:$(id -gn) 0600)"
+    return 0
+  else
+    err "  chown/chmod failed — run manually: sudo chown $me: \"$f\" && sudo chmod 600 \"$f\""
+    return 1
+  fi
+}
+autoheal_env_file "$ENV_FILE" || exit 1
+
+
 CE="$(dirname "$0")/check-env.sh"
 if [ -x "$CE" ] && [ -n "$ENV_FILE" ]; then
   log "Validating $ENV_FILE against docs/env.self-hosted-supabase.example.tmpl placeholders…"
