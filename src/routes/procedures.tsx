@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { AppLayout } from "@/components/app-layout";
 import { Procedures } from "@/components/procedures";
 import { ProceduresAiPrompt } from "@/components/procedures-ai-prompt";
+import { RunAiTestCard } from "@/components/run-ai-test-card";
 
 export const Route = createFileRoute("/procedures")({
   component: ProceduresPage,
