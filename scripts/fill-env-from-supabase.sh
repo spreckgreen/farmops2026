@@ -3,7 +3,7 @@
 # fill-env-from-supabase.sh
 #
 # Read a self-hosted Supabase stack's .env (Option C) and produce a Bostead
-# .env with the four required values filled in:
+# .env.local (gitignored) with the four required values filled in:
 #
 #   ANON_KEY          → SUPABASE_PUBLISHABLE_KEY, VITE_SUPABASE_PUBLISHABLE_KEY
 #   SERVICE_ROLE_KEY  → SUPABASE_SERVICE_ROLE_KEY
@@ -15,13 +15,14 @@
 #
 # Defaults:
 #   --supabase-dir  /home/rpremo/supabase-project
-#   --out           .env  (project root)
+#   --out           .env.local  (project root — gitignored; never touches
+#                   the tracked .env)
 #
 # Examples:
-#   # Default: writes ./.env from /home/rpremo/supabase-project
+#   # Default: writes ./.env.local from /home/rpremo/supabase-project
 #   sudo scripts/fill-env-from-supabase.sh
 #
-#   # Preview into a temp file, don't touch .env
+#   # Preview into a temp file, don't touch .env.local
 #   scripts/fill-env-from-supabase.sh --out /tmp/bostead.env
 #
 #   # Refresh the checked-in template (values will be committed — think twice!)
@@ -30,7 +31,7 @@
 set -euo pipefail
 
 SUPABASE_DIR="/home/rpremo/supabase-project"
-OUT_FILE=".env"
+OUT_FILE=".env.local"
 FORCE=0
 VALIDATE_ONLY=0
 TEMPLATE="docs/env.self-hosted-supabase.example.tmpl"
