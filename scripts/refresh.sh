@@ -45,8 +45,29 @@ err() { printf '\033[1;31m[refresh]\033[0m %s\n' "$*" >&2; }
 
 # --- 0. Prerequisites -------------------------------------------------------
 command -v docker >/dev/null || { err "docker not installed"; exit 1; }
-docker compose version >/dev/null 2>&1 || { err "docker compose plugin not installed"; exit 1; }
 command -v git >/dev/null || { err "git not installed"; exit 1; }
+
+# --- 0a. Pick a docker invocation that works --------------------------------
+# Prefer running as the current user (keeps SSH keys / git creds intact).
+# Fall back to `sudo docker` only if the daemon socket rejects us AND sudo
+# is available non-interactively. Never prompt for a password mid-build.
+DOCKER=(docker)
+if docker info >/dev/null 2>&1; then
+  log "Docker accessible as $(id -un) — no sudo needed"
+elif [ "$ALLOW_SUDO" -eq 1 ] && command -v sudo >/dev/null && sudo -n docker info >/dev/null 2>&1; then
+  DOCKER=(sudo docker)
+  log "Docker socket denied for $(id -un); falling back to: sudo docker (passwordless sudo OK)"
+  log "  Tip: 'sudo usermod -aG docker $(id -un) && newgrp docker' removes the need for sudo."
+else
+  err "Cannot talk to docker as $(id -un) and passwordless sudo unavailable."
+  err "Fix one of:"
+  err "  1) sudo usermod -aG docker $(id -un) && newgrp docker   (recommended)"
+  err "  2) run: sudo ./scripts/refresh.sh --no-pull --force"
+  err "  3) enable NOPASSWD sudo for docker, then re-run"
+  exit 1
+fi
+
+"${DOCKER[@]}" compose version >/dev/null 2>&1 || { err "docker compose plugin not installed"; exit 1; }
 
 BRANCH="$(git rev-parse --abbrev-ref HEAD)"
 BEFORE="$(git rev-parse HEAD)"
