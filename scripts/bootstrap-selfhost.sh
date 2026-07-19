@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
-# bootstrap-selfhost.sh — one-command self-hosted setup.
+# bootstrap-selfhost.sh — one-command, zero-manual-step self-hosted setup.
 #
 # Runs, in order:
-#   1. verify-env-gitignore.sh    — confirms .env.local + docs example are ignored
-#   2. fill-env-from-supabase.sh --validate  — dry-run structural check
-#   3. fill-env-from-supabase.sh             — writes ./.env.local
-#   4. check-env.sh                          — required-vars sanity on .env.local
-#   5. scan-secrets.sh --all                 — no leaked keys in tracked files
-#   6. install-git-hooks.sh                  — pre-commit scanner hook
+#   1. verify-env-gitignore.sh              — .env.local + docs example are ignored
+#   2. fill-env-from-supabase.sh --validate — dry-run structural check
+#   3. fill-env-from-supabase.sh            — writes ./.env.local
+#   4. check-env.sh                         — required-vars sanity on .env.local
+#   5. scan-secrets.sh --all                — no leaked keys in tracked files
+#   6. install-git-hooks.sh                 — pre-commit scanner hook
+#   7. refresh.sh                           — build + start containers, gated by healthcheck
 #
 # Any failing step aborts with a non-zero exit; nothing is silently skipped.
 #
@@ -15,26 +16,25 @@
 #   ./scripts/bootstrap-selfhost.sh
 #   ./scripts/bootstrap-selfhost.sh --supabase-dir /home/rpremo/supabase-project
 #   ./scripts/bootstrap-selfhost.sh --force        # overwrite existing .env.local
+#   ./scripts/bootstrap-selfhost.sh --no-refresh   # stop before step 7 (env setup only)
 #
-# Example run:
+# Example:
 #   $ ./scripts/bootstrap-selfhost.sh
-#   [1/6] verify-env-gitignore ... PASS
-#   [2/6] fill-env --validate    ... PASS
-#   [3/6] fill-env               ... wrote .env.local
-#   [4/6] check-env              ... PASS
-#   [5/6] scan-secrets --all     ... PASS
-#   [6/6] install-git-hooks      ... hook installed
-#   ✔ bootstrap complete — next: fill non-Supabase blocks in .env.local, then ./scripts/refresh.sh
+#   [1/7] verify-env-gitignore ... PASS
+#   ...
+#   [7/7] refresh              ... site healthy at https://farm.example.com
 
 set -euo pipefail
 
 SUPABASE_DIR="/home/rpremo/supabase-project"
 FORCE=0
+DO_REFRESH=1
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --supabase-dir) SUPABASE_DIR="$2"; shift 2 ;;
     --force)        FORCE=1; shift ;;
+    --no-refresh)   DO_REFRESH=0; shift ;;
     -h|--help)      sed -n '2,25p' "$0"; exit 0 ;;
     *) echo "unknown arg: $1" >&2; exit 2 ;;
   esac
@@ -43,7 +43,7 @@ done
 cd "$(dirname "$0")/.."
 SCRIPTS=./scripts
 
-step() { printf "\n[%s/6] %-28s ... " "$1" "$2"; }
+step() { printf "\n[%s/7] %-28s ... " "$1" "$2"; }
 ok()   { printf "%s\n" "${1:-PASS}"; }
 die()  { printf "FAIL\n\n%s\n" "$1" >&2; exit 1; }
 
@@ -70,7 +70,7 @@ step 4 "check-env"
   || die "$(cat /tmp/bootstrap-4.log)
 
 Non-Supabase blocks (VAULT_ENCRYPTION_KEY, PUBLIC_APP_URL, etc.) still need
-values. Edit .env.local, then re-run: $SCRIPTS/check-env.sh .env.local"
+values. Edit .env.local, then re-run:  $0"
 ok
 
 step 5 "scan-secrets --all"
@@ -81,12 +81,18 @@ step 6 "install-git-hooks"
 "$SCRIPTS/install-git-hooks.sh" >/tmp/bootstrap-6.log 2>&1 || die "$(cat /tmp/bootstrap-6.log)"
 ok "hook installed"
 
-cat <<EOF
+if [ "$DO_REFRESH" -eq 0 ]; then
+  printf "\n[7/7] refresh                  ... skipped (--no-refresh)\n"
+  echo "✔ env setup complete — run ./scripts/refresh.sh when ready"
+  exit 0
+fi
 
-✔ bootstrap complete
+printf "\n[7/7] refresh                  ... starting (streams below)\n"
+echo "-----------------------------------------------------------------------"
+# refresh.sh already runs check-env + healthcheck gates; stream its output
+# live so a long build shows progress instead of hanging silently.
+"$SCRIPTS/refresh.sh" || die "refresh.sh failed — see its diagnose output above"
+echo "-----------------------------------------------------------------------"
 
-Next steps:
-  1. Fill non-Supabase blocks in .env.local
-     (VAULT_ENCRYPTION_KEY, PUBLIC_APP_URL, LOVABLE_API_KEY, TEMPEST_API_TOKEN, ...)
-  2. ./scripts/refresh.sh   # builds + starts with .env + .env.local merged
-EOF
+echo
+echo "✔ bootstrap complete — site is up and healthy"
