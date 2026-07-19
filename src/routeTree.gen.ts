@@ -23,6 +23,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as TasksIndexRouteImport } from './routes/tasks.index'
 import { Route as FoodIndexRouteImport } from './routes/food.index'
+import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as TasksScheduledRouteImport } from './routes/tasks.scheduled'
 import { Route as TasksBacklogRouteImport } from './routes/tasks.backlog'
 import { Route as TasksSlugRouteImport } from './routes/tasks.$slug'
@@ -117,6 +118,11 @@ const FoodIndexRoute = FoodIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => FoodRoute,
+} as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/admin/',
+  path: '/admin/',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const TasksScheduledRoute = TasksScheduledRouteImport.update({
   id: '/tasks/scheduled',
@@ -275,6 +281,7 @@ export interface FileRoutesByFullPath {
   '/tasks/$slug': typeof TasksSlugRoute
   '/tasks/backlog': typeof TasksBacklogRoute
   '/tasks/scheduled': typeof TasksScheduledRoute
+  '/admin/': typeof AdminIndexRoute
   '/food/': typeof FoodIndexRoute
   '/tasks/': typeof TasksIndexRoute
   '/api/public/health/procedures': typeof ApiPublicHealthProceduresRoute
@@ -314,6 +321,7 @@ export interface FileRoutesByTo {
   '/tasks/$slug': typeof TasksSlugRoute
   '/tasks/backlog': typeof TasksBacklogRoute
   '/tasks/scheduled': typeof TasksScheduledRoute
+  '/admin': typeof AdminIndexRoute
   '/food': typeof FoodIndexRoute
   '/tasks': typeof TasksIndexRoute
   '/api/public/health/procedures': typeof ApiPublicHealthProceduresRoute
@@ -355,6 +363,7 @@ export interface FileRoutesById {
   '/tasks/$slug': typeof TasksSlugRoute
   '/tasks/backlog': typeof TasksBacklogRoute
   '/tasks/scheduled': typeof TasksScheduledRoute
+  '/admin/': typeof AdminIndexRoute
   '/food/': typeof FoodIndexRoute
   '/tasks/': typeof TasksIndexRoute
   '/api/public/health/procedures': typeof ApiPublicHealthProceduresRoute
@@ -397,6 +406,7 @@ export interface FileRouteTypes {
     | '/tasks/$slug'
     | '/tasks/backlog'
     | '/tasks/scheduled'
+    | '/admin/'
     | '/food/'
     | '/tasks/'
     | '/api/public/health/procedures'
@@ -436,6 +446,7 @@ export interface FileRouteTypes {
     | '/tasks/$slug'
     | '/tasks/backlog'
     | '/tasks/scheduled'
+    | '/admin'
     | '/food'
     | '/tasks'
     | '/api/public/health/procedures'
@@ -476,6 +487,7 @@ export interface FileRouteTypes {
     | '/tasks/$slug'
     | '/tasks/backlog'
     | '/tasks/scheduled'
+    | '/admin/'
     | '/food/'
     | '/tasks/'
     | '/api/public/health/procedures'
@@ -506,6 +518,7 @@ export interface RootRouteChildren {
   TasksSlugRoute: typeof TasksSlugRoute
   TasksBacklogRoute: typeof TasksBacklogRoute
   TasksScheduledRoute: typeof TasksScheduledRoute
+  AdminIndexRoute: typeof AdminIndexRoute
   TasksIndexRoute: typeof TasksIndexRoute
   ApiPublicHealthProceduresRoute: typeof ApiPublicHealthProceduresRoute
   ApiPublicHooksRachioSyncRoute: typeof ApiPublicHooksRachioSyncRoute
@@ -611,6 +624,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/food/'
       preLoaderRoute: typeof FoodIndexRouteImport
       parentRoute: typeof FoodRoute
+    }
+    '/admin/': {
+      id: '/admin/'
+      path: '/admin'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/tasks/scheduled': {
       id: '/tasks/scheduled'
@@ -838,6 +858,7 @@ const rootRouteChildren: RootRouteChildren = {
   TasksSlugRoute: TasksSlugRoute,
   TasksBacklogRoute: TasksBacklogRoute,
   TasksScheduledRoute: TasksScheduledRoute,
+  AdminIndexRoute: AdminIndexRoute,
   TasksIndexRoute: TasksIndexRoute,
   ApiPublicHealthProceduresRoute: ApiPublicHealthProceduresRoute,
   ApiPublicHooksRachioSyncRoute: ApiPublicHooksRachioSyncRoute,
