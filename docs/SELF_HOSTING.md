@@ -160,7 +160,70 @@ or source code change. Backend-only env changes (`LOVABLE_API_KEY`,
 
 ---
 
+## 4a. TLS certificate via ACME (Caddy)
+
+`docker-compose.yml` includes a `caddy` service that terminates TLS on
+`:443` and proxies to `app:3000`. Caddy solves the Let's Encrypt HTTP-01
+challenge automatically and renews certs ~30 days before expiry.
+
+**One-time setup for `farmops.bostead.life`:**
+
+1. DNS — add an A record (and AAAA if you have IPv6):
+
+   ```text
+   farmops.bostead.life.  A     <your-public-ip>
+   ```
+
+   Verify: `dig +short farmops.bostead.life` returns your IP.
+
+2. Firewall — open inbound TCP `80` and `443` (and UDP `443` for HTTP/3)
+   from the public internet to this host. Port `80` is mandatory for the
+   HTTP-01 challenge; blocking it will cause `no valid A/AAAA records` or
+   `connection refused` errors from Let's Encrypt.
+
+3. `.env` — set:
+
+   ```env
+   ACME_DOMAIN=farmops.bostead.life
+   ACME_EMAIL=admin@bostead.life      # real address — LE expiry notices
+   PUBLIC_APP_URL=https://farmops.bostead.life
+   ```
+
+4. Bring the stack up:
+
+   ```bash
+   docker compose up -d
+   docker compose logs -f caddy
+   ```
+
+   On first boot you should see `certificate obtained successfully` for
+   `farmops.bostead.life`. Certs and the ACME account key persist in the
+   `caddy_data` named volume, so restarts do not re-issue.
+
+**Testing without burning the LE rate limit** (5 certs/domain/week):
+uncomment the `acme_ca` staging line in `Caddyfile`, run `docker compose
+up -d caddy`, confirm issuance succeeds, then re-comment it and run
+`docker compose restart caddy` to get the real cert.
+
+**Troubleshooting:**
+
+| Symptom | Fix |
+| --- | --- |
+| `challenge failed ... connection refused` | Port 80 not reachable from the internet. Check your firewall/NAT. |
+| `no such host` | DNS hasn't propagated yet. Wait or re-check the A record. |
+| `too many certificates already issued` | You hit LE rate limit. Switch to staging for testing (see above). |
+| Browser shows `ERR_CERT_AUTHORITY_INVALID` | You're still on the staging CA — comment out `acme_ca` and restart caddy. |
+| Renewal fails silently | `docker compose logs caddy \| grep -i renew` — usually port 80 got blocked after the initial issue. |
+
+**Using an existing reverse proxy instead:** if you already run nginx /
+Traefik / Cloudflare Tunnel in front, remove the `caddy` service from
+`docker-compose.yml`, restore the `ports: - "3000:3000"` mapping on the
+`app` service, and proxy your external hostname to `127.0.0.1:3000`.
+
+---
+
 ## 5. Deploy with Docker (single container, no compose)
+
 
 ```bash
 docker build \
