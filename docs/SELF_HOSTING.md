@@ -130,7 +130,7 @@ own PostgREST/GoTrue deployment. You still need to mint JWTs signed with
 the same secret GoTrue uses; use those as `SUPABASE_PUBLISHABLE_KEY` and
 `SUPABASE_SERVICE_ROLE_KEY`. Only recommended if you already run this
 stack — the official Supabase self-host image is easier.
-
+---
 
 
 ## 3. Environment variables
