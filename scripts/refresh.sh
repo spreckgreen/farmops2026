@@ -114,8 +114,11 @@ fi
 ENV_FILE=""
 if [ -f .env.local ]; then
   ENV_FILE=".env.local"
-  export COMPOSE_ENV_FILES=".env:.env.local"   # .env.local wins
-  log "Using .env.local for compose (via COMPOSE_ENV_FILES=.env:.env.local)"
+  # COMPOSE_ENV_FILES is COMMA-separated (later files override earlier ones).
+  # A colon here makes docker treat the whole string as one filename and fail
+  # with: "couldn't find env file: .../.env:.env.local".
+  export COMPOSE_ENV_FILES=".env,.env.local"   # .env.local wins
+  log "Using .env.local for compose (via COMPOSE_ENV_FILES=.env,.env.local)"
 elif [ -f .env ]; then
   ENV_FILE=".env"
 fi
