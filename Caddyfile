@@ -1,0 +1,23 @@
+# Caddy reverse proxy with automatic ACME (Let's Encrypt) TLS.
+#
+# ACME_DOMAIN and ACME_EMAIL come from .env (see docker-compose.yml). Caddy
+# solves the HTTP-01 challenge on port 80, obtains a cert from Let's Encrypt,
+# and renews it automatically ~30 days before expiry. Certs persist in the
+# `caddy_data` named volume so restarts don't re-issue.
+#
+# Prereqs before `docker compose up -d`:
+#   1. DNS: an A/AAAA record for {$ACME_DOMAIN} pointing at this host's public IP.
+#   2. Firewall: ports 80 and 443 reachable from the public internet
+#      (Let's Encrypt must hit :80 to validate).
+#   3. .env: ACME_DOMAIN=farmops.bostead.life  ACME_EMAIL=you@example.com
+
+{
+	email {$ACME_EMAIL}
+	# Uncomment to test against Let's Encrypt staging (no rate limits, untrusted certs):
+	# acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
+}
+
+{$ACME_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy app:3000
+}

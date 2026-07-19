@@ -9,8 +9,12 @@ services:
         # UID/GID default to 1001; override below or via .env to match host user
         UID: ${UID:-1001}
         GID: ${GID:-1001}
-    ports:
-      - "3000:3000"
+    # No host port binding: Caddy terminates TLS on :443 and proxies to app:3000
+    # over the compose network. Uncomment to expose the app directly for debugging.
+    # ports:
+    #   - "3000:3000"
+    expose:
+      - "3000"
     environment:
       NODE_ENV: production
       HOST: 0.0.0.0
@@ -97,5 +101,28 @@ services:
 
     restart: "no"
 
+  # --- Reverse proxy + automatic ACME/Let's Encrypt TLS -----------------------
+  # Fronts the app on :80/:443, obtains and renews certs for ACME_DOMAIN
+  # (e.g. farmops.bostead.life) via the HTTP-01 challenge. Requires public
+  # DNS pointing at this host and ports 80/443 open to the internet.
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"   # HTTP/3
+    environment:
+      ACME_DOMAIN: ${ACME_DOMAIN:-farmops.bostead.life}
+      ACME_EMAIL: ${ACME_EMAIL:-admin@bostead.life}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data      # certs + ACME account (persist across restarts)
+      - caddy_config:/config
+
 volumes:
   ollama:
+  caddy_data:
+  caddy_config:
