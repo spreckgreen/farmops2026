@@ -214,3 +214,121 @@ export const pullAiModel = createServerFn({ method: "POST" })
     if (body.error) throw new Error(body.error);
     return { ok: true as const, model: data.model, status: body.status ?? "success" };
   });
+
+// -----------------------------------------------------------------------------
+// Run AI test — sends a short prompt through the currently-configured provider
+// and reports which endpoint answered, how long it took, and a preview of the
+// response. Used by the "Run AI test" button on the self-host settings page to
+// prove end-to-end AI is wired up on a self-hosted install without leaving the
+// admin UI.
+// -----------------------------------------------------------------------------
+export interface AiTestResult {
+  ok: boolean;
+  provider: "custom" | "lovable" | "bundled-ollama";
+  baseUrl: string;
+  model: string;
+  latencyMs: number;
+  httpStatus: number;
+  reply: string | null;
+  error: string | null;
+}
+
+export const runAiTest = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<AiTestResult> => {
+    await requireAdmin(context.supabase as never, context.userId);
+
+    const { getServerEnv } = await import("./server-env.server");
+    const customBase = process.env.CUSTOM_AI_BASE_URL;
+    const customKey = process.env.CUSTOM_AI_API_KEY;
+    const lovableKey = process.env.LOVABLE_API_KEY;
+    const modelOverride = (await getServerEnv("CUSTOM_AI_MODEL")) || null;
+
+    let provider: AiTestResult["provider"];
+    let baseUrl: string;
+    let authHeader: Record<string, string>;
+    let model: string;
+
+    if (customBase && customKey) {
+      provider = "custom";
+      baseUrl = customBase;
+      authHeader = { Authorization: `Bearer ${customKey}` };
+      model = modelOverride ?? "llama3.2:3b";
+    } else if (lovableKey) {
+      provider = "lovable";
+      baseUrl = "https://ai.gateway.lovable.dev/v1";
+      authHeader = { "Lovable-API-Key": lovableKey };
+      model = modelOverride ?? "google/gemini-3-flash-preview";
+    } else {
+      provider = "bundled-ollama";
+      baseUrl = "http://ollama:11434/v1";
+      authHeader = { Authorization: "Bearer ollama" };
+      model = modelOverride ?? "llama3.2:3b";
+    }
+
+    const url = `${baseUrl.replace(/\/$/, "")}/chat/completions`;
+    const started = Date.now();
+    let httpStatus = 0;
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          ...authHeader,
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: "system", content: "Reply with a single short sentence." },
+            { role: "user", content: "Say 'AI test OK' and nothing else." },
+          ],
+          max_tokens: 32,
+          temperature: 0,
+          stream: false,
+        }),
+        signal: AbortSignal.timeout(30_000),
+      });
+      httpStatus = res.status;
+      const latencyMs = Date.now() - started;
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        return {
+          ok: false,
+          provider,
+          baseUrl,
+          model,
+          latencyMs,
+          httpStatus,
+          reply: null,
+          error: text.slice(0, 500) || `HTTP ${res.status}`,
+        };
+      }
+      const body = (await res.json()) as {
+        choices?: { message?: { content?: string } }[];
+      };
+      const reply = body.choices?.[0]?.message?.content?.trim() ?? "";
+      return {
+        ok: true,
+        provider,
+        baseUrl,
+        model,
+        latencyMs,
+        httpStatus,
+        reply: reply.slice(0, 500),
+        error: null,
+      };
+    } catch (e) {
+      return {
+        ok: false,
+        provider,
+        baseUrl,
+        model,
+        latencyMs: Date.now() - started,
+        httpStatus,
+        reply: null,
+        error: (e as Error).message,
+      };
+    }
+  });
+
