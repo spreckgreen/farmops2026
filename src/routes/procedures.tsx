@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AppLayout } from "@/components/app-layout";
 import { Procedures } from "@/components/procedures";
+import { ProceduresAiPrompt } from "@/components/procedures-ai-prompt";
 
 export const Route = createFileRoute("/procedures")({
   component: ProceduresPage,
@@ -29,6 +30,7 @@ function ProceduresPage() {
             Each procedure is a self-contained .html file you can open, export, or import.
           </p>
         </header>
+        <ProceduresAiPrompt />
         <Procedures />
       </div>
     </AppLayout>
