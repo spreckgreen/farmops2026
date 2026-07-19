@@ -30,16 +30,16 @@ REQUIRED=(
 
 # LOVABLE_API_KEY is only required when SELF_HOST_MODE is not "true"
 # (self-hosted installs use bundled Ollama and don't need the Lovable gateway).
-if [ "${SELF_HOST_MODE:-}" != "true" ]; then
-  REQUIRED+=(LOVABLE_API_KEY)
-fi
-
 OPTIONAL=(
   NODE_ENV
   PORT
-  LOVABLE_API_KEY
   CUSTOM_AI_BASE_URL
 )
+if [ "${SELF_HOST_MODE:-}" = "true" ]; then
+  OPTIONAL+=(LOVABLE_API_KEY)
+else
+  REQUIRED+=(LOVABLE_API_KEY)
+fi
 
 env_file=""
 while [ $# -gt 0 ]; do
