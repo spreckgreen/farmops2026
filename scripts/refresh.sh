@@ -110,7 +110,7 @@ fi
 #
 # Prefer .env.local (gitignored, holds real self-hosted keys) over the tracked
 # .env (Lovable Cloud publishable-only). When both exist, .env.local wins via
-# docker compose's COMPOSE_ENV_FILES (colon-separated, later files override).
+# docker compose's COMPOSE_ENV_FILES (comma-separated, later files override).
 ENV_FILE=""
 if [ -f .env.local ]; then
   ENV_FILE=".env.local"
