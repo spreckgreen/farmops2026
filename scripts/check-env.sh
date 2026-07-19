@@ -25,13 +25,16 @@ REQUIRED=(
   SUPABASE_URL
   SUPABASE_PUBLISHABLE_KEY
   SUPABASE_SERVICE_ROLE_KEY
-  LOVABLE_API_KEY
+  VAULT_ENCRYPTION_KEY
 )
 
 OPTIONAL=(
   NODE_ENV
   PORT
+  CUSTOM_AI_BASE_URL
 )
+# LOVABLE_API_KEY is finalized as REQUIRED/OPTIONAL AFTER env file is loaded,
+# so SELF_HOST_MODE from the file (not just the ambient shell) is honored.
 
 env_file=""
 while [ $# -gt 0 ]; do
@@ -166,6 +169,13 @@ load_env_file() {
 
 if [ -n "$env_file" ]; then
   load_env_file "$env_file"
+fi
+
+# Finalize LOVABLE_API_KEY requirement now that SELF_HOST_MODE is loaded.
+if [ "${SELF_HOST_MODE:-}" = "true" ]; then
+  OPTIONAL+=(LOVABLE_API_KEY)
+else
+  REQUIRED+=(LOVABLE_API_KEY)
 fi
 
 is_placeholder() {
