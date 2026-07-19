@@ -100,32 +100,34 @@ if [ ${#DOCKER[@]} -gt 0 ] && docker info >/dev/null 2>&1 || sudo -n docker info
 fi
 
 # ===========================================================================
-# CHECK 2 — required env vars present in .env
+# CHECK 2 — required env vars present in the active env file
 # ===========================================================================
-log "${BOLD}[2/3]${RESET} Checking .env vs .env.example…"
-if [ ! -f .env ]; then
-  record FAIL "env file" ".env not found in $(pwd)"
+# Prefer .env.local (gitignored, holds real self-hosted keys) over .env.
+if   [ -f .env.local ]; then ENV_FILE=".env.local"
+elif [ -f .env ];       then ENV_FILE=".env"
+else                         ENV_FILE=""
+fi
+
+log "${BOLD}[2/3]${RESET} Checking ${ENV_FILE:-<none>} vs .env.example…"
+if [ -z "$ENV_FILE" ]; then
+  record FAIL "env file" "neither .env.local nor .env found in $(pwd)"
 elif [ ! -f .env.example ]; then
   record WARN "env template" ".env.example not found — cannot verify required keys"
 else
-  # Required keys the app truly can't boot without. Anything listed in
-  # .env.example is treated as required unless explicitly marked optional here.
   OPTIONAL_KEYS_RE='^(VAULT_ENCRYPTION_KEY_OLD|RACHIO_.*|GHOST_.*|TEMPEST_.*|CUSTOM_AI_.*|SELF_HOST_MODE|OLLAMA_MODEL|PUBLIC_APP_URL)$'
 
   missing=()
   empty=()
   while IFS='=' read -r k _; do
     [[ "$k" =~ ^[A-Z] ]] || continue
-    # Present in .env?
-    val="$(awk -F= -v k="$k" '$1==k{sub(/^[^=]*=/,""); print; exit}' .env || true)"
-    if ! grep -qE "^$k=" .env; then
+    val="$(awk -F= -v k="$k" '$1==k{sub(/^[^=]*=/,""); print; exit}' "$ENV_FILE" || true)"
+    if ! grep -qE "^$k=" "$ENV_FILE"; then
       if [[ ! "$k" =~ $OPTIONAL_KEYS_RE ]]; then missing+=("$k"); fi
     elif [ -z "${val//[[:space:]]/}" ]; then
       if [[ ! "$k" =~ $OPTIONAL_KEYS_RE ]]; then empty+=("$k"); fi
     fi
   done < <(awk -F= '/^[A-Z]/{print}' .env.example)
 
-  # Detect unreplaced placeholders copied from docs/env.self-hosted-supabase.example.tmpl
   placeholders=()
   while IFS= read -r line; do
     k="${line%%=*}"; v="${line#*=}"
@@ -133,15 +135,15 @@ else
     case "$v" in
       *CHANGE_ME*|*supabase.example.com*|*your-project-ref*) placeholders+=("$k") ;;
     esac
-  done < .env
+  done < "$ENV_FILE"
 
   if [ ${#missing[@]} -eq 0 ] && [ ${#empty[@]} -eq 0 ] && [ ${#placeholders[@]} -eq 0 ]; then
-    record PASS "env vars" "all required keys from .env.example are set"
+    record PASS "env vars" "all required keys from .env.example are set in $ENV_FILE"
   else
     detail=""
     [ ${#missing[@]}      -gt 0 ] && detail+="missing: $(IFS=,; echo "${missing[*]}") "
     [ ${#empty[@]}        -gt 0 ] && detail+="empty: $(IFS=,; echo "${empty[*]}") "
-    [ ${#placeholders[@]} -gt 0 ] && detail+="placeholders (edit .env or run scripts/fill-env-from-supabase.sh): $(IFS=,; echo "${placeholders[*]}")"
+    [ ${#placeholders[@]} -gt 0 ] && detail+="placeholders (edit $ENV_FILE or run scripts/fill-env-from-supabase.sh): $(IFS=,; echo "${placeholders[*]}")"
     record FAIL "env vars" "$detail"
   fi
 fi
