@@ -134,7 +134,19 @@ load_env_file() {
     echo "Env file not found: $file" >&2
     exit 2
   fi
+  if [ ! -r "$file" ]; then
+    echo "Env file exists but is NOT readable by uid=$(id -u) ($(id -un)): $file" >&2
+    echo "  ls -l: $(ls -l "$file" 2>/dev/null || echo '???')" >&2
+    echo "  Fix:  sudo chown $(id -un): \"$file\" && sudo chmod 600 \"$file\"" >&2
+    echo "  Or run this script with sudo (e.g. 'sudo ./scripts/refresh.sh …')." >&2
+    exit 2
+  fi
+  local loaded=0
   local lineno=0 line key rhs val
+  # Strip UTF-8 BOM on the first line if present (common when .env is edited
+  # in a Windows GUI editor — the BOM turns the first key into "\xef\xbb\xbfKEY"
+  # which then never matches the REQUIRED list).
+  local __bom_stripped=0
   while IFS= read -r line || [ -n "$line" ]; do
     lineno=$((lineno + 1))
     # Strip CR (CRLF)
