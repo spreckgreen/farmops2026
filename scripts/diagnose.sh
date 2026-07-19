@@ -217,8 +217,149 @@ run git status --short
 run df -h /
 run free -h
 
+# ---------------------------------------------------------------------------
+# Checklist: compute AFTER data collection so we can inspect container state,
+# then PREPEND it to the bundle so the reader sees the verdict on line 1
+# without scrolling. Findings are heuristic — an OK line just means we didn't
+# spot the specific failure mode listed, not that the service is bug-free.
+# ---------------------------------------------------------------------------
+CHECKLIST="$(mktemp)"
+
+# Per-service expectations. Update here when you add a new compose service.
+#   REQUIRED[svc]         → space-separated env vars that MUST be non-empty
+#   EXPECTED_PORTS[svc]   → space-separated container ports we expect published
+declare -A REQUIRED
+REQUIRED[app]="LOVABLE_API_KEY VITE_SUPABASE_URL VITE_SUPABASE_PUBLISHABLE_KEY VAULT_ENCRYPTION_KEY PUBLIC_APP_URL"
+REQUIRED[caddy]=""
+REQUIRED[ollama]=""
+
+declare -A EXPECTED_PORTS
+EXPECTED_PORTS[app]="3000"
+EXPECTED_PORTS[caddy]="80 443"
+EXPECTED_PORTS[ollama]=""   # internal-only in default compose
+
+emit()  { printf '%s\n' "$*" >> "$CHECKLIST"; }
+ok_l()  { emit "  [ OK  ] $*"; }
+warn_l(){ emit "  [WARN ] $*"; }
+fail_l(){ emit "  [FAIL ] $*"; }
+
+emit "===================================================================="
+emit " CHECKLIST — likely issues (heuristic; scan first, then read details)"
+emit " Generated: $(date -Iseconds)"
+emit "===================================================================="
+
+if ! "${DC[@]}" ps -q >/dev/null 2>&1; then
+  emit ""
+  emit "  [FAIL ] docker unreachable — skipping per-service checklist."
+  emit "          See section 2 for the exact daemon error."
+else
+  SERVICES="$( "${DC[@]}" ps --services 2>/dev/null | sort -u )"
+  if [ -z "$SERVICES" ]; then
+    emit ""
+    emit "  [FAIL ] no compose services are running (compose up not executed?)"
+  fi
+
+  for svc in $SERVICES; do
+    emit ""
+    emit "-- $svc --"
+    cid="$( "${DC[@]}" ps -q "$svc" 2>/dev/null | head -n1 )"
+    if [ -z "$cid" ]; then
+      fail_l "no running container for '$svc' (crashed or never started)"
+      continue
+    fi
+
+    # State + health
+    state="$( "${DOCKER[@]}" inspect --format '{{.State.Status}}' "$cid" 2>/dev/null )"
+    health="$( "${DOCKER[@]}" inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$cid" 2>/dev/null )"
+    restarts="$( "${DOCKER[@]}" inspect --format '{{.RestartCount}}' "$cid" 2>/dev/null )"
+
+    if [ "$state" != "running" ]; then
+      fail_l "state=$state (expected 'running')"
+    elif [ "$health" = "unhealthy" ]; then
+      fail_l "container reports HEALTHCHECK=unhealthy"
+    elif [ "$health" = "starting" ]; then
+      warn_l "HEALTHCHECK still 'starting' — may just need a few more seconds"
+    else
+      ok_l "state=$state health=$health"
+    fi
+
+    if [ "${restarts:-0}" -gt 3 ] 2>/dev/null; then
+      warn_l "high restart count ($restarts) — check logs for a crash loop"
+    fi
+
+    # Port bindings
+    bound_ports="$( "${DOCKER[@]}" inspect --format \
+      '{{range $p, $bs := .NetworkSettings.Ports}}{{range $bs}}{{$p}} {{end}}{{end}}' \
+      "$cid" 2>/dev/null | tr ' ' '\n' | awk -F/ 'NF{print $1}' | sort -u )"
+    for want in ${EXPECTED_PORTS[$svc]:-}; do
+      if ! grep -qxF "$want" <<<"$bound_ports"; then
+        fail_l "expected host-published port $want is NOT bound (check 'ports:' in docker-compose.yml)"
+      else
+        ok_l "port $want is published"
+      fi
+    done
+
+    # Effective env: pull KEY=VALUE lines once, then check each requirement.
+    env_dump="$( "${DOCKER[@]}" inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$cid" 2>/dev/null )"
+    for key in ${REQUIRED[$svc]:-}; do
+      line="$( grep -m1 "^${key}=" <<<"$env_dump" || true )"
+      if [ -z "$line" ]; then
+        fail_l "required env '$key' is NOT SET inside the container (missing from docker-compose 'environment:' or .env passthrough)"
+      else
+        val="${line#*=}"
+        if [ -z "${val//[[:space:]]/}" ]; then
+          fail_l "required env '$key' is EMPTY (set in compose but resolved to '' — likely unset in host .env)"
+        else
+          ok_l "env '$key' is set (len=${#val})"
+        fi
+      fi
+    done
+
+    # Conflict heuristic: both LOVABLE_API_KEY and CUSTOM_AI_BASE_URL set on
+    # the app can mask which provider actually serves a call — surface it.
+    if [ "$svc" = "app" ]; then
+      has_lov="$( grep -c '^LOVABLE_API_KEY=..' <<<"$env_dump" || true )"
+      has_cust="$( grep -c '^CUSTOM_AI_BASE_URL=..' <<<"$env_dump" || true )"
+      if [ "${has_lov:-0}" -gt 0 ] && [ "${has_cust:-0}" -gt 0 ]; then
+        warn_l "both LOVABLE_API_KEY and CUSTOM_AI_BASE_URL are set — self-host mode may still route to Lovable if CUSTOM_AI_BASE_URL is blanked at runtime"
+      fi
+      # PUBLIC_APP_URL vs Caddy host mismatch (webhook callbacks break silently).
+      pub="$( grep -m1 '^PUBLIC_APP_URL=' <<<"$env_dump" | cut -d= -f2- )"
+      if [ -n "${pub:-}" ] && ! grep -q "$(sed 's,https\?://,,' <<<"$pub" | cut -d/ -f1)" Caddyfile 2>/dev/null; then
+        warn_l "PUBLIC_APP_URL host does not appear in Caddyfile — webhook callbacks may 404"
+      fi
+    fi
+  done
+fi
+
+# .env vs .env.example drift (host side, before compose interpolation).
+if [ -f .env.example ] && [ -f .env ]; then
+  emit ""
+  emit "-- host .env vs .env.example --"
+  missing_host=0
+  while IFS= read -r k; do
+    [ -z "$k" ] && continue
+    grep -q "^${k}=" .env || { fail_l "host .env is missing '$k' (present in .env.example)"; missing_host=$((missing_host+1)); }
+  done < <(grep -E '^[A-Z_][A-Z0-9_]*=' .env.example | cut -d= -f1)
+  [ "$missing_host" -eq 0 ] && ok_l "host .env defines every key present in .env.example"
+fi
+
+emit "===================================================================="
+emit ""
+
+# Prepend checklist to the bundle: header first, then the rest.
+TMP_BUNDLE="$(mktemp)"
+cat "$CHECKLIST" "$OUT" > "$TMP_BUNDLE"
+mv "$TMP_BUNDLE" "$OUT"
+rm -f "$CHECKLIST"
+
+# Echo the checklist to stdout too, so an operator running interactively sees
+# the verdict without having to open the bundle file.
+sed -n '1,/^====*$/p; /^====*$/,/^====*$/p' "$OUT" | head -n 200
+
 say ""
 say "===================================================================="
 say " Done. Full bundle written to: $OUT"
+say " Checklist is at the TOP of the bundle — scan it first."
 say " Share it with:   cat $OUT | head -c 100000"
 say "===================================================================="
