@@ -226,6 +226,11 @@ function SelfHostSettingsPage() {
                 shows richer metadata and enables pull for Ollama). */}
             {cfg.aiProvider !== "none" && <ModelPickerCard />}
 
+            {/* End-to-end connectivity smoke test — proves the configured
+                endpoint answers a real chat/completions request. */}
+            <RunAiTestCard />
+
+
 
             {/* Webhooks */}
             <Card>
