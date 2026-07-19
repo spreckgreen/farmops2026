@@ -92,8 +92,120 @@ HOST=$(printf '%s' "$API_EXTERNAL_URL" | sed -E 's#^https?://##; s#/.*$##; s#:.*
 SLUG=$(printf '%s' "$HOST" | tr '[:upper:]' '[:lower:]' | tr './' '--' | sed -E 's/-+/-/g; s/^-|-$//g')
 [[ -n "$SLUG" ]] || SLUG="farm-prod"
 
-# ── Load template ───────────────────────────────────────────────────────────
+# ─── Validation ─────────────────────────────────────────────────────────────
+# Fail fast BEFORE touching $OUT_FILE / the checked-in template if any
+# Supabase or Bostead var is malformed. Catches the common footguns:
+#   - JWT keys pasted with surrounding quotes or whitespace
+#   - API_EXTERNAL_URL still set to http://localhost or supabase.example.com
+#   - Slug that ended up empty (would clobber VITE_SUPABASE_PROJECT_ID)
+#   - Template missing an assignment line the awk pass expects to rewrite
+# `--validate` runs these checks and exits without writing.
+VALIDATION_ERRORS=()
+
+# JWT shape: three dot-separated base64url segments, header must decode to
+# {"alg":"HS256"...}. We do a shallow structural check — no crypto — because
+# the Supabase server will reject an invalid signature at runtime anyway.
+is_jwt() {
+  local v="$1"
+  [[ "$v" =~ ^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$ ]] || return 1
+  [[ ${#v} -ge 100 ]] || return 1
+  # header segment starts with "eyJ" (base64url of `{"`)
+  [[ "$v" == eyJ* ]] || return 1
+  return 0
+}
+
+is_https_url() {
+  local v="$1"
+  [[ "$v" =~ ^https?://[A-Za-z0-9._-]+(:[0-9]+)?(/.*)?$ ]] || return 1
+  # reject leftover placeholder hosts
+  case "$v" in
+    *supabase.example.com*|*your-project.supabase.co*|*CHANGE_ME*) return 1 ;;
+  esac
+  return 0
+}
+
+is_https_public_url() {
+  # like is_https_url, but must be https:// (used for API_EXTERNAL_URL)
+  local v="$1"
+  is_https_url "$v" || return 1
+  [[ "$v" == https://* ]] || return 1
+  return 0
+}
+
+is_slug() {
+  [[ "$1" =~ ^[a-z0-9]+(-[a-z0-9]+)*$ ]]
+}
+
+check() {
+  local name="$1" value="$2" test="$3" hint="$4"
+  if "$test" "$value"; then
+    ok "$name looks valid"
+  else
+    VALIDATION_ERRORS+=("$name: $hint  (got: '${value:0:24}${value:24:+…}')")
+  fi
+}
+
+echo
+info "Validating parsed Supabase values…"
+check "ANON_KEY"         "$ANON_KEY"         is_jwt              "expected JWT (3 base64url segments starting with eyJ, ≥100 chars)"
+check "SERVICE_ROLE_KEY" "$SERVICE_ROLE_KEY" is_jwt              "expected JWT (3 base64url segments starting with eyJ, ≥100 chars)"
+check "API_EXTERNAL_URL" "$API_EXTERNAL_URL" is_https_public_url "expected https://<your-supabase-host>  (no placeholders, no localhost)"
+check "derived SLUG"     "$SLUG"             is_slug             "expected lowercase alnum + hyphens; hostname produced an unusable value"
+if [[ -n "$SITE_URL" ]]; then
+  check "SITE_URL"       "$SITE_URL"         is_https_url        "expected http(s)://<your-app-host>"
+fi
+
+# Anon and service-role must be different keys.
+if [[ "$ANON_KEY" == "$SERVICE_ROLE_KEY" ]]; then
+  VALIDATION_ERRORS+=("ANON_KEY == SERVICE_ROLE_KEY — they should be different tokens")
+fi
+
+# Template must define every assignment line the awk pass rewrites, otherwise
+# the "fill" silently does nothing for that key.
+info "Validating template completeness: $TEMPLATE"
 [[ -f "$TEMPLATE" ]] || die "Template not found: $TEMPLATE"
+REQUIRED_TEMPLATE_KEYS=(
+  VITE_SUPABASE_URL
+  SUPABASE_URL
+  VITE_SUPABASE_PUBLISHABLE_KEY
+  SUPABASE_PUBLISHABLE_KEY
+  SUPABASE_SERVICE_ROLE_KEY
+  VITE_SUPABASE_PROJECT_ID
+)
+for k in "${REQUIRED_TEMPLATE_KEYS[@]}"; do
+  if grep -qE "^${k}=" "$TEMPLATE"; then
+    ok "template defines $k"
+  else
+    VALIDATION_ERRORS+=("template $TEMPLATE is missing assignment line: ${k}=")
+  fi
+done
+
+# Bostead-side keys the app needs beyond Supabase. Warn (don't fail) when the
+# template still has CHANGE_ME — the operator fills these by hand.
+BOSTEAD_REQUIRED=(VAULT_ENCRYPTION_KEY LOVABLE_API_KEY)
+for k in "${BOSTEAD_REQUIRED[@]}"; do
+  line=$(grep -E "^${k}=" "$TEMPLATE" || true)
+  if [[ -z "$line" ]]; then
+    VALIDATION_ERRORS+=("template $TEMPLATE is missing Bostead key: ${k}=")
+  elif [[ "$line" == *CHANGE_ME* ]]; then
+    warn "$k is still CHANGE_ME in template — edit $OUT_FILE by hand after fill"
+  fi
+done
+
+if (( ${#VALIDATION_ERRORS[@]} > 0 )); then
+  echo
+  echo "❌ Validation failed (${#VALIDATION_ERRORS[@]} error(s)) — refusing to write $OUT_FILE:" >&2
+  for e in "${VALIDATION_ERRORS[@]}"; do echo "   • $e" >&2; done
+  exit 1
+fi
+
+if (( VALIDATE_ONLY == 1 )); then
+  echo
+  ok "Validation passed — --validate set, not writing $OUT_FILE"
+  exit 0
+fi
+
+# ── Load template ───────────────────────────────────────────────────────────
 mkdir -p "$(dirname "$OUT_FILE")"
 
 if [[ -e "$OUT_FILE" && $FORCE -ne 1 ]]; then
