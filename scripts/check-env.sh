@@ -198,7 +198,8 @@ done
 if [ "${#missing[@]}" -gt 0 ] || [ "${#placeholder[@]}" -gt 0 ]; then
   echo
   echo "FAIL: ${#missing[@]} missing, ${#placeholder[@]} still using example placeholders."
-  echo "Fix: copy .env.example to .env, edit it, then run:"
+  echo "Fix: populate .env from your self-hosted Supabase project, then re-run:"
+  echo "  sudo scripts/fill-env-from-supabase.sh    # auto-fill from docs/env.self-hosted-supabase.example"
   echo "  ./scripts/check-env.sh --env-file .env"
   exit 1
 fi
