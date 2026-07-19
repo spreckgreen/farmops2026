@@ -420,6 +420,9 @@ Postgres backups.
 | AI buttons disabled with amber banner | No AI provider configured — set `LOVABLE_API_KEY` or `CUSTOM_AI_*`. |
 | Rachio callbacks never arrive | `PUBLIC_APP_URL` unset (defaults to `bostead.lovable.app`) or DNS/proxy not routing `/api/public/webhooks/rachio` to the container. |
 | `docker compose logs` shows `[unenv] X is not implemented` | A newly added npm package is Node-only and won't run in the Worker SSR runtime. Replace it. |
+| Self-hosted Supabase: `Invalid JWT` on every request | `SUPABASE_PUBLISHABLE_KEY` / `SERVICE_ROLE_KEY` were not regenerated after you changed `JWT_SECRET`. Re-mint both JWTs and restart Bostead + Supabase. |
+| Self-hosted Supabase: browser can reach the site but API calls CORS-fail | `SITE_URL` / `API_EXTERNAL_URL` in Supabase `.env` don't match your public Bostead origin. Fix and `docker compose up -d` the Supabase stack. |
+| Self-hosted Supabase: Google login loops | The Google provider `redirect_uri` in Supabase Studio isn't `https://supabase.example.com/auth/v1/callback`, or that URL isn't in the Google Cloud Console allowlist. |
 
 For anything else, open an issue with the output of
 `docker compose logs app` and the Self-host settings page (screenshot is
