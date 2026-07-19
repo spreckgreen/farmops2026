@@ -80,16 +80,22 @@ async function requireAdmin(supabase: {
 export const getAiModelPickerState = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async (): Promise<AiModelPickerState> => {
-    const baseUrl = process.env.CUSTOM_AI_BASE_URL || null;
+    // Always default to the bundled self-hosted Ollama endpoint when the
+    // operator hasn't set CUSTOM_AI_BASE_URL. This makes "self-hosted AI"
+    // the out-of-the-box behavior — the picker still shows real models and
+    // the effective model still resolves to a working default.
+    const configuredBase = process.env.CUSTOM_AI_BASE_URL || null;
+    const isBundledDefault = !configuredBase;
+    const baseUrl = configuredBase ?? BUNDLED_OLLAMA_BASE_URL;
     const { getServerEnv } = await import("./server-env.server");
-    const currentModel = (await getServerEnv(MODEL_ENV_KEY)) || null;
-    const isOllama = Boolean(
-      baseUrl && (/:11434(\/|$)/.test(baseUrl) || /\/ollama(\/|$)/i.test(baseUrl)),
-    );
-
-    if (!baseUrl) {
-      return { baseUrl: null, currentModel, isOllama: false, models: [], error: null };
-    }
+    const savedModel = (await getServerEnv(MODEL_ENV_KEY)) || null;
+    const currentModel = savedModel ?? (isBundledDefault ? BUNDLED_OLLAMA_MODEL : null);
+    const isOllama = /:11434(\/|$)/.test(baseUrl) || /\/ollama(\/|$)/i.test(baseUrl);
+    const common = {
+      currentModel,
+      isBundledDefault,
+      defaultModel: BUNDLED_OLLAMA_MODEL,
+    } as const;
 
     // Try Ollama's native /api/tags first (returns richer metadata). Fall
     // back to the OpenAI-compatible /models list on any failure.
