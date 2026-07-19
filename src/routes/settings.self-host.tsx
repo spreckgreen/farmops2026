@@ -21,7 +21,22 @@ import {
   getAiModelPickerState,
   setAiModel,
   pullAiModel,
+  runAiTest,
+  type AiTestResult,
 } from "@/lib/ai-models.functions";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Server,
+  Cloud,
+  Sparkles,
+  Webhook,
+  ExternalLink,
+  RefreshCw,
+  Download,
+  Save,
+  Zap,
+} from "lucide-react";
 import {
   AlertTriangle,
   CheckCircle2,
