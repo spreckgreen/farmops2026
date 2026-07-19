@@ -141,7 +141,8 @@ check() {
   if "$test" "$value"; then
     ok "$name looks valid"
   else
-    VALIDATION_ERRORS+=("$name: $hint  (got: '${value:0:24}${value:24:+…}')")
+    local suffix=""; [[ ${#value} -gt 24 ]] && suffix="…"
+    VALIDATION_ERRORS+=("$name: $hint  (got: '${value:0:24}${suffix}')")
   fi
 }
 
