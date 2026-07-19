@@ -33,3 +33,9 @@ dist-ssr
 
 # Self-hosted Supabase env template — may contain real keys after fill script; never commit.
 docs/env.self-hosted-supabase.example
+
+# Local env overrides — hold real Supabase/service keys for `docker compose`
+# (loaded via COMPOSE_ENV_FILES). Also matched by `*.local` above; kept
+# explicit so the intent is obvious. Never commit.
+.env.local
+.env.*.local

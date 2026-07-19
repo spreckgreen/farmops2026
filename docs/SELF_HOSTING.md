@@ -222,41 +222,50 @@ banner at *Admin → Self-host settings*.
 ### 3.6 End-to-end: generate the filled env locally (no commits)
 
 This is the exact sequence for producing a working `.env` on the host
-**without ever putting real keys into git**. All artifacts stay on your
-VPS; the tracked repo only sees the `.tmpl` placeholder file.
+**without ever putting real keys into git — and without ever touching the
+tracked `.env`**. Real values live in `.env.local` (gitignored). All other
+artifacts stay on your VPS; the tracked repo only sees the `.tmpl`
+placeholder file.
+
+Why `.env.local`? The tracked `.env` at the repo root is Lovable-managed
+and only holds the publishable (anon) key for the Lovable Cloud project.
+Self-hosted deployments need a *different* Supabase URL plus the
+service-role key — writing those into `.env` would fight the tracked
+copy on every `git pull`. `.env.local` sidesteps that entirely: it's
+gitignored, and docker compose merges it over `.env` via
+`COMPOSE_ENV_FILES=.env:.env.local` (later files win).
 
 **Gitignore invariants (already in place — verify once):**
 
 ```bash
-grep -E 'env\.self-hosted-supabase\.example|^\.env$' .gitignore
+grep -E 'env\.self-hosted-supabase\.example|^\.env\.local$' .gitignore
 ./scripts/verify-env-gitignore.sh    # PASS = correctly ignored, not tracked
 ```
 
 Expected output includes:
 
 ```
-.env
+.env.local
 docs/env.self-hosted-supabase.example
 [PASS] Not tracked in git index
 ```
 
-**Step 1 — fill the local template from your Supabase stack.** The
-generator reads `ANON_KEY`, `SERVICE_ROLE_KEY`, `API_EXTERNAL_URL`, and
-`SITE_URL` from your Supabase project's `docker/.env` and writes the
-untracked local copy `docs/env.self-hosted-supabase.example`:
+**Step 1 — fill `.env.local` from your Supabase stack.** The generator
+reads `ANON_KEY`, `SERVICE_ROLE_KEY`, `API_EXTERNAL_URL`, and `SITE_URL`
+from your Supabase project's `docker/.env` and writes `./.env.local` by
+default:
 
 ```bash
 # Dry-run first — validates JWT shape + URL format, writes nothing:
 ./scripts/fill-env-from-supabase.sh --validate \
   --supabase-dir /home/rpremo/supabase-project
 
-# Then write the filled file:
+# Then write .env.local (default --out):
 ./scripts/fill-env-from-supabase.sh \
   --supabase-dir /home/rpremo/supabase-project
 ```
 
-Sample of what lands in `docs/env.self-hosted-supabase.example` (never
-committed):
+Sample of what lands in `.env.local` (never committed):
 
 ```
 SUPABASE_URL=https://supabase.farm.example.com
@@ -265,31 +274,33 @@ SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOi...  # service_role JWT from docker/.env
 VITE_SUPABASE_PROJECT_ID=supabase        # derived from API_EXTERNAL_URL hostname
 ```
 
-**Step 2 — promote to `.env`** (also gitignored):
+**Step 2 — top up the non-Supabase blocks** by editing `.env.local` in
+place (the tracked `.env` is never modified):
 
 ```bash
-cp docs/env.self-hosted-supabase.example .env
-# then fill the non-Supabase blocks by hand:
+# open .env.local and fill these in:
 #   VAULT_ENCRYPTION_KEY  →  openssl rand -hex 32
 #   PUBLIC_APP_URL        →  https://farm.example.com
 #   CUSTOM_AI_* / LOVABLE_API_KEY / TEMPEST_API_TOKEN / GHOST_* / RACHIO_WEBHOOK_SECRET
 ```
 
 **Step 3 — validate before build.** These checks fail fast on any
-remaining `CHANGE_ME` / `supabase.example.com` placeholder:
+remaining `CHANGE_ME` or `supabase.example.com` placeholder <!-- scan-secrets: allow --> :
 
 ```bash
-./scripts/check-env.sh          # local .env sanity
+./scripts/check-env.sh          # auto-selects .env.local when present
 ./scripts/scan-secrets.sh --all # confirms no keys leaked into tracked files
 ```
 
-`scripts/refresh.sh` runs `check-env.sh` automatically before rebuilding,
-so a placeholder-laced `.env` aborts the build instead of producing a
+`scripts/refresh.sh` auto-detects `.env.local`, exports
+`COMPOSE_ENV_FILES=.env:.env.local` so docker compose merges both files
+(local wins), and runs `check-env.sh` on the chosen file before rebuilding
+— a placeholder-laced `.env.local` aborts the build instead of producing a
 broken container.
 
 **Step 4 — install the pre-commit hook** (one-time, per clone) so an
-accidental `git add .env` or a paste of a real JWT into a doc is blocked
-locally, not just in CI:
+accidental `git add .env.local` or a paste of a real JWT into a doc is
+blocked locally, not just in CI:
 
 ```bash
 ./scripts/install-git-hooks.sh
@@ -300,10 +311,24 @@ CI runs the same scanner on every push/PR via
 `.github/workflows/secret-scan.yml`, so a bypassed local hook is still
 caught before merge.
 
+**Manual docker compose invocations.** When running compose directly
+(outside `refresh.sh`), point it at both files so `.env.local` overrides
+`.env`:
+
+```bash
+# One-shot:
+docker compose --env-file .env --env-file .env.local up -d
+
+# Or export once per shell (equivalent to what refresh.sh does):
+export COMPOSE_ENV_FILES=.env:.env.local
+docker compose up -d
+```
+
 **Rotation.** If a real key ever slips into a commit: rotate it in the
 Supabase stack (regenerate `ANON_KEY` / `SERVICE_ROLE_KEY` in
 `docker/.env`, restart the Supabase containers), re-run
-`fill-env-from-supabase.sh`, then `./scripts/refresh.sh`.
+`fill-env-from-supabase.sh` (rewrites `.env.local`), then
+`./scripts/refresh.sh`.
 
 ---
 

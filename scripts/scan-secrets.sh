@@ -49,31 +49,35 @@ fi
 FAIL=0
 report() { echo "  [BLOCK] $1"; FAIL=1; }
 
+# Drop lines containing an explicit `scan-secrets: allow` marker — lets docs
+# and templates reference `CHANGE_ME` / example JWTs as illustrations without
+# tripping the blocker. Keep this marker off any line with a *real* secret.
+strip_allow() { grep -v 'scan-secrets: allow' || true; }
+
 echo "==> Scanning ${#FILTERED[@]} file(s) for Supabase key leaks"
 
 # ---- Patterns ---------------------------------------------------------------
 # 1) CHANGE_ME placeholders leaking outside templates (means someone copied a
 #    filled .env into a tracked file).
-if HITS=$(grep -nE 'CHANGE_ME[A-Z0-9_]*' "${FILTERED[@]}" 2>/dev/null); then
+if HITS=$(grep -nE 'CHANGE_ME[A-Z0-9_]*' "${FILTERED[@]}" 2>/dev/null | strip_allow); [ -n "$HITS" ]; then
   report "CHANGE_ME placeholder found — did a filled .env get committed?"
   echo "$HITS" | sed 's/^/         /'
 fi
 
 # 2) service_role literal token (JWT payloads embed "role":"service_role").
-if HITS=$(grep -nE '"role"[[:space:]]*:[[:space:]]*"service_role"|role=service_role' "${FILTERED[@]}" 2>/dev/null); then
+if HITS=$(grep -nE '"role"[[:space:]]*:[[:space:]]*"service_role"|role=service_role' "${FILTERED[@]}" 2>/dev/null | strip_allow); [ -n "$HITS" ]; then
   report "service_role reference found in tracked source"
   echo "$HITS" | sed 's/^/         /'
 fi
 
 # 3) Raw Supabase JWTs (header eyJhbGciOiJIUzI1NiIs... — anon or service).
-#    Length >100 chars keeps false-positives (short 'eyJ...' fragments) low.
-if HITS=$(grep -nE 'eyJhbGciOi[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{40,}\.[A-Za-z0-9_-]{20,}' "${FILTERED[@]}" 2>/dev/null); then
+if HITS=$(grep -nE 'eyJhbGciOi[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{40,}\.[A-Za-z0-9_-]{20,}' "${FILTERED[@]}" 2>/dev/null | strip_allow); [ -n "$HITS" ]; then
   report "Supabase JWT literal found (anon/service key committed)"
   echo "$HITS" | sed 's/^/         /'
 fi
 
 # 4) New-format Supabase secret keys (sb_secret_...). Publishable is fine.
-if HITS=$(grep -nE 'sb_secret_[A-Za-z0-9_-]{20,}' "${FILTERED[@]}" 2>/dev/null); then
+if HITS=$(grep -nE 'sb_secret_[A-Za-z0-9_-]{20,}' "${FILTERED[@]}" 2>/dev/null | strip_allow); [ -n "$HITS" ]; then
   report "Supabase secret key (sb_secret_...) committed"
   echo "$HITS" | sed 's/^/         /'
 fi

@@ -3,8 +3,8 @@
 # running the Node.js quickstart (or systemd service).
 #
 # Usage:
-#   ./scripts/check-env.sh                    # check current shell env only
-#   ./scripts/check-env.sh --env-file .env    # parse .env, then check
+#   ./scripts/check-env.sh                    # auto: .env.local (if present) else .env, else current shell env
+#   ./scripts/check-env.sh --env-file .env    # parse a specific file
 #   set -a && source .env && set +a && ./scripts/check-env.sh
 #
 # Exits 0 if everything required is set to a real value, 1 otherwise.
@@ -54,6 +54,18 @@ while [ $# -gt 0 ]; do
       ;;
   esac
 done
+
+# Auto-select: prefer .env.local (gitignored, holds real self-hosted keys)
+# over the tracked .env (Lovable Cloud publishable-only).
+if [ -z "$env_file" ]; then
+  if [ -f .env.local ]; then
+    env_file=".env.local"
+    echo "check-env: auto-selected .env.local"
+  elif [ -f .env ]; then
+    env_file=".env"
+    echo "check-env: auto-selected .env"
+  fi
+fi
 
 # Parse a single quoted/unquoted value. Echoes the decoded value on stdout.
 # Args: $1 = raw RHS (after `KEY=`)
