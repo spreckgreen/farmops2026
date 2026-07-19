@@ -35,12 +35,16 @@ export interface AiModelInfo {
 }
 
 export interface AiModelPickerState {
-  /** Provider base URL currently in effect, or null if unconfigured. */
+  /** Provider base URL currently in effect. Falls back to the bundled self-hosted Ollama endpoint when nothing is configured. */
   baseUrl: string | null;
-  /** Effective model id (vault override wins over env). */
+  /** Effective model id (vault override wins over env, then bundled default). */
   currentModel: string | null;
   /** True when the provider looks like Ollama (base URL contains :11434 or /ollama). */
   isOllama: boolean;
+  /** True when we fell back to the bundled self-hosted Ollama defaults (no CUSTOM_AI_BASE_URL set). */
+  isBundledDefault: boolean;
+  /** The self-hosted default model the UI should pre-select if nothing else is chosen. */
+  defaultModel: string;
   /** Discovered models. Empty array = the provider is reachable but returned none. */
   models: AiModelInfo[];
   /** Non-fatal reason models could not be listed (network error, non-JSON, etc.). */
