@@ -32,6 +32,7 @@ function ProceduresPage() {
           </p>
         </header>
         <ProceduresAiPrompt />
+        <RunAiTestCard description="Verify the AI backend answering procedure queries is your self-hosted model on the VPS before running a long prompt." />
         <Procedures />
       </div>
     </AppLayout>
