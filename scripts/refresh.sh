@@ -28,11 +28,13 @@ set -euo pipefail
 FORCE=0
 DO_PULL=1
 ALLOW_SUDO=1
+SKIP_HEALTHCHECK=0
 for arg in "$@"; do
   case "$arg" in
     --force)   FORCE=1 ;;
     --no-pull) DO_PULL=0 ;;
     --no-sudo) ALLOW_SUDO=0 ;;
+    --skip-healthcheck) SKIP_HEALTHCHECK=1 ;;
     -h|--help)
       sed -n '2,25p' "$0"; exit 0 ;;
     *) echo "Unknown flag: $arg" >&2; exit 2 ;;
