@@ -134,11 +134,28 @@ load_env_file() {
     echo "Env file not found: $file" >&2
     exit 2
   fi
+  if [ ! -r "$file" ]; then
+    echo "Env file exists but is NOT readable by uid=$(id -u) ($(id -un)): $file" >&2
+    echo "  ls -l: $(ls -l "$file" 2>/dev/null || echo '???')" >&2
+    echo "  Fix:  sudo chown $(id -un): \"$file\" && sudo chmod 600 \"$file\"" >&2
+    echo "  Or run this script with sudo (e.g. 'sudo ./scripts/refresh.sh …')." >&2
+    exit 2
+  fi
+  local loaded=0
   local lineno=0 line key rhs val
+  # Strip UTF-8 BOM on the first line if present (common when .env is edited
+  # in a Windows GUI editor — the BOM turns the first key into "\xef\xbb\xbfKEY"
+  # which then never matches the REQUIRED list).
+  local __bom_stripped=0
   while IFS= read -r line || [ -n "$line" ]; do
     lineno=$((lineno + 1))
     # Strip CR (CRLF)
     line="${line%$'\r'}"
+    # Strip UTF-8 BOM if it prefixes the very first line
+    if [ $lineno -eq 1 ] && [ "$__bom_stripped" -eq 0 ]; then
+      line="${line#$'\xef\xbb\xbf'}"
+      __bom_stripped=1
+    fi
     # Trim leading whitespace
     line="${line#"${line%%[![:space:]]*}"}"
     # Skip blank lines and full-line comments
@@ -155,7 +172,7 @@ load_env_file() {
     esac
     key="${line%%=*}"
     rhs="${line#*=}"
-    # Trim trailing whitespace from key
+    # Trim trailing whitespace from key (catches `KEY = value` style)
     key="${key%"${key##*[![:space:]]}"}"
     # Validate key shape
     case "$key" in
@@ -164,7 +181,9 @@ load_env_file() {
     esac
     val="$(parse_value "$rhs")"
     export "$key=$val"
+    loaded=$((loaded + 1))
   done < "$file"
+  echo "check-env: loaded $loaded variables from $file (uid=$(id -u), $(wc -c <"$file") bytes)"
 }
 
 if [ -n "$env_file" ]; then
