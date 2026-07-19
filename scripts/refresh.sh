@@ -18,6 +18,7 @@
 #   ./scripts/refresh.sh              # pull + rebuild only if new commits
 #   ./scripts/refresh.sh --force      # rebuild even if git is already up to date
 #   ./scripts/refresh.sh --no-pull    # skip git pull (rebuild from local tree)
+#   ./scripts/refresh.sh --no-sudo    # never fall back to `sudo docker`
 #
 # Safe to re-run. Exits non-zero on any failure so it can be wired into cron
 # or a systemd timer.
