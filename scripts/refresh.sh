@@ -102,6 +102,27 @@ if [ "$BEFORE" != "$AFTER" ]; then
   echo
 fi
 
+# --- 1b. Env placeholder gate (fail fast before a 5-min Docker build) -------
+# Catches unreplaced values from docs/env.self-hosted-supabase.example such as
+# `CHANGE_ME_ANON_KEY_JWT` or `https://supabase.example.com`. The server also
+# refuses to boot on these (src/lib/env-startup-check.server.ts), but failing
+# here saves the whole build+recreate cycle.
+CE="$(dirname "$0")/check-env.sh"
+if [ -x "$CE" ] && [ -f .env ]; then
+  log "Validating .env against docs/env.self-hosted-supabase.example placeholders…"
+  if ! "$CE" --env-file .env; then
+    err "Refusing to rebuild: .env still contains placeholder values."
+    err "  Fix: sudo scripts/fill-env-from-supabase.sh"
+    err "  Or:  edit .env by hand using docs/env.self-hosted-supabase.example as reference."
+    exit 1
+  fi
+elif [ ! -f .env ]; then
+  err "No .env file found. Bootstrap one with:"
+  err "  sudo scripts/fill-env-from-supabase.sh   # pulls values from /home/<user>/supabase-project"
+  err "  # or: cp docs/env.self-hosted-supabase.example .env  &&  edit by hand"
+  exit 1
+fi
+
 # --- 2. Build ---------------------------------------------------------------
 log "Building app image (BuildKit cache will short-circuit unchanged layers)"
 DOCKER_BUILDKIT=1 "${DOCKER[@]}" compose build app
