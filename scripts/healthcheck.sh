@@ -21,12 +21,17 @@ set -o pipefail
 HOST_NAME="farmops.bostead.life"
 ALLOW_SUDO=1
 QUIET=0
+DUMP_LOGS=1
+LOG_TAIL=80
 while [ $# -gt 0 ]; do
   case "$1" in
     --host) shift; HOST_NAME="${1:-$HOST_NAME}" ;;
     --host=*) HOST_NAME="${1#*=}" ;;
     --no-sudo) ALLOW_SUDO=0 ;;
     --quiet) QUIET=1 ;;
+    --no-logs) DUMP_LOGS=0 ;;
+    --log-tail) shift; LOG_TAIL="${1:-80}" ;;
+    --log-tail=*) LOG_TAIL="${1#*=}" ;;
     -h|--help) sed -n '2,20p' "$0"; exit 0 ;;
     *) echo "Unknown flag: $1" >&2; exit 2 ;;
   esac
