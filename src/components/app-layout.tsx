@@ -115,6 +115,12 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 {profile.data?.isAdmin && (
                   <>
                     <DropdownMenuItem asChild>
+                      <Link to="/admin" className="flex items-center gap-2 cursor-pointer">
+                        <ShieldCheck className="h-4 w-4" />
+                        Admin dashboard
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
                       <Link to="/admin/users" className="flex items-center gap-2 cursor-pointer">
                         <Users className="h-4 w-4" />
                         User management

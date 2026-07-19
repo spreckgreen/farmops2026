@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { AppLayout } from "@/components/app-layout";
 import { Procedures } from "@/components/procedures";
 import { ProceduresAiPrompt } from "@/components/procedures-ai-prompt";
+import { RunAiTestCard } from "@/components/run-ai-test-card";
 
 export const Route = createFileRoute("/procedures")({
   component: ProceduresPage,
@@ -31,6 +32,7 @@ function ProceduresPage() {
           </p>
         </header>
         <ProceduresAiPrompt />
+        <RunAiTestCard description="Verify the AI backend answering procedure queries is your self-hosted model on the VPS before running a long prompt." />
         <Procedures />
       </div>
     </AppLayout>
