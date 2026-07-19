@@ -160,6 +160,9 @@ is_placeholder() {
   local v="$1"
   case "$v" in
     your-*|https://your-project.supabase.co) return 0 ;;
+    *CHANGE_ME*) return 0 ;;
+    *supabase.example.com*) return 0 ;;
+    *your-project-ref*) return 0 ;;
     *) return 1 ;;
   esac
 }
