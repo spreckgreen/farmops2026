@@ -21,9 +21,8 @@ import {
   getAiModelPickerState,
   setAiModel,
   pullAiModel,
-  runAiTest,
-  type AiTestResult,
 } from "@/lib/ai-models.functions";
+import { RunAiTestCard } from "@/components/run-ai-test-card";
 import {
   AlertTriangle,
   CheckCircle2,
