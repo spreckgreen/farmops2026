@@ -4,7 +4,7 @@
 # Answers three questions, fast, with a clear verdict at the end:
 #   1. Are all expected containers running & healthy?  (app, caddy, ollama)
 #   2. Are all required env vars set in .env?          (per .env.example)
-#   3. Can caddy actually reach the app upstream?      (end-to-end probe)
+#   3. Can the app and caddy route actually respond?   (end-to-end probe)
 #
 # Exit code is 0 only if every check PASSES — safe to wire into cron, systemd
 # OnFailure=, or a post-deploy gate in refresh.sh.
@@ -65,6 +65,13 @@ else
   record FAIL "docker access" "cannot reach docker daemon (add user to docker group or run with sudo)"
 fi
 DC=("${DOCKER[@]}" compose)
+
+# Match refresh.sh's compose environment layering when real self-hosted values
+# live in .env.local. This also prevents misleading interpolation warnings when
+# healthcheck.sh is run directly.
+if [ -f .env.local ]; then
+  export COMPOSE_ENV_FILES=".env,.env.local"
+fi
 
 # ===========================================================================
 # CHECK 1 — containers running & healthy
@@ -154,22 +161,33 @@ fi
 log "${BOLD}[3/3]${RESET} Probing caddy → app path…"
 
 probe_code() {
-  # $1=url, $2=extra curl args
-  curl -sS -o /dev/null -w '%{http_code}' --max-time 6 $2 "$1" 2>/dev/null || echo "000"
+  # curl already prints 000 for connection/TLS failures. Do not append another
+  # 000 on a non-zero exit or the caller receives the invalid value 000000.
+  local output
+  output="$(curl -sS -o /dev/null -w '%{http_code}' --connect-timeout 3 --max-time 8 "$@" 2>/dev/null || true)"
+  if [[ "$output" =~ ([0-9]{3})$ ]]; then
+    printf '%s' "${BASH_REMATCH[1]}"
+  else
+    printf '000'
+  fi
 }
 
-# 3a. App direct (localhost:3000). Confirms the app is up on its own.
-CODE_APP="$(probe_code 'http://localhost:3000/' '')"
+# 3a. Probe from inside the app container. Port 3000 is intentionally exposed
+# only to the compose network, so probing host localhost:3000 is always wrong.
+CODE_APP="$("${DC[@]}" exec -T app bun -e \
+  "fetch('http://127.0.0.1:3000/').then(r=>process.stdout.write(String(r.status))).catch(()=>process.stdout.write('000'))" \
+  2>/dev/null || true)"
+[[ "$CODE_APP" =~ ^[0-9]{3}$ ]] || CODE_APP="000"
 if [[ "$CODE_APP" =~ ^(200|301|302|307|308)$ ]]; then
-  record PASS "app on :3000" "HTTP $CODE_APP"
+  record PASS "app internal :3000" "HTTP $CODE_APP"
 elif [ "$CODE_APP" = "000" ]; then
-  record FAIL "app on :3000" "no response (app not listening — check \`compose logs app\`)"
+  record FAIL "app internal :3000" "no response (check \`docker compose logs app\`)"
 else
-  record WARN "app on :3000" "HTTP $CODE_APP (reachable but non-2xx/3xx)"
+  record FAIL "app internal :3000" "HTTP $CODE_APP (expected 2xx/3xx)"
 fi
 
 # 3b. Caddy HTTP (:80) with the real Host header. Should 200 or 308→https.
-CODE_CADDY_HTTP="$(probe_code 'http://localhost/' "-H Host:$HOST_NAME")"
+CODE_CADDY_HTTP="$(probe_code -H "Host: $HOST_NAME" 'http://127.0.0.1/')"
 if [[ "$CODE_CADDY_HTTP" =~ ^(200|301|308)$ ]]; then
   record PASS "caddy :80" "HTTP $CODE_CADDY_HTTP (Host: $HOST_NAME)"
 elif [ "$CODE_CADDY_HTTP" = "000" ]; then
@@ -178,8 +196,10 @@ else
   record WARN "caddy :80" "HTTP $CODE_CADDY_HTTP"
 fi
 
-# 3c. Caddy HTTPS (:443) → upstream app. -k tolerates self-signed during ACME.
-CODE_CADDY_HTTPS="$(probe_code 'https://localhost/' "-k -H Host:$HOST_NAME")"
+# 3c. Caddy HTTPS (:443) → upstream app. --resolve sets both the HTTP Host and
+# TLS SNI to the configured domain while still connecting locally. A Host
+# header alone leaves SNI as "localhost" and can fail before HTTP is reached.
+CODE_CADDY_HTTPS="$(probe_code -k --resolve "$HOST_NAME:443:127.0.0.1" "https://$HOST_NAME/")"
 if [[ "$CODE_CADDY_HTTPS" =~ ^(200|301|302|307|308)$ ]]; then
   record PASS "caddy → app (:443)" "HTTP $CODE_CADDY_HTTPS end-to-end OK"
 elif [ "$CODE_CADDY_HTTPS" = "502" ] || [ "$CODE_CADDY_HTTPS" = "503" ] || [ "$CODE_CADDY_HTTPS" = "504" ]; then
@@ -187,7 +207,7 @@ elif [ "$CODE_CADDY_HTTPS" = "502" ] || [ "$CODE_CADDY_HTTPS" = "503" ] || [ "$C
 elif [ "$CODE_CADDY_HTTPS" = "000" ]; then
   record FAIL "caddy → app (:443)" "no response on 443 (cert not issued yet? check \`compose logs caddy\`)"
 else
-  record WARN "caddy → app (:443)" "HTTP $CODE_CADDY_HTTPS"
+  record FAIL "caddy → app (:443)" "HTTP $CODE_CADDY_HTTPS (expected 2xx/3xx)"
 fi
 
 # ===========================================================================
