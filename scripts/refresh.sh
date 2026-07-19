@@ -18,6 +18,7 @@
 #   ./scripts/refresh.sh              # pull + rebuild only if new commits
 #   ./scripts/refresh.sh --force      # rebuild even if git is already up to date
 #   ./scripts/refresh.sh --no-pull    # skip git pull (rebuild from local tree)
+#   ./scripts/refresh.sh --no-sudo    # never fall back to `sudo docker`
 #
 # Safe to re-run. Exits non-zero on any failure so it can be wired into cron
 # or a systemd timer.
@@ -26,10 +27,12 @@ set -euo pipefail
 
 FORCE=0
 DO_PULL=1
+ALLOW_SUDO=1
 for arg in "$@"; do
   case "$arg" in
     --force)   FORCE=1 ;;
     --no-pull) DO_PULL=0 ;;
+    --no-sudo) ALLOW_SUDO=0 ;;
     -h|--help)
       sed -n '2,25p' "$0"; exit 0 ;;
     *) echo "Unknown flag: $arg" >&2; exit 2 ;;
@@ -43,8 +46,29 @@ err() { printf '\033[1;31m[refresh]\033[0m %s\n' "$*" >&2; }
 
 # --- 0. Prerequisites -------------------------------------------------------
 command -v docker >/dev/null || { err "docker not installed"; exit 1; }
-docker compose version >/dev/null 2>&1 || { err "docker compose plugin not installed"; exit 1; }
 command -v git >/dev/null || { err "git not installed"; exit 1; }
+
+# --- 0a. Pick a docker invocation that works --------------------------------
+# Prefer running as the current user (keeps SSH keys / git creds intact).
+# Fall back to `sudo docker` only if the daemon socket rejects us AND sudo
+# is available non-interactively. Never prompt for a password mid-build.
+DOCKER=(docker)
+if docker info >/dev/null 2>&1; then
+  log "Docker accessible as $(id -un) — no sudo needed"
+elif [ "$ALLOW_SUDO" -eq 1 ] && command -v sudo >/dev/null && sudo -n docker info >/dev/null 2>&1; then
+  DOCKER=(sudo docker)
+  log "Docker socket denied for $(id -un); falling back to: sudo docker (passwordless sudo OK)"
+  log "  Tip: 'sudo usermod -aG docker $(id -un) && newgrp docker' removes the need for sudo."
+else
+  err "Cannot talk to docker as $(id -un) and passwordless sudo unavailable."
+  err "Fix one of:"
+  err "  1) sudo usermod -aG docker $(id -un) && newgrp docker   (recommended)"
+  err "  2) run: sudo ./scripts/refresh.sh --no-pull --force"
+  err "  3) enable NOPASSWD sudo for docker, then re-run"
+  exit 1
+fi
+
+"${DOCKER[@]}" compose version >/dev/null 2>&1 || { err "docker compose plugin not installed"; exit 1; }
 
 BRANCH="$(git rev-parse --abbrev-ref HEAD)"
 BEFORE="$(git rev-parse HEAD)"
@@ -78,33 +102,33 @@ fi
 
 # --- 2. Build ---------------------------------------------------------------
 log "Building app image (BuildKit cache will short-circuit unchanged layers)"
-DOCKER_BUILDKIT=1 docker compose build app
+DOCKER_BUILDKIT=1 "${DOCKER[@]}" compose build app
 
 # --- 3. Recreate changed containers ----------------------------------------
 log "Bringing stack up (recreates only containers with new image/config)"
-docker compose up -d --remove-orphans
+"${DOCKER[@]}" compose up -d --remove-orphans
 
 # --- 4. Reclaim disk --------------------------------------------------------
 log "Pruning dangling images from previous build"
-docker image prune -f >/dev/null
+"${DOCKER[@]}" image prune -f >/dev/null
 
 # --- 5. Wait for health -----------------------------------------------------
 log "Waiting up to 90s for app healthcheck…"
 for i in $(seq 1 45); do
-  status="$(docker compose ps --format '{{.Service}} {{.Health}}' 2>/dev/null | awk '$1=="app"{print $2}')"
+  status="$("${DOCKER[@]}" compose ps --format '{{.Service}} {{.Health}}' 2>/dev/null | awk '$1=="app"{print $2}')"
   case "$status" in
     healthy)
       log "✅ app is healthy. Refresh complete."
-      docker compose ps
+      "${DOCKER[@]}" compose ps
       exit 0 ;;
     unhealthy)
       err "app went unhealthy. Recent logs:"
-      docker compose logs --tail=80 app
+      "${DOCKER[@]}" compose logs --tail=80 app
       exit 1 ;;
   esac
   sleep 2
 done
 
 err "Timed out waiting for healthcheck. Recent logs:"
-docker compose logs --tail=80 app
+"${DOCKER[@]}" compose logs --tail=80 app
 exit 1
