@@ -246,6 +246,13 @@ awk \
 
 mv "$tmp" "$OUT_FILE"
 chmod 600 "$OUT_FILE" 2>/dev/null || true
+# When invoked via sudo, hand ownership back to the invoking user so the
+# non-sudo refresh.sh / healthcheck.sh can still read it (0600 + root:root
+# would otherwise make check-env.sh report every var as MISSING).
+if [[ -n "${SUDO_USER:-}" && "${SUDO_USER}" != "root" ]]; then
+  chown "$SUDO_USER":"$(id -gn "$SUDO_USER")" "$OUT_FILE" 2>/dev/null || true
+  info "Restored ownership of $OUT_FILE to $SUDO_USER (was root due to sudo)"
+fi
 
 ok "Wrote $OUT_FILE"
 echo
