@@ -133,8 +133,8 @@ export const getAiModelPickerState = createServerFn({ method: "GET" })
       });
       if (!res.ok) {
         return {
+          ...common,
           baseUrl,
-          currentModel,
           isOllama,
           models: [],
           error: `Provider returned HTTP ${res.status} for /models`,
@@ -145,11 +145,11 @@ export const getAiModelPickerState = createServerFn({ method: "GET" })
         .filter((m) => typeof m.id === "string" && m.id)
         .map((m) => ({ id: m.id as string, size: null, detail: null }))
         .sort((a, b) => a.id.localeCompare(b.id));
-      return { baseUrl, currentModel, isOllama, models, error: null };
+      return { ...common, baseUrl, isOllama, models, error: null };
     } catch (e) {
       return {
+        ...common,
         baseUrl,
-        currentModel,
         isOllama,
         models: [],
         error: (e as Error).message,
