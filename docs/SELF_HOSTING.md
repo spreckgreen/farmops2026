@@ -22,20 +22,116 @@ You need three things before you deploy:
 
 ## 2. Prepare the Supabase project
 
-1. Create the project (or start your self-hosted stack).
-2. Apply the migrations from `supabase/migrations/` in order. Either:
-   - `supabase db push` with the Supabase CLI linked to your project, or
-   - execute each `.sql` file against the database in filename order.
-3. From **Project Settings → API**, copy:
-   - Project URL → `SUPABASE_URL` / `VITE_SUPABASE_URL`
-   - `anon` / publishable key → `SUPABASE_PUBLISHABLE_KEY` / `VITE_SUPABASE_PUBLISHABLE_KEY`
-   - `service_role` key → `SUPABASE_SERVICE_ROLE_KEY` (server only — never bundle)
-   - Project ref (the subdomain of the URL) → `VITE_SUPABASE_PROJECT_ID`
-4. In **Authentication → Providers**, enable Email and (optionally) Google.
-   For Google, set the OAuth `redirect_uri` allowlist to
-   `https://<your-domain>` and `https://<your-domain>/auth/callback`.
+Pick whichever backend you already run. All three produce the same six env
+vars (`SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`,
+`VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, `VITE_SUPABASE_PROJECT_ID`).
 
----
+### Option A — Managed project at supabase.com
+
+1. Create the project at <https://supabase.com>.
+2. Apply migrations from `supabase/migrations/`:
+   - `supabase db push` with the CLI linked to your project, or
+   - paste each `.sql` file (filename order) into the SQL editor.
+3. **Project Settings → API**, copy:
+   - Project URL → `SUPABASE_URL` / `VITE_SUPABASE_URL`
+     (e.g. `https://abcd1234.supabase.co`)
+   - `anon` / publishable key → `SUPABASE_PUBLISHABLE_KEY` /
+     `VITE_SUPABASE_PUBLISHABLE_KEY`
+   - `service_role` key → `SUPABASE_SERVICE_ROLE_KEY` (server only)
+   - Project ref (the `abcd1234` subdomain) → `VITE_SUPABASE_PROJECT_ID`
+4. **Authentication → Providers**: enable Email and (optionally) Google.
+   Allowlist `https://<your-domain>` and `https://<your-domain>/auth/callback`.
+
+### Option C — Self-hosted Supabase on your VPS (recommended if you already run one)
+
+Use this when Supabase runs in Docker on the same box (or a peer VPS) as
+Bostead. The Supabase self-host stack from
+<https://github.com/supabase/supabase/tree/master/docker> exposes Kong on
+`:8000` (HTTP) and Studio on `:3000` by default.
+
+1. **Deploy Supabase.** From the `supabase/docker` folder:
+
+   ```bash
+   cp .env.example .env
+   # set POSTGRES_PASSWORD, JWT_SECRET (>=32 chars), ANON_KEY, SERVICE_ROLE_KEY,
+   # DASHBOARD_USERNAME/PASSWORD, SITE_URL=https://farm.example.com,
+   # API_EXTERNAL_URL=https://supabase.example.com
+   docker compose up -d
+   ```
+
+   Generate `ANON_KEY` and `SERVICE_ROLE_KEY` from your `JWT_SECRET` using
+   the helper at <https://supabase.com/docs/guides/self-hosting/docker#generate-api-keys>
+   (they are JWTs signed with `JWT_SECRET`, not random strings).
+
+2. **Expose the API behind TLS.** Supabase Studio should stay private
+   (bind `127.0.0.1:3000` or firewall it); only Kong needs public HTTPS.
+   Example Caddy block on the same host as Bostead's `caddy` service:
+
+   ```caddy
+   supabase.example.com {
+     reverse_proxy supabase-kong:8000   # or 127.0.0.1:8000 if not on the same docker network
+   }
+   ```
+
+   If Bostead's `caddy` and Supabase's `kong` share a docker network, add
+   `kong` to that network (`docker network connect bostead_default
+   supabase-kong`) so the `reverse_proxy` hostname resolves.
+
+   > Bostead's `app` container reaches Supabase over the internal docker
+   > network — you can also point `SUPABASE_URL` at `http://supabase-kong:8000`
+   > for server-side calls. But `VITE_SUPABASE_URL` is baked into the browser
+   > bundle, so it **must** be the public HTTPS URL.
+
+3. **Apply migrations.** Point the Supabase CLI at your self-hosted DB and
+   push (recommended so future migrations are tracked):
+
+   ```bash
+   export SUPABASE_DB_URL="postgres://postgres:<POSTGRES_PASSWORD>@<vps-ip>:5432/postgres"
+   supabase db push --db-url "$SUPABASE_DB_URL"
+   ```
+
+   Or `psql "$SUPABASE_DB_URL" -f supabase/migrations/<file>.sql` in order.
+
+4. **Fill `.env` for Bostead** (from your Supabase `.env` and Kong URL):
+
+   ```env
+   SUPABASE_URL=https://supabase.example.com
+   VITE_SUPABASE_URL=https://supabase.example.com
+   SUPABASE_PUBLISHABLE_KEY=<ANON_KEY from Supabase .env>
+   VITE_SUPABASE_PUBLISHABLE_KEY=<same ANON_KEY>
+   SUPABASE_SERVICE_ROLE_KEY=<SERVICE_ROLE_KEY from Supabase .env>
+   VITE_SUPABASE_PROJECT_ID=self-hosted     # any short slug; used for the auth storage key
+   ```
+
+   Self-hosted Supabase has no "project ref" — pick a stable slug
+   (e.g. `farm-prod`). Changing it later signs users out.
+
+5. **Auth providers.** Studio → Authentication → Providers. For Google,
+   set the redirect allowlist to your Bostead origin
+   (`https://farm.example.com`, `.../auth/callback`) **and** register
+   `https://supabase.example.com/auth/v1/callback` in the Google Cloud
+   Console.
+
+6. **Backups.** `pg_dump` against the Supabase Postgres container is the
+   source of truth — see §8.
+
+Sanity check from the Bostead host:
+
+```bash
+curl -sSf "$SUPABASE_URL/auth/v1/health"   # → {"name":"gotrue",...}
+curl -sSf -H "apikey: $SUPABASE_PUBLISHABLE_KEY" \
+     "$SUPABASE_URL/rest/v1/" | head -c 200
+```
+
+### Option B — Any other self-hosted Postgres + PostgREST + GoTrue
+
+Same steps as Option C, but replace the Supabase compose stack with your
+own PostgREST/GoTrue deployment. You still need to mint JWTs signed with
+the same secret GoTrue uses; use those as `SUPABASE_PUBLISHABLE_KEY` and
+`SUPABASE_SERVICE_ROLE_KEY`. Only recommended if you already run this
+stack — the official Supabase self-host image is easier.
+
+
 
 ## 3. Environment variables
 
