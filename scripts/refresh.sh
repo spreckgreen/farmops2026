@@ -107,19 +107,32 @@ fi
 # `CHANGE_ME_ANON_KEY_JWT` or `https://supabase.example.com`. The server also
 # refuses to boot on these (src/lib/env-startup-check.server.ts), but failing
 # here saves the whole build+recreate cycle.
+#
+# Prefer .env.local (gitignored, holds real self-hosted keys) over the tracked
+# .env (Lovable Cloud publishable-only). When both exist, .env.local wins via
+# docker compose's COMPOSE_ENV_FILES (colon-separated, later files override).
+ENV_FILE=""
+if [ -f .env.local ]; then
+  ENV_FILE=".env.local"
+  export COMPOSE_ENV_FILES=".env:.env.local"   # .env.local wins
+  log "Using .env.local for compose (via COMPOSE_ENV_FILES=.env:.env.local)"
+elif [ -f .env ]; then
+  ENV_FILE=".env"
+fi
+
 CE="$(dirname "$0")/check-env.sh"
-if [ -x "$CE" ] && [ -f .env ]; then
-  log "Validating .env against docs/env.self-hosted-supabase.example.tmpl placeholders…"
-  if ! "$CE" --env-file .env; then
-    err "Refusing to rebuild: .env still contains placeholder values."
-    err "  Fix: sudo scripts/fill-env-from-supabase.sh"
-    err "  Or:  edit .env by hand using docs/env.self-hosted-supabase.example.tmpl as reference."
+if [ -x "$CE" ] && [ -n "$ENV_FILE" ]; then
+  log "Validating $ENV_FILE against docs/env.self-hosted-supabase.example.tmpl placeholders…"
+  if ! "$CE" --env-file "$ENV_FILE"; then
+    err "Refusing to rebuild: $ENV_FILE still contains placeholder values."
+    err "  Fix: sudo scripts/fill-env-from-supabase.sh   # writes .env.local"
+    err "  Or:  edit $ENV_FILE by hand using docs/env.self-hosted-supabase.example.tmpl as reference."
     exit 1
   fi
-elif [ ! -f .env ]; then
-  err "No .env file found. Bootstrap one with:"
-  err "  sudo scripts/fill-env-from-supabase.sh   # pulls values from /home/<user>/supabase-project"
-  err "  # or: cp docs/env.self-hosted-supabase.example.tmpl .env  &&  edit by hand"
+elif [ -z "$ENV_FILE" ]; then
+  err "No .env.local or .env file found. Bootstrap with:"
+  err "  sudo scripts/fill-env-from-supabase.sh   # writes .env.local from /home/<user>/supabase-project"
+  err "  # or: cp docs/env.self-hosted-supabase.example.tmpl .env.local  &&  edit by hand"
   exit 1
 fi
 
