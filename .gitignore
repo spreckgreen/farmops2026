@@ -30,3 +30,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Self-hosted Supabase env template — may contain real keys after fill script; never commit.
+docs/env.self-hosted-supabase.example
