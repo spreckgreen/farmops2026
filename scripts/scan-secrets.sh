@@ -25,14 +25,18 @@ case "$MODE" in
 esac
 
 # Only text-y paths worth scanning. Templates (*.tmpl, *.example) legitimately
-# contain CHANGE_ME markers, so exclude them.
+# contain CHANGE_ME markers, so exclude them. `.env` is Lovable Cloud's
+# auto-generated file that only ever holds publishable (anon) keys.
 FILTERED=()
 for f in "${FILES[@]}"; do
   [ -f "$f" ] || continue
   case "$f" in
     *.tmpl|*.example|*.example.*|.gitignore|bun.lock|package-lock.json|*.png|*.jpg|*.jpeg|*.gif|*.webp|*.ico|*.pdf|*.woff*|*.ttf)
       continue ;;
-    scripts/scan-secrets.sh) continue ;;   # this file has the patterns
+    .env|.env.*) continue ;;                # gitignored / publishable-only
+    scripts/scan-secrets.sh) continue ;;    # this file has the patterns
+    scripts/check-env.sh|scripts/fill-env-from-supabase.sh|scripts/healthcheck.sh|scripts/refresh.sh) continue ;;
+    src/lib/env-startup-check.server.ts) continue ;;   # placeholder-detection logic
   esac
   FILTERED+=("$f")
 done
