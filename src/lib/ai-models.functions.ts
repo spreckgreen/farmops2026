@@ -41,13 +41,28 @@ export interface AiModelPickerState {
   error: string | null;
 }
 
+// Verify the caller has the `admin` role by reading `user_roles` directly
+// under RLS. Do NOT call the `has_role()` RPC here — it lives in the
+// `private` schema (moved there by the security hardening pass) and is
+// not exposed through PostgREST, so `supabase.rpc("has_role", ...)` fails
+// with "Could not find the function public.has_role(...) in the schema cache".
 async function requireAdmin(supabase: {
-  rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }>;
+  from: (table: string) => {
+    select: (cols: string) => {
+      eq: (col: string, val: string) => {
+        eq: (col: string, val: string) => {
+          maybeSingle: () => Promise<{ data: unknown; error: { message: string } | null }>;
+        };
+      };
+    };
+  };
 }, userId: string) {
-  const { data, error } = await supabase.rpc("has_role", {
-    _user_id: userId,
-    _role: "admin",
-  });
+  const { data, error } = await supabase
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", userId)
+    .eq("role", "admin")
+    .maybeSingle();
   if (error) throw new Error(error.message);
   if (!data) throw new Error("Forbidden: admin role required");
 }
