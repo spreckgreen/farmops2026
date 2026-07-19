@@ -137,6 +137,14 @@ stack — the official Supabase self-host image is easier.
 
 Copy `.env.example` → `.env` and fill it in. Grouped by concern:
 
+> **Never commit `.env` or `docs/env.self-hosted-supabase.example`.** Both
+> are already in `.gitignore`. The tracked template is
+> `docs/env.self-hosted-supabase.example.tmpl` (placeholders only). The
+> end-to-end local flow for generating the filled file is in **§3.6**
+> below.
+
+
+
 ### 3.1 Supabase (required)
 
 | Variable | Where used | Notes |
