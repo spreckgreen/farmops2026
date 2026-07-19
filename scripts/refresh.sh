@@ -28,11 +28,13 @@ set -euo pipefail
 FORCE=0
 DO_PULL=1
 ALLOW_SUDO=1
+SKIP_HEALTHCHECK=0
 for arg in "$@"; do
   case "$arg" in
     --force)   FORCE=1 ;;
     --no-pull) DO_PULL=0 ;;
     --no-sudo) ALLOW_SUDO=0 ;;
+    --skip-healthcheck) SKIP_HEALTHCHECK=1 ;;
     -h|--help)
       sed -n '2,25p' "$0"; exit 0 ;;
     *) echo "Unknown flag: $arg" >&2; exit 2 ;;
@@ -112,23 +114,55 @@ log "Bringing stack up (recreates only containers with new image/config)"
 log "Pruning dangling images from previous build"
 "${DOCKER[@]}" image prune -f >/dev/null
 
-# --- 5. Wait for health -----------------------------------------------------
+# --- 5. Wait for the app container's own HEALTHCHECK to flip to healthy ----
+# This is the fast, cheap gate — it only asks "is the container up?" and does
+# NOT verify env/connectivity. The full PASS/FAIL gate runs in step 6 below.
 log "Waiting up to 90s for app healthcheck…"
 for i in $(seq 1 45); do
   status="$("${DOCKER[@]}" compose ps --format '{{.Service}} {{.Health}}' 2>/dev/null | awk '$1=="app"{print $2}')"
   case "$status" in
-    healthy)
-      log "✅ app is healthy. Refresh complete."
-      "${DOCKER[@]}" compose ps
-      exit 0 ;;
+    healthy)   log "container reports healthy — proceeding to full probe"; break ;;
     unhealthy)
       err "app went unhealthy. Recent logs:"
       "${DOCKER[@]}" compose logs --tail=80 app
       exit 1 ;;
   esac
+  if [ "$i" -eq 45 ]; then
+    err "Timed out waiting for container healthcheck. Recent logs:"
+    "${DOCKER[@]}" compose logs --tail=80 app
+    exit 1
+  fi
   sleep 2
 done
 
-err "Timed out waiting for healthcheck. Recent logs:"
-"${DOCKER[@]}" compose logs --tail=80 app
-exit 1
+# --- 6. Full PASS/FAIL gate (containers + env + caddy→app connectivity) ----
+# scripts/healthcheck.sh exits 0 only when EVERY probe passes. On any FAIL we
+# abort the refresh with a non-zero status so cron / systemd / CI notice —
+# instead of silently declaring success on a broken site.
+if [ "$SKIP_HEALTHCHECK" -eq 1 ]; then
+  log "⚠️  --skip-healthcheck set: skipping full PASS/FAIL gate (not recommended)"
+  "${DOCKER[@]}" compose ps
+  exit 0
+fi
+
+HC="$(dirname "$0")/healthcheck.sh"
+if [ ! -x "$HC" ]; then
+  err "scripts/healthcheck.sh not found or not executable — cannot verify refresh."
+  err "  Re-run with --skip-healthcheck to bypass (leaves stack unverified)."
+  exit 1
+fi
+
+HC_FLAGS=()
+[ "$ALLOW_SUDO" -eq 0 ] && HC_FLAGS+=(--no-sudo)
+
+log "Running full healthcheck gate: $HC ${HC_FLAGS[*]:-}"
+if "$HC" "${HC_FLAGS[@]}"; then
+  log "✅ all probes PASS. Refresh complete."
+  "${DOCKER[@]}" compose ps
+  exit 0
+else
+  rc=$?
+  err "❌ healthcheck reported FAIL (exit=$rc) — refresh aborted."
+  err "   Triage:  ./scripts/diagnose.sh    Fast recovery:  ./scripts/remediate.sh"
+  exit "$rc"
+fi
