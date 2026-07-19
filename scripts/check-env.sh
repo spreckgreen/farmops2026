@@ -151,6 +151,11 @@ load_env_file() {
     lineno=$((lineno + 1))
     # Strip CR (CRLF)
     line="${line%$'\r'}"
+    # Strip UTF-8 BOM if it prefixes the very first line
+    if [ $lineno -eq 1 ] && [ "$__bom_stripped" -eq 0 ]; then
+      line="${line#$'\xef\xbb\xbf'}"
+      __bom_stripped=1
+    fi
     # Trim leading whitespace
     line="${line#"${line%%[![:space:]]*}"}"
     # Skip blank lines and full-line comments
@@ -167,7 +172,7 @@ load_env_file() {
     esac
     key="${line%%=*}"
     rhs="${line#*=}"
-    # Trim trailing whitespace from key
+    # Trim trailing whitespace from key (catches `KEY = value` style)
     key="${key%"${key##*[![:space:]]}"}"
     # Validate key shape
     case "$key" in
@@ -176,7 +181,9 @@ load_env_file() {
     esac
     val="$(parse_value "$rhs")"
     export "$key=$val"
+    loaded=$((loaded + 1))
   done < "$file"
+  echo "check-env: loaded $loaded variables from $file (uid=$(id -u), $(wc -c <"$file") bytes)"
 }
 
 if [ -n "$env_file" ]; then
