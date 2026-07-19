@@ -3,47 +3,21 @@ import { useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { runAiTest, type AiTestResult } from "@/lib/ai-models.functions";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { AlertTriangle, CheckCircle2, Zap } from "lucide-react";
-
-function Row({
-  label,
-  value,
-  ok,
-}: {
-  label: string;
-  value: React.ReactNode;
-  ok?: boolean | null;
-}) {
-  return (
-    <div className="flex items-start justify-between gap-4 py-2 border-b last:border-b-0">
-      <div className="text-sm text-muted-foreground">{label}</div>
-      <div className="flex items-center gap-2 text-sm font-mono">
-        {ok === true && <CheckCircle2 className="h-4 w-4 text-emerald-600" />}
-        {ok === false && <AlertTriangle className="h-4 w-4 text-amber-600" />}
-        <span>{value}</span>
-      </div>
-    </div>
-  );
-}
+import { AlertTriangle, CheckCircle2, Zap, ChevronDown, ChevronUp } from "lucide-react";
 
 /**
- * Admin-only diagnostic. Sends a short prompt through the currently-configured
- * AI provider (self-hosted CUSTOM_AI_* first, then Lovable, then bundled
- * Ollama) and reports which endpoint answered, latency, and HTTP status.
- *
- * When CUSTOM_AI_BASE_URL + CUSTOM_AI_API_KEY are set on the VPS, `provider`
- * will render as `custom` — that's the confirmation the self-hosted model is
- * doing the work and no traffic is leaving to ai.gateway.lovable.dev.
+ * Compact admin-only diagnostic. Sends a short prompt through the configured
+ * AI provider and shows a one-line result. Expand for full details.
  */
 export function RunAiTestCard({
-  description,
+  description: _description,
 }: {
   description?: string;
 } = {}) {
   const testFn = useServerFn(runAiTest);
   const [result, setResult] = useState<AiTestResult | null>(null);
+  const [open, setOpen] = useState(false);
 
   const run = useMutation({
     mutationFn: () => testFn(),
@@ -56,73 +30,58 @@ export function RunAiTestCard({
   });
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-base">
-          <Zap className="h-4 w-4" />
-          Run AI test
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <p className="text-sm text-muted-foreground">
-          {description ??
-            "Sends a short prompt through the currently-configured AI provider and reports which endpoint answered, the round-trip latency, and the HTTP status."}
-        </p>
-        <Button onClick={() => run.mutate()} disabled={run.isPending}>
-          <Zap className="h-4 w-4 mr-1" />
-          {run.isPending ? "Running…" : "Run AI test"}
+    <div className="rounded-md border bg-card px-3 py-2 text-sm">
+      <div className="flex items-center gap-2 flex-wrap">
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => run.mutate()}
+          disabled={run.isPending}
+          className="h-7 px-2"
+        >
+          <Zap className="h-3.5 w-3.5 mr-1" />
+          {run.isPending ? "Testing…" : "Run AI test"}
         </Button>
 
         {result && (
-          <div
-            className={`rounded-md border p-3 text-sm space-y-2 ${
-              result.ok
-                ? "border-emerald-300 bg-emerald-50 dark:bg-emerald-950/30"
-                : "border-red-300 bg-red-50 dark:bg-red-950/30"
-            }`}
-          >
-            <div className="flex items-center gap-2 font-semibold">
-              {result.ok ? (
-                <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-              ) : (
-                <AlertTriangle className="h-4 w-4 text-red-600" />
-              )}
-              {result.ok ? "AI test succeeded" : "AI test failed"}
-            </div>
-            <div>
-              <Row label="Provider" value={result.provider} />
-              <Row label="Endpoint" value={result.baseUrl} />
-              <Row label="Model" value={result.model} />
-              <Row
-                label="Latency"
-                value={`${result.latencyMs} ms`}
-                ok={result.latencyMs < 10_000 ? true : null}
-              />
-              <Row
-                label="HTTP status"
-                value={result.httpStatus || "(no response)"}
-                ok={result.ok}
-              />
-            </div>
-            {result.reply && (
-              <div className="pt-1">
-                <div className="text-xs text-muted-foreground mb-1">Reply</div>
-                <pre className="whitespace-pre-wrap break-words font-mono text-xs bg-background/60 rounded p-2">
-                  {result.reply}
-                </pre>
-              </div>
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            {result.ok ? (
+              <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+            ) : (
+              <AlertTriangle className="h-4 w-4 text-red-600 shrink-0" />
             )}
-            {result.error && (
-              <div className="pt-1">
-                <div className="text-xs text-muted-foreground mb-1">Error</div>
-                <pre className="whitespace-pre-wrap break-words font-mono text-xs bg-background/60 rounded p-2">
-                  {result.error}
-                </pre>
-              </div>
-            )}
+            <span className="font-mono text-xs truncate">
+              {result.provider} · {result.model} · {result.latencyMs}ms
+              {result.ok ? "" : ` · ${result.error ?? `HTTP ${result.httpStatus}`}`}
+            </span>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setOpen((o) => !o)}
+              className="h-6 px-1.5 ml-auto"
+            >
+              {open ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+            </Button>
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+
+      {result && open && (
+        <div className="mt-2 pt-2 border-t space-y-1 text-xs font-mono">
+          <div><span className="text-muted-foreground">Endpoint:</span> {result.baseUrl}</div>
+          <div><span className="text-muted-foreground">HTTP:</span> {result.httpStatus || "(no response)"}</div>
+          {result.reply && (
+            <pre className="whitespace-pre-wrap break-words bg-muted/50 rounded p-2 mt-1">
+              {result.reply}
+            </pre>
+          )}
+          {result.error && (
+            <pre className="whitespace-pre-wrap break-words bg-red-50 dark:bg-red-950/30 rounded p-2 mt-1">
+              {result.error}
+            </pre>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
