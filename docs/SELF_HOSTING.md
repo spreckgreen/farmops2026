@@ -386,8 +386,20 @@ Run behind a process manager (systemd, pm2) and an HTTPS proxy.
 
 Bostead stores everything in Supabase. Back up:
 
-- **Postgres**: `pg_dump` on a schedule, or Supabase's built-in daily
-  backups on paid plans.
+- **Managed Supabase (Option A)**: enable daily PITR backups in the dashboard,
+  or run `pg_dump` against the pooled connection string.
+- **Self-hosted Supabase (Option C)**: dump from inside the Postgres container:
+
+  ```bash
+  docker exec -t supabase-db \
+    pg_dump -U postgres -Fc postgres > "bostead-$(date +%F).dump"
+  # restore: docker exec -i supabase-db pg_restore -U postgres -d postgres -c < file.dump
+  ```
+
+  Automate with a cron entry and copy the dump off-box (rsync/borg/restic).
+  Also snapshot the Supabase `docker/volumes/` directory (Kong config,
+  storage assets) and your Supabase `.env` — losing `JWT_SECRET` invalidates
+  every issued token.
 - **`VAULT_ENCRYPTION_KEY`**: irreplaceable. Store in a password manager or
   hardware token, **not** alongside your DB dumps.
 - **Bind mounts** (`./data`, `./uploads`): rsync/borg/restic.
@@ -395,6 +407,7 @@ Bostead stores everything in Supabase. Back up:
 The in-app *Admin → Export snapshot* / *Admin → Restore backup* flows
 produce an application-level JSON snapshot that complements (not replaces)
 Postgres backups.
+
 
 ---
 
