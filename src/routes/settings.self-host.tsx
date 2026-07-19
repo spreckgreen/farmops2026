@@ -344,7 +344,10 @@ function ModelPickerCard() {
   });
 
   const s = state.data;
-  const effective = selected || s?.currentModel || "";
+  // Precedence: user typed in this session > saved current > self-hosted default.
+  // This guarantees the picker always lands on the self-hosted default when the
+  // operator hasn't explicitly chosen anything else.
+  const effective = selected || s?.currentModel || s?.defaultModel || "";
 
   return (
     <Card>
@@ -352,7 +355,12 @@ function ModelPickerCard() {
         <CardTitle className="flex items-center gap-2 text-base">
           <Sparkles className="h-4 w-4" />
           AI model picker
-          {s?.isOllama && (
+          {s?.isBundledDefault && (
+            <Badge variant="secondary" className="ml-2">
+              Self-hosted (default)
+            </Badge>
+          )}
+          {s?.isOllama && !s?.isBundledDefault && (
             <Badge variant="secondary" className="ml-2">
               Ollama
             </Badge>
@@ -363,8 +371,18 @@ function ModelPickerCard() {
         <div className="text-xs text-muted-foreground">
           Endpoint:{" "}
           <code>{s?.baseUrl ?? "(none configured)"}</code>
+          {s?.isBundledDefault && (
+            <span className="ml-1 text-emerald-700 dark:text-emerald-400">
+              (bundled)
+            </span>
+          )}
           {" · "}Current model:{" "}
           <code>{s?.currentModel ?? "(provider default)"}</code>
+          {s && !s.currentModel?.length && s.defaultModel && (
+            <span className="ml-1">
+              → defaults to <code>{s.defaultModel}</code>
+            </span>
+          )}
         </div>
 
         {state.isLoading && (
@@ -429,6 +447,14 @@ function ModelPickerCard() {
                 <RefreshCw
                   className={`h-4 w-4 ${state.isFetching ? "animate-spin" : ""}`}
                 />
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => setSelected(s.defaultModel)}
+                disabled={effective === s.defaultModel || save.isPending}
+                title={`Reset selection to self-hosted default (${s.defaultModel})`}
+              >
+                Self-hosted default
               </Button>
               <Button
                 onClick={() => effective && save.mutate(effective)}

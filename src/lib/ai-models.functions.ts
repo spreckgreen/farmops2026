@@ -14,6 +14,12 @@ import { z } from "zod";
 
 const MODEL_ENV_KEY = "CUSTOM_AI_MODEL";
 
+// Bundled self-hosted defaults — MUST match src/lib/ai-gateway.server.ts and
+// the `ollama` service in docker-compose.yml. Duplicated (not imported) so the
+// picker doesn't drag the AI-SDK provider factory into its module graph.
+const BUNDLED_OLLAMA_BASE_URL = "http://ollama:11434/v1";
+const BUNDLED_OLLAMA_MODEL = "llama3.2:3b";
+
 // Strip a trailing `/v1` (or `/v1/`) from an OpenAI-compatible base URL to
 // reach the provider's native root (needed for Ollama's /api/tags path).
 function nativeRoot(baseUrl: string): string {
@@ -29,12 +35,16 @@ export interface AiModelInfo {
 }
 
 export interface AiModelPickerState {
-  /** Provider base URL currently in effect, or null if unconfigured. */
+  /** Provider base URL currently in effect. Falls back to the bundled self-hosted Ollama endpoint when nothing is configured. */
   baseUrl: string | null;
-  /** Effective model id (vault override wins over env). */
+  /** Effective model id (vault override wins over env, then bundled default). */
   currentModel: string | null;
   /** True when the provider looks like Ollama (base URL contains :11434 or /ollama). */
   isOllama: boolean;
+  /** True when we fell back to the bundled self-hosted Ollama defaults (no CUSTOM_AI_BASE_URL set). */
+  isBundledDefault: boolean;
+  /** The self-hosted default model the UI should pre-select if nothing else is chosen. */
+  defaultModel: string;
   /** Discovered models. Empty array = the provider is reachable but returned none. */
   models: AiModelInfo[];
   /** Non-fatal reason models could not be listed (network error, non-JSON, etc.). */
@@ -70,16 +80,22 @@ async function requireAdmin(supabase: {
 export const getAiModelPickerState = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async (): Promise<AiModelPickerState> => {
-    const baseUrl = process.env.CUSTOM_AI_BASE_URL || null;
+    // Always default to the bundled self-hosted Ollama endpoint when the
+    // operator hasn't set CUSTOM_AI_BASE_URL. This makes "self-hosted AI"
+    // the out-of-the-box behavior — the picker still shows real models and
+    // the effective model still resolves to a working default.
+    const configuredBase = process.env.CUSTOM_AI_BASE_URL || null;
+    const isBundledDefault = !configuredBase;
+    const baseUrl = configuredBase ?? BUNDLED_OLLAMA_BASE_URL;
     const { getServerEnv } = await import("./server-env.server");
-    const currentModel = (await getServerEnv(MODEL_ENV_KEY)) || null;
-    const isOllama = Boolean(
-      baseUrl && (/:11434(\/|$)/.test(baseUrl) || /\/ollama(\/|$)/i.test(baseUrl)),
-    );
-
-    if (!baseUrl) {
-      return { baseUrl: null, currentModel, isOllama: false, models: [], error: null };
-    }
+    const savedModel = (await getServerEnv(MODEL_ENV_KEY)) || null;
+    const currentModel = savedModel ?? (isBundledDefault ? BUNDLED_OLLAMA_MODEL : null);
+    const isOllama = /:11434(\/|$)/.test(baseUrl) || /\/ollama(\/|$)/i.test(baseUrl);
+    const common = {
+      currentModel,
+      isBundledDefault,
+      defaultModel: BUNDLED_OLLAMA_MODEL,
+    } as const;
 
     // Try Ollama's native /api/tags first (returns richer metadata). Fall
     // back to the OpenAI-compatible /models list on any failure.
@@ -100,7 +116,7 @@ export const getAiModelPickerState = createServerFn({ method: "GET" })
             detail: m.details?.quantization_level ?? null,
           }))
           .sort((a, b) => a.id.localeCompare(b.id));
-        return { baseUrl, currentModel, isOllama: true, models, error: null };
+        return { ...common, baseUrl, isOllama: true, models, error: null };
       }
     } catch {
       /* fall through to OpenAI-style */
@@ -117,8 +133,8 @@ export const getAiModelPickerState = createServerFn({ method: "GET" })
       });
       if (!res.ok) {
         return {
+          ...common,
           baseUrl,
-          currentModel,
           isOllama,
           models: [],
           error: `Provider returned HTTP ${res.status} for /models`,
@@ -129,11 +145,11 @@ export const getAiModelPickerState = createServerFn({ method: "GET" })
         .filter((m) => typeof m.id === "string" && m.id)
         .map((m) => ({ id: m.id as string, size: null, detail: null }))
         .sort((a, b) => a.id.localeCompare(b.id));
-      return { baseUrl, currentModel, isOllama, models, error: null };
+      return { ...common, baseUrl, isOllama, models, error: null };
     } catch (e) {
       return {
+        ...common,
         baseUrl,
-        currentModel,
         isOllama,
         models: [],
         error: (e as Error).message,
