@@ -171,6 +171,13 @@ if [ -n "$env_file" ]; then
   load_env_file "$env_file"
 fi
 
+# Finalize LOVABLE_API_KEY requirement now that SELF_HOST_MODE is loaded.
+if [ "${SELF_HOST_MODE:-}" = "true" ]; then
+  OPTIONAL+=(LOVABLE_API_KEY)
+else
+  REQUIRED+=(LOVABLE_API_KEY)
+fi
+
 is_placeholder() {
   local v="$1"
   case "$v" in
