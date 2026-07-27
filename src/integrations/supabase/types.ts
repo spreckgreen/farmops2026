@@ -1456,6 +1456,7 @@ export type Database = {
           created_by: string
           env_key: string | null
           id: string
+          key_version: number
           notes_ciphertext: string | null
           notes_iv: string | null
           notes_tag: string | null
@@ -1472,6 +1473,7 @@ export type Database = {
           created_by: string
           env_key?: string | null
           id?: string
+          key_version?: number
           notes_ciphertext?: string | null
           notes_iv?: string | null
           notes_tag?: string | null
@@ -1488,6 +1490,7 @@ export type Database = {
           created_by?: string
           env_key?: string | null
           id?: string
+          key_version?: number
           notes_ciphertext?: string | null
           notes_iv?: string | null
           notes_tag?: string | null
