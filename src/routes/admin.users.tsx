@@ -64,11 +64,27 @@ const ALL_ROLES: AppRole[] = ["viewer", "editor", "admin"];
 function UsersPage() {
   const profile = useCurrentProfile();
   const fetchUsers = useServerFn(listUsers);
+  const qc = useQueryClient();
   const usersQ = useQuery<ManagedUser[]>({
     queryKey: ["admin", "users"],
     queryFn: () => fetchUsers(),
     enabled: profile.data?.isAdmin === true,
   });
+
+  const confirmAllFn = useServerFn(confirmAllUnconfirmedUsers);
+  const confirmAllMut = useMutation({
+    mutationFn: () => confirmAllFn(),
+    onSuccess: (r) => {
+      const n = r.confirmed.length;
+      const f = r.failed.length;
+      if (n === 0 && f === 0) toast.info("No unconfirmed users.");
+      else toast.success(`Confirmed ${n} user${n === 1 ? "" : "s"}${f ? ` — ${f} failed` : ""}`);
+      qc.invalidateQueries({ queryKey: ["admin", "users"] });
+    },
+    onError: (e) => toast.error((e as Error).message),
+  });
+
+  const unconfirmedCount = (usersQ.data ?? []).filter((u) => !u.email_confirmed_at).length;
 
   if (profile.isLoading) {
     return (
