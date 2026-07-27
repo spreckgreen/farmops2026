@@ -97,6 +97,9 @@ ENV BUILD_HEARTBEAT_SECS=5
 # via a BuildKit cache mount, cutting bundle time substantially on rebuilds.
 RUN --mount=type=cache,target=/app/node_modules/.vite,sharing=locked \
     --mount=type=cache,target=/root/.cache,sharing=locked \
+    test -n "$VITE_SUPABASE_URL" || { echo "ERROR: VITE_SUPABASE_URL build arg is empty" >&2; exit 1; }; \
+    test -n "$VITE_SUPABASE_PUBLISHABLE_KEY" || { echo "ERROR: VITE_SUPABASE_PUBLISHABLE_KEY build arg is empty" >&2; exit 1; }; \
+    echo "=== [builder] Client backend: $VITE_SUPABASE_URL" && \
     echo "=============================================" && \
     echo "=== [builder] STAGE 2/3: Vite + Nitro build ===" && \
     echo "=== [builder] Command: install-log.sh build bun run build:ci" && \
@@ -108,7 +111,11 @@ RUN --mount=type=cache,target=/app/node_modules/.vite,sharing=locked \
     echo "=== [builder] Stall guard: BUILD_STALL_SECS=600, hard cap BUILD_MAX_SECS=2700" && \
     echo "=== [builder] Started at $(date +%H:%M:%S)" && \
     echo "=============================================" && \
-    install-log.sh build bun run build:ci
+    install-log.sh build bun run build:ci && \
+    grep -RFl -- "$VITE_SUPABASE_URL" /app/dist/client >/dev/null || { \
+      echo "ERROR: requested VITE_SUPABASE_URL was not embedded in the client bundle" >&2; \
+      exit 1; \
+    }
 
 
 

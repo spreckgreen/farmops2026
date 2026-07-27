@@ -3,9 +3,11 @@ services:
     build:
       context: .
       args:
-        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
-        VITE_SUPABASE_PUBLISHABLE_KEY: ${VITE_SUPABASE_PUBLISHABLE_KEY}
-        VITE_SUPABASE_PROJECT_ID: ${VITE_SUPABASE_PROJECT_ID}
+        # These are build-time values, so service-level env_file does not
+        # populate them. Fail instead of silently baking stale/default values.
+        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:?Set VITE_SUPABASE_URL in the Compose environment}
+        VITE_SUPABASE_PUBLISHABLE_KEY: ${VITE_SUPABASE_PUBLISHABLE_KEY:?Set VITE_SUPABASE_PUBLISHABLE_KEY in the Compose environment}
+        VITE_SUPABASE_PROJECT_ID: ${VITE_SUPABASE_PROJECT_ID:?Set VITE_SUPABASE_PROJECT_ID in the Compose environment}
         # UID/GID default to 1001; override below or via .env to match host user
         UID: ${UID:-1001}
         GID: ${GID:-1001}
