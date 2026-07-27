@@ -32,7 +32,34 @@ function VaultKeyMissingBanner() {
     staleTime: 30_000,
     retry: false,
   });
-  if (!q.data || q.data.configured) return null;
+  if (!q.data) return null;
+
+  // Rotation in progress: OLD key still loaded — nudge to finish.
+  if (q.data.configured && q.data.oldKeyPresent) {
+    return (
+      <div className="rounded-md border-2 border-amber-500 bg-amber-500/10 p-4">
+        <div className="flex items-start gap-2">
+          <AlertTriangle className="text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" size={20} />
+          <div className="flex-1 text-sm">
+            <div className="font-semibold text-amber-800 dark:text-amber-200">
+              Vault key rotation in progress
+            </div>
+            <p className="mt-1">
+              Both <code>VAULT_ENCRYPTION_KEY</code> (fingerprint <code>{q.data.primaryFingerprint}</code>) and{" "}
+              <code>VAULT_ENCRYPTION_KEY_OLD</code> (fingerprint <code>{q.data.oldFingerprint}</code>) are
+              loaded. Finish the rotation and then remove the old key.
+            </p>
+            <a href="/admin/vault-rotation" className="mt-2 inline-block underline font-medium">
+              Open rotation console →
+            </a>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (q.data.configured) return null;
+
   return (
     <div className="rounded-md border-2 border-destructive bg-destructive/10 p-4 space-y-3">
       <div className="flex items-start gap-2">
@@ -66,7 +93,12 @@ sudo chown "$USER": .env.local && sudo chmod 600 .env.local`}</pre>
           </li>
           <li>
             Back the key up in a password manager <strong>immediately</strong>. If it is
-            lost, every existing vault entry becomes permanently unrecoverable.
+            lost, every existing vault entry becomes permanently unrecoverable. To rotate
+            the key later, follow the{" "}
+            <a href="/admin/vault-rotation" className="underline font-medium">
+              vault rotation workflow
+            </a>
+            .
           </li>
         </ol>
         <p className="text-xs text-muted-foreground pt-1">

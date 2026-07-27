@@ -10,6 +10,7 @@ import {
   Trash2,
   Server,
   ShieldCheck,
+  KeyRound,
 } from "lucide-react";
 
 export const Route = createFileRoute("/admin/")({
@@ -60,6 +61,9 @@ function AdminIndexPage() {
             </Link>
             <Link to="/admin/reset" className="flex items-center gap-2 rounded-md border p-3 hover:bg-accent">
               <Trash2 className="h-4 w-4" /> Reset data
+            </Link>
+            <Link to="/admin/vault-rotation" className="flex items-center gap-2 rounded-md border p-3 hover:bg-accent">
+              <KeyRound className="h-4 w-4" /> Rotate vault key
             </Link>
             <Link to="/settings/self-host" className="flex items-center gap-2 rounded-md border p-3 hover:bg-accent sm:col-span-2">
               <Server className="h-4 w-4" /> Self-host settings
