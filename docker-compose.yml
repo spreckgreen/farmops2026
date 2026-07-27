@@ -34,11 +34,10 @@ services:
       SUPABASE_PUBLISHABLE_KEY: ${SUPABASE_PUBLISHABLE_KEY:-}
       SUPABASE_PROJECT_ID: ${SUPABASE_PROJECT_ID:-}
 
-      # Bootstrap keys must be injected directly: the app needs the primary
-      # key before it can decrypt any vault-backed environment values. Keep
-      # the old key set only while an admin rotation is in progress.
-      VAULT_ENCRYPTION_KEY: ${VAULT_ENCRYPTION_KEY:-}
-      VAULT_ENCRYPTION_KEY_OLD: ${VAULT_ENCRYPTION_KEY_OLD:-}
+      # Vault bootstrap keys are inherited from the env_file entries above.
+      # Do not repeat them here with ${...} interpolation: Compose resolves
+      # that before env_file loading and an unset host value would overwrite
+      # the valid .env.local value with an empty string.
 
       # --- AI routing ---------------------------------------------------------
       # By default, self-hosted installs use the bundled Ollama service below
