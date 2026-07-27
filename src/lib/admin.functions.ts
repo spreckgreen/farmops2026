@@ -128,17 +128,39 @@ export const listUsers = createServerFn({ method: "GET" })
       rolesByUser.set(r.user_id, arr);
     }
 
-    return (profiles.data ?? []).map((p) => ({
-      id: p.id,
-      email: p.email,
-      display_name: p.display_name,
-      status: p.status as ApprovalStatus,
-      reviewed_by: p.reviewed_by,
-      reviewed_at: p.reviewed_at,
-      created_at: p.created_at,
-      roles: rolesByUser.get(p.id) ?? [],
-    }));
+    // Pull auth confirmation + last-sign-in via admin API so the UI can flag
+    // unconfirmed accounts and offer the "Confirm email" action.
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const authByUser = new Map<string, { confirmed: string | null; lastSignIn: string | null }>();
+    try {
+      const { data } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 200 });
+      for (const u of data?.users ?? []) {
+        authByUser.set(u.id, {
+          confirmed: u.email_confirmed_at ?? null,
+          lastSignIn: u.last_sign_in_at ?? null,
+        });
+      }
+    } catch {
+      // Non-fatal — fall back to unknown confirmation state.
+    }
+
+    return (profiles.data ?? []).map((p) => {
+      const auth = authByUser.get(p.id);
+      return {
+        id: p.id,
+        email: p.email,
+        display_name: p.display_name,
+        status: p.status as ApprovalStatus,
+        reviewed_by: p.reviewed_by,
+        reviewed_at: p.reviewed_at,
+        created_at: p.created_at,
+        roles: rolesByUser.get(p.id) ?? [],
+        email_confirmed_at: auth?.confirmed ?? null,
+        last_sign_in_at: auth?.lastSignIn ?? null,
+      };
+    });
   });
+
 
 export const setApprovalStatus = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
