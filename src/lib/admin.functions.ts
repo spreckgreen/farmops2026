@@ -35,7 +35,10 @@ export type ManagedUser = {
   reviewed_at: string | null;
   created_at: string;
   roles: AppRole[];
+  email_confirmed_at: string | null;
+  last_sign_in_at: string | null;
 };
+
 
 // ---- Helpers -------------------------------------------------------------
 
