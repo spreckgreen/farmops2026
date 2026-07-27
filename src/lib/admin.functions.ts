@@ -245,6 +245,57 @@ export const setUserRoles = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+// ---- Confirm a user's email (bypass the email-confirmation link) --------
+
+export const confirmUserEmail = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { userId: string }) => {
+    if (!d?.userId) throw new Error("userId required");
+    return d;
+  })
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await requireAdmin(supabase, userId);
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: updated, error } = await supabaseAdmin.auth.admin.updateUserById(
+      data.userId,
+      { email_confirm: true },
+    );
+    if (error) throw new Error(error.message);
+    return { ok: true, email_confirmed_at: updated.user.email_confirmed_at ?? null };
+  });
+
+// ---- Set a temporary password (admin-only). The user should change it
+// immediately after signing in.
+
+export const setUserPassword = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { userId: string; password: string }) => {
+    if (!d?.userId) throw new Error("userId required");
+    if (typeof d.password !== "string" || d.password.length < 8) {
+      throw new Error("Password must be at least 8 characters.");
+    }
+    if (d.password.length > 128) throw new Error("Password too long.");
+    return d;
+  })
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await requireAdmin(supabase, userId);
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    // Also mark the email confirmed — an unconfirmed user still can't sign in
+    // even with a valid password, and this is the common "let them in" case.
+    const { error } = await supabaseAdmin.auth.admin.updateUserById(data.userId, {
+      password: data.password,
+      email_confirm: true,
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+
+
 // ---- Reset application data (self-host fresh start) ---------------------
 //
 // Wipes every row of operational app data so a freshly self-hosted instance
