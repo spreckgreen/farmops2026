@@ -13,12 +13,22 @@ import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { ShieldCheck, ShieldX, ShieldQuestion, RefreshCw } from "lucide-react";
+import { ShieldCheck, ShieldX, ShieldQuestion, RefreshCw, MailCheck, KeyRound } from "lucide-react";
 
 import { AppLayout } from "@/components/app-layout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Table,
   TableBody,
@@ -30,13 +40,16 @@ import {
 import { CsvToolbar } from "@/components/csv-toolbar";
 import { useCurrentProfile } from "@/hooks/use-current-profile";
 import {
+  confirmUserEmail,
   listUsers,
   setApprovalStatus,
+  setUserPassword,
   setUserRoles,
   type AppRole,
   type ApprovalStatus,
   type ManagedUser,
 } from "@/lib/admin.functions";
+
 
 export const Route = createFileRoute("/admin/users")({
   ssr: false,
