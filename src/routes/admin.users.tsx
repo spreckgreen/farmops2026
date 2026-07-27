@@ -13,7 +13,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { ShieldCheck, ShieldX, ShieldQuestion, RefreshCw, MailCheck, KeyRound } from "lucide-react";
+import { ShieldCheck, ShieldX, ShieldQuestion, RefreshCw, MailCheck, KeyRound, MailOpen } from "lucide-react";
 
 import { AppLayout } from "@/components/app-layout";
 import { Button } from "@/components/ui/button";
@@ -40,6 +40,7 @@ import {
 import { CsvToolbar } from "@/components/csv-toolbar";
 import { useCurrentProfile } from "@/hooks/use-current-profile";
 import {
+  confirmAllUnconfirmedUsers,
   confirmUserEmail,
   listUsers,
   setApprovalStatus,
@@ -63,11 +64,27 @@ const ALL_ROLES: AppRole[] = ["viewer", "editor", "admin"];
 function UsersPage() {
   const profile = useCurrentProfile();
   const fetchUsers = useServerFn(listUsers);
+  const qc = useQueryClient();
   const usersQ = useQuery<ManagedUser[]>({
     queryKey: ["admin", "users"],
     queryFn: () => fetchUsers(),
     enabled: profile.data?.isAdmin === true,
   });
+
+  const confirmAllFn = useServerFn(confirmAllUnconfirmedUsers);
+  const confirmAllMut = useMutation({
+    mutationFn: () => confirmAllFn(),
+    onSuccess: (r) => {
+      const n = r.confirmed.length;
+      const f = r.failed.length;
+      if (n === 0 && f === 0) toast.info("No unconfirmed users.");
+      else toast.success(`Confirmed ${n} user${n === 1 ? "" : "s"}${f ? ` — ${f} failed` : ""}`);
+      qc.invalidateQueries({ queryKey: ["admin", "users"] });
+    },
+    onError: (e) => toast.error((e as Error).message),
+  });
+
+  const unconfirmedCount = (usersQ.data ?? []).filter((u) => !u.email_confirmed_at).length;
 
   if (profile.isLoading) {
     return (
@@ -123,6 +140,16 @@ function UsersPage() {
                 reviewed_at: u.reviewed_at ?? "",
               }))}
             />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => confirmAllMut.mutate()}
+              disabled={confirmAllMut.isPending || unconfirmedCount === 0}
+              title="Mark every unconfirmed user's email as confirmed so they can sign in without the email link."
+            >
+              <MailOpen className={`h-4 w-4 mr-2 ${confirmAllMut.isPending ? "animate-pulse" : ""}`} />
+              Confirm all unconfirmed{unconfirmedCount > 0 ? ` (${unconfirmedCount})` : ""}
+            </Button>
             <Button
               variant="outline"
               size="sm"

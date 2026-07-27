@@ -266,6 +266,42 @@ export const confirmUserEmail = createServerFn({ method: "POST" })
     return { ok: true, email_confirmed_at: updated.user.email_confirmed_at ?? null };
   });
 
+// ---- Bulk-confirm every unconfirmed user (one-click) --------------------
+
+export type BulkConfirmResult = {
+  ok: true;
+  confirmed: Array<{ id: string; email: string | null }>;
+  failed: Array<{ id: string; email: string | null; error: string }>;
+};
+
+export const confirmAllUnconfirmedUsers = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<BulkConfirmResult> => {
+    const { supabase, userId } = context;
+    await requireAdmin(supabase, userId);
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const confirmed: BulkConfirmResult["confirmed"] = [];
+    const failed: BulkConfirmResult["failed"] = [];
+
+    // Page through auth.users; confirm any without email_confirmed_at.
+    for (let page = 1; page <= 20; page++) {
+      const { data, error } = await supabaseAdmin.auth.admin.listUsers({ page, perPage: 200 });
+      if (error) throw new Error(error.message);
+      const users = data?.users ?? [];
+      for (const u of users) {
+        if (u.email_confirmed_at) continue;
+        const upd = await supabaseAdmin.auth.admin.updateUserById(u.id, { email_confirm: true });
+        if (upd.error) failed.push({ id: u.id, email: u.email ?? null, error: upd.error.message });
+        else confirmed.push({ id: u.id, email: u.email ?? null });
+      }
+      if (users.length < 200) break;
+    }
+
+    return { ok: true, confirmed, failed };
+  });
+
 // ---- Set a temporary password (admin-only). The user should change it
 // immediately after signing in.
 
