@@ -14,7 +14,7 @@ export const Route = createFileRoute("/auth")({
 
 function AuthPage() {
   const navigate = useNavigate();
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [mode, setMode] = useState<"signin" | "signup" | "forgot">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -37,6 +37,13 @@ function AuthPage() {
         });
         if (error) throw error;
         toast.success("Check your email to confirm — or sign in if confirmation is disabled.");
+      } else if (mode === "forgot") {
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${window.location.origin}/reset-password`,
+        });
+        if (error) throw error;
+        toast.success("If that email exists, a reset link is on its way.");
+        setMode("signin");
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
@@ -48,6 +55,9 @@ function AuthPage() {
       setLoading(false);
     }
   };
+
+  const title =
+    mode === "signin" ? "Sign in" : mode === "signup" ? "Create account" : "Send reset link";
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
@@ -63,22 +73,46 @@ function AuthPage() {
             <Label htmlFor="email">Email</Label>
             <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} />
-          </div>
+          {mode !== "forgot" && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password">Password</Label>
+                {mode === "signin" && (
+                  <button
+                    type="button"
+                    className="text-xs text-muted-foreground hover:text-foreground"
+                    onClick={() => setMode("forgot")}
+                  >
+                    Forgot?
+                  </button>
+                )}
+              </div>
+              <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} />
+            </div>
+          )}
           <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? "..." : mode === "signin" ? "Sign in" : "Create account"}
+            {loading ? "..." : title}
           </Button>
-          <button
-            type="button"
-            className="text-xs text-muted-foreground hover:text-foreground w-full text-center"
-            onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
-          >
-            {mode === "signin" ? "No account? Sign up" : "Have an account? Sign in"}
-          </button>
+          {mode === "forgot" ? (
+            <button
+              type="button"
+              className="text-xs text-muted-foreground hover:text-foreground w-full text-center"
+              onClick={() => setMode("signin")}
+            >
+              Back to sign in
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="text-xs text-muted-foreground hover:text-foreground w-full text-center"
+              onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
+            >
+              {mode === "signin" ? "No account? Sign up" : "Have an account? Sign in"}
+            </button>
+          )}
         </form>
       </div>
     </div>
   );
 }
+
