@@ -6,10 +6,12 @@
 # `caddy_data` named volume so restarts don't re-issue.
 #
 # Prereqs before `docker compose up -d`:
-#   1. DNS: an A/AAAA record for {$ACME_DOMAIN} pointing at this host's public IP.
+#   1. DNS: A/AAAA records for {$ACME_DOMAIN} AND {$SUPABASE_DOMAIN} pointing
+#      at this host's public IP.
 #   2. Firewall: ports 80 and 443 reachable from the public internet
 #      (Let's Encrypt must hit :80 to validate).
 #   3. .env: ACME_DOMAIN=farmops.bostead.life  ACME_EMAIL=you@example.com
+#           SUPABASE_DOMAIN=supabase.farmops.bostead.life
 
 {
 	email {$ACME_EMAIL}
@@ -17,7 +19,18 @@
 	# acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
 }
 
+# --- App -----------------------------------------------------------------
 {$ACME_DOMAIN} {
 	encode zstd gzip
 	reverse_proxy app:3000
+}
+
+# --- Self-hosted Supabase (Kong on host :8000) ---------------------------
+# Kong is published by the separate supabase-project compose stack on
+# 0.0.0.0:8000 (plain HTTP). We terminate TLS here with a real Let's Encrypt
+# cert and proxy over the host gateway. Requires `extra_hosts` on the caddy
+# service so `host.docker.internal` resolves inside the container.
+{$SUPABASE_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy host.docker.internal:8000
 }
