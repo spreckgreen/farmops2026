@@ -40,6 +40,7 @@ import {
 import { CsvToolbar } from "@/components/csv-toolbar";
 import { useCurrentProfile } from "@/hooks/use-current-profile";
 import {
+  confirmAllUnconfirmedUsers,
   confirmUserEmail,
   listUsers,
   setApprovalStatus,
