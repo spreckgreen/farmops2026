@@ -171,6 +171,17 @@ autoheal_env_file() {
 }
 autoheal_env_file "$ENV_FILE" || exit 1
 
+# Compose's service-level `env_file` is runtime-only and does not populate
+# Docker build args. Export the selected file explicitly so shell values win
+# over a stale project .env during interpolation of services.app.build.args.
+if [ -n "$ENV_FILE" ]; then
+  set -a
+  # shellcheck disable=SC1090
+  . "./$ENV_FILE"
+  set +a
+  log "Exported $ENV_FILE for Docker build-time VITE_* arguments"
+fi
+
 
 CE="$(dirname "$0")/check-env.sh"
 if [ -x "$CE" ] && [ -n "$ENV_FILE" ]; then
