@@ -15,6 +15,15 @@ services:
     #   - "3000:3000"
     expose:
       - "3000"
+    # Load both env files at the service level so `docker compose up` picks up
+    # .env.local even when invoked directly (without COMPOSE_ENV_FILES). Later
+    # files win, so .env.local overrides .env. `required: false` prevents a
+    # hard error when one file is absent on a fresh checkout.
+    env_file:
+      - path: .env
+        required: false
+      - path: .env.local
+        required: false
     environment:
       NODE_ENV: production
       HOST: 0.0.0.0
