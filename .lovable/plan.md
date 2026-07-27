@@ -1,67 +1,57 @@
-# Route AI to a custom endpoint
+# Safe VAULT_ENCRYPTION_KEY rotation
 
-Allow AI summaries (`src/lib/summary.functions.ts`) and food planning (`src/lib/food.functions.ts`) to call any OpenAI-compatible API endpoint instead of Lovable AI Gateway, controlled by server-side secrets. Falls back to Lovable AI when the overrides are not set, so existing behavior is unchanged.
+Rotate the vault encryption key without losing data by re-encrypting every entry, using a temporary secondary key so decrypts keep working while the roll is in progress.
 
-## Configuration (server-only secrets)
+## How it works
 
-Add three optional secrets via `add_secret`:
+The vault gains a second, optional env var — `VAULT_ENCRYPTION_KEY_OLD` — used only as a fallback when decrypting. `seal()` always uses the primary `VAULT_ENCRYPTION_KEY`; `open()` tries the primary first, then falls back to the old. This lets you roll the primary key at any time without a maintenance window: entries encrypted with the old key remain readable until they're rewritten.
 
-- `CUSTOM_AI_BASE_URL` — e.g. `https://api.openai.com/v1`, `https://openrouter.ai/api/v1`, or a self-hosted `http://host/v1`. When set, this endpoint is used instead of `https://ai.gateway.lovable.dev/v1`.
-- `CUSTOM_AI_API_KEY` — sent as `Authorization: Bearer <key>` (standard OpenAI-compatible auth).
-- `CUSTOM_AI_MODEL` *(optional)* — overrides the model id passed to the provider (some endpoints don't recognize `google/gemini-3-flash-preview`). If unset, the existing model ids are used unchanged.
+Concrete rollover, admin-driven:
 
-Nothing is exposed to the browser; all reads happen inside the server function handlers.
-
-## Code changes
-
-**`src/lib/ai-gateway.server.ts`** — extend the helper:
-
-```ts
-export function createAiProvider() {
-  const customBase = process.env.CUSTOM_AI_BASE_URL;
-  const customKey = process.env.CUSTOM_AI_API_KEY;
-  if (customBase && customKey) {
-    return {
-      provider: createOpenAICompatible({
-        name: "custom-ai",
-        baseURL: customBase,
-        headers: { Authorization: `Bearer ${customKey}` },
-      }),
-      modelOverride: process.env.CUSTOM_AI_MODEL,
-    };
-  }
-  const apiKey = process.env.LOVABLE_API_KEY;
-  if (!apiKey) throw new Error("Missing AI credentials (set CUSTOM_AI_BASE_URL + CUSTOM_AI_API_KEY, or LOVABLE_API_KEY)");
-  return {
-    provider: createOpenAICompatible({
-      name: "lovable-ai-gateway",
-      baseURL: "https://ai.gateway.lovable.dev/v1",
-      headers: { "Lovable-API-Key": apiKey },
-    }),
-    modelOverride: undefined,
-  };
-}
+```text
+1. Generate new key          openssl rand -hex 32   → NEW
+2. .env.local:
+     VAULT_ENCRYPTION_KEY=<NEW>
+     VAULT_ENCRYPTION_KEY_OLD=<CURRENT>
+   Restart the stack.
+3. In /admin, click "Rotate vault key → Re-encrypt now".
+   Server decrypts every row (trying NEW then OLD), re-seals with NEW,
+   writes ciphertext/iv/tag back. Progress + errors reported.
+4. When the run reports 0 rows remaining on OLD, remove
+   VAULT_ENCRYPTION_KEY_OLD from .env.local and restart.
 ```
 
-Keep `createLovableAiGatewayProvider` exported for backwards compatibility.
+Rows carry a `key_version` column so the rotation function can target
+"anything not on the current version" and resume safely if interrupted.
+Rotation is idempotent — re-running does nothing when everything is on
+the current version.
 
-**`src/lib/summary.functions.ts`** (line ~302-310) — replace the manual key read + `createLovableAiGatewayProvider` block with:
+## Files touched
 
-```ts
-const { createAiProvider } = await import("./ai-gateway.server");
-const { provider, modelOverride } = createAiProvider();
-// ...
-model: provider(modelOverride ?? "google/gemini-3-flash-preview"),
-```
+- `src/lib/vault-crypto.server.ts` — resolve *primary* and *fallback* keys; `open()` retries with fallback on `OperationError`; export new `sealWithKey`/`openWithKey` helpers and a `getKeyFingerprint()` used by the UI/status.
+- `supabase/migrations/…_vault_key_version.sql` — add `key_version smallint not null default 1` to `vault_secrets` (+ index on `key_version`). Backfill = 1.
+- `src/lib/vault-rotation.functions.ts` (new) — admin-only server functions:
+  - `getRotationStatus()` → `{ primaryFingerprint, oldFingerprint | null, currentVersion, rowsTotal, rowsOnCurrent, rowsOnOther }`
+  - `rotateVaultKey({ batchSize })` → streams progress: reads a batch where `key_version <> currentVersion`, decrypts (primary then fallback), re-seals with primary, updates row + bumps `key_version`. Returns `{ processed, failed, remaining, errors: [{id, message}] }`. Advisory-locked (`pg_try_advisory_lock`) so two admins can't run it concurrently.
+- `src/lib/vault-status.functions.ts` — extend to include `oldKeyPresent: boolean` + fingerprints so the banner can nudge "remove OLD now".
+- `src/routes/admin.vault-rotation.tsx` (new) — admin page with:
+  - Current state (primary fingerprint, OLD present y/n, rows-per-version bar).
+  - "Re-encrypt now" button that calls `rotateVaultKey` in a loop until `remaining === 0`, showing progress + per-row error list.
+  - Explicit step-by-step instructions with the exact `.env.local` edits and `refresh.sh` command for before/after.
+- `src/components/vault.tsx` — extend the existing banner: when `oldKeyPresent && rowsOnOther > 0`, show an amber "rotation in progress — finish it" notice linking to the admin page; when `oldKeyPresent && rowsOnOther === 0`, show "safe to remove VAULT_ENCRYPTION_KEY_OLD".
+- `README.md` + `docs/SELF_HOSTING.md` + `.env.example` — document `VAULT_ENCRYPTION_KEY_OLD` and the four-step rollover.
 
-**`src/lib/food.functions.ts`** (line ~1164-1204) — same swap, default model stays `google/gemini-2.5-flash`.
+## Safety properties
 
-## Docs
-
-Update `README.md` to document the three optional env vars and note that when unset the app continues to use Lovable AI Gateway.
+- No data loss window: decrypt path always accepts old *and* new keys during rollover.
+- Interruptible: rotation writes row-by-row and tracks `key_version`; a crash/reload resumes exactly where it stopped.
+- Idempotent: rerunning after completion is a no-op.
+- Concurrency-safe: Postgres advisory lock prevents overlapping runs.
+- Admin-only: `rotateVaultKey`/status funcs check `has_role(auth.uid(),'admin')`.
+- Never logs plaintext or key material; only 8-char SHA-256 fingerprints appear in the UI.
+- Missing OLD key with un-rotated rows fails loudly with a clear message ("row <id> encrypted with a key not currently loaded — set VAULT_ENCRYPTION_KEY_OLD to the previous key and retry") instead of corrupting rows.
 
 ## Out of scope
 
-- No UI settings screen — this is a deploy-time configuration, matching how `LOVABLE_API_KEY` is handled today.
-- No per-user routing; it's a global override.
-- Rachio webhook URL and other Lovable-hosted pieces are unrelated and untouched.
+- Automatic env-var editing. The server can't safely rewrite `.env.local` on the host; the admin does that manually between steps.
+- Key escrow / per-user keys. Rotation targets the single server-wide key.
