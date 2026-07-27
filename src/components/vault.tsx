@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Eye, EyeOff, Copy, Plus, Trash2, Pencil, Lock, Users } from "lucide-react";
+import { Eye, EyeOff, Copy, Plus, Trash2, Pencil, Lock, Users, AlertTriangle } from "lucide-react";
 
 import {
   listVaultItems,
@@ -13,6 +13,7 @@ import {
   type VaultItem,
   type VaultScope,
 } from "@/lib/vault.functions";
+import { getVaultKeyStatus } from "@/lib/vault-status.functions";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,17 +24,74 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
 
+function VaultKeyMissingBanner() {
+  const status = useServerFn(getVaultKeyStatus);
+  const q = useQuery({
+    queryKey: ["vault-key-status"],
+    queryFn: () => status(),
+    staleTime: 30_000,
+    retry: false,
+  });
+  if (!q.data || q.data.configured) return null;
+  return (
+    <div className="rounded-md border-2 border-destructive bg-destructive/10 p-4 space-y-3">
+      <div className="flex items-start gap-2">
+        <AlertTriangle className="text-destructive flex-shrink-0 mt-0.5" size={20} />
+        <div className="flex-1">
+          <div className="font-semibold text-destructive">
+            VAULT_ENCRYPTION_KEY is not configured
+          </div>
+          <p className="text-sm mt-1">
+            The server has no encryption key, so the vault cannot encrypt new secrets
+            or decrypt existing ones. Every reveal, create, and update will fail until
+            this is fixed.
+          </p>
+        </div>
+      </div>
+      <div className="text-sm space-y-2 pl-7">
+        <div className="font-medium">Fix (self-hosted):</div>
+        <ol className="list-decimal ml-5 space-y-1.5">
+          <li>
+            Generate a 64-hex-char key on the server:
+            <pre className="mt-1 bg-background/60 border rounded px-2 py-1 text-xs font-mono overflow-x-auto">openssl rand -hex 32</pre>
+          </li>
+          <li>
+            Append it to <code className="text-xs bg-background/60 px-1 rounded">.env.local</code>:
+            <pre className="mt-1 bg-background/60 border rounded px-2 py-1 text-xs font-mono overflow-x-auto">{`echo "VAULT_ENCRYPTION_KEY=<paste-64-hex-chars>" | sudo tee -a .env.local
+sudo chown "$USER": .env.local && sudo chmod 600 .env.local`}</pre>
+          </li>
+          <li>
+            Restart the stack so the app picks up the new value:
+            <pre className="mt-1 bg-background/60 border rounded px-2 py-1 text-xs font-mono overflow-x-auto">./scripts/refresh.sh --no-pull --force</pre>
+          </li>
+          <li>
+            Back the key up in a password manager <strong>immediately</strong>. If it is
+            lost, every existing vault entry becomes permanently unrecoverable.
+          </li>
+        </ol>
+        <p className="text-xs text-muted-foreground pt-1">
+          On Lovable Cloud, set <code>VAULT_ENCRYPTION_KEY</code> as a project secret
+          instead — the same 64-hex format applies.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export function Vault() {
   const [scope, setScope] = useState<VaultScope>("personal");
   return (
-    <Tabs value={scope} onValueChange={(v) => setScope(v as VaultScope)}>
-      <TabsList>
-        <TabsTrigger value="personal" className="gap-2"><Lock size={14}/> Personal</TabsTrigger>
-        <TabsTrigger value="shared" className="gap-2"><Users size={14}/> Shared</TabsTrigger>
-      </TabsList>
-      <TabsContent value="personal" className="mt-4"><VaultPane scope="personal" /></TabsContent>
-      <TabsContent value="shared" className="mt-4"><VaultPane scope="shared" /></TabsContent>
-    </Tabs>
+    <div className="space-y-4">
+      <VaultKeyMissingBanner />
+      <Tabs value={scope} onValueChange={(v) => setScope(v as VaultScope)}>
+        <TabsList>
+          <TabsTrigger value="personal" className="gap-2"><Lock size={14}/> Personal</TabsTrigger>
+          <TabsTrigger value="shared" className="gap-2"><Users size={14}/> Shared</TabsTrigger>
+        </TabsList>
+        <TabsContent value="personal" className="mt-4"><VaultPane scope="personal" /></TabsContent>
+        <TabsContent value="shared" className="mt-4"><VaultPane scope="shared" /></TabsContent>
+      </Tabs>
+    </div>
   );
 }
 
