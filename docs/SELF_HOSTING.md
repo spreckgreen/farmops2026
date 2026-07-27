@@ -233,7 +233,7 @@ Self-hosted deployments need a *different* Supabase URL plus the
 service-role key — writing those into `.env` would fight the tracked
 copy on every `git pull`. `.env.local` sidesteps that entirely: it's
 gitignored, and docker compose merges it over `.env` via
-`COMPOSE_ENV_FILES=.env:.env.local` (later files win).
+`COMPOSE_ENV_FILES=.env,.env.local` (later files win).
 
 **Gitignore invariants (already in place — verify once):**
 
@@ -293,7 +293,7 @@ remaining `CHANGE_ME` or `supabase.example.com` placeholder <!-- scan-secrets: a
 ```
 
 `scripts/refresh.sh` auto-detects `.env.local`, exports
-`COMPOSE_ENV_FILES=.env:.env.local` so docker compose merges both files
+`COMPOSE_ENV_FILES=.env,.env.local` so docker compose merges both files
 (local wins), and runs `check-env.sh` on the chosen file before rebuilding
 — a placeholder-laced `.env.local` aborts the build instead of producing a
 broken container.
@@ -316,12 +316,14 @@ caught before merge.
 `.env`:
 
 ```bash
-# One-shot:
-docker compose --env-file .env --env-file .env.local up -d
+# One-shot. Rebuild `app`: VITE_* auth values are compiled into browser JS.
+docker compose --env-file .env --env-file .env.local build --no-cache app
+docker compose --env-file .env --env-file .env.local up -d --force-recreate app caddy
 
 # Or export once per shell (equivalent to what refresh.sh does):
-export COMPOSE_ENV_FILES=.env:.env.local
-docker compose up -d
+export COMPOSE_ENV_FILES=.env,.env.local
+docker compose build --no-cache app
+docker compose up -d --force-recreate app caddy
 ```
 
 **Rotation.** If a real key ever slips into a commit: rotate it in the
