@@ -13,12 +13,22 @@ import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { ShieldCheck, ShieldX, ShieldQuestion, RefreshCw } from "lucide-react";
+import { ShieldCheck, ShieldX, ShieldQuestion, RefreshCw, MailCheck, KeyRound } from "lucide-react";
 
 import { AppLayout } from "@/components/app-layout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Table,
   TableBody,
@@ -30,13 +40,16 @@ import {
 import { CsvToolbar } from "@/components/csv-toolbar";
 import { useCurrentProfile } from "@/hooks/use-current-profile";
 import {
+  confirmUserEmail,
   listUsers,
   setApprovalStatus,
+  setUserPassword,
   setUserRoles,
   type AppRole,
   type ApprovalStatus,
   type ManagedUser,
 } from "@/lib/admin.functions";
+
 
 export const Route = createFileRoute("/admin/users")({
   ssr: false,
@@ -161,7 +174,11 @@ function UserRow({ user, currentUserId }: { user: ManagedUser; currentUserId: st
   const qc = useQueryClient();
   const approveFn = useServerFn(setApprovalStatus);
   const rolesFn = useServerFn(setUserRoles);
+  const confirmFn = useServerFn(confirmUserEmail);
+  const passwordFn = useServerFn(setUserPassword);
   const [pendingRoles, setPendingRoles] = useState<AppRole[] | null>(null);
+  const [pwOpen, setPwOpen] = useState(false);
+  const [pwValue, setPwValue] = useState("");
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ["admin", "users"] });
@@ -188,6 +205,38 @@ function UserRow({ user, currentUserId }: { user: ManagedUser; currentUserId: st
     onError: (e) => toast.error((e as Error).message),
   });
 
+  const confirmMut = useMutation({
+    mutationFn: () => confirmFn({ data: { userId: user.id } }),
+    onSuccess: () => {
+      toast.success(`Confirmed email for ${user.email ?? "user"}`);
+      invalidate();
+    },
+    onError: (e) => toast.error((e as Error).message),
+  });
+
+  const passwordMut = useMutation({
+    mutationFn: (password: string) =>
+      passwordFn({ data: { userId: user.id, password } }),
+    onSuccess: () => {
+      toast.success("Temporary password set. Share it securely with the user.");
+      setPwOpen(false);
+      setPwValue("");
+      invalidate();
+    },
+    onError: (e) => toast.error((e as Error).message),
+  });
+
+  const generateTempPassword = () => {
+    // 16-char URL-safe random string
+    const bytes = new Uint8Array(12);
+    crypto.getRandomValues(bytes);
+    const b64 = btoa(String.fromCharCode(...bytes))
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=+$/, "");
+    setPwValue(b64);
+  };
+
   const effectiveRoles = pendingRoles ?? user.roles;
   const isSelf = user.id === currentUserId;
   const dirty =
@@ -201,6 +250,8 @@ function UserRow({ user, currentUserId }: { user: ManagedUser; currentUserId: st
     setPendingRoles(next);
   };
 
+  const unconfirmed = user.email_confirmed_at === null;
+
   return (
     <TableRow>
       <TableCell className="align-top">
@@ -209,7 +260,19 @@ function UserRow({ user, currentUserId }: { user: ManagedUser; currentUserId: st
           <div className="text-xs text-muted-foreground">{user.display_name}</div>
         )}
         <div className="text-[11px] text-muted-foreground mt-1 font-mono">{user.id.slice(0, 8)}…</div>
-        {isSelf && <Badge variant="secondary" className="mt-1">you</Badge>}
+        <div className="flex flex-wrap gap-1 mt-1">
+          {isSelf && <Badge variant="secondary">you</Badge>}
+          {unconfirmed ? (
+            <Badge variant="destructive" className="text-[10px]">Email unconfirmed</Badge>
+          ) : (
+            <Badge variant="outline" className="text-[10px]">Email confirmed</Badge>
+          )}
+        </div>
+        {user.last_sign_in_at && (
+          <div className="text-[11px] text-muted-foreground mt-1">
+            Last sign-in: {new Date(user.last_sign_in_at).toLocaleString()}
+          </div>
+        )}
       </TableCell>
       <TableCell className="align-top">
         <StatusBadge status={user.status} />
@@ -271,6 +334,29 @@ function UserRow({ user, currentUserId }: { user: ManagedUser; currentUserId: st
             </Button>
           )}
         </div>
+        <div className="flex justify-end gap-2 flex-wrap">
+          {unconfirmed && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => confirmMut.mutate()}
+              disabled={confirmMut.isPending}
+              title="Mark this user's email as confirmed so they can sign in without clicking the confirmation link."
+            >
+              <MailCheck className="h-4 w-4 mr-1" />
+              Confirm email
+            </Button>
+          )}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setPwOpen(true)}
+            title="Set a temporary password. Share it securely — the user should change it after signing in."
+          >
+            <KeyRound className="h-4 w-4 mr-1" />
+            Set password
+          </Button>
+        </div>
         {dirty && (
           <div className="flex justify-end gap-2">
             <Button
@@ -291,6 +377,47 @@ function UserRow({ user, currentUserId }: { user: ManagedUser; currentUserId: st
           </div>
         )}
       </TableCell>
+
+      <Dialog open={pwOpen} onOpenChange={(o) => { setPwOpen(o); if (!o) setPwValue(""); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Set temporary password</DialogTitle>
+            <DialogDescription>
+              For <span className="font-mono">{user.email ?? user.id}</span>. This also
+              confirms the email so they can sign in immediately. Share the password
+              through a secure channel and ask them to change it after signing in.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Label htmlFor="temp-pw">New password (min 8 chars)</Label>
+            <div className="flex gap-2">
+              <Input
+                id="temp-pw"
+                type="text"
+                value={pwValue}
+                onChange={(e) => setPwValue(e.target.value)}
+                autoComplete="off"
+                spellCheck={false}
+                minLength={8}
+              />
+              <Button type="button" variant="outline" onClick={generateTempPassword}>
+                Generate
+              </Button>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setPwOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => passwordMut.mutate(pwValue)}
+              disabled={passwordMut.isPending || pwValue.length < 8}
+            >
+              {passwordMut.isPending ? "Saving…" : "Set password"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </TableRow>
   );
 }
@@ -300,3 +427,4 @@ function StatusBadge({ status }: { status: ApprovalStatus }) {
   if (status === "rejected") return <Badge variant="destructive">Rejected</Badge>;
   return <Badge variant="secondary">Pending</Badge>;
 }
+

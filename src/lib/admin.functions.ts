@@ -35,7 +35,10 @@ export type ManagedUser = {
   reviewed_at: string | null;
   created_at: string;
   roles: AppRole[];
+  email_confirmed_at: string | null;
+  last_sign_in_at: string | null;
 };
+
 
 // ---- Helpers -------------------------------------------------------------
 
@@ -125,17 +128,39 @@ export const listUsers = createServerFn({ method: "GET" })
       rolesByUser.set(r.user_id, arr);
     }
 
-    return (profiles.data ?? []).map((p) => ({
-      id: p.id,
-      email: p.email,
-      display_name: p.display_name,
-      status: p.status as ApprovalStatus,
-      reviewed_by: p.reviewed_by,
-      reviewed_at: p.reviewed_at,
-      created_at: p.created_at,
-      roles: rolesByUser.get(p.id) ?? [],
-    }));
+    // Pull auth confirmation + last-sign-in via admin API so the UI can flag
+    // unconfirmed accounts and offer the "Confirm email" action.
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const authByUser = new Map<string, { confirmed: string | null; lastSignIn: string | null }>();
+    try {
+      const { data } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 200 });
+      for (const u of data?.users ?? []) {
+        authByUser.set(u.id, {
+          confirmed: u.email_confirmed_at ?? null,
+          lastSignIn: u.last_sign_in_at ?? null,
+        });
+      }
+    } catch {
+      // Non-fatal — fall back to unknown confirmation state.
+    }
+
+    return (profiles.data ?? []).map((p) => {
+      const auth = authByUser.get(p.id);
+      return {
+        id: p.id,
+        email: p.email,
+        display_name: p.display_name,
+        status: p.status as ApprovalStatus,
+        reviewed_by: p.reviewed_by,
+        reviewed_at: p.reviewed_at,
+        created_at: p.created_at,
+        roles: rolesByUser.get(p.id) ?? [],
+        email_confirmed_at: auth?.confirmed ?? null,
+        last_sign_in_at: auth?.lastSignIn ?? null,
+      };
+    });
   });
+
 
 export const setApprovalStatus = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -219,6 +244,57 @@ export const setUserRoles = createServerFn({ method: "POST" })
     }
     return { ok: true };
   });
+
+// ---- Confirm a user's email (bypass the email-confirmation link) --------
+
+export const confirmUserEmail = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { userId: string }) => {
+    if (!d?.userId) throw new Error("userId required");
+    return d;
+  })
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await requireAdmin(supabase, userId);
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: updated, error } = await supabaseAdmin.auth.admin.updateUserById(
+      data.userId,
+      { email_confirm: true },
+    );
+    if (error) throw new Error(error.message);
+    return { ok: true, email_confirmed_at: updated.user.email_confirmed_at ?? null };
+  });
+
+// ---- Set a temporary password (admin-only). The user should change it
+// immediately after signing in.
+
+export const setUserPassword = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { userId: string; password: string }) => {
+    if (!d?.userId) throw new Error("userId required");
+    if (typeof d.password !== "string" || d.password.length < 8) {
+      throw new Error("Password must be at least 8 characters.");
+    }
+    if (d.password.length > 128) throw new Error("Password too long.");
+    return d;
+  })
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await requireAdmin(supabase, userId);
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    // Also mark the email confirmed — an unconfirmed user still can't sign in
+    // even with a valid password, and this is the common "let them in" case.
+    const { error } = await supabaseAdmin.auth.admin.updateUserById(data.userId, {
+      password: data.password,
+      email_confirm: true,
+    });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+
 
 // ---- Reset application data (self-host fresh start) ---------------------
 //
