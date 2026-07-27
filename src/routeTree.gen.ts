@@ -40,6 +40,7 @@ import { Route as FoodLivestockRouteImport } from './routes/food.livestock'
 import { Route as FoodIrrigationRouteImport } from './routes/food.irrigation'
 import { Route as FoodGardenRouteImport } from './routes/food.garden'
 import { Route as FoodCropsRouteImport } from './routes/food.crops'
+import { Route as AdminVaultRotationRouteImport } from './routes/admin.vault-rotation'
 import { Route as AdminUsersRouteImport } from './routes/admin.users'
 import { Route as AdminRestoreRouteImport } from './routes/admin.restore'
 import { Route as AdminResetRouteImport } from './routes/admin.reset'
@@ -204,6 +205,11 @@ const FoodCropsRoute = FoodCropsRouteImport.update({
   path: '/crops',
   getParentRoute: () => FoodRoute,
 } as any)
+const AdminVaultRotationRoute = AdminVaultRotationRouteImport.update({
+  id: '/admin/vault-rotation',
+  path: '/admin/vault-rotation',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminUsersRoute = AdminUsersRouteImport.update({
   id: '/admin/users',
   path: '/admin/users',
@@ -265,6 +271,7 @@ export interface FileRoutesByFullPath {
   '/admin/reset': typeof AdminResetRoute
   '/admin/restore': typeof AdminRestoreRoute
   '/admin/users': typeof AdminUsersRoute
+  '/admin/vault-rotation': typeof AdminVaultRotationRoute
   '/food/crops': typeof FoodCropsRoute
   '/food/garden': typeof FoodGardenRoute
   '/food/irrigation': typeof FoodIrrigationRoute
@@ -305,6 +312,7 @@ export interface FileRoutesByTo {
   '/admin/reset': typeof AdminResetRoute
   '/admin/restore': typeof AdminRestoreRoute
   '/admin/users': typeof AdminUsersRoute
+  '/admin/vault-rotation': typeof AdminVaultRotationRoute
   '/food/crops': typeof FoodCropsRoute
   '/food/garden': typeof FoodGardenRoute
   '/food/irrigation': typeof FoodIrrigationRoute
@@ -347,6 +355,7 @@ export interface FileRoutesById {
   '/admin/reset': typeof AdminResetRoute
   '/admin/restore': typeof AdminRestoreRoute
   '/admin/users': typeof AdminUsersRoute
+  '/admin/vault-rotation': typeof AdminVaultRotationRoute
   '/food/crops': typeof FoodCropsRoute
   '/food/garden': typeof FoodGardenRoute
   '/food/irrigation': typeof FoodIrrigationRoute
@@ -390,6 +399,7 @@ export interface FileRouteTypes {
     | '/admin/reset'
     | '/admin/restore'
     | '/admin/users'
+    | '/admin/vault-rotation'
     | '/food/crops'
     | '/food/garden'
     | '/food/irrigation'
@@ -430,6 +440,7 @@ export interface FileRouteTypes {
     | '/admin/reset'
     | '/admin/restore'
     | '/admin/users'
+    | '/admin/vault-rotation'
     | '/food/crops'
     | '/food/garden'
     | '/food/irrigation'
@@ -471,6 +482,7 @@ export interface FileRouteTypes {
     | '/admin/reset'
     | '/admin/restore'
     | '/admin/users'
+    | '/admin/vault-rotation'
     | '/food/crops'
     | '/food/garden'
     | '/food/irrigation'
@@ -513,6 +525,7 @@ export interface RootRouteChildren {
   AdminResetRoute: typeof AdminResetRoute
   AdminRestoreRoute: typeof AdminRestoreRoute
   AdminUsersRoute: typeof AdminUsersRoute
+  AdminVaultRotationRoute: typeof AdminVaultRotationRoute
   NotesDateRoute: typeof NotesDateRoute
   SettingsSelfHostRoute: typeof SettingsSelfHostRoute
   TasksSlugRoute: typeof TasksSlugRoute
@@ -744,6 +757,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof FoodCropsRouteImport
       parentRoute: typeof FoodRoute
     }
+    '/admin/vault-rotation': {
+      id: '/admin/vault-rotation'
+      path: '/admin/vault-rotation'
+      fullPath: '/admin/vault-rotation'
+      preLoaderRoute: typeof AdminVaultRotationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/users': {
       id: '/admin/users'
       path: '/admin/users'
@@ -853,6 +873,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminResetRoute: AdminResetRoute,
   AdminRestoreRoute: AdminRestoreRoute,
   AdminUsersRoute: AdminUsersRoute,
+  AdminVaultRotationRoute: AdminVaultRotationRoute,
   NotesDateRoute: NotesDateRoute,
   SettingsSelfHostRoute: SettingsSelfHostRoute,
   TasksSlugRoute: TasksSlugRoute,
