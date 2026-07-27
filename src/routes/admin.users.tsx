@@ -143,6 +143,16 @@ function UsersPage() {
             <Button
               variant="outline"
               size="sm"
+              onClick={() => confirmAllMut.mutate()}
+              disabled={confirmAllMut.isPending || unconfirmedCount === 0}
+              title="Mark every unconfirmed user's email as confirmed so they can sign in without the email link."
+            >
+              <MailOpen className={`h-4 w-4 mr-2 ${confirmAllMut.isPending ? "animate-pulse" : ""}`} />
+              Confirm all unconfirmed{unconfirmedCount > 0 ? ` (${unconfirmedCount})` : ""}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => usersQ.refetch()}
               disabled={usersQ.isFetching}
             >
