@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as VaultRouteImport } from './routes/vault'
 import { Route as SyncRouteImport } from './routes/sync'
 import { Route as ServiceSchedulingRouteImport } from './routes/service-scheduling'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as ProjectsRouteImport } from './routes/projects'
 import { Route as ProceduresRouteImport } from './routes/procedures'
@@ -63,6 +64,11 @@ const SyncRoute = SyncRouteImport.update({
 const ServiceSchedulingRoute = ServiceSchedulingRouteImport.update({
   id: '/service-scheduling',
   path: '/service-scheduling',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ReportsRoute = ReportsRouteImport.update({
@@ -263,6 +269,7 @@ export interface FileRoutesByFullPath {
   '/procedures': typeof ProceduresRoute
   '/projects': typeof ProjectsRoute
   '/reports': typeof ReportsRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/service-scheduling': typeof ServiceSchedulingRoute
   '/sync': typeof SyncRoute
   '/vault': typeof VaultRoute
@@ -304,6 +311,7 @@ export interface FileRoutesByTo {
   '/procedures': typeof ProceduresRoute
   '/projects': typeof ProjectsRoute
   '/reports': typeof ReportsRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/service-scheduling': typeof ServiceSchedulingRoute
   '/sync': typeof SyncRoute
   '/vault': typeof VaultRoute
@@ -347,6 +355,7 @@ export interface FileRoutesById {
   '/procedures': typeof ProceduresRoute
   '/projects': typeof ProjectsRoute
   '/reports': typeof ReportsRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/service-scheduling': typeof ServiceSchedulingRoute
   '/sync': typeof SyncRoute
   '/vault': typeof VaultRoute
@@ -391,6 +400,7 @@ export interface FileRouteTypes {
     | '/procedures'
     | '/projects'
     | '/reports'
+    | '/reset-password'
     | '/service-scheduling'
     | '/sync'
     | '/vault'
@@ -432,6 +442,7 @@ export interface FileRouteTypes {
     | '/procedures'
     | '/projects'
     | '/reports'
+    | '/reset-password'
     | '/service-scheduling'
     | '/sync'
     | '/vault'
@@ -474,6 +485,7 @@ export interface FileRouteTypes {
     | '/procedures'
     | '/projects'
     | '/reports'
+    | '/reset-password'
     | '/service-scheduling'
     | '/sync'
     | '/vault'
@@ -517,6 +529,7 @@ export interface RootRouteChildren {
   ProceduresRoute: typeof ProceduresRoute
   ProjectsRoute: typeof ProjectsRoute
   ReportsRoute: typeof ReportsRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
   ServiceSchedulingRoute: typeof ServiceSchedulingRoute
   SyncRoute: typeof SyncRoute
   VaultRoute: typeof VaultRoute
@@ -559,6 +572,13 @@ declare module '@tanstack/react-router' {
       path: '/service-scheduling'
       fullPath: '/service-scheduling'
       preLoaderRoute: typeof ServiceSchedulingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/reports': {
@@ -865,6 +885,7 @@ const rootRouteChildren: RootRouteChildren = {
   ProceduresRoute: ProceduresRoute,
   ProjectsRoute: ProjectsRoute,
   ReportsRoute: ReportsRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
   ServiceSchedulingRoute: ServiceSchedulingRoute,
   SyncRoute: SyncRoute,
   VaultRoute: VaultRoute,
