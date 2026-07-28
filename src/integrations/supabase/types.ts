@@ -62,6 +62,39 @@ export type Database = {
           },
         ]
       }
+      ai_action_log: {
+        Row: {
+          applied_at: string | null
+          created_at: string
+          id: string
+          plan: Json
+          result: Json | null
+          status: string
+          surface: string
+          user_id: string
+        }
+        Insert: {
+          applied_at?: string | null
+          created_at?: string
+          id?: string
+          plan: Json
+          result?: Json | null
+          status?: string
+          surface: string
+          user_id: string
+        }
+        Update: {
+          applied_at?: string | null
+          created_at?: string
+          id?: string
+          plan?: Json
+          result?: Json | null
+          status?: string
+          surface?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       asset_usage_snapshots: {
         Row: {
           created_at: string
