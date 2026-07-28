@@ -13,7 +13,9 @@ import {
 import type { AssetForecast, DueItem } from "@/lib/maintenance-forecast.server";
 import { CalendarClock, Sparkles, AlertTriangle, ArrowLeft, Wrench } from "lucide-react";
 import { AiProgressStages } from "@/components/ai-progress-stages";
+import { useAiJobProgress } from "@/hooks/use-ai-job-progress";
 import { toast } from "sonner";
+
 
 export const Route = createFileRoute("/maintenance/forecast")({
   ssr: false,
