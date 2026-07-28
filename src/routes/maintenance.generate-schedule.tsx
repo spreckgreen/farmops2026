@@ -176,10 +176,11 @@ function Page() {
                 </Button>
               </div>
 
-              {(planMut.isPending || planMut.isSuccess) && (
+              {(planMut.isPending || planMut.isSuccess || jobProgress.active) && (
                 <AiProgressStages
-                  active={planMut.isPending}
+                  active={planMut.isPending || jobProgress.active}
                   done={planMut.isSuccess}
+                  startedAt={jobProgress.startedAt}
                   stages={[
                     { id: "prepare", label: "Loading asset & inventory context", estSeconds: 1 },
                     { id: "ai", label: "Researching intervals with AI", estSeconds: 14 },
@@ -189,6 +190,7 @@ function Page() {
                   onCancel={cancelPlan}
                 />
               )}
+
             </div>
           )}
 
