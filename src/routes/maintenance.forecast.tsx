@@ -151,6 +151,18 @@ function ForecastPage() {
           </Button>
         </div>
 
+        {(narrativeMut.isPending || narrativeMut.isSuccess) && (
+          <AiProgressStages
+            active={narrativeMut.isPending}
+            done={narrativeMut.isSuccess}
+            stages={[
+              { id: "prepare", label: "Reading usage history & intervals", estSeconds: 1 },
+              { id: "ai", label: "Generating 30/60/90-day briefing", estSeconds: 12 },
+              { id: "format", label: "Formatting narrative", estSeconds: 1 },
+            ]}
+          />
+        )}
+
         {error && (
           <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
             {error instanceof Error ? error.message : "Failed to load forecast."}
