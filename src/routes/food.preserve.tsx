@@ -262,10 +262,11 @@ function PreservePage() {
           </CardContent>
         </Card>
 
-        {(recommendMut.isPending || recommendMut.isSuccess) && (
+        {(recommendMut.isPending || recommendMut.isSuccess || jobProgress.active) && (
           <AiProgressStages
-            active={recommendMut.isPending}
+            active={recommendMut.isPending || jobProgress.active}
             done={recommendMut.isSuccess}
+            startedAt={jobProgress.startedAt}
             stages={[
               { id: "prepare", label: "Reading crop safety rules & yield math", estSeconds: 1 },
               { id: "ai", label: "Consulting preservation coach", estSeconds: 10 },
@@ -274,6 +275,7 @@ function PreservePage() {
             onCancel={cancelRecommend}
           />
         )}
+
 
         {result && (
           <Card className="border-primary/40">
