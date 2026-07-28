@@ -105,14 +105,17 @@ function ForecastPage() {
   });
 
   const abortRef = useRef<AbortController | null>(null);
+  const jobProgress = useAiJobProgress("maintenance.forecast");
   const narrativeMut = useMutation({
     mutationFn: () => {
       abortRef.current?.abort();
       const controller = new AbortController();
       abortRef.current = controller;
+      jobProgress.start();
       return fetchNarrative({ data: { regenerate: true }, signal: controller.signal });
     },
     onSuccess: (res) => {
+      jobProgress.stop();
       qc.setQueryData(
         ["maintenance", "forecast"],
         (prev: Awaited<ReturnType<typeof fetchForecast>> | undefined) =>
@@ -121,6 +124,7 @@ function ForecastPage() {
       toast.success("AI briefing ready");
     },
     onError: (e) => {
+      jobProgress.stop();
       if (e instanceof Error && (e.name === "AbortError" || /abort/i.test(e.message))) return;
       toast.error(e instanceof Error ? e.message : "Could not generate briefing");
     },
@@ -128,9 +132,11 @@ function ForecastPage() {
   const cancelNarrative = () => {
     abortRef.current?.abort();
     abortRef.current = null;
+    jobProgress.stop();
     narrativeMut.reset();
     toast.message("Request canceled");
   };
+
 
 
   const buckets = data?.buckets;
