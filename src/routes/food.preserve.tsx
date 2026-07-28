@@ -261,6 +261,7 @@ function PreservePage() {
               { id: "ai", label: "Consulting preservation coach", estSeconds: 10 },
               { id: "match", label: "Matching library procedure", estSeconds: 1 },
             ]}
+            onCancel={cancelRecommend}
           />
         )}
 
