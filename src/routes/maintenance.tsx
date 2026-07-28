@@ -22,6 +22,7 @@ import {
   Trash2,
   CalendarClock,
   Stethoscope,
+  Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 import { rowsToCsv, downloadCsv } from "@/lib/csv";
@@ -208,6 +209,12 @@ function MaintenancePage() {
                 className="inline-flex items-center gap-1 rounded-md border border-primary/40 text-primary hover:bg-primary/10 px-3 py-2 text-sm font-medium"
               >
                 <CalendarClock className="h-4 w-4" /> Forecast
+              </Link>
+              <Link
+                to="/maintenance/generate-schedule"
+                className="inline-flex items-center gap-1 rounded-md border border-primary/40 text-primary hover:bg-primary/10 px-3 py-2 text-sm font-medium"
+              >
+                <Sparkles className="h-4 w-4" /> Generate schedule
               </Link>
               <Link
                 to="/maintenance/diagnose"
