@@ -226,4 +226,6 @@ export const planMaintenanceSchedule = createServerFn({ method: "POST" })
       citations: (parsed.citations ?? []).slice(0, 6).map((c) => String(c).slice(0, 200)),
       model: modelId,
     };
+      },
+    );
   });
