@@ -237,6 +237,18 @@ function PreservePage() {
           </CardContent>
         </Card>
 
+        {(recommendMut.isPending || recommendMut.isSuccess) && (
+          <AiProgressStages
+            active={recommendMut.isPending}
+            done={recommendMut.isSuccess}
+            stages={[
+              { id: "prepare", label: "Reading crop safety rules & yield math", estSeconds: 1 },
+              { id: "ai", label: "Consulting preservation coach", estSeconds: 10 },
+              { id: "match", label: "Matching library procedure", estSeconds: 1 },
+            ]}
+          />
+        )}
+
         {result && (
           <Card className="border-primary/40">
             <CardHeader className="pb-2">
