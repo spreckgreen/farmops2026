@@ -23,7 +23,9 @@ import {
   CalendarClock,
 } from "lucide-react";
 import { AiProgressStages } from "@/components/ai-progress-stages";
+import { useAiJobProgress } from "@/hooks/use-ai-job-progress";
 import { toast } from "sonner";
+
 
 export const Route = createFileRoute("/maintenance/diagnose")({
   ssr: false,
