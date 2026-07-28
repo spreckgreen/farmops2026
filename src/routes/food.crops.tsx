@@ -1,10 +1,10 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { Plus, Pencil, Trash2, Sprout } from "lucide-react";
+import { Plus, Pencil, Trash2, Sprout, ChefHat } from "lucide-react";
 import {
   addCropHarvest,
   deleteCropHarvest,
