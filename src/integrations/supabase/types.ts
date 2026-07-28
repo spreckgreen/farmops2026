@@ -1594,7 +1594,6 @@ export type Database = {
     }
     Functions: {
       restore_table_diagnostics: { Args: { _table: string }; Returns: Json }
-      schema_diagnostics: { Args: never; Returns: Json }
     }
     Enums: {
       app_role: "viewer" | "editor" | "admin"
