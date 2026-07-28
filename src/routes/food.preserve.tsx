@@ -96,11 +96,13 @@ function PreservePage() {
   });
 
   const abortRef = useRef<AbortController | null>(null);
+  const jobProgress = useAiJobProgress("food.preserve");
   const recommendMut = useMutation({
     mutationFn: () => {
       abortRef.current?.abort();
       const controller = new AbortController();
       abortRef.current = controller;
+      jobProgress.start();
       return recommendFn({
         data: {
           crop: crop.trim(),
@@ -113,8 +115,12 @@ function PreservePage() {
         signal: controller.signal,
       });
     },
-    onSuccess: (r) => setResult(r),
+    onSuccess: (r) => {
+      jobProgress.stop();
+      setResult(r);
+    },
     onError: (e) => {
+      jobProgress.stop();
       if (e instanceof Error && (e.name === "AbortError" || /abort/i.test(e.message))) return;
       toast.error(e instanceof Error ? e.message : "Recommendation failed");
     },
@@ -122,9 +128,11 @@ function PreservePage() {
   const cancelRecommend = () => {
     abortRef.current?.abort();
     abortRef.current = null;
+    jobProgress.stop();
     recommendMut.reset();
     toast.message("Request canceled");
   };
+
 
   const logMut = useMutation({
     mutationFn: async () => {
