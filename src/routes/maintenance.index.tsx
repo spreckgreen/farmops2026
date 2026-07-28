@@ -31,7 +31,7 @@ import { WelcomingPagesImportHelper } from "@/components/welcoming-pages-import-
 import { NewRecordDialog } from "@/components/new-record-dialog";
 import { useAiFeatureEnabled } from "@/hooks/use-ai-settings";
 
-export const Route = createFileRoute("/maintenance")({
+export const Route = createFileRoute("/maintenance/")({
   ssr: false,
   beforeLoad: requireAuthenticatedUser,
   head: () => ({
