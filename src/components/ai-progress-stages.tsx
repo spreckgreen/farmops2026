@@ -112,6 +112,19 @@ export function AiProgressStages({
           );
         })}
       </ul>
+      {active && onCancel && (
+        <div className="flex justify-end pt-1">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={onCancel}
+            className="h-7 text-xs text-muted-foreground hover:text-destructive"
+          >
+            <X className="h-3.5 w-3.5 mr-1" /> Cancel
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
