@@ -202,7 +202,19 @@ function MaintenancePage() {
                 Track service intervals, log repairs, and import existing records from CSV or JSON.
               </p>
             </div>
-            <div className="flex gap-2 shrink-0">
+            <div className="flex gap-2 shrink-0 flex-wrap">
+              <Link
+                to="/maintenance/forecast"
+                className="inline-flex items-center gap-1 rounded-md border border-primary/40 text-primary hover:bg-primary/10 px-3 py-2 text-sm font-medium"
+              >
+                <CalendarClock className="h-4 w-4" /> Forecast
+              </Link>
+              <Link
+                to="/maintenance/diagnose"
+                className="inline-flex items-center gap-1 rounded-md border border-primary/40 text-primary hover:bg-primary/10 px-3 py-2 text-sm font-medium"
+              >
+                <Stethoscope className="h-4 w-4" /> Diagnose
+              </Link>
               <input
                 ref={fileRef}
                 type="file"
