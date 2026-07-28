@@ -126,8 +126,12 @@ function PreservePage() {
       setResult(r);
     },
     onError: (e) => {
+      if (e instanceof Error && (e.name === "AbortError" || /abort/i.test(e.message))) {
+        jobProgress.stop();
+        return;
+      }
+      if (handleAiJobInFlight(e)) return; // keep progress visible
       jobProgress.stop();
-      if (e instanceof Error && (e.name === "AbortError" || /abort/i.test(e.message))) return;
       toast.error(e instanceof Error ? e.message : "Recommendation failed");
     },
   });
