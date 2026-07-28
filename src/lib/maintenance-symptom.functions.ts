@@ -73,6 +73,10 @@ export const diagnoseSymptom = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => SymptomInput.parse(d))
   .handler(async ({ data, context }): Promise<Diagnosis> => {
     const { supabase, userId } = context;
+    const { withIdempotency } = await import("./ai-idempotency.server");
+    return withIdempotency(
+      { supabase, userId, surface: "maintenance.diagnose", input: data },
+      async (): Promise<Diagnosis> => {
 
     // Pull procedures, inventory, and assets in parallel
     const [procRes, invRes] = await Promise.all([
