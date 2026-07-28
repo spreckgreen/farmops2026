@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useRef } from "react";
 import Papa from "papaparse";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -20,6 +20,8 @@ import {
   Download,
   FileText,
   Trash2,
+  CalendarClock,
+  Stethoscope,
 } from "lucide-react";
 import { toast } from "sonner";
 import { rowsToCsv, downloadCsv } from "@/lib/csv";
