@@ -145,11 +145,13 @@ function MaintenancePage() {
 
   // Detect in-flight navigation to show feedback on nav links (esp. slow AI routes).
   const pendingTo = useRouterState({
-    select: (s) =>
-      s.isLoading || s.status === "pending"
-        ? s.pendingMatches?.[s.pendingMatches.length - 1]?.pathname
-        : undefined,
+    select: (s) => {
+      if (!s.isLoading && s.status !== "pending") return undefined;
+      const matches = s.pendingMatches ?? s.matches;
+      return matches?.[matches.length - 1]?.pathname;
+    },
   });
+
 
 
   const importMut = useMutation({
