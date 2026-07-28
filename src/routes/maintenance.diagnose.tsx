@@ -146,6 +146,18 @@ function DiagnosePage() {
           </CardContent>
         </Card>
 
+        {(diagMut.isPending || diagMut.isSuccess) && (
+          <AiProgressStages
+            active={diagMut.isPending}
+            done={diagMut.isSuccess}
+            stages={[
+              { id: "prepare", label: "Indexing procedures & inventory", estSeconds: 1 },
+              { id: "ai", label: "Matching symptom with AI", estSeconds: 10 },
+              { id: "format", label: "Assembling parts list", estSeconds: 1 },
+            ]}
+          />
+        )}
+
         {result && (
           <Card
             className={
