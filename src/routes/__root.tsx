@@ -13,6 +13,7 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Toaster } from "sonner";
 import { useStaleServerFnGuard } from "../hooks/use-stale-serverfn-guard";
+import { ConsultantChat } from "../components/consultant-chat";
 
 function NotFoundComponent() {
   return (
