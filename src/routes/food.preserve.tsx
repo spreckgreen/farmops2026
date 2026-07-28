@@ -25,6 +25,7 @@ import {
 import { AiProgressStages } from "@/components/ai-progress-stages";
 import { useAiJobProgress } from "@/hooks/use-ai-job-progress";
 import { toast } from "sonner";
+import { handleAiJobInFlight } from "@/lib/ai-inflight-error";
 
 import { format } from "date-fns";
 import { z } from "zod";
