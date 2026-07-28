@@ -23,6 +23,7 @@ import {
   CalendarClock,
   Stethoscope,
   Sparkles,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { rowsToCsv, downloadCsv } from "@/lib/csv";
