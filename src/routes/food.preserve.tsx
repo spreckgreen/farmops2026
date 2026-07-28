@@ -93,9 +93,13 @@ function PreservePage() {
     queryFn: () => listFn(),
   });
 
+  const abortRef = useRef<AbortController | null>(null);
   const recommendMut = useMutation({
-    mutationFn: () =>
-      recommendFn({
+    mutationFn: () => {
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
+      return recommendFn({
         data: {
           crop: crop.trim(),
           variety: variety.trim() || null,
@@ -104,10 +108,21 @@ function PreservePage() {
           targetShelfMonths: months ? Number(months) : null,
           harvestId: harvestId ?? null,
         },
-      }),
+        signal: controller.signal,
+      });
+    },
     onSuccess: (r) => setResult(r),
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Recommendation failed"),
+    onError: (e) => {
+      if (e instanceof Error && (e.name === "AbortError" || /abort/i.test(e.message))) return;
+      toast.error(e instanceof Error ? e.message : "Recommendation failed");
+    },
   });
+  const cancelRecommend = () => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    recommendMut.reset();
+    toast.message("Request canceled");
+  };
 
   const logMut = useMutation({
     mutationFn: async () => {
