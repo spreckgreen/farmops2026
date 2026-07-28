@@ -22,6 +22,7 @@ import {
   BookOpen,
   CalendarClock,
 } from "lucide-react";
+import { AiProgressStages } from "@/components/ai-progress-stages";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/maintenance/diagnose")({
@@ -144,6 +145,18 @@ function DiagnosePage() {
             </div>
           </CardContent>
         </Card>
+
+        {(diagMut.isPending || diagMut.isSuccess) && (
+          <AiProgressStages
+            active={diagMut.isPending}
+            done={diagMut.isSuccess}
+            stages={[
+              { id: "prepare", label: "Indexing procedures & inventory", estSeconds: 1 },
+              { id: "ai", label: "Matching symptom with AI", estSeconds: 10 },
+              { id: "format", label: "Assembling parts list", estSeconds: 1 },
+            ]}
+          />
+        )}
 
         {result && (
           <Card

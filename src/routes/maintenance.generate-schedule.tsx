@@ -12,6 +12,7 @@ import { planMaintenanceSchedule } from "@/lib/maintenance-schedule-planner.func
 import { AiActionPreview } from "@/components/ai-action-preview";
 import type { ActionPlan } from "@/lib/ai-actions/types";
 import { Sparkles, Wrench, ArrowLeft, Loader2 } from "lucide-react";
+import { AiProgressStages } from "@/components/ai-progress-stages";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/maintenance/generate-schedule")({
@@ -152,6 +153,19 @@ function Page() {
                   )}
                 </Button>
               </div>
+
+              {(planMut.isPending || planMut.isSuccess) && (
+                <AiProgressStages
+                  active={planMut.isPending}
+                  done={planMut.isSuccess}
+                  stages={[
+                    { id: "prepare", label: "Loading asset & inventory context", estSeconds: 1 },
+                    { id: "ai", label: "Researching intervals with AI", estSeconds: 14 },
+                    { id: "match", label: "Matching parts to your inventory", estSeconds: 2 },
+                    { id: "format", label: "Formatting draft schedule", estSeconds: 1 },
+                  ]}
+                />
+              )}
             </div>
           )}
 

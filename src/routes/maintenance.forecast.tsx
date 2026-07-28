@@ -11,6 +11,7 @@ import {
 } from "@/lib/maintenance-forecast.functions";
 import type { AssetForecast, DueItem } from "@/lib/maintenance-forecast.server";
 import { CalendarClock, Sparkles, AlertTriangle, ArrowLeft, Wrench } from "lucide-react";
+import { AiProgressStages } from "@/components/ai-progress-stages";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/maintenance/forecast")({
@@ -149,6 +150,18 @@ function ForecastPage() {
             {narrativeMut.isPending ? "Generating…" : "AI briefing"}
           </Button>
         </div>
+
+        {(narrativeMut.isPending || narrativeMut.isSuccess) && (
+          <AiProgressStages
+            active={narrativeMut.isPending}
+            done={narrativeMut.isSuccess}
+            stages={[
+              { id: "prepare", label: "Reading usage history & intervals", estSeconds: 1 },
+              { id: "ai", label: "Generating 30/60/90-day briefing", estSeconds: 12 },
+              { id: "format", label: "Formatting narrative", estSeconds: 1 },
+            ]}
+          />
+        )}
 
         {error && (
           <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
