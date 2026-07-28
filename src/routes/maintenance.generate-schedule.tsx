@@ -178,6 +178,7 @@ function Page() {
                     { id: "match", label: "Matching parts to your inventory", estSeconds: 2 },
                     { id: "format", label: "Formatting draft schedule", estSeconds: 1 },
                   ]}
+                  onCancel={cancelPlan}
                 />
               )}
             </div>
