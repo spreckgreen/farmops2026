@@ -177,6 +177,7 @@ function ForecastPage() {
               { id: "ai", label: "Generating 30/60/90-day briefing", estSeconds: 12 },
               { id: "format", label: "Formatting narrative", estSeconds: 1 },
             ]}
+            onCancel={cancelNarrative}
           />
         )}
 
