@@ -25,10 +25,13 @@ export function AiProgressStages({
   active,
   done = false,
   stages = DEFAULT_AI_STAGES,
+  onCancel,
 }: {
   active: boolean;
   done?: boolean;
   stages?: ProgressStage[];
+  /** If provided, renders a Cancel button while `active` is true. */
+  onCancel?: () => void;
 }) {
   const [currentIdx, setCurrentIdx] = useState(0);
   const [elapsed, setElapsed] = useState(0);
