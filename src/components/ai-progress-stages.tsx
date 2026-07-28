@@ -26,12 +26,19 @@ export function AiProgressStages({
   done = false,
   stages = DEFAULT_AI_STAGES,
   onCancel,
+  startedAt,
 }: {
   active: boolean;
   done?: boolean;
   stages?: ProgressStage[];
   /** If provided, renders a Cancel button while `active` is true. */
   onCancel?: () => void;
+  /**
+   * Optional persisted start timestamp (ms since epoch). When set, the
+   * elapsed timer resumes from this value so a page refresh keeps the
+   * running counter and stage instead of resetting to zero.
+   */
+  startedAt?: number | null;
 }) {
   const [currentIdx, setCurrentIdx] = useState(0);
   const [elapsed, setElapsed] = useState(0);
@@ -42,25 +49,26 @@ export function AiProgressStages({
       setElapsed(0);
       return;
     }
-    const startedAt = Date.now();
-    const timer = setInterval(() => {
-      const secs = (Date.now() - startedAt) / 1000;
+    const anchor = startedAt ?? Date.now();
+    const tick = () => {
+      const secs = Math.max(0, (Date.now() - anchor) / 1000);
       setElapsed(secs);
       let acc = 0;
-      let idx = 0;
+      let idx = stages.length - 1;
       for (let i = 0; i < stages.length; i++) {
         acc += stages[i].estSeconds;
         if (secs < acc) {
           idx = i;
           break;
         }
-        // Cap at final stage; keep it spinning until active flips off.
-        idx = stages.length - 1;
       }
       setCurrentIdx(idx);
-    }, 200);
+    };
+    tick();
+    const timer = setInterval(tick, 200);
     return () => clearInterval(timer);
-  }, [active, stages]);
+  }, [active, stages, startedAt]);
+
 
   if (!active && !done) return null;
 
