@@ -170,6 +170,7 @@ function DiagnosePage() {
               { id: "ai", label: "Matching symptom with AI", estSeconds: 10 },
               { id: "format", label: "Assembling parts list", estSeconds: 1 },
             ]}
+            onCancel={cancelDiagnose}
           />
         )}
 
