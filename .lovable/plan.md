@@ -1,57 +1,116 @@
-# Safe VAULT_ENCRYPTION_KEY rotation
+# Maintenance Forecaster + Symptom → Procedure
 
-Rotate the vault encryption key without losing data by re-encrypting every entry, using a temporary secondary key so decrypts keep working while the roll is in progress.
+Two AI-assisted features for the Maintenance module, both powered by the same loaded gateway model (`google/gemini-3.6-flash` default, honoring `CUSTOM_AI_BASE_URL` on self-host).
 
-## How it works
+---
 
-The vault gains a second, optional env var — `VAULT_ENCRYPTION_KEY_OLD` — used only as a fallback when decrypting. `seal()` always uses the primary `VAULT_ENCRYPTION_KEY`; `open()` tries the primary first, then falls back to the old. This lets you roll the primary key at any time without a maintenance window: entries encrypted with the old key remain readable until they're rewritten.
+## Feature 1 — Maintenance forecaster
 
-Concrete rollover, admin-driven:
+Predicts the next 30 / 60 / 90-day service list per asset from `inventory_items` usage (`current_hours`, `current_miles`, `usage_tracking`) and historical `maintenance_records` intervals.
+
+### How it works
+
+1. **Deterministic pre-compute** (no AI):
+   - For each `inventory_item` where `usage_tracking IN ('hours','miles')`, look at completed `maintenance_records` for that asset.
+   - Group by `service_type`; compute average interval (Δhours / Δmiles / Δdays between `performed_at` values).
+   - Estimate daily usage rate from the last 90 days of `current_hours`/`current_miles` deltas (snapshotted via a lightweight `asset_usage_snapshots` table — see below).
+   - Project when each service is next due (hours or miles) and translate to a calendar date via the usage rate.
+   - Bucket into 30 / 60 / 90-day windows.
+2. **AI overlay** (gateway call):
+   - Feed the projected list + linked procedures + recent notes to the model with an `Output.object` schema.
+   - Model returns prioritized narrative ("Tractor #2 hydraulic filter is 40 hrs past interval — do first"), suggested prep parts pulled from `inventory_items` and `procedure_links`, and any anomaly callouts (e.g. usage rate spiked).
+   - Deterministic list is the source of truth; AI never invents services not in the computed list.
+
+### Data model
+
+New table `public.asset_usage_snapshots` — tracks usage over time so we can derive rate:
 
 ```text
-1. Generate new key          openssl rand -hex 32   → NEW
-2. .env.local:
-     VAULT_ENCRYPTION_KEY=<NEW>
-     VAULT_ENCRYPTION_KEY_OLD=<CURRENT>
-   Restart the stack.
-3. In /admin, click "Rotate vault key → Re-encrypt now".
-   Server decrypts every row (trying NEW then OLD), re-seals with NEW,
-   writes ciphertext/iv/tag back. Progress + errors reported.
-4. When the run reports 0 rows remaining on OLD, remove
-   VAULT_ENCRYPTION_KEY_OLD from .env.local and restart.
+id uuid pk
+user_id uuid
+inventory_item_id uuid → inventory_items
+recorded_at timestamptz
+hours numeric | miles numeric
 ```
 
-Rows carry a `key_version` column so the rotation function can target
-"anything not on the current version" and resume safely if interrupted.
-Rotation is idempotent — re-running does nothing when everything is on
-the current version.
+Auto-snapshot via a `BEFORE UPDATE` trigger on `inventory_items` whenever `current_hours`/`current_miles` changes.
+
+### Server functions (`src/lib/maintenance-forecast.functions.ts`)
+
+- `getForecast({ horizonDays? })` — returns `{ assets: [{ asset, dueItems: [{service, dueDate, basis, daysOut, linkedProcedureId, requiredParts[]}], usageRate, aiNarrative? }] }`.
+- `refreshForecast({ withAI: boolean })` — recomputes and caches per user.
+
+### UI
+
+New route `src/routes/maintenance.forecast.tsx` (linked as a tab on `/maintenance`):
+
+- Three columns: **Next 30 days**, **60 days**, **90 days**.
+- Each card shows asset, service type, due date + basis ("in 12 hrs / on Aug 14"), linked procedure, and a "Parts to stage" list resolved from `procedure_links` → `inventory_items` with stock warnings.
+- "Regenerate with AI insights" button; results cached until next usage update.
+- Empty-state guidance when an asset has no historical intervals ("record 2+ services to enable forecasting").
+
+---
+
+## Feature 2 — Symptom → procedure
+
+Free-text machine issue in → matching procedure(s), parts list, and a proposed maintenance record.
+
+### How it works
+
+1. **Retrieval step**: pull candidate procedures via keyword match on `procedures.name`/`content` + assets from `inventory_items` matching mentioned nouns. No vector DB yet; simple ILIKE + trigram is enough for the current dataset size.
+2. **AI classification**: send the symptom, top ~15 candidate procedures (title + first 400 chars), and the user's inventory to the model with a strict `Output.object` schema:
+   ```text
+   {
+     matchedProcedureId: uuid | null,
+     confidence: 'high'|'medium'|'low',
+     reasoning: string,      // one sentence
+     suspectedAssetIds: uuid[],
+     partsFromInventory: [{ inventory_item_id, name, quantity, in_stock }],
+     partsMissing: [{ name, reason }],
+     suggestedMaintenanceRecord: { title, service_type, description }
+   }
+   ```
+3. **Guardrails**: if `confidence === 'low'` or `matchedProcedureId === null`, show a "no confident match — create new procedure?" path instead of guessing.
+
+### Server function (`src/lib/maintenance-symptom.functions.ts`)
+
+- `diagnoseSymptom({ text, assetIdHint? })` — validates input (Zod, 1–2000 chars), retrieves candidates, calls gateway, returns the shape above.
+- `createRecordFromDiagnosis({ diagnosisId })` — atomically inserts a `maintenance_records` row + `procedure_links` if user accepts.
+
+### UI
+
+New card on `/maintenance` **and** a right-rail panel on any inventory item page:
+
+- Textarea + "Diagnose" button.
+- Result panel: matched procedure (clickable), confidence chip, one-line reasoning, parts checklist split into "In stock" / "Need to order", "Create maintenance record" and "Log to today's note" buttons.
+- Recent diagnoses history (last 10) for quick reuse.
+
+---
+
+## Shared plumbing
+
+- Both features go through the existing `createLovableAiGatewayProvider` helper in `src/lib/ai-gateway.server.ts` — no new secrets.
+- Structured output uses AI SDK `Output.object` with small Zod schemas (no `.min/.max` bounds; length limits stated in the prompt and clamped in code per the SDK guidance).
+- Errors: 402/429/validation are surfaced as toast + inline message, not swallowed.
+- All server functions are `.middleware([requireSupabaseAuth])`; RLS scopes rows by `user_id`.
+- Nav: add "Forecast" and "Diagnose" tabs to the existing `/maintenance` layout.
 
 ## Files touched
 
-- `src/lib/vault-crypto.server.ts` — resolve *primary* and *fallback* keys; `open()` retries with fallback on `OperationError`; export new `sealWithKey`/`openWithKey` helpers and a `getKeyFingerprint()` used by the UI/status.
-- `supabase/migrations/…_vault_key_version.sql` — add `key_version smallint not null default 1` to `vault_secrets` (+ index on `key_version`). Backfill = 1.
-- `src/lib/vault-rotation.functions.ts` (new) — admin-only server functions:
-  - `getRotationStatus()` → `{ primaryFingerprint, oldFingerprint | null, currentVersion, rowsTotal, rowsOnCurrent, rowsOnOther }`
-  - `rotateVaultKey({ batchSize })` → streams progress: reads a batch where `key_version <> currentVersion`, decrypts (primary then fallback), re-seals with primary, updates row + bumps `key_version`. Returns `{ processed, failed, remaining, errors: [{id, message}] }`. Advisory-locked (`pg_try_advisory_lock`) so two admins can't run it concurrently.
-- `src/lib/vault-status.functions.ts` — extend to include `oldKeyPresent: boolean` + fingerprints so the banner can nudge "remove OLD now".
-- `src/routes/admin.vault-rotation.tsx` (new) — admin page with:
-  - Current state (primary fingerprint, OLD present y/n, rows-per-version bar).
-  - "Re-encrypt now" button that calls `rotateVaultKey` in a loop until `remaining === 0`, showing progress + per-row error list.
-  - Explicit step-by-step instructions with the exact `.env.local` edits and `refresh.sh` command for before/after.
-- `src/components/vault.tsx` — extend the existing banner: when `oldKeyPresent && rowsOnOther > 0`, show an amber "rotation in progress — finish it" notice linking to the admin page; when `oldKeyPresent && rowsOnOther === 0`, show "safe to remove VAULT_ENCRYPTION_KEY_OLD".
-- `README.md` + `docs/SELF_HOSTING.md` + `.env.example` — document `VAULT_ENCRYPTION_KEY_OLD` and the four-step rollover.
+- `supabase/migrations/…_asset_usage_snapshots.sql` — new table, GRANTs, RLS, snapshot trigger on `inventory_items`.
+- `src/lib/maintenance-forecast.functions.ts` (new)
+- `src/lib/maintenance-symptom.functions.ts` (new)
+- `src/lib/maintenance-forecast.server.ts` (new — interval math, AI prompt builder)
+- `src/lib/maintenance-symptom.server.ts` (new — candidate retrieval)
+- `src/routes/maintenance.forecast.tsx` (new)
+- `src/routes/maintenance.diagnose.tsx` (new)
+- `src/routes/maintenance.tsx` — add tabs
+- `src/components/maintenance/ForecastBoard.tsx`, `DiagnosisPanel.tsx` (new)
 
-## Safety properties
+## Out of scope (call out if you want them added)
 
-- No data loss window: decrypt path always accepts old *and* new keys during rollover.
-- Interruptible: rotation writes row-by-row and tracks `key_version`; a crash/reload resumes exactly where it stopped.
-- Idempotent: rerunning after completion is a no-op.
-- Concurrency-safe: Postgres advisory lock prevents overlapping runs.
-- Admin-only: `rotateVaultKey`/status funcs check `has_role(auth.uid(),'admin')`.
-- Never logs plaintext or key material; only 8-char SHA-256 fingerprints appear in the UI.
-- Missing OLD key with un-rotated rows fails loudly with a clear message ("row <id> encrypted with a key not currently loaded — set VAULT_ENCRYPTION_KEY_OLD to the previous key and retry") instead of corrupting rows.
+- Semantic search via embeddings (would replace ILIKE retrieval — bigger change).
+- Auto-creating purchase orders for missing parts.
+- Photo-based symptom input (multimodal) — easy to add later on the same endpoint.
 
-## Out of scope
-
-- Automatic env-var editing. The server can't safely rewrite `.env.local` on the host; the admin does that manually between steps.
-- Key escrow / per-user keys. Rotation targets the single server-wide key.
+**Ready to build on approval.**
