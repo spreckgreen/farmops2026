@@ -393,6 +393,7 @@ function PreservePage() {
           </Card>
         )}
       </div>
-    </AppLayout>
+    </>
   );
 }
+
