@@ -25,11 +25,11 @@ export interface ConsultantReply {
 
 const AREA_GUIDANCE: Record<string, string> = {
   food:
-    "You are the FOOD advisor. Prioritize planting/harvest timing, preservation safety (never recommend water-bath canning for low-acid crops), pantry burn-down, and food plan progress. Point users toward /food/preserve, /food/crops, /food/plan when relevant.",
+    "You are the FOOD advisor. Prioritize planting/harvest timing, preservation safety (never recommend water-bath canning for low-acid crops), pantry burn-down, and food plan progress. Point users to /food/preserve, /food/crops, /food/plan.",
   maintenance:
     "You are the MAINTENANCE advisor. Prioritize service intervals by hours/miles, upcoming/overdue tasks, and matching symptoms to existing procedures. Point users to /maintenance/forecast, /maintenance/diagnose, and specific procedures.",
   irrigation:
-    "You are the IRRIGATION & WEATHER advisor. Use the current Tempest/Open-Meteo forecast, recent Rachio runs, and soil conditions. Recommend deferring or extending runs when rain is forecast. Point users to /irrigation and /weather.",
+    "You are the IRRIGATION & WEATHER advisor. Use the current forecast and recent Rachio runs. Recommend deferring or extending runs when rain is forecast. Point users to /irrigation and /weather.",
   inventory:
     "You are the INVENTORY & PROCEDURES advisor. Focus on stock levels vs min quantities, reorder priorities, and connecting inventory items or maintenance plans to the right procedure. Point users to /inventory and /procedures.",
   general:
@@ -59,46 +59,45 @@ export const askConsultant = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     const started = Date.now();
 
-    // Full farm snapshot: run every read in parallel, cap rows aggressively.
     const [
-      inv,
-      procs,
-      plantings,
-      harvests,
-      pantry,
-      priceHist,
-      mainte,
-      usage,
-      tasks,
-      forecast,
-      dailyNote,
-      rachZones,
-      rachRuns,
-      livestock,
-      trees,
-      plots,
+      invR,
+      procsR,
+      plantingsR,
+      harvestsR,
+      pantryR,
+      priceHistR,
+      mainteR,
+      usageR,
+      tasksR,
+      forecastR,
+      dailyNoteR,
+      rachZonesR,
+      rachRunsR,
+      livestockR,
+      treesR,
+      plotsR,
     ] = await Promise.all([
       supabase
         .from("inventory_items")
-        .select("id,name,category,quantity,unit,min_quantity,status,current_hours,current_miles")
+        .select("id,name,sku,category,quantity,unit,min_quantity,status,current_hours,current_miles")
         .eq("user_id", userId)
         .limit(120),
       supabase.from("procedures").select("id,name").eq("user_id", userId).limit(80),
       supabase
         .from("crop_plantings")
-        .select("id,crop_name,variety,status,planted_at,expected_harvest_at,season_year")
+        .select("id,crop,variety,status,planted_on,expected_harvest,area")
         .eq("user_id", userId)
-        .order("planted_at", { ascending: false })
+        .order("planted_on", { ascending: false })
         .limit(40),
       supabase
         .from("crop_harvests")
-        .select("crop_name,variety,quantity,unit,harvested_at")
+        .select("planting_id,quantity,unit,harvested_on,quality")
         .eq("user_id", userId)
-        .order("harvested_at", { ascending: false })
+        .order("harvested_on", { ascending: false })
         .limit(20),
       supabase
         .from("food_storage_items")
-        .select("name,quantity,unit,best_by,storage_method,notes")
+        .select("name,quantity,unit,best_by,location,category,status")
         .eq("user_id", userId)
         .order("best_by", { ascending: true, nullsFirst: false })
         .limit(60),
@@ -110,7 +109,7 @@ export const askConsultant = createServerFn({ method: "POST" })
         .limit(10),
       supabase
         .from("maintenance_records")
-        .select("title,service_type,performed_at,due_at,status")
+        .select("title,service_type,performed_at,due_at,status,asset_name")
         .eq("user_id", userId)
         .order("performed_at", { ascending: false, nullsFirst: false })
         .limit(20),
@@ -122,35 +121,47 @@ export const askConsultant = createServerFn({ method: "POST" })
         .limit(20),
       supabase
         .from("tasks")
-        .select("title,status,due_at,priority")
+        .select("title,status,start_at,recurrence,percent_complete")
         .eq("user_id", userId)
-        .order("due_at", { ascending: true, nullsFirst: false })
+        .order("start_at", { ascending: true, nullsFirst: false })
         .limit(20),
       supabase
         .from("weather_forecasts")
-        .select("forecast_date,summary,temp_high,temp_low,precip_mm,precip_prob")
+        .select("forecast_date,conditions,high_temp_f,low_temp_f,precip_probability,precip_type")
         .eq("user_id", userId)
         .order("forecast_date", { ascending: false })
         .limit(7),
       supabase
         .from("daily_notes")
-        .select("note_date,content")
+        .select("date,markdown_content")
         .eq("user_id", userId)
-        .order("note_date", { ascending: false })
+        .order("date", { ascending: false })
         .limit(1),
-      supabase.from("rachio_zones").select("id,name,controller_id").eq("user_id", userId).limit(30),
+      supabase.from("rachio_zones").select("id,name,rachio_id").eq("user_id", userId).limit(30),
       supabase
         .from("rachio_runs")
-        .select("zone_id,started_at,duration_seconds,source")
+        .select("zone_id,started_at,duration_seconds,source,gallons")
         .eq("user_id", userId)
         .order("started_at", { ascending: false })
         .limit(15),
-      supabase.from("livestock_animals").select("species,name,status").eq("user_id", userId).limit(30),
-      supabase.from("orchard_trees").select("species,variety,status").eq("user_id", userId).limit(30),
-      supabase.from("garden_plots").select("name,size_sqft,notes").eq("user_id", userId).limit(20),
+      supabase
+        .from("livestock_animals")
+        .select("species,breed,tag,quantity,status")
+        .eq("user_id", userId)
+        .limit(30),
+      supabase
+        .from("orchard_trees")
+        .select("species,variety,status,quantity")
+        .eq("user_id", userId)
+        .limit(30),
+      supabase
+        .from("garden_plots")
+        .select("row_label,position,plant_name")
+        .eq("user_id", userId)
+        .limit(40),
     ]);
 
-    const inventory = inv.data ?? [];
+    const inventory = invR.data ?? [];
     const lowStock = inventory.filter(
       (i) =>
         i.min_quantity != null &&
@@ -166,7 +177,7 @@ export const askConsultant = createServerFn({ method: "POST" })
             .slice(0, 40)
             .map(
               (i) =>
-                `- ${i.name} [${i.category ?? "n/a"}] ${fmt(i.quantity)}${i.unit ? " " + i.unit : ""}` +
+                `- ${i.name ?? i.sku ?? "?"} [${i.category ?? "n/a"}] ${fmt(i.quantity)}${i.unit ? " " + i.unit : ""}` +
                 (i.min_quantity != null ? ` (min ${i.min_quantity})` : "") +
                 (i.current_hours ? ` ${fmt(i.current_hours)}h` : "") +
                 (i.current_miles ? ` ${fmt(i.current_miles)}mi` : "") +
@@ -175,63 +186,67 @@ export const askConsultant = createServerFn({ method: "POST" })
             .join("\n"),
       );
     }
-    if (procs.data?.length) {
+    if (procsR.data?.length) {
       sections.push(
-        `PROCEDURES (${procs.data.length}):\n` +
-          procs.data.slice(0, 40).map((p) => `- ${p.name}`).join("\n"),
+        `PROCEDURES (${procsR.data.length}):\n` +
+          procsR.data.slice(0, 40).map((p) => `- ${p.name}`).join("\n"),
       );
     }
-    if (plantings.data?.length) {
+
+    const plantings = plantingsR.data ?? [];
+    if (plantings.length) {
       sections.push(
         `RECENT PLANTINGS:\n` +
-          plantings.data
+          plantings
             .slice(0, 20)
             .map(
               (p) =>
-                `- ${p.crop_name}${p.variety ? " (" + p.variety + ")" : ""} planted ${p.planted_at ?? "?"} exp ${p.expected_harvest_at ?? "?"} [${p.status ?? "?"}] ${p.season_year ?? ""}`,
+                `- ${p.crop}${p.variety ? " (" + p.variety + ")" : ""} planted ${p.planted_on ?? "?"} exp ${p.expected_harvest ?? "?"} [${p.status ?? "?"}]${p.area ? " area=" + p.area : ""}`,
             )
             .join("\n"),
       );
     }
-    if (harvests.data?.length) {
+    if (harvestsR.data?.length) {
+      const plantById = new Map(plantings.map((p) => [p.id, p]));
       sections.push(
         `RECENT HARVESTS:\n` +
-          harvests.data
-            .map(
-              (h) =>
-                `- ${h.harvested_at?.slice(0, 10) ?? "?"} ${h.crop_name}${h.variety ? " (" + h.variety + ")" : ""} ${fmt(h.quantity)} ${h.unit ?? ""}`,
-            )
+          harvestsR.data
+            .map((h) => {
+              const p = h.planting_id ? plantById.get(h.planting_id) : null;
+              const label = p ? `${p.crop}${p.variety ? " (" + p.variety + ")" : ""}` : "harvest";
+              return `- ${h.harvested_on ?? "?"} ${label} ${fmt(h.quantity)} ${h.unit ?? ""}${h.quality ? " [" + h.quality + "]" : ""}`;
+            })
             .join("\n"),
       );
     }
-    if (pantry.data?.length) {
+    if (pantryR.data?.length) {
       sections.push(
         `PANTRY / STORAGE (soonest best-by first):\n` +
-          pantry.data
+          pantryR.data
             .slice(0, 30)
             .map(
               (p) =>
-                `- ${p.name} ${fmt(p.quantity)} ${p.unit ?? ""}${p.best_by ? " best-by " + p.best_by : ""}${p.storage_method ? " [" + p.storage_method + "]" : ""}`,
+                `- ${p.name} ${fmt(p.quantity)} ${p.unit ?? ""}${p.best_by ? " best-by " + p.best_by : ""}${p.location ? " @" + p.location : ""} [${p.status ?? "?"}]`,
             )
             .join("\n"),
       );
     }
-    if (mainte.data?.length) {
+    if (mainteR.data?.length) {
       sections.push(
         `RECENT / DUE MAINTENANCE:\n` +
-          mainte.data
+          mainteR.data
             .map(
               (m) =>
-                `- ${m.title} [${m.service_type ?? "?"}] performed=${m.performed_at?.slice(0, 10) ?? "-"} due=${m.due_at?.slice(0, 10) ?? "-"} [${m.status ?? "?"}]`,
+                `- ${m.title ?? "?"} [${m.service_type ?? "?"}]${m.asset_name ? " on " + m.asset_name : ""} performed=${m.performed_at?.slice(0, 10) ?? "-"} due=${m.due_at?.slice(0, 10) ?? "-"} [${m.status ?? "?"}]`,
             )
             .join("\n"),
       );
     }
-    if (usage.data?.length) {
-      const invById = new Map(inventory.map((i) => [i.id, i.name]));
+    if (usageR.data?.length) {
+      const invById = new Map(inventory.map((i) => [i.id, i.name ?? i.sku ?? i.id]));
       sections.push(
         `RECENT USAGE SNAPSHOTS:\n` +
-          usage.data
+          usageR.data
             .slice(0, 15)
             .map(
               (u) =>
@@ -240,70 +255,79 @@ export const askConsultant = createServerFn({ method: "POST" })
             .join("\n"),
       );
     }
-    if (tasks.data?.length) {
+    if (tasksR.data?.length) {
       sections.push(
         `TASKS:\n` +
-          tasks.data
+          tasksR.data
             .map(
               (t) =>
-                `- [${t.status ?? "?"}] ${t.title} due=${t.due_at?.slice(0, 10) ?? "-"} pri=${t.priority ?? "-"}`,
+                `- [${t.status}] ${t.title} start=${t.start_at?.slice(0, 10) ?? "-"} ${t.percent_complete ?? 0}%${t.recurrence && t.recurrence !== "none" ? " (" + t.recurrence + ")" : ""}`,
             )
             .join("\n"),
       );
     }
-    if (forecast.data?.length) {
+    if (forecastR.data?.length) {
       sections.push(
-        `WEATHER FORECAST (last ${forecast.data.length} days):\n` +
-          forecast.data
+        `WEATHER FORECAST (last ${forecastR.data.length} days):\n` +
+          forecastR.data
             .map(
               (f) =>
-                `- ${f.forecast_date}: ${f.summary ?? ""} hi=${fmt(f.temp_high)} lo=${fmt(f.temp_low)} precip=${fmt(f.precip_mm)}mm (${fmt(f.precip_prob)}%)`,
+                `- ${f.forecast_date}: ${f.conditions ?? ""} hi=${fmt(f.high_temp_f)}F lo=${fmt(f.low_temp_f)}F precip=${fmt(f.precip_probability)}%${f.precip_type ? " " + f.precip_type : ""}`,
             )
             .join("\n"),
       );
     }
-    if (rachRuns.data?.length) {
-      const zoneById = new Map((rachZones.data ?? []).map((z) => [z.id, z.name]));
+    if (rachRunsR.data?.length) {
+      const zoneById = new Map((rachZonesR.data ?? []).map((z) => [z.id, z.name ?? z.rachio_id]));
       sections.push(
         `RECENT IRRIGATION RUNS:\n` +
-          rachRuns.data
+          rachRunsR.data
             .map(
               (r) =>
-                `- ${r.started_at?.slice(0, 16) ?? "?"} ${zoneById.get(r.zone_id) ?? r.zone_id}: ${Math.round((r.duration_seconds ?? 0) / 60)}min (${r.source ?? "?"})`,
+                `- ${r.started_at?.slice(0, 16) ?? "?"} ${zoneById.get(r.zone_id) ?? r.zone_id}: ${Math.round((r.duration_seconds ?? 0) / 60)}min${r.gallons ? " " + fmt(r.gallons) + "gal" : ""} (${r.source ?? "?"})`,
             )
             .join("\n"),
       );
     }
-    if (livestock.data?.length) {
+    if (livestockR.data?.length) {
       sections.push(
         `LIVESTOCK:\n` +
-          livestock.data.map((a) => `- ${a.species} ${a.name ?? ""} [${a.status ?? "?"}]`).join("\n"),
+          livestockR.data
+            .map(
+              (a) =>
+                `- ${a.species}${a.breed ? " (" + a.breed + ")" : ""}${a.tag ? " #" + a.tag : ""} qty=${a.quantity} [${a.status ?? "?"}]`,
+            )
+            .join("\n"),
       );
     }
-    if (trees.data?.length) {
+    if (treesR.data?.length) {
       sections.push(
         `ORCHARD:\n` +
-          trees.data.map((t) => `- ${t.species}${t.variety ? " (" + t.variety + ")" : ""} [${t.status ?? "?"}]`).join("\n"),
+          treesR.data
+            .map((t) => `- ${t.species}${t.variety ? " (" + t.variety + ")" : ""} qty=${t.quantity} [${t.status ?? "?"}]`)
+            .join("\n"),
       );
     }
-    if (plots.data?.length) {
+    if (plotsR.data?.length) {
       sections.push(
         `GARDEN PLOTS:\n` +
-          plots.data.map((p) => `- ${p.name} ${p.size_sqft ?? "?"} sqft`).join("\n"),
+          plotsR.data
+            .map((p) => `- ${p.row_label}#${p.position}${p.plant_name ? " → " + p.plant_name : ""}`)
+            .join("\n"),
       );
     }
-    if (priceHist.data?.length) {
+    if (priceHistR.data?.length) {
       sections.push(
         `RECENT FOOD PRICE CHANGES:\n` +
-          priceHist.data
+          priceHistR.data
             .map((p) => `- ${p.food_name}: ${fmt(p.new_price)} on ${p.changed_at?.slice(0, 10)}`)
             .join("\n"),
       );
     }
-    if (dailyNote.data?.[0]) {
-      const dn = dailyNote.data[0];
+    if (dailyNoteR.data?.[0]) {
+      const dn = dailyNoteR.data[0];
       sections.push(
-        `TODAY'S NOTE (${dn.note_date}):\n${String(dn.content ?? "").slice(0, 800)}`,
+        `TODAY'S NOTE (${dn.date}):\n${String(dn.markdown_content ?? "").slice(0, 800)}`,
       );
     }
 
