@@ -534,11 +534,14 @@ export type ImportTableResult = {
 export type ImportResult = {
   ok: boolean;
   mode: ImportMode;
+  dry_run: boolean;
+  rewrite_ownership: boolean;
   started_at: string;
   finished_at: string;
   results: ImportTableResult[];
   debug?: boolean;
 };
+
 
 
 const RESTORE_INSERT_ORDER = [...RESET_TABLES].reverse(); // parents before children
