@@ -42,6 +42,7 @@ import { Route as FoodIrrigationRouteImport } from './routes/food.irrigation'
 import { Route as FoodGardenRouteImport } from './routes/food.garden'
 import { Route as FoodCropsRouteImport } from './routes/food.crops'
 import { Route as AdminVaultRotationRouteImport } from './routes/admin.vault-rotation'
+import { Route as AdminVaultBackupRouteImport } from './routes/admin.vault-backup'
 import { Route as AdminUsersRouteImport } from './routes/admin.users'
 import { Route as AdminSchemaRouteImport } from './routes/admin.schema'
 import { Route as AdminRestoreRouteImport } from './routes/admin.restore'
@@ -217,6 +218,11 @@ const AdminVaultRotationRoute = AdminVaultRotationRouteImport.update({
   path: '/admin/vault-rotation',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminVaultBackupRoute = AdminVaultBackupRouteImport.update({
+  id: '/admin/vault-backup',
+  path: '/admin/vault-backup',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminUsersRoute = AdminUsersRouteImport.update({
   id: '/admin/users',
   path: '/admin/users',
@@ -285,6 +291,7 @@ export interface FileRoutesByFullPath {
   '/admin/restore': typeof AdminRestoreRoute
   '/admin/schema': typeof AdminSchemaRoute
   '/admin/users': typeof AdminUsersRoute
+  '/admin/vault-backup': typeof AdminVaultBackupRoute
   '/admin/vault-rotation': typeof AdminVaultRotationRoute
   '/food/crops': typeof FoodCropsRoute
   '/food/garden': typeof FoodGardenRoute
@@ -328,6 +335,7 @@ export interface FileRoutesByTo {
   '/admin/restore': typeof AdminRestoreRoute
   '/admin/schema': typeof AdminSchemaRoute
   '/admin/users': typeof AdminUsersRoute
+  '/admin/vault-backup': typeof AdminVaultBackupRoute
   '/admin/vault-rotation': typeof AdminVaultRotationRoute
   '/food/crops': typeof FoodCropsRoute
   '/food/garden': typeof FoodGardenRoute
@@ -373,6 +381,7 @@ export interface FileRoutesById {
   '/admin/restore': typeof AdminRestoreRoute
   '/admin/schema': typeof AdminSchemaRoute
   '/admin/users': typeof AdminUsersRoute
+  '/admin/vault-backup': typeof AdminVaultBackupRoute
   '/admin/vault-rotation': typeof AdminVaultRotationRoute
   '/food/crops': typeof FoodCropsRoute
   '/food/garden': typeof FoodGardenRoute
@@ -419,6 +428,7 @@ export interface FileRouteTypes {
     | '/admin/restore'
     | '/admin/schema'
     | '/admin/users'
+    | '/admin/vault-backup'
     | '/admin/vault-rotation'
     | '/food/crops'
     | '/food/garden'
@@ -462,6 +472,7 @@ export interface FileRouteTypes {
     | '/admin/restore'
     | '/admin/schema'
     | '/admin/users'
+    | '/admin/vault-backup'
     | '/admin/vault-rotation'
     | '/food/crops'
     | '/food/garden'
@@ -506,6 +517,7 @@ export interface FileRouteTypes {
     | '/admin/restore'
     | '/admin/schema'
     | '/admin/users'
+    | '/admin/vault-backup'
     | '/admin/vault-rotation'
     | '/food/crops'
     | '/food/garden'
@@ -551,6 +563,7 @@ export interface RootRouteChildren {
   AdminRestoreRoute: typeof AdminRestoreRoute
   AdminSchemaRoute: typeof AdminSchemaRoute
   AdminUsersRoute: typeof AdminUsersRoute
+  AdminVaultBackupRoute: typeof AdminVaultBackupRoute
   AdminVaultRotationRoute: typeof AdminVaultRotationRoute
   NotesDateRoute: typeof NotesDateRoute
   SettingsSelfHostRoute: typeof SettingsSelfHostRoute
@@ -797,6 +810,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminVaultRotationRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/vault-backup': {
+      id: '/admin/vault-backup'
+      path: '/admin/vault-backup'
+      fullPath: '/admin/vault-backup'
+      preLoaderRoute: typeof AdminVaultBackupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/users': {
       id: '/admin/users'
       path: '/admin/users'
@@ -915,6 +935,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRestoreRoute: AdminRestoreRoute,
   AdminSchemaRoute: AdminSchemaRoute,
   AdminUsersRoute: AdminUsersRoute,
+  AdminVaultBackupRoute: AdminVaultBackupRoute,
   AdminVaultRotationRoute: AdminVaultRotationRoute,
   NotesDateRoute: NotesDateRoute,
   SettingsSelfHostRoute: SettingsSelfHostRoute,
