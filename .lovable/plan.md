@@ -1,73 +1,47 @@
-# Preservation Coach
+# Point FarmOps at OpenAI (ChatGPT API)
 
-Given a harvest batch (crop + quantity/unit), recommend a preservation method (can / freeze / dehydrate), estimated jar/bag counts, and surface the best matching procedure from the user's procedures library. Optionally log the result as a food storage item.
+Your `createAiProvider` in `src/lib/ai-gateway.server.ts` already routes to any OpenAI-compatible endpoint when `CUSTOM_AI_BASE_URL` + `CUSTOM_AI_API_KEY` are set. OpenAI's own API *is* that endpoint, so this is pure configuration — no code edits, no rebuild.
 
-## Access points
+Note: your paid ChatGPT Plus/Pro subscription (chat.openai.com) is **separate** from the OpenAI API and does not grant API access. You'll create an API key at https://platform.openai.com/api-keys and it's billed separately (pay-as-you-go, typically pennies per FarmOps query on `gpt-4o-mini`).
 
-- New route `/food/preserve` with crop-picker or manual entry.
-- New **"Preserve"** button on each harvest row in `src/routes/food.crops.tsx` that deep-links to `/food/preserve?harvestId=…` with quantity/unit prefilled.
+## Steps
 
-## Backend — `src/lib/preservation-coach.functions.ts`
+1. **Get an OpenAI API key**
+   - https://platform.openai.com/api-keys → Create new secret key (starts with `sk-proj-...`)
+   - Add a small credit balance at https://platform.openai.com/settings/organization/billing (min $5)
 
-Two server functions, both `requireSupabaseAuth`:
+2. **Set the three vars on the VPS** in `~/bostead-a29954a1/.env.local`:
+   ```
+   CUSTOM_AI_BASE_URL=https://api.openai.com/v1
+   CUSTOM_AI_API_KEY=sk-proj-...your-key...
+   CUSTOM_AI_MODEL=gpt-4o-mini
+   ```
+   Model choices (all OpenAI-hosted, no local RAM needed):
+   - `gpt-4o-mini` — recommended default, ~$0.15/1M input tokens, fast, plenty smart for FarmOps advisory
+   - `gpt-4o` — higher quality, ~10× cost, for complex diagnosis
+   - `gpt-5-mini` / `gpt-5-nano` — newer, similar tiering
 
-1. `recommendPreservation({ crop, variety?, quantity, unit, targetShelfMonths? })`
-   - Deterministic pre-compute (no AI needed for math):
-     - Convert quantity → pounds using a small lookup + optional heuristic for count units (per-item avg weight for common crops).
-     - Compute yields for each method from a table (see below): quart jars, pint jars, freezer-bag pounds, dehydrated ounces.
-   - Retrieve top procedures via keyword search over `procedures.name/content` (same pattern as `maintenance-symptom.functions.ts`) — allowlist for the model.
-   - Call Lovable AI Gateway (`google/gemini-3.6-flash`) with `Output.object` schema (constraint-free — limits stated in the prompt, clamped in code, wrapped in `NoObjectGeneratedError` guard per `ai-sdk-agent-patterns`) returning:
-     - `primary_method`: `"can_water_bath" | "can_pressure" | "freeze" | "dehydrate" | "ferment" | "cold_store"`
-     - `rationale`: short string
-     - `alternates`: array of `{ method, rationale }`
-     - `safety_notes`: array of strings (e.g. low-acid → pressure only)
-     - `procedure_id`: must match one of the allowlisted procedure IDs, or null
-     - `storage_item`: `{ name, category, food_type, unit, quantity, best_by_months }` suggestion
-   - Validate `procedure_id` and method values server-side against the allowlist/enum before returning.
-   - Merge with deterministic yields → final response.
+3. **Restart the app container** so it picks up the new env:
+   ```bash
+   cd ~/bostead-a29954a1 && docker compose up -d app
+   ```
 
-2. `logPreservationBatch({ recommendation, harvest_id? })`
-   - Inserts a `food_storage_items` row from `storage_item` (status `available`, acquired_on today, best_by = today + months).
-   - Optional `notes` field records the source harvest + chosen method.
+4. **Verify via existing UI** at `/settings/self-host`:
+   - "Run AI test" card should report `provider: custom`, `baseUrl: https://api.openai.com/v1`, and a real reply.
+   - Farm Consultant, Maintenance Forecaster, Symptom→Procedure, and Preservation Coach all flow through the same provider — they'll start working immediately.
 
-Yield table (constants in the file, editable):
-```
-tomato:      21 lb / 7 qt (water bath)   ·  freezer 1 lb/qt-bag  ·  dehydrator 12:1
-green_bean:  14 lb / 7 qt (pressure)     ·  1 lb/qt-bag           ·  10:1
-apple:       19 lb / 7 qt sauce          ·  1 lb/qt-bag           ·  8:1
-default:     18 lb / 7 qt                ·  1 lb/qt-bag           ·  10:1
-```
+5. **Optional: also set the model via the vault** at `/settings/self-host` model picker so it can be changed without touching `.env.local`. The picker writes `CUSTOM_AI_MODEL` to `vault_secrets` and `getServerEnv` prefers vault over env.
 
-Low-acid list (force pressure or freeze): green_bean, corn, meat, squash, carrot, potato.
+## What this changes
 
-## Frontend — `src/routes/food.preserve.tsx`
+Nothing in the codebase. All existing AI features (`consultant.functions.ts`, `maintenance-forecast.functions.ts`, `maintenance-symptom.functions.ts`, `preservation-coach.functions.ts`) already call `createAiProvider()` and are agnostic to which OpenAI-compatible backend answers.
 
-- Form: crop (Combobox from user's plantings + free text), variety, quantity, unit, target shelf months.
-- Prefill from `?harvestId=…` via `crop_harvests` lookup.
-- On submit → show recommendation card:
-  - Primary method badge + rationale.
-  - Yield summary: "≈ 7 quart jars **or** 14 pint jars **or** 3 lb dehydrated".
-  - Safety notes (red callout when low-acid).
-  - Alternate methods list.
-  - Matched procedure card with link to `/procedures/{slug}` when `procedure_id` is set; "No matching procedure — create one" link otherwise.
-  - "Log to food storage" button → calls `logPreservationBatch`.
-- History list: last 10 preservation batches for this user (query `food_storage_items` where notes tag `preservation:*`).
+## Rollback
 
-## Navigation
+Delete the three `CUSTOM_AI_*` lines from `.env.local` and restart `app`. It falls back to `LOVABLE_API_KEY` (Lovable AI Gateway) if set, else bundled Ollama.
 
-Add a "Preserve" link to the `/food` nav row (alongside Crops / Reports) and a per-row action button on `/food/crops` harvest rows.
+## Cost sanity check
 
-## Files touched
+Typical FarmOps consultant query: ~2–4K input tokens (farm snapshot) + ~300 output tokens ≈ **$0.001 per query** on `gpt-4o-mini`. 1000 queries/month ≈ $1. Well under your Plus subscription cost, and unlike Plus it actually works from FarmOps.
 
-- **New** `src/lib/preservation-coach.functions.ts`
-- **New** `src/routes/food.preserve.tsx`
-- **Edit** `src/routes/food.crops.tsx` — add per-harvest "Preserve" button linking to the new route.
-- **Edit** `src/routes/food.tsx` (or wherever food nav lives) — add nav link.
-
-No DB migration required — reuses `crop_harvests`, `procedures`, and `food_storage_items`.
-
-## Notes for the non-technical view
-
-- The coach picks the safest preservation method for what you harvested, tells you how many jars to expect, and hands you the matching how-to from your Procedures library.
-- One-click "Log to food storage" adds the finished jars to your pantry with a best-by date.
-- Low-acid crops (beans, corn, squash) are flagged so you don't water-bath them by mistake.
+Approve and I'll (a) skip straight to a short "you're set — here's the exact 3 commands" reply if you just want to run it yourself, or (b) if you want the OpenAI key stored via the Lovable secrets tool instead of `.env.local`, say so and I'll request it through the secure form.
