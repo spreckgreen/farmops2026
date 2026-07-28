@@ -884,10 +884,11 @@ export const importApplicationData = createServerFn({ method: "POST" })
             const CHUNK = 500;
             for (let i = 0; i < rows.length; i += CHUNK) {
               const chunk = rows.slice(i, i + CHUNK);
+              const onConflict = RESTORE_CONFLICT_TARGETS[table] ?? "id";
               const query =
                 data.mode === "replace"
                   ? admin.from(table).insert(chunk)
-                  : admin.from(table).upsert(chunk, { onConflict: "id" });
+                  : admin.from(table).upsert(chunk, { onConflict });
               const { error: writeErr } = await query;
               if (writeErr) {
                 await captureDebug("write", writeErr, i, chunk);
