@@ -23,7 +23,9 @@ import {
   CalendarClock,
 } from "lucide-react";
 import { AiProgressStages } from "@/components/ai-progress-stages";
+import { useAiJobProgress } from "@/hooks/use-ai-job-progress";
 import { toast } from "sonner";
+
 
 export const Route = createFileRoute("/maintenance/diagnose")({
   ssr: false,
@@ -68,18 +70,22 @@ function DiagnosePage() {
   const createFn = useServerFn(createRecordFromDiagnosis);
 
   const abortRef = useRef<AbortController | null>(null);
+  const jobProgress = useAiJobProgress("maintenance.diagnose");
   const diagMut = useMutation({
     mutationFn: () => {
       abortRef.current?.abort();
       const controller = new AbortController();
       abortRef.current = controller;
+      jobProgress.start();
       return diagnoseFn({ data: { text: text.trim() }, signal: controller.signal });
     },
     onSuccess: (r) => {
+      jobProgress.stop();
       setResult(r);
       setHistory((h) => [{ q: text.trim(), r }, ...h].slice(0, 10));
     },
     onError: (e) => {
+      jobProgress.stop();
       if (e instanceof Error && (e.name === "AbortError" || /abort/i.test(e.message))) return;
       toast.error(e instanceof Error ? e.message : "Diagnosis failed");
     },
@@ -87,9 +93,11 @@ function DiagnosePage() {
   const cancelDiagnose = () => {
     abortRef.current?.abort();
     abortRef.current = null;
+    jobProgress.stop();
     diagMut.reset();
     toast.message("Request canceled");
   };
+
 
   const createMut = useMutation({
     mutationFn: async () => {
@@ -161,10 +169,11 @@ function DiagnosePage() {
           </CardContent>
         </Card>
 
-        {(diagMut.isPending || diagMut.isSuccess) && (
+        {(diagMut.isPending || diagMut.isSuccess || jobProgress.active) && (
           <AiProgressStages
-            active={diagMut.isPending}
+            active={diagMut.isPending || jobProgress.active}
             done={diagMut.isSuccess}
+            startedAt={jobProgress.startedAt}
             stages={[
               { id: "prepare", label: "Indexing procedures & inventory", estSeconds: 1 },
               { id: "ai", label: "Matching symptom with AI", estSeconds: 10 },
@@ -173,6 +182,7 @@ function DiagnosePage() {
             onCancel={cancelDiagnose}
           />
         )}
+
 
         {result && (
           <Card

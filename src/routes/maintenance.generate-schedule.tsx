@@ -13,7 +13,9 @@ import { AiActionPreview } from "@/components/ai-action-preview";
 import type { ActionPlan } from "@/lib/ai-actions/types";
 import { Sparkles, Wrench, ArrowLeft, Loader2 } from "lucide-react";
 import { AiProgressStages } from "@/components/ai-progress-stages";
+import { useAiJobProgress } from "@/hooks/use-ai-job-progress";
 import { toast } from "sonner";
+
 
 export const Route = createFileRoute("/maintenance/generate-schedule")({
   ssr: false,
@@ -53,6 +55,7 @@ function Page() {
   const [usageContext, setUsageContext] = useState<string>("");
   const [plan, setPlan] = useState<ActionPlan | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const jobProgress = useAiJobProgress("maintenance.generate-schedule");
 
   const planMut = useMutation({
     mutationFn: async () => {
@@ -60,12 +63,14 @@ function Page() {
       abortRef.current?.abort();
       const controller = new AbortController();
       abortRef.current = controller;
+      jobProgress.start();
       return planFn({
         data: { asset_id: assetId, usage_context: usageContext || undefined },
         signal: controller.signal,
       });
     },
     onSuccess: (p) => {
+      jobProgress.stop();
       setPlan(p);
       if (p.actions.length === 0) {
         toast.warning(
@@ -74,6 +79,7 @@ function Page() {
       }
     },
     onError: (e) => {
+      jobProgress.stop();
       if (e instanceof Error && (e.name === "AbortError" || /abort/i.test(e.message))) return;
       toast.error(e instanceof Error ? e.message : "Planner failed");
     },
@@ -82,9 +88,11 @@ function Page() {
   const cancelPlan = () => {
     abortRef.current?.abort();
     abortRef.current = null;
+    jobProgress.stop();
     planMut.reset();
     toast.message("Request canceled");
   };
+
 
   const selected = displayAssets.find((a) => a.id === assetId);
 
@@ -168,10 +176,11 @@ function Page() {
                 </Button>
               </div>
 
-              {(planMut.isPending || planMut.isSuccess) && (
+              {(planMut.isPending || planMut.isSuccess || jobProgress.active) && (
                 <AiProgressStages
-                  active={planMut.isPending}
+                  active={planMut.isPending || jobProgress.active}
                   done={planMut.isSuccess}
+                  startedAt={jobProgress.startedAt}
                   stages={[
                     { id: "prepare", label: "Loading asset & inventory context", estSeconds: 1 },
                     { id: "ai", label: "Researching intervals with AI", estSeconds: 14 },
@@ -181,6 +190,7 @@ function Page() {
                   onCancel={cancelPlan}
                 />
               )}
+
             </div>
           )}
 

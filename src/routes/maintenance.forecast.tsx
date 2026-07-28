@@ -13,7 +13,9 @@ import {
 import type { AssetForecast, DueItem } from "@/lib/maintenance-forecast.server";
 import { CalendarClock, Sparkles, AlertTriangle, ArrowLeft, Wrench } from "lucide-react";
 import { AiProgressStages } from "@/components/ai-progress-stages";
+import { useAiJobProgress } from "@/hooks/use-ai-job-progress";
 import { toast } from "sonner";
+
 
 export const Route = createFileRoute("/maintenance/forecast")({
   ssr: false,
@@ -103,14 +105,17 @@ function ForecastPage() {
   });
 
   const abortRef = useRef<AbortController | null>(null);
+  const jobProgress = useAiJobProgress("maintenance.forecast");
   const narrativeMut = useMutation({
     mutationFn: () => {
       abortRef.current?.abort();
       const controller = new AbortController();
       abortRef.current = controller;
+      jobProgress.start();
       return fetchNarrative({ data: { regenerate: true }, signal: controller.signal });
     },
     onSuccess: (res) => {
+      jobProgress.stop();
       qc.setQueryData(
         ["maintenance", "forecast"],
         (prev: Awaited<ReturnType<typeof fetchForecast>> | undefined) =>
@@ -119,6 +124,7 @@ function ForecastPage() {
       toast.success("AI briefing ready");
     },
     onError: (e) => {
+      jobProgress.stop();
       if (e instanceof Error && (e.name === "AbortError" || /abort/i.test(e.message))) return;
       toast.error(e instanceof Error ? e.message : "Could not generate briefing");
     },
@@ -126,9 +132,11 @@ function ForecastPage() {
   const cancelNarrative = () => {
     abortRef.current?.abort();
     abortRef.current = null;
+    jobProgress.stop();
     narrativeMut.reset();
     toast.message("Request canceled");
   };
+
 
 
   const buckets = data?.buckets;
@@ -168,10 +176,11 @@ function ForecastPage() {
           </Button>
         </div>
 
-        {(narrativeMut.isPending || narrativeMut.isSuccess) && (
+        {(narrativeMut.isPending || narrativeMut.isSuccess || jobProgress.active) && (
           <AiProgressStages
-            active={narrativeMut.isPending}
+            active={narrativeMut.isPending || jobProgress.active}
             done={narrativeMut.isSuccess}
+            startedAt={jobProgress.startedAt}
             stages={[
               { id: "prepare", label: "Reading usage history & intervals", estSeconds: 1 },
               { id: "ai", label: "Generating 30/60/90-day briefing", estSeconds: 12 },
@@ -180,6 +189,7 @@ function ForecastPage() {
             onCancel={cancelNarrative}
           />
         )}
+
 
         {error && (
           <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
