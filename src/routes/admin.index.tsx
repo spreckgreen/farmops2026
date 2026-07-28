@@ -13,6 +13,7 @@ import {
   ShieldCheck,
   KeyRound,
   Database,
+  Bot,
 } from "lucide-react";
 
 export const Route = createFileRoute("/admin/")({

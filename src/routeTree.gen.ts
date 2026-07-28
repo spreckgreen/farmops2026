@@ -53,6 +53,7 @@ import { Route as AdminRestoreRouteImport } from './routes/admin.restore'
 import { Route as AdminResetRouteImport } from './routes/admin.reset'
 import { Route as AdminExportKeyRouteImport } from './routes/admin.export-key'
 import { Route as AdminExportRouteImport } from './routes/admin.export'
+import { Route as AdminAiSettingsRouteImport } from './routes/admin.ai-settings'
 import { Route as ApiPublicWebhooksRachioRouteImport } from './routes/api/public/webhooks/rachio'
 import { Route as ApiPublicHooksRachioSyncRouteImport } from './routes/api/public/hooks/rachio-sync'
 import { Route as ApiPublicHealthProceduresRouteImport } from './routes/api/public/health.procedures'
@@ -278,6 +279,11 @@ const AdminExportRoute = AdminExportRouteImport.update({
   path: '/admin/export',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminAiSettingsRoute = AdminAiSettingsRouteImport.update({
+  id: '/admin/ai-settings',
+  path: '/admin/ai-settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicWebhooksRachioRoute = ApiPublicWebhooksRachioRouteImport.update({
   id: '/api/public/webhooks/rachio',
   path: '/api/public/webhooks/rachio',
@@ -310,6 +316,7 @@ export interface FileRoutesByFullPath {
   '/service-scheduling': typeof ServiceSchedulingRoute
   '/sync': typeof SyncRoute
   '/vault': typeof VaultRoute
+  '/admin/ai-settings': typeof AdminAiSettingsRoute
   '/admin/export': typeof AdminExportRoute
   '/admin/export-key': typeof AdminExportKeyRoute
   '/admin/reset': typeof AdminResetRoute
@@ -358,6 +365,7 @@ export interface FileRoutesByTo {
   '/service-scheduling': typeof ServiceSchedulingRoute
   '/sync': typeof SyncRoute
   '/vault': typeof VaultRoute
+  '/admin/ai-settings': typeof AdminAiSettingsRoute
   '/admin/export': typeof AdminExportRoute
   '/admin/export-key': typeof AdminExportKeyRoute
   '/admin/reset': typeof AdminResetRoute
@@ -408,6 +416,7 @@ export interface FileRoutesById {
   '/service-scheduling': typeof ServiceSchedulingRoute
   '/sync': typeof SyncRoute
   '/vault': typeof VaultRoute
+  '/admin/ai-settings': typeof AdminAiSettingsRoute
   '/admin/export': typeof AdminExportRoute
   '/admin/export-key': typeof AdminExportKeyRoute
   '/admin/reset': typeof AdminResetRoute
@@ -459,6 +468,7 @@ export interface FileRouteTypes {
     | '/service-scheduling'
     | '/sync'
     | '/vault'
+    | '/admin/ai-settings'
     | '/admin/export'
     | '/admin/export-key'
     | '/admin/reset'
@@ -507,6 +517,7 @@ export interface FileRouteTypes {
     | '/service-scheduling'
     | '/sync'
     | '/vault'
+    | '/admin/ai-settings'
     | '/admin/export'
     | '/admin/export-key'
     | '/admin/reset'
@@ -556,6 +567,7 @@ export interface FileRouteTypes {
     | '/service-scheduling'
     | '/sync'
     | '/vault'
+    | '/admin/ai-settings'
     | '/admin/export'
     | '/admin/export-key'
     | '/admin/reset'
@@ -606,6 +618,7 @@ export interface RootRouteChildren {
   ServiceSchedulingRoute: typeof ServiceSchedulingRoute
   SyncRoute: typeof SyncRoute
   VaultRoute: typeof VaultRoute
+  AdminAiSettingsRoute: typeof AdminAiSettingsRoute
   AdminExportRoute: typeof AdminExportRoute
   AdminExportKeyRoute: typeof AdminExportKeyRoute
   AdminResetRoute: typeof AdminResetRoute
@@ -936,6 +949,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminExportRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/ai-settings': {
+      id: '/admin/ai-settings'
+      path: '/admin/ai-settings'
+      fullPath: '/admin/ai-settings'
+      preLoaderRoute: typeof AdminAiSettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/webhooks/rachio': {
       id: '/api/public/webhooks/rachio'
       path: '/api/public/webhooks/rachio'
@@ -1024,6 +1044,7 @@ const rootRouteChildren: RootRouteChildren = {
   ServiceSchedulingRoute: ServiceSchedulingRoute,
   SyncRoute: SyncRoute,
   VaultRoute: VaultRoute,
+  AdminAiSettingsRoute: AdminAiSettingsRoute,
   AdminExportRoute: AdminExportRoute,
   AdminExportKeyRoute: AdminExportKeyRoute,
   AdminResetRoute: AdminResetRoute,

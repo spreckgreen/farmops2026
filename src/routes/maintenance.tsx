@@ -29,6 +29,7 @@ import { toast } from "sonner";
 import { rowsToCsv, downloadCsv } from "@/lib/csv";
 import { WelcomingPagesImportHelper } from "@/components/welcoming-pages-import-helper";
 import { NewRecordDialog } from "@/components/new-record-dialog";
+import { useAiFeatureEnabled } from "@/hooks/use-ai-settings";
 
 export const Route = createFileRoute("/maintenance")({
   ssr: false,
@@ -156,6 +157,10 @@ function MaintenancePage() {
     },
   });
 
+  const forecastEnabled = useAiFeatureEnabled("maintenance.forecast");
+  const scheduleEnabled = useAiFeatureEnabled("maintenance.generate-schedule");
+  const diagnoseEnabled = useAiFeatureEnabled("maintenance.diagnose");
+
 
 
 
@@ -221,44 +226,50 @@ function MaintenancePage() {
               </p>
             </div>
             <div className="flex gap-2 shrink-0 flex-wrap">
-              <Link
-                to="/maintenance/forecast"
-                aria-busy={pendingTo === "/maintenance/forecast"}
-                className="inline-flex items-center gap-1 rounded-md border border-primary/40 text-primary hover:bg-primary/10 px-3 py-2 text-sm font-medium aria-[busy=true]:opacity-60 aria-[busy=true]:pointer-events-none"
-              >
-                {pendingTo === "/maintenance/forecast" ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <CalendarClock className="h-4 w-4" />
-                )}
-                Forecast
-              </Link>
-              <Link
-                to="/maintenance/generate-schedule"
-                aria-busy={pendingTo === "/maintenance/generate-schedule"}
-                className="inline-flex items-center gap-1 rounded-md border border-primary/40 text-primary hover:bg-primary/10 px-3 py-2 text-sm font-medium aria-[busy=true]:opacity-60 aria-[busy=true]:pointer-events-none"
-              >
-                {pendingTo === "/maintenance/generate-schedule" ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Sparkles className="h-4 w-4" />
-                )}
-                {pendingTo === "/maintenance/generate-schedule"
-                  ? "Opening…"
-                  : "Generate schedule"}
-              </Link>
-              <Link
-                to="/maintenance/diagnose"
-                aria-busy={pendingTo === "/maintenance/diagnose"}
-                className="inline-flex items-center gap-1 rounded-md border border-primary/40 text-primary hover:bg-primary/10 px-3 py-2 text-sm font-medium aria-[busy=true]:opacity-60 aria-[busy=true]:pointer-events-none"
-              >
-                {pendingTo === "/maintenance/diagnose" ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Stethoscope className="h-4 w-4" />
-                )}
-                Diagnose
-              </Link>
+              {forecastEnabled && (
+                <Link
+                  to="/maintenance/forecast"
+                  aria-busy={pendingTo === "/maintenance/forecast"}
+                  className="inline-flex items-center gap-1 rounded-md border border-primary/40 text-primary hover:bg-primary/10 px-3 py-2 text-sm font-medium aria-[busy=true]:opacity-60 aria-[busy=true]:pointer-events-none"
+                >
+                  {pendingTo === "/maintenance/forecast" ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <CalendarClock className="h-4 w-4" />
+                  )}
+                  Forecast
+                </Link>
+              )}
+              {scheduleEnabled && (
+                <Link
+                  to="/maintenance/generate-schedule"
+                  aria-busy={pendingTo === "/maintenance/generate-schedule"}
+                  className="inline-flex items-center gap-1 rounded-md border border-primary/40 text-primary hover:bg-primary/10 px-3 py-2 text-sm font-medium aria-[busy=true]:opacity-60 aria-[busy=true]:pointer-events-none"
+                >
+                  {pendingTo === "/maintenance/generate-schedule" ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-4 w-4" />
+                  )}
+                  {pendingTo === "/maintenance/generate-schedule"
+                    ? "Opening…"
+                    : "Generate schedule"}
+                </Link>
+              )}
+              {diagnoseEnabled && (
+                <Link
+                  to="/maintenance/diagnose"
+                  aria-busy={pendingTo === "/maintenance/diagnose"}
+                  className="inline-flex items-center gap-1 rounded-md border border-primary/40 text-primary hover:bg-primary/10 px-3 py-2 text-sm font-medium aria-[busy=true]:opacity-60 aria-[busy=true]:pointer-events-none"
+                >
+                  {pendingTo === "/maintenance/diagnose" ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Stethoscope className="h-4 w-4" />
+                  )}
+                  Diagnose
+                </Link>
+              )}
 
               <input
                 ref={fileRef}

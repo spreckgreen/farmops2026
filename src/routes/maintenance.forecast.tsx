@@ -15,6 +15,7 @@ import { CalendarClock, Sparkles, AlertTriangle, ArrowLeft, Wrench } from "lucid
 import { AiProgressStages } from "@/components/ai-progress-stages";
 import { useAiJobProgress } from "@/hooks/use-ai-job-progress";
 import { toast } from "sonner";
+import { AiFeatureGate } from "@/components/ai-feature-gate";
 
 
 export const Route = createFileRoute("/maintenance/forecast")({
@@ -31,7 +32,11 @@ export const Route = createFileRoute("/maintenance/forecast")({
       { name: "robots", content: "noindex" },
     ],
   }),
-  component: ForecastPage,
+  component: () => (
+    <AiFeatureGate featureId="maintenance.forecast">
+      <ForecastPage />
+    </AiFeatureGate>
+  ),
 });
 
 function DueCard({ asset, item }: { asset: AssetForecast; item: DueItem }) {

@@ -25,6 +25,7 @@ import {
 import { AiProgressStages } from "@/components/ai-progress-stages";
 import { useAiJobProgress } from "@/hooks/use-ai-job-progress";
 import { toast } from "sonner";
+import { AiFeatureGate } from "@/components/ai-feature-gate";
 
 
 export const Route = createFileRoute("/maintenance/diagnose")({
@@ -41,7 +42,11 @@ export const Route = createFileRoute("/maintenance/diagnose")({
       { name: "robots", content: "noindex" },
     ],
   }),
-  component: DiagnosePage,
+  component: () => (
+    <AiFeatureGate featureId="maintenance.diagnose">
+      <DiagnosePage />
+    </AiFeatureGate>
+  ),
 });
 
 function ConfidenceBadge({ level }: { level: Diagnosis["confidence"] }) {
