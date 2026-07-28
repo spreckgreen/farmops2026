@@ -147,10 +147,15 @@ function MaintenancePage() {
   const pendingTo = useRouterState({
     select: (s) => {
       if (!s.isLoading && s.status !== "pending") return undefined;
-      const matches = s.pendingMatches ?? s.matches;
+      const st = s as unknown as {
+        pendingMatches?: Array<{ pathname: string }>;
+        matches: Array<{ pathname: string }>;
+      };
+      const matches = st.pendingMatches ?? st.matches;
       return matches?.[matches.length - 1]?.pathname;
     },
   });
+
 
 
 
