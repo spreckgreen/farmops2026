@@ -55,6 +55,7 @@ function Page() {
   const [usageContext, setUsageContext] = useState<string>("");
   const [plan, setPlan] = useState<ActionPlan | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const jobProgress = useAiJobProgress("maintenance.generate-schedule");
 
   const planMut = useMutation({
     mutationFn: async () => {
@@ -62,12 +63,14 @@ function Page() {
       abortRef.current?.abort();
       const controller = new AbortController();
       abortRef.current = controller;
+      jobProgress.start();
       return planFn({
         data: { asset_id: assetId, usage_context: usageContext || undefined },
         signal: controller.signal,
       });
     },
     onSuccess: (p) => {
+      jobProgress.stop();
       setPlan(p);
       if (p.actions.length === 0) {
         toast.warning(
@@ -76,6 +79,7 @@ function Page() {
       }
     },
     onError: (e) => {
+      jobProgress.stop();
       if (e instanceof Error && (e.name === "AbortError" || /abort/i.test(e.message))) return;
       toast.error(e instanceof Error ? e.message : "Planner failed");
     },
@@ -84,9 +88,11 @@ function Page() {
   const cancelPlan = () => {
     abortRef.current?.abort();
     abortRef.current = null;
+    jobProgress.stop();
     planMut.reset();
     toast.message("Request canceled");
   };
+
 
   const selected = displayAssets.find((a) => a.id === assetId);
 
