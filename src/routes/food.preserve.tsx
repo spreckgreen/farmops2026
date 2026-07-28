@@ -23,7 +23,9 @@ import {
   Sun, FlaskConical, Warehouse,
 } from "lucide-react";
 import { AiProgressStages } from "@/components/ai-progress-stages";
+import { useAiJobProgress } from "@/hooks/use-ai-job-progress";
 import { toast } from "sonner";
+
 import { format } from "date-fns";
 import { z } from "zod";
 
