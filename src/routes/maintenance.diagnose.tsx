@@ -169,10 +169,11 @@ function DiagnosePage() {
           </CardContent>
         </Card>
 
-        {(diagMut.isPending || diagMut.isSuccess) && (
+        {(diagMut.isPending || diagMut.isSuccess || jobProgress.active) && (
           <AiProgressStages
-            active={diagMut.isPending}
+            active={diagMut.isPending || jobProgress.active}
             done={diagMut.isSuccess}
+            startedAt={jobProgress.startedAt}
             stages={[
               { id: "prepare", label: "Indexing procedures & inventory", estSeconds: 1 },
               { id: "ai", label: "Matching symptom with AI", estSeconds: 10 },
@@ -181,6 +182,7 @@ function DiagnosePage() {
             onCancel={cancelDiagnose}
           />
         )}
+
 
         {result && (
           <Card
