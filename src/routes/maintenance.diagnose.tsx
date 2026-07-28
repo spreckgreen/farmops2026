@@ -22,6 +22,7 @@ import {
   BookOpen,
   CalendarClock,
 } from "lucide-react";
+import { AiProgressStages } from "@/components/ai-progress-stages";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/maintenance/diagnose")({
