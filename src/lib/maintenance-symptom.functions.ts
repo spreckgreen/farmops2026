@@ -259,6 +259,8 @@ export const diagnoseSymptom = createServerFn({ method: "POST" })
       model: modelId,
       latencyMs: Date.now() - started,
     };
+      },
+    );
   });
 
 const CreateFromDiagnosisInput = z.object({
