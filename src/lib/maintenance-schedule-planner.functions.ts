@@ -39,6 +39,10 @@ export const planMaintenanceSchedule = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => PlannerInput.parse(d))
   .handler(async ({ data, context }): Promise<ActionPlan> => {
     const { supabase, userId } = context;
+    const { withIdempotency } = await import("./ai-idempotency.server");
+    return withIdempotency(
+      { supabase, userId, surface: "maintenance.plan_schedule", input: data },
+      async (): Promise<ActionPlan> => {
 
     const { data: asset, error: assetErr } = await supabase
       .from("inventory_items")
