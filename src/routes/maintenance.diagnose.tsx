@@ -67,14 +67,29 @@ function DiagnosePage() {
   const diagnoseFn = useServerFn(diagnoseSymptom);
   const createFn = useServerFn(createRecordFromDiagnosis);
 
+  const abortRef = useRef<AbortController | null>(null);
   const diagMut = useMutation({
-    mutationFn: () => diagnoseFn({ data: { text: text.trim() } }),
+    mutationFn: () => {
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
+      return diagnoseFn({ data: { text: text.trim() }, signal: controller.signal });
+    },
     onSuccess: (r) => {
       setResult(r);
       setHistory((h) => [{ q: text.trim(), r }, ...h].slice(0, 10));
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Diagnosis failed"),
+    onError: (e) => {
+      if (e instanceof Error && (e.name === "AbortError" || /abort/i.test(e.message))) return;
+      toast.error(e instanceof Error ? e.message : "Diagnosis failed");
+    },
   });
+  const cancelDiagnose = () => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    diagMut.reset();
+    toast.message("Request canceled");
+  };
 
   const createMut = useMutation({
     mutationFn: async () => {
