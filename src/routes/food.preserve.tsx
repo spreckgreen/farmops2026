@@ -22,6 +22,7 @@ import {
   Sparkles, ArrowLeft, AlertTriangle, BookOpen, Package, ChefHat, Snowflake,
   Sun, FlaskConical, Warehouse,
 } from "lucide-react";
+import { AiProgressStages } from "@/components/ai-progress-stages";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { z } from "zod";
