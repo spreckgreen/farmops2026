@@ -417,6 +417,8 @@ export const recommendPreservation = createServerFn({ method: "POST" })
       model: modelId,
       latencyMs: Date.now() - started,
     };
+      },
+    );
   });
 
 // -----------------------------------------------------------------------------
