@@ -30,6 +30,7 @@ import { Route as TasksBacklogRouteImport } from './routes/tasks.backlog'
 import { Route as TasksSlugRouteImport } from './routes/tasks.$slug'
 import { Route as SettingsSelfHostRouteImport } from './routes/settings.self-host'
 import { Route as NotesDateRouteImport } from './routes/notes.$date'
+import { Route as MaintenanceGenerateScheduleRouteImport } from './routes/maintenance.generate-schedule'
 import { Route as MaintenanceForecastRouteImport } from './routes/maintenance.forecast'
 import { Route as MaintenanceDiagnoseRouteImport } from './routes/maintenance.diagnose'
 import { Route as FoodStorageRouteImport } from './routes/food.storage'
@@ -161,6 +162,12 @@ const NotesDateRoute = NotesDateRouteImport.update({
   path: '/notes/$date',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MaintenanceGenerateScheduleRoute =
+  MaintenanceGenerateScheduleRouteImport.update({
+    id: '/generate-schedule',
+    path: '/generate-schedule',
+    getParentRoute: () => MaintenanceRoute,
+  } as any)
 const MaintenanceForecastRoute = MaintenanceForecastRouteImport.update({
   id: '/forecast',
   path: '/forecast',
@@ -325,6 +332,7 @@ export interface FileRoutesByFullPath {
   '/food/storage': typeof FoodStorageRoute
   '/maintenance/diagnose': typeof MaintenanceDiagnoseRoute
   '/maintenance/forecast': typeof MaintenanceForecastRoute
+  '/maintenance/generate-schedule': typeof MaintenanceGenerateScheduleRoute
   '/notes/$date': typeof NotesDateRoute
   '/settings/self-host': typeof SettingsSelfHostRoute
   '/tasks/$slug': typeof TasksSlugRoute
@@ -372,6 +380,7 @@ export interface FileRoutesByTo {
   '/food/storage': typeof FoodStorageRoute
   '/maintenance/diagnose': typeof MaintenanceDiagnoseRoute
   '/maintenance/forecast': typeof MaintenanceForecastRoute
+  '/maintenance/generate-schedule': typeof MaintenanceGenerateScheduleRoute
   '/notes/$date': typeof NotesDateRoute
   '/settings/self-host': typeof SettingsSelfHostRoute
   '/tasks/$slug': typeof TasksSlugRoute
@@ -421,6 +430,7 @@ export interface FileRoutesById {
   '/food/storage': typeof FoodStorageRoute
   '/maintenance/diagnose': typeof MaintenanceDiagnoseRoute
   '/maintenance/forecast': typeof MaintenanceForecastRoute
+  '/maintenance/generate-schedule': typeof MaintenanceGenerateScheduleRoute
   '/notes/$date': typeof NotesDateRoute
   '/settings/self-host': typeof SettingsSelfHostRoute
   '/tasks/$slug': typeof TasksSlugRoute
@@ -471,6 +481,7 @@ export interface FileRouteTypes {
     | '/food/storage'
     | '/maintenance/diagnose'
     | '/maintenance/forecast'
+    | '/maintenance/generate-schedule'
     | '/notes/$date'
     | '/settings/self-host'
     | '/tasks/$slug'
@@ -518,6 +529,7 @@ export interface FileRouteTypes {
     | '/food/storage'
     | '/maintenance/diagnose'
     | '/maintenance/forecast'
+    | '/maintenance/generate-schedule'
     | '/notes/$date'
     | '/settings/self-host'
     | '/tasks/$slug'
@@ -566,6 +578,7 @@ export interface FileRouteTypes {
     | '/food/storage'
     | '/maintenance/diagnose'
     | '/maintenance/forecast'
+    | '/maintenance/generate-schedule'
     | '/notes/$date'
     | '/settings/self-host'
     | '/tasks/$slug'
@@ -761,6 +774,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/notes/$date'
       preLoaderRoute: typeof NotesDateRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/maintenance/generate-schedule': {
+      id: '/maintenance/generate-schedule'
+      path: '/generate-schedule'
+      fullPath: '/maintenance/generate-schedule'
+      preLoaderRoute: typeof MaintenanceGenerateScheduleRouteImport
+      parentRoute: typeof MaintenanceRoute
     }
     '/maintenance/forecast': {
       id: '/maintenance/forecast'
@@ -977,11 +997,13 @@ const FoodRouteWithChildren = FoodRoute._addFileChildren(FoodRouteChildren)
 interface MaintenanceRouteChildren {
   MaintenanceDiagnoseRoute: typeof MaintenanceDiagnoseRoute
   MaintenanceForecastRoute: typeof MaintenanceForecastRoute
+  MaintenanceGenerateScheduleRoute: typeof MaintenanceGenerateScheduleRoute
 }
 
 const MaintenanceRouteChildren: MaintenanceRouteChildren = {
   MaintenanceDiagnoseRoute: MaintenanceDiagnoseRoute,
   MaintenanceForecastRoute: MaintenanceForecastRoute,
+  MaintenanceGenerateScheduleRoute: MaintenanceGenerateScheduleRoute,
 }
 
 const MaintenanceRouteWithChildren = MaintenanceRoute._addFileChildren(
