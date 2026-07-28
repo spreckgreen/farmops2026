@@ -251,16 +251,28 @@ function CropsPage() {
                         {h.quantity} {h.unit}
                         {h.quality && ` · ${h.quality}`}
                       </span>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-6 w-6 p-0"
-                        onClick={() => {
-                          if (confirm("Delete this harvest?")) removeHarvest.mutate(h.id);
-                        }}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          asChild
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 px-2 text-[10px] gap-1"
+                        >
+                          <Link to="/food/preserve" search={{ harvestId: h.id }}>
+                            <ChefHat className="h-3 w-3" /> Preserve
+                          </Link>
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 w-6 p-0"
+                          onClick={() => {
+                            if (confirm("Delete this harvest?")) removeHarvest.mutate(h.id);
+                          }}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
                     </li>
                   ))}
                 </ul>
