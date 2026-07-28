@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Check, Loader2, Circle } from "lucide-react";
+import { Check, Loader2, Circle, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export type ProgressStage = {
   id: string;
@@ -24,10 +25,13 @@ export function AiProgressStages({
   active,
   done = false,
   stages = DEFAULT_AI_STAGES,
+  onCancel,
 }: {
   active: boolean;
   done?: boolean;
   stages?: ProgressStage[];
+  /** If provided, renders a Cancel button while `active` is true. */
+  onCancel?: () => void;
 }) {
   const [currentIdx, setCurrentIdx] = useState(0);
   const [elapsed, setElapsed] = useState(0);
@@ -108,6 +112,19 @@ export function AiProgressStages({
           );
         })}
       </ul>
+      {active && onCancel && (
+        <div className="flex justify-end pt-1">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={onCancel}
+            className="h-7 text-xs text-muted-foreground hover:text-destructive"
+          >
+            <X className="h-3.5 w-3.5 mr-1" /> Cancel
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

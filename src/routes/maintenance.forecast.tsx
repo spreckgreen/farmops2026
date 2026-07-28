@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { AppLayout } from "@/components/app-layout";
@@ -101,8 +102,14 @@ function ForecastPage() {
     queryFn: () => fetchForecast(),
   });
 
+  const abortRef = useRef<AbortController | null>(null);
   const narrativeMut = useMutation({
-    mutationFn: () => fetchNarrative({ data: { regenerate: true } }),
+    mutationFn: () => {
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
+      return fetchNarrative({ data: { regenerate: true }, signal: controller.signal });
+    },
     onSuccess: (res) => {
       qc.setQueryData(
         ["maintenance", "forecast"],
@@ -111,8 +118,18 @@ function ForecastPage() {
       );
       toast.success("AI briefing ready");
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not generate briefing"),
+    onError: (e) => {
+      if (e instanceof Error && (e.name === "AbortError" || /abort/i.test(e.message))) return;
+      toast.error(e instanceof Error ? e.message : "Could not generate briefing");
+    },
   });
+  const cancelNarrative = () => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    narrativeMut.reset();
+    toast.message("Request canceled");
+  };
+
 
   const buckets = data?.buckets;
   const assets = data?.assets ?? [];
@@ -160,6 +177,7 @@ function ForecastPage() {
               { id: "ai", label: "Generating 30/60/90-day briefing", estSeconds: 12 },
               { id: "format", label: "Formatting narrative", estSeconds: 1 },
             ]}
+            onCancel={cancelNarrative}
           />
         )}
 

@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 // FoodLayout in src/routes/food.tsx already wraps children in AppLayout.
@@ -93,9 +93,13 @@ function PreservePage() {
     queryFn: () => listFn(),
   });
 
+  const abortRef = useRef<AbortController | null>(null);
   const recommendMut = useMutation({
-    mutationFn: () =>
-      recommendFn({
+    mutationFn: () => {
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
+      return recommendFn({
         data: {
           crop: crop.trim(),
           variety: variety.trim() || null,
@@ -104,10 +108,21 @@ function PreservePage() {
           targetShelfMonths: months ? Number(months) : null,
           harvestId: harvestId ?? null,
         },
-      }),
+        signal: controller.signal,
+      });
+    },
     onSuccess: (r) => setResult(r),
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Recommendation failed"),
+    onError: (e) => {
+      if (e instanceof Error && (e.name === "AbortError" || /abort/i.test(e.message))) return;
+      toast.error(e instanceof Error ? e.message : "Recommendation failed");
+    },
   });
+  const cancelRecommend = () => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    recommendMut.reset();
+    toast.message("Request canceled");
+  };
 
   const logMut = useMutation({
     mutationFn: async () => {
@@ -246,6 +261,7 @@ function PreservePage() {
               { id: "ai", label: "Consulting preservation coach", estSeconds: 10 },
               { id: "match", label: "Matching library procedure", estSeconds: 1 },
             ]}
+            onCancel={cancelRecommend}
           />
         )}
 

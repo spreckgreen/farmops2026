@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { AppLayout } from "@/components/app-layout";
@@ -52,12 +52,17 @@ function Page() {
   const [assetId, setAssetId] = useState<string>("");
   const [usageContext, setUsageContext] = useState<string>("");
   const [plan, setPlan] = useState<ActionPlan | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   const planMut = useMutation({
     mutationFn: async () => {
       if (!assetId) throw new Error("Pick an asset first");
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
       return planFn({
         data: { asset_id: assetId, usage_context: usageContext || undefined },
+        signal: controller.signal,
       });
     },
     onSuccess: (p) => {
@@ -68,9 +73,18 @@ function Page() {
         );
       }
     },
-    onError: (e) =>
-      toast.error(e instanceof Error ? e.message : "Planner failed"),
+    onError: (e) => {
+      if (e instanceof Error && (e.name === "AbortError" || /abort/i.test(e.message))) return;
+      toast.error(e instanceof Error ? e.message : "Planner failed");
+    },
   });
+
+  const cancelPlan = () => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    planMut.reset();
+    toast.message("Request canceled");
+  };
 
   const selected = displayAssets.find((a) => a.id === assetId);
 
@@ -164,6 +178,7 @@ function Page() {
                     { id: "match", label: "Matching parts to your inventory", estSeconds: 2 },
                     { id: "format", label: "Formatting draft schedule", estSeconds: 1 },
                   ]}
+                  onCancel={cancelPlan}
                 />
               )}
             </div>
