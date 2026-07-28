@@ -23,6 +23,7 @@ import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as TasksIndexRouteImport } from './routes/tasks.index'
+import { Route as MaintenanceIndexRouteImport } from './routes/maintenance.index'
 import { Route as FoodIndexRouteImport } from './routes/food.index'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as TasksScheduledRouteImport } from './routes/tasks.scheduled'
@@ -127,6 +128,11 @@ const TasksIndexRoute = TasksIndexRouteImport.update({
   id: '/tasks/',
   path: '/tasks/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const MaintenanceIndexRoute = MaintenanceIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => MaintenanceRoute,
 } as any)
 const FoodIndexRoute = FoodIndexRouteImport.update({
   id: '/',
@@ -347,6 +353,7 @@ export interface FileRoutesByFullPath {
   '/tasks/scheduled': typeof TasksScheduledRoute
   '/admin/': typeof AdminIndexRoute
   '/food/': typeof FoodIndexRoute
+  '/maintenance/': typeof MaintenanceIndexRoute
   '/tasks/': typeof TasksIndexRoute
   '/api/public/health/procedures': typeof ApiPublicHealthProceduresRoute
   '/api/public/hooks/rachio-sync': typeof ApiPublicHooksRachioSyncRoute
@@ -357,7 +364,6 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/dashboard': typeof DashboardRoute
   '/inventory': typeof InventoryRoute
-  '/maintenance': typeof MaintenanceRouteWithChildren
   '/procedures': typeof ProceduresRoute
   '/projects': typeof ProjectsRoute
   '/reports': typeof ReportsRoute
@@ -396,6 +402,7 @@ export interface FileRoutesByTo {
   '/tasks/scheduled': typeof TasksScheduledRoute
   '/admin': typeof AdminIndexRoute
   '/food': typeof FoodIndexRoute
+  '/maintenance': typeof MaintenanceIndexRoute
   '/tasks': typeof TasksIndexRoute
   '/api/public/health/procedures': typeof ApiPublicHealthProceduresRoute
   '/api/public/hooks/rachio-sync': typeof ApiPublicHooksRachioSyncRoute
@@ -447,6 +454,7 @@ export interface FileRoutesById {
   '/tasks/scheduled': typeof TasksScheduledRoute
   '/admin/': typeof AdminIndexRoute
   '/food/': typeof FoodIndexRoute
+  '/maintenance/': typeof MaintenanceIndexRoute
   '/tasks/': typeof TasksIndexRoute
   '/api/public/health/procedures': typeof ApiPublicHealthProceduresRoute
   '/api/public/hooks/rachio-sync': typeof ApiPublicHooksRachioSyncRoute
@@ -499,6 +507,7 @@ export interface FileRouteTypes {
     | '/tasks/scheduled'
     | '/admin/'
     | '/food/'
+    | '/maintenance/'
     | '/tasks/'
     | '/api/public/health/procedures'
     | '/api/public/hooks/rachio-sync'
@@ -509,7 +518,6 @@ export interface FileRouteTypes {
     | '/auth'
     | '/dashboard'
     | '/inventory'
-    | '/maintenance'
     | '/procedures'
     | '/projects'
     | '/reports'
@@ -548,6 +556,7 @@ export interface FileRouteTypes {
     | '/tasks/scheduled'
     | '/admin'
     | '/food'
+    | '/maintenance'
     | '/tasks'
     | '/api/public/health/procedures'
     | '/api/public/hooks/rachio-sync'
@@ -598,6 +607,7 @@ export interface FileRouteTypes {
     | '/tasks/scheduled'
     | '/admin/'
     | '/food/'
+    | '/maintenance/'
     | '/tasks/'
     | '/api/public/health/procedures'
     | '/api/public/hooks/rachio-sync'
@@ -738,6 +748,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/tasks/'
       preLoaderRoute: typeof TasksIndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/maintenance/': {
+      id: '/maintenance/'
+      path: '/'
+      fullPath: '/maintenance/'
+      preLoaderRoute: typeof MaintenanceIndexRouteImport
+      parentRoute: typeof MaintenanceRoute
     }
     '/food/': {
       id: '/food/'
@@ -1018,12 +1035,14 @@ interface MaintenanceRouteChildren {
   MaintenanceDiagnoseRoute: typeof MaintenanceDiagnoseRoute
   MaintenanceForecastRoute: typeof MaintenanceForecastRoute
   MaintenanceGenerateScheduleRoute: typeof MaintenanceGenerateScheduleRoute
+  MaintenanceIndexRoute: typeof MaintenanceIndexRoute
 }
 
 const MaintenanceRouteChildren: MaintenanceRouteChildren = {
   MaintenanceDiagnoseRoute: MaintenanceDiagnoseRoute,
   MaintenanceForecastRoute: MaintenanceForecastRoute,
   MaintenanceGenerateScheduleRoute: MaintenanceGenerateScheduleRoute,
+  MaintenanceIndexRoute: MaintenanceIndexRoute,
 }
 
 const MaintenanceRouteWithChildren = MaintenanceRoute._addFileChildren(
