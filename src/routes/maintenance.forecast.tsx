@@ -15,6 +15,7 @@ import { CalendarClock, Sparkles, AlertTriangle, ArrowLeft, Wrench } from "lucid
 import { AiProgressStages } from "@/components/ai-progress-stages";
 import { useAiJobProgress } from "@/hooks/use-ai-job-progress";
 import { toast } from "sonner";
+import { handleAiJobInFlight } from "@/lib/ai-inflight-error";
 import { AiFeatureGate } from "@/components/ai-feature-gate";
 
 
