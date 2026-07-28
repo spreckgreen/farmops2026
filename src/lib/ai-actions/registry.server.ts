@@ -65,17 +65,14 @@ export async function executeAction(
   action: Action,
   ctx: ExecCtx,
 ): Promise<ActionResult> {
-  switch (action.type) {
-    case "maintenance.create_interval":
-      return execCreateInterval(action, ctx);
-    default: {
-      const _exhaustive: never = action;
-      return {
-        ok: false,
-        type: (action as Action).type,
-        label: "unknown",
-        error: `No executor for action type: ${JSON.stringify(_exhaustive)}`,
-      };
-    }
+  if (action.type === "maintenance.create_interval") {
+    return execCreateInterval(action, ctx);
   }
+  const unknown = action as Action;
+  return {
+    ok: false,
+    type: unknown.type,
+    label: "unknown",
+    error: `No executor for action type: ${unknown.type}`,
+  };
 }
