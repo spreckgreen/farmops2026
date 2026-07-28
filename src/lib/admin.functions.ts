@@ -534,11 +534,14 @@ export type ImportTableResult = {
 export type ImportResult = {
   ok: boolean;
   mode: ImportMode;
+  dry_run: boolean;
+  rewrite_ownership: boolean;
   started_at: string;
   finished_at: string;
   results: ImportTableResult[];
   debug?: boolean;
 };
+
 
 
 const RESTORE_INSERT_ORDER = [...RESET_TABLES].reverse(); // parents before children
@@ -565,6 +568,8 @@ export const importApplicationData = createServerFn({ method: "POST" })
       confirm?: string;
       allowMissingIntegrity?: boolean;
       debug?: boolean;
+      dryRun?: boolean;
+      rewriteOwnership?: boolean;
     }) => {
       if (!d || typeof d !== "object") throw new Error("Invalid payload");
       if (!d.snapshot || d.snapshot.app !== "bostead") {
@@ -577,7 +582,10 @@ export const importApplicationData = createServerFn({ method: "POST" })
         throw new Error("Snapshot has no tables array");
       }
       const mode: ImportMode = d.mode === "replace" ? "replace" : "merge";
-      if (mode === "replace" && d.confirm !== "REPLACE") {
+      const dryRun = d.dryRun === true;
+      // Replace mode requires REPLACE confirmation only for live runs; dry-runs
+      // never touch the database, so the confirmation is unnecessary.
+      if (mode === "replace" && !dryRun && d.confirm !== "REPLACE") {
         throw new Error('Replace mode requires confirm="REPLACE".');
       }
       return {
@@ -586,10 +594,16 @@ export const importApplicationData = createServerFn({ method: "POST" })
         confirm: d.confirm,
         allowMissingIntegrity: d.allowMissingIntegrity === true,
         debug: d.debug === true,
+        dryRun,
+        // Default true preserves prior behavior (rewrite to caller). Ownership
+        // is ALWAYS derived from the bearer-verified userId — this flag only
+        // toggles whether rewriting happens, never who the target is.
+        rewriteOwnership: d.rewriteOwnership !== false,
       };
     },
 
   )
+
   .handler(async ({ data, context }): Promise<ImportResult> => {
     const { supabase, userId } = context;
     await requireAdmin(supabase, userId);
@@ -671,7 +685,11 @@ export const importApplicationData = createServerFn({ method: "POST" })
     for (const table of RESTORE_INSERT_ORDER) {
       const snap = byTable.get(table);
       const sourceRows = snap?.rows ?? [];
-      const rows = scopeRestoreRowsToUser(sourceRows, userId);
+      // Ownership rewriting: userId comes exclusively from the verified bearer
+      // token via requireSupabaseAuth. Callers cannot inject an alternate owner.
+      const rows = data.rewriteOwnership
+        ? scopeRestoreRowsToUser(sourceRows, userId)
+        : sourceRows;
       let deleted = 0;
       let succeeded = 0;
       let errorMessage: string | undefined;
@@ -697,32 +715,48 @@ export const importApplicationData = createServerFn({ method: "POST" })
       };
 
       try {
-        if (data.mode === "replace") {
-          const { error: delErr, count } = await admin
-            .from(table)
-            .delete({ count: "exact" })
-            .not("id", "is", null);
-          if (delErr) {
-            await captureDebug("delete", delErr);
-            throw new Error(`delete failed: ${delErr.message}`);
-          }
-          deleted = count ?? 0;
-        }
-
-        if (rows.length > 0) {
-          const CHUNK = 500;
-          for (let i = 0; i < rows.length; i += CHUNK) {
-            const chunk = rows.slice(i, i + CHUNK);
-            const query =
-              data.mode === "replace"
-                ? admin.from(table).insert(chunk)
-                : admin.from(table).upsert(chunk, { onConflict: "id" });
-            const { error: writeErr } = await query;
-            if (writeErr) {
-              await captureDebug("write", writeErr, i, chunk);
-              throw new Error(`write failed at chunk ${i}: ${writeErr.message}`);
+        if (data.dryRun) {
+          // No writes. Report what WOULD happen: rows to insert/upsert, and
+          // for replace, the current row count that would be deleted first.
+          if (data.mode === "replace") {
+            const { count, error: countErr } = await admin
+              .from(table)
+              .select("id", { count: "exact", head: true });
+            if (countErr) {
+              await captureDebug("delete", countErr);
+              throw new Error(`preview count failed: ${countErr.message}`);
             }
-            succeeded += chunk.length;
+            deleted = count ?? 0;
+          }
+          succeeded = rows.length;
+        } else {
+          if (data.mode === "replace") {
+            const { error: delErr, count } = await admin
+              .from(table)
+              .delete({ count: "exact" })
+              .not("id", "is", null);
+            if (delErr) {
+              await captureDebug("delete", delErr);
+              throw new Error(`delete failed: ${delErr.message}`);
+            }
+            deleted = count ?? 0;
+          }
+
+          if (rows.length > 0) {
+            const CHUNK = 500;
+            for (let i = 0; i < rows.length; i += CHUNK) {
+              const chunk = rows.slice(i, i + CHUNK);
+              const query =
+                data.mode === "replace"
+                  ? admin.from(table).insert(chunk)
+                  : admin.from(table).upsert(chunk, { onConflict: "id" });
+              const { error: writeErr } = await query;
+              if (writeErr) {
+                await captureDebug("write", writeErr, i, chunk);
+                throw new Error(`write failed at chunk ${i}: ${writeErr.message}`);
+              }
+              succeeded += chunk.length;
+            }
           }
         }
       } catch (e) {
@@ -743,11 +777,14 @@ export const importApplicationData = createServerFn({ method: "POST" })
     return {
       ok,
       mode: data.mode,
+      dry_run: data.dryRun,
+      rewrite_ownership: data.rewriteOwnership,
       started_at: startedAt,
       finished_at: new Date().toISOString(),
       results,
       debug: data.debug,
     };
   });
+
 
 
