@@ -16,6 +16,7 @@ import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as ProjectsRouteImport } from './routes/projects'
 import { Route as ProceduresRouteImport } from './routes/procedures'
+import { Route as MaintenanceRouteImport } from './routes/maintenance'
 import { Route as InventoryRouteImport } from './routes/inventory'
 import { Route as FoodRouteImport } from './routes/food'
 import { Route as DashboardRouteImport } from './routes/dashboard'
@@ -93,6 +94,11 @@ const ProceduresRoute = ProceduresRouteImport.update({
   path: '/procedures',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MaintenanceRoute = MaintenanceRouteImport.update({
+  id: '/maintenance',
+  path: '/maintenance',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const InventoryRoute = InventoryRouteImport.update({
   id: '/inventory',
   path: '/inventory',
@@ -124,9 +130,9 @@ const TasksIndexRoute = TasksIndexRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const MaintenanceIndexRoute = MaintenanceIndexRouteImport.update({
-  id: '/maintenance/',
-  path: '/maintenance/',
-  getParentRoute: () => rootRouteImport,
+  id: '/',
+  path: '/',
+  getParentRoute: () => MaintenanceRoute,
 } as any)
 const FoodIndexRoute = FoodIndexRouteImport.update({
   id: '/',
@@ -165,19 +171,19 @@ const NotesDateRoute = NotesDateRouteImport.update({
 } as any)
 const MaintenanceGenerateScheduleRoute =
   MaintenanceGenerateScheduleRouteImport.update({
-    id: '/maintenance/generate-schedule',
-    path: '/maintenance/generate-schedule',
-    getParentRoute: () => rootRouteImport,
+    id: '/generate-schedule',
+    path: '/generate-schedule',
+    getParentRoute: () => MaintenanceRoute,
   } as any)
 const MaintenanceForecastRoute = MaintenanceForecastRouteImport.update({
-  id: '/maintenance/forecast',
-  path: '/maintenance/forecast',
-  getParentRoute: () => rootRouteImport,
+  id: '/forecast',
+  path: '/forecast',
+  getParentRoute: () => MaintenanceRoute,
 } as any)
 const MaintenanceDiagnoseRoute = MaintenanceDiagnoseRouteImport.update({
-  id: '/maintenance/diagnose',
-  path: '/maintenance/diagnose',
-  getParentRoute: () => rootRouteImport,
+  id: '/diagnose',
+  path: '/diagnose',
+  getParentRoute: () => MaintenanceRoute,
 } as any)
 const FoodStorageRoute = FoodStorageRouteImport.update({
   id: '/storage',
@@ -308,6 +314,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRoute
   '/food': typeof FoodRouteWithChildren
   '/inventory': typeof InventoryRoute
+  '/maintenance': typeof MaintenanceRouteWithChildren
   '/procedures': typeof ProceduresRoute
   '/projects': typeof ProjectsRoute
   '/reports': typeof ReportsRoute
@@ -408,6 +415,7 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRoute
   '/food': typeof FoodRouteWithChildren
   '/inventory': typeof InventoryRoute
+  '/maintenance': typeof MaintenanceRouteWithChildren
   '/procedures': typeof ProceduresRoute
   '/projects': typeof ProjectsRoute
   '/reports': typeof ReportsRoute
@@ -460,6 +468,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/food'
     | '/inventory'
+    | '/maintenance'
     | '/procedures'
     | '/projects'
     | '/reports'
@@ -559,6 +568,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/food'
     | '/inventory'
+    | '/maintenance'
     | '/procedures'
     | '/projects'
     | '/reports'
@@ -610,6 +620,7 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRoute
   FoodRoute: typeof FoodRouteWithChildren
   InventoryRoute: typeof InventoryRoute
+  MaintenanceRoute: typeof MaintenanceRouteWithChildren
   ProceduresRoute: typeof ProceduresRoute
   ProjectsRoute: typeof ProjectsRoute
   ReportsRoute: typeof ReportsRoute
@@ -626,16 +637,12 @@ export interface RootRouteChildren {
   AdminUsersRoute: typeof AdminUsersRoute
   AdminVaultBackupRoute: typeof AdminVaultBackupRoute
   AdminVaultRotationRoute: typeof AdminVaultRotationRoute
-  MaintenanceDiagnoseRoute: typeof MaintenanceDiagnoseRoute
-  MaintenanceForecastRoute: typeof MaintenanceForecastRoute
-  MaintenanceGenerateScheduleRoute: typeof MaintenanceGenerateScheduleRoute
   NotesDateRoute: typeof NotesDateRoute
   SettingsSelfHostRoute: typeof SettingsSelfHostRoute
   TasksSlugRoute: typeof TasksSlugRoute
   TasksBacklogRoute: typeof TasksBacklogRoute
   TasksScheduledRoute: typeof TasksScheduledRoute
   AdminIndexRoute: typeof AdminIndexRoute
-  MaintenanceIndexRoute: typeof MaintenanceIndexRoute
   TasksIndexRoute: typeof TasksIndexRoute
   ApiPublicHealthProceduresRoute: typeof ApiPublicHealthProceduresRoute
   ApiPublicHooksRachioSyncRoute: typeof ApiPublicHooksRachioSyncRoute
@@ -693,6 +700,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProceduresRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/maintenance': {
+      id: '/maintenance'
+      path: '/maintenance'
+      fullPath: '/maintenance'
+      preLoaderRoute: typeof MaintenanceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/inventory': {
       id: '/inventory'
       path: '/inventory'
@@ -737,10 +751,10 @@ declare module '@tanstack/react-router' {
     }
     '/maintenance/': {
       id: '/maintenance/'
-      path: '/maintenance'
+      path: '/'
       fullPath: '/maintenance/'
       preLoaderRoute: typeof MaintenanceIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof MaintenanceRoute
     }
     '/food/': {
       id: '/food/'
@@ -793,24 +807,24 @@ declare module '@tanstack/react-router' {
     }
     '/maintenance/generate-schedule': {
       id: '/maintenance/generate-schedule'
-      path: '/maintenance/generate-schedule'
+      path: '/generate-schedule'
       fullPath: '/maintenance/generate-schedule'
       preLoaderRoute: typeof MaintenanceGenerateScheduleRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof MaintenanceRoute
     }
     '/maintenance/forecast': {
       id: '/maintenance/forecast'
-      path: '/maintenance/forecast'
+      path: '/forecast'
       fullPath: '/maintenance/forecast'
       preLoaderRoute: typeof MaintenanceForecastRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof MaintenanceRoute
     }
     '/maintenance/diagnose': {
       id: '/maintenance/diagnose'
-      path: '/maintenance/diagnose'
+      path: '/diagnose'
       fullPath: '/maintenance/diagnose'
       preLoaderRoute: typeof MaintenanceDiagnoseRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof MaintenanceRoute
     }
     '/food/storage': {
       id: '/food/storage'
@@ -1017,12 +1031,31 @@ const FoodRouteChildren: FoodRouteChildren = {
 
 const FoodRouteWithChildren = FoodRoute._addFileChildren(FoodRouteChildren)
 
+interface MaintenanceRouteChildren {
+  MaintenanceDiagnoseRoute: typeof MaintenanceDiagnoseRoute
+  MaintenanceForecastRoute: typeof MaintenanceForecastRoute
+  MaintenanceGenerateScheduleRoute: typeof MaintenanceGenerateScheduleRoute
+  MaintenanceIndexRoute: typeof MaintenanceIndexRoute
+}
+
+const MaintenanceRouteChildren: MaintenanceRouteChildren = {
+  MaintenanceDiagnoseRoute: MaintenanceDiagnoseRoute,
+  MaintenanceForecastRoute: MaintenanceForecastRoute,
+  MaintenanceGenerateScheduleRoute: MaintenanceGenerateScheduleRoute,
+  MaintenanceIndexRoute: MaintenanceIndexRoute,
+}
+
+const MaintenanceRouteWithChildren = MaintenanceRoute._addFileChildren(
+  MaintenanceRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRoute: AuthRoute,
   DashboardRoute: DashboardRoute,
   FoodRoute: FoodRouteWithChildren,
   InventoryRoute: InventoryRoute,
+  MaintenanceRoute: MaintenanceRouteWithChildren,
   ProceduresRoute: ProceduresRoute,
   ProjectsRoute: ProjectsRoute,
   ReportsRoute: ReportsRoute,
@@ -1039,16 +1072,12 @@ const rootRouteChildren: RootRouteChildren = {
   AdminUsersRoute: AdminUsersRoute,
   AdminVaultBackupRoute: AdminVaultBackupRoute,
   AdminVaultRotationRoute: AdminVaultRotationRoute,
-  MaintenanceDiagnoseRoute: MaintenanceDiagnoseRoute,
-  MaintenanceForecastRoute: MaintenanceForecastRoute,
-  MaintenanceGenerateScheduleRoute: MaintenanceGenerateScheduleRoute,
   NotesDateRoute: NotesDateRoute,
   SettingsSelfHostRoute: SettingsSelfHostRoute,
   TasksSlugRoute: TasksSlugRoute,
   TasksBacklogRoute: TasksBacklogRoute,
   TasksScheduledRoute: TasksScheduledRoute,
   AdminIndexRoute: AdminIndexRoute,
-  MaintenanceIndexRoute: MaintenanceIndexRoute,
   TasksIndexRoute: TasksIndexRoute,
   ApiPublicHealthProceduresRoute: ApiPublicHealthProceduresRoute,
   ApiPublicHooksRachioSyncRoute: ApiPublicHooksRachioSyncRoute,
@@ -1057,3 +1086,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
