@@ -649,7 +649,40 @@ export type ImportResult = {
 
 
 
-const RESTORE_INSERT_ORDER = [...RESET_TABLES].reverse(); // parents before children
+// Explicit topological order: parents before children. Reversing RESET_TABLES
+// is not sufficient because dependencies aren't linear (e.g. food_price_history
+// references food_plan_foods, and activity_log references daily_notes + tasks).
+const RESTORE_INSERT_ORDER = [
+  "procedures",
+  "food_plan_people",
+  "food_plan_foods",
+  "food_price_history",   // → food_plan_foods
+  "food_plan_entries",    // → food_plan_foods, food_plan_people
+  "food_storage_plan",
+  "food_storage_items",
+  "plant_seasons",
+  "livestock_animals",
+  "orchard_trees",
+  "garden_plots",
+  "crop_plantings",
+  "crop_harvests",        // → crop_plantings
+  "inventory_items",
+  "consumables",
+  "maintenance_records",
+  "projects",
+  "tasks",
+  "daily_notes",
+  "summaries",
+  "activity_log",         // → daily_notes, tasks
+] as const;
+
+// Per-table conflict target for merge-mode upsert. Defaults to "id" (primary
+// key). Tables with additional unique constraints that ownership rewriting
+// can collide with need their natural key here — otherwise a row whose PK is
+// new but whose (user_id, natural_key) already exists throws 23505.
+const RESTORE_CONFLICT_TARGETS: Record<string, string> = {
+  daily_notes: "user_id,date",
+};
 
 const RESTORE_USER_SCOPED_COLUMNS = ["user_id"] as const;
 
@@ -851,10 +884,11 @@ export const importApplicationData = createServerFn({ method: "POST" })
             const CHUNK = 500;
             for (let i = 0; i < rows.length; i += CHUNK) {
               const chunk = rows.slice(i, i + CHUNK);
+              const onConflict = RESTORE_CONFLICT_TARGETS[table] ?? "id";
               const query =
                 data.mode === "replace"
                   ? admin.from(table).insert(chunk)
-                  : admin.from(table).upsert(chunk, { onConflict: "id" });
+                  : admin.from(table).upsert(chunk, { onConflict });
               const { error: writeErr } = await query;
               if (writeErr) {
                 await captureDebug("write", writeErr, i, chunk);
