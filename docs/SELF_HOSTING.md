@@ -161,8 +161,15 @@ change them and you must rebuild the image, not just restart it.
 
 ### 3.2 AI (choose one)
 
-Bostead uses AI for report drafts, task summaries, and the Southern-Ohio
-price refresh.
+Bostead uses AI for report drafts, task summaries, the Southern-Ohio
+price refresh, and the consultant/planner features.
+
+> **Sizing & backend selection:** see [`docs/AI-HOSTING.md`](./AI-HOSTING.md)
+> for hardware recommendations, cost math, and a comparison of hybrid
+> (paid API), self-hosted GPU, and Apple Silicon paths. TL;DR: if your
+> budget is under $1,500 and you want ChatGPT-tier quality, use a paid
+> API (~$5–15/month) — no single box under $1,500 runs 32B–70B locally.
+
 
 **Option A — Bundled Ollama (default, fully offline):**
 
