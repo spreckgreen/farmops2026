@@ -15,6 +15,7 @@ import { Sparkles, Wrench, ArrowLeft, Loader2 } from "lucide-react";
 import { AiProgressStages } from "@/components/ai-progress-stages";
 import { useAiJobProgress } from "@/hooks/use-ai-job-progress";
 import { toast } from "sonner";
+import { AiFeatureGate } from "@/components/ai-feature-gate";
 
 
 export const Route = createFileRoute("/maintenance/generate-schedule")({
@@ -30,7 +31,11 @@ export const Route = createFileRoute("/maintenance/generate-schedule")({
       },
     ],
   }),
-  component: Page,
+  component: () => (
+    <AiFeatureGate featureId="maintenance.generate-schedule">
+      <Page />
+    </AiFeatureGate>
+  ),
 });
 
 function Page() {

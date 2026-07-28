@@ -28,6 +28,7 @@ import { toast } from "sonner";
 
 import { format } from "date-fns";
 import { z } from "zod";
+import { AiFeatureGate } from "@/components/ai-feature-gate";
 
 const search = z.object({
   harvestId: z.string().uuid().optional(),
@@ -48,7 +49,11 @@ export const Route = createFileRoute("/food/preserve")({
       { name: "robots", content: "noindex" },
     ],
   }),
-  component: PreservePage,
+  component: () => (
+    <AiFeatureGate featureId="food.preserve">
+      <PreservePage />
+    </AiFeatureGate>
+  ),
 });
 
 const METHOD_ICON: Record<string, React.ComponentType<{ className?: string }>> = {

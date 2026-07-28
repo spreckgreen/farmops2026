@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
 import { askConsultant } from "@/lib/consultant.functions";
+import { useAiFeatureEnabled } from "@/hooks/use-ai-settings";
 
 type ChatRole = "user" | "assistant";
 interface ChatMessage {
@@ -97,7 +98,10 @@ export function ConsultantChat() {
     }
   }, [open]);
 
-  const hidden = HIDDEN_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+  const consultantEnabled = useAiFeatureEnabled("consultant");
+  const hidden =
+    !consultantEnabled ||
+    HIDDEN_PREFIXES.some((prefix) => pathname.startsWith(prefix));
 
   const send = useCallback(async () => {
     const text = input.trim();
