@@ -12,6 +12,7 @@ import { planMaintenanceSchedule } from "@/lib/maintenance-schedule-planner.func
 import { AiActionPreview } from "@/components/ai-action-preview";
 import type { ActionPlan } from "@/lib/ai-actions/types";
 import { Sparkles, Wrench, ArrowLeft, Loader2 } from "lucide-react";
+import { AiProgressStages } from "@/components/ai-progress-stages";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/maintenance/generate-schedule")({
