@@ -8,8 +8,10 @@ export interface ExecCtx {
   userId: string;
 }
 
+type CreateIntervalAction = Extract<Action, { type: "maintenance.create_interval" }>;
+
 async function execCreateInterval(
-  action: Extract<Action, { type: "maintenance.create_interval" }>,
+  action: CreateIntervalAction,
   ctx: ExecCtx,
 ): Promise<ActionResult> {
   const label = `${action.asset_name} — ${action.title}`;
@@ -35,7 +37,7 @@ async function execCreateInterval(
         consumables_used: [] as never,
       } as never)
       .select("id")
-      .single();
+      .single<{ id: string }>();
     if (error) throw new Error(error.message);
     const recordId = rec?.id as string | undefined;
     if (!recordId) throw new Error("Insert returned no id");
