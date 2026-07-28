@@ -11,6 +11,7 @@ import {
   Server,
   ShieldCheck,
   KeyRound,
+  Database,
 } from "lucide-react";
 
 export const Route = createFileRoute("/admin/")({

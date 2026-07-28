@@ -43,6 +43,7 @@ import { Route as FoodGardenRouteImport } from './routes/food.garden'
 import { Route as FoodCropsRouteImport } from './routes/food.crops'
 import { Route as AdminVaultRotationRouteImport } from './routes/admin.vault-rotation'
 import { Route as AdminUsersRouteImport } from './routes/admin.users'
+import { Route as AdminSchemaRouteImport } from './routes/admin.schema'
 import { Route as AdminRestoreRouteImport } from './routes/admin.restore'
 import { Route as AdminResetRouteImport } from './routes/admin.reset'
 import { Route as AdminExportKeyRouteImport } from './routes/admin.export-key'
@@ -221,6 +222,11 @@ const AdminUsersRoute = AdminUsersRouteImport.update({
   path: '/admin/users',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminSchemaRoute = AdminSchemaRouteImport.update({
+  id: '/admin/schema',
+  path: '/admin/schema',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminRestoreRoute = AdminRestoreRouteImport.update({
   id: '/admin/restore',
   path: '/admin/restore',
@@ -277,6 +283,7 @@ export interface FileRoutesByFullPath {
   '/admin/export-key': typeof AdminExportKeyRoute
   '/admin/reset': typeof AdminResetRoute
   '/admin/restore': typeof AdminRestoreRoute
+  '/admin/schema': typeof AdminSchemaRoute
   '/admin/users': typeof AdminUsersRoute
   '/admin/vault-rotation': typeof AdminVaultRotationRoute
   '/food/crops': typeof FoodCropsRoute
@@ -319,6 +326,7 @@ export interface FileRoutesByTo {
   '/admin/export-key': typeof AdminExportKeyRoute
   '/admin/reset': typeof AdminResetRoute
   '/admin/restore': typeof AdminRestoreRoute
+  '/admin/schema': typeof AdminSchemaRoute
   '/admin/users': typeof AdminUsersRoute
   '/admin/vault-rotation': typeof AdminVaultRotationRoute
   '/food/crops': typeof FoodCropsRoute
@@ -363,6 +371,7 @@ export interface FileRoutesById {
   '/admin/export-key': typeof AdminExportKeyRoute
   '/admin/reset': typeof AdminResetRoute
   '/admin/restore': typeof AdminRestoreRoute
+  '/admin/schema': typeof AdminSchemaRoute
   '/admin/users': typeof AdminUsersRoute
   '/admin/vault-rotation': typeof AdminVaultRotationRoute
   '/food/crops': typeof FoodCropsRoute
@@ -408,6 +417,7 @@ export interface FileRouteTypes {
     | '/admin/export-key'
     | '/admin/reset'
     | '/admin/restore'
+    | '/admin/schema'
     | '/admin/users'
     | '/admin/vault-rotation'
     | '/food/crops'
@@ -450,6 +460,7 @@ export interface FileRouteTypes {
     | '/admin/export-key'
     | '/admin/reset'
     | '/admin/restore'
+    | '/admin/schema'
     | '/admin/users'
     | '/admin/vault-rotation'
     | '/food/crops'
@@ -493,6 +504,7 @@ export interface FileRouteTypes {
     | '/admin/export-key'
     | '/admin/reset'
     | '/admin/restore'
+    | '/admin/schema'
     | '/admin/users'
     | '/admin/vault-rotation'
     | '/food/crops'
@@ -537,6 +549,7 @@ export interface RootRouteChildren {
   AdminExportKeyRoute: typeof AdminExportKeyRoute
   AdminResetRoute: typeof AdminResetRoute
   AdminRestoreRoute: typeof AdminRestoreRoute
+  AdminSchemaRoute: typeof AdminSchemaRoute
   AdminUsersRoute: typeof AdminUsersRoute
   AdminVaultRotationRoute: typeof AdminVaultRotationRoute
   NotesDateRoute: typeof NotesDateRoute
@@ -791,6 +804,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminUsersRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/schema': {
+      id: '/admin/schema'
+      path: '/admin/schema'
+      fullPath: '/admin/schema'
+      preLoaderRoute: typeof AdminSchemaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/restore': {
       id: '/admin/restore'
       path: '/admin/restore'
@@ -893,6 +913,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminExportKeyRoute: AdminExportKeyRoute,
   AdminResetRoute: AdminResetRoute,
   AdminRestoreRoute: AdminRestoreRoute,
+  AdminSchemaRoute: AdminSchemaRoute,
   AdminUsersRoute: AdminUsersRoute,
   AdminVaultRotationRoute: AdminVaultRotationRoute,
   NotesDateRoute: NotesDateRoute,
