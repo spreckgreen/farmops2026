@@ -568,6 +568,8 @@ export const importApplicationData = createServerFn({ method: "POST" })
       confirm?: string;
       allowMissingIntegrity?: boolean;
       debug?: boolean;
+      dryRun?: boolean;
+      rewriteOwnership?: boolean;
     }) => {
       if (!d || typeof d !== "object") throw new Error("Invalid payload");
       if (!d.snapshot || d.snapshot.app !== "bostead") {
@@ -580,7 +582,10 @@ export const importApplicationData = createServerFn({ method: "POST" })
         throw new Error("Snapshot has no tables array");
       }
       const mode: ImportMode = d.mode === "replace" ? "replace" : "merge";
-      if (mode === "replace" && d.confirm !== "REPLACE") {
+      const dryRun = d.dryRun === true;
+      // Replace mode requires REPLACE confirmation only for live runs; dry-runs
+      // never touch the database, so the confirmation is unnecessary.
+      if (mode === "replace" && !dryRun && d.confirm !== "REPLACE") {
         throw new Error('Replace mode requires confirm="REPLACE".');
       }
       return {
@@ -589,10 +594,16 @@ export const importApplicationData = createServerFn({ method: "POST" })
         confirm: d.confirm,
         allowMissingIntegrity: d.allowMissingIntegrity === true,
         debug: d.debug === true,
+        dryRun,
+        // Default true preserves prior behavior (rewrite to caller). Ownership
+        // is ALWAYS derived from the bearer-verified userId — this flag only
+        // toggles whether rewriting happens, never who the target is.
+        rewriteOwnership: d.rewriteOwnership !== false,
       };
     },
 
   )
+
   .handler(async ({ data, context }): Promise<ImportResult> => {
     const { supabase, userId } = context;
     await requireAdmin(supabase, userId);
