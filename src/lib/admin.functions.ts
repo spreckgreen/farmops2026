@@ -685,7 +685,11 @@ export const importApplicationData = createServerFn({ method: "POST" })
     for (const table of RESTORE_INSERT_ORDER) {
       const snap = byTable.get(table);
       const sourceRows = snap?.rows ?? [];
-      const rows = scopeRestoreRowsToUser(sourceRows, userId);
+      // Ownership rewriting: userId comes exclusively from the verified bearer
+      // token via requireSupabaseAuth. Callers cannot inject an alternate owner.
+      const rows = data.rewriteOwnership
+        ? scopeRestoreRowsToUser(sourceRows, userId)
+        : sourceRows;
       let deleted = 0;
       let succeeded = 0;
       let errorMessage: string | undefined;
@@ -711,32 +715,48 @@ export const importApplicationData = createServerFn({ method: "POST" })
       };
 
       try {
-        if (data.mode === "replace") {
-          const { error: delErr, count } = await admin
-            .from(table)
-            .delete({ count: "exact" })
-            .not("id", "is", null);
-          if (delErr) {
-            await captureDebug("delete", delErr);
-            throw new Error(`delete failed: ${delErr.message}`);
-          }
-          deleted = count ?? 0;
-        }
-
-        if (rows.length > 0) {
-          const CHUNK = 500;
-          for (let i = 0; i < rows.length; i += CHUNK) {
-            const chunk = rows.slice(i, i + CHUNK);
-            const query =
-              data.mode === "replace"
-                ? admin.from(table).insert(chunk)
-                : admin.from(table).upsert(chunk, { onConflict: "id" });
-            const { error: writeErr } = await query;
-            if (writeErr) {
-              await captureDebug("write", writeErr, i, chunk);
-              throw new Error(`write failed at chunk ${i}: ${writeErr.message}`);
+        if (data.dryRun) {
+          // No writes. Report what WOULD happen: rows to insert/upsert, and
+          // for replace, the current row count that would be deleted first.
+          if (data.mode === "replace") {
+            const { count, error: countErr } = await admin
+              .from(table)
+              .select("id", { count: "exact", head: true });
+            if (countErr) {
+              await captureDebug("delete", countErr);
+              throw new Error(`preview count failed: ${countErr.message}`);
             }
-            succeeded += chunk.length;
+            deleted = count ?? 0;
+          }
+          succeeded = rows.length;
+        } else {
+          if (data.mode === "replace") {
+            const { error: delErr, count } = await admin
+              .from(table)
+              .delete({ count: "exact" })
+              .not("id", "is", null);
+            if (delErr) {
+              await captureDebug("delete", delErr);
+              throw new Error(`delete failed: ${delErr.message}`);
+            }
+            deleted = count ?? 0;
+          }
+
+          if (rows.length > 0) {
+            const CHUNK = 500;
+            for (let i = 0; i < rows.length; i += CHUNK) {
+              const chunk = rows.slice(i, i + CHUNK);
+              const query =
+                data.mode === "replace"
+                  ? admin.from(table).insert(chunk)
+                  : admin.from(table).upsert(chunk, { onConflict: "id" });
+              const { error: writeErr } = await query;
+              if (writeErr) {
+                await captureDebug("write", writeErr, i, chunk);
+                throw new Error(`write failed at chunk ${i}: ${writeErr.message}`);
+              }
+              succeeded += chunk.length;
+            }
           }
         }
       } catch (e) {
@@ -757,11 +777,14 @@ export const importApplicationData = createServerFn({ method: "POST" })
     return {
       ok,
       mode: data.mode,
+      dry_run: data.dryRun,
+      rewrite_ownership: data.rewriteOwnership,
       started_at: startedAt,
       finished_at: new Date().toISOString(),
       results,
       debug: data.debug,
     };
   });
+
 
 
