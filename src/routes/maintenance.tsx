@@ -223,22 +223,43 @@ function MaintenancePage() {
             <div className="flex gap-2 shrink-0 flex-wrap">
               <Link
                 to="/maintenance/forecast"
-                className="inline-flex items-center gap-1 rounded-md border border-primary/40 text-primary hover:bg-primary/10 px-3 py-2 text-sm font-medium"
+                aria-busy={pendingTo === "/maintenance/forecast"}
+                className="inline-flex items-center gap-1 rounded-md border border-primary/40 text-primary hover:bg-primary/10 px-3 py-2 text-sm font-medium aria-busy:opacity-60 aria-busy:pointer-events-none"
               >
-                <CalendarClock className="h-4 w-4" /> Forecast
+                {pendingTo === "/maintenance/forecast" ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <CalendarClock className="h-4 w-4" />
+                )}
+                Forecast
               </Link>
               <Link
                 to="/maintenance/generate-schedule"
-                className="inline-flex items-center gap-1 rounded-md border border-primary/40 text-primary hover:bg-primary/10 px-3 py-2 text-sm font-medium"
+                aria-busy={pendingTo === "/maintenance/generate-schedule"}
+                className="inline-flex items-center gap-1 rounded-md border border-primary/40 text-primary hover:bg-primary/10 px-3 py-2 text-sm font-medium aria-busy:opacity-60 aria-busy:pointer-events-none"
               >
-                <Sparkles className="h-4 w-4" /> Generate schedule
+                {pendingTo === "/maintenance/generate-schedule" ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Sparkles className="h-4 w-4" />
+                )}
+                {pendingTo === "/maintenance/generate-schedule"
+                  ? "Opening…"
+                  : "Generate schedule"}
               </Link>
               <Link
                 to="/maintenance/diagnose"
-                className="inline-flex items-center gap-1 rounded-md border border-primary/40 text-primary hover:bg-primary/10 px-3 py-2 text-sm font-medium"
+                aria-busy={pendingTo === "/maintenance/diagnose"}
+                className="inline-flex items-center gap-1 rounded-md border border-primary/40 text-primary hover:bg-primary/10 px-3 py-2 text-sm font-medium aria-busy:opacity-60 aria-busy:pointer-events-none"
               >
-                <Stethoscope className="h-4 w-4" /> Diagnose
+                {pendingTo === "/maintenance/diagnose" ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Stethoscope className="h-4 w-4" />
+                )}
+                Diagnose
               </Link>
+
               <input
                 ref={fileRef}
                 type="file"
