@@ -195,4 +195,6 @@ export const getMaintenanceForecastNarrative = createServerFn({ method: "POST" }
     });
 
     return { narrative: result.text.trim(), model: modelId };
+      },
+    );
   });
