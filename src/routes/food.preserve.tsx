@@ -143,7 +143,7 @@ function PreservePage() {
   const PrimaryIcon = result ? (METHOD_ICON[result.primaryMethod] ?? ChefHat) : ChefHat;
 
   return (
-    <AppLayout>
+    <>
       <div className="max-w-4xl mx-auto px-6 py-10 space-y-6">
         <div>
           <div className="text-xs text-muted-foreground mb-1 flex items-center gap-2">
