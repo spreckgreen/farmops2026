@@ -95,6 +95,42 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_job_idempotency: {
+        Row: {
+          created_at: string
+          error: string | null
+          id: string
+          request_hash: string
+          result: Json | null
+          status: string
+          surface: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          error?: string | null
+          id?: string
+          request_hash: string
+          result?: Json | null
+          status: string
+          surface: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          error?: string | null
+          id?: string
+          request_hash?: string
+          result?: Json | null
+          status?: string
+          surface?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       asset_usage_snapshots: {
         Row: {
           created_at: string

@@ -233,6 +233,10 @@ export const recommendPreservation = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => RecommendInput.parse(d))
   .handler(async ({ data, context }): Promise<PreservationRecommendation> => {
     const { supabase, userId } = context;
+    const { withIdempotency } = await import("./ai-idempotency.server");
+    return withIdempotency(
+      { supabase, userId, surface: "food.preserve_recommend", input: data },
+      async (): Promise<PreservationRecommendation> => {
     const started = Date.now();
 
     const cropKey = normalizeCrop(data.crop);
@@ -413,6 +417,8 @@ export const recommendPreservation = createServerFn({ method: "POST" })
       model: modelId,
       latencyMs: Date.now() - started,
     };
+      },
+    );
   });
 
 // -----------------------------------------------------------------------------
