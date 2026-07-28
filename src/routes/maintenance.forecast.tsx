@@ -176,10 +176,11 @@ function ForecastPage() {
           </Button>
         </div>
 
-        {(narrativeMut.isPending || narrativeMut.isSuccess) && (
+        {(narrativeMut.isPending || narrativeMut.isSuccess || jobProgress.active) && (
           <AiProgressStages
-            active={narrativeMut.isPending}
+            active={narrativeMut.isPending || jobProgress.active}
             done={narrativeMut.isSuccess}
+            startedAt={jobProgress.startedAt}
             stages={[
               { id: "prepare", label: "Reading usage history & intervals", estSeconds: 1 },
               { id: "ai", label: "Generating 30/60/90-day briefing", estSeconds: 12 },
@@ -188,6 +189,7 @@ function ForecastPage() {
             onCancel={cancelNarrative}
           />
         )}
+
 
         {error && (
           <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
