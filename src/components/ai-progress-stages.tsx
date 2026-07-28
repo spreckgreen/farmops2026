@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Check, Loader2, Circle } from "lucide-react";
+import { Check, Loader2, Circle, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export type ProgressStage = {
   id: string;
