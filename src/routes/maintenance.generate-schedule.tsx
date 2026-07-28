@@ -153,6 +153,19 @@ function Page() {
                   )}
                 </Button>
               </div>
+
+              {(planMut.isPending || planMut.isSuccess) && (
+                <AiProgressStages
+                  active={planMut.isPending}
+                  done={planMut.isSuccess}
+                  stages={[
+                    { id: "prepare", label: "Loading asset & inventory context", estSeconds: 1 },
+                    { id: "ai", label: "Researching intervals with AI", estSeconds: 14 },
+                    { id: "match", label: "Matching parts to your inventory", estSeconds: 2 },
+                    { id: "format", label: "Formatting draft schedule", estSeconds: 1 },
+                  ]}
+                />
+              )}
             </div>
           )}
 
