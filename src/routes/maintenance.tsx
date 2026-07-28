@@ -143,6 +143,15 @@ function MaintenancePage() {
   const [replace, setReplace] = useState(false);
   const fileRef = useRef<HTMLInputElement | null>(null);
 
+  // Detect in-flight navigation to show feedback on nav links (esp. slow AI routes).
+  const pendingTo = useRouterState({
+    select: (s) =>
+      s.isLoading || s.status === "pending"
+        ? s.pendingMatches?.[s.pendingMatches.length - 1]?.pathname
+        : undefined,
+  });
+
+
   const importMut = useMutation({
     mutationFn: async () => {
       if (!pending) return null;
