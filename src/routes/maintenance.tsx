@@ -224,7 +224,7 @@ function MaintenancePage() {
               <Link
                 to="/maintenance/forecast"
                 aria-busy={pendingTo === "/maintenance/forecast"}
-                className="inline-flex items-center gap-1 rounded-md border border-primary/40 text-primary hover:bg-primary/10 px-3 py-2 text-sm font-medium aria-busy:opacity-60 aria-busy:pointer-events-none"
+                className="inline-flex items-center gap-1 rounded-md border border-primary/40 text-primary hover:bg-primary/10 px-3 py-2 text-sm font-medium aria-[busy=true]:opacity-60 aria-[busy=true]:pointer-events-none"
               >
                 {pendingTo === "/maintenance/forecast" ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -236,7 +236,7 @@ function MaintenancePage() {
               <Link
                 to="/maintenance/generate-schedule"
                 aria-busy={pendingTo === "/maintenance/generate-schedule"}
-                className="inline-flex items-center gap-1 rounded-md border border-primary/40 text-primary hover:bg-primary/10 px-3 py-2 text-sm font-medium aria-busy:opacity-60 aria-busy:pointer-events-none"
+                className="inline-flex items-center gap-1 rounded-md border border-primary/40 text-primary hover:bg-primary/10 px-3 py-2 text-sm font-medium aria-[busy=true]:opacity-60 aria-[busy=true]:pointer-events-none"
               >
                 {pendingTo === "/maintenance/generate-schedule" ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -250,7 +250,7 @@ function MaintenancePage() {
               <Link
                 to="/maintenance/diagnose"
                 aria-busy={pendingTo === "/maintenance/diagnose"}
-                className="inline-flex items-center gap-1 rounded-md border border-primary/40 text-primary hover:bg-primary/10 px-3 py-2 text-sm font-medium aria-busy:opacity-60 aria-busy:pointer-events-none"
+                className="inline-flex items-center gap-1 rounded-md border border-primary/40 text-primary hover:bg-primary/10 px-3 py-2 text-sm font-medium aria-[busy=true]:opacity-60 aria-[busy=true]:pointer-events-none"
               >
                 {pendingTo === "/maintenance/diagnose" ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
