@@ -45,6 +45,8 @@ function AdminIndexPage() {
           </p>
         </header>
 
+        <ReseedProfileCard />
+
         <RunAiTestCard description="Verify the AI backend is your self-hosted model on the VPS (CUSTOM_AI_BASE_URL) — provider should report 'custom' and endpoint should point at your VPS, not ai.gateway.lovable.dev." />
 
         <Card>
