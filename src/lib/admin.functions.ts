@@ -104,6 +104,111 @@ export const getMyProfile = createServerFn({ method: "GET" })
     };
   });
 
+// ---- One-click self re-seed (bootstrap / recovery) ----------------------
+//
+// Ensures the signed-in user has a `profiles` row (status=approved) and an
+// admin role in `user_roles`. Safe because:
+//   * Non-admins can only self-grant admin when NO admin exists yet
+//     (fresh self-hosted DB bootstrap). Once any admin exists, this
+//     endpoint refuses to escalate — a non-admin caller only gets their
+//     profile row ensured, without any role change.
+//   * Existing admins can call it any time to repair a missing profile
+//     or role row after a partial restore.
+
+export type ReseedResult = {
+  ok: boolean;
+  email: string | null;
+  profile: "created" | "updated" | "unchanged";
+  adminRole: "granted" | "already" | "denied_admins_exist";
+  message: string;
+};
+
+export const reseedMyProfile = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<ReseedResult> => {
+    const { userId, claims } = context;
+    const email = (claims as { email?: string }).email ?? null;
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    // 1. Ensure the profile row exists and is approved.
+    const existing = await supabaseAdmin
+      .from("profiles")
+      .select("id, status, email")
+      .eq("id", userId)
+      .maybeSingle();
+    if (existing.error) throw new Error(`profiles lookup failed: ${existing.error.message}`);
+
+    let profileState: ReseedResult["profile"] = "unchanged";
+    if (!existing.data) {
+      const ins = await supabaseAdmin
+        .from("profiles")
+        .insert({ id: userId, email, status: "approved", reviewed_by: userId, reviewed_at: new Date().toISOString() });
+      if (ins.error) throw new Error(`profile insert failed: ${ins.error.message}`);
+      profileState = "created";
+    } else if (existing.data.status !== "approved" || (email && existing.data.email !== email)) {
+      const upd = await supabaseAdmin
+        .from("profiles")
+        .update({ status: "approved", email: email ?? existing.data.email, reviewed_by: userId, reviewed_at: new Date().toISOString() })
+        .eq("id", userId);
+      if (upd.error) throw new Error(`profile update failed: ${upd.error.message}`);
+      profileState = "updated";
+    }
+
+    // 2. Decide whether to grant the admin role.
+    const myAdmin = await supabaseAdmin
+      .from("user_roles")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("role", "admin")
+      .maybeSingle();
+    if (myAdmin.error) throw new Error(`role lookup failed: ${myAdmin.error.message}`);
+
+    let adminRole: ReseedResult["adminRole"];
+    if (myAdmin.data) {
+      adminRole = "already";
+    } else {
+      // Bootstrap allowed only when no admin exists yet.
+      const anyAdmin = await supabaseAdmin
+        .from("user_roles")
+        .select("id", { head: true, count: "exact" })
+        .eq("role", "admin");
+      if (anyAdmin.error) throw new Error(`admin count failed: ${anyAdmin.error.message}`);
+
+      if ((anyAdmin.count ?? 0) === 0) {
+        const grant = await supabaseAdmin
+          .from("user_roles")
+          .insert({ user_id: userId, role: "admin", granted_by: userId });
+        if (grant.error) throw new Error(`admin grant failed: ${grant.error.message}`);
+        adminRole = "granted";
+      } else {
+        adminRole = "denied_admins_exist";
+      }
+    }
+
+    const parts: string[] = [];
+    parts.push(
+      profileState === "created"
+        ? "Profile created (approved)."
+        : profileState === "updated"
+          ? "Profile updated to approved."
+          : "Profile already approved.",
+    );
+    if (adminRole === "granted") parts.push("Admin role granted (bootstrap).");
+    else if (adminRole === "already") parts.push("Admin role already present.");
+    else parts.push("Admin role NOT granted — another admin already exists; ask them to promote you.");
+
+    return {
+      ok: true,
+      email,
+      profile: profileState,
+      adminRole,
+      message: parts.join(" "),
+    };
+  });
+
+
+
 // ---- Admin-only management ----------------------------------------------
 
 export const listUsers = createServerFn({ method: "GET" })
