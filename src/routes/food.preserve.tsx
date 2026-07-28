@@ -25,6 +25,7 @@ import {
 import { AiProgressStages } from "@/components/ai-progress-stages";
 import { useAiJobProgress } from "@/hooks/use-ai-job-progress";
 import { toast } from "sonner";
+import { handleAiJobInFlight } from "@/lib/ai-inflight-error";
 
 import { format } from "date-fns";
 import { z } from "zod";
@@ -125,8 +126,12 @@ function PreservePage() {
       setResult(r);
     },
     onError: (e) => {
+      if (e instanceof Error && (e.name === "AbortError" || /abort/i.test(e.message))) {
+        jobProgress.stop();
+        return;
+      }
+      if (handleAiJobInFlight(e)) return; // keep progress visible
       jobProgress.stop();
-      if (e instanceof Error && (e.name === "AbortError" || /abort/i.test(e.message))) return;
       toast.error(e instanceof Error ? e.message : "Recommendation failed");
     },
   });
