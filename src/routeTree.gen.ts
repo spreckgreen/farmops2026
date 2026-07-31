@@ -23,6 +23,7 @@ import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as TasksIndexRouteImport } from './routes/tasks.index'
+import { Route as ProceduresIndexRouteImport } from './routes/procedures.index'
 import { Route as MaintenanceIndexRouteImport } from './routes/maintenance.index'
 import { Route as FoodIndexRouteImport } from './routes/food.index'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
@@ -128,6 +129,11 @@ const TasksIndexRoute = TasksIndexRouteImport.update({
   id: '/tasks/',
   path: '/tasks/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const ProceduresIndexRoute = ProceduresIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => ProceduresRoute,
 } as any)
 const MaintenanceIndexRoute = MaintenanceIndexRouteImport.update({
   id: '/',
@@ -315,7 +321,7 @@ export interface FileRoutesByFullPath {
   '/food': typeof FoodRouteWithChildren
   '/inventory': typeof InventoryRoute
   '/maintenance': typeof MaintenanceRouteWithChildren
-  '/procedures': typeof ProceduresRoute
+  '/procedures': typeof ProceduresRouteWithChildren
   '/projects': typeof ProjectsRoute
   '/reports': typeof ReportsRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -354,6 +360,7 @@ export interface FileRoutesByFullPath {
   '/admin/': typeof AdminIndexRoute
   '/food/': typeof FoodIndexRoute
   '/maintenance/': typeof MaintenanceIndexRoute
+  '/procedures/': typeof ProceduresIndexRoute
   '/tasks/': typeof TasksIndexRoute
   '/api/public/health/procedures': typeof ApiPublicHealthProceduresRoute
   '/api/public/hooks/rachio-sync': typeof ApiPublicHooksRachioSyncRoute
@@ -364,7 +371,6 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/dashboard': typeof DashboardRoute
   '/inventory': typeof InventoryRoute
-  '/procedures': typeof ProceduresRoute
   '/projects': typeof ProjectsRoute
   '/reports': typeof ReportsRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -403,6 +409,7 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminIndexRoute
   '/food': typeof FoodIndexRoute
   '/maintenance': typeof MaintenanceIndexRoute
+  '/procedures': typeof ProceduresIndexRoute
   '/tasks': typeof TasksIndexRoute
   '/api/public/health/procedures': typeof ApiPublicHealthProceduresRoute
   '/api/public/hooks/rachio-sync': typeof ApiPublicHooksRachioSyncRoute
@@ -416,7 +423,7 @@ export interface FileRoutesById {
   '/food': typeof FoodRouteWithChildren
   '/inventory': typeof InventoryRoute
   '/maintenance': typeof MaintenanceRouteWithChildren
-  '/procedures': typeof ProceduresRoute
+  '/procedures': typeof ProceduresRouteWithChildren
   '/projects': typeof ProjectsRoute
   '/reports': typeof ReportsRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -455,6 +462,7 @@ export interface FileRoutesById {
   '/admin/': typeof AdminIndexRoute
   '/food/': typeof FoodIndexRoute
   '/maintenance/': typeof MaintenanceIndexRoute
+  '/procedures/': typeof ProceduresIndexRoute
   '/tasks/': typeof TasksIndexRoute
   '/api/public/health/procedures': typeof ApiPublicHealthProceduresRoute
   '/api/public/hooks/rachio-sync': typeof ApiPublicHooksRachioSyncRoute
@@ -508,6 +516,7 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/food/'
     | '/maintenance/'
+    | '/procedures/'
     | '/tasks/'
     | '/api/public/health/procedures'
     | '/api/public/hooks/rachio-sync'
@@ -518,7 +527,6 @@ export interface FileRouteTypes {
     | '/auth'
     | '/dashboard'
     | '/inventory'
-    | '/procedures'
     | '/projects'
     | '/reports'
     | '/reset-password'
@@ -557,6 +565,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/food'
     | '/maintenance'
+    | '/procedures'
     | '/tasks'
     | '/api/public/health/procedures'
     | '/api/public/hooks/rachio-sync'
@@ -608,6 +617,7 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/food/'
     | '/maintenance/'
+    | '/procedures/'
     | '/tasks/'
     | '/api/public/health/procedures'
     | '/api/public/hooks/rachio-sync'
@@ -621,7 +631,7 @@ export interface RootRouteChildren {
   FoodRoute: typeof FoodRouteWithChildren
   InventoryRoute: typeof InventoryRoute
   MaintenanceRoute: typeof MaintenanceRouteWithChildren
-  ProceduresRoute: typeof ProceduresRoute
+  ProceduresRoute: typeof ProceduresRouteWithChildren
   ProjectsRoute: typeof ProjectsRoute
   ReportsRoute: typeof ReportsRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
@@ -748,6 +758,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/tasks/'
       preLoaderRoute: typeof TasksIndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/procedures/': {
+      id: '/procedures/'
+      path: '/'
+      fullPath: '/procedures/'
+      preLoaderRoute: typeof ProceduresIndexRouteImport
+      parentRoute: typeof ProceduresRoute
     }
     '/maintenance/': {
       id: '/maintenance/'
@@ -1049,6 +1066,18 @@ const MaintenanceRouteWithChildren = MaintenanceRoute._addFileChildren(
   MaintenanceRouteChildren,
 )
 
+interface ProceduresRouteChildren {
+  ProceduresIndexRoute: typeof ProceduresIndexRoute
+}
+
+const ProceduresRouteChildren: ProceduresRouteChildren = {
+  ProceduresIndexRoute: ProceduresIndexRoute,
+}
+
+const ProceduresRouteWithChildren = ProceduresRoute._addFileChildren(
+  ProceduresRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRoute: AuthRoute,
@@ -1056,7 +1085,7 @@ const rootRouteChildren: RootRouteChildren = {
   FoodRoute: FoodRouteWithChildren,
   InventoryRoute: InventoryRoute,
   MaintenanceRoute: MaintenanceRouteWithChildren,
-  ProceduresRoute: ProceduresRoute,
+  ProceduresRoute: ProceduresRouteWithChildren,
   ProjectsRoute: ProjectsRoute,
   ReportsRoute: ReportsRoute,
   ResetPasswordRoute: ResetPasswordRoute,
