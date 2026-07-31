@@ -31,6 +31,7 @@ import { Route as TasksScheduledRouteImport } from './routes/tasks.scheduled'
 import { Route as TasksBacklogRouteImport } from './routes/tasks.backlog'
 import { Route as TasksSlugRouteImport } from './routes/tasks.$slug'
 import { Route as SettingsSelfHostRouteImport } from './routes/settings.self-host'
+import { Route as ProceduresIngestRouteImport } from './routes/procedures.ingest'
 import { Route as NotesDateRouteImport } from './routes/notes.$date'
 import { Route as MaintenanceGenerateScheduleRouteImport } from './routes/maintenance.generate-schedule'
 import { Route as MaintenanceForecastRouteImport } from './routes/maintenance.forecast'
@@ -169,6 +170,11 @@ const SettingsSelfHostRoute = SettingsSelfHostRouteImport.update({
   id: '/settings/self-host',
   path: '/settings/self-host',
   getParentRoute: () => rootRouteImport,
+} as any)
+const ProceduresIngestRoute = ProceduresIngestRouteImport.update({
+  id: '/ingest',
+  path: '/ingest',
+  getParentRoute: () => ProceduresRoute,
 } as any)
 const NotesDateRoute = NotesDateRouteImport.update({
   id: '/notes/$date',
@@ -353,6 +359,7 @@ export interface FileRoutesByFullPath {
   '/maintenance/forecast': typeof MaintenanceForecastRoute
   '/maintenance/generate-schedule': typeof MaintenanceGenerateScheduleRoute
   '/notes/$date': typeof NotesDateRoute
+  '/procedures/ingest': typeof ProceduresIngestRoute
   '/settings/self-host': typeof SettingsSelfHostRoute
   '/tasks/$slug': typeof TasksSlugRoute
   '/tasks/backlog': typeof TasksBacklogRoute
@@ -402,6 +409,7 @@ export interface FileRoutesByTo {
   '/maintenance/forecast': typeof MaintenanceForecastRoute
   '/maintenance/generate-schedule': typeof MaintenanceGenerateScheduleRoute
   '/notes/$date': typeof NotesDateRoute
+  '/procedures/ingest': typeof ProceduresIngestRoute
   '/settings/self-host': typeof SettingsSelfHostRoute
   '/tasks/$slug': typeof TasksSlugRoute
   '/tasks/backlog': typeof TasksBacklogRoute
@@ -455,6 +463,7 @@ export interface FileRoutesById {
   '/maintenance/forecast': typeof MaintenanceForecastRoute
   '/maintenance/generate-schedule': typeof MaintenanceGenerateScheduleRoute
   '/notes/$date': typeof NotesDateRoute
+  '/procedures/ingest': typeof ProceduresIngestRoute
   '/settings/self-host': typeof SettingsSelfHostRoute
   '/tasks/$slug': typeof TasksSlugRoute
   '/tasks/backlog': typeof TasksBacklogRoute
@@ -509,6 +518,7 @@ export interface FileRouteTypes {
     | '/maintenance/forecast'
     | '/maintenance/generate-schedule'
     | '/notes/$date'
+    | '/procedures/ingest'
     | '/settings/self-host'
     | '/tasks/$slug'
     | '/tasks/backlog'
@@ -558,6 +568,7 @@ export interface FileRouteTypes {
     | '/maintenance/forecast'
     | '/maintenance/generate-schedule'
     | '/notes/$date'
+    | '/procedures/ingest'
     | '/settings/self-host'
     | '/tasks/$slug'
     | '/tasks/backlog'
@@ -610,6 +621,7 @@ export interface FileRouteTypes {
     | '/maintenance/forecast'
     | '/maintenance/generate-schedule'
     | '/notes/$date'
+    | '/procedures/ingest'
     | '/settings/self-host'
     | '/tasks/$slug'
     | '/tasks/backlog'
@@ -814,6 +826,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/settings/self-host'
       preLoaderRoute: typeof SettingsSelfHostRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/procedures/ingest': {
+      id: '/procedures/ingest'
+      path: '/ingest'
+      fullPath: '/procedures/ingest'
+      preLoaderRoute: typeof ProceduresIngestRouteImport
+      parentRoute: typeof ProceduresRoute
     }
     '/notes/$date': {
       id: '/notes/$date'
@@ -1067,10 +1086,12 @@ const MaintenanceRouteWithChildren = MaintenanceRoute._addFileChildren(
 )
 
 interface ProceduresRouteChildren {
+  ProceduresIngestRoute: typeof ProceduresIngestRoute
   ProceduresIndexRoute: typeof ProceduresIndexRoute
 }
 
 const ProceduresRouteChildren: ProceduresRouteChildren = {
+  ProceduresIngestRoute: ProceduresIngestRoute,
   ProceduresIndexRoute: ProceduresIndexRoute,
 }
 
