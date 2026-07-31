@@ -23,6 +23,7 @@ import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as TasksIndexRouteImport } from './routes/tasks.index'
+import { Route as ProceduresIndexRouteImport } from './routes/procedures.index'
 import { Route as MaintenanceIndexRouteImport } from './routes/maintenance.index'
 import { Route as FoodIndexRouteImport } from './routes/food.index'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
@@ -30,6 +31,7 @@ import { Route as TasksScheduledRouteImport } from './routes/tasks.scheduled'
 import { Route as TasksBacklogRouteImport } from './routes/tasks.backlog'
 import { Route as TasksSlugRouteImport } from './routes/tasks.$slug'
 import { Route as SettingsSelfHostRouteImport } from './routes/settings.self-host'
+import { Route as ProceduresIngestRouteImport } from './routes/procedures.ingest'
 import { Route as NotesDateRouteImport } from './routes/notes.$date'
 import { Route as MaintenanceGenerateScheduleRouteImport } from './routes/maintenance.generate-schedule'
 import { Route as MaintenanceForecastRouteImport } from './routes/maintenance.forecast'
@@ -129,6 +131,11 @@ const TasksIndexRoute = TasksIndexRouteImport.update({
   path: '/tasks/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ProceduresIndexRoute = ProceduresIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => ProceduresRoute,
+} as any)
 const MaintenanceIndexRoute = MaintenanceIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -163,6 +170,11 @@ const SettingsSelfHostRoute = SettingsSelfHostRouteImport.update({
   id: '/settings/self-host',
   path: '/settings/self-host',
   getParentRoute: () => rootRouteImport,
+} as any)
+const ProceduresIngestRoute = ProceduresIngestRouteImport.update({
+  id: '/ingest',
+  path: '/ingest',
+  getParentRoute: () => ProceduresRoute,
 } as any)
 const NotesDateRoute = NotesDateRouteImport.update({
   id: '/notes/$date',
@@ -315,7 +327,7 @@ export interface FileRoutesByFullPath {
   '/food': typeof FoodRouteWithChildren
   '/inventory': typeof InventoryRoute
   '/maintenance': typeof MaintenanceRouteWithChildren
-  '/procedures': typeof ProceduresRoute
+  '/procedures': typeof ProceduresRouteWithChildren
   '/projects': typeof ProjectsRoute
   '/reports': typeof ReportsRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -347,6 +359,7 @@ export interface FileRoutesByFullPath {
   '/maintenance/forecast': typeof MaintenanceForecastRoute
   '/maintenance/generate-schedule': typeof MaintenanceGenerateScheduleRoute
   '/notes/$date': typeof NotesDateRoute
+  '/procedures/ingest': typeof ProceduresIngestRoute
   '/settings/self-host': typeof SettingsSelfHostRoute
   '/tasks/$slug': typeof TasksSlugRoute
   '/tasks/backlog': typeof TasksBacklogRoute
@@ -354,6 +367,7 @@ export interface FileRoutesByFullPath {
   '/admin/': typeof AdminIndexRoute
   '/food/': typeof FoodIndexRoute
   '/maintenance/': typeof MaintenanceIndexRoute
+  '/procedures/': typeof ProceduresIndexRoute
   '/tasks/': typeof TasksIndexRoute
   '/api/public/health/procedures': typeof ApiPublicHealthProceduresRoute
   '/api/public/hooks/rachio-sync': typeof ApiPublicHooksRachioSyncRoute
@@ -364,7 +378,6 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/dashboard': typeof DashboardRoute
   '/inventory': typeof InventoryRoute
-  '/procedures': typeof ProceduresRoute
   '/projects': typeof ProjectsRoute
   '/reports': typeof ReportsRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -396,6 +409,7 @@ export interface FileRoutesByTo {
   '/maintenance/forecast': typeof MaintenanceForecastRoute
   '/maintenance/generate-schedule': typeof MaintenanceGenerateScheduleRoute
   '/notes/$date': typeof NotesDateRoute
+  '/procedures/ingest': typeof ProceduresIngestRoute
   '/settings/self-host': typeof SettingsSelfHostRoute
   '/tasks/$slug': typeof TasksSlugRoute
   '/tasks/backlog': typeof TasksBacklogRoute
@@ -403,6 +417,7 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminIndexRoute
   '/food': typeof FoodIndexRoute
   '/maintenance': typeof MaintenanceIndexRoute
+  '/procedures': typeof ProceduresIndexRoute
   '/tasks': typeof TasksIndexRoute
   '/api/public/health/procedures': typeof ApiPublicHealthProceduresRoute
   '/api/public/hooks/rachio-sync': typeof ApiPublicHooksRachioSyncRoute
@@ -416,7 +431,7 @@ export interface FileRoutesById {
   '/food': typeof FoodRouteWithChildren
   '/inventory': typeof InventoryRoute
   '/maintenance': typeof MaintenanceRouteWithChildren
-  '/procedures': typeof ProceduresRoute
+  '/procedures': typeof ProceduresRouteWithChildren
   '/projects': typeof ProjectsRoute
   '/reports': typeof ReportsRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -448,6 +463,7 @@ export interface FileRoutesById {
   '/maintenance/forecast': typeof MaintenanceForecastRoute
   '/maintenance/generate-schedule': typeof MaintenanceGenerateScheduleRoute
   '/notes/$date': typeof NotesDateRoute
+  '/procedures/ingest': typeof ProceduresIngestRoute
   '/settings/self-host': typeof SettingsSelfHostRoute
   '/tasks/$slug': typeof TasksSlugRoute
   '/tasks/backlog': typeof TasksBacklogRoute
@@ -455,6 +471,7 @@ export interface FileRoutesById {
   '/admin/': typeof AdminIndexRoute
   '/food/': typeof FoodIndexRoute
   '/maintenance/': typeof MaintenanceIndexRoute
+  '/procedures/': typeof ProceduresIndexRoute
   '/tasks/': typeof TasksIndexRoute
   '/api/public/health/procedures': typeof ApiPublicHealthProceduresRoute
   '/api/public/hooks/rachio-sync': typeof ApiPublicHooksRachioSyncRoute
@@ -501,6 +518,7 @@ export interface FileRouteTypes {
     | '/maintenance/forecast'
     | '/maintenance/generate-schedule'
     | '/notes/$date'
+    | '/procedures/ingest'
     | '/settings/self-host'
     | '/tasks/$slug'
     | '/tasks/backlog'
@@ -508,6 +526,7 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/food/'
     | '/maintenance/'
+    | '/procedures/'
     | '/tasks/'
     | '/api/public/health/procedures'
     | '/api/public/hooks/rachio-sync'
@@ -518,7 +537,6 @@ export interface FileRouteTypes {
     | '/auth'
     | '/dashboard'
     | '/inventory'
-    | '/procedures'
     | '/projects'
     | '/reports'
     | '/reset-password'
@@ -550,6 +568,7 @@ export interface FileRouteTypes {
     | '/maintenance/forecast'
     | '/maintenance/generate-schedule'
     | '/notes/$date'
+    | '/procedures/ingest'
     | '/settings/self-host'
     | '/tasks/$slug'
     | '/tasks/backlog'
@@ -557,6 +576,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/food'
     | '/maintenance'
+    | '/procedures'
     | '/tasks'
     | '/api/public/health/procedures'
     | '/api/public/hooks/rachio-sync'
@@ -601,6 +621,7 @@ export interface FileRouteTypes {
     | '/maintenance/forecast'
     | '/maintenance/generate-schedule'
     | '/notes/$date'
+    | '/procedures/ingest'
     | '/settings/self-host'
     | '/tasks/$slug'
     | '/tasks/backlog'
@@ -608,6 +629,7 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/food/'
     | '/maintenance/'
+    | '/procedures/'
     | '/tasks/'
     | '/api/public/health/procedures'
     | '/api/public/hooks/rachio-sync'
@@ -621,7 +643,7 @@ export interface RootRouteChildren {
   FoodRoute: typeof FoodRouteWithChildren
   InventoryRoute: typeof InventoryRoute
   MaintenanceRoute: typeof MaintenanceRouteWithChildren
-  ProceduresRoute: typeof ProceduresRoute
+  ProceduresRoute: typeof ProceduresRouteWithChildren
   ProjectsRoute: typeof ProjectsRoute
   ReportsRoute: typeof ReportsRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
@@ -749,6 +771,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TasksIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/procedures/': {
+      id: '/procedures/'
+      path: '/'
+      fullPath: '/procedures/'
+      preLoaderRoute: typeof ProceduresIndexRouteImport
+      parentRoute: typeof ProceduresRoute
+    }
     '/maintenance/': {
       id: '/maintenance/'
       path: '/'
@@ -797,6 +826,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/settings/self-host'
       preLoaderRoute: typeof SettingsSelfHostRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/procedures/ingest': {
+      id: '/procedures/ingest'
+      path: '/ingest'
+      fullPath: '/procedures/ingest'
+      preLoaderRoute: typeof ProceduresIngestRouteImport
+      parentRoute: typeof ProceduresRoute
     }
     '/notes/$date': {
       id: '/notes/$date'
@@ -1049,6 +1085,20 @@ const MaintenanceRouteWithChildren = MaintenanceRoute._addFileChildren(
   MaintenanceRouteChildren,
 )
 
+interface ProceduresRouteChildren {
+  ProceduresIngestRoute: typeof ProceduresIngestRoute
+  ProceduresIndexRoute: typeof ProceduresIndexRoute
+}
+
+const ProceduresRouteChildren: ProceduresRouteChildren = {
+  ProceduresIngestRoute: ProceduresIngestRoute,
+  ProceduresIndexRoute: ProceduresIndexRoute,
+}
+
+const ProceduresRouteWithChildren = ProceduresRoute._addFileChildren(
+  ProceduresRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRoute: AuthRoute,
@@ -1056,7 +1106,7 @@ const rootRouteChildren: RootRouteChildren = {
   FoodRoute: FoodRouteWithChildren,
   InventoryRoute: InventoryRoute,
   MaintenanceRoute: MaintenanceRouteWithChildren,
-  ProceduresRoute: ProceduresRoute,
+  ProceduresRoute: ProceduresRouteWithChildren,
   ProjectsRoute: ProjectsRoute,
   ReportsRoute: ReportsRoute,
   ResetPasswordRoute: ResetPasswordRoute,
@@ -1086,13 +1136,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
