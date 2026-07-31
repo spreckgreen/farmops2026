@@ -71,6 +71,15 @@ export const AI_FEATURES: AiFeatureDef[] = [
     defaultEnabled: true,
   },
   {
+    id: "kb.ingest",
+    label: "KB ingest & summarize",
+    description:
+      "Turn a data export (ChatGPT, Markdown, CSV/JSON, PDF/DOCX) into summarized TinyWiki KB articles. One model call per article.",
+    weight: "heavy",
+    surfaces: ["/procedures/ingest"],
+    defaultEnabled: true,
+  },
+  {
     id: "weather.daily-summary",
     label: "Daily-note weather summary",
     description:
@@ -79,6 +88,7 @@ export const AI_FEATURES: AiFeatureDef[] = [
     surfaces: ["/log (daily note open)"],
     defaultEnabled: true,
   },
+
 ];
 
 export function getAiFeature(id: string): AiFeatureDef | undefined {
