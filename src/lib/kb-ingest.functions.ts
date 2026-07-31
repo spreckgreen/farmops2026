@@ -1,0 +1,254 @@
+// KB ingest: turn parsed export items into summarized TinyWiki KB articles
+// and save them into public.procedures for the caller.
+//
+// Client parses files (src/lib/kb-ingest-parse.ts) and posts flat text items
+// here; each article is a separate small model call so a modest local model
+// can keep up, and a failed item is reported without aborting the run.
+import { createServerFn } from "@tanstack/react-start";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+
+export type IngestMode = "per-item" | "grouped";
+
+export interface IngestSourceInput {
+  id: string;
+  title: string;
+  kind: string;
+  text: string;
+}
+
+export interface IngestedArticle {
+  name: string;
+  status: "saved" | "renamed" | "failed";
+  sources: string[];
+  error?: string;
+  chars: number;
+}
+
+export interface IngestResult {
+  articles: IngestedArticle[];
+  skipped: { title: string; reason: string }[];
+  model: string;
+  mode: IngestMode;
+  latencyMs: number;
+}
+
+const MAX_ITEMS = 60;
+const MAX_ITEM_CHARS = 12_000;
+const MAX_GROUP_CHARS = 24_000;
+const MAX_ARTICLES = 60;
+
+const ARTICLE_SHAPE = `Return GitHub-flavored Markdown only (no code fence around the whole answer), in exactly this shape:
+
+# <Article title>
+## Summary
+<2-4 sentences>
+## Key points
+- <bullet>
+## Steps
+1. <step>   (omit this section entirely if the source has no procedure)
+## Notes
+- <caveats, numbers, settings worth keeping>
+## Sources
+- <source titles you used>
+
+Rules: be factual, keep only durable knowledge, drop chit-chat and pleasantries,
+keep the whole article under 500 words, never invent facts not in the source.`;
+
+function firstHeading(md: string): string | null {
+  const m = md.match(/^\s*#\s+(.+)$/m);
+  return m ? m[1].trim().replace(/[#*`]/g, "").slice(0, 110) : null;
+}
+
+/** Strip an accidental wrapping code fence some small models add. */
+function unfence(text: string): string {
+  const t = text.trim();
+  const m = t.match(/^```(?:markdown|md)?\n([\s\S]*?)\n```$/);
+  return (m ? m[1] : t).trim();
+}
+
+export const ingestKbArticles = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { items: IngestSourceInput[]; mode: IngestMode }) => {
+    const items = Array.isArray(d?.items) ? d.items : [];
+    if (!items.length) throw new Error("No source items to ingest.");
+    const mode: IngestMode = d?.mode === "grouped" ? "grouped" : "per-item";
+    return {
+      mode,
+      items: items.slice(0, MAX_ITEMS).map((it, i) => ({
+        id: String(it?.id ?? `s${i + 1}`),
+        title: String(it?.title ?? "Untitled").slice(0, 160),
+        kind: String(it?.kind ?? "text").slice(0, 32),
+        text: String(it?.text ?? "").slice(0, MAX_ITEM_CHARS),
+      })),
+    };
+  })
+  .handler(async ({ context, data }): Promise<IngestResult> => {
+    const { withIdempotency } = await import("./ai-idempotency.server");
+    return withIdempotency(
+      {
+        supabase: context.supabase,
+        userId: context.userId,
+        surface: "kb.ingest",
+        input: {
+          mode: data.mode,
+          ids: data.items.map((i) => `${i.id}:${i.text.length}`),
+        },
+      },
+      () => runIngest(context, data),
+    );
+  });
+
+type Ctx = { supabase: any; userId: string };
+
+async function runIngest(
+  context: Ctx,
+  data: { items: IngestSourceInput[]; mode: IngestMode },
+): Promise<IngestResult> {
+  const started = Date.now();
+  const { createAiProvider } = await import("./ai-gateway.server");
+  const { provider, modelOverride } = await createAiProvider();
+  const modelId = modelOverride ?? "openai/gpt-5.6-sol";
+  const { generateText } = await import("ai");
+  const { markdownToTinyWiki } = await import("./md-to-tinywiki");
+  const { tidyProcedure } = await import("./tidy-tinywiki");
+  const { buildTinyWikiHtml } = await import("./tinywiki");
+  const providerOptions = modelOverride
+    ? undefined
+    : { "lovable-ai-gateway": { reasoningEffort: "none" as const } };
+
+  const ask = async (system: string, prompt: string) => {
+    const res = await generateText({
+      model: provider(modelId),
+      system,
+      prompt,
+      ...(providerOptions ? { providerOptions } : {}),
+    });
+    return unfence(res.text ?? "");
+  };
+
+  // Existing names so we never overwrite a hand-written procedure.
+  const { data: existingRows } = await context.supabase
+    .from("procedures")
+    .select("name")
+    .eq("user_id", context.userId);
+  const taken = new Set<string>(
+    (existingRows ?? []).map((r: { name: string }) => String(r.name)),
+  );
+
+  const skipped: { title: string; reason: string }[] = [];
+
+  // Build the units of work: either one per item, or AI-clustered groups.
+  type Unit = { title: string; sources: IngestSourceInput[] };
+  let units: Unit[] = data.items.map((it) => ({ title: it.title, sources: [it] }));
+
+  if (data.mode === "grouped" && data.items.length > 1) {
+    try {
+      const list = data.items
+        .map((it) => `${it.id} | ${it.title} | ${it.text.slice(0, 300).replace(/\n/g, " ")}`)
+        .join("\n");
+      const clustered = await ask(
+        "You cluster raw knowledge sources into topics for a farm operations knowledge base. " +
+          "Answer with one line per topic in the form: Topic title :: id1, id2, id3. " +
+          "Use every id exactly once. Prefer 3-10 topics. No commentary.",
+        `Sources (id | title | excerpt):\n${list}`,
+      );
+      const byId = new Map(data.items.map((it) => [it.id, it]));
+      const grouped: Unit[] = [];
+      const used = new Set<string>();
+      for (const line of clustered.split("\n")) {
+        const m = line.match(/^\s*[-*\d.]*\s*(.+?)\s*::\s*(.+)$/);
+        if (!m) continue;
+        const ids = m[2]
+          .split(/[,\s]+/)
+          .map((s) => s.trim().replace(/[^\w-]/g, ""))
+          .filter((id) => byId.has(id) && !used.has(id));
+        if (!ids.length) continue;
+        ids.forEach((id) => used.add(id));
+        grouped.push({
+          title: m[1].replace(/[#*`]/g, "").slice(0, 110),
+          sources: ids.map((id) => byId.get(id)!),
+        });
+      }
+      // Anything the model dropped becomes its own article.
+      for (const it of data.items) {
+        if (!used.has(it.id)) grouped.push({ title: it.title, sources: [it] });
+      }
+      if (grouped.length) units = grouped;
+    } catch (e) {
+      skipped.push({
+        title: "Topic grouping",
+        reason: `clustering failed, fell back to one article per item (${
+          e instanceof Error ? e.message : "unknown error"
+        })`,
+      });
+    }
+  }
+
+  units = units.slice(0, MAX_ARTICLES);
+  const articles: IngestedArticle[] = [];
+
+  for (const unit of units) {
+    const sourceNames = unit.sources.map((s) => s.title);
+    try {
+      let budget = MAX_GROUP_CHARS;
+      const blocks: string[] = [];
+      for (const s of unit.sources) {
+        const share = Math.max(
+          1_000,
+          Math.floor(MAX_GROUP_CHARS / unit.sources.length),
+        );
+        const body = s.text.slice(0, Math.min(share, budget));
+        if (!body) break;
+        budget -= body.length;
+        blocks.push(`### Source: ${s.title} (${s.kind})\n${body}`);
+      }
+
+      const md = await ask(
+        "You write concise, reusable knowledge-base articles for a farm operations app. " +
+          ARTICLE_SHAPE,
+        `Suggested topic: ${unit.title}\n\n${blocks.join("\n\n")}`,
+      );
+      if (!md || md.length < 40) throw new Error("model returned an empty article");
+
+      const rawName = firstHeading(md) ?? unit.title;
+      let name = rawName.replace(/[\/\\<>:"|?*\x00-\x1f]/g, "-").trim() || "Untitled";
+      const wanted = name;
+      let n = 2;
+      while (taken.has(name)) {
+        name = `${wanted} (${n++})`;
+      }
+      taken.add(name);
+
+      const body = tidyProcedure(name, markdownToTinyWiki(md)).body;
+      const html = buildTinyWikiHtml(name, body);
+      const { error } = await context.supabase.from("procedures").upsert(
+        { user_id: context.userId, name, content: html },
+        { onConflict: "user_id,name" },
+      );
+      if (error) throw new Error(error.message);
+
+      articles.push({
+        name,
+        status: name === wanted ? "saved" : "renamed",
+        sources: sourceNames,
+        chars: body.length,
+      });
+    } catch (e) {
+      articles.push({
+        name: unit.title,
+        status: "failed",
+        sources: sourceNames,
+        chars: 0,
+        error: e instanceof Error ? e.message : String(e),
+      });
+    }
+  }
+
+  return {
+    articles,
+    skipped,
+    model: modelId,
+    mode: data.mode,
+    latencyMs: Date.now() - started,
+  };
+}
