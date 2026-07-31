@@ -1,88 +1,69 @@
-# Self-hosting AI for FarmOps — sizing recommendation
+# KB Ingest: turn a data export into TinyWiki articles
 
-## The honest answer first
+Add a new **Import & summarize** flow to the Procedures pane that takes a data export
+(ChatGPT conversations, markdown/text files, CSV/JSON records, PDF/DOCX docs), asks the
+AI to write clean KB articles, converts them to TinyWiki markup, and saves them straight
+into the Procedures KB with a result report.
 
-You picked **"Heavy (32B–70B, near-ChatGPT quality)"** and **"Under $1,500."** Those two constraints don't meet on a single box in 2026. Here's the math, then three realistic paths.
+## What you get
 
-### Why $1,500 can't run 32B–70B well
+New page `/procedures/ingest` (reachable from an "Import & summarize" button on the
+Procedures pane):
 
-Model size at Q4 quantization (the sweet spot for quality vs. memory):
+1. **Drop files** — accepts `.zip` / `conversations.json` (ChatGPT export), `.md` / `.txt`,
+   `.csv` / `.json`, `.pdf` / `.docx`. Mixed selections are fine.
+2. **Preview of detected sources** — a table listing each extracted item with title, source
+   type, and character count, plus items skipped (empty, unreadable, over-size).
+3. **Choose the run mode**
+   - *One article per source item* — each conversation/file/row becomes its own article.
+   - *Group by topic* — AI clusters related items and writes fewer consolidated articles.
+4. **Run** — reuses the existing `AiProgressStages` indicator (persisted across refresh)
+   with Cancel, and is idempotency-guarded like the other heavy AI jobs.
+5. **Auto-save + report** — every generated article is written to the KB immediately; the
+   result screen lists each article with saved/renamed/failed status and a link that opens
+   it in the Procedures viewer. Name collisions get a ` (2)` suffix rather than overwriting.
 
-| Model | VRAM/RAM needed | Tokens/sec you'd want | Reality on $1,500 |
-|---|---|---|---|
-| Llama 3.1 8B Q4 | ~6 GB | 30+ | ✅ Easy |
-| Qwen2.5 14B Q4 | ~10 GB | 20+ | ✅ Achievable |
-| Qwen2.5 32B Q4 | ~20 GB | 15+ | ⚠️ Only on used 3090 (24 GB), tight |
-| Llama 3.3 70B Q4 | ~42 GB | 10+ | ❌ Needs 2×3090 or A6000 (~$4k+) |
+Article shape produced for each item:
 
-A used **RTX 3090 24 GB** alone runs ~$700–$900. Add a host that can feed it (PSU 850W+, PCIe 4.0 board, 64 GB RAM, NVMe) and you're at $1,600–$2,000 before tax — and you still can't run 70B, only 32B at ~10 tok/s. Your current VPS has no GPU and (based on the earlier OOM on `llama3.2:3b`) not enough RAM to matter for CPU inference at this class.
+```text
+! <Article title>
+!! Summary
+!! Key points
+!! Steps
+!! Notes
+!! Sources
+```
 
-## Three realistic paths
+Wiki markup is normalized with the existing tidy formatter, so it renders and round-trips
+exactly like a hand-written procedure.
 
-### Path A — Hybrid: keep ChatGPT for heavy lifting, self-host the small stuff (recommended)
+## Guardrails
 
-**Cost: $0 extra hardware. ~$5–15/month OpenAI.**
+- Heavy AI feature, so it appears in AI Settings as **KB ingest & summarize (heavy)** and
+  is wrapped in the existing feature gate; disabled means the page shows the standard
+  "feature disabled" placeholder.
+- Uses your existing AI routing (`CUSTOM_AI_*` vault keys / local Ollama, else Lovable AI).
+  Long exports are chunked and each article is a separate small call so a small local model
+  can keep up; a failed item is reported, it does not abort the run.
+- Total ingest size and per-item text are capped, and per-run article count is limited so a
+  huge export cannot run away.
 
-Your codebase already supports this via `CUSTOM_AI_BASE_URL`. The Planner+Executor pattern we just shipped is designed for exactly this:
+## Technical notes
 
-- **ChatGPT (gpt-4o-mini or gpt-4o)** handles: schedule planner, consultant chat, symptom→procedure, preservation coach, forecaster narratives.
-- **Bundled Ollama on the VPS** handles: nothing critical — leave it off or run `llama3.2:1b` for offline fallback only.
-
-Cost model: gpt-4o-mini is ~$0.15/M input, $0.60/M output. Your typical FarmOps call is 2–5k tokens in, 500 tokens out ≈ $0.001. Even 500 calls/month is under $1. gpt-4o is ~15× that.
-
-You already have this wired. No code changes.
-
-### Path B — $1,500 self-host, accept "Mid" quality ceiling
-
-**Best build at this budget:**
-
-| Part | Choice | ~Price |
-|---|---|---|
-| GPU | Used RTX 3090 24 GB | $750 |
-| CPU | Ryzen 7 5700X | $150 |
-| RAM | 64 GB DDR4 3200 | $110 |
-| Board | B550 | $130 |
-| NVMe | 1 TB Gen4 | $70 |
-| PSU | 850W Gold | $110 |
-| Case + fans | | $100 |
-| **Total** | | **~$1,420** |
-
-What it runs well:
-- ✅ Qwen2.5 14B Q5 at 30+ tok/s (great for consultant chat, symptom matching, note drafting)
-- ✅ Qwen2.5 32B Q4 at ~10–12 tok/s (usable for planner if you're patient)
-- ⚠️ 70B: not really — Q2 fits but quality drops below 14B
-
-Honest expectation: **matches Path A on the light features, noticeably worse on the schedule planner**. Small models still miss structured-JSON schemas ~15–30% of the time — the retry logic in the planner masks it but latency suffers.
-
-### Path C — Apple Silicon Mac Mini M4 Pro 48 GB
-
-**~$2,200** (over budget, but worth calling out).
-
-Unified memory means the 48 GB is usable as VRAM. Runs 32B at ~15 tok/s and 70B Q4 at ~6 tok/s. Silent, sips power (~40W under load vs. 400W for the 3090 build), fits on a shelf. Best perf/watt in this class. If budget flexes, this beats Path B on every axis except raw peak throughput.
-
-## My recommendation
-
-**Go with Path A (hybrid).** Reasons specific to your setup:
-
-1. You already OOM'd on 3B locally — jumping to 32B on the same VPS is a hardware swap, not a config change.
-2. The Planner+Executor architecture we shipped last turn is *designed* to let a smart remote model plan and a dumb local process act. Using ChatGPT as the planner is the intended pattern.
-3. Your ChatGPT subscription is already paid. Adding an API key ($5 minimum credit) unlocks gpt-4o-mini which handily beats a self-hosted 32B on structured output.
-4. If OpenAI ever becomes a problem (privacy, cost spike, outage), the same env vars point at a local Ollama — zero code change.
-
-If you want a self-hosted box anyway for privacy/independence, **Path B (used 3090 build, ~$1,400)** is the realistic floor. Skip anything cheaper; CPU-only inference on farm-consultant-sized prompts is 2–5 tok/s and will feel broken.
-
-## Technical details
-
-- All three paths use the existing `CUSTOM_AI_BASE_URL` / `CUSTOM_AI_API_KEY` / `CUSTOM_AI_MODEL` env vars in `.env.local`. No code changes needed to switch between them.
-- The Planner+Executor split means model quality mostly affects *plan quality*, not whether the app breaks — bad plans get rejected in the preview UI before writes happen.
-- For Path B/C, install Ollama, `ollama pull qwen2.5:14b-instruct-q5_K_M`, then set `CUSTOM_AI_BASE_URL=http://host:11434/v1`, `CUSTOM_AI_MODEL=qwen2.5:14b-instruct-q5_K_M`.
-
-## Deliverable
-
-This plan is advisory — no code changes proposed. If you want, on approval I can:
-
-- **A**: Write a `docs/AI-HOSTING.md` capturing this recommendation for future reference.
-- **B**: Update `docs/SELF_HOSTING.md` with a "Choose your AI backend" section covering the three paths.
-- **C**: Both.
-
-Pick one, or reject the plan and we'll just leave it in chat.
+- `src/lib/kb-ingest-parse.ts` (browser, pure): file → `SourceItem[] { id, title, kind, text }`.
+  ZIP via `fflate`, ChatGPT `conversations.json` mapping walk, CSV via existing `src/lib/csv.ts`,
+  PDF via `pdfjs-dist`, DOCX via `mammoth`. Parsing runs client-side so the Worker runtime
+  never touches binary document libraries.
+- `src/lib/kb-ingest.functions.ts`: `ingestKbArticles` server fn (`requireSupabaseAuth`),
+  input `{ items, mode, runId }`. Uses `createAiProvider()` from `ai-gateway.server`,
+  `generateText` per article with a lenient parse (same fallback style as the schedule
+  planner), then `markdownToTinyWiki` → `tidyProcedure` → upsert into `procedures` with a
+  unique name. Wrapped in `withIdempotency`. Returns `{ articles: [{ name, status, error? }],
+  skipped, model, latencyMs }`.
+- Group mode adds one preliminary clustering call that returns topic → item-id groups; each
+  group is then written as a single article from the concatenated (truncated) sources.
+- `src/routes/procedures.ingest.tsx`: wizard UI; `src/routes/procedures.tsx` becomes a
+  layout with `<Outlet />` and the existing pane moves to `procedures.index.tsx` (same
+  pattern already used for `/maintenance`).
+- New feature id `kb.ingest` added to `AI_FEATURES` in `src/lib/ai-features.ts`.
+- New deps: `fflate`, `pdfjs-dist`, `mammoth` (client-only imports, lazy-loaded).
