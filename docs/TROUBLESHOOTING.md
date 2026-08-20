@@ -38,6 +38,62 @@ How to read them:
 
 ---
 
+## Health endpoint: `GET /health`
+
+The app exposes a lightweight probe with no auth, no database access, and no external
+calls, so it answers in milliseconds:
+
+```
+GET /health  ->  200
+{"ok":true,"service":"bostead","status":"ready","uptimeSeconds":312,"checkedAt":"2026-08-20T18:26:04.118Z"}
+```
+
+`GET /api/public/health` returns the same payload and bypasses published-site auth, so
+external uptime monitors can poll it even when the site is password-gated. Both accept
+`HEAD` as well.
+
+A 200 means the Node server booted and is routing requests. It does *not* assert that
+the database or vault key are healthy - use `/admin/schema` for that.
+
+### Check it at all three layers
+
+```bash
+cd ~/bostead-a29954a1 && docker compose exec -T app sh -lc '
+echo "--- inside app container (is the server up at all?) ---"
+wget -qO- http://localhost:3000/health || echo "app: no response on localhost:3000"
+' && docker compose exec -T caddy sh -lc '
+echo
+echo "--- caddy -> app (the hop that 502s) ---"
+command -v curl >/dev/null 2>&1 || apk add --no-cache curl >/dev/null 2>&1
+curl -sS -o /tmp/h.json -w "status=%{http_code} total=%{time_total}s\n" http://app:3000/health && cat /tmp/h.json && echo
+' && echo && echo "--- through Caddy over HTTPS (what the browser sees) ---" && curl -sS -o /dev/null -w "status=%{http_code} total=%{time_total}s\n" https://$(hostname -f)/health
+```
+
+Locally, during development:
+
+```bash
+curl -sS -i http://localhost:3000/health          # status line + JSON body
+curl -sS -o /dev/null -w "%{http_code}\n" http://localhost:3000/health   # status code only
+```
+
+Whichever layer first stops returning `status=200` is the broken one:
+
+- all three 200 - app is ready; a browser 502 is stale or cached.
+- app container 200, caddy hop fails - networking (not the same compose network, or the app bound 127.0.0.1 instead of 0.0.0.0).
+- app container returns nothing - the server never booted; read the app log tail for the crash line.
+
+### Use it as a container healthcheck
+
+```yaml
+# docker-compose.yml, under the app service
+healthcheck:
+  test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
+  interval: 30s
+  timeout: 5s
+  retries: 3
+  start_period: 40s
+```
+
 ## Verify Caddy -> app connectivity (wget + curl + status code)
 
 One copyable snippet, run inside the Caddy container so it exercises the exact hop that
