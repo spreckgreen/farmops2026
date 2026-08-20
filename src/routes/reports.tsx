@@ -398,7 +398,9 @@ function ReportsPage() {
           </div>
         )}
 
-        {pendingForActive && visible.length === 0 && (
+        <ReportMetricsPanel mode={activeMode} />
+
+
           <p className="text-sm text-muted-foreground">Generating {LABELS[activeMode]}…</p>
         )}
         {!pendingForActive && visible.length === 0 && noActivity && (
