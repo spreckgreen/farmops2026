@@ -701,6 +701,96 @@ export const commitDailyNote = createServerFn({ method: "POST" })
       }
     }
 
+    // ---- Auto-link #project/<slug> tags to real project design elements ----
+    // A `#project/<tag>` token is only a label on tasks.project_tags. When the
+    // tag matches an actual project's slug, also attach the task to that
+    // project as a design element so it contributes to project progress.
+    // Non-matching tags stay plain labels. Never duplicates an existing link,
+    // and never pushes a project's total weight past 100%.
+    let linkedElements = 0;
+    const wanted = new Map<string, Set<string>>(); // taskId -> project slugs
+    for (const p of parsed) {
+      if (p.projectTags.length === 0) continue;
+      const task = resolveTask(p);
+      if (!task) continue;
+      const set = wanted.get(task.id) ?? new Set<string>();
+      for (const tag of p.projectTags) set.add(tag.toLowerCase());
+      wanted.set(task.id, set);
+    }
+
+    if (wanted.size > 0) {
+      const allTags = Array.from(new Set(Array.from(wanted.values()).flatMap((s) => Array.from(s))));
+      const { data: projects } = await supabase
+        .from("projects")
+        .select("id, slug")
+        .in("slug", allTags);
+      const projectBySlug = new Map((projects ?? []).map((p) => [p.slug.toLowerCase(), p]));
+
+      if (projectBySlug.size > 0) {
+        const projectIds = Array.from(projectBySlug.values()).map((p) => p.id);
+        const { data: elements } = await supabase
+          .from("project_design_elements")
+          .select("id, project_id, task_id, weight, sort_order")
+          .in("project_id", projectIds);
+        const existingPairs = new Set(
+          (elements ?? [])
+            .filter((e) => e.task_id)
+            .map((e) => `${e.project_id}:${e.task_id}`),
+        );
+        // Running per-project weight totals and next sort_order.
+        const weightTotals = new Map<string, number>();
+        const nextOrder = new Map<string, number>();
+        for (const id of projectIds) {
+          const mine = (elements ?? []).filter((e) => e.project_id === id);
+          weightTotals.set(
+            id,
+            mine.reduce((acc, e) => acc + Number(e.weight ?? 0), 0),
+          );
+          nextOrder.set(
+            id,
+            mine.reduce((acc, e) => Math.max(acc, Number(e.sort_order ?? 0) + 1), 0),
+          );
+        }
+
+        for (const [taskId, slugs] of wanted) {
+          for (const slug of slugs) {
+            const project = projectBySlug.get(slug);
+            if (!project) continue;
+            if (existingPairs.has(`${project.id}:${taskId}`)) continue;
+
+            const used = weightTotals.get(project.id) ?? 0;
+            const remaining = Math.max(0, 100 - used);
+            if (remaining <= 0) continue; // project is fully weighted already
+            const weight = Math.min(10, remaining);
+
+            const task = (existingTasks ?? []).find((t) => t.id === taskId)
+              ?? Array.from(tasksBySlug.values()).find((t) => t.id === taskId);
+            const order = nextOrder.get(project.id) ?? 0;
+
+            const { error: elErr } = await supabase
+              .from("project_design_elements")
+              .insert({
+                user_id: userId,
+                project_id: project.id,
+                task_id: taskId,
+                title: task?.title ?? "Untitled",
+                weight,
+                completed: task?.status === "done",
+                sort_order: order,
+              });
+            if (!elErr) {
+              existingPairs.add(`${project.id}:${taskId}`);
+              weightTotals.set(project.id, used + weight);
+              nextOrder.set(project.id, order + 1);
+              linkedElements += 1;
+            }
+          }
+        }
+      }
+    }
+
+
+
     type EntryInsert = {
       user_id: string;
       task_id: string | null;
