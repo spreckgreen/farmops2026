@@ -268,7 +268,12 @@ const DOC_SECTIONS: { label: string; anchor: string }[] = [
     anchor: "collect-a-full-log-report-one-command",
   },
 
+  {
+    label: "Caddy DNS and container name resolution",
+    anchor: "caddy-dns-and-container-name-resolution",
+  },
   { label: "Common 502 causes", anchor: "common-502-causes" },
+
   { label: "Still down — clean rebuild", anchor: "still-down--clean-rebuild" },
   {
     label: "Adjacent failures that are not 502s",
