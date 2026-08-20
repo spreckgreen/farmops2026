@@ -229,30 +229,62 @@ function NotePage() {
   const [showSource, setShowSource] = useState(false);
   const [compactPreview, setCompactPreview] = useState(true);
 
+  // Autocomplete for three reference kinds while typing:
+  //   #project/<slug>   → project slugs
+  //   #task/<slug>      → canonical task slugs
+  //   [[Task Name]]     → task titles (closing brackets inserted for you)
   const acToken = useMemo(() => {
-    if (!textareaRef.current) return null;
     const before = draft.slice(0, caret);
-    const m = /#project\/([a-z0-9-_]*)$/i.exec(before);
-    if (!m) return null;
-    return { start: caret - m[1].length, query: m[1].toLowerCase() };
+    const taskSlug = /#task\/([a-z0-9-_]*)$/i.exec(before);
+    if (taskSlug) {
+      return { kind: "task-slug" as const, start: caret - taskSlug[1].length, query: taskSlug[1].toLowerCase() };
+    }
+    const project = /#project\/([a-z0-9-_]*)$/i.exec(before);
+    if (project) {
+      return { kind: "project" as const, start: caret - project[1].length, query: project[1].toLowerCase() };
+    }
+    const title = /\[\[([^\[\]\n]*)$/.exec(before);
+    if (title) {
+      return { kind: "task-title" as const, start: caret - title[1].length, query: title[1].toLowerCase() };
+    }
+    return null;
   }, [draft, caret]);
 
   const acMatches = useMemo(() => {
     if (!acToken) return [];
     const q = acToken.query;
-    return projects
-      .filter((p) => !q || p.slug.toLowerCase().includes(q) || p.name.toLowerCase().includes(q))
-      .slice(0, 6);
-  }, [acToken, projects]);
+    if (acToken.kind === "project") {
+      return projects
+        .filter((p) => !q || p.slug.toLowerCase().includes(q) || (p.name ?? "").toLowerCase().includes(q))
+        .slice(0, 6)
+        .map((p) => ({ key: p.slug, insert: p.slug, primary: p.slug, secondary: p.name }));
+    }
+    const matched = tasks
+      .filter((t) => !q || t.slug.toLowerCase().includes(q) || t.title.toLowerCase().includes(q))
+      // Surface actionable tasks first, then most recently referenced titles.
+      .sort((a, b) => Number(a.status === "done") - Number(b.status === "done"))
+      .slice(0, 8);
+    if (acToken.kind === "task-slug") {
+      return matched.map((t) => ({ key: t.slug, insert: t.slug, primary: t.slug, secondary: t.title }));
+    }
+    return matched.map((t) => ({ key: t.slug, insert: `${t.title}]] `, primary: t.title, secondary: `#task/${t.slug}` }));
+  }, [acToken, projects, tasks]);
+
+  const acHint =
+    acToken?.kind === "task-slug" ? "#task/" : acToken?.kind === "task-title" ? "[[Task Name]]" : "#project/";
 
   useEffect(() => {
     setAcIndex(0);
-  }, [acToken?.query]);
+  }, [acToken?.query, acToken?.kind]);
 
-  const applyCompletion = (slug: string) => {
+  const applyCompletion = (insert: string) => {
     if (!acToken) return;
-    const next = draft.slice(0, acToken.start) + slug + draft.slice(caret);
-    const newCaret = acToken.start + slug.length;
+    // `[[` completions include the closing brackets, so swallow any the user
+    // already typed to avoid `[[Title]]]]`.
+    const after = draft.slice(caret);
+    const trailing = insert.endsWith("]] ") ? /^\]\]\s?/.exec(after)?.[0].length ?? 0 : 0;
+    const next = draft.slice(0, acToken.start) + insert + draft.slice(caret + trailing);
+    const newCaret = acToken.start + insert.length;
     setDraft(next);
     requestAnimationFrame(() => {
       const ta = textareaRef.current;
@@ -263,6 +295,7 @@ function NotePage() {
       }
     });
   };
+
 
   // Append an example line to the note and reveal the markdown editor so the
   // user can see exactly which text produced which interpretation.
