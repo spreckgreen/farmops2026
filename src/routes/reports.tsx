@@ -126,6 +126,8 @@ function ReportsPage() {
       });
       setCoveredAt((m) => ({ ...m, [mode]: fresh?.latest_at ?? null }));
       qc.invalidateQueries({ queryKey: ["summaries"] });
+      qc.invalidateQueries({ queryKey: ["report-metrics"] });
+
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
   });
