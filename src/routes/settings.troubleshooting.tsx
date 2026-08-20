@@ -305,6 +305,11 @@ function LogTailCard() {
           Reads the app's recent console output and the Caddy access log without a shell. Admin
           only; obvious secrets are redacted.
         </p>
+        <DocLink
+          anchor="one-click-log-tail-in-the-browser"
+          label="One-click log tail in the browser"
+        />
+
         <div className="flex flex-wrap items-center gap-2">
           {WINDOWS.map((w) => (
             <Button
