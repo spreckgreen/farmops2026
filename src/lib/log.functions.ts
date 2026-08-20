@@ -3,6 +3,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import { slugify, taskRenamePatch, patchMutatesSlug } from "./slug";
 import { appendTaskRefLine } from "./daily-note-append";
+import { DEFAULT_DESIGN_ELEMENT_WEIGHT } from "./design-weight";
 
 type ActivityLogEntry = { id?: string; raw_content: string; created_at: string };
 
