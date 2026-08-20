@@ -13,7 +13,9 @@ import { toast } from "sonner";
 import { format, addDays, parseISO } from "date-fns";
 import { ChevronLeft, ChevronRight, Eye, EyeOff, Cloud, RefreshCw } from "lucide-react";
 import { DailyNotePreview } from "@/components/daily-note-preview";
+import { DailyRatingPanel } from "@/components/daily-rating";
 import { NoteInterpretation } from "@/components/note-interpretation";
+
 import {
   applyNoteFix,
   interpretNote,
@@ -579,6 +581,18 @@ Untagged lines stay in this note only.`}</pre>
       </section>
 
       <aside className="lg:border-l lg:border-border lg:pl-6 space-y-6">
+        <DailyRatingPanel
+          noteId={query.data?.note.id}
+          date={date}
+          energy={
+            (query.data?.note as { energy_level?: number | null } | undefined)?.energy_level ?? null
+          }
+          productivity={
+            (query.data?.note as { productivity_level?: number | null } | undefined)
+              ?.productivity_level ?? null
+          }
+        />
+
         <div>
           <div className="flex items-center justify-between gap-3 mb-3">
             <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
