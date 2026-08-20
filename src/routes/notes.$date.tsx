@@ -13,7 +13,9 @@ import { toast } from "sonner";
 import { format, addDays, parseISO } from "date-fns";
 import { ChevronLeft, ChevronRight, Eye, EyeOff, Cloud, RefreshCw } from "lucide-react";
 import { DailyNotePreview } from "@/components/daily-note-preview";
+import { DailyRatingPanel } from "@/components/daily-rating";
 import { NoteInterpretation } from "@/components/note-interpretation";
+
 import {
   applyNoteFix,
   interpretNote,
