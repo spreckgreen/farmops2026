@@ -583,18 +583,24 @@ export const commitDailyNote = createServerFn({ method: "POST" })
       if (match) {
         if (p.newTask.title.length > match.title.length && !tasksBySlug.has(slug)) {
           // Upgrade the existing task to the longer/more complete title.
+          // INVARIANT: the slug is immutable — a title change must never
+          // rewrite it, or existing `#task/<slug>` references in older notes
+          // would silently stop resolving. See taskRenamePatch().
           await supabase
             .from("tasks")
-            .update({ title: p.newTask.title, slug })
+            .update(taskRenamePatch(p.newTask.title) as never)
             .eq("id", match.id);
-          tasksBySlug.delete(match.slug);
           tasksByTitle.delete(match.title.toLowerCase());
-          const upgraded = { ...match, title: p.newTask.title, slug };
+          const upgraded = { ...match, title: p.newTask.title };
+          // Keep the canonical (original) slug reachable, and also index the
+          // new title's slug so later lines in this note resolve either way.
+          tasksBySlug.set(match.slug, upgraded);
           tasksBySlug.set(slug, upgraded);
           tasksByTitle.set(p.newTask.title.toLowerCase(), upgraded);
           const idx = recentTasks.findIndex((t) => t.id === match.id);
           if (idx >= 0) recentTasks[idx] = upgraded;
         } else {
+
           // Existing one is already the longer/canonical form — reuse it.
           tasksBySlug.set(slug, match);
           tasksByTitle.set(p.newTask.title.toLowerCase(), match);
