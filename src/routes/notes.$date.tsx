@@ -7,6 +7,7 @@ import { getDailyForecast } from "@/lib/weather.functions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AppLayout } from "@/components/app-layout";
+import { SlugChip } from "@/components/slug-chip";
 import { requireAuthenticatedUser } from "@/lib/auth-route";
 import { toast } from "sonner";
 import { format, addDays, parseISO } from "date-fns";
