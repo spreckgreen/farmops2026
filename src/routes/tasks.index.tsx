@@ -57,6 +57,13 @@ function TasksPage() {
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <TaskQuickSearch />
+          <Link
+            to="/tasks/refs"
+            className="text-xs font-mono px-2 py-1 border border-border rounded hover:bg-accent"
+          >
+            Check note references
+          </Link>
+
           <CsvToolbar
 
             filename={`tasks-today-${today}.csv`}
