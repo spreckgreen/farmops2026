@@ -474,6 +474,21 @@ function TroubleshootingPage() {
                 auth gate.
               </li>
             </ul>
+            <div className="flex flex-wrap gap-2">
+              <DocLink
+                anchor="readiness-endpoint-get-ready"
+                label="Readiness endpoint: GET /ready"
+              />
+              <DocLink
+                anchor="one-command-verify-readiness-end-to-end-through-caddy"
+                label="One command: verify readiness end-to-end through Caddy"
+              />
+              <DocLink
+                anchor="compose-healthcheck-using-both-probes"
+                label="Compose healthcheck using both probes"
+              />
+            </div>
+
           </CardContent>
         </Card>
 
