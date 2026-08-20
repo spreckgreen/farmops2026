@@ -1621,9 +1621,12 @@ export type Database = {
         Row: {
           conditions: string | null
           created_at: string
+          feels_like_high_f: number | null
+          feels_like_low_f: number | null
           fetched_at: string
           forecast_date: string
           high_temp_f: number | null
+          humidity: number | null
           icon: string | null
           id: string
           low_temp_f: number | null
@@ -1639,9 +1642,12 @@ export type Database = {
         Insert: {
           conditions?: string | null
           created_at?: string
+          feels_like_high_f?: number | null
+          feels_like_low_f?: number | null
           fetched_at?: string
           forecast_date: string
           high_temp_f?: number | null
+          humidity?: number | null
           icon?: string | null
           id?: string
           low_temp_f?: number | null
@@ -1657,9 +1663,12 @@ export type Database = {
         Update: {
           conditions?: string | null
           created_at?: string
+          feels_like_high_f?: number | null
+          feels_like_low_f?: number | null
           fetched_at?: string
           forecast_date?: string
           high_temp_f?: number | null
+          humidity?: number | null
           icon?: string | null
           id?: string
           low_temp_f?: number | null

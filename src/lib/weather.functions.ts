@@ -21,6 +21,13 @@ type DailyForecast = {
   precip_type?: string;
   sunrise?: number;
   sunset?: number;
+  relative_humidity?: number;
+  air_temp_feels_like?: number;
+};
+
+type CurrentConditions = {
+  relative_humidity?: number;
+  feels_like?: number;
 };
 
 export type WeatherRow = {
@@ -34,10 +41,15 @@ export type WeatherRow = {
   precip_type: string | null;
   sunrise: string | null;
   sunset: string | null;
+  humidity: number | null;
+  feels_like_high_f: number | null;
+  feels_like_low_f: number | null;
   fetched_at: string;
 };
 
-async function fetchTempest(date: string): Promise<DailyForecast | null> {
+async function fetchTempest(
+  date: string,
+): Promise<{ daily: DailyForecast; current: CurrentConditions | null } | null> {
   const token = await getServerEnv("TEMPEST_API_TOKEN");
   // Not configured is a normal state on installs without a Tempest station:
   // skip quietly instead of throwing on every daily-note render.
@@ -46,13 +58,16 @@ async function fetchTempest(date: string): Promise<DailyForecast | null> {
   const url = `https://swd.weatherflow.com/swd/rest/better_forecast?station_id=${STATION_ID}&units_temp=f&units_wind=mph&units_pressure=inhg&units_precip=in&units_distance=mi&token=${token}`;
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Tempest API ${res.status}: ${truncateForLog(await res.text(), 200)}`);
-  const json = (await res.json()) as { forecast?: { daily?: DailyForecast[] } };
+  const json = (await res.json()) as {
+    forecast?: { daily?: DailyForecast[] };
+    current_conditions?: CurrentConditions;
+  };
   const daily = json.forecast?.daily ?? [];
-  return (
-    daily.find(
-      (d) => d.day_start_local && new Date(d.day_start_local * 1000).toISOString().slice(0, 10) === date,
-    ) ?? null
+  const match = daily.find(
+    (d) => d.day_start_local && new Date(d.day_start_local * 1000).toISOString().slice(0, 10) === date,
   );
+  if (!match) return null;
+  return { daily: match, current: json.current_conditions ?? null };
 }
 
 /** Shared helper — usable from other server functions that already have an authed supabase client. */
@@ -77,15 +92,21 @@ export async function fetchAndCacheForecast(
     }
   }
 
-  let forecast: DailyForecast | null = null;
+  let hit: { daily: DailyForecast; current: CurrentConditions | null } | null = null;
   try {
-    forecast = await fetchTempest(date);
+    hit = await fetchTempest(date);
   } catch (e) {
     console.warn(`[weather] tempest fetch failed for ${date}: ${describeError(e)}`);
     return null;
 
   }
-  if (!forecast) return null;
+  if (!hit) return null;
+  const forecast = hit.daily;
+  const today = new Date().toISOString().slice(0, 10);
+  // Tempest's daily block has no humidity/feels-like; its current_conditions
+  // block does (e.g. relative_humidity: 62, feels_like: 88), so it only
+  // describes today.
+  const current = date === today ? hit.current : null;
 
   const row = {
     user_id: userId,
@@ -99,7 +120,10 @@ export async function fetchAndCacheForecast(
     precip_type: forecast.precip_type ?? null,
     sunrise: forecast.sunrise ? new Date(forecast.sunrise * 1000).toISOString() : null,
     sunset: forecast.sunset ? new Date(forecast.sunset * 1000).toISOString() : null,
-    raw: forecast as unknown as never,
+    humidity: current?.relative_humidity ?? null,
+    feels_like_high_f: forecast.air_temp_feels_like ?? current?.feels_like ?? null,
+    feels_like_low_f: null,
+    raw: { ...forecast, current_conditions: current } as unknown as never,
     fetched_at: new Date().toISOString(),
   };
 
@@ -129,7 +153,14 @@ export function formatWeatherMarkdown(w: WeatherRow): string {
   const lo = w.low_temp_f != null ? `${Math.round(Number(w.low_temp_f))}°F` : "—";
   const cond = w.conditions ?? "Unknown";
   const precip = w.precip_probability != null ? ` · ${Math.round(Number(w.precip_probability))}% precip` : "";
-  return `## Weather · BosteadFarmHouse\n${cond} · High ${hi} / Low ${lo}${precip}\n`;
+  const humidity = w.humidity != null ? ` · ${Math.round(Number(w.humidity))}% humidity` : "";
+  const feels =
+    w.feels_like_high_f != null
+      ? ` · Feels like ${Math.round(Number(w.feels_like_high_f))}°F${
+          w.feels_like_low_f != null ? ` / ${Math.round(Number(w.feels_like_low_f))}°F` : ""
+        }`
+      : "";
+  return `## Weather · BosteadFarmHouse\n${cond} · High ${hi} / Low ${lo}${feels}${humidity}${precip}\n`;
 }
 
 // ---------------------------------------------------------------------------
@@ -146,6 +177,9 @@ type OpenMeteoArchive = {
     precipitation_sum?: (number | null)[];
     precipitation_probability_max?: (number | null)[];
     weather_code?: (number | null)[];
+    relative_humidity_2m_mean?: (number | null)[];
+    apparent_temperature_max?: (number | null)[];
+    apparent_temperature_min?: (number | null)[];
   };
 };
 
@@ -169,13 +203,15 @@ async function fetchOpenMeteoOne(
 ): Promise<Array<{
   date: string; high: number | null; low: number | null;
   precipProb: number | null; precipSum: number | null; conditions: string | null;
+  humidity: number | null; feelsHigh: number | null; feelsLow: number | null;
 }>> {
   const params = new URLSearchParams({
     latitude: String(FALLBACK_LAT),
     longitude: String(FALLBACK_LON),
     start_date: start,
     end_date: end,
-    daily: "temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,weather_code",
+    daily:
+      "temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,weather_code,relative_humidity_2m_mean,apparent_temperature_max,apparent_temperature_min",
     temperature_unit: "fahrenheit",
     precipitation_unit: "inch",
     timezone: "America/New_York",
@@ -191,6 +227,9 @@ async function fetchOpenMeteoOne(
     low: d.temperature_2m_min?.[idx] ?? null,
     precipSum: d.precipitation_sum?.[idx] ?? null,
     precipProb: d.precipitation_probability_max?.[idx] ?? null,
+    humidity: d.relative_humidity_2m_mean?.[idx] ?? null,
+    feelsHigh: d.apparent_temperature_max?.[idx] ?? null,
+    feelsLow: d.apparent_temperature_min?.[idx] ?? null,
     conditions: (() => {
       const code = d.weather_code?.[idx];
       return code != null ? (WMO[code] ?? `Code ${code}`) : null;
@@ -207,6 +246,7 @@ function addDaysISO(iso: string, days: number): string {
 async function fetchOpenMeteoRange(start: string, end: string): Promise<Array<{
   date: string; high: number | null; low: number | null;
   precipProb: number | null; precipSum: number | null; conditions: string | null;
+  humidity: number | null; feelsHigh: number | null; feelsLow: number | null;
 }>> {
   // Archive lags ~2 days; forecast covers ~today-2..today+16. Split the
   // range and skip anything beyond the forecast horizon (future seasons).
@@ -217,6 +257,7 @@ async function fetchOpenMeteoRange(start: string, end: string): Promise<Array<{
   const out: Array<{
     date: string; high: number | null; low: number | null;
     precipProb: number | null; precipSum: number | null; conditions: string | null;
+    humidity: number | null; feelsHigh: number | null; feelsLow: number | null;
   }> = [];
 
   if (start <= archiveCutoff) {
@@ -274,7 +315,8 @@ export const backfillSeasonWeather = createServerFn({ method: "POST" })
 
     let source: "tempest" | "open-meteo" = "open-meteo";
     let days: Array<{ date: string; high: number | null; low: number | null;
-      precipProb: number | null; precipSum: number | null; conditions: string | null }> = [];
+      precipProb: number | null; precipSum: number | null; conditions: string | null;
+      humidity: number | null; feelsHigh: number | null; feelsLow: number | null }> = [];
 
     // Try Tempest first for any portion that's within its ~10-day forecast window.
     // Tempest's better_forecast covers ~today + 10 days; for true history we use Open-Meteo.
@@ -295,6 +337,9 @@ export const backfillSeasonWeather = createServerFn({ method: "POST" })
                 precipProb: d.precip_probability ?? null,
                 precipSum: null,
                 conditions: d.conditions ?? null,
+                humidity: d.relative_humidity ?? null,
+                feelsHigh: d.air_temp_feels_like ?? null,
+                feelsLow: null,
               }))
               .filter((d) => d.date >= startDate && d.date <= endDate);
             if (tempDays.length) {
@@ -338,6 +383,9 @@ export const backfillSeasonWeather = createServerFn({ method: "POST" })
         icon: null,
         precip_probability: d.precipProb,
         precip_type: (d.precipSum != null && d.precipSum > 0) ? "rain" : null,
+        humidity: d.humidity,
+        feels_like_high_f: d.feelsHigh,
+        feels_like_low_f: d.feelsLow,
         sunrise: null,
         sunset: null,
         raw: { source, precip_sum_in: d.precipSum } as unknown as never,
