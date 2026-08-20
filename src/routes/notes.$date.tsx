@@ -22,6 +22,12 @@ import {
   type NoteFix,
 } from "@/lib/note-syntax";
 import { useShowTaskSlugs } from "@/hooks/use-show-task-slugs";
+import {
+  classifyEditorLines,
+  NoteEditorHighlightOverlay,
+  NoteSyntaxLegend,
+} from "@/components/note-editor-validation";
+
 
 
 export const Route = createFileRoute("/notes/$date")({
