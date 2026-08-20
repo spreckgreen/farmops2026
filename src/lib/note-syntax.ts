@@ -130,7 +130,7 @@ export function interpretNote(
   const bySlug = new Map(tasks.map((t) => [t.slug, t]));
   const byTitle = new Map(tasks.map((t) => [t.title.toLowerCase(), t]));
   // Tasks created earlier in this same note are resolvable by later lines.
-  const pendingSlugs = new Set<string>();
+  const pendingSlugs = new Map<string, string>();
   const pendingTitles = new Set<string>();
 
   const lines: InterpretedLine[] = [];
@@ -168,7 +168,7 @@ export function interpretNote(
 
       const existing = bySlug.get(slug) ?? byTitle.get(title.toLowerCase());
       const alreadyPending = pendingSlugs.has(slug);
-      pendingSlugs.add(slug);
+      pendingSlugs.set(slug, title);
       pendingTitles.add(title.toLowerCase());
 
       if (done) {
@@ -237,14 +237,15 @@ export function interpretNote(
       const meta = extractMeta(tagMatch[2]);
       const { details, unknownProjects } = metaDetails(meta, knownProjects);
       const task = bySlug.get(slug);
-      const resolvable = !!task || pendingSlugs.has(slug);
+      const pendingTitle = pendingSlugs.get(slug);
+      const resolvable = !!task || !!pendingTitle;
       lines.push({
         lineNumber,
         raw: trimmed,
         action: resolvable ? "log-entry" : "warning",
         label: resolvable ? `${entryType} entry` : "unknown task",
         summary: resolvable
-          ? `Adds a ${entryType} entry to "${task?.title ?? slug}": “${meta.stripped}”`
+          ? `Adds a ${entryType} entry to "${task?.title ?? pendingTitle ?? slug}": “${meta.stripped}”`
           : `No task with slug "${slug}" — this line will not be logged.`,
         details: resolvable
           ? [
@@ -257,7 +258,7 @@ export function interpretNote(
               ...details,
             ],
         entryType,
-        taskTitle: task?.title,
+        taskTitle: task?.title ?? pendingTitle,
         taskSlug: slug,
         unresolvedRef: !resolvable,
         projectTags: meta.tags,
