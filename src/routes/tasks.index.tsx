@@ -8,6 +8,8 @@ import { requireAuthenticatedUser } from "@/lib/auth-route";
 import { todayDateString } from "@/lib/slug";
 import { useShowTaskSlugs } from "@/hooks/use-show-task-slugs";
 import { CsvToolbar } from "@/components/csv-toolbar";
+import { TaskQuickSearch } from "@/components/task-quick-search";
+
 
 export const Route = createFileRoute("/tasks/")({
   ssr: false,
