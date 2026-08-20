@@ -2,6 +2,8 @@ import { Link } from "@tanstack/react-router";
 import { useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { SlugChip } from "@/components/slug-chip";
+
 import {
   AlertTriangle,
   CheckCircle2,
