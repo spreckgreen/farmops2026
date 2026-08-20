@@ -374,6 +374,35 @@ export const getDailyNote = createServerFn({ method: "POST" })
     return { note: note!, tasks: tasks ?? [], entries: entries ?? [] };
   });
 
+// ---- Daily energy / productivity ratings (1-5, null clears) ----
+
+export const setDailyNoteRatings = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        noteId: z.string().uuid(),
+        energy_level: z.number().int().min(1).max(5).nullable().optional(),
+        productivity_level: z.number().int().min(1).max(5).nullable().optional(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const patch: Record<string, number | null> = {};
+    if (data.energy_level !== undefined) patch.energy_level = data.energy_level;
+    if (data.productivity_level !== undefined) patch.productivity_level = data.productivity_level;
+    const { data: row, error } = await context.supabase
+      .from("daily_notes")
+      .update(patch)
+      .eq("id", data.noteId)
+      .select("id, energy_level, productivity_level")
+      .single();
+    if (error) throw new Error(error.message);
+    return row;
+  });
+
+
+
 // ---- Save daily note + parse entries into activity_log ----
 
 const ENTRY_TYPE_PREFIXES: Record<string, "blocker" | "decision" | "commit" | "meeting"> = {
