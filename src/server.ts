@@ -1,6 +1,12 @@
 import "./lib/env-startup-check.server";
 import "./lib/error-capture";
 
+import { installLogBuffer } from "./lib/diag-log-buffer.server";
+
+// Keep the last ~500 console lines in memory so /settings/troubleshooting can
+// tail app logs in the browser without shell access. Must run before the banner.
+installLogBuffer();
+
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
 
