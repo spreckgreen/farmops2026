@@ -23,6 +23,8 @@ import {
 import { TiddlyWikiImportButton } from "@/components/tiddlywiki-import-button";
 import { CsvToolbar } from "@/components/csv-toolbar";
 import { TaskQuickSearch } from "@/components/task-quick-search";
+import { ReportMetricsPanel } from "@/components/report-metrics";
+
 
 import { renderSummaryFile } from "@/lib/obsidian-markdown";
 import {
