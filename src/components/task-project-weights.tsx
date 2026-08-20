@@ -90,11 +90,7 @@ function WeightRow({
   return (
     <li className="flex flex-wrap items-center gap-2 text-sm">
       {link.project ? (
-        <Link
-          to="/projects/$slug"
-          params={{ slug: link.project.slug }}
-          className="font-medium hover:underline"
-        >
+        <Link to="/projects" className="font-medium hover:underline">
           {link.project.name}
         </Link>
       ) : (

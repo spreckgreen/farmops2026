@@ -25,6 +25,7 @@ import { AppLayout } from "@/components/app-layout";
 import { SlugChip } from "@/components/slug-chip";
 import { TaskLinkCopy } from "@/components/task-link-copy";
 import { TaskQuickSearch } from "@/components/task-quick-search";
+import { TaskProjectWeights } from "@/components/task-project-weights";
 
 
 
@@ -235,6 +236,8 @@ function TaskPage() {
           </AlertDialog>
         </div>
       </div>
+
+      <TaskProjectWeights taskId={task.id} />
 
       <div className="mb-6 flex flex-wrap items-center gap-3 rounded-lg border border-border bg-card/40 px-4 py-3">
         <Checkbox
