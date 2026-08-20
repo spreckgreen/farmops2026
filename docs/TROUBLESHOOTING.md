@@ -245,6 +245,52 @@ docker compose exec app ls -l /var/log/caddy/ && tail -2 logs/caddy/access.log
 
 ---
 
+## Collect a full log report (one command)
+
+`scripts/collect-logs.sh` bundles container state, probes, env variable names, and
+the recent `caddy` / `app` / `ollama` logs into a single Markdown file you can paste
+straight into a chat or an issue. Secrets are scrubbed before anything is written
+(`«REDACTED»`, `«REDACTED-JWT»`, `«REDACTED-HEX»` markers).
+
+```bash
+cd ~/bostead-a29954a1 && ./scripts/collect-logs.sh
+```
+
+Output goes to `logs/reports/bostead-report-<timestamp>.md` (git-ignored) and the
+script prints the path plus clipboard hints. To skip the file entirely:
+
+```bash
+./scripts/collect-logs.sh --stdout | less
+```
+
+Useful flags:
+
+| Flag | Default | Purpose |
+| --- | --- | --- |
+| `--minutes N` | `15` | Log time window per service |
+| `--tail N` | `200` | Max lines per service |
+| `--services "app caddy"` | `caddy app ollama` | Restrict to a subset |
+| `--host <fqdn>` | `farmops.bostead.life` | Host used for the HTTPS probe |
+| `--stdout` | off | Print the report instead of writing a file |
+| `--no-sudo` | off | Never retry docker with `sudo` |
+
+Straight to the clipboard, tight window, for a fresh 502:
+
+```bash
+cd ~/bostead-a29954a1 && ./scripts/collect-logs.sh --minutes 5 --stdout | tee /tmp/report.md | tail -40
+# then: xclip -sel clip < /tmp/report.md   (macOS: pbcopy < /tmp/report.md)
+```
+
+The report contains, in order:
+
+1. **Host + stack** — kernel, docker/compose versions, `free -h`, `df -h`, per-container CPU/memory.
+2. **Container state** — `docker compose ps` plus `status=` / `exit=` / `oom=` / `restarts=` per service (`exit=137` + `oom=true` means OOM-killed).
+3. **Probes** — `/health` and `/ready` from inside caddy and over HTTPS, with status codes and timings.
+4. **Env sanity** — variable *names* only, plus the `SUPABASE_URL` values (must be bare origins).
+5. **Logs** — one time-stamped section per service, then a cross-service grep of `error|fatal|refused|killed|502|503`.
+
+---
+
 ## Common 502 causes
 
 ### 1. App container isn't running
