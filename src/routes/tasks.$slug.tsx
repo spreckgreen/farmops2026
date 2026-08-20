@@ -23,6 +23,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { AppLayout } from "@/components/app-layout";
 import { SlugChip } from "@/components/slug-chip";
+import { TaskLinkCopy } from "@/components/task-link-copy";
+
 
 import { requireAuthenticatedUser } from "@/lib/auth-route";
 import { toast } from "sonner";
@@ -183,6 +185,8 @@ function TaskPage() {
           <div className="flex items-center gap-2 flex-wrap">
             <SlugChip slug={task.slug} />
             <span className="text-[10px] font-mono text-muted-foreground/70">canonical slug</span>
+            <TaskLinkCopy slug={task.slug} title={task.title} />
+
           </div>
 
         </div>
