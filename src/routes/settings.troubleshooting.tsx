@@ -613,6 +613,59 @@ function TroubleshootingPage() {
 
         <LogTailCard />
 
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <ClipboardList className="h-4 w-4 text-muted-foreground" />
+              Collect a full log report (one command)
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              <code className="font-mono">scripts/collect-logs.sh</code> bundles container state,{" "}
+              <code className="font-mono">/health</code> + <code className="font-mono">/ready</code>{" "}
+              probes, env variable names, and the recent <code className="font-mono">caddy</code> /{" "}
+              <code className="font-mono">app</code> / <code className="font-mono">ollama</code>{" "}
+              logs into one Markdown file that is safe to paste — secrets are scrubbed to{" "}
+              <code className="font-mono">«REDACTED»</code> before anything is written.
+            </p>
+            <CommandBlock
+              command={`cd ${APP_DIR} && ./scripts/collect-logs.sh`}
+              note="Writes logs/reports/bostead-report-<timestamp>.md (git-ignored) and prints the path plus clipboard hints."
+            />
+            <CommandBlock
+              command={`cd ${APP_DIR} && ./scripts/collect-logs.sh --minutes 5 --stdout | tee /tmp/report.md | tail -40\n# copy it: xclip -sel clip < /tmp/report.md   (macOS: pbcopy < /tmp/report.md)`}
+              note="Tight 5-minute window straight to stdout — best right after a fresh 502."
+            />
+            <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+              <li>
+                <code className="font-mono">--minutes N</code> (default 15) and{" "}
+                <code className="font-mono">--tail N</code> (default 200) size the window per
+                service.
+              </li>
+              <li>
+                <code className="font-mono">--services &quot;app caddy&quot;</code> narrows the
+                collection; <code className="font-mono">--host</code> changes the HTTPS probe target.
+              </li>
+              <li>
+                Container lines carry <code className="font-mono">exit=</code> /{" "}
+                <code className="font-mono">oom=</code> / <code className="font-mono">restarts=</code>{" "}
+                — <code className="font-mono">exit=137 oom=true</code> on app is an out-of-memory
+                kill.
+              </li>
+              <li>
+                The report ends with a cross-service grep of{" "}
+                <code className="font-mono">error|fatal|refused|killed|502|503</code>.
+              </li>
+            </ul>
+            <DocLink
+              anchor="collect-a-full-log-report-one-command"
+              label="Collect a full log report (one command)"
+            />
+          </CardContent>
+        </Card>
+
+
         <section className="space-y-4">
           <div className="flex flex-wrap items-center gap-3">
             <h2 className="text-lg font-semibold tracking-tight">Common causes</h2>
