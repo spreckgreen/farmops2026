@@ -183,52 +183,90 @@ type Cause = {
   symptom: string;
   fix: string;
   command: string;
+  /** Heading anchor in docs/TROUBLESHOOTING.md */
+  anchor: string;
 };
 
 const CAUSES: Cause[] = [
   {
-    title: "App container isn't running",
+    title: "1. App container isn't running",
     symptom:
       "docker compose ps lists only caddy and ollama, or app shows Exited / Restarting. Caddy answers, but has nothing behind app:3000.",
     fix: "Start it and read the exit reason from the tail of the log.",
     command: `cd ${APP_DIR} && docker compose up -d app && docker compose ps && docker compose logs --tail=60 app`,
+    anchor: "1-app-container-isnt-running",
   },
   {
-    title: "App was OOM-killed (usually by Ollama)",
+    title: "2. App was OOM-killed (usually by Ollama)",
     symptom:
       "app shows Exited (137) with no stack trace. Free RAM near zero while a local model is loaded.",
     fix: "Stop Ollama or switch to a 1B model, then restart the app.",
-    command: `free -h && docker stats --no-stream\n# if RAM is tight:\ncd ${APP_DIR} && docker compose stop ollama && docker compose up -d app`,
+    command: `free -h && docker stats --no-stream\n\n# if RAM is tight, free it and restart the app:\ncd ${APP_DIR} && docker compose stop ollama && docker compose up -d app`,
+    anchor: "2-app-was-oom-killed-usually-by-ollama",
   },
   {
-    title: "App listening on the wrong address",
+    title: "3. App listening on the wrong address",
     symptom:
       "Startup banner missing HOST: 0.0.0.0 / PORT: 3000. Binding to 127.0.0.1 inside the container is unreachable from Caddy.",
     fix: "Confirm the banner, then verify HOST/PORT in compose.",
     command: `cd ${APP_DIR} && docker compose logs app | grep -A6 "\\[server\\]" | head -20`,
+    anchor: "3-app-listening-on-the-wrong-address",
   },
   {
-    title: "Crash after boot (missing env / bad Supabase URL)",
+    title: "4. Crash after boot (missing env / malformed Supabase URL)",
     symptom:
       "Banner prints, then the process dies — often 'Missing Supabase environment variable(s)' or a URL that wrongly includes a port or /auth/v1 path.",
     fix: "Check .env.local is read and the URL is a bare origin.",
     command: `cd ${APP_DIR} && grep -c . .env.local && grep -E '^(VITE_)?SUPABASE_URL=' .env.local`,
+    anchor: "4-crash-after-boot-missing-env--malformed-supabase-url",
   },
   {
-    title: "Caddy and app not on the same network",
+    title: "5. Caddy and app not on the same network",
     symptom:
       "App is healthy and answers locally, but Caddy logs 'dial tcp: lookup app'. The service name can't resolve.",
     fix: "Prove the proxy hop from inside the Caddy container.",
     command: `cd ${APP_DIR} && docker compose exec caddy wget -qO- http://app:3000/ | head -c 200`,
+    anchor: "5-caddy-and-app-not-on-the-same-network",
   },
   {
-    title: "Wrong port requested in the browser",
+    title: "6. Wrong port requested in the browser",
     symptom:
       "https://host:3000 fails while the plain domain works. Only 80/443 are published; 3000 is internal.",
     fix: "Use the domain without a port, and clear HSTS for the host if the browser pinned it.",
     command: `curl -sSI https://farmops.bostead.life/ | head -5`,
+    anchor: "6-wrong-port-requested-in-the-browser",
   },
 ];
+
+/** Section index mirroring docs/TROUBLESHOOTING.md headings, in document order. */
+const DOC_SECTIONS: { label: string; anchor: string }[] = [
+  { label: "Start here — two commands", anchor: "start-here--two-commands" },
+  { label: "Health endpoint: GET /health", anchor: "health-endpoint-get-health" },
+  { label: "Check it at all three layers", anchor: "check-it-at-all-three-layers" },
+  { label: "Use it as a container healthcheck", anchor: "use-it-as-a-container-healthcheck" },
+  { label: "Readiness endpoint: GET /ready", anchor: "readiness-endpoint-get-ready" },
+  {
+    label: "One command: verify readiness end-to-end through Caddy",
+    anchor: "one-command-verify-readiness-end-to-end-through-caddy",
+  },
+  {
+    label: "Compose healthcheck using both probes",
+    anchor: "compose-healthcheck-using-both-probes",
+  },
+  {
+    label: "Verify Caddy -> app connectivity (wget + curl + status code)",
+    anchor: "verify-caddy---app-connectivity-wget--curl--status-code",
+  },
+  { label: "One-click log tail in the browser", anchor: "one-click-log-tail-in-the-browser" },
+  { label: "Common 502 causes", anchor: "common-502-causes" },
+  { label: "Still down — clean rebuild", anchor: "still-down--clean-rebuild" },
+  {
+    label: "Adjacent failures that are not 502s",
+    anchor: "adjacent-failures-that-are-not-502s",
+  },
+  { label: "Reading the logs", anchor: "reading-the-logs" },
+];
+
 
 const WINDOWS = [
   { label: "Last 2 min", seconds: 120 },
