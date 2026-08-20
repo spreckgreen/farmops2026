@@ -703,6 +703,30 @@ export function noteFixes(line: InterpretedLine, tasks: TaskLite[]): NoteFix[] {
     });
   }
 
+  // ---- looked like a checkbox but the syntax is off ----
+  if (line.label === "almost a task") {
+    const miss = checkboxNearMiss(line.raw);
+    const title = miss?.title.trim() ?? "";
+    const box = miss?.done ? "x" : " ";
+    if (title) {
+      fixes.push({
+        kind: "convert-to-task",
+        label: `Fix syntax → - [${box}] …`,
+        description: `Rewrites the line as \`- [${box}] ${title}\` so it creates a task on commit.`,
+        op: { type: "replace-line", text: `- [${box}] ${title}` },
+      });
+    } else {
+      fixes.push({
+        kind: "add-task-title",
+        label: "Fix syntax and add a title",
+        description: "Rewrites the line as `- [ ] ` and drops the caret after it.",
+        op: { type: "replace-line", text: `- [${box}] ` },
+      });
+    }
+  }
+
+
+
   return fixes;
 }
 
