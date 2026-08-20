@@ -12,6 +12,8 @@ import { toast } from "sonner";
 import { format, addDays, parseISO } from "date-fns";
 import { ChevronLeft, ChevronRight, Eye, EyeOff, Cloud, RefreshCw } from "lucide-react";
 import { DailyNotePreview } from "@/components/daily-note-preview";
+import { NoteInterpretation } from "@/components/note-interpretation";
+import { interpretNote, summarizeInterpretation } from "@/lib/note-syntax";
 import { useShowTaskSlugs } from "@/hooks/use-show-task-slugs";
 
 
@@ -105,18 +107,27 @@ function NotePage() {
       if (!query.data) return null;
       return commitFn({ data: { noteId: query.data.note.id, date, markdown } });
     },
-    onSuccess: (res) => {
+    onSuccess: (res, markdown) => {
       if (res) {
+        const { counts } = interpretNote(markdown, { tasks: query.data?.tasks ?? [] });
         toast.success(
           res.newEntries
             ? `Committed · ${res.newEntries} entr${res.newEntries === 1 ? "y" : "ies"} logged`
-            : "Committed",
+            : "Committed · nothing new to log",
+          { description: summarizeInterpretation(counts) },
         );
+        if (counts.warnings) {
+          toast.warning(
+            `${counts.warnings} line${counts.warnings === 1 ? "" : "s"} did not produce a task or log entry`,
+            { description: 'See "What \u201cCommit to log\u201d will do" below the note for the reason on each line.' },
+          );
+        }
         qc.invalidateQueries({ queryKey: ["tasks"] });
         qc.invalidateQueries({ queryKey: ["task"] });
         qc.invalidateQueries({ queryKey: ["daily-note", date] });
       }
     },
+
     onError: (e) => toast.error(e instanceof Error ? e.message : "Commit failed"),
   });
 
@@ -253,6 +264,26 @@ function NotePage() {
     });
   };
 
+  // Append an example line to the note and reveal the markdown editor so the
+  // user can see exactly which text produced which interpretation.
+  const insertExample = (line: string) => {
+    setShowSource(true);
+    setDraft((prev) => {
+      const base = prev.replace(/\s*$/, "");
+      return base ? `${base}\n${line}\n` : `${line}\n`;
+    });
+    requestAnimationFrame(() => {
+      const ta = textareaRef.current;
+      if (ta) {
+        ta.focus();
+        ta.setSelectionRange(ta.value.length, ta.value.length);
+        setCaret(ta.value.length);
+      }
+    });
+  };
+
+
+
   const displayLogContent = (raw: string, task?: { slug: string; title: string } | null) => {
     if (showSlugs || !task) return raw;
     return raw
@@ -383,6 +414,16 @@ function NotePage() {
           </div>
           <DailyNotePreview markdown={draft} tasks={tasks} compact={compactPreview} />
         </section>
+
+        <div className="mt-4">
+          <NoteInterpretation
+            markdown={draft}
+            tasks={tasks}
+            projects={projects}
+            onInsertExample={insertExample}
+          />
+        </div>
+
 
         {showSource && (
           <div className="relative mt-4">
