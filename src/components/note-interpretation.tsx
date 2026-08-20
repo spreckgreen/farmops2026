@@ -10,6 +10,7 @@ import {
   CirclePlus,
   FileText,
   MessageSquare,
+  Wrench,
 } from "lucide-react";
 import {
   interpretNote,
@@ -95,7 +96,13 @@ function rowStyle(action: InterpretedLine["action"]) {
   }
 }
 
-export function NoteInterpretation({ markdown, tasks, projects = [], onInsertExample }: Props) {
+export function NoteInterpretation({
+  markdown,
+  tasks,
+  projects = [],
+  onInsertExample,
+  onApplyFix,
+}: Props) {
   const { lines, counts } = useMemo(
     () => interpretNote(markdown, { tasks, projects }),
     [markdown, tasks, projects],
