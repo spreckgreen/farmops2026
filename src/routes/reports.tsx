@@ -215,7 +215,9 @@ function ReportsPage() {
       <div className="max-w-3xl mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-6 flex-wrap gap-2">
           <h1 className="text-2xl font-mono font-bold">Reports</h1>
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-2 flex-wrap items-center">
+            <TaskQuickSearch />
+
             <Button
               variant="outline"
               disabled={!summariesQ.data || summariesQ.data.length === 0}
