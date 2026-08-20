@@ -291,6 +291,125 @@ The report contains, in order:
 
 ---
 
+## Caddy DNS and container name resolution
+
+Caddy proxies to the hostname `app`, not to an IP. That name is resolved by
+Docker's embedded DNS server at `127.0.0.11`, and it only resolves for
+containers that share a user-defined network. When resolution breaks, Caddy
+returns **502** and its log shows `dial tcp: lookup app ... no such host`
+(name never resolved) rather than `connection refused` (name resolved, port
+dead).
+
+### Tell the two apart first
+
+```bash
+cd ~/bostead-a29954a1 && docker compose logs --tail=40 caddy | grep -Ei 'lookup|no such host|refused|dial'
+```
+
+| Log fragment | Meaning | Go to |
+| --- | --- | --- |
+| `lookup app on 127.0.0.11:53: no such host` | DNS failure — Caddy cannot see the app container at all | this section |
+| `dial tcp 172.x.x.x:3000: connect: connection refused` | DNS worked; the app isn't listening | [Common 502 causes](#common-502-causes) |
+| `context deadline exceeded` | App accepted but never answered — usually slow boot or OOM | [Common 502 causes](#common-502-causes) |
+
+### Verification commands
+
+Run all of these from the compose directory; each line is safe and read-only.
+
+```bash
+cd ~/bostead-a29954a1
+
+# 1. Does the embedded DNS resolve the service name from inside caddy?
+docker compose exec caddy nslookup app 127.0.0.11 || docker compose exec caddy getent hosts app
+
+# 2. Same question, but from the app side (proves the network, not just one container)
+docker compose exec app getent hosts caddy
+
+# 3. Are both containers actually on the same network?
+docker compose ps --format '{{.Service}}\t{{.Name}}'
+docker network inspect "$(basename "$PWD")_default" \
+  --format '{{range .Containers}}{{.Name}} {{.IPv4Address}}{{"\n"}}{{end}}'
+
+# 4. Resolve + connect in one shot (status code proves the whole hop)
+docker compose exec caddy sh -c 'getent hosts app; wget -S -qO- http://app:3000/health 2>&1 | head -5'
+```
+
+Expected healthy output for (1) is a line like `172.18.0.3  app` (any
+`172.x` address is fine), and (4) ends with `{"ok":true,...}`.
+
+### Quick fixes
+
+**1. Containers are on different networks (most common)**
+
+Both services must be in the same compose project and network. Recreate the
+network rather than editing it:
+
+```bash
+cd ~/bostead-a29954a1 && docker compose down && docker compose up -d
+```
+
+Starting containers with `docker run` or from a second compose file puts them
+on separate networks — service names never resolve across those. Keep `app`,
+`caddy`, and `ollama` in one `docker-compose.yml`.
+
+**2. The upstream name doesn't match the service name**
+
+`Caddyfile` must use the compose **service** name and internal port:
+
+```caddyfile
+reverse_proxy app:3000
+```
+
+Not `localhost:3000` (that's Caddy's own container), not `127.0.0.1:3000`, and
+not the published host port. Verify and reload without downtime:
+
+```bash
+cd ~/bostead-a29954a1
+grep -n reverse_proxy Caddyfile
+docker compose exec caddy caddy validate --config /etc/caddy/Caddyfile
+docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile
+```
+
+**3. Stale DNS after the app container was recreated**
+
+Docker's DNS is dynamic, but a long-lived Caddy process can hold a dead
+upstream IP. Restart Caddy after any `app` recreate:
+
+```bash
+cd ~/bostead-a29954a1 && docker compose restart caddy
+```
+
+**4. Host DNS is broken inside containers**
+
+If `nslookup app` works but outbound lookups fail (Ghost, Tempest, Supabase
+calls time out), the daemon's resolver is the problem, not compose:
+
+```bash
+docker compose exec app cat /etc/resolv.conf
+docker compose exec app getent hosts registry.npmjs.org
+```
+
+Fix by setting explicit resolvers in `/etc/docker/daemon.json`, then
+`sudo systemctl restart docker`:
+
+```json
+{ "dns": ["1.1.1.1", "8.8.8.8"] }
+```
+
+**5. A custom `container_name` shadowed the service name**
+
+Compose resolves both the service name and `container_name`. If you set
+`container_name: bostead-app` and Caddy proxies to `app`, keep the service key
+named `app` — or point `reverse_proxy` at the exact `container_name`. Confirm
+which names exist:
+
+```bash
+cd ~/bostead-a29954a1 && docker compose config --services && docker compose ps --format '{{.Name}}'
+```
+
+---
+
+
 ## Common 502 causes
 
 ### 1. App container isn't running
