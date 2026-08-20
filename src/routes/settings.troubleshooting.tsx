@@ -15,6 +15,7 @@ import {
   Copy,
   Loader2,
   HeartPulse,
+  ShieldCheck,
   PlugZap,
   ScrollText,
   Server,
@@ -48,6 +49,16 @@ export const Route = createFileRoute("/settings/troubleshooting")({
 });
 
 const APP_DIR = "~/bostead-a29954a1";
+
+const READY_SNIPPET = `cd ${APP_DIR} && docker compose exec -T caddy sh -lc '
+command -v curl >/dev/null 2>&1 || apk add --no-cache curl >/dev/null 2>&1
+for path in /health /ready; do
+  printf "caddy->app %-8s " "$path"
+  curl -sS -o /tmp/probe.json -w "status=%{http_code} total=%{time_total}s" "http://app:3000$path" || printf "UNREACHABLE"
+  echo
+  cat /tmp/probe.json 2>/dev/null; echo
+done
+' && for path in /health /ready; do printf "https  %-8s " "$path"; curl -sS -o /dev/null -w "status=%{http_code} total=%{time_total}s\\n" "https://$(hostname -f)$path"; done`;
 
 const HEALTH_SNIPPET = `cd ${APP_DIR} && docker compose exec -T app sh -lc '
 echo "--- inside app container (is the server up at all?) ---"
@@ -279,6 +290,55 @@ function TroubleshootingPage() {
               command={`cd ${APP_DIR} && docker compose exec caddy wget -qO- http://app:3000/ | head -c 200`}
               note="Bypasses TLS and DNS entirely. HTML back = the app is fine and the problem is the proxy hop or your browser. Nothing back = the app is down."
             />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <ShieldCheck className="h-4 w-4 text-muted-foreground" />
+              Readiness endpoint &mdash; <code className="font-mono text-sm">GET /ready</code>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              <code className="font-mono">/health</code> answers &ldquo;the server booted&rdquo;.{" "}
+              <code className="font-mono">/ready</code> answers &ldquo;it can actually serve a
+              page&rdquo;: required env vars present, and the backend reachable over the network.
+              Returns <code className="font-mono">200</code> when ready,{" "}
+              <code className="font-mono">503</code> when any check fails &mdash; never any secret
+              values, only check names and short reasons.
+            </p>
+            <pre className="overflow-x-auto rounded-md bg-muted p-3 font-mono text-xs">
+{`{"ok":true,"service":"bostead","status":"ready","durationMs":489,
+ "checks":[{"name":"env","status":"pass","durationMs":0},
+           {"name":"database","status":"pass","durationMs":489,"detail":"HTTP 200"}]}`}
+            </pre>
+            <p className="text-sm text-muted-foreground">
+              One command checks both endpoints end-to-end &mdash; from Caddy to the app, then
+              through HTTPS as the browser sees it:
+            </p>
+            <CommandBlock command={READY_SNIPPET} />
+            <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+              <li>
+                All four <code className="font-mono">status=200</code> &mdash; the stack is ready
+                end-to-end; a browser 502 is stale or cached.
+              </li>
+              <li>
+                <code className="font-mono">/health</code> 200 but{" "}
+                <code className="font-mono">/ready</code> 503 &mdash; the app is up but a dependency
+                is not: read the failing check&apos;s <code className="font-mono">detail</code>{" "}
+                (missing env var, or the backend refusing/timing out).
+              </li>
+              <li>
+                Caddy hop 200 but HTTPS fails &mdash; TLS/vhost/DNS problem, not the app.
+              </li>
+              <li>
+                Behind published-site auth, poll{" "}
+                <code className="font-mono">/api/public/ready</code> instead &mdash; same report, no
+                auth gate.
+              </li>
+            </ul>
           </CardContent>
         </Card>
 
