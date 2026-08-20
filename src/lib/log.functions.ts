@@ -837,7 +837,7 @@ export const commitDailyNote = createServerFn({ method: "POST" })
     }
 
     await invalidateSummaries(supabase, userId);
-    return { committed: true, newEntries: entries.length };
+    return { committed: true, newEntries: entries.length, linkedElements };
   });
 
 // ---- Tasks ----
