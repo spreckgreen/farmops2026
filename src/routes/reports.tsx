@@ -22,6 +22,8 @@ import {
 } from "@/lib/tiddlywiki-export";
 import { TiddlyWikiImportButton } from "@/components/tiddlywiki-import-button";
 import { CsvToolbar } from "@/components/csv-toolbar";
+import { TaskQuickSearch } from "@/components/task-quick-search";
+
 import { renderSummaryFile } from "@/lib/obsidian-markdown";
 import {
   Dialog,
