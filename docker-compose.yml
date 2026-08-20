@@ -55,10 +55,14 @@ services:
       PUID: ${PUID:-1001}
       PGID: ${PGID:-1001}
       CHOWN_PATHS: ${CHOWN_PATHS:-/app/data /app/uploads}
+      CADDY_ACCESS_LOG: ${CADDY_ACCESS_LOG:-/var/log/caddy/access.log}
     volumes:
       - ./data:/app/data
       - ./uploads:/app/uploads
       - ./logs:/var/log/bostead
+      # Read-only view of Caddy's access log so /settings/troubleshooting can
+      # tail the proxy hop in the browser (see CADDY_ACCESS_LOG).
+      - ./logs/caddy:/var/log/caddy:ro
     depends_on:
       ollama-pull:
         condition: service_completed_successfully
@@ -141,6 +145,7 @@ services:
       SUPABASE_DOMAIN: ${SUPABASE_DOMAIN:-supabase.farmops.bostead.life}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./logs/caddy:/var/log/caddy
       - caddy_data:/data      # certs + ACME account (persist across restarts)
       - caddy_config:/config
 

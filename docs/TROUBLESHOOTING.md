@@ -38,6 +38,40 @@ How to read them:
 
 ---
 
+## One-click log tail in the browser
+
+The in-app page (**/settings/troubleshooting**) has **Last 2 min / 10 min / 30 min**
+buttons that show two tails side by side, no shell needed (admin role required,
+obvious secrets redacted):
+
+- **app** — the last ~500 console lines kept in memory by the server process.
+  In-memory, so it resets on restart; an empty tail right after a 502 usually
+  means the process just restarted.
+- **caddy** — parsed JSON access log, one line per request:
+  `14:21:03.412 502 3ms     GET farmops.bostead.life/`. A 502 here with no
+  matching app line is the proxy hop failing before the app saw the request.
+
+Requirements (already in the shipped config):
+
+- `Caddyfile` writes `format json` access logs to `/var/log/caddy/access.log`.
+- `docker-compose.yml` mounts `./logs/caddy` into caddy (rw) and into app
+  (`:ro`), and sets `CADDY_ACCESS_LOG=/var/log/caddy/access.log`.
+
+After pulling these changes, recreate both containers so the mounts apply:
+
+```bash
+mkdir -p logs/caddy && docker compose up -d --force-recreate app caddy
+```
+
+If the caddy panel says *unavailable*, the mount or the log directive is missing —
+verify with:
+
+```bash
+docker compose exec app ls -l /var/log/caddy/ && tail -2 logs/caddy/access.log
+```
+
+---
+
 ## Common 502 causes
 
 ### 1. App container isn't running
