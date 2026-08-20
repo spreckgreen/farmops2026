@@ -11,7 +11,13 @@ import {
   FileText,
   MessageSquare,
 } from "lucide-react";
-import { interpretNote, summarizeInterpretation, type InterpretedLine } from "@/lib/note-syntax";
+import {
+  interpretNote,
+  noteFixes,
+  summarizeInterpretation,
+  type InterpretedLine,
+  type NoteFix,
+} from "@/lib/note-syntax";
 
 type TaskLite = { slug: string; title: string; status?: string };
 type ProjectLite = { slug: string; name?: string };
@@ -22,7 +28,10 @@ type Props = {
   projects?: ProjectLite[];
   /** Appends an example line to the note so the user can see it interpreted live. */
   onInsertExample?: (line: string) => void;
+  /** Applies a one-click repair to the line that needs attention. */
+  onApplyFix?: (lineNumber: number, fix: NoteFix) => void;
 };
+
 
 const EXAMPLES: { label: string; line: (projectSlug: string) => string }[] = [
   {
