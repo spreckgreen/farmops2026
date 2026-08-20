@@ -2,6 +2,8 @@ import { Link } from "@tanstack/react-router";
 import { useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { SlugChip } from "@/components/slug-chip";
+
 import {
   AlertTriangle,
   CheckCircle2,
@@ -136,14 +138,18 @@ export function NoteInterpretation({ markdown, tasks, projects = [], onInsertExa
                         line {l.lineNumber}
                       </span>
                       {l.taskSlug && !l.unresolvedRef && (
-                        <Link
-                          to="/tasks/$slug"
-                          params={{ slug: l.taskSlug }}
-                          className="text-[10px] font-mono text-muted-foreground hover:text-foreground underline-offset-2 hover:underline truncate"
-                        >
-                          #{l.taskSlug}
-                        </Link>
+                        <span className="flex items-center gap-1 min-w-0">
+                          <SlugChip slug={l.taskSlug} size="xs" />
+                          <Link
+                            to="/tasks/$slug"
+                            params={{ slug: l.taskSlug }}
+                            className="text-[10px] font-mono text-muted-foreground hover:text-foreground underline-offset-2 hover:underline shrink-0"
+                          >
+                            open
+                          </Link>
+                        </span>
                       )}
+
                     </div>
                     <p className="text-sm mt-0.5 break-words">{l.summary}</p>
                     <p className="text-[11px] font-mono text-muted-foreground/80 mt-0.5 break-words">

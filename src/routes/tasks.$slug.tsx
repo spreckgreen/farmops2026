@@ -22,6 +22,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { AppLayout } from "@/components/app-layout";
+import { SlugChip } from "@/components/slug-chip";
+
 import { requireAuthenticatedUser } from "@/lib/auth-route";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
@@ -178,7 +180,11 @@ function TaskPage() {
               </Button>
             </div>
           )}
-          <p className="text-xs text-muted-foreground font-mono">#{task.slug}</p>
+          <div className="flex items-center gap-2 flex-wrap">
+            <SlugChip slug={task.slug} />
+            <span className="text-[10px] font-mono text-muted-foreground/70">canonical slug</span>
+          </div>
+
         </div>
         <div className="flex items-center gap-2">
           <Select value={task.status} onValueChange={(v) => setStatus.mutate(v as "open" | "blocked" | "done")}>
