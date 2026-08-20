@@ -1538,6 +1538,77 @@ export const setProjectDesignElementCompleted = createServerFn({ method: "POST" 
     return { ok: true };
   });
 
+// Projects a task is attached to as a design element, with each link's weight
+// so the task page can show and edit it (e.g. bump 10% -> 25%).
+export const listTaskProjectLinks = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ task_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { data: rows, error } = await context.supabase
+      .from("project_design_elements")
+      .select("id, project_id, title, weight, completed, project:projects!project_design_elements_project_id_fkey(id, slug, name)")
+      .eq("task_id", data.task_id)
+      .order("created_at", { ascending: true });
+    if (error) throw new Error(error.message);
+
+    const links = rows ?? [];
+    // Report each project's total allocation so the UI can show headroom.
+    const totals = new Map<string, number>();
+    for (const l of links) {
+      if (totals.has(l.project_id)) continue;
+      const { data: sib } = await context.supabase
+        .from("project_design_elements")
+        .select("weight")
+        .eq("project_id", l.project_id);
+      totals.set(
+        l.project_id,
+        (sib ?? []).reduce((acc, s) => acc + Number(s.weight ?? 0), 0),
+      );
+    }
+    return links.map((l) => ({
+      ...l,
+      project_total_weight: totals.get(l.project_id) ?? Number(l.weight ?? 0),
+    }));
+  });
+
+// Change just the weight of one design element (used from the task page and
+// the project design list) while keeping the project total <= 100%.
+export const setProjectDesignElementWeight = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ id: z.string().uuid(), weight: z.number().min(0).max(100) }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    const { data: element, error: getErr } = await supabase
+      .from("project_design_elements")
+      .select("id, project_id")
+      .eq("id", data.id)
+      .single();
+    if (getErr) throw new Error(getErr.message);
+
+    const { data: siblings, error: sumErr } = await supabase
+      .from("project_design_elements")
+      .select("id, weight")
+      .eq("project_id", element.project_id);
+    if (sumErr) throw new Error(sumErr.message);
+    const otherTotal = (siblings ?? [])
+      .filter((s) => s.id !== data.id)
+      .reduce((acc, s) => acc + Number(s.weight ?? 0), 0);
+    if (otherTotal + data.weight > 100) {
+      throw new Error(
+        `Weight would exceed 100% (other elements use ${otherTotal.toFixed(0)}%, ${Math.max(0, 100 - otherTotal).toFixed(0)}% remaining).`,
+      );
+    }
+
+    const { error } = await supabase
+      .from("project_design_elements")
+      .update({ weight: data.weight })
+      .eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true as const, weight: data.weight, project_total_weight: otherTotal + data.weight };
+  });
+
 export const deleteProjectDesignElement = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
@@ -1631,7 +1702,7 @@ export const assignTaskToProjectAsDesignElement = createServerFn({ method: "POST
       .object({
         task_id: z.string().uuid(),
         project_id: z.string().uuid(),
-        weight: z.number().min(0).max(100).default(10),
+        weight: z.number().min(0).max(100).default(DEFAULT_DESIGN_ELEMENT_WEIGHT),
         description: z.string().trim().max(2000).nullable().optional(),
       })
       .parse(d),
