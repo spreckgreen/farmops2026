@@ -388,9 +388,10 @@ export const setDailyNoteRatings = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
-    const patch: Record<string, number | null> = {};
+    const patch: { energy_level?: number | null; productivity_level?: number | null } = {};
     if (data.energy_level !== undefined) patch.energy_level = data.energy_level;
     if (data.productivity_level !== undefined) patch.productivity_level = data.productivity_level;
+
     const { data: row, error } = await context.supabase
       .from("daily_notes")
       .update(patch)
