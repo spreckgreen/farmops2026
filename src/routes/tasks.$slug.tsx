@@ -23,6 +23,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { AppLayout } from "@/components/app-layout";
 import { SlugChip } from "@/components/slug-chip";
+import { TaskLinkCopy } from "@/components/task-link-copy";
+
 
 import { requireAuthenticatedUser } from "@/lib/auth-route";
 import { toast } from "sonner";
