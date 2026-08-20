@@ -23,6 +23,8 @@ import {
 import { TiddlyWikiImportButton } from "@/components/tiddlywiki-import-button";
 import { CsvToolbar } from "@/components/csv-toolbar";
 import { TaskQuickSearch } from "@/components/task-quick-search";
+import { ReportMetricsPanel } from "@/components/report-metrics";
+
 
 import { renderSummaryFile } from "@/lib/obsidian-markdown";
 import {
@@ -124,6 +126,8 @@ function ReportsPage() {
       });
       setCoveredAt((m) => ({ ...m, [mode]: fresh?.latest_at ?? null }));
       qc.invalidateQueries({ queryKey: ["summaries"] });
+      qc.invalidateQueries({ queryKey: ["report-metrics"] });
+
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Failed"),
   });
@@ -136,21 +140,31 @@ function ReportsPage() {
 
   // Show only the freshest report(s) for the active tab — older runs for
   // prior periods stay in history but should not clutter the active view.
-  // Portfolio (project_rollup) shows the latest entry per project; every
-  // other mode shows just the single most recent report for the current
-  // period.
+  // Project-scoped modes (portfolio, monthly, quarterly, yearly) show the
+  // latest entry per project, sorted by project name so the view reads as an
+  // organized per-project set. Daily/weekly are single reports that already
+  // carry a `by_project` breakdown inside the body.
+  const PER_PROJECT_MODES: ReportMode[] = [
+    "project_rollup",
+    "monthly_rollup",
+    "quarter_review",
+    "yearly_rollup",
+  ];
   const visible = useMemo(() => {
     const all = (summariesQ.data ?? []).filter((s) => s.mode === activeMode);
-    if (activeMode === "project_rollup") {
+    if (PER_PROJECT_MODES.includes(activeMode)) {
       const byProject = new Map<string, (typeof all)[number]>();
       for (const s of all) {
         const key = s.scope_project ?? "__none__";
         if (!byProject.has(key)) byProject.set(key, s);
       }
-      return Array.from(byProject.values());
+      return Array.from(byProject.values()).sort((a, b) =>
+        (a.scope_project ?? "").localeCompare(b.scope_project ?? ""),
+      );
     }
     return all.slice(0, 1);
   }, [summariesQ.data, activeMode]);
+
 
 
   // Newest summary for this mode (summaries are listed in desc order already).
@@ -398,8 +412,11 @@ function ReportsPage() {
           </div>
         )}
 
+        <ReportMetricsPanel mode={activeMode} />
+
         {pendingForActive && visible.length === 0 && (
           <p className="text-sm text-muted-foreground">Generating {LABELS[activeMode]}…</p>
+
         )}
         {!pendingForActive && visible.length === 0 && noActivity && (
           <div className="rounded-md border border-border bg-muted/30 p-4 text-sm">
