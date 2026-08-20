@@ -38,6 +38,9 @@ export const Route = createFileRoute("/tasks/refs")({
 
 function RefsPage() {
   const scanFn = useServerFn(scanNoteTaskRefs);
+  const repairFn = useServerFn(repairNoteTaskRefs);
+  const [allowFuzzy, setAllowFuzzy] = useState(false);
+
   const scan = useMutation({
     mutationFn: () => scanFn(),
     onSuccess: (r) =>
@@ -49,7 +52,26 @@ function RefsPage() {
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Scan failed"),
   });
 
+  const repair = useMutation({
+    mutationFn: (vars: { dryRun: boolean }) =>
+      repairFn({ data: { dryRun: vars.dryRun, allowFuzzy } }),
+    onSuccess: (r) => {
+      if (r.editCount === 0) {
+        toast.info("Nothing auto-repairable — no activity-log or title match found");
+        return;
+      }
+      toast.success(
+        r.dryRun
+          ? `${r.editCount} reference${r.editCount === 1 ? "" : "s"} can be repaired`
+          : `Repaired ${r.editCount} reference${r.editCount === 1 ? "" : "s"}`,
+      );
+      if (!r.dryRun) scan.mutate();
+    },
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Repair failed"),
+  });
+
   const result = scan.data;
+  const plan = repair.data;
 
   return (
     <AppLayout>
@@ -71,11 +93,85 @@ function RefsPage() {
           </Button>
         </div>
 
+        <div className="border border-border rounded p-4 mb-6 space-y-3">
+          <div>
+            <h2 className="font-mono text-sm font-bold">Auto-repair</h2>
+            <p className="text-xs text-muted-foreground font-mono">
+              Rewrites a broken token to the canonical slug when the activity log shows the entry
+              was attached to a real task, or when the reference text matches exactly one task
+              title.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Switch id="fuzzy" checked={allowFuzzy} onCheckedChange={setAllowFuzzy} />
+            <Label htmlFor="fuzzy" className="font-mono text-xs">
+              Also apply high-confidence fuzzy matches (≥72% similar)
+            </Label>
+          </div>
+          <div className="flex gap-2 flex-wrap">
+            <Button
+              variant="outline"
+              className="font-mono text-xs"
+              disabled={repair.isPending}
+              onClick={() => repair.mutate({ dryRun: true })}
+            >
+              {repair.isPending ? "Working…" : "Preview repairs (dry run)"}
+            </Button>
+            <Button
+              className="font-mono text-xs"
+              disabled={repair.isPending || !plan || plan.editCount === 0}
+              onClick={() => repair.mutate({ dryRun: false })}
+            >
+              Apply repairs
+            </Button>
+          </div>
+
+          {plan && (
+            <div className="space-y-3">
+              <p className="text-xs font-mono">
+                {plan.dryRun ? "Dry run" : "Applied"} · {plan.editCount} edit
+                {plan.editCount === 1 ? "" : "s"} · {plan.skippedCount} left for manual review ·{" "}
+                {plan.activityTokens} tokens known from the activity log
+              </p>
+              {plan.notes
+                .filter((n) => n.edits.length > 0)
+                .map((n) => (
+                  <div key={n.noteId} className="border border-border rounded">
+                    <div className="px-3 py-2 border-b border-border font-mono text-xs">
+                      {n.date}
+                    </div>
+                    <ul className="divide-y divide-border">
+                      {n.edits.map((e, i) => (
+                        <li key={`${n.noteId}-e${i}`} className="px-3 py-2 space-y-1">
+                          <div className="flex items-center gap-2 flex-wrap font-mono text-xs">
+                            <Badge variant="outline" className="font-mono text-[10px]">
+                              line {e.line}
+                            </Badge>
+                            <code className="text-destructive">{e.token}</code>
+                            <span>→</span>
+                            <code className="text-primary">{e.replacement}</code>
+                            <Badge variant="secondary" className="font-mono text-[10px]">
+                              {e.candidate.source}
+                            </Badge>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground font-mono truncate">
+                            {e.after.trim()}
+                          </p>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+            </div>
+          )}
+        </div>
+
         {!result && !scan.isPending && (
           <p className="text-sm text-muted-foreground font-mono">
             Run the scan to check every note in one pass. Nothing is modified — this is a report.
           </p>
         )}
+
 
         {result && (
           <div className="space-y-6">
