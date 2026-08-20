@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import {
   AlertTriangle,
   BookOpen,
+  ClipboardList,
   Check,
   Copy,
   ExternalLink,
