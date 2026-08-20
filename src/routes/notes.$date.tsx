@@ -255,6 +255,26 @@ function NotePage() {
     });
   };
 
+  // Append an example line to the note and reveal the markdown editor so the
+  // user can see exactly which text produced which interpretation.
+  const insertExample = (line: string) => {
+    setShowSource(true);
+    setDraft((prev) => {
+      const base = prev.replace(/\s*$/, "");
+      return base ? `${base}\n${line}\n` : `${line}\n`;
+    });
+    requestAnimationFrame(() => {
+      const ta = textareaRef.current;
+      if (ta) {
+        ta.focus();
+        ta.setSelectionRange(ta.value.length, ta.value.length);
+        setCaret(ta.value.length);
+      }
+    });
+  };
+
+
+
   const displayLogContent = (raw: string, task?: { slug: string; title: string } | null) => {
     if (showSlugs || !task) return raw;
     return raw
