@@ -761,7 +761,7 @@ export const commitDailyNote = createServerFn({ method: "POST" })
             const used = weightTotals.get(project.id) ?? 0;
             const remaining = Math.max(0, 100 - used);
             if (remaining <= 0) continue; // project is fully weighted already
-            const weight = Math.min(10, remaining);
+            const weight = Math.min(DEFAULT_DESIGN_ELEMENT_WEIGHT, remaining);
 
             const task = (existingTasks ?? []).find((t) => t.id === taskId)
               ?? Array.from(tasksBySlug.values()).find((t) => t.id === taskId);
