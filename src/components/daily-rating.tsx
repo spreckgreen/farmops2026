@@ -161,9 +161,20 @@ export function DailyRatingPanel({
           save.mutate({ productivity_level: v });
         }}
       />
+      <div className="flex items-center gap-1.5 pt-1 border-t border-border/60">
+        {[1, 2, 3, 4, 5].map((n) => (
+          <span key={n} className="flex items-center gap-1">
+            <span className={`h-2.5 w-2.5 rounded-sm ${ratingSwatchClass(n)}`} aria-hidden />
+            <span className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground">
+              {n} {RATING_LABELS[n]}
+            </span>
+          </span>
+        ))}
+      </div>
       <p className="text-[10px] text-muted-foreground">
-        Rate how the day felt alongside your tasks. Click the active swatch again to clear it.
+        Five levels for each scale, red (1) → green (5). Click the active swatch again to clear it.
       </p>
+
     </div>
   );
 }
