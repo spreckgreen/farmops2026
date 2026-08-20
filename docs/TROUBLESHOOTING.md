@@ -1,0 +1,166 @@
+# Bostead Self-Host Troubleshooting
+
+Companion to the in-app page at **/settings/troubleshooting** (account menu →
+Troubleshooting). Everything here assumes the app directory on the VPS, e.g.:
+
+```bash
+cd ~/bostead-a29954a1
+```
+
+Related docs: [`SELF_HOSTING.md`](SELF_HOSTING.md) · [`AI-HOSTING.md`](AI-HOSTING.md)
+
+---
+
+## Start here — two commands
+
+A `502 Bad Gateway` from `https://farmops.bostead.life/` means **Caddy is up but
+nothing answered on `app:3000`**. These two commands identify the cause in almost
+every case.
+
+```bash
+# 1. Container state + why it stopped
+docker compose ps && docker compose logs --tail=80 app
+
+# 2. Prove the proxy hop, bypassing TLS/DNS/browser entirely
+docker compose exec caddy wget -qO- http://app:3000/ | head -c 200
+```
+
+How to read them:
+
+| Observation | Meaning |
+| --- | --- |
+| `app` missing from `ps`, or `Exited`/`Restarting` | App never stayed up → see cause 1 |
+| `Exited (137)` | Out of memory (usually Ollama) → cause 2 |
+| No `[server]` startup banner in logs | Build output missing or entrypoint died → cause 1 / clean rebuild |
+| Banner present, then a stack trace | Crash after boot, usually env → cause 4 |
+| Command 2 returns HTML | App is healthy; problem is the proxy hop or your browser → causes 5, 6 |
+| Command 2 returns nothing | App is down → causes 1–4 |
+
+---
+
+## Common 502 causes
+
+### 1. App container isn't running
+
+**Symptom:** `docker compose ps` lists only `caddy` and `ollama`, or `app` shows
+`Exited` / `Restarting`. Caddy answers, but has nothing behind `app:3000`.
+
+```bash
+docker compose up -d app && docker compose ps && docker compose logs --tail=60 app
+```
+
+### 2. App was OOM-killed (usually by Ollama)
+
+**Symptom:** `app` shows `Exited (137)` with no stack trace; free RAM near zero
+while a local model is loaded.
+
+```bash
+free -h && docker stats --no-stream
+
+# if RAM is tight, free it and restart the app:
+docker compose stop ollama && docker compose up -d app
+```
+
+Longer-term: add a swapfile, set `CUSTOM_AI_MODEL=llama3.2:1b`, or point
+`CUSTOM_AI_BASE_URL` at a remote provider (see `AI-HOSTING.md`).
+
+### 3. App listening on the wrong address
+
+**Symptom:** startup banner missing `HOST: 0.0.0.0` / `PORT: 3000`. Binding to
+`127.0.0.1` inside the container is unreachable from Caddy.
+
+```bash
+docker compose logs app | grep -A6 "\[server\]" | head -20
+```
+
+Fix: `docker-compose.yml` must set `HOST: 0.0.0.0` and `PORT: 3000` for `app`.
+
+### 4. Crash after boot (missing env / malformed Supabase URL)
+
+**Symptom:** banner prints, then the process dies — often
+`Missing Supabase environment variable(s): ...`, or a URL that wrongly includes a
+port or an `/auth/v1` path.
+
+```bash
+grep -c . .env.local && grep -E '^(VITE_)?SUPABASE_URL=' .env.local
+```
+
+`SUPABASE_URL` / `VITE_SUPABASE_URL` must be a bare origin — e.g.
+`https://supabase.bostead.life`, **not** `https://supabase.bostead.life:8000/auth/v1`.
+Values are baked in at build time, so change `.env.local` **then rebuild**.
+
+### 5. Caddy and app not on the same network
+
+**Symptom:** app is healthy and answers locally, but Caddy logs
+`dial tcp: lookup app` — the service name can't resolve.
+
+```bash
+docker compose exec caddy wget -qO- http://app:3000/ | head -c 200
+```
+
+Fix: both services must share a compose network, and the `Caddyfile`
+`reverse_proxy` target must be `app:3000` (the service name, not `localhost`).
+
+### 6. Wrong port requested in the browser
+
+**Symptom:** `https://host:3000` fails while the plain domain works. Only 80/443
+are published; 3000 is internal to the compose network.
+
+```bash
+curl -sSI https://farmops.bostead.life/ | head -5
+```
+
+Use the domain with no port. If the browser pinned HSTS to the `:3000` attempt,
+clear it at `chrome://net-internals/#hsts` (Delete domain security policies), or
+verify in an incognito window.
+
+---
+
+## Still down — clean rebuild
+
+Use this when routes 404 after a deploy or the bundle looks stale. Build args are
+interpolated from `.env.local`, so run it from the app directory.
+
+```bash
+docker compose build --no-cache app && docker compose up -d app && ./scripts/healthcheck.sh
+```
+
+Other helper scripts in `scripts/`:
+
+| Script | Purpose |
+| --- | --- |
+| `healthcheck.sh` | HTTP/TLS reachability of app + Supabase vhosts |
+| `diagnose.sh` | Environment capture and checklist flags |
+| `remediate.sh` | Guided fixes for the most common flagged issues |
+| `refresh.sh` | Pull, rebuild, restart in one step |
+| `docker-preflight.sh` | Verify Docker/BuildKit/disk before a build |
+
+---
+
+## Adjacent failures that are not 502s
+
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| `Could not find the table 'public.<name>' in the schema cache` | Migrations not applied, or PostgREST cache stale | Apply `supabase/migrations/*.sql` into `supabase-db`, then `NOTIFY pgrst, 'reload schema';`. Verify at **/admin/schema** |
+| `Failed to fetch` on sign-in | `VITE_SUPABASE_URL` baked from a wrong value, or Supabase stack down | Fix `.env.local`, rebuild; check the Supabase stack in `~/supabase-project` with `docker compose ps` |
+| `VAULT_ENCRYPTION_KEY not set` | Key missing from `.env.local` or masked by a blank `environment:` entry | Generate with `openssl rand -hex 32`, set in `.env.local`, restart app |
+| Sign-in blocked as unconfirmed | Email confirmation on with no SMTP | Set `ENABLE_EMAIL_AUTOCONFIRM=true` in `~/supabase-project/.env`, restart auth; or use **/admin/users → confirm unconfirmed users** |
+| AI job fails: `llama-server process has terminated: signal: killed` | Model larger than available RAM | Smaller model (`llama3.2:1b`), add swap, or use a remote provider |
+| `Model did not return a usable schedule` | Small local model ignoring JSON schema mode | Retry, or route the heavy task to a remote model via `CUSTOM_AI_BASE_URL` |
+
+---
+
+## Reading the logs
+
+Server-side failures log one compact line — no stacks, no minified module dumps.
+Example weather failure:
+
+```text
+[weather] tempest fetch failed for 2026-08-20: TypeError: fetch failed (cause: Error: ENOTFOUND)
+```
+
+Grep by subsystem prefix to narrow quickly:
+
+```bash
+docker compose logs app | grep -E '^\[(weather|ai|vault|rachio)\]' | tail -40
+```
