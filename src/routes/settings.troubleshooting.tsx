@@ -11,8 +11,10 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import {
   AlertTriangle,
+  BookOpen,
   Check,
   Copy,
+  ExternalLink,
   Loader2,
   HeartPulse,
   ShieldCheck,
@@ -22,6 +24,7 @@ import {
   Settings,
   Terminal,
 } from "lucide-react";
+
 
 export const Route = createFileRoute("/settings/troubleshooting")({
   ssr: false,
