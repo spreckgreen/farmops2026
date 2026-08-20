@@ -38,6 +38,48 @@ How to read them:
 
 ---
 
+## Verify Caddy -> app connectivity (wget + curl + status code)
+
+One copyable snippet, run inside the Caddy container so it exercises the exact hop that
+returns the 502. Busybox `wget` is always present; `curl` is installed on demand and prints
+the HTTP status code plus connect timings.
+
+```bash
+cd ~/bostead-a29954a1 && docker compose exec -T caddy sh -lc '
+set -u
+URL=http://app:3000/
+
+echo "--- wget (busybox, always present in caddy:alpine) ---"
+wget -S -qO /tmp/probe.html "$URL" 2>&1 | grep -E "HTTP/|Location|Connecting|failed" || echo "wget: no response"
+echo "bytes: $(wc -c < /tmp/probe.html 2>/dev/null || echo 0)"
+echo "first 120 chars: $(head -c 120 /tmp/probe.html 2>/dev/null)"
+
+echo
+echo "--- curl (installed on demand, shows status + timing) ---"
+command -v curl >/dev/null 2>&1 || apk add --no-cache curl >/dev/null 2>&1
+if command -v curl >/dev/null 2>&1; then
+  curl -sS -o /dev/null -w "status=%{http_code} dns=%{time_namelookup}s connect=%{time_connect}s total=%{time_total}s size=%{size_download}\n" "$URL" \
+    || echo "curl: connection failed (app down or not on this network)"
+else
+  echo "curl unavailable and apk add failed (no egress?) - rely on the wget result above"
+fi
+'
+```
+
+How to read it:
+
+- `HTTP/1.1 200` + `status=200` - the app is healthy; the 502 is stale/cached or from another vhost.
+- `bad address 'app'` - service name won't resolve: caddy and app are not on the same compose network.
+- `Connection refused` - DNS fine, nothing listening: app down, or bound to 127.0.0.1 instead of 0.0.0.0.
+- `status=502` here - the app itself returned 502 (its own upstream), not Caddy.
+- `status=000` with a long `total` - socket accepted but no response; check the app log tail for a hung request.
+
+Same probe from inside the app container (works here but fails from caddy = networking):
+
+```bash
+cd ~/bostead-a29954a1 && docker compose exec -T app sh -lc 'wget -S -qO- http://localhost:3000/ 2>&1 | head -5'
+```
+
 ## One-click log tail in the browser
 
 The in-app page (**/settings/troubleshooting**) has **Last 2 min / 10 min / 30 min**

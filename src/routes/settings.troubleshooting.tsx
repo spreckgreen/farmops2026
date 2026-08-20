@@ -14,6 +14,7 @@ import {
   Check,
   Copy,
   Loader2,
+  PlugZap,
   ScrollText,
   Server,
   Settings,
@@ -46,6 +47,26 @@ export const Route = createFileRoute("/settings/troubleshooting")({
 });
 
 const APP_DIR = "~/bostead-a29954a1";
+
+const CONNECTIVITY_SNIPPET = `cd ${APP_DIR} && docker compose exec -T caddy sh -lc '
+set -u
+URL=http://app:3000/
+
+echo "--- wget (busybox, always present in caddy:alpine) ---"
+wget -S -qO /tmp/probe.html "$URL" 2>&1 | grep -E "HTTP/|Location|Connecting|failed" || echo "wget: no response"
+echo "bytes: $(wc -c < /tmp/probe.html 2>/dev/null || echo 0)"
+echo "first 120 chars: $(head -c 120 /tmp/probe.html 2>/dev/null)"
+
+echo
+echo "--- curl (installed on demand, shows status + timing) ---"
+command -v curl >/dev/null 2>&1 || apk add --no-cache curl >/dev/null 2>&1
+if command -v curl >/dev/null 2>&1; then
+  curl -sS -o /dev/null -w "status=%{http_code} dns=%{time_namelookup}s connect=%{time_connect}s total=%{time_total}s size=%{size_download}\n" "$URL" \
+    || echo "curl: connection failed (app down or not on this network)"
+else
+  echo "curl unavailable and apk add failed (no egress?) — rely on the wget result above"
+fi
+'`;
 
 function CommandBlock({ command, note }: { command: string; note?: string }) {
   const [copied, setCopied] = useState(false);
@@ -246,6 +267,58 @@ function TroubleshootingPage() {
             <CommandBlock
               command={`cd ${APP_DIR} && docker compose exec caddy wget -qO- http://app:3000/ | head -c 200`}
               note="Bypasses TLS and DNS entirely. HTML back = the app is fine and the problem is the proxy hop or your browser. Nothing back = the app is down."
+            />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <PlugZap className="h-4 w-4 text-muted-foreground" />
+              Verify Caddy &rarr; app connectivity (wget + curl + status code)
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              One copyable snippet, run inside the Caddy container so it tests the exact hop that
+              returns the 502. It probes{" "}
+              <code className="font-mono">http://app:3000/</code> twice: busybox{" "}
+              <code className="font-mono">wget</code> (always available) for headers and body size,
+              then <code className="font-mono">curl</code> for the HTTP status code and connect
+              timings.
+            </p>
+            <CommandBlock command={CONNECTIVITY_SNIPPET} />
+            <div className="rounded-md border p-3 text-sm">
+              <p className="mb-2 font-medium">How to read it</p>
+              <ul className="list-disc space-y-1 pl-5 text-muted-foreground">
+                <li>
+                  <code className="font-mono">HTTP/1.1 200</code> and{" "}
+                  <code className="font-mono">status=200</code> — the app is healthy; the 502 is
+                  stale, browser-cached, or came from the other vhost.
+                </li>
+                <li>
+                  <code className="font-mono">bad address &apos;app&apos;</code> /{" "}
+                  <code className="font-mono">dns=0.000s</code> with a failure — the service name
+                  won&apos;t resolve; caddy and app aren&apos;t on the same compose network.
+                </li>
+                <li>
+                  <code className="font-mono">Connection refused</code> — DNS is fine but nothing is
+                  listening: the app is down, or bound to 127.0.0.1 instead of 0.0.0.0.
+                </li>
+                <li>
+                  <code className="font-mono">status=502</code> from curl here means the app itself
+                  returned it (an upstream of its own), not Caddy.
+                </li>
+                <li>
+                  Long <code className="font-mono">total</code> with{" "}
+                  <code className="font-mono">status=000</code> — the app accepted the socket but
+                  never answered; check the app tail above for a hung request.
+                </li>
+              </ul>
+            </div>
+            <CommandBlock
+              command={`cd ${APP_DIR} && docker compose exec -T app sh -lc 'wget -S -qO- http://localhost:3000/ 2>&1 | head -5'`}
+              note="Same probe from inside the app container. Works here but fails from caddy = networking; fails in both = the app isn't serving."
             />
           </CardContent>
         </Card>
