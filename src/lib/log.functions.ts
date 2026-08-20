@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
-import { slugify } from "./slug";
+import { slugify, taskRenamePatch, patchMutatesSlug } from "./slug";
 import { appendTaskRefLine } from "./daily-note-append";
 
 type ActivityLogEntry = { id?: string; raw_content: string; created_at: string };
@@ -583,18 +583,24 @@ export const commitDailyNote = createServerFn({ method: "POST" })
       if (match) {
         if (p.newTask.title.length > match.title.length && !tasksBySlug.has(slug)) {
           // Upgrade the existing task to the longer/more complete title.
+          // INVARIANT: the slug is immutable — a title change must never
+          // rewrite it, or existing `#task/<slug>` references in older notes
+          // would silently stop resolving. See taskRenamePatch().
           await supabase
             .from("tasks")
-            .update({ title: p.newTask.title, slug })
+            .update(taskRenamePatch(p.newTask.title) as never)
             .eq("id", match.id);
-          tasksBySlug.delete(match.slug);
           tasksByTitle.delete(match.title.toLowerCase());
-          const upgraded = { ...match, title: p.newTask.title, slug };
+          const upgraded = { ...match, title: p.newTask.title };
+          // Keep the canonical (original) slug reachable, and also index the
+          // new title's slug so later lines in this note resolve either way.
+          tasksBySlug.set(match.slug, upgraded);
           tasksBySlug.set(slug, upgraded);
           tasksByTitle.set(p.newTask.title.toLowerCase(), upgraded);
           const idx = recentTasks.findIndex((t) => t.id === match.id);
           if (idx >= 0) recentTasks[idx] = upgraded;
         } else {
+
           // Existing one is already the longer/canonical form — reuse it.
           tasksBySlug.set(slug, match);
           tasksByTitle.set(p.newTask.title.toLowerCase(), match);
@@ -962,7 +968,8 @@ export const updateTask = createServerFn({ method: "POST" })
     const patch: Record<string, unknown> = {};
     const changes: string[] = [];
     if (data.title !== undefined && data.title !== prev.title) {
-      patch.title = data.title;
+      // Title-only patch: the slug stays as-is so `#task/<slug>` refs survive.
+      Object.assign(patch, taskRenamePatch(data.title));
       changes.push(`Title: "${prev.title ?? ""}" → "${data.title}"`);
     }
     if (data.recurrence !== undefined && data.recurrence !== (prev.recurrence ?? "none")) {
@@ -976,10 +983,16 @@ export const updateTask = createServerFn({ method: "POST" })
       changes.push(`Recurrence: ${prev.recurrence ?? "none"} → ${data.recurrence}`);
     }
 
+    if (patchMutatesSlug(patch)) {
+      // Defence in depth: task slugs are permanent references.
+      throw new Error("Task slugs are immutable — refusing to rewrite slug on rename");
+    }
+
     if (Object.keys(patch).length > 0) {
       const { error } = await supabase.from("tasks").update(patch as never).eq("id", data.id);
       if (error) throw new Error(error.message);
     }
+
 
     if (changes.length > 0 || (data.note ?? "").trim()) {
       await logTaskChange(supabase, {

@@ -65,6 +65,15 @@ vi.mock("@/lib/log.functions", () => ({
   listProjects: listProjectsImpl,
 }));
 
+// The unmount flush skips committing when there is no session, so provide one.
+vi.mock("@/integrations/supabase/client", () => ({
+  supabase: {
+    auth: {
+      getSession: async () => ({ data: { session: { access_token: "test-token" } } }),
+    },
+  },
+}));
+
 vi.mock("@/lib/auth-route", () => ({ requireAuthenticatedUser: () => ({}) }));
 
 vi.mock("@/components/app-layout", () => ({
