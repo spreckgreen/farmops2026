@@ -90,7 +90,66 @@ else
 fi
 '`;
 
+const DOC_PATH = "docs/TROUBLESHOOTING.md";
+/**
+ * Set VITE_DOCS_REPO_URL to your repo tree root to turn every "In the docs"
+ * chip into a real deep link, e.g.
+ *   VITE_DOCS_REPO_URL=https://github.com/your-org/bostead/blob/main
+ * Without it the chip still shows the exact path + anchor to open locally.
+ */
+const DOCS_REPO_URL = (import.meta.env["VITE_DOCS_REPO_URL"] as string | undefined)?.replace(
+  /\/+$/,
+  "",
+);
+
+function docsHref(anchor: string) {
+  return DOCS_REPO_URL ? `${DOCS_REPO_URL}/${DOC_PATH}#${anchor}` : null;
+}
+
+/** Deep link into a heading of docs/TROUBLESHOOTING.md. */
+function DocLink({ anchor, label }: { anchor: string; label: string }) {
+  const href = docsHref(anchor);
+  const target = `${DOC_PATH}#${anchor}`;
+  const inner = (
+    <>
+      <BookOpen className="h-3.5 w-3.5" />
+      <span className="font-mono">{target}</span>
+    </>
+  );
+  if (href) {
+    return (
+      <a
+        href={href}
+        target="_blank"
+        rel="noreferrer"
+        title={`Open “${label}” in the troubleshooting doc`}
+        className="inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+      >
+        {inner}
+        <ExternalLink className="h-3 w-3" />
+      </a>
+    );
+  }
+  return (
+    <button
+      type="button"
+      title={`Copy the doc location for “${label}”`}
+      onClick={() => {
+        navigator.clipboard
+          .writeText(target)
+          .then(() => toast.success(`Copied ${target}`))
+          .catch(() => toast.error("Clipboard blocked — copy the path manually"));
+      }}
+      className="inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+    >
+      {inner}
+      <Copy className="h-3 w-3" />
+    </button>
+  );
+}
+
 function CommandBlock({ command, note }: { command: string; note?: string }) {
+
   const [copied, setCopied] = useState(false);
   const copy = async () => {
     try {
