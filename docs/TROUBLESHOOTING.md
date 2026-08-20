@@ -94,6 +94,81 @@ healthcheck:
   start_period: 40s
 ```
 
+## Readiness endpoint: `GET /ready`
+
+`/health` says "the server booted". `/ready` says "it can actually serve a page": it
+verifies required env vars are present and that the backend answers over the network.
+
+```
+GET /ready  ->  200 when ready, 503 when any check fails
+{"ok":true,"service":"bostead","status":"ready","durationMs":489,
+ "checks":[{"name":"env","status":"pass","durationMs":0},
+           {"name":"database","status":"pass","durationMs":489,"detail":"HTTP 200"}]}
+```
+
+Checks:
+
+- `env` - `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` must be set (`fail` if missing).
+  Unset optional vars (`SUPABASE_SERVICE_ROLE_KEY`, `VAULT_ENCRYPTION_KEY`,
+  `TEMPEST_API_TOKEN`) are reported as a note, not a failure.
+- `database` - unauthenticated GET against the backend's `/auth/v1/health` with a 4s
+  budget; proves DNS, routing, and that the stack is up. Reads no table and no user data.
+
+Only names, statuses, and short reasons are returned - never secret values.
+`GET /api/public/ready` is the same report without the published-site auth gate; both
+accept `HEAD`.
+
+### One command: verify readiness end-to-end through Caddy
+
+```bash
+cd ~/bostead-a29954a1 && docker compose exec -T caddy sh -lc '
+command -v curl >/dev/null 2>&1 || apk add --no-cache curl >/dev/null 2>&1
+for path in /health /ready; do
+  printf "caddy->app %-8s " "$path"
+  curl -sS -o /tmp/probe.json -w "status=%{http_code} total=%{time_total}s" "http://app:3000$path" || printf "UNREACHABLE"
+  echo
+  cat /tmp/probe.json 2>/dev/null; echo
+done
+' && for path in /health /ready; do printf "https  %-8s " "$path"; curl -sS -o /dev/null -w "status=%{http_code} total=%{time_total}s\n" "https://$(hostname -f)$path"; done
+```
+
+Expected output when everything is healthy:
+
+```text
+caddy->app /health  status=200 total=0.004s
+{"ok":true,"service":"bostead","status":"ready","uptimeSeconds":312,...}
+caddy->app /ready    status=200 total=0.541s
+{"ok":true,"service":"bostead","status":"ready","durationMs":489,"checks":[...]}
+https  /health  status=200 total=0.061s
+https  /ready    status=200 total=0.585s
+```
+
+Interpretation:
+
+- all four 200 - ready end-to-end; a browser 502 is stale or cached.
+- `/health` 200 but `/ready` 503 - app is up, a dependency is not. Read the failing check's `detail`: missing env var, or the backend refusing/timing out.
+- caddy hop 200 but HTTPS fails - TLS/vhost/DNS problem, not the app.
+- both unreachable from caddy - see "Verify Caddy -> app connectivity" below.
+
+Locally, during development:
+
+```bash
+curl -sS -i http://localhost:3000/ready                                  # status line + JSON report
+curl -sS -o /dev/null -w "%{http_code}\n" http://localhost:3000/ready    # status code only
+```
+
+### Compose healthcheck using both probes
+
+```yaml
+# docker-compose.yml, under the app service
+healthcheck:
+  test: ["CMD-SHELL", "wget -qO- http://localhost:3000/health >/dev/null && wget -qO- http://localhost:3000/ready >/dev/null"]
+  interval: 30s
+  timeout: 10s
+  retries: 3
+  start_period: 60s
+```
+
 ## Verify Caddy -> app connectivity (wget + curl + status code)
 
 One copyable snippet, run inside the Caddy container so it exercises the exact hop that
