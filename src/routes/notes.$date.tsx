@@ -386,6 +386,16 @@ function NotePage() {
           <DailyNotePreview markdown={draft} tasks={tasks} compact={compactPreview} />
         </section>
 
+        <div className="mt-4">
+          <NoteInterpretation
+            markdown={draft}
+            tasks={tasks}
+            projects={projects}
+            onInsertExample={insertExample}
+          />
+        </div>
+
+
         {showSource && (
           <div className="relative mt-4">
             <textarea
