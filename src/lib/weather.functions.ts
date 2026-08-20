@@ -80,8 +80,9 @@ export async function fetchAndCacheForecast(
   try {
     forecast = await fetchTempest(date);
   } catch (e) {
-    console.error("[weather] tempest fetch failed", e);
+    console.warn("[weather] tempest fetch failed:", e instanceof Error ? e.message : String(e));
     return null;
+
   }
   if (!forecast) return null;
 
