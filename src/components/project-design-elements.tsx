@@ -11,7 +11,9 @@ import {
   setProjectDesignElementCompleted,
   deleteProjectDesignElement,
   promoteDesignElementToBacklog,
+  setProjectDesignElementWeight,
 } from "@/lib/log.functions";
+import { clampWeight } from "@/lib/design-weight";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -289,9 +291,16 @@ export function ProjectDesignElements({ projectId }: { projectId: string }) {
                     >
                       {el.title}
                     </span>
-                    <Badge variant="secondary" className="font-mono text-[10px]">
-                      {Number(el.weight).toFixed(0)} pts
-                    </Badge>
+                    <InlineWeight
+                      elementId={el.id}
+                      weight={Number(el.weight)}
+                      otherTotal={Math.max(0, totalWeight - Number(el.weight))}
+                      onSaved={() => {
+                        qc.invalidateQueries({ queryKey: ["project-design-elements", projectId] });
+                        qc.invalidateQueries({ queryKey: ["task-project-links"] });
+                        qc.invalidateQueries({ queryKey: ["projects"] });
+                      }}
+                    />
                     <DesignElementTasksCount designElementId={el.id} />
                     {el.task?.slug && (
                       <Link
@@ -352,3 +361,86 @@ export function ProjectDesignElements({ projectId }: { projectId: string }) {
   );
 }
 
+
+/**
+ * Click-to-edit weight badge. Shows "10 pts"; clicking swaps in a number input
+ * capped by the project's remaining headroom (100% minus other elements).
+ */
+function InlineWeight({
+  elementId,
+  weight,
+  otherTotal,
+  onSaved,
+}: {
+  elementId: string;
+  weight: number;
+  otherTotal: number;
+  onSaved: () => void;
+}) {
+  const saveFn = useServerFn(setProjectDesignElementWeight);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(String(weight));
+  const headroom = Math.max(0, 100 - otherTotal);
+
+  const save = useMutation({
+    mutationFn: (w: number) => saveFn({ data: { id: elementId, weight: w } }),
+    onSuccess: () => {
+      setEditing(false);
+      onSaved();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  if (!editing) {
+    return (
+      <button
+        type="button"
+        onClick={() => {
+          setDraft(String(weight));
+          setEditing(true);
+        }}
+        title={`Edit weight (up to ${headroom.toFixed(0)}%)`}
+      >
+        <Badge variant="secondary" className="font-mono text-[10px] cursor-pointer hover:bg-secondary/70">
+          {weight.toFixed(0)} pts
+        </Badge>
+      </button>
+    );
+  }
+
+  const parsed = clampWeight(Number(draft));
+  const tooBig = parsed > headroom;
+
+  return (
+    <span className="inline-flex items-center gap-1">
+      <Input
+        type="number"
+        min={0}
+        max={100}
+        step={1}
+        autoFocus
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !tooBig) save.mutate(parsed);
+          if (e.key === "Escape") setEditing(false);
+        }}
+        className="h-6 w-16 text-xs"
+        aria-label="Design element weight"
+      />
+      <span className="text-[10px] text-muted-foreground">/ {headroom.toFixed(0)}% max</span>
+      <Button
+        size="icon"
+        variant="ghost"
+        className="h-6 w-6"
+        disabled={tooBig || save.isPending}
+        onClick={() => save.mutate(parsed)}
+      >
+        <Check className="h-3 w-3" />
+      </Button>
+      <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => setEditing(false)}>
+        <X className="h-3 w-3" />
+      </Button>
+    </span>
+  );
+}
