@@ -24,6 +24,8 @@ import {
 import { AppLayout } from "@/components/app-layout";
 import { SlugChip } from "@/components/slug-chip";
 import { TaskLinkCopy } from "@/components/task-link-copy";
+import { TaskQuickSearch } from "@/components/task-quick-search";
+
 
 
 import { requireAuthenticatedUser } from "@/lib/auth-route";
