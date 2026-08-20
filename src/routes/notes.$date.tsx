@@ -241,6 +241,17 @@ function NotePage() {
   const [acIndex, setAcIndex] = useState(0);
   const [showSource, setShowSource] = useState(false);
   const [compactPreview, setCompactPreview] = useState(true);
+  const [editorScrollTop, setEditorScrollTop] = useState(0);
+
+  // Inline validation: per-line kind stripes painted behind the raw editor.
+  const editorLines = useMemo(
+    () => classifyEditorLines(draft, { tasks, projects }),
+    [draft, tasks, projects],
+  );
+  const malformedCount = editorLines.kinds.filter((k) => k === "malformed").length;
+  const taskLineCount = editorLines.kinds.filter((k) => k === "task" || k === "done").length;
+
+
 
   // Autocomplete for three reference kinds while typing:
   //   #project/<slug>   → project slugs
