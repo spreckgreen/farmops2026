@@ -12,7 +12,7 @@ import {
 import { todayDateString } from "@/lib/slug";
 import { ProfileGate } from "@/components/profile-gate";
 import { useCurrentProfile } from "@/hooks/use-current-profile";
-import { ShieldCheck, ChevronDown, Users, Trash2, Download, Upload, KeyRound, RefreshCw, Server } from "lucide-react";
+import { ShieldCheck, ChevronDown, Users, Trash2, Download, Upload, KeyRound, RefreshCw, Server, AlertTriangle } from "lucide-react";
 
 export function AppLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
