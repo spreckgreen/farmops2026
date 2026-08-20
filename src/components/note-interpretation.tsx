@@ -173,6 +173,31 @@ export function NoteInterpretation({ markdown, tasks, projects = [], onInsertExa
                         ))}
                       </ul>
                     )}
+                    {onApplyFix && l.action === "warning" && (() => {
+                      const fixes = noteFixes(l, tasks);
+                      if (fixes.length === 0) return null;
+                      return (
+                        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                          <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                            fix
+                          </span>
+                          {fixes.map((f) => (
+                            <Button
+                              key={f.kind + f.label}
+                              size="sm"
+                              variant="outline"
+                              className="h-6 text-[11px] px-2"
+                              title={f.description}
+                              onClick={() => onApplyFix(l.lineNumber, f)}
+                            >
+                              <Wrench className="h-3 w-3 mr-1" aria-hidden />
+                              {f.label}
+                            </Button>
+                          ))}
+                        </div>
+                      );
+                    })()}
+
                   </div>
                 </div>
               </li>
