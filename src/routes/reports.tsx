@@ -140,21 +140,31 @@ function ReportsPage() {
 
   // Show only the freshest report(s) for the active tab — older runs for
   // prior periods stay in history but should not clutter the active view.
-  // Portfolio (project_rollup) shows the latest entry per project; every
-  // other mode shows just the single most recent report for the current
-  // period.
+  // Project-scoped modes (portfolio, monthly, quarterly, yearly) show the
+  // latest entry per project, sorted by project name so the view reads as an
+  // organized per-project set. Daily/weekly are single reports that already
+  // carry a `by_project` breakdown inside the body.
+  const PER_PROJECT_MODES: ReportMode[] = [
+    "project_rollup",
+    "monthly_rollup",
+    "quarter_review",
+    "yearly_rollup",
+  ];
   const visible = useMemo(() => {
     const all = (summariesQ.data ?? []).filter((s) => s.mode === activeMode);
-    if (activeMode === "project_rollup") {
+    if (PER_PROJECT_MODES.includes(activeMode)) {
       const byProject = new Map<string, (typeof all)[number]>();
       for (const s of all) {
         const key = s.scope_project ?? "__none__";
         if (!byProject.has(key)) byProject.set(key, s);
       }
-      return Array.from(byProject.values());
+      return Array.from(byProject.values()).sort((a, b) =>
+        (a.scope_project ?? "").localeCompare(b.scope_project ?? ""),
+      );
     }
     return all.slice(0, 1);
   }, [summariesQ.data, activeMode]);
+
 
 
   // Newest summary for this mode (summaries are listed in desc order already).
