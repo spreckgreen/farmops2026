@@ -8,6 +8,8 @@ import { requireAuthenticatedUser } from "@/lib/auth-route";
 import { todayDateString } from "@/lib/slug";
 import { useShowTaskSlugs } from "@/hooks/use-show-task-slugs";
 import { CsvToolbar } from "@/components/csv-toolbar";
+import { TaskQuickSearch } from "@/components/task-quick-search";
+
 
 export const Route = createFileRoute("/tasks/")({
   ssr: false,
@@ -53,8 +55,10 @@ function TasksPage() {
           <h1 className="text-2xl font-mono font-bold mb-1">Today's tasks</h1>
           <p className="text-xs text-muted-foreground font-mono">Tasks delivered or touched today</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <TaskQuickSearch />
           <CsvToolbar
+
             filename={`tasks-today-${today}.csv`}
             columns={[
               { key: "title", label: "title" },

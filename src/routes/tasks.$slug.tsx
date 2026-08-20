@@ -24,6 +24,8 @@ import {
 import { AppLayout } from "@/components/app-layout";
 import { SlugChip } from "@/components/slug-chip";
 import { TaskLinkCopy } from "@/components/task-link-copy";
+import { TaskQuickSearch } from "@/components/task-quick-search";
+
 
 
 import { requireAuthenticatedUser } from "@/lib/auth-route";
@@ -308,9 +310,13 @@ function TaskPage() {
         </div>
       </div>
 
-      <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-3">
-        Activity log · {entries.length}
-      </h2>
+      <div className="flex items-center justify-between gap-2 flex-wrap mb-3">
+        <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+          Activity log · {entries.length}
+        </h2>
+        <TaskQuickSearch />
+      </div>
+
       <ul className="space-y-2">
         {entries.length === 0 && (
           <li className="text-sm text-muted-foreground">
