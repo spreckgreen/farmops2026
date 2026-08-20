@@ -310,24 +310,30 @@ export type Database = {
         Row: {
           created_at: string
           date: string
+          energy_level: number | null
           id: string
           markdown_content: string
+          productivity_level: number | null
           updated_at: string
           user_id: string
         }
         Insert: {
           created_at?: string
           date: string
+          energy_level?: number | null
           id?: string
           markdown_content?: string
+          productivity_level?: number | null
           updated_at?: string
           user_id: string
         }
         Update: {
           created_at?: string
           date?: string
+          energy_level?: number | null
           id?: string
           markdown_content?: string
+          productivity_level?: number | null
           updated_at?: string
           user_id?: string
         }
