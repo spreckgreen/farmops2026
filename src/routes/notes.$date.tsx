@@ -506,22 +506,32 @@ function NotePage() {
 
 
         {showSource && (
-          <div className="relative mt-4">
-            <textarea
-              ref={textareaRef}
-              value={draft}
-              onChange={(e) => {
-                setDraft(e.target.value);
-                setCaret(e.target.selectionStart ?? 0);
-              }}
-              onKeyDown={onTextareaKeyDown}
-              onKeyUp={syncCaret}
-              onClick={syncCaret}
-              onSelect={syncCaret}
-              placeholder={PLACEHOLDER}
-              spellCheck={false}
-              className="w-full min-h-[55vh] bg-card border border-border rounded-lg p-4 font-mono text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-ring resize-y"
-            />
+          <div className="mt-4">
+            <div className="relative rounded-lg border border-border bg-card">
+              <NoteEditorHighlightOverlay
+                markdown={draft}
+                kinds={editorLines.kinds}
+                scrollTop={editorScrollTop}
+              />
+              <textarea
+                ref={textareaRef}
+                value={draft}
+                onChange={(e) => {
+                  setDraft(e.target.value);
+                  setCaret(e.target.selectionStart ?? 0);
+                }}
+                onKeyDown={onTextareaKeyDown}
+                onKeyUp={syncCaret}
+                onClick={syncCaret}
+                onSelect={syncCaret}
+                onScroll={(e) => setEditorScrollTop(e.currentTarget.scrollTop)}
+                placeholder={PLACEHOLDER}
+                spellCheck={false}
+                className="relative w-full min-h-[55vh] bg-transparent rounded-lg p-4 font-mono text-sm leading-relaxed whitespace-pre-wrap break-words focus:outline-none focus:ring-2 focus:ring-ring resize-y"
+              />
+            </div>
+            <NoteSyntaxLegend malformedCount={malformedCount} taskCount={taskLineCount} />
+
             {acMatches.length > 0 && (
               <div className="absolute left-3 bottom-3 z-10 w-80 bg-popover border border-border rounded-md shadow-md overflow-hidden">
                 <div className="px-3 py-1.5 text-[10px] uppercase tracking-wider font-mono text-muted-foreground border-b border-border">
