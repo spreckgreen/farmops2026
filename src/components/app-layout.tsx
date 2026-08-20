@@ -112,6 +112,13 @@ export function AppLayout({ children }: { children: ReactNode }) {
                     Self-host settings
                   </Link>
                 </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/settings/troubleshooting" className="flex items-center gap-2 cursor-pointer">
+                    <AlertTriangle className="h-4 w-4" />
+                    Troubleshooting
+                  </Link>
+                </DropdownMenuItem>
+
                 {profile.data?.isAdmin && (
                   <>
                     <DropdownMenuItem asChild>
