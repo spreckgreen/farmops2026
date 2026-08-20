@@ -3,6 +3,8 @@ import { useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SlugChip } from "@/components/slug-chip";
+import { TaskLinkCopy } from "@/components/task-link-copy";
+
 
 import {
   AlertTriangle,
