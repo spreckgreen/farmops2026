@@ -45,6 +45,10 @@ A summary of everything shipped to date. Want to run it yourself? Jump to the on
 > **Deployment guide:** for a single-page walkthrough covering Supabase setup,
 > every env var, Docker/Compose/Node commands, verification, and backups,
 > see [`docs/SELF_HOSTING.md`](docs/SELF_HOSTING.md).
+>
+> **Something broken?** [`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md) covers
+> 502 Bad Gateway causes, Caddy→app connectivity checks, schema-cache and sign-in
+> failures. The same guide is in-app at **/settings/troubleshooting**.
 
 Bostead can be self-hosted two ways. Pick the one that matches your environment:
 
