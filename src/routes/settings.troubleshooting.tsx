@@ -594,13 +594,20 @@ function TroubleshootingPage() {
               command={`cd ${APP_DIR} && docker compose exec -T app sh -lc 'wget -S -qO- http://localhost:3000/ 2>&1 | head -5'`}
               note="Same probe from inside the app container. Works here but fails from caddy = networking; fails in both = the app isn't serving."
             />
+            <DocLink
+              anchor="verify-caddy---app-connectivity-wget--curl--status-code"
+              label="Verify Caddy -> app connectivity"
+            />
           </CardContent>
         </Card>
 
         <LogTailCard />
 
         <section className="space-y-4">
-          <h2 className="text-lg font-semibold tracking-tight">Common causes</h2>
+          <div className="flex flex-wrap items-center gap-3">
+            <h2 className="text-lg font-semibold tracking-tight">Common causes</h2>
+            <DocLink anchor="common-502-causes" label="Common 502 causes" />
+          </div>
           {CAUSES.map((c) => (
             <Card key={c.title}>
               <CardHeader className="pb-3">
@@ -619,6 +626,7 @@ function TroubleshootingPage() {
                   {c.fix}
                 </p>
                 <CommandBlock command={c.command} />
+                <DocLink anchor={c.anchor} label={c.title} />
               </CardContent>
             </Card>
           ))}
@@ -636,7 +644,7 @@ function TroubleshootingPage() {
             <CommandBlock
               command={`cd ${APP_DIR} && docker compose build --no-cache app && docker compose up -d app && ./scripts/healthcheck.sh`}
             />
-            <div className="flex flex-wrap gap-2 pt-1">
+            <div className="flex flex-wrap items-center gap-2 pt-1">
               <Button asChild variant="outline" size="sm">
                 <Link to="/settings/self-host">
                   <Settings className="mr-2 h-4 w-4" />
@@ -646,9 +654,18 @@ function TroubleshootingPage() {
               <Button asChild variant="outline" size="sm">
                 <Link to="/admin/schema">Schema diagnostics</Link>
               </Button>
+              <DocLink anchor="still-down--clean-rebuild" label="Still down — clean rebuild" />
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <DocLink
+                anchor="adjacent-failures-that-are-not-502s"
+                label="Adjacent failures that are not 502s"
+              />
+              <DocLink anchor="reading-the-logs" label="Reading the logs" />
             </div>
           </CardContent>
         </Card>
+
       </div>
     </AppLayout>
   );
