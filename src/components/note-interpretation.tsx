@@ -10,8 +10,15 @@ import {
   CirclePlus,
   FileText,
   MessageSquare,
+  Wrench,
 } from "lucide-react";
-import { interpretNote, summarizeInterpretation, type InterpretedLine } from "@/lib/note-syntax";
+import {
+  interpretNote,
+  noteFixes,
+  summarizeInterpretation,
+  type InterpretedLine,
+  type NoteFix,
+} from "@/lib/note-syntax";
 
 type TaskLite = { slug: string; title: string; status?: string };
 type ProjectLite = { slug: string; name?: string };
@@ -22,7 +29,10 @@ type Props = {
   projects?: ProjectLite[];
   /** Appends an example line to the note so the user can see it interpreted live. */
   onInsertExample?: (line: string) => void;
+  /** Applies a one-click repair to the line that needs attention. */
+  onApplyFix?: (lineNumber: number, fix: NoteFix) => void;
 };
+
 
 const EXAMPLES: { label: string; line: (projectSlug: string) => string }[] = [
   {
@@ -86,7 +96,13 @@ function rowStyle(action: InterpretedLine["action"]) {
   }
 }
 
-export function NoteInterpretation({ markdown, tasks, projects = [], onInsertExample }: Props) {
+export function NoteInterpretation({
+  markdown,
+  tasks,
+  projects = [],
+  onInsertExample,
+  onApplyFix,
+}: Props) {
   const { lines, counts } = useMemo(
     () => interpretNote(markdown, { tasks, projects }),
     [markdown, tasks, projects],
@@ -164,6 +180,31 @@ export function NoteInterpretation({ markdown, tasks, projects = [], onInsertExa
                         ))}
                       </ul>
                     )}
+                    {onApplyFix && l.action === "warning" && (() => {
+                      const fixes = noteFixes(l, tasks);
+                      if (fixes.length === 0) return null;
+                      return (
+                        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                          <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+                            fix
+                          </span>
+                          {fixes.map((f) => (
+                            <Button
+                              key={f.kind + f.label}
+                              size="sm"
+                              variant="outline"
+                              className="h-6 text-[11px] px-2"
+                              title={f.description}
+                              onClick={() => onApplyFix(l.lineNumber, f)}
+                            >
+                              <Wrench className="h-3 w-3 mr-1" aria-hidden />
+                              {f.label}
+                            </Button>
+                          ))}
+                        </div>
+                      );
+                    })()}
+
                   </div>
                 </div>
               </li>

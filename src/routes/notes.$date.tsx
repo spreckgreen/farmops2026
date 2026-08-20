@@ -14,7 +14,13 @@ import { format, addDays, parseISO } from "date-fns";
 import { ChevronLeft, ChevronRight, Eye, EyeOff, Cloud, RefreshCw } from "lucide-react";
 import { DailyNotePreview } from "@/components/daily-note-preview";
 import { NoteInterpretation } from "@/components/note-interpretation";
-import { interpretNote, summarizeInterpretation } from "@/lib/note-syntax";
+import {
+  applyNoteFix,
+  interpretNote,
+  lineEndOffset,
+  summarizeInterpretation,
+  type NoteFix,
+} from "@/lib/note-syntax";
 import { useShowTaskSlugs } from "@/hooks/use-show-task-slugs";
 
 
@@ -318,6 +324,28 @@ function NotePage() {
 
 
 
+  // One-click repair from a "needs attention" row: rewrite/insert the line,
+  // reveal the editor and drop the caret at the end of that line.
+  const applyFix = (lineNumber: number, fix: NoteFix) => {
+    setShowSource(true);
+    const { markdown: next, caretLine } = applyNoteFix(draft, lineNumber, fix);
+    if (next !== draft) setDraft(next);
+    const offset = lineEndOffset(next, caretLine);
+    requestAnimationFrame(() => {
+      const ta = textareaRef.current;
+      if (ta) {
+        ta.focus();
+        ta.setSelectionRange(offset, offset);
+        setCaret(offset);
+      }
+    });
+    toast.success(
+      fix.op.type === "focus-line-end"
+        ? `Line ${lineNumber} ready — type the missing text`
+        : `Fixed line ${lineNumber} · ${fix.label}`,
+    );
+  };
+
   const displayLogContent = (raw: string, task?: { slug: string; title: string } | null) => {
     if (showSlugs || !task) return raw;
     return raw
@@ -455,6 +483,7 @@ function NotePage() {
             tasks={tasks}
             projects={projects}
             onInsertExample={insertExample}
+            onApplyFix={applyFix}
           />
         </div>
 
