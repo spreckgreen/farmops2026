@@ -30,6 +30,7 @@ import { Route as MaintenanceIndexRouteImport } from './routes/maintenance.index
 import { Route as FoodIndexRouteImport } from './routes/food.index'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as TasksScheduledRouteImport } from './routes/tasks.scheduled'
+import { Route as TasksRefsRouteImport } from './routes/tasks.refs'
 import { Route as TasksBacklogRouteImport } from './routes/tasks.backlog'
 import { Route as TasksSlugRouteImport } from './routes/tasks.$slug'
 import { Route as SettingsTroubleshootingRouteImport } from './routes/settings.troubleshooting'
@@ -169,6 +170,11 @@ const AdminIndexRoute = AdminIndexRouteImport.update({
 const TasksScheduledRoute = TasksScheduledRouteImport.update({
   id: '/tasks/scheduled',
   path: '/tasks/scheduled',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TasksRefsRoute = TasksRefsRouteImport.update({
+  id: '/tasks/refs',
+  path: '/tasks/refs',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TasksBacklogRoute = TasksBacklogRouteImport.update({
@@ -396,6 +402,7 @@ export interface FileRoutesByFullPath {
   '/settings/troubleshooting': typeof SettingsTroubleshootingRoute
   '/tasks/$slug': typeof TasksSlugRoute
   '/tasks/backlog': typeof TasksBacklogRoute
+  '/tasks/refs': typeof TasksRefsRoute
   '/tasks/scheduled': typeof TasksScheduledRoute
   '/admin/': typeof AdminIndexRoute
   '/food/': typeof FoodIndexRoute
@@ -451,6 +458,7 @@ export interface FileRoutesByTo {
   '/settings/troubleshooting': typeof SettingsTroubleshootingRoute
   '/tasks/$slug': typeof TasksSlugRoute
   '/tasks/backlog': typeof TasksBacklogRoute
+  '/tasks/refs': typeof TasksRefsRoute
   '/tasks/scheduled': typeof TasksScheduledRoute
   '/admin': typeof AdminIndexRoute
   '/food': typeof FoodIndexRoute
@@ -510,6 +518,7 @@ export interface FileRoutesById {
   '/settings/troubleshooting': typeof SettingsTroubleshootingRoute
   '/tasks/$slug': typeof TasksSlugRoute
   '/tasks/backlog': typeof TasksBacklogRoute
+  '/tasks/refs': typeof TasksRefsRoute
   '/tasks/scheduled': typeof TasksScheduledRoute
   '/admin/': typeof AdminIndexRoute
   '/food/': typeof FoodIndexRoute
@@ -570,6 +579,7 @@ export interface FileRouteTypes {
     | '/settings/troubleshooting'
     | '/tasks/$slug'
     | '/tasks/backlog'
+    | '/tasks/refs'
     | '/tasks/scheduled'
     | '/admin/'
     | '/food/'
@@ -625,6 +635,7 @@ export interface FileRouteTypes {
     | '/settings/troubleshooting'
     | '/tasks/$slug'
     | '/tasks/backlog'
+    | '/tasks/refs'
     | '/tasks/scheduled'
     | '/admin'
     | '/food'
@@ -683,6 +694,7 @@ export interface FileRouteTypes {
     | '/settings/troubleshooting'
     | '/tasks/$slug'
     | '/tasks/backlog'
+    | '/tasks/refs'
     | '/tasks/scheduled'
     | '/admin/'
     | '/food/'
@@ -726,6 +738,7 @@ export interface RootRouteChildren {
   SettingsTroubleshootingRoute: typeof SettingsTroubleshootingRoute
   TasksSlugRoute: typeof TasksSlugRoute
   TasksBacklogRoute: typeof TasksBacklogRoute
+  TasksRefsRoute: typeof TasksRefsRoute
   TasksScheduledRoute: typeof TasksScheduledRoute
   AdminIndexRoute: typeof AdminIndexRoute
   TasksIndexRoute: typeof TasksIndexRoute
@@ -882,6 +895,13 @@ declare module '@tanstack/react-router' {
       path: '/tasks/scheduled'
       fullPath: '/tasks/scheduled'
       preLoaderRoute: typeof TasksScheduledRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tasks/refs': {
+      id: '/tasks/refs'
+      path: '/tasks/refs'
+      fullPath: '/tasks/refs'
+      preLoaderRoute: typeof TasksRefsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/tasks/backlog': {
@@ -1240,6 +1260,7 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsTroubleshootingRoute: SettingsTroubleshootingRoute,
   TasksSlugRoute: TasksSlugRoute,
   TasksBacklogRoute: TasksBacklogRoute,
+  TasksRefsRoute: TasksRefsRoute,
   TasksScheduledRoute: TasksScheduledRoute,
   AdminIndexRoute: AdminIndexRoute,
   TasksIndexRoute: TasksIndexRoute,
