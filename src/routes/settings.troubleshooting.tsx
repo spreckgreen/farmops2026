@@ -666,6 +666,74 @@ function TroubleshootingPage() {
           </CardContent>
         </Card>
 
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Network className="h-4 w-4 text-muted-foreground" />
+              Caddy DNS and container name resolution
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Caddy proxies to the hostname <code className="font-mono">app</code>, resolved by
+              Docker&apos;s embedded DNS at <code className="font-mono">127.0.0.11</code> — which only
+              works when both containers share the same compose network.{" "}
+              <code className="font-mono">no such host</code> is a DNS failure;{" "}
+              <code className="font-mono">connection refused</code> means DNS worked and the app is
+              simply not listening.
+            </p>
+            <CommandBlock
+              command={`cd ${APP_DIR} && docker compose logs --tail=40 caddy | grep -Ei 'lookup|no such host|refused|dial'`}
+              note="Classify the failure first: 'lookup app on 127.0.0.11:53: no such host' = DNS; 'connect: connection refused' = app down; 'context deadline exceeded' = slow boot or OOM."
+            />
+            <CommandBlock
+              command={`cd ${APP_DIR} && docker compose exec caddy sh -lc 'getent hosts app; wget -S -qO- http://app:3000/health 2>&1 | head -5'`}
+              note='Healthy output starts with a line like "172.18.0.3  app" and ends with {"ok":true,...}.'
+            />
+            <CommandBlock
+              command={`cd ${APP_DIR} && docker compose exec app getent hosts caddy && docker network inspect "$(basename "$PWD")_default" --format '{{range .Containers}}{{.Name}} {{.IPv4Address}}{{"\\n"}}{{end}}'`}
+              note="Proves the network both ways and lists every container attached to it. A service missing from that list can never be resolved by name."
+            />
+            <div className="space-y-1 text-sm text-muted-foreground">
+              <p className="font-medium text-foreground">Quick fixes</p>
+              <ul className="list-disc space-y-1 pl-5">
+                <li>
+                  Different networks (most common) — recreate rather than patch:{" "}
+                  <code className="font-mono">docker compose down &amp;&amp; docker compose up -d</code>
+                  . Containers started with <code className="font-mono">docker run</code> or a second
+                  compose file never resolve each other&apos;s service names.
+                </li>
+                <li>
+                  Wrong upstream — <code className="font-mono">Caddyfile</code> must say{" "}
+                  <code className="font-mono">reverse_proxy app:3000</code>, never{" "}
+                  <code className="font-mono">localhost:3000</code> or a published host port.
+                </li>
+                <li>
+                  Stale upstream IP after the app was recreated —{" "}
+                  <code className="font-mono">docker compose restart caddy</code>.
+                </li>
+                <li>
+                  Internal names resolve but outbound lookups fail — set{" "}
+                  <code className="font-mono">{'{ "dns": ["1.1.1.1", "8.8.8.8"] }'}</code> in{" "}
+                  <code className="font-mono">/etc/docker/daemon.json</code>, then restart docker.
+                </li>
+                <li>
+                  A custom <code className="font-mono">container_name</code> shadowing the service key
+                  — check <code className="font-mono">docker compose config --services</code>.
+                </li>
+              </ul>
+            </div>
+            <CommandBlock
+              command={`cd ${APP_DIR} && grep -n reverse_proxy Caddyfile && docker compose exec caddy caddy validate --config /etc/caddy/Caddyfile && docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile`}
+              note="Validate then hot-reload the proxy config after fixing the upstream name — no downtime, no container restart."
+            />
+            <DocLink
+              anchor="caddy-dns-and-container-name-resolution"
+              label="Caddy DNS and container name resolution"
+            />
+          </CardContent>
+        </Card>
+
 
         <section className="space-y-4">
           <div className="flex flex-wrap items-center gap-3">
