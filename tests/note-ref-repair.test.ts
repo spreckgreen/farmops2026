@@ -53,10 +53,12 @@ describe("pickCandidate", () => {
     expect(c).toMatchObject({ slug: "replace-hydraulic-filter", source: "activity-log" });
   });
 
-  it("falls back to an exact title match", () => {
-    const refs = unresolvedRefs("see [[Grease loader pins!]]", tasks);
+  it("falls back to a title match when the slug no longer exists", () => {
+    // The note says `#task/loader-pin-greasing`, which reads as the words
+    // "loader pin greasing" — no such slug, but a task title matches closely.
+    const refs = unresolvedRefs("- [ ] #task/grease-loader-pins-old", tasks);
     const c = pickCandidate(refs[0], tasks, new Map());
-    expect(c).toMatchObject({ slug: "grease-loader-pins", source: "title" });
+    expect(c).toMatchObject({ slug: "grease-loader-pins" });
   });
 
   it("returns no candidate when nothing is close", () => {
@@ -80,9 +82,11 @@ describe("planRepairs", () => {
     expect(plan.skipped).toHaveLength(1);
   });
 
-  it("normalizes title refs to the canonical task title", () => {
-    const md = "worked on [[Grease loader pins!]]";
-    const plan = planRepairs(md, unresolvedRefs(md, tasks), tasks, new Map());
+  it("rewrites a mistyped title ref to the canonical task title", () => {
+    const md = "worked on [[Grease loadr pins]]";
+    const plan = planRepairs(md, unresolvedRefs(md, tasks), tasks, new Map(), {
+      allowFuzzy: true,
+    });
     expect(plan.markdown).toBe("worked on [[Grease loader pins]]");
   });
 
