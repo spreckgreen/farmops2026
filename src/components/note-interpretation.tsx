@@ -156,6 +156,8 @@ export function NoteInterpretation({
                       {l.taskSlug && !l.unresolvedRef && (
                         <span className="flex items-center gap-1 min-w-0">
                           <SlugChip slug={l.taskSlug} size="xs" />
+                          <TaskLinkCopy slug={l.taskSlug} size="xs" />
+
                           <Link
                             to="/tasks/$slug"
                             params={{ slug: l.taskSlug }}
