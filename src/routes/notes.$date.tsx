@@ -12,6 +12,8 @@ import { toast } from "sonner";
 import { format, addDays, parseISO } from "date-fns";
 import { ChevronLeft, ChevronRight, Eye, EyeOff, Cloud, RefreshCw } from "lucide-react";
 import { DailyNotePreview } from "@/components/daily-note-preview";
+import { NoteInterpretation } from "@/components/note-interpretation";
+import { interpretNote, summarizeInterpretation } from "@/lib/note-syntax";
 import { useShowTaskSlugs } from "@/hooks/use-show-task-slugs";
 
 
