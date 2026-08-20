@@ -14,6 +14,7 @@ import {
   Check,
   Copy,
   Loader2,
+  HeartPulse,
   PlugZap,
   ScrollText,
   Server,
@@ -47,6 +48,16 @@ export const Route = createFileRoute("/settings/troubleshooting")({
 });
 
 const APP_DIR = "~/bostead-a29954a1";
+
+const HEALTH_SNIPPET = `cd ${APP_DIR} && docker compose exec -T app sh -lc '
+echo "--- inside app container (is the server up at all?) ---"
+wget -qO- http://localhost:3000/health || echo "app: no response on localhost:3000"
+' && docker compose exec -T caddy sh -lc '
+echo
+echo "--- caddy -> app (the hop that 502s) ---"
+command -v curl >/dev/null 2>&1 || apk add --no-cache curl >/dev/null 2>&1
+curl -sS -o /tmp/h.json -w "status=%{http_code} total=%{time_total}s\\n" http://app:3000/health && cat /tmp/h.json && echo
+' && echo && echo "--- through Caddy over HTTPS (what the browser sees) ---" && curl -sS -o /dev/null -w "status=%{http_code} total=%{time_total}s\\n" https://$(hostname -f)/health`;
 
 const CONNECTIVITY_SNIPPET = `cd ${APP_DIR} && docker compose exec -T caddy sh -lc '
 set -u
@@ -268,6 +279,47 @@ function TroubleshootingPage() {
               command={`cd ${APP_DIR} && docker compose exec caddy wget -qO- http://app:3000/ | head -c 200`}
               note="Bypasses TLS and DNS entirely. HTML back = the app is fine and the problem is the proxy hop or your browser. Nothing back = the app is down."
             />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <HeartPulse className="h-4 w-4 text-muted-foreground" />
+              Health endpoint &mdash; <code className="font-mono text-sm">GET /health</code>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              A no-auth, no-database endpoint that answers in milliseconds. A{" "}
+              <code className="font-mono">200</code> means the Node server booted and is routing
+              requests. Response:
+            </p>
+            <pre className="overflow-x-auto rounded-md bg-muted p-3 font-mono text-xs">
+{`{"ok":true,"service":"bostead","status":"ready","uptimeSeconds":312,"checkedAt":"2026-08-20T18:26:04.118Z"}`}
+            </pre>
+            <p className="text-sm text-muted-foreground">
+              Check it at all three layers in one snippet &mdash; inside the app container, from
+              Caddy, then through HTTPS. Whichever layer first stops returning{" "}
+              <code className="font-mono">status=200</code> is the broken one.
+            </p>
+            <CommandBlock command={HEALTH_SNIPPET} />
+            <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+              <li>All three 200 &mdash; the app is ready; a 502 in your browser is stale or cached.</li>
+              <li>
+                App container 200 but caddy hop fails &mdash; networking: caddy and app are not on
+                the same compose network, or the app binds 127.0.0.1 instead of 0.0.0.0.
+              </li>
+              <li>
+                App container returns nothing &mdash; the server never booted; read the app log tail
+                above for the crash line.
+              </li>
+              <li>
+                Behind published-site auth, poll{" "}
+                <code className="font-mono">/api/public/health</code> instead &mdash; same payload,
+                no auth gate.
+              </li>
+            </ul>
           </CardContent>
         </Card>
 
