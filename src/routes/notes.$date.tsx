@@ -600,14 +600,18 @@ Untagged lines stay in this note only.`}</pre>
                     {e.entry_type}
                   </Badge>
                   {e.tasks && (
-                    <Link
-                      to="/tasks/$slug"
-                      params={{ slug: e.tasks.slug }}
-                      className="text-[10px] font-mono text-muted-foreground hover:text-foreground truncate"
-                    >
-                      {showSlugs ? `#${e.tasks.slug}` : e.tasks.title}
-                    </Link>
+                    <span className="flex items-center gap-1 min-w-0">
+                      <SlugChip slug={e.tasks.slug} size="xs" />
+                      <Link
+                        to="/tasks/$slug"
+                        params={{ slug: e.tasks.slug }}
+                        className="text-[10px] font-mono text-muted-foreground hover:text-foreground truncate shrink-0"
+                      >
+                        {e.tasks.title}
+                      </Link>
+                    </span>
                   )}
+
                 </div>
                 <p className="text-xs font-mono whitespace-pre-wrap break-words">{displayLogContent(e.raw_content, e.tasks)}</p>
               </li>
