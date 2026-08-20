@@ -261,6 +261,11 @@ const DOC_SECTIONS: { label: string; anchor: string }[] = [
     anchor: "verify-caddy---app-connectivity-wget--curl--status-code",
   },
   { label: "One-click log tail in the browser", anchor: "one-click-log-tail-in-the-browser" },
+  {
+    label: "Collect a full log report (one command)",
+    anchor: "collect-a-full-log-report-one-command",
+  },
+
   { label: "Common 502 causes", anchor: "common-502-causes" },
   { label: "Still down — clean rebuild", anchor: "still-down--clean-rebuild" },
   {
