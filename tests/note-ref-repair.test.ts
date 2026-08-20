@@ -54,7 +54,7 @@ describe("pickCandidate", () => {
   });
 
   it("falls back to an exact title match", () => {
-    const refs = unresolvedRefs("see [[Grease Loader Pins]]", tasks);
+    const refs = unresolvedRefs("see [[Grease loader pins!]]", tasks);
     const c = pickCandidate(refs[0], tasks, new Map());
     expect(c).toMatchObject({ slug: "grease-loader-pins", source: "title" });
   });
@@ -81,7 +81,7 @@ describe("planRepairs", () => {
   });
 
   it("normalizes title refs to the canonical task title", () => {
-    const md = "worked on [[grease loader pins]]";
+    const md = "worked on [[Grease loader pins!]]";
     const plan = planRepairs(md, unresolvedRefs(md, tasks), tasks, new Map());
     expect(plan.markdown).toBe("worked on [[Grease loader pins]]");
   });
