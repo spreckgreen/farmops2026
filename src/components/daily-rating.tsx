@@ -161,7 +161,7 @@ export function DailyRatingPanel({
           save.mutate({ productivity_level: v });
         }}
       />
-      <div className="flex items-center gap-1.5 pt-1 border-t border-border/60">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 pt-1 border-t border-border/60">
         {[1, 2, 3, 4, 5].map((n) => (
           <span key={n} className="flex items-center gap-1">
             <span className={`h-2.5 w-2.5 rounded-sm ${ratingSwatchClass(n)}`} aria-hidden />
