@@ -335,7 +335,7 @@ function NotePage() {
       setAcIndex((i) => (i - 1 + acMatches.length) % acMatches.length);
     } else if (e.key === "Enter" || e.key === "Tab") {
       e.preventDefault();
-      applyCompletion(acMatches[acIndex].slug);
+      applyCompletion(acMatches[acIndex].insert);
     } else if (e.key === "Escape") {
       e.preventDefault();
       // Move caret one back so the regex stops matching, dismissing the popup.
