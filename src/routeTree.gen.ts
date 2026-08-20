@@ -30,6 +30,7 @@ import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as TasksScheduledRouteImport } from './routes/tasks.scheduled'
 import { Route as TasksBacklogRouteImport } from './routes/tasks.backlog'
 import { Route as TasksSlugRouteImport } from './routes/tasks.$slug'
+import { Route as SettingsTroubleshootingRouteImport } from './routes/settings.troubleshooting'
 import { Route as SettingsSelfHostRouteImport } from './routes/settings.self-host'
 import { Route as ProceduresIngestRouteImport } from './routes/procedures.ingest'
 import { Route as NotesDateRouteImport } from './routes/notes.$date'
@@ -164,6 +165,11 @@ const TasksBacklogRoute = TasksBacklogRouteImport.update({
 const TasksSlugRoute = TasksSlugRouteImport.update({
   id: '/tasks/$slug',
   path: '/tasks/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsTroubleshootingRoute = SettingsTroubleshootingRouteImport.update({
+  id: '/settings/troubleshooting',
+  path: '/settings/troubleshooting',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SettingsSelfHostRoute = SettingsSelfHostRouteImport.update({
@@ -361,6 +367,7 @@ export interface FileRoutesByFullPath {
   '/notes/$date': typeof NotesDateRoute
   '/procedures/ingest': typeof ProceduresIngestRoute
   '/settings/self-host': typeof SettingsSelfHostRoute
+  '/settings/troubleshooting': typeof SettingsTroubleshootingRoute
   '/tasks/$slug': typeof TasksSlugRoute
   '/tasks/backlog': typeof TasksBacklogRoute
   '/tasks/scheduled': typeof TasksScheduledRoute
@@ -411,6 +418,7 @@ export interface FileRoutesByTo {
   '/notes/$date': typeof NotesDateRoute
   '/procedures/ingest': typeof ProceduresIngestRoute
   '/settings/self-host': typeof SettingsSelfHostRoute
+  '/settings/troubleshooting': typeof SettingsTroubleshootingRoute
   '/tasks/$slug': typeof TasksSlugRoute
   '/tasks/backlog': typeof TasksBacklogRoute
   '/tasks/scheduled': typeof TasksScheduledRoute
@@ -465,6 +473,7 @@ export interface FileRoutesById {
   '/notes/$date': typeof NotesDateRoute
   '/procedures/ingest': typeof ProceduresIngestRoute
   '/settings/self-host': typeof SettingsSelfHostRoute
+  '/settings/troubleshooting': typeof SettingsTroubleshootingRoute
   '/tasks/$slug': typeof TasksSlugRoute
   '/tasks/backlog': typeof TasksBacklogRoute
   '/tasks/scheduled': typeof TasksScheduledRoute
@@ -520,6 +529,7 @@ export interface FileRouteTypes {
     | '/notes/$date'
     | '/procedures/ingest'
     | '/settings/self-host'
+    | '/settings/troubleshooting'
     | '/tasks/$slug'
     | '/tasks/backlog'
     | '/tasks/scheduled'
@@ -570,6 +580,7 @@ export interface FileRouteTypes {
     | '/notes/$date'
     | '/procedures/ingest'
     | '/settings/self-host'
+    | '/settings/troubleshooting'
     | '/tasks/$slug'
     | '/tasks/backlog'
     | '/tasks/scheduled'
@@ -623,6 +634,7 @@ export interface FileRouteTypes {
     | '/notes/$date'
     | '/procedures/ingest'
     | '/settings/self-host'
+    | '/settings/troubleshooting'
     | '/tasks/$slug'
     | '/tasks/backlog'
     | '/tasks/scheduled'
@@ -661,6 +673,7 @@ export interface RootRouteChildren {
   AdminVaultRotationRoute: typeof AdminVaultRotationRoute
   NotesDateRoute: typeof NotesDateRoute
   SettingsSelfHostRoute: typeof SettingsSelfHostRoute
+  SettingsTroubleshootingRoute: typeof SettingsTroubleshootingRoute
   TasksSlugRoute: typeof TasksSlugRoute
   TasksBacklogRoute: typeof TasksBacklogRoute
   TasksScheduledRoute: typeof TasksScheduledRoute
@@ -818,6 +831,13 @@ declare module '@tanstack/react-router' {
       path: '/tasks/$slug'
       fullPath: '/tasks/$slug'
       preLoaderRoute: typeof TasksSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings/troubleshooting': {
+      id: '/settings/troubleshooting'
+      path: '/settings/troubleshooting'
+      fullPath: '/settings/troubleshooting'
+      preLoaderRoute: typeof SettingsTroubleshootingRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/settings/self-host': {
@@ -1124,6 +1144,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminVaultRotationRoute: AdminVaultRotationRoute,
   NotesDateRoute: NotesDateRoute,
   SettingsSelfHostRoute: SettingsSelfHostRoute,
+  SettingsTroubleshootingRoute: SettingsTroubleshootingRoute,
   TasksSlugRoute: TasksSlugRoute,
   TasksBacklogRoute: TasksBacklogRoute,
   TasksScheduledRoute: TasksScheduledRoute,
