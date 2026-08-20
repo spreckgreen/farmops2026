@@ -47,6 +47,14 @@ function mockChatFetch() {
   return { calls, fetchMock };
 }
 
+// The factory resolves CUSTOM_AI_MODEL through the vault-backed env helper,
+// which pulls in the Supabase admin client. Stub it to a plain process.env
+// read so these tests stay hermetic.
+vi.mock("@/lib/server-env.server", () => ({
+  getServerEnv: async (name: string) => process.env[name],
+  invalidateServerEnv: () => {},
+}));
+
 async function loadFactory() {
   // Re-import so the module re-reads process.env — matches how the real
   // server functions dynamic-import ai-gateway.server inside their handler.
@@ -56,12 +64,13 @@ async function loadFactory() {
 
 async function callChat(model: string) {
   const createAiProvider = await loadFactory();
-  const { provider, modelOverride } = createAiProvider();
+  const { provider, modelOverride } = await createAiProvider();
   return generateText({
     model: provider(modelOverride ?? model),
     prompt: "hello",
   });
 }
+
 
 beforeEach(() => {
   delete process.env.CUSTOM_AI_BASE_URL;
