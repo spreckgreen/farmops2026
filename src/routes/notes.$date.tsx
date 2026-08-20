@@ -639,12 +639,40 @@ Untagged lines stay in this note only.`}</pre>
                     : "—"}
                 </span>
               </div>
+              {(weatherQuery.data.feels_like_high_f != null ||
+                weatherQuery.data.feels_like_low_f != null) && (
+                <div className="text-muted-foreground">
+                  Feels like{" "}
+                  <span className="text-foreground">
+                    {weatherQuery.data.feels_like_high_f != null
+                      ? `${Math.round(Number(weatherQuery.data.feels_like_high_f))}°F`
+                      : "—"}
+                  </span>
+                  {weatherQuery.data.feels_like_low_f != null && (
+                    <>
+                      {" / "}
+                      <span className="text-foreground">
+                        {`${Math.round(Number(weatherQuery.data.feels_like_low_f))}°F`}
+                      </span>
+                    </>
+                  )}
+                </div>
+              )}
+              {weatherQuery.data.humidity != null && (
+                <div className="text-muted-foreground">
+                  Humidity{" "}
+                  <span className="text-foreground">
+                    {Math.round(Number(weatherQuery.data.humidity))}%
+                  </span>
+                </div>
+              )}
               {weatherQuery.data.precip_probability != null && (
                 <div className="text-muted-foreground">
                   Precip {Math.round(Number(weatherQuery.data.precip_probability))}%
                   {weatherQuery.data.precip_type ? ` · ${weatherQuery.data.precip_type}` : ""}
                 </div>
               )}
+
             </div>
           ) : (
             <p className="text-xs text-muted-foreground">No forecast available.</p>
