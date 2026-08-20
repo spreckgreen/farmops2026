@@ -378,6 +378,39 @@ function TroubleshootingPage() {
         </header>
 
         <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <BookOpen className="h-4 w-4 text-muted-foreground" />
+              Full guide: <code className="font-mono text-sm">{DOC_PATH}</code>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Every command on this page is copied verbatim from the guide in source control. Jump
+              straight to a section
+              {DOCS_REPO_URL ? (
+                <> — links open the doc at that heading.</>
+              ) : (
+                <>
+                  {" "}
+                  — set <code className="font-mono">VITE_DOCS_REPO_URL</code> (e.g.{" "}
+                  <code className="font-mono">
+                    https://github.com/your-org/bostead/blob/main
+                  </code>
+                  ) to turn these into live links; until then each chip copies the{" "}
+                  <code className="font-mono">path#anchor</code> to open locally.
+                </>
+              )}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {DOC_SECTIONS.map((s) => (
+                <DocLink key={s.anchor} anchor={s.anchor} label={s.label} />
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
           <CardHeader>
             <CardTitle className="text-base">Start here — two commands</CardTitle>
           </CardHeader>
@@ -390,8 +423,10 @@ function TroubleshootingPage() {
               command={`cd ${APP_DIR} && docker compose exec caddy wget -qO- http://app:3000/ | head -c 200`}
               note="Bypasses TLS and DNS entirely. HTML back = the app is fine and the problem is the proxy hop or your browser. Nothing back = the app is down."
             />
+            <DocLink anchor="start-here--two-commands" label="Start here — two commands" />
           </CardContent>
         </Card>
+
 
         <Card>
           <CardHeader>
