@@ -1,12 +1,24 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
+import { useMutation } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { getRecentServerLogs } from "@/lib/diag-logs.functions";
 import { AppLayout } from "@/components/app-layout";
 import { requireAuthenticatedUser } from "@/lib/auth-route";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { AlertTriangle, Check, Copy, Server, Settings, Terminal } from "lucide-react";
+import {
+  AlertTriangle,
+  Check,
+  Copy,
+  Loader2,
+  ScrollText,
+  Server,
+  Settings,
+  Terminal,
+} from "lucide-react";
 
 export const Route = createFileRoute("/settings/troubleshooting")({
   ssr: false,
@@ -116,6 +128,93 @@ const CAUSES: Cause[] = [
   },
 ];
 
+const WINDOWS = [
+  { label: "Last 2 min", seconds: 120 },
+  { label: "Last 10 min", seconds: 600 },
+  { label: "Last 30 min", seconds: 1800 },
+];
+
+function LogTailCard() {
+  const fetchLogs = useServerFn(getRecentServerLogs);
+  const [windowSeconds, setWindowSeconds] = useState(120);
+  const tail = useMutation({
+    mutationFn: (seconds: number) => fetchLogs({ data: { windowSeconds: seconds } }),
+    onError: (e: unknown) =>
+      toast.error(e instanceof Error ? e.message : "Could not read server logs"),
+  });
+
+  const run = (seconds: number) => {
+    setWindowSeconds(seconds);
+    tail.mutate(seconds);
+  };
+  const result = tail.data;
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <ScrollText className="h-4 w-4 text-muted-foreground" />
+          Tail app + Caddy logs
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <p className="text-sm text-muted-foreground">
+          Reads the app's recent console output and the Caddy access log without a shell. Admin
+          only; obvious secrets are redacted.
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          {WINDOWS.map((w) => (
+            <Button
+              key={w.seconds}
+              size="sm"
+              variant={w.seconds === 120 ? "default" : "outline"}
+              disabled={tail.isPending}
+              onClick={() => run(w.seconds)}
+            >
+              {tail.isPending && windowSeconds === w.seconds ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : null}
+              {w.label}
+            </Button>
+          ))}
+          {result ? (
+            <span className="text-xs text-muted-foreground">
+              fetched {new Date(result.generatedAt).toLocaleTimeString()}
+            </span>
+          ) : null}
+        </div>
+
+        {result ? (
+          <div className="space-y-4 pt-1">
+            {(
+              [
+                ["app (bostead)", result.app],
+                ["caddy (proxy hop)", result.caddy],
+              ] as const
+            ).map(([label, tailData]) => (
+              <div key={label} className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium">{label}</span>
+                  <Badge variant={tailData.available ? "secondary" : "destructive"}>
+                    {tailData.available ? `${tailData.lines.length} lines` : "unavailable"}
+                  </Badge>
+                </div>
+                {tailData.lines.length ? (
+                  <pre className="max-h-72 overflow-auto rounded-md border bg-muted/40 p-3 font-mono text-xs leading-relaxed">
+                    {tailData.lines.join("\n")}
+                  </pre>
+                ) : (
+                  <p className="text-xs text-muted-foreground">{tailData.reason}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : null}
+      </CardContent>
+    </Card>
+  );
+}
+
 function TroubleshootingPage() {
   return (
     <AppLayout>
@@ -150,6 +249,8 @@ function TroubleshootingPage() {
             />
           </CardContent>
         </Card>
+
+        <LogTailCard />
 
         <section className="space-y-4">
           <h2 className="text-lg font-semibold tracking-tight">Common causes</h2>
