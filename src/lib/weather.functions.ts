@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { getServerEnv } from "@/lib/server-env.server";
+import { describeError, truncateForLog } from "@/lib/error-message";
 
 const STATION_ID = "119722"; // BosteadFarmHouse
 // Greenfield, OH (fallback historical source: Open-Meteo Archive API).
@@ -44,7 +45,7 @@ async function fetchTempest(date: string): Promise<DailyForecast | null> {
 
   const url = `https://swd.weatherflow.com/swd/rest/better_forecast?station_id=${STATION_ID}&units_temp=f&units_wind=mph&units_pressure=inhg&units_precip=in&units_distance=mi&token=${token}`;
   const res = await fetch(url);
-  if (!res.ok) throw new Error(`Tempest API ${res.status}: ${await res.text()}`);
+  if (!res.ok) throw new Error(`Tempest API ${res.status}: ${truncateForLog(await res.text(), 200)}`);
   const json = (await res.json()) as { forecast?: { daily?: DailyForecast[] } };
   const daily = json.forecast?.daily ?? [];
   return (
@@ -80,7 +81,7 @@ export async function fetchAndCacheForecast(
   try {
     forecast = await fetchTempest(date);
   } catch (e) {
-    console.warn("[weather] tempest fetch failed:", e instanceof Error ? e.message : String(e));
+    console.warn(`[weather] tempest fetch failed for ${date}: ${describeError(e)}`);
     return null;
 
   }
@@ -108,7 +109,7 @@ export async function fetchAndCacheForecast(
     .select()
     .single();
   if (error) {
-    console.error("[weather] upsert failed", error);
+    console.error(`[weather] upsert failed for ${date}: ${describeError(error)}`);
     return null;
   }
   return saved as WeatherRow;
@@ -180,7 +181,7 @@ async function fetchOpenMeteoOne(
     timezone: "America/New_York",
   });
   const res = await fetch(`${base}?${params.toString()}`);
-  if (!res.ok) throw new Error(`Open-Meteo ${res.status}: ${await res.text()}`);
+  if (!res.ok) throw new Error(`Open-Meteo ${res.status}: ${truncateForLog(await res.text(), 200)}`);
   const json = (await res.json()) as OpenMeteoArchive;
   const d = json.daily;
   if (!d?.time) return [];
@@ -225,7 +226,7 @@ async function fetchOpenMeteoRange(start: string, end: string): Promise<Array<{
         "https://archive-api.open-meteo.com/v1/archive", start, aEnd,
       ));
     } catch (e) {
-      console.warn("[weather] open-meteo archive failed", e);
+      console.warn(`[weather] open-meteo archive failed (${start}..${aEnd}): ${describeError(e)}`);
     }
   }
 
@@ -237,7 +238,7 @@ async function fetchOpenMeteoRange(start: string, end: string): Promise<Array<{
         "https://api.open-meteo.com/v1/forecast", fStart, fEnd,
       ));
     } catch (e) {
-      console.warn("[weather] open-meteo forecast failed", e);
+      console.warn(`[weather] open-meteo forecast failed (${fStart}..${fEnd}): ${describeError(e)}`);
     }
   }
 
@@ -304,7 +305,7 @@ export const backfillSeasonWeather = createServerFn({ method: "POST" })
         }
       }
     } catch (e) {
-      console.warn("[weather] tempest backfill failed, will use Open-Meteo", e);
+      console.warn(`[weather] tempest backfill failed, falling back to Open-Meteo: ${describeError(e)}`);
     }
 
     // Cover the rest of the range with Open-Meteo.
@@ -317,8 +318,8 @@ export const backfillSeasonWeather = createServerFn({ method: "POST" })
         if (!haveDates.has(d.date)) days.push(d);
       }
     } catch (e) {
-      console.error("[weather] open-meteo backfill failed", e);
-      if (days.length === 0) throw new Error(`Backfill failed: ${(e as Error).message}`);
+      console.error(`[weather] open-meteo backfill failed (${missingStart}..${missingEnd}): ${describeError(e)}`);
+      if (days.length === 0) throw new Error(`Backfill failed: ${describeError(e)}`);
     }
 
     // Filter to range + dedup + skip cached.
