@@ -1,12 +1,17 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
+import { useState } from "react";
 import { AppLayout } from "@/components/app-layout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { requireAuthenticatedUser } from "@/lib/auth-route";
 import { scanNoteTaskRefs } from "@/lib/note-refs.functions";
+import { repairNoteTaskRefs } from "@/lib/note-ref-repair.functions";
 import { toast } from "sonner";
+
 
 export const Route = createFileRoute("/tasks/refs")({
   ssr: false,
