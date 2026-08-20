@@ -968,7 +968,8 @@ export const updateTask = createServerFn({ method: "POST" })
     const patch: Record<string, unknown> = {};
     const changes: string[] = [];
     if (data.title !== undefined && data.title !== prev.title) {
-      patch.title = data.title;
+      // Title-only patch: the slug stays as-is so `#task/<slug>` refs survive.
+      Object.assign(patch, taskRenamePatch(data.title));
       changes.push(`Title: "${prev.title ?? ""}" → "${data.title}"`);
     }
     if (data.recurrence !== undefined && data.recurrence !== (prev.recurrence ?? "none")) {
@@ -982,10 +983,16 @@ export const updateTask = createServerFn({ method: "POST" })
       changes.push(`Recurrence: ${prev.recurrence ?? "none"} → ${data.recurrence}`);
     }
 
+    if (patchMutatesSlug(patch)) {
+      // Defence in depth: task slugs are permanent references.
+      throw new Error("Task slugs are immutable — refusing to rewrite slug on rename");
+    }
+
     if (Object.keys(patch).length > 0) {
       const { error } = await supabase.from("tasks").update(patch as never).eq("id", data.id);
       if (error) throw new Error(error.message);
     }
+
 
     if (changes.length > 0 || (data.note ?? "").trim()) {
       await logTaskChange(supabase, {
