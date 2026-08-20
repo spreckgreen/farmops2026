@@ -38,7 +38,10 @@ export type WeatherRow = {
 
 async function fetchTempest(date: string): Promise<DailyForecast | null> {
   const token = await getServerEnv("TEMPEST_API_TOKEN");
-  if (!token) throw new Error("TEMPEST_API_TOKEN is not configured");
+  // Not configured is a normal state on installs without a Tempest station:
+  // skip quietly instead of throwing on every daily-note render.
+  if (!token) return null;
+
   const url = `https://swd.weatherflow.com/swd/rest/better_forecast?station_id=${STATION_ID}&units_temp=f&units_wind=mph&units_pressure=inhg&units_precip=in&units_distance=mi&token=${token}`;
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Tempest API ${res.status}: ${await res.text()}`);
