@@ -131,6 +131,15 @@ function NotePage() {
             : "Committed · nothing new to log",
           { description: summarizeInterpretation(counts) },
         );
+        if (res.linkedElements) {
+          toast.success(
+            `${res.linkedElements} task${res.linkedElements === 1 ? "" : "s"} attached to a project`,
+            {
+              description:
+                "A #project/<slug> tag matched a real project, so each task was added as a design element (10% weight, editable on /projects).",
+            },
+          );
+        }
         if (counts.warnings) {
           toast.warning(
             `${counts.warnings} line${counts.warnings === 1 ? "" : "s"} did not produce a task or log entry`,
@@ -140,6 +149,9 @@ function NotePage() {
         qc.invalidateQueries({ queryKey: ["tasks"] });
         qc.invalidateQueries({ queryKey: ["task"] });
         qc.invalidateQueries({ queryKey: ["daily-note", date] });
+        qc.invalidateQueries({ queryKey: ["project-design-elements"] });
+        qc.invalidateQueries({ queryKey: ["projects"] });
+
       }
     },
 

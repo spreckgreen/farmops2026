@@ -34,6 +34,24 @@ Metadata can be appended to any task or entry line:
 | `@start:<date> <time>` | `@start:2026-08-21 07:00` | Schedules the task |
 | `@progress:<n>%` | `@progress:40%` | Sets percent complete |
 
+### What `#project/<tag>` actually does
+
+If the tag matches an **existing project's slug**, committing also attaches the
+task to that project as a **design element** at 10% weight — so it shows up on
+`/projects` and counts toward project progress. Adjust the weight there
+afterwards. If a project is already weighted to 100%, no element is created (the
+tag still sticks).
+
+If the tag matches **no project**, it stays a plain label on the task — useful
+for filtering `/tasks`, but nothing appears under `/projects`.
+
+```text
+- [ ] Boiler pipe test ends #project/boiler-swap
+→ task tagged "boiler-swap"
+→ if a project with slug boiler-swap exists: design element created (10%)
+```
+
+
 ---
 
 ## 2. Creating tasks — the exact checkbox syntax
