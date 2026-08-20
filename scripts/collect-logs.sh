@@ -69,6 +69,16 @@ detect_docker() {
 }
 detect_docker
 
+HAVE_DOCKER=0
+command -v docker >/dev/null 2>&1 && HAVE_DOCKER=1
+d() {
+  if [ "$HAVE_DOCKER" = "0" ]; then
+    echo "(docker unavailable on this host)"
+    return 0
+  fi
+  docker "$@" 2>&1
+}
+
 dc() {
   if [ -z "$DC" ]; then
     echo "(docker compose unavailable on this host)"
@@ -84,7 +94,7 @@ redact() {
   sed -E \
     -e 's/(eyJ[A-Za-z0-9_-]{6,})\.[A-Za-z0-9_-]{6,}\.[A-Za-z0-9_-]{6,}/«REDACTED-JWT»/g' \
     -e 's/(sb_(publishable|secret)_)[A-Za-z0-9_-]{8,}/\1«REDACTED»/g' \
-    -e 's/((SERVICE_ROLE|ANON|SECRET|PASSWORD|PASS|TOKEN|API_?KEY|KEY|DSN|WEBHOOK)[A-Z0-9_]*[=:][[:space:]]*)[^[:space:]"'"'"',}]+/\1«REDACTED»/gI' \
+    -e 's/(([A-Z0-9_]*(SERVICE_ROLE|ANON|SECRET|PASSWORD|TOKEN|APIKEY|API_KEY|KEY|DSN)[A-Z0-9_]*)[=:][[:space:]]*)[^[:space:]"'"'"',}]+/\1«REDACTED»/g' \
     -e 's/(Bearer[[:space:]]+)[A-Za-z0-9._~+\/-]{10,}=*/\1«REDACTED»/g' \
     -e 's/\b[0-9a-f]{48,}\b/«REDACTED-HEX»/g' \
     -e 's/(postgres(ql)?:\/\/[^:]+:)[^@]+@/\1«REDACTED»@/g'
@@ -150,13 +160,13 @@ build_report() {
 - window: last **${MINUTES} min**, max **${TAIL_LINES} lines** per service
 - services: \`${SERVICES}\`
 - probe host: \`${HOST_NAME}\`
-- secrets: redacted by the collector (\`«REDACTED»\` markers below)
+- secrets: scrubbed by the collector (\`«REDACTED»\` markers below)
 EOF
 
   section "Host + stack"
   {
     echo "uname: $(uname -srm 2>/dev/null)"
-    echo "docker: $(docker --version 2>&1 | head -1)"
+    echo "docker: $(d --version | head -1)"
     echo "compose: ${DC:-unavailable} $(dc version --short | head -1)"
     echo
     echo "--- memory ---"
@@ -166,7 +176,7 @@ EOF
     df -h / 2>/dev/null | tail -2
     echo
     echo "--- per-container usage ---"
-    docker stats --no-stream --format 'table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}' 2>&1 | head -15
+    d stats --no-stream --format 'table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}' | head -15
   } | fence text
 
   section "Container state"
@@ -175,9 +185,10 @@ EOF
     echo
     echo "--- exit codes / restarts (137 = OOM-killed) ---"
     for s in $SERVICES; do
-      cid="$(dc ps -q "$s" | head -1)"
-      if [ -n "$cid" ]; then
-        docker inspect -f "$s: status={{.State.Status}} exit={{.State.ExitCode}} oom={{.State.OOMKilled}} restarts={{.RestartCount}} started={{.State.StartedAt}}" "$cid" 2>&1
+      cid=""
+      [ -n "$DC" ] && cid="$(dc ps -q "$s" | head -1)"
+      if [ -n "$cid" ] && [ "$HAVE_DOCKER" = "1" ]; then
+        d inspect -f "$s: status={{.State.Status}} exit={{.State.ExitCode}} oom={{.State.OOMKilled}} restarts={{.RestartCount}} started={{.State.StartedAt}}" "$cid"
       else
         echo "$s: no container"
       fi
