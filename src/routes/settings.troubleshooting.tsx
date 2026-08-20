@@ -530,6 +530,18 @@ function TroubleshootingPage() {
                 no auth gate.
               </li>
             </ul>
+            <div className="flex flex-wrap gap-2">
+              <DocLink anchor="health-endpoint-get-health" label="Health endpoint: GET /health" />
+              <DocLink
+                anchor="check-it-at-all-three-layers"
+                label="Check it at all three layers"
+              />
+              <DocLink
+                anchor="use-it-as-a-container-healthcheck"
+                label="Use it as a container healthcheck"
+              />
+            </div>
+
           </CardContent>
         </Card>
 
