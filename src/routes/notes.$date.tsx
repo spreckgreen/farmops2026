@@ -476,32 +476,33 @@ function NotePage() {
               className="w-full min-h-[55vh] bg-card border border-border rounded-lg p-4 font-mono text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-ring resize-y"
             />
             {acMatches.length > 0 && (
-              <div className="absolute left-3 bottom-3 z-10 w-72 bg-popover border border-border rounded-md shadow-md overflow-hidden">
+              <div className="absolute left-3 bottom-3 z-10 w-80 bg-popover border border-border rounded-md shadow-md overflow-hidden">
                 <div className="px-3 py-1.5 text-[10px] uppercase tracking-wider font-mono text-muted-foreground border-b border-border">
-                  #project/ — ↑↓ Enter
+                  {acHint} — ↑↓ Enter
                 </div>
                 <ul>
-                  {acMatches.map((p, i) => (
-                    <li key={p.slug}>
+                  {acMatches.map((m, i) => (
+                    <li key={m.key}>
                       <button
                         type="button"
                         onMouseDown={(e) => {
                           e.preventDefault();
-                          applyCompletion(p.slug);
+                          applyCompletion(m.insert);
                         }}
                         onMouseEnter={() => setAcIndex(i)}
                         className={`w-full text-left px-3 py-1.5 text-sm flex items-baseline justify-between gap-2 ${
                           i === acIndex ? "bg-accent text-accent-foreground" : ""
                         }`}
                       >
-                        <span className="font-mono truncate">{p.slug}</span>
-                        <span className="text-xs text-muted-foreground truncate">{p.name}</span>
+                        <span className="font-mono truncate">{m.primary}</span>
+                        <span className="text-xs text-muted-foreground truncate">{m.secondary}</span>
                       </button>
                     </li>
                   ))}
                 </ul>
               </div>
             )}
+
           </div>
         )}
 
