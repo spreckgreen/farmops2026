@@ -11,8 +11,10 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import {
   AlertTriangle,
+  BookOpen,
   Check,
   Copy,
+  ExternalLink,
   Loader2,
   HeartPulse,
   ShieldCheck,
@@ -22,6 +24,7 @@ import {
   Settings,
   Terminal,
 } from "lucide-react";
+
 
 export const Route = createFileRoute("/settings/troubleshooting")({
   ssr: false,
@@ -90,7 +93,66 @@ else
 fi
 '`;
 
+const DOC_PATH = "docs/TROUBLESHOOTING.md";
+/**
+ * Set VITE_DOCS_REPO_URL to your repo tree root to turn every "In the docs"
+ * chip into a real deep link, e.g.
+ *   VITE_DOCS_REPO_URL=https://github.com/your-org/bostead/blob/main
+ * Without it the chip still shows the exact path + anchor to open locally.
+ */
+const DOCS_REPO_URL = (import.meta.env["VITE_DOCS_REPO_URL"] as string | undefined)?.replace(
+  /\/+$/,
+  "",
+);
+
+function docsHref(anchor: string) {
+  return DOCS_REPO_URL ? `${DOCS_REPO_URL}/${DOC_PATH}#${anchor}` : null;
+}
+
+/** Deep link into a heading of docs/TROUBLESHOOTING.md. */
+function DocLink({ anchor, label }: { anchor: string; label: string }) {
+  const href = docsHref(anchor);
+  const target = `${DOC_PATH}#${anchor}`;
+  const inner = (
+    <>
+      <BookOpen className="h-3.5 w-3.5" />
+      <span className="font-mono">{target}</span>
+    </>
+  );
+  if (href) {
+    return (
+      <a
+        href={href}
+        target="_blank"
+        rel="noreferrer"
+        title={`Open “${label}” in the troubleshooting doc`}
+        className="inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+      >
+        {inner}
+        <ExternalLink className="h-3 w-3" />
+      </a>
+    );
+  }
+  return (
+    <button
+      type="button"
+      title={`Copy the doc location for “${label}”`}
+      onClick={() => {
+        navigator.clipboard
+          .writeText(target)
+          .then(() => toast.success(`Copied ${target}`))
+          .catch(() => toast.error("Clipboard blocked — copy the path manually"));
+      }}
+      className="inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+    >
+      {inner}
+      <Copy className="h-3 w-3" />
+    </button>
+  );
+}
+
 function CommandBlock({ command, note }: { command: string; note?: string }) {
+
   const [copied, setCopied] = useState(false);
   const copy = async () => {
     try {
@@ -124,52 +186,90 @@ type Cause = {
   symptom: string;
   fix: string;
   command: string;
+  /** Heading anchor in docs/TROUBLESHOOTING.md */
+  anchor: string;
 };
 
 const CAUSES: Cause[] = [
   {
-    title: "App container isn't running",
+    title: "1. App container isn't running",
     symptom:
       "docker compose ps lists only caddy and ollama, or app shows Exited / Restarting. Caddy answers, but has nothing behind app:3000.",
     fix: "Start it and read the exit reason from the tail of the log.",
     command: `cd ${APP_DIR} && docker compose up -d app && docker compose ps && docker compose logs --tail=60 app`,
+    anchor: "1-app-container-isnt-running",
   },
   {
-    title: "App was OOM-killed (usually by Ollama)",
+    title: "2. App was OOM-killed (usually by Ollama)",
     symptom:
       "app shows Exited (137) with no stack trace. Free RAM near zero while a local model is loaded.",
     fix: "Stop Ollama or switch to a 1B model, then restart the app.",
-    command: `free -h && docker stats --no-stream\n# if RAM is tight:\ncd ${APP_DIR} && docker compose stop ollama && docker compose up -d app`,
+    command: `free -h && docker stats --no-stream\n\n# if RAM is tight, free it and restart the app:\ncd ${APP_DIR} && docker compose stop ollama && docker compose up -d app`,
+    anchor: "2-app-was-oom-killed-usually-by-ollama",
   },
   {
-    title: "App listening on the wrong address",
+    title: "3. App listening on the wrong address",
     symptom:
       "Startup banner missing HOST: 0.0.0.0 / PORT: 3000. Binding to 127.0.0.1 inside the container is unreachable from Caddy.",
     fix: "Confirm the banner, then verify HOST/PORT in compose.",
     command: `cd ${APP_DIR} && docker compose logs app | grep -A6 "\\[server\\]" | head -20`,
+    anchor: "3-app-listening-on-the-wrong-address",
   },
   {
-    title: "Crash after boot (missing env / bad Supabase URL)",
+    title: "4. Crash after boot (missing env / malformed Supabase URL)",
     symptom:
       "Banner prints, then the process dies — often 'Missing Supabase environment variable(s)' or a URL that wrongly includes a port or /auth/v1 path.",
     fix: "Check .env.local is read and the URL is a bare origin.",
     command: `cd ${APP_DIR} && grep -c . .env.local && grep -E '^(VITE_)?SUPABASE_URL=' .env.local`,
+    anchor: "4-crash-after-boot-missing-env--malformed-supabase-url",
   },
   {
-    title: "Caddy and app not on the same network",
+    title: "5. Caddy and app not on the same network",
     symptom:
       "App is healthy and answers locally, but Caddy logs 'dial tcp: lookup app'. The service name can't resolve.",
     fix: "Prove the proxy hop from inside the Caddy container.",
     command: `cd ${APP_DIR} && docker compose exec caddy wget -qO- http://app:3000/ | head -c 200`,
+    anchor: "5-caddy-and-app-not-on-the-same-network",
   },
   {
-    title: "Wrong port requested in the browser",
+    title: "6. Wrong port requested in the browser",
     symptom:
       "https://host:3000 fails while the plain domain works. Only 80/443 are published; 3000 is internal.",
     fix: "Use the domain without a port, and clear HSTS for the host if the browser pinned it.",
     command: `curl -sSI https://farmops.bostead.life/ | head -5`,
+    anchor: "6-wrong-port-requested-in-the-browser",
   },
 ];
+
+/** Section index mirroring docs/TROUBLESHOOTING.md headings, in document order. */
+const DOC_SECTIONS: { label: string; anchor: string }[] = [
+  { label: "Start here — two commands", anchor: "start-here--two-commands" },
+  { label: "Health endpoint: GET /health", anchor: "health-endpoint-get-health" },
+  { label: "Check it at all three layers", anchor: "check-it-at-all-three-layers" },
+  { label: "Use it as a container healthcheck", anchor: "use-it-as-a-container-healthcheck" },
+  { label: "Readiness endpoint: GET /ready", anchor: "readiness-endpoint-get-ready" },
+  {
+    label: "One command: verify readiness end-to-end through Caddy",
+    anchor: "one-command-verify-readiness-end-to-end-through-caddy",
+  },
+  {
+    label: "Compose healthcheck using both probes",
+    anchor: "compose-healthcheck-using-both-probes",
+  },
+  {
+    label: "Verify Caddy -> app connectivity (wget + curl + status code)",
+    anchor: "verify-caddy---app-connectivity-wget--curl--status-code",
+  },
+  { label: "One-click log tail in the browser", anchor: "one-click-log-tail-in-the-browser" },
+  { label: "Common 502 causes", anchor: "common-502-causes" },
+  { label: "Still down — clean rebuild", anchor: "still-down--clean-rebuild" },
+  {
+    label: "Adjacent failures that are not 502s",
+    anchor: "adjacent-failures-that-are-not-502s",
+  },
+  { label: "Reading the logs", anchor: "reading-the-logs" },
+];
+
 
 const WINDOWS = [
   { label: "Last 2 min", seconds: 120 },
@@ -205,6 +305,11 @@ function LogTailCard() {
           Reads the app's recent console output and the Caddy access log without a shell. Admin
           only; obvious secrets are redacted.
         </p>
+        <DocLink
+          anchor="one-click-log-tail-in-the-browser"
+          label="One-click log tail in the browser"
+        />
+
         <div className="flex flex-wrap items-center gap-2">
           {WINDOWS.map((w) => (
             <Button
@@ -278,6 +383,39 @@ function TroubleshootingPage() {
         </header>
 
         <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <BookOpen className="h-4 w-4 text-muted-foreground" />
+              Full guide: <code className="font-mono text-sm">{DOC_PATH}</code>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Every command on this page is copied verbatim from the guide in source control. Jump
+              straight to a section
+              {DOCS_REPO_URL ? (
+                <> — links open the doc at that heading.</>
+              ) : (
+                <>
+                  {" "}
+                  — set <code className="font-mono">VITE_DOCS_REPO_URL</code> (e.g.{" "}
+                  <code className="font-mono">
+                    https://github.com/your-org/bostead/blob/main
+                  </code>
+                  ) to turn these into live links; until then each chip copies the{" "}
+                  <code className="font-mono">path#anchor</code> to open locally.
+                </>
+              )}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {DOC_SECTIONS.map((s) => (
+                <DocLink key={s.anchor} anchor={s.anchor} label={s.label} />
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
           <CardHeader>
             <CardTitle className="text-base">Start here — two commands</CardTitle>
           </CardHeader>
@@ -290,8 +428,10 @@ function TroubleshootingPage() {
               command={`cd ${APP_DIR} && docker compose exec caddy wget -qO- http://app:3000/ | head -c 200`}
               note="Bypasses TLS and DNS entirely. HTML back = the app is fine and the problem is the proxy hop or your browser. Nothing back = the app is down."
             />
+            <DocLink anchor="start-here--two-commands" label="Start here — two commands" />
           </CardContent>
         </Card>
+
 
         <Card>
           <CardHeader>
@@ -339,6 +479,21 @@ function TroubleshootingPage() {
                 auth gate.
               </li>
             </ul>
+            <div className="flex flex-wrap gap-2">
+              <DocLink
+                anchor="readiness-endpoint-get-ready"
+                label="Readiness endpoint: GET /ready"
+              />
+              <DocLink
+                anchor="one-command-verify-readiness-end-to-end-through-caddy"
+                label="One command: verify readiness end-to-end through Caddy"
+              />
+              <DocLink
+                anchor="compose-healthcheck-using-both-probes"
+                label="Compose healthcheck using both probes"
+              />
+            </div>
+
           </CardContent>
         </Card>
 
@@ -380,6 +535,18 @@ function TroubleshootingPage() {
                 no auth gate.
               </li>
             </ul>
+            <div className="flex flex-wrap gap-2">
+              <DocLink anchor="health-endpoint-get-health" label="Health endpoint: GET /health" />
+              <DocLink
+                anchor="check-it-at-all-three-layers"
+                label="Check it at all three layers"
+              />
+              <DocLink
+                anchor="use-it-as-a-container-healthcheck"
+                label="Use it as a container healthcheck"
+              />
+            </div>
+
           </CardContent>
         </Card>
 
@@ -432,13 +599,20 @@ function TroubleshootingPage() {
               command={`cd ${APP_DIR} && docker compose exec -T app sh -lc 'wget -S -qO- http://localhost:3000/ 2>&1 | head -5'`}
               note="Same probe from inside the app container. Works here but fails from caddy = networking; fails in both = the app isn't serving."
             />
+            <DocLink
+              anchor="verify-caddy---app-connectivity-wget--curl--status-code"
+              label="Verify Caddy -> app connectivity"
+            />
           </CardContent>
         </Card>
 
         <LogTailCard />
 
         <section className="space-y-4">
-          <h2 className="text-lg font-semibold tracking-tight">Common causes</h2>
+          <div className="flex flex-wrap items-center gap-3">
+            <h2 className="text-lg font-semibold tracking-tight">Common causes</h2>
+            <DocLink anchor="common-502-causes" label="Common 502 causes" />
+          </div>
           {CAUSES.map((c) => (
             <Card key={c.title}>
               <CardHeader className="pb-3">
@@ -457,6 +631,7 @@ function TroubleshootingPage() {
                   {c.fix}
                 </p>
                 <CommandBlock command={c.command} />
+                <DocLink anchor={c.anchor} label={c.title} />
               </CardContent>
             </Card>
           ))}
@@ -474,7 +649,7 @@ function TroubleshootingPage() {
             <CommandBlock
               command={`cd ${APP_DIR} && docker compose build --no-cache app && docker compose up -d app && ./scripts/healthcheck.sh`}
             />
-            <div className="flex flex-wrap gap-2 pt-1">
+            <div className="flex flex-wrap items-center gap-2 pt-1">
               <Button asChild variant="outline" size="sm">
                 <Link to="/settings/self-host">
                   <Settings className="mr-2 h-4 w-4" />
@@ -484,9 +659,18 @@ function TroubleshootingPage() {
               <Button asChild variant="outline" size="sm">
                 <Link to="/admin/schema">Schema diagnostics</Link>
               </Button>
+              <DocLink anchor="still-down--clean-rebuild" label="Still down — clean rebuild" />
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <DocLink
+                anchor="adjacent-failures-that-are-not-502s"
+                label="Adjacent failures that are not 502s"
+              />
+              <DocLink anchor="reading-the-logs" label="Reading the logs" />
             </div>
           </CardContent>
         </Card>
+
       </div>
     </AppLayout>
   );
