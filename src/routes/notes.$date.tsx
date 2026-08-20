@@ -22,6 +22,12 @@ import {
   type NoteFix,
 } from "@/lib/note-syntax";
 import { useShowTaskSlugs } from "@/hooks/use-show-task-slugs";
+import {
+  classifyEditorLines,
+  NoteEditorHighlightOverlay,
+  NoteSyntaxLegend,
+} from "@/components/note-editor-validation";
+
 
 
 export const Route = createFileRoute("/notes/$date")({
@@ -235,6 +241,17 @@ function NotePage() {
   const [acIndex, setAcIndex] = useState(0);
   const [showSource, setShowSource] = useState(false);
   const [compactPreview, setCompactPreview] = useState(true);
+  const [editorScrollTop, setEditorScrollTop] = useState(0);
+
+  // Inline validation: per-line kind stripes painted behind the raw editor.
+  const editorLines = useMemo(
+    () => classifyEditorLines(draft, { tasks, projects }),
+    [draft, tasks, projects],
+  );
+  const malformedCount = editorLines.kinds.filter((k) => k === "malformed").length;
+  const taskLineCount = editorLines.kinds.filter((k) => k === "task" || k === "done").length;
+
+
 
   // Autocomplete for three reference kinds while typing:
   //   #project/<slug>   → project slugs
@@ -490,21 +507,32 @@ function NotePage() {
 
         {showSource && (
           <div className="relative mt-4">
-            <textarea
-              ref={textareaRef}
-              value={draft}
-              onChange={(e) => {
-                setDraft(e.target.value);
-                setCaret(e.target.selectionStart ?? 0);
-              }}
-              onKeyDown={onTextareaKeyDown}
-              onKeyUp={syncCaret}
-              onClick={syncCaret}
-              onSelect={syncCaret}
-              placeholder={PLACEHOLDER}
-              spellCheck={false}
-              className="w-full min-h-[55vh] bg-card border border-border rounded-lg p-4 font-mono text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-ring resize-y"
-            />
+
+            <div className="relative rounded-lg border border-border bg-card">
+              <NoteEditorHighlightOverlay
+                markdown={draft}
+                kinds={editorLines.kinds}
+                scrollTop={editorScrollTop}
+              />
+              <textarea
+                ref={textareaRef}
+                value={draft}
+                onChange={(e) => {
+                  setDraft(e.target.value);
+                  setCaret(e.target.selectionStart ?? 0);
+                }}
+                onKeyDown={onTextareaKeyDown}
+                onKeyUp={syncCaret}
+                onClick={syncCaret}
+                onSelect={syncCaret}
+                onScroll={(e) => setEditorScrollTop(e.currentTarget.scrollTop)}
+                placeholder={PLACEHOLDER}
+                spellCheck={false}
+                className="relative w-full min-h-[55vh] bg-transparent rounded-lg p-4 font-mono text-sm leading-relaxed whitespace-pre-wrap break-words focus:outline-none focus:ring-2 focus:ring-ring resize-y"
+              />
+            </div>
+            <NoteSyntaxLegend malformedCount={malformedCount} taskCount={taskLineCount} />
+
             {acMatches.length > 0 && (
               <div className="absolute left-3 bottom-3 z-10 w-80 bg-popover border border-border rounded-md shadow-md overflow-hidden">
                 <div className="px-3 py-1.5 text-[10px] uppercase tracking-wider font-mono text-muted-foreground border-b border-border">

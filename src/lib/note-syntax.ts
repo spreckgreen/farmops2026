@@ -121,7 +121,61 @@ function metaDetails(
   return { details, unknownProjects };
 }
 
+/** The exact shape the server parser requires for a task line. */
+export const CHECKBOX_RE = /^-\s*\[([ xX])\]\s+(.+)$/;
+
+export type CheckboxNearMiss = {
+  /** Intended completion state, from the bracket contents. */
+  done: boolean;
+  /** Best guess at the task title (everything after the brackets). */
+  title: string;
+  /** Plain-language reason the line will not parse, e.g. "there's no space after `]`". */
+  reason: string;
+};
+
+/**
+ * Detects lines the user clearly meant as tasks but that the parser will skip,
+ * e.g. `[ ]Fix gate` (no dash, no space) or `* [x] Done`.
+ * Returns null for well-formed checkboxes and for ordinary prose.
+ */
+export function checkboxNearMiss(line: string): CheckboxNearMiss | null {
+  const trimmed = line.trim();
+  if (!trimmed || CHECKBOX_RE.test(trimmed)) return null;
+
+  // Anything that starts with an optional bullet then a bracket pair.
+  const m = trimmed.match(/^([-*+•]?)\s*\[([^\]]{0,3})\]\s*(.*)$/);
+  if (!m) return null;
+
+  const bullet = m[1];
+  const box = m[2];
+  const rest = m[3];
+
+  // `[[Task Title]]` links and `[link](url)` markdown are not checkbox attempts.
+  if (box.startsWith("[") || rest.startsWith("(")) return null;
+
+  const boxTrim = box.trim();
+  const done = /^x$/i.test(boxTrim);
+  if (boxTrim !== "" && !done) return null; // e.g. `[TODO]` prose — leave alone
+
+  const reasons: string[] = [];
+  if (bullet === "") reasons.push("the leading `- ` is missing");
+  else if (bullet !== "-") reasons.push(`the bullet is \`${bullet}\` instead of \`-\``);
+  if (box === "") reasons.push("the brackets are empty (use `[ ]` with a space, or `[x]`)");
+  if (rest && !/^\s/.test(m[0].slice(m[0].indexOf("]") + 1))) {
+    reasons.push("there's no space after `]`");
+  }
+  if (!rest) reasons.push("there's no title after the checkbox");
+  if (reasons.length === 0) return null;
+
+  return {
+    done,
+    title: rest.trim(),
+    reason: reasons.join(", and "),
+  };
+}
+
 export function interpretNote(
+
   markdown: string,
   opts: { tasks?: TaskLite[]; projects?: ProjectLite[] } = {},
 ): NoteInterpretation {
@@ -216,6 +270,36 @@ export function interpretNote(
       });
       return;
     }
+
+    // ---- near-miss checkbox: looks like a task but won't parse ----
+    const nearMiss = checkboxNearMiss(trimmed);
+    if (nearMiss) {
+      const meta = extractMeta(nearMiss.title);
+      const { details, unknownProjects } = metaDetails(meta, knownProjects);
+      const fixedTitle = meta.stripped;
+      lines.push({
+        lineNumber,
+        raw: trimmed,
+        action: "warning",
+        label: "almost a task",
+        summary: `Looks like a checkbox, but ${nearMiss.reason} — this line will be kept as plain note text instead of creating a task.`,
+        details: [
+          "Required syntax: a dash, a space, `[ ]` or `[x]`, then a space, then the title",
+          `Correct form: \`- [${nearMiss.done ? "x" : " "}] ${fixedTitle || "Task title"}\``,
+          ...details,
+        ],
+        entryType: "status",
+        taskTitle: fixedTitle || undefined,
+        taskSlug: fixedTitle ? slugify(fixedTitle) : undefined,
+        projectTags: meta.tags,
+        unknownProjects,
+        startAt: meta.startAt,
+        percent: meta.percent,
+      });
+      return;
+    }
+
+
 
     // ---- entry-type prefix ----
     let entryType: InterpretedLine["entryType"] = "note";
@@ -618,6 +702,30 @@ export function noteFixes(line: InterpretedLine, tasks: TaskLite[]): NoteFix[] {
       op: { type: "focus-line-end" },
     });
   }
+
+  // ---- looked like a checkbox but the syntax is off ----
+  if (line.label === "almost a task") {
+    const miss = checkboxNearMiss(line.raw);
+    const title = miss?.title.trim() ?? "";
+    const box = miss?.done ? "x" : " ";
+    if (title) {
+      fixes.push({
+        kind: "convert-to-task",
+        label: `Fix syntax → - [${box}] …`,
+        description: `Rewrites the line as \`- [${box}] ${title}\` so it creates a task on commit.`,
+        op: { type: "replace-line", text: `- [${box}] ${title}` },
+      });
+    } else {
+      fixes.push({
+        kind: "add-task-title",
+        label: "Fix syntax and add a title",
+        description: "Rewrites the line as `- [ ] ` and drops the caret after it.",
+        op: { type: "replace-line", text: `- [${box}] ` },
+      });
+    }
+  }
+
+
 
   return fixes;
 }
