@@ -217,6 +217,36 @@ export function interpretNote(
       return;
     }
 
+    // ---- near-miss checkbox: looks like a task but won't parse ----
+    const nearMiss = checkboxNearMiss(trimmed);
+    if (nearMiss) {
+      const meta = extractMeta(nearMiss.title);
+      const { details, unknownProjects } = metaDetails(meta, knownProjects);
+      const fixedTitle = meta.stripped;
+      lines.push({
+        lineNumber,
+        raw: trimmed,
+        action: "warning",
+        label: "almost a task",
+        summary: `Looks like a checkbox, but ${nearMiss.reason} — this line will be kept as plain note text instead of creating a task.`,
+        details: [
+          "Required syntax: a dash, a space, `[ ]` or `[x]`, then a space, then the title",
+          `Correct form: \`- [${nearMiss.done ? "x" : " "}] ${fixedTitle || "Task title"}\``,
+          ...details,
+        ],
+        entryType: "status",
+        taskTitle: fixedTitle || undefined,
+        taskSlug: fixedTitle ? slugify(fixedTitle) : undefined,
+        projectTags: meta.tags,
+        unknownProjects,
+        startAt: meta.startAt,
+        percent: meta.percent,
+      });
+      return;
+    }
+
+
+
     // ---- entry-type prefix ----
     let entryType: InterpretedLine["entryType"] = "note";
     let body = trimmed;
