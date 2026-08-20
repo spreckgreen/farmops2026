@@ -2,11 +2,23 @@ import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { listTaskProjectLinks, setProjectDesignElementWeight } from "@/lib/log.functions";
+import {
+  listTaskProjectLinks,
+  setProjectDesignElementWeight,
+  unlinkTaskFromProject,
+} from "@/lib/log.functions";
 import { DEFAULT_DESIGN_ELEMENT_WEIGHT, clampWeight } from "@/lib/design-weight";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 
 type Link_ = {
@@ -27,6 +39,7 @@ type Link_ = {
 export function TaskProjectWeights({ taskId }: { taskId: string }) {
   const listFn = useServerFn(listTaskProjectLinks);
   const saveFn = useServerFn(setProjectDesignElementWeight);
+  const unlinkFn = useServerFn(unlinkTaskFromProject);
   const qc = useQueryClient();
 
   const { data: links = [], isLoading } = useQuery({
@@ -41,6 +54,24 @@ export function TaskProjectWeights({ taskId }: { taskId: string }) {
       qc.invalidateQueries({ queryKey: ["task-project-links", taskId] });
       qc.invalidateQueries({ queryKey: ["project-design-elements"] });
       qc.invalidateQueries({ queryKey: ["projects"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const unlink = useMutation({
+    mutationFn: (v: { element_id: string; remove_tag: boolean }) => unlinkFn({ data: v }),
+    onSuccess: (r: { project_slug: string | null; tag_removed: boolean }) => {
+      toast.success(
+        r.tag_removed
+          ? `Unassigned and removed #project/${r.project_slug} from the task`
+          : r.project_slug
+            ? `Unassigned — #project/${r.project_slug} tag kept on the task`
+            : "Unassigned from project",
+      );
+      qc.invalidateQueries({ queryKey: ["task-project-links", taskId] });
+      qc.invalidateQueries({ queryKey: ["project-design-elements"] });
+      qc.invalidateQueries({ queryKey: ["projects"] });
+      qc.invalidateQueries({ queryKey: ["task"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -62,6 +93,8 @@ export function TaskProjectWeights({ taskId }: { taskId: string }) {
             link={l}
             pending={save.isPending}
             onSave={(weight) => save.mutate({ id: l.id, weight })}
+            unlinkPending={unlink.isPending}
+            onUnlink={(remove_tag) => unlink.mutate({ element_id: l.id, remove_tag })}
           />
         ))}
       </ul>
@@ -73,10 +106,14 @@ function WeightRow({
   link,
   pending,
   onSave,
+  onUnlink,
+  unlinkPending,
 }: {
   link: Link_;
   pending: boolean;
   onSave: (weight: number) => void;
+  onUnlink: (removeTag: boolean) => void;
+  unlinkPending: boolean;
 }) {
   const [draft, setDraft] = useState(String(Number(link.weight)));
   useEffect(() => setDraft(String(Number(link.weight))), [link.weight]);
@@ -119,6 +156,28 @@ function WeightRow({
       >
         Save
       </Button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button size="sm" variant="ghost" className="h-8" disabled={unlinkPending}>
+            Unassign
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-64">
+          <DropdownMenuLabel>
+            Remove from {link.project?.name ?? "project"}
+          </DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onSelect={() => onUnlink(false)}>
+            Unassign, keep #project/{link.project?.slug ?? "slug"} tag
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            className="text-destructive focus:text-destructive"
+            onSelect={() => onUnlink(true)}
+          >
+            Unassign and remove the tag
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
       {tooBig && (
         <span className="text-xs text-destructive">
           Max {headroom.toFixed(0)}% — other elements use {others.toFixed(0)}%.
