@@ -1571,6 +1571,57 @@ export const listTaskProjectLinks = createServerFn({ method: "POST" })
     }));
   });
 
+// Detach an auto-linked task from a project: deletes the design element and,
+// when remove_tag is true, also drops the project's slug from the task's
+// #project/<slug> labels (e.g. removes "boiler-swap" from tasks.project_tags).
+export const unlinkTaskFromProject = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({ element_id: z.string().uuid(), remove_tag: z.boolean().default(false) })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+
+    const { data: element, error: getErr } = await supabase
+      .from("project_design_elements")
+      .select("id, task_id, project_id, project:projects!project_design_elements_project_id_fkey(slug)")
+      .eq("id", data.element_id)
+      .single();
+    if (getErr) throw new Error(getErr.message);
+
+    const projectSlug = (element as { project?: { slug: string } | null }).project?.slug ?? null;
+
+    const { error: delErr } = await supabase
+      .from("project_design_elements")
+      .delete()
+      .eq("id", data.element_id);
+    if (delErr) throw new Error(delErr.message);
+
+    let tagRemoved = false;
+    if (data.remove_tag && element.task_id && projectSlug) {
+      const { data: task } = await supabase
+        .from("tasks")
+        .select("id, project_tags")
+        .eq("id", element.task_id)
+        .single();
+      const tags = ((task?.project_tags ?? []) as string[]).filter(
+        (t) => t.toLowerCase() !== projectSlug.toLowerCase(),
+      );
+      if (task && tags.length !== (task.project_tags ?? []).length) {
+        const { error: updErr } = await supabase
+          .from("tasks")
+          .update({ project_tags: tags })
+          .eq("id", task.id);
+        if (updErr) throw new Error(updErr.message);
+        tagRemoved = true;
+      }
+    }
+
+    return { ok: true as const, project_slug: projectSlug, tag_removed: tagRemoved };
+  });
+
 // Change just the weight of one design element (used from the task page and
 // the project design list) while keeping the project total <= 100%.
 export const setProjectDesignElementWeight = createServerFn({ method: "POST" })
