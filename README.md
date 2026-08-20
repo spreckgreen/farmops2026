@@ -40,7 +40,17 @@ A summary of everything shipped to date. Want to run it yourself? Jump to the on
 
 ---
 
+## Daily notes
+
+> **How the daily-note syntax works** — checkbox tasks (`- [ ] `), `#task/<slug>`
+> and `[[Title]]` entries, project tags, scheduling and worked examples:
+> see [`docs/DAILY_NOTES.md`](docs/DAILY_NOTES.md).
+
+---
+
 ## Self-hosting
+
+
 
 > **Deployment guide:** for a single-page walkthrough covering Supabase setup,
 > every env var, Docker/Compose/Node commands, verification, and backups,
