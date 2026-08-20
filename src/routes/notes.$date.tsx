@@ -506,7 +506,8 @@ function NotePage() {
 
 
         {showSource && (
-          <div className="mt-4">
+          <div className="relative mt-4">
+
             <div className="relative rounded-lg border border-border bg-card">
               <NoteEditorHighlightOverlay
                 markdown={draft}
