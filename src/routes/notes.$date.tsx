@@ -107,18 +107,27 @@ function NotePage() {
       if (!query.data) return null;
       return commitFn({ data: { noteId: query.data.note.id, date, markdown } });
     },
-    onSuccess: (res) => {
+    onSuccess: (res, markdown) => {
       if (res) {
+        const { counts } = interpretNote(markdown, { tasks: query.data?.tasks ?? [] });
         toast.success(
           res.newEntries
             ? `Committed · ${res.newEntries} entr${res.newEntries === 1 ? "y" : "ies"} logged`
-            : "Committed",
+            : "Committed · nothing new to log",
+          { description: summarizeInterpretation(counts) },
         );
+        if (counts.warnings) {
+          toast.warning(
+            `${counts.warnings} line${counts.warnings === 1 ? "" : "s"} did not produce a task or log entry`,
+            { description: 'See "What \u201cCommit to log\u201d will do" below the note for the reason on each line.' },
+          );
+        }
         qc.invalidateQueries({ queryKey: ["tasks"] });
         qc.invalidateQueries({ queryKey: ["task"] });
         qc.invalidateQueries({ queryKey: ["daily-note", date] });
       }
     },
+
     onError: (e) => toast.error(e instanceof Error ? e.message : "Commit failed"),
   });
 
