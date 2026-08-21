@@ -302,7 +302,67 @@ export const pullAiModel = createServerFn({ method: "POST" })
   });
 
 // -----------------------------------------------------------------------------
+// One-click remediation: bake a bigger num_ctx into a derived Ollama model and
+// activate it, or pull + activate a larger suggested model. Both return the new
+// active model id so the UI can immediately rerun the AI test.
+// -----------------------------------------------------------------------------
+const ApplyContextInput = z.object({
+  baseModel: z.string().trim().min(1).max(200),
+  numCtx: z.number().int().min(2048).max(1_000_000),
+});
+
+export const applyRecommendedContext = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => ApplyContextInput.parse(d))
+  .handler(async ({ context, data }) => {
+    await requireAdmin(context.supabase as never, context.userId);
+    const tuning = await import("./ai-model-tuning.server");
+    if (!tuning.isOllamaEndpoint()) {
+      throw new Error(
+        "Setting num_ctx automatically is only supported for Ollama endpoints. " +
+          "Hosted providers manage the context window themselves.",
+      );
+    }
+    const derived = await tuning.createDerivedContextModel(data.baseModel, data.numCtx);
+    await tuning.persistActiveModel(derived, context.userId);
+    return { ok: true as const, model: derived, numCtx: data.numCtx };
+  });
+
+const SwitchModelInput = z.object({
+  model: z.string().trim().min(1).max(200),
+});
+
+export const switchToSuggestedModel = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => SwitchModelInput.parse(d))
+  .handler(async ({ context, data }) => {
+    await requireAdmin(context.supabase as never, context.userId);
+    const tuning = await import("./ai-model-tuning.server");
+
+    let pulled = false;
+    if (tuning.isOllamaEndpoint() && !(await tuning.ollamaHasModel(data.model))) {
+      const res = await fetch(`${tuning.ollamaRoot()}/api/pull`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ name: data.model, stream: false }),
+        signal: AbortSignal.timeout(20 * 60_000),
+      });
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        throw new Error(`Ollama /api/pull failed [${res.status}]: ${text.slice(0, 300)}`);
+      }
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
+      if (body.error) throw new Error(body.error);
+      pulled = true;
+    }
+
+    await tuning.persistActiveModel(data.model, context.userId);
+    return { ok: true as const, model: data.model, pulled };
+  });
+
+// -----------------------------------------------------------------------------
 // Run AI test — sends a short prompt through the currently-configured provider
+
 // and reports which endpoint answered, how long it took, and a preview of the
 // response. Used by the "Run AI test" button on the self-host settings page to
 // prove end-to-end AI is wired up on a self-hosted install without leaving the

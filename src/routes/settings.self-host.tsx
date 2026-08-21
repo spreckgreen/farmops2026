@@ -480,7 +480,14 @@ function ModelPickerCard() {
                 model={
                   s.models.find((m) => m.id === effective) ?? { id: effective }
                 }
+                showActions={s.isOllama || s.isBundledDefault}
+                onModelChanged={(m) => {
+                  setSelected(m);
+                  qc.invalidateQueries({ queryKey: ["ai-model-picker"] });
+                  qc.invalidateQueries({ queryKey: ["self-host-config"] });
+                }}
               />
+
             )}
 
             <p className="text-xs text-muted-foreground">
