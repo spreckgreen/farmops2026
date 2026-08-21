@@ -222,10 +222,12 @@ export function recommendedContext(model: ModelCapability): number | null {
   let target = TASK_REQUIREMENTS.filter((t) => ctx < t.goodContext).reduce(
     (max, t) => Math.max(max, t.goodContext),
     0,
-
   );
+  const trained = model.trainedContextLength ?? null;
+  if (trained != null && target > trained) target = trained;
   return target > ctx ? target : null;
 }
+
 
 /** Ollama tag for a derived copy carrying a bigger num_ctx. */
 export function derivedContextModelId(baseId: string, numCtx: number): string {
