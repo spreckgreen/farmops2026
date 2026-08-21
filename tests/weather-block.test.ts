@@ -3,7 +3,7 @@ import {
   findWeatherBlock,
   replaceWeatherBlock,
   weatherBlockMissingExtras,
-} from "./weather-block";
+} from "../src/lib/weather-block";
 
 const FRESH =
   "## Weather · BosteadFarmHouse\nSunny · High 92 / Low 68 · Feels like 96°F / 70°F · 71% humidity\n";
