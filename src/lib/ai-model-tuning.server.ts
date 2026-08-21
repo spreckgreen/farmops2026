@@ -20,17 +20,17 @@ export function isOllamaEndpoint(): boolean {
   return /:11434(\/|$)/.test(baseUrl) || /\/ollama(\/|$)/i.test(baseUrl);
 }
 
-/** Persist CUSTOM_AI_MODEL to the shared vault row and bust the env cache. */
-export async function persistActiveModel(model: string, userId: string) {
+/** Persist a shared vault row keyed by env_key and bust the env cache. */
+async function persistSharedEnv(envKey: string, value: string, title: string, userId: string) {
   const { seal } = await import("./vault-crypto.server");
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const sealed = await seal(model);
+  const sealed = await seal(value);
 
   const { data: existing } = await supabaseAdmin
     .from("vault_secrets")
     .select("id")
     .eq("scope", "shared")
-    .eq("env_key", MODEL_ENV_KEY)
+    .eq("env_key", envKey)
     .maybeSingle();
 
   if (existing?.id) {
@@ -48,18 +48,24 @@ export async function persistActiveModel(model: string, userId: string) {
       scope: "shared",
       owner_user_id: null,
       created_by: userId,
-      title: "AI model (CUSTOM_AI_MODEL)",
+      title,
       value_ciphertext: sealed.ciphertext,
       value_iv: sealed.iv,
       value_tag: sealed.tag,
-      env_key: MODEL_ENV_KEY,
+      env_key: envKey,
     });
     if (error) throw new Error(error.message);
   }
 
   const { invalidateServerEnv } = await import("./server-env.server");
-  invalidateServerEnv(MODEL_ENV_KEY);
+  invalidateServerEnv(envKey);
 }
+
+/** Persist CUSTOM_AI_MODEL to the shared vault row and bust the env cache. */
+export async function persistActiveModel(model: string, userId: string) {
+  await persistSharedEnv(model, model, "AI model (CUSTOM_AI_MODEL)", userId);
+}
+
 
 /** True when Ollama already has this exact tag locally. */
 export async function ollamaHasModel(tag: string): Promise<boolean> {
