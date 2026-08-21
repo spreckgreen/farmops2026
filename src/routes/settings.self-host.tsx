@@ -475,11 +475,20 @@ function ModelPickerCard() {
               </Button>
             </div>
 
+            {effective && (
+              <ModelSuitabilityPanel
+                model={
+                  s.models.find((m) => m.id === effective) ?? { id: effective }
+                }
+              />
+            )}
+
             <p className="text-xs text-muted-foreground">
               Persists <code>CUSTOM_AI_MODEL</code> to the encrypted secrets
               vault (shared scope). Overrides the environment variable on
               this deployment without a redeploy.
             </p>
+
 
             {s.isOllama && (
               <div className="pt-3 border-t space-y-2">
