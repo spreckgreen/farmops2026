@@ -137,12 +137,12 @@ const NarrativeInput = z.object({
 export const getMaintenanceForecastNarrative = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => NarrativeInput.parse(d ?? {}))
-  .handler(async ({ data, context }): Promise<{ narrative: string; model: string }> => {
+  .handler(async ({ data, context }): Promise<ForecastNarrative> => {
     const { supabase, userId } = context;
     const { withIdempotency } = await import("./ai-idempotency.server");
     return withIdempotency(
       { supabase, userId, surface: "maintenance.forecast_narrative", input: data },
-      async (): Promise<{ narrative: string; model: string }> => {
+      async (): Promise<ForecastNarrative> => {
     // Recompute the forecast inline (cheap; keeps single source of truth).
     const forecast = await getMaintenanceForecast();
 

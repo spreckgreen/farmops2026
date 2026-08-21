@@ -21,6 +21,8 @@ export interface ConsultantReply {
   model: string;
   latencyMs: number;
   snapshotChars: number;
+  /** Present when the reply looks cut off or the context window was strained. */
+  truncation: import("./ai-truncation").TruncationSignal | null;
 }
 
 const AREA_GUIDANCE: Record<string, string> = {
