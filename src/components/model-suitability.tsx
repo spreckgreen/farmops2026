@@ -215,6 +215,7 @@ function SuitabilityActions({
     onSuccess: async (r) => {
       toast.success(`Active model is now ${r.model} (num_ctx ${r.numCtx})`);
       onModelChanged?.(r.model);
+      await queryClient.invalidateQueries({ queryKey: ["ai-model-rollback"] });
       await rerunTest();
     },
     onError: (e: Error) => toast.error(e.message),
@@ -227,16 +228,35 @@ function SuitabilityActions({
         r.pulled ? `Pulled and activated ${r.model}` : `Active model is now ${r.model}`,
       );
       onModelChanged?.(r.model);
+      await queryClient.invalidateQueries({ queryKey: ["ai-model-rollback"] });
       await rerunTest();
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const busy = applyCtx.isPending || switchModel.isPending || testing;
+  const undo = useMutation({
+    mutationFn: () => rollbackFn({ data: { deleteCreatedTag: deleteTag } }),
+    onSuccess: async (r) => {
+      toast.success(
+        r.deletedTag
+          ? `Restored ${r.model} and deleted ${r.deletedTag}`
+          : `Restored ${r.model} (was ${r.restoredFrom})`,
+      );
+      onModelChanged?.(r.model);
+      setTests([]);
+      await queryClient.invalidateQueries({ queryKey: ["ai-model-rollback"] });
+      await rerunTest();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const point = rollback.data;
+  const busy = applyCtx.isPending || switchModel.isPending || undo.isPending || testing;
 
   return (
     <div className="pt-2 border-t space-y-2">
       <div className="text-xs font-medium">One-click fixes</div>
+
       <div className="flex flex-wrap gap-2">
         {targetCtx && !alreadyDerived && (
           <Button
