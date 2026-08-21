@@ -94,18 +94,26 @@ export async function scanTaskHealth(
       if (upErr) throw new Error(`canonical ${merge.canonicalSlug}: ${upErr.message}`);
     }
 
-    for (const move of [
-      { table: "activity_log" as const, column: "task_id" as const },
-      { table: "project_design_elements" as const, column: "task_id" as const },
-      { table: "summaries" as const, column: "scope_task_id" as const },
-    ]) {
-      const { error: mErr } = await supabase
-        .from(move.table)
-        .update({ [move.column]: merge.canonicalId } as never)
-        .eq(move.column, merge.duplicateId)
-        .eq("user_id", userId);
-      if (mErr) throw new Error(`${move.table}: ${mErr.message}`);
-    }
+    const logMove = await supabase
+      .from("activity_log")
+      .update({ task_id: merge.canonicalId })
+      .eq("task_id", merge.duplicateId)
+      .eq("user_id", userId);
+    if (logMove.error) throw new Error(`activity_log: ${logMove.error.message}`);
+
+    const deMove = await supabase
+      .from("project_design_elements")
+      .update({ task_id: merge.canonicalId })
+      .eq("task_id", merge.duplicateId)
+      .eq("user_id", userId);
+    if (deMove.error) throw new Error(`project_design_elements: ${deMove.error.message}`);
+
+    const sumMove = await supabase
+      .from("summaries")
+      .update({ scope_task_id: merge.canonicalId })
+      .eq("scope_task_id", merge.duplicateId)
+      .eq("user_id", userId);
+    if (sumMove.error) throw new Error(`summaries: ${sumMove.error.message}`);
 
     const { error: delErr } = await supabase
       .from("tasks")

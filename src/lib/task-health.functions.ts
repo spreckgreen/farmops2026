@@ -1,6 +1,23 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { TaskHealthReport } from "./task-health.server";
+import type { TaskMerge } from "./task-dedupe";
+import type { StatusDrift } from "./task-status-window";
+
+// Admin gate reads `user_roles` under RLS — the `has_role()` helper lives in the
+// private schema and is not exposed through PostgREST.
+async function requireAdmin(
+  supabase: { from: (t: "user_roles") => any },
+  userId: string,
+): Promise<void> {
+  const { data } = await supabase
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", userId)
+    .eq("role", "admin")
+    .maybeSingle();
+  if (!data) throw new Error("Forbidden");
+}
 
 export type TaskHealthRunRow = {
   id: string;
@@ -12,9 +29,9 @@ export type TaskHealthRunRow = {
   drift_fixed: number;
   status: string;
   error: string | null;
-  merges: unknown;
-  title_cleanups: unknown;
-  drift: unknown;
+  merges: TaskMerge[];
+  title_cleanups: Array<{ id: string; from: string; to: string }>;
+  drift: StatusDrift[];
 };
 
 export type TaskHealthJobState = {
@@ -44,11 +61,7 @@ export const listTaskHealthRuns = createServerFn({ method: "GET" })
 export const getTaskHealthJobState = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<TaskHealthJobState> => {
-    const { data: isAdmin } = await context.supabase.rpc("has_role", {
-      _user_id: context.userId,
-      _role: "admin",
-    });
-    if (!isAdmin) throw new Error("Forbidden");
+    await requireAdmin(context.supabase as never, context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data } = await supabaseAdmin
       .from("job_locks")
@@ -68,11 +81,7 @@ export const getTaskHealthJobState = createServerFn({ method: "GET" })
 export const resumeTaskHealthJob = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<{ resumed: true }> => {
-    const { data: isAdmin } = await context.supabase.rpc("has_role", {
-      _user_id: context.userId,
-      _role: "admin",
-    });
-    if (!isAdmin) throw new Error("Forbidden");
+    await requireAdmin(context.supabase as never, context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error } = await supabaseAdmin
       .from("job_locks")
