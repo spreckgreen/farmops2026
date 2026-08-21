@@ -225,7 +225,7 @@ function SyncPage() {
           </section>
         )}
 
-
+        <WeatherExtrasRefill />
 
 
         {!supported || !isSecure || isEmbedded || pickerIssue ? (
