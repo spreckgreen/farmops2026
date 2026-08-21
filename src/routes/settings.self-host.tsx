@@ -22,6 +22,10 @@ import {
   setAiModel,
   pullAiModel,
 } from "@/lib/ai-models.functions";
+import {
+  ModelSuitabilityBadge,
+  ModelSuitabilityPanel,
+} from "@/components/model-suitability";
 import { RunAiTestCard } from "@/components/run-ai-test-card";
 import {
   AlertTriangle,
@@ -426,10 +430,12 @@ function ModelPickerCard() {
                               {m.detail ? ` · ${m.detail}` : ""}
                             </span>
                           ) : null}
+                          <ModelSuitabilityBadge model={m} />
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+
                 ) : (
                   <Input
                     placeholder="Model id (e.g. llama3.2:3b)"
@@ -469,11 +475,20 @@ function ModelPickerCard() {
               </Button>
             </div>
 
+            {effective && (
+              <ModelSuitabilityPanel
+                model={
+                  s.models.find((m) => m.id === effective) ?? { id: effective }
+                }
+              />
+            )}
+
             <p className="text-xs text-muted-foreground">
               Persists <code>CUSTOM_AI_MODEL</code> to the encrypted secrets
               vault (shared scope). Overrides the environment variable on
               this deployment without a redeploy.
             </p>
+
 
             {s.isOllama && (
               <div className="pt-3 border-t space-y-2">

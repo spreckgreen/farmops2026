@@ -32,7 +32,53 @@ export interface AiModelInfo {
   size?: number | null;
   /** Free-form provider label (e.g. Ollama quantization). */
   detail?: string | null;
+  /** Trained context length in tokens (Ollama /api/show model_info). */
+  contextLength?: number | null;
+  /** Parameter count in billions (Ollama details.parameter_size, e.g. "3.2B"). */
+  paramsB?: number | null;
 }
+
+// Ask Ollama's /api/show for the trained context length + parameter size so
+// the picker can warn when a model can't hold a week of tasks or a manual.
+// Best-effort: any failure just leaves the fields null (UI shows "Unverified").
+async function fetchOllamaCapability(
+  root: string,
+  name: string,
+): Promise<{ contextLength: number | null; paramsB: number | null }> {
+  try {
+    const res = await fetch(`${root}/api/show`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ name }),
+      signal: AbortSignal.timeout(4000),
+    });
+    if (!res.ok) return { contextLength: null, paramsB: null };
+    const body = (await res.json()) as {
+      model_info?: Record<string, unknown>;
+      details?: { parameter_size?: string };
+    };
+    let contextLength: number | null = null;
+    for (const [k, v] of Object.entries(body.model_info ?? {})) {
+      if (k.endsWith(".context_length") && typeof v === "number") {
+        contextLength = v;
+        break;
+      }
+    }
+    let paramsB: number | null = null;
+    const ps = body.details?.parameter_size;
+    if (typeof ps === "string") {
+      const m = ps.match(/([\d.]+)\s*([BM])/i);
+      if (m) {
+        const n = Number(m[1]);
+        if (Number.isFinite(n)) paramsB = m[2].toUpperCase() === "M" ? n / 1000 : n;
+      }
+    }
+    return { contextLength, paramsB };
+  } catch {
+    return { contextLength: null, paramsB: null };
+  }
+}
+
 
 export interface AiModelPickerState {
   /** Provider base URL currently in effect. Falls back to the bundled self-hosted Ollama endpoint when nothing is configured. */
@@ -108,7 +154,7 @@ export const getAiModelPickerState = createServerFn({ method: "GET" })
         const body = (await res.json()) as {
           models?: { name?: string; size?: number; details?: { quantization_level?: string } }[];
         };
-        const models: AiModelInfo[] = (body.models ?? [])
+        const base: AiModelInfo[] = (body.models ?? [])
           .filter((m) => typeof m.name === "string" && m.name)
           .map((m) => ({
             id: m.name as string,
@@ -116,7 +162,16 @@ export const getAiModelPickerState = createServerFn({ method: "GET" })
             detail: m.details?.quantization_level ?? null,
           }))
           .sort((a, b) => a.id.localeCompare(b.id));
+        // Enrich with context length / parameter size. Capped at 16 models so
+        // a large local library can't stall the settings page.
+        const root = nativeRoot(baseUrl);
+        const models: AiModelInfo[] = await Promise.all(
+          base.map(async (m, i) =>
+            i < 16 ? { ...m, ...(await fetchOllamaCapability(root, m.id)) } : m,
+          ),
+        );
         return { ...common, baseUrl, isOllama: true, models, error: null };
+
       }
     } catch {
       /* fall through to OpenAI-style */
