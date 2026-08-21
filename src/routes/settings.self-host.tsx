@@ -26,7 +26,7 @@ import {
   ModelSuitabilityBadge,
   ModelSuitabilityPanel,
 } from "@/components/model-suitability";
-import { RunAiTestCard } from "@/components/run-ai-test-card";
+import { AiWorkflowTests } from "@/components/ai-workflow-tests";
 import {
   AlertTriangle,
   CheckCircle2,
