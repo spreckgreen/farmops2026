@@ -106,7 +106,7 @@ export async function fetchAndCacheForecast(
     console.warn(`[weather] tempest fetch failed for ${date}: ${describeError(e)}`);
   }
 
-  const forecast = hit?.daily ?? {};
+  const forecast: Partial<DailyForecast> = hit?.daily ?? {};
   const today = new Date().toISOString().slice(0, 10);
   // Tempest's daily block has no humidity/feels-like; its current_conditions
   // block does (e.g. relative_humidity: 62, feels_like: 88), so it only
