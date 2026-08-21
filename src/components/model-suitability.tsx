@@ -299,12 +299,15 @@ function SuitabilityActions({
           <span className="font-mono break-all">
             {test.workflowLabel} · {test.model} · {test.latencyMs}ms
             {test.ok
-              ? ` · ${test.checks.filter((c) => c.ok).length}/${test.checks.length} checks${
-                  test.passed
-                    ? ""
-                    ` — ${test.checks.filter((c) => !c.ok).map((c) => c.label).join(", ")}`
-                }`
+              ? ` · ${test.checks.filter((c) => c.ok).length}/${test.checks.length} checks` +
+                (test.passed
+                  ? ""
+                  : ` — failed: ${test.checks
+                      .filter((c) => !c.ok)
+                      .map((c) => c.label)
+                      .join(", ")}`)
               : ` · ${test.error ?? `HTTP ${test.httpStatus}`}`}
+
           </span>
         </div>
       ))}
