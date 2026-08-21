@@ -168,26 +168,35 @@ function SuitabilityActions({
   const applyCtxFn = useServerFn(applyRecommendedContext);
   const switchFn = useServerFn(switchToSuggestedModel);
   const testFn = useServerFn(runAiTest);
-  const [test, setTest] = useState<AiTestResult | null>(null);
+  const [tests, setTests] = useState<AiTestResult[]>([]);
   const [testing, setTesting] = useState(false);
 
   const targetCtx = recommendedContext(model);
   const largerModel = suggestedLargerModel(model);
   const alreadyDerived = /-ctx\d+k$/.test(model.id);
 
+  // After a fix, rerun the workflows the fix was meant to unblock — a weekly
+  // report and a manual are graded separately, so you see which one now works.
   const rerunTest = async () => {
     setTesting(true);
+    setTests([]);
     try {
-      const r = await testFn();
-      setTest(r);
-      if (r.ok) toast.success(`AI test OK — ${r.model} in ${r.latencyMs} ms`);
-      else toast.error(`AI test failed: ${r.error ?? `HTTP ${r.httpStatus}`}`);
+      const results: AiTestResult[] = [];
+      for (const workflow of ["weekly_report", "manual"] as const) {
+        const r = await testFn({ data: { workflow } });
+        results.push(r);
+        setTests([...results]);
+        if (r.ok && r.passed) toast.success(`${r.workflowLabel} passed in ${r.latencyMs} ms`);
+        else if (r.ok) toast.warning(`${r.workflowLabel}: reply fell short of the requirements`);
+        else toast.error(`${r.workflowLabel} failed: ${r.error ?? `HTTP ${r.httpStatus}`}`);
+      }
     } catch (e) {
       toast.error((e as Error).message);
     } finally {
       setTesting(false);
     }
   };
+
 
   const applyCtx = useMutation({
     mutationFn: () =>
