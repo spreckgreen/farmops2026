@@ -4,7 +4,7 @@
 // Reads the pure heuristics in @/lib/ai-model-suitability so the rules stay
 // testable and identical everywhere.
 import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import {
@@ -14,6 +14,7 @@ import {
   HelpCircle,
   Loader2,
   Sparkles,
+  Undo2,
   XCircle,
   Zap,
 } from "lucide-react";
@@ -22,6 +23,8 @@ import { Button } from "@/components/ui/button";
 import {
   applyRecommendedContext,
   switchToSuggestedModel,
+  rollbackAiModel,
+  getAiModelRollback,
   runAiTest,
   type AiTestResult,
 } from "@/lib/ai-models.functions";
