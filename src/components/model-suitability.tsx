@@ -4,7 +4,7 @@
 // Reads the pure heuristics in @/lib/ai-model-suitability so the rules stay
 // testable and identical everywhere.
 import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import {
@@ -14,6 +14,7 @@ import {
   HelpCircle,
   Loader2,
   Sparkles,
+  Undo2,
   XCircle,
   Zap,
 } from "lucide-react";
@@ -22,6 +23,8 @@ import { Button } from "@/components/ui/button";
 import {
   applyRecommendedContext,
   switchToSuggestedModel,
+  rollbackAiModel,
+  getAiModelRollback,
   runAiTest,
   type AiTestResult,
 } from "@/lib/ai-models.functions";
@@ -168,12 +171,23 @@ function SuitabilityActions({
   const applyCtxFn = useServerFn(applyRecommendedContext);
   const switchFn = useServerFn(switchToSuggestedModel);
   const testFn = useServerFn(runAiTest);
+  const rollbackFn = useServerFn(rollbackAiModel);
   const [tests, setTests] = useState<AiTestResult[]>([]);
   const [testing, setTesting] = useState(false);
+  const [deleteTag, setDeleteTag] = useState(true);
+  const queryClient = useQueryClient();
+
+  // Rollback point recorded by the last model change (server-persisted, so it
+  // survives reloads and restarts).
+  const rollback = useQuery({
+    queryKey: ["ai-model-rollback"],
+    queryFn: () => getAiModelRollback(),
+  });
 
   const targetCtx = recommendedContext(model);
   const largerModel = suggestedLargerModel(model);
   const alreadyDerived = /-ctx\d+k$/.test(model.id);
+
 
   // After a fix, rerun the workflows the fix was meant to unblock — a weekly
   // report and a manual are graded separately, so you see which one now works.
@@ -204,6 +218,7 @@ function SuitabilityActions({
     onSuccess: async (r) => {
       toast.success(`Active model is now ${r.model} (num_ctx ${r.numCtx})`);
       onModelChanged?.(r.model);
+      await queryClient.invalidateQueries({ queryKey: ["ai-model-rollback"] });
       await rerunTest();
     },
     onError: (e: Error) => toast.error(e.message),
@@ -216,16 +231,35 @@ function SuitabilityActions({
         r.pulled ? `Pulled and activated ${r.model}` : `Active model is now ${r.model}`,
       );
       onModelChanged?.(r.model);
+      await queryClient.invalidateQueries({ queryKey: ["ai-model-rollback"] });
       await rerunTest();
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const busy = applyCtx.isPending || switchModel.isPending || testing;
+  const undo = useMutation({
+    mutationFn: () => rollbackFn({ data: { deleteCreatedTag: deleteTag } }),
+    onSuccess: async (r) => {
+      toast.success(
+        r.deletedTag
+          ? `Restored ${r.model} and deleted ${r.deletedTag}`
+          : `Restored ${r.model} (was ${r.restoredFrom})`,
+      );
+      onModelChanged?.(r.model);
+      setTests([]);
+      await queryClient.invalidateQueries({ queryKey: ["ai-model-rollback"] });
+      await rerunTest();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const point = rollback.data;
+  const busy = applyCtx.isPending || switchModel.isPending || undo.isPending || testing;
 
   return (
     <div className="pt-2 border-t space-y-2">
       <div className="text-xs font-medium">One-click fixes</div>
+
       <div className="flex flex-wrap gap-2">
         {targetCtx && !alreadyDerived && (
           <Button
@@ -278,6 +312,45 @@ function SuitabilityActions({
           Rerun workflow tests
         </Button>
       </div>
+
+      {point?.available && point.point && (
+        <div className="rounded-md border border-amber-300/60 bg-amber-50/50 dark:bg-amber-950/20 p-2 space-y-1.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7"
+              disabled={busy}
+              onClick={() => undo.mutate()}
+              title={`Restores ${point.point.previousModel} as the active model`}
+            >
+              {undo.isPending ? (
+                <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+              ) : (
+                <Undo2 className="h-3.5 w-3.5 mr-1" />
+              )}
+              Roll back to {point.point.previousModel}
+            </Button>
+            {point.deletableTag && (
+              <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                <input
+                  type="checkbox"
+                  className="h-3 w-3 accent-current"
+                  checked={deleteTag}
+                  disabled={busy}
+                  onChange={(e) => setDeleteTag(e.target.checked)}
+                />
+                Also delete <span className="font-mono">{point.deletableTag}</span> from Ollama
+              </label>
+            )}
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            {point.label} · changed{" "}
+            {new Date(point.point.changedAt).toLocaleString()}
+          </p>
+        </div>
+      )}
+
 
       {(applyCtx.isPending || switchModel.isPending) && (
         <p className="text-[11px] text-muted-foreground">
