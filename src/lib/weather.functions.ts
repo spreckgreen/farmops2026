@@ -88,9 +88,16 @@ export async function fetchAndCacheForecast(
     const today = new Date().toISOString().slice(0, 10);
     if (cached) {
       const ageMs = Date.now() - new Date(cached.fetched_at).getTime();
-      if (date !== today || ageMs < 60 * 60 * 1000) return cached as WeatherRow;
+      // Rows cached before humidity / feels-like existed have all three null:
+      // refresh those once instead of serving an incomplete card forever.
+      const missingExtras =
+        cached.humidity == null &&
+        cached.feels_like_high_f == null &&
+        cached.feels_like_low_f == null;
+      if (!missingExtras && (date !== today || ageMs < 60 * 60 * 1000)) return cached as WeatherRow;
     }
   }
+
 
   let hit: { daily: DailyForecast; current: CurrentConditions | null } | null = null;
   try {
