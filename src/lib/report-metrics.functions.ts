@@ -12,6 +12,8 @@ import {
   type ReportMetrics,
 } from "./report-metrics";
 
+const DAY = /^\d{4}-\d{2}-\d{2}$/;
+
 const Input = z.object({
   mode: z.enum([
     "daily_recap",
@@ -21,6 +23,12 @@ const Input = z.object({
     "yearly_rollup",
     "project_rollup",
   ]),
+  // Optional custom window (inclusive days, e.g. 2026-08-01 … 2026-08-20).
+  // When present it overrides the mode's default period.
+  startDate: z.string().regex(DAY).optional(),
+  endDate: z.string().regex(DAY).optional(),
+  // Optional project tag filter, e.g. "boiler" for #project/boiler.
+  project: z.string().min(1).optional(),
 });
 
 export const getReportMetrics = createServerFn({ method: "GET" })
@@ -28,9 +36,14 @@ export const getReportMetrics = createServerFn({ method: "GET" })
   .inputValidator((d: unknown) => Input.parse(d))
   .handler(async ({ data, context }): Promise<ReportMetrics> => {
     const mode = data.mode as MetricsMode;
-    const bounds = metricsBounds(mode, new Date());
+    const custom =
+      data.startDate && data.endDate
+        ? customBounds(data.startDate, data.endDate)
+        : undefined;
+    const bounds = custom ?? metricsBounds(mode, new Date());
     const { startDay, endDay, startIso, endIso } = boundsAsStrings(bounds);
     const sb = context.supabase;
+
 
     let notesQ = sb
       .from("daily_notes")
