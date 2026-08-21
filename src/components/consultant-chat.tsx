@@ -15,6 +15,8 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { askConsultant } from "@/lib/consultant.functions";
 import { useAiFeatureEnabled } from "@/hooks/use-ai-settings";
+import { AiTruncationWarning } from "@/components/ai-truncation-warning";
+import type { TruncationSignal } from "@/lib/ai-truncation";
 
 type ChatRole = "user" | "assistant";
 interface ChatMessage {
@@ -69,6 +71,8 @@ export function ConsultantChat() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
+  // Truncation signal for the latest reply only — it describes that request.
+  const [truncation, setTruncation] = useState<TruncationSignal | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const ask = useServerFn(askConsultant);
@@ -123,6 +127,7 @@ export function ConsultantChat() {
         ...prev,
         { role: "assistant", content: reply.text || "(no reply)", ts: Date.now() },
       ]);
+      setTruncation(reply.truncation ?? null);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       toast.error("Consultant failed", { description: message });
@@ -142,6 +147,7 @@ export function ConsultantChat() {
 
   const clear = useCallback(() => {
     setMessages([]);
+    setTruncation(null);
     saveHistory(area.key, []);
   }, [area.key]);
 
