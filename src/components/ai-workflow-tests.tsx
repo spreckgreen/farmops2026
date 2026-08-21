@@ -226,7 +226,7 @@ function WorkflowRow({
           )}
 
           {result.truncation && (
-            <AiTruncationWarning truncation={result.truncation} className="mt-1" />
+            <AiTruncationWarning signal={result.truncation} className="mt-1" />
           )}
 
           {open && (
