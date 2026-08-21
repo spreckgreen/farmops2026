@@ -96,3 +96,39 @@ function tidy(lines: string[]): string {
   while (out.length && !out[out.length - 1].trim()) out.pop();
   return out.join("\n");
 }
+
+/**
+ * Removes `- [x]` lines that were carried over from an earlier day.
+ *
+ * `isStaleSlug("grease-loader-pins")` should answer "this task was closed
+ * before the day this note represents". Only slug-referenced lines can be
+ * judged, so lines like `- [x] Some free text` are always left alone.
+ */
+export function stripStaleDoneLines(
+  markdown: string,
+  isStaleSlug: (slug: string) => boolean,
+): { markdown: string; removed: string[] } {
+  const src = (markdown ?? "").replace(/\r\n/g, "\n");
+  if (!src.trim()) return { markdown: src, removed: [] };
+
+  const lines = src.split("\n");
+  const kept: string[] = [];
+  const removed: string[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (DONE_CHECKBOX_RE.test(line)) {
+      const slug = line.match(/#task\/([a-z0-9-]+)/i)?.[1]?.toLowerCase();
+      if (slug && isStaleSlug(slug)) {
+        removed.push(line.trim());
+        const parentIndent = indentOf(line);
+        while (i + 1 < lines.length && isChildOf(lines[i + 1], parentIndent)) i++;
+        continue;
+      }
+    }
+    kept.push(line);
+  }
+
+  if (removed.length === 0) return { markdown: src, removed };
+  return { markdown: tidy(kept), removed };
+}
