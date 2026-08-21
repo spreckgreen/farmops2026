@@ -508,10 +508,22 @@ function parseMarkdown(md: string): ParsedLine[] {
     const taskMatch = trimmed.match(/^-\s*\[([ xX])\]\s+(.+)$/);
     if (taskMatch) {
       const done = taskMatch[1].toLowerCase() === "x";
-      const meta = extractMeta(taskMatch[2].trim());
+      // A checkbox line may also carry an inline `#task/<slug>` reference:
+      //   "- [x] Grease loader pins #task/grease-loader-pins"
+      // In that case the line targets the EXISTING task — it must not be
+      // parsed as a brand-new task (the slug text would end up in the title
+      // and spawn a duplicate, leaving the real task stuck in Open).
+      const refMatch = taskMatch[2].match(INLINE_TASK_REF_RE);
+      const withoutRef = refMatch
+        ? taskMatch[2].replace(INLINE_TASK_REF_RE, " ")
+        : taskMatch[2];
+      const meta = extractMeta(withoutRef.trim());
       out.push({
         raw: trimmed,
-        newTask: { title: meta.stripped, done },
+        ...(refMatch
+          ? { taskRef: { kind: "slug" as const, value: refMatch[1].toLowerCase() } }
+          : { newTask: { title: meta.stripped, done } }),
+        done,
         entryType: "status",
         projectTags: meta.tags,
         startAt: meta.startAt,
@@ -536,6 +548,7 @@ function parseMarkdown(md: string): ParsedLine[] {
       out.push({
         raw: trimmed,
         taskRef: { kind: "slug", value: tagMatch[1].toLowerCase() },
+        done: false,
         entryType,
         projectTags: meta.tags,
         startAt: meta.startAt,
@@ -550,6 +563,7 @@ function parseMarkdown(md: string): ParsedLine[] {
       out.push({
         raw: trimmed,
         taskRef: { kind: "title", value: linkMatch[1].trim() },
+        done: false,
         entryType,
         projectTags: meta.tags,
         startAt: meta.startAt,
@@ -557,6 +571,7 @@ function parseMarkdown(md: string): ParsedLine[] {
       });
       continue;
     }
+
   }
   return out;
 }
