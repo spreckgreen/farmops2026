@@ -352,19 +352,26 @@ export const getDailyNote = createServerFn({ method: "POST" })
       if (error) throw new Error(error.message);
       note = created;
     } else {
-      // Refresh today's forecast in the background cache on each open, and
-      // rewrite the note's "## Weather" block so fields added later
-      // (humidity, feels-like) show up in notes created before they existed.
+      // On every open: check the note's "## Weather" block for the newer
+      // fields (humidity, feels-like). If either is absent, force a fresh
+      // forecast fetch and re-render the block in place.
       try {
         const { fetchAndCacheForecast, formatWeatherMarkdown } = await import("@/lib/weather.functions");
-        const w = await fetchAndCacheForecast(supabase, userId, data.date);
+        const current = note!.markdown_content ?? "";
+        // Heading line plus the following non-blank lines form the block.
+        const blockRe = /^##[ \t]+Weather\b.*(?:\r?\n(?![ \t]*(?:\r?\n|#)).*)*\r?\n?/m;
+        const block = current.match(blockRe)?.[0] ?? "";
+        // e.g. "Sunny · High 92 / Low 68 · Feels like 96°F / 70°F · 71% humidity"
+        const missingExtras =
+          !block || !/\bFeels like\b/i.test(block) || !/%\s*humidity\b/i.test(block);
+
+        const w = await fetchAndCacheForecast(supabase, userId, data.date, {
+          refresh: missingExtras,
+        });
         if (w) {
           const fresh = formatWeatherMarkdown(w);
-          const current = note!.markdown_content ?? "";
-          // Heading line plus the following non-blank lines form the block.
-          const blockRe = /^##[ \t]+Weather\b.*(?:\r?\n(?![ \t]*(?:\r?\n|#)).*)*\r?\n?/m;
           let next = current;
-          if (blockRe.test(current)) {
+          if (block) {
             next = current.replace(blockRe, fresh);
           } else {
             next = `${fresh}\n${current}`;
