@@ -94,9 +94,9 @@ export const runTaskHealthNow = createServerFn({ method: "POST" })
       apply: data.apply,
       maxMerges: 200,
     });
-    await recordTaskHealthRun(context.supabase, report, "manual").catch(() => {
-      // The user client cannot insert run rows (service-role only); the report
-      // is still returned to the UI, so this is not a failure.
-    });
+    // Run rows are service-role writable only; the scan itself already ran as
+    // the user (RLS-scoped), so this insert just records the outcome.
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    await recordTaskHealthRun(supabaseAdmin, report, "manual");
     return report;
   });
