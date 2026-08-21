@@ -229,9 +229,15 @@ function SelfHostSettingsPage() {
                 shows richer metadata and enables pull for Ollama). */}
             {cfg.aiProvider !== "none" && <ModelPickerCard />}
 
-            {/* End-to-end connectivity smoke test — proves the configured
-                endpoint answers a real chat/completions request. */}
-            <RunAiTestCard />
+            {/* Per-workflow tests: connection, weekly report, manual — each
+                judged on its own so a passing smoke test can't hide a weekly
+                report that got its task list truncated. */}
+            <Card>
+              <CardContent className="pt-4">
+                <AiWorkflowTests />
+              </CardContent>
+            </Card>
+
 
 
 
