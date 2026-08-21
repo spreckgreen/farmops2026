@@ -529,6 +529,8 @@ function parseMarkdown(md: string): ParsedLine[] {
           ? { taskRef: { kind: "slug" as const, value: refMatch[1].toLowerCase() } }
           : { newTask: { title: meta.stripped, done } }),
         done,
+        checkbox: true,
+
         entryType: "status",
         projectTags: meta.tags,
         startAt: meta.startAt,
