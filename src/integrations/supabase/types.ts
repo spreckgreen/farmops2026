@@ -719,6 +719,39 @@ export type Database = {
         }
         Relationships: []
       }
+      job_locks: {
+        Row: {
+          consecutive_failures: number
+          created_at: string
+          last_run_at: string | null
+          locked_until: string | null
+          name: string
+          paused: boolean
+          paused_reason: string | null
+          updated_at: string
+        }
+        Insert: {
+          consecutive_failures?: number
+          created_at?: string
+          last_run_at?: string | null
+          locked_until?: string | null
+          name: string
+          paused?: boolean
+          paused_reason?: string | null
+          updated_at?: string
+        }
+        Update: {
+          consecutive_failures?: number
+          created_at?: string
+          last_run_at?: string | null
+          locked_until?: string | null
+          name?: string
+          paused?: boolean
+          paused_reason?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       livestock_animals: {
         Row: {
           birth_date: string | null
@@ -1407,6 +1440,60 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      task_health_runs: {
+        Row: {
+          applied: boolean
+          created_at: string
+          drift: Json
+          drift_fixed: number
+          error: string | null
+          id: string
+          merges: Json
+          merges_applied: number
+          ran_at: string
+          scanned_tasks: number
+          status: string
+          title_cleanups: Json
+          trigger: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          applied?: boolean
+          created_at?: string
+          drift?: Json
+          drift_fixed?: number
+          error?: string | null
+          id?: string
+          merges?: Json
+          merges_applied?: number
+          ran_at?: string
+          scanned_tasks?: number
+          status?: string
+          title_cleanups?: Json
+          trigger?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          applied?: boolean
+          created_at?: string
+          drift?: Json
+          drift_fixed?: number
+          error?: string | null
+          id?: string
+          merges?: Json
+          merges_applied?: number
+          ran_at?: string
+          scanned_tasks?: number
+          status?: string
+          title_cleanups?: Json
+          trigger?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       tasks: {
         Row: {
