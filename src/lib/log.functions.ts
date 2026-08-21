@@ -626,9 +626,18 @@ export const commitDailyNote = createServerFn({ method: "POST" })
 
     const parsed = parseMarkdown(data.markdown);
 
+    // Timestamp used for every checkbox closed by this commit. Clamped to the
+    // note's own day so an evening commit (which is "tomorrow" in UTC) can't
+    // stamp closed_at outside the day the Done column windows on.
+    const closedStamp = closedStampFor(data.date);
+
+    // Scope to this user explicitly: slugs are unique per user, so the
+    // slug -> task maps below must never be able to pick up another owner's row.
     const { data: existingTasks } = await supabase
       .from("tasks")
-      .select("id, slug, title, status, project_tags, start_at, percent_complete, created_at");
+      .select("id, slug, title, status, project_tags, start_at, percent_complete, created_at")
+      .eq("user_id", userId);
+
     const tasksBySlug = new Map((existingTasks ?? []).map((t) => [t.slug, t]));
     const tasksByTitle = new Map(
       (existingTasks ?? []).map((t) => [t.title.toLowerCase(), t]),
