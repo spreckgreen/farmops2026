@@ -55,6 +55,7 @@ import { Route as FoodCropsRouteImport } from './routes/food.crops'
 import { Route as AdminVaultRotationRouteImport } from './routes/admin.vault-rotation'
 import { Route as AdminVaultBackupRouteImport } from './routes/admin.vault-backup'
 import { Route as AdminUsersRouteImport } from './routes/admin.users'
+import { Route as AdminTaskHealthRouteImport } from './routes/admin.task-health'
 import { Route as AdminTaskDedupeRouteImport } from './routes/admin.task-dedupe'
 import { Route as AdminSchemaRouteImport } from './routes/admin.schema'
 import { Route as AdminRestoreRouteImport } from './routes/admin.restore'
@@ -65,6 +66,7 @@ import { Route as AdminAiSettingsRouteImport } from './routes/admin.ai-settings'
 import { Route as ApiPublicReadyRouteImport } from './routes/api/public/ready'
 import { Route as ApiPublicHealthRouteImport } from './routes/api/public/health'
 import { Route as ApiPublicWebhooksRachioRouteImport } from './routes/api/public/webhooks/rachio'
+import { Route as ApiPublicHooksTaskHealthRouteImport } from './routes/api/public/hooks/task-health'
 import { Route as ApiPublicHooksRachioSyncRouteImport } from './routes/api/public/hooks/rachio-sync'
 import { Route as ApiPublicHealthProceduresRouteImport } from './routes/api/public/health.procedures'
 
@@ -299,6 +301,11 @@ const AdminUsersRoute = AdminUsersRouteImport.update({
   path: '/admin/users',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminTaskHealthRoute = AdminTaskHealthRouteImport.update({
+  id: '/admin/task-health',
+  path: '/admin/task-health',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminTaskDedupeRoute = AdminTaskDedupeRouteImport.update({
   id: '/admin/task-dedupe',
   path: '/admin/task-dedupe',
@@ -349,6 +356,12 @@ const ApiPublicWebhooksRachioRoute = ApiPublicWebhooksRachioRouteImport.update({
   path: '/api/public/webhooks/rachio',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicHooksTaskHealthRoute =
+  ApiPublicHooksTaskHealthRouteImport.update({
+    id: '/api/public/hooks/task-health',
+    path: '/api/public/hooks/task-health',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHooksRachioSyncRoute =
   ApiPublicHooksRachioSyncRouteImport.update({
     id: '/api/public/hooks/rachio-sync',
@@ -385,6 +398,7 @@ export interface FileRoutesByFullPath {
   '/admin/restore': typeof AdminRestoreRoute
   '/admin/schema': typeof AdminSchemaRoute
   '/admin/task-dedupe': typeof AdminTaskDedupeRoute
+  '/admin/task-health': typeof AdminTaskHealthRoute
   '/admin/users': typeof AdminUsersRoute
   '/admin/vault-backup': typeof AdminVaultBackupRoute
   '/admin/vault-rotation': typeof AdminVaultRotationRoute
@@ -420,6 +434,7 @@ export interface FileRoutesByFullPath {
   '/api/public/ready': typeof ApiPublicReadyRoute
   '/api/public/health/procedures': typeof ApiPublicHealthProceduresRoute
   '/api/public/hooks/rachio-sync': typeof ApiPublicHooksRachioSyncRoute
+  '/api/public/hooks/task-health': typeof ApiPublicHooksTaskHealthRoute
   '/api/public/webhooks/rachio': typeof ApiPublicWebhooksRachioRoute
 }
 export interface FileRoutesByTo {
@@ -442,6 +457,7 @@ export interface FileRoutesByTo {
   '/admin/restore': typeof AdminRestoreRoute
   '/admin/schema': typeof AdminSchemaRoute
   '/admin/task-dedupe': typeof AdminTaskDedupeRoute
+  '/admin/task-health': typeof AdminTaskHealthRoute
   '/admin/users': typeof AdminUsersRoute
   '/admin/vault-backup': typeof AdminVaultBackupRoute
   '/admin/vault-rotation': typeof AdminVaultRotationRoute
@@ -477,6 +493,7 @@ export interface FileRoutesByTo {
   '/api/public/ready': typeof ApiPublicReadyRoute
   '/api/public/health/procedures': typeof ApiPublicHealthProceduresRoute
   '/api/public/hooks/rachio-sync': typeof ApiPublicHooksRachioSyncRoute
+  '/api/public/hooks/task-health': typeof ApiPublicHooksTaskHealthRoute
   '/api/public/webhooks/rachio': typeof ApiPublicWebhooksRachioRoute
 }
 export interface FileRoutesById {
@@ -503,6 +520,7 @@ export interface FileRoutesById {
   '/admin/restore': typeof AdminRestoreRoute
   '/admin/schema': typeof AdminSchemaRoute
   '/admin/task-dedupe': typeof AdminTaskDedupeRoute
+  '/admin/task-health': typeof AdminTaskHealthRoute
   '/admin/users': typeof AdminUsersRoute
   '/admin/vault-backup': typeof AdminVaultBackupRoute
   '/admin/vault-rotation': typeof AdminVaultRotationRoute
@@ -538,6 +556,7 @@ export interface FileRoutesById {
   '/api/public/ready': typeof ApiPublicReadyRoute
   '/api/public/health/procedures': typeof ApiPublicHealthProceduresRoute
   '/api/public/hooks/rachio-sync': typeof ApiPublicHooksRachioSyncRoute
+  '/api/public/hooks/task-health': typeof ApiPublicHooksTaskHealthRoute
   '/api/public/webhooks/rachio': typeof ApiPublicWebhooksRachioRoute
 }
 export interface FileRouteTypes {
@@ -565,6 +584,7 @@ export interface FileRouteTypes {
     | '/admin/restore'
     | '/admin/schema'
     | '/admin/task-dedupe'
+    | '/admin/task-health'
     | '/admin/users'
     | '/admin/vault-backup'
     | '/admin/vault-rotation'
@@ -600,6 +620,7 @@ export interface FileRouteTypes {
     | '/api/public/ready'
     | '/api/public/health/procedures'
     | '/api/public/hooks/rachio-sync'
+    | '/api/public/hooks/task-health'
     | '/api/public/webhooks/rachio'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -622,6 +643,7 @@ export interface FileRouteTypes {
     | '/admin/restore'
     | '/admin/schema'
     | '/admin/task-dedupe'
+    | '/admin/task-health'
     | '/admin/users'
     | '/admin/vault-backup'
     | '/admin/vault-rotation'
@@ -657,6 +679,7 @@ export interface FileRouteTypes {
     | '/api/public/ready'
     | '/api/public/health/procedures'
     | '/api/public/hooks/rachio-sync'
+    | '/api/public/hooks/task-health'
     | '/api/public/webhooks/rachio'
   id:
     | '__root__'
@@ -682,6 +705,7 @@ export interface FileRouteTypes {
     | '/admin/restore'
     | '/admin/schema'
     | '/admin/task-dedupe'
+    | '/admin/task-health'
     | '/admin/users'
     | '/admin/vault-backup'
     | '/admin/vault-rotation'
@@ -717,6 +741,7 @@ export interface FileRouteTypes {
     | '/api/public/ready'
     | '/api/public/health/procedures'
     | '/api/public/hooks/rachio-sync'
+    | '/api/public/hooks/task-health'
     | '/api/public/webhooks/rachio'
   fileRoutesById: FileRoutesById
 }
@@ -743,6 +768,7 @@ export interface RootRouteChildren {
   AdminRestoreRoute: typeof AdminRestoreRoute
   AdminSchemaRoute: typeof AdminSchemaRoute
   AdminTaskDedupeRoute: typeof AdminTaskDedupeRoute
+  AdminTaskHealthRoute: typeof AdminTaskHealthRoute
   AdminUsersRoute: typeof AdminUsersRoute
   AdminVaultBackupRoute: typeof AdminVaultBackupRoute
   AdminVaultRotationRoute: typeof AdminVaultRotationRoute
@@ -758,6 +784,7 @@ export interface RootRouteChildren {
   ApiPublicHealthRoute: typeof ApiPublicHealthRouteWithChildren
   ApiPublicReadyRoute: typeof ApiPublicReadyRoute
   ApiPublicHooksRachioSyncRoute: typeof ApiPublicHooksRachioSyncRoute
+  ApiPublicHooksTaskHealthRoute: typeof ApiPublicHooksTaskHealthRoute
   ApiPublicWebhooksRachioRoute: typeof ApiPublicWebhooksRachioRoute
 }
 
@@ -1085,6 +1112,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminUsersRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/task-health': {
+      id: '/admin/task-health'
+      path: '/admin/task-health'
+      fullPath: '/admin/task-health'
+      preLoaderRoute: typeof AdminTaskHealthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/task-dedupe': {
       id: '/admin/task-dedupe'
       path: '/admin/task-dedupe'
@@ -1153,6 +1187,13 @@ declare module '@tanstack/react-router' {
       path: '/api/public/webhooks/rachio'
       fullPath: '/api/public/webhooks/rachio'
       preLoaderRoute: typeof ApiPublicWebhooksRachioRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/hooks/task-health': {
+      id: '/api/public/hooks/task-health'
+      path: '/api/public/hooks/task-health'
+      fullPath: '/api/public/hooks/task-health'
+      preLoaderRoute: typeof ApiPublicHooksTaskHealthRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/hooks/rachio-sync': {
@@ -1273,6 +1314,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRestoreRoute: AdminRestoreRoute,
   AdminSchemaRoute: AdminSchemaRoute,
   AdminTaskDedupeRoute: AdminTaskDedupeRoute,
+  AdminTaskHealthRoute: AdminTaskHealthRoute,
   AdminUsersRoute: AdminUsersRoute,
   AdminVaultBackupRoute: AdminVaultBackupRoute,
   AdminVaultRotationRoute: AdminVaultRotationRoute,
@@ -1288,6 +1330,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicHealthRoute: ApiPublicHealthRouteWithChildren,
   ApiPublicReadyRoute: ApiPublicReadyRoute,
   ApiPublicHooksRachioSyncRoute: ApiPublicHooksRachioSyncRoute,
+  ApiPublicHooksTaskHealthRoute: ApiPublicHooksTaskHealthRoute,
   ApiPublicWebhooksRachioRoute: ApiPublicWebhooksRachioRoute,
 }
 export const routeTree = rootRouteImport
