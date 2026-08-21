@@ -260,7 +260,9 @@ export function ConsultantChat() {
           </div>
 
           <div className="border-t p-3">
+            <AiTruncationWarning signal={truncation} className="mb-2" />
             <div className="flex items-end gap-2">
+
               <Textarea
                 ref={textareaRef}
                 value={input}
