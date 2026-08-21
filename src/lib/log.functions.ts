@@ -449,6 +449,8 @@ type ParsedLine = {
   raw: string;
   taskRef?: { kind: "slug" | "title"; value: string };
   newTask?: { title: string; done: boolean };
+  /** Checkbox state when the line was a `- [ ] ` / `- [x] ` item. */
+  done: boolean;
   entryType: "status" | "blocker" | "decision" | "commit" | "meeting" | "note";
   projectTags: string[];
   startAt: string | null;
@@ -456,9 +458,12 @@ type ParsedLine = {
 };
 
 const PROJECT_TAG_RE = /#project\/([a-z0-9][a-z0-9-_]*)/gi;
+// Inline reference inside a checkbox line, e.g. "- [x] Grease pins #task/grease-pins"
+const INLINE_TASK_REF_RE = /#task\/([a-z0-9-]+)/i;
 const START_AT_RE =
   /@start:(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}(?::\d{2})?)(Z|[+-]\d{2}:?\d{2})?/i;
 const PROGRESS_RE = /@progress:(\d{1,3})%?/i;
+
 
 function extractMeta(text: string): {
   tags: string[];
