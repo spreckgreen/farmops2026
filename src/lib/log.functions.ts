@@ -713,7 +713,7 @@ export const commitDailyNote = createServerFn({ method: "POST" })
           slug,
           title: p.newTask.title,
           status: p.newTask.done ? "done" : "open",
-          closed_at: p.newTask.done ? new Date().toISOString() : null,
+          closed_at: p.newTask.done ? closedStamp : null,
           project_tags: p.projectTags,
           start_at: p.startAt,
           percent_complete: p.newTask.done ? 100 : (p.percent ?? 0),
