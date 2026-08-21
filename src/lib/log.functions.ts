@@ -739,18 +739,28 @@ export const commitDailyNote = createServerFn({ method: "POST" })
       const existing = resolveTask(p);
       if (!existing) continue;
       const upd: {
-        status?: "done";
-        closed_at?: string;
+        status?: "done" | "open";
+        closed_at?: string | null;
         project_tags?: string[];
         start_at?: string;
         percent_complete?: number;
       } = {};
+      // The checkbox owns the task's done state in BOTH directions, so the
+      // Open/Done columns can never drift from what the note actually says.
       // Applies to both "- [x] New thing" and "- [x] Thing #task/<slug>".
-      if (p.done && existing.status !== "done") {
-
+      if (p.checkbox && p.done && existing.status !== "done") {
         upd.status = "done";
-        upd.closed_at = new Date().toISOString();
+        upd.closed_at = closedStamp;
         upd.percent_complete = 100;
+      } else if (p.checkbox && !p.done && existing.status === "done") {
+        // Re-opened by unchecking the box: clear closed_at too, otherwise the
+        // task would linger in "done today" windows while showing as open.
+        upd.status = "open";
+        upd.closed_at = null;
+        if (p.percent === null) upd.percent_complete = 0;
+      } else if (p.done && existing.status === "done" && !existing.closed_at) {
+        // Repair drift: done rows must always carry a closed_at.
+        upd.closed_at = closedStamp;
       }
       if (p.projectTags.length > 0) {
         const merged = Array.from(
@@ -767,8 +777,13 @@ export const commitDailyNote = createServerFn({ method: "POST" })
         upd.percent_complete = p.percent;
       }
       if (Object.keys(upd).length > 0) {
-        await supabase.from("tasks").update(upd).eq("id", existing.id);
+        await supabase
+          .from("tasks")
+          .update(upd as never)
+          .eq("id", existing.id)
+          .eq("user_id", userId);
       }
+
     }
 
     // ---- Auto-link #project/<slug> tags to real project design elements ----
