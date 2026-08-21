@@ -131,22 +131,34 @@ export function evaluateTask(
     if (rank[next] > rank[level]) level = next;
   };
 
+  // Explain *why* the effective window is what it is: a model trained at 128k
+  // still only sees 4k per request until num_ctx is baked in, which is the
+  // single most confusing failure mode here.
+  const clamped =
+    model.contextSource === "runtime-default" &&
+    model.trainedContextLength != null &&
+    ctx != null &&
+    model.trainedContextLength > ctx;
+
   if (ctx == null) {
     downgrade("unknown");
     reasons.push("Context window unknown — the provider didn't report it.");
   } else if (ctx < task.minContext) {
     downgrade("unsuitable");
     reasons.push(
-      `Context window ${fmtTokens(ctx)} tokens is below the ${fmtTokens(task.minContext)} needed; input will be silently truncated.`,
+      clamped
+        ? `Effective context is only ${fmtTokens(ctx)} tokens (runtime default) even though the weights support ${fmtTokens(model.trainedContextLength!)} — below the ${fmtTokens(task.minContext)} needed, so input is silently truncated.`
+        : `Context window ${fmtTokens(ctx)} tokens is below the ${fmtTokens(task.minContext)} needed; input will be silently truncated.`,
     );
     fix = `Raise the context window (Ollama: \`/set parameter num_ctx ${task.goodContext}\`, or set OLLAMA_CONTEXT_LENGTH=${task.goodContext}) or pick a model with a larger window.`;
   } else if (ctx < task.goodContext) {
     downgrade("marginal");
     reasons.push(
-      `Context window ${fmtTokens(ctx)} tokens leaves little headroom (${fmtTokens(task.goodContext)} recommended).`,
+      `Context window ${fmtTokens(ctx)} tokens leaves little headroom (${fmtTokens(task.goodContext)} recommended)${clamped ? ` — the weights support ${fmtTokens(model.trainedContextLength!)}, so raising num_ctx is free capability` : ""}.`,
     );
     fix ??= `Increase num_ctx toward ${fmtTokens(task.goodContext)} tokens if RAM allows.`;
   }
+
 
   if (params == null) {
     downgrade("unknown");
