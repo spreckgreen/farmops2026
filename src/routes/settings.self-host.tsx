@@ -426,10 +426,12 @@ function ModelPickerCard() {
                               {m.detail ? ` · ${m.detail}` : ""}
                             </span>
                           ) : null}
+                          <ModelSuitabilityBadge model={m} />
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+
                 ) : (
                   <Input
                     placeholder="Model id (e.g. llama3.2:3b)"
