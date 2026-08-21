@@ -10,7 +10,15 @@
 //   (no-op / error for non-Ollama endpoints).
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import {
+  EMPTY_CAPABILITY,
+  OLLAMA_DEFAULT_NUM_CTX,
+  parseOllamaShow,
+  type OllamaCapability,
+  type OllamaShowResponse,
+} from "@/lib/ollama-capability";
 import { z } from "zod";
+
 
 const MODEL_ENV_KEY = "CUSTOM_AI_MODEL";
 
