@@ -223,17 +223,29 @@ export const askProceduresAi = createServerFn({ method: "POST" })
 
     const { generateText } = await import("ai");
     const started = Date.now();
-    const result = await generateText({
-      model: provider(modelId),
-      system:
-        "You are an assistant for a farm operations app. Answer the user's " +
-        "question using ONLY the provided procedure documents. Cite the " +
-        "procedure names you used inline like [Procedure Name]. If the " +
-        "answer isn't in the procedures, say so plainly.",
-      prompt:
-        blocks.length === 0
-          ? `The user has no procedures yet.\n\nQuestion: ${data.prompt}`
-          : `Procedures:\n\n${blocks.join("\n")}\n\nQuestion: ${data.prompt}`,
+    const system =
+      "You are an assistant for a farm operations app. Answer the user's " +
+      "question using ONLY the provided procedure documents. Cite the " +
+      "procedure names you used inline like [Procedure Name]. If the " +
+      "answer isn't in the procedures, say so plainly.";
+    const prompt =
+      blocks.length === 0
+        ? `The user has no procedures yet.\n\nQuestion: ${data.prompt}`
+        : `Procedures:\n\n${blocks.join("\n")}\n\nQuestion: ${data.prompt}`;
+    const result = await generateText({ model: provider(modelId), system, prompt });
+
+    // Warn when the procedure context or the answer got clipped — with 40 KB of
+    // procedures in the prompt this is the common failure on small local models.
+    const { getActiveContextLimit } = await import("./ai-context-limit.server");
+    const { truncationOrNull } = await import("./ai-truncation");
+    const { contextLength } = await getActiveContextLimit(modelId);
+    const truncation = truncationOrNull({
+      finishReason: result.finishReason,
+      usage: result.usage,
+      promptChars: system.length + prompt.length,
+      outputText: result.text,
+      contextLimit: contextLength,
+      model: modelId,
     });
 
     return {
@@ -241,5 +253,7 @@ export const askProceduresAi = createServerFn({ method: "POST" })
       model: modelId,
       sources: used,
       latencyMs: Date.now() - started,
+      truncation,
     };
   });
+
