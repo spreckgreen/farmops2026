@@ -352,14 +352,38 @@ export const getDailyNote = createServerFn({ method: "POST" })
       if (error) throw new Error(error.message);
       note = created;
     } else {
-      // Refresh today's forecast in the background cache on each open.
+      // Refresh today's forecast in the background cache on each open, and
+      // rewrite the note's "## Weather" block so fields added later
+      // (humidity, feels-like) show up in notes created before they existed.
       try {
-        const { fetchAndCacheForecast } = await import("@/lib/weather.functions");
-        await fetchAndCacheForecast(supabase, userId, data.date);
+        const { fetchAndCacheForecast, formatWeatherMarkdown } = await import("@/lib/weather.functions");
+        const w = await fetchAndCacheForecast(supabase, userId, data.date);
+        if (w) {
+          const fresh = formatWeatherMarkdown(w);
+          const current = note!.markdown_content ?? "";
+          // Heading line plus the following non-blank lines form the block.
+          const blockRe = /^##[ \t]+Weather\b.*(?:\r?\n(?![ \t]*(?:\r?\n|#)).*)*\r?\n?/m;
+          let next = current;
+          if (blockRe.test(current)) {
+            next = current.replace(blockRe, fresh);
+          } else {
+            next = `${fresh}\n${current}`;
+          }
+          if (next !== current) {
+            const { data: updated } = await supabase
+              .from("daily_notes")
+              .update({ markdown_content: next })
+              .eq("id", note!.id)
+              .select()
+              .single();
+            if (updated) note = updated;
+          }
+        }
       } catch (e) {
         console.error("[daily-note] weather refresh failed", e);
       }
     }
+
 
     const { data: tasks } = await supabase
       .from("tasks")
