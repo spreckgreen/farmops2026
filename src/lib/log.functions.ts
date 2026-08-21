@@ -383,7 +383,7 @@ export const getDailyNote = createServerFn({ method: "POST" })
           const fresh = formatWeatherMarkdown(w);
           let next = current;
           if (block) {
-            next = current.replace(blockRe, fresh);
+            next = current.replace(block, fresh);
           } else {
             next = `${fresh}\n${current}`;
           }
