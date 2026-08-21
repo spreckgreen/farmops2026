@@ -154,7 +154,7 @@ export const getAiModelPickerState = createServerFn({ method: "GET" })
         const body = (await res.json()) as {
           models?: { name?: string; size?: number; details?: { quantization_level?: string } }[];
         };
-        const models: AiModelInfo[] = (body.models ?? [])
+        const base: AiModelInfo[] = (body.models ?? [])
           .filter((m) => typeof m.name === "string" && m.name)
           .map((m) => ({
             id: m.name as string,
@@ -162,7 +162,16 @@ export const getAiModelPickerState = createServerFn({ method: "GET" })
             detail: m.details?.quantization_level ?? null,
           }))
           .sort((a, b) => a.id.localeCompare(b.id));
+        // Enrich with context length / parameter size. Capped at 16 models so
+        // a large local library can't stall the settings page.
+        const root = nativeRoot(baseUrl);
+        const models: AiModelInfo[] = await Promise.all(
+          base.map(async (m, i) =>
+            i < 16 ? { ...m, ...(await fetchOllamaCapability(root, m.id)) } : m,
+          ),
+        );
         return { ...common, baseUrl, isOllama: true, models, error: null };
+
       }
     } catch {
       /* fall through to OpenAI-style */
