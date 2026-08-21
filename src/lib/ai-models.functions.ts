@@ -243,46 +243,23 @@ export const setAiModel = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     await requireAdmin(context.supabase as never, context.userId);
 
-    const { seal } = await import("./vault-crypto.server");
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const sealed = await seal(data.model);
-
-    // Upsert-by-env-key: find any existing shared row with this env_key.
-    const { data: existing } = await supabaseAdmin
-      .from("vault_secrets")
-      .select("id")
-      .eq("scope", "shared")
-      .eq("env_key", MODEL_ENV_KEY)
-      .maybeSingle();
-
-    if (existing?.id) {
-      const { error } = await supabaseAdmin
-        .from("vault_secrets")
-        .update({
-          value_ciphertext: sealed.ciphertext,
-          value_iv: sealed.iv,
-          value_tag: sealed.tag,
-        })
-        .eq("id", existing.id);
-      if (error) throw new Error(error.message);
-    } else {
-      const { error } = await supabaseAdmin.from("vault_secrets").insert({
-        scope: "shared",
-        owner_user_id: null,
-        created_by: context.userId,
-        title: "AI model (CUSTOM_AI_MODEL)",
-        value_ciphertext: sealed.ciphertext,
-        value_iv: sealed.iv,
-        value_tag: sealed.tag,
-        env_key: MODEL_ENV_KEY,
-      });
-      if (error) throw new Error(error.message);
+    const tuning = await import("./ai-model-tuning.server");
+    const previous = await tuning.currentActiveModel();
+    await tuning.persistActiveModel(data.model, context.userId);
+    if (previous && previous !== data.model) {
+      await tuning.recordRollbackPoint(
+        {
+          previousModel: previous,
+          appliedModel: data.model,
+          kind: "manual",
+          createdTag: null,
+        },
+        context.userId,
+      );
     }
-
-    const { invalidateServerEnv } = await import("./server-env.server");
-    invalidateServerEnv(MODEL_ENV_KEY);
-    return { ok: true as const, model: data.model };
+    return { ok: true as const, model: data.model, previousModel: previous };
   });
+
 
 const PullModelInput = z.object({
   model: z.string().trim().min(1).max(200),
