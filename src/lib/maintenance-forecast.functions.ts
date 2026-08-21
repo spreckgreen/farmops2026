@@ -159,6 +159,7 @@ export const getMaintenanceForecastNarrative = createServerFn({ method: "POST" }
         narrative:
           "No assets are tracking usage or maintenance history yet — nothing to forecast.",
         model: "",
+        truncation: null,
       };
     }
 
@@ -182,6 +183,7 @@ export const getMaintenanceForecastNarrative = createServerFn({ method: "POST" }
         narrative:
           "Assets are tracked but have no projected services yet — log at least two completed services per asset to enable forecasting.",
         model: "",
+        truncation: null,
       };
     }
 
