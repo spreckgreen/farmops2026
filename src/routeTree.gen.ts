@@ -65,6 +65,7 @@ import { Route as AdminAiSettingsRouteImport } from './routes/admin.ai-settings'
 import { Route as ApiPublicReadyRouteImport } from './routes/api/public/ready'
 import { Route as ApiPublicHealthRouteImport } from './routes/api/public/health'
 import { Route as ApiPublicWebhooksRachioRouteImport } from './routes/api/public/webhooks/rachio'
+import { Route as ApiPublicHooksTaskHealthRouteImport } from './routes/api/public/hooks/task-health'
 import { Route as ApiPublicHooksRachioSyncRouteImport } from './routes/api/public/hooks/rachio-sync'
 import { Route as ApiPublicHealthProceduresRouteImport } from './routes/api/public/health.procedures'
 
@@ -349,6 +350,12 @@ const ApiPublicWebhooksRachioRoute = ApiPublicWebhooksRachioRouteImport.update({
   path: '/api/public/webhooks/rachio',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicHooksTaskHealthRoute =
+  ApiPublicHooksTaskHealthRouteImport.update({
+    id: '/api/public/hooks/task-health',
+    path: '/api/public/hooks/task-health',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHooksRachioSyncRoute =
   ApiPublicHooksRachioSyncRouteImport.update({
     id: '/api/public/hooks/rachio-sync',
@@ -420,6 +427,7 @@ export interface FileRoutesByFullPath {
   '/api/public/ready': typeof ApiPublicReadyRoute
   '/api/public/health/procedures': typeof ApiPublicHealthProceduresRoute
   '/api/public/hooks/rachio-sync': typeof ApiPublicHooksRachioSyncRoute
+  '/api/public/hooks/task-health': typeof ApiPublicHooksTaskHealthRoute
   '/api/public/webhooks/rachio': typeof ApiPublicWebhooksRachioRoute
 }
 export interface FileRoutesByTo {
@@ -477,6 +485,7 @@ export interface FileRoutesByTo {
   '/api/public/ready': typeof ApiPublicReadyRoute
   '/api/public/health/procedures': typeof ApiPublicHealthProceduresRoute
   '/api/public/hooks/rachio-sync': typeof ApiPublicHooksRachioSyncRoute
+  '/api/public/hooks/task-health': typeof ApiPublicHooksTaskHealthRoute
   '/api/public/webhooks/rachio': typeof ApiPublicWebhooksRachioRoute
 }
 export interface FileRoutesById {
@@ -538,6 +547,7 @@ export interface FileRoutesById {
   '/api/public/ready': typeof ApiPublicReadyRoute
   '/api/public/health/procedures': typeof ApiPublicHealthProceduresRoute
   '/api/public/hooks/rachio-sync': typeof ApiPublicHooksRachioSyncRoute
+  '/api/public/hooks/task-health': typeof ApiPublicHooksTaskHealthRoute
   '/api/public/webhooks/rachio': typeof ApiPublicWebhooksRachioRoute
 }
 export interface FileRouteTypes {
@@ -600,6 +610,7 @@ export interface FileRouteTypes {
     | '/api/public/ready'
     | '/api/public/health/procedures'
     | '/api/public/hooks/rachio-sync'
+    | '/api/public/hooks/task-health'
     | '/api/public/webhooks/rachio'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -657,6 +668,7 @@ export interface FileRouteTypes {
     | '/api/public/ready'
     | '/api/public/health/procedures'
     | '/api/public/hooks/rachio-sync'
+    | '/api/public/hooks/task-health'
     | '/api/public/webhooks/rachio'
   id:
     | '__root__'
@@ -717,6 +729,7 @@ export interface FileRouteTypes {
     | '/api/public/ready'
     | '/api/public/health/procedures'
     | '/api/public/hooks/rachio-sync'
+    | '/api/public/hooks/task-health'
     | '/api/public/webhooks/rachio'
   fileRoutesById: FileRoutesById
 }
@@ -758,6 +771,7 @@ export interface RootRouteChildren {
   ApiPublicHealthRoute: typeof ApiPublicHealthRouteWithChildren
   ApiPublicReadyRoute: typeof ApiPublicReadyRoute
   ApiPublicHooksRachioSyncRoute: typeof ApiPublicHooksRachioSyncRoute
+  ApiPublicHooksTaskHealthRoute: typeof ApiPublicHooksTaskHealthRoute
   ApiPublicWebhooksRachioRoute: typeof ApiPublicWebhooksRachioRoute
 }
 
@@ -1155,6 +1169,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicWebhooksRachioRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/task-health': {
+      id: '/api/public/hooks/task-health'
+      path: '/api/public/hooks/task-health'
+      fullPath: '/api/public/hooks/task-health'
+      preLoaderRoute: typeof ApiPublicHooksTaskHealthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/rachio-sync': {
       id: '/api/public/hooks/rachio-sync'
       path: '/api/public/hooks/rachio-sync'
@@ -1288,6 +1309,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicHealthRoute: ApiPublicHealthRouteWithChildren,
   ApiPublicReadyRoute: ApiPublicReadyRoute,
   ApiPublicHooksRachioSyncRoute: ApiPublicHooksRachioSyncRoute,
+  ApiPublicHooksTaskHealthRoute: ApiPublicHooksTaskHealthRoute,
   ApiPublicWebhooksRachioRoute: ApiPublicWebhooksRachioRoute,
 }
 export const routeTree = rootRouteImport
