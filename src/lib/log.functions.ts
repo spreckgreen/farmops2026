@@ -453,6 +453,9 @@ type ParsedLine = {
   newTask?: { title: string; done: boolean };
   /** Checkbox state when the line was a `- [ ] ` / `- [x] ` item. */
   done: boolean;
+  /** True only for `- [ ]` / `- [x]` lines — those own the task's done state. */
+  checkbox?: boolean;
+
   entryType: "status" | "blocker" | "decision" | "commit" | "meeting" | "note";
   projectTags: string[];
   startAt: string | null;
