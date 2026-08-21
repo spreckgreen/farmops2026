@@ -1,16 +1,42 @@
-// UI for the model picker's context-window / parameter suitability warnings.
+// UI for the model picker's context-window / parameter suitability warnings,
+// plus the one-click remediation actions (raise num_ctx / switch model) that
+// automatically rerun the AI test afterwards.
 // Reads the pure heuristics in @/lib/ai-model-suitability so the rules stay
 // testable and identical everywhere.
-import { AlertTriangle, CheckCircle2, HelpCircle, XCircle } from "lucide-react";
+import { useState } from "react";
+import { useMutation } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { toast } from "sonner";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Gauge,
+  HelpCircle,
+  Loader2,
+  Sparkles,
+  XCircle,
+  Zap,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  applyRecommendedContext,
+  switchToSuggestedModel,
+  runAiTest,
+  type AiTestResult,
+} from "@/lib/ai-models.functions";
 import {
   evaluateModel,
   inferParamsB,
   overallLevel,
+  recommendedContext,
+  suggestedLargerModel,
+  derivedContextModelId,
   LEVEL_LABEL,
   type ModelCapability,
   type SuitabilityLevel,
 } from "@/lib/ai-model-suitability";
+
 
 const LEVEL_BADGE: Record<SuitabilityLevel, string> = {
   good: "border-emerald-300 text-emerald-700 dark:text-emerald-400",
