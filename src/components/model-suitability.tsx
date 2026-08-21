@@ -168,12 +168,23 @@ function SuitabilityActions({
   const applyCtxFn = useServerFn(applyRecommendedContext);
   const switchFn = useServerFn(switchToSuggestedModel);
   const testFn = useServerFn(runAiTest);
+  const rollbackFn = useServerFn(rollbackAiModel);
   const [tests, setTests] = useState<AiTestResult[]>([]);
   const [testing, setTesting] = useState(false);
+  const [deleteTag, setDeleteTag] = useState(true);
+  const queryClient = useQueryClient();
+
+  // Rollback point recorded by the last model change (server-persisted, so it
+  // survives reloads and restarts).
+  const rollback = useQuery({
+    queryKey: ["ai-model-rollback"],
+    queryFn: () => getAiModelRollback(),
+  });
 
   const targetCtx = recommendedContext(model);
   const largerModel = suggestedLargerModel(model);
   const alreadyDerived = /-ctx\d+k$/.test(model.id);
+
 
   // After a fix, rerun the workflows the fix was meant to unblock — a weekly
   // report and a manual are graded separately, so you see which one now works.
