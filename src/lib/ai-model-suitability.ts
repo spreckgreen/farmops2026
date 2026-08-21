@@ -17,11 +17,22 @@ export type SuitabilityLevel = "good" | "marginal" | "unsuitable" | "unknown";
 export interface ModelCapability {
   /** Model id, e.g. "llama3.2:3b". */
   id: string;
-  /** Trained context length in tokens, when the provider reports it. */
+  /**
+   * Effective context a request actually gets, in tokens. For Ollama this is
+   * the baked-in num_ctx, or the runtime default (4096) when the model has
+   * none — NOT the trained window.
+   */
   contextLength?: number | null;
+  /** Trained context of the weights, e.g. 131072 for llama3.2. */
+  trainedContextLength?: number | null;
+  /** Baked-in num_ctx, when the Modelfile pins one. */
+  numCtx?: number | null;
+  /** Provenance of contextLength, used to explain the verdict. */
+  contextSource?: "num_ctx" | "runtime-default" | "trained" | null;
   /** Parameter count in billions, when known or inferable from the id/tag. */
   paramsB?: number | null;
 }
+
 
 export interface TaskRequirement {
   key: "reports" | "manuals";
@@ -120,22 +131,34 @@ export function evaluateTask(
     if (rank[next] > rank[level]) level = next;
   };
 
+  // Explain *why* the effective window is what it is: a model trained at 128k
+  // still only sees 4k per request until num_ctx is baked in, which is the
+  // single most confusing failure mode here.
+  const clamped =
+    model.contextSource === "runtime-default" &&
+    model.trainedContextLength != null &&
+    ctx != null &&
+    model.trainedContextLength > ctx;
+
   if (ctx == null) {
     downgrade("unknown");
     reasons.push("Context window unknown — the provider didn't report it.");
   } else if (ctx < task.minContext) {
     downgrade("unsuitable");
     reasons.push(
-      `Context window ${fmtTokens(ctx)} tokens is below the ${fmtTokens(task.minContext)} needed; input will be silently truncated.`,
+      clamped
+        ? `Effective context is only ${fmtTokens(ctx)} tokens (runtime default) even though the weights support ${fmtTokens(model.trainedContextLength!)} — below the ${fmtTokens(task.minContext)} needed, so input is silently truncated.`
+        : `Context window ${fmtTokens(ctx)} tokens is below the ${fmtTokens(task.minContext)} needed; input will be silently truncated.`,
     );
     fix = `Raise the context window (Ollama: \`/set parameter num_ctx ${task.goodContext}\`, or set OLLAMA_CONTEXT_LENGTH=${task.goodContext}) or pick a model with a larger window.`;
   } else if (ctx < task.goodContext) {
     downgrade("marginal");
     reasons.push(
-      `Context window ${fmtTokens(ctx)} tokens leaves little headroom (${fmtTokens(task.goodContext)} recommended).`,
+      `Context window ${fmtTokens(ctx)} tokens leaves little headroom (${fmtTokens(task.goodContext)} recommended)${clamped ? ` — the weights support ${fmtTokens(model.trainedContextLength!)}, so raising num_ctx is free capability` : ""}.`,
     );
     fix ??= `Increase num_ctx toward ${fmtTokens(task.goodContext)} tokens if RAM allows.`;
   }
+
 
   if (params == null) {
     downgrade("unknown");
@@ -188,18 +211,23 @@ export const LEVEL_LABEL: Record<SuitabilityLevel, string> = {
 
 /**
  * Context window (in tokens) worth applying for this model: the largest
- * "good" target across the tasks it currently can't satisfy. Returns null
- * when the reported context already covers every task.
- * e.g. { id: "llama3.2:3b", contextLength: 2048 } -> 32768
+ * "good" target across the tasks it currently can't satisfy, capped at the
+ * trained window when the provider reports one (num_ctx above the trained
+ * length just wastes RAM and degrades output).
+ * e.g. { id: "llama3.2:3b", contextLength: 4096, trainedContextLength: 131072 } -> 32768
+ *      { id: "phi:latest", contextLength: 2048, trainedContextLength: 8192 }    -> 8192
  */
 export function recommendedContext(model: ModelCapability): number | null {
   const ctx = model.contextLength ?? 0;
-  const target = TASK_REQUIREMENTS.filter((t) => ctx < t.goodContext).reduce(
+  let target = TASK_REQUIREMENTS.filter((t) => ctx < t.goodContext).reduce(
     (max, t) => Math.max(max, t.goodContext),
     0,
   );
+  const trained = model.trainedContextLength ?? null;
+  if (trained != null && target > trained) target = trained;
   return target > ctx ? target : null;
 }
+
 
 /** Ollama tag for a derived copy carrying a bigger num_ctx. */
 export function derivedContextModelId(baseId: string, numCtx: number): string {

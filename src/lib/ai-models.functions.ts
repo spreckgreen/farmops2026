@@ -10,7 +10,15 @@
 //   (no-op / error for non-Ollama endpoints).
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import {
+  EMPTY_CAPABILITY,
+  OLLAMA_DEFAULT_NUM_CTX,
+  parseOllamaShow,
+  type OllamaCapability,
+  type OllamaShowResponse,
+} from "@/lib/ollama-capability";
 import { z } from "zod";
+
 
 const MODEL_ENV_KEY = "CUSTOM_AI_MODEL";
 
@@ -32,52 +40,52 @@ export interface AiModelInfo {
   size?: number | null;
   /** Free-form provider label (e.g. Ollama quantization). */
   detail?: string | null;
-  /** Trained context length in tokens (Ollama /api/show model_info). */
+  /** Effective request context in tokens (num_ctx, or runtime-clamped). */
   contextLength?: number | null;
-  /** Parameter count in billions (Ollama details.parameter_size, e.g. "3.2B"). */
+  /** Context the weights were trained with (often far above the effective). */
+  trainedContextLength?: number | null;
+  /** Baked-in num_ctx from the Modelfile, when present. */
+  numCtx?: number | null;
+  /** Baked-in num_predict (max output tokens), when present. */
+  numPredict?: number | null;
+  /** Where contextLength came from: num_ctx | runtime-default | trained. */
+  contextSource?: OllamaCapability["contextSource"];
+  /** Parameter count in billions. */
   paramsB?: number | null;
+  /** "count" = exact from provider, "label" = rounded label, "tag" = inferred. */
+  paramsSource?: "count" | "label" | "tag" | null;
+  /** Provider capabilities, e.g. ["completion","tools","vision"]. */
+  capabilities?: string[];
 }
 
-// Ask Ollama's /api/show for the trained context length + parameter size so
-// the picker can warn when a model can't hold a week of tasks or a manual.
-// Best-effort: any failure just leaves the fields null (UI shows "Unverified").
-async function fetchOllamaCapability(
-  root: string,
-  name: string,
-): Promise<{ contextLength: number | null; paramsB: number | null }> {
+// Ask Ollama's /api/show for real capability numbers instead of guessing from
+// the tag. Best-effort: any failure leaves the fields null (UI shows
+// "Unverified"). Older Ollama builds want {name}, newer ones {model} — send
+// both keys so one request covers every version.
+async function fetchOllamaCapability(root: string, name: string): Promise<OllamaCapability> {
   try {
     const res = await fetch(`${root}/api/show`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify({ name }),
-      signal: AbortSignal.timeout(4000),
+      body: JSON.stringify({ name, model: name, verbose: false }),
+      signal: AbortSignal.timeout(6000),
     });
-    if (!res.ok) return { contextLength: null, paramsB: null };
-    const body = (await res.json()) as {
-      model_info?: Record<string, unknown>;
-      details?: { parameter_size?: string };
-    };
-    let contextLength: number | null = null;
-    for (const [k, v] of Object.entries(body.model_info ?? {})) {
-      if (k.endsWith(".context_length") && typeof v === "number") {
-        contextLength = v;
-        break;
-      }
-    }
-    let paramsB: number | null = null;
-    const ps = body.details?.parameter_size;
-    if (typeof ps === "string") {
-      const m = ps.match(/([\d.]+)\s*([BM])/i);
-      if (m) {
-        const n = Number(m[1]);
-        if (Number.isFinite(n)) paramsB = m[2].toUpperCase() === "M" ? n / 1000 : n;
-      }
-    }
-    return { contextLength, paramsB };
+    if (!res.ok) return EMPTY_CAPABILITY;
+    const body = (await res.json()) as OllamaShowResponse;
+    return parseOllamaShow(body, ollamaRuntimeDefaultNumCtx());
   } catch {
-    return { contextLength: null, paramsB: null };
+    return EMPTY_CAPABILITY;
   }
 }
+
+// Ollama clamps requests to OLLAMA_CONTEXT_LENGTH (default 4096) unless the
+// model bakes in num_ctx. Self-hosters who raised it can tell us here.
+function ollamaRuntimeDefaultNumCtx(): number {
+  const raw = process.env["OLLAMA_CONTEXT_LENGTH"];
+  const n = raw ? Number(raw) : NaN;
+  return Number.isFinite(n) && n > 0 ? n : OLLAMA_DEFAULT_NUM_CTX;
+}
+
 
 
 export interface AiModelPickerState {
@@ -166,13 +174,26 @@ export const getAiModelPickerState = createServerFn({ method: "GET" })
         // a large local library can't stall the settings page.
         const root = nativeRoot(baseUrl);
         const models: AiModelInfo[] = await Promise.all(
-          base.map(async (m, i) =>
-            i < 16 ? { ...m, ...(await fetchOllamaCapability(root, m.id)) } : m,
-          ),
+          base.map(async (m, i) => {
+            if (i >= 16) return m;
+            const cap = await fetchOllamaCapability(root, m.id);
+            return {
+              ...m,
+              detail: m.detail ?? cap.quantization,
+              contextLength: cap.contextLength,
+              trainedContextLength: cap.trainedContextLength,
+              numCtx: cap.numCtx,
+              numPredict: cap.numPredict,
+              contextSource: cap.contextSource,
+              paramsB: cap.paramsB,
+              paramsSource: cap.paramsSource,
+              capabilities: cap.capabilities,
+            } satisfies AiModelInfo;
+          }),
         );
         return { ...common, baseUrl, isOllama: true, models, error: null };
-
       }
+
     } catch {
       /* fall through to OpenAI-style */
     }
