@@ -12,6 +12,8 @@ import { Badge } from "@/components/ui/badge";
 import { Sparkles, Loader2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { askProceduresAi, type ProceduresAiAnswer } from "@/lib/procedures.functions";
+import { AiTruncationWarning } from "@/components/ai-truncation-warning";
+
 
 export function ProceduresAiPrompt() {
   const askFn = useServerFn(askProceduresAi);
