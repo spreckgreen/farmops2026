@@ -124,6 +124,10 @@ export function ModelSuitabilityPanel({
         ))}
       </div>
 
+      {showActions && (
+        <SuitabilityActions model={model} onModelChanged={onModelChanged} />
+      )}
+
       <p className="text-[11px] text-muted-foreground">
         Requirements are heuristics: reports need ~8k+ context (a week of tasks
         is 4k–12k tokens) and manuals need ~16k+ context with a 7B+ model.
@@ -133,3 +137,157 @@ export function ModelSuitabilityPanel({
     </div>
   );
 }
+
+/**
+ * One-click fixes. Each action persists the new active model, then immediately
+ * reruns the AI test so you can see the change actually works end to end.
+ *
+ * "Set num_ctx" creates a derived Ollama model (e.g. llama3.2:3b + 32768 ->
+ * llama3.2-3b-ctx32k) because Ollama's OpenAI-compatible endpoint ignores a
+ * per-request num_ctx — baking it into the model is what makes it stick.
+ */
+function SuitabilityActions({
+  model,
+  onModelChanged,
+}: {
+  model: ModelCapability;
+  onModelChanged?: (model: string) => void;
+}) {
+  const applyCtxFn = useServerFn(applyRecommendedContext);
+  const switchFn = useServerFn(switchToSuggestedModel);
+  const testFn = useServerFn(runAiTest);
+  const [test, setTest] = useState<AiTestResult | null>(null);
+  const [testing, setTesting] = useState(false);
+
+  const targetCtx = recommendedContext(model);
+  const largerModel = suggestedLargerModel(model);
+  const alreadyDerived = /-ctx\d+k$/.test(model.id);
+
+  const rerunTest = async () => {
+    setTesting(true);
+    try {
+      const r = await testFn();
+      setTest(r);
+      if (r.ok) toast.success(`AI test OK — ${r.model} in ${r.latencyMs} ms`);
+      else toast.error(`AI test failed: ${r.error ?? `HTTP ${r.httpStatus}`}`);
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  const applyCtx = useMutation({
+    mutationFn: () =>
+      applyCtxFn({ data: { baseModel: model.id, numCtx: targetCtx ?? 32768 } }),
+    onSuccess: async (r) => {
+      toast.success(`Active model is now ${r.model} (num_ctx ${r.numCtx})`);
+      onModelChanged?.(r.model);
+      await rerunTest();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const switchModel = useMutation({
+    mutationFn: () => switchFn({ data: { model: largerModel ?? "qwen2.5:7b" } }),
+    onSuccess: async (r) => {
+      toast.success(
+        r.pulled ? `Pulled and activated ${r.model}` : `Active model is now ${r.model}`,
+      );
+      onModelChanged?.(r.model);
+      await rerunTest();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const busy = applyCtx.isPending || switchModel.isPending || testing;
+
+  return (
+    <div className="pt-2 border-t space-y-2">
+      <div className="text-xs font-medium">One-click fixes</div>
+      <div className="flex flex-wrap gap-2">
+        {targetCtx && !alreadyDerived && (
+          <Button
+            size="sm"
+            variant="secondary"
+            className="h-7"
+            disabled={busy}
+            onClick={() => applyCtx.mutate()}
+            title={`Creates ${derivedContextModelId(model.id, targetCtx)} with PARAMETER num_ctx ${targetCtx} and activates it`}
+          >
+            {applyCtx.isPending ? (
+              <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+            ) : (
+              <Gauge className="h-3.5 w-3.5 mr-1" />
+            )}
+            Set num_ctx to {Math.round(targetCtx / 1024)}k
+          </Button>
+        )}
+
+        {largerModel && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7"
+            disabled={busy}
+            onClick={() => switchModel.mutate()}
+            title={`Pulls ${largerModel} if missing, then makes it the active model`}
+          >
+            {switchModel.isPending ? (
+              <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+            ) : (
+              <Sparkles className="h-3.5 w-3.5 mr-1" />
+            )}
+            Switch to {largerModel}
+          </Button>
+        )}
+
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-7"
+          disabled={busy}
+          onClick={() => void rerunTest()}
+        >
+          {testing ? (
+            <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+          ) : (
+            <Zap className="h-3.5 w-3.5 mr-1" />
+          )}
+          Rerun AI test
+        </Button>
+      </div>
+
+      {(applyCtx.isPending || switchModel.isPending) && (
+        <p className="text-[11px] text-muted-foreground">
+          {applyCtx.isPending
+            ? "Creating the derived model in Ollama — this takes a few seconds."
+            : "Pulling the model if it isn't local yet — a few GB can take several minutes."}
+        </p>
+      )}
+
+      {test && (
+        <div className="flex items-start gap-2 text-xs">
+          {test.ok ? (
+            <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+          ) : (
+            <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />
+          )}
+          <span className="font-mono break-all">
+            {test.provider} · {test.model} · {test.latencyMs}ms
+            {test.ok
+              ? ` · ${test.reply ?? ""}`
+              : ` · ${test.error ?? `HTTP ${test.httpStatus}`}`}
+          </span>
+        </div>
+      )}
+
+      {!targetCtx && !largerModel && (
+        <p className="text-[11px] text-muted-foreground">
+          Nothing to fix — this model already has enough context and capacity.
+        </p>
+      )}
+    </div>
+  );
+}
+
