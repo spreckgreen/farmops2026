@@ -349,10 +349,24 @@ export const askConsultant = createServerFn({ method: "POST" })
     const modelId = modelOverride ?? "google/gemini-3.6-flash";
 
     const { generateText } = await import("ai");
-    const { text } = await generateText({
-      model: provider(modelId),
-      system,
-      messages: data.messages.map((m) => ({ role: m.role, content: m.content })),
+    const messages = data.messages.map((m) => ({ role: m.role, content: m.content }));
+    const result = await generateText({ model: provider(modelId), system, messages });
+    const text = result.text;
+
+    // The farm snapshot plus chat history is the biggest input in the app, so
+    // say plainly when it overflowed rather than letting the model answer from
+    // a silently trimmed snapshot.
+    const { getActiveContextLimit } = await import("./ai-context-limit.server");
+    const { truncationOrNull } = await import("./ai-truncation");
+    const { contextLength } = await getActiveContextLimit(modelId);
+    const truncation = truncationOrNull({
+      finishReason: result.finishReason,
+      usage: result.usage,
+      promptChars:
+        system.length + messages.reduce((n, m) => n + m.content.length, 0),
+      outputText: text,
+      contextLimit: contextLength,
+      model: modelId,
     });
 
     return {
@@ -360,5 +374,7 @@ export const askConsultant = createServerFn({ method: "POST" })
       model: modelId,
       latencyMs: Date.now() - started,
       snapshotChars: snapshot.length,
+      truncation,
     };
   });
+
