@@ -69,12 +69,23 @@ export function ModelSuitabilityBadge({ model }: { model: ModelCapability }) {
 }
 
 /** Full per-task breakdown for the currently selected model. */
-export function ModelSuitabilityPanel({ model }: { model: ModelCapability }) {
+export function ModelSuitabilityPanel({
+  model,
+  /** Show the one-click fix buttons (Ollama endpoints only). */
+  showActions = false,
+  /** Called with the new active model id after a fix is applied. */
+  onModelChanged,
+}: {
+  model: ModelCapability;
+  showActions?: boolean;
+  onModelChanged?: (model: string) => void;
+}) {
   const verdicts = evaluateModel(model);
   const params = model.paramsB ?? inferParamsB(model.id);
 
   return (
     <div className="rounded-md border p-3 space-y-3">
+
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
         <span className="font-mono text-foreground">{model.id}</span>
         <span>Context: {fmtTokens(model.contextLength)}</span>
