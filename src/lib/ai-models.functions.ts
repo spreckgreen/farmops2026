@@ -17,7 +17,14 @@ import {
   type OllamaCapability,
   type OllamaShowResponse,
 } from "@/lib/ollama-capability";
+import {
+  canRollback,
+  deletableTag,
+  describeRollback,
+  type ModelRollbackPoint,
+} from "@/lib/ai-model-rollback";
 import { z } from "zod";
+
 
 
 const MODEL_ENV_KEY = "CUSTOM_AI_MODEL";
