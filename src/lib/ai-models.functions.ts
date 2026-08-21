@@ -382,15 +382,29 @@ export const switchToSuggestedModel = createServerFn({ method: "POST" })
   });
 
 // -----------------------------------------------------------------------------
-// Run AI test — sends a short prompt through the currently-configured provider
-
-// and reports which endpoint answered, how long it took, and a preview of the
-// response. Used by the "Run AI test" button on the self-host settings page to
-// prove end-to-end AI is wired up on a self-hosted install without leaving the
-// admin UI.
+// Run AI test — sends a workflow-representative prompt through the currently
+// configured provider and reports which endpoint answered, how long it took,
+// what came back, and whether the reply actually has the shape that workflow
+// needs.
+//
+// There are three runs, each judged on its own (see ai-workflow-tests.ts):
+//   - "smoke"          short probe: is the endpoint wired up at all
+//   - "weekly_report"  a week of task lines in, structured rollup out
+//   - "manual"         a full procedure with numbered steps out
+//
+// A model can pass the smoke test and still fail weekly_report because its
+// effective context truncated the task list — which is exactly the "there was
+// nothing for the week" failure this splits apart.
 // -----------------------------------------------------------------------------
+import type { AiWorkflowCheck, AiWorkflowKey } from "./ai-workflow-tests";
+import type { TruncationSignal } from "./ai-truncation";
+import type { SuitabilityLevel } from "./ai-model-suitability";
+
 export interface AiTestResult {
   ok: boolean;
+  /** Which workflow this run exercised. */
+  workflow: AiWorkflowKey;
+  workflowLabel: string;
   provider: "custom" | "lovable" | "bundled-ollama";
   baseUrl: string;
   model: string;
@@ -398,12 +412,34 @@ export interface AiTestResult {
   httpStatus: number;
   reply: string | null;
   error: string | null;
+  /** Per-workflow output checks. Empty when the request itself failed. */
+  checks: AiWorkflowCheck[];
+  /** True when every check passed — the workflow is usable on this model. */
+  passed: boolean;
+  /** Suitability level for this workflow, from the model's real capabilities. */
+  suitability: SuitabilityLevel | null;
+  suitabilityReasons: string[];
+  suitabilityFix: string | null;
+  /** Set when the reply looks cut off (output cap or context overflow). */
+  truncation: TruncationSignal | null;
+  contextLimit: number | null;
+  ranAt: string;
 }
+
+const RunAiTestInput = z.object({
+  workflow: z.enum(["smoke", "weekly_report", "manual"]).default("smoke"),
+});
 
 export const runAiTest = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }): Promise<AiTestResult> => {
+  .inputValidator((d: unknown) => RunAiTestInput.parse(d ?? {}))
+  .handler(async ({ context, data }): Promise<AiTestResult> => {
     await requireAdmin(context.supabase as never, context.userId);
+
+    const { getWorkflow, gradeWorkflow, workflowPromptChars } = await import(
+      "./ai-workflow-tests"
+    );
+    const def = getWorkflow(data.workflow);
 
     const { getServerEnv } = await import("./server-env.server");
     const customBase = process.env.CUSTOM_AI_BASE_URL;
@@ -433,6 +469,51 @@ export const runAiTest = createServerFn({ method: "POST" })
       model = modelOverride ?? "llama3.2:3b";
     }
 
+    // Static verdict for THIS workflow only, from the model's real capabilities.
+    let suitability: SuitabilityLevel | null = null;
+    let suitabilityReasons: string[] = [];
+    let suitabilityFix: string | null = null;
+    let contextLimit: number | null = null;
+    try {
+      const { getActiveContextLimit } = await import("./ai-context-limit.server");
+      const limit = await getActiveContextLimit(model);
+      contextLimit = limit.contextLength;
+      if (def.requirementKey) {
+        const { TASK_REQUIREMENTS, evaluateTask } = await import("./ai-model-suitability");
+        const req = TASK_REQUIREMENTS.find((t) => t.key === def.requirementKey);
+        if (req) {
+          const verdict = evaluateTask(
+            {
+              id: model,
+              contextLength: limit.contextLength,
+              trainedContextLength: limit.trainedContextLength,
+              contextSource: limit.source === "ollama" ? "num_ctx" : null,
+            },
+            req,
+          );
+          suitability = verdict.level;
+          suitabilityReasons = verdict.reasons;
+          suitabilityFix = verdict.fix;
+        }
+      }
+    } catch (e) {
+      console.error("[ai-test] capability lookup failed", e);
+    }
+
+    const ranAt = new Date().toISOString();
+    const base = {
+      workflow: def.key,
+      workflowLabel: def.label,
+      provider,
+      baseUrl,
+      model,
+      suitability,
+      suitabilityReasons,
+      suitabilityFix,
+      contextLimit,
+      ranAt,
+    };
+
     const url = `${baseUrl.replace(/\/$/, "")}/chat/completions`;
     const started = Date.now();
     let httpStatus = 0;
@@ -447,55 +528,82 @@ export const runAiTest = createServerFn({ method: "POST" })
         body: JSON.stringify({
           model,
           messages: [
-            { role: "system", content: "Reply with a single short sentence." },
-            { role: "user", content: "Say 'AI test OK' and nothing else." },
+            { role: "system", content: def.system },
+            { role: "user", content: def.user },
           ],
-          max_tokens: 32,
+          max_tokens: def.maxTokens,
           temperature: 0,
           stream: false,
         }),
-        signal: AbortSignal.timeout(30_000),
+        // Long-form manual generation on a local model can take minutes.
+        signal: AbortSignal.timeout(def.key === "smoke" ? 30_000 : 8 * 60_000),
       });
       httpStatus = res.status;
       const latencyMs = Date.now() - started;
       if (!res.ok) {
         const text = await res.text().catch(() => "");
         return {
+          ...base,
           ok: false,
-          provider,
-          baseUrl,
-          model,
           latencyMs,
           httpStatus,
           reply: null,
           error: text.slice(0, 500) || `HTTP ${res.status}`,
+          checks: [],
+          passed: false,
+          truncation: null,
         };
       }
       const body = (await res.json()) as {
-        choices?: { message?: { content?: string } }[];
+        choices?: { message?: { content?: string }; finish_reason?: string }[];
+        usage?: {
+          prompt_tokens?: number;
+          completion_tokens?: number;
+          total_tokens?: number;
+        };
       };
       const reply = body.choices?.[0]?.message?.content?.trim() ?? "";
-      return {
-        ok: true,
-        provider,
-        baseUrl,
+      const { checks, passed } = gradeWorkflow(def.key, reply);
+
+      const { truncationOrNull } = await import("./ai-truncation");
+      const truncation = truncationOrNull({
+        finishReason: body.choices?.[0]?.finish_reason ?? null,
+        usage: {
+          promptTokens: body.usage?.prompt_tokens ?? null,
+          completionTokens: body.usage?.completion_tokens ?? null,
+          totalTokens: body.usage?.total_tokens ?? null,
+        },
+        promptChars: workflowPromptChars(def),
+        outputText: reply,
+        contextLimit,
         model,
+      });
+
+      return {
+        ...base,
+        ok: true,
         latencyMs,
         httpStatus,
-        reply: reply.slice(0, 500),
+        // Manuals are long; keep enough to eyeball the shape.
+        reply: reply.slice(0, 4000),
         error: null,
+        checks,
+        passed,
+        truncation,
       };
     } catch (e) {
       return {
+        ...base,
         ok: false,
-        provider,
-        baseUrl,
-        model,
         latencyMs: Date.now() - started,
         httpStatus,
         reply: null,
         error: (e as Error).message,
+        checks: [],
+        passed: false,
+        truncation: null,
       };
     }
   });
+
 

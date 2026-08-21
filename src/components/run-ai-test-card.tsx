@@ -20,7 +20,7 @@ export function RunAiTestCard({
   const [open, setOpen] = useState(false);
 
   const run = useMutation({
-    mutationFn: () => testFn(),
+    mutationFn: () => testFn({ data: { workflow: "smoke" as const } }),
     onSuccess: (r: AiTestResult) => {
       setResult(r);
       if (r.ok) toast.success(`AI responded in ${r.latencyMs} ms`);
