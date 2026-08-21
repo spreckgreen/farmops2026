@@ -17,11 +17,22 @@ export type SuitabilityLevel = "good" | "marginal" | "unsuitable" | "unknown";
 export interface ModelCapability {
   /** Model id, e.g. "llama3.2:3b". */
   id: string;
-  /** Trained context length in tokens, when the provider reports it. */
+  /**
+   * Effective context a request actually gets, in tokens. For Ollama this is
+   * the baked-in num_ctx, or the runtime default (4096) when the model has
+   * none — NOT the trained window.
+   */
   contextLength?: number | null;
+  /** Trained context of the weights, e.g. 131072 for llama3.2. */
+  trainedContextLength?: number | null;
+  /** Baked-in num_ctx, when the Modelfile pins one. */
+  numCtx?: number | null;
+  /** Provenance of contextLength, used to explain the verdict. */
+  contextSource?: "num_ctx" | "runtime-default" | "trained" | null;
   /** Parameter count in billions, when known or inferable from the id/tag. */
   paramsB?: number | null;
 }
+
 
 export interface TaskRequirement {
   key: "reports" | "manuals";
