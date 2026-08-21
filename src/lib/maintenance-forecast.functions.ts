@@ -182,19 +182,30 @@ export const getMaintenanceForecastNarrative = createServerFn({ method: "POST" }
     const modelId = modelOverride ?? "google/gemini-3.6-flash";
 
     const { generateText } = await import("ai");
-    const result = await generateText({
-      model: provider(modelId),
-      system:
-        "You are a maintenance planner for a small farm. Read the provided " +
-        "computed forecast and produce a short, prioritized action briefing. " +
-        "Rules: (1) Only reference services in the forecast — do not invent new ones. " +
-        "(2) Call out anything OVERDUE first. (3) Group by asset. (4) Keep it under " +
-        "200 words. (5) End with one 'parts to stage' line if any asset needs it. " +
-        "Use plain prose with short bullets — no markdown headings.",
-      prompt: `Computed forecast:\n\n${summary}\n\nWrite the briefing.`,
+    const system =
+      "You are a maintenance planner for a small farm. Read the provided " +
+      "computed forecast and produce a short, prioritized action briefing. " +
+      "Rules: (1) Only reference services in the forecast — do not invent new ones. " +
+      "(2) Call out anything OVERDUE first. (3) Group by asset. (4) Keep it under " +
+      "200 words. (5) End with one 'parts to stage' line if any asset needs it. " +
+      "Use plain prose with short bullets — no markdown headings.";
+    const prompt = `Computed forecast:\n\n${summary}\n\nWrite the briefing.`;
+    const result = await generateText({ model: provider(modelId), system, prompt });
+
+    const { getActiveContextLimit } = await import("./ai-context-limit.server");
+    const { truncationOrNull } = await import("./ai-truncation");
+    const { contextLength } = await getActiveContextLimit(modelId);
+    const truncation = truncationOrNull({
+      finishReason: result.finishReason,
+      usage: result.usage,
+      promptChars: system.length + prompt.length,
+      outputText: result.text,
+      contextLimit: contextLength,
+      model: modelId,
     });
 
-    return { narrative: result.text.trim(), model: modelId };
+    return { narrative: result.text.trim(), model: modelId, truncation };
+
       },
     );
   });
