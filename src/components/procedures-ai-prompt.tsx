@@ -81,7 +81,9 @@ export function ProceduresAiPrompt() {
 
         {result && (
           <div className="rounded-md border bg-muted/30 p-3 space-y-2">
+            <AiTruncationWarning signal={result.truncation} />
             <div className="whitespace-pre-wrap text-sm">{result.answer}</div>
+
             <div className="flex flex-wrap items-center gap-2 pt-2 border-t text-xs text-muted-foreground">
               <Badge variant="secondary" className="font-mono">{result.model}</Badge>
               <span>{result.latencyMs} ms</span>
