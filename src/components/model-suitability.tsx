@@ -88,9 +88,21 @@ export function ModelSuitabilityPanel({
 
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
         <span className="font-mono text-foreground">{model.id}</span>
-        <span>Context: {fmtTokens(model.contextLength)}</span>
-        <span>Parameters: {params != null ? `${params}B` : "unknown"}</span>
+        <span>
+          Context: {fmtTokens(model.contextLength)}
+          {model.contextSource === "num_ctx" && " (num_ctx)"}
+          {model.contextSource === "runtime-default" && " (runtime default)"}
+        </span>
+        {model.trainedContextLength != null &&
+          model.trainedContextLength !== model.contextLength && (
+            <span>Trained window: {fmtTokens(model.trainedContextLength)}</span>
+          )}
+        <span>
+          Parameters: {params != null ? `${params}B` : "unknown"}
+          {model.paramsB == null && params != null && " (from tag)"}
+        </span>
       </div>
+
 
       <div className="space-y-2">
         {verdicts.map((v) => (
