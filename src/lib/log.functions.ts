@@ -640,7 +640,7 @@ export const commitDailyNote = createServerFn({ method: "POST" })
     // slug -> task maps below must never be able to pick up another owner's row.
     const { data: existingTasks } = await supabase
       .from("tasks")
-      .select("id, slug, title, status, project_tags, start_at, percent_complete, created_at")
+      .select("id, slug, title, status, closed_at, project_tags, start_at, percent_complete, created_at")
       .eq("user_id", userId);
 
     const tasksBySlug = new Map((existingTasks ?? []).map((t) => [t.slug, t]));
@@ -718,7 +718,7 @@ export const commitDailyNote = createServerFn({ method: "POST" })
           start_at: p.startAt,
           percent_complete: p.newTask.done ? 100 : (p.percent ?? 0),
         })
-        .select("id, slug, title, status, project_tags, start_at, percent_complete, created_at")
+        .select("id, slug, title, status, closed_at, project_tags, start_at, percent_complete, created_at")
         .single();
       if (created) {
         tasksBySlug.set(created.slug, created);
