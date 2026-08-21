@@ -358,9 +358,20 @@ export const getDailyNote = createServerFn({ method: "POST" })
       try {
         const { fetchAndCacheForecast, formatWeatherMarkdown } = await import("@/lib/weather.functions");
         const current = note!.markdown_content ?? "";
-        // Heading line plus the following non-blank lines form the block.
-        const blockRe = /^##[ \t]+Weather\b.*(?:\r?\n(?![ \t]*(?:\r?\n|#)).*)*\r?\n?/m;
-        const block = current.match(blockRe)?.[0] ?? "";
+        // The weather block is exactly the heading line plus (optionally) the
+        // single summary line right after it. It must NEVER swallow following
+        // note lines like "- [ ] #task/foo" — that wiped real entries before.
+        const blockRe =
+          /^##[ \t]+Weather\b.*(?:\r?\n(?:[^\r\n#-][^\r\n]*)?(?=\r?\n|$))?\r?\n?/m;
+        const rawBlock = current.match(blockRe)?.[0] ?? "";
+        // Only treat the second line as part of the block when it looks like
+        // the weather summary (contains "High "/"Low "/"·").
+        const blockLines = rawBlock.replace(/\r?\n$/, "").split(/\r?\n/);
+        const block =
+          blockLines.length > 1 && !/High |Low |·/.test(blockLines[1] ?? "")
+            ? `${blockLines[0]}\n`
+            : rawBlock;
+
         // e.g. "Sunny · High 92 / Low 68 · Feels like 96°F / 70°F · 71% humidity"
         const missingExtras =
           !block || !/\bFeels like\b/i.test(block) || !/%\s*humidity\b/i.test(block);
