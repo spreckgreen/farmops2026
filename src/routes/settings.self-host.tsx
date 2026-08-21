@@ -22,6 +22,10 @@ import {
   setAiModel,
   pullAiModel,
 } from "@/lib/ai-models.functions";
+import {
+  ModelSuitabilityBadge,
+  ModelSuitabilityPanel,
+} from "@/components/model-suitability";
 import { RunAiTestCard } from "@/components/run-ai-test-card";
 import {
   AlertTriangle,
