@@ -275,7 +275,7 @@ function SuitabilityActions({
           ) : (
             <Zap className="h-3.5 w-3.5 mr-1" />
           )}
-          Rerun AI test
+          Rerun workflow tests
         </Button>
       </div>
 
@@ -287,21 +287,28 @@ function SuitabilityActions({
         </p>
       )}
 
-      {test && (
-        <div className="flex items-start gap-2 text-xs">
-          {test.ok ? (
+      {tests.map((test) => (
+        <div key={test.workflow} className="flex items-start gap-2 text-xs">
+          {test.ok && test.passed ? (
             <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
           ) : (
-            <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />
+            <AlertTriangle
+              className={`h-4 w-4 shrink-0 ${test.ok ? "text-amber-600" : "text-destructive"}`}
+            />
           )}
           <span className="font-mono break-all">
-            {test.provider} · {test.model} · {test.latencyMs}ms
+            {test.workflowLabel} · {test.model} · {test.latencyMs}ms
             {test.ok
-              ? ` · ${test.reply ?? ""}`
+              ? ` · ${test.checks.filter((c) => c.ok).length}/${test.checks.length} checks${
+                  test.passed
+                    ? ""
+                    ` — ${test.checks.filter((c) => !c.ok).map((c) => c.label).join(", ")}`
+                }`
               : ` · ${test.error ?? `HTTP ${test.httpStatus}`}`}
           </span>
         </div>
-      )}
+      ))}
+
 
       {!targetCtx && !largerModel && (
         <p className="text-[11px] text-muted-foreground">
