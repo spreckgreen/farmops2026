@@ -978,22 +978,22 @@ export const listTasks = createServerFn({ method: "POST" })
     const { data: tasks, error } = await supabase
       .from("tasks")
       .select("*")
+      .eq("user_id", userId)
       .or(conditions.join(","))
       .order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
 
-    // Done tasks should only appear if they actually transitioned to done
-    // today — i.e. closed_at falls within today AND the task is referenced
-    // by an activity_log entry on today's daily note. This prevents stale
-    // done items (carried over by recurrence resets, log refreshes that
-    // re-stamp closed_at, etc.) from cluttering the Done section.
+    // The activity log is authoritative for "touched on this day": every task
+    // in the result is the canonical row the note's `#task/<slug>` resolved to
+    // (commitDailyNote never creates a second row for a referenced slug).
+    //
+    // A done task shows when the day's log references it — even if closed_at
+    // drifted (evening commit lands in tomorrow's UTC day) — or when closed_at
+    // itself falls inside the day. Stale done rows with neither are excluded.
     const todaySet = new Set(todayTaskIds);
-    const filtered = (tasks ?? []).filter((t) => {
-      if (t.status !== "done") return true;
-      if (!t.closed_at) return false;
-      if (t.closed_at < dayStart || t.closed_at > dayEnd) return false;
-      return todaySet.has(t.id);
-    });
+    const filtered = (tasks ?? []).filter((t) =>
+      isTaskInDayView(t as { id: string; status: string; closed_at: string | null }, date, todaySet),
+    );
     return filtered;
   });
 
@@ -1001,12 +1001,16 @@ export const getTaskBySlug = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ slug: z.string() }).parse(d))
   .handler(async ({ data, context }) => {
-    const { supabase } = context;
+    const { supabase, userId } = context;
+    // Slugs are unique per user: scope the canonical lookup explicitly so the
+    // task detail page always resolves the same row the board links to.
     const { data: task } = await supabase
       .from("tasks")
       .select("*")
+      .eq("user_id", userId)
       .eq("slug", data.slug)
       .maybeSingle();
+
     if (!task) return null;
     const { data: entries } = await supabase
       .from("activity_log")
