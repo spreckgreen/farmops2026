@@ -174,13 +174,26 @@ export const getAiModelPickerState = createServerFn({ method: "GET" })
         // a large local library can't stall the settings page.
         const root = nativeRoot(baseUrl);
         const models: AiModelInfo[] = await Promise.all(
-          base.map(async (m, i) =>
-            i < 16 ? { ...m, ...(await fetchOllamaCapability(root, m.id)) } : m,
-          ),
+          base.map(async (m, i) => {
+            if (i >= 16) return m;
+            const cap = await fetchOllamaCapability(root, m.id);
+            return {
+              ...m,
+              detail: m.detail ?? cap.quantization,
+              contextLength: cap.contextLength,
+              trainedContextLength: cap.trainedContextLength,
+              numCtx: cap.numCtx,
+              numPredict: cap.numPredict,
+              contextSource: cap.contextSource,
+              paramsB: cap.paramsB,
+              paramsSource: cap.paramsSource,
+              capabilities: cap.capabilities,
+            } satisfies AiModelInfo;
+          }),
         );
         return { ...common, baseUrl, isOllama: true, models, error: null };
-
       }
+
     } catch {
       /* fall through to OpenAI-style */
     }
