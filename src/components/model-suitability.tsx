@@ -310,6 +310,45 @@ function SuitabilityActions({
         </Button>
       </div>
 
+      {point?.available && point.point && (
+        <div className="rounded-md border border-amber-300/60 bg-amber-50/50 dark:bg-amber-950/20 p-2 space-y-1.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7"
+              disabled={busy}
+              onClick={() => undo.mutate()}
+              title={`Restores ${point.point.previousModel} as the active model`}
+            >
+              {undo.isPending ? (
+                <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+              ) : (
+                <Undo2 className="h-3.5 w-3.5 mr-1" />
+              )}
+              Roll back to {point.point.previousModel}
+            </Button>
+            {point.deletableTag && (
+              <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                <input
+                  type="checkbox"
+                  className="h-3 w-3 accent-current"
+                  checked={deleteTag}
+                  disabled={busy}
+                  onChange={(e) => setDeleteTag(e.target.checked)}
+                />
+                Also delete <span className="font-mono">{point.deletableTag}</span> from Ollama
+              </label>
+            )}
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            {point.label} · changed{" "}
+            {new Date(point.point.changedAt).toLocaleString()}
+          </p>
+        </div>
+      )}
+
+
       {(applyCtx.isPending || switchModel.isPending) && (
         <p className="text-[11px] text-muted-foreground">
           {applyCtx.isPending
