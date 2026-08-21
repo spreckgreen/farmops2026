@@ -4,6 +4,8 @@ import { z } from "zod";
 import { slugify, taskRenamePatch, patchMutatesSlug } from "./slug";
 import { appendTaskRefLine } from "./daily-note-append";
 import { DEFAULT_DESIGN_ELEMENT_WEIGHT } from "./design-weight";
+import { closedStampFor, isTaskInDayView } from "./task-status-window";
+
 
 type ActivityLogEntry = { id?: string; raw_content: string; created_at: string };
 
@@ -451,6 +453,9 @@ type ParsedLine = {
   newTask?: { title: string; done: boolean };
   /** Checkbox state when the line was a `- [ ] ` / `- [x] ` item. */
   done: boolean;
+  /** True only for `- [ ]` / `- [x]` lines — those own the task's done state. */
+  checkbox?: boolean;
+
   entryType: "status" | "blocker" | "decision" | "commit" | "meeting" | "note";
   projectTags: string[];
   startAt: string | null;
@@ -524,6 +529,8 @@ function parseMarkdown(md: string): ParsedLine[] {
           ? { taskRef: { kind: "slug" as const, value: refMatch[1].toLowerCase() } }
           : { newTask: { title: meta.stripped, done } }),
         done,
+        checkbox: true,
+
         entryType: "status",
         projectTags: meta.tags,
         startAt: meta.startAt,
@@ -624,9 +631,18 @@ export const commitDailyNote = createServerFn({ method: "POST" })
 
     const parsed = parseMarkdown(data.markdown);
 
+    // Timestamp used for every checkbox closed by this commit. Clamped to the
+    // note's own day so an evening commit (which is "tomorrow" in UTC) can't
+    // stamp closed_at outside the day the Done column windows on.
+    const closedStamp = closedStampFor(data.date);
+
+    // Scope to this user explicitly: slugs are unique per user, so the
+    // slug -> task maps below must never be able to pick up another owner's row.
     const { data: existingTasks } = await supabase
       .from("tasks")
-      .select("id, slug, title, status, project_tags, start_at, percent_complete, created_at");
+      .select("id, slug, title, status, closed_at, project_tags, start_at, percent_complete, created_at")
+      .eq("user_id", userId);
+
     const tasksBySlug = new Map((existingTasks ?? []).map((t) => [t.slug, t]));
     const tasksByTitle = new Map(
       (existingTasks ?? []).map((t) => [t.title.toLowerCase(), t]),
@@ -697,12 +713,12 @@ export const commitDailyNote = createServerFn({ method: "POST" })
           slug,
           title: p.newTask.title,
           status: p.newTask.done ? "done" : "open",
-          closed_at: p.newTask.done ? new Date().toISOString() : null,
+          closed_at: p.newTask.done ? closedStamp : null,
           project_tags: p.projectTags,
           start_at: p.startAt,
           percent_complete: p.newTask.done ? 100 : (p.percent ?? 0),
         })
-        .select("id, slug, title, status, project_tags, start_at, percent_complete, created_at")
+        .select("id, slug, title, status, closed_at, project_tags, start_at, percent_complete, created_at")
         .single();
       if (created) {
         tasksBySlug.set(created.slug, created);
@@ -723,18 +739,28 @@ export const commitDailyNote = createServerFn({ method: "POST" })
       const existing = resolveTask(p);
       if (!existing) continue;
       const upd: {
-        status?: "done";
-        closed_at?: string;
+        status?: "done" | "open";
+        closed_at?: string | null;
         project_tags?: string[];
         start_at?: string;
         percent_complete?: number;
       } = {};
+      // The checkbox owns the task's done state in BOTH directions, so the
+      // Open/Done columns can never drift from what the note actually says.
       // Applies to both "- [x] New thing" and "- [x] Thing #task/<slug>".
-      if (p.done && existing.status !== "done") {
-
+      if (p.checkbox && p.done && existing.status !== "done") {
         upd.status = "done";
-        upd.closed_at = new Date().toISOString();
+        upd.closed_at = closedStamp;
         upd.percent_complete = 100;
+      } else if (p.checkbox && !p.done && existing.status === "done") {
+        // Re-opened by unchecking the box: clear closed_at too, otherwise the
+        // task would linger in "done today" windows while showing as open.
+        upd.status = "open";
+        upd.closed_at = null;
+        if (p.percent === null) upd.percent_complete = 0;
+      } else if (p.done && existing.status === "done" && !existing.closed_at) {
+        // Repair drift: done rows must always carry a closed_at.
+        upd.closed_at = closedStamp;
       }
       if (p.projectTags.length > 0) {
         const merged = Array.from(
@@ -751,8 +777,13 @@ export const commitDailyNote = createServerFn({ method: "POST" })
         upd.percent_complete = p.percent;
       }
       if (Object.keys(upd).length > 0) {
-        await supabase.from("tasks").update(upd).eq("id", existing.id);
+        await supabase
+          .from("tasks")
+          .update(upd as never)
+          .eq("id", existing.id)
+          .eq("user_id", userId);
       }
+
     }
 
     // ---- Auto-link #project/<slug> tags to real project design elements ----
@@ -947,22 +978,22 @@ export const listTasks = createServerFn({ method: "POST" })
     const { data: tasks, error } = await supabase
       .from("tasks")
       .select("*")
+      .eq("user_id", userId)
       .or(conditions.join(","))
       .order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
 
-    // Done tasks should only appear if they actually transitioned to done
-    // today — i.e. closed_at falls within today AND the task is referenced
-    // by an activity_log entry on today's daily note. This prevents stale
-    // done items (carried over by recurrence resets, log refreshes that
-    // re-stamp closed_at, etc.) from cluttering the Done section.
+    // The activity log is authoritative for "touched on this day": every task
+    // in the result is the canonical row the note's `#task/<slug>` resolved to
+    // (commitDailyNote never creates a second row for a referenced slug).
+    //
+    // A done task shows when the day's log references it — even if closed_at
+    // drifted (evening commit lands in tomorrow's UTC day) — or when closed_at
+    // itself falls inside the day. Stale done rows with neither are excluded.
     const todaySet = new Set(todayTaskIds);
-    const filtered = (tasks ?? []).filter((t) => {
-      if (t.status !== "done") return true;
-      if (!t.closed_at) return false;
-      if (t.closed_at < dayStart || t.closed_at > dayEnd) return false;
-      return todaySet.has(t.id);
-    });
+    const filtered = (tasks ?? []).filter((t) =>
+      isTaskInDayView(t as { id: string; status: string; closed_at: string | null }, date, todaySet),
+    );
     return filtered;
   });
 
@@ -970,12 +1001,16 @@ export const getTaskBySlug = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ slug: z.string() }).parse(d))
   .handler(async ({ data, context }) => {
-    const { supabase } = context;
+    const { supabase, userId } = context;
+    // Slugs are unique per user: scope the canonical lookup explicitly so the
+    // task detail page always resolves the same row the board links to.
     const { data: task } = await supabase
       .from("tasks")
       .select("*")
+      .eq("user_id", userId)
       .eq("slug", data.slug)
       .maybeSingle();
+
     if (!task) return null;
     const { data: entries } = await supabase
       .from("activity_log")
