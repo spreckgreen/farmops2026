@@ -729,7 +729,9 @@ export const commitDailyNote = createServerFn({ method: "POST" })
         start_at?: string;
         percent_complete?: number;
       } = {};
-      if (p.newTask?.done && existing.status !== "done") {
+      // Applies to both "- [x] New thing" and "- [x] Thing #task/<slug>".
+      if (p.done && existing.status !== "done") {
+
         upd.status = "done";
         upd.closed_at = new Date().toISOString();
         upd.percent_complete = 100;
