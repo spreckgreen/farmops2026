@@ -171,7 +171,10 @@ export interface ProceduresAiAnswer {
   model: string;
   sources: string[];
   latencyMs: number;
+  /** Present when the reply looks cut off or the context window was strained. */
+  truncation: import("./ai-truncation").TruncationSignal | null;
 }
+
 
 export const askProceduresAi = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
