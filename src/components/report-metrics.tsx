@@ -94,7 +94,8 @@ export function ReportMetricsPanel({ mode }: { mode: MetricsMode }) {
 
   const data = q.data;
   const projectOptions = data?.available_projects ?? [];
-  const plotted = PLOTTED.includes(mode);
+  // A multi-day custom range gets the trend chart even on the Daily tab.
+  const plotted = PLOTTED.includes(mode) || (customActive && startDate !== endDate);
   const chartData = useMemo(
     () =>
       (data?.ratings ?? []).map((r) => ({
