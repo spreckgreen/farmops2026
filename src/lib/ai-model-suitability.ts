@@ -181,3 +181,40 @@ export const LEVEL_LABEL: Record<SuitabilityLevel, string> = {
   unsuitable: "Unsuitable",
   unknown: "Unverified",
 };
+
+// ---------------------------------------------------------------------------
+// One-click remediation helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Context window (in tokens) worth applying for this model: the largest
+ * "good" target across the tasks it currently can't satisfy. Returns null
+ * when the reported context already covers every task.
+ * e.g. { id: "llama3.2:3b", contextLength: 2048 } -> 32768
+ */
+export function recommendedContext(model: ModelCapability): number | null {
+  const ctx = model.contextLength ?? 0;
+  const target = TASK_REQUIREMENTS.filter((t) => ctx < t.goodContext).reduce(
+    (max, t) => Math.max(max, t.goodContext),
+    0,
+  );
+  return target > ctx ? target : null;
+}
+
+/** Ollama tag for a derived copy carrying a bigger num_ctx. */
+export function derivedContextModelId(baseId: string, numCtx: number): string {
+  const stem = baseId.replace(/:latest$/, "").replace(/[:/]/g, "-");
+  return `${stem}-ctx${Math.round(numCtx / 1024)}k`;
+}
+
+/**
+ * A larger model to suggest when parameter count (not context) is the
+ * blocker. Null when the current model is already big enough.
+ */
+export function suggestedLargerModel(model: ModelCapability): string | null {
+  const params = model.paramsB ?? inferParamsB(model.id);
+  if (params != null && params >= 12) return null;
+  if (params != null && params >= 7) return "qwen2.5:14b";
+  return "qwen2.5:7b";
+}
+
