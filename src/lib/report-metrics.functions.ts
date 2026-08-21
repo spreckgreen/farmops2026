@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import {
   boundsAsStrings,
+  customBounds,
   buildProjectCounts,
   buildRatingSeries,
   metricsBounds,
@@ -11,6 +12,8 @@ import {
   type MetricsMode,
   type ReportMetrics,
 } from "./report-metrics";
+
+const DAY = /^\d{4}-\d{2}-\d{2}$/;
 
 const Input = z.object({
   mode: z.enum([
@@ -21,6 +24,12 @@ const Input = z.object({
     "yearly_rollup",
     "project_rollup",
   ]),
+  // Optional custom window (inclusive days, e.g. 2026-08-01 … 2026-08-20).
+  // When present it overrides the mode's default period.
+  startDate: z.string().regex(DAY).optional(),
+  endDate: z.string().regex(DAY).optional(),
+  // Optional project tag filter, e.g. "boiler" for #project/boiler.
+  project: z.string().min(1).optional(),
 });
 
 export const getReportMetrics = createServerFn({ method: "GET" })
@@ -28,9 +37,14 @@ export const getReportMetrics = createServerFn({ method: "GET" })
   .inputValidator((d: unknown) => Input.parse(d))
   .handler(async ({ data, context }): Promise<ReportMetrics> => {
     const mode = data.mode as MetricsMode;
-    const bounds = metricsBounds(mode, new Date());
+    const custom =
+      data.startDate && data.endDate
+        ? customBounds(data.startDate, data.endDate)
+        : undefined;
+    const bounds = custom ?? metricsBounds(mode, new Date());
     const { startDay, endDay, startIso, endIso } = boundsAsStrings(bounds);
     const sb = context.supabase;
+
 
     let notesQ = sb
       .from("daily_notes")
@@ -50,7 +64,11 @@ export const getReportMetrics = createServerFn({ method: "GET" })
     if (tasks.error) throw new Error(tasks.error.message);
 
     const ratings = buildRatingSeries(notes.data ?? []);
-    const projects = buildProjectCounts(tasks.data ?? [], { startIso, endIso });
+    const allProjects = buildProjectCounts(tasks.data ?? [], { startIso, endIso });
+    const projects = data.project
+      ? allProjects.filter((p) => p.project === data.project)
+      : allProjects;
+
 
     return {
       mode,
@@ -58,6 +76,7 @@ export const getReportMetrics = createServerFn({ method: "GET" })
       period_end: endIso,
       ratings,
       projects,
+      available_projects: allProjects.map((p) => p.project),
       totals: totalsFromProjects(projects),
       averages: ratingAverages(ratings),
     };

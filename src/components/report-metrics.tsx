@@ -2,7 +2,7 @@
 // (dots for a single day, plotted lines for week/month/quarter/year) plus a
 // task-count-by-project table for the same period.
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
@@ -14,7 +14,20 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { Battery, Gauge } from "lucide-react";
+import { Battery, CalendarIcon, Gauge, RotateCcw } from "lucide-react";
+import { format } from "date-fns";
+import type { DateRange } from "react-day-picker";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 import { getReportMetrics } from "@/lib/report-metrics.functions";
 import { RATING_LABELS, ratingSwatchClass } from "@/components/daily-rating";
 import type { MetricsMode } from "@/lib/report-metrics";
@@ -53,15 +66,36 @@ function RatingBadge({
   );
 }
 
+const ALL_PROJECTS = "__all__";
+const toDay = (d: Date) => format(d, "yyyy-MM-dd");
+
 export function ReportMetricsPanel({ mode }: { mode: MetricsMode }) {
   const fn = useServerFn(getReportMetrics);
+
+  // Custom period: applies only once both ends are picked, otherwise the
+  // report mode's own window (today / this week / this month …) is used.
+  const [range, setRange] = useState<DateRange | undefined>();
+  const [project, setProject] = useState<string>(ALL_PROJECTS);
+  const startDate = range?.from ? toDay(range.from) : undefined;
+  const endDate = range?.to ? toDay(range.to) : undefined;
+  const customActive = Boolean(startDate && endDate);
+
   const q = useQuery({
-    queryKey: ["report-metrics", mode],
-    queryFn: () => fn({ data: { mode } }),
+    queryKey: ["report-metrics", mode, startDate ?? null, endDate ?? null, project],
+    queryFn: () =>
+      fn({
+        data: {
+          mode,
+          ...(customActive ? { startDate, endDate } : {}),
+          ...(project !== ALL_PROJECTS ? { project } : {}),
+        },
+      }),
   });
 
   const data = q.data;
-  const plotted = PLOTTED.includes(mode);
+  const projectOptions = data?.available_projects ?? [];
+  // A multi-day custom range gets the trend chart even on the Daily tab.
+  const plotted = PLOTTED.includes(mode) || (customActive && startDate !== endDate);
   const chartData = useMemo(
     () =>
       (data?.ratings ?? []).map((r) => ({
@@ -72,10 +106,79 @@ export function ReportMetricsPanel({ mode }: { mode: MetricsMode }) {
     [data?.ratings],
   );
 
+  const controls = (
+    <div className="flex flex-wrap items-center gap-2">
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            size="sm"
+            className={cn("justify-start font-mono text-xs", !customActive && "text-muted-foreground")}
+          >
+            <CalendarIcon className="h-3.5 w-3.5 mr-1.5" />
+            {range?.from
+              ? `${format(range.from, "MMM d, yyyy")} – ${
+                  range.to ? format(range.to, "MMM d, yyyy") : "…"
+                }`
+              : "Custom period"}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-auto p-0" align="start">
+          <Calendar
+            mode="range"
+            numberOfMonths={2}
+            selected={range}
+            onSelect={setRange}
+            initialFocus
+            className={cn("p-3 pointer-events-auto")}
+          />
+        </PopoverContent>
+      </Popover>
+
+      <Select value={project} onValueChange={setProject}>
+        <SelectTrigger className="h-8 w-[190px] font-mono text-xs">
+          <SelectValue placeholder="All projects" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={ALL_PROJECTS}>All projects</SelectItem>
+          {projectOptions.map((p) => (
+            <SelectItem key={p} value={p}>
+              {p === "Unassigned" ? "Unassigned" : `#project/${p}`}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      {(customActive || range?.from || project !== ALL_PROJECTS) && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-xs"
+          onClick={() => {
+            setRange(undefined);
+            setProject(ALL_PROJECTS);
+          }}
+        >
+          <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
+          Reset
+        </Button>
+      )}
+
+      <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+        {customActive
+          ? `${startDate} → ${endDate}`
+          : range?.from
+            ? "pick an end date"
+            : "default period"}
+      </span>
+    </div>
+  );
+
   if (q.isLoading) {
     return (
-      <div className="mb-4 rounded-lg border border-border bg-card p-4 text-xs text-muted-foreground font-mono">
-        Loading indicators…
+      <div className="mb-4 rounded-lg border border-border bg-card p-4 space-y-3">
+        {controls}
+        <p className="text-xs text-muted-foreground font-mono">Loading indicators…</p>
       </div>
     );
   }
@@ -83,10 +186,15 @@ export function ReportMetricsPanel({ mode }: { mode: MetricsMode }) {
 
   const hasRatings = data.ratings.length > 0;
   const hasProjects = data.projects.length > 0;
-  if (!hasRatings && !hasProjects) return null;
 
   return (
     <div className="mb-4 rounded-lg border border-border bg-card p-4 space-y-5">
+      {controls}
+      {!hasRatings && !hasProjects && (
+        <p className="text-xs text-muted-foreground">
+          No ratings or task activity in this period.
+        </p>
+      )}
       <section>
         <h2 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2">
           Energy &amp; productivity
