@@ -31,7 +31,10 @@ export const Route = createFileRoute("/api/public/hooks/task-health")({
         // Cron sends the project anon key; self-hosted stacks expose the same
         // value as SUPABASE_PUBLISHABLE_KEY, so accept either.
         const anon =
-          process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_PUBLISHABLE_KEY || "";
+          process.env.SUPABASE_ANON_KEY ||
+          process.env.SUPABASE_PUBLISHABLE_KEY ||
+          import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
+          "";
         const provided =
           request.headers.get("apikey") ??
           (request.headers.get("authorization") ?? "").replace(/^Bearer /, "");
