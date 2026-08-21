@@ -344,9 +344,19 @@ export const applyRecommendedContext = createServerFn({ method: "POST" })
           "Hosted providers manage the context window themselves.",
       );
     }
+    const previous = await tuning.currentActiveModel();
     const derived = await tuning.createDerivedContextModel(data.baseModel, data.numCtx);
     await tuning.persistActiveModel(derived, context.userId);
-    return { ok: true as const, model: derived, numCtx: data.numCtx };
+    await tuning.recordRollbackPoint(
+      {
+        previousModel: previous,
+        appliedModel: derived,
+        kind: "derived_context",
+        createdTag: derived,
+      },
+      context.userId,
+    );
+    return { ok: true as const, model: derived, numCtx: data.numCtx, previousModel: previous };
   });
 
 const SwitchModelInput = z.object({
@@ -359,6 +369,7 @@ export const switchToSuggestedModel = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     await requireAdmin(context.supabase as never, context.userId);
     const tuning = await import("./ai-model-tuning.server");
+    const previous = await tuning.currentActiveModel();
 
     let pulled = false;
     if (tuning.isOllamaEndpoint() && !(await tuning.ollamaHasModel(data.model))) {
@@ -378,8 +389,86 @@ export const switchToSuggestedModel = createServerFn({ method: "POST" })
     }
 
     await tuning.persistActiveModel(data.model, context.userId);
-    return { ok: true as const, model: data.model, pulled };
+    await tuning.recordRollbackPoint(
+      {
+        previousModel: previous,
+        appliedModel: data.model,
+        kind: "switch_model",
+        // Only offer to delete a tag this action downloaded.
+        createdTag: pulled ? data.model : null,
+      },
+      context.userId,
+    );
+    return { ok: true as const, model: data.model, pulled, previousModel: previous };
   });
+
+// -----------------------------------------------------------------------------
+// One-click rollback: restore the model that was active before the last change
+// (derived num_ctx model, suggested-model switch, or manual pick), and
+// optionally delete the tag that change created in Ollama.
+// -----------------------------------------------------------------------------
+export interface AiModelRollbackState {
+  point: ModelRollbackPoint | null;
+  currentModel: string | null;
+  /** True when there is a distinct previous model to restore. */
+  available: boolean;
+  /** Derived/pulled tag that rollback can delete, when any. */
+  deletableTag: string | null;
+  label: string | null;
+}
+
+export const getAiModelRollback = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async (): Promise<AiModelRollbackState> => {
+    const tuning = await import("./ai-model-tuning.server");
+    const point = await tuning.readRollbackPoint();
+    const currentModel = await tuning.currentActiveModel();
+    return {
+      point,
+      currentModel,
+      available: canRollback(point, currentModel),
+      deletableTag: point ? deletableTag(point) : null,
+      label: point ? describeRollback(point) : null,
+    };
+  });
+
+const RollbackInput = z.object({
+  /** Remove the derived/pulled tag from Ollama after restoring. */
+  deleteCreatedTag: z.boolean().default(false),
+});
+
+export const rollbackAiModel = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => RollbackInput.parse(d ?? {}))
+  .handler(async ({ context, data }) => {
+    await requireAdmin(context.supabase as never, context.userId);
+    const tuning = await import("./ai-model-tuning.server");
+    const point = await tuning.readRollbackPoint();
+    const currentModel = await tuning.currentActiveModel();
+    if (!point?.previousModel) {
+      throw new Error("No rollback point recorded — nothing to restore.");
+    }
+    if (!canRollback(point, currentModel)) {
+      throw new Error(`${point.previousModel} is already the active model.`);
+    }
+
+    await tuning.persistActiveModel(point.previousModel, context.userId);
+
+    const tag = data.deleteCreatedTag ? deletableTag(point) : null;
+    let deleted = false;
+    if (tag && tuning.isOllamaEndpoint()) deleted = await tuning.deleteOllamaModel(tag);
+
+    // The rollback point is single-use: once consumed, there is nothing to undo.
+    await tuning.clearRollbackPoint();
+
+    return {
+      ok: true as const,
+      model: point.previousModel,
+      restoredFrom: point.appliedModel,
+      deletedTag: deleted ? tag : null,
+    };
+  });
+
 
 // -----------------------------------------------------------------------------
 // Run AI test — sends a workflow-representative prompt through the currently
