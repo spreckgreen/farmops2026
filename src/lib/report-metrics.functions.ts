@@ -63,7 +63,11 @@ export const getReportMetrics = createServerFn({ method: "GET" })
     if (tasks.error) throw new Error(tasks.error.message);
 
     const ratings = buildRatingSeries(notes.data ?? []);
-    const projects = buildProjectCounts(tasks.data ?? [], { startIso, endIso });
+    const allProjects = buildProjectCounts(tasks.data ?? [], { startIso, endIso });
+    const projects = data.project
+      ? allProjects.filter((p) => p.project === data.project)
+      : allProjects;
+
 
     return {
       mode,
