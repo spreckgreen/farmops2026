@@ -323,8 +323,10 @@ export const getDailyNote = createServerFn({ method: "POST" })
 
     let note = existing;
     if (!note) {
-      // Seed a new note with the most recent previous day's content so the
-      // user can pick up where they left off.
+      // Seed a new note with the most recent previous day's UNFINISHED content
+      // so the user can pick up where they left off. Lines already checked off
+      // stay on the day they were checked — copying them forward made a task
+      // finished yesterday look like it was completed today.
       const { data: prior } = await supabase
         .from("daily_notes")
         .select("markdown_content")
@@ -333,7 +335,9 @@ export const getDailyNote = createServerFn({ method: "POST" })
         .limit(1)
         .maybeSingle();
 
-      let seed = prior?.markdown_content ?? "";
+      const { seedFromPreviousNote } = await import("@/lib/note-seed");
+      let seed = seedFromPreviousNote(prior?.markdown_content);
+
 
       // Auto-prepend Tempest weather block for the day on first creation.
       try {
@@ -396,8 +400,39 @@ export const getDailyNote = createServerFn({ method: "POST" })
 
     const { data: tasks } = await supabase
       .from("tasks")
-      .select("id, slug, title, status")
+      .select("id, slug, title, status, closed_at")
       .order("created_at", { ascending: false });
+
+    // Clean up notes that were seeded before the carry-over fix: a `- [x]`
+    // line whose task was closed on an EARLIER day belongs to that day, not
+    // this one, and leaving it here makes today's board claim the completion.
+    try {
+      const { stripStaleDoneLines } = await import("@/lib/note-seed");
+      const dayStart = `${data.date}T00:00:00.000Z`;
+      const staleSlugs = new Set(
+        (tasks ?? [])
+          .filter((t) => t.status === "done" && t.closed_at && t.closed_at < dayStart)
+          .map((t) => String(t.slug).toLowerCase()),
+      );
+      if (staleSlugs.size > 0) {
+        const { markdown: cleaned, removed } = stripStaleDoneLines(
+          note!.markdown_content ?? "",
+          (slug) => staleSlugs.has(slug),
+        );
+        if (removed.length > 0) {
+          const { data: updated } = await supabase
+            .from("daily_notes")
+            .update({ markdown_content: cleaned })
+            .eq("id", note!.id)
+            .select()
+            .single();
+          if (updated) note = updated;
+        }
+      }
+    } catch (e) {
+      console.error("[daily-note] stale done-line cleanup failed", e);
+    }
+
 
     const { data: entries } = await supabase
       .from("activity_log")
