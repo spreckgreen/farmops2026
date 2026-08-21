@@ -16,6 +16,14 @@ export interface ForecastResponse {
   model: string | null;
 }
 
+export interface ForecastNarrative {
+  narrative: string;
+  model: string;
+  /** Present when the briefing looks cut off or the context window was strained. */
+  truncation: import("./ai-truncation").TruncationSignal | null;
+}
+
+
 /** Deterministic forecast, no AI. Fast, safe to call on load. */
 export const getMaintenanceForecast = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
