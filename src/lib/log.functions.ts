@@ -323,8 +323,10 @@ export const getDailyNote = createServerFn({ method: "POST" })
 
     let note = existing;
     if (!note) {
-      // Seed a new note with the most recent previous day's content so the
-      // user can pick up where they left off.
+      // Seed a new note with the most recent previous day's UNFINISHED content
+      // so the user can pick up where they left off. Lines already checked off
+      // stay on the day they were checked — copying them forward made a task
+      // finished yesterday look like it was completed today.
       const { data: prior } = await supabase
         .from("daily_notes")
         .select("markdown_content")
@@ -333,7 +335,9 @@ export const getDailyNote = createServerFn({ method: "POST" })
         .limit(1)
         .maybeSingle();
 
-      let seed = prior?.markdown_content ?? "";
+      const { seedFromPreviousNote } = await import("@/lib/note-seed");
+      let seed = seedFromPreviousNote(prior?.markdown_content);
+
 
       // Auto-prepend Tempest weather block for the day on first creation.
       try {
