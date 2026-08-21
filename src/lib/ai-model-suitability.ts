@@ -211,15 +211,18 @@ export const LEVEL_LABEL: Record<SuitabilityLevel, string> = {
 
 /**
  * Context window (in tokens) worth applying for this model: the largest
- * "good" target across the tasks it currently can't satisfy. Returns null
- * when the reported context already covers every task.
- * e.g. { id: "llama3.2:3b", contextLength: 2048 } -> 32768
+ * "good" target across the tasks it currently can't satisfy, capped at the
+ * trained window when the provider reports one (num_ctx above the trained
+ * length just wastes RAM and degrades output).
+ * e.g. { id: "llama3.2:3b", contextLength: 4096, trainedContextLength: 131072 } -> 32768
+ *      { id: "phi:latest", contextLength: 2048, trainedContextLength: 8192 }    -> 8192
  */
 export function recommendedContext(model: ModelCapability): number | null {
   const ctx = model.contextLength ?? 0;
-  const target = TASK_REQUIREMENTS.filter((t) => ctx < t.goodContext).reduce(
+  let target = TASK_REQUIREMENTS.filter((t) => ctx < t.goodContext).reduce(
     (max, t) => Math.max(max, t.goodContext),
     0,
+
   );
   return target > ctx ? target : null;
 }
