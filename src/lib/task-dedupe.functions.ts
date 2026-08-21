@@ -69,26 +69,34 @@ export const reconcileDuplicateTasks = createServerFn({ method: "POST" })
       }
 
       // 2. repoint everything that referenced the duplicate
-      const repoint = async (
-        table: "activity_log" | "project_design_elements" | "summaries",
-        column: "task_id" | "scope_task_id",
-      ) => {
-        const { data: moved, error: rErr } = await supabase
-          .from(table)
-          .update({ [column]: merge.canonicalId })
-          .eq(column, merge.duplicateId)
-          .eq("user_id", userId)
-          .select("id");
-        if (rErr) throw new Error(`${table}: ${rErr.message}`);
-        return moved?.length ?? 0;
-      };
+      const logMove = await supabase
+        .from("activity_log")
+        .update({ task_id: merge.canonicalId })
+        .eq("task_id", merge.duplicateId)
+        .eq("user_id", userId)
+        .select("id");
+      if (logMove.error) throw new Error(`activity_log: ${logMove.error.message}`);
+      result.repointed.activityLog += logMove.data?.length ?? 0;
 
-      result.repointed.activityLog += await repoint("activity_log", "task_id");
-      result.repointed.designElements += await repoint(
-        "project_design_elements",
-        "task_id",
-      );
-      result.repointed.summaries += await repoint("summaries", "scope_task_id");
+      const deMove = await supabase
+        .from("project_design_elements")
+        .update({ task_id: merge.canonicalId })
+        .eq("task_id", merge.duplicateId)
+        .eq("user_id", userId)
+        .select("id");
+      if (deMove.error)
+        throw new Error(`project_design_elements: ${deMove.error.message}`);
+      result.repointed.designElements += deMove.data?.length ?? 0;
+
+      const sumMove = await supabase
+        .from("summaries")
+        .update({ scope_task_id: merge.canonicalId })
+        .eq("scope_task_id", merge.duplicateId)
+        .eq("user_id", userId)
+        .select("id");
+      if (sumMove.error) throw new Error(`summaries: ${sumMove.error.message}`);
+      result.repointed.summaries += sumMove.data?.length ?? 0;
+
 
       // 3. drop the duplicate
       const { error: delErr } = await supabase
