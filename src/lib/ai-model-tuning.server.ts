@@ -6,9 +6,16 @@
 // `/api/create` (FROM <base> + PARAMETER num_ctx <n>). We then persist that
 // derived tag as the active CUSTOM_AI_MODEL.
 import { derivedContextModelId } from "./ai-model-suitability";
+import {
+  parseRollbackPoint,
+  serializeRollbackPoint,
+  type ModelRollbackPoint,
+} from "./ai-model-rollback";
 
 const BUNDLED_OLLAMA_BASE_URL = "http://ollama:11434/v1";
 const MODEL_ENV_KEY = "CUSTOM_AI_MODEL";
+const ROLLBACK_ENV_KEY = "CUSTOM_AI_MODEL_ROLLBACK";
+
 
 export function ollamaRoot(): string {
   const baseUrl = process.env.CUSTOM_AI_BASE_URL || BUNDLED_OLLAMA_BASE_URL;
