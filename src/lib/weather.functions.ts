@@ -88,44 +88,71 @@ export async function fetchAndCacheForecast(
     const today = new Date().toISOString().slice(0, 10);
     if (cached) {
       const ageMs = Date.now() - new Date(cached.fetched_at).getTime();
-      if (date !== today || ageMs < 60 * 60 * 1000) return cached as WeatherRow;
+      // Rows cached before humidity / feels-like existed have all three null:
+      // refresh those once instead of serving an incomplete card forever.
+      const missingExtras =
+        cached.humidity == null &&
+        cached.feels_like_high_f == null &&
+        cached.feels_like_low_f == null;
+      if (!missingExtras && (date !== today || ageMs < 60 * 60 * 1000)) return cached as WeatherRow;
     }
   }
+
 
   let hit: { daily: DailyForecast; current: CurrentConditions | null } | null = null;
   try {
     hit = await fetchTempest(date);
   } catch (e) {
     console.warn(`[weather] tempest fetch failed for ${date}: ${describeError(e)}`);
-    return null;
-
   }
-  if (!hit) return null;
-  const forecast = hit.daily;
+
+  const forecast: Partial<DailyForecast> = hit?.daily ?? {};
   const today = new Date().toISOString().slice(0, 10);
   // Tempest's daily block has no humidity/feels-like; its current_conditions
   // block does (e.g. relative_humidity: 62, feels_like: 88), so it only
   // describes today.
-  const current = date === today ? hit.current : null;
+  const current = date === today ? (hit?.current ?? null) : null;
+
+  let humidity = current?.relative_humidity ?? null;
+  let feelsHigh = forecast.air_temp_feels_like ?? current?.feels_like ?? null;
+  let feelsLow: number | null = null;
+
+  // Open-Meteo supplies daily humidity mean + apparent high/low, which Tempest's
+  // daily block never returns (e.g. humidity: 71, feels 92 / 68).
+  let om: Awaited<ReturnType<typeof fetchOpenMeteoRange>>[number] | undefined;
+  if (humidity == null || feelsHigh == null || feelsLow == null) {
+    try {
+      om = (await fetchOpenMeteoRange(date, date)).find((d) => d.date === date);
+    } catch (e) {
+      console.warn(`[weather] open-meteo extras failed for ${date}: ${describeError(e)}`);
+    }
+    humidity = humidity ?? om?.humidity ?? null;
+    feelsHigh = feelsHigh ?? om?.feelsHigh ?? null;
+    feelsLow = feelsLow ?? om?.feelsLow ?? null;
+  }
+
+  // Nothing usable from either source — don't write an empty row.
+  if (!hit && !om) return null;
 
   const row = {
     user_id: userId,
     station_id: STATION_ID,
     forecast_date: date,
-    high_temp_f: forecast.air_temp_high ?? null,
-    low_temp_f: forecast.air_temp_low ?? null,
-    conditions: forecast.conditions ?? null,
+    high_temp_f: forecast.air_temp_high ?? om?.high ?? null,
+    low_temp_f: forecast.air_temp_low ?? om?.low ?? null,
+    conditions: forecast.conditions ?? om?.conditions ?? null,
     icon: forecast.icon ?? null,
-    precip_probability: forecast.precip_probability ?? null,
-    precip_type: forecast.precip_type ?? null,
+    precip_probability: forecast.precip_probability ?? om?.precipProb ?? null,
+    precip_type: forecast.precip_type ?? (om?.precipSum != null && om.precipSum > 0 ? "rain" : null),
     sunrise: forecast.sunrise ? new Date(forecast.sunrise * 1000).toISOString() : null,
     sunset: forecast.sunset ? new Date(forecast.sunset * 1000).toISOString() : null,
-    humidity: current?.relative_humidity ?? null,
-    feels_like_high_f: forecast.air_temp_feels_like ?? current?.feels_like ?? null,
-    feels_like_low_f: null,
-    raw: { ...forecast, current_conditions: current } as unknown as never,
+    humidity,
+    feels_like_high_f: feelsHigh,
+    feels_like_low_f: feelsLow,
+    raw: { ...forecast, current_conditions: current, open_meteo: om ?? null } as unknown as never,
     fetched_at: new Date().toISOString(),
   };
+
 
   const { data: saved, error } = await supabase
     .from("weather_forecasts")
