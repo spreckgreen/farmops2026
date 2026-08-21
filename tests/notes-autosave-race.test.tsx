@@ -63,7 +63,9 @@ vi.mock("@/lib/log.functions", () => ({
   commitDailyNote: commitDailyNoteImpl,
   refreshDailyNoteFromLog: refreshDailyNoteFromLogImpl,
   listProjects: listProjectsImpl,
+  setDailyNoteRatings: vi.fn(async () => ({ ok: true })),
 }));
+
 
 // The unmount flush skips committing when there is no session, so provide one.
 vi.mock("@/integrations/supabase/client", () => ({

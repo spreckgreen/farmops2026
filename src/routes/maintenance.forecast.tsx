@@ -17,6 +17,7 @@ import { useAiJobProgress } from "@/hooks/use-ai-job-progress";
 import { toast } from "sonner";
 import { handleAiJobInFlight } from "@/lib/ai-inflight-error";
 import { AiFeatureGate } from "@/components/ai-feature-gate";
+import { AiTruncationWarning } from "@/components/ai-truncation-warning";
 
 
 export const Route = createFileRoute("/maintenance/forecast")({
@@ -219,9 +220,11 @@ function ForecastPage() {
                 )}
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-2">
+              <AiTruncationWarning signal={narrativeMut.data?.truncation ?? null} />
               <p className="text-sm whitespace-pre-wrap leading-relaxed">{data.narrative}</p>
             </CardContent>
+
           </Card>
         )}
 

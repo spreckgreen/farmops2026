@@ -16,6 +16,14 @@ export interface ForecastResponse {
   model: string | null;
 }
 
+export interface ForecastNarrative {
+  narrative: string;
+  model: string;
+  /** Present when the briefing looks cut off or the context window was strained. */
+  truncation: import("./ai-truncation").TruncationSignal | null;
+}
+
+
 /** Deterministic forecast, no AI. Fast, safe to call on load. */
 export const getMaintenanceForecast = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -137,12 +145,12 @@ const NarrativeInput = z.object({
 export const getMaintenanceForecastNarrative = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => NarrativeInput.parse(d ?? {}))
-  .handler(async ({ data, context }): Promise<{ narrative: string; model: string }> => {
+  .handler(async ({ data, context }): Promise<ForecastNarrative> => {
     const { supabase, userId } = context;
     const { withIdempotency } = await import("./ai-idempotency.server");
     return withIdempotency(
       { supabase, userId, surface: "maintenance.forecast_narrative", input: data },
-      async (): Promise<{ narrative: string; model: string }> => {
+      async (): Promise<ForecastNarrative> => {
     // Recompute the forecast inline (cheap; keeps single source of truth).
     const forecast = await getMaintenanceForecast();
 
@@ -151,6 +159,7 @@ export const getMaintenanceForecastNarrative = createServerFn({ method: "POST" }
         narrative:
           "No assets are tracking usage or maintenance history yet — nothing to forecast.",
         model: "",
+        truncation: null,
       };
     }
 
@@ -174,6 +183,7 @@ export const getMaintenanceForecastNarrative = createServerFn({ method: "POST" }
         narrative:
           "Assets are tracked but have no projected services yet — log at least two completed services per asset to enable forecasting.",
         model: "",
+        truncation: null,
       };
     }
 
@@ -182,19 +192,30 @@ export const getMaintenanceForecastNarrative = createServerFn({ method: "POST" }
     const modelId = modelOverride ?? "google/gemini-3.6-flash";
 
     const { generateText } = await import("ai");
-    const result = await generateText({
-      model: provider(modelId),
-      system:
-        "You are a maintenance planner for a small farm. Read the provided " +
-        "computed forecast and produce a short, prioritized action briefing. " +
-        "Rules: (1) Only reference services in the forecast — do not invent new ones. " +
-        "(2) Call out anything OVERDUE first. (3) Group by asset. (4) Keep it under " +
-        "200 words. (5) End with one 'parts to stage' line if any asset needs it. " +
-        "Use plain prose with short bullets — no markdown headings.",
-      prompt: `Computed forecast:\n\n${summary}\n\nWrite the briefing.`,
+    const system =
+      "You are a maintenance planner for a small farm. Read the provided " +
+      "computed forecast and produce a short, prioritized action briefing. " +
+      "Rules: (1) Only reference services in the forecast — do not invent new ones. " +
+      "(2) Call out anything OVERDUE first. (3) Group by asset. (4) Keep it under " +
+      "200 words. (5) End with one 'parts to stage' line if any asset needs it. " +
+      "Use plain prose with short bullets — no markdown headings.";
+    const prompt = `Computed forecast:\n\n${summary}\n\nWrite the briefing.`;
+    const result = await generateText({ model: provider(modelId), system, prompt });
+
+    const { getActiveContextLimit } = await import("./ai-context-limit.server");
+    const { truncationOrNull } = await import("./ai-truncation");
+    const { contextLength } = await getActiveContextLimit(modelId);
+    const truncation = truncationOrNull({
+      finishReason: result.finishReason,
+      usage: result.usage,
+      promptChars: system.length + prompt.length,
+      outputText: result.text,
+      contextLimit: contextLength,
+      model: modelId,
     });
 
-    return { narrative: result.text.trim(), model: modelId };
+    return { narrative: result.text.trim(), model: modelId, truncation };
+
       },
     );
   });
