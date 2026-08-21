@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import {
   boundsAsStrings,
+  customBounds,
   buildProjectCounts,
   buildRatingSeries,
   metricsBounds,
@@ -75,6 +76,7 @@ export const getReportMetrics = createServerFn({ method: "GET" })
       period_end: endIso,
       ratings,
       projects,
+      available_projects: allProjects.map((p) => p.project),
       totals: totalsFromProjects(projects),
       averages: ratingAverages(ratings),
     };

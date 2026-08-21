@@ -32,6 +32,8 @@ export type ReportMetrics = {
   period_end: string | null;
   ratings: RatingPoint[];
   projects: ProjectTaskCount[];
+  /** Every project tag present in the window, before any project filter. */
+  available_projects?: string[];
   totals: { created: number; closed: number; open: number; total: number };
   averages: { energy: number | null; productivity: number | null; days: number };
 };
@@ -77,6 +79,16 @@ export function metricsBounds(
     case "project_rollup":
       return null;
   }
+}
+
+/**
+ * Inclusive custom day range, e.g. customBounds("2026-08-01", "2026-08-20")
+ * -> start 2026-08-01T00:00:00Z, end 2026-08-20T23:59:59.999Z.
+ */
+export function customBounds(startDay: string, endDay: string): { start: Date; end: Date } {
+  const start = new Date(`${startDay}T00:00:00.000Z`);
+  const end = new Date(`${endDay}T23:59:59.999Z`);
+  return start <= end ? { start, end } : { start: end, end: start };
 }
 
 export function boundsAsStrings(b: { start: Date; end: Date } | null) {
