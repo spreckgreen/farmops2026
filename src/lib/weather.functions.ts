@@ -436,3 +436,82 @@ export const backfillSeasonWeather = createServerFn({ method: "POST" })
     return { inserted, skipped: existingDates.size, source, range: { startDate, endDate } };
   });
 
+
+// ---------------------------------------------------------------------------
+// One-time cache bust: rows written before humidity / feels-like existed have
+// all three columns NULL. This refills them in bulk from Open-Meteo (Tempest's
+// daily block never returns those fields) and is safe to re-run — it only
+// touches rows that are still missing every extra.
+// ---------------------------------------------------------------------------
+
+export const refillWeatherExtras = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        // Optional narrowing, e.g. { startDate: "2026-06-01", endDate: "2026-08-20" }.
+        startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+        endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+      })
+      .parse(d ?? {}),
+  )
+  .handler(async ({ data, context }) => {
+    let q = context.supabase
+      .from("weather_forecasts")
+      .select("id, forecast_date")
+      .eq("user_id", context.userId)
+      .eq("station_id", STATION_ID)
+      .is("humidity", null)
+      .is("feels_like_high_f", null)
+      .is("feels_like_low_f", null)
+      .order("forecast_date");
+    if (data.startDate) q = q.gte("forecast_date", data.startDate);
+    if (data.endDate) q = q.lte("forecast_date", data.endDate);
+
+    const { data: stale, error } = await q;
+    if (error) throw new Error(error.message);
+    const rows = stale ?? [];
+    if (rows.length === 0) {
+      return { candidates: 0, updated: 0, unavailable: 0, range: null as null | { start: string; end: string } };
+    }
+
+    const dates = rows.map((r) => r.forecast_date as string);
+    const start = dates[0]!;
+    const end = dates[dates.length - 1]!;
+
+    let om: Awaited<ReturnType<typeof fetchOpenMeteoRange>> = [];
+    try {
+      om = await fetchOpenMeteoRange(start, end);
+    } catch (e) {
+      throw new Error(`Open-Meteo refill failed (${start}..${end}): ${describeError(e)}`);
+    }
+    const byDate = new Map(om.map((d) => [d.date, d]));
+
+    let updated = 0;
+    let unavailable = 0;
+    for (const r of rows) {
+      const hit = byDate.get(r.forecast_date as string);
+      if (!hit || (hit.humidity == null && hit.feelsHigh == null && hit.feelsLow == null)) {
+        unavailable += 1;
+        continue;
+      }
+      const { error: upErr } = await context.supabase
+        .from("weather_forecasts")
+        .update({
+          humidity: hit.humidity,
+          feels_like_high_f: hit.feelsHigh,
+          feels_like_low_f: hit.feelsLow,
+          fetched_at: new Date().toISOString(),
+        })
+        .eq("id", r.id as string)
+        .eq("user_id", context.userId);
+      if (upErr) {
+        console.warn(`[weather] refill update failed for ${r.forecast_date}: ${describeError(upErr)}`);
+        unavailable += 1;
+        continue;
+      }
+      updated += 1;
+    }
+
+    return { candidates: rows.length, updated, unavailable, range: { start, end } };
+  });
