@@ -55,6 +55,7 @@ import { Route as FoodCropsRouteImport } from './routes/food.crops'
 import { Route as AdminVaultRotationRouteImport } from './routes/admin.vault-rotation'
 import { Route as AdminVaultBackupRouteImport } from './routes/admin.vault-backup'
 import { Route as AdminUsersRouteImport } from './routes/admin.users'
+import { Route as AdminTaskDedupeRouteImport } from './routes/admin.task-dedupe'
 import { Route as AdminSchemaRouteImport } from './routes/admin.schema'
 import { Route as AdminRestoreRouteImport } from './routes/admin.restore'
 import { Route as AdminResetRouteImport } from './routes/admin.reset'
@@ -298,6 +299,11 @@ const AdminUsersRoute = AdminUsersRouteImport.update({
   path: '/admin/users',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminTaskDedupeRoute = AdminTaskDedupeRouteImport.update({
+  id: '/admin/task-dedupe',
+  path: '/admin/task-dedupe',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminSchemaRoute = AdminSchemaRouteImport.update({
   id: '/admin/schema',
   path: '/admin/schema',
@@ -378,6 +384,7 @@ export interface FileRoutesByFullPath {
   '/admin/reset': typeof AdminResetRoute
   '/admin/restore': typeof AdminRestoreRoute
   '/admin/schema': typeof AdminSchemaRoute
+  '/admin/task-dedupe': typeof AdminTaskDedupeRoute
   '/admin/users': typeof AdminUsersRoute
   '/admin/vault-backup': typeof AdminVaultBackupRoute
   '/admin/vault-rotation': typeof AdminVaultRotationRoute
@@ -434,6 +441,7 @@ export interface FileRoutesByTo {
   '/admin/reset': typeof AdminResetRoute
   '/admin/restore': typeof AdminRestoreRoute
   '/admin/schema': typeof AdminSchemaRoute
+  '/admin/task-dedupe': typeof AdminTaskDedupeRoute
   '/admin/users': typeof AdminUsersRoute
   '/admin/vault-backup': typeof AdminVaultBackupRoute
   '/admin/vault-rotation': typeof AdminVaultRotationRoute
@@ -494,6 +502,7 @@ export interface FileRoutesById {
   '/admin/reset': typeof AdminResetRoute
   '/admin/restore': typeof AdminRestoreRoute
   '/admin/schema': typeof AdminSchemaRoute
+  '/admin/task-dedupe': typeof AdminTaskDedupeRoute
   '/admin/users': typeof AdminUsersRoute
   '/admin/vault-backup': typeof AdminVaultBackupRoute
   '/admin/vault-rotation': typeof AdminVaultRotationRoute
@@ -555,6 +564,7 @@ export interface FileRouteTypes {
     | '/admin/reset'
     | '/admin/restore'
     | '/admin/schema'
+    | '/admin/task-dedupe'
     | '/admin/users'
     | '/admin/vault-backup'
     | '/admin/vault-rotation'
@@ -611,6 +621,7 @@ export interface FileRouteTypes {
     | '/admin/reset'
     | '/admin/restore'
     | '/admin/schema'
+    | '/admin/task-dedupe'
     | '/admin/users'
     | '/admin/vault-backup'
     | '/admin/vault-rotation'
@@ -670,6 +681,7 @@ export interface FileRouteTypes {
     | '/admin/reset'
     | '/admin/restore'
     | '/admin/schema'
+    | '/admin/task-dedupe'
     | '/admin/users'
     | '/admin/vault-backup'
     | '/admin/vault-rotation'
@@ -730,6 +742,7 @@ export interface RootRouteChildren {
   AdminResetRoute: typeof AdminResetRoute
   AdminRestoreRoute: typeof AdminRestoreRoute
   AdminSchemaRoute: typeof AdminSchemaRoute
+  AdminTaskDedupeRoute: typeof AdminTaskDedupeRoute
   AdminUsersRoute: typeof AdminUsersRoute
   AdminVaultBackupRoute: typeof AdminVaultBackupRoute
   AdminVaultRotationRoute: typeof AdminVaultRotationRoute
@@ -1072,6 +1085,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminUsersRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/task-dedupe': {
+      id: '/admin/task-dedupe'
+      path: '/admin/task-dedupe'
+      fullPath: '/admin/task-dedupe'
+      preLoaderRoute: typeof AdminTaskDedupeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/schema': {
       id: '/admin/schema'
       path: '/admin/schema'
@@ -1252,6 +1272,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminResetRoute: AdminResetRoute,
   AdminRestoreRoute: AdminRestoreRoute,
   AdminSchemaRoute: AdminSchemaRoute,
+  AdminTaskDedupeRoute: AdminTaskDedupeRoute,
   AdminUsersRoute: AdminUsersRoute,
   AdminVaultBackupRoute: AdminVaultBackupRoute,
   AdminVaultRotationRoute: AdminVaultRotationRoute,
