@@ -57,6 +57,15 @@
 #                                              # stay pending and then run
 #                                              # normally in the same pass.
 #   ./scripts/apply-migrations.sh --adopt --dry-run   # report, change nothing
+#
+#   ./scripts/apply-migrations.sh --verify     # READ-ONLY audit. Compares the
+#                                              # ledger with the live schema and
+#                                              # flags drift:
+#                                              #   OK / DRIFT / PARTIAL /
+#                                              #   UNRECORDED / PENDING /
+#                                              #   SKIPPED / ORPHAN
+#                                              # Exits 1 on drift, partial,
+#                                              # or orphan rows. Applies nothing.
 # ============================================================================
 set -euo pipefail
 
@@ -66,6 +75,7 @@ DRY_RUN=0
 FORCE=0
 BASELINE=0
 ADOPT=0
+VERIFY=0
 STRICT=0
 ONLY=""
 for arg in "$@"; do
@@ -74,10 +84,11 @@ for arg in "$@"; do
     --force)    FORCE=1 ;;
     --baseline) BASELINE=1 ;;
     --adopt)    ADOPT=1 ;;
+    --verify)   VERIFY=1 ;;
     --strict)   STRICT=1 ;;
     --only=*)   ONLY="${arg#--only=}" ;;
     --only)     echo "Use --only=<filename.sql>" >&2; exit 2 ;;
-    -h|--help)  sed -n '2,62p' "$0"; exit 0 ;;
+    -h|--help)  sed -n '2,72p' "$0"; exit 0 ;;
     *) echo "Unknown flag: $arg" >&2; exit 2 ;;
   esac
 done
@@ -343,7 +354,7 @@ EOF
     warn ""
     warn "⚠️  UNRECORDED: schema has them, ledger doesn't. Seed the ledger with:"
     warn "     ./scripts/apply-migrations.sh --adopt"
-    fi
+  fi
   if [ "$V_ORPHAN" -ne 0 ]; then
     warn ""
     warn "⚠️  ORPHAN ledger rows (harmless, usually a renamed/removed migration):"
@@ -378,49 +389,34 @@ if [ "$ADOPT" -eq 1 ]; then
       continue   # already in the ledger
     fi
 
-    CHECKS="$(mktemp -t bostead-adopt.XXXXXX.sql)"
-    total=0
-    while IFS='|' read -r kind schema oname extra; do
-      [ -z "${kind:-}" ] && continue
-      existence_check "$kind" "$schema" "$oname" "${extra:-}" >>"$CHECKS"
-      total=$((total + 1))
-    done < <(awk -f "$EXTRACT_AWK" "$path")
-
-    if [ "$total" -eq 0 ]; then
+    set +e; probe_file "$path"; prc=$?; set -e
+    if [ "$prc" -eq 2 ]; then
       # Nothing recognisable to probe (data-only INSERT/UPDATE, GRANT-only, or a
       # statement shape the extractor doesn't know). Never guess — leave pending.
       warn "adopt: $name — no detectable objects → left pending (will run)"
       ADOPT_UNKNOWN=$((ADOPT_UNKNOWN + 1))
-      rm -f "$CHECKS"
       continue
     fi
-
-    RES="$(mktemp -t bostead-adopt-res.XXXXXX.txt)"
-    if ! run_sql -At -F '|' -f "$CHECKS" >"$RES" 2>&1; then
+    if [ "$prc" -eq 1 ]; then
       err "adopt: $name — schema probe failed:"
-      sed 's/^/    /' "$RES" >&2 || true
+      printf '%s\n' "$PROBE_ERROR" | sed 's/^/    /' >&2
       ADOPT_UNKNOWN=$((ADOPT_UNKNOWN + 1))
-      rm -f "$CHECKS" "$RES"
       continue
     fi
 
-    present="$(grep -c '|t$' "$RES" || true)"
-    missing_list="$(grep '|f$' "$RES" | sed 's/|f$//' || true)"
-
-    if [ "$present" -eq "$total" ]; then
+    if [ "$PROBE_PRESENT" -eq "$PROBE_TOTAL" ]; then
       if [ "$DRY_RUN" -eq 1 ]; then
-        log "adopt: $name — $present/$total objects present → would record (dry run)"
+        log "adopt: $name — $PROBE_PRESENT/$PROBE_TOTAL objects present → would record (dry run)"
       else
         record_applied "$name"
-        log "adopt: $name — $present/$total objects present → recorded as applied"
+        log "adopt: $name — $PROBE_PRESENT/$PROBE_TOTAL objects present → recorded as applied"
       fi
       ADOPTED=$((ADOPTED + 1))
     else
-      log "adopt: $name — $present/$total objects present → left pending"
-      printf '%s\n' "$missing_list" | head -5 | sed '/^$/d;s/^/                   missing: /'
+      log "adopt: $name — $PROBE_PRESENT/$PROBE_TOTAL objects present → left pending"
+      printf '%s\n' "$PROBE_MISSING" | head -5 | sed '/^$/d;s/^/                   missing: /'
       ADOPT_PENDING=$((ADOPT_PENDING + 1))
     fi
-    rm -f "$CHECKS" "$RES"
   done
 
   log "Adopt summary: $ADOPTED recorded, $ADOPT_PENDING incomplete, $ADOPT_UNKNOWN unprobeable"
