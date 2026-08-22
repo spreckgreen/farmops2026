@@ -11,7 +11,10 @@ set -euo pipefail
 
 DB_URL="${SUPABASE_DB_URL:-}"
 if [[ -z "$DB_URL" && -f .env.local ]]; then
-  DB_URL="$(grep -E '^SUPABASE_DB_URL=' .env.local | head -1 | cut -d= -f2- | tr -d '"')"
+  # `|| true`: under `set -e` a no-match grep in a command substitution would
+  # abort this script silently with no output at all.
+  DB_URL="$(grep -E '^[[:space:]]*SUPABASE_DB_URL=' .env.local 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"' || true)"
+
 fi
 if [[ -z "$DB_URL" ]]; then
   echo "SUPABASE_DB_URL is not set (and not found in .env.local)." >&2
