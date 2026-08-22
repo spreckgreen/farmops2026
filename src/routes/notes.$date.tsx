@@ -12,7 +12,7 @@ import { SlugChip } from "@/components/slug-chip";
 import { requireAuthenticatedUser } from "@/lib/auth-route";
 import { toast } from "sonner";
 import { format, addDays, parseISO } from "date-fns";
-import { ChevronLeft, ChevronRight, Eye, EyeOff, Cloud, RefreshCw } from "lucide-react";
+import { ChevronLeft, ChevronRight, Eye, EyeOff, Cloud, RefreshCw, Undo2 } from "lucide-react";
 import { appDateString } from "@/lib/app-timezone";
 import { DayWindowIndicator } from "@/components/day-window-indicator";
 import { DailyNotePreview } from "@/components/daily-note-preview";
