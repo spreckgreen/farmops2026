@@ -19,7 +19,8 @@
  * Pure: no database access, so the admin UI can preview before applying.
  */
 import { appDateString } from "./app-timezone";
-import { closedStampFor, dayWindow } from "./task-status-window";
+import { dayStartUtc } from "./app-timezone";
+import { dayWindow } from "./task-status-window";
 
 export type DayStampTask = {
   id: string;
@@ -74,14 +75,22 @@ export function loggedDaysByTask(
   return out;
 }
 
-/** Keep the wall-clock time of `stamp` but move it onto `day` when possible. */
+/**
+ * Keep the local wall-clock time of `stamp` but move it onto `day`.
+ * "2026-08-22T03:10Z" (23:10 Sat-eve local) onto "2026-08-21" =>
+ * "2026-08-22T03:10Z" shifted back one day => "2026-08-21T03:10Z"? no —
+ * the shift is by whole local days, so it becomes "2026-08-21T03:10Z"'s
+ * equivalent: 23:10 on 2026-08-21 local = "2026-08-22T03:10Z" minus 24h.
+ */
 function restampOnto(day: string, stamp: string): string {
+  const original = new Date(stamp).getTime();
+  const fromDay = appDateString(new Date(stamp));
+  const delta = dayStartUtc(day).getTime() - dayStartUtc(fromDay).getTime();
+  const shifted = new Date(original + delta).toISOString();
   const { start, end } = dayWindow(day);
-  const original = new Date(stamp);
-  // Preserve time-of-day by shifting the date portion of the local rendering.
-  const shifted = closedStampFor(day, original);
   if (shifted >= start && shifted <= end) return shifted;
-  return `${day}T12:00:00.000Z`;
+  // DST edge or malformed stamp: fall back to midday of the target day.
+  return new Date(dayStartUtc(day).getTime() + 12 * 3600 * 1000).toISOString();
 }
 
 /**
