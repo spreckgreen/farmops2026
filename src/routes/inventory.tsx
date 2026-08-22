@@ -14,6 +14,8 @@ import {
   AlertTriangle,
   ScanLine,
   Wrench,
+  History,
+  Undo2,
 } from "lucide-react";
 import Papa from "papaparse";
 import AssetDialog from "@/components/dashboard/AssetDialog";
@@ -35,6 +37,12 @@ import {
   validateInventoryCsv,
   type ValidationReport,
 } from "@/lib/inventory-csv-validate";
+import {
+  listImportSnapshots,
+  recordImportSnapshot,
+  revertImportSnapshot,
+  type ImportSnapshot,
+} from "@/lib/inventory-import-history";
 
 import {
   Dialog,
@@ -92,6 +100,11 @@ function InventoryPage() {
   } | null>(null);
   const [deleteMissing, setDeleteMissing] = useState(false);
   const [applying, setApplying] = useState(false);
+  const [importFileName, setImportFileName] = useState("");
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [history, setHistory] = useState<ImportSnapshot[]>([]);
+  const [revertingId, setRevertingId] = useState<string | null>(null);
 
 
 
@@ -213,6 +226,7 @@ function InventoryPage() {
   const proceedFromReport = () => {
     if (!report?.result?.ok) return;
     setPlan(reconcileInventory(report.rows as ParsedRow[], assets));
+    setImportFileName(report.fileName);
     setDeleteMissing(false);
     setReport(null);
   };
@@ -237,15 +251,46 @@ function InventoryPage() {
   };
 
 
+  const openHistory = async () => {
+    setHistoryOpen(true);
+    setHistoryLoading(true);
+    try {
+      setHistory(await listImportSnapshots());
+    } catch (err) {
+      toast.error(`Could not load import history: ${(err as Error).message}`);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  const rollback = async (snapshot: ImportSnapshot) => {
+    setRevertingId(snapshot.id);
+    try {
+      const res = await revertImportSnapshot(snapshot);
+      toast.success(
+        `Rolled back: ${res.removed} removed, ${res.restored} restored, ${res.reinserted} re-added`,
+      );
+      setHistory(await listImportSnapshots());
+      fetchAssets();
+    } catch (err) {
+      toast.error(`Rollback failed: ${(err as Error).message}`);
+    } finally {
+      setRevertingId(null);
+    }
+  };
+
   const applyPlan = async () => {
     if (!plan) return;
     setApplying(true);
+    const createdIds: string[] = [];
     try {
       if (plan.creates.length) {
-        const { error } = await supabase.from("inventory_items").insert(
-          plan.creates.map((c) => ({ ...c.patch, user_id: session!.user.id })),
-        );
+        const { data, error } = await supabase
+          .from("inventory_items")
+          .insert(plan.creates.map((c) => ({ ...c.patch, user_id: session!.user.id })))
+          .select("id");
         if (error) throw new Error(error.message);
+        for (const row of data ?? []) createdIds.push(row.id as string);
       }
       for (const u of plan.updates) {
         const { error } = await supabase
@@ -264,9 +309,22 @@ function InventoryPage() {
           );
         if (error) throw new Error(error.message);
       }
+      const deletedRows = deleteMissing ? plan.missing : [];
+      try {
+        await recordImportSnapshot(session!.user.id, {
+          fileName: importFileName || "import.csv",
+          deleteMissing,
+          createdIds,
+          updatedBefore: plan.updates.map((u) => u.existing!),
+          deletedRows,
+        });
+      } catch (err) {
+        toast.warning(`Import applied, but the rollback snapshot failed: ${(err as Error).message}`);
+      }
       toast.success(
         `Import applied: ${plan.creates.length} added, ${plan.updates.length} updated` +
-          (deleteMissing && plan.missing.length ? `, ${plan.missing.length} deleted` : ""),
+          (deletedRows.length ? `, ${deletedRows.length} deleted` : "") +
+          " — use Import history to roll back",
       );
       setPlan(null);
       fetchAssets();
@@ -369,6 +427,9 @@ function InventoryPage() {
             <Button size="sm" variant="outline" onClick={handleExportCSV}>
               <Download className="h-4 w-4 mr-1" /> Export
             </Button>
+            <Button size="sm" variant="outline" onClick={openHistory}>
+              <History className="h-4 w-4 mr-1" /> Import history
+            </Button>
             <label>
               <Button size="sm" variant="outline" asChild className="cursor-pointer">
                 <span>
@@ -438,6 +499,63 @@ function InventoryPage() {
           setSearch(code);
         }}
       />
+
+      <Dialog open={historyOpen} onOpenChange={setHistoryOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Import history</DialogTitle>
+            <DialogDescription>
+              Every applied import stores a snapshot of the rows it touched. Rolling back deletes
+              the rows it created, restores the previous values of rows it changed, and re-adds
+              rows it deleted.
+            </DialogDescription>
+          </DialogHeader>
+
+          {historyLoading ? (
+            <p className="text-sm text-muted-foreground">Loading…</p>
+          ) : history.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No imports recorded yet.</p>
+          ) : (
+            <ul className="max-h-80 overflow-y-auto divide-y divide-border/60 rounded-lg border border-border">
+              {history.map((s) => (
+                <li key={s.id} className="flex items-start justify-between gap-3 px-3 py-2">
+                  <div className="text-sm">
+                    <p className="font-medium">{s.file_name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(s.created_at).toLocaleString()} — {s.created_ids.length} added,{" "}
+                      {s.updated_before.length} updated, {s.deleted_rows.length} deleted
+                    </p>
+                    {s.reverted_at ? (
+                      <p className="text-xs text-muted-foreground">
+                        Rolled back {new Date(s.reverted_at).toLocaleString()}
+                      </p>
+                    ) : null}
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={Boolean(s.reverted_at) || revertingId === s.id}
+                    onClick={() => rollback(s)}
+                  >
+                    <Undo2 className="h-4 w-4 mr-1" />
+                    {s.reverted_at
+                      ? "Reverted"
+                      : revertingId === s.id
+                        ? "Rolling back…"
+                        : "Roll back"}
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setHistoryOpen(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={Boolean(report)} onOpenChange={(open) => !open && setReport(null)}>
         <DialogContent className="max-w-2xl">
