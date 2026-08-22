@@ -78,20 +78,29 @@ fi
 run_sql() { "${PSQL[@]}" "$DB_URL" -v ON_ERROR_STOP=1 -q "$@"; }
 
 # --- Ledger ------------------------------------------------------------------
+# Needs an owner-level role (the self-hosted `postgres` superuser). A pooled or
+# restricted role fails here with "permission denied for database" — that means
+# the URL is wrong, not that the migration is bad.
 log "Ensuring private.applied_migrations ledger exists"
-run_sql -c "
+if ! run_sql -c "
   CREATE SCHEMA IF NOT EXISTS private;
   CREATE TABLE IF NOT EXISTS private.applied_migrations (
     filename   text PRIMARY KEY,
     applied_at timestamptz NOT NULL DEFAULT now()
   );
   REVOKE ALL ON private.applied_migrations FROM PUBLIC;
-"
+"; then
+  err "Could not create the migration ledger with this SUPABASE_DB_URL."
+  err "  Use the owner/superuser connection, e.g.:"
+  err "    postgresql://postgres:<password>@localhost:5432/postgres"
+  exit 1
+fi
 
 APPLIED_LIST=""
 if [ "$FORCE" -eq 0 ]; then
   APPLIED_LIST="$(run_sql -At -c "SELECT filename FROM private.applied_migrations;")"
 fi
+
 
 is_applied() {
   printf '%s\n' "$APPLIED_LIST" | grep -Fxq "$1"
