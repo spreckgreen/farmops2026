@@ -78,6 +78,79 @@ function fieldLabel(src: Record<string, unknown> | null | undefined, field: stri
   return String(v);
 }
 
+const EDITABLE_FIELDS: Array<{ field: keyof AssetPatch; label: string; kind: "text" | "number" | "status" | "tags" }> = [
+  { field: "name", label: "Name", kind: "text" },
+  { field: "description", label: "Description", kind: "text" },
+  { field: "item_type", label: "Type", kind: "text" },
+  { field: "location", label: "Location", kind: "text" },
+  { field: "quantity", label: "Quantity", kind: "number" },
+  { field: "min_quantity", label: "Min qty", kind: "number" },
+  { field: "status", label: "Status", kind: "status" },
+  { field: "barcode", label: "Barcode", kind: "text" },
+  { field: "tags", label: "Tags (a; b)", kind: "tags" },
+];
+
+/** Inline editor for a single import row before it is applied. */
+function PatchEditor({
+  patch,
+  edited,
+  onChange,
+  onReset,
+}: {
+  patch: AssetPatch;
+  edited: boolean;
+  onChange: (field: keyof AssetPatch, raw: string) => void;
+  onReset: () => void;
+}) {
+  return (
+    <div className="rounded-md border border-border/60 bg-card/40 p-2 space-y-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        {EDITABLE_FIELDS.map(({ field, label, kind }) => {
+          const value =
+            kind === "tags"
+              ? (patch.tags ?? []).join("; ")
+              : patch[field] === null || patch[field] === undefined
+                ? ""
+                : String(patch[field]);
+          return (
+            <label key={field} className="space-y-1 block">
+              <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                {label}
+              </span>
+              {kind === "status" ? (
+                <select
+                  className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs"
+                  value={String(patch.status)}
+                  onChange={(e) => onChange("status", e.target.value)}
+                >
+                  {VALID_STATUSES.map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <Input
+                  className="h-8 text-xs"
+                  type={kind === "number" ? "number" : "text"}
+                  min={kind === "number" ? 0 : undefined}
+                  value={value}
+                  onChange={(e) => onChange(field, e.target.value)}
+                />
+              )}
+            </label>
+          );
+        })}
+      </div>
+      {edited && (
+        <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={onReset}>
+          Reset to file values
+        </Button>
+      )}
+    </div>
+  );
+}
+
 function InventoryPage() {
 
   const navigate = useNavigate();
