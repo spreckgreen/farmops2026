@@ -128,6 +128,40 @@ Bostead. The Supabase self-host stack from
    pending and run normally. Use `--baseline` instead only if you want all files
    marked applied with no schema inspection at all.
 
+   **Audit the ledger against the schema** (read-only, applies nothing):
+
+   ```bash
+   ./scripts/apply-migrations.sh --verify
+   echo $?    # 0 = no drift, 1 = drift / partial / orphan rows
+   ```
+
+   Every migration is classified:
+
+   | Status | Meaning | Fix |
+   | --- | --- | --- |
+   | `OK` | in the ledger and all its objects exist | — |
+   | `DRIFT` | ledger says applied, objects are **missing** | `--force --only=<file>` |
+   | `PARTIAL` | only some objects exist, not recorded | inspect, then `--only=<file>` |
+   | `UNRECORDED` | objects exist, ledger doesn't know | `--adopt` |
+   | `PENDING` | not applied yet | normal apply run |
+   | `SKIPPED` | nothing probeable (data-only / `GRANT` / `DO` block) | — |
+   | `ORPHAN` | ledger row with no file on disk | delete the row or restore the file |
+
+   ```text
+   [migrate] Probing 379 schema object(s) in one query…
+     OK         20260608162633_e232558d….sql (16/16 objects, 3 superseded later)
+     UNRECORDED 20260820211737_7d33c0b4….sql (2/2 objects present, not in ledger)
+   [migrate] Verify summary:
+   [migrate]   OK 26   DRIFT 0   PARTIAL 0   UNRECORDED 25   PENDING 0   SKIPPED 19   ORPHAN 0
+   [migrate]   day-colour columns: 2/2
+   ```
+
+   *Superseded* objects are excluded on purpose: `20260624163956_….sql` runs
+   `DROP FUNCTION public.has_role(...)` when that function moved to the `private`
+   schema, so the earlier migration that created `public.has_role` is not
+   reported as drift. The rule: if the last migration to drop an object comes
+   after the last one to create it, the object is expected to be gone.
+
 
    Managed Supabase (supabase.com) instead? Use `supabase db push --db-url
    "$SUPABASE_DB_URL"`; the deploy hook detects the missing `SUPABASE_DB_URL`

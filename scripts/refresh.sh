@@ -231,6 +231,7 @@ elif [ -x "$MIG" ]; then
        err "  The failing file(s) and the exact psql error are printed above."
        err "  Inspect pending files:      $MIG --dry-run"
        err "  Retry one file:             $MIG --only=<filename.sql>"
+       err "  Audit ledger vs live schema:  $MIG --verify"
        err "  DB already correct? seed the ledger and move on:"
        err "                              $MIG --baseline"
        err "  Bypass (not recommended):   $0 --no-pull --force --skip-migrations"
