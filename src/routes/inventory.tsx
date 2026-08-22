@@ -115,84 +115,86 @@ function InventoryPage() {
   };
 
   const handleExportCSV = () => {
-    const headers = [
-      "name",
-      "description",
-      "item_type",
-      "location",
-      "quantity",
-      "min_quantity",
-      "status",
-      "barcode",
-      "tags",
-    ];
-    const rows = filtered.map((a) =>
-      [
-        a.name ?? "",
-        a.description ?? "",
-        a.item_type ?? "",
-        a.location ?? "",
-        a.quantity ?? 0,
-        a.min_quantity ?? 0,
-        a.status,
-        a.barcode || "",
-        (a.tags || []).join(";"),
-      ]
-        .map((v) => `"${v}"`)
-        .join(","),
+    const rows = filtered.map((a) => ({
+      id: a.id,
+      name: a.name ?? "",
+      description: a.description ?? "",
+      item_type: a.item_type ?? "",
+      location: a.location ?? "",
+      quantity: a.quantity ?? 0,
+      min_quantity: a.min_quantity ?? 0,
+      status: a.status,
+      barcode: a.barcode ?? "",
+      tags: (a.tags ?? []).join(";"),
+    }));
+    const csv = rowsToCsv(
+      rows,
+      INVENTORY_CSV_COLUMNS.map((key) => ({ key, label: key })),
     );
-    const csv = [headers.join(","), ...rows].join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "assets-export.csv";
-    a.click();
-    URL.revokeObjectURL(url);
-    toast.success("Exported successfully");
+    downloadCsv("assets-export.csv", csv);
+    toast.success(`Exported ${rows.length} rows (keep the id column to match on re-import)`);
   };
-
 
   const handleImportCSV = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = async (ev) => {
-      const text = ev.target?.result as string;
-      const lines = text.split("\n").filter(Boolean);
-      const headers = lines[0].split(",").map((h) => h.replace(/"/g, "").trim());
-      const rows = lines.slice(1).map((line) => {
-        const vals = line.split(",").map((v) => v.replace(/"/g, "").trim());
-        const obj: Record<string, string> = {};
-        headers.forEach((h, i) => {
-          obj[h] = vals[i] || "";
-        });
-        return obj;
-      });
-
-      const inserts = rows.map((r) => ({
-        user_id: session!.user.id,
-        name: r.name || "Unnamed",
-        description: r.description || "",
-        item_type: r.item_type || null,
-        location: r.location || "",
-        quantity: parseInt(r.quantity) || 1,
-        min_quantity: parseInt(r.min_quantity) || 0,
-        status: ["available", "in_use", "maintenance", "retired"].includes(r.status)
-          ? r.status
-          : "available",
-        tags: r.tags ? r.tags.split(";").filter(Boolean) : [],
-      }));
-
-
-      const { error } = await supabase.from("inventory_items").insert(inserts);
-      if (error) return toast.error("Import failed: " + error.message);
-      toast.success(`Imported ${inserts.length} assets`);
-      fetchAssets();
-    };
-    reader.readAsText(file);
     e.target.value = "";
+    if (!file) return;
+    Papa.parse<ParsedRow>(file, {
+      header: true,
+      skipEmptyLines: true,
+      transformHeader: (h) => h.trim().toLowerCase(),
+      complete: (res) => {
+        if (res.errors.length) {
+          toast.error(`Parse error: ${res.errors[0].message}`);
+          return;
+        }
+        setPlan(reconcileInventory(res.data, assets));
+        setDeleteMissing(false);
+      },
+      error: (err) => toast.error(`Parse error: ${err.message}`),
+    });
   };
+
+  const applyPlan = async () => {
+    if (!plan) return;
+    setApplying(true);
+    try {
+      if (plan.creates.length) {
+        const { error } = await supabase.from("inventory_items").insert(
+          plan.creates.map((c) => ({ ...c.patch, user_id: session!.user.id })),
+        );
+        if (error) throw new Error(error.message);
+      }
+      for (const u of plan.updates) {
+        const { error } = await supabase
+          .from("inventory_items")
+          .update(u.patch)
+          .eq("id", u.existing!.id);
+        if (error) throw new Error(error.message);
+      }
+      if (deleteMissing && plan.missing.length) {
+        const { error } = await supabase
+          .from("inventory_items")
+          .delete()
+          .in(
+            "id",
+            plan.missing.map((m) => m.id),
+          );
+        if (error) throw new Error(error.message);
+      }
+      toast.success(
+        `Import applied: ${plan.creates.length} added, ${plan.updates.length} updated` +
+          (deleteMissing && plan.missing.length ? `, ${plan.missing.length} deleted` : ""),
+      );
+      setPlan(null);
+      fetchAssets();
+    } catch (err) {
+      toast.error(`Import failed: ${(err as Error).message}`);
+    } finally {
+      setApplying(false);
+    }
+  };
+
 
   const usedTypes = new Set(assets.map((a) => a.item_type).filter(Boolean) as string[]);
   const availableTypes = INVENTORY_TYPES.filter((t) => usedTypes.has(t.value));
