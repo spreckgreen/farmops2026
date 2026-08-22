@@ -9,16 +9,20 @@
 #   3. If nothing changed and --force wasn't passed, exits early (no rebuild).
 #   4. `docker compose build app` — reuses BuildKit layer cache, so unchanged
 #      deps skip reinstall. Ollama/Caddy images aren't rebuilt.
-#   5. `docker compose up -d` — recreates only containers whose image/config
+#   5. Applies pending supabase/migrations/*.sql and reloads the PostgREST
+#      schema cache (scripts/apply-migrations.sh) BEFORE the new code serves.
+#   6. `docker compose up -d` — recreates only containers whose image/config
 #      changed. Ollama model volume and Caddy certs survive.
-#   6. Prunes dangling images from the previous build to reclaim disk.
-#   7. Tails app logs until the healthcheck passes (or 90s timeout).
+#   7. Prunes dangling images from the previous build to reclaim disk.
+#   8. Tails app logs until the healthcheck passes (or 90s timeout).
 #
 # Usage:
 #   ./scripts/refresh.sh              # pull + rebuild only if new commits
 #   ./scripts/refresh.sh --force      # rebuild even if git is already up to date
 #   ./scripts/refresh.sh --no-pull    # skip git pull (rebuild from local tree)
 #   ./scripts/refresh.sh --no-sudo    # never fall back to `sudo docker`
+#   ./scripts/refresh.sh --skip-migrations   # deploy without touching the schema
+
 #
 # Safe to re-run. Exits non-zero on any failure so it can be wired into cron
 # or a systemd timer.
