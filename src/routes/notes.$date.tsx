@@ -12,7 +12,7 @@ import { SlugChip } from "@/components/slug-chip";
 import { requireAuthenticatedUser } from "@/lib/auth-route";
 import { toast } from "sonner";
 import { format, addDays, parseISO } from "date-fns";
-import { ChevronLeft, ChevronRight, Eye, EyeOff, Cloud, RefreshCw, Undo2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Eye, EyeOff, Cloud, RefreshCw, Undo2, Search } from "lucide-react";
 import { appDateString } from "@/lib/app-timezone";
 import { DayWindowIndicator } from "@/components/day-window-indicator";
 import { DailyNotePreview } from "@/components/daily-note-preview";
@@ -246,13 +246,14 @@ function NotePage() {
 
 
   const tasks = query.data?.tasks ?? [];
-  const openTasks = useMemo(
-    () =>
-      tasks
-        .filter((t) => t.status !== "done")
-        .sort((a, b) => a.title.localeCompare(b.title)),
-    [tasks]
-  );
+  const [taskFilter, setTaskFilter] = useState("");
+  const openTasks = useMemo(() => {
+    const q = taskFilter.trim().toLowerCase();
+    return tasks
+      .filter((t) => t.status !== "done")
+      .filter((t) => !q || t.title.toLowerCase().includes(q) || t.slug.toLowerCase().includes(q))
+      .sort((a, b) => a.title.localeCompare(b.title));
+  }, [tasks, taskFilter]);
 
   // Move a task off this day's note and back to the backlog.
   const removeFromDayFn = useServerFn(removeTaskFromToday);
@@ -758,9 +759,21 @@ Untagged lines stay in this note only.`}</pre>
         </div>
 
         <div>
-          <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-3">
-            Open tasks · {openTasks.length}
-          </h2>
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <h2 className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+              Open tasks · {openTasks.length}
+            </h2>
+            <div className="flex items-center gap-1.5 border border-border rounded px-2 py-1 bg-background focus-within:border-primary/60">
+              <Search className="h-3 w-3 text-muted-foreground shrink-0" aria-hidden />
+              <input
+                value={taskFilter}
+                onChange={(e) => setTaskFilter(e.target.value)}
+                placeholder="Filter…"
+                aria-label="Filter open tasks by title or slug"
+                className="w-24 bg-transparent outline-none text-[11px] font-mono placeholder:text-muted-foreground/70"
+              />
+            </div>
+          </div>
           <ul className="space-y-1">
             {openTasks.length === 0 && (
               <li className="text-sm text-muted-foreground">None yet. Add a `- [ ]` line.</li>
