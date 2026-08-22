@@ -99,7 +99,7 @@ export const draftInventorySop = createServerFn({ method: "POST" })
       .maybeSingle();
     if (error) throw new Error(error.message);
     if (!item) throw new Error("Inventory item not found.");
-    const it = item as SopItemRecord & { id: string };
+    const it = item as unknown as SopItemRecord & { id: string };
     const itemLabel = sopItemLabel(it);
 
     // Maintenance history gives the model real intervals and failure modes.
