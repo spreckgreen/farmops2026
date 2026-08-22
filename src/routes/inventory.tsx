@@ -427,6 +427,9 @@ function InventoryPage() {
             <Button size="sm" variant="outline" onClick={handleExportCSV}>
               <Download className="h-4 w-4 mr-1" /> Export
             </Button>
+            <Button size="sm" variant="outline" onClick={openHistory}>
+              <History className="h-4 w-4 mr-1" /> Import history
+            </Button>
             <label>
               <Button size="sm" variant="outline" asChild className="cursor-pointer">
                 <span>
