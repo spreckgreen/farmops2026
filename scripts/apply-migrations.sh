@@ -193,6 +193,171 @@ existence_check() {
   esac
 }
 
+# Probe one migration file against the live schema.
+# Sets PROBE_TOTAL / PROBE_PRESENT / PROBE_MISSING (newline-separated labels).
+# Returns 0 = probed, 2 = nothing probeable, 1 = probe query failed.
+probe_file() {
+  local path="$1"
+  PROBE_TOTAL=0; PROBE_PRESENT=0; PROBE_MISSING=""; PROBE_ERROR=""
+
+  local checks res kind schema oname extra
+  checks="$(mktemp -t bostead-probe.XXXXXX.sql)"
+  while IFS='|' read -r kind schema oname extra; do
+    [ -z "${kind:-}" ] && continue
+    existence_check "$kind" "$schema" "$oname" "${extra:-}" >>"$checks"
+    PROBE_TOTAL=$((PROBE_TOTAL + 1))
+  done < <(awk -f "$EXTRACT_AWK" "$path")
+
+  if [ "$PROBE_TOTAL" -eq 0 ]; then
+    rm -f "$checks"
+    return 2   # data-only INSERT/UPDATE, GRANT-only, DO block, DROP-only …
+  fi
+
+  res="$(mktemp -t bostead-probe-res.XXXXXX.txt)"
+  if ! run_sql -At -F '|' -f "$checks" >"$res" 2>&1; then
+    PROBE_ERROR="$(cat "$res")"
+    rm -f "$checks" "$res"
+    return 1
+  fi
+  PROBE_PRESENT="$(grep -c '|t$' "$res" || true)"
+  PROBE_MISSING="$(grep '|f$' "$res" | sed 's/|f$//' || true)"
+  rm -f "$checks" "$res"
+  return 0
+}
+
+# --- Verify mode: does the ledger agree with the live schema? -----------------
+# Read-only. Cross-checks every migration file against both the ledger and the
+# database, and classifies each one:
+#
+#   OK          recorded in the ledger and all its objects exist
+#   DRIFT       recorded as applied but objects are MISSING from the schema
+#               (someone dropped them, or a restore lost them → schema is behind)
+#   UNRECORDED  objects all exist but the file is not in the ledger
+#               (hand-built DB → fix with --adopt)
+#   PENDING     not recorded and objects missing (normal; --dry-run lists these)
+#   PARTIAL     not recorded, only some objects exist (a half-applied migration)
+#   SKIPPED     nothing probeable in the file
+#   ORPHAN      a ledger row with no matching file on disk (older/renamed repo)
+#
+# Exit status: 0 when there is no drift and no orphan, 1 otherwise.
+if [ "$VERIFY" -eq 1 ]; then
+  if [ ! -r "$EXTRACT_AWK" ]; then
+    err "Missing $EXTRACT_AWK — git pull, then re-run with --verify."
+    exit 1
+  fi
+  log "Verify mode: comparing private.applied_migrations against the live schema"
+
+  LEDGER="$(run_sql -At -c "SELECT filename FROM private.applied_migrations ORDER BY filename;" 2>/dev/null || true)"
+
+  V_OK=0; V_DRIFT=0; V_UNREC=0; V_PENDING=0; V_PARTIAL=0; V_SKIPPED=0
+  DRIFT_FILES=(); UNREC_FILES=(); PARTIAL_FILES=()
+
+  for path in $(ls -1 supabase/migrations/*.sql 2>/dev/null | sort); do
+    name="$(basename "$path")"
+    [ -n "$ONLY" ] && [ "$name" != "$ONLY" ] && continue
+    recorded=0
+    printf '%s\n' "$LEDGER" | grep -Fxq "$name" && recorded=1
+
+    set +e; probe_file "$path"; prc=$?; set -e
+    case "$prc" in
+      2)
+        V_SKIPPED=$((V_SKIPPED + 1))
+        printf '  \033[0;90mSKIPPED   \033[0m %s (no detectable objects, ledger=%s)\n' \
+          "$name" "$([ "$recorded" -eq 1 ] && echo recorded || echo pending)"
+        continue ;;
+      1)
+        err "  PROBE-FAIL $name"
+        printf '%s\n' "$PROBE_ERROR" | sed 's/^/               /' >&2
+        V_DRIFT=$((V_DRIFT + 1)); DRIFT_FILES+=("$name (probe failed)")
+        continue ;;
+    esac
+
+    if [ "$PROBE_PRESENT" -eq "$PROBE_TOTAL" ]; then
+      if [ "$recorded" -eq 1 ]; then
+        V_OK=$((V_OK + 1))
+        printf '  \033[0;32mOK        \033[0m %s (%s/%s objects)\n' "$name" "$PROBE_PRESENT" "$PROBE_TOTAL"
+      else
+        V_UNREC=$((V_UNREC + 1)); UNREC_FILES+=("$name")
+        printf '  \033[0;33mUNRECORDED\033[0m %s (%s/%s objects present, not in ledger)\n' "$name" "$PROBE_PRESENT" "$PROBE_TOTAL"
+      fi
+    elif [ "$recorded" -eq 1 ]; then
+      V_DRIFT=$((V_DRIFT + 1)); DRIFT_FILES+=("$name")
+      printf '  \033[1;31mDRIFT     \033[0m %s (recorded applied, only %s/%s objects exist)\n' "$name" "$PROBE_PRESENT" "$PROBE_TOTAL"
+      printf '%s\n' "$PROBE_MISSING" | head -8 | sed '/^$/d;s/^/               missing: /'
+    elif [ "$PROBE_PRESENT" -eq 0 ]; then
+      V_PENDING=$((V_PENDING + 1))
+      printf '  \033[0;36mPENDING   \033[0m %s (0/%s objects — will run on next apply)\n' "$name" "$PROBE_TOTAL"
+    else
+      V_PARTIAL=$((V_PARTIAL + 1)); PARTIAL_FILES+=("$name")
+      printf '  \033[0;33mPARTIAL   \033[0m %s (%s/%s objects — half-applied)\n' "$name" "$PROBE_PRESENT" "$PROBE_TOTAL"
+      printf '%s\n' "$PROBE_MISSING" | head -8 | sed '/^$/d;s/^/               missing: /'
+    fi
+  done
+
+  # Ledger rows with no file on disk.
+  V_ORPHAN=0; ORPHAN_FILES=()
+  while IFS= read -r row; do
+    [ -z "$row" ] && continue
+    if [ ! -f "supabase/migrations/$row" ]; then
+      V_ORPHAN=$((V_ORPHAN + 1)); ORPHAN_FILES+=("$row")
+      printf '  \033[0;33mORPHAN    \033[0m %s (in ledger, no such file in supabase/migrations/)\n' "$row"
+    fi
+  done <<EOF
+$LEDGER
+EOF
+
+  # Day-colour columns are the canary the app actually depends on.
+  DC="$(run_sql -At -c "
+    SELECT count(*) FROM information_schema.columns
+    WHERE table_schema='public' AND table_name='daily_notes'
+      AND column_name IN ('energy_level','productivity_level');" 2>/dev/null | tr -d '[:space:]')"
+
+  echo
+  log "Verify summary:"
+  log "  OK         $V_OK      (ledger + schema agree)"
+  log "  DRIFT      $V_DRIFT      (recorded applied, objects missing)"
+  log "  PARTIAL    $V_PARTIAL      (half-applied, not recorded)"
+  log "  UNRECORDED $V_UNREC      (present in schema, missing from ledger)"
+  log "  PENDING    $V_PENDING      (not applied yet — expected)"
+  log "  SKIPPED    $V_SKIPPED      (nothing probeable)"
+  log "  ORPHAN     $V_ORPHAN      (ledger rows with no file)"
+  log "  day-colour columns: ${DC:-0}/2"
+
+  rc=0
+  if [ "$V_DRIFT" -ne 0 ]; then
+    err ""
+    err "❌ DRIFT: the ledger claims these ran, but their objects are gone:"
+    for f in "${DRIFT_FILES[@]}"; do err "     • $f"; done
+    err "   Re-apply one explicitly (files are transactional):"
+    err "     ./scripts/apply-migrations.sh --force --only=${DRIFT_FILES[0]%% *}"
+    rc=1
+  fi
+  if [ "$V_PARTIAL" -ne 0 ]; then
+    warn ""
+    warn "⚠️  PARTIAL: half-applied migrations — inspect before re-running:"
+    for f in "${PARTIAL_FILES[@]}"; do warn "     • $f"; done
+    warn "   Re-run with: ./scripts/apply-migrations.sh --only=<file>"
+    rc=1
+  fi
+  if [ "$V_UNREC" -ne 0 ]; then
+    warn ""
+    warn "⚠️  UNRECORDED: schema has them, ledger doesn't. Seed the ledger with:"
+    warn "     ./scripts/apply-migrations.sh --adopt"
+    fi
+  if [ "$V_ORPHAN" -ne 0 ]; then
+    warn ""
+    warn "⚠️  ORPHAN ledger rows (harmless, usually a renamed/removed migration):"
+    for f in "${ORPHAN_FILES[@]}"; do warn "     • $f"; done
+    rc=1
+  fi
+  if [ "$rc" -eq 0 ] && [ "$V_UNREC" -eq 0 ]; then
+    log "✅ No drift: private.applied_migrations matches the live schema."
+  fi
+
+  # Read-only mode: never apply, never NOTIFY, never heal.
+  exit "$rc"
+fi
+
 ADOPTED=0
 ADOPT_PENDING=0
 ADOPT_UNKNOWN=0
