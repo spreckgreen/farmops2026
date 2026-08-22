@@ -1,13 +1,16 @@
 // Standard Operating Procedure (SOP) drafting for inventory items.
 //
 // Flow: pick an inventory item -> draftInventorySop() writes a TiddlyWiki-markup
-// SOP using the item's own record (type, vendor, usage tracking, notes) plus its
+// SOP from the item's own record (type, vendor, usage tracking, notes) plus its
 // maintenance history and any already-linked procedures -> saveInventorySop()
-// stores it in public.procedures and links it back to the item so it shows up
-// under the item's "Procedures" section.
+// stores it in public.procedures and links it back to the item so it appears
+// under that item's procedures.
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { validateWikiName } from "@/lib/tinywiki";
+import type { AiEscalation } from "@/lib/ai-feature-areas";
+import type { TruncationSignal } from "@/lib/ai-truncation";
+import type { SopHistoryRow, SopItemRecord } from "@/lib/procedure-sop";
 
 export interface SopInventoryTarget {
   id: string;
@@ -25,15 +28,12 @@ export interface SopDraft {
   body: string;
   model: string;
   latencyMs: number;
-  contextUsed: {
-    maintenanceRecords: number;
-    linkedProcedures: number;
-  };
-  truncation: import("./ai-truncation").TruncationSignal | null;
-  escalation?: import("./ai-feature-areas").AiEscalation | null;
+  contextUsed: { maintenanceRecords: number; linkedProcedures: number };
+  truncation: TruncationSignal | null;
+  escalation: AiEscalation | null;
 }
 
-/** Inventory items available as SOP subjects, newest-first by name. */
+/** Inventory items available as SOP subjects, ordered by name. */
 export const listSopInventoryTargets = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<SopInventoryTarget[]> => {
@@ -51,7 +51,7 @@ export const listSopInventoryTargets = createServerFn({ method: "GET" })
       .eq("user_id", context.userId)
       .not("inventory_item_id", "is", null);
     const linked = new Set(
-      ((links ?? []) as { inventory_item_id: string | null }[])
+      ((links ?? []) as Array<{ inventory_item_id: string | null }>)
         .map((l) => l.inventory_item_id)
         .filter((v): v is string => Boolean(v)),
     );
@@ -76,44 +76,18 @@ export const listSopInventoryTargets = createServerFn({ method: "GET" })
     }));
   });
 
-function stripHtml(html: string): string {
-  return String(html ?? "")
-    .replace(/<script[\s\S]*?<\/script>/gi, "")
-    .replace(/<style[\s\S]*?<\/style>/gi, "")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-/** Strip markdown/code fences the model sometimes wraps output in. */
-function unfence(text: string): string {
-  const t = text.trim();
-  const m = t.match(/^```[a-zA-Z]*\n([\s\S]*?)\n?```$/);
-  return (m ? m[1] : t).trim();
-}
-
-const SOP_SECTIONS = [
-  "Purpose",
-  "Scope",
-  "Safety",
-  "Required tools and parts",
-  "Pre-use checks",
-  "Operating steps",
-  "Shutdown and storage",
-  "Routine maintenance",
-  "Troubleshooting",
-  "Records",
-];
-
 export const draftInventorySop = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: { inventoryItemId: string; focus?: string }) => {
     const inventoryItemId = String(d?.inventoryItemId ?? "").trim();
     if (!inventoryItemId) throw new Error("inventoryItemId required");
-    const focus = String(d?.focus ?? "").trim().slice(0, 1000);
-    return { inventoryItemId, focus };
+    return { inventoryItemId, focus: String(d?.focus ?? "").trim().slice(0, 1000) };
   })
   .handler(async ({ context, data }): Promise<SopDraft> => {
+    const { buildSopPrompt, sopItemLabel, stripHtml, unfence, SOP_SYSTEM_PROMPT } = await import(
+      "@/lib/procedure-sop"
+    );
+
     const { data: item, error } = await context.supabase
       .from("inventory_items")
       .select(
@@ -125,25 +99,8 @@ export const draftInventorySop = createServerFn({ method: "POST" })
       .maybeSingle();
     if (error) throw new Error(error.message);
     if (!item) throw new Error("Inventory item not found.");
-    const it = item as {
-      id: string;
-      name: string | null;
-      sku: string | null;
-      category: string | null;
-      item_type: string | null;
-      vendor: string | null;
-      location: string | null;
-      unit: string | null;
-      quantity: number | null;
-      usage_tracking: string | null;
-      current_hours: number | null;
-      current_miles: number | null;
-      description: string | null;
-      notes: string | null;
-      tags: string[] | null;
-      status: string | null;
-    };
-    const itemLabel = it.name || it.sku || "Inventory item";
+    const it = item as SopItemRecord & { id: string };
+    const itemLabel = sopItemLabel(it);
 
     // Maintenance history gives the model real intervals and failure modes.
     const { data: records } = await context.supabase
@@ -153,13 +110,7 @@ export const draftInventorySop = createServerFn({ method: "POST" })
       .eq("asset_id", it.id)
       .order("performed_at", { ascending: false })
       .limit(15);
-    const recordRows = (records ?? []) as Array<{
-      title: string | null;
-      service_type: string | null;
-      description: string | null;
-      performed_at: string | null;
-      status: string | null;
-    }>;
+    const history = (records ?? []) as SopHistoryRow[];
 
     // Already-linked procedures: reuse the user's own wording and conventions.
     const { data: linkRows } = await context.supabase
@@ -168,77 +119,28 @@ export const draftInventorySop = createServerFn({ method: "POST" })
       .eq("user_id", context.userId)
       .eq("inventory_item_id", it.id)
       .limit(5);
-    const linkedProcs = ((linkRows ?? []) as Array<{
-      procedures: { name: string | null; content: string | null } | null;
-    }>)
+    const linkedProcedures = (
+      (linkRows ?? []) as Array<{ procedures: { name: string | null; content: string | null } | null }>
+    )
       .map((r) => r.procedures)
-      .filter((p): p is { name: string | null; content: string | null } => Boolean(p?.name))
-      .map((p) => ({ name: String(p.name), text: stripHtml(p.content ?? "").slice(0, 1500) }));
+      .filter((p): p is { name: string; content: string | null } => Boolean(p?.name))
+      .map((p) => ({ name: p.name, text: stripHtml(p.content).slice(0, 1500) }));
 
-    const itemBlock =
-      `NAME: ${itemLabel}\n` +
-      `SKU: ${it.sku ?? "(none)"}\n` +
-      `CATEGORY: ${it.category ?? "(none)"}\n` +
-      `TYPE: ${it.item_type ?? "(none)"}\n` +
-      `VENDOR: ${it.vendor ?? "(none)"}\n` +
-      `LOCATION: ${it.location ?? "(none)"}\n` +
-      `ON HAND: ${it.quantity ?? 0} ${it.unit ?? ""}\n`.trimEnd() + "\n" +
-      `STATUS: ${it.status ?? "(none)"}\n` +
-      `USAGE TRACKING: ${it.usage_tracking ?? "none"} ` +
-      `(hours: ${it.current_hours ?? 0}, miles: ${it.current_miles ?? 0})\n` +
-      `TAGS: ${(it.tags ?? []).join(", ") || "(none)"}\n` +
-      `DESCRIPTION: ${it.description ?? "(none)"}\n` +
-      `NOTES: ${it.notes ?? "(none)"}`;
+    const system = SOP_SYSTEM_PROMPT;
+    const prompt = buildSopPrompt({ item: it, history, linkedProcedures, focus: data.focus });
 
-    const historyBlock =
-      recordRows.length === 0
-        ? "(no maintenance history)"
-        : recordRows
-            .map(
-              (r) =>
-                `- ${r.performed_at?.slice(0, 10) ?? "undated"} | ${r.service_type ?? "service"} | ` +
-                `${r.title ?? "(untitled)"} | ${r.status ?? ""} | ` +
-                `${String(r.description ?? "").slice(0, 200)}`,
-            )
-            .join("\n");
-
-    const existingBlock =
-      linkedProcs.length === 0
-        ? "(none)"
-        : linkedProcs.map((p) => `### ${p.name}\n${p.text}`).join("\n\n");
-
-    // Per-feature routing: SOP drafting is long-form prose, so it uses the
-    // "procedures" area (hosted by default) and escalates if a local run fails.
-    const { resolveAreaAi, hostedHandle } = await import("./ai-routing.server");
+    // Per-feature routing: long-form prose, so it uses the "procedures" area
+    // and escalates to hosted AI when a local run fails or truncates.
+    const { resolveAreaAi, hostedHandle } = await import("@/lib/ai-routing.server");
     const ai = await resolveAreaAi("procedures", {
-      hostedDefaultModel: "google/gemini-3-flash-preview",
+      hostedDefaultModel: "google/gemini-3.6-flash",
     });
     let provider = ai.provider;
     let modelId = ai.modelId;
-    let escalation: import("./ai-feature-areas").AiEscalation | null = null;
+    let escalation: AiEscalation | null = null;
 
     const { generateText } = await import("ai");
     const started = Date.now();
-
-    const system =
-      "You write Standard Operating Procedures for a small farm's equipment and supplies. " +
-      "Output TiddlyWiki markup ONLY — no HTML, no markdown fences, no preamble. " +
-      "Markup rules: `!! Section` for section headings, `# step` for numbered steps, " +
-      "`* point` for bullets, `''bold''` for emphasis. " +
-      `Use exactly these sections, in order, each as a '!!' heading: ${SOP_SECTIONS.join(", ")}. ` +
-      "Ground every specific (intervals, parts, capacities) in the provided item record, " +
-      "maintenance history, or existing procedures. When a detail is unknown, write a " +
-      "bracketed placeholder like [confirm from manufacturer manual] instead of inventing it. " +
-      "Keep it practical and checkable: short imperative steps a helper could follow. " +
-      "Safety must call out real hazards for this kind of item (fuel, PTO, blades, chemicals, " +
-      "pressure, electricity) when they apply. Aim for 400-900 words.";
-
-    const prompt =
-      `ITEM RECORD:\n${itemBlock}\n\n` +
-      `MAINTENANCE HISTORY:\n${historyBlock}\n\n` +
-      `EXISTING LINKED PROCEDURES (match their conventions, do not duplicate them):\n${existingBlock}\n\n` +
-      (data.focus ? `USER FOCUS / EXTRA CONTEXT:\n${data.focus}\n\n` : "") +
-      `Write the SOP for: ${itemLabel}`;
 
     let result;
     try {
@@ -248,7 +150,7 @@ export const draftInventorySop = createServerFn({ method: "POST" })
       const hosted = hostedHandle(
         ai,
         "error",
-        `${modelId} failed (${message.slice(0, 200)}), so the SOP was rewritten on hosted AI.`,
+        `${modelId} failed (${message.slice(0, 200)}), so the SOP was written on hosted AI.`,
       );
       if (!hosted) throw err;
       provider = hosted.provider;
@@ -271,8 +173,8 @@ export const draftInventorySop = createServerFn({ method: "POST" })
       }
     }
 
-    const { getActiveContextLimit } = await import("./ai-context-limit.server");
-    const { truncationOrNull } = await import("./ai-truncation");
+    const { getActiveContextLimit } = await import("@/lib/ai-context-limit.server");
+    const { truncationOrNull } = await import("@/lib/ai-truncation");
     const { contextLength } = await getActiveContextLimit(modelId);
     const truncation = truncationOrNull({
       finishReason: result.finishReason,
@@ -293,8 +195,8 @@ export const draftInventorySop = createServerFn({ method: "POST" })
       model: modelId,
       latencyMs: Date.now() - started,
       contextUsed: {
-        maintenanceRecords: recordRows.length,
-        linkedProcedures: linkedProcs.length,
+        maintenanceRecords: history.length,
+        linkedProcedures: linkedProcedures.length,
       },
       truncation,
       escalation,
@@ -342,7 +244,6 @@ export const saveInventorySop = createServerFn({ method: "POST" })
       user_id: context.userId,
       procedure_id: proc.id,
       inventory_item_id: data.inventoryItemId,
-      maintenance_record_id: null,
       notes: "Generated SOP",
     });
     // A duplicate link is harmless — the procedure itself saved fine.
