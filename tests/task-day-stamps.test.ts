@@ -20,7 +20,7 @@ const task = (over: Partial<DayStampTask> = {}): DayStampTask => ({
 describe("planDayStampFixes", () => {
   it("pulls a UTC-rolled closed_at back onto the note's day", () => {
     const fixes = planDayStampFixes(
-      [task({ closed_at: "2026-08-22T03:10:00.000Z" })],
+      [task({ closed_at: "2026-08-22T12:00:00.000Z" })],
       [{ task_id: "t1", note_date: "2026-08-21", created_at: "2026-08-22T03:10:00.000Z" }],
     );
     expect(fixes).toHaveLength(1);
@@ -44,7 +44,7 @@ describe("planDayStampFixes", () => {
 
   it("pulls start_at back but never forward", () => {
     const late = planDayStampFixes(
-      [task({ status: "open", start_at: "2026-08-22T02:00:00.000Z" })],
+      [task({ status: "open", start_at: "2026-08-22T15:00:00.000Z" })],
       [{ task_id: "t1", note_date: "2026-08-21", created_at: "2026-08-22T02:00:00.000Z" }],
     );
     expect(late.map((f) => f.field)).toEqual(["start_at"]);
@@ -65,7 +65,7 @@ describe("planDayStampFixes", () => {
 
   it("merges both fields into one update per task", () => {
     const fixes = planDayStampFixes(
-      [task({ closed_at: "2026-08-22T03:10:00.000Z", start_at: "2026-08-22T03:00:00.000Z" })],
+      [task({ closed_at: "2026-08-22T12:10:00.000Z", start_at: "2026-08-22T13:00:00.000Z" })],
       [{ task_id: "t1", note_date: "2026-08-21", created_at: "2026-08-22T03:00:00.000Z" }],
     );
     const updates = dayStampUpdates(fixes);
