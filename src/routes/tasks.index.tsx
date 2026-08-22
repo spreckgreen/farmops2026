@@ -1,8 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Undo2, ChevronLeft } from "lucide-react";
+import { Undo2, ChevronLeft, Search } from "lucide-react";
 import { listTasks, removeTaskFromToday, moveTaskToPreviousDay } from "@/lib/log.functions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -46,6 +47,7 @@ function TasksPage() {
   const qc = useQueryClient();
   const today = todayDateString();
   const [showSlugs, toggleSlugs] = useShowTaskSlugs();
+  const [query, setQuery] = useState("");
   const { data, isLoading } = useQuery({
     queryKey: ["tasks", "today", today],
     queryFn: () => fn({ data: { date: today } }),
@@ -76,12 +78,22 @@ function TasksPage() {
       toast.error(e instanceof Error ? e.message : "Failed to move task"),
   });
 
+  const q = query.trim().toLowerCase();
+  const matchesFilter = (t: { title: string; slug: string }) =>
+    !q ||
+    t.title.toLowerCase().includes(q) ||
+    t.slug.toLowerCase().includes(q);
+
   const grouped = {
-    open: [...(data ?? []).filter((t) => t.status === "open")].sort((a, b) =>
-      a.title.localeCompare(b.title)
+    open: [...(data ?? []).filter((t) => t.status === "open")]
+      .filter(matchesFilter)
+      .sort((a, b) => a.title.localeCompare(b.title)),
+    blocked: sortByGroupThenTitle(
+      (data ?? []).filter((t) => t.status === "blocked").filter(matchesFilter)
     ),
-    blocked: sortByGroupThenTitle((data ?? []).filter((t) => t.status === "blocked")),
-    done: sortByGroupThenTitle((data ?? []).filter((t) => t.status === "done")),
+    done: sortByGroupThenTitle(
+      (data ?? []).filter((t) => t.status === "done").filter(matchesFilter)
+    ),
   };
 
   return (
@@ -95,6 +107,16 @@ function TasksPage() {
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <TaskQuickSearch />
+          <div className="flex items-center gap-1.5 border border-border rounded px-2 py-1 bg-background focus-within:border-primary/60">
+            <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" aria-hidden />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Filter open tasks…"
+              aria-label="Filter tasks by title or slug"
+              className="w-40 bg-transparent outline-none text-xs font-mono placeholder:text-muted-foreground/70"
+            />
+          </div>
           <Link
             to="/tasks/refs"
             className="text-xs font-mono px-2 py-1 border border-border rounded hover:bg-accent"
