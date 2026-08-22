@@ -444,6 +444,8 @@ function NotePage() {
                 {format(parseISO(date), "EEEE, MMMM d")}
               </h1>
               <p className="text-xs text-muted-foreground font-mono">{date}</p>
+              <DayWindowIndicator date={date} className="mt-1" />
+
             </div>
           </div>
           <div className="flex items-center gap-3">
