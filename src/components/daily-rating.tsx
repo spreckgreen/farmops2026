@@ -121,12 +121,23 @@ export function DailyRatingPanel({
     setLocal({ energy, productivity });
   }, [energy, productivity, noteId]);
 
+  const [unsupported, setUnsupported] = useState<string | null>(null);
+
   const save = useMutation({
     mutationFn: (patch: { energy_level?: number | null; productivity_level?: number | null }) => {
       if (!noteId) throw new Error("Note not loaded yet");
       return saveFn({ data: { noteId, ...patch } });
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["daily-note", date] }),
+    onSuccess: (res) => {
+      const r = res as { supported?: boolean; message?: string } | undefined;
+      if (r && r.supported === false) {
+        setUnsupported(r.message ?? "Day colour ratings aren't available on this database yet.");
+        setLocal({ energy, productivity });
+        return;
+      }
+      setUnsupported(null);
+      qc.invalidateQueries({ queryKey: ["daily-note", date] });
+    },
     onError: (e) => {
       setLocal({ energy, productivity });
       toast.error(e instanceof Error ? e.message : "Could not save rating");
@@ -141,11 +152,16 @@ export function DailyRatingPanel({
         </h3>
         <DailyRatingDot energy={local.energy} productivity={local.productivity} />
       </div>
+      {unsupported ? (
+        <p className="rounded-md border border-border bg-muted/40 p-2 text-[10px] text-muted-foreground">
+          {unsupported}
+        </p>
+      ) : null}
       <Scale
         label="Energy"
         icon={<Battery className="h-3 w-3" />}
         value={local.energy}
-        disabled={!noteId || save.isPending}
+        disabled={!noteId || save.isPending || !!unsupported}
         onChange={(v) => {
           setLocal((s) => ({ ...s, energy: v }));
           save.mutate({ energy_level: v });
@@ -155,7 +171,7 @@ export function DailyRatingPanel({
         label="Productivity"
         icon={<Gauge className="h-3 w-3" />}
         value={local.productivity}
-        disabled={!noteId || save.isPending}
+        disabled={!noteId || save.isPending || !!unsupported}
         onChange={(v) => {
           setLocal((s) => ({ ...s, productivity: v }));
           save.mutate({ productivity_level: v });
