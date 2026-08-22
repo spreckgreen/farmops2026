@@ -406,6 +406,19 @@ function Page() {
                   rows={3}
                 />
               </div>
+              <ReferenceFields
+                referenceUrl={referenceUrl}
+                setReferenceUrl={setReferenceUrl}
+                referenceText={referenceText}
+                setReferenceText={setReferenceText}
+                referenceFileName={referenceFileName}
+                clearFile={() => {
+                  setReferenceFileName(null);
+                  setReferenceText("");
+                }}
+                onFile={readReferenceFile}
+                disabled={planMut.isPending || checkMut.isPending}
+              />
               {failures.length > 0 && (
                 <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-xs space-y-1">
                   {failures.map((f) => (
