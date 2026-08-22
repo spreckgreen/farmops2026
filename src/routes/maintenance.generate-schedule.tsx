@@ -145,13 +145,32 @@ function Page() {
                   className="w-full h-10 rounded-md border border-border bg-background px-3 text-sm"
                 >
                   <option value="">— Select an asset —</option>
-                  {displayAssets.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.name ?? a.sku ?? "Unnamed"}
-                      {a.category ? ` · ${a.category}` : ""}
-                    </option>
-                  ))}
+                  {trackedAssets.length > 0 && (
+                    <optgroup label="Tracked assets">
+                      {trackedAssets.map((a) => (
+                        <option key={a.id} value={a.id}>
+                          {a.name ?? a.sku ?? "Unnamed"}
+                          {a.category ? ` · ${a.category}` : ""}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                  {otherItems.length > 0 && (
+                    <optgroup label="Other inventory items">
+                      {otherItems.map((a) => (
+                        <option key={a.id} value={a.id}>
+                          {a.name ?? a.sku ?? "Unnamed"}
+                          {a.category ? ` · ${a.category}` : ""}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
                 </select>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {displayAssets.length} item
+                  {displayAssets.length === 1 ? "" : "s"} available —{" "}
+                  {trackedAssets.length} with usage tracking or an asset type.
+                </p>
                 {selected && (
                   <p className="text-xs text-muted-foreground mt-1">
                     Current hours: {selected.current_hours ?? 0} · miles:{" "}
