@@ -12,6 +12,7 @@
  *    the canonical task (the one the `#task/<slug>` points at) can vanish from
  *    every column.
  */
+import { dayBoundsUtc } from "./app-timezone";
 
 export type StatusWindowTask = {
   id: string;
