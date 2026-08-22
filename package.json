@@ -24,7 +24,7 @@
     "test:e2e": "playwright test",
     "test:e2e:install": "playwright install --with-deps chromium",
     "verify": "vitest run && vite build",
-    "prepublish:check": "vitest run && bun scripts/test-rls.ts && echo '✅ Run the Deep Security Scan in the Lovable Security tab before clicking Publish.'"
+    "prepublish:check": "vitest run && bun scripts/test-rls.ts && echo '\u2705 Run the Deep Security Scan in the Lovable Security tab before clicking Publish.'"
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "^2.0.48",
@@ -120,9 +120,19 @@
     "vitest": "^4.1.8"
   },
   "overrides": {
-    "js-yaml": "^4.2.0"
+    "js-yaml": "^4.2.0",
+    "@tanstack/react-router": "^1.170.16",
+    "@tanstack/router-core": "^1.170.16",
+    "@tanstack/history": "^1.170.16",
+    "@tanstack/react-store": "^0.7.7",
+    "@tanstack/store": "^0.7.7"
   },
   "resolutions": {
-    "js-yaml": "^4.2.0"
+    "js-yaml": "^4.2.0",
+    "@tanstack/react-router": "^1.170.16",
+    "@tanstack/router-core": "^1.170.16",
+    "@tanstack/history": "^1.170.16",
+    "@tanstack/react-store": "^0.7.7",
+    "@tanstack/store": "^0.7.7"
   }
 }
