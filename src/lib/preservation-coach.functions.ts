@@ -282,9 +282,13 @@ export const recommendPreservation = createServerFn({ method: "POST" })
     let modelId = "deterministic";
 
     try {
-      const { createAiProvider } = await import("./ai-gateway.server");
-      const { provider, modelOverride } = await createAiProvider();
-      modelId = modelOverride ?? "google/gemini-3.6-flash";
+      const { resolveAreaAi, hostedHandle } = await import("./ai-routing.server");
+      ai = await resolveAreaAi("food.preservation", {
+        hostedDefaultModel: "google/gemini-3.6-flash",
+      });
+      hostedFallback = hostedHandle;
+      provider = ai.provider;
+      modelId = ai.modelId;
       const { generateText, Output, NoObjectGeneratedError } = await import("ai");
 
       const schema = z.object({

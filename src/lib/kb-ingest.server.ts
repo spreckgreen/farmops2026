@@ -89,9 +89,11 @@ export async function runIngest(
   data: { items: IngestSourceInput[]; mode: IngestMode },
 ): Promise<IngestResult> {
   const started = Date.now();
-  const { createAiProvider } = await import("./ai-gateway.server");
-  const { provider, modelOverride } = await createAiProvider();
-  const modelId = modelOverride ?? "openai/gpt-5.6-sol";
+  const { resolveAreaAi, hostedHandle } = await import("./ai-routing.server");
+  const ai = await resolveAreaAi("kb_ingest", { hostedDefaultModel: "openai/gpt-5.6-sol" });
+  let provider = ai.provider;
+  let modelId = ai.modelId;
+  const modelOverride = ai.backend === "local" ? ai.modelId : undefined;
   const { generateText } = await import("ai");
   const { markdownToTinyWiki } = await import("./md-to-tinywiki");
   const { tidyProcedure } = await import("./tidy-tinywiki");

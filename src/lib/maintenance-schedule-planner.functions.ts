@@ -67,9 +67,13 @@ export const planMaintenanceSchedule = createServerFn({ method: "POST" })
       .map((i) => `- ${i.name ?? i.sku ?? "?"} (id:${i.id})`)
       .join("\n");
 
-    const { createAiProvider } = await import("./ai-gateway.server");
-    const { provider, modelOverride } = await createAiProvider();
-    const modelId = modelOverride ?? "google/gemini-3.6-flash";
+    const { resolveAreaAi, hostedHandle } = await import("./ai-routing.server");
+    const ai = await resolveAreaAi("maintenance.schedule", {
+      hostedDefaultModel: "google/gemini-3.6-flash",
+    });
+    let provider = ai.provider;
+    let modelId = ai.modelId;
+    let escalation: import("./ai-feature-areas").AiEscalation | null = null;
 
     const { generateText, Output, NoObjectGeneratedError } = await import("ai");
 
