@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import { slugify, taskRenamePatch, patchMutatesSlug } from "./slug";
-import { appendTaskRefLine } from "./daily-note-append";
+import { appendTaskRefLine, removeTaskRefLines } from "./daily-note-append";
 import { DEFAULT_DESIGN_ELEMENT_WEIGHT } from "./design-weight";
 import { closedStampFor, isTaskInDayView } from "./task-status-window";
 
