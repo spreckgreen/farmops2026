@@ -17,6 +17,8 @@ export interface ForecastResponse {
 }
 
 export interface ForecastNarrative {
+  /** Set when a local model failed/truncated and hosted AI was used instead. */
+  escalation?: import("./ai-feature-areas").AiEscalation | null;
   narrative: string;
   model: string;
   /** Present when the briefing looks cut off or the context window was strained. */

@@ -17,6 +17,8 @@ const Input = z.object({
 });
 
 export interface ConsultantReply {
+  /** Set when a local model failed/truncated and hosted AI was used instead. */
+  escalation?: import("./ai-feature-areas").AiEscalation | null;
   text: string;
   model: string;
   latencyMs: number;

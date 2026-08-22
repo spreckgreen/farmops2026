@@ -17,6 +17,8 @@ export interface IngestedArticle {
 }
 
 export interface IngestResult {
+  /** Set when a local model failed and hosted AI was used instead. */
+  escalation?: import("./ai-feature-areas").AiEscalation | null;
   articles: IngestedArticle[];
   skipped: { title: string; reason: string }[];
   model: string;
@@ -98,7 +100,7 @@ export async function runIngest(
   const { markdownToTinyWiki } = await import("./md-to-tinywiki");
   const { tidyProcedure } = await import("./tidy-tinywiki");
   const { buildTinyWikiHtml } = await import("./tinywiki");
-  let providerOptions: Record<string, unknown> | undefined = modelOverride
+  let providerOptions: { "lovable-ai-gateway": { reasoningEffort: string } } | undefined = modelOverride
     ? undefined
     : { "lovable-ai-gateway": { reasoningEffort: "none" } };
   let escalation: import("./ai-feature-areas").AiEscalation | null = null;
