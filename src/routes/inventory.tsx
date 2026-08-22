@@ -75,8 +75,15 @@ function InventoryPage() {
   const [scannerOpen, setScannerOpen] = useState(false);
   const [partsItemId, setPartsItemId] = useState<string | null>(null);
   const [plan, setPlan] = useState<ReconcilePlan | null>(null);
+  const [report, setReport] = useState<{
+    fileName: string;
+    parseErrors: string[];
+    result: ValidationReport | null;
+    rows: Array<Record<string, unknown>>;
+  } | null>(null);
   const [deleteMissing, setDeleteMissing] = useState(false);
   const [applying, setApplying] = useState(false);
+
 
 
   useEffect(() => {
