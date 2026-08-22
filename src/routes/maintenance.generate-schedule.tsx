@@ -55,6 +55,7 @@ export const Route = createFileRoute("/maintenance/generate-schedule")({
 function Page() {
   const listInv = useServerFn(listInventory);
   const planFn = useServerFn(planMaintenanceSchedule);
+  const existingFn = useServerFn(listExistingSchedules);
 
   const { data: inventory = [] } = useQuery({
     queryKey: ["inventory"],
@@ -145,8 +146,7 @@ function Page() {
   const checkMut = useMutation({
     mutationFn: async () => {
       if (selectedIds.length === 0) throw new Error("Pick at least one asset");
-      const listExisting = listExistingSchedules;
-      return listExisting({ data: { asset_ids: selectedIds } });
+      return existingFn({ data: { asset_ids: selectedIds } });
     },
     onSuccess: (rows) => {
       setExisting(rows);
@@ -199,7 +199,21 @@ function Page() {
         setRunStatus((s) => ({ ...s, [id]: "running" }));
         try {
           const p = await planFn({
-            data: { asset_id: id, usage_context: usageContext || undefined },
+            data: {
+              asset_id: id,
+              usage_context: usageContext || undefined,
+              supplemental: supplemental && (existingByAsset.get(id)?.length ?? 0) > 0,
+              existing_services: (existingByAsset.get(id) ?? [])
+                .map((e) =>
+                  [e.title ?? e.service_type ?? "Service", e.recurrence]
+                    .filter(Boolean)
+                    .join(" — ")
+                    .slice(0, 300),
+                )
+                .slice(0, 100),
+              reference_url: referenceUrl.trim() || undefined,
+              reference_text: referenceText.trim() || undefined,
+            },
             signal: controller.signal,
           });
           merged.actions.push(...p.actions);
@@ -403,11 +417,13 @@ function Page() {
               )}
               <div className="flex justify-end">
                 <Button
-                  onClick={() => planMut.mutate()}
-                  disabled={selectedIds.length === 0 || planMut.isPending}
+                  onClick={() => checkMut.mutate()}
+                  disabled={
+                    selectedIds.length === 0 || planMut.isPending || checkMut.isPending
+                  }
                   className="bg-primary hover:bg-primary/90 text-primary-foreground"
                 >
-                  {planMut.isPending ? (
+                  {planMut.isPending || checkMut.isPending ? (
                     <>
                       <Loader2 className="h-4 w-4 mr-1 animate-spin" /> Asking
                       the AI…
