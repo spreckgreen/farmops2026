@@ -12,6 +12,8 @@ import { requireAuthenticatedUser } from "@/lib/auth-route";
 import { toast } from "sonner";
 import { format, addDays, parseISO } from "date-fns";
 import { ChevronLeft, ChevronRight, Eye, EyeOff, Cloud, RefreshCw } from "lucide-react";
+import { appDateString } from "@/lib/app-timezone";
+import { DayWindowIndicator } from "@/components/day-window-indicator";
 import { DailyNotePreview } from "@/components/daily-note-preview";
 import { DailyRatingPanel } from "@/components/daily-rating";
 import { NoteInterpretation } from "@/components/note-interpretation";
@@ -61,7 +63,7 @@ function NotePage() {
   const qc = useQueryClient();
   const [showSlugs, toggleSlugs] = useShowTaskSlugs();
 
-  const today = format(new Date(), "yyyy-MM-dd");
+  const today = appDateString();
   const shift = (days: number) => {
     const next = format(addDays(parseISO(date), days), "yyyy-MM-dd");
     navigate({ to: "/notes/$date", params: { date: next } });
