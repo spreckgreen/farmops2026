@@ -1,3 +1,4 @@
+import { appDateString } from "@/lib/app-timezone";
 /**
  * Shared task-health logic for the nightly job and the admin "run now" button.
  *
@@ -67,7 +68,7 @@ export async function scanTaskHealth(
   const titleCleanups = planTitleCleanups(tasks, merges);
   // Day-agnostic drift only: pass an empty log set so the "closed_at outside
   // the day" check (which needs a specific day's log) stays out of the job.
-  const drift = findStatusDrift(tasks, new Date().toISOString().slice(0, 10), new Set());
+  const drift = findStatusDrift(tasks, appDateString(), new Set());
 
   const report: TaskHealthReport = {
     userId,

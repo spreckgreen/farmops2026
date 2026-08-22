@@ -1,3 +1,4 @@
+import { appDateString } from "@/lib/app-timezone";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -85,7 +86,7 @@ export async function fetchAndCacheForecast(
       .eq("station_id", STATION_ID)
       .eq("forecast_date", date)
       .maybeSingle();
-    const today = new Date().toISOString().slice(0, 10);
+    const today = appDateString();
     if (cached) {
       const ageMs = Date.now() - new Date(cached.fetched_at).getTime();
       // Rows cached before humidity / feels-like existed are missing some or
@@ -108,7 +109,7 @@ export async function fetchAndCacheForecast(
   }
 
   const forecast: Partial<DailyForecast> = hit?.daily ?? {};
-  const today = new Date().toISOString().slice(0, 10);
+  const today = appDateString();
   // Tempest's daily block has no humidity/feels-like; its current_conditions
   // block does (e.g. relative_humidity: 62, feels_like: 88), so it only
   // describes today.
@@ -278,7 +279,7 @@ async function fetchOpenMeteoRange(start: string, end: string): Promise<Array<{
 }>> {
   // Archive lags ~2 days; forecast covers ~today-2..today+16. Split the
   // range and skip anything beyond the forecast horizon (future seasons).
-  const today = new Date().toISOString().slice(0, 10);
+  const today = appDateString();
   const archiveCutoff = addDaysISO(today, -3);
   const forecastEndMax = addDaysISO(today, 15);
 
@@ -349,7 +350,7 @@ export const backfillSeasonWeather = createServerFn({ method: "POST" })
     // Try Tempest first for any portion that's within its ~10-day forecast window.
     // Tempest's better_forecast covers ~today + 10 days; for true history we use Open-Meteo.
     try {
-      const today = new Date().toISOString().slice(0, 10);
+      const today = appDateString();
       if (endDate >= today) {
         const token = await getServerEnv("TEMPEST_API_TOKEN");
         if (token) {

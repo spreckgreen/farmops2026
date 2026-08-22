@@ -1,3 +1,4 @@
+import { appDateString } from "@/lib/app-timezone";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -25,7 +26,7 @@ type ExecTask = {
 };
 
 function todayLocalYMD() {
-  return new Date().toLocaleDateString("en-CA", { timeZone: "UTC" });
+  return appDateString();
 }
 
 export function DesignElementTasksCount({
