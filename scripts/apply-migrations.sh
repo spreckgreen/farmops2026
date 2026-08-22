@@ -404,7 +404,7 @@ probe_all() {
 
   log "Probing $(wc -l <"$checks" | tr -d ' ') schema object(s) in one query…"
   res="$(mktemp -t bostead-probe-res.XXXXXX.txt)"
-  if ! run_sql -At -F '|' -f "$checks" >"$res" 2>&1; then
+  if ! run_sql_file "$checks" -At -F '|' >"$res" 2>&1; then
     err "Schema probe query failed:"
     sed 's/^/    /' "$res" >&2 || true
     rm -f "$checks" "$res"
