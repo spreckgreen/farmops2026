@@ -194,59 +194,87 @@ EXTRACT_AWK="scripts/lib/extract-objects.awk"
 
 sql_lit() { printf "%s" "$1" | sed "s/'/''/g"; }
 
-# Emit `SELECT '<label>', EXISTS(...);`-style rows for one extracted object.
+# Emit one `SELECT '<file>','<label>', EXISTS(...);` row for an extracted object.
+# All files' checks go into ONE psql invocation — 70 separate round trips to a
+# remote Postgres takes minutes; batched it's a single query.
 existence_check() {
-  local kind="$1" schema="$2" name="$3" extra="${4:-}"
-  local s n e
-  s="$(sql_lit "$schema")"; n="$(sql_lit "$name")"; e="$(sql_lit "$extra")"
+  local file="$1" kind="$2" schema="$3" name="$4" extra="${5:-}"
+  local f s n e
+  f="$(sql_lit "$file")"; s="$(sql_lit "$schema")"; n="$(sql_lit "$name")"; e="$(sql_lit "$extra")"
   case "$kind" in
     table)
-      printf "SELECT 'table %s.%s', EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace ns ON ns.oid=c.relnamespace WHERE ns.nspname='%s' AND c.relname='%s' AND c.relkind IN ('r','p','v','m','f'));\n" "$s" "$n" "$s" "$n" ;;
+      printf "SELECT '%s','table %s.%s', EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace ns ON ns.oid=c.relnamespace WHERE ns.nspname='%s' AND c.relname='%s' AND c.relkind IN ('r','p','v','m','f'));\n" "$f" "$s" "$n" "$s" "$n" ;;
     index)
-      printf "SELECT 'index %s.%s', EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace ns ON ns.oid=c.relnamespace WHERE ns.nspname='%s' AND c.relname='%s' AND c.relkind='i');\n" "$s" "$n" "$s" "$n" ;;
+      printf "SELECT '%s','index %s.%s', EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace ns ON ns.oid=c.relnamespace WHERE ns.nspname='%s' AND c.relname='%s' AND c.relkind='i');\n" "$f" "$s" "$n" "$s" "$n" ;;
     type)
-      printf "SELECT 'type %s.%s', EXISTS(SELECT 1 FROM pg_type t JOIN pg_namespace ns ON ns.oid=t.typnamespace WHERE ns.nspname='%s' AND t.typname='%s');\n" "$s" "$n" "$s" "$n" ;;
+      printf "SELECT '%s','type %s.%s', EXISTS(SELECT 1 FROM pg_type t JOIN pg_namespace ns ON ns.oid=t.typnamespace WHERE ns.nspname='%s' AND t.typname='%s');\n" "$f" "$s" "$n" "$s" "$n" ;;
     function)
-      printf "SELECT 'function %s.%s', EXISTS(SELECT 1 FROM pg_proc p JOIN pg_namespace ns ON ns.oid=p.pronamespace WHERE ns.nspname='%s' AND p.proname='%s');\n" "$s" "$n" "$s" "$n" ;;
+      printf "SELECT '%s','function %s.%s', EXISTS(SELECT 1 FROM pg_proc p JOIN pg_namespace ns ON ns.oid=p.pronamespace WHERE ns.nspname='%s' AND p.proname='%s');\n" "$f" "$s" "$n" "$s" "$n" ;;
     column)
-      printf "SELECT 'column %s.%s.%s', EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='%s' AND table_name='%s' AND column_name='%s');\n" "$s" "$n" "$e" "$s" "$n" "$e" ;;
+      printf "SELECT '%s','column %s.%s.%s', EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='%s' AND table_name='%s' AND column_name='%s');\n" "$f" "$s" "$n" "$e" "$s" "$n" "$e" ;;
     policy)
-      printf "SELECT 'policy %s on %s.%s', EXISTS(SELECT 1 FROM pg_policies WHERE schemaname='%s' AND tablename='%s' AND policyname='%s');\n" "$e" "$s" "$n" "$s" "$n" "$e" ;;
+      printf "SELECT '%s','policy %s on %s.%s', EXISTS(SELECT 1 FROM pg_policies WHERE schemaname='%s' AND tablename='%s' AND policyname='%s');\n" "$f" "$e" "$s" "$n" "$s" "$n" "$e" ;;
     trigger)
-      printf "SELECT 'trigger %s on %s.%s', EXISTS(SELECT 1 FROM pg_trigger tg JOIN pg_class c ON c.oid=tg.tgrelid JOIN pg_namespace ns ON ns.oid=c.relnamespace WHERE NOT tg.tgisinternal AND ns.nspname='%s' AND c.relname='%s' AND tg.tgname='%s');\n" "$e" "$s" "$n" "$s" "$n" "$e" ;;
+      printf "SELECT '%s','trigger %s on %s.%s', EXISTS(SELECT 1 FROM pg_trigger tg JOIN pg_class c ON c.oid=tg.tgrelid JOIN pg_namespace ns ON ns.oid=c.relnamespace WHERE NOT tg.tgisinternal AND ns.nspname='%s' AND c.relname='%s' AND tg.tgname='%s');\n" "$f" "$e" "$s" "$n" "$s" "$n" "$e" ;;
   esac
 }
 
-# Probe one migration file against the live schema.
-# Sets PROBE_TOTAL / PROBE_PRESENT / PROBE_MISSING (newline-separated labels).
-# Returns 0 = probed, 2 = nothing probeable, 1 = probe query failed.
-probe_file() {
-  local path="$1"
-  PROBE_TOTAL=0; PROBE_PRESENT=0; PROBE_MISSING=""; PROBE_ERROR=""
+# Probe every migration file against the live schema in a single query.
+# Populates:
+#   PROBE_TOTAL[file]   number of detected objects
+#   PROBE_PRESENT[file] how many of them exist
+#   PROBE_MISS[file]    newline-separated labels of the missing ones
+# Files with no detectable objects get PROBE_TOTAL=0 (treated as unprobeable).
+declare -A PROBE_TOTAL=() PROBE_PRESENT=() PROBE_MISS=()
+PROBE_FILES=()
 
-  local checks res kind schema oname extra
-  checks="$(mktemp -t bostead-probe.XXXXXX.sql)"
-  while IFS='|' read -r kind schema oname extra; do
-    [ -z "${kind:-}" ] && continue
-    existence_check "$kind" "$schema" "$oname" "${extra:-}" >>"$checks"
-    PROBE_TOTAL=$((PROBE_TOTAL + 1))
-  done < <(awk -f "$EXTRACT_AWK" "$path")
-
-  if [ "$PROBE_TOTAL" -eq 0 ]; then
-    rm -f "$checks"
-    return 2   # data-only INSERT/UPDATE, GRANT-only, DO block, DROP-only …
+probe_all() {
+  if [ ! -r "$EXTRACT_AWK" ]; then
+    err "Missing $EXTRACT_AWK — git pull, then re-run."
+    exit 1
   fi
 
+  local checks res path name kind schema oname extra file label exists
+  checks="$(mktemp -t bostead-probe.XXXXXX.sql)"
+
+  for path in $(ls -1 supabase/migrations/*.sql 2>/dev/null | sort); do
+    name="$(basename "$path")"
+    [ -n "$ONLY" ] && [ "$name" != "$ONLY" ] && continue
+    PROBE_FILES+=("$name")
+    PROBE_TOTAL["$name"]=0
+    PROBE_PRESENT["$name"]=0
+    PROBE_MISS["$name"]=""
+    while IFS='|' read -r kind schema oname extra; do
+      [ -z "${kind:-}" ] && continue
+      existence_check "$name" "$kind" "$schema" "$oname" "${extra:-}" >>"$checks"
+      PROBE_TOTAL["$name"]=$(( ${PROBE_TOTAL["$name"]} + 1 ))
+    done < <(awk -f "$EXTRACT_AWK" "$path")
+  done
+
+  if [ ! -s "$checks" ]; then
+    rm -f "$checks"
+    return 0
+  fi
+
+  log "Probing $(wc -l <"$checks" | tr -d ' ') schema object(s) in one query…"
   res="$(mktemp -t bostead-probe-res.XXXXXX.txt)"
   if ! run_sql -At -F '|' -f "$checks" >"$res" 2>&1; then
-    PROBE_ERROR="$(cat "$res")"
+    err "Schema probe query failed:"
+    sed 's/^/    /' "$res" >&2 || true
     rm -f "$checks" "$res"
-    return 1
+    exit 1
   fi
-  PROBE_PRESENT="$(grep -c '|t$' "$res" || true)"
-  PROBE_MISSING="$(grep '|f$' "$res" | sed 's/|f$//' || true)"
+
+  while IFS='|' read -r file label exists; do
+    [ -z "${file:-}" ] && continue
+    if [ "$exists" = "t" ]; then
+      PROBE_PRESENT["$file"]=$(( ${PROBE_PRESENT["$file"]:-0} + 1 ))
+    else
+      PROBE_MISS["$file"]="${PROBE_MISS["$file"]:-}${label}"$'\n'
+    fi
+  done <"$res"
+
   rm -f "$checks" "$res"
-  return 0
 }
 
 # --- Verify mode: does the ledger agree with the live schema? -----------------
@@ -260,61 +288,49 @@ probe_file() {
 #               (hand-built DB → fix with --adopt)
 #   PENDING     not recorded and objects missing (normal; --dry-run lists these)
 #   PARTIAL     not recorded, only some objects exist (a half-applied migration)
-#   SKIPPED     nothing probeable in the file
+#   SKIPPED     nothing probeable in the file (data-only INSERT, GRANT, DO block)
 #   ORPHAN      a ledger row with no matching file on disk (older/renamed repo)
 #
-# Exit status: 0 when there is no drift and no orphan, 1 otherwise.
+# Exit status: 0 when there is no drift, partial, or orphan; 1 otherwise.
 if [ "$VERIFY" -eq 1 ]; then
-  if [ ! -r "$EXTRACT_AWK" ]; then
-    err "Missing $EXTRACT_AWK — git pull, then re-run with --verify."
-    exit 1
-  fi
   log "Verify mode: comparing private.applied_migrations against the live schema"
-
   LEDGER="$(run_sql -At -c "SELECT filename FROM private.applied_migrations ORDER BY filename;" 2>/dev/null || true)"
+
+  probe_all
 
   V_OK=0; V_DRIFT=0; V_UNREC=0; V_PENDING=0; V_PARTIAL=0; V_SKIPPED=0
   DRIFT_FILES=(); UNREC_FILES=(); PARTIAL_FILES=()
 
-  for path in $(ls -1 supabase/migrations/*.sql 2>/dev/null | sort); do
-    name="$(basename "$path")"
-    [ -n "$ONLY" ] && [ "$name" != "$ONLY" ] && continue
+  for name in "${PROBE_FILES[@]}"; do
+    total=${PROBE_TOTAL["$name"]:-0}
+    present=${PROBE_PRESENT["$name"]:-0}
+    missing="${PROBE_MISS["$name"]:-}"
     recorded=0
     printf '%s\n' "$LEDGER" | grep -Fxq "$name" && recorded=1
 
-    set +e; probe_file "$path"; prc=$?; set -e
-    case "$prc" in
-      2)
-        V_SKIPPED=$((V_SKIPPED + 1))
-        printf '  \033[0;90mSKIPPED   \033[0m %s (no detectable objects, ledger=%s)\n' \
-          "$name" "$([ "$recorded" -eq 1 ] && echo recorded || echo pending)"
-        continue ;;
-      1)
-        err "  PROBE-FAIL $name"
-        printf '%s\n' "$PROBE_ERROR" | sed 's/^/               /' >&2
-        V_DRIFT=$((V_DRIFT + 1)); DRIFT_FILES+=("$name (probe failed)")
-        continue ;;
-    esac
-
-    if [ "$PROBE_PRESENT" -eq "$PROBE_TOTAL" ]; then
+    if [ "$total" -eq 0 ]; then
+      V_SKIPPED=$((V_SKIPPED + 1))
+      printf '  \033[0;90mSKIPPED   \033[0m %s (no detectable objects, ledger=%s)\n' \
+        "$name" "$([ "$recorded" -eq 1 ] && echo recorded || echo pending)"
+    elif [ "$present" -eq "$total" ]; then
       if [ "$recorded" -eq 1 ]; then
         V_OK=$((V_OK + 1))
-        printf '  \033[0;32mOK        \033[0m %s (%s/%s objects)\n' "$name" "$PROBE_PRESENT" "$PROBE_TOTAL"
+        printf '  \033[0;32mOK        \033[0m %s (%s/%s objects)\n' "$name" "$present" "$total"
       else
         V_UNREC=$((V_UNREC + 1)); UNREC_FILES+=("$name")
-        printf '  \033[0;33mUNRECORDED\033[0m %s (%s/%s objects present, not in ledger)\n' "$name" "$PROBE_PRESENT" "$PROBE_TOTAL"
+        printf '  \033[0;33mUNRECORDED\033[0m %s (%s/%s objects present, not in ledger)\n' "$name" "$present" "$total"
       fi
     elif [ "$recorded" -eq 1 ]; then
       V_DRIFT=$((V_DRIFT + 1)); DRIFT_FILES+=("$name")
-      printf '  \033[1;31mDRIFT     \033[0m %s (recorded applied, only %s/%s objects exist)\n' "$name" "$PROBE_PRESENT" "$PROBE_TOTAL"
-      printf '%s\n' "$PROBE_MISSING" | head -8 | sed '/^$/d;s/^/               missing: /'
-    elif [ "$PROBE_PRESENT" -eq 0 ]; then
+      printf '  \033[1;31mDRIFT     \033[0m %s (recorded applied, only %s/%s objects exist)\n' "$name" "$present" "$total"
+      printf '%s' "$missing" | head -8 | sed '/^$/d;s/^/               missing: /'
+    elif [ "$present" -eq 0 ]; then
       V_PENDING=$((V_PENDING + 1))
-      printf '  \033[0;36mPENDING   \033[0m %s (0/%s objects — will run on next apply)\n' "$name" "$PROBE_TOTAL"
+      printf '  \033[0;36mPENDING   \033[0m %s (0/%s objects — will run on next apply)\n' "$name" "$total"
     else
       V_PARTIAL=$((V_PARTIAL + 1)); PARTIAL_FILES+=("$name")
-      printf '  \033[0;33mPARTIAL   \033[0m %s (%s/%s objects — half-applied)\n' "$name" "$PROBE_PRESENT" "$PROBE_TOTAL"
-      printf '%s\n' "$PROBE_MISSING" | head -8 | sed '/^$/d;s/^/               missing: /'
+      printf '  \033[0;33mPARTIAL   \033[0m %s (%s/%s objects — half-applied)\n' "$name" "$present" "$total"
+      printf '%s' "$missing" | head -8 | sed '/^$/d;s/^/               missing: /'
     fi
   done
 
@@ -338,13 +354,13 @@ EOF
 
   echo
   log "Verify summary:"
-  log "  OK         $V_OK      (ledger + schema agree)"
-  log "  DRIFT      $V_DRIFT      (recorded applied, objects missing)"
-  log "  PARTIAL    $V_PARTIAL      (half-applied, not recorded)"
-  log "  UNRECORDED $V_UNREC      (present in schema, missing from ledger)"
-  log "  PENDING    $V_PENDING      (not applied yet — expected)"
-  log "  SKIPPED    $V_SKIPPED      (nothing probeable)"
-  log "  ORPHAN     $V_ORPHAN      (ledger rows with no file)"
+  log "  OK         $V_OK   (ledger + schema agree)"
+  log "  DRIFT      $V_DRIFT   (recorded applied, objects missing)"
+  log "  PARTIAL    $V_PARTIAL   (half-applied, not recorded)"
+  log "  UNRECORDED $V_UNREC   (present in schema, missing from ledger)"
+  log "  PENDING    $V_PENDING   (not applied yet — expected)"
+  log "  SKIPPED    $V_SKIPPED   (nothing probeable)"
+  log "  ORPHAN     $V_ORPHAN   (ledger rows with no file)"
   log "  day-colour columns: ${DC:-0}/2"
 
   rc=0
@@ -352,15 +368,15 @@ EOF
     err ""
     err "❌ DRIFT: the ledger claims these ran, but their objects are gone:"
     for f in "${DRIFT_FILES[@]}"; do err "     • $f"; done
-    err "   Re-apply one explicitly (files are transactional):"
-    err "     ./scripts/apply-migrations.sh --force --only=${DRIFT_FILES[0]%% *}"
+    err "   Re-apply one explicitly (each file is transactional):"
+    err "     ./scripts/apply-migrations.sh --force --only=${DRIFT_FILES[0]}"
     rc=1
   fi
   if [ "$V_PARTIAL" -ne 0 ]; then
     warn ""
     warn "⚠️  PARTIAL: half-applied migrations — inspect before re-running:"
     for f in "${PARTIAL_FILES[@]}"; do warn "     • $f"; done
-    warn "   Re-run with: ./scripts/apply-migrations.sh --only=<file>"
+    warn "   Re-run one with: ./scripts/apply-migrations.sh --only=<file>"
     rc=1
   fi
   if [ "$V_UNREC" -ne 0 ]; then
@@ -370,7 +386,7 @@ EOF
   fi
   if [ "$V_ORPHAN" -ne 0 ]; then
     warn ""
-    warn "⚠️  ORPHAN ledger rows (harmless, usually a renamed/removed migration):"
+    warn "⚠️  ORPHAN ledger rows (usually a renamed/removed migration):"
     for f in "${ORPHAN_FILES[@]}"; do warn "     • $f"; done
     rc=1
   fi
@@ -387,47 +403,35 @@ ADOPT_PENDING=0
 ADOPT_UNKNOWN=0
 
 if [ "$ADOPT" -eq 1 ]; then
-  if [ ! -r "$EXTRACT_AWK" ]; then
-    err "Missing $EXTRACT_AWK — git pull, then re-run with --adopt."
-    exit 1
-  fi
   log "Adopt mode: matching ${ONLY:-all} migration(s) against the live schema"
-
   ADOPT_APPLIED="$(run_sql -At -c "SELECT filename FROM private.applied_migrations;" 2>/dev/null || true)"
 
-  for path in $(ls -1 supabase/migrations/*.sql 2>/dev/null | sort); do
-    name="$(basename "$path")"
-    [ -n "$ONLY" ] && [ "$name" != "$ONLY" ] && continue
+  probe_all
+
+  for name in "${PROBE_FILES[@]}"; do
     if printf '%s\n' "$ADOPT_APPLIED" | grep -Fxq "$name"; then
       continue   # already in the ledger
     fi
+    total=${PROBE_TOTAL["$name"]:-0}
+    present=${PROBE_PRESENT["$name"]:-0}
 
-    set +e; probe_file "$path"; prc=$?; set -e
-    if [ "$prc" -eq 2 ]; then
-      # Nothing recognisable to probe (data-only INSERT/UPDATE, GRANT-only, or a
-      # statement shape the extractor doesn't know). Never guess — leave pending.
+    if [ "$total" -eq 0 ]; then
+      # Nothing recognisable to probe (data-only INSERT/UPDATE, GRANT-only, a DO
+      # block, or a DROP ... IF EXISTS). Never guess — leave pending; these are
+      # written idempotently so re-running them is safe.
       warn "adopt: $name — no detectable objects → left pending (will run)"
       ADOPT_UNKNOWN=$((ADOPT_UNKNOWN + 1))
-      continue
-    fi
-    if [ "$prc" -eq 1 ]; then
-      err "adopt: $name — schema probe failed:"
-      printf '%s\n' "$PROBE_ERROR" | sed 's/^/    /' >&2
-      ADOPT_UNKNOWN=$((ADOPT_UNKNOWN + 1))
-      continue
-    fi
-
-    if [ "$PROBE_PRESENT" -eq "$PROBE_TOTAL" ]; then
+    elif [ "$present" -eq "$total" ]; then
       if [ "$DRY_RUN" -eq 1 ]; then
-        log "adopt: $name — $PROBE_PRESENT/$PROBE_TOTAL objects present → would record (dry run)"
+        log "adopt: $name — $present/$total objects present → would record (dry run)"
       else
         record_applied "$name"
-        log "adopt: $name — $PROBE_PRESENT/$PROBE_TOTAL objects present → recorded as applied"
+        log "adopt: $name — $present/$total objects present → recorded as applied"
       fi
       ADOPTED=$((ADOPTED + 1))
     else
-      log "adopt: $name — $PROBE_PRESENT/$PROBE_TOTAL objects present → left pending"
-      printf '%s\n' "$PROBE_MISSING" | head -5 | sed '/^$/d;s/^/                   missing: /'
+      log "adopt: $name — $present/$total objects present → left pending"
+      printf '%s' "${PROBE_MISS["$name"]:-}" | head -5 | sed '/^$/d;s/^/                   missing: /'
       ADOPT_PENDING=$((ADOPT_PENDING + 1))
     fi
   done
