@@ -115,8 +115,58 @@ function Page() {
     return a?.name ?? a?.sku ?? "Unnamed";
   };
 
-  const planMut = useMutation({
+  const existingByAsset = useMemo(() => {
+    const m = new Map<string, ExistingScheduleEntry[]>();
+    for (const e of existing) {
+      if (!e.asset_id) continue;
+      const list = m.get(e.asset_id) ?? [];
+      list.push(e);
+      m.set(e.asset_id, list);
+    }
+    return m;
+  }, [existing]);
+
+  const readReferenceFile = async (file: File) => {
+    if (file.size > 2_000_000) {
+      toast.error("That file is larger than 2 MB — paste the relevant section instead.");
+      return;
+    }
+    if (!/\.(txt|md|markdown|csv|json|log)$/i.test(file.name)) {
+      toast.error(
+        "Only text files (.txt, .md, .csv, .json) can be read here — for a PDF, paste the relevant pages or use a link.",
+      );
+      return;
+    }
+    const text = await file.text();
+    setReferenceText(text.slice(0, 60000));
+    setReferenceFileName(file.name);
+  };
+
+  const checkMut = useMutation({
     mutationFn: async () => {
+      if (selectedIds.length === 0) throw new Error("Pick at least one asset");
+      const listExisting = listExistingSchedules;
+      return listExisting({ data: { asset_ids: selectedIds } });
+    },
+    onSuccess: (rows) => {
+      setExisting(rows);
+      if (rows.length > 0) setConfirmOpen(true);
+      else planMut.mutate(false);
+    },
+    onError: (e) => {
+      // Lookup failure shouldn't block drafting — fall through to a fresh draft.
+      toast.warning(
+        e instanceof Error
+          ? `Couldn't load current schedules (${e.message}) — drafting fresh.`
+          : "Couldn't load current schedules — drafting fresh.",
+      );
+      setExisting([]);
+      planMut.mutate(false);
+    },
+  });
+
+  const planMut = useMutation({
+    mutationFn: async (supplemental: boolean) => {
       if (selectedIds.length === 0) throw new Error("Pick at least one asset");
       abortRef.current?.abort();
       const controller = new AbortController();
