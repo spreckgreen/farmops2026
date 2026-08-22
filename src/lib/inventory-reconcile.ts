@@ -80,7 +80,7 @@ export function rowToPatch(row: ParsedRow): AssetPatch {
   };
 }
 
-function diff(existing: Asset, patch: AssetPatch): string[] {
+export function diff(existing: Asset, patch: AssetPatch): string[] {
   const changed: string[] = [];
   if ((existing.name ?? "") !== patch.name) changed.push("name");
   if ((existing.description ?? "") !== patch.description) changed.push("description");
