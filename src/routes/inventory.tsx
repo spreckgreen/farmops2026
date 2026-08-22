@@ -37,6 +37,12 @@ import {
   validateInventoryCsv,
   type ValidationReport,
 } from "@/lib/inventory-csv-validate";
+import {
+  listImportSnapshots,
+  recordImportSnapshot,
+  revertImportSnapshot,
+  type ImportSnapshot,
+} from "@/lib/inventory-import-history";
 
 import {
   Dialog,
