@@ -9,16 +9,20 @@
 #   3. If nothing changed and --force wasn't passed, exits early (no rebuild).
 #   4. `docker compose build app` — reuses BuildKit layer cache, so unchanged
 #      deps skip reinstall. Ollama/Caddy images aren't rebuilt.
-#   5. `docker compose up -d` — recreates only containers whose image/config
+#   5. Applies pending supabase/migrations/*.sql and reloads the PostgREST
+#      schema cache (scripts/apply-migrations.sh) BEFORE the new code serves.
+#   6. `docker compose up -d` — recreates only containers whose image/config
 #      changed. Ollama model volume and Caddy certs survive.
-#   6. Prunes dangling images from the previous build to reclaim disk.
-#   7. Tails app logs until the healthcheck passes (or 90s timeout).
+#   7. Prunes dangling images from the previous build to reclaim disk.
+#   8. Tails app logs until the healthcheck passes (or 90s timeout).
 #
 # Usage:
 #   ./scripts/refresh.sh              # pull + rebuild only if new commits
 #   ./scripts/refresh.sh --force      # rebuild even if git is already up to date
 #   ./scripts/refresh.sh --no-pull    # skip git pull (rebuild from local tree)
 #   ./scripts/refresh.sh --no-sudo    # never fall back to `sudo docker`
+#   ./scripts/refresh.sh --skip-migrations   # deploy without touching the schema
+
 #
 # Safe to re-run. Exits non-zero on any failure so it can be wired into cron
 # or a systemd timer.
@@ -29,17 +33,20 @@ FORCE=0
 DO_PULL=1
 ALLOW_SUDO=1
 SKIP_HEALTHCHECK=0
+SKIP_MIGRATIONS=0
 for arg in "$@"; do
   case "$arg" in
     --force)   FORCE=1 ;;
     --no-pull) DO_PULL=0 ;;
     --no-sudo) ALLOW_SUDO=0 ;;
     --skip-healthcheck) SKIP_HEALTHCHECK=1 ;;
+    --skip-migrations) SKIP_MIGRATIONS=1 ;;
     -h|--help)
       sed -n '2,25p' "$0"; exit 0 ;;
     *) echo "Unknown flag: $arg" >&2; exit 2 ;;
   esac
 done
+
 
 cd "$(dirname "$0")/.."
 
@@ -203,9 +210,36 @@ fi
 log "Building app image (BuildKit cache will short-circuit unchanged layers)"
 DOCKER_BUILDKIT=1 "${DOCKER[@]}" compose build app
 
+# --- 2b. Apply pending DB migrations ---------------------------------------
+# Runs BEFORE the new app image starts serving, so the UI never goes live
+# against a schema that lacks its columns (e.g. daily_notes.energy_level →
+# "Could not find the 'energy_level' column of 'daily_notes' in the schema
+# cache"). Idempotent: already-applied files are skipped via the ledger.
+# Exit 3 means "no SUPABASE_DB_URL" (managed Supabase) — not a failure.
+MIG="$(dirname "$0")/apply-migrations.sh"
+if [ "$SKIP_MIGRATIONS" -eq 1 ]; then
+  log "⚠️  --skip-migrations set: schema left untouched"
+elif [ -x "$MIG" ]; then
+  set +e
+  "$MIG"
+  mig_rc=$?
+  set -e
+  case "$mig_rc" in
+    0) ;;
+    3) log "No SUPABASE_DB_URL — skipping migrations (managed Supabase? use 'supabase db push')" ;;
+    *) err "❌ Migrations failed (exit=$mig_rc) — refusing to deploy code against a stale schema."
+       err "  Inspect with: $MIG --dry-run"
+       err "  Bypass (not recommended): $0 --no-pull --force --skip-migrations"
+       exit 1 ;;
+  esac
+else
+  err "warn: $MIG missing or not executable — schema not verified"
+fi
+
 # --- 3. Recreate changed containers ----------------------------------------
 log "Bringing stack up (recreates only containers with new image/config)"
 "${DOCKER[@]}" compose up -d --remove-orphans
+
 
 # --- 4. Reclaim disk --------------------------------------------------------
 log "Pruning dangling images from previous build"

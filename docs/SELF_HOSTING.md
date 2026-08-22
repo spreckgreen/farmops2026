@@ -82,15 +82,31 @@ Bostead. The Supabase self-host stack from
    > for server-side calls. But `VITE_SUPABASE_URL` is baked into the browser
    > bundle, so it **must** be the public HTTPS URL.
 
-3. **Apply migrations.** Point the Supabase CLI at your self-hosted DB and
-   push (recommended so future migrations are tracked):
+3. **Apply migrations.** Every deploy does this for you — `scripts/refresh.sh`
+   runs `scripts/apply-migrations.sh` after the build and before the new
+   containers serve traffic, so the schema is never behind the code. Set
+   `SUPABASE_DB_URL` in `.env.local` once (owner/superuser role):
 
    ```bash
-   export SUPABASE_DB_URL="postgres://postgres:<POSTGRES_PASSWORD>@<vps-ip>:5432/postgres"
-   supabase db push --db-url "$SUPABASE_DB_URL"
+   SUPABASE_DB_URL="postgresql://postgres:<POSTGRES_PASSWORD>@localhost:5432/postgres"
    ```
 
-   Or `psql "$SUPABASE_DB_URL" -f supabase/migrations/<file>.sql` in order.
+   Applied files are recorded in `private.applied_migrations` (so each runs
+   once), and the PostgREST schema cache is reloaded afterwards — that reload
+   is what prevents errors like *"Could not find the 'energy_level' column of
+   'daily_notes' in the schema cache"*.
+
+   Run it standalone any time:
+
+   ```bash
+   ./scripts/apply-migrations.sh --dry-run   # list pending, change nothing
+   ./scripts/apply-migrations.sh             # apply + reload PostgREST
+   ```
+
+   Managed Supabase (supabase.com) instead? Use `supabase db push --db-url
+   "$SUPABASE_DB_URL"`; the deploy hook detects the missing `SUPABASE_DB_URL`
+   and skips itself.
+
 
 4. **Fill `.env` for Bostead** (from your Supabase `.env` and Kong URL):
 
