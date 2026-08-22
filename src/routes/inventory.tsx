@@ -161,21 +161,60 @@ function InventoryPage() {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
-    Papa.parse<ParsedRow>(file, {
+    Papa.parse<Record<string, unknown>>(file, {
       header: true,
-      skipEmptyLines: true,
+      skipEmptyLines: "greedy",
       transformHeader: (h) => h.trim().toLowerCase(),
       complete: (res) => {
-        if (res.errors.length) {
-          toast.error(`Parse error: ${res.errors[0].message}`);
+        const fatal = res.errors.filter((err) => err.code !== "TooFewFields");
+        if (fatal.length) {
+          setReport({
+            fileName: file.name,
+            parseErrors: fatal.slice(0, 20).map(
+              (err) => `Line ${(err.row ?? 0) + 2}: ${err.message}`,
+            ),
+            result: null,
+            rows: [],
+          });
           return;
         }
-        setPlan(reconcileInventory(res.data, assets));
-        setDeleteMissing(false);
+        const rows = res.data ?? [];
+        const result = validateInventoryCsv(rows, {
+          headers: res.meta.fields ?? undefined,
+          knownIds: assets.map((a) => a.id),
+        });
+        setReport({ fileName: file.name, parseErrors: [], result, rows });
       },
       error: (err) => toast.error(`Parse error: ${err.message}`),
     });
   };
+
+  const proceedFromReport = () => {
+    if (!report?.result?.ok) return;
+    setPlan(reconcileInventory(report.rows as ParsedRow[], assets));
+    setDeleteMissing(false);
+    setReport(null);
+  };
+
+  const downloadIssueReport = () => {
+    if (!report?.result) return;
+    const csv = rowsToCsv(
+      report.result.issues.map((i) => ({
+        line: i.line,
+        row: i.row,
+        severity: i.severity,
+        field: i.field,
+        value: i.value,
+        problem: i.message,
+      })),
+      ["line", "row", "severity", "field", "value", "problem"].map((key) => ({
+        key: key as "line",
+        label: key,
+      })),
+    );
+    downloadCsv("inventory-import-errors.csv", csv);
+  };
+
 
   const applyPlan = async () => {
     if (!plan) return;
