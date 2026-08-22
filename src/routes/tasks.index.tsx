@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { AppLayout } from "@/components/app-layout";
 import { requireAuthenticatedUser } from "@/lib/auth-route";
 import { todayDateString } from "@/lib/slug";
+import { DayWindowIndicator } from "@/components/day-window-indicator";
 import { useShowTaskSlugs } from "@/hooks/use-show-task-slugs";
 import { CsvToolbar } from "@/components/csv-toolbar";
 import { TaskQuickSearch } from "@/components/task-quick-search";
@@ -72,6 +73,7 @@ function TasksPage() {
         <div>
           <h1 className="text-2xl font-mono font-bold mb-1">Today's tasks</h1>
           <p className="text-xs text-muted-foreground font-mono">Tasks delivered or touched today</p>
+          <DayWindowIndicator date={today} className="mt-1" />
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <TaskQuickSearch />
