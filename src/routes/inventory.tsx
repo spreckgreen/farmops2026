@@ -15,6 +15,7 @@ import {
   ScanLine,
   Wrench,
 } from "lucide-react";
+import Papa from "papaparse";
 import AssetDialog from "@/components/dashboard/AssetDialog";
 import AssetTable from "@/components/dashboard/AssetTable";
 import StatsCards from "@/components/dashboard/StatsCards";
@@ -23,6 +24,23 @@ import { InventoryBomDialog } from "@/components/inventory-bom-dialog";
 import { requireAuthenticatedUser } from "@/lib/auth-route";
 import type { Asset, AssetFormData } from "@/components/dashboard/types";
 import { INVENTORY_TYPES } from "@/lib/obsidian-layout";
+import { rowsToCsv, downloadCsv } from "@/lib/csv";
+import {
+  INVENTORY_CSV_COLUMNS,
+  reconcileInventory,
+  type ParsedRow,
+  type ReconcilePlan,
+} from "@/lib/inventory-reconcile";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+
 
 
 export const Route = createFileRoute("/inventory")({
@@ -51,6 +69,10 @@ function InventoryPage() {
   const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [partsItemId, setPartsItemId] = useState<string | null>(null);
+  const [plan, setPlan] = useState<ReconcilePlan | null>(null);
+  const [deleteMissing, setDeleteMissing] = useState(false);
+  const [applying, setApplying] = useState(false);
+
 
   useEffect(() => {
     const {
@@ -115,84 +137,86 @@ function InventoryPage() {
   };
 
   const handleExportCSV = () => {
-    const headers = [
-      "name",
-      "description",
-      "item_type",
-      "location",
-      "quantity",
-      "min_quantity",
-      "status",
-      "barcode",
-      "tags",
-    ];
-    const rows = filtered.map((a) =>
-      [
-        a.name ?? "",
-        a.description ?? "",
-        a.item_type ?? "",
-        a.location ?? "",
-        a.quantity ?? 0,
-        a.min_quantity ?? 0,
-        a.status,
-        a.barcode || "",
-        (a.tags || []).join(";"),
-      ]
-        .map((v) => `"${v}"`)
-        .join(","),
+    const rows = filtered.map((a) => ({
+      id: a.id,
+      name: a.name ?? "",
+      description: a.description ?? "",
+      item_type: a.item_type ?? "",
+      location: a.location ?? "",
+      quantity: a.quantity ?? 0,
+      min_quantity: a.min_quantity ?? 0,
+      status: a.status,
+      barcode: a.barcode ?? "",
+      tags: (a.tags ?? []).join(";"),
+    }));
+    const csv = rowsToCsv(
+      rows,
+      INVENTORY_CSV_COLUMNS.map((key) => ({ key, label: key })),
     );
-    const csv = [headers.join(","), ...rows].join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "assets-export.csv";
-    a.click();
-    URL.revokeObjectURL(url);
-    toast.success("Exported successfully");
+    downloadCsv("assets-export.csv", csv);
+    toast.success(`Exported ${rows.length} rows (keep the id column to match on re-import)`);
   };
-
 
   const handleImportCSV = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = async (ev) => {
-      const text = ev.target?.result as string;
-      const lines = text.split("\n").filter(Boolean);
-      const headers = lines[0].split(",").map((h) => h.replace(/"/g, "").trim());
-      const rows = lines.slice(1).map((line) => {
-        const vals = line.split(",").map((v) => v.replace(/"/g, "").trim());
-        const obj: Record<string, string> = {};
-        headers.forEach((h, i) => {
-          obj[h] = vals[i] || "";
-        });
-        return obj;
-      });
-
-      const inserts = rows.map((r) => ({
-        user_id: session!.user.id,
-        name: r.name || "Unnamed",
-        description: r.description || "",
-        item_type: r.item_type || null,
-        location: r.location || "",
-        quantity: parseInt(r.quantity) || 1,
-        min_quantity: parseInt(r.min_quantity) || 0,
-        status: ["available", "in_use", "maintenance", "retired"].includes(r.status)
-          ? r.status
-          : "available",
-        tags: r.tags ? r.tags.split(";").filter(Boolean) : [],
-      }));
-
-
-      const { error } = await supabase.from("inventory_items").insert(inserts);
-      if (error) return toast.error("Import failed: " + error.message);
-      toast.success(`Imported ${inserts.length} assets`);
-      fetchAssets();
-    };
-    reader.readAsText(file);
     e.target.value = "";
+    if (!file) return;
+    Papa.parse<ParsedRow>(file, {
+      header: true,
+      skipEmptyLines: true,
+      transformHeader: (h) => h.trim().toLowerCase(),
+      complete: (res) => {
+        if (res.errors.length) {
+          toast.error(`Parse error: ${res.errors[0].message}`);
+          return;
+        }
+        setPlan(reconcileInventory(res.data, assets));
+        setDeleteMissing(false);
+      },
+      error: (err) => toast.error(`Parse error: ${err.message}`),
+    });
   };
+
+  const applyPlan = async () => {
+    if (!plan) return;
+    setApplying(true);
+    try {
+      if (plan.creates.length) {
+        const { error } = await supabase.from("inventory_items").insert(
+          plan.creates.map((c) => ({ ...c.patch, user_id: session!.user.id })),
+        );
+        if (error) throw new Error(error.message);
+      }
+      for (const u of plan.updates) {
+        const { error } = await supabase
+          .from("inventory_items")
+          .update(u.patch)
+          .eq("id", u.existing!.id);
+        if (error) throw new Error(error.message);
+      }
+      if (deleteMissing && plan.missing.length) {
+        const { error } = await supabase
+          .from("inventory_items")
+          .delete()
+          .in(
+            "id",
+            plan.missing.map((m) => m.id),
+          );
+        if (error) throw new Error(error.message);
+      }
+      toast.success(
+        `Import applied: ${plan.creates.length} added, ${plan.updates.length} updated` +
+          (deleteMissing && plan.missing.length ? `, ${plan.missing.length} deleted` : ""),
+      );
+      setPlan(null);
+      fetchAssets();
+    } catch (err) {
+      toast.error(`Import failed: ${(err as Error).message}`);
+    } finally {
+      setApplying(false);
+    }
+  };
+
 
   const usedTypes = new Set(assets.map((a) => a.item_type).filter(Boolean) as string[]);
   const availableTypes = INVENTORY_TYPES.filter((t) => usedTypes.has(t.value));
@@ -354,6 +378,79 @@ function InventoryPage() {
           setSearch(code);
         }}
       />
+
+      <Dialog open={Boolean(plan)} onOpenChange={(open) => !open && setPlan(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Review import</DialogTitle>
+            <DialogDescription>
+              Rows are matched to existing inventory by <strong>id</strong>, then{" "}
+              <strong>barcode</strong>, then <strong>name</strong>. Matches are updated in place;
+              unmatched rows are added as new items. Nothing is deleted unless you opt in below.
+            </DialogDescription>
+          </DialogHeader>
+
+          {plan && (
+            <div className="space-y-4 text-sm">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {[
+                  { label: "Add", value: plan.creates.length },
+                  { label: "Update", value: plan.updates.length },
+                  { label: "Unchanged", value: plan.unchanged.length },
+                  { label: "Not in file", value: plan.missing.length },
+                ].map((s) => (
+                  <div key={s.label} className="rounded-lg border border-border p-3">
+                    <div className="text-xl font-semibold">{s.value}</div>
+                    <div className="text-xs text-muted-foreground">{s.label}</div>
+                  </div>
+                ))}
+              </div>
+
+              {(plan.creates.length > 0 || plan.updates.length > 0) && (
+                <div className="max-h-56 overflow-y-auto rounded-lg border border-border divide-y divide-border/60">
+                  {plan.creates.slice(0, 50).map((c, i) => (
+                    <div key={`c${i}`} className="px-3 py-2 flex justify-between gap-3">
+                      <span className="truncate">{c.patch.name}</span>
+                      <span className="text-emerald-400 text-xs shrink-0">new</span>
+                    </div>
+                  ))}
+                  {plan.updates.slice(0, 50).map((u, i) => (
+                    <div key={`u${i}`} className="px-3 py-2 flex justify-between gap-3">
+                      <span className="truncate">{u.patch.name}</span>
+                      <span className="text-sky-400 text-xs shrink-0">
+                        {u.changedFields.join(", ")} (by {u.matchedBy})
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {plan.missing.length > 0 && (
+                <label className="flex items-start gap-2">
+                  <Checkbox
+                    checked={deleteMissing}
+                    onCheckedChange={(v) => setDeleteMissing(Boolean(v))}
+                  />
+                  <span>
+                    Delete the {plan.missing.length} item(s) missing from this file (treat the CSV
+                    as the full inventory). Leave unchecked to keep them.
+                  </span>
+                </label>
+              )}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPlan(null)} disabled={applying}>
+              Cancel
+            </Button>
+            <Button onClick={applyPlan} disabled={applying}>
+              {applying ? "Applying…" : "Apply import"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 }
+
