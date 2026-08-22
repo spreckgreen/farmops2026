@@ -191,11 +191,12 @@ function SuitabilityActions({
 
   // After a fix, rerun the workflows the fix was meant to unblock — a weekly
   // report and a manual are graded separately, so you see which one now works.
-  const rerunTest = async () => {
+  // Returns the results so the caller can auto-roll-back on failure.
+  const rerunTest = async (): Promise<AiTestResult[]> => {
     setTesting(true);
     setTests([]);
+    const results: AiTestResult[] = [];
     try {
-      const results: AiTestResult[] = [];
       for (const workflow of ["weekly_report", "manual"] as const) {
         const r = await testFn({ data: { workflow } });
         results.push(r);
@@ -209,8 +210,26 @@ function SuitabilityActions({
     } finally {
       setTesting(false);
     }
+    return results;
   };
 
+  // Automatic rollback: if a post-change weekly_report or manual run fails, put
+  // the previous model back straight away. The created tag is intentionally
+  // kept — deleting it still requires the explicit confirmation below.
+  const verifyOrRollback = async (previousModel: string | null) => {
+    const results = await rerunTest();
+    if (!previousModel || !shouldAutoRollback(results)) return;
+    toast.warning(describeAutoRollback(results, previousModel));
+    setAutoReverted(describeAutoRollback(results, previousModel));
+    try {
+      const r = await rollbackFn({ data: { deleteCreatedTag: false } });
+      toast.success(`Automatically restored ${r.model} (was ${r.restoredFrom})`);
+      onModelChanged?.(r.model);
+    } catch (e) {
+      toast.error(`Automatic rollback failed: ${(e as Error).message}`);
+    }
+    await queryClient.invalidateQueries({ queryKey: ["ai-model-rollback"] });
+  };
 
   const applyCtx = useMutation({
     mutationFn: () =>
@@ -218,8 +237,9 @@ function SuitabilityActions({
     onSuccess: async (r) => {
       toast.success(`Active model is now ${r.model} (num_ctx ${r.numCtx})`);
       onModelChanged?.(r.model);
+      setAutoReverted(null);
       await queryClient.invalidateQueries({ queryKey: ["ai-model-rollback"] });
-      await rerunTest();
+      await verifyOrRollback(r.previousModel ?? null);
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -231,14 +251,16 @@ function SuitabilityActions({
         r.pulled ? `Pulled and activated ${r.model}` : `Active model is now ${r.model}`,
       );
       onModelChanged?.(r.model);
+      setAutoReverted(null);
       await queryClient.invalidateQueries({ queryKey: ["ai-model-rollback"] });
-      await rerunTest();
+      await verifyOrRollback(r.previousModel ?? null);
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
   const undo = useMutation({
-    mutationFn: () => rollbackFn({ data: { deleteCreatedTag: deleteTag } }),
+    mutationFn: (opts: { deleteCreatedTag: boolean }) =>
+      rollbackFn({ data: { deleteCreatedTag: opts.deleteCreatedTag } }),
     onSuccess: async (r) => {
       toast.success(
         r.deletedTag
@@ -247,11 +269,13 @@ function SuitabilityActions({
       );
       onModelChanged?.(r.model);
       setTests([]);
+      setConfirmOpen(false);
       await queryClient.invalidateQueries({ queryKey: ["ai-model-rollback"] });
       await rerunTest();
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
 
   const point = rollback.data;
   const busy = applyCtx.isPending || switchModel.isPending || undo.isPending || testing;
