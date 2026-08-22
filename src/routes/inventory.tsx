@@ -32,6 +32,11 @@ import {
   type ReconcilePlan,
 } from "@/lib/inventory-reconcile";
 import {
+  validateInventoryCsv,
+  type ValidationReport,
+} from "@/lib/inventory-csv-validate";
+
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -70,8 +75,15 @@ function InventoryPage() {
   const [scannerOpen, setScannerOpen] = useState(false);
   const [partsItemId, setPartsItemId] = useState<string | null>(null);
   const [plan, setPlan] = useState<ReconcilePlan | null>(null);
+  const [report, setReport] = useState<{
+    fileName: string;
+    parseErrors: string[];
+    result: ValidationReport | null;
+    rows: Array<Record<string, unknown>>;
+  } | null>(null);
   const [deleteMissing, setDeleteMissing] = useState(false);
   const [applying, setApplying] = useState(false);
+
 
 
   useEffect(() => {
@@ -161,21 +173,60 @@ function InventoryPage() {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
-    Papa.parse<ParsedRow>(file, {
+    Papa.parse<Record<string, unknown>>(file, {
       header: true,
-      skipEmptyLines: true,
+      skipEmptyLines: "greedy",
       transformHeader: (h) => h.trim().toLowerCase(),
       complete: (res) => {
-        if (res.errors.length) {
-          toast.error(`Parse error: ${res.errors[0].message}`);
+        const fatal = res.errors.filter((err) => err.code !== "TooFewFields");
+        if (fatal.length) {
+          setReport({
+            fileName: file.name,
+            parseErrors: fatal.slice(0, 20).map(
+              (err) => `Line ${(err.row ?? 0) + 2}: ${err.message}`,
+            ),
+            result: null,
+            rows: [],
+          });
           return;
         }
-        setPlan(reconcileInventory(res.data, assets));
-        setDeleteMissing(false);
+        const rows = res.data ?? [];
+        const result = validateInventoryCsv(rows, {
+          headers: res.meta.fields ?? undefined,
+          knownIds: assets.map((a) => a.id),
+        });
+        setReport({ fileName: file.name, parseErrors: [], result, rows });
       },
       error: (err) => toast.error(`Parse error: ${err.message}`),
     });
   };
+
+  const proceedFromReport = () => {
+    if (!report?.result?.ok) return;
+    setPlan(reconcileInventory(report.rows as ParsedRow[], assets));
+    setDeleteMissing(false);
+    setReport(null);
+  };
+
+  const downloadIssueReport = () => {
+    if (!report?.result) return;
+    const csv = rowsToCsv(
+      report.result.issues.map((i) => ({
+        line: i.line,
+        row: i.row,
+        severity: i.severity,
+        field: i.field,
+        value: i.value,
+        problem: i.message,
+      })),
+      ["line", "row", "severity", "field", "value", "problem"].map((key) => ({
+        key: key as "line",
+        label: key,
+      })),
+    );
+    downloadCsv("inventory-import-errors.csv", csv);
+  };
+
 
   const applyPlan = async () => {
     if (!plan) return;
@@ -379,7 +430,101 @@ function InventoryPage() {
         }}
       />
 
+      <Dialog open={Boolean(report)} onOpenChange={(open) => !open && setReport(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>CSV validation</DialogTitle>
+            <DialogDescription>
+              {report?.fileName} — every row is checked before anything is written. Errors must be
+              fixed in the file; warnings are safe to ignore.
+            </DialogDescription>
+          </DialogHeader>
+
+          {report?.parseErrors.length ? (
+            <div className="space-y-2 text-sm">
+              <p className="text-destructive font-medium">
+                This file could not be read as CSV.
+              </p>
+              <ul className="max-h-56 overflow-y-auto rounded-lg border border-border divide-y divide-border/60">
+                {report.parseErrors.map((m, i) => (
+                  <li key={i} className="px-3 py-2 text-muted-foreground">
+                    {m}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : report?.result ? (
+            <div className="space-y-4 text-sm">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {[
+                  { label: "Rows", value: report.result.totalRows },
+                  { label: "Valid", value: report.result.validRows },
+                  { label: "Errors", value: report.result.errors.length },
+                  { label: "Warnings", value: report.result.warnings.length },
+                ].map((s) => (
+                  <div key={s.label} className="rounded-lg border border-border p-3">
+                    <div className="text-xl font-semibold">{s.value}</div>
+                    <div className="text-xs text-muted-foreground">{s.label}</div>
+                  </div>
+                ))}
+              </div>
+
+              {report.result.unknownColumns.length > 0 && (
+                <p className="text-muted-foreground">
+                  Unrecognized columns ignored: {report.result.unknownColumns.join(", ")}
+                </p>
+              )}
+
+              {report.result.issues.length > 0 ? (
+                <div className="max-h-64 overflow-y-auto rounded-lg border border-border divide-y divide-border/60">
+                  {report.result.issues.slice(0, 200).map((i, idx) => (
+                    <div key={idx} className="px-3 py-2 flex gap-3 items-start">
+                      <span
+                        className={`text-xs shrink-0 font-medium ${
+                          i.severity === "error" ? "text-destructive" : "text-amber-400"
+                        }`}
+                      >
+                        line {i.line}
+                      </span>
+                      <span className="text-xs shrink-0 text-muted-foreground w-24 truncate">
+                        {i.field}
+                      </span>
+                      <span className="text-muted-foreground">{i.message}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-emerald-400">
+                  All {report.result.totalRows} row(s) look valid.
+                </p>
+              )}
+
+              {report.result.blankRows > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  {report.result.blankRows} blank row(s) skipped.
+                </p>
+              )}
+            </div>
+          ) : null}
+
+          <DialogFooter>
+            {report?.result && report.result.issues.length > 0 && (
+              <Button variant="ghost" onClick={downloadIssueReport}>
+                <Download className="h-4 w-4 mr-1" /> Download report
+              </Button>
+            )}
+            <Button variant="outline" onClick={() => setReport(null)}>
+              {report?.result?.ok ? "Cancel" : "Close"}
+            </Button>
+            {report?.result?.ok && (
+              <Button onClick={proceedFromReport}>Continue to review</Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={Boolean(plan)} onOpenChange={(open) => !open && setPlan(null)}>
+
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Review import</DialogTitle>
