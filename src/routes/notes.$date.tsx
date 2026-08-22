@@ -2,7 +2,8 @@ import { createFileRoute, Link, useParams, useNavigate } from "@tanstack/react-r
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { commitDailyNote, getDailyNote, listProjects, refreshDailyNoteFromLog, saveDailyNote } from "@/lib/log.functions";
+import { commitDailyNote, getDailyNote, listProjects, refreshDailyNoteFromLog, removeTaskFromToday, saveDailyNote } from "@/lib/log.functions";
+import { TaskMoveDay } from "@/components/task-move-day";
 import { getDailyForecast } from "@/lib/weather.functions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -11,7 +12,7 @@ import { SlugChip } from "@/components/slug-chip";
 import { requireAuthenticatedUser } from "@/lib/auth-route";
 import { toast } from "sonner";
 import { format, addDays, parseISO } from "date-fns";
-import { ChevronLeft, ChevronRight, Eye, EyeOff, Cloud, RefreshCw } from "lucide-react";
+import { ChevronLeft, ChevronRight, Eye, EyeOff, Cloud, RefreshCw, Undo2 } from "lucide-react";
 import { appDateString } from "@/lib/app-timezone";
 import { DayWindowIndicator } from "@/components/day-window-indicator";
 import { DailyNotePreview } from "@/components/daily-note-preview";
@@ -246,6 +247,21 @@ function NotePage() {
 
   const tasks = query.data?.tasks ?? [];
   const openTasks = tasks.filter((t) => t.status !== "done");
+
+  // Move a task off this day's note and back to the backlog.
+  const removeFromDayFn = useServerFn(removeTaskFromToday);
+  const toBacklog = useMutation({
+    mutationFn: (taskId: string) => removeFromDayFn({ data: { taskId, date } }),
+    onSuccess: () => {
+      toast.success("Moved back to backlog");
+      qc.invalidateQueries({ queryKey: ["daily-note"] });
+      qc.invalidateQueries({ queryKey: ["tasks"] });
+    },
+    onError: (e: unknown) =>
+      toast.error(e instanceof Error ? e.message : "Failed to move task"),
+  });
+
+
 
   // ---- #project/ autocomplete ----
   const listProjectsFn = useServerFn(listProjects);
@@ -744,20 +760,35 @@ Untagged lines stay in this note only.`}</pre>
               <li className="text-sm text-muted-foreground">None yet. Add a `- [ ]` line.</li>
             )}
             {openTasks.map((t) => (
-              <li key={t.id}>
+              <li key={t.id} className="rounded hover:bg-accent group">
                 <Link
                   to="/tasks/$slug"
                   params={{ slug: t.slug }}
-                  className="flex items-center justify-between gap-2 text-sm py-1.5 px-2 rounded hover:bg-accent group"
+                  className="flex items-center justify-between gap-2 text-sm py-1.5 px-2"
                 >
                   <span className="truncate">{t.title}</span>
                   {t.status === "blocked" && (
                     <Badge variant="destructive" className="text-[10px]">blocked</Badge>
                   )}
                 </Link>
+                <div className="flex items-center gap-1 px-1 pb-1.5">
+                  <TaskMoveDay taskId={t.id} fromDate={date} />
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="shrink-0"
+                    title="Move this task off this day and back to the backlog"
+                    disabled={toBacklog.isPending && toBacklog.variables === t.id}
+                    onClick={() => toBacklog.mutate(t.id)}
+                  >
+                    <Undo2 className="h-3.5 w-3.5 mr-1" />
+                    {toBacklog.isPending && toBacklog.variables === t.id ? "Moving…" : "Backlog"}
+                  </Button>
+                </div>
               </li>
             ))}
           </ul>
+
           <div className="mt-4">
             <Button variant="outline" size="sm" asChild className="w-full">
               <Link to="/tasks">All tasks →</Link>
