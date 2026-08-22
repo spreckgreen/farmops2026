@@ -2353,6 +2353,78 @@ export const addTaskToToday = createServerFn({ method: "POST" })
     return { ok: true as const, taskId: task.id };
   });
 
+/**
+ * Inverse of `addTaskToToday`: pull a task off a day's note and put it back in
+ * the Backlog. Removes the day's activity-log entries for the task, strips its
+ * `#task/<slug>` ref lines from that day's markdown, and clears `start_at`.
+ */
+export const removeTaskFromToday = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        taskId: z.string().uuid(),
+        date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const date = data.date ?? new Date().toLocaleDateString("en-CA", { timeZone: "UTC" });
+
+    const { data: task, error: taskErr } = await supabase
+      .from("tasks")
+      .select("id, slug, status")
+      .eq("id", data.taskId)
+      .maybeSingle();
+    if (taskErr) throw new Error(taskErr.message);
+    if (!task) throw new Error("Task not found");
+
+    const { data: note } = await supabase
+      .from("daily_notes")
+      .select("id, markdown_content")
+      .eq("user_id", userId)
+      .eq("date", date)
+      .maybeSingle();
+
+    if (note) {
+      const current = note.markdown_content ?? "";
+      const next = removeTaskRefLines(current, task.slug);
+      if (next !== current) {
+        const { error: updErr } = await supabase
+          .from("daily_notes")
+          .update({ markdown_content: next })
+          .eq("id", note.id);
+        if (updErr) throw new Error(updErr.message);
+      }
+
+      const { error: delErr } = await supabase
+        .from("activity_log")
+        .delete()
+        .eq("user_id", userId)
+        .eq("daily_note_id", note.id)
+        .eq("task_id", task.id);
+      if (delErr) throw new Error(delErr.message);
+    }
+
+    // Back in the backlog: no scheduled start, and a done task reopens.
+    const patch: { start_at: null; status?: "open"; closed_at?: null } = { start_at: null };
+    if (task.status === "done") {
+      patch.status = "open";
+      patch.closed_at = null;
+    }
+    const { error: taskUpdErr } = await supabase
+      .from("tasks")
+      .update(patch)
+      .eq("id", task.id)
+      .eq("user_id", userId);
+    if (taskUpdErr) throw new Error(taskUpdErr.message);
+
+    return { ok: true as const, taskId: task.id };
+  });
+
+
+
 // ============================================================
 // Maintenance → Backlog: items due within the current month.
 // ============================================================
