@@ -46,11 +46,11 @@ export const getReportMetrics = createServerFn({ method: "GET" })
     const sb = context.supabase;
 
 
-    let notesQ = sb
-      .from("daily_notes")
-      .select("date, energy_level, productivity_level")
-      .order("date");
-    if (startDay && endDay) notesQ = notesQ.gte("date", startDay).lte("date", endDay);
+    const notesQuery = (columns: string) => {
+      let q = sb.from("daily_notes").select(columns).order("date");
+      if (startDay && endDay) q = q.gte("date", startDay).lte("date", endDay);
+      return q;
+    };
 
     let tasksQ = sb.from("tasks").select("status, project_tags, created_at, closed_at");
     if (startIso && endIso) {
@@ -59,11 +59,24 @@ export const getReportMetrics = createServerFn({ method: "GET" })
       );
     }
 
-    const [notes, tasks] = await Promise.all([notesQ, tasksQ]);
+    let [notes, tasks] = await Promise.all([
+      notesQuery("date, energy_level, productivity_level"),
+      tasksQ,
+    ]);
+    // Database predates the day-colour migration: read dates only and default ratings.
+    if (notes.error && isMissingDayColourColumnError(notes.error)) {
+      notes = await notesQuery("date");
+    }
     if (notes.error) throw new Error(notes.error.message);
     if (tasks.error) throw new Error(tasks.error.message);
 
-    const ratings = buildRatingSeries(notes.data ?? []);
+    const baseline = dayColourBaseline();
+    const noteRows = ((notes.data ?? []) as Array<Record<string, unknown>>).map((n) => ({
+      date: String(n["date"] ?? ""),
+      ...readRatings(n, baseline),
+    }));
+
+    const ratings = buildRatingSeries(noteRows);
     const allProjects = buildProjectCounts(tasks.data ?? [], { startIso, endIso });
     const projects = data.project
       ? allProjects.filter((p) => p.project === data.project)
