@@ -12,6 +12,14 @@ import type { Action, ActionPlan } from "./ai-actions/types";
 const PlannerInput = z.object({
   asset_id: z.string().uuid(),
   usage_context: z.string().trim().max(2000).optional(),
+  /** true when the user confirmed they want to extend an existing schedule. */
+  supplemental: z.boolean().optional(),
+  /** Titles/service types already on the asset's schedule (skip duplicates). */
+  existing_services: z.array(z.string().max(300)).max(200).optional(),
+  /** Optional manufacturer/manual link the model should evaluate. */
+  reference_url: z.string().url().max(2000).optional(),
+  /** Optional pasted or uploaded reference text (manual excerpt, spec sheet). */
+  reference_text: z.string().max(60000).optional(),
 });
 
 function recurrenceLabel(
