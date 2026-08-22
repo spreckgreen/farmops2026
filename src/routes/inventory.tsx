@@ -500,6 +500,63 @@ function InventoryPage() {
         }}
       />
 
+      <Dialog open={historyOpen} onOpenChange={setHistoryOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Import history</DialogTitle>
+            <DialogDescription>
+              Every applied import stores a snapshot of the rows it touched. Rolling back deletes
+              the rows it created, restores the previous values of rows it changed, and re-adds
+              rows it deleted.
+            </DialogDescription>
+          </DialogHeader>
+
+          {historyLoading ? (
+            <p className="text-sm text-muted-foreground">Loading…</p>
+          ) : history.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No imports recorded yet.</p>
+          ) : (
+            <ul className="max-h-80 overflow-y-auto divide-y divide-border/60 rounded-lg border border-border">
+              {history.map((s) => (
+                <li key={s.id} className="flex items-start justify-between gap-3 px-3 py-2">
+                  <div className="text-sm">
+                    <p className="font-medium">{s.file_name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(s.created_at).toLocaleString()} — {s.created_ids.length} added,{" "}
+                      {s.updated_before.length} updated, {s.deleted_rows.length} deleted
+                    </p>
+                    {s.reverted_at ? (
+                      <p className="text-xs text-muted-foreground">
+                        Rolled back {new Date(s.reverted_at).toLocaleString()}
+                      </p>
+                    ) : null}
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={Boolean(s.reverted_at) || revertingId === s.id}
+                    onClick={() => rollback(s)}
+                  >
+                    <Undo2 className="h-4 w-4 mr-1" />
+                    {s.reverted_at
+                      ? "Reverted"
+                      : revertingId === s.id
+                        ? "Rolling back…"
+                        : "Roll back"}
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setHistoryOpen(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={Boolean(report)} onOpenChange={(open) => !open && setReport(null)}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
