@@ -81,3 +81,23 @@ export function appDateStringAfter(date: string): string {
   const next = new Date(Date.UTC(y!, (m ?? 1) - 1, (d ?? 1) + 1));
   return next.toISOString().slice(0, 10);
 }
+
+/** Calendar day before `date` (`"2026-08-22"` => `"2026-08-21"`). */
+export function appDateStringBefore(date: string): string {
+  const [y, m, d] = date.split("-").map(Number);
+  const prev = new Date(Date.UTC(y!, (m ?? 1) - 1, (d ?? 1) - 1));
+  return prev.toISOString().slice(0, 10);
+}
+
+/**
+ * Move `stamp` onto calendar day `day`, preserving its local wall-clock time.
+ * `shiftStampToDay("2026-08-22", "2026-08-21T23:10:00.000Z")` keeps 19:10 local
+ * but on Aug 22.
+ */
+export function shiftStampToDay(day: string, stamp: string): string {
+  const from = appDateString(new Date(stamp));
+  const delta = dayStartUtc(day).getTime() - dayStartUtc(from).getTime();
+  const shifted = new Date(new Date(stamp).getTime() + delta);
+  if (appDateString(shifted) === day) return shifted.toISOString();
+  return new Date(dayStartUtc(day).getTime() + 12 * 3600 * 1000).toISOString();
+}
