@@ -82,6 +82,11 @@ function Page() {
     Record<string, "pending" | "running" | "done" | "failed">
   >({});
   const [failures, setFailures] = useState<{ name: string; error: string }[]>([]);
+  const [referenceUrl, setReferenceUrl] = useState("");
+  const [referenceText, setReferenceText] = useState("");
+  const [referenceFileName, setReferenceFileName] = useState<string | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [existing, setExisting] = useState<ExistingScheduleEntry[]>([]);
   const abortRef = useRef<AbortController | null>(null);
   const jobProgress = useAiJobProgress("maintenance.generate-schedule");
 
