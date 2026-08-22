@@ -591,10 +591,10 @@ function InventoryPage() {
                           >
                             <span className="px-2 py-1 text-muted-foreground">{f}</span>
                             <span className="px-2 py-1 text-muted-foreground line-through decoration-destructive/60 break-words">
-                              {fieldLabel(u.existing, f)}
+                              {fieldLabel(u.existing as unknown as Record<string, unknown>, f)}
                             </span>
                             <span className="px-2 py-1 text-sky-400 break-words">
-                              {fieldLabel(u.patch, f)}
+                              {fieldLabel(u.patch as unknown as Record<string, unknown>, f)}
                             </span>
                           </div>
                         ))}
