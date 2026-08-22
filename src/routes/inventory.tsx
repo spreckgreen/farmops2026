@@ -105,6 +105,26 @@ function InventoryPage() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [history, setHistory] = useState<ImportSnapshot[]>([]);
   const [revertingId, setRevertingId] = useState<string | null>(null);
+  /** Per-row keys ("c0", "u3", "d5") the user rejected in the review dialog. */
+  const [rejected, setRejected] = useState<Set<string>>(new Set());
+
+  const isAccepted = (key: string) => !rejected.has(key);
+  const toggleRow = (key: string) =>
+    setRejected((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  const setAllRows = (keys: string[], accept: boolean) =>
+    setRejected((prev) => {
+      const next = new Set(prev);
+      for (const k of keys) {
+        if (accept) next.delete(k);
+        else next.add(k);
+      }
+      return next;
+    });
 
 
 
