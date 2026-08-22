@@ -15,6 +15,7 @@ import {
   ScanLine,
   Wrench,
 } from "lucide-react";
+import Papa from "papaparse";
 import AssetDialog from "@/components/dashboard/AssetDialog";
 import AssetTable from "@/components/dashboard/AssetTable";
 import StatsCards from "@/components/dashboard/StatsCards";
@@ -23,6 +24,23 @@ import { InventoryBomDialog } from "@/components/inventory-bom-dialog";
 import { requireAuthenticatedUser } from "@/lib/auth-route";
 import type { Asset, AssetFormData } from "@/components/dashboard/types";
 import { INVENTORY_TYPES } from "@/lib/obsidian-layout";
+import { rowsToCsv, downloadCsv } from "@/lib/csv";
+import {
+  INVENTORY_CSV_COLUMNS,
+  reconcileInventory,
+  type ParsedRow,
+  type ReconcilePlan,
+} from "@/lib/inventory-reconcile";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+
 
 
 export const Route = createFileRoute("/inventory")({
