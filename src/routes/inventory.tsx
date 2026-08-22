@@ -237,15 +237,46 @@ function InventoryPage() {
   };
 
 
+  const openHistory = async () => {
+    setHistoryOpen(true);
+    setHistoryLoading(true);
+    try {
+      setHistory(await listImportSnapshots());
+    } catch (err) {
+      toast.error(`Could not load import history: ${(err as Error).message}`);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  const rollback = async (snapshot: ImportSnapshot) => {
+    setRevertingId(snapshot.id);
+    try {
+      const res = await revertImportSnapshot(snapshot);
+      toast.success(
+        `Rolled back: ${res.removed} removed, ${res.restored} restored, ${res.reinserted} re-added`,
+      );
+      setHistory(await listImportSnapshots());
+      fetchAssets();
+    } catch (err) {
+      toast.error(`Rollback failed: ${(err as Error).message}`);
+    } finally {
+      setRevertingId(null);
+    }
+  };
+
   const applyPlan = async () => {
     if (!plan) return;
     setApplying(true);
+    const createdIds: string[] = [];
     try {
       if (plan.creates.length) {
-        const { error } = await supabase.from("inventory_items").insert(
-          plan.creates.map((c) => ({ ...c.patch, user_id: session!.user.id })),
-        );
+        const { data, error } = await supabase
+          .from("inventory_items")
+          .insert(plan.creates.map((c) => ({ ...c.patch, user_id: session!.user.id })))
+          .select("id");
         if (error) throw new Error(error.message);
+        for (const row of data ?? []) createdIds.push(row.id as string);
       }
       for (const u of plan.updates) {
         const { error } = await supabase
