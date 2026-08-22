@@ -14,12 +14,29 @@ import {
   HelpCircle,
   Loader2,
   Sparkles,
+  Trash2,
   Undo2,
   XCircle,
   Zap,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  buildTagDeletionPlan,
+  describeDeletionPlan,
+  describeAutoRollback,
+  shouldAutoRollback,
+} from "@/lib/ai-model-rollback";
 import {
   applyRecommendedContext,
   switchToSuggestedModel,
@@ -174,8 +191,11 @@ function SuitabilityActions({
   const rollbackFn = useServerFn(rollbackAiModel);
   const [tests, setTests] = useState<AiTestResult[]>([]);
   const [testing, setTesting] = useState(false);
-  const [deleteTag, setDeleteTag] = useState(true);
+  const [deleteTag, setDeleteTag] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [autoReverted, setAutoReverted] = useState<string | null>(null);
   const queryClient = useQueryClient();
+
 
   // Rollback point recorded by the last model change (server-persisted, so it
   // survives reloads and restarts).
@@ -191,11 +211,12 @@ function SuitabilityActions({
 
   // After a fix, rerun the workflows the fix was meant to unblock — a weekly
   // report and a manual are graded separately, so you see which one now works.
-  const rerunTest = async () => {
+  // Returns the results so the caller can auto-roll-back on failure.
+  const rerunTest = async (): Promise<AiTestResult[]> => {
     setTesting(true);
     setTests([]);
+    const results: AiTestResult[] = [];
     try {
-      const results: AiTestResult[] = [];
       for (const workflow of ["weekly_report", "manual"] as const) {
         const r = await testFn({ data: { workflow } });
         results.push(r);
@@ -209,8 +230,26 @@ function SuitabilityActions({
     } finally {
       setTesting(false);
     }
+    return results;
   };
 
+  // Automatic rollback: if a post-change weekly_report or manual run fails, put
+  // the previous model back straight away. The created tag is intentionally
+  // kept — deleting it still requires the explicit confirmation below.
+  const verifyOrRollback = async (previousModel: string | null) => {
+    const results = await rerunTest();
+    if (!previousModel || !shouldAutoRollback(results)) return;
+    toast.warning(describeAutoRollback(results, previousModel));
+    setAutoReverted(describeAutoRollback(results, previousModel));
+    try {
+      const r = await rollbackFn({ data: { deleteCreatedTag: false } });
+      toast.success(`Automatically restored ${r.model} (was ${r.restoredFrom})`);
+      onModelChanged?.(r.model);
+    } catch (e) {
+      toast.error(`Automatic rollback failed: ${(e as Error).message}`);
+    }
+    await queryClient.invalidateQueries({ queryKey: ["ai-model-rollback"] });
+  };
 
   const applyCtx = useMutation({
     mutationFn: () =>
@@ -218,8 +257,9 @@ function SuitabilityActions({
     onSuccess: async (r) => {
       toast.success(`Active model is now ${r.model} (num_ctx ${r.numCtx})`);
       onModelChanged?.(r.model);
+      setAutoReverted(null);
       await queryClient.invalidateQueries({ queryKey: ["ai-model-rollback"] });
-      await rerunTest();
+      await verifyOrRollback(r.previousModel ?? null);
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -231,14 +271,16 @@ function SuitabilityActions({
         r.pulled ? `Pulled and activated ${r.model}` : `Active model is now ${r.model}`,
       );
       onModelChanged?.(r.model);
+      setAutoReverted(null);
       await queryClient.invalidateQueries({ queryKey: ["ai-model-rollback"] });
-      await rerunTest();
+      await verifyOrRollback(r.previousModel ?? null);
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
   const undo = useMutation({
-    mutationFn: () => rollbackFn({ data: { deleteCreatedTag: deleteTag } }),
+    mutationFn: (opts: { deleteCreatedTag: boolean }) =>
+      rollbackFn({ data: { deleteCreatedTag: opts.deleteCreatedTag } }),
     onSuccess: async (r) => {
       toast.success(
         r.deletedTag
@@ -247,13 +289,16 @@ function SuitabilityActions({
       );
       onModelChanged?.(r.model);
       setTests([]);
+      setConfirmOpen(false);
       await queryClient.invalidateQueries({ queryKey: ["ai-model-rollback"] });
       await rerunTest();
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
+
   const point = rollback.data;
+  const deletionPlan = buildTagDeletionPlan(point?.point ?? null, point?.currentModel ?? null);
   const busy = applyCtx.isPending || switchModel.isPending || undo.isPending || testing;
 
   return (
@@ -313,6 +358,13 @@ function SuitabilityActions({
         </Button>
       </div>
 
+      {autoReverted && (
+        <p className="text-[11px] text-destructive">
+          Automatic rollback: {autoReverted} The tag created by the change was kept — deleting it
+          needs explicit approval.
+        </p>
+      )}
+
       {point?.available && point.point && (
         <div className="rounded-md border border-amber-300/60 bg-amber-50/50 dark:bg-amber-950/20 p-2 space-y-1.5">
           <div className="flex flex-wrap items-center gap-2">
@@ -321,7 +373,10 @@ function SuitabilityActions({
               variant="outline"
               className="h-7"
               disabled={busy}
-              onClick={() => undo.mutate()}
+              onClick={() => {
+                if (deleteTag && deletionPlan.remove.length > 0) setConfirmOpen(true);
+                else undo.mutate({ deleteCreatedTag: false });
+              }}
               title={`Restores ${point.point.previousModel} as the active model`}
             >
               {undo.isPending ? (
@@ -348,8 +403,59 @@ function SuitabilityActions({
             {point.label} · changed{" "}
             {new Date(point.point.changedAt).toLocaleString()}
           </p>
+
+          <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete these Ollama models?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  {describeDeletionPlan(deletionPlan)} Rolling back to{" "}
+                  <span className="font-mono">{point.point.previousModel}</span> happens either way.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <div className="space-y-2 text-xs">
+                <div>
+                  <div className="font-medium text-destructive">Will be removed</div>
+                  <ul className="mt-1 space-y-0.5">
+                    {deletionPlan.remove.map((tag) => (
+                      <li key={tag} className="font-mono flex items-center gap-1.5">
+                        <Trash2 className="h-3 w-3 text-destructive shrink-0" />
+                        {tag}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                {deletionPlan.keep.length > 0 && (
+                  <div>
+                    <div className="font-medium">Kept</div>
+                    <ul className="mt-1 space-y-0.5 text-muted-foreground">
+                      {deletionPlan.keep.map((k) => (
+                        <li key={k.tag}>
+                          <span className="font-mono">{k.tag}</span> — {k.reason}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={undo.isPending}>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  disabled={undo.isPending}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    undo.mutate({ deleteCreatedTag: true });
+                  }}
+                >
+                  {undo.isPending && <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />}
+                  Roll back and delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       )}
+
 
 
       {(applyCtx.isPending || switchModel.isPending) && (
