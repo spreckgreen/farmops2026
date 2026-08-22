@@ -248,6 +248,34 @@ export const planMaintenanceSchedule = createServerFn({ method: "POST" })
       }
     }
 
+    // Escalate to hosted AI when the (local) model can't produce a schedule.
+    if (!parsed) {
+      const hosted = hostedHandle(
+        ai,
+        "error",
+        `${modelId} could not produce a usable schedule (${failureReason || "no JSON"}), ` +
+          "so hosted AI was used instead.",
+      );
+      if (hosted) {
+        provider = hosted.provider;
+        modelId = hosted.modelId;
+        escalation = hosted.escalation;
+        try {
+          const { output } = await generateText({
+            model: provider(modelId),
+            output: Output.object({ schema }),
+            system: systemPrompt,
+            prompt: userPrompt,
+          });
+          parsed = coerce(output) ?? (output as z.infer<typeof schema>);
+          failureReason = "";
+        } catch (error) {
+          failureReason =
+            error instanceof Error ? error.message : String(error);
+        }
+      }
+    }
+
     if (!parsed) {
       return {
         plan_id: crypto.randomUUID(),
@@ -260,6 +288,7 @@ export const planMaintenanceSchedule = createServerFn({ method: "POST" })
         actions: [],
         citations: [],
         model: modelId,
+        escalation,
       };
     }
 

@@ -98,18 +98,37 @@ export async function runIngest(
   const { markdownToTinyWiki } = await import("./md-to-tinywiki");
   const { tidyProcedure } = await import("./tidy-tinywiki");
   const { buildTinyWikiHtml } = await import("./tinywiki");
-  const providerOptions = modelOverride
+  let providerOptions: Record<string, unknown> | undefined = modelOverride
     ? undefined
     : { "lovable-ai-gateway": { reasoningEffort: "none" } };
+  let escalation: import("./ai-feature-areas").AiEscalation | null = null;
 
   const ask = async (system: string, prompt: string) => {
-    const res = await generateText({
-      model: provider(modelId),
-      system,
-      prompt,
-      ...(providerOptions ? { providerOptions } : {}),
-    });
-    return unfence(res.text ?? "");
+    const call = () =>
+      generateText({
+        model: provider(modelId),
+        system,
+        prompt,
+        ...(providerOptions ? { providerOptions } : {}),
+      });
+    try {
+      const res = await call();
+      return unfence(res.text ?? "");
+    } catch (error) {
+      // Local model unreachable or failing — escalate to hosted AI once.
+      const hosted = hostedHandle(
+        ai,
+        "error",
+        `${modelId} failed during document ingest, so hosted AI was used instead.`,
+      );
+      if (!hosted) throw error;
+      provider = hosted.provider;
+      modelId = hosted.modelId;
+      escalation = hosted.escalation;
+      providerOptions = { "lovable-ai-gateway": { reasoningEffort: "none" } };
+      const res = await call();
+      return unfence(res.text ?? "");
+    }
   };
 
   // Existing names so we never overwrite a hand-written procedure.
