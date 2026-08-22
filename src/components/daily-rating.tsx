@@ -152,6 +152,11 @@ export function DailyRatingPanel({
         </h3>
         <DailyRatingDot energy={local.energy} productivity={local.productivity} />
       </div>
+      {unsupported ? (
+        <p className="rounded-md border border-border bg-muted/40 p-2 text-[10px] text-muted-foreground">
+          {unsupported}
+        </p>
+      ) : null}
       <Scale
         label="Energy"
         icon={<Battery className="h-3 w-3" />}
