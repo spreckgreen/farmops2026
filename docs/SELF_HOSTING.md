@@ -181,11 +181,41 @@ Bostead. The Supabase self-host stack from
 
    | Section | Emitted for | What it does |
    | --- | --- | --- |
-   | 1 | `DRIFT`, `PARTIAL` | inlines the migration file verbatim (it is the source of truth) and records it in the ledger |
+   | 1 | `DRIFT`, `PARTIAL` | inlines the migration file (the source of truth), rewritten statement-by-statement to be idempotent, and records it in the ledger |
    | 2 | `energy_level` / `productivity_level` missing | `ADD COLUMN IF NOT EXISTS` on `public.daily_notes` |
    | 3 | `UNRECORDED` | one batched `INSERT … ON CONFLICT DO NOTHING` into `private.applied_migrations` |
    | 4 | `ORPHAN` | `DELETE` of the ledger rows whose file no longer exists |
    | final | always | `NOTIFY pgrst, 'reload schema'` so PostgREST stops serving a stale cache |
+
+   **The whole file is re-runnable.** If you already fixed part of the drift by
+   hand — or a `PARTIAL` migration is half-applied — the matching statements
+   become no-ops instead of aborting with `already exists`. Every statement in
+   section 1 goes through `scripts/lib/idempotent-sql.awk`, which is quote- and
+   `$$`-body-aware, so a `;` inside a plpgsql function never splits a statement:
+
+   | Original | Rewritten as |
+   | --- | --- |
+   | `CREATE TABLE` / `INDEX` / `SCHEMA` / `SEQUENCE` / `EXTENSION` | `… IF NOT EXISTS …` |
+   | `CREATE FUNCTION` / `VIEW` | `CREATE OR REPLACE …` |
+   | `CREATE TRIGGER t ON tbl` | `DROP TRIGGER IF EXISTS t ON tbl;` first |
+   | `CREATE POLICY p ON tbl` | `DROP POLICY IF EXISTS p ON tbl;` first |
+   | `ALTER TABLE … ADD COLUMN x` | `ADD COLUMN IF NOT EXISTS x` (each one in the statement) |
+   | `ALTER TABLE t ADD CONSTRAINT c` | `ALTER TABLE t DROP CONSTRAINT IF EXISTS c;` first |
+   | `DROP TABLE/TYPE/TRIGGER/…` | `DROP … IF EXISTS …` |
+   | `CREATE TYPE` / `DOMAIN` / `ROLE` | `DO $idem$ … EXCEPTION WHEN duplicate_object THEN RAISE NOTICE …` |
+   | `CREATE INDEX CONCURRENTLY` | keyword dropped (illegal inside the section's transaction) |
+
+   The one thing it will not rewrite for you is an `INSERT` with no
+   `ON CONFLICT` clause — re-running that would duplicate rows, so it is left
+   in place under a `-- REVIEW:` comment for you to decide:
+
+   ```sql
+   -- REVIEW: INSERT has no ON CONFLICT clause — re-running this file will
+   -- duplicate these rows. Add ON CONFLICT DO NOTHING, or delete the
+   -- statement if the rows are already present.
+   insert into public.job_locks (name) values ('nightly');
+   ```
+
 
    Each drift section lists the exact objects that were missing as comments:
 
