@@ -32,8 +32,9 @@
 #   e.g. postgresql://postgres:secret@localhost:5432/postgres
 #
 # psql resolution: host psql if installed, else a throwaway
-# `docker run --rm postgres:16-alpine psql` container (uses host networking so
-# localhost:5432 resolves the same way).
+# `docker run --rm postgres:16-alpine psql` container. If localhost:5432 is a
+# Supavisor pooler (ENOIDENTIFIER), the script automatically runs psql inside
+# the self-hosted Compose `db` container and connects over its local socket.
 #
 # Usage:
 #   ./scripts/apply-migrations.sh              # apply pending, reload PostgREST
@@ -121,6 +122,16 @@ for f in .env.local .env ../supabase-project/.env "$HOME/supabase-project/.env";
   DB_URL="$(grep -E '^[[:space:]]*SUPABASE_DB_URL=' "$f" 2>/dev/null | tail -1 | cut -d= -f2- | tr -d '"'"'"' \r' || true)"
 done
 
+# Do not let a copied documentation example override the real self-hosted
+# password below. This commonly happens when the example command containing
+# literal <PASSWORD> is pasted unchanged into .env.local.
+case "$DB_URL" in
+  *'<PASSWORD>'*|*'CHANGE_ME'*)
+    warn "Ignoring placeholder SUPABASE_DB_URL; deriving the real local connection instead"
+    DB_URL=""
+    ;;
+esac
+
 # Fallback: assemble the URL from a self-hosted Supabase POSTGRES_PASSWORD,
 # e.g. POSTGRES_PASSWORD=s3cret -> postgresql://postgres:s3cret@localhost:5432/postgres
 if [ -z "$DB_URL" ]; then
@@ -147,18 +158,75 @@ fi
 
 
 # --- Pick a psql -------------------------------------------------------------
+PSQL_TARGET=()
+PSQL_MODE="url"
 if command -v psql >/dev/null 2>&1; then
   PSQL=(psql)
+  PSQL_TARGET=("$DB_URL")
   log "Using host psql ($(psql --version | awk '{print $3}'))"
 elif command -v docker >/dev/null 2>&1; then
   PSQL=(docker run --rm --network host -i postgres:16-alpine psql)
+  PSQL_TARGET=("$DB_URL")
   log "Host psql not found — using postgres:16-alpine container (--network host)"
 else
   err "Neither psql nor docker available — cannot apply migrations."
   exit 1
 fi
 
-run_sql() { "${PSQL[@]}" "$DB_URL" -v ON_ERROR_STOP=1 -q "$@"; }
+run_sql() { "${PSQL[@]}" "${PSQL_TARGET[@]}" -v ON_ERROR_STOP=1 -q "$@"; }
+
+run_migration_file() {
+  local path="$1"
+  if [ "$PSQL_MODE" = "container" ]; then
+    # The host migration path is not mounted in the database container.
+    # Stream it over stdin instead of passing -f with an inaccessible path.
+    "${PSQL[@]}" -v ON_ERROR_STOP=1 -q -1 <"$path"
+  else
+    "${PSQL[@]}" "${PSQL_TARGET[@]}" -v ON_ERROR_STOP=1 -q -1 -f "$path"
+  fi
+}
+
+# A standard self-hosted stack often publishes Supavisor—not raw Postgres—on
+# localhost:5432. A direct postgres URL then fails with:
+#   (ENOIDENTIFIER) no tenant identifier provided
+# In that case use psql inside the Compose `db` service. The local Unix socket
+# bypasses the pooler and does not expose the database password in argv.
+CONNECTION_LOG="$(mktemp -t bostead-db-connect.XXXXXX.log)"
+if ! run_sql -At -c "SELECT 1;" >"$CONNECTION_LOG" 2>&1; then
+  if grep -q 'ENOIDENTIFIER\|no tenant identifier provided' "$CONNECTION_LOG" && command -v docker >/dev/null 2>&1; then
+    DB_CONTAINER="${SUPABASE_DB_CONTAINER:-}"
+    if [ -z "$DB_CONTAINER" ]; then
+      DB_CONTAINER="$(docker ps --filter 'label=com.docker.compose.service=db' --format '{{.ID}}' 2>/dev/null | head -1 || true)"
+    fi
+    if [ -z "$DB_CONTAINER" ]; then
+      DB_CONTAINER="$(docker ps --filter 'name=supabase-db' --format '{{.ID}}' 2>/dev/null | head -1 || true)"
+    fi
+    if [ -n "$DB_CONTAINER" ]; then
+      PSQL=(docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres)
+      PSQL_TARGET=()
+      PSQL_MODE="container"
+      log "localhost:5432 is the pooler — using psql inside the self-hosted db container"
+      if ! run_sql -At -c "SELECT 1;" >"$CONNECTION_LOG" 2>&1; then
+        err "Found the self-hosted db container, but its local PostgreSQL connection failed:"
+        sed 's/^/    /' "$CONNECTION_LOG" >&2 || true
+        rm -f "$CONNECTION_LOG"
+        exit 1
+      fi
+    else
+      err "localhost:5432 is the connection pooler, and no running Compose 'db' container was found."
+      err "  Start the self-hosted backend, or set its container explicitly:"
+      err "    SUPABASE_DB_CONTAINER=<database-container-name> ./scripts/apply-migrations.sh --adopt"
+      rm -f "$CONNECTION_LOG"
+      exit 1
+    fi
+  else
+    err "Cannot connect to the database with SUPABASE_DB_URL:"
+    sed 's/^/    /' "$CONNECTION_LOG" >&2 || true
+    rm -f "$CONNECTION_LOG"
+    exit 1
+  fi
+fi
+rm -f "$CONNECTION_LOG"
 
 # --- Ledger ------------------------------------------------------------------
 # Needs an owner-level role (the self-hosted `postgres` superuser). A pooled or
@@ -720,7 +788,7 @@ for path in $(ls -1 supabase/migrations/*.sql 2>/dev/null | sort); do
   OUT="$(mktemp -t "bostead-mig.XXXXXX.log")"
   # -1 wraps the file in a single transaction: it either fully applies or not
   # at all, so the ledger never claims a half-applied migration.
-  if "${PSQL[@]}" "$DB_URL" -v ON_ERROR_STOP=1 -q -1 -f "$path" >"$OUT" 2>&1; then
+  if run_migration_file "$path" >"$OUT" 2>&1; then
     record_applied "$name"
     APPLIED=$((APPLIED + 1))
   elif [ "$STRICT" -eq 0 ] && is_benign_already_exists "$OUT"; then

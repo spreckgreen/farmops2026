@@ -135,6 +135,22 @@ Bostead. The Supabase self-host stack from
    echo $?    # 0 = no drift, 1 = drift / partial / orphan rows
    ```
 
+   If the host's `localhost:5432` is the connection pooler, it may reject a
+   plain `postgres` connection with `ENOIDENTIFIER: no tenant identifier
+   provided`. The migration runner detects that response and automatically
+   executes `psql` inside the running Compose `db` container, connecting over
+   PostgreSQL's local socket. You do not need to expose another database port.
+   If automatic discovery cannot identify the container, specify it for one
+   command:
+
+   ```bash
+   SUPABASE_DB_CONTAINER=supabase-db ./scripts/apply-migrations.sh --adopt
+   ```
+
+   A literal `SUPABASE_DB_URL` containing `<PASSWORD>` or `CHANGE_ME` is treated
+   as a placeholder and ignored; the runner derives the connection from
+   `POSTGRES_PASSWORD` instead.
+
    Every migration is classified:
 
    | Status | Meaning | Fix |
