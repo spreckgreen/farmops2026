@@ -120,8 +120,15 @@ function emit(stmt,   body, lc, pos, name, tbl, pre, guard) {
     body = insert_ine(body, lc, RSTART + RLENGTH)
   else if (match(lc, /create[ \t\r\n]+materialized[ \t\r\n]+view[ \t\r\n]+/) && RSTART == 1)
     body = insert_ine(body, lc, RSTART + RLENGTH)
-  else if (match(lc, /create([ \t\r\n]+unique)?[ \t\r\n]+index([ \t\r\n]+concurrently)?[ \t\r\n]+/) && RSTART == 1)
+  else if (match(lc, /create([ \t\r\n]+unique)?[ \t\r\n]+index([ \t\r\n]+concurrently)?[ \t\r\n]+/) && RSTART == 1) {
     body = insert_ine(body, lc, RSTART + RLENGTH)
+    # CREATE INDEX CONCURRENTLY cannot run inside the section's transaction
+    # block, so drop the keyword — remediation indexes are small.
+    lc = tolower(body)
+    if (match(lc, /[ \t\r\n]concurrently[ \t\r\n]/))
+      body = substr(body, 1, RSTART) substr(body, RSTART + RLENGTH - 1)
+  }
+
 
   # ---- CREATE OR REPLACE (functions, views, rules) -------------------------
   else if (match(lc, /^create[ \t\r\n]+(function|procedure|view|rule)[ \t\r\n]/))
