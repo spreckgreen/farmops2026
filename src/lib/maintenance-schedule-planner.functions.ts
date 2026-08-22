@@ -253,6 +253,18 @@ export const planMaintenanceSchedule = createServerFn({ method: "POST" })
       `- tags: ${tags || "(none)"}\n` +
       `- notes: ${asset.notes ?? "(none)"}\n\n` +
       (data.usage_context ? `USAGE_CONTEXT:\n${data.usage_context}\n\n` : "") +
+      (existing.length > 0
+        ? `EXISTING_SCHEDULE (already on record — do not duplicate):\n` +
+          existing.map((s) => `- ${s}`).join("\n") +
+          "\n\n"
+        : "") +
+      (data.reference_url ? `REFERENCE_URL: ${data.reference_url}\n\n` : "") +
+      (referenceFetched || data.reference_text
+        ? `REFERENCE_MATERIAL:\n${[data.reference_text, referenceFetched]
+            .filter(Boolean)
+            .join("\n\n")
+            .slice(0, 40000)}\n\n`
+        : "") +
       `INVENTORY (for parts matching):\n${inventoryBlock || "(none)"}`;
 
     let parsed: z.infer<typeof schema> | null = null;
