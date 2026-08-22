@@ -203,9 +203,36 @@ fi
 log "Building app image (BuildKit cache will short-circuit unchanged layers)"
 DOCKER_BUILDKIT=1 "${DOCKER[@]}" compose build app
 
+# --- 2b. Apply pending DB migrations ---------------------------------------
+# Runs BEFORE the new app image starts serving, so the UI never goes live
+# against a schema that lacks its columns (e.g. daily_notes.energy_level →
+# "Could not find the 'energy_level' column of 'daily_notes' in the schema
+# cache"). Idempotent: already-applied files are skipped via the ledger.
+# Exit 3 means "no SUPABASE_DB_URL" (managed Supabase) — not a failure.
+MIG="$(dirname "$0")/apply-migrations.sh"
+if [ "$SKIP_MIGRATIONS" -eq 1 ]; then
+  log "⚠️  --skip-migrations set: schema left untouched"
+elif [ -x "$MIG" ]; then
+  set +e
+  "$MIG"
+  mig_rc=$?
+  set -e
+  case "$mig_rc" in
+    0) ;;
+    3) log "No SUPABASE_DB_URL — skipping migrations (managed Supabase? use 'supabase db push')" ;;
+    *) err "❌ Migrations failed (exit=$mig_rc) — refusing to deploy code against a stale schema."
+       err "  Inspect with: $MIG --dry-run"
+       err "  Bypass (not recommended): $0 --no-pull --force --skip-migrations"
+       exit 1 ;;
+  esac
+else
+  err "warn: $MIG missing or not executable — schema not verified"
+fi
+
 # --- 3. Recreate changed containers ----------------------------------------
 log "Bringing stack up (recreates only containers with new image/config)"
 "${DOCKER[@]}" compose up -d --remove-orphans
+
 
 # --- 4. Reclaim disk --------------------------------------------------------
 log "Pruning dangling images from previous build"
