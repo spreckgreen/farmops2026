@@ -3,6 +3,7 @@ import { AppLayout } from "@/components/app-layout";
 import { Button } from "@/components/ui/button";
 import { Procedures } from "@/components/procedures";
 import { ProceduresAiPrompt } from "@/components/procedures-ai-prompt";
+import { InventorySopGenerator } from "@/components/inventory-sop-generator";
 import { RunAiTestCard } from "@/components/run-ai-test-card";
 import { Wand2 } from "lucide-react";
 
@@ -48,6 +49,7 @@ function ProceduresPage() {
           </Button>
         </header>
         <ProceduresAiPrompt />
+        <InventorySopGenerator />
         <RunAiTestCard description="Verify the AI backend answering procedure queries is your self-hosted model on the VPS before running a long prompt." />
         <Procedures />
       </div>
