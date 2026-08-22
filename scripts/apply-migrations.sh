@@ -47,7 +47,16 @@
 #                                              # seeded going forward.
 #   ./scripts/apply-migrations.sh --strict     # any "already exists" is a FAIL
 #                                              # (useful on a fresh DB)
-#   ./scripts/apply-migrations.sh --only 20260820211737_7d33c0b4-f451-436c-a635-5cc2e361c5cc.sql
+#   ./scripts/apply-migrations.sh --only=20260820211737_7d33c0b4-f451-436c-a635-5cc2e361c5cc.sql
+#
+#   ./scripts/apply-migrations.sh --adopt      # RECOMMENDED for a hand-built DB.
+#                                              # Inspects the live schema and
+#                                              # records only the migrations
+#                                              # whose objects are ALL already
+#                                              # present. Genuinely missing ones
+#                                              # stay pending and then run
+#                                              # normally in the same pass.
+#   ./scripts/apply-migrations.sh --adopt --dry-run   # report, change nothing
 # ============================================================================
 set -euo pipefail
 
@@ -56,6 +65,7 @@ cd "$(dirname "$0")/.."
 DRY_RUN=0
 FORCE=0
 BASELINE=0
+ADOPT=0
 STRICT=0
 ONLY=""
 for arg in "$@"; do
@@ -63,10 +73,11 @@ for arg in "$@"; do
     --dry-run)  DRY_RUN=1 ;;
     --force)    FORCE=1 ;;
     --baseline) BASELINE=1 ;;
+    --adopt)    ADOPT=1 ;;
     --strict)   STRICT=1 ;;
     --only=*)   ONLY="${arg#--only=}" ;;
     --only)     echo "Use --only=<filename.sql>" >&2; exit 2 ;;
-    -h|--help)  sed -n '2,52p' "$0"; exit 0 ;;
+    -h|--help)  sed -n '2,62p' "$0"; exit 0 ;;
     *) echo "Unknown flag: $arg" >&2; exit 2 ;;
   esac
 done
@@ -141,6 +152,116 @@ if [ "$BASELINE" -eq 1 ]; then
   done
   log "Baseline recorded: $n file(s) marked applied WITHOUT running them."
   log "Skipping to the day-colour verification/heal step."
+fi
+
+# --- Adopt mode: schema-aware ledger population -------------------------------
+# For each migration file, list the objects it creates (tables, columns, types,
+# functions, policies, triggers, indexes) and ask the live database whether they
+# exist. If every object is already there, the file is recorded as applied
+# without being executed. If any object is missing, the file stays pending so
+# the normal apply loop below runs it.
+#
+# Example output:
+#   [migrate] adopt: 20260608162633_....sql — 19/19 objects present → recorded
+#   [migrate] adopt: 20260820211737_....sql — 0/2 objects present → left pending
+#   [migrate] adopt: 20260714090112_....sql — 5/7 objects present → left pending
+#                      missing: column public.tasks.closed_at
+EXTRACT_AWK="scripts/lib/extract-objects.awk"
+
+sql_lit() { printf "%s" "$1" | sed "s/'/''/g"; }
+
+# Emit `SELECT '<label>', EXISTS(...);`-style rows for one extracted object.
+existence_check() {
+  local kind="$1" schema="$2" name="$3" extra="${4:-}"
+  local s n e
+  s="$(sql_lit "$schema")"; n="$(sql_lit "$name")"; e="$(sql_lit "$extra")"
+  case "$kind" in
+    table)
+      printf "SELECT 'table %s.%s', EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace ns ON ns.oid=c.relnamespace WHERE ns.nspname='%s' AND c.relname='%s' AND c.relkind IN ('r','p','v','m','f'));\n" "$s" "$n" "$s" "$n" ;;
+    index)
+      printf "SELECT 'index %s.%s', EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace ns ON ns.oid=c.relnamespace WHERE ns.nspname='%s' AND c.relname='%s' AND c.relkind='i');\n" "$s" "$n" "$s" "$n" ;;
+    type)
+      printf "SELECT 'type %s.%s', EXISTS(SELECT 1 FROM pg_type t JOIN pg_namespace ns ON ns.oid=t.typnamespace WHERE ns.nspname='%s' AND t.typname='%s');\n" "$s" "$n" "$s" "$n" ;;
+    function)
+      printf "SELECT 'function %s.%s', EXISTS(SELECT 1 FROM pg_proc p JOIN pg_namespace ns ON ns.oid=p.pronamespace WHERE ns.nspname='%s' AND p.proname='%s');\n" "$s" "$n" "$s" "$n" ;;
+    column)
+      printf "SELECT 'column %s.%s.%s', EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='%s' AND table_name='%s' AND column_name='%s');\n" "$s" "$n" "$e" "$s" "$n" "$e" ;;
+    policy)
+      printf "SELECT 'policy %s on %s.%s', EXISTS(SELECT 1 FROM pg_policies WHERE schemaname='%s' AND tablename='%s' AND policyname='%s');\n" "$e" "$s" "$n" "$s" "$n" "$e" ;;
+    trigger)
+      printf "SELECT 'trigger %s on %s.%s', EXISTS(SELECT 1 FROM pg_trigger tg JOIN pg_class c ON c.oid=tg.tgrelid JOIN pg_namespace ns ON ns.oid=c.relnamespace WHERE NOT tg.tgisinternal AND ns.nspname='%s' AND c.relname='%s' AND tg.tgname='%s');\n" "$e" "$s" "$n" "$s" "$n" "$e" ;;
+  esac
+}
+
+ADOPTED=0
+ADOPT_PENDING=0
+ADOPT_UNKNOWN=0
+
+if [ "$ADOPT" -eq 1 ]; then
+  if [ ! -r "$EXTRACT_AWK" ]; then
+    err "Missing $EXTRACT_AWK — git pull, then re-run with --adopt."
+    exit 1
+  fi
+  log "Adopt mode: matching ${ONLY:-all} migration(s) against the live schema"
+
+  ADOPT_APPLIED="$(run_sql -At -c "SELECT filename FROM private.applied_migrations;" 2>/dev/null || true)"
+
+  for path in $(ls -1 supabase/migrations/*.sql 2>/dev/null | sort); do
+    name="$(basename "$path")"
+    [ -n "$ONLY" ] && [ "$name" != "$ONLY" ] && continue
+    if printf '%s\n' "$ADOPT_APPLIED" | grep -Fxq "$name"; then
+      continue   # already in the ledger
+    fi
+
+    CHECKS="$(mktemp -t bostead-adopt.XXXXXX.sql)"
+    total=0
+    while IFS='|' read -r kind schema oname extra; do
+      [ -z "${kind:-}" ] && continue
+      existence_check "$kind" "$schema" "$oname" "${extra:-}" >>"$CHECKS"
+      total=$((total + 1))
+    done < <(awk -f "$EXTRACT_AWK" "$path")
+
+    if [ "$total" -eq 0 ]; then
+      # Nothing recognisable to probe (data-only INSERT/UPDATE, GRANT-only, or a
+      # statement shape the extractor doesn't know). Never guess — leave pending.
+      warn "adopt: $name — no detectable objects → left pending (will run)"
+      ADOPT_UNKNOWN=$((ADOPT_UNKNOWN + 1))
+      rm -f "$CHECKS"
+      continue
+    fi
+
+    RES="$(mktemp -t bostead-adopt-res.XXXXXX.txt)"
+    if ! run_sql -At -F '|' -f "$CHECKS" >"$RES" 2>&1; then
+      err "adopt: $name — schema probe failed:"
+      sed 's/^/    /' "$RES" >&2 || true
+      ADOPT_UNKNOWN=$((ADOPT_UNKNOWN + 1))
+      rm -f "$CHECKS" "$RES"
+      continue
+    fi
+
+    present="$(grep -c '|t$' "$RES" || true)"
+    missing_list="$(grep '|f$' "$RES" | sed 's/|f$//' || true)"
+
+    if [ "$present" -eq "$total" ]; then
+      if [ "$DRY_RUN" -eq 1 ]; then
+        log "adopt: $name — $present/$total objects present → would record (dry run)"
+      else
+        record_applied "$name"
+        log "adopt: $name — $present/$total objects present → recorded as applied"
+      fi
+      ADOPTED=$((ADOPTED + 1))
+    else
+      log "adopt: $name — $present/$total objects present → left pending"
+      printf '%s\n' "$missing_list" | head -5 | sed '/^$/d;s/^/                   missing: /'
+      ADOPT_PENDING=$((ADOPT_PENDING + 1))
+    fi
+    rm -f "$CHECKS" "$RES"
+  done
+
+  log "Adopt summary: $ADOPTED recorded, $ADOPT_PENDING incomplete, $ADOPT_UNKNOWN unprobeable"
+  if [ "$DRY_RUN" -eq 1 ]; then
+    log "(dry run — the ledger was not modified)"
+  fi
 fi
 
 APPLIED_LIST=""

@@ -103,6 +103,32 @@ Bostead. The Supabase self-host stack from
    ./scripts/apply-migrations.sh             # apply + reload PostgREST
    ```
 
+   **Database built by hand before the ledger existed?** Run the schema-aware
+   adoption pass once. It reads each migration, works out which objects it
+   creates (tables, columns, types, functions, policies, triggers, indexes),
+   asks the live database whether they already exist, and records only the
+   fully-present files — then applies whatever is genuinely missing:
+
+   ```bash
+   ./scripts/apply-migrations.sh --adopt --dry-run   # report only
+   ./scripts/apply-migrations.sh --adopt             # populate ledger + apply the rest
+   ```
+
+   Sample output:
+
+   ```text
+   [migrate] adopt: 20260608162633_e232558d….sql — 19/19 objects present → recorded as applied
+   [migrate] adopt: 20260820211737_7d33c0b4….sql — 0/2 objects present → left pending
+                      missing: column public.daily_notes.energy_level
+   [migrate] Adopt summary: 68 recorded, 1 incomplete, 1 unprobeable
+   ```
+
+   A file is only adopted when **every** detected object exists; partial matches
+   and files with nothing probeable (data-only `INSERT`, `GRANT`-only) stay
+   pending and run normally. Use `--baseline` instead only if you want all files
+   marked applied with no schema inspection at all.
+
+
    Managed Supabase (supabase.com) instead? Use `supabase db push --db-url
    "$SUPABASE_DB_URL"`; the deploy hook detects the missing `SUPABASE_DB_URL`
    and skips itself.
