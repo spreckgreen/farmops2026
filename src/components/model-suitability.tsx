@@ -14,12 +14,29 @@ import {
   HelpCircle,
   Loader2,
   Sparkles,
+  Trash2,
   Undo2,
   XCircle,
   Zap,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  buildTagDeletionPlan,
+  describeDeletionPlan,
+  describeAutoRollback,
+  shouldAutoRollback,
+} from "@/lib/ai-model-rollback";
 import {
   applyRecommendedContext,
   switchToSuggestedModel,
@@ -281,6 +298,7 @@ function SuitabilityActions({
 
 
   const point = rollback.data;
+  const deletionPlan = buildTagDeletionPlan(point?.point ?? null, point?.currentModel ?? null);
   const busy = applyCtx.isPending || switchModel.isPending || undo.isPending || testing;
 
   return (
