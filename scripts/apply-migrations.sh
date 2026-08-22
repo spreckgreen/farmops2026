@@ -478,7 +478,12 @@ EOF
         echo "--"
         echo "-- Each section is its own transaction, so a failure in one section leaves"
         echo "-- the earlier ones committed and tells you exactly where to look."
+        echo "--"
+        echo "-- IDEMPOTENT: every statement below is safe to run more than once. If some"
+        echo "-- drift was already fixed by hand, the matching statements simply do nothing"
+        echo "-- instead of failing with \"already exists\". You can re-run the whole file."
         echo "-- ============================================================================"
+
         echo
         echo "-- Ensure the ledger itself exists before we touch it."
         echo "CREATE SCHEMA IF NOT EXISTS private;"
