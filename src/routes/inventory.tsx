@@ -128,6 +128,53 @@ function InventoryPage() {
       return next;
     });
 
+  /** Inline field overrides per row key, e.g. { u2: { quantity: 12 } }. */
+  const [edits, setEdits] = useState<Record<string, Partial<AssetPatch>>>({});
+  /** Row keys whose inline editor is open. */
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  const toggleExpanded = (key: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+
+  /** The patch that will actually be written for a row (CSV values + inline edits). */
+  const effectivePatch = (key: string, patch: AssetPatch): AssetPatch => ({
+    ...patch,
+    ...(edits[key] ?? {}),
+  });
+
+  const setEditField = (key: string, field: keyof AssetPatch, raw: string) => {
+    let value: AssetPatch[keyof AssetPatch];
+    if (field === "quantity" || field === "min_quantity") {
+      const n = Number(raw.replace(/[$,]/g, ""));
+      value = Number.isFinite(n) && n >= 0 ? n : 0;
+    } else if (field === "tags") {
+      value = raw
+        .split(/[;|]/)
+        .map((t) => t.trim())
+        .filter(Boolean);
+    } else if (field === "barcode" || field === "item_type") {
+      value = raw.trim() || null;
+    } else {
+      value = raw;
+    }
+    setEdits((prev) => ({ ...prev, [key]: { ...(prev[key] ?? {}), [field]: value } }));
+  };
+
+  const clearEdits = (key: string) =>
+    setEdits((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+
+
+
+
 
 
   useEffect(() => {
