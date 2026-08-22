@@ -40,6 +40,7 @@ import { Route as NotesDateRouteImport } from './routes/notes.$date'
 import { Route as MaintenanceGenerateScheduleRouteImport } from './routes/maintenance.generate-schedule'
 import { Route as MaintenanceForecastRouteImport } from './routes/maintenance.forecast'
 import { Route as MaintenanceDiagnoseRouteImport } from './routes/maintenance.diagnose'
+import { Route as HealthSchemaRouteImport } from './routes/health.schema'
 import { Route as FoodStorageRouteImport } from './routes/food.storage'
 import { Route as FoodSeasonsRouteImport } from './routes/food.seasons'
 import { Route as FoodReportsRouteImport } from './routes/food.reports'
@@ -226,6 +227,11 @@ const MaintenanceDiagnoseRoute = MaintenanceDiagnoseRouteImport.update({
   path: '/diagnose',
   getParentRoute: () => MaintenanceRoute,
 } as any)
+const HealthSchemaRoute = HealthSchemaRouteImport.update({
+  id: '/schema',
+  path: '/schema',
+  getParentRoute: () => HealthRoute,
+} as any)
 const FoodStorageRoute = FoodStorageRouteImport.update({
   id: '/storage',
   path: '/storage',
@@ -380,7 +386,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/dashboard': typeof DashboardRoute
   '/food': typeof FoodRouteWithChildren
-  '/health': typeof HealthRoute
+  '/health': typeof HealthRouteWithChildren
   '/inventory': typeof InventoryRoute
   '/maintenance': typeof MaintenanceRouteWithChildren
   '/procedures': typeof ProceduresRouteWithChildren
@@ -414,6 +420,7 @@ export interface FileRoutesByFullPath {
   '/food/reports': typeof FoodReportsRoute
   '/food/seasons': typeof FoodSeasonsRoute
   '/food/storage': typeof FoodStorageRoute
+  '/health/schema': typeof HealthSchemaRoute
   '/maintenance/diagnose': typeof MaintenanceDiagnoseRoute
   '/maintenance/forecast': typeof MaintenanceForecastRoute
   '/maintenance/generate-schedule': typeof MaintenanceGenerateScheduleRoute
@@ -441,7 +448,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/dashboard': typeof DashboardRoute
-  '/health': typeof HealthRoute
+  '/health': typeof HealthRouteWithChildren
   '/inventory': typeof InventoryRoute
   '/projects': typeof ProjectsRoute
   '/ready': typeof ReadyRoute
@@ -473,6 +480,7 @@ export interface FileRoutesByTo {
   '/food/reports': typeof FoodReportsRoute
   '/food/seasons': typeof FoodSeasonsRoute
   '/food/storage': typeof FoodStorageRoute
+  '/health/schema': typeof HealthSchemaRoute
   '/maintenance/diagnose': typeof MaintenanceDiagnoseRoute
   '/maintenance/forecast': typeof MaintenanceForecastRoute
   '/maintenance/generate-schedule': typeof MaintenanceGenerateScheduleRoute
@@ -502,7 +510,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/dashboard': typeof DashboardRoute
   '/food': typeof FoodRouteWithChildren
-  '/health': typeof HealthRoute
+  '/health': typeof HealthRouteWithChildren
   '/inventory': typeof InventoryRoute
   '/maintenance': typeof MaintenanceRouteWithChildren
   '/procedures': typeof ProceduresRouteWithChildren
@@ -536,6 +544,7 @@ export interface FileRoutesById {
   '/food/reports': typeof FoodReportsRoute
   '/food/seasons': typeof FoodSeasonsRoute
   '/food/storage': typeof FoodStorageRoute
+  '/health/schema': typeof HealthSchemaRoute
   '/maintenance/diagnose': typeof MaintenanceDiagnoseRoute
   '/maintenance/forecast': typeof MaintenanceForecastRoute
   '/maintenance/generate-schedule': typeof MaintenanceGenerateScheduleRoute
@@ -600,6 +609,7 @@ export interface FileRouteTypes {
     | '/food/reports'
     | '/food/seasons'
     | '/food/storage'
+    | '/health/schema'
     | '/maintenance/diagnose'
     | '/maintenance/forecast'
     | '/maintenance/generate-schedule'
@@ -659,6 +669,7 @@ export interface FileRouteTypes {
     | '/food/reports'
     | '/food/seasons'
     | '/food/storage'
+    | '/health/schema'
     | '/maintenance/diagnose'
     | '/maintenance/forecast'
     | '/maintenance/generate-schedule'
@@ -721,6 +732,7 @@ export interface FileRouteTypes {
     | '/food/reports'
     | '/food/seasons'
     | '/food/storage'
+    | '/health/schema'
     | '/maintenance/diagnose'
     | '/maintenance/forecast'
     | '/maintenance/generate-schedule'
@@ -750,7 +762,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   DashboardRoute: typeof DashboardRoute
   FoodRoute: typeof FoodRouteWithChildren
-  HealthRoute: typeof HealthRoute
+  HealthRoute: typeof HealthRouteWithChildren
   InventoryRoute: typeof InventoryRoute
   MaintenanceRoute: typeof MaintenanceRouteWithChildren
   ProceduresRoute: typeof ProceduresRouteWithChildren
@@ -1007,6 +1019,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MaintenanceDiagnoseRouteImport
       parentRoute: typeof MaintenanceRoute
     }
+    '/health/schema': {
+      id: '/health/schema'
+      path: '/schema'
+      fullPath: '/health/schema'
+      preLoaderRoute: typeof HealthSchemaRouteImport
+      parentRoute: typeof HealthRoute
+    }
     '/food/storage': {
       id: '/food/storage'
       path: '/storage'
@@ -1247,6 +1266,17 @@ const FoodRouteChildren: FoodRouteChildren = {
 
 const FoodRouteWithChildren = FoodRoute._addFileChildren(FoodRouteChildren)
 
+interface HealthRouteChildren {
+  HealthSchemaRoute: typeof HealthSchemaRoute
+}
+
+const HealthRouteChildren: HealthRouteChildren = {
+  HealthSchemaRoute: HealthSchemaRoute,
+}
+
+const HealthRouteWithChildren =
+  HealthRoute._addFileChildren(HealthRouteChildren)
+
 interface MaintenanceRouteChildren {
   MaintenanceDiagnoseRoute: typeof MaintenanceDiagnoseRoute
   MaintenanceForecastRoute: typeof MaintenanceForecastRoute
@@ -1296,7 +1326,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   DashboardRoute: DashboardRoute,
   FoodRoute: FoodRouteWithChildren,
-  HealthRoute: HealthRoute,
+  HealthRoute: HealthRouteWithChildren,
   InventoryRoute: InventoryRoute,
   MaintenanceRoute: MaintenanceRouteWithChildren,
   ProceduresRoute: ProceduresRouteWithChildren,
