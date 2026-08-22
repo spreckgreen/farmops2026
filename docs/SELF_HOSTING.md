@@ -128,6 +128,13 @@ Bostead. The Supabase self-host stack from
    pending and run normally. Use `--baseline` instead only if you want all files
    marked applied with no schema inspection at all.
 
+   On an older hand-built database, a pending hardening migration can reference
+   a policy or helper function that a later migration intentionally removed or
+   moved to the `private` schema. If that later migration is already recorded,
+   the runner verifies its matching `DROP`, reports **superseded by a later
+   applied migration**, and safely records the older file instead of blocking
+   deployment. Unrelated missing-object errors still fail normally.
+
    **Audit the ledger against the schema** (read-only, applies nothing):
 
    ```bash
