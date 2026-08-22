@@ -2547,7 +2547,7 @@ export const moveTaskToPreviousDay = createServerFn({ method: "POST" })
     }
 
     // Day stamps on the task itself follow the note.
-    const patch: Record<string, string | null> = {};
+    const patch: { start_at?: string; closed_at?: string } = {};
     if (task.start_at) patch.start_at = shiftStampToDay(toDate, task.start_at);
     if (task.closed_at) patch.closed_at = shiftStampToDay(toDate, task.closed_at);
     if (Object.keys(patch).length > 0) {
