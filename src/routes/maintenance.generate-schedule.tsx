@@ -10,6 +10,18 @@ import { Textarea } from "@/components/ui/textarea";
 import { requireAuthenticatedUser } from "@/lib/auth-route";
 import { listInventory } from "@/lib/inventory.functions";
 import { planMaintenanceSchedule } from "@/lib/maintenance-schedule-planner.functions";
+import {
+  listExistingSchedules,
+  type ExistingScheduleEntry,
+} from "@/lib/maintenance-existing-schedule.functions";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { AiActionPreview } from "@/components/ai-action-preview";
 import type { ActionPlan } from "@/lib/ai-actions/types";
 import { Sparkles, Wrench, ArrowLeft, Loader2, CheckCircle2, XCircle } from "lucide-react";
