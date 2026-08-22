@@ -69,6 +69,10 @@ function InventoryPage() {
   const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [partsItemId, setPartsItemId] = useState<string | null>(null);
+  const [plan, setPlan] = useState<ReconcilePlan | null>(null);
+  const [deleteMissing, setDeleteMissing] = useState(false);
+  const [applying, setApplying] = useState(false);
+
 
   useEffect(() => {
     const {
