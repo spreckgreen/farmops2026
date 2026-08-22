@@ -162,6 +162,50 @@ Bostead. The Supabase self-host stack from
    reported as drift. The rule: if the last migration to drop an object comes
    after the last one to create it, the object is expected to be gone.
 
+   **Generate a repair script for whatever drift it found:**
+
+   ```bash
+   ./scripts/apply-migrations.sh --fix-sql                 # ./migration-remediation-<UTC>.sql
+   ./scripts/apply-migrations.sh --fix-sql=/tmp/fix.sql    # or choose the path
+   ```
+
+   Nothing is executed — it only writes the file. Review it, then run it:
+
+   ```bash
+   psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -f migration-remediation-*.sql
+   ./scripts/apply-migrations.sh --verify                  # expect DRIFT 0, PARTIAL 0, ORPHAN 0
+   ```
+
+   The script is ordered so it can be run top to bottom, each section in its own
+   transaction:
+
+   | Section | Emitted for | What it does |
+   | --- | --- | --- |
+   | 1 | `DRIFT`, `PARTIAL` | inlines the migration file verbatim (it is the source of truth) and records it in the ledger |
+   | 2 | `energy_level` / `productivity_level` missing | `ADD COLUMN IF NOT EXISTS` on `public.daily_notes` |
+   | 3 | `UNRECORDED` | one batched `INSERT … ON CONFLICT DO NOTHING` into `private.applied_migrations` |
+   | 4 | `ORPHAN` | `DELETE` of the ledger rows whose file no longer exists |
+   | final | always | `NOTIFY pgrst, 'reload schema'` so PostgREST stops serving a stale cache |
+
+   Each drift section lists the exact objects that were missing as comments:
+
+   ```sql
+   -- ==== 20260616151303_b19f6bb3….sql ==============================================
+   -- missing objects detected:
+   --   function public.can_write
+   BEGIN;
+     create or replace function public.can_write(_user_id uuid) …
+     INSERT INTO private.applied_migrations (filename) VALUES ('20260616151303_b19f6bb3….sql')
+       ON CONFLICT (filename) DO NOTHING;
+   COMMIT;
+   ```
+
+   On a `PARTIAL` file some statements will hit `already exists` — that is
+   expected, since only part of the file ever ran. Comment out that one statement
+   and re-run the section. Section 4 is the only destructive one: deleting an
+   orphan row makes the ledger forget the migration ever ran, so only run it once
+   you are sure the file is gone for good.
+
 
    Managed Supabase (supabase.com) instead? Use `supabase db push --db-url
    "$SUPABASE_DB_URL"`; the deploy hook detects the missing `SUPABASE_DB_URL`
