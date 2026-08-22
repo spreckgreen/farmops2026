@@ -298,6 +298,8 @@ function InventoryPage() {
     setImportFileName(report.fileName);
     setDeleteMissing(false);
     setRejected(new Set());
+    setEdits({});
+    setExpanded(new Set());
     setReport(null);
   };
 
