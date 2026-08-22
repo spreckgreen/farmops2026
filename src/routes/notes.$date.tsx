@@ -246,7 +246,13 @@ function NotePage() {
 
 
   const tasks = query.data?.tasks ?? [];
-  const openTasks = tasks.filter((t) => t.status !== "done");
+  const openTasks = useMemo(
+    () =>
+      tasks
+        .filter((t) => t.status !== "done")
+        .sort((a, b) => a.title.localeCompare(b.title)),
+    [tasks]
+  );
 
   // Move a task off this day's note and back to the backlog.
   const removeFromDayFn = useServerFn(removeTaskFromToday);
