@@ -351,8 +351,12 @@ function InventoryPage() {
 
   const applyPlan = async () => {
     if (!plan) return;
-    const creates = plan.creates.filter((_, i) => isAccepted(`c${i}`));
-    const updates = plan.updates.filter((_, i) => isAccepted(`u${i}`));
+    const creates = plan.creates
+      .map((c, i) => ({ ...c, patch: effectivePatch(`c${i}`, c.patch) }))
+      .filter((_, i) => isAccepted(`c${i}`));
+    const updates = plan.updates
+      .map((u, i) => ({ ...u, patch: effectivePatch(`u${i}`, u.patch) }))
+      .filter((_, i) => isAccepted(`u${i}`));
     const missing = plan.missing.filter((_, i) => isAccepted(`d${i}`));
     if (!creates.length && !updates.length && !(deleteMissing && missing.length)) {
       toast.error("Nothing selected — accept at least one row to import.");
