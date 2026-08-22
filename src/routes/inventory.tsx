@@ -707,17 +707,76 @@ function InventoryPage() {
               </div>
 
               {(plan.creates.length > 0 || plan.updates.length > 0) && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs text-muted-foreground">
+                      {plan.creates.filter((_, i) => isAccepted(`c${i}`)).length} of{" "}
+                      {plan.creates.length} new and{" "}
+                      {plan.updates.filter((_, i) => isAccepted(`u${i}`)).length} of{" "}
+                      {plan.updates.length} update(s) accepted
+                    </span>
+                    <div className="flex gap-1">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() =>
+                          setAllRows(
+                            [
+                              ...plan.creates.map((_, i) => `c${i}`),
+                              ...plan.updates.map((_, i) => `u${i}`),
+                            ],
+                            true,
+                          )
+                        }
+                      >
+                        Accept all
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() =>
+                          setAllRows(
+                            [
+                              ...plan.creates.map((_, i) => `c${i}`),
+                              ...plan.updates.map((_, i) => `u${i}`),
+                            ],
+                            false,
+                          )
+                        }
+                      >
+                        Reject all
+                      </Button>
+                    </div>
+                  </div>
                 <div className="max-h-72 overflow-y-auto rounded-lg border border-border divide-y divide-border/60">
-                  {plan.creates.slice(0, 50).map((c, i) => (
-                    <div key={`c${i}`} className="px-3 py-2 flex justify-between gap-3">
-                      <span className="truncate">{c.patch.name}</span>
+                  {plan.creates.map((c, i) => (
+                    <div
+                      key={`c${i}`}
+                      className={`px-3 py-2 flex items-center gap-3 ${
+                        isAccepted(`c${i}`) ? "" : "opacity-50"
+                      }`}
+                    >
+                      <Checkbox
+                        checked={isAccepted(`c${i}`)}
+                        onCheckedChange={() => toggleRow(`c${i}`)}
+                        aria-label={`Accept new item ${c.patch.name}`}
+                      />
+                      <span className="truncate flex-1">{c.patch.name}</span>
                       <span className="text-emerald-400 text-xs shrink-0">new</span>
                     </div>
                   ))}
-                  {plan.updates.slice(0, 50).map((u, i) => (
-                    <div key={`u${i}`} className="px-3 py-2 space-y-1.5">
-                      <div className="flex justify-between gap-3">
-                        <span className="truncate font-medium">
+                  {plan.updates.map((u, i) => (
+                    <div
+                      key={`u${i}`}
+                      className={`px-3 py-2 space-y-1.5 ${isAccepted(`u${i}`) ? "" : "opacity-50"}`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <Checkbox
+                          checked={isAccepted(`u${i}`)}
+                          onCheckedChange={() => toggleRow(`u${i}`)}
+                          aria-label={`Accept update for ${u.existing?.name ?? u.patch.name}`}
+                        />
+                        <span className="truncate font-medium flex-1">
                           {u.existing?.name ?? u.patch.name}
                         </span>
                         <span className="text-xs text-muted-foreground shrink-0">
