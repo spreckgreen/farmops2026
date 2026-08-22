@@ -161,7 +161,7 @@ export function DailyRatingPanel({
         label="Energy"
         icon={<Battery className="h-3 w-3" />}
         value={local.energy}
-        disabled={!noteId || save.isPending}
+        disabled={!noteId || save.isPending || !!unsupported}
         onChange={(v) => {
           setLocal((s) => ({ ...s, energy: v }));
           save.mutate({ energy_level: v });
@@ -171,7 +171,7 @@ export function DailyRatingPanel({
         label="Productivity"
         icon={<Gauge className="h-3 w-3" />}
         value={local.productivity}
-        disabled={!noteId || save.isPending}
+        disabled={!noteId || save.isPending || !!unsupported}
         onChange={(v) => {
           setLocal((s) => ({ ...s, productivity: v }));
           save.mutate({ productivity_level: v });
