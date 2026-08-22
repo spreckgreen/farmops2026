@@ -248,6 +248,7 @@ function InventoryPage() {
     setPlan(reconcileInventory(report.rows as ParsedRow[], assets));
     setImportFileName(report.fileName);
     setDeleteMissing(false);
+    setRejected(new Set());
     setReport(null);
   };
 
