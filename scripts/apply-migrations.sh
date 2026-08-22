@@ -771,6 +771,54 @@ is_benign_already_exists() {
   return 1
 }
 
+# A hand-built database can already contain a LATER migration while an earlier,
+# ledger-less hardening migration remains pending. Replaying the earlier file can
+# then fail because the later migration deliberately dropped the policy/function
+# it tries to ALTER or GRANT. Treat that as satisfied only when:
+#   1. every ERROR is a supported "does not exist" policy/function error;
+#   2. a later migration explicitly drops that exact object; and
+#   3. that later migration is already recorded in the ledger.
+# This is intentionally narrower than accepting arbitrary missing objects.
+is_later_drop_applied() {
+  local failed_name="$1" wanted="$2" path later
+  for path in $(ls -1 supabase/migrations/*.sql 2>/dev/null | sort); do
+    later="$(basename "$path")"
+    [[ "$later" > "$failed_name" ]] || continue
+    is_applied "$later" || continue
+    if awk -f "$EXTRACT_AWK" "$path" | grep -Fxq "$wanted"; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+is_benign_superseded_missing() {
+  local out="$1" failed_name="$2" line parsed policy table schema fn saw_error=0
+  while IFS= read -r line; do
+    [[ "$line" =~ ERROR: ]] || continue
+    saw_error=1
+
+    parsed="$(printf '%s\n' "$line" | sed -n 's/.*policy "\([^"]*\)" for table "\([^"]*\)" does not exist.*/\1|\2/p')"
+    if [ -n "$parsed" ]; then
+      policy="${parsed%%|*}"
+      table="${parsed#*|}"
+      is_later_drop_applied "$failed_name" "drop-policy|public|$table|$policy" || return 1
+      continue
+    fi
+
+    parsed="$(printf '%s\n' "$line" | sed -n 's/.*function \([A-Za-z_][A-Za-z0-9_]*\)\.\([A-Za-z_][A-Za-z0-9_]*\)(.*) does not exist.*/\1|\2/p')"
+    if [ -n "$parsed" ]; then
+      schema="${parsed%%|*}"
+      fn="${parsed#*|}"
+      is_later_drop_applied "$failed_name" "drop-function|$schema|$fn" || return 1
+      continue
+    fi
+
+    return 1
+  done <"$out"
+  [ "$saw_error" -eq 1 ]
+}
+
 # --- Apply in filename order -------------------------------------------------
 PENDING=0
 APPLIED=0
@@ -802,6 +850,12 @@ for path in $(ls -1 supabase/migrations/*.sql 2>/dev/null | sort); do
   elif [ "$STRICT" -eq 0 ] && is_benign_already_exists "$OUT"; then
     # Objects are already present — this migration is effectively in the DB.
     warn "  already present in DB (marking applied): $(grep -m1 -E '^(psql:.*)?ERROR:' "$OUT" | sed 's/^psql:[^ ]* //')"
+    record_applied "$name"
+    SATISFIED=$((SATISFIED + 1))
+  elif [ "$STRICT" -eq 0 ] && is_benign_superseded_missing "$OUT" "$name"; then
+    # A later, already-applied migration intentionally removed the missing
+    # target. Replaying this historical hardening step is unnecessary.
+    warn "  superseded by a later applied migration (marking applied): $(grep -m1 -E '^(psql:.*)?ERROR:' "$OUT" | sed 's/^psql:[^ ]* //')"
     record_applied "$name"
     SATISFIED=$((SATISFIED + 1))
   else
