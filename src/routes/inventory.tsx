@@ -30,8 +30,10 @@ import { rowsToCsv, downloadCsv } from "@/lib/csv";
 import {
   INVENTORY_CSV_COLUMNS,
   reconcileInventory,
+  diff as diffPatch,
   type ParsedRow,
   type ReconcilePlan,
+  type AssetPatch,
 } from "@/lib/inventory-reconcile";
 import {
   validateInventoryCsv,
