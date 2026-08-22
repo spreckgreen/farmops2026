@@ -31,6 +31,8 @@ export type ActionResult =
   | { ok: false; type: Action["type"]; error: string; label: string };
 
 export interface ActionPlan {
+  /** Set when a local model failed and hosted AI was used instead. */
+  escalation?: import("../ai-feature-areas").AiEscalation | null;
   plan_id: string; // client-generated uuid; enables idempotent Apply
   surface: string; // "maintenance.generate_schedule"
   summary: string; // one-line human-readable

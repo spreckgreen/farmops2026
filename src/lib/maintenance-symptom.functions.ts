@@ -27,6 +27,7 @@ export interface Diagnosis {
   candidatesConsidered: string[];
   model: string;
   latencyMs: number;
+  escalation?: import("./ai-feature-areas").AiEscalation | null;
 }
 
 const SymptomInput = z.object({
@@ -124,9 +125,13 @@ export const diagnoseSymptom = createServerFn({ method: "POST" })
       .map((i) => `- ${i.name ?? i.sku ?? "?"} (id:${i.id})`)
       .join("\n");
 
-    const { createAiProvider } = await import("./ai-gateway.server");
-    const { provider, modelOverride } = await createAiProvider();
-    const modelId = modelOverride ?? "google/gemini-3.6-flash";
+    const { resolveAreaAi, hostedHandle } = await import("./ai-routing.server");
+    const ai = await resolveAreaAi("maintenance.symptom", {
+      hostedDefaultModel: "google/gemini-3.6-flash",
+    });
+    let provider = ai.provider;
+    let modelId = ai.modelId;
+    let escalation: import("./ai-feature-areas").AiEscalation | null = null;
 
     const { generateText, Output, NoObjectGeneratedError } = await import("ai");
 
@@ -159,42 +164,73 @@ export const diagnoseSymptom = createServerFn({ method: "POST" })
     const validAssetIds = new Set(inventory.map((i) => i.id));
 
     const started = Date.now();
-    let parsed: z.infer<typeof schema> | null = null;
-    try {
-      const { output } = await generateText({
-        model: provider(modelId),
-        output: Output.object({ schema }),
-        system:
-          "You are a maintenance diagnostician for a small farm. Given a symptom description, " +
-          "the user's existing procedures, and their inventory, return structured JSON. " +
-          "Rules: (1) matchedProcedureName MUST be one of the provided procedure names, or null if none fit. " +
-          "(2) Use confidence 'low' when uncertain; do not guess. " +
-          "(3) suspectedAssetIds must be IDs from the assets list (max 3). " +
-          "(4) partsFromInventory entries must reference inventory_item_id values shown in the inventory list. " +
-          "(5) partsMissing are parts you would need but that aren't in inventory (max 5). " +
-          "(6) reasoning is one short sentence.",
-        prompt:
-          `SYMPTOM:\n${data.text}\n\n` +
-          (data.assetIdHint ? `HINTED_ASSET_ID: ${data.assetIdHint}\n\n` : "") +
-          `PROCEDURES:\n${proceduresBlock || "(none)"}\n\n` +
-          `INVENTORY:\n${inventorySummary || "(none)"}\n\n` +
-          `ASSETS:\n${assetsList || "(none)"}`,
-      });
-      parsed = output;
-    } catch (error) {
-      if (NoObjectGeneratedError.isInstance(error)) {
-        // Degrade gracefully — try to salvage minimal JSON, otherwise low-confidence empty
-        try {
-          const text = String(error.text ?? "");
-          const jsonMatch = text.match(/\{[\s\S]*\}/);
-          if (jsonMatch) parsed = schema.parse(JSON.parse(jsonMatch[0]));
-        } catch {
-          parsed = null;
+    const system =
+      "You are a maintenance diagnostician for a small farm. Given a symptom description, " +
+      "the user's existing procedures, and their inventory, return structured JSON. " +
+      "Rules: (1) matchedProcedureName MUST be one of the provided procedure names, or null if none fit. " +
+      "(2) Use confidence 'low' when uncertain; do not guess. " +
+      "(3) suspectedAssetIds must be IDs from the assets list (max 3). " +
+      "(4) partsFromInventory entries must reference inventory_item_id values shown in the inventory list. " +
+      "(5) partsMissing are parts you would need but that aren't in inventory (max 5). " +
+      "(6) reasoning is one short sentence.";
+    const prompt =
+      `SYMPTOM:\n${data.text}\n\n` +
+      (data.assetIdHint ? `HINTED_ASSET_ID: ${data.assetIdHint}\n\n` : "") +
+      `PROCEDURES:\n${proceduresBlock || "(none)"}\n\n` +
+      `INVENTORY:\n${inventorySummary || "(none)"}\n\n` +
+      `ASSETS:\n${assetsList || "(none)"}`;
+
+    // One attempt against a given provider/model. Returns null when the model
+    // produced nothing usable, so the caller can escalate to hosted AI.
+    const attempt = async (
+      p: typeof provider,
+      m: string,
+      rethrow: boolean,
+    ): Promise<z.infer<typeof schema> | null> => {
+      try {
+        const { output } = await generateText({
+          model: p(m),
+          output: Output.object({ schema }),
+          system,
+          prompt,
+        });
+        return output;
+      } catch (error) {
+        if (NoObjectGeneratedError.isInstance(error)) {
+          // Degrade gracefully — try to salvage minimal JSON.
+          try {
+            const text = String(error.text ?? "");
+            const jsonMatch = text.match(/\{[\s\S]*\}/);
+            if (jsonMatch) return schema.parse(JSON.parse(jsonMatch[0]));
+          } catch {
+            return null;
+          }
+          return null;
         }
-      } else {
-        throw error;
+        if (rethrow) throw error;
+        return null;
+      }
+    };
+
+    let parsed = await attempt(provider, modelId, false).catch((e) => {
+      if (!hostedHandle(ai, "error", "")) throw e;
+      return null;
+    });
+
+    if (!parsed) {
+      const hosted = hostedHandle(
+        ai,
+        "error",
+        `${modelId} returned no usable diagnosis, so it was rerun on hosted AI.`,
+      );
+      if (hosted) {
+        provider = hosted.provider;
+        modelId = hosted.modelId;
+        escalation = hosted.escalation;
+        parsed = await attempt(provider, modelId, true);
       }
     }
+
 
     if (!parsed) {
       return {
@@ -258,6 +294,7 @@ export const diagnoseSymptom = createServerFn({ method: "POST" })
       candidatesConsidered: candidatePool.slice(0, 15).map((p) => p.name),
       model: modelId,
       latencyMs: Date.now() - started,
+      escalation,
     };
       },
     );

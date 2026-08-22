@@ -17,6 +17,8 @@ const Input = z.object({
 });
 
 export interface ConsultantReply {
+  /** Set when a local model failed/truncated and hosted AI was used instead. */
+  escalation?: import("./ai-feature-areas").AiEscalation | null;
   text: string;
   model: string;
   latencyMs: number;
@@ -346,13 +348,21 @@ export const askConsultant = createServerFn({ method: "POST" })
       `Current area: ${key}${data.path ? ` (path ${data.path})` : ""}.\n\n` +
       `FARM SNAPSHOT:\n${snapshot || "(no data yet — snapshot is empty)"}`;
 
-    const { createAiProvider } = await import("./ai-gateway.server");
-    const { provider, modelOverride } = await createAiProvider();
-    const modelId = modelOverride ?? "google/gemini-3.6-flash";
+    const { resolveAreaAi, runAreaAi } = await import("./ai-routing.server");
+    const ai = await resolveAreaAi("consultant", {
+      hostedDefaultModel: "google/gemini-3.6-flash",
+    });
 
     const { generateText } = await import("ai");
     const messages = data.messages.map((m) => ({ role: m.role, content: m.content }));
-    const result = await generateText({ model: provider(modelId), system, messages });
+    const run = await runAreaAi(
+      ai,
+      ({ provider, modelId }) => generateText({ model: provider(modelId), system, messages }),
+      { isTruncated: (r) => !r.text.trim() || r.finishReason === "length" },
+    );
+    const result = run.value;
+    const modelId = run.modelId;
+    const escalation = run.escalation;
     const text = result.text;
 
     // The farm snapshot plus chat history is the biggest input in the app, so
@@ -377,6 +387,7 @@ export const askConsultant = createServerFn({ method: "POST" })
       latencyMs: Date.now() - started,
       snapshotChars: snapshot.length,
       truncation,
+      escalation,
     };
   });
 

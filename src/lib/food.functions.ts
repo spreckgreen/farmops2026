@@ -1170,9 +1170,13 @@ export const refreshPricesSouthernOhio = createServerFn({ method: "POST" })
     }>;
     if (list.length === 0) return { updated: 0, unchanged: 0, source: "Southern Ohio regional reference (USDA AMS + retail avg)" };
 
-    const { createAiProvider } = await import("./ai-gateway.server");
     const { generateText } = await import("ai");
-    const { provider: gateway, modelOverride } = await createAiProvider();
+    const { resolveAreaAi } = await import("./ai-routing.server");
+    const priceAi = await resolveAreaAi("food.prices", {
+      hostedDefaultModel: "google/gemini-3-flash-preview",
+    });
+    const gateway = priceAi.provider;
+    const modelOverride = priceAi.modelId;
 
     const itemsBlock = list
       .map((f) => `- ${f.name}${f.category ? ` [${f.category}]` : ""}`)

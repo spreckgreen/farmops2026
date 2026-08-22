@@ -67,9 +67,13 @@ export const planMaintenanceSchedule = createServerFn({ method: "POST" })
       .map((i) => `- ${i.name ?? i.sku ?? "?"} (id:${i.id})`)
       .join("\n");
 
-    const { createAiProvider } = await import("./ai-gateway.server");
-    const { provider, modelOverride } = await createAiProvider();
-    const modelId = modelOverride ?? "google/gemini-3.6-flash";
+    const { resolveAreaAi, hostedHandle } = await import("./ai-routing.server");
+    const ai = await resolveAreaAi("maintenance.schedule", {
+      hostedDefaultModel: "google/gemini-3.6-flash",
+    });
+    let provider = ai.provider;
+    let modelId = ai.modelId;
+    let escalation: import("./ai-feature-areas").AiEscalation | null = null;
 
     const { generateText, Output, NoObjectGeneratedError } = await import("ai");
 
@@ -244,6 +248,34 @@ export const planMaintenanceSchedule = createServerFn({ method: "POST" })
       }
     }
 
+    // Escalate to hosted AI when the (local) model can't produce a schedule.
+    if (!parsed) {
+      const hosted = hostedHandle(
+        ai,
+        "error",
+        `${modelId} could not produce a usable schedule (${failureReason || "no JSON"}), ` +
+          "so hosted AI was used instead.",
+      );
+      if (hosted) {
+        provider = hosted.provider;
+        modelId = hosted.modelId;
+        escalation = hosted.escalation;
+        try {
+          const { output } = await generateText({
+            model: provider(modelId),
+            output: Output.object({ schema }),
+            system: systemPrompt,
+            prompt: userPrompt,
+          });
+          parsed = coerce(output) ?? (output as z.infer<typeof schema>);
+          failureReason = "";
+        } catch (error) {
+          failureReason =
+            error instanceof Error ? error.message : String(error);
+        }
+      }
+    }
+
     if (!parsed) {
       return {
         plan_id: crypto.randomUUID(),
@@ -256,6 +288,7 @@ export const planMaintenanceSchedule = createServerFn({ method: "POST" })
         actions: [],
         citations: [],
         model: modelId,
+        escalation,
       };
     }
 
@@ -332,6 +365,7 @@ export const planMaintenanceSchedule = createServerFn({ method: "POST" })
       actions,
       citations: (parsed.citations ?? []).slice(0, 6).map((c) => String(c).slice(0, 200)),
       model: modelId,
+      escalation,
     };
       },
     );

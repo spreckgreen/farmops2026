@@ -27,6 +27,7 @@ import {
   ModelSuitabilityPanel,
 } from "@/components/model-suitability";
 import { AiWorkflowTests } from "@/components/ai-workflow-tests";
+import { AiFeatureRouting } from "@/components/ai-feature-routing";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -232,6 +233,8 @@ function SelfHostSettingsPage() {
             {/* Per-workflow tests: connection, weekly report, manual — each
                 judged on its own so a passing smoke test can't hide a weekly
                 report that got its task list truncated. */}
+            <AiFeatureRouting />
+
             <Card>
               <CardContent className="pt-4">
                 <AiWorkflowTests />
