@@ -19,6 +19,7 @@ import AssetDialog from "@/components/dashboard/AssetDialog";
 import AssetTable from "@/components/dashboard/AssetTable";
 import StatsCards from "@/components/dashboard/StatsCards";
 import BarcodeScanner from "@/components/dashboard/BarcodeScanner";
+import { InventoryBomDialog } from "@/components/inventory-bom-dialog";
 import { requireAuthenticatedUser } from "@/lib/auth-route";
 import type { Asset, AssetFormData } from "@/components/dashboard/types";
 import { INVENTORY_TYPES } from "@/lib/obsidian-layout";
@@ -49,6 +50,7 @@ function InventoryPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
   const [scannerOpen, setScannerOpen] = useState(false);
+  const [partsItemId, setPartsItemId] = useState<string | null>(null);
 
   useEffect(() => {
     const {
@@ -317,7 +319,12 @@ function InventoryPage() {
         {loading ? (
           <div className="text-center text-muted-foreground py-20">Loading assets...</div>
         ) : (
-          <AssetTable assets={filtered} onEdit={handleEdit} onDelete={handleDelete} />
+          <AssetTable
+            assets={filtered}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+            onEditParts={(asset) => setPartsItemId(asset.id)}
+          />
         )}
       </main>
 
@@ -329,6 +336,14 @@ function InventoryPage() {
         }}
         onSave={handleSave}
         asset={editingAsset}
+      />
+
+      <InventoryBomDialog
+        itemId={partsItemId}
+        open={Boolean(partsItemId)}
+        onOpenChange={(open) => {
+          if (!open) setPartsItemId(null);
+        }}
       />
 
       <BarcodeScanner

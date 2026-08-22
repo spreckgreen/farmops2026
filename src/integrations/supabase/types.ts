@@ -638,6 +638,60 @@ export type Database = {
         }
         Relationships: []
       }
+      inventory_components: {
+        Row: {
+          component_item_id: string
+          created_at: string
+          id: string
+          notes: string | null
+          parent_item_id: string
+          quantity: number
+          sort_order: number
+          unit: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          component_item_id: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          parent_item_id: string
+          quantity?: number
+          sort_order?: number
+          unit?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          component_item_id?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          parent_item_id?: string
+          quantity?: number
+          sort_order?: number
+          unit?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_components_component_item_id_fkey"
+            columns: ["component_item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_components_parent_item_id_fkey"
+            columns: ["parent_item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inventory_items: {
         Row: {
           barcode: string | null
