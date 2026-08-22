@@ -10,6 +10,18 @@ import { Textarea } from "@/components/ui/textarea";
 import { requireAuthenticatedUser } from "@/lib/auth-route";
 import { listInventory } from "@/lib/inventory.functions";
 import { planMaintenanceSchedule } from "@/lib/maintenance-schedule-planner.functions";
+import {
+  listExistingSchedules,
+  type ExistingScheduleEntry,
+} from "@/lib/maintenance-existing-schedule.functions";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { AiActionPreview } from "@/components/ai-action-preview";
 import type { ActionPlan } from "@/lib/ai-actions/types";
 import { Sparkles, Wrench, ArrowLeft, Loader2, CheckCircle2, XCircle } from "lucide-react";
@@ -43,6 +55,7 @@ export const Route = createFileRoute("/maintenance/generate-schedule")({
 function Page() {
   const listInv = useServerFn(listInventory);
   const planFn = useServerFn(planMaintenanceSchedule);
+  const existingFn = useServerFn(listExistingSchedules);
 
   const { data: inventory = [] } = useQuery({
     queryKey: ["inventory"],
@@ -70,6 +83,11 @@ function Page() {
     Record<string, "pending" | "running" | "done" | "failed">
   >({});
   const [failures, setFailures] = useState<{ name: string; error: string }[]>([]);
+  const [referenceUrl, setReferenceUrl] = useState("");
+  const [referenceText, setReferenceText] = useState("");
+  const [referenceFileName, setReferenceFileName] = useState<string | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [existing, setExisting] = useState<ExistingScheduleEntry[]>([]);
   const abortRef = useRef<AbortController | null>(null);
   const jobProgress = useAiJobProgress("maintenance.generate-schedule");
 
@@ -98,8 +116,57 @@ function Page() {
     return a?.name ?? a?.sku ?? "Unnamed";
   };
 
-  const planMut = useMutation({
+  const existingByAsset = useMemo(() => {
+    const m = new Map<string, ExistingScheduleEntry[]>();
+    for (const e of existing) {
+      if (!e.asset_id) continue;
+      const list = m.get(e.asset_id) ?? [];
+      list.push(e);
+      m.set(e.asset_id, list);
+    }
+    return m;
+  }, [existing]);
+
+  const readReferenceFile = async (file: File) => {
+    if (file.size > 2_000_000) {
+      toast.error("That file is larger than 2 MB — paste the relevant section instead.");
+      return;
+    }
+    if (!/\.(txt|md|markdown|csv|json|log)$/i.test(file.name)) {
+      toast.error(
+        "Only text files (.txt, .md, .csv, .json) can be read here — for a PDF, paste the relevant pages or use a link.",
+      );
+      return;
+    }
+    const text = await file.text();
+    setReferenceText(text.slice(0, 60000));
+    setReferenceFileName(file.name);
+  };
+
+  const checkMut = useMutation({
     mutationFn: async () => {
+      if (selectedIds.length === 0) throw new Error("Pick at least one asset");
+      return existingFn({ data: { asset_ids: selectedIds } });
+    },
+    onSuccess: (rows) => {
+      setExisting(rows);
+      if (rows.length > 0) setConfirmOpen(true);
+      else planMut.mutate(false);
+    },
+    onError: (e) => {
+      // Lookup failure shouldn't block drafting — fall through to a fresh draft.
+      toast.warning(
+        e instanceof Error
+          ? `Couldn't load current schedules (${e.message}) — drafting fresh.`
+          : "Couldn't load current schedules — drafting fresh.",
+      );
+      setExisting([]);
+      planMut.mutate(false);
+    },
+  });
+
+  const planMut = useMutation({
+    mutationFn: async (supplemental: boolean) => {
       if (selectedIds.length === 0) throw new Error("Pick at least one asset");
       abortRef.current?.abort();
       const controller = new AbortController();
@@ -132,7 +199,21 @@ function Page() {
         setRunStatus((s) => ({ ...s, [id]: "running" }));
         try {
           const p = await planFn({
-            data: { asset_id: id, usage_context: usageContext || undefined },
+            data: {
+              asset_id: id,
+              usage_context: usageContext || undefined,
+              supplemental: supplemental && (existingByAsset.get(id)?.length ?? 0) > 0,
+              existing_services: (existingByAsset.get(id) ?? [])
+                .map((e) =>
+                  [e.title ?? e.service_type ?? "Service", e.recurrence]
+                    .filter(Boolean)
+                    .join(" — ")
+                    .slice(0, 300),
+                )
+                .slice(0, 100),
+              reference_url: referenceUrl.trim() || undefined,
+              reference_text: referenceText.trim() || undefined,
+            },
             signal: controller.signal,
           });
           merged.actions.push(...p.actions);
@@ -325,6 +406,19 @@ function Page() {
                   rows={3}
                 />
               </div>
+              <ReferenceFields
+                referenceUrl={referenceUrl}
+                setReferenceUrl={setReferenceUrl}
+                referenceText={referenceText}
+                setReferenceText={setReferenceText}
+                referenceFileName={referenceFileName}
+                clearFile={() => {
+                  setReferenceFileName(null);
+                  setReferenceText("");
+                }}
+                onFile={readReferenceFile}
+                disabled={planMut.isPending || checkMut.isPending}
+              />
               {failures.length > 0 && (
                 <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-xs space-y-1">
                   {failures.map((f) => (
@@ -336,11 +430,13 @@ function Page() {
               )}
               <div className="flex justify-end">
                 <Button
-                  onClick={() => planMut.mutate()}
-                  disabled={selectedIds.length === 0 || planMut.isPending}
+                  onClick={() => checkMut.mutate()}
+                  disabled={
+                    selectedIds.length === 0 || planMut.isPending || checkMut.isPending
+                  }
                   className="bg-primary hover:bg-primary/90 text-primary-foreground"
                 >
-                  {planMut.isPending ? (
+                  {planMut.isPending || checkMut.isPending ? (
                     <>
                       <Loader2 className="h-4 w-4 mr-1 animate-spin" /> Asking
                       the AI…
@@ -389,6 +485,155 @@ function Page() {
           )}
         </div>
       </div>
+
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>These assets already have a schedule</DialogTitle>
+            <DialogDescription>
+              Review what's already on record. Continuing researches a{" "}
+              <span className="font-medium">supplemental</span> schedule — the AI
+              is told not to duplicate the services below.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="max-h-64 overflow-y-auto rounded-md border border-border divide-y divide-border/60">
+            {selectedIds
+              .filter((id) => (existingByAsset.get(id)?.length ?? 0) > 0)
+              .map((id) => (
+                <div key={id} className="p-3">
+                  <p className="text-sm font-medium mb-1">{nameOf(id)}</p>
+                  <ul className="text-xs text-muted-foreground space-y-0.5">
+                    {(existingByAsset.get(id) ?? []).map((e) => (
+                      <li key={e.id}>
+                        • {e.title ?? e.service_type ?? "Service"}
+                        {e.recurrence ? ` — ${e.recurrence}` : ""}
+                        {e.due_at ? ` (due ${e.due_at})` : ""}
+                        {e.status ? ` · ${e.status}` : ""}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            {selectedIds.filter((id) => (existingByAsset.get(id)?.length ?? 0) > 0)
+              .length === 0 && (
+              <p className="p-3 text-sm text-muted-foreground">
+                No current entries found.
+              </p>
+            )}
+          </div>
+
+          <p className="text-xs text-muted-foreground">
+            Optional: give the AI the source you want evaluated — a manufacturer
+            manual link or a text file / pasted excerpt.
+          </p>
+          <ReferenceFields
+            referenceUrl={referenceUrl}
+            setReferenceUrl={setReferenceUrl}
+            referenceText={referenceText}
+            setReferenceText={setReferenceText}
+            referenceFileName={referenceFileName}
+            clearFile={() => {
+              setReferenceFileName(null);
+              setReferenceText("");
+            }}
+            onFile={readReferenceFile}
+            disabled={planMut.isPending}
+          />
+
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button variant="outline" onClick={() => setConfirmOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setConfirmOpen(false);
+                planMut.mutate(false);
+              }}
+            >
+              Draft from scratch anyway
+            </Button>
+            <Button
+              onClick={() => {
+                setConfirmOpen(false);
+                planMut.mutate(true);
+              }}
+            >
+              <Sparkles className="h-4 w-4 mr-1" /> Research supplemental
+              schedule
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
+  );
+}
+
+function ReferenceFields(props: {
+  referenceUrl: string;
+  setReferenceUrl: (v: string) => void;
+  referenceText: string;
+  setReferenceText: (v: string) => void;
+  referenceFileName: string | null;
+  clearFile: () => void;
+  onFile: (file: File) => void | Promise<void>;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="space-y-3 rounded-md border border-border bg-background/60 p-3">
+      <div>
+        <label className="text-sm font-medium mb-1 block">
+          Reference link (optional)
+        </label>
+        <Input
+          type="url"
+          value={props.referenceUrl}
+          onChange={(e) => props.setReferenceUrl(e.target.value)}
+          placeholder="https://manufacturer.example/manual/service-intervals"
+          disabled={props.disabled}
+        />
+      </div>
+      <div>
+        <label className="text-sm font-medium mb-1 block">
+          Upload reference text (.txt, .md, .csv, .json)
+        </label>
+        <div className="flex items-center gap-2">
+          <Input
+            type="file"
+            accept=".txt,.md,.markdown,.csv,.json,.log"
+            disabled={props.disabled}
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) void props.onFile(f);
+            }}
+          />
+          {props.referenceFileName && (
+            <Button variant="ghost" size="sm" onClick={props.clearFile}>
+              Clear
+            </Button>
+          )}
+        </div>
+        {props.referenceFileName && (
+          <p className="text-xs text-muted-foreground mt-1">
+            Loaded {props.referenceFileName} ({props.referenceText.length} chars)
+          </p>
+        )}
+      </div>
+      <div>
+        <label className="text-sm font-medium mb-1 block">
+          Or paste the relevant manual section (optional)
+        </label>
+        <Textarea
+          value={props.referenceText}
+          onChange={(e) => {
+            props.setReferenceText(e.target.value);
+          }}
+          placeholder="Paste service interval tables, part numbers, or manual excerpts here."
+          rows={4}
+          disabled={props.disabled}
+        />
+      </div>
+    </div>
   );
 }
