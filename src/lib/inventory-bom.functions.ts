@@ -44,7 +44,7 @@ export const getInventoryBom = createServerFn({ method: "GET" })
     if (error) throw new Error(error.message);
 
     const components: BomComponentRow[] = (
-      (rows ?? []) as Array<{
+      (rows ?? []) as unknown as Array<{
         id: string;
         component_item_id: string;
         quantity: number;
@@ -81,7 +81,7 @@ export const getInventoryBom = createServerFn({ method: "GET" })
       .limit(50);
 
     const usedIn = (
-      (usedRows ?? []) as Array<{
+      (usedRows ?? []) as unknown as Array<{
         parent_item_id: string;
         quantity: number;
         parent: { name: string | null; sku: string | null } | null;
@@ -211,7 +211,7 @@ export const updateBomComponent = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => UpdateInput.parse(d))
   .handler(async ({ context, data }) => {
-    const patch: Record<string, unknown> = {};
+    const patch: { quantity?: number; unit?: string | null; notes?: string | null } = {};
     if (data.quantity !== undefined) patch.quantity = data.quantity;
     if (data.unit !== undefined) patch.unit = data.unit;
     if (data.notes !== undefined) patch.notes = data.notes;
