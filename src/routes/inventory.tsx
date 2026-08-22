@@ -807,20 +807,43 @@ function InventoryPage() {
                     </div>
                   ))}
                 </div>
+                </div>
               )}
 
 
               {plan.missing.length > 0 && (
-                <label className="flex items-start gap-2">
-                  <Checkbox
-                    checked={deleteMissing}
-                    onCheckedChange={(v) => setDeleteMissing(Boolean(v))}
-                  />
-                  <span>
-                    Delete the {plan.missing.length} item(s) missing from this file (treat the CSV
-                    as the full inventory). Leave unchecked to keep them.
-                  </span>
-                </label>
+                <div className="space-y-2">
+                  <label className="flex items-start gap-2">
+                    <Checkbox
+                      checked={deleteMissing}
+                      onCheckedChange={(v) => setDeleteMissing(Boolean(v))}
+                    />
+                    <span>
+                      Delete the items missing from this file (treat the CSV as the full inventory).
+                      Leave unchecked to keep them.
+                    </span>
+                  </label>
+                  {deleteMissing && (
+                    <div className="max-h-40 overflow-y-auto rounded-lg border border-border divide-y divide-border/60">
+                      {plan.missing.map((m, i) => (
+                        <div
+                          key={m.id}
+                          className={`px-3 py-2 flex items-center gap-3 ${
+                            isAccepted(`d${i}`) ? "" : "opacity-50"
+                          }`}
+                        >
+                          <Checkbox
+                            checked={isAccepted(`d${i}`)}
+                            onCheckedChange={() => toggleRow(`d${i}`)}
+                            aria-label={`Delete ${m.name}`}
+                          />
+                          <span className="truncate flex-1">{m.name}</span>
+                          <span className="text-destructive text-xs shrink-0">delete</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           )}
