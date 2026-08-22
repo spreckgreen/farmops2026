@@ -692,6 +692,48 @@ export type Database = {
           },
         ]
       }
+      inventory_import_snapshots: {
+        Row: {
+          created_at: string
+          created_ids: string[]
+          delete_missing: boolean
+          deleted_rows: Json
+          file_name: string
+          id: string
+          reverted_at: string | null
+          stats: Json
+          updated_at: string
+          updated_before: Json
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_ids?: string[]
+          delete_missing?: boolean
+          deleted_rows?: Json
+          file_name?: string
+          id?: string
+          reverted_at?: string | null
+          stats?: Json
+          updated_at?: string
+          updated_before?: Json
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          created_ids?: string[]
+          delete_missing?: boolean
+          deleted_rows?: Json
+          file_name?: string
+          id?: string
+          reverted_at?: string | null
+          stats?: Json
+          updated_at?: string
+          updated_before?: Json
+          user_id?: string
+        }
+        Relationships: []
+      }
       inventory_items: {
         Row: {
           barcode: string | null
