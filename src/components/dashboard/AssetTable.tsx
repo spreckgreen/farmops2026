@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Edit, Trash2, AlertTriangle } from "lucide-react";
+import { Edit, Trash2, AlertTriangle, Boxes } from "lucide-react";
 import type { Asset } from "./types";
 import { INVENTORY_TYPES } from "@/lib/obsidian-layout";
 
@@ -12,6 +12,8 @@ interface AssetTableProps {
   assets: Asset[];
   onEdit: (asset: Asset) => void;
   onDelete: (id: string) => void;
+  /** Open the parts / bill-of-materials editor for this item. */
+  onEditParts?: (asset: Asset) => void;
 }
 
 const statusColors: Record<string, string> = {
@@ -21,7 +23,7 @@ const statusColors: Record<string, string> = {
   retired: "bg-red-500/15 text-red-400 border-red-500/30",
 };
 
-const AssetTable = ({ assets, onEdit, onDelete }: AssetTableProps) => {
+const AssetTable = ({ assets, onEdit, onDelete, onEditParts }: AssetTableProps) => {
   if (assets.length === 0) {
     return (
       <div className="text-center text-muted-foreground py-20 border border-dashed border-border rounded-xl">
@@ -118,6 +120,17 @@ const AssetTable = ({ assets, onEdit, onDelete }: AssetTableProps) => {
                   </td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-1">
+                      {onEditParts && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          title="Parts & dependencies"
+                          onClick={() => onEditParts(asset)}
+                        >
+                          <Boxes className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         size="icon"
