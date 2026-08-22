@@ -104,6 +104,8 @@ export interface Yields {
 }
 
 export interface PreservationRecommendation {
+  /** Set when a local model failed and hosted AI was used instead. */
+  escalation?: import("./ai-feature-areas").AiEscalation | null;
   crop: string;
   cropKey: string;
   variety: string | null;
@@ -280,14 +282,14 @@ export const recommendPreservation = createServerFn({ method: "POST" })
     let procedure: { id: string; name: string; slug: string } | null = null;
     let alternates: { method: Method; label: string; rationale: string }[] = [];
     let modelId = "deterministic";
+    let escalation: import("./ai-feature-areas").AiEscalation | null = null;
 
     try {
       const { resolveAreaAi, hostedHandle } = await import("./ai-routing.server");
-      ai = await resolveAreaAi("food.preservation", {
+      const ai = await resolveAreaAi("food.preservation", {
         hostedDefaultModel: "google/gemini-3.6-flash",
       });
-      hostedFallback = hostedHandle;
-      provider = ai.provider;
+      let provider = ai.provider;
       modelId = ai.modelId;
       const { generateText, Output, NoObjectGeneratedError } = await import("ai");
 
@@ -357,9 +359,42 @@ export const recommendPreservation = createServerFn({ method: "POST" })
         }
       } catch (err) {
         if (!NoObjectGeneratedError.isInstance(err)) {
-          // non-schema error: swallow, keep deterministic result
           // eslint-disable-next-line no-console
           console.warn("[preservation-coach] AI call failed:", err);
+          // Local model unreachable/erroring — escalate to hosted AI once so
+          // the coach still enriches instead of silently going deterministic.
+          const hosted = hostedHandle(
+            ai,
+            "error",
+            `${modelId} failed, so the preservation coach was rerun on hosted AI.`,
+          );
+          if (hosted) {
+            provider = hosted.provider;
+            modelId = hosted.modelId;
+            escalation = hosted.escalation;
+            try {
+              const retry = await generateText({
+                model: provider(modelId),
+                output: Output.object({ schema }),
+                system: "You are a home food-preservation coach. Return structured JSON. " +
+                  "Never water-bath can low-acid crops. procedure_id must be one of the " +
+                  "provided ids or null. rationale is one short sentence.",
+                prompt:
+                  `CROP: ${data.crop}${data.variety ? ` (${data.variety})` : ""}\n` +
+                  `LOW_ACID: ${isLowAcid ? "yes" : "no"}\n` +
+                  `DEFAULT_METHOD: ${primaryMethod}\n\n` +
+                  `PROCEDURES:\n${proceduresBlock || "(none)"}`,
+              });
+              const out = retry.output;
+              if (!(isLowAcid && out.primary_method === "can_water_bath")) {
+                primaryMethod = out.primary_method;
+              }
+              rationale = out.rationale.slice(0, 300);
+            } catch (retryErr) {
+              // eslint-disable-next-line no-console
+              console.warn("[preservation-coach] hosted escalation failed:", retryErr);
+            }
+          }
         }
       }
     } catch {
@@ -420,6 +455,7 @@ export const recommendPreservation = createServerFn({ method: "POST" })
       targetShelfMonths,
       model: modelId,
       latencyMs: Date.now() - started,
+      escalation,
     };
       },
     );
