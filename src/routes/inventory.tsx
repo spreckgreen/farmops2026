@@ -105,6 +105,26 @@ function InventoryPage() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [history, setHistory] = useState<ImportSnapshot[]>([]);
   const [revertingId, setRevertingId] = useState<string | null>(null);
+  /** Per-row keys ("c0", "u3", "d5") the user rejected in the review dialog. */
+  const [rejected, setRejected] = useState<Set<string>>(new Set());
+
+  const isAccepted = (key: string) => !rejected.has(key);
+  const toggleRow = (key: string) =>
+    setRejected((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  const setAllRows = (keys: string[], accept: boolean) =>
+    setRejected((prev) => {
+      const next = new Set(prev);
+      for (const k of keys) {
+        if (accept) next.delete(k);
+        else next.add(k);
+      }
+      return next;
+    });
 
 
 
@@ -228,6 +248,7 @@ function InventoryPage() {
     setPlan(reconcileInventory(report.rows as ParsedRow[], assets));
     setImportFileName(report.fileName);
     setDeleteMissing(false);
+    setRejected(new Set());
     setReport(null);
   };
 
@@ -281,48 +302,55 @@ function InventoryPage() {
 
   const applyPlan = async () => {
     if (!plan) return;
+    const creates = plan.creates.filter((_, i) => isAccepted(`c${i}`));
+    const updates = plan.updates.filter((_, i) => isAccepted(`u${i}`));
+    const missing = plan.missing.filter((_, i) => isAccepted(`d${i}`));
+    if (!creates.length && !updates.length && !(deleteMissing && missing.length)) {
+      toast.error("Nothing selected — accept at least one row to import.");
+      return;
+    }
     setApplying(true);
     const createdIds: string[] = [];
     try {
-      if (plan.creates.length) {
+      if (creates.length) {
         const { data, error } = await supabase
           .from("inventory_items")
-          .insert(plan.creates.map((c) => ({ ...c.patch, user_id: session!.user.id })))
+          .insert(creates.map((c) => ({ ...c.patch, user_id: session!.user.id })))
           .select("id");
         if (error) throw new Error(error.message);
         for (const row of data ?? []) createdIds.push(row.id as string);
       }
-      for (const u of plan.updates) {
+      for (const u of updates) {
         const { error } = await supabase
           .from("inventory_items")
           .update(u.patch)
           .eq("id", u.existing!.id);
         if (error) throw new Error(error.message);
       }
-      if (deleteMissing && plan.missing.length) {
+      if (deleteMissing && missing.length) {
         const { error } = await supabase
           .from("inventory_items")
           .delete()
           .in(
             "id",
-            plan.missing.map((m) => m.id),
+            missing.map((m) => m.id),
           );
         if (error) throw new Error(error.message);
       }
-      const deletedRows = deleteMissing ? plan.missing : [];
+      const deletedRows = deleteMissing ? missing : [];
       try {
         await recordImportSnapshot(session!.user.id, {
           fileName: importFileName || "import.csv",
           deleteMissing,
           createdIds,
-          updatedBefore: plan.updates.map((u) => u.existing!),
+          updatedBefore: updates.map((u) => u.existing!),
           deletedRows,
         });
       } catch (err) {
         toast.warning(`Import applied, but the rollback snapshot failed: ${(err as Error).message}`);
       }
       toast.success(
-        `Import applied: ${plan.creates.length} added, ${plan.updates.length} updated` +
+        `Import applied: ${creates.length} added, ${updates.length} updated` +
           (deletedRows.length ? `, ${deletedRows.length} deleted` : "") +
           " — use Import history to roll back",
       );
@@ -679,17 +707,76 @@ function InventoryPage() {
               </div>
 
               {(plan.creates.length > 0 || plan.updates.length > 0) && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs text-muted-foreground">
+                      {plan.creates.filter((_, i) => isAccepted(`c${i}`)).length} of{" "}
+                      {plan.creates.length} new and{" "}
+                      {plan.updates.filter((_, i) => isAccepted(`u${i}`)).length} of{" "}
+                      {plan.updates.length} update(s) accepted
+                    </span>
+                    <div className="flex gap-1">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() =>
+                          setAllRows(
+                            [
+                              ...plan.creates.map((_, i) => `c${i}`),
+                              ...plan.updates.map((_, i) => `u${i}`),
+                            ],
+                            true,
+                          )
+                        }
+                      >
+                        Accept all
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() =>
+                          setAllRows(
+                            [
+                              ...plan.creates.map((_, i) => `c${i}`),
+                              ...plan.updates.map((_, i) => `u${i}`),
+                            ],
+                            false,
+                          )
+                        }
+                      >
+                        Reject all
+                      </Button>
+                    </div>
+                  </div>
                 <div className="max-h-72 overflow-y-auto rounded-lg border border-border divide-y divide-border/60">
-                  {plan.creates.slice(0, 50).map((c, i) => (
-                    <div key={`c${i}`} className="px-3 py-2 flex justify-between gap-3">
-                      <span className="truncate">{c.patch.name}</span>
+                  {plan.creates.map((c, i) => (
+                    <div
+                      key={`c${i}`}
+                      className={`px-3 py-2 flex items-center gap-3 ${
+                        isAccepted(`c${i}`) ? "" : "opacity-50"
+                      }`}
+                    >
+                      <Checkbox
+                        checked={isAccepted(`c${i}`)}
+                        onCheckedChange={() => toggleRow(`c${i}`)}
+                        aria-label={`Accept new item ${c.patch.name}`}
+                      />
+                      <span className="truncate flex-1">{c.patch.name}</span>
                       <span className="text-emerald-400 text-xs shrink-0">new</span>
                     </div>
                   ))}
-                  {plan.updates.slice(0, 50).map((u, i) => (
-                    <div key={`u${i}`} className="px-3 py-2 space-y-1.5">
-                      <div className="flex justify-between gap-3">
-                        <span className="truncate font-medium">
+                  {plan.updates.map((u, i) => (
+                    <div
+                      key={`u${i}`}
+                      className={`px-3 py-2 space-y-1.5 ${isAccepted(`u${i}`) ? "" : "opacity-50"}`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <Checkbox
+                          checked={isAccepted(`u${i}`)}
+                          onCheckedChange={() => toggleRow(`u${i}`)}
+                          aria-label={`Accept update for ${u.existing?.name ?? u.patch.name}`}
+                        />
+                        <span className="truncate font-medium flex-1">
                           {u.existing?.name ?? u.patch.name}
                         </span>
                         <span className="text-xs text-muted-foreground shrink-0">
@@ -720,20 +807,43 @@ function InventoryPage() {
                     </div>
                   ))}
                 </div>
+                </div>
               )}
 
 
               {plan.missing.length > 0 && (
-                <label className="flex items-start gap-2">
-                  <Checkbox
-                    checked={deleteMissing}
-                    onCheckedChange={(v) => setDeleteMissing(Boolean(v))}
-                  />
-                  <span>
-                    Delete the {plan.missing.length} item(s) missing from this file (treat the CSV
-                    as the full inventory). Leave unchecked to keep them.
-                  </span>
-                </label>
+                <div className="space-y-2">
+                  <label className="flex items-start gap-2">
+                    <Checkbox
+                      checked={deleteMissing}
+                      onCheckedChange={(v) => setDeleteMissing(Boolean(v))}
+                    />
+                    <span>
+                      Delete the items missing from this file (treat the CSV as the full inventory).
+                      Leave unchecked to keep them.
+                    </span>
+                  </label>
+                  {deleteMissing && (
+                    <div className="max-h-40 overflow-y-auto rounded-lg border border-border divide-y divide-border/60">
+                      {plan.missing.map((m, i) => (
+                        <div
+                          key={m.id}
+                          className={`px-3 py-2 flex items-center gap-3 ${
+                            isAccepted(`d${i}`) ? "" : "opacity-50"
+                          }`}
+                        >
+                          <Checkbox
+                            checked={isAccepted(`d${i}`)}
+                            onCheckedChange={() => toggleRow(`d${i}`)}
+                            aria-label={`Delete ${m.name}`}
+                          />
+                          <span className="truncate flex-1">{m.name}</span>
+                          <span className="text-destructive text-xs shrink-0">delete</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           )}
