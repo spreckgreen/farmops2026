@@ -300,20 +300,34 @@ export const generateSummary = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
 
-    const { createAiProvider } = await import("./ai-gateway.server");
-    const { provider: gateway, modelOverride } = await createAiProvider();
-    const modelId = modelOverride ?? "google/gemini-3-flash-preview";
+    // Per-feature routing: daily/task summaries can run on the local model,
+    // weekly/monthly/quarterly/yearly rollups default to hosted AI. A local
+    // call that errors or comes back unparseable is escalated to hosted once.
+    const { resolveAreaAi, runAreaAi } = await import("./ai-routing.server");
+    const { areaForSummaryMode } = await import("./ai-feature-areas");
+    const ai = await resolveAreaAi(areaForSummaryMode(data.mode), {
+      hostedDefaultModel: "google/gemini-3-flash-preview",
+    });
+    let escalation: import("./ai-feature-areas").AiEscalation | null = null;
 
     const callAi = async (prompt: string, entriesForScope: EntryRow[], scopeProject: string | null): Promise<SummaryOutput> => {
-      const { text } = await generateText({
-        model: gateway(modelId),
-        prompt,
-      });
-      try {
-        return normalizeSummary(extractJsonObject(text));
-      } catch {
-        return buildFallbackSummary(entriesForScope, data.mode, scopeProject);
-      }
+      let parsed = true;
+      const run = await runAreaAi(
+        ai,
+        async ({ provider, modelId }) => {
+          const { text } = await generateText({ model: provider(modelId), prompt });
+          try {
+            parsed = true;
+            return normalizeSummary(extractJsonObject(text));
+          } catch {
+            parsed = false;
+            return buildFallbackSummary(entriesForScope, data.mode, scopeProject);
+          }
+        },
+        { isTruncated: () => !parsed },
+      );
+      if (run.escalation) escalation = run.escalation;
+      return run.value;
     };
 
     const buildPrompt = (params: {
@@ -422,7 +436,7 @@ Use empty arrays ([]) for lists that don't apply and empty strings ("") for unus
           display_title: null,
           output,
         });
-        return { ok: true as const, summary };
+        return { ok: true as const, summary, escalation };
       }
 
       // ----- DAILY RECAP: one row covering today (UTC) ---------------------
@@ -460,7 +474,7 @@ Use empty arrays ([]) for lists that don't apply and empty strings ("") for unus
           display_title: `Daily Recap ${start.toISOString().slice(0, 10)}`,
           output,
         });
-        return { ok: true as const, summary };
+        return { ok: true as const, summary, escalation };
       }
 
       // ----- MONTHLY ROLLUP: per-project for the current calendar month ----
@@ -513,7 +527,7 @@ Use empty arrays ([]) for lists that don't apply and empty strings ("") for unus
         if (summaries.length === 0) {
           return { ok: false as const, error: `No project activity in ${yLabel}.` };
         }
-        return { ok: true as const, summaries };
+        return { ok: true as const, summaries, escalation };
       }
 
       // ----- YEARLY ROLLUP: per-project for the current calendar year ------
@@ -566,7 +580,7 @@ Use empty arrays ([]) for lists that don't apply and empty strings ("") for unus
         if (summaries.length === 0) {
           return { ok: false as const, error: `No project activity in ${yLabel}.` };
         }
-        return { ok: true as const, summaries };
+        return { ok: true as const, summaries, escalation };
       }
 
 
@@ -656,7 +670,7 @@ Use empty arrays ([]) for lists that don't apply and empty strings ("") for unus
         if (summaries.length === 0) {
           return { ok: false as const, error: "No activity or closed tasks in the last 2 years." };
         }
-        return { ok: true as const, summaries };
+        return { ok: true as const, summaries, escalation };
       }
 
       // ----- PROJECT ROLLUP: per-project running summary across full history
@@ -701,7 +715,7 @@ Use empty arrays ([]) for lists that don't apply and empty strings ("") for unus
           });
           summaries.push(inserted);
         }
-        return { ok: true as const, summaries };
+        return { ok: true as const, summaries, escalation };
       }
 
       // ----- TASK UPDATE (or scoped project_rollup) ------------------------
@@ -738,7 +752,7 @@ Use empty arrays ([]) for lists that don't apply and empty strings ("") for unus
         display_title: title,
         output,
       });
-      return { ok: true as const, summary };
+      return { ok: true as const, summary, escalation };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       if (msg.includes("429")) throw new Error("Rate limit reached. Try again shortly.");
