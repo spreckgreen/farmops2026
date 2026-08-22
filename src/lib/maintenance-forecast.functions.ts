@@ -187,9 +187,10 @@ export const getMaintenanceForecastNarrative = createServerFn({ method: "POST" }
       };
     }
 
-    const { createAiProvider } = await import("./ai-gateway.server");
-    const { provider, modelOverride } = await createAiProvider();
-    const modelId = modelOverride ?? "google/gemini-3.6-flash";
+    const { resolveAreaAi, runAreaAi } = await import("./ai-routing.server");
+    const ai = await resolveAreaAi("maintenance.forecast", {
+      hostedDefaultModel: "google/gemini-3.6-flash",
+    });
 
     const { generateText } = await import("ai");
     const system =
@@ -200,7 +201,14 @@ export const getMaintenanceForecastNarrative = createServerFn({ method: "POST" }
       "200 words. (5) End with one 'parts to stage' line if any asset needs it. " +
       "Use plain prose with short bullets — no markdown headings.";
     const prompt = `Computed forecast:\n\n${summary}\n\nWrite the briefing.`;
-    const result = await generateText({ model: provider(modelId), system, prompt });
+    const run = await runAreaAi(
+      ai,
+      ({ provider, modelId }) => generateText({ model: provider(modelId), system, prompt }),
+      { isTruncated: (r) => !r.text.trim() || r.finishReason === "length" },
+    );
+    const result = run.value;
+    const modelId = run.modelId;
+    const escalation = run.escalation;
 
     const { getActiveContextLimit } = await import("./ai-context-limit.server");
     const { truncationOrNull } = await import("./ai-truncation");
@@ -214,7 +222,7 @@ export const getMaintenanceForecastNarrative = createServerFn({ method: "POST" }
       model: modelId,
     });
 
-    return { narrative: result.text.trim(), model: modelId, truncation };
+    return { narrative: result.text.trim(), model: modelId, truncation, escalation };
 
       },
     );

@@ -173,6 +173,8 @@ export interface ProceduresAiAnswer {
   latencyMs: number;
   /** Present when the reply looks cut off or the context window was strained. */
   truncation: import("./ai-truncation").TruncationSignal | null;
+  /** Set when a local model failed/truncated and hosted AI was used instead. */
+  escalation?: import("./ai-feature-areas").AiEscalation | null;
 }
 
 
