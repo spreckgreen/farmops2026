@@ -218,11 +218,16 @@ export const askProceduresAi = createServerFn({ method: "POST" })
       size += block.length;
     }
 
-    const { createAiProvider } = await import("./ai-gateway.server");
-    const { provider, modelOverride } = await createAiProvider();
-    // Default chat model for Lovable AI Gateway; ignored by custom/Ollama
-    // when a modelOverride is set (which is the usual self-host case).
-    const modelId = modelOverride ?? "google/gemini-3-flash-preview";
+    // Per-feature routing (see ai-feature-areas.ts): procedures/manuals are a
+    // heavy area and default to hosted AI; a local run that errors or comes
+    // back empty escalates to hosted once.
+    const { resolveAreaAi, hostedHandle } = await import("./ai-routing.server");
+    const ai = await resolveAreaAi("procedures", {
+      hostedDefaultModel: "google/gemini-3-flash-preview",
+    });
+    let provider = ai.provider;
+    let modelId = ai.modelId;
+    let escalation: import("./ai-feature-areas").AiEscalation | null = null;
 
     const { generateText } = await import("ai");
     const started = Date.now();
@@ -235,7 +240,27 @@ export const askProceduresAi = createServerFn({ method: "POST" })
       blocks.length === 0
         ? `The user has no procedures yet.\n\nQuestion: ${data.prompt}`
         : `Procedures:\n\n${blocks.join("\n")}\n\nQuestion: ${data.prompt}`;
-    const result = await generateText({ model: provider(modelId), system, prompt });
+    let result;
+    try {
+      result = await generateText({ model: provider(modelId), system, prompt });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      const hosted = hostedHandle(ai, "error", `${modelId} failed (${message.slice(0, 200)}), so the question was rerun on hosted AI.`);
+      if (!hosted) throw err;
+      provider = hosted.provider;
+      modelId = hosted.modelId;
+      escalation = hosted.escalation;
+      result = await generateText({ model: provider(modelId), system, prompt });
+    }
+    if (!result.text.trim() || result.finishReason === "length") {
+      const hosted = hostedHandle(ai, "truncated", `${modelId} returned a truncated or empty answer, so it was rerun on hosted AI.`);
+      if (hosted) {
+        provider = hosted.provider;
+        modelId = hosted.modelId;
+        escalation = hosted.escalation;
+        result = await generateText({ model: provider(modelId), system, prompt });
+      }
+    }
 
     // Warn when the procedure context or the answer got clipped — with 40 KB of
     // procedures in the prompt this is the common failure on small local models.
@@ -257,6 +282,7 @@ export const askProceduresAi = createServerFn({ method: "POST" })
       sources: used,
       latencyMs: Date.now() - started,
       truncation,
+      escalation,
     };
   });
 
