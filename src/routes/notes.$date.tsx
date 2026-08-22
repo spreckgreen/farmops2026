@@ -2,7 +2,8 @@ import { createFileRoute, Link, useParams, useNavigate } from "@tanstack/react-r
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { commitDailyNote, getDailyNote, listProjects, refreshDailyNoteFromLog, saveDailyNote } from "@/lib/log.functions";
+import { commitDailyNote, getDailyNote, listProjects, refreshDailyNoteFromLog, removeTaskFromToday, saveDailyNote } from "@/lib/log.functions";
+import { TaskMoveDay } from "@/components/task-move-day";
 import { getDailyForecast } from "@/lib/weather.functions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
