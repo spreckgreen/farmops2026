@@ -12,6 +12,7 @@
  *    the canonical task (the one the `#task/<slug>` points at) can vanish from
  *    every column.
  */
+import { dayBoundsUtc } from "./app-timezone";
 
 export type StatusWindowTask = {
   id: string;
@@ -19,8 +20,13 @@ export type StatusWindowTask = {
   closed_at: string | null;
 };
 
+/**
+ * UTC bounds of the farm-local day `date`. For America/New_York,
+ * `dayWindow("2026-08-21")` spans 04:00Z Fri → 03:59:59.999Z Sat, so an 11pm
+ * Friday commit lands inside Friday.
+ */
 export function dayWindow(date: string): { start: string; end: string } {
-  return { start: `${date}T00:00:00.000Z`, end: `${date}T23:59:59.999Z` };
+  return dayBoundsUtc(date);
 }
 
 /**

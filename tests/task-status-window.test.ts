@@ -14,13 +14,20 @@ describe("closedStampFor", () => {
     expect(closedStampFor(DATE, now)).toBe("2026-08-20T18:05:00.000Z");
   });
 
-  it("clamps an evening commit that already rolled over into the next UTC day", () => {
-    // 20:37 New York on Aug 20 == 00:37 UTC on Aug 21
+  it("keeps an evening commit that rolled over in UTC inside the farm-local day", () => {
+    // 20:37 New York on Aug 20 == 00:37 UTC on Aug 21 — still Aug 20 on the farm.
     const now = new Date("2026-08-21T00:37:00.000Z");
-    expect(closedStampFor(DATE, now)).toBe("2026-08-20T12:00:00.000Z");
+    expect(closedStampFor(DATE, now)).toBe("2026-08-21T00:37:00.000Z");
     const { start, end } = dayWindow(DATE);
     const stamp = closedStampFor(DATE, now);
     expect(stamp >= start && stamp <= end).toBe(true);
+  });
+
+  it("clamps a stamp that truly falls outside the farm-local day", () => {
+    // 08:00 UTC Aug 22 == 04:00 New York Aug 22, past Aug 20's window.
+    expect(closedStampFor(DATE, new Date("2026-08-22T08:00:00.000Z"))).toBe(
+      "2026-08-20T12:00:00.000Z",
+    );
   });
 });
 
@@ -98,13 +105,22 @@ describe("findStatusDrift", () => {
     ]);
   });
 
-  it("flags a logged done task whose closed_at landed outside the day", () => {
+  it("flags a logged done task whose closed_at landed outside the farm-local day", () => {
+    const drift = findStatusDrift(
+      [{ id: "t1", status: "done", closed_at: "2026-08-22T08:00:00.000Z" }],
+      DATE,
+      new Set(["t1"]),
+    );
+    expect(drift[0].kind).toBe("closed-at-outside-day");
+  });
+
+  it("does not flag an 11pm local commit that reads as the next UTC day", () => {
     const drift = findStatusDrift(
       [{ id: "t1", status: "done", closed_at: "2026-08-21T00:37:00.000Z" }],
       DATE,
       new Set(["t1"]),
     );
-    expect(drift[0].kind).toBe("closed-at-outside-day");
+    expect(drift).toEqual([]);
   });
 
   it("reports nothing for consistent rows", () => {

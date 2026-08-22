@@ -5,6 +5,7 @@ import { slugify, taskRenamePatch, patchMutatesSlug } from "./slug";
 import { appendTaskRefLine, removeTaskRefLines } from "./daily-note-append";
 import { DEFAULT_DESIGN_ELEMENT_WEIGHT } from "./design-weight";
 import { closedStampFor, isTaskInDayView } from "./task-status-window";
+import { appDateString, dayBoundsUtc } from "./app-timezone";
 
 
 type ActivityLogEntry = { id?: string; raw_content: string; created_at: string };
@@ -408,7 +409,7 @@ export const getDailyNote = createServerFn({ method: "POST" })
     // this one, and leaving it here makes today's board claim the completion.
     try {
       const { stripStaleDoneLines } = await import("@/lib/note-seed");
-      const dayStart = `${data.date}T00:00:00.000Z`;
+      const dayStart = dayBoundsUtc(data.date).start;
       const staleSlugs = new Set(
         (tasks ?? [])
           .filter((t) => t.status === "done" && t.closed_at && t.closed_at < dayStart)
@@ -977,7 +978,7 @@ export const listTasks = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     const date =
       data?.date ??
-      new Date().toLocaleDateString("en-CA", { timeZone: "UTC" });
+      appDateString();
 
     // Today's daily note (may not exist yet).
     const { data: note } = await supabase
@@ -1001,8 +1002,7 @@ export const listTasks = createServerFn({ method: "POST" })
     }
 
     // Day window (UTC) for task created_at / closed_at fallback.
-    const dayStart = `${date}T00:00:00.000Z`;
-    const dayEnd = `${date}T23:59:59.999Z`;
+    const { start: dayStart, end: dayEnd } = dayBoundsUtc(date);
 
     const conditions = [
       `and(closed_at.gte.${dayStart},closed_at.lte.${dayEnd})`,
@@ -1088,7 +1088,7 @@ async function logTaskChange(
 ) {
   const trimmed = (args.note ?? "").trim();
   const raw = trimmed ? `${args.summary} — ${trimmed}` : args.summary;
-  const today = new Date().toLocaleDateString("en-CA", { timeZone: "UTC" });
+  const today = appDateString();
   const { data: note } = await supabase
     .from("daily_notes")
     .select("id")
@@ -2200,7 +2200,7 @@ export const listBacklog = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     const date =
       data?.date ??
-      new Date().toLocaleDateString("en-CA", { timeZone: "UTC" });
+      appDateString();
 
     const { data: note } = await supabase
       .from("daily_notes")
@@ -2287,7 +2287,7 @@ export const addTaskToToday = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    const date = data.date ?? new Date().toLocaleDateString("en-CA", { timeZone: "UTC" });
+    const date = data.date ?? appDateString();
 
     const { data: task, error: taskErr } = await supabase
       .from("tasks")
@@ -2370,7 +2370,7 @@ export const removeTaskFromToday = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    const date = data.date ?? new Date().toLocaleDateString("en-CA", { timeZone: "UTC" });
+    const date = data.date ?? appDateString();
 
     const { data: task, error: taskErr } = await supabase
       .from("tasks")
@@ -2441,7 +2441,7 @@ export const listDueMaintenance = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     const today =
       data?.date ??
-      new Date().toLocaleDateString("en-CA", { timeZone: "UTC" });
+      appDateString();
     const [y, m] = today.split("-").map(Number);
     const monthStart = `${y}-${String(m).padStart(2, "0")}-01`;
     const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate();
@@ -2544,7 +2544,7 @@ export const addMaintenanceToToday = createServerFn({ method: "POST" })
 
 
     // Reuse the same today-attach flow.
-    const date = data.date ?? new Date().toLocaleDateString("en-CA", { timeZone: "UTC" });
+    const date = data.date ?? appDateString();
     let { data: note } = await supabase
       .from("daily_notes")
       .select("id, markdown_content")
@@ -2729,7 +2729,7 @@ export const addReorderToToday = createServerFn({ method: "POST" })
     if (!task) throw new Error("Failed to resolve reorder task");
 
 
-    const date = data.date ?? new Date().toLocaleDateString("en-CA", { timeZone: "UTC" });
+    const date = data.date ?? appDateString();
     let { data: note } = await supabase
       .from("daily_notes")
       .select("id, markdown_content")

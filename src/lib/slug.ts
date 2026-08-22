@@ -1,3 +1,5 @@
+import { appDateString } from "./app-timezone";
+
 export function slugify(input: string): string {
   return input
     .toLowerCase()
@@ -9,12 +11,9 @@ export function slugify(input: string): string {
     .slice(0, 60);
 }
 
+/** Today in the farm's timezone — must match what server functions use. */
 export function todayDateString(): string {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
+  return appDateString();
 }
 
 /**
