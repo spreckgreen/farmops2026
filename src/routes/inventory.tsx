@@ -100,6 +100,11 @@ function InventoryPage() {
   } | null>(null);
   const [deleteMissing, setDeleteMissing] = useState(false);
   const [applying, setApplying] = useState(false);
+  const [importFileName, setImportFileName] = useState("");
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [history, setHistory] = useState<ImportSnapshot[]>([]);
+  const [revertingId, setRevertingId] = useState<string | null>(null);
 
 
 
