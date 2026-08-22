@@ -12,6 +12,11 @@ import {
   type MetricsMode,
   type ReportMetrics,
 } from "./report-metrics";
+import {
+  dayColourBaseline,
+  isMissingDayColourColumnError,
+  readRatings,
+} from "./day-colour-support";
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 
