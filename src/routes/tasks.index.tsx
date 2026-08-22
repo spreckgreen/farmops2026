@@ -2,8 +2,8 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Undo2 } from "lucide-react";
-import { listTasks, removeTaskFromToday } from "@/lib/log.functions";
+import { Undo2, ChevronLeft } from "lucide-react";
+import { listTasks, removeTaskFromToday, moveTaskToPreviousDay } from "@/lib/log.functions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { AppLayout } from "@/components/app-layout";
@@ -40,6 +40,7 @@ function sortByGroupThenTitle<T extends { title: string }>(tasks: T[]): T[] {
 function TasksPage() {
   const fn = useServerFn(listTasks);
   const removeFn = useServerFn(removeTaskFromToday);
+  const prevDayFn = useServerFn(moveTaskToPreviousDay);
   const qc = useQueryClient();
   const today = todayDateString();
   const [showSlugs, toggleSlugs] = useShowTaskSlugs();
@@ -59,6 +60,19 @@ function TasksPage() {
       toast.error(e instanceof Error ? e.message : "Failed to move task"),
   });
 
+
+  const toPrevDay = useMutation({
+    mutationFn: (taskId: string) => prevDayFn({ data: { taskId, date: today } }),
+    onSuccess: (res) => {
+      toast.success(`Moved to ${res.toDate}`, {
+        description: `${res.movedLines} note line(s), ${res.movedEntries} log entr(ies) restamped`,
+      });
+      qc.invalidateQueries({ queryKey: ["tasks"] });
+      qc.invalidateQueries({ queryKey: ["daily-note"] });
+    },
+    onError: (e: unknown) =>
+      toast.error(e instanceof Error ? e.message : "Failed to move task"),
+  });
 
   const grouped = {
     open: sortByGroupThenTitle((data ?? []).filter((t) => t.status === "open")),
@@ -152,6 +166,19 @@ function TasksPage() {
                         </Badge>
                       </div>
                     </Link>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="shrink-0"
+                      title="Move this task back to the previous day (note lines and timestamps move too)"
+                      disabled={toPrevDay.isPending && toPrevDay.variables === t.id}
+                      onClick={() => toPrevDay.mutate(t.id)}
+                    >
+                      <ChevronLeft className="h-3.5 w-3.5 mr-1" />
+                      {toPrevDay.isPending && toPrevDay.variables === t.id
+                        ? "Moving…"
+                        : "Prev day"}
+                    </Button>
                     <Button
                       size="sm"
                       variant="ghost"
