@@ -255,6 +255,7 @@ export async function runIngest(
     articles,
     skipped,
     model: modelId,
+    escalation,
     mode: data.mode,
     latencyMs: Date.now() - started,
   };
