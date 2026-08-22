@@ -27,6 +27,7 @@ export interface Diagnosis {
   candidatesConsidered: string[];
   model: string;
   latencyMs: number;
+  escalation?: import("./ai-feature-areas").AiEscalation | null;
 }
 
 const SymptomInput = z.object({
@@ -124,9 +125,13 @@ export const diagnoseSymptom = createServerFn({ method: "POST" })
       .map((i) => `- ${i.name ?? i.sku ?? "?"} (id:${i.id})`)
       .join("\n");
 
-    const { createAiProvider } = await import("./ai-gateway.server");
-    const { provider, modelOverride } = await createAiProvider();
-    const modelId = modelOverride ?? "google/gemini-3.6-flash";
+    const { resolveAreaAi, hostedHandle } = await import("./ai-routing.server");
+    const ai = await resolveAreaAi("maintenance.symptom", {
+      hostedDefaultModel: "google/gemini-3.6-flash",
+    });
+    let provider = ai.provider;
+    let modelId = ai.modelId;
+    let escalation: import("./ai-feature-areas").AiEscalation | null = null;
 
     const { generateText, Output, NoObjectGeneratedError } = await import("ai");
 
@@ -289,6 +294,7 @@ export const diagnoseSymptom = createServerFn({ method: "POST" })
       candidatesConsidered: candidatePool.slice(0, 15).map((p) => p.name),
       model: modelId,
       latencyMs: Date.now() - started,
+      escalation,
     };
       },
     );
