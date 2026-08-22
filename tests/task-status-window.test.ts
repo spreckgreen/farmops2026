@@ -105,13 +105,22 @@ describe("findStatusDrift", () => {
     ]);
   });
 
-  it("flags a logged done task whose closed_at landed outside the day", () => {
+  it("flags a logged done task whose closed_at landed outside the farm-local day", () => {
+    const drift = findStatusDrift(
+      [{ id: "t1", status: "done", closed_at: "2026-08-22T08:00:00.000Z" }],
+      DATE,
+      new Set(["t1"]),
+    );
+    expect(drift[0].kind).toBe("closed-at-outside-day");
+  });
+
+  it("does not flag an 11pm local commit that reads as the next UTC day", () => {
     const drift = findStatusDrift(
       [{ id: "t1", status: "done", closed_at: "2026-08-21T00:37:00.000Z" }],
       DATE,
       new Set(["t1"]),
     );
-    expect(drift[0].kind).toBe("closed-at-outside-day");
+    expect(drift).toEqual([]);
   });
 
   it("reports nothing for consistent rows", () => {
