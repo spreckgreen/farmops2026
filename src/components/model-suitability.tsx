@@ -340,6 +340,13 @@ function SuitabilityActions({
         </Button>
       </div>
 
+      {autoReverted && (
+        <p className="text-[11px] text-destructive">
+          Automatic rollback: {autoReverted} The tag created by the change was kept — deleting it
+          needs explicit approval.
+        </p>
+      )}
+
       {point?.available && point.point && (
         <div className="rounded-md border border-amber-300/60 bg-amber-50/50 dark:bg-amber-950/20 p-2 space-y-1.5">
           <div className="flex flex-wrap items-center gap-2">
@@ -348,7 +355,10 @@ function SuitabilityActions({
               variant="outline"
               className="h-7"
               disabled={busy}
-              onClick={() => undo.mutate()}
+              onClick={() => {
+                if (deleteTag && deletionPlan.remove.length > 0) setConfirmOpen(true);
+                else undo.mutate({ deleteCreatedTag: false });
+              }}
               title={`Restores ${point.point.previousModel} as the active model`}
             >
               {undo.isPending ? (
@@ -375,8 +385,59 @@ function SuitabilityActions({
             {point.label} · changed{" "}
             {new Date(point.point.changedAt).toLocaleString()}
           </p>
+
+          <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete these Ollama models?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  {describeDeletionPlan(deletionPlan)} Rolling back to{" "}
+                  <span className="font-mono">{point.point.previousModel}</span> happens either way.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <div className="space-y-2 text-xs">
+                <div>
+                  <div className="font-medium text-destructive">Will be removed</div>
+                  <ul className="mt-1 space-y-0.5">
+                    {deletionPlan.remove.map((tag) => (
+                      <li key={tag} className="font-mono flex items-center gap-1.5">
+                        <Trash2 className="h-3 w-3 text-destructive shrink-0" />
+                        {tag}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                {deletionPlan.keep.length > 0 && (
+                  <div>
+                    <div className="font-medium">Kept</div>
+                    <ul className="mt-1 space-y-0.5 text-muted-foreground">
+                      {deletionPlan.keep.map((k) => (
+                        <li key={k.tag}>
+                          <span className="font-mono">{k.tag}</span> — {k.reason}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={undo.isPending}>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  disabled={undo.isPending}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    undo.mutate({ deleteCreatedTag: true });
+                  }}
+                >
+                  {undo.isPending && <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />}
+                  Roll back and delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       )}
+
 
 
       {(applyCtx.isPending || switchModel.isPending) && (
