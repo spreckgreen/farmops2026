@@ -199,7 +199,50 @@ export const planMaintenanceSchedule = createServerFn({ method: "POST" })
       "phrase we can substring-search in the inventory list, or null if no likely match. " +
       "(6) citations: cite manufacturer typicals, general service manuals, or 'user context'. " +
       "Keep each citation under 120 chars, max 6 items. " +
-      "(7) Do not invent inventory ids. Do not exceed the limits above.";
+      "(7) Do not invent inventory ids. Do not exceed the limits above." +
+      (data.supplemental
+        ? " (8) This asset ALREADY has a schedule. Propose only SUPPLEMENTAL services" +
+          " that are missing from EXISTING_SCHEDULE — never restate or duplicate one." +
+          " If a listed service should run at a different interval, name it clearly as" +
+          " a revision in its notes. Fewer, higher-value intervals are better here."
+        : "") +
+      (data.reference_url || data.reference_text
+        ? " (9) REFERENCE_MATERIAL is authoritative: prefer its stated intervals and part" +
+          " numbers over generic typicals, and cite it in citations."
+        : "");
+
+    // Fetch the linked reference (manual page / spec sheet) when provided.
+    let referenceFetched = "";
+    if (data.reference_url) {
+      try {
+        const res = await fetch(data.reference_url, {
+          headers: { accept: "text/html,text/plain,*/*" },
+        });
+        if (res.ok) {
+          const ct = res.headers.get("content-type") ?? "";
+          if (/text\/|json|xml/i.test(ct)) {
+            const body = await res.text();
+            referenceFetched = body
+              .replace(/<script[\s\S]*?<\/script>/gi, " ")
+              .replace(/<style[\s\S]*?<\/style>/gi, " ")
+              .replace(/<[^>]+>/g, " ")
+              .replace(/\s+/g, " ")
+              .trim()
+              .slice(0, 20000);
+          } else {
+            referenceFetched = `(binary content at ${data.reference_url} — could not read text)`;
+          }
+        } else {
+          referenceFetched = `(reference link returned HTTP ${res.status})`;
+        }
+      } catch (error) {
+        referenceFetched = `(reference link could not be fetched: ${
+          error instanceof Error ? error.message : "unknown error"
+        })`;
+      }
+    }
+
+    const existing = (data.existing_services ?? []).slice(0, 100);
 
     const userPrompt =
       `ASSET:\n- name: ${assetLabel}\n- category: ${asset.category ?? "unknown"}\n` +
