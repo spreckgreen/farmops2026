@@ -129,26 +129,42 @@ function TasksPage() {
                       {group}
                     </div>
                   )}
-                  <Link
-                    to="/tasks/$slug"
-                    params={{ slug: t.slug }}
-                    className="flex items-center justify-between px-4 py-3 hover:bg-accent transition-colors"
-                  >
-                    <div className="min-w-0">
-                      <div className="font-medium truncate">{t.title}</div>
-                      {showSlugs && (
-                        <div className="text-xs text-muted-foreground font-mono">#{t.slug}</div>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {t.recurrence && t.recurrence !== "none" && (
-                        <Badge variant="outline" className="text-[10px] uppercase">↻ {t.recurrence}</Badge>
-                      )}
-                      <Badge variant={status === "done" ? "secondary" : status === "blocked" ? "destructive" : "outline"}>
-                        {status}
-                      </Badge>
-                    </div>
-                  </Link>
+                  <div className="flex items-center gap-2 px-4 py-3 hover:bg-accent transition-colors">
+                    <Link
+                      to="/tasks/$slug"
+                      params={{ slug: t.slug }}
+                      className="flex min-w-0 flex-1 items-center justify-between gap-2"
+                    >
+                      <div className="min-w-0">
+                        <div className="font-medium truncate">{t.title}</div>
+                        {showSlugs && (
+                          <div className="text-xs text-muted-foreground font-mono">#{t.slug}</div>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {t.recurrence && t.recurrence !== "none" && (
+                          <Badge variant="outline" className="text-[10px] uppercase">↻ {t.recurrence}</Badge>
+                        )}
+                        <Badge variant={status === "done" ? "secondary" : status === "blocked" ? "destructive" : "outline"}>
+                          {status}
+                        </Badge>
+                      </div>
+                    </Link>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="shrink-0"
+                      title="Move back to backlog"
+                      disabled={toBacklog.isPending && toBacklog.variables === t.id}
+                      onClick={() => toBacklog.mutate(t.id)}
+                    >
+                      <Undo2 className="h-3.5 w-3.5 mr-1" />
+                      {toBacklog.isPending && toBacklog.variables === t.id
+                        ? "Moving…"
+                        : "Backlog"}
+                    </Button>
+                  </div>
+
                 </li>
               );
             })}
