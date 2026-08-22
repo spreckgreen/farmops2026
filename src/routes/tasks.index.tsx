@@ -77,7 +77,9 @@ function TasksPage() {
   });
 
   const grouped = {
-    open: sortByGroupThenTitle((data ?? []).filter((t) => t.status === "open")),
+    open: [...(data ?? []).filter((t) => t.status === "open")].sort((a, b) =>
+      a.title.localeCompare(b.title)
+    ),
     blocked: sortByGroupThenTitle((data ?? []).filter((t) => t.status === "blocked")),
     done: sortByGroupThenTitle((data ?? []).filter((t) => t.status === "done")),
   };
