@@ -76,7 +76,7 @@ export const getReportMetrics = createServerFn({ method: "GET" })
     if (tasks.error) throw new Error(tasks.error.message);
 
     const baseline = dayColourBaseline();
-    const noteRows = ((notes.data ?? []) as Array<Record<string, unknown>>).map((n) => ({
+    const noteRows = ((notes.data ?? []) as unknown as Array<Record<string, unknown>>).map((n) => ({
       date: String(n["date"] ?? ""),
       ...readRatings(n, baseline),
     }));
