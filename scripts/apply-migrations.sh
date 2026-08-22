@@ -160,9 +160,11 @@ fi
 # --- Pick a psql -------------------------------------------------------------
 PSQL_TARGET=()
 PSQL_MODE="url"
+HOST_PSQL=0
 if command -v psql >/dev/null 2>&1; then
   PSQL=(psql)
   PSQL_TARGET=("$DB_URL")
+  HOST_PSQL=1
   log "Using host psql ($(psql --version | awk '{print $3}'))"
 elif command -v docker >/dev/null 2>&1; then
   PSQL=(docker run --rm --network host -i postgres:16-alpine psql)
@@ -175,16 +177,22 @@ fi
 
 run_sql() { "${PSQL[@]}" "${PSQL_TARGET[@]}" -v ON_ERROR_STOP=1 -q "$@"; }
 
-run_migration_file() {
-  local path="$1"
-  if [ "$PSQL_MODE" = "container" ]; then
-    # The host migration path is not mounted in the database container.
-    # Stream it over stdin instead of passing -f with an inaccessible path.
-    "${PSQL[@]}" -v ON_ERROR_STOP=1 -q -1 <"$path"
+# Run a host SQL file. Whenever psql runs inside a container the host path is
+# invisible to it (psql reports "No such file or directory"), so stream the file
+# on stdin instead of passing -f. Only a real host psql can read the path.
+run_sql_file() {
+  local file="$1"; shift
+  if [ "$HOST_PSQL" = "1" ]; then
+    "${PSQL[@]}" "${PSQL_TARGET[@]}" -v ON_ERROR_STOP=1 -q "$@" -f "$file"
   else
-    "${PSQL[@]}" "${PSQL_TARGET[@]}" -v ON_ERROR_STOP=1 -q -1 -f "$path"
+    "${PSQL[@]}" "${PSQL_TARGET[@]}" -v ON_ERROR_STOP=1 -q "$@" <"$file"
   fi
 }
+
+run_migration_file() {
+  run_sql_file "$1" -1
+}
+
 
 # A standard self-hosted stack often publishes Supavisor—not raw Postgres—on
 # localhost:5432. A direct postgres URL then fails with:
@@ -396,7 +404,7 @@ probe_all() {
 
   log "Probing $(wc -l <"$checks" | tr -d ' ') schema object(s) in one query…"
   res="$(mktemp -t bostead-probe-res.XXXXXX.txt)"
-  if ! run_sql -At -F '|' -f "$checks" >"$res" 2>&1; then
+  if ! run_sql_file "$checks" -At -F '|' >"$res" 2>&1; then
     err "Schema probe query failed:"
     sed 's/^/    /' "$res" >&2 || true
     rm -f "$checks" "$res"
