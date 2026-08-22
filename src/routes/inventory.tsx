@@ -60,7 +60,16 @@ export const Route = createFileRoute("/inventory")({
   component: InventoryPage,
 });
 
+/** Render a field value from either an existing asset or an import patch for the diff view. */
+function fieldLabel(src: Record<string, unknown> | null | undefined, field: string): string {
+  const v = src?.[field];
+  if (v === null || v === undefined || v === "") return "—";
+  if (Array.isArray(v)) return v.length ? v.join("; ") : "—";
+  return String(v);
+}
+
 function InventoryPage() {
+
   const navigate = useNavigate();
   const [session, setSession] = useState<Session | null>(null);
   const [assets, setAssets] = useState<Asset[]>([]);
