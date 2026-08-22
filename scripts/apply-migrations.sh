@@ -47,7 +47,16 @@
 #                                              # seeded going forward.
 #   ./scripts/apply-migrations.sh --strict     # any "already exists" is a FAIL
 #                                              # (useful on a fresh DB)
-#   ./scripts/apply-migrations.sh --only 20260820211737_7d33c0b4-f451-436c-a635-5cc2e361c5cc.sql
+#   ./scripts/apply-migrations.sh --only=20260820211737_7d33c0b4-f451-436c-a635-5cc2e361c5cc.sql
+#
+#   ./scripts/apply-migrations.sh --adopt      # RECOMMENDED for a hand-built DB.
+#                                              # Inspects the live schema and
+#                                              # records only the migrations
+#                                              # whose objects are ALL already
+#                                              # present. Genuinely missing ones
+#                                              # stay pending and then run
+#                                              # normally in the same pass.
+#   ./scripts/apply-migrations.sh --adopt --dry-run   # report, change nothing
 # ============================================================================
 set -euo pipefail
 
@@ -56,6 +65,7 @@ cd "$(dirname "$0")/.."
 DRY_RUN=0
 FORCE=0
 BASELINE=0
+ADOPT=0
 STRICT=0
 ONLY=""
 for arg in "$@"; do
@@ -63,10 +73,11 @@ for arg in "$@"; do
     --dry-run)  DRY_RUN=1 ;;
     --force)    FORCE=1 ;;
     --baseline) BASELINE=1 ;;
+    --adopt)    ADOPT=1 ;;
     --strict)   STRICT=1 ;;
     --only=*)   ONLY="${arg#--only=}" ;;
     --only)     echo "Use --only=<filename.sql>" >&2; exit 2 ;;
-    -h|--help)  sed -n '2,52p' "$0"; exit 0 ;;
+    -h|--help)  sed -n '2,62p' "$0"; exit 0 ;;
     *) echo "Unknown flag: $arg" >&2; exit 2 ;;
   esac
 done
