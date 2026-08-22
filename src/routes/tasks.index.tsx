@@ -144,7 +144,7 @@ function TasksPage() {
               const showHeader = !prev || taskGroup(prev.title) !== group;
               return (
                 <li key={t.id}>
-                  {showHeader && group && (
+                  {showHeader && group && status !== "open" && (
                     <div className="px-4 pt-2 pb-0.5 text-[10px] font-mono uppercase tracking-wider text-muted-foreground/60">
                       {group}
                     </div>
