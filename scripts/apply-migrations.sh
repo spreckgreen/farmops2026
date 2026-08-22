@@ -221,11 +221,19 @@ existence_check() {
 
 # Probe every migration file against the live schema in a single query.
 # Populates:
-#   PROBE_TOTAL[file]   number of detected objects
+#   PROBE_TOTAL[file]   objects the file creates that should still exist
 #   PROBE_PRESENT[file] how many of them exist
 #   PROBE_MISS[file]    newline-separated labels of the missing ones
+#   PROBE_SUPER[file]   objects deliberately dropped/renamed by a LATER migration
 # Files with no detectable objects get PROBE_TOTAL=0 (treated as unprobeable).
-declare -A PROBE_TOTAL=() PROBE_PRESENT=() PROBE_MISS=()
+#
+# Supersede handling matters: 20260624163956_….sql runs
+# `DROP FUNCTION public.has_role(uuid, public.app_role);` (it moved to the
+# private schema), so the earlier file that created public.has_role must NOT be
+# reported as drift. The rule is: if the last migration to DROP an object comes
+# after the last one to CREATE it, that object is expected to be absent.
+declare -A PROBE_TOTAL=() PROBE_PRESENT=() PROBE_MISS=() PROBE_SUPER=()
+declare -A CREATE_LAST=() DROP_LAST=()
 PROBE_FILES=()
 
 probe_all() {
@@ -234,9 +242,26 @@ probe_all() {
     exit 1
   fi
 
-  local checks res path name kind schema oname extra file label exists
+  local objdir checks res path name idx kind schema oname extra key ck file label exists
+  objdir="$(mktemp -d -t bostead-objs.XXXXXX)"
   checks="$(mktemp -t bostead-probe.XXXXXX.sql)"
 
+  # ---- pass 1: extract objects, remember create/drop ordering ----------------
+  idx=0
+  for path in $(ls -1 supabase/migrations/*.sql 2>/dev/null | sort); do
+    idx=$((idx + 1))
+    name="$(basename "$path")"
+    awk -f "$EXTRACT_AWK" "$path" >"$objdir/$name.objs"
+    while IFS='|' read -r kind schema oname extra; do
+      [ -z "${kind:-}" ] && continue
+      case "$kind" in
+        drop-*) key="${kind#drop-}|$schema|$oname|${extra:-}"; DROP_LAST["$key"]=$idx ;;
+        *)      key="$kind|$schema|$oname|${extra:-}";          CREATE_LAST["$key"]=$idx ;;
+      esac
+    done <"$objdir/$name.objs"
+  done
+
+  # ---- pass 2: build the batched existence query -----------------------------
   for path in $(ls -1 supabase/migrations/*.sql 2>/dev/null | sort); do
     name="$(basename "$path")"
     [ -n "$ONLY" ] && [ "$name" != "$ONLY" ] && continue
@@ -244,12 +269,22 @@ probe_all() {
     PROBE_TOTAL["$name"]=0
     PROBE_PRESENT["$name"]=0
     PROBE_MISS["$name"]=""
+    PROBE_SUPER["$name"]=0
     while IFS='|' read -r kind schema oname extra; do
       [ -z "${kind:-}" ] && continue
+      case "$kind" in drop-*) continue ;; esac
+      key="$kind|$schema|$oname|${extra:-}"
+      if [ -n "${DROP_LAST[$key]:-}" ] && \
+         [ "${DROP_LAST[$key]}" -gt "${CREATE_LAST[$key]:-0}" ]; then
+        # A later migration removed it on purpose — don't expect it in the schema.
+        PROBE_SUPER["$name"]=$(( ${PROBE_SUPER["$name"]} + 1 ))
+        continue
+      fi
       existence_check "$name" "$kind" "$schema" "$oname" "${extra:-}" >>"$checks"
       PROBE_TOTAL["$name"]=$(( ${PROBE_TOTAL["$name"]} + 1 ))
-    done < <(awk -f "$EXTRACT_AWK" "$path")
+    done <"$objdir/$name.objs"
   done
+  rm -rf "$objdir"
 
   if [ ! -s "$checks" ]; then
     rm -f "$checks"
@@ -308,14 +343,18 @@ if [ "$VERIFY" -eq 1 ]; then
     recorded=0
     printf '%s\n' "$LEDGER" | grep -Fxq "$name" && recorded=1
 
+    super=${PROBE_SUPER["$name"]:-0}
+    sup_note=""
+    [ "$super" -gt 0 ] && sup_note=", $super superseded later"
+
     if [ "$total" -eq 0 ]; then
       V_SKIPPED=$((V_SKIPPED + 1))
-      printf '  \033[0;90mSKIPPED   \033[0m %s (no detectable objects, ledger=%s)\n' \
-        "$name" "$([ "$recorded" -eq 1 ] && echo recorded || echo pending)"
+      printf '  \033[0;90mSKIPPED   \033[0m %s (no objects left to check%s, ledger=%s)\n' \
+        "$name" "$sup_note" "$([ "$recorded" -eq 1 ] && echo recorded || echo pending)"
     elif [ "$present" -eq "$total" ]; then
       if [ "$recorded" -eq 1 ]; then
         V_OK=$((V_OK + 1))
-        printf '  \033[0;32mOK        \033[0m %s (%s/%s objects)\n' "$name" "$present" "$total"
+        printf '  \033[0;32mOK        \033[0m %s (%s/%s objects%s)\n' "$name" "$present" "$total" "$sup_note"
       else
         V_UNREC=$((V_UNREC + 1)); UNREC_FILES+=("$name")
         printf '  \033[0;33mUNRECORDED\033[0m %s (%s/%s objects present, not in ledger)\n' "$name" "$present" "$total"
