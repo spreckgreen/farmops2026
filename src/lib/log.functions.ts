@@ -474,14 +474,33 @@ export const setDailyNoteRatings = createServerFn({ method: "POST" })
     if (data.energy_level !== undefined) patch.energy_level = data.energy_level;
     if (data.productivity_level !== undefined) patch.productivity_level = data.productivity_level;
 
+    const baseline = dayColourBaseline();
+
     const { data: row, error } = await context.supabase
       .from("daily_notes")
       .update(patch)
       .eq("id", data.noteId)
       .select("id, energy_level, productivity_level")
       .single();
-    if (error) throw new Error(error.message);
-    return row;
+
+    if (error) {
+      // Database predates the day-colour migration: degrade instead of erroring.
+      if (isMissingDayColourColumnError(error)) {
+        return {
+          id: data.noteId,
+          ...fallbackRatings(baseline),
+          supported: false as const,
+          message: DAY_COLOUR_UNSUPPORTED_MESSAGE,
+        };
+      }
+      throw new Error(error.message);
+    }
+
+    return {
+      id: row.id,
+      ...readRatings(row as Record<string, unknown>, baseline),
+      supported: true as const,
+    };
   });
 
 
