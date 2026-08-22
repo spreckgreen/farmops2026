@@ -228,8 +228,12 @@ elif [ -x "$MIG" ]; then
     0) ;;
     3) log "No SUPABASE_DB_URL — skipping migrations (managed Supabase? use 'supabase db push')" ;;
     *) err "❌ Migrations failed (exit=$mig_rc) — refusing to deploy code against a stale schema."
-       err "  Inspect with: $MIG --dry-run"
-       err "  Bypass (not recommended): $0 --no-pull --force --skip-migrations"
+       err "  The failing file(s) and the exact psql error are printed above."
+       err "  Inspect pending files:      $MIG --dry-run"
+       err "  Retry one file:             $MIG --only=<filename.sql>"
+       err "  DB already correct? seed the ledger and move on:"
+       err "                              $MIG --baseline"
+       err "  Bypass (not recommended):   $0 --no-pull --force --skip-migrations"
        exit 1 ;;
   esac
 else
