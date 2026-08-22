@@ -193,3 +193,29 @@ export async function runAreaAi<T>(
     );
   }
 }
+
+/**
+ * Escalation handle for call sites that make several AI calls (structured
+ * output + plain-JSON retry, multi-step ingest). Returns null when escalation
+ * isn't possible: the area already runs hosted, auto-fallback is off, or no
+ * hosted key is configured.
+ */
+export function hostedHandle(
+  ai: AreaAi,
+  reason: AiEscalation["reason"],
+  detail: string,
+): { provider: Provider; modelId: string; escalation: AiEscalation } | null {
+  if (ai.backend !== "local" || !ai.autoFallback || !ai.hostedAvailable) return null;
+  return {
+    provider: hostedProvider(process.env.LOVABLE_API_KEY!),
+    modelId: ai.hostedModelId,
+    escalation: {
+      area: ai.area,
+      areaLabel: ai.areaLabel,
+      fromModel: ai.modelId,
+      toModel: ai.hostedModelId,
+      reason,
+      detail,
+    },
+  };
+}
