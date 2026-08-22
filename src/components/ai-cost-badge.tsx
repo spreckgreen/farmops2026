@@ -1,6 +1,11 @@
 // Per-run cost estimate shown next to each AI option (local vs hosted).
 import { Badge } from "@/components/ui/badge";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+  n as TooltipProvider,
+} from "@/components/ui/tooltip";
 import { Coins, Zap } from "lucide-react";
 import {
   formatCredits,
@@ -26,6 +31,7 @@ export function AiCostBadge({
       : `${formatUsd(estimate.usd)}/run power`;
 
   return (
+    <TooltipProvider delayDuration={150}>
     <Tooltip>
       <TooltipTrigger asChild>
         <Badge variant="outline" className="gap-1 font-normal cursor-help">
@@ -63,5 +69,6 @@ export function AiCostBadge({
         </div>
       </TooltipContent>
     </Tooltip>
+    </TooltipProvider>
   );
 }

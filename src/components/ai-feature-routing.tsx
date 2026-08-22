@@ -25,6 +25,8 @@ import {
   type AiRoutingConfig,
 } from "@/lib/ai-feature-areas";
 import { getAiRouting, resetAiRouting, setAiRouting } from "@/lib/ai-routing.functions";
+import { AiCostBadge } from "@/components/ai-cost-badge";
+import { estimateAreaOptions, formatUsd } from "@/lib/ai-pricing";
 
 const GROUP_ORDER: AiAreaDef["group"][] = [
   "Summaries",
@@ -141,6 +143,7 @@ export function AiFeatureRouting() {
                       draft.areas[area.id] ?? { backend: "default" as AiAreaChoice, model: null };
                     const offRecommendation =
                       route.backend !== "default" && route.backend !== area.recommended;
+                    const cost = estimateAreaOptions(area, localModel, route.model);
                     return (
                       <div
                         key={area.id}
@@ -160,6 +163,15 @@ export function AiFeatureRouting() {
                             ) : null}
                           </div>
                           <p className="text-xs text-muted-foreground">{area.description}</p>
+                          <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                            <AiCostBadge estimate={cost.hosted} label="Hosted" />
+                            <AiCostBadge estimate={cost.local} label="Local" />
+                            <span className="text-[11px] text-muted-foreground">
+                              saves ≈{" "}
+                              {formatUsd(Math.max(0, (cost.hosted.usd ?? 0) - cost.local.usd))}{" "}
+                              per run locally
+                            </span>
+                          </div>
                         </div>
                         <div className="flex items-center gap-2">
                           <Select
