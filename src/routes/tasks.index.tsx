@@ -179,6 +179,8 @@ function TasksPage() {
                         ? "Moving…"
                         : "Prev day"}
                     </Button>
+                    <TaskMoveDay taskId={t.id} fromDate={today} />
+
                     <Button
                       size="sm"
                       variant="ghost"
