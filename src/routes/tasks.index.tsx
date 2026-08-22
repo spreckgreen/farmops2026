@@ -38,12 +38,26 @@ function sortByGroupThenTitle<T extends { title: string }>(tasks: T[]): T[] {
 
 function TasksPage() {
   const fn = useServerFn(listTasks);
+  const removeFn = useServerFn(removeTaskFromToday);
+  const qc = useQueryClient();
   const today = todayDateString();
   const [showSlugs, toggleSlugs] = useShowTaskSlugs();
   const { data, isLoading } = useQuery({
     queryKey: ["tasks", "today", today],
     queryFn: () => fn({ data: { date: today } }),
   });
+
+  const toBacklog = useMutation({
+    mutationFn: (taskId: string) => removeFn({ data: { taskId, date: today } }),
+    onSuccess: () => {
+      toast.success("Moved back to backlog");
+      qc.invalidateQueries({ queryKey: ["tasks"] });
+      qc.invalidateQueries({ queryKey: ["daily-note"] });
+    },
+    onError: (e: unknown) =>
+      toast.error(e instanceof Error ? e.message : "Failed to move task"),
+  });
+
 
   const grouped = {
     open: sortByGroupThenTitle((data ?? []).filter((t) => t.status === "open")),
