@@ -129,6 +129,18 @@ run_sql() { "${PSQL[@]}" "$DB_URL" -v ON_ERROR_STOP=1 -q "$@"; }
 # Needs an owner-level role (the self-hosted `postgres` superuser). A pooled or
 # restricted role fails here with "permission denied for database" — that means
 # the URL is wrong, not that the migration is bad.
+# In --verify mode the run is strictly read-only: don't create anything. If the
+# ledger table doesn't exist yet, that's itself reportable drift.
+if [ "$VERIFY" -eq 1 ]; then
+  if ! run_sql -At -c "SELECT 1 FROM private.applied_migrations LIMIT 1;" >/dev/null 2>&1; then
+    if ! run_sql -At -c "SELECT to_regclass('private.applied_migrations') IS NOT NULL;" 2>/dev/null | grep -q '^t$'; then
+      err "private.applied_migrations does not exist — nothing has been recorded yet."
+      err "  Seed it against the current schema with:"
+      err "    ./scripts/apply-migrations.sh --adopt"
+      exit 1
+    fi
+  fi
+else
 log "Ensuring private.applied_migrations ledger exists"
 LEDGER_LOG="$(mktemp -t bostead-ledger.XXXXXX.log)"
 if ! run_sql -c "
@@ -148,6 +160,7 @@ if ! run_sql -c "
   exit 1
 fi
 rm -f "$LEDGER_LOG"
+fi
 
 record_applied() {
   run_sql -c "INSERT INTO private.applied_migrations (filename) VALUES ('$1')
