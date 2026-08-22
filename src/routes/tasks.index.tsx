@@ -13,6 +13,8 @@ import { DayWindowIndicator } from "@/components/day-window-indicator";
 import { useShowTaskSlugs } from "@/hooks/use-show-task-slugs";
 import { CsvToolbar } from "@/components/csv-toolbar";
 import { TaskQuickSearch } from "@/components/task-quick-search";
+import { TaskMoveDay } from "@/components/task-move-day";
+
 
 
 
@@ -179,6 +181,8 @@ function TasksPage() {
                         ? "Moving…"
                         : "Prev day"}
                     </Button>
+                    <TaskMoveDay taskId={t.id} fromDate={today} />
+
                     <Button
                       size="sm"
                       variant="ghost"
