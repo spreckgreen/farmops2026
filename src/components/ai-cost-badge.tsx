@@ -4,7 +4,7 @@ import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-  n as TooltipProvider,
+  TooltipProvider,
 } from "@/components/ui/tooltip";
 import { Coins, Zap } from "lucide-react";
 import {
