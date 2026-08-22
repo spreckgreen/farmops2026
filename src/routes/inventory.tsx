@@ -302,48 +302,55 @@ function InventoryPage() {
 
   const applyPlan = async () => {
     if (!plan) return;
+    const creates = plan.creates.filter((_, i) => isAccepted(`c${i}`));
+    const updates = plan.updates.filter((_, i) => isAccepted(`u${i}`));
+    const missing = plan.missing.filter((_, i) => isAccepted(`d${i}`));
+    if (!creates.length && !updates.length && !(deleteMissing && missing.length)) {
+      toast.error("Nothing selected — accept at least one row to import.");
+      return;
+    }
     setApplying(true);
     const createdIds: string[] = [];
     try {
-      if (plan.creates.length) {
+      if (creates.length) {
         const { data, error } = await supabase
           .from("inventory_items")
-          .insert(plan.creates.map((c) => ({ ...c.patch, user_id: session!.user.id })))
+          .insert(creates.map((c) => ({ ...c.patch, user_id: session!.user.id })))
           .select("id");
         if (error) throw new Error(error.message);
         for (const row of data ?? []) createdIds.push(row.id as string);
       }
-      for (const u of plan.updates) {
+      for (const u of updates) {
         const { error } = await supabase
           .from("inventory_items")
           .update(u.patch)
           .eq("id", u.existing!.id);
         if (error) throw new Error(error.message);
       }
-      if (deleteMissing && plan.missing.length) {
+      if (deleteMissing && missing.length) {
         const { error } = await supabase
           .from("inventory_items")
           .delete()
           .in(
             "id",
-            plan.missing.map((m) => m.id),
+            missing.map((m) => m.id),
           );
         if (error) throw new Error(error.message);
       }
-      const deletedRows = deleteMissing ? plan.missing : [];
+      const deletedRows = deleteMissing ? missing : [];
       try {
         await recordImportSnapshot(session!.user.id, {
           fileName: importFileName || "import.csv",
           deleteMissing,
           createdIds,
-          updatedBefore: plan.updates.map((u) => u.existing!),
+          updatedBefore: updates.map((u) => u.existing!),
           deletedRows,
         });
       } catch (err) {
         toast.warning(`Import applied, but the rollback snapshot failed: ${(err as Error).message}`);
       }
       toast.success(
-        `Import applied: ${plan.creates.length} added, ${plan.updates.length} updated` +
+        `Import applied: ${creates.length} added, ${updates.length} updated` +
           (deletedRows.length ? `, ${deletedRows.length} deleted` : "") +
           " — use Import history to roll back",
       );
