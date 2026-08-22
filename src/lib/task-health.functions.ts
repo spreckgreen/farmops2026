@@ -109,3 +109,62 @@ export const runTaskHealthNow = createServerFn({ method: "POST" })
     await recordTaskHealthRun(supabaseAdmin, report, "manual");
     return report;
   });
+
+export type DayStampRecomputeResult = {
+  applied: boolean;
+  scannedTasks: number;
+  fixes: import("./task-day-stamps").DayStampFix[];
+  updated: number;
+};
+
+/**
+ * Bulk "recompute day stamps": compare every task's `closed_at`/`start_at`
+ * against the daily notes its activity log lives in, and restamp the ones whose
+ * farm-local day drifted (the old UTC-based bug). `apply: false` previews.
+ */
+export const recomputeTaskDayStamps = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { apply?: boolean } | undefined) => ({
+    apply: input?.apply ?? false,
+  }))
+  .handler(async ({ data, context }): Promise<DayStampRecomputeResult> => {
+    const { planDayStampFixes, dayStampUpdates } = await import("./task-day-stamps");
+
+    const { data: tasks, error: taskErr } = await context.supabase
+      .from("tasks")
+      .select("id, slug, title, status, closed_at, start_at")
+      .eq("user_id", context.userId);
+    if (taskErr) throw new Error(taskErr.message);
+
+    const { data: logRows, error: logErr } = await context.supabase
+      .from("activity_log")
+      .select("task_id, created_at, daily_notes(date)")
+      .eq("user_id", context.userId)
+      .not("task_id", "is", null);
+    if (logErr) throw new Error(logErr.message);
+
+    const entries = (logRows ?? []).map((r) => {
+      const note = (r as { daily_notes?: { date?: string } | null }).daily_notes;
+      return {
+        task_id: r.task_id,
+        note_date: note?.date ?? null,
+        created_at: r.created_at,
+      };
+    });
+
+    const fixes = planDayStampFixes(tasks ?? [], entries);
+    let updated = 0;
+    if (data.apply) {
+      for (const { taskId, patch } of dayStampUpdates(fixes)) {
+        const { error } = await context.supabase
+          .from("tasks")
+          .update(patch)
+          .eq("id", taskId)
+          .eq("user_id", context.userId);
+        if (error) throw new Error(`task ${taskId}: ${error.message}`);
+        updated += 1;
+      }
+    }
+
+    return { applied: data.apply, scannedTasks: (tasks ?? []).length, fixes, updated };
+  });

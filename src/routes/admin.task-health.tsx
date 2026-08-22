@@ -8,14 +8,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Activity, AlertTriangle, Loader2, PlayCircle, RefreshCw, ShieldCheck } from "lucide-react";
+import { Activity, AlertTriangle, CalendarClock, Loader2, PlayCircle, RefreshCw, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import {
   getTaskHealthJobState,
   listTaskHealthRuns,
   resumeTaskHealthJob,
   runTaskHealthNow,
+  recomputeTaskDayStamps,
 } from "@/lib/task-health.functions";
+import type { DayStampRecomputeResult } from "@/lib/task-health.functions";
+import { APP_TIME_ZONE } from "@/lib/app-timezone";
 import type { TaskHealthReport } from "@/lib/task-health.server";
 
 export const Route = createFileRoute("/admin/task-health")({
@@ -47,6 +50,8 @@ function TaskHealthPage() {
   const runNow = useServerFn(runTaskHealthNow);
   const resume = useServerFn(resumeTaskHealthJob);
   const [report, setReport] = useState<TaskHealthReport | null>(null);
+  const recomputeStamps = useServerFn(recomputeTaskDayStamps);
+  const [stamps, setStamps] = useState<DayStampRecomputeResult | null>(null);
 
   const runs = useQuery({
     queryKey: ["task-health-runs"],
@@ -85,7 +90,25 @@ function TaskHealthPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const stampRun = useMutation({
+    mutationFn: (apply: boolean) => recomputeStamps({ data: { apply } }),
+    onSuccess: (data) => {
+      setStamps(data);
+      qc.invalidateQueries({ queryKey: ["tasks"] });
+      qc.invalidateQueries({ queryKey: ["daily-note"] });
+      toast.success(
+        data.applied
+          ? `Restamped ${data.updated} task(s)`
+          : data.fixes.length === 0
+            ? "All day stamps already match their logged day"
+            : `${data.fixes.length} stamp(s) landed on the wrong day`,
+      );
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const busy = scan.isPending;
+  const stampsBusy = stampRun.isPending;
 
   return (
     <AppLayout>
@@ -143,6 +166,65 @@ function TaskHealthPage() {
             <Button asChild variant="ghost">
               <Link to="/admin">Back to admin</Link>
             </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <CalendarClock className="h-4 w-4" /> Recompute day stamps
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Compares each task&apos;s close/start timestamp against the daily note its
+              activity was logged in, and moves stamps that drifted onto the wrong day back
+              onto the right one. Late-night edits used to stamp the next UTC date — e.g. a
+              checkbox ticked 23:10 Friday landed on Saturday. Calendar: {APP_TIME_ZONE}.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" disabled={stampsBusy} onClick={() => stampRun.mutate(false)}>
+                {stampsBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+                <span className="ml-2">Preview drifted stamps</span>
+              </Button>
+              <Button disabled={stampsBusy} onClick={() => stampRun.mutate(true)}>
+                {stampsBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <PlayCircle className="h-4 w-4" />}
+                <span className="ml-2">Recompute &amp; fix</span>
+              </Button>
+            </div>
+            {stamps ? (
+              <div className="space-y-2 text-sm">
+                <div className="flex flex-wrap gap-2 text-xs">
+                  <Badge variant="outline">{stamps.scannedTasks} scanned</Badge>
+                  <Badge variant="outline">{stamps.fixes.length} drifted</Badge>
+                  <Badge variant={stamps.applied ? "default" : "secondary"}>
+                    {stamps.applied ? `${stamps.updated} task(s) restamped` : "preview only"}
+                  </Badge>
+                </div>
+                {stamps.fixes.length === 0 ? (
+                  <p className="text-muted-foreground">Nothing to fix.</p>
+                ) : (
+                  <ul className="space-y-1">
+                    {stamps.fixes.map((f) => (
+                      <li
+                        key={`${f.taskId}-${f.field}`}
+                        className="rounded-md border p-2 font-mono text-xs"
+                      >
+                        <span className="font-semibold">{f.title}</span>{" "}
+                        <span className="text-muted-foreground">({f.slug})</span>
+                        <div className="text-muted-foreground">
+                          {f.field}: {f.fromDay} → {f.toDay}
+                        </div>
+                        <div className="text-muted-foreground break-all">
+                          {f.from} → {f.to}
+                        </div>
+                        <div className="text-muted-foreground">{f.reason}</div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            ) : null}
           </CardContent>
         </Card>
 
