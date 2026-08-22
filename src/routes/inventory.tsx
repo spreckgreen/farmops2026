@@ -226,6 +226,7 @@ function InventoryPage() {
   const proceedFromReport = () => {
     if (!report?.result?.ok) return;
     setPlan(reconcileInventory(report.rows as ParsedRow[], assets));
+    setImportFileName(report.fileName);
     setDeleteMissing(false);
     setReport(null);
   };
