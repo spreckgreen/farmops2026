@@ -25,3 +25,35 @@ export function appendTaskRefLine(currentMarkdown: string, refLine: string): str
   if (md.trim().length === 0) return `${refLine}\n`;
   return `${md.trimEnd()}\n${refLine}\n`;
 }
+
+/**
+ * Inverse of `appendTaskRefLine`: strip every line that references
+ * `#task/<slug>` (plus any indented child lines that belong to it) from a
+ * daily note's markdown. Used when a task is moved back to the Backlog.
+ */
+export function removeTaskRefLines(currentMarkdown: string, slug: string): string {
+  const md = currentMarkdown ?? "";
+  if (!md) return md;
+  const marker = `#task/${slug}`;
+  const lines = md.split("\n");
+  const out: string[] = [];
+  let dropping = false;
+  for (const line of lines) {
+    const isChild = /^\s+\S/.test(line);
+    if (dropping && isChild) continue;
+    dropping = false;
+    // Match the slug only when followed by a non-slug character, so
+    // `#task/foo` does not also strip `#task/foo-bar`.
+    const idx = line.indexOf(marker);
+    if (idx !== -1) {
+      const next = line[idx + marker.length];
+      if (next === undefined || !/[A-Za-z0-9_-]/.test(next)) {
+        dropping = true;
+        continue;
+      }
+    }
+    out.push(line);
+  }
+  const result = out.join("\n");
+  return result.trim().length === 0 ? "" : `${result.trimEnd()}\n`;
+}
