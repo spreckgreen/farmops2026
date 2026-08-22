@@ -744,20 +744,35 @@ Untagged lines stay in this note only.`}</pre>
               <li className="text-sm text-muted-foreground">None yet. Add a `- [ ]` line.</li>
             )}
             {openTasks.map((t) => (
-              <li key={t.id}>
+              <li key={t.id} className="rounded hover:bg-accent group">
                 <Link
                   to="/tasks/$slug"
                   params={{ slug: t.slug }}
-                  className="flex items-center justify-between gap-2 text-sm py-1.5 px-2 rounded hover:bg-accent group"
+                  className="flex items-center justify-between gap-2 text-sm py-1.5 px-2"
                 >
                   <span className="truncate">{t.title}</span>
                   {t.status === "blocked" && (
                     <Badge variant="destructive" className="text-[10px]">blocked</Badge>
                   )}
                 </Link>
+                <div className="flex items-center gap-1 px-1 pb-1.5">
+                  <TaskMoveDay taskId={t.id} fromDate={date} />
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="shrink-0"
+                    title="Move this task off this day and back to the backlog"
+                    disabled={toBacklog.isPending && toBacklog.variables === t.id}
+                    onClick={() => toBacklog.mutate(t.id)}
+                  >
+                    <Undo2 className="h-3.5 w-3.5 mr-1" />
+                    {toBacklog.isPending && toBacklog.variables === t.id ? "Moving…" : "Backlog"}
+                  </Button>
+                </div>
               </li>
             ))}
           </ul>
+
           <div className="mt-4">
             <Button variant="outline" size="sm" asChild className="w-full">
               <Link to="/tasks">All tasks →</Link>
