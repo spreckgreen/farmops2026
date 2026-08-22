@@ -30,11 +30,14 @@ import { rowsToCsv, downloadCsv } from "@/lib/csv";
 import {
   INVENTORY_CSV_COLUMNS,
   reconcileInventory,
+  diff as diffPatch,
   type ParsedRow,
   type ReconcilePlan,
+  type AssetPatch,
 } from "@/lib/inventory-reconcile";
 import {
   validateInventoryCsv,
+  VALID_STATUSES,
   type ValidationReport,
 } from "@/lib/inventory-csv-validate";
 import {
@@ -74,6 +77,79 @@ function fieldLabel(src: Record<string, unknown> | null | undefined, field: stri
   if (v === null || v === undefined || v === "") return "—";
   if (Array.isArray(v)) return v.length ? v.join("; ") : "—";
   return String(v);
+}
+
+const EDITABLE_FIELDS: Array<{ field: keyof AssetPatch; label: string; kind: "text" | "number" | "status" | "tags" }> = [
+  { field: "name", label: "Name", kind: "text" },
+  { field: "description", label: "Description", kind: "text" },
+  { field: "item_type", label: "Type", kind: "text" },
+  { field: "location", label: "Location", kind: "text" },
+  { field: "quantity", label: "Quantity", kind: "number" },
+  { field: "min_quantity", label: "Min qty", kind: "number" },
+  { field: "status", label: "Status", kind: "status" },
+  { field: "barcode", label: "Barcode", kind: "text" },
+  { field: "tags", label: "Tags (a; b)", kind: "tags" },
+];
+
+/** Inline editor for a single import row before it is applied. */
+function PatchEditor({
+  patch,
+  edited,
+  onChange,
+  onReset,
+}: {
+  patch: AssetPatch;
+  edited: boolean;
+  onChange: (field: keyof AssetPatch, raw: string) => void;
+  onReset: () => void;
+}) {
+  return (
+    <div className="rounded-md border border-border/60 bg-card/40 p-2 space-y-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        {EDITABLE_FIELDS.map(({ field, label, kind }) => {
+          const value =
+            kind === "tags"
+              ? (patch.tags ?? []).join("; ")
+              : patch[field] === null || patch[field] === undefined
+                ? ""
+                : String(patch[field]);
+          return (
+            <label key={field} className="space-y-1 block">
+              <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                {label}
+              </span>
+              {kind === "status" ? (
+                <select
+                  className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs"
+                  value={String(patch.status)}
+                  onChange={(e) => onChange("status", e.target.value)}
+                >
+                  {VALID_STATUSES.map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <Input
+                  className="h-8 text-xs"
+                  type={kind === "number" ? "number" : "text"}
+                  min={kind === "number" ? 0 : undefined}
+                  value={value}
+                  onChange={(e) => onChange(field, e.target.value)}
+                />
+              )}
+            </label>
+          );
+        })}
+      </div>
+      {edited && (
+        <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={onReset}>
+          Reset to file values
+        </Button>
+      )}
+    </div>
+  );
 }
 
 function InventoryPage() {
@@ -125,6 +201,53 @@ function InventoryPage() {
       }
       return next;
     });
+
+  /** Inline field overrides per row key, e.g. { u2: { quantity: 12 } }. */
+  const [edits, setEdits] = useState<Record<string, Partial<AssetPatch>>>({});
+  /** Row keys whose inline editor is open. */
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  const toggleExpanded = (key: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+
+  /** The patch that will actually be written for a row (CSV values + inline edits). */
+  const effectivePatch = (key: string, patch: AssetPatch): AssetPatch => ({
+    ...patch,
+    ...(edits[key] ?? {}),
+  });
+
+  const setEditField = (key: string, field: keyof AssetPatch, raw: string) => {
+    let value: AssetPatch[keyof AssetPatch];
+    if (field === "quantity" || field === "min_quantity") {
+      const n = Number(raw.replace(/[$,]/g, ""));
+      value = Number.isFinite(n) && n >= 0 ? n : 0;
+    } else if (field === "tags") {
+      value = raw
+        .split(/[;|]/)
+        .map((t) => t.trim())
+        .filter(Boolean);
+    } else if (field === "barcode" || field === "item_type") {
+      value = raw.trim() || null;
+    } else {
+      value = raw;
+    }
+    setEdits((prev) => ({ ...prev, [key]: { ...(prev[key] ?? {}), [field]: value } }));
+  };
+
+  const clearEdits = (key: string) =>
+    setEdits((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+
+
+
 
 
 
@@ -249,6 +372,8 @@ function InventoryPage() {
     setImportFileName(report.fileName);
     setDeleteMissing(false);
     setRejected(new Set());
+    setEdits({});
+    setExpanded(new Set());
     setReport(null);
   };
 
@@ -302,8 +427,12 @@ function InventoryPage() {
 
   const applyPlan = async () => {
     if (!plan) return;
-    const creates = plan.creates.filter((_, i) => isAccepted(`c${i}`));
-    const updates = plan.updates.filter((_, i) => isAccepted(`u${i}`));
+    const creates = plan.creates
+      .map((c, i) => ({ ...c, patch: effectivePatch(`c${i}`, c.patch) }))
+      .filter((_, i) => isAccepted(`c${i}`));
+    const updates = plan.updates
+      .map((u, i) => ({ ...u, patch: effectivePatch(`u${i}`, u.patch) }))
+      .filter((_, i) => isAccepted(`u${i}`));
     const missing = plan.missing.filter((_, i) => isAccepted(`d${i}`));
     if (!creates.length && !updates.length && !(deleteMissing && missing.length)) {
       toast.error("Nothing selected — accept at least one row to import.");
@@ -749,63 +878,116 @@ function InventoryPage() {
                     </div>
                   </div>
                 <div className="max-h-72 overflow-y-auto rounded-lg border border-border divide-y divide-border/60">
-                  {plan.creates.map((c, i) => (
-                    <div
-                      key={`c${i}`}
-                      className={`px-3 py-2 flex items-center gap-3 ${
-                        isAccepted(`c${i}`) ? "" : "opacity-50"
-                      }`}
-                    >
-                      <Checkbox
-                        checked={isAccepted(`c${i}`)}
-                        onCheckedChange={() => toggleRow(`c${i}`)}
-                        aria-label={`Accept new item ${c.patch.name}`}
-                      />
-                      <span className="truncate flex-1">{c.patch.name}</span>
-                      <span className="text-emerald-400 text-xs shrink-0">new</span>
-                    </div>
-                  ))}
-                  {plan.updates.map((u, i) => (
-                    <div
-                      key={`u${i}`}
-                      className={`px-3 py-2 space-y-1.5 ${isAccepted(`u${i}`) ? "" : "opacity-50"}`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <Checkbox
-                          checked={isAccepted(`u${i}`)}
-                          onCheckedChange={() => toggleRow(`u${i}`)}
-                          aria-label={`Accept update for ${u.existing?.name ?? u.patch.name}`}
-                        />
-                        <span className="truncate font-medium flex-1">
-                          {u.existing?.name ?? u.patch.name}
-                        </span>
-                        <span className="text-xs text-muted-foreground shrink-0">
-                          matched by {u.matchedBy}
-                        </span>
-                      </div>
-                      <div className="rounded-md border border-border/60 overflow-hidden">
-                        <div className="grid grid-cols-[7rem_1fr_1fr] bg-card/60 text-[11px] uppercase tracking-wide text-muted-foreground">
-                          <span className="px-2 py-1">Field</span>
-                          <span className="px-2 py-1">Current</span>
-                          <span className="px-2 py-1">After import</span>
-                        </div>
-                        {u.changedFields.map((f) => (
-                          <div
-                            key={f}
-                            className="grid grid-cols-[7rem_1fr_1fr] border-t border-border/50 text-xs"
+                  {plan.creates.map((c, i) => {
+                    const key = `c${i}`;
+                    const eff = effectivePatch(key, c.patch);
+                    return (
+                      <div
+                        key={key}
+                        className={`px-3 py-2 space-y-1.5 ${isAccepted(key) ? "" : "opacity-50"}`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <Checkbox
+                            checked={isAccepted(key)}
+                            onCheckedChange={() => toggleRow(key)}
+                            aria-label={`Accept new item ${eff.name}`}
+                          />
+                          <span className="truncate flex-1">{eff.name}</span>
+                          {edits[key] && (
+                            <span className="text-amber-400 text-xs shrink-0">edited</span>
+                          )}
+                          <span className="text-emerald-400 text-xs shrink-0">new</span>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 px-2 text-xs shrink-0"
+                            onClick={() => toggleExpanded(key)}
                           >
-                            <span className="px-2 py-1 text-muted-foreground">{f}</span>
-                            <span className="px-2 py-1 text-muted-foreground line-through decoration-destructive/60 break-words">
-                              {fieldLabel(u.existing as unknown as Record<string, unknown>, f)}
-                            </span>
-                            <span className="px-2 py-1 text-sky-400 break-words">
-                              {fieldLabel(u.patch as unknown as Record<string, unknown>, f)}
-                            </span>
-                          </div>
-                        ))}
+                            {expanded.has(key) ? "Done" : "Edit"}
+                          </Button>
+                        </div>
+                        {expanded.has(key) && (
+                          <PatchEditor
+                            patch={eff}
+                            edited={Boolean(edits[key])}
+                            onChange={(f, v) => setEditField(key, f, v)}
+                            onReset={() => clearEdits(key)}
+                          />
+                        )}
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
+                  {plan.updates.map((u, i) => {
+                    const key = `u${i}`;
+                    const eff = effectivePatch(key, u.patch);
+                    const changed = u.existing ? diffPatch(u.existing, eff) : u.changedFields;
+                    return (
+                      <div
+                        key={key}
+                        className={`px-3 py-2 space-y-1.5 ${isAccepted(key) ? "" : "opacity-50"}`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <Checkbox
+                            checked={isAccepted(key)}
+                            onCheckedChange={() => toggleRow(key)}
+                            aria-label={`Accept update for ${u.existing?.name ?? eff.name}`}
+                          />
+                          <span className="truncate font-medium flex-1">
+                            {u.existing?.name ?? eff.name}
+                          </span>
+                          {edits[key] && (
+                            <span className="text-amber-400 text-xs shrink-0">edited</span>
+                          )}
+                          <span className="text-xs text-muted-foreground shrink-0">
+                            matched by {u.matchedBy}
+                          </span>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 px-2 text-xs shrink-0"
+                            onClick={() => toggleExpanded(key)}
+                          >
+                            {expanded.has(key) ? "Done" : "Edit"}
+                          </Button>
+                        </div>
+                        {changed.length === 0 ? (
+                          <p className="text-xs text-muted-foreground">
+                            No changes left after your edits — this row will be written as-is.
+                          </p>
+                        ) : (
+                          <div className="rounded-md border border-border/60 overflow-hidden">
+                            <div className="grid grid-cols-[7rem_1fr_1fr] bg-card/60 text-[11px] uppercase tracking-wide text-muted-foreground">
+                              <span className="px-2 py-1">Field</span>
+                              <span className="px-2 py-1">Current</span>
+                              <span className="px-2 py-1">After import</span>
+                            </div>
+                            {changed.map((f) => (
+                              <div
+                                key={f}
+                                className="grid grid-cols-[7rem_1fr_1fr] border-t border-border/50 text-xs"
+                              >
+                                <span className="px-2 py-1 text-muted-foreground">{f}</span>
+                                <span className="px-2 py-1 text-muted-foreground line-through decoration-destructive/60 break-words">
+                                  {fieldLabel(u.existing as unknown as Record<string, unknown>, f)}
+                                </span>
+                                <span className="px-2 py-1 text-sky-400 break-words">
+                                  {fieldLabel(eff as unknown as Record<string, unknown>, f)}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {expanded.has(key) && (
+                          <PatchEditor
+                            patch={eff}
+                            edited={Boolean(edits[key])}
+                            onChange={(f, v) => setEditField(key, f, v)}
+                            onReset={() => clearEdits(key)}
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
                 </div>
               )}
