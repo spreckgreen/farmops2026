@@ -87,3 +87,81 @@ export function deletableTag(point: ModelRollbackPoint): string | null {
   if (point.createdTag === point.previousModel) return null;
   return point.createdTag;
 }
+
+// -----------------------------------------------------------------------------
+// Deletion plan — what "also delete … from Ollama" will actually remove.
+// Shown in a confirmation dialog so nobody nukes a tag by reflex.
+// -----------------------------------------------------------------------------
+export interface TagDeletionPlan {
+  /** Tags that will be removed from Ollama. */
+  remove: string[];
+  /** Tags deliberately kept, with the reason to display. */
+  keep: Array<{ tag: string; reason: string }>;
+}
+
+export function buildTagDeletionPlan(
+  point: ModelRollbackPoint | null,
+  currentModel: string | null = null,
+): TagDeletionPlan {
+  const plan: TagDeletionPlan = { remove: [], keep: [] };
+  if (!point) return plan;
+  const tag = point.createdTag;
+  if (!tag) return plan;
+  if (tag === point.previousModel) {
+    plan.keep.push({ tag, reason: "this is the model being restored" });
+    return plan;
+  }
+  if (currentModel && tag !== currentModel) {
+    plan.keep.push({ tag, reason: "no longer the active model — not created by this change" });
+    return plan;
+  }
+  plan.remove.push(tag);
+  if (point.previousModel) {
+    plan.keep.push({ tag: point.previousModel, reason: "restored as the active model" });
+  }
+  return plan;
+}
+
+/** e.g. "Delete 1 tag (llama3.2-3b-ctx32k) — this frees disk and cannot be undone." */
+export function describeDeletionPlan(plan: TagDeletionPlan): string {
+  if (plan.remove.length === 0) return "Nothing will be deleted from Ollama.";
+  return `${plan.remove.length} tag${plan.remove.length === 1 ? "" : "s"} will be deleted from Ollama and would need re-pulling or re-creating.`;
+}
+
+// -----------------------------------------------------------------------------
+// Automatic rollback — a model change is only good if the workflows it was
+// meant to unblock actually pass afterwards.
+// -----------------------------------------------------------------------------
+export interface WorkflowOutcome {
+  workflow: string;
+  workflowLabel?: string;
+  ok: boolean;
+  passed?: boolean;
+}
+
+const GATING_WORKFLOWS = ["weekly_report", "manual"];
+
+/** Workflow runs that gate a model change (ignores the smoke probe). */
+export function gatingOutcomes(results: WorkflowOutcome[]): WorkflowOutcome[] {
+  return results.filter((r) => GATING_WORKFLOWS.includes(r.workflow));
+}
+
+/** Failed gating runs: transport error, or a reply that missed the checks. */
+export function failedOutcomes(results: WorkflowOutcome[]): WorkflowOutcome[] {
+  return gatingOutcomes(results).filter((r) => !r.ok || !r.passed);
+}
+
+/**
+ * Roll back when at least one gating workflow ran and any of them failed.
+ * No gating results (tests never ran) = no automatic action.
+ */
+export function shouldAutoRollback(results: WorkflowOutcome[]): boolean {
+  const gating = gatingOutcomes(results);
+  if (gating.length === 0) return false;
+  return failedOutcomes(results).length > 0;
+}
+
+export function describeAutoRollback(results: WorkflowOutcome[], previousModel: string): string {
+  const failed = failedOutcomes(results).map((r) => r.workflowLabel ?? r.workflow);
+  return `${failed.join(" and ")} failed after the change — restoring ${previousModel}.`;
+}
