@@ -491,10 +491,19 @@ EOF
         if [ "$V_DRIFT" -ne 0 ] || [ "$V_PARTIAL" -ne 0 ]; then
           echo "-- ----------------------------------------------------------------------------"
           echo "-- SECTION 1 — DRIFT / PARTIAL: re-create objects that are missing."
-          echo "-- The migration file is the source of truth, so its SQL is inlined verbatim."
-          echo "-- Statements for objects that still exist will raise \"already exists\";"
-          echo "-- that is expected on a PARTIAL file. If you hit one, comment that single"
-          echo "-- statement out and re-run the section."
+          echo "-- The migration file is the source of truth, so its SQL is inlined — but"
+          echo "-- every statement is first rewritten to be idempotent by"
+          echo "-- scripts/lib/idempotent-sql.awk:"
+          echo "--   CREATE TABLE/INDEX/SCHEMA/SEQUENCE/EXTENSION -> ... IF NOT EXISTS"
+          echo "--   CREATE FUNCTION/VIEW                         -> CREATE OR REPLACE"
+          echo "--   CREATE TRIGGER/POLICY                        -> DROP IF EXISTS first"
+          echo "--   ALTER TABLE ... ADD COLUMN                   -> ADD COLUMN IF NOT EXISTS"
+          echo "--   ALTER TABLE ... ADD CONSTRAINT               -> DROP CONSTRAINT IF EXISTS first"
+          echo "--   CREATE TYPE/DOMAIN/ROLE                      -> DO block ignoring duplicate_*"
+          echo "-- So a PARTIAL file is safe: statements for objects that already exist are"
+          echo "-- no-ops, and the whole script can be run twice with the same result."
+          echo "-- Anything that CANNOT be made idempotent automatically (an INSERT with no"
+          echo "-- ON CONFLICT) is left in place with a '-- REVIEW:' comment above it."
           echo "-- ----------------------------------------------------------------------------"
           for f in "${DRIFT_FILES[@]:-}" "${PARTIAL_FILES[@]:-}"; do
             [ -z "${f:-}" ] && continue
@@ -503,13 +512,14 @@ EOF
             echo "-- missing objects detected:"
             printf '%s' "${PROBE_MISS["$f"]:-}" | sed '/^$/d;s/^/--   /'
             echo "BEGIN;"
-            sed 's/^/  /' "supabase/migrations/$f"
+            awk -v indent="  " -f scripts/lib/idempotent-sql.awk "supabase/migrations/$f"
             echo "  INSERT INTO private.applied_migrations (filename) VALUES ('$f')"
             echo "    ON CONFLICT (filename) DO NOTHING;"
             echo "COMMIT;"
           done
           echo
         fi
+
 
         if [ "${DC:-0}" != "2" ]; then
           echo "-- ----------------------------------------------------------------------------"
