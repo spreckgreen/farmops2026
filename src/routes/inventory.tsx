@@ -295,9 +295,22 @@ function InventoryPage() {
           );
         if (error) throw new Error(error.message);
       }
+      const deletedRows = deleteMissing ? plan.missing : [];
+      try {
+        await recordImportSnapshot(session!.user.id, {
+          fileName: importFileName || "import.csv",
+          deleteMissing,
+          createdIds,
+          updatedBefore: plan.updates.map((u) => u.existing!),
+          deletedRows,
+        });
+      } catch (err) {
+        toast.warning(`Import applied, but the rollback snapshot failed: ${(err as Error).message}`);
+      }
       toast.success(
         `Import applied: ${plan.creates.length} added, ${plan.updates.length} updated` +
-          (deleteMissing && plan.missing.length ? `, ${plan.missing.length} deleted` : ""),
+          (deletedRows.length ? `, ${deletedRows.length} deleted` : "") +
+          " — use Import history to roll back",
       );
       setPlan(null);
       fetchAssets();
