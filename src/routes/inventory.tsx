@@ -32,6 +32,11 @@ import {
   type ReconcilePlan,
 } from "@/lib/inventory-reconcile";
 import {
+  validateInventoryCsv,
+  type ValidationReport,
+} from "@/lib/inventory-csv-validate";
+
+import {
   Dialog,
   DialogContent,
   DialogDescription,
