@@ -430,7 +430,101 @@ function InventoryPage() {
         }}
       />
 
+      <Dialog open={Boolean(report)} onOpenChange={(open) => !open && setReport(null)}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>CSV validation</DialogTitle>
+            <DialogDescription>
+              {report?.fileName} — every row is checked before anything is written. Errors must be
+              fixed in the file; warnings are safe to ignore.
+            </DialogDescription>
+          </DialogHeader>
+
+          {report?.parseErrors.length ? (
+            <div className="space-y-2 text-sm">
+              <p className="text-destructive font-medium">
+                This file could not be read as CSV.
+              </p>
+              <ul className="max-h-56 overflow-y-auto rounded-lg border border-border divide-y divide-border/60">
+                {report.parseErrors.map((m, i) => (
+                  <li key={i} className="px-3 py-2 text-muted-foreground">
+                    {m}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : report?.result ? (
+            <div className="space-y-4 text-sm">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {[
+                  { label: "Rows", value: report.result.totalRows },
+                  { label: "Valid", value: report.result.validRows },
+                  { label: "Errors", value: report.result.errors.length },
+                  { label: "Warnings", value: report.result.warnings.length },
+                ].map((s) => (
+                  <div key={s.label} className="rounded-lg border border-border p-3">
+                    <div className="text-xl font-semibold">{s.value}</div>
+                    <div className="text-xs text-muted-foreground">{s.label}</div>
+                  </div>
+                ))}
+              </div>
+
+              {report.result.unknownColumns.length > 0 && (
+                <p className="text-muted-foreground">
+                  Unrecognized columns ignored: {report.result.unknownColumns.join(", ")}
+                </p>
+              )}
+
+              {report.result.issues.length > 0 ? (
+                <div className="max-h-64 overflow-y-auto rounded-lg border border-border divide-y divide-border/60">
+                  {report.result.issues.slice(0, 200).map((i, idx) => (
+                    <div key={idx} className="px-3 py-2 flex gap-3 items-start">
+                      <span
+                        className={`text-xs shrink-0 font-medium ${
+                          i.severity === "error" ? "text-destructive" : "text-amber-400"
+                        }`}
+                      >
+                        line {i.line}
+                      </span>
+                      <span className="text-xs shrink-0 text-muted-foreground w-24 truncate">
+                        {i.field}
+                      </span>
+                      <span className="text-muted-foreground">{i.message}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-emerald-400">
+                  All {report.result.totalRows} row(s) look valid.
+                </p>
+              )}
+
+              {report.result.blankRows > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  {report.result.blankRows} blank row(s) skipped.
+                </p>
+              )}
+            </div>
+          ) : null}
+
+          <DialogFooter>
+            {report?.result && report.result.issues.length > 0 && (
+              <Button variant="ghost" onClick={downloadIssueReport}>
+                <Download className="h-4 w-4 mr-1" /> Download report
+              </Button>
+            )}
+            <Button variant="outline" onClick={() => setReport(null)}>
+              {report?.result?.ok ? "Cancel" : "Close"}
+            </Button>
+            {report?.result?.ok && (
+              <Button onClick={proceedFromReport}>Continue to review</Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={Boolean(plan)} onOpenChange={(open) => !open && setPlan(null)}>
+
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Review import</DialogTitle>
