@@ -175,6 +175,17 @@ fi
 
 run_sql() { "${PSQL[@]}" "${PSQL_TARGET[@]}" -v ON_ERROR_STOP=1 -q "$@"; }
 
+# Run a host SQL file. In container mode the host path does not exist inside the
+# db container (psql reports "No such file or directory"), so stream it on stdin.
+run_sql_file() {
+  local file="$1"; shift
+  if [ "$PSQL_MODE" = "container" ]; then
+    "${PSQL[@]}" -v ON_ERROR_STOP=1 -q "$@" <"$file"
+  else
+    "${PSQL[@]}" "${PSQL_TARGET[@]}" -v ON_ERROR_STOP=1 -q "$@" -f "$file"
+  fi
+}
+
 run_migration_file() {
   local path="$1"
   if [ "$PSQL_MODE" = "container" ]; then
