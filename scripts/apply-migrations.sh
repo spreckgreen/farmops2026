@@ -111,18 +111,40 @@ warn() { printf '\033[1;33m[migrate]\033[0m %s\n' "$*"; }
 err()  { printf '\033[1;31m[migrate]\033[0m %s\n' "$*" >&2; }
 
 # --- Resolve the DB URL -----------------------------------------------------
+# NOTE: every lookup ends in `|| true`. Under `set -e` a failing grep inside a
+# command substitution kills the script INSTANTLY and SILENTLY — that was the
+# cause of "./scripts/apply-migrations.sh --dry-run printed nothing, exit 1".
 DB_URL="${SUPABASE_DB_URL:-}"
-for f in .env.local .env; do
+for f in .env.local .env ../supabase-project/.env "$HOME/supabase-project/.env"; do
   [ -n "$DB_URL" ] && break
   [ -r "$f" ] || continue
-  DB_URL="$(grep -E '^[[:space:]]*SUPABASE_DB_URL=' "$f" | tail -1 | cut -d= -f2- | tr -d '"'"'"' \r')"
+  DB_URL="$(grep -E '^[[:space:]]*SUPABASE_DB_URL=' "$f" 2>/dev/null | tail -1 | cut -d= -f2- | tr -d '"'"'"' \r' || true)"
 done
+
+# Fallback: assemble the URL from a self-hosted Supabase POSTGRES_PASSWORD,
+# e.g. POSTGRES_PASSWORD=s3cret -> postgresql://postgres:s3cret@localhost:5432/postgres
+if [ -z "$DB_URL" ]; then
+  for f in .env.local .env ../supabase-project/.env "$HOME/supabase-project/.env"; do
+    pw="$(grep -E '^[[:space:]]*POSTGRES_PASSWORD=' "$f" 2>/dev/null | tail -1 | cut -d= -f2- | tr -d '"'"'"' \r' || true)"
+    if [ -n "${pw:-}" ]; then
+      port="$(grep -E '^[[:space:]]*POSTGRES_PORT=' "$f" 2>/dev/null | tail -1 | cut -d= -f2- | tr -d '"'"'"' \r' || true)"
+      DB_URL="postgresql://postgres:${pw}@localhost:${port:-5432}/postgres"
+      printf '\033[1;33m[migrate]\033[0m %s\n' "SUPABASE_DB_URL not set — derived connection from POSTGRES_PASSWORD in $f"
+      break
+    fi
+  done
+fi
 
 if [ -z "$DB_URL" ]; then
   err "SUPABASE_DB_URL not set and not found in .env.local / .env — skipping migrations."
+  err "  Add one line to .env.local, then re-run this script, e.g.:"
+  err '    SUPABASE_DB_URL="postgresql://postgres:<POSTGRES_PASSWORD>@localhost:5432/postgres"'
+  err "  The password is POSTGRES_PASSWORD from your self-hosted Supabase .env"
+  err "  (typically ~/supabase-project/.env)."
   err "  Managed Supabase (supabase.com) users: run 'supabase db push' instead."
   exit 3   # distinct code so callers can treat 'no DB URL' as non-fatal
 fi
+
 
 # --- Pick a psql -------------------------------------------------------------
 if command -v psql >/dev/null 2>&1; then
