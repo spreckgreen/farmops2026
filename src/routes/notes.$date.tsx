@@ -248,6 +248,21 @@ function NotePage() {
   const tasks = query.data?.tasks ?? [];
   const openTasks = tasks.filter((t) => t.status !== "done");
 
+  // Move a task off this day's note and back to the backlog.
+  const removeFromDayFn = useServerFn(removeTaskFromToday);
+  const toBacklog = useMutation({
+    mutationFn: (taskId: string) => removeFromDayFn({ data: { taskId, date } }),
+    onSuccess: () => {
+      toast.success("Moved back to backlog");
+      qc.invalidateQueries({ queryKey: ["daily-note"] });
+      qc.invalidateQueries({ queryKey: ["tasks"] });
+    },
+    onError: (e: unknown) =>
+      toast.error(e instanceof Error ? e.message : "Failed to move task"),
+  });
+
+
+
   // ---- #project/ autocomplete ----
   const listProjectsFn = useServerFn(listProjects);
   const projectsQ = useQuery({ queryKey: ["projects"], queryFn: () => listProjectsFn() });
