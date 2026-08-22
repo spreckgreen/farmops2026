@@ -29,17 +29,20 @@ FORCE=0
 DO_PULL=1
 ALLOW_SUDO=1
 SKIP_HEALTHCHECK=0
+SKIP_MIGRATIONS=0
 for arg in "$@"; do
   case "$arg" in
     --force)   FORCE=1 ;;
     --no-pull) DO_PULL=0 ;;
     --no-sudo) ALLOW_SUDO=0 ;;
     --skip-healthcheck) SKIP_HEALTHCHECK=1 ;;
+    --skip-migrations) SKIP_MIGRATIONS=1 ;;
     -h|--help)
       sed -n '2,25p' "$0"; exit 0 ;;
     *) echo "Unknown flag: $arg" >&2; exit 2 ;;
   esac
 done
+
 
 cd "$(dirname "$0")/.."
 
