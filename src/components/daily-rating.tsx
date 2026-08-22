@@ -121,12 +121,23 @@ export function DailyRatingPanel({
     setLocal({ energy, productivity });
   }, [energy, productivity, noteId]);
 
+  const [unsupported, setUnsupported] = useState<string | null>(null);
+
   const save = useMutation({
     mutationFn: (patch: { energy_level?: number | null; productivity_level?: number | null }) => {
       if (!noteId) throw new Error("Note not loaded yet");
       return saveFn({ data: { noteId, ...patch } });
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["daily-note", date] }),
+    onSuccess: (res) => {
+      const r = res as { supported?: boolean; message?: string } | undefined;
+      if (r && r.supported === false) {
+        setUnsupported(r.message ?? "Day colour ratings aren't available on this database yet.");
+        setLocal({ energy, productivity });
+        return;
+      }
+      setUnsupported(null);
+      qc.invalidateQueries({ queryKey: ["daily-note", date] });
+    },
     onError: (e) => {
       setLocal({ energy, productivity });
       toast.error(e instanceof Error ? e.message : "Could not save rating");
