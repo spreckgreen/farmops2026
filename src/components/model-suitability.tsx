@@ -174,8 +174,11 @@ function SuitabilityActions({
   const rollbackFn = useServerFn(rollbackAiModel);
   const [tests, setTests] = useState<AiTestResult[]>([]);
   const [testing, setTesting] = useState(false);
-  const [deleteTag, setDeleteTag] = useState(true);
+  const [deleteTag, setDeleteTag] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [autoReverted, setAutoReverted] = useState<string | null>(null);
   const queryClient = useQueryClient();
+
 
   // Rollback point recorded by the last model change (server-persisted, so it
   // survives reloads and restarts).
