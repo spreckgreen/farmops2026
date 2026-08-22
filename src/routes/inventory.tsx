@@ -552,7 +552,7 @@ function InventoryPage() {
               </div>
 
               {(plan.creates.length > 0 || plan.updates.length > 0) && (
-                <div className="max-h-56 overflow-y-auto rounded-lg border border-border divide-y divide-border/60">
+                <div className="max-h-72 overflow-y-auto rounded-lg border border-border divide-y divide-border/60">
                   {plan.creates.slice(0, 50).map((c, i) => (
                     <div key={`c${i}`} className="px-3 py-2 flex justify-between gap-3">
                       <span className="truncate">{c.patch.name}</span>
@@ -560,15 +560,41 @@ function InventoryPage() {
                     </div>
                   ))}
                   {plan.updates.slice(0, 50).map((u, i) => (
-                    <div key={`u${i}`} className="px-3 py-2 flex justify-between gap-3">
-                      <span className="truncate">{u.patch.name}</span>
-                      <span className="text-sky-400 text-xs shrink-0">
-                        {u.changedFields.join(", ")} (by {u.matchedBy})
-                      </span>
+                    <div key={`u${i}`} className="px-3 py-2 space-y-1.5">
+                      <div className="flex justify-between gap-3">
+                        <span className="truncate font-medium">
+                          {u.existing?.name ?? u.patch.name}
+                        </span>
+                        <span className="text-xs text-muted-foreground shrink-0">
+                          matched by {u.matchedBy}
+                        </span>
+                      </div>
+                      <div className="rounded-md border border-border/60 overflow-hidden">
+                        <div className="grid grid-cols-[7rem_1fr_1fr] bg-card/60 text-[11px] uppercase tracking-wide text-muted-foreground">
+                          <span className="px-2 py-1">Field</span>
+                          <span className="px-2 py-1">Current</span>
+                          <span className="px-2 py-1">After import</span>
+                        </div>
+                        {u.changedFields.map((f) => (
+                          <div
+                            key={f}
+                            className="grid grid-cols-[7rem_1fr_1fr] border-t border-border/50 text-xs"
+                          >
+                            <span className="px-2 py-1 text-muted-foreground">{f}</span>
+                            <span className="px-2 py-1 text-muted-foreground line-through decoration-destructive/60 break-words">
+                              {fieldLabel(u.existing, f)}
+                            </span>
+                            <span className="px-2 py-1 text-sky-400 break-words">
+                              {fieldLabel(u.patch, f)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   ))}
                 </div>
               )}
+
 
               {plan.missing.length > 0 && (
                 <label className="flex items-start gap-2">
