@@ -97,9 +97,10 @@ function VaultSecretsAdminPage() {
   const [revealState, setRevealState] = useState<{
     open: boolean;
     reason: string;
+    confirmText: string;
     revealed: MasterKeyRevealResult | null;
     busy: boolean;
-  }>({ open: false, reason: "", revealed: null, busy: false });
+  }>({ open: false, reason: "", confirmText: "", revealed: null, busy: false });
 
   async function runRegenerate(id: string) {
     setBusyId(id);
