@@ -209,7 +209,10 @@ function ServiceSchedulingPage() {
   const getAssetName = (assetId: string) => assets.find((a) => a.id === assetId)?.name || "";
 
   const overdueCount = schedules.filter(
-    (s) => s.status === "scheduled" && new Date(s.scheduled_date) < new Date(),
+    (s) =>
+      s.status === "scheduled" &&
+      !!s.scheduled_date &&
+      new Date(s.scheduled_date) < new Date(),
   ).length;
 
   const scheduleStats = [
@@ -228,8 +231,10 @@ function ServiceSchedulingPage() {
   const consumableCategories = [...new Set(consumables.map((c) => c.category).filter(Boolean))] as string[];
 
   const filteredSchedules = schedules.filter((s) => {
-    if (!s.scheduled_date) return false;
-    const isOverdue = s.status === "scheduled" && new Date(s.scheduled_date) < new Date();
+    const isOverdue =
+      s.status === "scheduled" &&
+      !!s.scheduled_date &&
+      new Date(s.scheduled_date) < new Date();
     const displayStatus = isOverdue ? "overdue" : s.status;
     const q = search.toLowerCase();
     const matchesSearch =

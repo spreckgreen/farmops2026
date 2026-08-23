@@ -5,7 +5,7 @@ export interface ServiceSchedule {
   title: string;
   description: string | null;
   service_type: string;
-  scheduled_date: string;
+  scheduled_date: string | null;
   completed_date: string | null;
   status: string;
   recurrence: string | null;
