@@ -77,6 +77,9 @@ function AdminIndexPage() {
             <Link to="/admin/vault-backup" className="flex items-center gap-2 rounded-md border p-3 hover:bg-accent">
               <KeyRound className="h-4 w-4" /> Vault backup & restore
             </Link>
+            <Link to="/admin/vault-secrets" className="flex items-center gap-2 rounded-md border p-3 hover:bg-accent">
+              <KeyRound className="h-4 w-4" /> Encrypted secret metadata
+            </Link>
             <Link to="/admin/schema" className="flex items-center gap-2 rounded-md border p-3 hover:bg-accent">
               <Database className="h-4 w-4" /> Schema diagnostics
             </Link>

@@ -53,6 +53,7 @@ import { Route as FoodLivestockRouteImport } from './routes/food.livestock'
 import { Route as FoodIrrigationRouteImport } from './routes/food.irrigation'
 import { Route as FoodGardenRouteImport } from './routes/food.garden'
 import { Route as FoodCropsRouteImport } from './routes/food.crops'
+import { Route as AdminVaultSecretsRouteImport } from './routes/admin.vault-secrets'
 import { Route as AdminVaultRotationRouteImport } from './routes/admin.vault-rotation'
 import { Route as AdminVaultBackupRouteImport } from './routes/admin.vault-backup'
 import { Route as AdminUsersRouteImport } from './routes/admin.users'
@@ -293,6 +294,11 @@ const FoodCropsRoute = FoodCropsRouteImport.update({
   path: '/crops',
   getParentRoute: () => FoodRoute,
 } as any)
+const AdminVaultSecretsRoute = AdminVaultSecretsRouteImport.update({
+  id: '/admin/vault-secrets',
+  path: '/admin/vault-secrets',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminVaultRotationRoute = AdminVaultRotationRouteImport.update({
   id: '/admin/vault-rotation',
   path: '/admin/vault-rotation',
@@ -415,6 +421,7 @@ export interface FileRoutesByFullPath {
   '/admin/users': typeof AdminUsersRoute
   '/admin/vault-backup': typeof AdminVaultBackupRoute
   '/admin/vault-rotation': typeof AdminVaultRotationRoute
+  '/admin/vault-secrets': typeof AdminVaultSecretsRoute
   '/food/crops': typeof FoodCropsRoute
   '/food/garden': typeof FoodGardenRoute
   '/food/irrigation': typeof FoodIrrigationRoute
@@ -476,6 +483,7 @@ export interface FileRoutesByTo {
   '/admin/users': typeof AdminUsersRoute
   '/admin/vault-backup': typeof AdminVaultBackupRoute
   '/admin/vault-rotation': typeof AdminVaultRotationRoute
+  '/admin/vault-secrets': typeof AdminVaultSecretsRoute
   '/food/crops': typeof FoodCropsRoute
   '/food/garden': typeof FoodGardenRoute
   '/food/irrigation': typeof FoodIrrigationRoute
@@ -541,6 +549,7 @@ export interface FileRoutesById {
   '/admin/users': typeof AdminUsersRoute
   '/admin/vault-backup': typeof AdminVaultBackupRoute
   '/admin/vault-rotation': typeof AdminVaultRotationRoute
+  '/admin/vault-secrets': typeof AdminVaultSecretsRoute
   '/food/crops': typeof FoodCropsRoute
   '/food/garden': typeof FoodGardenRoute
   '/food/irrigation': typeof FoodIrrigationRoute
@@ -607,6 +616,7 @@ export interface FileRouteTypes {
     | '/admin/users'
     | '/admin/vault-backup'
     | '/admin/vault-rotation'
+    | '/admin/vault-secrets'
     | '/food/crops'
     | '/food/garden'
     | '/food/irrigation'
@@ -668,6 +678,7 @@ export interface FileRouteTypes {
     | '/admin/users'
     | '/admin/vault-backup'
     | '/admin/vault-rotation'
+    | '/admin/vault-secrets'
     | '/food/crops'
     | '/food/garden'
     | '/food/irrigation'
@@ -732,6 +743,7 @@ export interface FileRouteTypes {
     | '/admin/users'
     | '/admin/vault-backup'
     | '/admin/vault-rotation'
+    | '/admin/vault-secrets'
     | '/food/crops'
     | '/food/garden'
     | '/food/irrigation'
@@ -797,6 +809,7 @@ export interface RootRouteChildren {
   AdminUsersRoute: typeof AdminUsersRoute
   AdminVaultBackupRoute: typeof AdminVaultBackupRoute
   AdminVaultRotationRoute: typeof AdminVaultRotationRoute
+  AdminVaultSecretsRoute: typeof AdminVaultSecretsRoute
   NotesDateRoute: typeof NotesDateRoute
   SettingsSelfHostRoute: typeof SettingsSelfHostRoute
   SettingsTroubleshootingRoute: typeof SettingsTroubleshootingRoute
@@ -1123,6 +1136,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof FoodCropsRouteImport
       parentRoute: typeof FoodRoute
     }
+    '/admin/vault-secrets': {
+      id: '/admin/vault-secrets'
+      path: '/admin/vault-secrets'
+      fullPath: '/admin/vault-secrets'
+      preLoaderRoute: typeof AdminVaultSecretsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/vault-rotation': {
       id: '/admin/vault-rotation'
       path: '/admin/vault-rotation'
@@ -1369,6 +1389,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminUsersRoute: AdminUsersRoute,
   AdminVaultBackupRoute: AdminVaultBackupRoute,
   AdminVaultRotationRoute: AdminVaultRotationRoute,
+  AdminVaultSecretsRoute: AdminVaultSecretsRoute,
   NotesDateRoute: NotesDateRoute,
   SettingsSelfHostRoute: SettingsSelfHostRoute,
   SettingsTroubleshootingRoute: SettingsTroubleshootingRoute,
