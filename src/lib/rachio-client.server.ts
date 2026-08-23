@@ -30,7 +30,7 @@ export async function getRachioTokenForUser(userId: string): Promise<RachioToken
     ciphertext: data.value_ciphertext as string,
     iv: data.value_iv as string,
     tag: data.value_tag as string,
-  });
+  }, `Rachio API token (vault item ${data.id})`);
   return { token, vaultItemId: data.id as string };
 }
 

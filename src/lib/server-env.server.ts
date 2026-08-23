@@ -26,7 +26,7 @@ export async function getServerEnv(name: string): Promise<string | undefined> {
         ciphertext: row.value_ciphertext as string,
         iv: row.value_iv as string,
         tag: row.value_tag as string,
-      });
+      }, `shared env "${name}" (vault-backed)`);
     }
   } catch (e) {
     console.warn(`[server-env] vault lookup failed for ${name}:`, e);
