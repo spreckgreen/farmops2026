@@ -212,10 +212,14 @@ export const planMaintenanceSchedule = createServerFn({ method: "POST" })
         : "");
 
     // Fetch the linked reference (manual page / spec sheet) when provided.
+    // The URL is user-supplied, so it goes through the SSRF guard: public
+    // http(s) hosts only, no private/loopback/link-local targets, redirects
+    // re-validated per hop.
     let referenceFetched = "";
     if (data.reference_url) {
+      const { safePublicFetch } = await import("./url-guard");
       try {
-        const res = await fetch(data.reference_url, {
+        const res = await safePublicFetch(data.reference_url, {
           headers: { accept: "text/html,text/plain,*/*" },
         });
         if (res.ok) {
@@ -230,17 +234,18 @@ export const planMaintenanceSchedule = createServerFn({ method: "POST" })
               .trim()
               .slice(0, 20000);
           } else {
-            referenceFetched = `(binary content at ${data.reference_url} — could not read text)`;
+            referenceFetched = "(binary content at the reference link — could not read text)";
           }
         } else {
-          referenceFetched = `(reference link returned HTTP ${res.status})`;
+          // Don't echo upstream status codes: that turns the planner into an
+          // internal port/host scanner oracle.
+          referenceFetched = "(reference link could not be read)";
         }
-      } catch (error) {
-        referenceFetched = `(reference link could not be fetched: ${
-          error instanceof Error ? error.message : "unknown error"
-        })`;
+      } catch {
+        referenceFetched = "(reference link was rejected or unreachable)";
       }
     }
+
 
     const existing = (data.existing_services ?? []).slice(0, 100);
 
