@@ -70,7 +70,7 @@ const DEFAULT_AI = {
 };
 const aiApplied = [];
 for (const [k, v] of Object.entries(DEFAULT_AI)) {
-  if (!process.env[k] && !process.env.LOVABLE_API_KEY) {
+  if (!process.env[k]) {
     process.env[k] = v;
     aiApplied.push(k);
   }
@@ -78,7 +78,7 @@ for (const [k, v] of Object.entries(DEFAULT_AI)) {
 if (aiApplied.length) {
   log(`AI defaults applied for build: ${aiApplied.join(", ")} (override in .env for prod)`);
 } else {
-  log(`AI env already configured (LOVABLE_API_KEY or CUSTOM_AI_* set) — leaving as-is`);
+  log(`AI env already configured (CUSTOM_AI_* set) — leaving as-is`);
 }
 
 log(`starting vite build (heartbeat=${HEARTBEAT_MS / 1000}s stall=${STALL_MS / 1000}s max=${MAX_MS / 1000}s)`);
