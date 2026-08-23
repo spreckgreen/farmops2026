@@ -72,6 +72,7 @@ import { Route as ApiPublicWebhooksRachioRouteImport } from './routes/api/public
 import { Route as ApiPublicHooksTaskHealthRouteImport } from './routes/api/public/hooks/task-health'
 import { Route as ApiPublicHooksRachioSyncRouteImport } from './routes/api/public/hooks/rachio-sync'
 import { Route as ApiPublicHealthProceduresRouteImport } from './routes/api/public/health.procedures'
+import { Route as ApiAdminHealthLovableRouteImport } from './routes/api/admin/health/lovable'
 
 const VaultRoute = VaultRouteImport.update({
   id: '/vault',
@@ -392,6 +393,11 @@ const ApiPublicHealthProceduresRoute =
     path: '/procedures',
     getParentRoute: () => ApiPublicHealthRoute,
   } as any)
+const ApiAdminHealthLovableRoute = ApiAdminHealthLovableRouteImport.update({
+  id: '/api/admin/health/lovable',
+  path: '/api/admin/health/lovable',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -453,6 +459,7 @@ export interface FileRoutesByFullPath {
   '/tasks/': typeof TasksIndexRoute
   '/api/public/health': typeof ApiPublicHealthRouteWithChildren
   '/api/public/ready': typeof ApiPublicReadyRoute
+  '/api/admin/health/lovable': typeof ApiAdminHealthLovableRoute
   '/api/public/health/procedures': typeof ApiPublicHealthProceduresRoute
   '/api/public/hooks/rachio-sync': typeof ApiPublicHooksRachioSyncRoute
   '/api/public/hooks/task-health': typeof ApiPublicHooksTaskHealthRoute
@@ -515,6 +522,7 @@ export interface FileRoutesByTo {
   '/tasks': typeof TasksIndexRoute
   '/api/public/health': typeof ApiPublicHealthRouteWithChildren
   '/api/public/ready': typeof ApiPublicReadyRoute
+  '/api/admin/health/lovable': typeof ApiAdminHealthLovableRoute
   '/api/public/health/procedures': typeof ApiPublicHealthProceduresRoute
   '/api/public/hooks/rachio-sync': typeof ApiPublicHooksRachioSyncRoute
   '/api/public/hooks/task-health': typeof ApiPublicHooksTaskHealthRoute
@@ -581,6 +589,7 @@ export interface FileRoutesById {
   '/tasks/': typeof TasksIndexRoute
   '/api/public/health': typeof ApiPublicHealthRouteWithChildren
   '/api/public/ready': typeof ApiPublicReadyRoute
+  '/api/admin/health/lovable': typeof ApiAdminHealthLovableRoute
   '/api/public/health/procedures': typeof ApiPublicHealthProceduresRoute
   '/api/public/hooks/rachio-sync': typeof ApiPublicHooksRachioSyncRoute
   '/api/public/hooks/task-health': typeof ApiPublicHooksTaskHealthRoute
@@ -648,6 +657,7 @@ export interface FileRouteTypes {
     | '/tasks/'
     | '/api/public/health'
     | '/api/public/ready'
+    | '/api/admin/health/lovable'
     | '/api/public/health/procedures'
     | '/api/public/hooks/rachio-sync'
     | '/api/public/hooks/task-health'
@@ -710,6 +720,7 @@ export interface FileRouteTypes {
     | '/tasks'
     | '/api/public/health'
     | '/api/public/ready'
+    | '/api/admin/health/lovable'
     | '/api/public/health/procedures'
     | '/api/public/hooks/rachio-sync'
     | '/api/public/hooks/task-health'
@@ -775,6 +786,7 @@ export interface FileRouteTypes {
     | '/tasks/'
     | '/api/public/health'
     | '/api/public/ready'
+    | '/api/admin/health/lovable'
     | '/api/public/health/procedures'
     | '/api/public/hooks/rachio-sync'
     | '/api/public/hooks/task-health'
@@ -821,6 +833,7 @@ export interface RootRouteChildren {
   TasksIndexRoute: typeof TasksIndexRoute
   ApiPublicHealthRoute: typeof ApiPublicHealthRouteWithChildren
   ApiPublicReadyRoute: typeof ApiPublicReadyRoute
+  ApiAdminHealthLovableRoute: typeof ApiAdminHealthLovableRoute
   ApiPublicHooksRachioSyncRoute: typeof ApiPublicHooksRachioSyncRoute
   ApiPublicHooksTaskHealthRoute: typeof ApiPublicHooksTaskHealthRoute
   ApiPublicWebhooksRachioRoute: typeof ApiPublicWebhooksRachioRoute
@@ -1269,6 +1282,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHealthProceduresRouteImport
       parentRoute: typeof ApiPublicHealthRoute
     }
+    '/api/admin/health/lovable': {
+      id: '/api/admin/health/lovable'
+      path: '/api/admin/health/lovable'
+      fullPath: '/api/admin/health/lovable'
+      preLoaderRoute: typeof ApiAdminHealthLovableRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -1401,6 +1421,7 @@ const rootRouteChildren: RootRouteChildren = {
   TasksIndexRoute: TasksIndexRoute,
   ApiPublicHealthRoute: ApiPublicHealthRouteWithChildren,
   ApiPublicReadyRoute: ApiPublicReadyRoute,
+  ApiAdminHealthLovableRoute: ApiAdminHealthLovableRoute,
   ApiPublicHooksRachioSyncRoute: ApiPublicHooksRachioSyncRoute,
   ApiPublicHooksTaskHealthRoute: ApiPublicHooksTaskHealthRoute,
   ApiPublicWebhooksRachioRoute: ApiPublicWebhooksRachioRoute,
