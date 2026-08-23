@@ -339,6 +339,25 @@ export const planMaintenanceSchedule = createServerFn({ method: "POST" })
       }
     }
 
+    // Already routed to hosted AI but the configured hosted model failed (bad
+    // model id, temporary gateway error). Retry once on the known-good default.
+    const HOSTED_DEFAULT = "google/gemini-3.6-flash";
+    if (!parsed && ai.backend === "hosted" && modelId !== HOSTED_DEFAULT) {
+      try {
+        modelId = HOSTED_DEFAULT;
+        const { output } = await generateText({
+          model: provider(modelId),
+          output: Output.object({ schema }),
+          system: systemPrompt,
+          prompt: userPrompt,
+        });
+        parsed = coerce(output) ?? (output as z.infer<typeof schema>);
+        failureReason = "";
+      } catch (error) {
+        failureReason = error instanceof Error ? error.message : String(error);
+      }
+    }
+
     if (!parsed) {
       return {
         plan_id: crypto.randomUUID(),
