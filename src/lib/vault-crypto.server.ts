@@ -24,7 +24,7 @@ type ResolvedKey = { bytes: Uint8Array; raw: string };
 
 /** Human-readable shape of a key var, e.g. "64-hex (32 bytes)" or
  *  "passphrase, 18 chars (SHA-256 derived)". Never includes the value. */
-function describeKeyShape(raw: string): string {
+export function describeKeyShape(raw: string): string {
   if (/^[0-9a-fA-F]{64}$/.test(raw)) return "64-hex (32 bytes)";
   return `passphrase, ${raw.length} chars (SHA-256 derived)`;
 }
