@@ -113,23 +113,6 @@ const ScheduleList = ({ schedules, assets, usageSnapshots = {}, onEdit, onDelete
                         : "No date set"}
                   </span>
                   <span>Asset: <span className="text-foreground">{getAssetName(s.asset_id)}</span></span>
-                  {reminder.kind !== "date" && reminder.progress != null && (
-                    <span className="flex items-center gap-2 min-w-[140px]">
-                      <span className="h-1.5 flex-1 rounded-full bg-muted overflow-hidden">
-                        <span
-                          className={`block h-full ${
-                            reminder.status === "overdue"
-                              ? "bg-red-400"
-                              : reminder.status === "soon" || reminder.status === "due"
-                                ? "bg-amber-400"
-                                : "bg-emerald-400"
-                          }`}
-                          style={{ width: `${Math.round(reminder.progress * 100)}%` }}
-                        />
-                      </span>
-                      <span className="text-xs">{Math.round(reminder.progress * 100)}%</span>
-                    </span>
-                  )}
                 </div>
                 {s.consumables_used && s.consumables_used.length > 0 && (
                   <div className="flex gap-1 mt-2 flex-wrap">
