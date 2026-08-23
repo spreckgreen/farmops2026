@@ -28,6 +28,7 @@ import {
 } from "@/components/model-suitability";
 import { AiWorkflowTests } from "@/components/ai-workflow-tests";
 import { AiFeatureRouting } from "@/components/ai-feature-routing";
+import { SwitchToLovableAi } from "@/components/switch-to-lovable-ai";
 import {
   AlertTriangle,
   CheckCircle2,
