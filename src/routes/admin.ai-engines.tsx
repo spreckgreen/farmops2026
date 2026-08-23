@@ -28,9 +28,21 @@ import {
   getAiEngines,
   setAiEngines,
   switchHostedToLovableAi,
+  testAiEngineConnection,
 } from "@/lib/ai-engines.functions";
+import type { EngineTestResult } from "@/lib/ai-engine-test.server";
 import { AI_ENGINE_DEFS, type AiEngineId } from "@/lib/ai-engines";
-import { ArrowLeft, Cloud, Server, Sparkles, AlertTriangle } from "lucide-react";
+import {
+  ArrowLeft,
+  Cloud,
+  Server,
+  Sparkles,
+  AlertTriangle,
+  CheckCircle2,
+  Loader2,
+  PlugZap,
+  XCircle,
+} from "lucide-react";
 
 export const Route = createFileRoute("/admin/ai-engines")({
   ssr: false,
@@ -104,6 +116,48 @@ function AiEnginesPage() {
     setDrafts(next);
     setCloudDefault(data.config.cloudDefault);
   }, [data]);
+
+  const [tests, setTests] = useState<Partial<Record<AiEngineId, EngineTestResult>>>({});
+  const [testing, setTesting] = useState<AiEngineId | null>(null);
+  const runTest = useServerFn(testAiEngineConnection);
+
+  const testEngine = async (id: AiEngineId) => {
+    const d = drafts[id];
+    setTesting(id);
+    try {
+      const result = await runTest({
+        data: {
+          id,
+          baseUrl: d.baseUrl.trim() || null,
+          apiKey: d.keyTouched ? d.apiKey : null,
+          model: d.model.trim() || null,
+        },
+      });
+      setTests((prev) => ({ ...prev, [id]: result }));
+      if (result.ok) toast.success(`${result.title}: ${result.message}`);
+      else toast.error(result.title);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Connection test failed";
+      setTests((prev) => ({
+        ...prev,
+        [id]: {
+          ok: false,
+          title: "Test could not run",
+          message,
+          hint: null,
+          baseUrl: null,
+          model: null,
+          modelsSeen: [],
+          modelFound: null,
+          latencyMs: null,
+          httpStatus: null,
+        },
+      }));
+      toast.error(message);
+    } finally {
+      setTesting(null);
+    }
+  };
 
   const patch = (id: AiEngineId, value: Partial<TargetDraft>) =>
     setDrafts((prev) => ({ ...prev, [id]: { ...prev[id], ...value } }));
@@ -280,6 +334,64 @@ function AiEnginesPage() {
                         onChange={(e) => patch(def.id, { model: e.target.value })}
                       />
                     </div>
+                    <div className="flex items-center gap-2 pt-1">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => void testEngine(def.id)}
+                        disabled={testing !== null}
+                      >
+                        {testing === def.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <PlugZap className="h-4 w-4" />
+                        )}
+                        {testing === def.id ? "Testing…" : "Test connection"}
+                      </Button>
+                      <span className="text-xs text-muted-foreground">
+                        Checks the base URL, key and model without saving.
+                      </span>
+                    </div>
+
+                    {tests[def.id] && (
+                      <div
+                        className={`rounded-md border p-3 text-sm space-y-1 ${
+                          tests[def.id]!.ok
+                            ? "border-emerald-300 bg-emerald-50 dark:bg-emerald-950/30"
+                            : "border-destructive/40 bg-destructive/5"
+                        }`}
+                      >
+                        <p className="flex items-center gap-2 font-medium">
+                          {tests[def.id]!.ok ? (
+                            <CheckCircle2 className="h-4 w-4" />
+                          ) : (
+                            <XCircle className="h-4 w-4" />
+                          )}
+                          {tests[def.id]!.title}
+                          {tests[def.id]!.latencyMs !== null && (
+                            <span className="text-xs font-normal text-muted-foreground">
+                              {tests[def.id]!.latencyMs} ms
+                            </span>
+                          )}
+                        </p>
+                        <p className="text-muted-foreground">{tests[def.id]!.message}</p>
+                        {tests[def.id]!.hint && (
+                          <p className="text-xs text-muted-foreground">
+                            {tests[def.id]!.hint}
+                          </p>
+                        )}
+                        {tests[def.id]!.modelsSeen.length > 0 && (
+                          <p className="text-xs text-muted-foreground">
+                            Models available:{" "}
+                            <span className="font-mono">
+                              {tests[def.id]!.modelsSeen.join(", ")}
+                            </span>
+                          </p>
+                        )}
+                      </div>
+                    )}
+
                     {def.id === "local" && data.envCustomAi.baseUrl && (
                       <p className="text-xs text-muted-foreground">
                         Deploy env <code>CUSTOM_AI_BASE_URL={data.envCustomAi.baseUrl}</code>{" "}
