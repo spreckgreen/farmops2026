@@ -320,13 +320,13 @@ export const revealMasterKey = createServerFn({ method: "POST" })
     try {
       await context.supabase.from("activity_log").insert({
         user_id: context.userId,
-        action: "vault_master_key_revealed",
-        entity_type: "vault",
-        details: {
+        entry_type: "note",
+        raw_content: JSON.stringify({
+          event: "vault_master_key_revealed",
           reason: data.reason,
           fingerprint: details.fingerprint,
           shape: details.shape,
-        },
+        }),
       });
     } catch {
       // Audit failure should not block the reveal, but the admin already has access.
