@@ -185,3 +185,73 @@ export const urgencyLabels: Record<Urgency, string> = {
   planned: "On plan",
   unknown: "Unknown",
 };
+
+/**
+ * Fallback usage rates used when an asset has no readings yet.
+ * Example: a tractor with no snapshots is assumed to run 2 hours/day, so a
+ * 100-hour interval projects ~50 days out instead of vanishing from calendars.
+ */
+export const ASSUMED_RATE_PER_DAY: Record<"hours" | "miles", number> = {
+  hours: 2,
+  miles: 30,
+};
+
+export interface InferredScheduleDate {
+  /** ISO timestamp to store in maintenance_records.scheduled_date. */
+  iso: string;
+  /** YYYY-MM-DD form for due_at. */
+  date: string;
+  /** How the date was derived. */
+  source: "measured" | "assumed" | "overdue";
+  /** Rate used for the projection (units/day). */
+  ratePerDay: number;
+  unit: "hours" | "miles";
+  nextThreshold: number;
+  remaining: number | null;
+}
+
+/**
+ * Infer a calendar date for a usage-based schedule so it renders anywhere that
+ * filters on scheduled_date. Returns null for date-based schedules.
+ */
+export function inferUsageScheduledDate(
+  schedule: ServiceSchedule,
+  asset: Asset | undefined,
+  snapshots: UsageSnapshot[],
+  now: Date = new Date(),
+): InferredScheduleDate | null {
+  const status = computeUsageDueStatus(schedule, asset, snapshots, now);
+  if (!status) return null;
+
+  // Already due / overdue on usage -> schedule it for today.
+  if (status.remaining != null && status.remaining <= 0) {
+    return {
+      iso: now.toISOString(),
+      date: now.toISOString().slice(0, 10),
+      source: "overdue",
+      ratePerDay: status.ratePerDay ?? ASSUMED_RATE_PER_DAY[status.unit],
+      unit: status.unit,
+      nextThreshold: status.nextThreshold,
+      remaining: status.remaining,
+    };
+  }
+
+  const measured = status.ratePerDay != null;
+  const ratePerDay = status.ratePerDay ?? ASSUMED_RATE_PER_DAY[status.unit];
+  const remaining =
+    status.remaining != null
+      ? status.remaining
+      : // No current reading: assume a full interval is still ahead.
+        status.interval;
+  const days = Math.max(0, remaining / ratePerDay);
+  const due = new Date(now.getTime() + days * DAY_MS);
+  return {
+    iso: due.toISOString(),
+    date: due.toISOString().slice(0, 10),
+    source: measured && status.remaining != null ? "measured" : "assumed",
+    ratePerDay,
+    unit: status.unit,
+    nextThreshold: status.nextThreshold,
+    remaining: status.remaining,
+  };
+}

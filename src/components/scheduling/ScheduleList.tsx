@@ -107,7 +107,12 @@ const ScheduleList = ({ schedules, assets, usageSnapshots = {}, onEdit, onDelete
                   <span className="flex items-center gap-1">
                     <Calendar className="h-3.5 w-3.5" />
                     {s.scheduled_date
-                      ? format(new Date(s.scheduled_date), "MMM d, yyyy h:mm a")
+                      ? `${format(new Date(s.scheduled_date), "MMM d, yyyy h:mm a")}${
+                          (s as unknown as { raw?: { scheduled_date_inferred?: boolean } }).raw
+                            ?.scheduled_date_inferred
+                            ? " (projected)"
+                            : ""
+                        }`
                       : s.recurrence
                         ? `Usage-based — ${s.recurrence}`
                         : "No date set"}

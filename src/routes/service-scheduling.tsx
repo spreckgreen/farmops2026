@@ -33,7 +33,8 @@ import type {
   ConsumableUsage,
 } from "@/types/scheduling";
 import { buildUsageBaselineRaw, parseUsageRecurrence } from "@/lib/maintenance-reminders";
-import type { UsageSnapshot } from "@/lib/usage-due-status";
+import { inferUsageScheduledDate, type UsageSnapshot } from "@/lib/usage-due-status";
+import { inferUsageScheduledDates } from "@/lib/usage-schedule-inference.functions";
 
 export const Route = createFileRoute("/service-scheduling")({
   ssr: false,
@@ -81,7 +82,12 @@ function ServiceSchedulingPage() {
   }, [navigate]);
 
   useEffect(() => {
-    if (session) fetchAll();
+    if (!session) return;
+    // Give usage-based intervals a projected calendar date so they always
+    // render in date-driven views, then load.
+    inferUsageScheduledDates()
+      .catch(() => undefined)
+      .finally(() => { void fetchAll(); });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session]);
 
@@ -124,12 +130,49 @@ function ServiceSchedulingPage() {
       trigger_type === "hours" || trigger_type === "miles"
         ? buildUsageBaselineRaw(trigger_type, trigger_value || 1, asset, existingRaw)
         : existingRaw;
+    const usage =
+      trigger_type === "hours" || trigger_type === "miles"
+        ? { unit: trigger_type, interval: trigger_value || 1 }
+        : null;
+    const explicitDate = formData.scheduled_date?.trim()
+      ? new Date(formData.scheduled_date)
+      : null;
+    const hasExplicitDate = !!explicitDate && !Number.isNaN(explicitDate.getTime());
+    // Usage-based intervals without an explicit date get a projected date from
+    // the asset's usage rate (e.g. 100 hours left at 4 h/day -> ~25 days out).
+    const inferred =
+      !hasExplicitDate && usage
+        ? inferUsageScheduledDate(
+            {
+              ...(editingSchedule ?? {}),
+              recurrence: `custom:${usage.interval}:${usage.unit}`,
+              scheduled_date: null,
+              raw,
+            } as never,
+            asset,
+            usageSnapshots[formData.asset_id] ?? [],
+          )
+        : null;
+    const scheduledISO = hasExplicitDate
+      ? explicitDate!.toISOString()
+      : inferred?.iso ?? null;
+    const inferredRaw = inferred
+      ? {
+          ...(raw ?? {}),
+          scheduled_date_inferred: true,
+          scheduled_date_source: inferred.source,
+          scheduled_date_rate_per_day: inferred.ratePerDay,
+          scheduled_date_inferred_at: new Date().toISOString(),
+        }
+      : raw
+        ? { ...raw, scheduled_date_inferred: false }
+        : raw;
     const saveData = {
       ...dbFields,
-      scheduled_date: new Date(formData.scheduled_date).toISOString(),
+      scheduled_date: scheduledISO,
       consumables_used: formData.consumables_used as unknown as never,
       status: editingSchedule?.status ?? "scheduled",
-      ...(raw ? { raw: raw as unknown as never } : {}),
+      ...(inferredRaw ? { raw: inferredRaw as unknown as never } : {}),
     };
 
     if (editingSchedule) {
