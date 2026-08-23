@@ -8,6 +8,7 @@
 // Server-only: reads process.env + the shared vault. Never import from client
 // code — call sites are server functions that dynamic-import this module.
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
+import type { AiEngineId } from "./ai-engines";
 import {
   getAiArea,
   resolveRoutingConfig,
