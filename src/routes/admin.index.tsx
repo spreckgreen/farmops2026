@@ -83,6 +83,9 @@ function AdminIndexPage() {
             <Link to="/admin/ai-settings" className="flex items-center gap-2 rounded-md border p-3 hover:bg-accent">
               <Bot className="h-4 w-4" /> AI configuration
             </Link>
+            <Link to="/admin/ai-engines" className="flex items-center gap-2 rounded-md border p-3 hover:bg-accent">
+              <Bot className="h-4 w-4" /> AI engines (local / hosted)
+            </Link>
             <Link to="/admin/task-dedupe" className="flex items-center gap-2 rounded-md border p-3 hover:bg-accent">
               <Merge className="h-4 w-4" /> Task reconciliation
             </Link>

@@ -50,13 +50,21 @@ export const getAiRouting = createServerFn({ method: "GET" })
   .handler(async () => {
     const { loadRoutingConfig } = await import("./ai-routing.server");
     const config = await loadRoutingConfig();
-    const { getServerEnv } = await import("./server-env.server");
+    const { loadEnginesConfig, resolveLocalEngine, resolveHostedEngine } = await import(
+      "./ai-engines.server"
+    );
+    const engines = await loadEnginesConfig();
+    const local = await resolveLocalEngine(engines);
+    const hosted = await resolveHostedEngine(engines);
     return {
       config,
       areas: AI_FEATURE_AREAS,
-      activeLocalModel: (await getServerEnv("CUSTOM_AI_MODEL")) ?? null,
-      localEndpoint: process.env.CUSTOM_AI_BASE_URL ?? null,
-      hostedAvailable: Boolean(process.env.LOVABLE_API_KEY),
+      activeLocalModel: local.model,
+      localEndpoint: local.baseUrl,
+      hostedAvailable: Boolean(hosted),
+      hostedEngine: hosted
+        ? { kind: hosted.kind, baseUrl: hosted.baseUrl, model: hosted.model }
+        : null,
     };
   });
 
