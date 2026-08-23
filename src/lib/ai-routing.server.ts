@@ -1,7 +1,7 @@
 // Server-side resolution of per-feature AI routing.
 //
 // Each AI feature area (see ai-feature-areas.ts) chooses whether it runs on the
-// LOCAL self-hosted endpoint (Ollama / CUSTOM_AI_*) or on HOSTED Lovable AI.
+// LOCAL self-hosted endpoint or a configured cloud engine.
 // Heavy jobs (weekly/monthly/quarterly/yearly rollups, manuals, consultant
 // chat, KB ingest) default to hosted; light jobs stay local.
 //
@@ -39,14 +39,14 @@ export interface AreaAi {
   area: AiAreaId;
   areaLabel: string;
   backend: AiBackend;
-  /** Which of the four engines actually ran this call. */
+   * Which configured engine actually ran this call. */
   engineId: AiEngineId;
   engineLabel: string;
   provider: Provider;
   modelId: string;
   /** Retry once on hosted AI when a local call fails or truncates. */
   autoFallback: boolean;
-  /** Hosted engine reachable (Lovable key set, or a complete custom hosted engine). */
+  /** A configured cloud engine is reachable. */
   hostedAvailable: boolean;
   /** Model that a hosted escalation would use. */
   hostedModelId: string;
@@ -96,11 +96,9 @@ export async function resolveAreaAi(
   let hosted = await resolveEngine(cloudDefaultId, engines, {
     defaultModel: opts.hostedDefaultModel,
   });
-  // The configured cloud default (often Lovable AI) may have no usable key on
-  // this deploy. That must never take down features whose other cloud engines
-  // ARE configured, so fall back to the first usable cloud engine.
+  // A missing cloud default must not take down another configured cloud engine.
   if (!hosted) {
-    for (const candidate of ["ollama_cloud", "other_cloud", "lovable"] as AiEngineId[]) {
+    for (const candidate of ["ollama_cloud", "other_cloud"] as AiEngineId[]) {
       if (candidate === cloudDefaultId) continue;
       const alt = await resolveEngine(candidate, engines, {
         defaultModel: opts.hostedDefaultModel,

@@ -1,5 +1,4 @@
-// Per-feature AI routing panel: choose local (self-hosted Ollama) vs hosted
-// Lovable AI for each AI feature area, with an optional per-area model override.
+// Per-feature AI routing panel with an optional per-area model override.
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -188,7 +187,6 @@ export function AiFeatureRouting() {
                               <SelectItem value="local">Self-hosted (local)</SelectItem>
                               <SelectItem value="hosted">Cloud default</SelectItem>
                               <SelectItem value="ollama_cloud">Ollama Cloud</SelectItem>
-                              <SelectItem value="lovable">Lovable AI</SelectItem>
                               <SelectItem value="other_cloud">Other cloud</SelectItem>
                             </SelectContent>
                           </Select>

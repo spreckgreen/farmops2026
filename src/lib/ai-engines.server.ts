@@ -5,7 +5,6 @@ import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import {
   BUNDLED_OLLAMA_API_KEY,
   ENGINE_ENV_KEY,
-  LOVABLE_DEFAULT_MODEL,
   getAiEngineDef,
   resolveEnginesConfig,
   serializeEnginesConfig,
@@ -19,7 +18,7 @@ export interface ResolvedEngine {
   id: AiEngineId;
   label: string;
   placement: "local" | "cloud";
-  auth: "bearer" | "lovable-header";
+  auth: "bearer";
   baseUrl: string;
   apiKey: string;
   model: string;
@@ -65,11 +64,6 @@ export async function resolveEngine(
     baseUrl = target.baseUrl ?? (await getServerEnv("CUSTOM_AI_BASE_URL")) ?? def.defaultBaseUrl;
     apiKey = target.apiKey ?? (await getServerEnv("CUSTOM_AI_API_KEY")) ?? BUNDLED_OLLAMA_API_KEY;
     model = target.model ?? (await getServerEnv("CUSTOM_AI_MODEL")) ?? def.defaultModel!;
-  } else if (def.keyFromEnv) {
-    // A key pasted into the engine config wins over the server env, so a
-    // self-hosted deploy (or a stale/blocked env key) is never a dead end.
-    apiKey = target.apiKey ?? process.env.LOVABLE_API_KEY ?? null;
-    model = target.model ?? opts?.defaultModel ?? def.defaultModel ?? LOVABLE_DEFAULT_MODEL;
   }
 
   if (!baseUrl || !apiKey || !model) return null;
@@ -93,7 +87,7 @@ export async function engineAvailability(
     AiEngineId,
     { available: boolean; baseUrl: string | null; model: string | null }
   >;
-  for (const id of ["local", "ollama_cloud", "lovable", "other_cloud"] as AiEngineId[]) {
+  for (const id of ["local", "ollama_cloud", "other_cloud"] as AiEngineId[]) {
     const resolved = await resolveEngine(id, cfg);
     out[id] = {
       available: Boolean(resolved),
@@ -129,22 +123,19 @@ export async function resolveHostedEngine(
   if (!resolved) return null;
   return {
     ...resolved,
-    kind: (resolved.id === "lovable" ? "lovable" : "custom") as "lovable" | "custom",
+    kind: "custom" as const,
   };
 }
 
 export function buildEngineProvider(endpoint: {
-  auth: "bearer" | "lovable-header";
+  auth: "bearer";
   baseUrl: string;
   apiKey: string;
 }): Provider {
   return createOpenAICompatible({
-    name: endpoint.auth === "lovable-header" ? "lovable-ai-gateway" : "custom-ai",
+    name: "custom-ai",
     baseURL: endpoint.baseUrl,
-    headers:
-      endpoint.auth === "lovable-header"
-        ? { "Lovable-API-Key": endpoint.apiKey, "X-Lovable-AIG-SDK": "vercel-ai-sdk" }
-        : { Authorization: `Bearer ${endpoint.apiKey}` },
+    headers: { Authorization: `Bearer ${endpoint.apiKey}` },
   });
 }
 
@@ -153,13 +144,13 @@ export function buildLocalProvider(endpoint: { baseUrl: string; apiKey: string }
 }
 
 export function buildHostedProvider(endpoint: {
-  kind: "lovable" | "custom";
+  kind: "custom";
   baseUrl: string;
   apiKey: string;
 }): Provider {
   return buildEngineProvider({
     baseUrl: endpoint.baseUrl,
     apiKey: endpoint.apiKey,
-    auth: endpoint.kind === "lovable" ? "lovable-header" : "bearer",
+    auth: "bearer",
   });
 }
