@@ -47,7 +47,7 @@ export async function backfillUsageScheduledDates(
   const candidates = (records ?? []).filter(
     (r) =>
       (r.status ?? "scheduled") !== "completed" &&
-      parseUsageRecurrenceSafe(r.recurrence) != null,
+      parseUsageRecurrence(r.recurrence) != null,
   );
   summary.scanned = candidates.length;
   if (candidates.length === 0) return summary;
