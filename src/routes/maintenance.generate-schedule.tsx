@@ -89,6 +89,9 @@ function Page() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [existing, setExisting] = useState<ExistingScheduleEntry[]>([]);
   const abortRef = useRef<AbortController | null>(null);
+  // Mirrors `failures` so onSuccess can read this run's errors without waiting
+  // for the state update to flush.
+  const failuresRef = useRef<{ name: string; error: string }[]>([]);
   const jobProgress = useAiJobProgress("maintenance.generate-schedule");
 
   const matches = (a: (typeof inventory)[number]) => {
@@ -172,6 +175,7 @@ function Page() {
       const controller = new AbortController();
       abortRef.current = controller;
       jobProgress.start();
+      failuresRef.current = [];
       setFailures([]);
       setRunStatus(
         Object.fromEntries(selectedIds.map((id) => [id, "pending" as const])),
@@ -253,6 +257,7 @@ function Page() {
       } across ${selectedIds.length - errors.length} asset${
         selectedIds.length - errors.length === 1 ? "" : "s"
       }`;
+      failuresRef.current = errors;
       setFailures(errors);
       return merged;
     },
@@ -260,16 +265,17 @@ function Page() {
       jobProgress.stop();
       if (p.actions.length === 0) {
         toast.warning(
-          failures.length > 0
-            ? failures[0].error
+          failuresRef.current.length > 0
+            ? failuresRef.current[0].error
             : "The model didn't return any intervals. Try adding more usage context.",
         );
         return;
       }
       setPlan(p);
-      if (failures.length > 0) {
+      const runFailures = failuresRef.current;
+      if (runFailures.length > 0) {
         toast.warning(
-          `${failures.length} asset${failures.length === 1 ? "" : "s"} failed — review the draft for the rest.`,
+          `${runFailures.length} asset${runFailures.length === 1 ? "" : "s"} failed — review the draft for the rest.`,
         );
       }
     },
