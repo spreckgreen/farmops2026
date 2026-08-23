@@ -1155,7 +1155,7 @@ export const seedLivestockProducts = createServerFn({ method: "POST" })
     return { inserted: rows.length, skipped: SEEDS.length - rows.length };
   });
 
-// Uses Lovable AI gateway to estimate current retail $/lb based on the model's
+// Uses the configured AI engine to estimate current retail $/lb based on the model's
 // knowledge of Southern Ohio (Cincinnati / Dayton / Columbus metro) grocery
 // and farmers' market pricing.
 export const refreshPricesSouthernOhio = createServerFn({ method: "POST" })

@@ -374,7 +374,7 @@ export const planMaintenanceSchedule = createServerFn({ method: "POST" })
           (ai.backend === "hosted"
             ? " Check the model id configured for the service-schedule area in AI settings."
             : " Small local models often struggle with structured output — try a" +
-              " larger model (e.g. llama3.1:8b) or route this area to Lovable AI."),
+               " larger model (e.g. llama3.1:8b) or route this area to a configured cloud engine."),
         actions: [],
         citations: [],
         model: modelId,

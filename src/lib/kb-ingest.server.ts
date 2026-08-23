@@ -100,9 +100,6 @@ export async function runIngest(
   const { markdownToTinyWiki } = await import("./md-to-tinywiki");
   const { tidyProcedure } = await import("./tidy-tinywiki");
   const { buildTinyWikiHtml } = await import("./tinywiki");
-  let providerOptions: { "lovable-ai-gateway": { reasoningEffort: string } } | undefined = modelOverride
-    ? undefined
-    : { "lovable-ai-gateway": { reasoningEffort: "none" } };
   let escalation: import("./ai-feature-areas").AiEscalation | null = null;
 
   const ask = async (system: string, prompt: string) => {
@@ -111,7 +108,6 @@ export async function runIngest(
         model: provider(modelId),
         system,
         prompt,
-        ...(providerOptions ? { providerOptions } : {}),
       });
     try {
       const res = await call();
@@ -127,7 +123,6 @@ export async function runIngest(
       provider = hosted.provider;
       modelId = hosted.modelId;
       escalation = hosted.escalation;
-      providerOptions = { "lovable-ai-gateway": { reasoningEffort: "none" } };
       const res = await call();
       return unfence(res.text ?? "");
     }

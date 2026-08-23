@@ -207,8 +207,8 @@ function AiEnginesPage() {
             AI engines
           </h1>
           <p className="text-sm text-muted-foreground">
-             Three engines run side by side — self-hosted local, Ollama Cloud and another
-             OpenAI-compatible cloud provider. Each AI feature picks one in{" "}
+            Three engines run side by side — self-hosted local, Ollama Cloud and another
+            OpenAI-compatible cloud provider. Each AI feature picks one in{" "}
             <Link to="/settings/self-host" className="underline underline-offset-2">
               Self-host settings
             </Link>
@@ -253,8 +253,7 @@ function AiEnginesPage() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    <>
-                        <div className="space-y-1">
+                    <div className="space-y-1">
                           <Label htmlFor={`${def.id}-base`}>Base URL</Label>
                           <Input
                             id={`${def.id}-base`}
@@ -262,8 +261,8 @@ function AiEnginesPage() {
                             value={d.baseUrl}
                             onChange={(e) => patch(def.id, { baseUrl: e.target.value })}
                           />
-                        </div>
-                        <div className="space-y-1">
+                    </div>
+                    <div className="space-y-1">
                           <Label htmlFor={`${def.id}-key`}>
                             API key{" "}
                             {stored.hasApiKey && <Badge variant="secondary">stored</Badge>}
@@ -284,8 +283,7 @@ function AiEnginesPage() {
                               patch(def.id, { apiKey: e.target.value, keyTouched: true })
                             }
                           />
-                        </div>
-                    </>
+                    </div>
                     <div className="space-y-1">
                       <Label htmlFor={`${def.id}-model`}>Model</Label>
                       <Input
@@ -319,35 +317,35 @@ function AiEnginesPage() {
                     {tests[def.id] && (
                       <div
                         className={`rounded-md border p-3 text-sm space-y-1 ${
-                          tests[def.id]!.ok
+                          tests[def.id]?.ok
                             ? "border-emerald-300 bg-emerald-50 dark:bg-emerald-950/30"
                             : "border-destructive/40 bg-destructive/5"
                         }`}
                       >
                         <p className="flex items-center gap-2 font-medium">
-                          {tests[def.id]!.ok ? (
+                          {tests[def.id]?.ok ? (
                             <CheckCircle2 className="h-4 w-4" />
                           ) : (
                             <XCircle className="h-4 w-4" />
                           )}
-                          {tests[def.id]!.title}
-                          {tests[def.id]!.latencyMs !== null && (
+                          {tests[def.id]?.title}
+                          {tests[def.id]?.latencyMs !== null && (
                             <span className="text-xs font-normal text-muted-foreground">
-                              {tests[def.id]!.latencyMs} ms
+                              {tests[def.id]?.latencyMs} ms
                             </span>
                           )}
                         </p>
-                        <p className="text-muted-foreground">{tests[def.id]!.message}</p>
-                        {tests[def.id]!.hint && (
+                        <p className="text-muted-foreground">{tests[def.id]?.message}</p>
+                        {tests[def.id]?.hint && (
                           <p className="text-xs text-muted-foreground">
-                            {tests[def.id]!.hint}
+                            {tests[def.id]?.hint}
                           </p>
                         )}
-                        {tests[def.id]!.modelsSeen.length > 0 && (
+                        {(tests[def.id]?.modelsSeen.length ?? 0) > 0 && (
                           <p className="text-xs text-muted-foreground">
                             Models available:{" "}
                             <span className="font-mono">
-                              {tests[def.id]!.modelsSeen.join(", ")}
+                              {tests[def.id]?.modelsSeen.join(", ")}
                             </span>
                           </p>
                         )}
@@ -398,7 +396,7 @@ function AiEnginesPage() {
 
                 <Separator />
 
-                 <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2">
                   <Button
                     onClick={() => saveMutation.mutate()}
                     disabled={saveMutation.isPending}
