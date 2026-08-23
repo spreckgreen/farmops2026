@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { inferUsageScheduledDate, estimateUsageRatePerDay } from "@/lib/usage-due-status";
+import { inferUsageScheduledDate, estimateUsageRatePerDay, computeUsageDueStatus } from "@/lib/usage-due-status";
 
 const now = new Date("2026-08-23T12:00:00Z");
 const sched = (recurrence: string, raw: Record<string, unknown>) =>
@@ -55,5 +55,42 @@ describe("usage schedule inference", () => {
 
   it("returns null for date-based schedules", () => {
     expect(inferUsageScheduledDate({ recurrence: "monthly", scheduled_date: null } as never, undefined, [], now)).toBeNull();
+  });
+
+  it("tags usage status as measured when snapshots provide a rate", () => {
+    const status = computeUsageDueStatus(
+      sched("custom:100:hours", { baseline_hours: 100, threshold_hours: 200 }),
+      { current_hours: 190, current_miles: null } as never,
+      [
+        { recorded_at: "2026-07-24T12:00:00Z", hours: 100, miles: null },
+        { recorded_at: "2026-08-23T12:00:00Z", hours: 190, miles: null },
+      ],
+      now,
+    );
+    expect(status?.rateSource).toBe("measured");
+    expect(status?.rateSamples).toBe(2);
+    expect(status?.estimatedDueDate).toBeTruthy();
+  });
+
+  it("tags usage status as assumed when no measured rate exists", () => {
+    const status = computeUsageDueStatus(
+      sched("custom:100:hours", { baseline_hours: 0, threshold_hours: 100 }),
+      { current_hours: 0, current_miles: null } as never,
+      [],
+      now,
+    );
+    expect(status?.rateSource).toBe("assumed");
+    expect(status?.assumedRatePerDay).toBe(2);
+    expect(status?.estimatedDueDate).toBeTruthy();
+  });
+
+  it("tags usage status as overdue when threshold is reached", () => {
+    const status = computeUsageDueStatus(
+      sched("custom:100:miles", { baseline_miles: 0, threshold_miles: 100 }),
+      { current_hours: null, current_miles: 150 } as never,
+      [],
+      now,
+    );
+    expect(status?.rateSource).toBe("overdue");
   });
 });

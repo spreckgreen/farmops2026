@@ -6,7 +6,7 @@ import type { Asset } from "@/components/dashboard/types";
 import { format } from "date-fns";
 import { Bell, Calendar, CheckCircle, Edit, Gauge, Trash2, Wrench } from "lucide-react";
 import { computeReminder, type ReminderStatus } from "@/lib/maintenance-reminders";
-import { computeUsageDueStatus, type UsageSnapshot } from "@/lib/usage-due-status";
+import { computeUsageDueStatus, type UsageSnapshot, type RateSource } from "@/lib/usage-due-status";
 import UsageDueStatusPanel from "@/components/scheduling/UsageDueStatusPanel";
 
 interface ScheduleListProps {
@@ -31,6 +31,13 @@ const reminderColors: Record<ReminderStatus, string> = {
   ok: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
   soon: "bg-amber-500/15 text-amber-300 border-amber-500/30",
   due: "bg-orange-500/20 text-orange-300 border-orange-500/30",
+  overdue: "bg-red-500/20 text-red-300 border-red-500/30",
+  unknown: "bg-muted text-muted-foreground border-border",
+};
+
+const sourceStyles: Record<RateSource, string> = {
+  measured: "bg-blue-500/15 text-blue-300 border-blue-500/30",
+  assumed: "bg-amber-500/15 text-amber-300 border-amber-500/30",
   overdue: "bg-red-500/20 text-red-300 border-red-500/30",
   unknown: "bg-muted text-muted-foreground border-border",
 };
@@ -104,7 +111,7 @@ const ScheduleList = ({ schedules, assets, usageSnapshots = {}, onEdit, onDelete
                   )}
                 </div>
                 <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap">
-                  <span className="flex items-center gap-1">
+                  <span className="flex items-center gap-1 flex-wrap">
                     <Calendar className="h-3.5 w-3.5" />
                     {s.scheduled_date
                       ? `${format(new Date(s.scheduled_date), "MMM d, yyyy h:mm a")}${
@@ -116,6 +123,23 @@ const ScheduleList = ({ schedules, assets, usageSnapshots = {}, onEdit, onDelete
                       : s.recurrence
                         ? `Usage-based — ${s.recurrence}`
                         : "No date set"}
+                    {s.scheduled_date &&
+                      (s as unknown as { raw?: { scheduled_date_inferred?: boolean } }).raw
+                        ?.scheduled_date_inferred &&
+                      dueStatus && (
+                        <Badge
+                          variant="outline"
+                          className={`text-xs ${sourceStyles[dueStatus.rateSource]}`}
+                        >
+                          {dueStatus.rateSource === "measured"
+                            ? `Measured from ${dueStatus.rateSamples} reading${dueStatus.rateSamples === 1 ? "" : "s"}`
+                            : dueStatus.rateSource === "assumed"
+                              ? `Assumed ${dueStatus.assumedRatePerDay?.toLocaleString(undefined, { maximumFractionDigits: 1 })} ${dueStatus.unit}/day`
+                              : dueStatus.rateSource === "overdue"
+                                ? "Overdue now"
+                                : "No projection"}
+                        </Badge>
+                      )}
                   </span>
                   <span>Asset: <span className="text-foreground">{getAssetName(s.asset_id)}</span></span>
                 </div>

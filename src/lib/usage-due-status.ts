@@ -13,6 +13,8 @@ export interface UsageSnapshot {
 
 export type Urgency = "overdue" | "critical" | "soon" | "planned" | "unknown";
 
+export type RateSource = "measured" | "assumed" | "overdue" | "unknown";
+
 export interface UsageDueStatus {
   unit: "hours" | "miles";
   /** Live reading from the asset, null when unknown. */
@@ -39,6 +41,10 @@ export interface UsageDueStatus {
   urgency: Urgency;
   /** One-line summary, e.g. "Due in 42 hours — est. Sep 14 (12 days)". */
   summary: string;
+  /** Whether the projection is based on measured snapshots or the fallback rate. */
+  rateSource: RateSource;
+  /** Fallback rate used when ratePerDay is not measured. */
+  assumedRatePerDay: number | null;
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -137,10 +143,21 @@ export function computeUsageDueStatus(
 
   let estimatedDueDate: Date | null = null;
   let daysUntilDue: number | null = null;
-  if (ratePerDay != null && remaining != null) {
-    daysUntilDue = Math.round(remaining / ratePerDay);
-    estimatedDueDate = new Date(now.getTime() + (remaining / ratePerDay) * DAY_MS);
+  if (remaining != null) {
+    const effectiveRate = ratePerDay ?? ASSUMED_RATE_PER_DAY[usage.unit];
+    if (effectiveRate > 0) {
+      daysUntilDue = Math.round(remaining / effectiveRate);
+      estimatedDueDate = new Date(now.getTime() + (remaining / effectiveRate) * DAY_MS);
+    }
   }
+
+  const rateSource: RateSource =
+    remaining != null && remaining <= 0
+      ? "overdue"
+      : ratePerDay != null
+        ? "measured"
+        : "assumed";
+  const assumedRatePerDay = ratePerDay == null ? ASSUMED_RATE_PER_DAY[usage.unit] : null;
 
   const urgency = urgencyFrom(remaining, daysUntilDue, usage.interval);
   const unitLabel = usage.unit;
@@ -175,6 +192,8 @@ export function computeUsageDueStatus(
     daysUntilDue,
     urgency,
     summary,
+    rateSource,
+    assumedRatePerDay,
   };
 }
 
