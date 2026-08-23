@@ -143,10 +143,23 @@ export function computeUsageDueStatus(
 
   let estimatedDueDate: Date | null = null;
   let daysUntilDue: number | null = null;
-  if (ratePerDay != null && remaining != null) {
-    daysUntilDue = Math.round(remaining / ratePerDay);
-    estimatedDueDate = new Date(now.getTime() + (remaining / ratePerDay) * DAY_MS);
+  if (remaining != null) {
+    const effectiveRate = ratePerDay ?? ASSUMED_RATE_PER_DAY[usage.unit];
+    if (effectiveRate > 0) {
+      daysUntilDue = Math.round(remaining / effectiveRate);
+      estimatedDueDate = new Date(now.getTime() + (remaining / effectiveRate) * DAY_MS);
+    }
   }
+
+  const rateSource: RateSource =
+    remaining != null && remaining <= 0
+      ? "overdue"
+      : ratePerDay != null
+        ? "measured"
+        : remaining == null
+          ? "unknown"
+          : "assumed";
+  const assumedRatePerDay = ratePerDay == null ? ASSUMED_RATE_PER_DAY[usage.unit] : null;
 
   const urgency = urgencyFrom(remaining, daysUntilDue, usage.interval);
   const unitLabel = usage.unit;
@@ -181,6 +194,8 @@ export function computeUsageDueStatus(
     daysUntilDue,
     urgency,
     summary,
+    rateSource,
+    assumedRatePerDay,
   };
 }
 
