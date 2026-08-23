@@ -14,6 +14,11 @@
 // can re-enter those few values by hand or delete them.
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import {
+  requireVaultAdmin,
+  parseRecoveryKeys,
+  computeCurrentKeyVersion,
+} from "./vault-recovery.server";
 
 export interface UnrecoverableRow {
   id: string;
@@ -36,26 +41,6 @@ export interface ReencryptResult {
   errors: Array<{ id: string; message: string }>;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function requireAdmin(supabase: any, userId: string): Promise<void> {
-  const { data, error } = await supabase
-    .from("user_roles")
-    .select("role")
-    .eq("user_id", userId)
-    .eq("role", "admin")
-    .maybeSingle();
-  if (error) throw new Error(`Role check failed: ${error.message}`);
-  if (!data) throw new Error("Forbidden: admin role required");
-}
-
-function parseKeys(input: string | undefined): string[] {
-  if (!input) return [];
-  return input
-    .split(/[\r\n,;\s]+/)
-    .map((s) => s.trim())
-    .filter(Boolean)
-    .slice(0, 10);
-}
 
 /**
  * Walk every vault row, decrypt it with whatever key works (current key, OLD
@@ -69,7 +54,7 @@ export const reencryptVaultWithCurrentKey = createServerFn({ method: "POST" })
     limit: Math.max(1, Math.min(500, Number(d?.limit ?? 200))),
   }))
   .handler(async ({ context, data }): Promise<ReencryptResult> => {
-    await requireAdmin(context.supabase, context.userId);
+    await requireVaultAdmin(context.supabase, context.userId);
     if (!process.env.VAULT_ENCRYPTION_KEY) {
       throw new Error(
         "VAULT_ENCRYPTION_KEY is not set on the server, so there is no key to re-encrypt with. " +
@@ -84,7 +69,7 @@ export const reencryptVaultWithCurrentKey = createServerFn({ method: "POST" })
       getKeyFingerprints,
     } = await import("./vault-crypto.server");
 
-    const recoveryKeys = parseKeys(data.recoveryKeys);
+    const recoveryKeys = parseRecoveryKeys(data.recoveryKeys);
     const fp = await getKeyFingerprints();
     const recoveryKeyFingerprints = await fingerprintRecoveryKeys(recoveryKeys);
 
@@ -156,7 +141,7 @@ export const reencryptVaultWithCurrentKey = createServerFn({ method: "POST" })
 
         const v = await seal(value.plaintext);
         const n = notesPlain != null ? await seal(notesPlain) : null;
-        const targetVersion = await computeTargetVersion();
+        const targetVersion = await computeCurrentKeyVersion();
 
         const { error: upErr } = await context.supabase
           .from("vault_secrets")
@@ -196,22 +181,6 @@ export const reencryptVaultWithCurrentKey = createServerFn({ method: "POST" })
     };
   });
 
-/** Deterministic key_version for the current primary key (mirrors the rotation tool). */
-async function computeTargetVersion(): Promise<number> {
-  const { cryptoProvider, utf8encode } = await import("./crypto-provider.server");
-  const raw = process.env.VAULT_ENCRYPTION_KEY;
-  if (!raw) throw new Error("VAULT_ENCRYPTION_KEY is not configured");
-  let bytes: Uint8Array;
-  if (/^[0-9a-fA-F]{64}$/.test(raw)) {
-    bytes = new Uint8Array(32);
-    for (let i = 0; i < 32; i++) bytes[i] = parseInt(raw.substr(i * 2, 2), 16);
-  } else {
-    bytes = await cryptoProvider.sha256(utf8encode(raw));
-  }
-  const h = await cryptoProvider.sha256(bytes);
-  const v = ((h[0] << 8) | h[1]) & 0x7fff;
-  return v === 0 ? 1 : v;
-}
 
 /** Delete rows that no available key can open. Requires explicit ids + confirm. */
 export const purgeUnrecoverableVaultRows = createServerFn({ method: "POST" })
@@ -223,7 +192,7 @@ export const purgeUnrecoverableVaultRows = createServerFn({ method: "POST" })
     return { ids };
   })
   .handler(async ({ context, data }): Promise<{ deleted: number }> => {
-    await requireAdmin(context.supabase, context.userId);
+    await requireVaultAdmin(context.supabase, context.userId);
     const { data: rows, error } = await context.supabase
       .from("vault_secrets")
       .delete()
