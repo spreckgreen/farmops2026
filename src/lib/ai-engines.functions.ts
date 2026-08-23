@@ -3,9 +3,10 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import {
-  BUNDLED_OLLAMA_BASE_URL,
-  LOVABLE_DEFAULT_MODEL,
-  LOVABLE_GATEWAY_BASE_URL,
+  AI_ENGINE_DEFS,
+  AI_ENGINE_IDS,
+  type AiEngineId,
+  type AiEngineTarget,
   type AiEnginesConfig,
 } from "@/lib/ai-engines";
 
@@ -17,12 +18,8 @@ const TargetInput = z.object({
 });
 
 const EnginesInput = z.object({
-  local: TargetInput,
-  hosted: z.object({
-    provider: z.enum(["lovable", "custom"]),
-    lovableModel: z.string().trim().max(200).nullable(),
-    custom: TargetInput,
-  }),
+  engines: z.record(z.enum(AI_ENGINE_IDS), TargetInput),
+  cloudDefault: z.enum(AI_ENGINE_IDS),
 });
 
 type TargetIn = z.infer<typeof TargetInput>;
@@ -50,10 +47,8 @@ async function requireAdmin(supabase: unknown, userId: string) {
 }
 
 /** Merge an incoming target over the stored one, preserving an untouched key. */
-function mergeTarget(
-  incoming: TargetIn,
-  stored: { baseUrl: string | null; apiKey: string | null; model: string | null },
-) {
+function mergeTarget(incoming: TargetIn | undefined, stored: AiEngineTarget): AiEngineTarget {
+  if (!incoming) return { ...stored };
   const apiKey =
     incoming.apiKey === null
       ? stored.apiKey
@@ -70,34 +65,31 @@ function mergeTarget(
 export const getAiEngines = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async () => {
-    const { loadEnginesConfig, resolveLocalEngine, resolveHostedEngine } = await import(
+    const { loadEnginesConfig, engineAvailability, resolveEngine } = await import(
       "./ai-engines.server"
     );
-    const { toEngineView, hostedCustomIncomplete } = await import("@/lib/ai-engines");
+    const { toEngineView, engineIncomplete } = await import("@/lib/ai-engines");
     const config = await loadEnginesConfig();
-    const local = await resolveLocalEngine(config);
-    const hosted = await resolveHostedEngine(config);
+    const availability = await engineAvailability(config);
+    const cloud = await resolveEngine(config.cloudDefault, config);
+
+    const incomplete = {} as Record<AiEngineId, boolean>;
+    for (const id of AI_ENGINE_IDS) incomplete[id] = engineIncomplete(config, id);
 
     return {
       config: toEngineView(config),
-      effective: {
-        local: { baseUrl: local.baseUrl, model: local.model },
-        hosted: hosted
-          ? { kind: hosted.kind, baseUrl: hosted.baseUrl, model: hosted.model }
-          : null,
-      },
-      hostedIncomplete: hostedCustomIncomplete(config),
+      engines: AI_ENGINE_DEFS,
+      availability,
+      incomplete,
+      cloudDefaultEffective: cloud
+        ? { id: cloud.id, baseUrl: cloud.baseUrl, model: cloud.model }
+        : null,
       hasLovableApiKey: Boolean(process.env.LOVABLE_API_KEY),
-      /** Deploy-level custom AI env vars that still force local routing. */
+      /** Deploy-level custom AI env vars that still configure the local engine. */
       envCustomAi: {
         baseUrl: process.env.CUSTOM_AI_BASE_URL ?? null,
         hasApiKey: Boolean(process.env.CUSTOM_AI_API_KEY),
         model: process.env.CUSTOM_AI_MODEL ?? null,
-      },
-      defaults: {
-        localBaseUrl: BUNDLED_OLLAMA_BASE_URL,
-        hostedBaseUrl: LOVABLE_GATEWAY_BASE_URL,
-        hostedModel: LOVABLE_DEFAULT_MODEL,
       },
     };
   });
@@ -108,30 +100,37 @@ export const setAiEngines = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     await requireAdmin(context.supabase, context.userId);
     const { loadEnginesConfig, saveEnginesConfig } = await import("./ai-engines.server");
+    const { engineIncomplete, getAiEngineDef } = await import("@/lib/ai-engines");
     const stored = await loadEnginesConfig();
 
-    const next: AiEnginesConfig = {
-      local: mergeTarget(data.local, stored.local),
-      hosted: {
-        provider: data.hosted.provider,
-        lovableModel: data.hosted.lovableModel?.trim() || null,
-        custom: mergeTarget(data.hosted.custom, stored.hosted.custom),
-      },
-    };
-    if (next.hosted.provider === "custom") {
-      if (!next.hosted.custom.baseUrl) throw new Error("Alternative hosted provider needs a base URL");
-      if (!next.hosted.custom.apiKey) throw new Error("Alternative hosted provider needs an API key");
+    const engines = {} as Record<AiEngineId, AiEngineTarget>;
+    for (const id of AI_ENGINE_IDS) {
+      engines[id] = mergeTarget(data.engines[id], stored.engines[id]);
     }
+    const next: AiEnginesConfig = { engines, cloudDefault: data.cloudDefault };
+
+    if (getAiEngineDef(next.cloudDefault).placement === "local") {
+      throw new Error("The cloud default must be a cloud engine, not the local one.");
+    }
+    if (engineIncomplete(next, next.cloudDefault)) {
+      throw new Error(
+        `${getAiEngineDef(next.cloudDefault).label} is missing a base URL, API key or model, so it cannot be the cloud default.`,
+      );
+    }
+    if (next.cloudDefault === "lovable" && !process.env.LOVABLE_API_KEY) {
+      throw new Error("LOVABLE_API_KEY is not set on the server, so Lovable AI cannot be selected.");
+    }
+
     await saveEnginesConfig(next, context.userId);
     const { toEngineView } = await import("@/lib/ai-engines");
     return { ok: true as const, config: toEngineView(next) };
   });
 
 /**
- * One-click "Switch to Lovable AI": point the hosted engine back at the Lovable
- * AI Gateway, drop alternative-provider overrides, remove the runtime custom-AI
- * vault overrides that force local routing, and route every hosted-recommended
- * feature area to hosted.
+ * One-click "Switch to Lovable AI": make Lovable AI the cloud default, drop the
+ * other-cloud overrides, remove the runtime custom-AI vault overrides that
+ * force local routing, and route every hosted-recommended feature area to the
+ * cloud default.
  */
 export const switchHostedToLovableAi = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -153,7 +152,7 @@ export const switchHostedToLovableAi = createServerFn({ method: "POST" })
       if (await deleteSharedEnvValue(key)) clearedKeys.push(key);
     }
 
-    // Send every area whose recommendation is hosted back to hosted.
+    // Send every area whose recommendation is hosted to Lovable AI.
     const { loadRoutingConfig, saveRoutingConfig } = await import("./ai-routing.server");
     const { AI_FEATURE_AREAS } = await import("@/lib/ai-feature-areas");
     const routing = await loadRoutingConfig();
@@ -163,8 +162,8 @@ export const switchHostedToLovableAi = createServerFn({ method: "POST" })
       if (area.recommended !== "hosted") continue;
       const current = areas[area.id];
       const model = current?.model && current.model.includes("/") ? current.model : null;
-      if (current?.backend !== "hosted" || current.model !== model) switched.push(area.label);
-      areas[area.id] = { backend: "hosted", model };
+      if (current?.backend !== "lovable" || current.model !== model) switched.push(area.label);
+      areas[area.id] = { backend: "lovable", model };
     }
     await saveRoutingConfig({ ...routing, areas }, context.userId);
 
