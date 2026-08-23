@@ -231,8 +231,10 @@ function ServiceSchedulingPage() {
   const consumableCategories = [...new Set(consumables.map((c) => c.category).filter(Boolean))] as string[];
 
   const filteredSchedules = schedules.filter((s) => {
-    if (!s.scheduled_date) return false;
-    const isOverdue = s.status === "scheduled" && new Date(s.scheduled_date) < new Date();
+    const isOverdue =
+      s.status === "scheduled" &&
+      !!s.scheduled_date &&
+      new Date(s.scheduled_date) < new Date();
     const displayStatus = isOverdue ? "overdue" : s.status;
     const q = search.toLowerCase();
     const matchesSearch =
