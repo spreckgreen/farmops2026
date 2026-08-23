@@ -22,6 +22,13 @@ export type { SealedBlob };
 
 type ResolvedKey = { bytes: Uint8Array; raw: string };
 
+/** Human-readable shape of a key var, e.g. "64-hex (32 bytes)" or
+ *  "passphrase, 18 chars (SHA-256 derived)". Never includes the value. */
+function describeKeyShape(raw: string): string {
+  if (/^[0-9a-fA-F]{64}$/.test(raw)) return "64-hex (32 bytes)";
+  return `passphrase, ${raw.length} chars (SHA-256 derived)`;
+}
+
 async function deriveKeyBytes(raw: string): Promise<Uint8Array> {
   if (/^[0-9a-fA-F]{64}$/.test(raw)) {
     const out = new Uint8Array(32);
@@ -34,15 +41,27 @@ async function deriveKeyBytes(raw: string): Promise<Uint8Array> {
 
 async function loadPrimary(): Promise<ResolvedKey> {
   const raw = process.env.VAULT_ENCRYPTION_KEY;
-  if (!raw) throw new Error("VAULT_ENCRYPTION_KEY is not configured");
+  if (!raw) {
+    throw new Error(
+      "VAULT_ENCRYPTION_KEY is not set on the server. Set it to 64 hex characters " +
+        "(e.g. `openssl rand -hex 32`) and restart the app.",
+    );
+  }
+  if (raw.trim() !== raw) {
+    throw new Error(
+      "VAULT_ENCRYPTION_KEY has leading/trailing whitespace — quote it in .env " +
+        '(VAULT_ENCRYPTION_KEY="abc…") or remove the stray spaces/newline.',
+    );
+  }
   return { bytes: await deriveKeyBytes(raw), raw };
 }
 
 async function loadOld(): Promise<ResolvedKey | null> {
   const raw = process.env.VAULT_ENCRYPTION_KEY_OLD;
   if (!raw) return null;
-  return { bytes: await deriveKeyBytes(raw), raw };
+  return { bytes: await deriveKeyBytes(raw.trim()), raw: raw.trim() };
 }
+
 
 /** 8-char hex prefix of SHA-256(key bytes). Safe to display; not reversible. */
 export async function fingerprintKey(bytes: Uint8Array): Promise<string> {
