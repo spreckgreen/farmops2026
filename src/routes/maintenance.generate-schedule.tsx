@@ -260,7 +260,9 @@ function Page() {
       jobProgress.stop();
       if (p.actions.length === 0) {
         toast.warning(
-          "The model didn't return any intervals. Try adding more usage context.",
+          failures.length > 0
+            ? failures[0].error
+            : "The model didn't return any intervals. Try adding more usage context.",
         );
         return;
       }
