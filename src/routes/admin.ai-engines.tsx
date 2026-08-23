@@ -182,8 +182,10 @@ function AiEnginesPage() {
           ),
         },
       }),
-    onSuccess: () => {
+    onSuccess: (result) => {
+      const warnings = "warnings" in result ? (result.warnings ?? []) : [];
       toast.success("AI engine configuration saved");
+      for (const w of warnings) toast.warning(w);
       void qc.invalidateQueries({ queryKey: ["ai-engines"] });
       void qc.invalidateQueries({ queryKey: ["ai-routing"] });
     },
@@ -295,8 +297,7 @@ function AiEnginesPage() {
                         only to override it (e.g. the server key is stale).
                       </p>
                     )}
-                    {(
-                      <>
+                    <>
                         <div className="space-y-1">
                           <Label htmlFor={`${def.id}-base`}>Base URL</Label>
                           <Input
@@ -328,8 +329,7 @@ function AiEnginesPage() {
                             }
                           />
                         </div>
-                      </>
-                    )}
+                    </>
                     <div className="space-y-1">
                       <Label htmlFor={`${def.id}-model`}>Model</Label>
                       <Input
