@@ -9,8 +9,28 @@
 // 16k-context manual. Rather than one global backend, each area picks its own.
 
 export type AiBackend = "local" | "hosted";
-/** "default" = follow the global backend resolution (self-host env / Lovable). */
-export type AiAreaChoice = AiBackend | "default";
+/**
+ * What an area is set to:
+ *   "default"      — follow the recommended/global resolution
+ *   "local"        — self-hosted engine
+ *   "hosted"       — whichever cloud engine is the configured cloud default
+ *   engine id      — one specific engine ("ollama_cloud", "lovable", "other_cloud")
+ */
+export type AiAreaChoice =
+  | AiBackend
+  | "default"
+  | "ollama_cloud"
+  | "lovable"
+  | "other_cloud";
+
+export const AI_AREA_CHOICES: readonly AiAreaChoice[] = [
+  "default",
+  "local",
+  "ollama_cloud",
+  "lovable",
+  "other_cloud",
+  "hosted",
+] as const;
 
 export type AiAreaId =
   | "summary.daily"
@@ -213,7 +233,9 @@ export const DEFAULT_ROUTING: AiRoutingConfig = {
 };
 
 function normalizeChoice(value: unknown): AiAreaChoice | null {
-  return value === "local" || value === "hosted" || value === "default" ? value : null;
+  return typeof value === "string" && (AI_AREA_CHOICES as readonly string[]).includes(value)
+    ? (value as AiAreaChoice)
+    : null;
 }
 
 /** Parse the JSON blob stored in the shared vault (CUSTOM_AI_FEATURE_ROUTING). */
