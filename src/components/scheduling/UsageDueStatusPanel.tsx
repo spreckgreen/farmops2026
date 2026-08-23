@@ -1,6 +1,11 @@
 import { Badge } from "@/components/ui/badge";
 import { CalendarClock, Gauge, TrendingUp } from "lucide-react";
-import { urgencyLabels, type UsageDueStatus, type Urgency } from "@/lib/usage-due-status";
+import {
+  urgencyLabels,
+  type UsageDueStatus,
+  type Urgency,
+  type RateSource,
+} from "@/lib/usage-due-status";
 
 const urgencyStyles: Record<Urgency, string> = {
   overdue: "bg-red-500/20 text-red-300 border-red-500/30",
@@ -18,6 +23,29 @@ const barColors: Record<Urgency, string> = {
   unknown: "bg-muted-foreground/40",
 };
 
+const sourceStyles: Record<RateSource, string> = {
+  measured: "bg-blue-500/15 text-blue-300 border-blue-500/30",
+  assumed: "bg-amber-500/15 text-amber-300 border-amber-500/30",
+  overdue: "bg-red-500/20 text-red-300 border-red-500/30",
+  unknown: "bg-muted text-muted-foreground border-border",
+};
+
+const sourceLabel = (status: UsageDueStatus): string => {
+  switch (status.rateSource) {
+    case "measured":
+      return `Measured from ${status.rateSamples} reading${status.rateSamples === 1 ? "" : "s"}`;
+    case "assumed":
+      return `Assumed ${status.assumedRatePerDay?.toLocaleString(undefined, {
+        maximumFractionDigits: 1,
+      })} ${status.unit}/day`;
+    case "overdue":
+      return "Overdue now";
+    case "unknown":
+    default:
+      return "No projection";
+  }
+};
+
 const num = (n: number, digits = 0) =>
   n.toLocaleString(undefined, { maximumFractionDigits: digits });
 
@@ -33,6 +61,9 @@ const UsageDueStatusPanel = ({ status }: { status: UsageDueStatus }) => {
         </span>
         <Badge variant="outline" className={`text-xs ${urgencyStyles[status.urgency]}`}>
           {urgencyLabels[status.urgency]}
+        </Badge>
+        <Badge variant="outline" className={`text-xs ${sourceStyles[status.rateSource]}`}>
+          {sourceLabel(status)}
         </Badge>
       </div>
 
