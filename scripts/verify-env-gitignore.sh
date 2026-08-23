@@ -9,7 +9,10 @@ TARGET="docs/env.self-hosted-supabase.example"
 GITIGNORE="$REPO_ROOT/.gitignore"
 FAIL=0
 
-echo "==> Verifying $TARGET is properly excluded from git"
+echo "==> Verifying $TARGET is properly excluded from git (repo root: $REPO_ROOT)"
+
+# Run git/file checks from the repo root so relative paths resolve correctly.
+cd "$REPO_ROOT"
 
 # 1. Present in .gitignore (exact line match, ignoring comments/whitespace)
 if grep -Fxq "$TARGET" "$GITIGNORE"; then
