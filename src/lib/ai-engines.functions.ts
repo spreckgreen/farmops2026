@@ -176,3 +176,25 @@ export const switchHostedToLovableAi = createServerFn({ method: "POST" })
       envStillSet: Boolean(process.env.CUSTOM_AI_BASE_URL && process.env.CUSTOM_AI_API_KEY),
     };
   });
+
+const TestInput = z.object({
+  id: z.enum(AI_ENGINE_IDS),
+  /** Unsaved form values, so an admin can test before saving. */
+  baseUrl: z.string().trim().max(500).nullable().optional(),
+  apiKey: z.string().max(500).nullable().optional(),
+  model: z.string().trim().max(200).nullable().optional(),
+});
+
+/** Verify one engine's base URL, API key and model, with actionable errors. */
+export const testAiEngineConnection = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => TestInput.parse(d))
+  .handler(async ({ context, data }) => {
+    await requireAdmin(context.supabase, context.userId);
+    const { testAiEngine } = await import("./ai-engine-test.server");
+    return testAiEngine(data.id, {
+      baseUrl: data.baseUrl?.trim() || null,
+      apiKey: data.apiKey?.trim() || null,
+      model: data.model?.trim() || null,
+    });
+  });
