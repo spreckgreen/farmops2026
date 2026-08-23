@@ -92,10 +92,26 @@ export async function resolveAreaAi(
     engineId = choice;
   }
 
-  const cloudDefaultId = engines.cloudDefault;
-  const hosted = await resolveEngine(cloudDefaultId, engines, {
+  let cloudDefaultId = engines.cloudDefault;
+  let hosted = await resolveEngine(cloudDefaultId, engines, {
     defaultModel: opts.hostedDefaultModel,
   });
+  // The configured cloud default (often Lovable AI) may have no usable key on
+  // this deploy. That must never take down features whose other cloud engines
+  // ARE configured, so fall back to the first usable cloud engine.
+  if (!hosted) {
+    for (const candidate of ["ollama_cloud", "other_cloud", "lovable"] as AiEngineId[]) {
+      if (candidate === cloudDefaultId) continue;
+      const alt = await resolveEngine(candidate, engines, {
+        defaultModel: opts.hostedDefaultModel,
+      });
+      if (alt) {
+        hosted = alt;
+        cloudDefaultId = candidate;
+        break;
+      }
+    }
+  }
   const local = await resolveEngine("local", engines);
 
   // A per-area model override is only valid for the backend it belongs to.
