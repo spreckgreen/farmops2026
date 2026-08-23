@@ -281,18 +281,57 @@ function VaultSecretsAdminPage() {
                     }
                   />
                 </div>
-                <Button
-                  variant="outline"
-                  disabled={revealState.busy || revealState.reason.trim().length < 3}
-                  onClick={() => setRevealState((s) => ({ ...s, open: true }))}
-                >
-                  {revealState.busy ? (
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  ) : (
-                    <Eye className="h-4 w-4 mr-2" />
-                  )}
-                  Reveal master key
-                </Button>
+                {revealState.open ? (
+                  <div className="rounded-md border-2 border-destructive bg-destructive/10 p-3 space-y-3">
+                    <div className="text-sm text-destructive font-medium flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4" />
+                      Type <code>REVEAL</code> below to confirm you understand the risk.
+                    </div>
+                    <Input
+                      placeholder="Type REVEAL to confirm"
+                      value={revealState.confirmText}
+                      onChange={(e) =>
+                        setRevealState((s) => ({ ...s, confirmText: e.target.value }))
+                      }
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        variant="destructive"
+                        disabled={
+                          revealState.busy || revealState.confirmText.trim() !== "REVEAL"
+                        }
+                        onClick={runReveal}
+                      >
+                        {revealState.busy ? (
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                        ) : (
+                          <Eye className="h-4 w-4 mr-2" />
+                        )}
+                        Show key
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        onClick={() =>
+                          setRevealState((s) => ({
+                            ...s,
+                            open: false,
+                            confirmText: "",
+                          }))
+                        }
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <Button
+                    variant="outline"
+                    disabled={revealState.busy || revealState.reason.trim().length < 3}
+                    onClick={() => setRevealState((s) => ({ ...s, open: true }))}
+                  >
+                    <Eye className="h-4 w-4 mr-2" /> Reveal master key
+                  </Button>
+                )}
               </div>
             ) : (
               <div className="space-y-3">
