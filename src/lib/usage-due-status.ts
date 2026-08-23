@@ -156,9 +156,7 @@ export function computeUsageDueStatus(
       ? "overdue"
       : ratePerDay != null
         ? "measured"
-        : remaining == null
-          ? "unknown"
-          : "assumed";
+        : "assumed";
   const assumedRatePerDay = ratePerDay == null ? ASSUMED_RATE_PER_DAY[usage.unit] : null;
 
   const urgency = urgencyFrom(remaining, daysUntilDue, usage.interval);
