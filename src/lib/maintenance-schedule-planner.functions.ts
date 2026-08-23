@@ -339,15 +339,37 @@ export const planMaintenanceSchedule = createServerFn({ method: "POST" })
       }
     }
 
+    // Already routed to hosted AI but the configured hosted model failed (bad
+    // model id, temporary gateway error). Retry once on the known-good default.
+    const HOSTED_DEFAULT = "google/gemini-3.6-flash";
+    if (!parsed && ai.backend === "hosted" && modelId !== HOSTED_DEFAULT) {
+      try {
+        modelId = HOSTED_DEFAULT;
+        const { output } = await generateText({
+          model: provider(modelId),
+          output: Output.object({ schema }),
+          system: systemPrompt,
+          prompt: userPrompt,
+        });
+        parsed = coerce(output) ?? (output as z.infer<typeof schema>);
+        failureReason = "";
+      } catch (error) {
+        failureReason = error instanceof Error ? error.message : String(error);
+      }
+    }
+
     if (!parsed) {
       return {
         plan_id: crypto.randomUUID(),
         surface: "maintenance.generate_schedule",
         summary:
-          `Model "${modelId}" did not return a usable schedule` +
+          `${ai.backend === "hosted" ? "Hosted" : "Local"} model "${modelId}" did not ` +
+          "return a usable schedule" +
           (failureReason ? ` (${failureReason}).` : ".") +
-          " Small local models often struggle with structured output — try a" +
-          " larger model (e.g. llama3.1:8b) or an external provider.",
+          (ai.backend === "hosted"
+            ? " Check the model id configured for the service-schedule area in AI settings."
+            : " Small local models often struggle with structured output — try a" +
+              " larger model (e.g. llama3.1:8b) or route this area to Lovable AI."),
         actions: [],
         citations: [],
         model: modelId,
