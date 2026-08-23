@@ -190,8 +190,8 @@ export async function testAiEngine(
     const missing = [
       !(merged.engines[id].baseUrl ?? def.defaultBaseUrl) ? "base URL" : null,
       def.keyFromEnv
-        ? !process.env.LOVABLE_API_KEY
-          ? "LOVABLE_API_KEY on the server"
+        ? !process.env.LOVABLE_API_KEY && !merged.engines[id].apiKey
+          ? "an API key (LOVABLE_API_KEY on the server, or pasted here)"
           : null
         : !merged.engines[id].apiKey
           ? "API key"
@@ -203,7 +203,7 @@ export async function testAiEngine(
       title: "Not configured yet",
       message: `${def.label} is missing ${missing.join(", ") || "required settings"}, so there is nothing to test.`,
       hint: def.keyFromEnv
-        ? "Set LOVABLE_API_KEY on the server, then test again."
+        ? "Set LOVABLE_API_KEY on the server, or paste a Lovable AI key in the field above, then test again."
         : "Fill in the fields above and press Test connection again.",
       baseUrl: merged.engines[id].baseUrl ?? def.defaultBaseUrl,
       model: merged.engines[id].model ?? def.defaultModel,

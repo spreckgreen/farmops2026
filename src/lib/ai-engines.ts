@@ -235,15 +235,27 @@ export function switchHostedToLovable(config: AiEnginesConfig): AiEnginesConfig 
   };
 }
 
-/** True when an engine is missing something it needs to run. */
-export function engineIncomplete(config: AiEnginesConfig, id: AiEngineId): boolean {
+/**
+ * True when an engine is missing something it needs to run.
+ * `envKeyPresent` reports whether the server env supplies the key for engines
+ * that normally read it from the environment (Lovable AI). An operator-pasted
+ * key on the engine itself is always accepted as an alternative.
+ */
+export function engineIncomplete(
+  config: AiEnginesConfig,
+  id: AiEngineId,
+  opts?: { envKeyPresent?: boolean },
+): boolean {
   const def = getAiEngineDef(id);
   const target = config.engines[id];
-  if (def.keyFromEnv) return false; // key comes from the server env
   const baseUrl = target.baseUrl ?? def.defaultBaseUrl;
   if (!baseUrl) return true;
-  // A key is required for every cloud engine; local Ollama accepts a dummy key.
-  if (def.placement === "cloud" && !target.apiKey) return true;
+  if (def.keyFromEnv) {
+    if (!target.apiKey && opts?.envKeyPresent === false) return true;
+  } else if (def.placement === "cloud" && !target.apiKey) {
+    // A key is required for every cloud engine; local Ollama accepts a dummy key.
+    return true;
+  }
   return !(target.model ?? def.defaultModel);
 }
 

@@ -182,8 +182,10 @@ function AiEnginesPage() {
           ),
         },
       }),
-    onSuccess: () => {
+    onSuccess: (result) => {
+      const warnings = "warnings" in result ? (result.warnings ?? []) : [];
       toast.success("AI engine configuration saved");
+      for (const w of warnings) toast.warning(w);
       void qc.invalidateQueries({ queryKey: ["ai-engines"] });
       void qc.invalidateQueries({ queryKey: ["ai-routing"] });
     },
@@ -279,18 +281,23 @@ function AiEnginesPage() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    {def.keyFromEnv ? (
-                      !data.hasLovableApiKey && (
-                        <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 p-3 text-sm">
-                          <AlertTriangle className="h-4 w-4 mt-0.5" />
-                          <span>
-                            <code>LOVABLE_API_KEY</code> is not set on the server, so this
-                            engine cannot run.
-                          </span>
-                        </div>
-                      )
-                    ) : (
-                      <>
+                    {def.keyFromEnv && !data.hasLovableApiKey && !stored.hasApiKey && (
+                      <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 p-3 text-sm">
+                        <AlertTriangle className="h-4 w-4 mt-0.5" />
+                        <span>
+                          <code>LOVABLE_API_KEY</code> is not set on this server. Paste a
+                          Lovable AI key below to use this engine anyway — other engines
+                          still save normally.
+                        </span>
+                      </div>
+                    )}
+                    {def.keyFromEnv && data.hasLovableApiKey && !stored.hasApiKey && (
+                      <p className="text-xs text-muted-foreground">
+                        Uses the server&apos;s <code>LOVABLE_API_KEY</code>. Paste a key below
+                        only to override it (e.g. the server key is stale).
+                      </p>
+                    )}
+                    <>
                         <div className="space-y-1">
                           <Label htmlFor={`${def.id}-base`}>Base URL</Label>
                           <Input
@@ -322,8 +329,7 @@ function AiEnginesPage() {
                             }
                           />
                         </div>
-                      </>
-                    )}
+                    </>
                     <div className="space-y-1">
                       <Label htmlFor={`${def.id}-model`}>Model</Label>
                       <Input

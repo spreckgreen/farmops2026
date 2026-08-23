@@ -66,7 +66,9 @@ export async function resolveEngine(
     apiKey = target.apiKey ?? (await getServerEnv("CUSTOM_AI_API_KEY")) ?? BUNDLED_OLLAMA_API_KEY;
     model = target.model ?? (await getServerEnv("CUSTOM_AI_MODEL")) ?? def.defaultModel!;
   } else if (def.keyFromEnv) {
-    apiKey = process.env.LOVABLE_API_KEY ?? null;
+    // A key pasted into the engine config wins over the server env, so a
+    // self-hosted deploy (or a stale/blocked env key) is never a dead end.
+    apiKey = target.apiKey ?? process.env.LOVABLE_API_KEY ?? null;
     model = target.model ?? opts?.defaultModel ?? def.defaultModel ?? LOVABLE_DEFAULT_MODEL;
   }
 
