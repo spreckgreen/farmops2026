@@ -35,6 +35,13 @@ const reminderColors: Record<ReminderStatus, string> = {
   unknown: "bg-muted text-muted-foreground border-border",
 };
 
+const sourceStyles: Record<RateSource, string> = {
+  measured: "bg-blue-500/15 text-blue-300 border-blue-500/30",
+  assumed: "bg-amber-500/15 text-amber-300 border-amber-500/30",
+  overdue: "bg-red-500/20 text-red-300 border-red-500/30",
+  unknown: "bg-muted text-muted-foreground border-border",
+};
+
 const typeIcons: Record<string, string> = {
   maintenance: "🔧",
   inspection: "🔍",
