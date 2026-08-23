@@ -80,6 +80,7 @@ function sealBadge(state: VaultSecretMetadata["sealState"]) {
 function VaultSecretsAdminPage() {
   const fetchMeta = useServerFn(getVaultSecretMetadata);
   const regenerate = useServerFn(regenerateVaultSecret);
+  const reveal = useServerFn(revealMasterKey);
 
   const report = useQuery({
     queryKey: ["vault-secret-metadata"],
@@ -91,6 +92,12 @@ function VaultSecretsAdminPage() {
   const [format, setFormat] = useState<RegenerateFormat>("hex");
   const [byteLength, setByteLength] = useState(32);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [revealState, setRevealState] = useState<{
+    open: boolean;
+    reason: string;
+    revealed: MasterKeyRevealResult | null;
+    busy: boolean;
+  }>({ open: false, reason: "", revealed: null, busy: false });
 
   async function runRegenerate(id: string) {
     setBusyId(id);
