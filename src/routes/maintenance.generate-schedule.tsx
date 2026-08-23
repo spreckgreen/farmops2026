@@ -220,7 +220,17 @@ function Page() {
           merged.citations.push(...p.citations);
           if (p.model) models.add(p.model);
           if (p.escalation) merged.escalation = p.escalation;
-          setRunStatus((s) => ({ ...s, [id]: "done" }));
+          if (p.actions.length === 0) {
+            // The planner returns a diagnostic summary instead of throwing when
+            // the model produced nothing usable — show it instead of swallowing it.
+            setRunStatus((s) => ({ ...s, [id]: "failed" }));
+            errors.push({
+              name: nameOf(id),
+              error: p.summary || "The model returned no intervals.",
+            });
+          } else {
+            setRunStatus((s) => ({ ...s, [id]: "done" }));
+          }
         } catch (e) {
           if (
             controller.signal.aborted ||
