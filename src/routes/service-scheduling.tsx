@@ -209,7 +209,10 @@ function ServiceSchedulingPage() {
   const getAssetName = (assetId: string) => assets.find((a) => a.id === assetId)?.name || "";
 
   const overdueCount = schedules.filter(
-    (s) => s.status === "scheduled" && new Date(s.scheduled_date) < new Date(),
+    (s) =>
+      s.status === "scheduled" &&
+      !!s.scheduled_date &&
+      new Date(s.scheduled_date) < new Date(),
   ).length;
 
   const scheduleStats = [

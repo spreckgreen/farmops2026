@@ -58,7 +58,10 @@ const ScheduleList = ({ schedules, assets, onEdit, onDelete, onComplete }: Sched
         const asset = assets.find((a) => a.id === s.asset_id);
         const reminder = computeReminder(s, asset);
         const usageOverdue = reminder.kind !== "date" && reminder.status === "overdue";
-        const isDateOverdue = s.status === "scheduled" && new Date(s.scheduled_date) < new Date();
+        const isDateOverdue =
+          s.status === "scheduled" &&
+          !!s.scheduled_date &&
+          new Date(s.scheduled_date) < new Date();
         const displayStatus = s.status === "completed"
           ? "completed"
           : (usageOverdue || isDateOverdue) ? "overdue" : s.status;
@@ -95,7 +98,11 @@ const ScheduleList = ({ schedules, assets, onEdit, onDelete, onComplete }: Sched
                 <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap">
                   <span className="flex items-center gap-1">
                     <Calendar className="h-3.5 w-3.5" />
-                    {format(new Date(s.scheduled_date), "MMM d, yyyy h:mm a")}
+                    {s.scheduled_date
+                      ? format(new Date(s.scheduled_date), "MMM d, yyyy h:mm a")
+                      : s.recurrence
+                        ? `Usage-based — ${s.recurrence}`
+                        : "No date set"}
                   </span>
                   <span>Asset: <span className="text-foreground">{getAssetName(s.asset_id)}</span></span>
                   {reminder.kind !== "date" && reminder.progress != null && (
