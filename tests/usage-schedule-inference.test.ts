@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { inferUsageScheduledDate, estimateUsageRatePerDay } from "@/lib/usage-due-status";
+import { inferUsageScheduledDate, estimateUsageRatePerDay, computeUsageDueStatus } from "@/lib/usage-due-status";
 
 const now = new Date("2026-08-23T12:00:00Z");
 const sched = (recurrence: string, raw: Record<string, unknown>) =>
