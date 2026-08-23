@@ -478,7 +478,7 @@ export interface AiTestResult {
   /** Which workflow this run exercised. */
   workflow: AiWorkflowKey;
   workflowLabel: string;
-  provider: "custom" | "lovable" | "bundled-ollama";
+  provider: "custom" | "bundled-ollama";
   baseUrl: string;
   model: string;
   latencyMs: number;
@@ -517,7 +517,6 @@ export const runAiTest = createServerFn({ method: "POST" })
     const { getServerEnv } = await import("./server-env.server");
     const customBase = process.env.CUSTOM_AI_BASE_URL;
     const customKey = process.env.CUSTOM_AI_API_KEY;
-    const lovableKey = process.env.LOVABLE_API_KEY;
     const modelOverride = (await getServerEnv("CUSTOM_AI_MODEL")) || null;
 
     let provider: AiTestResult["provider"];
@@ -530,11 +529,6 @@ export const runAiTest = createServerFn({ method: "POST" })
       baseUrl = customBase;
       authHeader = { Authorization: `Bearer ${customKey}` };
       model = modelOverride ?? "llama3.2:3b";
-    } else if (lovableKey) {
-      provider = "lovable";
-      baseUrl = "https://ai.gateway.lovable.dev/v1";
-      authHeader = { "Lovable-API-Key": lovableKey };
-      model = modelOverride ?? "google/gemini-3-flash-preview";
     } else {
       provider = "bundled-ollama";
       baseUrl = "http://ollama:11434/v1";

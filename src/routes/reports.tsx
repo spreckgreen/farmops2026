@@ -326,10 +326,9 @@ function ReportsPage() {
               AI features disabled
             </div>
             <p className="text-xs text-muted-foreground">
-              Report drafts require an AI provider. Configure{" "}
-              <code>LOVABLE_API_KEY</code> or a custom endpoint under{" "}
+              Report drafts require an AI provider. Configure an engine under{" "}
               <a href="/settings/self-host" className="underline">
-                Settings › Self-host
+                Admin › AI engines
               </a>
               . Existing reports remain readable and editable.
             </p>

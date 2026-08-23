@@ -348,7 +348,7 @@ function PriceHistoryPage() {
             disabled={refreshM.isPending || foods.length === 0 || aiOff}
             title={
               aiOff
-                ? "AI features disabled — configure LOVABLE_API_KEY or CUSTOM_AI_* (see Settings › Self-host)"
+                ? "AI features disabled — configure an AI engine in Admin › AI engines"
                 : "Refresh prices from Southern Ohio regional reference"
             }
           >
