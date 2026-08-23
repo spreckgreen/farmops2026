@@ -29,7 +29,10 @@ export async function getServerEnv(name: string): Promise<string | undefined> {
       }, `shared env "${name}" (vault-backed)`);
     }
   } catch (e) {
-    console.warn(`[server-env] vault lookup failed for ${name}:`, e);
+    console.warn(
+      `[server-env] vault lookup failed for ${name}: ${e instanceof Error ? e.message : String(e)}`,
+    );
+
   }
   if (value === undefined) value = process.env[name];
   cache.set(name, { value, expires: now + TTL_MS });
