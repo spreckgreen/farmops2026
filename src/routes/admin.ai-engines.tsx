@@ -450,10 +450,16 @@ function AiEnginesPage() {
                   <Button
                     variant="outline"
                     onClick={() => lovableMutation.mutate()}
-                    disabled={lovableMutation.isPending || !data.hasLovableApiKey}
+                    // A key pasted into the Lovable card counts too, so a
+                    // self-hosted deploy without LOVABLE_API_KEY isn't stuck.
+                    disabled={
+                      lovableMutation.isPending ||
+                      !(data.hasLovableApiKey || data.config.engines.lovable.hasApiKey)
+                    }
                   >
                     {lovableMutation.isPending ? "Switching…" : "Switch to Lovable AI"}
                   </Button>
+
                 </div>
                 <p className="text-xs text-muted-foreground">
                   “Switch to Lovable AI” makes Lovable AI the cloud default, clears the runtime
