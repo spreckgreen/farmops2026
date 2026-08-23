@@ -33,6 +33,7 @@ import type {
   ConsumableUsage,
 } from "@/types/scheduling";
 import { buildUsageBaselineRaw, parseUsageRecurrence } from "@/lib/maintenance-reminders";
+import type { UsageSnapshot } from "@/lib/usage-due-status";
 
 export const Route = createFileRoute("/service-scheduling")({
   ssr: false,
@@ -52,6 +53,7 @@ function ServiceSchedulingPage() {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [schedules, setSchedules] = useState<ServiceSchedule[]>([]);
   const [consumables, setConsumables] = useState<Consumable[]>([]);
+  const [usageSnapshots, setUsageSnapshots] = useState<Record<string, UsageSnapshot[]>>({});
   const [loading, setLoading] = useState(true);
 
   const [activeTab, setActiveTab] = useState("schedules");
@@ -85,11 +87,26 @@ function ServiceSchedulingPage() {
 
   const fetchAll = async () => {
     setLoading(true);
-    const [assetsRes, schedulesRes, consumablesRes] = await Promise.all([
+    const [assetsRes, schedulesRes, consumablesRes, snapshotsRes] = await Promise.all([
       supabase.from("inventory_items").select("*").order("name"),
       supabase.from("maintenance_records").select("*").order("scheduled_date", { ascending: true }),
       supabase.from("consumables").select("*").order("name"),
+      supabase
+        .from("asset_usage_snapshots")
+        .select("inventory_item_id, recorded_at, hours, miles")
+        .order("recorded_at", { ascending: true }),
     ]);
+
+    const byAsset: Record<string, UsageSnapshot[]> = {};
+    for (const row of snapshotsRes.data ?? []) {
+      const list = byAsset[row.inventory_item_id] ?? (byAsset[row.inventory_item_id] = []);
+      list.push({
+        recorded_at: row.recorded_at,
+        hours: row.hours == null ? null : Number(row.hours),
+        miles: row.miles == null ? null : Number(row.miles),
+      });
+    }
+    setUsageSnapshots(byAsset);
 
     if (assetsRes.data) setAssets(assetsRes.data as unknown as Asset[]);
     if (schedulesRes.data) setSchedules(schedulesRes.data as unknown as ServiceSchedule[]);
@@ -514,6 +531,7 @@ function ServiceSchedulingPage() {
               <ScheduleList
                 schedules={filteredSchedules}
                 assets={assets}
+                usageSnapshots={usageSnapshots}
                 onEdit={(s) => { setEditingSchedule(s); setScheduleDialogOpen(true); }}
                 onDelete={handleDeleteSchedule}
                 onComplete={handleCompleteSchedule}

@@ -6,10 +6,14 @@ import type { Asset } from "@/components/dashboard/types";
 import { format } from "date-fns";
 import { Bell, Calendar, CheckCircle, Edit, Gauge, Trash2, Wrench } from "lucide-react";
 import { computeReminder, type ReminderStatus } from "@/lib/maintenance-reminders";
+import { computeUsageDueStatus, type UsageSnapshot } from "@/lib/usage-due-status";
+import UsageDueStatusPanel from "@/components/scheduling/UsageDueStatusPanel";
 
 interface ScheduleListProps {
   schedules: ServiceSchedule[];
   assets: Asset[];
+  /** Usage readings keyed by inventory item id, used to estimate due dates. */
+  usageSnapshots?: Record<string, UsageSnapshot[]>;
   onEdit: (schedule: ServiceSchedule) => void;
   onDelete: (id: string) => void;
   onComplete: (id: string) => void;
@@ -40,7 +44,7 @@ const typeIcons: Record<string, string> = {
   replacement: "🔄",
 };
 
-const ScheduleList = ({ schedules, assets, onEdit, onDelete, onComplete }: ScheduleListProps) => {
+const ScheduleList = ({ schedules, assets, usageSnapshots = {}, onEdit, onDelete, onComplete }: ScheduleListProps) => {
   const getAssetName = (assetId: string) => assets.find((a) => a.id === assetId)?.name || "Unknown";
 
   if (schedules.length === 0) {
@@ -57,6 +61,10 @@ const ScheduleList = ({ schedules, assets, onEdit, onDelete, onComplete }: Sched
       {schedules.map((s) => {
         const asset = assets.find((a) => a.id === s.asset_id);
         const reminder = computeReminder(s, asset);
+        const dueStatus =
+          s.status === "completed"
+            ? null
+            : computeUsageDueStatus(s, asset, usageSnapshots[s.asset_id] ?? []);
         const usageOverdue = reminder.kind !== "date" && reminder.status === "overdue";
         const isDateOverdue =
           s.status === "scheduled" &&
@@ -105,23 +113,6 @@ const ScheduleList = ({ schedules, assets, onEdit, onDelete, onComplete }: Sched
                         : "No date set"}
                   </span>
                   <span>Asset: <span className="text-foreground">{getAssetName(s.asset_id)}</span></span>
-                  {reminder.kind !== "date" && reminder.progress != null && (
-                    <span className="flex items-center gap-2 min-w-[140px]">
-                      <span className="h-1.5 flex-1 rounded-full bg-muted overflow-hidden">
-                        <span
-                          className={`block h-full ${
-                            reminder.status === "overdue"
-                              ? "bg-red-400"
-                              : reminder.status === "soon" || reminder.status === "due"
-                                ? "bg-amber-400"
-                                : "bg-emerald-400"
-                          }`}
-                          style={{ width: `${Math.round(reminder.progress * 100)}%` }}
-                        />
-                      </span>
-                      <span className="text-xs">{Math.round(reminder.progress * 100)}%</span>
-                    </span>
-                  )}
                 </div>
                 {s.consumables_used && s.consumables_used.length > 0 && (
                   <div className="flex gap-1 mt-2 flex-wrap">
@@ -133,6 +124,7 @@ const ScheduleList = ({ schedules, assets, onEdit, onDelete, onComplete }: Sched
                   </div>
                 )}
                 {s.description && <p className="text-sm text-muted-foreground mt-1 truncate">{s.description}</p>}
+                {dueStatus && <UsageDueStatusPanel status={dueStatus} />}
               </div>
               <div className="flex items-center gap-1 shrink-0">
                 {s.status !== "completed" && (
