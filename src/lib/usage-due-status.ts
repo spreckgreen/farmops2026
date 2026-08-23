@@ -13,6 +13,8 @@ export interface UsageSnapshot {
 
 export type Urgency = "overdue" | "critical" | "soon" | "planned" | "unknown";
 
+export type RateSource = "measured" | "assumed" | "overdue" | "unknown";
+
 export interface UsageDueStatus {
   unit: "hours" | "miles";
   /** Live reading from the asset, null when unknown. */
@@ -39,6 +41,10 @@ export interface UsageDueStatus {
   urgency: Urgency;
   /** One-line summary, e.g. "Due in 42 hours — est. Sep 14 (12 days)". */
   summary: string;
+  /** Whether the projection is based on measured snapshots or the fallback rate. */
+  rateSource: RateSource;
+  /** Fallback rate used when ratePerDay is not measured. */
+  assumedRatePerDay: number | null;
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
