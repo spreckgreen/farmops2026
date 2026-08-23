@@ -28,7 +28,6 @@ import {
 } from "@/components/model-suitability";
 import { AiWorkflowTests } from "@/components/ai-workflow-tests";
 import { AiFeatureRouting } from "@/components/ai-feature-routing";
-import { SwitchToLovableAi } from "@/components/switch-to-lovable-ai";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -53,7 +52,7 @@ export const Route = createFileRoute("/settings/self-host")({
       {
         name: "description",
         content:
-          "Review self-host mode status, AI provider routing, and Lovable-only feature fallbacks.",
+          "Review self-host mode status, AI provider routing, and deployment settings.",
       },
       { name: "robots", content: "noindex" },
     ],
@@ -158,7 +157,6 @@ function SelfHostSettingsPage() {
                     className="ml-2"
                   >
                     {cfg.aiProvider === "custom" && "Custom endpoint"}
-                    {cfg.aiProvider === "lovable" && "Lovable AI Gateway"}
                     {cfg.aiProvider === "none" && "Disabled"}
                   </Badge>
                 </CardTitle>
@@ -168,14 +166,13 @@ function SelfHostSettingsPage() {
                   <div className="rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 p-3 text-sm">
                     <div className="font-semibold flex items-center gap-2 text-amber-900 dark:text-amber-200">
                       <AlertTriangle className="h-4 w-4" />
-                      LOVABLE_API_KEY is not set
+                       AI endpoint is not configured
                     </div>
                     <div className="mt-1 text-amber-900/90 dark:text-amber-100/90">
                       {cfg.aiFallbackNote}
                     </div>
                     <div className="mt-2 text-xs text-amber-900/80 dark:text-amber-100/80">
-                      Fix: set <code>LOVABLE_API_KEY</code>, or configure a
-                      custom endpoint with <code>CUSTOM_AI_BASE_URL</code>{" "}
+                       Configure a custom endpoint with <code>CUSTOM_AI_BASE_URL</code>{" "}
                       and <code>CUSTOM_AI_API_KEY</code>.
                     </div>
                   </div>
@@ -186,11 +183,6 @@ function SelfHostSettingsPage() {
                 )}
 
                 <div>
-                  <Row
-                    label="LOVABLE_API_KEY"
-                    value={cfg.hasLovableApiKey ? "set" : "not set"}
-                    ok={cfg.hasLovableApiKey}
-                  />
                   <Row
                     label="CUSTOM_AI_BASE_URL"
                     value={cfg.customAiBaseUrl ?? "—"}
@@ -206,8 +198,6 @@ function SelfHostSettingsPage() {
                     value={cfg.customAiModel ?? "(defaults)"}
                   />
                 </div>
-
-                <SwitchToLovableAi disabled={!cfg.hasLovableApiKey} />
 
                 <div className="pt-2 text-xs text-muted-foreground">
                   Affected features:{" "}

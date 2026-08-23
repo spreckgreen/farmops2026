@@ -1,7 +1,7 @@
 // Per-run cost estimates for each AI feature area.
 //
 // Two very different cost models are in play:
-//   hosted → you pay per token (Lovable AI credits, billed off list prices)
+//   hosted → provider-billed token usage (approximate list prices)
 //   local  → you pay for electricity while your GPU/CPU chews on the prompt
 //
 // Everything here is pure math over published list prices + a token profile
@@ -13,7 +13,7 @@
 
 import type { AiAreaDef, AiAreaId } from "@/lib/ai-feature-areas";
 
-/** USD per 1M tokens, hosted (Lovable AI Gateway list prices, approximate). */
+/** USD per 1M tokens for configured cloud models (approximate). */
 export interface ModelRate {
   inputPerMTok: number;
   outputPerMTok: number;
@@ -45,7 +45,7 @@ const MODEL_RATES: Array<{ prefix: string; rate: ModelRate }> = [
   { prefix: "google/gemini-2.5-flash", rate: { inputPerMTok: 0.3, outputPerMTok: 2.5 } },
 ];
 
-/** Rough USD value of one Lovable credit for AI usage. Display only. */
+/** Rough display conversion for hosted usage units. */
 export const USD_PER_CREDIT = 0.01;
 
 export function rateForModel(modelId: string): ModelRate | null {

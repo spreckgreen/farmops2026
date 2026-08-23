@@ -27,7 +27,6 @@ import {
 import {
   getAiEngines,
   setAiEngines,
-  switchHostedToLovableAi,
   testAiEngineConnection,
 } from "@/lib/ai-engines.functions";
 import type { EngineTestResult } from "@/lib/ai-engine-test.server";
@@ -37,7 +36,6 @@ import {
   Cloud,
   Server,
   Sparkles,
-  AlertTriangle,
   CheckCircle2,
   Loader2,
   PlugZap,
@@ -53,13 +51,13 @@ export const Route = createFileRoute("/admin/ai-engines")({
       {
         name: "description",
         content:
-          "Configure Bostead's four AI engines — self-hosted local, Ollama Cloud, Lovable AI and another cloud provider.",
+          "Configure Bostead's self-hosted, Ollama Cloud and OpenAI-compatible cloud engines.",
       },
       { property: "og:title", content: "AI engines — Bostead" },
       {
         property: "og:description",
         content:
-          "Configure the four AI engines that power Bostead's reports, schedules and knowledge base.",
+          "Configure the AI engines that power Bostead's reports, schedules and knowledge base.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -83,14 +81,12 @@ type Drafts = Record<AiEngineId, TargetDraft>;
 const emptyDrafts = (): Drafts => ({
   local: { ...emptyDraft },
   ollama_cloud: { ...emptyDraft },
-  lovable: { ...emptyDraft },
   other_cloud: { ...emptyDraft },
 });
 
 function AiEnginesPage() {
   const load = useServerFn(getAiEngines);
   const save = useServerFn(setAiEngines);
-  const switchToLovable = useServerFn(switchHostedToLovableAi);
   const qc = useQueryClient();
 
   const { data, isLoading } = useQuery({
@@ -99,9 +95,7 @@ function AiEnginesPage() {
   });
 
   const [drafts, setDrafts] = useState<Drafts>(emptyDrafts);
-  const [cloudDefault, setCloudDefault] = useState<AiEngineId>("lovable");
-  /** Engines whose endpoint/key fields are revealed (managed engines hide them). */
-  const [overrides, setOverrides] = useState<Record<string, boolean>>({});
+  const [cloudDefault, setCloudDefault] = useState<AiEngineId>("other_cloud");
 
   useEffect(() => {
     if (!data) return;
@@ -195,30 +189,6 @@ function AiEnginesPage() {
       toast.error(err instanceof Error ? err.message : "Could not save engines"),
   });
 
-  const lovableMutation = useMutation({
-    mutationFn: () => switchToLovable({}),
-    onSuccess: (result) => {
-      const extras = [
-        result.clearedKeys.length ? `cleared ${result.clearedKeys.join(", ")}` : null,
-        result.switchedAreas.length
-          ? `${result.switchedAreas.length} feature area(s) moved to Lovable AI`
-          : null,
-      ].filter(Boolean);
-      toast.success(
-        `Cloud default is now Lovable AI${extras.length ? ` — ${extras.join("; ")}` : ""}`,
-      );
-      if (result.envStillSet) {
-        toast.warning(
-          "CUSTOM_AI_BASE_URL / CUSTOM_AI_API_KEY are still set as deploy env vars — remove them from .env to fully stop custom routing.",
-        );
-      }
-      void qc.invalidateQueries({ queryKey: ["ai-engines"] });
-      void qc.invalidateQueries({ queryKey: ["ai-routing"] });
-    },
-    onError: (err: unknown) =>
-      toast.error(err instanceof Error ? err.message : "Could not switch to Lovable AI"),
-  });
-
   const cloudEngines = AI_ENGINE_DEFS.filter((e) => e.placement === "cloud");
 
   return (
@@ -237,8 +207,8 @@ function AiEnginesPage() {
             AI engines
           </h1>
           <p className="text-sm text-muted-foreground">
-            Four engines run side by side — self-hosted local, Ollama Cloud, Lovable AI and
-            another cloud provider. Each AI feature picks one in{" "}
+            Three engines run side by side — self-hosted local, Ollama Cloud and another
+            OpenAI-compatible cloud provider. Each AI feature picks one in{" "}
             <Link to="/settings/self-host" className="underline underline-offset-2">
               Self-host settings
             </Link>
@@ -283,40 +253,7 @@ function AiEnginesPage() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    {def.keyFromEnv && !data.hasLovableApiKey && !stored.hasApiKey && (
-                      <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 p-3 text-sm">
-                        <AlertTriangle className="h-4 w-4 mt-0.5" />
-                        <span>
-                          <code>LOVABLE_API_KEY</code> is not set on this server (normal for a
-                          self-hosted deploy). Leave this engine alone and use another one, or
-                          reveal the override below and paste a key. Either way the other
-                          engines save and run normally.
-                        </span>
-                      </div>
-                    )}
-                    {def.keyFromEnv && data.hasLovableApiKey && !stored.hasApiKey && (
-                      <p className="text-xs text-muted-foreground">
-                        Managed by Lovable — nothing to set up. The server&apos;s{" "}
-                        <code>LOVABLE_API_KEY</code>, base URL and model defaults are used
-                        automatically.
-                      </p>
-                    )}
-                    {def.keyFromEnv && !overrides[def.id] && (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        className="px-0 text-xs"
-                        onClick={() =>
-                          setOverrides((prev) => ({ ...prev, [def.id]: true }))
-                        }
-                      >
-                        Advanced: override endpoint / key
-                      </Button>
-                    )}
-                    {(!def.keyFromEnv || overrides[def.id] || stored.hasApiKey) && (
-                      <>
-                        <div className="space-y-1">
+                    <div className="space-y-1">
                           <Label htmlFor={`${def.id}-base`}>Base URL</Label>
                           <Input
                             id={`${def.id}-base`}
@@ -324,8 +261,8 @@ function AiEnginesPage() {
                             value={d.baseUrl}
                             onChange={(e) => patch(def.id, { baseUrl: e.target.value })}
                           />
-                        </div>
-                        <div className="space-y-1">
+                    </div>
+                    <div className="space-y-1">
                           <Label htmlFor={`${def.id}-key`}>
                             API key{" "}
                             {stored.hasApiKey && <Badge variant="secondary">stored</Badge>}
@@ -346,9 +283,7 @@ function AiEnginesPage() {
                               patch(def.id, { apiKey: e.target.value, keyTouched: true })
                             }
                           />
-                        </div>
-                      </>
-                    )}
+                    </div>
                     <div className="space-y-1">
                       <Label htmlFor={`${def.id}-model`}>Model</Label>
                       <Input
@@ -382,35 +317,35 @@ function AiEnginesPage() {
                     {tests[def.id] && (
                       <div
                         className={`rounded-md border p-3 text-sm space-y-1 ${
-                          tests[def.id]!.ok
+                          tests[def.id]?.ok
                             ? "border-emerald-300 bg-emerald-50 dark:bg-emerald-950/30"
                             : "border-destructive/40 bg-destructive/5"
                         }`}
                       >
                         <p className="flex items-center gap-2 font-medium">
-                          {tests[def.id]!.ok ? (
+                          {tests[def.id]?.ok ? (
                             <CheckCircle2 className="h-4 w-4" />
                           ) : (
                             <XCircle className="h-4 w-4" />
                           )}
-                          {tests[def.id]!.title}
-                          {tests[def.id]!.latencyMs !== null && (
+                          {tests[def.id]?.title}
+                          {tests[def.id]?.latencyMs !== null && (
                             <span className="text-xs font-normal text-muted-foreground">
-                              {tests[def.id]!.latencyMs} ms
+                              {tests[def.id]?.latencyMs} ms
                             </span>
                           )}
                         </p>
-                        <p className="text-muted-foreground">{tests[def.id]!.message}</p>
-                        {tests[def.id]!.hint && (
+                        <p className="text-muted-foreground">{tests[def.id]?.message}</p>
+                        {tests[def.id]?.hint && (
                           <p className="text-xs text-muted-foreground">
-                            {tests[def.id]!.hint}
+                            {tests[def.id]?.hint}
                           </p>
                         )}
-                        {tests[def.id]!.modelsSeen.length > 0 && (
+                        {(tests[def.id]?.modelsSeen.length ?? 0) > 0 && (
                           <p className="text-xs text-muted-foreground">
                             Models available:{" "}
                             <span className="font-mono">
-                              {tests[def.id]!.modelsSeen.join(", ")}
+                              {tests[def.id]?.modelsSeen.join(", ")}
                             </span>
                           </p>
                         )}
@@ -468,25 +403,7 @@ function AiEnginesPage() {
                   >
                     {saveMutation.isPending ? "Saving…" : "Save engines"}
                   </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => lovableMutation.mutate()}
-                    // A key pasted into the Lovable card counts too, so a
-                    // self-hosted deploy without LOVABLE_API_KEY isn't stuck.
-                    disabled={
-                      lovableMutation.isPending ||
-                      !(data.hasLovableApiKey || data.config.engines.lovable.hasApiKey)
-                    }
-                  >
-                    {lovableMutation.isPending ? "Switching…" : "Switch to Lovable AI"}
-                  </Button>
-
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  “Switch to Lovable AI” makes Lovable AI the cloud default, clears the runtime
-                  custom-AI overrides, and points every hosted-recommended feature area at
-                  Lovable AI.
-                </p>
               </CardContent>
             </Card>
           </>

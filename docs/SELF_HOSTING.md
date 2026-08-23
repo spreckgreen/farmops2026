@@ -367,10 +367,7 @@ in `.env`:
 | `CUSTOM_AI_API_KEY` | Sent as `Authorization: Bearer <key>`. |
 | `CUSTOM_AI_MODEL` | Model id, e.g. `gpt-4o-mini`. |
 
-**Option C — Lovable AI Gateway.** Set `LOVABLE_API_KEY` and unset the
-`CUSTOM_AI_*` overrides. Requires an active Lovable workspace.
-
-**Option D — No AI.** Comment out the `ollama` / `ollama-pull` services and
+**Option C — No AI.** Comment out the `ollama` / `ollama-pull` services and
 leave all AI env vars unset. Report/summary buttons show an explanatory
 banner at *Admin → Self-host settings*.
 
@@ -461,7 +458,7 @@ place (the tracked `.env` is never modified):
 # open .env.local and fill these in:
 #   VAULT_ENCRYPTION_KEY  →  openssl rand -hex 32
 #   PUBLIC_APP_URL        →  https://farm.example.com
-#   CUSTOM_AI_* / LOVABLE_API_KEY / TEMPEST_API_TOKEN / GHOST_* / RACHIO_WEBHOOK_SECRET
+#   CUSTOM_AI_* / TEMPEST_API_TOKEN / GHOST_* / RACHIO_WEBHOOK_SECRET
 ```
 
 **Step 3 — validate before build.** These checks fail fast on any
@@ -553,8 +550,8 @@ docker compose up -d --build
 ```
 
 The image rebuild is required whenever `VITE_*` env vars, dependencies,
-or source code change. Backend-only env changes (`LOVABLE_API_KEY`,
-`CUSTOM_AI_*`, `PUBLIC_APP_URL`, `SELF_HOST_MODE`, `RACHIO_WEBHOOK_SECRET`,
+or source code change. Backend-only env changes (`CUSTOM_AI_*`,
+`PUBLIC_APP_URL`, `SELF_HOST_MODE`, `RACHIO_WEBHOOK_SECRET`,
 `SUPABASE_SERVICE_ROLE_KEY`) only require `docker compose up -d` to pick up.
 
 ---
@@ -676,7 +673,7 @@ Run behind a process manager (systemd, pm2) and an HTTPS proxy.
 2. Sign up / sign in.
 3. Visit **Admin → Self-host settings**. Confirm:
    - Self-host mode indicator is what you configured.
-   - AI provider shows `Custom endpoint`, `Lovable AI Gateway`, or `Disabled`
+    - AI provider shows the configured local/cloud engine or `Disabled`
      as expected.
    - Rachio callback URL points at your domain (not `bostead.lovable.app`).
 4. If using Rachio: paste the callback URL and `RACHIO_WEBHOOK_SECRET` into
@@ -720,7 +717,7 @@ Postgres backups.
 | --- | --- |
 | Blank page, browser console `Expected 3 parts in JWT` | `VITE_SUPABASE_PUBLISHABLE_KEY` wasn't set at **build** time — rebuild the image. |
 | Sign-in works but every server call 401s | Missing/wrong `SUPABASE_URL` or `SUPABASE_PUBLISHABLE_KEY` in the runtime env. |
-| AI buttons disabled with amber banner | No AI provider configured — set `LOVABLE_API_KEY` or `CUSTOM_AI_*`. |
+| AI buttons disabled with amber banner | No AI provider configured — configure an engine in **Admin → AI engines** or set `CUSTOM_AI_*`. |
 | Rachio callbacks never arrive | `PUBLIC_APP_URL` unset (defaults to `bostead.lovable.app`) or DNS/proxy not routing `/api/public/webhooks/rachio` to the container. |
 | `docker compose logs` shows `[unenv] X is not implemented` | A newly added npm package is Node-only and won't run in the Worker SSR runtime. Replace it. |
 | Self-hosted Supabase: `Invalid JWT` on every request | `SUPABASE_PUBLISHABLE_KEY` / `SERVICE_ROLE_KEY` were not regenerated after you changed `JWT_SECRET`. Re-mint both JWTs and restart Bostead + Supabase. |

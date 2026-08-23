@@ -1,4 +1,4 @@
-// Per-feature AI routing: which backend (local self-hosted vs hosted Lovable AI)
+// Per-feature AI routing: which local or configured cloud backend
 // handles each AI feature area of the app.
 //
 // Pure + dependency-free so it runs on the server (resolving a provider) and in
@@ -14,20 +14,18 @@ export type AiBackend = "local" | "hosted";
  *   "default"      — follow the recommended/global resolution
  *   "local"        — self-hosted engine
  *   "hosted"       — whichever cloud engine is the configured cloud default
- *   engine id      — one specific engine ("ollama_cloud", "lovable", "other_cloud")
+ *   engine id      — one specific engine ("ollama_cloud", "other_cloud")
  */
 export type AiAreaChoice =
   | AiBackend
   | "default"
   | "ollama_cloud"
-  | "lovable"
   | "other_cloud";
 
 export const AI_AREA_CHOICES: readonly AiAreaChoice[] = [
   "default",
   "local",
   "ollama_cloud",
-  "lovable",
   "other_cloud",
   "hosted",
 ] as const;
@@ -233,6 +231,7 @@ export const DEFAULT_ROUTING: AiRoutingConfig = {
 };
 
 function normalizeChoice(value: unknown): AiAreaChoice | null {
+  if (value === "lovable") return "hosted";
   return typeof value === "string" && (AI_AREA_CHOICES as readonly string[]).includes(value)
     ? (value as AiAreaChoice)
     : null;

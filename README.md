@@ -116,7 +116,7 @@ One command â€” seeds `.env` from [`.env.example`](./.env.example) (only if miss
 ```
 
 
-Before the first run, edit `.env` and replace the `your-*` placeholders (`VITE_SUPABASE_*`, `SUPABASE_*`, `SUPABASE_SERVICE_ROLE_KEY`, `LOVABLE_API_KEY`) with real values, then re-run the command. The chain stops with a clear error if any required variable is missing or still set to its example default. Open <http://localhost:3000>. Full options in [B. Node.js runtime (no Docker)](#b-nodejs-runtime-no-docker).
+Before the first run, edit `.env` and replace the `your-*` placeholders (`VITE_SUPABASE_*`, `SUPABASE_*`, `SUPABASE_SERVICE_ROLE_KEY`) with real values, then re-run the command. The chain stops with a clear error if any required variable is missing or still set to its example default. Open <http://localhost:3000>. Full options in [B. Node.js runtime (no Docker)](#b-nodejs-runtime-no-docker).
 
 > **Seeding a fresh instance from an existing backup?** After either quickstart completes and you've signed up + granted yourself the `admin` role, jump to [Bootstrapping a clean environment from a snapshot](#bootstrapping-a-clean-environment-from-a-snapshot) to import a `bostead-snapshot-*.json` into the empty database.
 
@@ -614,7 +614,7 @@ git clone <your-fork-url> bostead && cd bostead
 
 # 2. Seed your env file from the example and edit it with real values
 cp .env.example .env
-$EDITOR .env   # fill in VITE_SUPABASE_*, SUPABASE_*, SUPABASE_SERVICE_ROLE_KEY, LOVABLE_API_KEY
+$EDITOR .env   # fill in VITE_SUPABASE_*, SUPABASE_*, SUPABASE_SERVICE_ROLE_KEY
 
 # 3. Install dependencies (uses bun.lock)
 bun install --frozen-lockfile
@@ -637,8 +637,7 @@ These must be set in `.env` (or exported in the shell) for the Node.js runtime â
 | `SUPABASE_URL` | yes (runtime) | Server-side Supabase URL used by server functions |
 | `SUPABASE_PUBLISHABLE_KEY` | yes (runtime) | Server-side anon key for auth-aware server functions |
 | `SUPABASE_SERVICE_ROLE_KEY` | yes (runtime) | Service-role key for admin/maintenance server code |
-| `LOVABLE_API_KEY` | yes (AI features, unless overridden) | Lovable AI gateway key for `/food` and summary endpoints. Not required if `CUSTOM_AI_BASE_URL` + `CUSTOM_AI_API_KEY` are set. |
-| `CUSTOM_AI_BASE_URL` | optional | Route AI summaries and food-plan calls to any OpenAI-compatible endpoint (e.g. `https://api.openai.com/v1`, `https://openrouter.ai/api/v1`, self-hosted). Overrides Lovable AI gateway when set together with `CUSTOM_AI_API_KEY`. |
+| `CUSTOM_AI_BASE_URL` | optional | Route AI summaries and food-plan calls to any OpenAI-compatible endpoint (e.g. `https://api.openai.com/v1`, `https://openrouter.ai/api/v1`, self-hosted). |
 | `CUSTOM_AI_API_KEY` | optional | Bearer token for `CUSTOM_AI_BASE_URL`. Sent as `Authorization: Bearer <key>`. |
 | `CUSTOM_AI_MODEL` | optional | Overrides the model id passed to the custom endpoint (e.g. `gpt-4o-mini`). Falls back to the built-in Gemini model ids. |
 | `PUBLIC_APP_URL` | recommended (self-hosted) | Externally reachable origin of this deployment (e.g. `https://farm.example.com`). Used to build the Rachio webhook callback URL shown on the irrigation settings page. Defaults to `https://bostead.lovable.app`. |

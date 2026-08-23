@@ -20,7 +20,6 @@ const RoutingInput = z.object({
         "hosted",
         "default",
         "ollama_cloud",
-        "lovable",
         "other_cloud",
       ]),
       model: z.string().trim().max(200).nullable(),

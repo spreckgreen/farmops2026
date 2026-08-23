@@ -1,6 +1,6 @@
 // Ask-AI prompt bar rendered above the Procedures list. Sends the user's
 // question through askProceduresAi (which routes via createAiProvider, so
-// self-host / Lovable / bundled-Ollama all just work) and shows the answer,
+// configured cloud / self-host / bundled-Ollama all work) and shows the answer,
 // which sources the model saw, model id, and round-trip latency.
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";

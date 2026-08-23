@@ -163,7 +163,7 @@ export const deleteProcedure = createServerFn({ method: "POST" })
 // -----------------------------------------------------------------------------
 // Ask AI about your procedures — sends a user prompt plus a compact digest
 // of the caller's own procedures (title + text-only excerpt) to the configured
-// AI endpoint via createAiProvider, so the same self-host/Lovable/Ollama
+// AI endpoint via createAiProvider, so the same configured-cloud/self-host/Ollama
 // routing applies. Returns the model's answer + which sources it saw.
 // -----------------------------------------------------------------------------
 export interface ProceduresAiAnswer {

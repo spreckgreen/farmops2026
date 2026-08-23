@@ -182,7 +182,7 @@ step 2.2. Enable **Debug mode** if parsing fails; the restore rewrites row
 ownership to the signed-in user where applicable.
 
 **11. Restore secrets.** Re-add runtime secrets (`VAULT_ENCRYPTION_KEY`,
-`TEMPEST_API_TOKEN`, `RACHIO_WEBHOOK_SECRET`, `GHOST_*`, `LOVABLE_API_KEY`).
+`TEMPEST_API_TOKEN`, `RACHIO_WEBHOOK_SECRET`, `GHOST_*`, configured AI engine keys).
 Then open `/admin/vault-secrets` — every row should show **Current key**. Any
 row showing a stale fingerprint gets fixed at `/admin/vault-rotation` →
 **Re-encrypt with current key**.

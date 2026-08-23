@@ -1,18 +1,8 @@
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { getServerEnv } from "./server-env.server";
 
-export function createLovableAiGatewayProvider(apiKey: string) {
-  return createOpenAICompatible({
-    name: "lovable-ai-gateway",
-    baseURL: "https://ai.gateway.lovable.dev/v1",
-    headers: { "Lovable-API-Key": apiKey },
-  });
-}
-
 /**
- * Returns an OpenAI-compatible AI provider. If CUSTOM_AI_BASE_URL and
- * CUSTOM_AI_API_KEY are both set, requests are routed to that endpoint.
- * Otherwise falls back to the Lovable AI Gateway using LOVABLE_API_KEY.
+ * Returns the configured OpenAI-compatible provider, or bundled Ollama.
  *
  * CUSTOM_AI_MODEL is resolved via getServerEnv (vault-first, env fallback)
  * so it can be updated at runtime from the self-host settings UI without a
@@ -20,8 +10,7 @@ export function createLovableAiGatewayProvider(apiKey: string) {
  */
 // Bundled Ollama defaults — match docker-compose.yml's `ollama` service.
 // Used as a last-resort fallback when no CUSTOM_AI_* env vars are set and no
-// LOVABLE_API_KEY is available, so a fresh install (or a dev shell without a
-// .env) still has a working AI backend instead of throwing at first call.
+// A fresh install still has a usable default endpoint instead of throwing.
 const BUNDLED_OLLAMA_BASE_URL = "http://ollama:11434/v1";
 const BUNDLED_OLLAMA_API_KEY = "ollama";
 const BUNDLED_OLLAMA_MODEL = "llama3.2:3b";
@@ -40,13 +29,6 @@ export async function createAiProvider(): Promise<{
         baseURL: customBase,
         headers: { Authorization: `Bearer ${customKey}` },
       }),
-      modelOverride,
-    };
-  }
-  const apiKey = process.env.LOVABLE_API_KEY;
-  if (apiKey) {
-    return {
-      provider: createLovableAiGatewayProvider(apiKey),
       modelOverride,
     };
   }

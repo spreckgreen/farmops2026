@@ -229,7 +229,7 @@ CHECKLIST="$(mktemp)"
 #   REQUIRED[svc]         → space-separated env vars that MUST be non-empty
 #   EXPECTED_PORTS[svc]   → space-separated container ports we expect published
 declare -A REQUIRED
-REQUIRED[app]="LOVABLE_API_KEY VITE_SUPABASE_URL VITE_SUPABASE_PUBLISHABLE_KEY VAULT_ENCRYPTION_KEY PUBLIC_APP_URL"
+REQUIRED[app]="VITE_SUPABASE_URL VITE_SUPABASE_PUBLISHABLE_KEY VAULT_ENCRYPTION_KEY PUBLIC_APP_URL"
 REQUIRED[caddy]=""
 REQUIRED[ollama]=""
 
@@ -315,14 +315,7 @@ else
       fi
     done
 
-    # Conflict heuristic: both LOVABLE_API_KEY and CUSTOM_AI_BASE_URL set on
-    # the app can mask which provider actually serves a call — surface it.
     if [ "$svc" = "app" ]; then
-      has_lov="$( grep -c '^LOVABLE_API_KEY=..' <<<"$env_dump" || true )"
-      has_cust="$( grep -c '^CUSTOM_AI_BASE_URL=..' <<<"$env_dump" || true )"
-      if [ "${has_lov:-0}" -gt 0 ] && [ "${has_cust:-0}" -gt 0 ]; then
-        warn_l "both LOVABLE_API_KEY and CUSTOM_AI_BASE_URL are set — self-host mode may still route to Lovable if CUSTOM_AI_BASE_URL is blanked at runtime"
-      fi
       # PUBLIC_APP_URL vs Caddy host mismatch (webhook callbacks break silently).
       pub="$( grep -m1 '^PUBLIC_APP_URL=' <<<"$env_dump" | cut -d= -f2- )"
       if [ -n "${pub:-}" ] && ! grep -q "$(sed 's,https\?://,,' <<<"$pub" | cut -d/ -f1)" Caddyfile 2>/dev/null; then
