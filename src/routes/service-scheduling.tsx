@@ -514,6 +514,7 @@ function ServiceSchedulingPage() {
               <ScheduleList
                 schedules={filteredSchedules}
                 assets={assets}
+                usageSnapshots={usageSnapshots}
                 onEdit={(s) => { setEditingSchedule(s); setScheduleDialogOpen(true); }}
                 onDelete={handleDeleteSchedule}
                 onComplete={handleCompleteSchedule}
