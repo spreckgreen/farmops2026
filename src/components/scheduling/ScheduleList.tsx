@@ -6,7 +6,7 @@ import type { Asset } from "@/components/dashboard/types";
 import { format } from "date-fns";
 import { Bell, Calendar, CheckCircle, Edit, Gauge, Trash2, Wrench } from "lucide-react";
 import { computeReminder, type ReminderStatus } from "@/lib/maintenance-reminders";
-import { computeUsageDueStatus, type UsageSnapshot } from "@/lib/usage-due-status";
+import { computeUsageDueStatus, type UsageSnapshot, type RateSource } from "@/lib/usage-due-status";
 import UsageDueStatusPanel from "@/components/scheduling/UsageDueStatusPanel";
 
 interface ScheduleListProps {
