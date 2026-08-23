@@ -111,7 +111,7 @@ const ScheduleList = ({ schedules, assets, usageSnapshots = {}, onEdit, onDelete
                   )}
                 </div>
                 <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap">
-                  <span className="flex items-center gap-1">
+                  <span className="flex items-center gap-1 flex-wrap">
                     <Calendar className="h-3.5 w-3.5" />
                     {s.scheduled_date
                       ? `${format(new Date(s.scheduled_date), "MMM d, yyyy h:mm a")}${
@@ -123,6 +123,23 @@ const ScheduleList = ({ schedules, assets, usageSnapshots = {}, onEdit, onDelete
                       : s.recurrence
                         ? `Usage-based — ${s.recurrence}`
                         : "No date set"}
+                    {s.scheduled_date &&
+                      (s as unknown as { raw?: { scheduled_date_inferred?: boolean } }).raw
+                        ?.scheduled_date_inferred &&
+                      dueStatus && (
+                        <Badge
+                          variant="outline"
+                          className={`text-xs ${sourceStyles[dueStatus.rateSource]}`}
+                        >
+                          {dueStatus.rateSource === "measured"
+                            ? `Measured from ${dueStatus.rateSamples} reading${dueStatus.rateSamples === 1 ? "" : "s"}`
+                            : dueStatus.rateSource === "assumed"
+                              ? `Assumed ${dueStatus.assumedRatePerDay?.toLocaleString(undefined, { maximumFractionDigits: 1 })} ${dueStatus.unit}/day`
+                              : dueStatus.rateSource === "overdue"
+                                ? "Overdue now"
+                                : "No projection"}
+                        </Badge>
+                      )}
                   </span>
                   <span>Asset: <span className="text-foreground">{getAssetName(s.asset_id)}</span></span>
                 </div>
