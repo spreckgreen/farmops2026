@@ -267,14 +267,14 @@ export const revealVaultItem = createServerFn({ method: "POST" })
       ciphertext: row.value_ciphertext as string,
       iv: row.value_iv as string,
       tag: row.value_tag as string,
-    });
+    }, `vault item ${data.id} (secret value)`);
     let notes: string | null = null;
     if (row.notes_ciphertext && row.notes_iv && row.notes_tag) {
       notes = await open({
         ciphertext: row.notes_ciphertext as string,
         iv: row.notes_iv as string,
         tag: row.notes_tag as string,
-      });
+      }, `vault item ${data.id} (notes)`);
     }
     return { id: row.id as string, value, notes };
   });
