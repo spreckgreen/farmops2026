@@ -84,6 +84,19 @@ export async function getKeyFingerprints(): Promise<{
   };
 }
 
+/** Reveal the current master key value plus its fingerprint and shape.
+ *  Returns null when the key is not configured. Use only in admin workflows. */
+export async function getMasterKeyDetails(): Promise<{
+  value: string;
+  fingerprint: string;
+  shape: string;
+} | null> {
+  const raw = process.env.VAULT_ENCRYPTION_KEY;
+  if (!raw) return null;
+  const bytes = await deriveKeyBytes(raw);
+  return { value: raw, fingerprint: await fingerprintKey(bytes), shape: describeKeyShape(raw) };
+}
+
 async function encryptWith(key: Uint8Array, plaintext: string): Promise<SealedBlob> {
   const iv = cryptoProvider.randomBytes(12);
   const { ciphertext, tag } = await cryptoProvider.aesGcmEncrypt(
