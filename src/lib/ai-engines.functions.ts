@@ -73,8 +73,10 @@ export const getAiEngines = createServerFn({ method: "GET" })
     const availability = await engineAvailability(config);
     const cloud = await resolveEngine(config.cloudDefault, config);
 
+    const envKeyPresent = Boolean(process.env.LOVABLE_API_KEY);
     const incomplete = {} as Record<AiEngineId, boolean>;
-    for (const id of AI_ENGINE_IDS) incomplete[id] = engineIncomplete(config, id);
+    for (const id of AI_ENGINE_IDS)
+      incomplete[id] = engineIncomplete(config, id, { envKeyPresent });
 
     return {
       config: toEngineView(config),
@@ -147,13 +149,26 @@ export const switchHostedToLovableAi = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     await requireAdmin(context.supabase, context.userId);
-    if (!process.env.LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not set on the server, so Lovable AI cannot be selected.");
-    }
 
     const { loadEnginesConfig, saveEnginesConfig } = await import("./ai-engines.server");
     const { switchHostedToLovable, toEngineView } = await import("@/lib/ai-engines");
-    const next = switchHostedToLovable(await loadEnginesConfig());
+    const current = await loadEnginesConfig();
+    // A key pasted into the Lovable engine is kept, so this works on a
+    // self-hosted deploy where LOVABLE_API_KEY is not in the environment.
+    const pastedLovableKey = current.engines.lovable.apiKey;
+    if (!process.env.LOVABLE_API_KEY && !pastedLovableKey) {
+      throw new Error(
+        "No Lovable AI key available: set LOVABLE_API_KEY on the server or paste a key into the Lovable engine on this page first.",
+      );
+    }
+    const switched0 = switchHostedToLovable(current);
+    const next = {
+      ...switched0,
+      engines: {
+        ...switched0.engines,
+        lovable: { ...switched0.engines.lovable, apiKey: pastedLovableKey },
+      },
+    };
     await saveEnginesConfig(next, context.userId);
 
     // Runtime overrides that would otherwise keep AI calls on a custom endpoint.
