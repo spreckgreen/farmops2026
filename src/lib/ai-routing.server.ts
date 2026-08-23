@@ -86,10 +86,17 @@ export async function resolveAreaAi(
   const route = routeForArea(config, area);
 
   const { getServerEnv } = await import("./server-env.server");
+  // A per-area model override is only valid for the backend it belongs to.
+  // Hosted (Lovable AI) ids are namespaced ("google/gemini-3.6-flash"); local
+  // Ollama tags are not ("llama3.2:3b"). Sending an Ollama tag to the hosted
+  // gateway 400s, which used to surface as "the model returned no schedule".
+  const routeModel = route.model?.trim() || null;
+  const routeModelIsHosted = Boolean(routeModel && routeModel.includes("/"));
+  const localOverride = routeModel && !routeModelIsHosted ? routeModel : null;
   const activeLocalModel =
-    route.model || (await getServerEnv("CUSTOM_AI_MODEL")) || BUNDLED_OLLAMA_MODEL;
+    localOverride || (await getServerEnv("CUSTOM_AI_MODEL")) || BUNDLED_OLLAMA_MODEL;
   const hostedKey = process.env.LOVABLE_API_KEY;
-  const hostedModelId = route.model || opts.hostedDefaultModel;
+  const hostedModelId = routeModelIsHosted ? routeModel! : opts.hostedDefaultModel;
 
   // "default": follow the legacy global resolution — custom endpoint wins,
   // else hosted, else bundled Ollama.
