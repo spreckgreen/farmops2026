@@ -180,15 +180,19 @@ export function AiFeatureRouting() {
                               setArea(area.id, { backend: v as AiAreaChoice })
                             }
                           >
-                            <SelectTrigger className="w-[130px]">
+                            <SelectTrigger className="w-[170px]">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="default">Global default</SelectItem>
-                              <SelectItem value="local">Local</SelectItem>
-                              <SelectItem value="hosted">Hosted</SelectItem>
+                              <SelectItem value="default">Recommended</SelectItem>
+                              <SelectItem value="local">Self-hosted (local)</SelectItem>
+                              <SelectItem value="hosted">Cloud default</SelectItem>
+                              <SelectItem value="ollama_cloud">Ollama Cloud</SelectItem>
+                              <SelectItem value="lovable">Lovable AI</SelectItem>
+                              <SelectItem value="other_cloud">Other cloud</SelectItem>
                             </SelectContent>
                           </Select>
+
                           <Input
                             className="w-[190px] font-mono text-xs"
                             placeholder="model override (optional)"

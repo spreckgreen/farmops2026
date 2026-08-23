@@ -1,19 +1,29 @@
-// Server-side resolution + persistence for the two AI engines (local / hosted).
+// Server-side resolution + persistence for the four AI engines
+// (local / ollama_cloud / lovable / other_cloud).
 // Server-only: reads process.env and the shared vault.
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import {
   BUNDLED_OLLAMA_API_KEY,
-  BUNDLED_OLLAMA_BASE_URL,
-  BUNDLED_OLLAMA_MODEL,
   ENGINE_ENV_KEY,
   LOVABLE_DEFAULT_MODEL,
-  LOVABLE_GATEWAY_BASE_URL,
+  getAiEngineDef,
   resolveEnginesConfig,
   serializeEnginesConfig,
+  type AiEngineId,
   type AiEnginesConfig,
 } from "./ai-engines";
 
 type Provider = ReturnType<typeof createOpenAICompatible>;
+
+export interface ResolvedEngine {
+  id: AiEngineId;
+  label: string;
+  placement: "local" | "cloud";
+  auth: "bearer" | "lovable-header";
+  baseUrl: string;
+  apiKey: string;
+  model: string;
+}
 
 export async function loadEnginesConfig(): Promise<AiEnginesConfig> {
   const { getServerEnv } = await import("./server-env.server");
@@ -25,60 +35,119 @@ export async function saveEnginesConfig(config: AiEnginesConfig, userId: string)
   await persistSharedEnvValue(
     ENGINE_ENV_KEY,
     serializeEnginesConfig(config),
-    "AI engines (local + hosted)",
+    "AI engines (local, Ollama Cloud, Lovable, other cloud)",
     userId,
   );
   return config;
 }
 
+/**
+ * Effective endpoint for one engine, or null when it has no usable
+ * credentials. `defaultModel` is the call site's model when neither the engine
+ * config nor the engine default names one.
+ */
+export async function resolveEngine(
+  id: AiEngineId,
+  config?: AiEnginesConfig,
+  opts?: { defaultModel?: string },
+): Promise<ResolvedEngine | null> {
+  const cfg = config ?? (await loadEnginesConfig());
+  const def = getAiEngineDef(id);
+  const target = cfg.engines[id];
+  const { getServerEnv } = await import("./server-env.server");
+
+  let baseUrl = target.baseUrl ?? def.defaultBaseUrl;
+  let apiKey = target.apiKey;
+  let model = target.model ?? def.defaultModel ?? opts?.defaultModel ?? null;
+
+  if (id === "local") {
+    // Deploy-level CUSTOM_AI_* still configures the local engine.
+    baseUrl = target.baseUrl ?? (await getServerEnv("CUSTOM_AI_BASE_URL")) ?? def.defaultBaseUrl;
+    apiKey = target.apiKey ?? (await getServerEnv("CUSTOM_AI_API_KEY")) ?? BUNDLED_OLLAMA_API_KEY;
+    model = target.model ?? (await getServerEnv("CUSTOM_AI_MODEL")) ?? def.defaultModel!;
+  } else if (def.keyFromEnv) {
+    apiKey = process.env.LOVABLE_API_KEY ?? null;
+    model = target.model ?? opts?.defaultModel ?? def.defaultModel ?? LOVABLE_DEFAULT_MODEL;
+  }
+
+  if (!baseUrl || !apiKey || !model) return null;
+  return {
+    id,
+    label: def.label,
+    placement: def.placement,
+    auth: def.auth,
+    baseUrl,
+    apiKey,
+    model,
+  };
+}
+
+/** Which engines are usable right now — drives the pickers in the UI. */
+export async function engineAvailability(
+  config?: AiEnginesConfig,
+): Promise<Record<AiEngineId, { available: boolean; baseUrl: string | null; model: string | null }>> {
+  const cfg = config ?? (await loadEnginesConfig());
+  const out = {} as Record<
+    AiEngineId,
+    { available: boolean; baseUrl: string | null; model: string | null }
+  >;
+  for (const id of ["local", "ollama_cloud", "lovable", "other_cloud"] as AiEngineId[]) {
+    const resolved = await resolveEngine(id, cfg);
+    out[id] = {
+      available: Boolean(resolved),
+      baseUrl: resolved?.baseUrl ?? null,
+      model: resolved?.model ?? null,
+    };
+  }
+  return out;
+}
+
 /** Effective local endpoint: vault config → CUSTOM_AI_* env → bundled Ollama. */
 export async function resolveLocalEngine(config?: AiEnginesConfig) {
   const cfg = config ?? (await loadEnginesConfig());
-  const { getServerEnv } = await import("./server-env.server");
-  const baseUrl =
-    cfg.local.baseUrl ?? (await getServerEnv("CUSTOM_AI_BASE_URL")) ?? BUNDLED_OLLAMA_BASE_URL;
-  const apiKey =
-    cfg.local.apiKey ?? (await getServerEnv("CUSTOM_AI_API_KEY")) ?? BUNDLED_OLLAMA_API_KEY;
-  const model =
-    cfg.local.model ?? (await getServerEnv("CUSTOM_AI_MODEL")) ?? BUNDLED_OLLAMA_MODEL;
-  return { baseUrl, apiKey, model };
+  const resolved = await resolveEngine("local", cfg);
+  const def = getAiEngineDef("local");
+  return {
+    baseUrl: resolved?.baseUrl ?? def.defaultBaseUrl!,
+    apiKey: resolved?.apiKey ?? BUNDLED_OLLAMA_API_KEY,
+    model: resolved?.model ?? def.defaultModel!,
+  };
 }
 
 /**
- * Effective hosted endpoint. Defaults to the Lovable AI Gateway; returns null
- * when the selected hosted engine has no usable credentials.
+ * Effective cloud-default endpoint (legacy "hosted"). Returns null when the
+ * selected cloud engine has no usable credentials.
  */
 export async function resolveHostedEngine(
   config?: AiEnginesConfig,
   opts?: { defaultModel?: string },
 ) {
   const cfg = config ?? (await loadEnginesConfig());
-  if (cfg.hosted.provider === "custom") {
-    const { baseUrl, apiKey, model } = cfg.hosted.custom;
-    if (!baseUrl || !apiKey) return null;
-    return {
-      kind: "custom" as const,
-      baseUrl,
-      apiKey,
-      model: model ?? opts?.defaultModel ?? LOVABLE_DEFAULT_MODEL,
-    };
-  }
-  const apiKey = process.env.LOVABLE_API_KEY;
-  if (!apiKey) return null;
+  const resolved = await resolveEngine(cfg.cloudDefault, cfg, opts);
+  if (!resolved) return null;
   return {
-    kind: "lovable" as const,
-    baseUrl: LOVABLE_GATEWAY_BASE_URL,
-    apiKey,
-    model: cfg.hosted.lovableModel ?? opts?.defaultModel ?? LOVABLE_DEFAULT_MODEL,
+    ...resolved,
+    kind: (resolved.id === "lovable" ? "lovable" : "custom") as "lovable" | "custom",
   };
 }
 
-export function buildLocalProvider(endpoint: { baseUrl: string; apiKey: string }): Provider {
+export function buildEngineProvider(endpoint: {
+  auth: "bearer" | "lovable-header";
+  baseUrl: string;
+  apiKey: string;
+}): Provider {
   return createOpenAICompatible({
-    name: "custom-ai",
+    name: endpoint.auth === "lovable-header" ? "lovable-ai-gateway" : "custom-ai",
     baseURL: endpoint.baseUrl,
-    headers: { Authorization: `Bearer ${endpoint.apiKey}` },
+    headers:
+      endpoint.auth === "lovable-header"
+        ? { "Lovable-API-Key": endpoint.apiKey, "X-Lovable-AIG-SDK": "vercel-ai-sdk" }
+        : { Authorization: `Bearer ${endpoint.apiKey}` },
   });
+}
+
+export function buildLocalProvider(endpoint: { baseUrl: string; apiKey: string }): Provider {
+  return buildEngineProvider({ ...endpoint, auth: "bearer" });
 }
 
 export function buildHostedProvider(endpoint: {
@@ -86,12 +155,9 @@ export function buildHostedProvider(endpoint: {
   baseUrl: string;
   apiKey: string;
 }): Provider {
-  return createOpenAICompatible({
-    name: "lovable-ai-gateway",
-    baseURL: endpoint.baseUrl,
-    headers:
-      endpoint.kind === "lovable"
-        ? { "Lovable-API-Key": endpoint.apiKey, "X-Lovable-AIG-SDK": "vercel-ai-sdk" }
-        : { Authorization: `Bearer ${endpoint.apiKey}` },
+  return buildEngineProvider({
+    baseUrl: endpoint.baseUrl,
+    apiKey: endpoint.apiKey,
+    auth: endpoint.kind === "lovable" ? "lovable-header" : "bearer",
   });
 }

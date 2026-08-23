@@ -18,6 +18,7 @@ import {
   type AiEscalation,
   type AiRoutingConfig,
 } from "./ai-feature-areas";
+import type { AiEngineId } from "./ai-engines";
 
 export const ROUTING_ENV_KEY = "CUSTOM_AI_FEATURE_ROUTING";
 
@@ -38,6 +39,9 @@ export interface AreaAi {
   area: AiAreaId;
   areaLabel: string;
   backend: AiBackend;
+  /** Which of the four engines actually ran this call. */
+  engineId: AiEngineId;
+  engineLabel: string;
   provider: Provider;
   modelId: string;
   /** Retry once on hosted AI when a local call fails or truncates. */
@@ -65,54 +69,74 @@ export async function resolveAreaAi(
   const config = await loadRoutingConfig();
   const route = routeForArea(config, area);
 
-  const {
-    loadEnginesConfig,
-    resolveLocalEngine,
-    resolveHostedEngine,
-    buildLocalProvider,
-    buildHostedProvider,
-  } = await import("./ai-engines.server");
+  const { loadEnginesConfig, resolveEngine, buildEngineProvider } = await import(
+    "./ai-engines.server"
+  );
   const engines = await loadEnginesConfig();
-  const local = await resolveLocalEngine(engines);
-  const hosted = await resolveHostedEngine(engines, {
-    defaultModel: opts.hostedDefaultModel,
-  });
 
-  // A per-area model override is only valid for the backend it belongs to.
-  // Hosted ids are namespaced ("google/gemini-3.6-flash"); local Ollama tags
-  // are not ("llama3.2:3b"). Sending an Ollama tag to the hosted gateway 400s,
-  // which used to surface as "the model returned no schedule".
-  const routeModel = route.model?.trim() || null;
-  const routeModelIsHosted = Boolean(routeModel && routeModel.includes("/"));
-  const localOverride = routeModel && !routeModelIsHosted ? routeModel : null;
-  const activeLocalModel = localOverride || local.model;
-  const hostedModelId = routeModelIsHosted ? routeModel! : (hosted?.model ?? opts.hostedDefaultModel);
-
-  // "default": follow the legacy global resolution — an explicitly configured
-  // local endpoint wins, else hosted, else bundled Ollama.
-  let backend: AiBackend;
-  if (route.backend === "default") {
+  // Which engine does this area's choice mean?
+  const choice = route.backend;
+  let engineId: AiEngineId;
+  if (choice === "local") {
+    engineId = "local";
+  } else if (choice === "hosted") {
+    engineId = engines.cloudDefault;
+  } else if (choice === "default") {
+    // Legacy behavior: an explicitly configured local endpoint wins, else cloud.
     const hasExplicitLocal = Boolean(
-      engines.local.baseUrl ||
+      engines.engines.local.baseUrl ||
         (process.env.CUSTOM_AI_BASE_URL && process.env.CUSTOM_AI_API_KEY),
     );
-    backend = hasExplicitLocal ? "local" : hosted ? "hosted" : "local";
+    engineId = hasExplicitLocal ? "local" : engines.cloudDefault;
   } else {
-    backend = route.backend;
+    engineId = choice;
   }
-  // Hosted requested but not configured: degrade to local rather than throwing.
-  if (backend === "hosted" && !hosted) backend = "local";
 
-  const hostedProvider = hosted ? buildHostedProvider(hosted) : null;
+  const cloudDefaultId = engines.cloudDefault;
+  const hosted = await resolveEngine(cloudDefaultId, engines, {
+    defaultModel: opts.hostedDefaultModel,
+  });
+  const local = await resolveEngine("local", engines);
+
+  // A per-area model override is only valid for the backend it belongs to.
+  // Cloud ids are namespaced ("google/gemini-3.6-flash"); local Ollama tags are
+  // not ("llama3.2:3b"). Sending an Ollama tag to a cloud gateway 400s, which
+  // used to surface as "the model returned no schedule".
+  const routeModel = route.model?.trim() || null;
+  const routeModelIsHosted = Boolean(routeModel && routeModel.includes("/"));
+
+  let selected = await resolveEngine(engineId, engines, {
+    defaultModel: opts.hostedDefaultModel,
+  });
+  // Chosen engine isn't usable: fall back to the cloud default, then local.
+  if (!selected) selected = hosted ?? local;
+  if (!selected) {
+    throw new Error(
+      `No usable AI engine for ${def.label}: "${engineId}" is not configured, and neither is the cloud default or the local engine.`,
+    );
+  }
+
+  const isLocalEngine = selected.placement === "local";
+  const backend: AiBackend = isLocalEngine ? "local" : "hosted";
+  const modelOverride =
+    routeModel && (isLocalEngine ? !routeModelIsHosted : true) ? routeModel : null;
+  const modelId = modelOverride ?? selected.model;
+  const hostedModelId = routeModelIsHosted
+    ? routeModel!
+    : (hosted?.model ?? opts.hostedDefaultModel);
+
+  const hostedProvider = hosted ? buildEngineProvider(hosted) : null;
 
   return {
     area,
     areaLabel: def.label,
     backend,
-    provider: backend === "hosted" ? hostedProvider! : buildLocalProvider(local),
-    modelId: backend === "hosted" ? hostedModelId : activeLocalModel,
+    engineId: selected.id,
+    engineLabel: selected.label,
+    provider: buildEngineProvider(selected),
+    modelId,
     autoFallback: config.autoFallback,
-    hostedAvailable: Boolean(hosted),
+    hostedAvailable: Boolean(hosted) && cloudDefaultId !== selected.id,
     hostedModelId,
     hostedProvider,
   };
