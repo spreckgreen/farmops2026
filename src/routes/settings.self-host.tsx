@@ -206,6 +206,8 @@ function SelfHostSettingsPage() {
                   />
                 </div>
 
+                <SwitchToLovableAi disabled={!cfg.hasLovableApiKey} />
+
                 <div className="pt-2 text-xs text-muted-foreground">
                   Affected features:{" "}
                   <Link
