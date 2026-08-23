@@ -16,10 +16,51 @@ async function execCreateInterval(
 ): Promise<ActionResult> {
   const label = `${action.asset_name} — ${action.title}`;
   try {
-    const scheduledDate =
+    let scheduledDate =
       action.first_due_date && /^\d{4}-\d{2}-\d{2}$/.test(action.first_due_date)
         ? new Date(action.first_due_date + "T12:00:00Z").toISOString()
         : null;
+    let dueAt = action.first_due_date ?? null;
+    let inferredRaw: Record<string, unknown> | null = null;
+
+    // Usage-based interval with no AI-provided date: project one from the
+    // asset's usage rate so the record shows up in calendar/date views.
+    if (!scheduledDate && action.asset_id) {
+      const { inferUsageScheduledDate } = await import("@/lib/usage-due-status");
+      const [assetRes, snapsRes] = await Promise.all([
+        ctx.supabase
+          .from("inventory_items")
+          .select("id, name, current_hours, current_miles, usage_tracking")
+          .eq("id", action.asset_id)
+          .maybeSingle(),
+        ctx.supabase
+          .from("asset_usage_snapshots")
+          .select("recorded_at, hours, miles")
+          .eq("user_id", ctx.userId)
+          .eq("inventory_item_id", action.asset_id)
+          .order("recorded_at", { ascending: true }),
+      ]);
+      const snapshots = (snapsRes.data ?? []).map((s: { recorded_at: string; hours: number | null; miles: number | null }) => ({
+        recorded_at: s.recorded_at,
+        hours: s.hours == null ? null : Number(s.hours),
+        miles: s.miles == null ? null : Number(s.miles),
+      }));
+      const inferred = inferUsageScheduledDate(
+        { recurrence: action.recurrence, scheduled_date: null } as never,
+        (assetRes.data ?? undefined) as never,
+        snapshots,
+      );
+      if (inferred) {
+        scheduledDate = inferred.iso;
+        dueAt = inferred.date;
+        inferredRaw = {
+          scheduled_date_inferred: true,
+          scheduled_date_source: inferred.source,
+          scheduled_date_rate_per_day: inferred.ratePerDay,
+          scheduled_date_inferred_at: new Date().toISOString(),
+        };
+      }
+    }
 
     const { data: rec, error } = await ctx.supabase
       .from("maintenance_records")
@@ -32,9 +73,10 @@ async function execCreateInterval(
         description: action.description.slice(0, 2000),
         status: "scheduled",
         scheduled_date: scheduledDate,
-        due_at: action.first_due_date ?? null,
+        due_at: dueAt,
         recurrence: action.recurrence.slice(0, 200),
         consumables_used: [] as never,
+        ...(inferredRaw ? { raw: inferredRaw as never } : {}),
       } as never)
       .select("id")
       .single<{ id: string }>();
