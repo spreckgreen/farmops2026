@@ -227,7 +227,15 @@ export const regenerateVaultSecret = createServerFn({ method: "POST" })
     const newValue = mintValue(data.format, data.byteLength);
     const v = await seal(newValue);
 
-    const update: Record<string, unknown> = {
+    const update: {
+      value_ciphertext: string;
+      value_iv: string;
+      value_tag: string;
+      key_version: number;
+      notes_ciphertext?: string;
+      notes_iv?: string;
+      notes_tag?: string;
+    } = {
       value_ciphertext: v.ciphertext,
       value_iv: v.iv,
       value_tag: v.tag,
