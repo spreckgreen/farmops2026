@@ -254,6 +254,84 @@ function VaultSecretsAdminPage() {
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
+              <Eye className="h-4 w-4" /> Master key reveal
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="rounded-md border border-amber-500/50 bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-200 flex gap-2">
+              <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+              <div>
+                This is the <strong>only</strong> key that unlocks every secret in the vault. Save it
+                in a password manager or offline backup. Anyone with this key can decrypt every
+                vault row.
+              </div>
+            </div>
+
+            {!revealState.revealed ? (
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="revealReason">Reason for reveal (audit log)</Label>
+                  <Input
+                    id="revealReason"
+                    placeholder="e.g. backing up to 1Password, rotating key"
+                    value={revealState.reason}
+                    onChange={(e) =>
+                      setRevealState((s) => ({ ...s, reason: e.target.value }))
+                    }
+                  />
+                </div>
+                <Button
+                  variant="outline"
+                  disabled={revealState.busy || revealState.reason.trim().length < 3}
+                  onClick={() => setRevealState((s) => ({ ...s, open: true }))}
+                >
+                  {revealState.busy ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : (
+                    <Eye className="h-4 w-4 mr-2" />
+                  )}
+                  Reveal master key
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="revealedKey">VAULT_ENCRYPTION_KEY</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="revealedKey"
+                      readOnly
+                      type="text"
+                      value={revealState.revealed.value}
+                      className="font-mono"
+                      onFocus={(e) => e.target.select()}
+                    />
+                    <Button variant="outline" size="icon" onClick={copyRevealedKey}>
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+                <div className="grid gap-1.5 sm:grid-cols-2 text-sm">
+                  <MetaRow label="Fingerprint" value={<code>{revealState.revealed.fingerprint}</code>} />
+                  <MetaRow label="Shape" value={revealState.revealed.shape} />
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() =>
+                    setRevealState({ open: false, reason: "", revealed: null, busy: false })
+                  }
+                >
+                  Hide
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
               <Sparkles className="h-4 w-4" /> Regeneration settings
             </CardTitle>
           </CardHeader>
