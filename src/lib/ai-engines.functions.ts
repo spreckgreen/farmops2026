@@ -73,10 +73,9 @@ export const getAiEngines = createServerFn({ method: "GET" })
     const availability = await engineAvailability(config);
     const cloud = await resolveEngine(config.cloudDefault, config);
 
-    const envKeyPresent = Boolean(process.env.LOVABLE_API_KEY);
     const incomplete = {} as Record<AiEngineId, boolean>;
     for (const id of AI_ENGINE_IDS)
-      incomplete[id] = engineIncomplete(config, id, { envKeyPresent });
+      incomplete[id] = engineIncomplete(config, id);
 
     return {
       config: toEngineView(config),
@@ -86,7 +85,6 @@ export const getAiEngines = createServerFn({ method: "GET" })
       cloudDefaultEffective: cloud
         ? { id: cloud.id, baseUrl: cloud.baseUrl, model: cloud.model }
         : null,
-      hasLovableApiKey: Boolean(process.env.LOVABLE_API_KEY),
       /** Deploy-level custom AI env vars that still configure the local engine. */
       envCustomAi: {
         baseUrl: process.env.CUSTOM_AI_BASE_URL ?? null,
@@ -112,9 +110,7 @@ export const setAiEngines = createServerFn({ method: "POST" })
     const next: AiEnginesConfig = { engines, cloudDefault: data.cloudDefault };
 
     // Never refuse the save because one engine is unusable — an operator must
-    // always be able to store working engines (local, Ollama Cloud, OpenAI)
-    // even while Lovable AI is misconfigured or blocked. Report warnings.
-    const envKeyPresent = Boolean(process.env.LOVABLE_API_KEY);
+    // always be able to store one working engine while another is incomplete.
     const warnings: string[] = [];
     const label = getAiEngineDef(next.cloudDefault).label;
 
@@ -123,84 +119,14 @@ export const setAiEngines = createServerFn({ method: "POST" })
         `${label} runs on your own hardware, so cloud-default feature areas will use it too.`,
       );
     }
-    if (engineIncomplete(next, next.cloudDefault, { envKeyPresent })) {
+    if (engineIncomplete(next, next.cloudDefault)) {
       warnings.push(
         `${label} is missing a base URL, API key or model, so cloud-default features will fail until it is completed.`,
       );
     }
-    if (next.cloudDefault === "lovable" && !envKeyPresent && !engines.lovable.apiKey) {
-      warnings.push(
-        "LOVABLE_API_KEY is not set on this server and no key was pasted into the Lovable engine, so Lovable AI calls will fail.",
-      );
-    }
-
     await saveEnginesConfig(next, context.userId);
     const { toEngineView } = await import("@/lib/ai-engines");
     return { ok: true as const, config: toEngineView(next), warnings };
-  });
-
-/**
- * One-click "Switch to Lovable AI": make Lovable AI the cloud default, drop the
- * other-cloud overrides, remove the runtime custom-AI vault overrides that
- * force local routing, and route every hosted-recommended feature area to the
- * cloud default.
- */
-export const switchHostedToLovableAi = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
-    await requireAdmin(context.supabase, context.userId);
-
-    const { loadEnginesConfig, saveEnginesConfig } = await import("./ai-engines.server");
-    const { switchHostedToLovable, toEngineView } = await import("@/lib/ai-engines");
-    const current = await loadEnginesConfig();
-    // A key pasted into the Lovable engine is kept, so this works on a
-    // self-hosted deploy where LOVABLE_API_KEY is not in the environment.
-    const pastedLovableKey = current.engines.lovable.apiKey;
-    if (!process.env.LOVABLE_API_KEY && !pastedLovableKey) {
-      throw new Error(
-        "No Lovable AI key available: set LOVABLE_API_KEY on the server or paste a key into the Lovable engine on this page first.",
-      );
-    }
-    const switched0 = switchHostedToLovable(current);
-    const next = {
-      ...switched0,
-      engines: {
-        ...switched0.engines,
-        lovable: { ...switched0.engines.lovable, apiKey: pastedLovableKey },
-      },
-    };
-    await saveEnginesConfig(next, context.userId);
-
-    // Runtime overrides that would otherwise keep AI calls on a custom endpoint.
-    const { deleteSharedEnvValue } = await import("./shared-env-store.server");
-    const clearedKeys: string[] = [];
-    for (const key of ["CUSTOM_AI_BASE_URL", "CUSTOM_AI_API_KEY"]) {
-      if (await deleteSharedEnvValue(key)) clearedKeys.push(key);
-    }
-
-    // Send every area whose recommendation is hosted to Lovable AI.
-    const { loadRoutingConfig, saveRoutingConfig } = await import("./ai-routing.server");
-    const { AI_FEATURE_AREAS } = await import("@/lib/ai-feature-areas");
-    const routing = await loadRoutingConfig();
-    const areas = { ...routing.areas };
-    const switched: string[] = [];
-    for (const area of AI_FEATURE_AREAS) {
-      if (area.recommended !== "hosted") continue;
-      const current = areas[area.id];
-      const model = current?.model && current.model.includes("/") ? current.model : null;
-      if (current?.backend !== "lovable" || current.model !== model) switched.push(area.label);
-      areas[area.id] = { backend: "lovable", model };
-    }
-    await saveRoutingConfig({ ...routing, areas }, context.userId);
-
-    return {
-      ok: true as const,
-      config: toEngineView(next),
-      clearedKeys,
-      switchedAreas: switched,
-      /** Deploy-level env vars can only be removed by the operator. */
-      envStillSet: Boolean(process.env.CUSTOM_AI_BASE_URL && process.env.CUSTOM_AI_API_KEY),
-    };
   });
 
 const TestInput = z.object({

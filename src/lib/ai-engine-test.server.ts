@@ -30,10 +30,8 @@ export interface EngineTestResult {
 const PROBE_TIMEOUT_MS = 12_000;
 const MAX_MODELS_SHOWN = 8;
 
-function authHeaders(auth: "bearer" | "lovable-header", apiKey: string): HeadersInit {
-  return auth === "lovable-header"
-    ? { "Lovable-API-Key": apiKey, "X-Lovable-AIG-SDK": "fetch" }
-    : { Authorization: `Bearer ${apiKey}` };
+function authHeaders(_auth: "bearer", apiKey: string): HeadersInit {
+  return { Authorization: `Bearer ${apiKey}` };
 }
 
 function joinUrl(baseUrl: string, path: string) {
@@ -111,10 +109,7 @@ function describeHttpStatus(
   if (status === 401 || status === 403) {
     return {
       title: status === 401 ? "API key rejected" : "Access denied",
-      hint:
-        label === "Lovable AI"
-          ? "The server's LOVABLE_API_KEY is missing, invalid, or Lovable AI is disabled/out of credits for this workspace."
-          : "Paste a fresh API key for this engine. For a local Ollama any non-empty value works (e.g. \"ollama\").",
+      hint: "Paste a fresh API key for this engine. For a local Ollama any non-empty value works (e.g. \"ollama\").",
     };
   }
   if (status === 402) {
@@ -189,22 +184,14 @@ export async function testAiEngine(
   if (!engine) {
     const missing = [
       !(merged.engines[id].baseUrl ?? def.defaultBaseUrl) ? "base URL" : null,
-      def.keyFromEnv
-        ? !process.env.LOVABLE_API_KEY && !merged.engines[id].apiKey
-          ? "an API key (LOVABLE_API_KEY on the server, or pasted here)"
-          : null
-        : !merged.engines[id].apiKey
-          ? "API key"
-          : null,
+      def.placement === "cloud" && !merged.engines[id].apiKey ? "API key" : null,
       !(merged.engines[id].model ?? def.defaultModel) ? "model" : null,
     ].filter(Boolean);
     return {
       ok: false,
       title: "Not configured yet",
       message: `${def.label} is missing ${missing.join(", ") || "required settings"}, so there is nothing to test.`,
-      hint: def.keyFromEnv
-        ? "Set LOVABLE_API_KEY on the server, or paste a Lovable AI key in the field above, then test again."
-        : "Fill in the fields above and press Test connection again.",
+      hint: "Fill in the fields above and press Test connection again.",
       baseUrl: merged.engines[id].baseUrl ?? def.defaultBaseUrl,
       model: merged.engines[id].model ?? def.defaultModel,
       modelsSeen: [],
@@ -272,7 +259,7 @@ export async function testAiEngine(
       };
     }
     listMessage = extractApiMessage(body);
-    // 404/405 on /models is normal for some gateways (Lovable included) — fall
+    // 404/405 on /models is normal for some gateways — fall
     // through to a 1-token completion instead of reporting a failure.
     if (res.status !== 404 && res.status !== 405) {
       const { title, hint } = describeHttpStatus(res.status, listMessage, def.label);

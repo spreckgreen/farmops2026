@@ -1,5 +1,4 @@
-// Server-side resolution + persistence for the four AI engines
-// (local / ollama_cloud / lovable / other_cloud).
+// Server-side resolution + persistence for the three AI engines.
 // Server-only: reads process.env and the shared vault.
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import {
@@ -34,7 +33,7 @@ export async function saveEnginesConfig(config: AiEnginesConfig, userId: string)
   await persistSharedEnvValue(
     ENGINE_ENV_KEY,
     serializeEnginesConfig(config),
-    "AI engines (local, Ollama Cloud, Lovable, other cloud)",
+    "AI engines (local, Ollama Cloud, other cloud)",
     userId,
   );
   return config;

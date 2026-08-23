@@ -39,7 +39,7 @@ export interface AreaAi {
   area: AiAreaId;
   areaLabel: string;
   backend: AiBackend;
-   * Which configured engine actually ran this call. */
+  /** Which configured engine actually ran this call. */
   engineId: AiEngineId;
   engineLabel: string;
   provider: Provider;
@@ -136,7 +136,7 @@ export async function resolveAreaAi(
     routeModel && (isLocalEngine ? !routeModelIsHosted : true) ? routeModel : null;
   const modelId = modelOverride ?? selected.model;
   const hostedModelId = routeModelIsHosted
-    ? routeModel!
+    ? routeModel ?? opts.hostedDefaultModel
     : (hosted?.model ?? opts.hostedDefaultModel);
 
   const hostedProvider = hosted ? buildEngineProvider(hosted) : null;
@@ -185,8 +185,10 @@ export async function runAreaAi<T>(
     reason: AiEscalation["reason"],
     detail: string,
   ): Promise<{ value: T; escalation: AiEscalation; backend: AiBackend; modelId: string }> => {
+    const hostedProvider = ai.hostedProvider;
+    if (!hostedProvider) throw new Error("No cloud AI engine is available for fallback.");
     const hosted: AreaRunHandle = {
-      provider: ai.hostedProvider!,
+      provider: hostedProvider,
       modelId: ai.hostedModelId,
       backend: "hosted",
     };
@@ -242,9 +244,14 @@ export function hostedHandle(
   reason: AiEscalation["reason"],
   detail: string,
 ): { provider: Provider; modelId: string; escalation: AiEscalation } | null {
-  if (ai.backend !== "local" || !ai.autoFallback || !ai.hostedAvailable) return null;
+  if (
+    ai.backend !== "local" ||
+    !ai.autoFallback ||
+    !ai.hostedAvailable ||
+    !ai.hostedProvider
+  ) return null;
   return {
-    provider: ai.hostedProvider!,
+    provider: ai.hostedProvider,
     modelId: ai.hostedModelId,
     escalation: {
       area: ai.area,

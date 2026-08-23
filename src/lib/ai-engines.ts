@@ -136,9 +136,8 @@ function parseTarget(value: unknown): AiEngineTarget {
 }
 
 /**
- * Parse the stored blob. Understands both the current 4-engine shape and the
- * older { local, hosted: { provider, lovableModel, custom } } shape, which is
- * migrated: a "custom" hosted provider becomes the `other_cloud` engine.
+ * Parse the stored blob. Existing four-engine configs that selected Lovable
+ * migrate to `other_cloud`; legacy custom-hosted settings migrate there too.
  */
 export function parseEnginesConfig(raw: string | null | undefined): AiEnginesConfig | null {
   if (!raw || !raw.trim()) return null;
@@ -217,5 +216,5 @@ export function engineIncomplete(
 
 /** Legacy helper: is the selected cloud-default engine unusable as configured? */
 export function hostedCustomIncomplete(config: AiEnginesConfig): boolean {
-  return config.cloudDefault !== "lovable" && engineIncomplete(config, config.cloudDefault);
+  return engineIncomplete(config, config.cloudDefault);
 }
