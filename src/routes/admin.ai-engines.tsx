@@ -16,13 +16,20 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   getAiEngines,
   setAiEngines,
   switchHostedToLovableAi,
 } from "@/lib/ai-engines.functions";
+import { AI_ENGINE_DEFS, type AiEngineId } from "@/lib/ai-engines";
 import { ArrowLeft, Cloud, Server, Sparkles, AlertTriangle } from "lucide-react";
 
 export const Route = createFileRoute("/admin/ai-engines")({
@@ -34,13 +41,13 @@ export const Route = createFileRoute("/admin/ai-engines")({
       {
         name: "description",
         content:
-          "Configure the self-hosted (local) AI engine and the hosted AI engine used by Bostead's AI features.",
+          "Configure Bostead's four AI engines — self-hosted local, Ollama Cloud, Lovable AI and another cloud provider.",
       },
       { property: "og:title", content: "AI engines — Bostead" },
       {
         property: "og:description",
         content:
-          "Configure the local and hosted AI engines that power Bostead's reports, schedules and knowledge base.",
+          "Configure the four AI engines that power Bostead's reports, schedules and knowledge base.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -59,6 +66,15 @@ interface TargetDraft {
 
 const emptyDraft: TargetDraft = { baseUrl: "", apiKey: "", keyTouched: false, model: "" };
 
+type Drafts = Record<AiEngineId, TargetDraft>;
+
+const emptyDrafts = (): Drafts => ({
+  local: { ...emptyDraft },
+  ollama_cloud: { ...emptyDraft },
+  lovable: { ...emptyDraft },
+  other_cloud: { ...emptyDraft },
+});
+
 function AiEnginesPage() {
   const load = useServerFn(getAiEngines);
   const save = useServerFn(setAiEngines);
@@ -70,47 +86,46 @@ function AiEnginesPage() {
     queryFn: () => load({}),
   });
 
-  const [local, setLocal] = useState<TargetDraft>(emptyDraft);
-  const [hostedProvider, setHostedProvider] = useState<"lovable" | "custom">("lovable");
-  const [lovableModel, setLovableModel] = useState("");
-  const [custom, setCustom] = useState<TargetDraft>(emptyDraft);
+  const [drafts, setDrafts] = useState<Drafts>(emptyDrafts);
+  const [cloudDefault, setCloudDefault] = useState<AiEngineId>("lovable");
 
   useEffect(() => {
     if (!data) return;
-    setLocal({
-      baseUrl: data.config.local.baseUrl ?? "",
-      apiKey: "",
-      keyTouched: false,
-      model: data.config.local.model ?? "",
-    });
-    setHostedProvider(data.config.hosted.provider);
-    setLovableModel(data.config.hosted.lovableModel ?? "");
-    setCustom({
-      baseUrl: data.config.hosted.custom.baseUrl ?? "",
-      apiKey: "",
-      keyTouched: false,
-      model: data.config.hosted.custom.model ?? "",
-    });
+    const next = emptyDrafts();
+    for (const def of AI_ENGINE_DEFS) {
+      const stored = data.config.engines[def.id];
+      next[def.id] = {
+        baseUrl: stored.baseUrl ?? "",
+        apiKey: "",
+        keyTouched: false,
+        model: stored.model ?? "",
+      };
+    }
+    setDrafts(next);
+    setCloudDefault(data.config.cloudDefault);
   }, [data]);
+
+  const patch = (id: AiEngineId, value: Partial<TargetDraft>) =>
+    setDrafts((prev) => ({ ...prev, [id]: { ...prev[id], ...value } }));
 
   const saveMutation = useMutation({
     mutationFn: () =>
       save({
         data: {
-          local: {
-            baseUrl: local.baseUrl.trim() || null,
-            apiKey: local.keyTouched ? local.apiKey : null,
-            model: local.model.trim() || null,
-          },
-          hosted: {
-            provider: hostedProvider,
-            lovableModel: lovableModel.trim() || null,
-            custom: {
-              baseUrl: custom.baseUrl.trim() || null,
-              apiKey: custom.keyTouched ? custom.apiKey : null,
-              model: custom.model.trim() || null,
-            },
-          },
+          cloudDefault,
+          engines: Object.fromEntries(
+            AI_ENGINE_DEFS.map((def) => {
+              const d = drafts[def.id];
+              return [
+                def.id,
+                {
+                  baseUrl: d.baseUrl.trim() || null,
+                  apiKey: d.keyTouched ? d.apiKey : null,
+                  model: d.model.trim() || null,
+                },
+              ];
+            }),
+          ),
         },
       }),
     onSuccess: () => {
@@ -128,11 +143,11 @@ function AiEnginesPage() {
       const extras = [
         result.clearedKeys.length ? `cleared ${result.clearedKeys.join(", ")}` : null,
         result.switchedAreas.length
-          ? `${result.switchedAreas.length} feature area(s) moved to hosted`
+          ? `${result.switchedAreas.length} feature area(s) moved to Lovable AI`
           : null,
       ].filter(Boolean);
       toast.success(
-        `Hosted AI is now Lovable AI${extras.length ? ` — ${extras.join("; ")}` : ""}`,
+        `Cloud default is now Lovable AI${extras.length ? ` — ${extras.join("; ")}` : ""}`,
       );
       if (result.envStillSet) {
         toast.warning(
@@ -145,6 +160,8 @@ function AiEnginesPage() {
     onError: (err: unknown) =>
       toast.error(err instanceof Error ? err.message : "Could not switch to Lovable AI"),
   });
+
+  const cloudEngines = AI_ENGINE_DEFS.filter((e) => e.placement === "cloud");
 
   return (
     <AppLayout>
@@ -162,11 +179,12 @@ function AiEnginesPage() {
             AI engines
           </h1>
           <p className="text-sm text-muted-foreground">
-            Two engines run side by side. Each AI feature area picks one in{" "}
+            Four engines run side by side — self-hosted local, Ollama Cloud, Lovable AI and
+            another cloud provider. Each AI feature picks one in{" "}
             <Link to="/settings/self-host" className="underline underline-offset-2">
               Self-host settings
             </Link>
-            : “Local” uses the self-hosted engine, “Hosted” uses the hosted engine below.
+            .
           </p>
         </header>
 
@@ -174,170 +192,133 @@ function AiEnginesPage() {
           <p className="text-sm text-muted-foreground">Loading engine configuration…</p>
         ) : (
           <>
-            {/* Local engine */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <Server className="h-4 w-4" />
-                  Self-hosted (local) engine
-                </CardTitle>
-                <CardDescription>
-                  Any OpenAI-compatible endpoint — the bundled Ollama container by default.
-                  Effective now: <code>{data.effective.local.baseUrl}</code> ·{" "}
-                  <code>{data.effective.local.model}</code>
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="space-y-1">
-                  <Label htmlFor="local-base">Base URL</Label>
-                  <Input
-                    id="local-base"
-                    placeholder={data.defaults.localBaseUrl}
-                    value={local.baseUrl}
-                    onChange={(e) => setLocal({ ...local, baseUrl: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="local-key">
-                    API key {data.config.local.hasApiKey && <Badge variant="secondary">stored</Badge>}
-                  </Label>
-                  <Input
-                    id="local-key"
-                    type="password"
-                    autoComplete="off"
-                    placeholder={data.config.local.hasApiKey ? "•••••• (leave blank to keep)" : "ollama"}
-                    value={local.apiKey}
-                    onChange={(e) =>
-                      setLocal({ ...local, apiKey: e.target.value, keyTouched: true })
-                    }
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="local-model">Model tag</Label>
-                  <Input
-                    id="local-model"
-                    placeholder="llama3.2:3b"
-                    value={local.model}
-                    onChange={(e) => setLocal({ ...local, model: e.target.value })}
-                  />
-                </div>
-                {data.envCustomAi.baseUrl && (
-                  <p className="text-xs text-muted-foreground">
-                    Deploy env <code>CUSTOM_AI_BASE_URL={data.envCustomAi.baseUrl}</code> is used
-                    when the field above is blank.
-                  </p>
-                )}
-              </CardContent>
-            </Card>
+            {AI_ENGINE_DEFS.map((def) => {
+              const d = drafts[def.id];
+              const stored = data.config.engines[def.id];
+              const status = data.availability[def.id];
+              return (
+                <Card key={def.id}>
+                  <CardHeader>
+                    <CardTitle className="flex flex-wrap items-center gap-2 text-base">
+                      {def.placement === "local" ? (
+                        <Server className="h-4 w-4" />
+                      ) : (
+                        <Cloud className="h-4 w-4" />
+                      )}
+                      {def.label}
+                      <Badge variant={status.available ? "secondary" : "outline"}>
+                        {status.available ? "ready" : "not configured"}
+                      </Badge>
+                      {data.config.cloudDefault === def.id && (
+                        <Badge>cloud default</Badge>
+                      )}
+                    </CardTitle>
+                    <CardDescription>
+                      {def.description}
+                      {status.available ? (
+                        <>
+                          {" "}
+                          Effective now: <code>{status.baseUrl}</code> ·{" "}
+                          <code>{status.model}</code>
+                        </>
+                      ) : null}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {def.keyFromEnv ? (
+                      !data.hasLovableApiKey && (
+                        <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 p-3 text-sm">
+                          <AlertTriangle className="h-4 w-4 mt-0.5" />
+                          <span>
+                            <code>LOVABLE_API_KEY</code> is not set on the server, so this
+                            engine cannot run.
+                          </span>
+                        </div>
+                      )
+                    ) : (
+                      <>
+                        <div className="space-y-1">
+                          <Label htmlFor={`${def.id}-base`}>Base URL</Label>
+                          <Input
+                            id={`${def.id}-base`}
+                            placeholder={def.defaultBaseUrl ?? "https://…/v1"}
+                            value={d.baseUrl}
+                            onChange={(e) => patch(def.id, { baseUrl: e.target.value })}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label htmlFor={`${def.id}-key`}>
+                            API key{" "}
+                            {stored.hasApiKey && <Badge variant="secondary">stored</Badge>}
+                          </Label>
+                          <Input
+                            id={`${def.id}-key`}
+                            type="password"
+                            autoComplete="off"
+                            placeholder={
+                              stored.hasApiKey
+                                ? "•••••• (leave blank to keep)"
+                                : def.id === "local"
+                                  ? "ollama"
+                                  : "sk-…"
+                            }
+                            value={d.apiKey}
+                            onChange={(e) =>
+                              patch(def.id, { apiKey: e.target.value, keyTouched: true })
+                            }
+                          />
+                        </div>
+                      </>
+                    )}
+                    <div className="space-y-1">
+                      <Label htmlFor={`${def.id}-model`}>Model</Label>
+                      <Input
+                        id={`${def.id}-model`}
+                        className="font-mono text-xs"
+                        placeholder={def.defaultModel ?? "openai/gpt-4.1"}
+                        value={d.model}
+                        onChange={(e) => patch(def.id, { model: e.target.value })}
+                      />
+                    </div>
+                    {def.id === "local" && data.envCustomAi.baseUrl && (
+                      <p className="text-xs text-muted-foreground">
+                        Deploy env <code>CUSTOM_AI_BASE_URL={data.envCustomAi.baseUrl}</code>{" "}
+                        is used when the base URL above is blank.
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
 
-            {/* Hosted engine */}
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <Cloud className="h-4 w-4" />
-                  Hosted engine
-                  <Badge variant={hostedProvider === "lovable" ? "secondary" : "outline"}>
-                    {hostedProvider === "lovable" ? "Lovable AI" : "Alternative provider"}
-                  </Badge>
-                </CardTitle>
+                <CardTitle className="text-base">Cloud default</CardTitle>
                 <CardDescription>
-                  Used by every feature area marked <strong>Hosted</strong>. Defaults to Lovable
-                  AI; flip the switch to send those calls to another provider instead.
-                  {data.effective.hosted ? (
-                    <>
-                      {" "}
-                      Effective now: <code>{data.effective.hosted.baseUrl}</code> ·{" "}
-                      <code>{data.effective.hosted.model}</code>
-                    </>
-                  ) : (
-                    " Not configured — hosted areas fall back to the local engine."
-                  )}
+                  Which cloud engine handles features set to “Cloud default” (and any
+                  auto-fallback from a failed local call).
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-center justify-between rounded-md border p-3">
-                  <div className="space-y-0.5 pr-4">
-                    <Label htmlFor="hosted-toggle">Use an alternative hosted provider</Label>
-                    <p className="text-xs text-muted-foreground">
-                      Off = Lovable AI Gateway (recommended). On = your own hosted endpoint
-                      (OpenRouter, OpenAI, a remote Ollama, …).
-                    </p>
-                  </div>
-                  <Switch
-                    id="hosted-toggle"
-                    checked={hostedProvider === "custom"}
-                    onCheckedChange={(v) => setHostedProvider(v ? "custom" : "lovable")}
-                  />
+                <div className="space-y-1">
+                  <Label htmlFor="cloud-default">Cloud default engine</Label>
+                  <Select
+                    value={cloudDefault}
+                    onValueChange={(v) => setCloudDefault(v as AiEngineId)}
+                  >
+                    <SelectTrigger id="cloud-default" className="w-[240px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {cloudEngines.map((e) => (
+                        <SelectItem key={e.id} value={e.id}>
+                          {e.label}
+                          {data.availability[e.id].available ? "" : " (not configured)"}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
-
-                {hostedProvider === "lovable" ? (
-                  <div className="space-y-3">
-                    {!data.hasLovableApiKey && (
-                      <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 p-3 text-sm">
-                        <AlertTriangle className="h-4 w-4 mt-0.5" />
-                        <span>
-                          <code>LOVABLE_API_KEY</code> is not set on the server, so hosted areas
-                          currently degrade to the local engine.
-                        </span>
-                      </div>
-                    )}
-                    <div className="space-y-1">
-                      <Label htmlFor="lovable-model">Default Lovable AI model</Label>
-                      <Input
-                        id="lovable-model"
-                        placeholder={data.defaults.hostedModel}
-                        value={lovableModel}
-                        onChange={(e) => setLovableModel(e.target.value)}
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Blank keeps each feature's built-in model choice.
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    <div className="space-y-1">
-                      <Label htmlFor="hosted-base">Base URL</Label>
-                      <Input
-                        id="hosted-base"
-                        placeholder="https://openrouter.ai/api/v1"
-                        value={custom.baseUrl}
-                        onChange={(e) => setCustom({ ...custom, baseUrl: e.target.value })}
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label htmlFor="hosted-key">
-                        API key{" "}
-                        {data.config.hosted.custom.hasApiKey && (
-                          <Badge variant="secondary">stored</Badge>
-                        )}
-                      </Label>
-                      <Input
-                        id="hosted-key"
-                        type="password"
-                        autoComplete="off"
-                        placeholder={
-                          data.config.hosted.custom.hasApiKey
-                            ? "•••••• (leave blank to keep)"
-                            : "sk-…"
-                        }
-                        value={custom.apiKey}
-                        onChange={(e) =>
-                          setCustom({ ...custom, apiKey: e.target.value, keyTouched: true })
-                        }
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label htmlFor="hosted-model">Model id</Label>
-                      <Input
-                        id="hosted-model"
-                        placeholder="openai/gpt-4.1"
-                        value={custom.model}
-                        onChange={(e) => setCustom({ ...custom, model: e.target.value })}
-                      />
-                    </div>
-                  </div>
-                )}
 
                 <Separator />
 
@@ -357,9 +338,9 @@ function AiEnginesPage() {
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  “Switch to Lovable AI” resets the hosted engine to Lovable AI, clears the
-                  runtime custom-AI overrides, and routes every hosted-recommended feature area
-                  back to hosted.
+                  “Switch to Lovable AI” makes Lovable AI the cloud default, clears the runtime
+                  custom-AI overrides, and points every hosted-recommended feature area at
+                  Lovable AI.
                 </p>
               </CardContent>
             </Card>
