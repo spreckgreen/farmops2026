@@ -258,7 +258,10 @@ VAULT_ENCRYPTION_KEY_OLD=<current 64-hex chars>`}</pre>
             )}
           </CardContent>
         </Card>
+
+        <VaultReencryptCard onDone={() => void status.refetch()} />
       </div>
+
     </AppLayout>
   );
 }
