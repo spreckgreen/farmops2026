@@ -3,11 +3,16 @@
 # Exits non-zero if the file is tracked or missing from .gitignore.
 set -euo pipefail
 
+# Resolve paths relative to the git repo root so the script works from any directory.
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo .)"
 TARGET="docs/env.self-hosted-supabase.example"
-GITIGNORE=".gitignore"
+GITIGNORE="$REPO_ROOT/.gitignore"
 FAIL=0
 
-echo "==> Verifying $TARGET is properly excluded from git"
+echo "==> Verifying $TARGET is properly excluded from git (repo root: $REPO_ROOT)"
+
+# Run git/file checks from the repo root so relative paths resolve correctly.
+cd "$REPO_ROOT"
 
 # 1. Present in .gitignore (exact line match, ignoring comments/whitespace)
 if grep -Fxq "$TARGET" "$GITIGNORE"; then
