@@ -359,7 +359,13 @@ function VaultSecretsAdminPage() {
                   variant="ghost"
                   size="sm"
                   onClick={() =>
-                    setRevealState({ open: false, reason: "", revealed: null, busy: false })
+                    setRevealState({
+                      open: false,
+                      reason: "",
+                      confirmText: "",
+                      revealed: null,
+                      busy: false,
+                    })
                   }
                 >
                   Hide
