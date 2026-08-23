@@ -24,7 +24,7 @@ type ResolvedKey = { bytes: Uint8Array; raw: string };
 
 /** Human-readable shape of a key var, e.g. "64-hex (32 bytes)" or
  *  "passphrase, 18 chars (SHA-256 derived)". Never includes the value. */
-function describeKeyShape(raw: string): string {
+export function describeKeyShape(raw: string): string {
   if (/^[0-9a-fA-F]{64}$/.test(raw)) return "64-hex (32 bytes)";
   return `passphrase, ${raw.length} chars (SHA-256 derived)`;
 }
@@ -82,6 +82,19 @@ export async function getKeyFingerprints(): Promise<{
     primary: await fingerprintKey(p.bytes),
     old: o ? await fingerprintKey(o.bytes) : null,
   };
+}
+
+/** Reveal the current master key value plus its fingerprint and shape.
+ *  Returns null when the key is not configured. Use only in admin workflows. */
+export async function getMasterKeyDetails(): Promise<{
+  value: string;
+  fingerprint: string;
+  shape: string;
+} | null> {
+  const raw = process.env.VAULT_ENCRYPTION_KEY;
+  if (!raw) return null;
+  const bytes = await deriveKeyBytes(raw);
+  return { value: raw, fingerprint: await fingerprintKey(bytes), shape: describeKeyShape(raw) };
 }
 
 async function encryptWith(key: Uint8Array, plaintext: string): Promise<SealedBlob> {

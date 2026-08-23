@@ -285,3 +285,53 @@ export const regenerateVaultSecret = createServerFn({ method: "POST" })
       envCacheInvalidated,
     };
   });
+
+export interface MasterKeyRevealResult {
+  value: string;
+  fingerprint: string;
+  shape: string;
+}
+
+/** Reveal the current VAULT_ENCRYPTION_KEY value to an admin.
+ *  This is the only place the master key itself is sent to the browser.
+ *  The caller must confirm and supply a reason string for the audit trail. */
+export const revealMasterKey = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    (d: { confirm: boolean; reason?: string }) => {
+      if (!d?.confirm) throw new Error("Confirmation required before revealing the master key");
+      const reason = String(d?.reason ?? "").trim();
+      if (reason.length < 3) throw new Error("Provide a short reason (3+ characters) for the audit log");
+      return { confirm: true, reason };
+    },
+  )
+  .handler(async ({ context, data }): Promise<MasterKeyRevealResult> => {
+    await requireVaultAdmin(context.supabase, context.userId);
+
+    const { getMasterKeyDetails } = await import("./vault-crypto.server");
+    const details = await getMasterKeyDetails();
+    if (!details) {
+      throw new Error(
+        "VAULT_ENCRYPTION_KEY is not set on the server. There is nothing to reveal.",
+      );
+    }
+
+    // Best-effort audit log. Never log the value itself.
+    try {
+      await context.supabase.from("activity_log").insert({
+        user_id: context.userId,
+        entry_type: "note",
+        raw_content: JSON.stringify({
+          event: "vault_master_key_revealed",
+          reason: data.reason,
+          fingerprint: details.fingerprint,
+          shape: details.shape,
+        }),
+      });
+    } catch {
+      // Audit failure should not block the reveal, but the admin already has access.
+      // We swallow rather than expose the key in an error message.
+    }
+
+    return details;
+  });

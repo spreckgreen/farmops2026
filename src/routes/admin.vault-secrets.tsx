@@ -6,6 +6,8 @@ import { toast } from "sonner";
 import {
   AlertTriangle,
   CheckCircle2,
+  Copy,
+  Eye,
   EyeOff,
   Fingerprint,
   KeyRound,
@@ -40,8 +42,10 @@ import {
 import {
   getVaultSecretMetadata,
   regenerateVaultSecret,
+  revealMasterKey,
   type RegenerateFormat,
   type VaultSecretMetadata,
+  type MasterKeyRevealResult,
 } from "@/lib/vault-metadata.functions";
 
 export const Route = createFileRoute("/admin/vault-secrets")({
@@ -78,6 +82,7 @@ function sealBadge(state: VaultSecretMetadata["sealState"]) {
 function VaultSecretsAdminPage() {
   const fetchMeta = useServerFn(getVaultSecretMetadata);
   const regenerate = useServerFn(regenerateVaultSecret);
+  const reveal = useServerFn(revealMasterKey);
 
   const report = useQuery({
     queryKey: ["vault-secret-metadata"],
@@ -89,6 +94,13 @@ function VaultSecretsAdminPage() {
   const [format, setFormat] = useState<RegenerateFormat>("hex");
   const [byteLength, setByteLength] = useState(32);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [revealState, setRevealState] = useState<{
+    open: boolean;
+    reason: string;
+    confirmText: string;
+    revealed: MasterKeyRevealResult | null;
+    busy: boolean;
+  }>({ open: false, reason: "", confirmText: "", revealed: null, busy: false });
 
   async function runRegenerate(id: string) {
     setBusyId(id);
@@ -105,6 +117,27 @@ function VaultSecretsAdminPage() {
     } finally {
       setBusyId(null);
     }
+  }
+
+  async function runReveal() {
+    setRevealState((s) => ({ ...s, busy: true }));
+    try {
+      const r = await reveal({ data: { confirm: true, reason: revealState.reason } });
+      setRevealState((s) => ({ ...s, revealed: r, open: false }));
+      toast.success("Master key revealed. Copy it now — it will not be shown again on refresh.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e));
+    } finally {
+      setRevealState((s) => ({ ...s, busy: false }));
+    }
+  }
+
+  function copyRevealedKey() {
+    if (!revealState.revealed) return;
+    navigator.clipboard.writeText(revealState.revealed.value).then(
+      () => toast.success("Copied to clipboard"),
+      () => toast.error("Could not copy automatically — select and copy manually"),
+    );
   }
 
   const d = report.data;
@@ -214,6 +247,129 @@ function VaultSecretsAdminPage() {
               <div className="mt-2 rounded-md border border-emerald-500/50 bg-emerald-500/10 p-3 flex gap-2 text-emerald-800 dark:text-emerald-200">
                 <CheckCircle2 className="h-4 w-4 flex-shrink-0 mt-0.5" />
                 Every visible row is sealed with the current key.
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Eye className="h-4 w-4" /> Master key reveal
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="rounded-md border border-amber-500/50 bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-200 flex gap-2">
+              <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+              <div>
+                This is the <strong>only</strong> key that unlocks every secret in the vault. Save it
+                in a password manager or offline backup. Anyone with this key can decrypt every
+                vault row.
+              </div>
+            </div>
+
+            {!revealState.revealed ? (
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="revealReason">Reason for reveal (audit log)</Label>
+                  <Input
+                    id="revealReason"
+                    placeholder="e.g. backing up to 1Password, rotating key"
+                    value={revealState.reason}
+                    onChange={(e) =>
+                      setRevealState((s) => ({ ...s, reason: e.target.value }))
+                    }
+                  />
+                </div>
+                {revealState.open ? (
+                  <div className="rounded-md border-2 border-destructive bg-destructive/10 p-3 space-y-3">
+                    <div className="text-sm text-destructive font-medium flex items-center gap-2">
+                      <AlertTriangle className="h-4 w-4" />
+                      Type <code>REVEAL</code> below to confirm you understand the risk.
+                    </div>
+                    <Input
+                      placeholder="Type REVEAL to confirm"
+                      value={revealState.confirmText}
+                      onChange={(e) =>
+                        setRevealState((s) => ({ ...s, confirmText: e.target.value }))
+                      }
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        variant="destructive"
+                        disabled={
+                          revealState.busy || revealState.confirmText.trim() !== "REVEAL"
+                        }
+                        onClick={runReveal}
+                      >
+                        {revealState.busy ? (
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                        ) : (
+                          <Eye className="h-4 w-4 mr-2" />
+                        )}
+                        Show key
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        onClick={() =>
+                          setRevealState((s) => ({
+                            ...s,
+                            open: false,
+                            confirmText: "",
+                          }))
+                        }
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <Button
+                    variant="outline"
+                    disabled={revealState.busy || revealState.reason.trim().length < 3}
+                    onClick={() => setRevealState((s) => ({ ...s, open: true }))}
+                  >
+                    <Eye className="h-4 w-4 mr-2" /> Reveal master key
+                  </Button>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="revealedKey">VAULT_ENCRYPTION_KEY</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="revealedKey"
+                      readOnly
+                      type="text"
+                      value={revealState.revealed.value}
+                      className="font-mono"
+                      onFocus={(e) => e.target.select()}
+                    />
+                    <Button variant="outline" size="icon" onClick={copyRevealedKey}>
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+                <div className="grid gap-1.5 sm:grid-cols-2 text-sm">
+                  <MetaRow label="Fingerprint" value={<code>{revealState.revealed.fingerprint}</code>} />
+                  <MetaRow label="Shape" value={revealState.revealed.shape} />
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() =>
+                    setRevealState({
+                      open: false,
+                      reason: "",
+                      confirmText: "",
+                      revealed: null,
+                      busy: false,
+                    })
+                  }
+                >
+                  Hide
+                </Button>
               </div>
             )}
           </CardContent>
