@@ -15,7 +15,14 @@ const RoutingInput = z.object({
   areas: z.record(
     z.enum(AREA_IDS),
     z.object({
-      backend: z.enum(["local", "hosted", "default"]),
+      backend: z.enum([
+        "local",
+        "hosted",
+        "default",
+        "ollama_cloud",
+        "lovable",
+        "other_cloud",
+      ]),
       model: z.string().trim().max(200).nullable(),
     }),
   ),
