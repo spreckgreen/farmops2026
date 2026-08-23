@@ -116,6 +116,27 @@ function VaultSecretsAdminPage() {
     }
   }
 
+  async function runReveal() {
+    setRevealState((s) => ({ ...s, busy: true }));
+    try {
+      const r = await reveal({ data: { confirm: true, reason: revealState.reason } });
+      setRevealState((s) => ({ ...s, revealed: r, open: false }));
+      toast.success("Master key revealed. Copy it now — it will not be shown again on refresh.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e));
+    } finally {
+      setRevealState((s) => ({ ...s, busy: false }));
+    }
+  }
+
+  function copyRevealedKey() {
+    if (!revealState.revealed) return;
+    navigator.clipboard.writeText(revealState.revealed.value).then(
+      () => toast.success("Copied to clipboard"),
+      () => toast.error("Could not copy automatically — select and copy manually"),
+    );
+  }
+
   const d = report.data;
 
   return (
