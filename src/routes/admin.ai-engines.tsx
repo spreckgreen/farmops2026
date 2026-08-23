@@ -287,19 +287,35 @@ function AiEnginesPage() {
                       <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 p-3 text-sm">
                         <AlertTriangle className="h-4 w-4 mt-0.5" />
                         <span>
-                          <code>LOVABLE_API_KEY</code> is not set on this server. Paste a
-                          Lovable AI key below to use this engine anyway — other engines
-                          still save normally.
+                          <code>LOVABLE_API_KEY</code> is not set on this server (normal for a
+                          self-hosted deploy). Leave this engine alone and use another one, or
+                          reveal the override below and paste a key. Either way the other
+                          engines save and run normally.
                         </span>
                       </div>
                     )}
                     {def.keyFromEnv && data.hasLovableApiKey && !stored.hasApiKey && (
                       <p className="text-xs text-muted-foreground">
-                        Uses the server&apos;s <code>LOVABLE_API_KEY</code>. Paste a key below
-                        only to override it (e.g. the server key is stale).
+                        Managed by Lovable — nothing to set up. The server&apos;s{" "}
+                        <code>LOVABLE_API_KEY</code>, base URL and model defaults are used
+                        automatically.
                       </p>
                     )}
-                    <>
+                    {def.keyFromEnv && !overrides[def.id] && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="px-0 text-xs"
+                        onClick={() =>
+                          setOverrides((prev) => ({ ...prev, [def.id]: true }))
+                        }
+                      >
+                        Advanced: override endpoint / key
+                      </Button>
+                    )}
+                    {(!def.keyFromEnv || overrides[def.id] || stored.hasApiKey) && (
+                      <>
                         <div className="space-y-1">
                           <Label htmlFor={`${def.id}-base`}>Base URL</Label>
                           <Input
