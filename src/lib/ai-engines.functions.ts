@@ -109,21 +109,32 @@ export const setAiEngines = createServerFn({ method: "POST" })
     }
     const next: AiEnginesConfig = { engines, cloudDefault: data.cloudDefault };
 
+    // Never refuse the save because one engine is unusable — an operator must
+    // always be able to store working engines (local, Ollama Cloud, OpenAI)
+    // even while Lovable AI is misconfigured or blocked. Report warnings.
+    const envKeyPresent = Boolean(process.env.LOVABLE_API_KEY);
+    const warnings: string[] = [];
+    const label = getAiEngineDef(next.cloudDefault).label;
+
     if (getAiEngineDef(next.cloudDefault).placement === "local") {
-      throw new Error("The cloud default must be a cloud engine, not the local one.");
-    }
-    if (engineIncomplete(next, next.cloudDefault)) {
-      throw new Error(
-        `${getAiEngineDef(next.cloudDefault).label} is missing a base URL, API key or model, so it cannot be the cloud default.`,
+      warnings.push(
+        `${label} runs on your own hardware, so cloud-default feature areas will use it too.`,
       );
     }
-    if (next.cloudDefault === "lovable" && !process.env.LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not set on the server, so Lovable AI cannot be selected.");
+    if (engineIncomplete(next, next.cloudDefault, { envKeyPresent })) {
+      warnings.push(
+        `${label} is missing a base URL, API key or model, so cloud-default features will fail until it is completed.`,
+      );
+    }
+    if (next.cloudDefault === "lovable" && !envKeyPresent && !engines.lovable.apiKey) {
+      warnings.push(
+        "LOVABLE_API_KEY is not set on this server and no key was pasted into the Lovable engine, so Lovable AI calls will fail.",
+      );
     }
 
     await saveEnginesConfig(next, context.userId);
     const { toEngineView } = await import("@/lib/ai-engines");
-    return { ok: true as const, config: toEngineView(next) };
+    return { ok: true as const, config: toEngineView(next), warnings };
   });
 
 /**
