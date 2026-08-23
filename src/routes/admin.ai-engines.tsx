@@ -433,7 +433,9 @@ function AiEnginesPage() {
                 <CardTitle className="text-base">Cloud default</CardTitle>
                 <CardDescription>
                   Which cloud engine handles features set to “Cloud default” (and any
-                  auto-fallback from a failed local call).
+                  auto-fallback from a failed local call). If that engine has no usable key
+                  on this deploy, features automatically use the first other configured cloud
+                  engine instead of failing.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
