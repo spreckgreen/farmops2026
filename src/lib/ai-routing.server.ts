@@ -21,10 +21,6 @@ import {
 
 export const ROUTING_ENV_KEY = "CUSTOM_AI_FEATURE_ROUTING";
 
-const BUNDLED_OLLAMA_BASE_URL = "http://ollama:11434/v1";
-const BUNDLED_OLLAMA_API_KEY = "ollama";
-const BUNDLED_OLLAMA_MODEL = "llama3.2:3b";
-
 type Provider = ReturnType<typeof createOpenAICompatible>;
 
 export async function loadRoutingConfig(): Promise<AiRoutingConfig> {
@@ -38,24 +34,6 @@ export async function saveRoutingConfig(config: AiRoutingConfig, userId: string)
   return config;
 }
 
-function localProvider(): Provider {
-  const baseURL = process.env.CUSTOM_AI_BASE_URL || BUNDLED_OLLAMA_BASE_URL;
-  const key = process.env.CUSTOM_AI_API_KEY || BUNDLED_OLLAMA_API_KEY;
-  return createOpenAICompatible({
-    name: "custom-ai",
-    baseURL,
-    headers: { Authorization: `Bearer ${key}` },
-  });
-}
-
-function hostedProvider(apiKey: string): Provider {
-  return createOpenAICompatible({
-    name: "lovable-ai-gateway",
-    baseURL: "https://ai.gateway.lovable.dev/v1",
-    headers: { "Lovable-API-Key": apiKey },
-  });
-}
-
 export interface AreaAi {
   area: AiAreaId;
   areaLabel: string;
@@ -64,18 +42,20 @@ export interface AreaAi {
   modelId: string;
   /** Retry once on hosted AI when a local call fails or truncates. */
   autoFallback: boolean;
-  /** Hosted AI reachable (LOVABLE_API_KEY present). */
+  /** Hosted engine reachable (Lovable key set, or a complete custom hosted engine). */
   hostedAvailable: boolean;
   /** Model that a hosted escalation would use. */
   hostedModelId: string;
+  /** Prebuilt hosted provider, so escalation doesn't re-read config. */
+  hostedProvider: Provider | null;
 }
 
 /**
  * Resolve provider + model for one feature area.
  *
- * `hostedDefaultModel` is the call site's existing Lovable AI model id — kept
- * per call site so routing never silently changes which hosted model a feature
- * has always used.
+ * `hostedDefaultModel` is the call site's existing hosted model id — kept per
+ * call site so routing never silently changes which hosted model a feature has
+ * always used.
  */
 export async function resolveAreaAi(
   area: AiAreaId,
@@ -85,44 +65,56 @@ export async function resolveAreaAi(
   const config = await loadRoutingConfig();
   const route = routeForArea(config, area);
 
-  const { getServerEnv } = await import("./server-env.server");
+  const {
+    loadEnginesConfig,
+    resolveLocalEngine,
+    resolveHostedEngine,
+    buildLocalProvider,
+    buildHostedProvider,
+  } = await import("./ai-engines.server");
+  const engines = await loadEnginesConfig();
+  const local = await resolveLocalEngine(engines);
+  const hosted = await resolveHostedEngine(engines, {
+    defaultModel: opts.hostedDefaultModel,
+  });
+
   // A per-area model override is only valid for the backend it belongs to.
-  // Hosted (Lovable AI) ids are namespaced ("google/gemini-3.6-flash"); local
-  // Ollama tags are not ("llama3.2:3b"). Sending an Ollama tag to the hosted
-  // gateway 400s, which used to surface as "the model returned no schedule".
+  // Hosted ids are namespaced ("google/gemini-3.6-flash"); local Ollama tags
+  // are not ("llama3.2:3b"). Sending an Ollama tag to the hosted gateway 400s,
+  // which used to surface as "the model returned no schedule".
   const routeModel = route.model?.trim() || null;
   const routeModelIsHosted = Boolean(routeModel && routeModel.includes("/"));
   const localOverride = routeModel && !routeModelIsHosted ? routeModel : null;
-  const activeLocalModel =
-    localOverride || (await getServerEnv("CUSTOM_AI_MODEL")) || BUNDLED_OLLAMA_MODEL;
-  const hostedKey = process.env.LOVABLE_API_KEY;
-  const hostedModelId = routeModelIsHosted ? routeModel! : opts.hostedDefaultModel;
+  const activeLocalModel = localOverride || local.model;
+  const hostedModelId = routeModelIsHosted ? routeModel! : (hosted?.model ?? opts.hostedDefaultModel);
 
-  // "default": follow the legacy global resolution — custom endpoint wins,
-  // else hosted, else bundled Ollama.
+  // "default": follow the legacy global resolution — an explicitly configured
+  // local endpoint wins, else hosted, else bundled Ollama.
   let backend: AiBackend;
   if (route.backend === "default") {
-    backend =
-      process.env.CUSTOM_AI_BASE_URL && process.env.CUSTOM_AI_API_KEY
-        ? "local"
-        : hostedKey
-          ? "hosted"
-          : "local";
+    const hasExplicitLocal = Boolean(
+      engines.local.baseUrl ||
+        (process.env.CUSTOM_AI_BASE_URL && process.env.CUSTOM_AI_API_KEY),
+    );
+    backend = hasExplicitLocal ? "local" : hosted ? "hosted" : "local";
   } else {
     backend = route.backend;
   }
-  // Hosted requested but no key: degrade to local rather than throwing.
-  if (backend === "hosted" && !hostedKey) backend = "local";
+  // Hosted requested but not configured: degrade to local rather than throwing.
+  if (backend === "hosted" && !hosted) backend = "local";
+
+  const hostedProvider = hosted ? buildHostedProvider(hosted) : null;
 
   return {
     area,
     areaLabel: def.label,
     backend,
-    provider: backend === "hosted" ? hostedProvider(hostedKey!) : localProvider(),
+    provider: backend === "hosted" ? hostedProvider! : buildLocalProvider(local),
     modelId: backend === "hosted" ? hostedModelId : activeLocalModel,
     autoFallback: config.autoFallback,
-    hostedAvailable: Boolean(hostedKey),
+    hostedAvailable: Boolean(hosted),
     hostedModelId,
+    hostedProvider,
   };
 }
 
