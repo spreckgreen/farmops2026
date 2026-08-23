@@ -347,7 +347,8 @@ function AiEnginesPage() {
                             }
                           />
                         </div>
-                    </>
+                      </>
+                    )}
                     <div className="space-y-1">
                       <Label htmlFor={`${def.id}-model`}>Model</Label>
                       <Input
