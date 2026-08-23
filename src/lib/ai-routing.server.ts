@@ -148,7 +148,7 @@ export async function runAreaAi<T>(
     detail: string,
   ): Promise<{ value: T; escalation: AiEscalation; backend: AiBackend; modelId: string }> => {
     const hosted: AreaRunHandle = {
-      provider: hostedProvider(process.env.LOVABLE_API_KEY!),
+      provider: ai.hostedProvider!,
       modelId: ai.hostedModelId,
       backend: "hosted",
     };
@@ -206,7 +206,7 @@ export function hostedHandle(
 ): { provider: Provider; modelId: string; escalation: AiEscalation } | null {
   if (ai.backend !== "local" || !ai.autoFallback || !ai.hostedAvailable) return null;
   return {
-    provider: hostedProvider(process.env.LOVABLE_API_KEY!),
+    provider: ai.hostedProvider!,
     modelId: ai.hostedModelId,
     escalation: {
       area: ai.area,
