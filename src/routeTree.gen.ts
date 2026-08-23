@@ -64,6 +64,7 @@ import { Route as AdminResetRouteImport } from './routes/admin.reset'
 import { Route as AdminExportKeyRouteImport } from './routes/admin.export-key'
 import { Route as AdminExportRouteImport } from './routes/admin.export'
 import { Route as AdminAiSettingsRouteImport } from './routes/admin.ai-settings'
+import { Route as AdminAiEnginesRouteImport } from './routes/admin.ai-engines'
 import { Route as ApiPublicReadyRouteImport } from './routes/api/public/ready'
 import { Route as ApiPublicHealthRouteImport } from './routes/api/public/health'
 import { Route as ApiPublicWebhooksRachioRouteImport } from './routes/api/public/webhooks/rachio'
@@ -347,6 +348,11 @@ const AdminAiSettingsRoute = AdminAiSettingsRouteImport.update({
   path: '/admin/ai-settings',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminAiEnginesRoute = AdminAiEnginesRouteImport.update({
+  id: '/admin/ai-engines',
+  path: '/admin/ai-engines',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicReadyRoute = ApiPublicReadyRouteImport.update({
   id: '/api/public/ready',
   path: '/api/public/ready',
@@ -397,6 +403,7 @@ export interface FileRoutesByFullPath {
   '/service-scheduling': typeof ServiceSchedulingRoute
   '/sync': typeof SyncRoute
   '/vault': typeof VaultRoute
+  '/admin/ai-engines': typeof AdminAiEnginesRoute
   '/admin/ai-settings': typeof AdminAiSettingsRoute
   '/admin/export': typeof AdminExportRoute
   '/admin/export-key': typeof AdminExportKeyRoute
@@ -457,6 +464,7 @@ export interface FileRoutesByTo {
   '/service-scheduling': typeof ServiceSchedulingRoute
   '/sync': typeof SyncRoute
   '/vault': typeof VaultRoute
+  '/admin/ai-engines': typeof AdminAiEnginesRoute
   '/admin/ai-settings': typeof AdminAiSettingsRoute
   '/admin/export': typeof AdminExportRoute
   '/admin/export-key': typeof AdminExportKeyRoute
@@ -521,6 +529,7 @@ export interface FileRoutesById {
   '/service-scheduling': typeof ServiceSchedulingRoute
   '/sync': typeof SyncRoute
   '/vault': typeof VaultRoute
+  '/admin/ai-engines': typeof AdminAiEnginesRoute
   '/admin/ai-settings': typeof AdminAiSettingsRoute
   '/admin/export': typeof AdminExportRoute
   '/admin/export-key': typeof AdminExportKeyRoute
@@ -586,6 +595,7 @@ export interface FileRouteTypes {
     | '/service-scheduling'
     | '/sync'
     | '/vault'
+    | '/admin/ai-engines'
     | '/admin/ai-settings'
     | '/admin/export'
     | '/admin/export-key'
@@ -646,6 +656,7 @@ export interface FileRouteTypes {
     | '/service-scheduling'
     | '/sync'
     | '/vault'
+    | '/admin/ai-engines'
     | '/admin/ai-settings'
     | '/admin/export'
     | '/admin/export-key'
@@ -709,6 +720,7 @@ export interface FileRouteTypes {
     | '/service-scheduling'
     | '/sync'
     | '/vault'
+    | '/admin/ai-engines'
     | '/admin/ai-settings'
     | '/admin/export'
     | '/admin/export-key'
@@ -773,6 +785,7 @@ export interface RootRouteChildren {
   ServiceSchedulingRoute: typeof ServiceSchedulingRoute
   SyncRoute: typeof SyncRoute
   VaultRoute: typeof VaultRoute
+  AdminAiEnginesRoute: typeof AdminAiEnginesRoute
   AdminAiSettingsRoute: typeof AdminAiSettingsRoute
   AdminExportRoute: typeof AdminExportRoute
   AdminExportKeyRoute: typeof AdminExportKeyRoute
@@ -1187,6 +1200,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminAiSettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/ai-engines': {
+      id: '/admin/ai-engines'
+      path: '/admin/ai-engines'
+      fullPath: '/admin/ai-engines'
+      preLoaderRoute: typeof AdminAiEnginesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/ready': {
       id: '/api/public/ready'
       path: '/api/public/ready'
@@ -1337,6 +1357,7 @@ const rootRouteChildren: RootRouteChildren = {
   ServiceSchedulingRoute: ServiceSchedulingRoute,
   SyncRoute: SyncRoute,
   VaultRoute: VaultRoute,
+  AdminAiEnginesRoute: AdminAiEnginesRoute,
   AdminAiSettingsRoute: AdminAiSettingsRoute,
   AdminExportRoute: AdminExportRoute,
   AdminExportKeyRoute: AdminExportKeyRoute,
