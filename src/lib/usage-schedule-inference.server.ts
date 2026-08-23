@@ -3,11 +3,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ServiceSchedule } from "@/types/scheduling";
 import type { Asset } from "@/components/dashboard/types";
-import {
-  inferUsageScheduledDate,
-  parseUsageRecurrenceSafe,
-  type UsageSnapshot,
-} from "./usage-schedule-inference.shared";
+import { inferUsageScheduledDate, type UsageSnapshot } from "./usage-due-status";
+import { parseUsageRecurrence } from "./maintenance-reminders";
 
 export interface InferenceSummary {
   scanned: number;
