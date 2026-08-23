@@ -168,3 +168,52 @@ export async function tryOpenIdentify(
     return null;
   }
 }
+
+/** Same as tryOpenIdentify, but also tries operator-supplied recovery keys
+ *  (raw 64-hex strings or passphrases) that are held in memory only and never
+ *  written anywhere. Used by the recovery re-encrypt workflow so a stale key
+ *  can be drained without editing .env or redeploying. Never throws. */
+export async function tryOpenWithRecoveryKeys(
+  blob: SealedBlob,
+  recoveryKeysRaw: string[],
+): Promise<{ plaintext: string; source: "primary" | "old" | "recovery"; fingerprint: string } | null> {
+  const loaded = await tryOpenIdentify(blob);
+  if (loaded) {
+    const key = loaded.source === "primary" ? await loadPrimary() : await loadOld();
+    return {
+      ...loaded,
+      fingerprint: key ? await fingerprintKey(key.bytes) : "unknown",
+    };
+  }
+  for (const raw of recoveryKeysRaw) {
+    const trimmed = raw.trim();
+    if (!trimmed) continue;
+    const bytes = await deriveKeyBytes(trimmed);
+    try {
+      return {
+        plaintext: await decryptWith(bytes, blob),
+        source: "recovery",
+        fingerprint: await fingerprintKey(bytes),
+      };
+    } catch {
+      /* try next candidate */
+    }
+  }
+  return null;
+}
+
+/** Fingerprints for operator-supplied recovery keys, so the UI can show which
+ *  candidate keys were loaded without ever echoing their values. */
+export async function fingerprintRecoveryKeys(
+  recoveryKeysRaw: string[],
+): Promise<Array<{ fingerprint: string; shape: string }>> {
+  const out: Array<{ fingerprint: string; shape: string }> = [];
+  for (const raw of recoveryKeysRaw) {
+    const trimmed = raw.trim();
+    if (!trimmed) continue;
+    const bytes = await deriveKeyBytes(trimmed);
+    out.push({ fingerprint: await fingerprintKey(bytes), shape: describeKeyShape(trimmed) });
+  }
+  return out;
+}
+
