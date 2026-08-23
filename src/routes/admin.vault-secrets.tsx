@@ -6,6 +6,8 @@ import { toast } from "sonner";
 import {
   AlertTriangle,
   CheckCircle2,
+  Copy,
+  Eye,
   EyeOff,
   Fingerprint,
   KeyRound,
