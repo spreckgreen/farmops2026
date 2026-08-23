@@ -40,8 +40,10 @@ import {
 import {
   getVaultSecretMetadata,
   regenerateVaultSecret,
+  revealMasterKey,
   type RegenerateFormat,
   type VaultSecretMetadata,
+  type MasterKeyRevealResult,
 } from "@/lib/vault-metadata.functions";
 
 export const Route = createFileRoute("/admin/vault-secrets")({
