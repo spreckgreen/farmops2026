@@ -100,6 +100,8 @@ function AiEnginesPage() {
 
   const [drafts, setDrafts] = useState<Drafts>(emptyDrafts);
   const [cloudDefault, setCloudDefault] = useState<AiEngineId>("lovable");
+  /** Engines whose endpoint/key fields are revealed (managed engines hide them). */
+  const [overrides, setOverrides] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (!data) return;
