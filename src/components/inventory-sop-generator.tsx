@@ -41,6 +41,8 @@ export function InventorySopGenerator({
   const [draft, setDraft] = useState<SopDraft | null>(null);
   const [name, setName] = useState("");
   const [body, setBody] = useState("");
+  const [saveMode, setSaveMode] = useState<"create" | "append" | "replace">("create");
+
 
   const { data: items = [], isLoading } = useQuery({
     queryKey: ["sop-inventory-targets"],
