@@ -48,7 +48,7 @@ export function renderWikiToHtml(text: string): string {
 
   // Protect code fences before escaping / inline processing.
   const fences: string[] = [];
-  let src = (text ?? "").replace(/\r\n?/g, "\n").replace(
+  const src = (text ?? "").replace(/\r\n?/g, "\n").replace(
     /^\{\{\{\n([\s\S]*?)\n\}\}\}$/gm,
     (_m, code: string) => {
       fences.push(code);
@@ -119,7 +119,8 @@ export function buildTinyWikiHtml(name: string, body: string): string {
   const ts = tiddlyTimestamp();
   const titleAttr = escAttr(name);
   const safeBody = escPre(body);
-  const rendered = renderWikiToHtml(body);
+  const inner = renderWikiToHtml(body);
+  const rendered = /<h1[\s>]/.test(inner) ? inner : `<h1>${escPre(name)}</h1>\n${inner}`;
   return `<!doctype html>
 <html lang="en">
 <head>
