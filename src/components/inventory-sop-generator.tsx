@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
+import { isManualEligibleType } from "@/lib/asset-types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -44,10 +45,16 @@ export function InventorySopGenerator({
   const [saveMode, setSaveMode] = useState<"create" | "append" | "replace">("create");
 
 
-  const { data: items = [], isLoading } = useQuery({
+  const { data: allItems = [], isLoading } = useQuery({
     queryKey: ["sop-inventory-targets"],
     queryFn: () => listFn({}),
   });
+
+  // Manuals / SOPs only make sense for equipment and ham radio gear.
+  const items = useMemo(
+    () => allItems.filter((i) => isManualEligibleType(i.itemType)),
+    [allItems],
+  );
 
   const selected = useMemo(() => items.find((i) => i.id === itemId) ?? null, [items, itemId]);
 
@@ -107,7 +114,7 @@ export function InventorySopGenerator({
               ))}
               {items.length === 0 && !isLoading ? (
                 <div className="px-2 py-3 text-xs text-muted-foreground italic">
-                  No inventory items yet
+                  No equipment or ham radio items yet
                 </div>
               ) : null}
             </SelectContent>
