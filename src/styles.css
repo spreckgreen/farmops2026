@@ -196,3 +196,55 @@
   @page { margin: 0.6in; }
 }
 
+
+/* ---------- FarmOps deck (/deck) ----------
+ * Slides author at a fixed 1920x1080 canvas and are scaled to fit the
+ * viewport, so slide text uses semantic sizes (a 32px body reads fine when
+ * projected, whereas Tailwind's default 16px does not).
+ */
+.slide-content {
+  width: 1920px;
+  height: 1080px;
+  overflow: hidden;
+  position: relative;
+
+  --slide-title-lg: 104px;
+  --slide-title: 88px;
+  --slide-subtitle: 52px;
+  --slide-body-lg: 40px;
+  --slide-body: 32px;
+  --slide-caption: 24px;
+  --slide-kicker: 22px;
+  --slide-chrome: 20px;
+}
+.slide-title-lg { font-size: var(--slide-title-lg); line-height: 1.0; letter-spacing: -0.05em; }
+.slide-title { font-size: var(--slide-title); line-height: 1.05; letter-spacing: -0.04em; }
+.slide-subtitle { font-size: var(--slide-subtitle); line-height: 1.15; letter-spacing: -0.025em; }
+.slide-body-lg { font-size: var(--slide-body-lg); line-height: 1.22; }
+.slide-body { font-size: var(--slide-body); line-height: 1.28; }
+.slide-caption { font-size: var(--slide-caption); line-height: 1.25; }
+.slide-kicker {
+  font-size: var(--slide-kicker); line-height: 1.1; letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.slide-chrome, .slide-badge, .slide-footer, .slide-page {
+  font-size: var(--slide-chrome); line-height: 1.15;
+}
+.slide-badge, .slide-page { white-space: nowrap; }
+
+.deck-slide-wrapper {
+  position: absolute;
+  width: 1920px;
+  height: 1080px;
+  left: 50%;
+  top: 50%;
+  margin-left: -960px;
+  margin-top: -540px;
+  transform: scale(var(--deck-scale, 1));
+  transform-origin: center center;
+}
+
+@media print {
+  .deck-print-root .slide-content { page-break-after: always; break-after: page; }
+  @page { size: 1920px 1080px landscape; margin: 0; }
+}
