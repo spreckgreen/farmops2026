@@ -85,6 +85,12 @@ export interface AiEngineTarget {
   baseUrl: string | null;
   apiKey: string | null;
   model: string | null;
+  /**
+   * Turned off engines keep every saved value but are skipped by all routing
+   * and reported as "off" instead of "ready". Connection tests still run, so an
+   * operator can verify credentials before switching an engine back on.
+   */
+  enabled: boolean;
 }
 
 export interface AiEnginesConfig {
@@ -98,6 +104,7 @@ export interface AiEngineTargetView {
   baseUrl: string | null;
   hasApiKey: boolean;
   model: string | null;
+  enabled: boolean;
 }
 
 export interface AiEnginesView {
@@ -105,7 +112,12 @@ export interface AiEnginesView {
   cloudDefault: AiEngineId;
 }
 
-const EMPTY_TARGET: AiEngineTarget = { baseUrl: null, apiKey: null, model: null };
+const EMPTY_TARGET: AiEngineTarget = {
+  baseUrl: null,
+  apiKey: null,
+  model: null,
+  enabled: true,
+};
 
 function emptyEngines(): Record<AiEngineId, AiEngineTarget> {
   return {
@@ -132,6 +144,8 @@ function parseTarget(value: unknown): AiEngineTarget {
     baseUrl: str(obj.baseUrl),
     apiKey: str(obj.apiKey),
     model: str(obj.model),
+    // Older blobs have no flag — treat them as on.
+    enabled: obj.enabled !== false,
   };
 }
 
@@ -185,6 +199,7 @@ export function toEngineView(config: AiEnginesConfig): AiEnginesView {
     baseUrl: t.baseUrl,
     hasApiKey: Boolean(t.apiKey),
     model: t.model,
+    enabled: t.enabled,
   });
   return {
     engines: {
@@ -199,6 +214,11 @@ export function toEngineView(config: AiEnginesConfig): AiEnginesView {
 /**
  * True when an engine is missing something it needs to run.
  */
+/** Is this engine switched on? Saved-but-off engines return false. */
+export function isEngineEnabled(config: AiEnginesConfig, id: AiEngineId): boolean {
+  return config.engines[id].enabled !== false;
+}
+
 export function engineIncomplete(
   config: AiEnginesConfig,
   id: AiEngineId,
