@@ -83,10 +83,24 @@ export const importManualDocument = createServerFn({ method: "POST" })
     }
 
     const kindLabel = data.kind === "workshop" ? "Workshop manual" : "Operator manual";
-    const body =
+    let body =
       markdownToTinyWiki(data.manual_text) +
       `\n\n----\n''Source:'' imported ${kindLabel.toLowerCase()} for ${assetLabel}.\n`;
+
+    // "Append" keeps everything already on the page and adds the new manual
+    // text underneath a dated heading.
+    const appending = Boolean(existing) && mode === "append";
+    if (appending) {
+      const { extractBodyWiki } = await import("@/lib/tinywiki");
+      const { appendProcedureBody } = await import("@/lib/procedure-append");
+      body = appendProcedureBody(
+        extractBodyWiki(String(existing?.content ?? ""), name),
+        body,
+        kindLabel,
+      );
+    }
     const html = buildTinyWikiHtml(name, tidyProcedure(name, body).body);
+
 
     const { data: row, error } = await supabase
       .from("procedures")
