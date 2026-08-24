@@ -106,11 +106,7 @@ function Page() {
   };
 
   const visibleTracked = useMemo(() => trackedAssets.filter(matches), [trackedAssets, filter]);
-  const visibleOther = useMemo(() => otherItems.filter(matches), [otherItems, filter]);
-  const visibleIds = useMemo(
-    () => [...visibleTracked, ...visibleOther].map((a) => a.id),
-    [visibleTracked, visibleOther],
-  );
+  const visibleIds = useMemo(() => visibleTracked.map((a) => a.id), [visibleTracked]);
 
   const toggle = (id: string) =>
     setSelectedIds((prev) =>
@@ -404,17 +400,10 @@ function Page() {
                       {visibleTracked.map(renderRow)}
                     </div>
                   )}
-                  {visibleOther.length > 0 && (
-                    <div>
-                      <div className="px-3 py-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground bg-muted/40">
-                        Other inventory items
-                      </div>
-                      {visibleOther.map(renderRow)}
-                    </div>
-                  )}
                   {visibleIds.length === 0 && (
                     <p className="px-3 py-4 text-sm text-muted-foreground">
-                      No inventory items match that filter.
+                      No serviceable assets match that filter. Only equipment and
+                      ham radio gear can have maintenance schedules.
                     </p>
                   )}
                 </div>
