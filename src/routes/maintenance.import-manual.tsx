@@ -16,11 +16,23 @@ import {
   type ManualImportResult,
 } from "@/lib/service-manual-import.functions";
 import {
-  serviceManualPrompt,
+  importManualDocument,
+  type ManualDocumentResult,
+} from "@/lib/manual-document-import.functions";
+import {
   SERVICE_MANUAL_TEMPLATE,
   manualTemplateFileName,
   usageLabel,
 } from "@/lib/service-manual-template";
+import {
+  MANUAL_KINDS,
+  MANUAL_KIND_META,
+  manualPrompt,
+  manualProcedureName,
+  manualTemplateFor,
+  type ManualKind,
+} from "@/lib/manual-kinds";
+
 import { AiFeatureGate } from "@/components/ai-feature-gate";
 import { AiProgressStages } from "@/components/ai-progress-stages";
 import { useAiJobProgress } from "@/hooks/use-ai-job-progress";
@@ -80,6 +92,8 @@ function Page() {
   const listInv = useServerFn(listInventory);
   const parseFn = useServerFn(parseServiceManual);
   const applyFn = useServerFn(applyServiceManualImport);
+  const docFn = useServerFn(importManualDocument);
+
 
   const { data: inventory = [] } = useQuery({
     queryKey: ["inventory"],
@@ -88,6 +102,7 @@ function Page() {
 
   const [assetId, setAssetId] = useState<string>("");
   const [filter, setFilter] = useState("");
+  const [kind, setKind] = useState<ManualKind>("service_schedule");
   const [manualText, setManualText] = useState("");
   const [fileName, setFileName] = useState<string | null>(null);
   const [plan, setPlan] = useState<ManualImportPlan | null>(null);
@@ -99,6 +114,11 @@ function Page() {
   const [threshold, setThreshold] = useState(0.82);
   const [createParts, setCreateParts] = useState(true);
   const [result, setResult] = useState<ManualImportResult | null>(null);
+  // Document-style manuals (operator / workshop) land as a procedure page.
+  const [docName, setDocName] = useState("");
+  const [overwriteDoc, setOverwriteDoc] = useState(false);
+  const [docResult, setDocResult] = useState<ManualDocumentResult | null>(null);
+
   const fileRef = useRef<HTMLInputElement | null>(null);
   const jobProgress = useAiJobProgress("maintenance.import-manual");
 
@@ -119,17 +139,25 @@ function Page() {
   const asset = inventory.find((i) => i.id === assetId);
   const assetName = asset?.name ?? asset?.sku ?? "";
 
+  const meta = MANUAL_KIND_META[kind];
+  const isDocument = meta.target === "document";
+
   const prompt = useMemo(
     () =>
-      serviceManualPrompt({
+      manualPrompt(kind, {
         assetName: assetName || "<pick an asset>",
         category: asset?.category ?? null,
         usageTracking: asset?.usage_tracking ?? null,
         currentHours: asset?.current_hours ?? null,
         currentMiles: asset?.current_miles ?? null,
       }),
-    [assetName, asset?.category, asset?.usage_tracking, asset?.current_hours, asset?.current_miles],
+    [kind, assetName, asset?.category, asset?.usage_tracking, asset?.current_hours, asset?.current_miles],
   );
+
+  // Default procedure name follows the asset + kind until the user edits it.
+  const effectiveDocName =
+    docName.trim() || (assetName ? manualProcedureName(assetName, kind === "workshop" ? "workshop" : "operator") : "");
+
 
   const download = (text: string, name: string) => {
     const url = URL.createObjectURL(new Blob([text], { type: "text/markdown" }));
@@ -153,7 +181,33 @@ function Page() {
     setFileName(file.name);
   };
 
+  // Operator / workshop manuals: no AI pass, straight to a procedure page.
+  const docMut = useMutation({
+    mutationFn: async () => {
+      if (!assetId) throw new Error("Pick the asset this manual belongs to");
+      if (manualText.trim().length < 40) throw new Error("Paste the manual first");
+      if (!effectiveDocName) throw new Error("Give the procedure page a name");
+      return docFn({
+        data: {
+          asset_id: assetId,
+          kind: kind === "workshop" ? "workshop" : "operator",
+          manual_text: manualText.trim(),
+          procedure_name: effectiveDocName,
+          overwrite: overwriteDoc,
+        },
+      });
+    },
+    onSuccess: (r) => {
+      setDocResult(r);
+      toast.success(
+        `${r.replaced ? "Updated" : "Saved"} "${r.name}" and linked it to ${r.asset_name}`,
+      );
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not save that manual"),
+  });
+
   const parseMut = useMutation({
+
     mutationFn: async () => {
       if (!assetId) throw new Error("Pick the asset this manual belongs to");
       if (manualText.trim().length < 40) throw new Error("Paste the service manual first");
@@ -312,18 +366,19 @@ function Page() {
           </Link>
 
           <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-medium text-primary mb-3">
-            <BookOpenText className="h-3 w-3" /> Service manual import
+            <BookOpenText className="h-3 w-3" /> Asset manual import
           </div>
           <h1 className="text-3xl md:text-4xl font-bold tracking-tight mb-2">
-            Import a service manual
+            Generate and import an asset manual
           </h1>
           <p className="text-muted-foreground mb-8 max-w-2xl">
-            Pick the asset, copy the prompt into any AI ("make me a maintenance manual
-            for my Kubota L2501"), paste the answer back here. Each service interval
-            becomes a maintenance record on that asset, and any part it needs that
-            you don't stock yet is created in inventory at the quantity the service
-            calls for.
+            Pick the asset and the manual type — service schedule, operator manual, or
+            workshop manual — copy the prompt into any AI ("make me a workshop manual for
+            my Kubota L2501"), then paste the answer back here. A service schedule becomes
+            maintenance records plus any missing parts in inventory; operator and workshop
+            manuals become procedure pages linked to the asset.
           </p>
+
 
           {/* 1. Asset */}
           <section className="rounded-xl border border-border bg-card/40 p-6 space-y-3 mb-6">
@@ -369,13 +424,57 @@ function Page() {
             </div>
           </section>
 
-          {/* 2. Template */}
+          {/* 2. Manual type */}
           <section className="rounded-xl border border-border bg-card/40 p-6 space-y-3 mb-6">
-            <h2 className="text-sm font-semibold">2. Ask an AI for the manual</h2>
+            <h2 className="text-sm font-semibold">2. Which manual do you want?</h2>
+            <div className="grid gap-2 sm:grid-cols-3">
+              {MANUAL_KINDS.map((k) => {
+                const m = MANUAL_KIND_META[k];
+                const active = kind === k;
+                return (
+                  <button
+                    key={k}
+                    type="button"
+                    onClick={() => {
+                      setKind(k);
+                      setPlan(null);
+                      setResult(null);
+                      setDocResult(null);
+                    }}
+                    className={`rounded-lg border p-3 text-left transition ${
+                      active
+                        ? "border-primary bg-primary/10"
+                        : "border-border bg-background hover:bg-muted/40"
+                    }`}
+                  >
+                    <span className="block text-sm font-medium">{m.label}</span>
+                    <span className="mt-1 block text-xs text-muted-foreground">{m.blurb}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-xs text-muted-foreground">{meta.outcome}</p>
+          </section>
+
+          {/* 3. Template */}
+          <section className="rounded-xl border border-border bg-card/40 p-6 space-y-3 mb-6">
+            <h2 className="text-sm font-semibold">
+              3. Ask an AI for the {meta.label.toLowerCase()}
+            </h2>
             <p className="text-xs text-muted-foreground">
-              This prompt pins the format the importer reads — the{" "}
-              <code className="text-[11px]">Service Intervals</code> bullets with
-              interval, tasks, and a parts list with quantities.
+              {isDocument ? (
+                <>
+                  This prompt pins the headings so the saved page reads cleanly as a
+                  procedure — paste the answer back and it becomes a wiki page on this
+                  asset.
+                </>
+              ) : (
+                <>
+                  This prompt pins the format the importer reads — the{" "}
+                  <code className="text-[11px]">Service Intervals</code> bullets with
+                  interval, tasks, and a parts list with quantities.
+                </>
+              )}
             </p>
             <pre className="max-h-56 overflow-auto rounded-md border border-border bg-background p-3 text-xs whitespace-pre-wrap">
               {prompt}
@@ -396,8 +495,10 @@ function Page() {
                 size="sm"
                 onClick={() =>
                   download(
-                    SERVICE_MANUAL_TEMPLATE,
-                    manualTemplateFileName(assetName || "asset"),
+                    manualTemplateFor(kind) ?? SERVICE_MANUAL_TEMPLATE,
+                    manualTemplateFileName(
+                      `${assetName || "asset"}-${meta.label}`,
+                    ),
                   )
                 }
               >
@@ -406,26 +507,52 @@ function Page() {
             </div>
           </section>
 
-          {/* 3. Paste */}
+
+          {/* 4. Paste */}
           <section className="rounded-xl border border-border bg-card/40 p-6 space-y-3 mb-6">
-            <h2 className="text-sm font-semibold">3. Paste the manual</h2>
-            <label className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-              <span className="font-medium text-foreground">Part match strictness</span>
-              <input
-                type="range"
-                min={40}
-                max={100}
-                step={2}
-                value={Math.round(threshold * 100)}
-                onChange={(e) => setThreshold(Number(e.target.value) / 100)}
-                className="h-1 w-40 accent-primary"
-              />
-              <span>{Math.round(threshold * 100)}%</span>
-              <span>
-                — matches at or above this confidence link automatically; anything less
-                asks you to confirm.
-              </span>
-            </label>
+            <h2 className="text-sm font-semibold">4. Paste the {meta.label.toLowerCase()}</h2>
+            {isDocument ? (
+              <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+                <label className="block text-xs text-muted-foreground">
+                  <span className="font-medium text-foreground">Procedure page name</span>
+                  <Input
+                    className="mt-1"
+                    value={docName}
+                    onChange={(e) => setDocName(e.target.value.slice(0, 120))}
+                    placeholder={
+                      assetName
+                        ? manualProcedureName(assetName, kind === "workshop" ? "workshop" : "operator")
+                        : "Pick an asset first"
+                    }
+                  />
+                </label>
+                <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Checkbox
+                    checked={overwriteDoc}
+                    onCheckedChange={(v) => setOverwriteDoc(v === true)}
+                  />
+                  Replace existing page
+                </label>
+              </div>
+            ) : (
+              <label className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                <span className="font-medium text-foreground">Part match strictness</span>
+                <input
+                  type="range"
+                  min={40}
+                  max={100}
+                  step={2}
+                  value={Math.round(threshold * 100)}
+                  onChange={(e) => setThreshold(Number(e.target.value) / 100)}
+                  className="h-1 w-40 accent-primary"
+                />
+                <span>{Math.round(threshold * 100)}%</span>
+                <span>
+                  — matches at or above this confidence link automatically; anything less
+                  asks you to confirm.
+                </span>
+              </label>
+            )}
             <Textarea
               value={manualText}
               onChange={(e) => {
@@ -454,14 +581,50 @@ function Page() {
                 {manualText.length.toLocaleString()} characters
               </span>
               <div className="flex-1" />
-              <Button
-                onClick={() => parseMut.mutate()}
-                disabled={parseMut.isPending || !assetId || manualText.trim().length < 40}
-              >
-                <Sparkles className="h-4 w-4 mr-1" />
-                {parseMut.isPending ? "Reading manual…" : "Read manual"}
-              </Button>
+              {isDocument ? (
+                <Button
+                  onClick={() => docMut.mutate()}
+                  disabled={
+                    docMut.isPending ||
+                    !assetId ||
+                    !effectiveDocName ||
+                    manualText.trim().length < 40
+                  }
+                >
+                  <FileText className="h-4 w-4 mr-1" />
+                  {docMut.isPending ? "Saving…" : "Save as procedure"}
+                </Button>
+              ) : (
+                <Button
+                  onClick={() => parseMut.mutate()}
+                  disabled={parseMut.isPending || !assetId || manualText.trim().length < 40}
+                >
+                  <Sparkles className="h-4 w-4 mr-1" />
+                  {parseMut.isPending ? "Reading manual…" : "Read manual"}
+                </Button>
+              )}
             </div>
+            {docResult && (
+              <div className="rounded-md border border-primary/30 bg-primary/5 p-3 text-xs space-y-2">
+                <p className="text-sm font-medium text-foreground">
+                  {docResult.replaced ? "Updated" : "Saved"} “{docResult.name}” and linked
+                  it to {docResult.asset_name}.
+                </p>
+                {docResult.sections.length > 0 && (
+                  <p className="text-muted-foreground">
+                    Sections: {docResult.sections.slice(0, 12).join(" · ")}
+                    {docResult.sections.length > 12 ? " …" : ""}
+                  </p>
+                )}
+                <Link
+                  to="/procedures"
+                  className="inline-flex items-center gap-1 text-primary hover:underline"
+                >
+                  <BookOpenText className="h-3 w-3" /> Open in Procedures
+                </Link>
+              </div>
+            )}
+
             {(parseMut.isPending || jobProgress.active) && (
               <AiProgressStages
                 active={parseMut.isPending || jobProgress.active}
@@ -476,13 +639,14 @@ function Page() {
             )}
           </section>
 
-          {/* 4. Parsed preview */}
-          {plan && (
+          {/* 5. Parsed preview (service schedule only) */}
+          {plan && !isDocument && (
             <section className="rounded-xl border border-border bg-card/40 p-6 space-y-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <h2 className="text-sm font-semibold">
-                    4. Parsed preview — {plan.asset_name}
+                    5. Parsed preview — {plan.asset_name}
+
                   </h2>
                   <p className="text-xs text-muted-foreground mt-1">{plan.summary}</p>
                 </div>
