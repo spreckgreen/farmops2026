@@ -447,6 +447,12 @@ function AiEnginesPage() {
                         onChange={(e) => patch(def.id, { baseUrl: e.target.value })}
                       />
                       <p className="text-xs text-muted-foreground">{def.baseUrlReason}</p>
+                      {fieldErrors[def.id]?.baseUrl && (
+                        <p className="text-xs font-medium text-destructive">
+                          {fieldErrors[def.id]?.baseUrl}
+                        </p>
+                      )}
+
                     </div>
                     <div className="space-y-1">
                       <div className="flex flex-wrap items-center gap-2">
