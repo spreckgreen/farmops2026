@@ -65,6 +65,8 @@ export const Route = createFileRoute("/maintenance/import-manual")({
   ),
 });
 
+const partKey = (ivKey: string, i: number) => `${ivKey}::${i}`;
+
 function Page() {
   const listInv = useServerFn(listInventory);
   const parseFn = useServerFn(parseServiceManual);
@@ -81,6 +83,7 @@ function Page() {
   const [fileName, setFileName] = useState<string | null>(null);
   const [plan, setPlan] = useState<ManualImportPlan | null>(null);
   const [skipped, setSkipped] = useState<Record<string, boolean>>({});
+  const [skippedParts, setSkippedParts] = useState<Record<string, boolean>>({});
   const [createParts, setCreateParts] = useState(true);
   const [result, setResult] = useState<ManualImportResult | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
@@ -152,6 +155,7 @@ function Page() {
       }
       setPlan(p);
       setSkipped({});
+      setSkippedParts({});
       setResult(null);
     },
     onError: (e) => {
