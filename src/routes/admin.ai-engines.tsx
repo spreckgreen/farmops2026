@@ -299,7 +299,7 @@ function AiEnginesPage() {
                     </div>
                     <div className="space-y-1">
                           <Label htmlFor={`${def.id}-key`}>
-                            API key{" "}
+                            API key{def.id === "local" ? " (not required)" : ""}{" "}
                             {stored.hasApiKey && <Badge variant="secondary">stored</Badge>}
                           </Label>
                           <Input
@@ -310,15 +310,25 @@ function AiEnginesPage() {
                               stored.hasApiKey
                                 ? "•••••• (leave blank to keep)"
                                 : def.id === "local"
-                                  ? "ollama"
-                                  : "sk-…"
+                                  ? "leave blank — local Ollama needs no key"
+                                  : def.id === "ollama_cloud"
+                                    ? "Ollama Cloud key from ollama.com → Settings → Keys"
+                                    : "provider key, e.g. sk-… for OpenAI"
                             }
                             value={d.apiKey}
                             onChange={(e) =>
                               patch(def.id, { apiKey: e.target.value, keyTouched: true })
                             }
                           />
+                          <p className="text-xs text-muted-foreground">
+                            {def.id === "local"
+                              ? "Self-hosted Ollama has no API key. Leave this blank; the app sends a placeholder token that Ollama ignores."
+                              : def.id === "ollama_cloud"
+                                ? "Ollama Cloud keys are not OpenAI sk- keys — create one at ollama.com → Settings → Keys and paste it whole."
+                                : "Use the key from your provider (OpenAI sk-…, OpenRouter, Groq, …)."}
+                          </p>
                     </div>
+
                     <div className="space-y-1">
                       <Label htmlFor={`${def.id}-model`}>Model</Label>
                       <Input
