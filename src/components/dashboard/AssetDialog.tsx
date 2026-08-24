@@ -4,10 +4,78 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { X, ScanLine } from "lucide-react";
+import { X, ScanLine, CheckCircle2, AlertTriangle } from "lucide-react";
 import BarcodeScanner from "./BarcodeScanner";
 import type { Asset, AssetFormData } from "./types";
 import { INVENTORY_TYPES } from "@/lib/obsidian-layout";
+
+/** Catalog value for the "32 Kits" inventory type (seeded in every environment). */
+const KIT_TYPE = "32_kits";
+
+/**
+ * Shows what is actually stored in the database for this item's type, so a kit
+ * can be verified at a glance: saved value, catalog label, whether the picker
+ * still matches the saved row, and a one-click fix for kit-named items that
+ * were never classified as 32 Kits.
+ */
+function SavedTypeCheck({
+  savedType,
+  selectedType,
+  name,
+  onUseKitType,
+}: {
+  savedType: string | null;
+  selectedType: string;
+  name: string;
+  onUseKitType: () => void;
+}) {
+  const saved = INVENTORY_TYPES.find((t) => t.value === savedType);
+  const unsaved = (selectedType || "") !== (savedType || "");
+  const looksLikeKit = /\bkits?\b/i.test(name || "");
+  const isKit = savedType === KIT_TYPE;
+
+  return (
+    <div className="rounded-md border border-border/60 bg-muted/30 p-2 space-y-1 text-[11px]">
+      <div className="flex items-center gap-1.5">
+        {isKit ? (
+          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+        ) : savedType ? (
+          <CheckCircle2 className="h-3.5 w-3.5 text-muted-foreground" />
+        ) : (
+          <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+        )}
+        <span>
+          Saved in database:{" "}
+          <span className="font-medium">
+            {savedType ? `${saved?.label ?? "unknown type"} (${savedType})` : "no type set"}
+          </span>
+        </span>
+      </div>
+      {savedType && !saved ? (
+        <div className="text-amber-500">
+          This value is not in the type catalog — pick a listed type and save.
+        </div>
+      ) : null}
+      {unsaved ? (
+        <div className="text-amber-500">
+          Unsaved change — the picker shows{" "}
+          {selectedType
+            ? `${INVENTORY_TYPES.find((t) => t.value === selectedType)?.label ?? selectedType}`
+            : "Unclassified"}
+          . Press Save Changes to write it.
+        </div>
+      ) : null}
+      {looksLikeKit && !isKit ? (
+        <div className="flex items-center gap-2 pt-1">
+          <span className="text-amber-500">This looks like a kit but is not 32 Kits.</span>
+          <Button type="button" size="sm" variant="outline" className="h-6 px-2" onClick={onUseKitType}>
+            Use 32 Kits
+          </Button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 interface AssetDialogProps {
   open: boolean;
@@ -15,6 +83,7 @@ interface AssetDialogProps {
   onSave: (data: AssetFormData) => void;
   asset: Asset | null;
 }
+
 
 const emptyForm: AssetFormData = {
   name: "",
