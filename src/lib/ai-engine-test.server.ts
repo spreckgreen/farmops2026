@@ -1,6 +1,8 @@
 // Connection test for one AI engine slot: verifies the base URL is reachable,
 // the key is accepted, and the configured model exists — then turns whatever
 // went wrong into a sentence an operator can act on.
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/integrations/supabase/types";
 import {
   getAiEngineDef,
   type AiEngineId,
@@ -9,6 +11,7 @@ import {
 } from "./ai-engines";
 import { resolveEngine } from "./ai-engines.server";
 import { rankModelTiers, recommendedModel, type ModelTiers } from "./model-tiers";
+
 
 export interface EngineTestResult {
   ok: boolean;
