@@ -181,7 +181,33 @@ function Page() {
     setFileName(file.name);
   };
 
+  // Operator / workshop manuals: no AI pass, straight to a procedure page.
+  const docMut = useMutation({
+    mutationFn: async () => {
+      if (!assetId) throw new Error("Pick the asset this manual belongs to");
+      if (manualText.trim().length < 40) throw new Error("Paste the manual first");
+      if (!effectiveDocName) throw new Error("Give the procedure page a name");
+      return docFn({
+        data: {
+          asset_id: assetId,
+          kind: kind === "workshop" ? "workshop" : "operator",
+          manual_text: manualText.trim(),
+          procedure_name: effectiveDocName,
+          overwrite: overwriteDoc,
+        },
+      });
+    },
+    onSuccess: (r) => {
+      setDocResult(r);
+      toast.success(
+        `${r.replaced ? "Updated" : "Saved"} "${r.name}" and linked it to ${r.asset_name}`,
+      );
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not save that manual"),
+  });
+
   const parseMut = useMutation({
+
     mutationFn: async () => {
       if (!assetId) throw new Error("Pick the asset this manual belongs to");
       if (manualText.trim().length < 40) throw new Error("Paste the service manual first");
