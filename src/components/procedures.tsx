@@ -308,10 +308,50 @@ export function Procedures() {
     if (fileRef.current) fileRef.current.value = "";
   }
 
+  // --- Type / asset / interval filtering -------------------------------------
+  const meta = useMemo(() => {
+    const m = new Map<string, ProcedureMeta>();
+    for (const w of wikis) m.set(w.name, parseProcedureMeta(w.content));
+    return m;
+  }, [wikis]);
+
+  const plansOnly = typeFilter === "maintenance";
+  const assetOptions = useMemo(() => {
+    const s = new Set<string>();
+    for (const w of wikis) {
+      const md = meta.get(w.name);
+      if (md && isMaintenancePlan(md) && md.asset) s.add(md.asset);
+    }
+    return Array.from(s).sort((a, b) => a.localeCompare(b));
+  }, [wikis, meta]);
+
+  const intervalOptions = useMemo(() => {
+    const s = new Set<string>();
+    for (const w of wikis) {
+      const md = meta.get(w.name);
+      if (!md || !isMaintenancePlan(md)) continue;
+      if (assetFilter !== "all" && md.asset !== assetFilter) continue;
+      for (const i of md.intervals) s.add(i);
+    }
+    return Array.from(s).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  }, [wikis, meta, assetFilter]);
+
   const filtered = useMemo(
-    () => wikis.filter((w) => w.name.toLowerCase().includes(filter.toLowerCase())),
-    [wikis, filter],
+    () =>
+      wikis.filter((w) => {
+        if (!w.name.toLowerCase().includes(filter.toLowerCase())) return false;
+        const md = meta.get(w.name);
+        const isPlan = !!md && isMaintenancePlan(md);
+        if (typeFilter === "maintenance" && !isPlan) return false;
+        if (typeFilter === "other" && isPlan) return false;
+        if (plansOnly && assetFilter !== "all" && md?.asset !== assetFilter) return false;
+        if (plansOnly && intervalFilter !== "all" && !md?.intervals.includes(intervalFilter))
+          return false;
+        return true;
+      }),
+    [wikis, filter, meta, typeFilter, assetFilter, intervalFilter, plansOnly],
   );
+
 
   // Keep saved HTML's embedded title in sync after rename, by regenerating via builder
   // not necessary — server already rebuilds. Just need fresh content on next select.
