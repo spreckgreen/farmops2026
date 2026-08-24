@@ -285,18 +285,18 @@ export const SLIDES: Slide[] = [
     ],
   },
   {
-    kind: "shot",
+    kind: "text",
     kicker: "Section 3 · Procedures",
     title: "Bring in what you already wrote",
-    route: "/procedures/ingest",
-    image: proceduresIngest,
-    steps: [
-      "Paste or upload existing notes and they become properly titled procedure pages.",
-      "Incremental sync only rewrites the pages that changed.",
-      "Kit procedures are suggested automatically and attach with one click.",
-      "Anything written here is what a helper reads when you're not home.",
+    bullets: [
+      "Paste or upload existing notes on /procedures/ingest and they become titled pages.",
+      "Incremental sync only rewrites the pages that changed, so nothing is clobbered.",
+      "Kit procedures are matched and suggested automatically — attach with one click.",
+      "A generated maintenance plan lands here as its own document, linked to the asset.",
     ],
+    note: "Anything written here is what a helper reads when you're not home.",
   },
+
 
   {
     kind: "section",
