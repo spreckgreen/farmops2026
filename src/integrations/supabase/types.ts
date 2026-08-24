@@ -848,6 +848,110 @@ export type Database = {
         }
         Relationships: []
       }
+      kit_deployment_lines: {
+        Row: {
+          component_item_id: string | null
+          component_name: string
+          created_at: string
+          deployment_id: string
+          id: string
+          quantity_out: number
+          quantity_returned: number
+          unit: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          component_item_id?: string | null
+          component_name?: string
+          created_at?: string
+          deployment_id: string
+          id?: string
+          quantity_out?: number
+          quantity_returned?: number
+          unit?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          component_item_id?: string | null
+          component_name?: string
+          created_at?: string
+          deployment_id?: string
+          id?: string
+          quantity_out?: number
+          quantity_returned?: number
+          unit?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kit_deployment_lines_component_item_id_fkey"
+            columns: ["component_item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kit_deployment_lines_deployment_id_fkey"
+            columns: ["deployment_id"]
+            isOneToOne: false
+            referencedRelation: "kit_deployments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      kit_deployments: {
+        Row: {
+          checked_out_at: string
+          created_at: string
+          id: string
+          kit_item_id: string
+          label: string
+          notes: string | null
+          returned_at: string | null
+          status: string
+          units: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          checked_out_at?: string
+          created_at?: string
+          id?: string
+          kit_item_id: string
+          label?: string
+          notes?: string | null
+          returned_at?: string | null
+          status?: string
+          units?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          checked_out_at?: string
+          created_at?: string
+          id?: string
+          kit_item_id?: string
+          label?: string
+          notes?: string | null
+          returned_at?: string | null
+          status?: string
+          units?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kit_deployments_kit_item_id_fkey"
+            columns: ["kit_item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       livestock_animals: {
         Row: {
           birth_date: string | null
