@@ -182,7 +182,12 @@ const CreateSchema = z.object({
   notes: z.string().trim().max(5000).optional().nullable(),
 });
 
-/** Resolve an inventory item id from a free-text asset name (case-insensitive). */
+/**
+ * Resolve an inventory item id from a free-text asset name (case-insensitive).
+ * Falls back to a contains match so stored names with stray whitespace or a
+ * slightly different model suffix (e.g. "Mower Z421KWT " vs "Mower Z421KWT")
+ * still link up instead of silently dropping the asset connection.
+ */
 async function resolveAssetId(
   supabase: { from: (t: string) => any },
   userId: string,
@@ -190,14 +195,24 @@ async function resolveAssetId(
 ): Promise<string | null> {
   const name = (assetName ?? "").trim();
   if (!name) return null;
-  const { data } = await supabase
+  const exact = await supabase
     .from("inventory_items")
     .select("id")
     .eq("user_id", userId)
     .ilike("name", name)
     .limit(1)
     .maybeSingle();
-  return (data as { id: string } | null)?.id ?? null;
+  const hit = (exact.data as { id: string } | null)?.id;
+  if (hit) return hit;
+  const escaped = name.replace(/[%_]/g, (m: string) => `\\${m}`);
+  const fuzzy = await supabase
+    .from("inventory_items")
+    .select("id")
+    .eq("user_id", userId)
+    .ilike("name", `%${escaped}%`)
+    .limit(1)
+    .maybeSingle();
+  return (fuzzy.data as { id: string } | null)?.id ?? null;
 }
 
 export const createMaintenance = createServerFn({ method: "POST" })
