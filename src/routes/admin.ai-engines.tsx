@@ -40,6 +40,7 @@ import {
 } from "@/lib/ai-engines";
 
 import {
+  AlertTriangle,
   ArrowLeft,
   Cloud,
   Server,
@@ -51,6 +52,7 @@ import {
 
   XCircle,
 } from "lucide-react";
+
 
 export const Route = createFileRoute("/admin/ai-engines")({
   ssr: false,
@@ -180,10 +182,12 @@ function AiEnginesPage() {
       // has no model set, or the one they set isn't served here. Any tier can
       // still be chosen (or typed) afterwards.
       const recommended = result.recommendedModel ?? null;
-      if (recommended && (!d.model.trim() || result.modelFound === false)) {
+      const gap = capabilityGap(d.model.trim());
+      if (recommended && (!d.model.trim() || result.modelFound === false || gap)) {
         patch(id, { model: recommended });
         toast.info(`Set model to ${recommended} (Better tier). You can change it.`);
       }
+
       if (result.ok) toast.success(`${result.title}: ${result.message}`);
       else toast.error(result.title);
     } catch (err) {
@@ -322,6 +326,15 @@ function AiEnginesPage() {
   };
 
 
+  /** Engines whose SAVED model has a known compatibility gap. */
+  const legacySaved = AI_ENGINE_DEFS.flatMap((def) => {
+    const saved = data?.config.engines[def.id].model?.trim();
+    if (!saved) return [];
+    const reason = capabilityGap(saved);
+    if (!reason) return [];
+    return [{ id: def.id, label: def.label, model: saved, reason }];
+  });
+
 
   const defaultEngines = AI_ENGINE_DEFS;
 
@@ -354,6 +367,53 @@ function AiEnginesPage() {
           <p className="text-sm text-muted-foreground">Loading engine configuration…</p>
         ) : (
           <>
+            {/* Saved-config warning: a model that was fine when it was chosen may
+                no longer support what Bostead needs (e.g. legacy "gpt-4" has no
+                JSON mode). Surface it up front instead of at run time. */}
+            {legacySaved.length > 0 && (
+              <Card className="border-destructive/60 bg-destructive/5">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <AlertTriangle className="h-4 w-4 text-destructive" />
+                    Saved model needs updating
+                  </CardTitle>
+                  <CardDescription>
+                    {legacySaved.length === 1 ? "One engine" : `${legacySaved.length} engines`}{" "}
+                    still point at a model Bostead can't use reliably. Pick a compatible
+                    model below, or test the connection to auto-select the recommended
+                    (Better tier) one.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {legacySaved.map((item) => (
+                    <div
+                      key={item.id}
+                      className="flex flex-wrap items-center gap-2 rounded-md border bg-background p-2 text-sm"
+                    >
+                      <span className="font-medium">{item.label}</span>
+                      <code className="text-xs">{item.model}</code>
+                      <span className="text-xs text-muted-foreground">{item.reason}</span>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="ml-auto"
+                        disabled={testing === item.id}
+                        onClick={() => void testEngine(item.id)}
+                      >
+                        {testing === item.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <PlugZap className="h-4 w-4" />
+                        )}
+                        Find a compatible model
+                      </Button>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+
             {AI_ENGINE_DEFS.map((def) => {
               const d = drafts[def.id];
               const stored = data.config.engines[def.id];
