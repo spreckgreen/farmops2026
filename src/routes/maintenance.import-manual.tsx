@@ -47,6 +47,8 @@ import {
   AlertTriangle,
   ArrowLeft,
   BookOpenText,
+  ClipboardList,
+
   Copy,
   Download,
   FileText,
