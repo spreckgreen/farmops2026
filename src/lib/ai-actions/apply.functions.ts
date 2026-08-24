@@ -43,6 +43,7 @@ export const applyActionPlan = createServerFn({ method: "POST" })
     results: ActionResult[];
     log_id: string;
     reused: boolean;
+    documents: import("./maintenance-plan-doc.server").PlanDocResult[];
   }> => {
     const { supabase, userId } = context;
     const plan = data as ActionPlan;
@@ -61,6 +62,9 @@ export const applyActionPlan = createServerFn({ method: "POST" })
           ?.results ?? [],
         log_id: existing.data.id,
         reused: true,
+        documents:
+          (existing.data.result as { documents?: import("./maintenance-plan-doc.server").PlanDocResult[] } | null)
+            ?.documents ?? [],
       };
     }
 
@@ -86,15 +90,19 @@ export const applyActionPlan = createServerFn({ method: "POST" })
     const status: ActionStatus =
       fail === 0 ? "applied" : ok === 0 ? "failed" : "partial";
 
+    // Mirror the applied plan into Procedures as a "Maintenance plan" document.
+    const { saveMaintenancePlanDocs } = await import("./maintenance-plan-doc.server");
+    const documents = await saveMaintenancePlanDocs(supabase, userId, plan, results);
+
     await supabase
       .from("ai_action_log")
       .update({
-        result: { results } as unknown as never,
+        result: { results, documents } as unknown as never,
         status,
         applied_at: new Date().toISOString(),
       } as never)
       .eq("id", plan.plan_id)
       .eq("user_id", userId);
 
-    return { status, results, log_id: plan.plan_id, reused: false };
+    return { status, results, log_id: plan.plan_id, reused: false, documents };
   });
