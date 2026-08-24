@@ -31,7 +31,13 @@ import {
   testAiEngineConnection,
 } from "@/lib/ai-engines.functions";
 import type { EngineTestResult } from "@/lib/ai-engine-test.server";
-import { AI_ENGINE_DEFS, type AiEngineId } from "@/lib/ai-engines";
+import {
+  AI_ENGINE_DEFS,
+  engineFieldErrors,
+  type AiEngineId,
+  type EngineFieldErrors,
+} from "@/lib/ai-engines";
+
 import {
   ArrowLeft,
   Cloud,
@@ -216,10 +222,44 @@ function AiEnginesPage() {
     ),
   });
 
+  const [fieldErrors, setFieldErrors] = useState<
+    Partial<Record<AiEngineId, EngineFieldErrors>>
+  >({});
+
+  /**
+   * Client-side mirror of the server rule: only switched-on engines are
+   * checked, and only fields with no usable default can fail.
+   */
+  const checkDrafts = (source: Drafts) => {
+    const problems: Partial<Record<AiEngineId, EngineFieldErrors>> = {};
+    for (const def of AI_ENGINE_DEFS) {
+      const d = source[def.id];
+      if (!d.enabled) continue;
+      const errors = engineFieldErrors(def.id, {
+        baseUrl: d.baseUrl,
+        model: d.model,
+        apiKey: d.keyTouched ? d.apiKey : null,
+        // An untouched field with a key already stored still counts as present.
+        hasApiKey: d.keyTouched
+          ? Boolean(d.apiKey.trim())
+          : Boolean(data?.config.engines[def.id].hasApiKey),
+      });
+      if (Object.keys(errors).length > 0) problems[def.id] = errors;
+    }
+    return problems;
+  };
+
   const saveMutation = useMutation({
     mutationFn: (override?: Drafts) =>
       save({ data: buildPayload(override ?? drafts, cloudDefault) }),
     onSuccess: (result) => {
+      if ("fieldErrors" in result && result.fieldErrors) {
+        setFieldErrors(result.fieldErrors);
+      }
+      if (result.ok === false) {
+        toast.error("message" in result ? result.message : "Could not save engines");
+        return;
+      }
       const warnings = "warnings" in result ? (result.warnings ?? []) : [];
       toast.success("AI engine configuration saved");
       // The server may move the cloud default to an engine that is actually
@@ -235,6 +275,19 @@ function AiEnginesPage() {
       toast.error(err instanceof Error ? err.message : "Could not save engines"),
   });
 
+  /** Validate the enabled engines first, then save. */
+  const submit = (override?: Drafts) => {
+    const source = override ?? drafts;
+    const problems = checkDrafts(source);
+    setFieldErrors(problems);
+    if (Object.keys(problems).length > 0) {
+      const first = Object.values(problems)[0] ?? {};
+      toast.error(Object.values(first)[0] ?? "Fix the highlighted fields first.");
+      return;
+    }
+    saveMutation.mutate(source);
+  };
+
   /**
    * One-click restore for a single card: puts the known-good base URL + model
    * back, and clears any stored key — including keys inherited from an older
@@ -244,7 +297,9 @@ function AiEnginesPage() {
   const resetEngine = (id: AiEngineId) => {
     const def = AI_ENGINE_DEFS.find((e) => e.id === id)!;
     const reset: TargetDraft = {
-      enabled: drafts[id].enabled,
+      // A reset cloud engine has no key, so switch it off rather than failing
+      // save-time validation for a slot the operator just cleared.
+      enabled: def.apiKeyRequirement === "required" ? false : drafts[id].enabled,
       baseUrl: def.defaultBaseUrl ?? "",
       apiKey: "",
       keyTouched: true,
@@ -253,8 +308,10 @@ function AiEnginesPage() {
     const next: Drafts = { ...drafts, [id]: reset };
     setDrafts(next);
     setTests((prev) => ({ ...prev, [id]: undefined }));
-    saveMutation.mutate(next);
+    setFieldErrors((prev) => ({ ...prev, [id]: undefined }));
+    submit(next);
   };
+
 
 
   const defaultEngines = AI_ENGINE_DEFS;
@@ -390,6 +447,12 @@ function AiEnginesPage() {
                         onChange={(e) => patch(def.id, { baseUrl: e.target.value })}
                       />
                       <p className="text-xs text-muted-foreground">{def.baseUrlReason}</p>
+                      {fieldErrors[def.id]?.baseUrl && (
+                        <p className="text-xs font-medium text-destructive">
+                          {fieldErrors[def.id]?.baseUrl}
+                        </p>
+                      )}
+
                     </div>
                     <div className="space-y-1">
                       <div className="flex flex-wrap items-center gap-2">
@@ -420,6 +483,12 @@ function AiEnginesPage() {
                         {def.apiKeyReason}
                         {def.apiKeyWhere ? ` Get one at ${def.apiKeyWhere}.` : ""}
                       </p>
+                      {fieldErrors[def.id]?.apiKey && (
+                        <p className="text-xs font-medium text-destructive">
+                          {fieldErrors[def.id]?.apiKey}
+                        </p>
+                      )}
+
                     </div>
 
                     <div className="space-y-1">
@@ -446,6 +515,12 @@ function AiEnginesPage() {
                         onChange={(e) => patch(def.id, { model: e.target.value })}
                       />
                       <p className="text-xs text-muted-foreground">{def.modelReason}</p>
+                      {fieldErrors[def.id]?.model && (
+                        <p className="text-xs font-medium text-destructive">
+                          {fieldErrors[def.id]?.model}
+                        </p>
+                      )}
+
                     </div>
 
                     <div className="flex items-center gap-2 pt-1">
@@ -551,7 +626,7 @@ function AiEnginesPage() {
 
                 <div className="flex flex-wrap gap-2">
                   <Button
-                    onClick={() => saveMutation.mutate(undefined)}
+                    onClick={() => submit()}
                     disabled={saveMutation.isPending}
                   >
                     {saveMutation.isPending ? "Saving…" : "Save engines"}

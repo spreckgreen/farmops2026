@@ -283,3 +283,55 @@ export function engineIncomplete(
 export function hostedCustomIncomplete(config: AiEnginesConfig): boolean {
   return engineIncomplete(config, config.cloudDefault);
 }
+
+/** Per-field save-time problems for one engine. Empty object = nothing wrong. */
+export type EngineFieldErrors = Partial<Record<"baseUrl" | "apiKey" | "model", string>>;
+
+/**
+ * Field-level validation for a single engine, driven by its own requirement
+ * metadata. A field only errors when it is genuinely required and no default
+ * can cover it — an optional field left blank is never an error.
+ *
+ * Example: `other_cloud` with `{ baseUrl: null, apiKey: null, model: null }`
+ * returns `{ apiKey: "…", model: "…" }` (base URL falls back to
+ * https://api.openai.com/v1, but there is no default model or key).
+ */
+export function engineFieldErrors(
+  id: AiEngineId,
+  target: Pick<AiEngineTarget, "baseUrl" | "model"> & { apiKey?: string | null; hasApiKey?: boolean },
+): EngineFieldErrors {
+  const def = getAiEngineDef(id);
+  const errors: EngineFieldErrors = {};
+  const hasKey = Boolean(target.apiKey?.trim() || target.hasApiKey);
+
+  if (!(target.baseUrl?.trim() || def.defaultBaseUrl))
+    errors.baseUrl = `${def.label} needs a base URL — there is no default to fall back on.`;
+
+  if (def.apiKeyRequirement === "required" && !hasKey)
+    errors.apiKey = `${def.label} requires an API key. ${def.apiKeyWhere ? `Get one at ${def.apiKeyWhere}.` : ""}`.trim();
+
+  if (!(target.model?.trim() || def.defaultModel))
+    errors.model = `${def.label} needs an exact model id — there is no default for this provider.`;
+
+  return errors;
+}
+
+/**
+ * Validate only the engines that are actually switched on (plus the engine
+ * selected as cloud default, when it is on). Off engines keep whatever is
+ * saved and are never validated, so an operator can park a half-filled slot.
+ *
+ * Returns a map keyed by engine id; an engine with no problems is omitted.
+ */
+export function validateEnabledEngines(
+  config: AiEnginesConfig,
+): Partial<Record<AiEngineId, EngineFieldErrors>> {
+  const result: Partial<Record<AiEngineId, EngineFieldErrors>> = {};
+  for (const id of AI_ENGINE_IDS) {
+    if (!isEngineEnabled(config, id)) continue;
+    const errors = engineFieldErrors(id, config.engines[id]);
+    if (Object.keys(errors).length > 0) result[id] = errors;
+  }
+  return result;
+}
+
