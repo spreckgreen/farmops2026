@@ -172,6 +172,7 @@ export const deleteMaintenance = createServerFn({ method: "POST" })
 const CreateSchema = z.object({
   title: z.string().trim().max(500).optional().nullable(),
   asset_name: z.string().trim().min(1).max(500),
+  asset_id: z.string().uuid().optional().nullable(),
   service_type: z.string().trim().max(500).optional().nullable(),
   status: z.string().trim().max(100).optional().nullable(),
   scheduled_date: z.string().trim().max(64).optional().nullable(),
