@@ -30,6 +30,7 @@ import { useAiJobProgress } from "@/hooks/use-ai-job-progress";
 import { toast } from "sonner";
 import { handleAiJobInFlight } from "@/lib/ai-inflight-error";
 import { AiFeatureGate } from "@/components/ai-feature-gate";
+import { AiRoutingStatus } from "@/components/ai-routing-status";
 
 
 export const Route = createFileRoute("/maintenance/generate-schedule")({
