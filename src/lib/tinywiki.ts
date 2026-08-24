@@ -29,11 +29,98 @@ export function isTinyWikiHtml(s: string): boolean {
   return /<div\s+id=["']storeArea["']/i.test(s);
 }
 
-/** Build a complete TinyWiki HTML document with `body` as the main tiddler. */
+/**
+ * Render TinyWiki markup to plain readable HTML.
+ *
+ * Pure and dependency-free so the same output can be embedded in an exported
+ * file. Exported documents render with JavaScript disabled, which is what makes
+ * them open reliably in Chrome (blob:/file: pages inherit strict CSP and can
+ * silently block inline scripts, leaving a blank page).
+ */
+export function renderWikiToHtml(text: string): string {
+  const slug = (s: string) =>
+    s
+      .toLowerCase()
+      .replace(/&[a-z]+;/g, " ")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 80);
+
+  // Protect code fences before escaping / inline processing.
+  const fences: string[] = [];
+  const src = (text ?? "").replace(/\r\n?/g, "\n").replace(
+    /^\{\{\{\n([\s\S]*?)\n\}\}\}$/gm,
+    (_m, code: string) => {
+      fences.push(code);
+      return `\u0000FENCE${fences.length - 1}\u0000`;
+    },
+  );
+
+  let html = escPre(src)
+    .replace(/^!{4,} (.*)$/gim, (_m, s: string) => `<h4 id="${slug(s)}">${s}</h4>`)
+    .replace(/^!!! (.*)$/gim, (_m, s: string) => `<h3 id="${slug(s)}">${s}</h3>`)
+    .replace(/^!! (.*)$/gim, (_m, s: string) => `<h2 id="${slug(s)}">${s}</h2>`)
+    .replace(/^! (.*)$/gim, (_m, s: string) => `<h1 id="${slug(s)}">${s}</h1>`)
+    .replace(/^----+\s*$/gim, "<hr>")
+    .replace(/''(.*?)''/g, "<strong>$1</strong>")
+    .replace(/\/\/(.*?)\/\//g, "<em>$1</em>")
+    .replace(/\[\[([^\]|]+)\|([^\]]+)\]\]/g, (_m, label: string, target: string) =>
+      /^(?:[a-z][a-z0-9+.-]*:|\/\/|#|mailto:)/i.test(target)
+        ? `<a href="${escAttr(target)}"${target.startsWith("#") ? "" : ' target="_blank" rel="noopener"'}>${label}</a>`
+        : `<span class="tw-link">${label}</span>`,
+    )
+    .replace(/\[\[([^\]]+)\]\]/g, (_m, t: string) => `<span class="tw-link">${t}</span>`)
+    .replace(/^\*\* (.*)$/gim, '<li class="lvl2">$1</li>')
+    .replace(/^\* (.*)$/gim, "<li>$1</li>")
+    .replace(/^# (.*)$/gim, "<li>$1</li>")
+    .replace(/^\|(.+)\|\s*$/gim, (_m, cells: string) => {
+      const tds = cells.split("|").map((c) => {
+        const t = c.trim();
+        return t.startsWith("!") ? `<th>${t.slice(1).trim()}</th>` : `<td>${t}</td>`;
+      });
+      return `<tr>${tds.join("")}</tr>`;
+    });
+
+  html = html.replace(/(?:<li(?: class="lvl2")?>[\s\S]*?<\/li>\n?)+/g, (m) => `<ul>\n${m}</ul>`);
+  html = html.replace(/(?:<tr>[\s\S]*?<\/tr>\n?)+/g, (m) => `<table>\n${m}</table>`);
+  html = html
+    .split("\n\n")
+    .map((b) => {
+      const t = b.trim();
+      if (!t) return "";
+      if (t.startsWith("<")) return t;
+      return `<p>${t.replace(/\n/g, "<br>")}</p>`;
+    })
+    .filter(Boolean)
+    .join("\n");
+
+  return html.replace(/\u0000FENCE(\d+)\u0000/g, (_m, i) => `<pre class="tw-code">${escPre(fences[Number(i)])}</pre>`);
+}
+
+const EXPORT_CSS = `:root{color-scheme:light}
+body{margin:0;background:#fff;color:#222}
+main{font-family:Georgia,'Times New Roman',serif;max-width:820px;margin:2em auto;padding:0 1.25em;line-height:1.6}
+h1{font-size:1.9em;border-bottom:1px solid #ddd;padding-bottom:.3em}
+h2{font-size:1.35em;margin-top:1.8em}
+h3{font-size:1.1em;margin-top:1.4em}
+ul{padding-left:1.4em}li.lvl2{margin-left:1.4em}
+table{border-collapse:collapse;margin:1em 0;width:100%}
+th,td{border:1px solid #bbb;padding:.4em .6em;text-align:left;vertical-align:top}
+th{background:#f2f2f2}
+pre.tw-code{background:#f6f6f6;border:1px solid #e0e0e0;padding:.75em;overflow:auto;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.9em}
+.tw-link{border-bottom:1px dotted #888}
+hr{border:0;border-top:1px solid #ddd;margin:2em 0}
+@media print{main{margin:0;max-width:none}}`;
+
+/** Build a complete TinyWiki HTML document with `body` as the main tiddler.
+ *  The document renders statically (no JavaScript needed) and still keeps the
+ *  hidden storeArea so it can be re-imported into Bostead or TiddlyWiki. */
 export function buildTinyWikiHtml(name: string, body: string): string {
   const ts = tiddlyTimestamp();
   const titleAttr = escAttr(name);
   const safeBody = escPre(body);
+  const inner = renderWikiToHtml(body);
+  const rendered = /<h1[\s>]/.test(inner) ? inner : `<h1>${escPre(name)}</h1>\n${inner}`;
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -43,7 +130,7 @@ export function buildTinyWikiHtml(name: string, body: string): string {
 <meta name="tiddlywiki-version" content="5.1.23" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>${escAttr(name)} — Procedure</title>
-<style>.tc-error-form{font-family:sans-serif}</style>
+<style>${EXPORT_CSS}</style>
 </head>
 <body class="tc-body">
 <div id="storeArea" style="display:none;">
@@ -54,50 +141,13 @@ export function buildTinyWikiHtml(name: string, body: string): string {
 </div>
 <div title="$:/isEncrypted"><pre>no</pre></div>
 </div><!-- end storeArea -->
-<script>
-(function(){
-  var store=document.getElementById('storeArea');if(!store)return;
-  var tiddlers={};var divs=store.getElementsByTagName('div');
-  for(var i=0;i<divs.length;i++){var d=divs[i];var t=d.getAttribute('title');if(!t)continue;
-    var pre=d.getElementsByTagName('pre')[0];
-    tiddlers[t]={title:t,text:pre?pre.textContent:'',tags:d.getAttribute('tags')||'',type:d.getAttribute('type')||'text/vnd.tiddlywiki'};
-  }
-  function wikiToHtml(text){
-    function slug(s){return String(s).toLowerCase().replace(/&[a-z]+;/g,' ').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,80);}
-    var html=text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-      .replace(/^!!! (.*$)/gim,function(m,s){return '<h3 id="'+slug(s)+'">'+s+'</h3>';})
-      .replace(/^!! (.*$)/gim,function(m,s){return '<h2 id="'+slug(s)+'">'+s+'</h2>';})
-      .replace(/^! (.*$)/gim,function(m,s){return '<h1 id="'+slug(s)+'">'+s+'</h1>';})
-      .replace(/^----$/gim,'<hr>')
-      .replace(/''(.*?)''/g,'<strong>$1</strong>')
-      .replace(/\\/\\/(.*?)\\/\\//g,'<em>$1</em>')
-      .replace(/\\[\\[([^\\]|]+)\\|([^\\]]+)\\]\\]/g,function(m,lbl,tgt){if(tgt.charAt(0)==='#')return '<a href="'+tgt+'">'+lbl+'</a>';return '<a href="'+tgt+'" target="_blank" rel="noopener">'+lbl+'</a>';})
-      .replace(/\\[\\[([^\\]]+)\\]\\]/g,'<a href="#" data-tiddler="$1">$1</a>')
-      .replace(/\\[img\\[([^\\]]+)\\]\\]/g,function(m,fn){var it=tiddlers[fn];if(it&&it.type&&it.type.indexOf('image/')===0)return '<img src="data:'+it.type+';base64,'+it.text.trim()+'" alt="'+fn+'" style="max-width:100%">';return '<span>[img['+fn+']]</span>';})
-      .replace(/&lt;&lt;&lt;\\n([\\s\\S]*?)&lt;&lt;&lt;/g,'<blockquote>$1</blockquote>')
-      .replace(/^\\*\\* (.*$)/gim,'<li style="margin-left:2em">$1</li>')
-      .replace(/^\\* (.*$)/gim,'<li>$1</li>')
-      .replace(/^# (.*$)/gim,'<li>$1</li>')
-      .replace(/^\\|(.+)\\|$/gim,function(m,cells){var tds=cells.split('|').map(function(c){var t=c.trim();if(t.charAt(0)==='!')return '<th>'+t.substring(1).trim()+'</th>';return '<td>'+t+'</td>';});return '<tr>'+tds.join('')+'</tr>';});
-    html=html.replace(/(<li>.*?<\\/li>\\n?)+/g,function(m){return '<ul>'+m+'</ul>';});
-    html=html.replace(/(<tr>.*?<\\/tr>\\n?)+/g,function(m){return '<table border="1" cellpadding="4" cellspacing="0">'+m+'</table>';});
-    html=html.split('\\n\\n').map(function(b){b=b.trim();if(!b||b.charAt(0)==='<')return b;return '<p>'+b.replace(/\\n/g,'<br>')+'</p>';}).join('\\n');
-    return html;
-  }
-  function renderTiddler(title){var t=tiddlers[title];if(!t)return '<div><h2>'+title+'</h2><p>Tiddler not found</p></div>';return '<article class="tc-tiddler"><h2>'+t.title+'</h2>'+wikiToHtml(t.text)+'</article>';}
-  var story=tiddlers['$:/StoryList'];
-  var open=story&&store.querySelector('[title="$:/StoryList"]').getAttribute('list');
-  var list=open?open.split(' ').filter(Boolean):[${JSON.stringify(name)}];
-  var c=document.createElement('main');
-  c.style.cssText='font-family:Georgia,serif;max-width:820px;margin:2em auto;padding:0 1em;line-height:1.6;color:#222';
-  list.forEach(function(t){if(tiddlers[t]&&(tiddlers[t].type||'').indexOf('image/')!==0)c.innerHTML+=renderTiddler(t);});
-  document.body.appendChild(c);
-  document.addEventListener('click',function(e){var el=e.target;while(el&&el!==document.body){if(el.tagName==='A'&&el.getAttribute('data-tiddler')){e.preventDefault();var n=el.getAttribute('data-tiddler');if(tiddlers[n]){var d=document.createElement('div');d.innerHTML=renderTiddler(n);c.appendChild(d.firstChild);d.scrollIntoView({behavior:'smooth'});}return;}el=el.parentNode;}});
-})();
-</script>
+<main class="tc-tiddler">
+${rendered}
+</main>
 </body>
 </html>`;
 }
+
 
 /** Pull the main tiddler body (wiki markup) out of a TinyWiki HTML doc. */
 export function extractBodyWiki(html: string, preferredTitle?: string): string {

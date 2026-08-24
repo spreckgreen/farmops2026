@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { applyActionPlan } from "@/lib/ai-actions/apply.functions";
 import type { Action, ActionPlan, ActionResult } from "@/lib/ai-actions/types";
-import { CheckCircle2, XCircle, Sparkles, Loader2 } from "lucide-react";
+import { CheckCircle2, XCircle, Sparkles, Loader2, FileText } from "lucide-react";
+import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 
 interface Props {
@@ -17,6 +18,7 @@ interface Props {
     status: string;
     results: ActionResult[];
     reused: boolean;
+    documents?: { name: string; mode: string }[];
   }) => void;
   onClose?: () => void;
 }
@@ -33,6 +35,7 @@ export function AiActionPreview({ plan, onApplied, onClose }: Props) {
     results: ActionResult[];
     status: string;
     reused: boolean;
+    documents?: { name: string; mode: string }[];
   } | null>(null);
 
   const finalActions = useMemo<Action[]>(() => {
@@ -238,6 +241,29 @@ export function AiActionPreview({ plan, onApplied, onClose }: Props) {
           );
         })}
       </div>
+
+      {applied?.documents && applied.documents.length > 0 && (
+        <div className="rounded-lg border border-border bg-card/40 p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <FileText className="h-4 w-4 text-primary" />
+            <span className="font-semibold text-sm">Saved as Maintenance plan documents</span>
+          </div>
+          <ul className="text-sm space-y-1">
+            {applied.documents.map((d) => (
+              <li key={d.name} className="flex items-center gap-2">
+                <span>{d.name}</span>
+                <span className="text-xs text-muted-foreground">({d.mode})</span>
+              </li>
+            ))}
+          </ul>
+          <Link
+            to="/procedures"
+            className="mt-2 inline-block text-sm text-primary underline underline-offset-2"
+          >
+            Open in Procedures
+          </Link>
+        </div>
+      )}
 
       <div className="flex items-center justify-between gap-3 pt-2">
         <span className="text-sm text-muted-foreground">
