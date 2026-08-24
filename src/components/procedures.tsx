@@ -398,6 +398,17 @@ export function Procedures() {
           placeholder="Filter…"
           className="h-7 text-xs"
         />
+        <Button
+          size="sm"
+          variant="outline"
+          className="w-full text-[11px]"
+          onClick={() => backfillMut.mutate()}
+          disabled={backfillMut.isPending}
+          title="Create Maintenance plan pages from maintenance records that were generated before plan documents existed"
+        >
+          <Wand2 size={13}/> {backfillMut.isPending ? "Building…" : "Build plan pages"}
+        </Button>
+
         <div className="space-y-1">
           <select
             value={typeFilter}
