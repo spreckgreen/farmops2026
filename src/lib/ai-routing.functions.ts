@@ -97,3 +97,19 @@ export const resetAiRouting = createServerFn({ method: "POST" })
     const saved = await saveRoutingConfig(DEFAULT_ROUTING, context.userId, context.supabase);
     return { ok: true as const, config: saved };
   });
+
+const AreaStatusInput = z.object({
+  area: z.enum(AREA_IDS),
+  hostedDefaultModel: z.string().trim().max(200).optional(),
+});
+
+/** Read-only: where would this area's next AI call run? */
+export const getAreaRoutingStatus = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => AreaStatusInput.parse(d))
+  .handler(async ({ data }) => {
+    const { describeAreaRouting } = await import("./ai-routing.server");
+    return describeAreaRouting(data.area, {
+      hostedDefaultModel: data.hostedDefaultModel ?? "google/gemini-3.6-flash",
+    });
+  });

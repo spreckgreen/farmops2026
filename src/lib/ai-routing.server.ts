@@ -298,3 +298,73 @@ export function hostedHandle(
     },
   };
 }
+
+export interface AreaRoutingStatus {
+  area: AiAreaId;
+  areaLabel: string;
+  /** null when routing can't resolve (misconfigured engine). */
+  backend: AiBackend | null;
+  engineId: AiEngineId | null;
+  engineLabel: string | null;
+  modelId: string | null;
+  /** The saved choice for this area ("default" | "local" | "hosted" | engine id). */
+  choice: string;
+  autoFallback: boolean;
+  hostedAvailable: boolean;
+  hostedModelId: string | null;
+  ok: boolean;
+  error: string | null;
+}
+
+/**
+ * Read-only preview of where an area's next AI call would run. Same resolver as
+ * the real call path, so the badge can't disagree with the run.
+ */
+export async function describeAreaRouting(
+  area: AiAreaId,
+  opts: { hostedDefaultModel: string },
+): Promise<AreaRoutingStatus> {
+  const def = getAiArea(area);
+  let choice = "default";
+  let autoFallback = true;
+  try {
+    const config = await loadRoutingConfig();
+    autoFallback = config.autoFallback;
+    choice = routeForArea(config, area).backend;
+  } catch {
+    // fall through with defaults
+  }
+
+  try {
+    const ai = await resolveAreaAi(area, opts);
+    return {
+      area,
+      areaLabel: ai.areaLabel,
+      backend: ai.backend,
+      engineId: ai.engineId,
+      engineLabel: ai.engineLabel,
+      modelId: ai.modelId,
+      choice,
+      autoFallback: ai.autoFallback,
+      hostedAvailable: ai.hostedAvailable,
+      hostedModelId: ai.hostedModelId,
+      ok: true,
+      error: null,
+    };
+  } catch (error) {
+    return {
+      area,
+      areaLabel: def.label,
+      backend: null,
+      engineId: null,
+      engineLabel: null,
+      modelId: null,
+      choice,
+      autoFallback,
+      hostedAvailable: false,
+      hostedModelId: null,
+      ok: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
