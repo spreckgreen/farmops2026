@@ -17,13 +17,16 @@ import {
 } from "@/lib/kit-deploy.functions";
 import { outstanding, outstandingTotal, type Deployment } from "@/lib/kit-deploy";
 import { formatQty } from "@/lib/inventory-bom";
+import { KitChecklistDialog } from "@/components/kit-checklist";
 
 export function KitDeployPanel({
   kitItemId,
   hasParts,
+  kitName,
 }: {
   kitItemId: string;
   hasParts: boolean;
+  kitName?: string;
 }) {
   const queryClient = useQueryClient();
   const listFn = useServerFn(listKitDeployments);
@@ -150,6 +153,7 @@ export function KitDeployPanel({
               busy={checkin.isPending}
               onReturnAll={() => checkin.mutate({ deploymentId: d.id })}
               onReturnPartial={(lines) => checkin.mutate({ deploymentId: d.id, lines })}
+              kitName={kitName}
             />
           ))}
         </div>
@@ -184,8 +188,10 @@ function OpenDeployment({
   busy,
   onReturnAll,
   onReturnPartial,
+  kitName,
 }: {
   deployment: Deployment;
+  kitName?: string;
   partial: Record<string, string>;
   setPartial: (v: Record<string, string>) => void;
   busy: boolean;
@@ -207,6 +213,7 @@ function OpenDeployment({
           </span>
         </div>
         <div className="flex gap-2">
+          <KitChecklistDialog deployment={deployment} kitName={kitName} />
           <Button size="sm" variant="outline" onClick={() => setShowPartial((s) => !s)}>
             Partial
           </Button>
