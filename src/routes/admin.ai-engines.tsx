@@ -31,7 +31,7 @@ import {
   testAiEngineConnection,
 } from "@/lib/ai-engines.functions";
 import type { EngineTestResult } from "@/lib/ai-engine-test.server";
-import { tierForModel } from "@/lib/model-tiers";
+import { capabilityGap, tierForModel } from "@/lib/model-tiers";
 import {
   AI_ENGINE_DEFS,
   engineFieldErrors,
