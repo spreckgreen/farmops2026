@@ -8,6 +8,7 @@ import {
   type AiEngineTarget,
 } from "./ai-engines";
 import { resolveEngine } from "./ai-engines.server";
+import { rankModelTiers, recommendedModel, type ModelTiers } from "./model-tiers";
 
 export interface EngineTestResult {
   ok: boolean;
@@ -228,6 +229,7 @@ export async function testAiEngine(
   let listMessage: string | null = null;
   let modelsSeen: string[] = [];
   let modelFound: boolean | null = null;
+  let tiers: ModelTiers | null = null;
   try {
     const { res, body } = await probe(joinUrl(engine.baseUrl, "models"), headers);
     listStatus = res.status;
@@ -238,7 +240,11 @@ export async function testAiEngine(
           .map((m) => m.id)
           .filter((v): v is string => typeof v === "string");
         modelsSeen = ids;
-        if (ids.length > 0) modelFound = ids.includes(engine.model);
+        if (ids.length > 0) {
+          modelFound = ids.includes(engine.model);
+          // Rank the FULL list (modelsSeen is truncated for display).
+          tiers = rankModelTiers(ids);
+        }
       } catch {
         // Endpoint answered 200 with a non-standard body; treat as reachable.
       }
@@ -257,6 +263,8 @@ export async function testAiEngine(
           modelFound,
           latencyMs: Date.now() - started,
           httpStatus: listStatus,
+          tiers,
+          recommendedModel: tiers ? recommendedModel(tiers) : null,
         };
       }
       return {
@@ -275,6 +283,8 @@ export async function testAiEngine(
         modelFound,
         latencyMs: Date.now() - started,
         httpStatus: listStatus,
+        tiers,
+        recommendedModel: tiers ? recommendedModel(tiers) : null,
       };
     }
     listMessage = extractApiMessage(body);
