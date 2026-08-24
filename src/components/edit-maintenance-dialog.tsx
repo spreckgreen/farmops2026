@@ -67,9 +67,11 @@ export function EditMaintenanceDialog({
     vendor: "",
     notes: "",
   });
-  const [asset, setAsset] = useState<AssetUsage | null>(null);
+  const [assets, setAssets] = useState<AssetUsage[]>([]);
+  const [assetId, setAssetId] = useState<string>("");
   const [hours, setHours] = useState("");
   const [miles, setMiles] = useState("");
+  const asset = assets.find((a) => a.id === assetId) ?? null;
 
   useEffect(() => {
     if (!record) return;
