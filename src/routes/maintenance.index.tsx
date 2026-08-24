@@ -256,6 +256,20 @@ function MaintenancePage() {
                     : "Generate schedule"}
                 </Link>
               )}
+              {importManualEnabled && (
+                <Link
+                  to="/maintenance/import-manual"
+                  aria-busy={pendingTo === "/maintenance/import-manual"}
+                  className="inline-flex items-center gap-1 rounded-md border border-primary/40 text-primary hover:bg-primary/10 px-3 py-2 text-sm font-medium aria-[busy=true]:opacity-60 aria-[busy=true]:pointer-events-none"
+                >
+                  {pendingTo === "/maintenance/import-manual" ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <BookOpenText className="h-4 w-4" />
+                  )}
+                  Import manual
+                </Link>
+              )}
               {diagnoseEnabled && (
                 <Link
                   to="/maintenance/diagnose"
