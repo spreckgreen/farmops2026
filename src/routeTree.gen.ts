@@ -21,6 +21,7 @@ import { Route as MaintenanceRouteImport } from './routes/maintenance'
 import { Route as InventoryRouteImport } from './routes/inventory'
 import { Route as HealthRouteImport } from './routes/health'
 import { Route as FoodRouteImport } from './routes/food'
+import { Route as DeckRouteImport } from './routes/deck'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
@@ -132,6 +133,11 @@ const HealthRoute = HealthRouteImport.update({
 const FoodRoute = FoodRouteImport.update({
   id: '/food',
   path: '/food',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DeckRoute = DeckRouteImport.update({
+  id: '/deck',
+  path: '/deck',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardRoute = DashboardRouteImport.update({
@@ -403,6 +409,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/dashboard': typeof DashboardRoute
+  '/deck': typeof DeckRoute
   '/food': typeof FoodRouteWithChildren
   '/health': typeof HealthRouteWithChildren
   '/inventory': typeof InventoryRoute
@@ -469,6 +476,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/dashboard': typeof DashboardRoute
+  '/deck': typeof DeckRoute
   '/health': typeof HealthRouteWithChildren
   '/inventory': typeof InventoryRoute
   '/projects': typeof ProjectsRoute
@@ -533,6 +541,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/dashboard': typeof DashboardRoute
+  '/deck': typeof DeckRoute
   '/food': typeof FoodRouteWithChildren
   '/health': typeof HealthRouteWithChildren
   '/inventory': typeof InventoryRoute
@@ -601,6 +610,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/dashboard'
+    | '/deck'
     | '/food'
     | '/health'
     | '/inventory'
@@ -667,6 +677,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/dashboard'
+    | '/deck'
     | '/health'
     | '/inventory'
     | '/projects'
@@ -730,6 +741,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/dashboard'
+    | '/deck'
     | '/food'
     | '/health'
     | '/inventory'
@@ -797,6 +809,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthRoute: typeof AuthRoute
   DashboardRoute: typeof DashboardRoute
+  DeckRoute: typeof DeckRoute
   FoodRoute: typeof FoodRouteWithChildren
   HealthRoute: typeof HealthRouteWithChildren
   InventoryRoute: typeof InventoryRoute
@@ -922,6 +935,13 @@ declare module '@tanstack/react-router' {
       path: '/food'
       fullPath: '/food'
       preLoaderRoute: typeof FoodRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/deck': {
+      id: '/deck'
+      path: '/deck'
+      fullPath: '/deck'
+      preLoaderRoute: typeof DeckRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dashboard': {
@@ -1386,6 +1406,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRoute: AuthRoute,
   DashboardRoute: DashboardRoute,
+  DeckRoute: DeckRoute,
   FoodRoute: FoodRouteWithChildren,
   HealthRoute: HealthRouteWithChildren,
   InventoryRoute: InventoryRoute,
