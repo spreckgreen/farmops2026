@@ -192,9 +192,17 @@ export const testAiEngineConnection = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     await requireAdmin(context.supabase, context.userId);
     const { testAiEngine } = await import("./ai-engine-test.server");
-    return testAiEngine(data.id, {
-      baseUrl: data.baseUrl?.trim() || null,
-      apiKey: data.apiKey?.trim() || null,
-      model: data.model?.trim() || null,
-    });
+    return testAiEngine(
+      data.id,
+      {
+        baseUrl: data.baseUrl?.trim() || null,
+        apiKey: data.apiKey?.trim() || null,
+        model: data.model?.trim() || null,
+      },
+      undefined,
+      // Vault-backed engine config must be read as the signed-in admin, not the
+      // service role, or a stored key looks missing.
+      context.supabase,
+    );
+
   });
