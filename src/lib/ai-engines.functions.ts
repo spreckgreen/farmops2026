@@ -128,10 +128,26 @@ export const setAiEngines = createServerFn({ method: "POST" })
       if (fallback) next.cloudDefault = fallback;
     }
 
-    // Never refuse the save because one engine is unusable — an operator must
-    // always be able to store one working engine while another is incomplete.
+    // Validate ONLY the engines that are switched on. An off engine keeps its
+    // saved values untouched and is never checked, so a half-filled slot can
+    // never block a save. Enabled engines that are genuinely missing a required
+    // credential are reported per field so the UI can show it inline.
+    const { validateEnabledEngines } = await import("@/lib/ai-engines");
+    const fieldErrors = validateEnabledEngines(next);
+    if (Object.keys(fieldErrors).length > 0) {
+      const first = Object.values(fieldErrors)[0] ?? {};
+      return {
+        ok: false as const,
+        fieldErrors,
+        message:
+          Object.values(first)[0] ??
+          "One of the enabled AI engines is missing a required value.",
+      };
+    }
+
     const warnings: string[] = [];
     const label = getAiEngineDef(next.cloudDefault).label;
+
 
     for (const id of AI_ENGINE_IDS) {
       if (next.engines[id].enabled === false) {
