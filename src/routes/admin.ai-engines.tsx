@@ -503,6 +503,12 @@ function AiEnginesPage() {
                         onChange={(e) => patch(def.id, { model: e.target.value })}
                       />
                       <p className="text-xs text-muted-foreground">{def.modelReason}</p>
+                      {fieldErrors[def.id]?.model && (
+                        <p className="text-xs font-medium text-destructive">
+                          {fieldErrors[def.id]?.model}
+                        </p>
+                      )}
+
                     </div>
 
                     <div className="flex items-center gap-2 pt-1">
