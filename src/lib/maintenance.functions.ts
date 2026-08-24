@@ -182,14 +182,34 @@ const CreateSchema = z.object({
   notes: z.string().trim().max(5000).optional().nullable(),
 });
 
+/** Resolve an inventory item id from a free-text asset name (case-insensitive). */
+async function resolveAssetId(
+  supabase: { from: (t: string) => any },
+  userId: string,
+  assetName: string | null | undefined,
+): Promise<string | null> {
+  const name = (assetName ?? "").trim();
+  if (!name) return null;
+  const { data } = await supabase
+    .from("inventory_items")
+    .select("id")
+    .eq("user_id", userId)
+    .ilike("name", name)
+    .limit(1)
+    .maybeSingle();
+  return (data as { id: string } | null)?.id ?? null;
+}
+
 export const createMaintenance = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => CreateSchema.parse(d))
   .handler(async ({ data, context }) => {
+    const assetId = await resolveAssetId(context.supabase, context.userId, data.asset_name);
     const row = {
       user_id: context.userId,
       title: data.title ?? null,
       asset_name: data.asset_name,
+      asset_id: assetId,
       service_type: data.service_type ?? null,
       status: data.status ?? "scheduled",
       recurrence: "none",
@@ -227,7 +247,11 @@ export const updateMaintenance = createServerFn({ method: "POST" })
       if (value !== undefined) patch[key] = value;
     };
     setIf("title", data.title ?? null);
-    setIf("asset_name", data.asset_name);
+    if (data.asset_name !== undefined) {
+      patch.asset_name = data.asset_name;
+      // Keep the asset link in sync so usage forecasting can join on asset_id.
+      patch.asset_id = await resolveAssetId(context.supabase, context.userId, data.asset_name);
+    }
     setIf("service_type", data.service_type ?? null);
     setIf("status", data.status ?? null);
     setIf("description", data.description ?? null);
