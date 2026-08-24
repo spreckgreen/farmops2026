@@ -107,11 +107,13 @@ export function EditMaintenanceDialog({
     (async () => {
       const { data, error } = await supabase
         .from("inventory_items")
-        .select("id, name, current_hours, current_miles, usage_tracking")
+        .select("id, name, current_hours, current_miles, usage_tracking, item_type")
         .order("name", { ascending: true })
         .limit(1000);
       if (cancelled || error || !data) return;
-      const list = data as AssetUsage[];
+      const all = data as AssetUsage[];
+      // Keep the currently linked row even if it is typed as a part.
+      const list = all.filter((a) => isServiceableAsset(a) || a.id === record.asset_id);
       setAssets(list);
 
       const wanted = (record.asset_name ?? "").trim().toLowerCase();
