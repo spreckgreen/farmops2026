@@ -40,6 +40,8 @@ import {
   CheckCircle2,
   Loader2,
   PlugZap,
+  RotateCcw,
+
   XCircle,
 } from "lucide-react";
 
@@ -195,27 +197,28 @@ function AiEnginesPage() {
   const patch = (id: AiEngineId, value: Partial<TargetDraft>) =>
     setDrafts((prev) => ({ ...prev, [id]: { ...prev[id], ...value } }));
 
-  const saveMutation = useMutation({
-    mutationFn: () =>
-      save({
-        data: {
-          cloudDefault,
-          engines: Object.fromEntries(
-            AI_ENGINE_DEFS.map((def) => {
-              const d = drafts[def.id];
-              return [
-                def.id,
-                {
-                  enabled: d.enabled,
-                  baseUrl: d.baseUrl.trim() || null,
-                  apiKey: d.keyTouched ? d.apiKey : null,
-                  model: d.model.trim() || null,
-                },
-              ];
-            }),
-          ),
-        },
+  const buildPayload = (source: Drafts, cloud: AiEngineId) => ({
+    cloudDefault: cloud,
+    engines: Object.fromEntries(
+      AI_ENGINE_DEFS.map((def) => {
+        const d = source[def.id];
+        return [
+          def.id,
+          {
+            enabled: d.enabled,
+            baseUrl: d.baseUrl.trim() || null,
+            // null keeps the stored key; "" clears it (used by "Reset to defaults").
+            apiKey: d.keyTouched ? d.apiKey : null,
+            model: d.model.trim() || null,
+          },
+        ];
       }),
+    ),
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: (override?: Drafts) =>
+      save({ data: buildPayload(override ?? drafts, cloudDefault) }),
     onSuccess: (result) => {
       const warnings = "warnings" in result ? (result.warnings ?? []) : [];
       toast.success("AI engine configuration saved");
@@ -231,6 +234,28 @@ function AiEnginesPage() {
     onError: (err: unknown) =>
       toast.error(err instanceof Error ? err.message : "Could not save engines"),
   });
+
+  /**
+   * One-click restore for a single card: puts the known-good base URL + model
+   * back, and clears any stored key — including keys inherited from an older
+   * config — by sending an explicit empty string. Saved immediately so the
+   * runtime stops using the old credential right away.
+   */
+  const resetEngine = (id: AiEngineId) => {
+    const def = AI_ENGINE_DEFS.find((e) => e.id === id)!;
+    const reset: TargetDraft = {
+      enabled: drafts[id].enabled,
+      baseUrl: def.defaultBaseUrl ?? "",
+      apiKey: "",
+      keyTouched: true,
+      model: def.defaultModel ?? "",
+    };
+    const next: Drafts = { ...drafts, [id]: reset };
+    setDrafts(next);
+    setTests((prev) => ({ ...prev, [id]: undefined }));
+    saveMutation.mutate(next);
+  };
+
 
   const defaultEngines = AI_ENGINE_DEFS;
 
@@ -310,6 +335,30 @@ function AiEnginesPage() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-3">
+                    <div className="flex flex-wrap items-center gap-2 rounded-md border border-dashed p-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={saveMutation.isPending}
+                        onClick={() => resetEngine(def.id)}
+                      >
+                        <RotateCcw className="h-4 w-4" />
+                        Reset to defaults
+                      </Button>
+                      <span className="text-xs text-muted-foreground">
+                        Restores{" "}
+                        <code>{def.defaultBaseUrl ?? "no base URL"}</code>
+                        {def.defaultModel ? (
+                          <>
+                            {" "}
+                            and <code>{def.defaultModel}</code>
+                          </>
+                        ) : null}
+                        , clears any stored or inherited API key, and saves immediately.
+                      </span>
+                    </div>
+
                     {!d.enabled && (
                       <p className="rounded-md border border-dashed p-2 text-xs text-muted-foreground">
                         Switched off. Everything below stays saved — no AI feature will use
@@ -502,7 +551,7 @@ function AiEnginesPage() {
 
                 <div className="flex flex-wrap gap-2">
                   <Button
-                    onClick={() => saveMutation.mutate()}
+                    onClick={() => saveMutation.mutate(undefined)}
                     disabled={saveMutation.isPending}
                   >
                     {saveMutation.isPending ? "Saving…" : "Save engines"}
