@@ -31,3 +31,18 @@ export function extractJsonObject(text: string): unknown | null {
   }
   return null;
 }
+
+/**
+ * True when the provider rejected the request because the *model* can't do
+ * JSON/structured output — e.g. OpenAI's legacy `gpt-4` returns
+ * "Invalid parameter: 'response_format' of type 'json_object' is not supported
+ * with this model". These calls must be retried as plain text, not escalated.
+ */
+export function isStructuredOutputUnsupported(err: unknown): boolean {
+  const msg = (err instanceof Error ? err.message : String(err ?? "")).toLowerCase();
+  return (
+    msg.includes("response_format") ||
+    msg.includes("json_schema") ||
+    (msg.includes("json") && msg.includes("not supported"))
+  );
+}
