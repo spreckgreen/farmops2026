@@ -53,7 +53,11 @@ export function Procedures() {
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState("");
   const [filter, setFilter] = useState("");
+  const [typeFilter, setTypeFilter] = useState<"all" | "maintenance" | "other">("all");
+  const [assetFilter, setAssetFilter] = useState("all");
+  const [intervalFilter, setIntervalFilter] = useState("all");
   const fileRef = useRef<HTMLInputElement>(null);
+
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ["procedures"] });
 
