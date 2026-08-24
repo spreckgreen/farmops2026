@@ -298,23 +298,29 @@ export const deleteProcedureLink = createServerFn({ method: "POST" })
 
 export const listLinkTargets = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { kind: LinkTargetKind }) => {
+  .inputValidator((d: { kind: LinkTargetKind; manualEligibleOnly?: boolean }) => {
     if (d?.kind !== "inventory" && d?.kind !== "maintenance") throw new Error("kind invalid");
-    return { kind: d.kind };
+    return { kind: d.kind, manualEligibleOnly: d?.manualEligibleOnly !== false };
   })
   .handler(async ({ context, data }): Promise<LinkTargetOption[]> => {
     if (data.kind === "inventory") {
       const { data: rows, error } = await context.supabase
         .from("inventory_items")
-        .select("id, name, sku")
+        .select("id, name, sku, item_type")
         .eq("user_id", context.userId)
         .order("name", { ascending: true })
         .limit(500);
       if (error) throw new Error(error.message);
-      return ((rows ?? []) as Array<{ id: string; name: string | null; sku: string | null }>).map((r) => ({
+      const mapped = (
+        (rows ?? []) as Array<{ id: string; name: string | null; sku: string | null; item_type: string | null }>
+      ).map((r) => ({
         id: r.id,
         label: [r.name || "(unnamed)", r.sku].filter(Boolean).join(" · "),
+        itemType: r.item_type,
+        manualEligible: isManualEligibleType(r.item_type),
       }));
+      // Manuals belong on equipment / ham radio gear — never parts or consumables.
+      return data.manualEligibleOnly ? mapped.filter((m) => m.manualEligible) : mapped;
     }
     const { data: rows, error } = await context.supabase
       .from("maintenance_records")
