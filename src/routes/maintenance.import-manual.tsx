@@ -125,7 +125,7 @@ function Page() {
   const [result, setResult] = useState<ManualImportResult | null>(null);
   // Document-style manuals (operator / workshop) land as a procedure page.
   const [docName, setDocName] = useState("");
-  const [overwriteDoc, setOverwriteDoc] = useState(false);
+  const [docMode, setDocMode] = useState<"create" | "append" | "replace">("create");
   const [docResult, setDocResult] = useState<ManualDocumentResult | null>(null);
 
   const fileRef = useRef<HTMLInputElement | null>(null);
@@ -202,14 +202,14 @@ function Page() {
           kind: kind === "workshop" ? "workshop" : "operator",
           manual_text: manualText.trim(),
           procedure_name: effectiveDocName,
-          overwrite: overwriteDoc,
+          mode: docMode,
         },
       });
     },
     onSuccess: (r) => {
       setDocResult(r);
       toast.success(
-        `${r.replaced ? "Updated" : "Saved"} "${r.name}" and linked it to ${r.asset_name}`,
+        `${r.appended ? "Added to" : r.replaced ? "Replaced" : "Saved"} "${r.name}" — linked to ${r.asset_name}`,
       );
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Could not save that manual"),
@@ -588,12 +588,19 @@ function Page() {
                     }
                   />
                 </label>
-                <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Checkbox
-                    checked={overwriteDoc}
-                    onCheckedChange={(v) => setOverwriteDoc(v === true)}
-                  />
-                  Replace existing page
+                <label className="text-xs text-muted-foreground">
+                  If a page with this name already exists
+                  <select
+                    value={docMode}
+                    onChange={(e) =>
+                      setDocMode(e.target.value as "create" | "append" | "replace")
+                    }
+                    className="mt-1 w-full rounded-md border border-border bg-card/60 px-3 py-2 text-sm text-foreground"
+                  >
+                    <option value="create">Stop and warn me</option>
+                    <option value="append">Append to existing page</option>
+                    <option value="replace">Replace existing page</option>
+                  </select>
                 </label>
               </div>
             ) : (

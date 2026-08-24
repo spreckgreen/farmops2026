@@ -5,6 +5,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
+import type { ProcedureSaveMode } from "@/lib/procedure-append";
 
 export interface ManualDocumentResult {
   ok: true;
@@ -16,6 +17,8 @@ export interface ManualDocumentResult {
   sections: string[];
   linked: boolean;
   replaced: boolean;
+  appended: boolean;
+  mode: ProcedureSaveMode;
 }
 
 const Input = z.object({
@@ -23,8 +26,14 @@ const Input = z.object({
   kind: z.enum(["operator", "workshop"]),
   manual_text: z.string().trim().min(40).max(300000),
   procedure_name: z.string().trim().min(1).max(120),
-  /** true = overwrite an existing procedure of the same name. */
-  overwrite: z.boolean().default(false),
+  /**
+   * What to do when a procedure of the same name already exists:
+   * "create" fails, "replace" overwrites the page, "append" adds the new
+   * manual text to the bottom of the existing page under a dated heading.
+   */
+  mode: z.enum(["create", "replace", "append"]).default("create"),
+  /** Legacy flag kept for older callers; equivalent to mode: "replace". */
+  overwrite: z.boolean().optional(),
 });
 
 /** Top-level and second-level Markdown headings, for the result summary. */
@@ -59,23 +68,39 @@ export const importManualDocument = createServerFn({ method: "POST" })
     if (!asset) throw new Error("Asset not found");
     const assetLabel = asset.name ?? asset.sku ?? "the asset";
 
+    const mode: ProcedureSaveMode = data.overwrite ? "replace" : data.mode;
+
     const { data: existing } = await supabase
       .from("procedures")
-      .select("id, name")
+      .select("id, name, content")
       .eq("user_id", userId)
       .eq("name", name)
       .maybeSingle();
-    if (existing && !data.overwrite) {
+    if (existing && mode === "create") {
       throw new Error(
-        `A procedure named "${name}" already exists — rename it, or tick "Replace existing page".`,
+        `A procedure named "${name}" already exists — rename it, or choose "Append to existing page" / "Replace existing page".`,
       );
     }
 
     const kindLabel = data.kind === "workshop" ? "Workshop manual" : "Operator manual";
-    const body =
+    let body =
       markdownToTinyWiki(data.manual_text) +
       `\n\n----\n''Source:'' imported ${kindLabel.toLowerCase()} for ${assetLabel}.\n`;
+
+    // "Append" keeps everything already on the page and adds the new manual
+    // text underneath a dated heading.
+    const appending = Boolean(existing) && mode === "append";
+    if (appending) {
+      const { extractBodyWiki } = await import("@/lib/tinywiki");
+      const { appendProcedureBody } = await import("@/lib/procedure-append");
+      body = appendProcedureBody(
+        extractBodyWiki(String(existing?.content ?? ""), name),
+        body,
+        kindLabel,
+      );
+    }
     const html = buildTinyWikiHtml(name, tidyProcedure(name, body).body);
+
 
     const { data: row, error } = await supabase
       .from("procedures")
@@ -106,6 +131,8 @@ export const importManualDocument = createServerFn({ method: "POST" })
       asset_name: assetLabel,
       sections: headings(data.manual_text),
       linked,
-      replaced: Boolean(existing),
+      replaced: Boolean(existing) && mode === "replace",
+      appended: appending,
+      mode,
     };
   });
