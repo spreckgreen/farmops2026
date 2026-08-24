@@ -20,6 +20,11 @@ import {
   type ManualDocumentResult,
 } from "@/lib/manual-document-import.functions";
 import {
+  listExistingSchedules,
+  type ExistingScheduleEntry,
+} from "@/lib/maintenance-existing-schedule.functions";
+
+import {
   SERVICE_MANUAL_TEMPLATE,
   manualTemplateFileName,
   usageLabel,
@@ -42,6 +47,8 @@ import {
   AlertTriangle,
   ArrowLeft,
   BookOpenText,
+  ClipboardList,
+
   Copy,
   Download,
   FileText,
@@ -93,6 +100,8 @@ function Page() {
   const parseFn = useServerFn(parseServiceManual);
   const applyFn = useServerFn(applyServiceManualImport);
   const docFn = useServerFn(importManualDocument);
+  const existingFn = useServerFn(listExistingSchedules);
+
 
 
   const { data: inventory = [] } = useQuery({
@@ -305,6 +314,59 @@ function Page() {
     }
     return [...map.values()];
   }, [included]);
+
+  // ---- Import impact summary -------------------------------------------
+  // Existing open maintenance records on this asset, so we can say up front
+  // which intervals are brand new and which ones already have a record.
+  const { data: existingSchedules = [], isFetching: loadingExisting } = useQuery({
+    queryKey: ["existing-schedules", plan?.asset_id],
+    queryFn: () => existingFn({ data: { asset_ids: [plan!.asset_id] } }),
+    enabled: Boolean(plan?.asset_id),
+  });
+
+  const impact = useMemo(() => {
+    const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
+    const existingTitles = new Map<string, ExistingScheduleEntry>();
+    for (const row of existingSchedules) {
+      const t = row.title ?? row.service_type ?? "";
+      if (t) existingTitles.set(norm(t), row);
+    }
+
+    const newIntervals: string[] = [];
+    const overlapping: { title: string; existing: ExistingScheduleEntry }[] = [];
+    for (const iv of included) {
+      const hit = existingTitles.get(norm(iv.title));
+      if (hit) overlapping.push({ title: iv.title, existing: hit });
+      else newIntervals.push(iv.title);
+    }
+
+    // Parts: split into "link to an item you already stock" vs "create new".
+    const linked = new Map<string, string>();
+    for (const iv of included) {
+      for (const p of iv.parts) {
+        if (!p.inventory_item_id) continue;
+        linked.set(p.inventory_item_id, p.matched_name ?? p.name);
+      }
+    }
+
+    const skippedIntervals = (plan?.intervals.length ?? 0) - included.length;
+    const skippedPartCount = (plan?.intervals ?? []).reduce(
+      (n, iv) => n + iv.parts.length,
+      0,
+    ) - included.reduce((n, iv) => n + iv.parts.length, 0);
+
+    return {
+      newIntervals,
+      overlapping,
+      linkedParts: [...linked.values()],
+      createdParts: createParts ? newParts : [],
+      unstockedParts: createParts ? [] : newParts,
+      skippedIntervals,
+      skippedPartCount,
+    };
+  }, [included, existingSchedules, plan, createParts, newParts]);
+
+
 
 
   const applyMut = useMutation({
@@ -847,6 +909,107 @@ function Page() {
                   </ul>
                 </div>
               )}
+
+              {/* Impact summary — exactly what this import will change */}
+              <div className="rounded-md border border-border bg-background p-4 space-y-3">
+                <p className="text-sm font-medium inline-flex items-center gap-2">
+                  <ClipboardList className="h-4 w-4" /> Import impact summary
+                  {loadingExisting && (
+                    <span className="text-xs text-muted-foreground font-normal">
+                      checking existing records…
+                    </span>
+                  )}
+                </p>
+
+                <div className="grid gap-2 sm:grid-cols-3 text-center">
+                  <div className="rounded-md border border-border p-2">
+                    <p className="text-lg font-semibold">{impact.newIntervals.length}</p>
+                    <p className="text-xs text-muted-foreground">
+                      new maintenance interval{impact.newIntervals.length === 1 ? "" : "s"}
+                    </p>
+                  </div>
+                  <div className="rounded-md border border-border p-2">
+                    <p className="text-lg font-semibold">{impact.overlapping.length}</p>
+                    <p className="text-xs text-muted-foreground">
+                      already scheduled on this asset
+                    </p>
+                  </div>
+                  <div className="rounded-md border border-border p-2">
+                    <p className="text-lg font-semibold">{impact.createdParts.length}</p>
+                    <p className="text-xs text-muted-foreground">
+                      inventory part{impact.createdParts.length === 1 ? "" : "s"} created
+                    </p>
+                  </div>
+                </div>
+
+                <ul className="text-xs space-y-2">
+                  {impact.newIntervals.length > 0 && (
+                    <li>
+                      <span className="font-medium">Created as new records:</span>{" "}
+                      {impact.newIntervals.join(", ")}
+                    </li>
+                  )}
+                  {impact.overlapping.length > 0 && (
+                    <li className="text-amber-600 dark:text-amber-500">
+                      <span className="font-medium inline-flex items-center gap-1">
+                        <AlertTriangle className="h-3.5 w-3.5" />
+                        Already on the schedule — importing adds a second record:
+                      </span>{" "}
+                      {impact.overlapping
+                        .map(
+                          (o) =>
+                            `${o.title}${
+                              o.existing.due_at ? ` (due ${o.existing.due_at})` : ""
+                            }`,
+                        )
+                        .join(", ")}
+                      . Uncheck those intervals above if you'd rather keep the existing
+                      ones.
+                    </li>
+                  )}
+                  {impact.createdParts.length > 0 && (
+                    <li>
+                      <span className="font-medium">
+                        Inventory items that will be created (0 on hand, reorder minimum set
+                        to what the service needs):
+                      </span>{" "}
+                      {impact.createdParts
+                        .map((p) => `${p.name} — ${p.quantity} ${p.unit}`)
+                        .join(", ")}
+                    </li>
+                  )}
+                  {impact.unstockedParts.length > 0 && (
+                    <li className="text-muted-foreground">
+                      <span className="font-medium">
+                        Not added to inventory (part creation is off):
+                      </span>{" "}
+                      {impact.unstockedParts.map((p) => p.name).join(", ")}
+                    </li>
+                  )}
+                  {impact.linkedParts.length > 0 && (
+                    <li>
+                      <span className="font-medium">
+                        Linked to parts you already stock:
+                      </span>{" "}
+                      {impact.linkedParts.join(", ")}
+                    </li>
+                  )}
+                  {(impact.skippedIntervals > 0 || impact.skippedPartCount > 0) && (
+                    <li className="text-muted-foreground">
+                      Skipped: {impact.skippedIntervals} interval
+                      {impact.skippedIntervals === 1 ? "" : "s"}, {impact.skippedPartCount}{" "}
+                      part{impact.skippedPartCount === 1 ? "" : "s"}
+                    </li>
+                  )}
+                  <li className="text-muted-foreground">
+                    Nothing is written until you press “Import to this asset”. Existing
+                    maintenance records and inventory quantities are never overwritten by
+                    this import.
+                  </li>
+                </ul>
+              </div>
+
+
 
               <div className="flex items-center justify-between gap-3">
                 <span className="text-xs text-muted-foreground">
