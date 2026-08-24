@@ -283,3 +283,34 @@ export const checkInKit = createServerFn({ method: "POST" })
 
     return { ok: true as const, restoredLines: restored, complete };
   });
+
+/** Inventory items typed as kits — used to filter kits from single assets. */
+export const listKitItems = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { KIT_ITEM_TYPES } = await import("@/lib/asset-types");
+    const { data: rows, error } = await context.supabase
+      .from("inventory_items")
+      .select("id, name, sku, item_type, quantity, location")
+      .eq("user_id", context.userId)
+      .in("item_type", KIT_ITEM_TYPES)
+      .order("name", { ascending: true })
+      .limit(500);
+    if (error) throw new Error(error.message);
+    return (
+      (rows ?? []) as Array<{
+        id: string;
+        name: string | null;
+        sku: string | null;
+        item_type: string | null;
+        quantity: number | null;
+        location: string | null;
+      }>
+    ).map((r) => ({
+      id: r.id,
+      name: r.name || r.sku || "(unnamed kit)",
+      sku: r.sku ?? null,
+      onHand: Number(r.quantity ?? 0),
+      location: r.location ?? null,
+    }));
+  });
