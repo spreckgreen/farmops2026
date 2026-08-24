@@ -176,11 +176,13 @@ export async function testAiEngine(
         baseUrl: override?.baseUrl ?? base.engines[id].baseUrl,
         apiKey: override?.apiKey ?? base.engines[id].apiKey,
         model: override?.model ?? base.engines[id].model,
+        enabled: base.engines[id].enabled,
       },
     },
   };
 
-  const engine = await resolveEngine(id, merged);
+  // A switched-off engine is still testable — that is the point of the switch.
+  const engine = await resolveEngine(id, merged, { ignoreDisabled: true });
   if (!engine) {
     const missing = [
       !(merged.engines[id].baseUrl ?? def.defaultBaseUrl) ? "base URL" : null,
@@ -201,6 +203,14 @@ export async function testAiEngine(
     };
   }
 
+  const keySource = override?.apiKey
+    ? "the key typed in the form"
+    : base.engines[id].apiKey
+      ? "the key stored for this engine"
+      : id === "local"
+        ? "the local/bundled default key"
+        : "no key";
+  const keyNote = `Sent Authorization: Bearer … using ${keySource} (…${engine.apiKey.slice(-4)}).`;
   const headers = authHeaders(def.auth, engine.apiKey);
   const started = Date.now();
 
@@ -262,7 +272,9 @@ export async function testAiEngine(
     // 404/405 on /models is normal for some gateways — fall
     // through to a 1-token completion instead of reporting a failure.
     if (res.status !== 404 && res.status !== 405) {
-      const { title, hint } = describeHttpStatus(res.status, listMessage, def.label);
+      const { title, hint: baseHint } = describeHttpStatus(res.status, listMessage, def.label);
+      const hint =
+        res.status === 401 || res.status === 403 ? `${baseHint} ${keyNote}` : baseHint;
       return {
         ok: false,
         title,
@@ -329,7 +341,9 @@ export async function testAiEngine(
         httpStatus: res.status,
       };
     }
-    const { title, hint } = describeHttpStatus(res.status, apiMessage, def.label);
+    const { title, hint: baseHint } = describeHttpStatus(res.status, apiMessage, def.label);
+    const hint =
+      res.status === 401 || res.status === 403 ? `${baseHint} ${keyNote}` : baseHint;
     return {
       ok: false,
       title,

@@ -47,11 +47,13 @@ export async function saveEnginesConfig(config: AiEnginesConfig, userId: string)
 export async function resolveEngine(
   id: AiEngineId,
   config?: AiEnginesConfig,
-  opts?: { defaultModel?: string },
+  opts?: { defaultModel?: string; ignoreDisabled?: boolean },
 ): Promise<ResolvedEngine | null> {
   const cfg = config ?? (await loadEnginesConfig());
   const def = getAiEngineDef(id);
   const target = cfg.engines[id];
+  // Switched off: keep the stored settings, but never route traffic here.
+  if (target.enabled === false && !opts?.ignoreDisabled) return null;
   const { getServerEnv } = await import("./server-env.server");
 
   let baseUrl = target.baseUrl ?? def.defaultBaseUrl;
@@ -80,16 +82,23 @@ export async function resolveEngine(
 /** Which engines are usable right now — drives the pickers in the UI. */
 export async function engineAvailability(
   config?: AiEnginesConfig,
-): Promise<Record<AiEngineId, { available: boolean; baseUrl: string | null; model: string | null }>> {
+): Promise<
+  Record<
+    AiEngineId,
+    { available: boolean; enabled: boolean; baseUrl: string | null; model: string | null }
+  >
+> {
   const cfg = config ?? (await loadEnginesConfig());
   const out = {} as Record<
     AiEngineId,
-    { available: boolean; baseUrl: string | null; model: string | null }
+    { available: boolean; enabled: boolean; baseUrl: string | null; model: string | null }
   >;
   for (const id of ["local", "ollama_cloud", "other_cloud"] as AiEngineId[]) {
-    const resolved = await resolveEngine(id, cfg);
+    const resolved = await resolveEngine(id, cfg, { ignoreDisabled: true });
+    const enabled = cfg.engines[id].enabled !== false;
     out[id] = {
-      available: Boolean(resolved),
+      available: Boolean(resolved) && enabled,
+      enabled,
       baseUrl: resolved?.baseUrl ?? null,
       model: resolved?.model ?? null,
     };

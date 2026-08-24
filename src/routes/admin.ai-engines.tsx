@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -68,13 +69,20 @@ export const Route = createFileRoute("/admin/ai-engines")({
 });
 
 interface TargetDraft {
+  enabled: boolean;
   baseUrl: string;
   apiKey: string;
   keyTouched: boolean;
   model: string;
 }
 
-const emptyDraft: TargetDraft = { baseUrl: "", apiKey: "", keyTouched: false, model: "" };
+const emptyDraft: TargetDraft = {
+  enabled: true,
+  baseUrl: "",
+  apiKey: "",
+  keyTouched: false,
+  model: "",
+};
 
 type Drafts = Record<AiEngineId, TargetDraft>;
 
@@ -103,6 +111,7 @@ function AiEnginesPage() {
     for (const def of AI_ENGINE_DEFS) {
       const stored = data.config.engines[def.id];
       next[def.id] = {
+        enabled: stored.enabled,
         baseUrl: stored.baseUrl ?? "",
         apiKey: "",
         keyTouched: false,
@@ -169,6 +178,7 @@ function AiEnginesPage() {
               return [
                 def.id,
                 {
+                  enabled: d.enabled,
                   baseUrl: d.baseUrl.trim() || null,
                   apiKey: d.keyTouched ? d.apiKey : null,
                   model: d.model.trim() || null,
@@ -235,11 +245,25 @@ function AiEnginesPage() {
                       )}
                       {def.label}
                       <Badge variant={status.available ? "secondary" : "outline"}>
-                        {status.available ? "ready" : "not configured"}
+                        {!d.enabled
+                          ? "off"
+                          : status.available
+                            ? "ready"
+                            : "not configured"}
                       </Badge>
                       {data.config.cloudDefault === def.id && (
                         <Badge>cloud default</Badge>
                       )}
+                      <span className="ml-auto flex items-center gap-2 text-xs font-normal text-muted-foreground">
+                        <Label htmlFor={`${def.id}-enabled`}>
+                          {d.enabled ? "On" : "Off"}
+                        </Label>
+                        <Switch
+                          id={`${def.id}-enabled`}
+                          checked={d.enabled}
+                          onCheckedChange={(v) => patch(def.id, { enabled: v })}
+                        />
+                      </span>
                     </CardTitle>
                     <CardDescription>
                       {def.description}
@@ -253,6 +277,12 @@ function AiEnginesPage() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-3">
+                    {!d.enabled && (
+                      <p className="rounded-md border border-dashed p-2 text-xs text-muted-foreground">
+                        Switched off. Everything below stays saved — no AI feature will use
+                        this engine until you switch it back on. Connection tests still run.
+                      </p>
+                    )}
                     <div className="space-y-1">
                           <Label htmlFor={`${def.id}-base`}>Base URL</Label>
                           <Input
