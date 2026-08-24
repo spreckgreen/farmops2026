@@ -180,10 +180,12 @@ function AiEnginesPage() {
       // has no model set, or the one they set isn't served here. Any tier can
       // still be chosen (or typed) afterwards.
       const recommended = result.recommendedModel ?? null;
-      if (recommended && (!d.model.trim() || result.modelFound === false)) {
+      const gap = capabilityGap(d.model.trim());
+      if (recommended && (!d.model.trim() || result.modelFound === false || gap)) {
         patch(id, { model: recommended });
         toast.info(`Set model to ${recommended} (Better tier). You can change it.`);
       }
+
       if (result.ok) toast.success(`${result.title}: ${result.message}`);
       else toast.error(result.title);
     } catch (err) {
