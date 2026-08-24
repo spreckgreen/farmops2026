@@ -92,7 +92,25 @@ export const applyActionPlan = createServerFn({ method: "POST" })
 
     // Mirror the applied plan into Procedures as a "Maintenance plan" document.
     const { saveMaintenancePlanDocs } = await import("./maintenance-plan-doc.server");
-    const documents = await saveMaintenancePlanDocs(supabase, userId, plan, results);
+    let documents = await saveMaintenancePlanDocs(supabase, userId, plan, results);
+
+    // Safety net: if the append path produced nothing (e.g. an unexpected write
+    // failure), rebuild plan pages straight from the saved records so a plan is
+    // always visible in Procedures.
+    if (documents.length === 0) {
+      const { syncMaintenancePlanDocs } = await import("@/lib/maintenance-plan-sync.server");
+      const synced = await syncMaintenancePlanDocs(
+        supabase,
+        userId,
+        plan.actions.map((a) => a.asset_name),
+      );
+      documents = synced.map((s) => ({
+        name: s.name,
+        asset_id: null,
+        mode: "created" as const,
+      }));
+    }
+
 
     await supabase
       .from("ai_action_log")

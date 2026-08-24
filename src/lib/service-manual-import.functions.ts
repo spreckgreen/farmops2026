@@ -589,5 +589,9 @@ export const applyServiceManualImport = createServerFn({ method: "POST" })
       .eq("id", data.plan_id)
       .eq("user_id", userId);
 
+    // Always leave a "Maintenance plan" page in Procedures for this asset.
+    const { syncMaintenancePlanDocs } = await import("@/lib/maintenance-plan-sync.server");
+    await syncMaintenancePlanDocs(supabase, userId, [data.asset_name]);
+
     return { status, results, created_parts: created, reused: false };
   });

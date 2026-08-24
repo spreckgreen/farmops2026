@@ -141,6 +141,12 @@ export const importMaintenance = createServerFn({ method: "POST" })
       if (error) throw new Error(error.message);
       inserted += chunk.length;
     }
+    const { syncMaintenancePlanDocs } = await import("@/lib/maintenance-plan-sync.server");
+    await syncMaintenancePlanDocs(
+      supabase,
+      userId,
+      rows.map((r) => r.asset_name),
+    );
     return { inserted };
   });
 
@@ -245,6 +251,8 @@ export const createMaintenance = createServerFn({ method: "POST" })
       .select()
       .single();
     if (error) throw new Error(error.message);
+    const { syncMaintenancePlanDocs } = await import("@/lib/maintenance-plan-sync.server");
+    await syncMaintenancePlanDocs(context.supabase, context.userId, [data.asset_name]);
     return inserted;
   });
 
@@ -301,6 +309,10 @@ export const updateMaintenance = createServerFn({ method: "POST" })
       .select()
       .single();
     if (error) throw new Error(error.message);
+    const { syncMaintenancePlanDocs } = await import("@/lib/maintenance-plan-sync.server");
+    await syncMaintenancePlanDocs(context.supabase, context.userId, [
+      (updated as { asset_name?: string | null } | null)?.asset_name ?? data.asset_name,
+    ]);
     return updated;
   });
 
