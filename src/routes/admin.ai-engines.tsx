@@ -175,6 +175,14 @@ function AiEnginesPage() {
         },
       });
       setTests((prev) => ({ ...prev, [id]: result }));
+      // "Better" is the default pick: apply it automatically when the operator
+      // has no model set, or the one they set isn't served here. Any tier can
+      // still be chosen (or typed) afterwards.
+      const recommended = result.recommendedModel ?? null;
+      if (recommended && (!d.model.trim() || result.modelFound === false)) {
+        patch(id, { model: recommended });
+        toast.info(`Set model to ${recommended} (Better tier). You can change it.`);
+      }
       if (result.ok) toast.success(`${result.title}: ${result.message}`);
       else toast.error(result.title);
     } catch (err) {
@@ -577,6 +585,60 @@ function AiEnginesPage() {
                               {tests[def.id]?.modelsSeen.join(", ")}
                             </span>
                           </p>
+                        )}
+                        {tests[def.id]?.tiers?.better && (
+                          <div className="space-y-2 rounded-md border bg-background/60 p-2">
+                            <p className="text-xs font-medium">
+                              Recommended for cloud AI features
+                              <span className="ml-1 font-normal text-muted-foreground">
+                                — Better is the default; pick another tier any time.
+                              </span>
+                            </p>
+                            <div className="grid gap-2 sm:grid-cols-3">
+                              {(
+                                [
+                                  ["good", "Good", "Cheapest that can still do the job"],
+                                  ["better", "Better", "Recommended default"],
+                                  ["best", "Best", "Highest capability offered here"],
+                                ] as const
+                              ).map(([tier, label, blurb]) => {
+                                const pick = tests[def.id]?.tiers?.[tier];
+                                if (!pick) return null;
+                                const active = d.model.trim() === pick.id;
+                                return (
+                                  <button
+                                    key={tier}
+                                    type="button"
+                                    onClick={() => patch(def.id, { model: pick.id })}
+                                    className={`rounded-md border p-2 text-left transition ${
+                                      active
+                                        ? "border-primary bg-primary/10"
+                                        : "hover:bg-muted/60"
+                                    }`}
+                                  >
+                                    <span className="flex items-center gap-1 text-xs font-semibold">
+                                      {label}
+                                      {tier === "better" && (
+                                        <span className="rounded bg-muted px-1 text-[10px] font-normal uppercase">
+                                          default
+                                        </span>
+                                      )}
+                                    </span>
+                                    <span className="mt-1 block truncate font-mono text-xs">
+                                      {pick.id}
+                                    </span>
+                                    <span className="mt-1 block text-[11px] text-muted-foreground">
+                                      {blurb}. {pick.reason}.
+                                    </span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                            <p className="text-[11px] text-muted-foreground">
+                              Tiers are ranked from the models this provider reports. Click one
+                              to use it, or type any other id in the Model field above.
+                            </p>
+                          </div>
                         )}
                       </div>
                     )}
