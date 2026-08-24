@@ -626,7 +626,7 @@ function AiEnginesPage() {
 
                 <div className="flex flex-wrap gap-2">
                   <Button
-                    onClick={() => saveMutation.mutate(undefined)}
+                    onClick={() => submit()}
                     disabled={saveMutation.isPending}
                   >
                     {saveMutation.isPending ? "Saving…" : "Save engines"}
