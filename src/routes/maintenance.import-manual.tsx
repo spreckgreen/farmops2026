@@ -16,11 +16,23 @@ import {
   type ManualImportResult,
 } from "@/lib/service-manual-import.functions";
 import {
-  serviceManualPrompt,
+  importManualDocument,
+  type ManualDocumentResult,
+} from "@/lib/manual-document-import.functions";
+import {
   SERVICE_MANUAL_TEMPLATE,
   manualTemplateFileName,
   usageLabel,
 } from "@/lib/service-manual-template";
+import {
+  MANUAL_KINDS,
+  MANUAL_KIND_META,
+  manualPrompt,
+  manualProcedureName,
+  manualTemplateFor,
+  type ManualKind,
+} from "@/lib/manual-kinds";
+
 import { AiFeatureGate } from "@/components/ai-feature-gate";
 import { AiProgressStages } from "@/components/ai-progress-stages";
 import { useAiJobProgress } from "@/hooks/use-ai-job-progress";
