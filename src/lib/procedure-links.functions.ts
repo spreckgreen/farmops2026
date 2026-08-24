@@ -186,6 +186,8 @@ export const listProcedureLinks = createServerFn({ method: "GET" })
       if (r.inventory_item_id) {
         const inv = r.inventory_items;
         const label = [inv?.name, inv?.sku].filter(Boolean).join(" · ") || r.inventory_item_id;
+        const missing = !inv;
+        const eligible = !missing && isManualEligibleType(inv?.item_type);
         return {
           id: r.id,
           procedure_id: r.procedure_id,
@@ -195,6 +197,15 @@ export const listProcedureLinks = createServerFn({ method: "GET" })
           target_label: label,
           notes: r.notes,
           created_at: r.created_at,
+          target_item_type: inv?.item_type ?? null,
+          needs_relink: missing || !eligible,
+          relink_reason: missing
+            ? "The linked inventory item no longer exists."
+            : eligible
+              ? null
+              : isPartItemType(inv?.item_type)
+                ? "Linked to a part/consumable — manuals belong on equipment or ham radio gear."
+                : `Item type "${inv?.item_type || "unset"}" can't hold a manual — relink to equipment or ham radio gear.`,
         };
       }
       const m = r.maintenance_records;
