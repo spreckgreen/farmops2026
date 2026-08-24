@@ -344,11 +344,19 @@ function Page() {
           <h1 className="text-3xl md:text-4xl font-bold tracking-tight mb-2">
             Generate maintenance schedules
           </h1>
-          <p className="text-muted-foreground mb-8 max-w-2xl">
+          <p className="text-muted-foreground mb-4 max-w-2xl">
             Select one or more assets, add any usage context, and the AI will
             draft recurring service schedules for each. Everything lands in a
             single review list — nothing is written until you approve it.
           </p>
+
+          <AiRoutingStatus
+            area="maintenance.schedule"
+            hostedDefaultModel="google/gemini-3.6-flash"
+            className="mb-8 max-w-2xl"
+          />
+
+
 
           {!plan && (
             <div className="rounded-xl border border-border bg-card/40 p-6 space-y-4">
