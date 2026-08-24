@@ -126,12 +126,14 @@ export const SLIDES: Slide[] = [
     route: "/tasks/backlog",
     image: tasksBacklog,
     steps: [
-      "Park every someday idea here instead of losing it — fencing, a second hive, a new gate.",
+      "Park every someday idea here instead of losing it — fencing, a hive, a new gate.",
       "Backlog items carry no date, so they never clutter the day view.",
       "When a season opens up, move an item to a date to pull it into the plan.",
-      "Review the backlog once a month; delete freely, that's the point.",
+      "Review the backlog monthly and delete freely — that's the point.",
     ],
+    tip: "A task with no date isn't a failure; it's a decision you haven't made yet.",
   },
+
   {
     kind: "shot",
     kicker: "Section 1 · Daily work",
