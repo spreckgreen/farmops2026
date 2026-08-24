@@ -220,7 +220,9 @@ export const createMaintenance = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => CreateSchema.parse(d))
   .handler(async ({ data, context }) => {
-    const assetId = await resolveAssetId(context.supabase, context.userId, data.asset_name);
+    const assetId =
+      data.asset_id ??
+      (await resolveAssetId(context.supabase, context.userId, data.asset_name));
     const row = {
       user_id: context.userId,
       title: data.title ?? null,
