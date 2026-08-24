@@ -67,12 +67,12 @@ function mergeTarget(incoming: TargetIn | undefined, stored: AiEngineTarget): Ai
 
 export const getAiEngines = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .handler(async () => {
+  .handler(async ({ context }) => {
     const { loadEnginesConfig, engineAvailability, resolveEngine } = await import(
       "./ai-engines.server"
     );
     const { toEngineView, engineIncomplete } = await import("@/lib/ai-engines");
-    const config = await loadEnginesConfig();
+    const config = await loadEnginesConfig(context.supabase);
     const availability = await engineAvailability(config);
     const cloud = await resolveEngine(config.cloudDefault, config);
 
@@ -104,7 +104,7 @@ export const setAiEngines = createServerFn({ method: "POST" })
     await requireAdmin(context.supabase, context.userId);
     const { loadEnginesConfig, saveEnginesConfig } = await import("./ai-engines.server");
     const { engineIncomplete, getAiEngineDef } = await import("@/lib/ai-engines");
-    const stored = await loadEnginesConfig();
+    const stored = await loadEnginesConfig(context.supabase);
 
     const engines = {} as Record<AiEngineId, AiEngineTarget>;
     for (const id of AI_ENGINE_IDS) {
@@ -155,7 +155,7 @@ export const setAiEngines = createServerFn({ method: "POST" })
       );
     }
 
-    await saveEnginesConfig(next, context.userId);
+    await saveEnginesConfig(next, context.userId, context.supabase);
     const { toEngineView } = await import("@/lib/ai-engines");
     return { ok: true as const, config: toEngineView(next), warnings };
   });
