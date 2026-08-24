@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { isServiceableAsset } from "@/lib/asset-types";
 import { AppLayout } from "@/components/app-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -114,7 +115,12 @@ function ServiceSchedulingPage() {
     }
     setUsageSnapshots(byAsset);
 
-    if (assetsRes.data) setAssets(assetsRes.data as unknown as Asset[]);
+    if (assetsRes.data)
+      setAssets(
+        (assetsRes.data as unknown as Asset[]).filter((a) =>
+          isServiceableAsset(a as { item_type?: string | null }),
+        ),
+      );
     if (schedulesRes.data) setSchedules(schedulesRes.data as unknown as ServiceSchedule[]);
     if (consumablesRes.data) setConsumables(consumablesRes.data as unknown as Consumable[]);
     setLoading(false);

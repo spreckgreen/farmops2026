@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { Gauge } from "lucide-react";
 import { updateMaintenance, logAssetUsage } from "@/lib/maintenance.functions";
 import { supabase } from "@/integrations/supabase/client";
+import { isServiceableAsset } from "@/lib/asset-types";
 
 export type MaintenanceRow = {
   id: string;
@@ -40,7 +41,9 @@ type AssetUsage = {
   current_hours: number | null;
   current_miles: number | null;
   usage_tracking: string | null;
+  item_type: string | null;
 };
+
 
 const dateOnly = (v: unknown) => (v ? String(v).slice(0, 10) : "");
 
@@ -101,11 +104,13 @@ export function EditMaintenanceDialog({
     (async () => {
       const { data, error } = await supabase
         .from("inventory_items")
-        .select("id, name, current_hours, current_miles, usage_tracking")
+        .select("id, name, current_hours, current_miles, usage_tracking, item_type")
         .order("name", { ascending: true })
         .limit(1000);
       if (cancelled || error || !data) return;
-      const list = data as AssetUsage[];
+      const all = data as AssetUsage[];
+      // Keep the currently linked row even if it is typed as a part.
+      const list = all.filter((a) => isServiceableAsset(a) || a.id === record.asset_id);
       setAssets(list);
 
       const wanted = (record.asset_name ?? "").trim().toLowerCase();
