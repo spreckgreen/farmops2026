@@ -100,6 +100,7 @@ function Page() {
 
   const [assetId, setAssetId] = useState<string>("");
   const [filter, setFilter] = useState("");
+  const [kind, setKind] = useState<ManualKind>("service_schedule");
   const [manualText, setManualText] = useState("");
   const [fileName, setFileName] = useState<string | null>(null);
   const [plan, setPlan] = useState<ManualImportPlan | null>(null);
@@ -111,6 +112,11 @@ function Page() {
   const [threshold, setThreshold] = useState(0.82);
   const [createParts, setCreateParts] = useState(true);
   const [result, setResult] = useState<ManualImportResult | null>(null);
+  // Document-style manuals (operator / workshop) land as a procedure page.
+  const [docName, setDocName] = useState("");
+  const [overwriteDoc, setOverwriteDoc] = useState(false);
+  const [docResult, setDocResult] = useState<ManualDocumentResult | null>(null);
+
   const fileRef = useRef<HTMLInputElement | null>(null);
   const jobProgress = useAiJobProgress("maintenance.import-manual");
 
