@@ -27,6 +27,7 @@ import { useAiJobProgress } from "@/hooks/use-ai-job-progress";
 import { handleAiJobInFlight } from "@/lib/ai-inflight-error";
 import { toast } from "sonner";
 import {
+  AlertTriangle,
   ArrowLeft,
   BookOpenText,
   Copy,
@@ -408,6 +409,23 @@ function Page() {
           {/* 3. Paste */}
           <section className="rounded-xl border border-border bg-card/40 p-6 space-y-3 mb-6">
             <h2 className="text-sm font-semibold">3. Paste the manual</h2>
+            <label className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+              <span className="font-medium text-foreground">Part match strictness</span>
+              <input
+                type="range"
+                min={40}
+                max={100}
+                step={2}
+                value={Math.round(threshold * 100)}
+                onChange={(e) => setThreshold(Number(e.target.value) / 100)}
+                className="h-1 w-40 accent-primary"
+              />
+              <span>{Math.round(threshold * 100)}%</span>
+              <span>
+                — matches at or above this confidence link automatically; anything less
+                asks you to confirm.
+              </span>
+            </label>
             <Textarea
               value={manualText}
               onChange={(e) => {
@@ -478,6 +496,21 @@ function Page() {
                 </div>
               </div>
 
+              {unresolved.length > 0 ? (
+                <div className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-800 dark:text-amber-200">
+                  <AlertTriangle className="h-4 w-4 shrink-0" />
+                  <span>
+                    {unresolved.length} part{unresolved.length === 1 ? "" : "s"} need a
+                    decision before this import can run — pick the inventory item it refers
+                    to, or choose "Create new inventory item".
+                  </span>
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  All part matches confirmed.
+                </p>
+              )}
+
               <div className="overflow-x-auto rounded-md border border-border">
                 <table className="w-full min-w-[820px] text-sm">
                   <thead className="bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
@@ -532,33 +565,81 @@ function Page() {
                               <div className="space-y-1">
                                 {iv.parts.map((p, i) => {
                                   const pk = partKey(iv.key, i);
+                                  const partOff = off || Boolean(skippedParts[pk]);
+                                  const choice = partChoice[pk] ?? "";
+                                  const needsPick = !partOff && choice === "";
+                                  const top = p.candidates[0];
                                   return (
-                                    <label
-                                      key={i}
-                                      className="flex items-center gap-2 text-xs"
-                                    >
-                                      <Checkbox
-                                        aria-label={`Include part ${p.name}`}
-                                        disabled={off}
-                                        checked={!off && !skippedParts[pk]}
-                                        onCheckedChange={(v) =>
-                                          setSkippedParts((s) => ({ ...s, [pk]: !v }))
-                                        }
-                                      />
-                                      <span>
-                                        {p.name} × {p.quantity} {p.unit}
-                                      </span>
-                                      {p.inventory_item_id ? (
-                                        <span className="rounded border border-primary/30 bg-primary/10 px-1.5 py-0.5 text-primary">
-                                          in inventory
-                                          {p.matched_name ? `: ${p.matched_name}` : ""}
+                                    <div key={i} className="space-y-1">
+                                      <label className="flex items-center gap-2 text-xs">
+                                        <Checkbox
+                                          aria-label={`Include part ${p.name}`}
+                                          disabled={off}
+                                          checked={!partOff}
+                                          onCheckedChange={(v) =>
+                                            setSkippedParts((s) => ({ ...s, [pk]: !v }))
+                                          }
+                                        />
+                                        <span>
+                                          {p.name} × {p.quantity} {p.unit}
                                         </span>
-                                      ) : (
-                                        <span className="rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-amber-700 dark:text-amber-300">
-                                          new item
+                                        <span
+                                          className={`rounded border px-1.5 py-0.5 ${
+                                            p.confidence === "exact" || p.confidence === "strong"
+                                              ? "border-primary/30 bg-primary/10 text-primary"
+                                              : p.confidence === "weak"
+                                                ? "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300"
+                                                : "border-border bg-muted text-muted-foreground"
+                                          }`}
+                                        >
+                                          {CONFIDENCE_LABEL[p.confidence]}
+                                          {top && p.confidence !== "none"
+                                            ? ` ${Math.round(top.score * 100)}%`
+                                            : ""}
                                         </span>
+                                      </label>
+                                      {!partOff && (
+                                        <div className="pl-6">
+                                          <select
+                                            aria-label={`Inventory match for ${p.name}`}
+                                            className={`w-full rounded-md border bg-background px-2 py-1 text-xs ${
+                                              needsPick
+                                                ? "border-amber-500 ring-1 ring-amber-500/40"
+                                                : "border-border"
+                                            }`}
+                                            value={choice}
+                                            onChange={(e) =>
+                                              setPartChoice((c) => ({
+                                                ...c,
+                                                [pk]: e.target.value,
+                                              }))
+                                            }
+                                          >
+                                            <option value="">
+                                              {p.candidates.length > 0
+                                                ? "Confirm a match…"
+                                                : "Choose…"}
+                                            </option>
+                                            {p.candidates.map((c) => (
+                                              <option key={c.id} value={c.id}>
+                                                {c.label} — {Math.round(c.score * 100)}% ({c.reason})
+                                              </option>
+                                            ))}
+                                            <option value={NEW_ITEM}>
+                                              Create new inventory item "{p.name}"
+                                            </option>
+                                          </select>
+                                          {needsPick && (
+                                            <p className="mt-0.5 flex items-center gap-1 text-[11px] text-amber-700 dark:text-amber-300">
+                                              <AlertTriangle className="h-3 w-3" />
+                                              {p.candidates.length > 1
+                                                ? `${p.candidates.length} similar items — confirm which one this is`
+                                                : "Confirm this fuzzy match or create a new item"}
+                                            </p>
+                                          )}
+                                        </div>
                                       )}
-                                    </label>
+                                    </div>
                                   );
                                 })}
                               </div>
