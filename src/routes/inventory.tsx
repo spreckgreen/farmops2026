@@ -281,7 +281,12 @@ function InventoryPage() {
   };
 
   const handleSave = async (formData: AssetFormData) => {
-    const payload = { ...formData, item_type: formData.item_type || null };
+    const payload = {
+      ...formData,
+      // Trim the name so maintenance records can match it reliably.
+      name: formData.name?.trim() ?? formData.name,
+      item_type: formData.item_type || null,
+    };
     if (editingAsset) {
       const { error } = await supabase
         .from("inventory_items")
