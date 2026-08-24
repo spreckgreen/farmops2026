@@ -1,6 +1,8 @@
 // Server-side resolution + persistence for the three AI engines.
 // Server-only: reads process.env and the shared vault.
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/integrations/supabase/types";
 import {
   BUNDLED_OLLAMA_API_KEY,
   ENGINE_ENV_KEY,
@@ -23,18 +25,25 @@ export interface ResolvedEngine {
   model: string;
 }
 
-export async function loadEnginesConfig(): Promise<AiEnginesConfig> {
+export async function loadEnginesConfig(
+  client?: SupabaseClient<Database>,
+): Promise<AiEnginesConfig> {
   const { getServerEnv } = await import("./server-env.server");
-  return resolveEnginesConfig(await getServerEnv(ENGINE_ENV_KEY));
+  return resolveEnginesConfig(await getServerEnv(ENGINE_ENV_KEY, client));
 }
 
-export async function saveEnginesConfig(config: AiEnginesConfig, userId: string) {
+export async function saveEnginesConfig(
+  config: AiEnginesConfig,
+  userId: string,
+  client?: SupabaseClient<Database>,
+) {
   const { persistSharedEnvValue } = await import("./shared-env-store.server");
   await persistSharedEnvValue(
     ENGINE_ENV_KEY,
     serializeEnginesConfig(config),
     "AI engines (local, Ollama Cloud, other cloud)",
     userId,
+    client,
   );
   return config;
 }
