@@ -330,7 +330,11 @@ export function InventoryBomDialog({
               </div>
             </div>
 
-            <KitDeployPanel kitItemId={bom.parent.id} hasParts={bom.components.length > 0} />
+            <KitDeployPanel
+              kitItemId={bom.parent.id}
+              hasParts={bom.components.length > 0}
+              kitName={bom.parent.name ?? undefined}
+            />
 
             {bom.usedIn.length > 0 ? (
               <div className="text-xs text-muted-foreground">
