@@ -265,10 +265,21 @@ export const updateMaintenance = createServerFn({ method: "POST" })
       if (value !== undefined) patch[key] = value;
     };
     setIf("title", data.title ?? null);
+    if (data.asset_id !== undefined && data.asset_id !== null) {
+      // Explicit pick from the asset dropdown always wins.
+      patch.asset_id = data.asset_id;
+    }
     if (data.asset_name !== undefined) {
       patch.asset_name = data.asset_name;
-      // Keep the asset link in sync so usage forecasting can join on asset_id.
-      patch.asset_id = await resolveAssetId(context.supabase, context.userId, data.asset_name);
+      if (patch.asset_id === undefined) {
+        // Keep the link in sync, but never clear an existing link on a miss.
+        const resolved = await resolveAssetId(
+          context.supabase,
+          context.userId,
+          data.asset_name,
+        );
+        if (resolved) patch.asset_id = resolved;
+      }
     }
     setIf("service_type", data.service_type ?? null);
     setIf("status", data.status ?? null);
