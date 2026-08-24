@@ -333,6 +333,30 @@ function AiEnginesPage() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-3">
+                    <div className="flex flex-wrap items-center gap-2 rounded-md border border-dashed p-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={saveMutation.isPending}
+                        onClick={() => resetEngine(def.id)}
+                      >
+                        <RotateCcw className="h-4 w-4" />
+                        Reset to defaults
+                      </Button>
+                      <span className="text-xs text-muted-foreground">
+                        Restores{" "}
+                        <code>{def.defaultBaseUrl ?? "no base URL"}</code>
+                        {def.defaultModel ? (
+                          <>
+                            {" "}
+                            and <code>{def.defaultModel}</code>
+                          </>
+                        ) : null}
+                        , clears any stored or inherited API key, and saves immediately.
+                      </span>
+                    </div>
+
                     {!d.enabled && (
                       <p className="rounded-md border border-dashed p-2 text-xs text-muted-foreground">
                         Switched off. Everything below stays saved — no AI feature will use
