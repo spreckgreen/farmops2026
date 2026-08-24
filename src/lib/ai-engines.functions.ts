@@ -15,6 +15,8 @@ const TargetInput = z.object({
   /** null = leave the stored key untouched; "" = clear it. */
   apiKey: z.string().max(500).nullable(),
   model: z.string().trim().max(200).nullable(),
+  /** Off keeps every stored value but removes the engine from all routing. */
+  enabled: z.boolean().optional(),
 });
 
 const EnginesInput = z.object({
@@ -59,6 +61,7 @@ function mergeTarget(incoming: TargetIn | undefined, stored: AiEngineTarget): Ai
     baseUrl: incoming.baseUrl?.trim() || null,
     apiKey,
     model: incoming.model?.trim() || null,
+    enabled: incoming.enabled ?? stored.enabled !== false,
   };
 }
 
@@ -114,12 +117,28 @@ export const setAiEngines = createServerFn({ method: "POST" })
     const warnings: string[] = [];
     const label = getAiEngineDef(next.cloudDefault).label;
 
+    for (const id of AI_ENGINE_IDS) {
+      if (next.engines[id].enabled === false) {
+        warnings.push(
+          `${getAiEngineDef(id).label} is switched off — its settings are saved but no feature will use it.`,
+        );
+      }
+    }
+    if (next.engines[next.cloudDefault].enabled === false) {
+      warnings.push(
+        `${label} is the cloud default but switched off, so cloud features will use another enabled cloud engine or the local engine.`,
+      );
+    }
+
     if (getAiEngineDef(next.cloudDefault).placement === "local") {
       warnings.push(
         `${label} runs on your own hardware, so cloud-default feature areas will use it too.`,
       );
     }
-    if (engineIncomplete(next, next.cloudDefault)) {
+    if (
+      next.engines[next.cloudDefault].enabled !== false &&
+      engineIncomplete(next, next.cloudDefault)
+    ) {
       warnings.push(
         `${label} is missing a base URL, API key or model, so cloud-default features will fail until it is completed.`,
       );

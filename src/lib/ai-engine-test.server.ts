@@ -176,11 +176,13 @@ export async function testAiEngine(
         baseUrl: override?.baseUrl ?? base.engines[id].baseUrl,
         apiKey: override?.apiKey ?? base.engines[id].apiKey,
         model: override?.model ?? base.engines[id].model,
+        enabled: base.engines[id].enabled,
       },
     },
   };
 
-  const engine = await resolveEngine(id, merged);
+  // A switched-off engine is still testable — that is the point of the switch.
+  const engine = await resolveEngine(id, merged, { ignoreDisabled: true });
   if (!engine) {
     const missing = [
       !(merged.engines[id].baseUrl ?? def.defaultBaseUrl) ? "base URL" : null,
@@ -201,6 +203,14 @@ export async function testAiEngine(
     };
   }
 
+  const keySource = override?.apiKey
+    ? "the key typed in the form"
+    : base.engines[id].apiKey
+      ? "the key stored for this engine"
+      : id === "local"
+        ? "the local/bundled default key"
+        : "no key";
+  const keyNote = `Sent Authorization: Bearer … using ${keySource} (…${engine.apiKey.slice(-4)}).`;
   const headers = authHeaders(def.auth, engine.apiKey);
   const started = Date.now();
 
