@@ -20,6 +20,11 @@ import {
   type ManualDocumentResult,
 } from "@/lib/manual-document-import.functions";
 import {
+  listExistingSchedules,
+  type ExistingScheduleEntry,
+} from "@/lib/maintenance-existing-schedule.functions";
+
+import {
   SERVICE_MANUAL_TEMPLATE,
   manualTemplateFileName,
   usageLabel,
