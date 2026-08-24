@@ -138,7 +138,8 @@ export function EditMaintenanceDialog({
         data: {
           id: record.id,
           title: form.title.trim() || null,
-          asset_name: form.asset_name.trim() || undefined,
+          asset_name: (asset?.name ?? form.asset_name).trim() || undefined,
+          asset_id: assetId || null,
           service_type: form.service_type.trim() || null,
           status: form.status.trim() || null,
           scheduled_date: form.scheduled_date || null,
