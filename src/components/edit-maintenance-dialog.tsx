@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { Gauge } from "lucide-react";
 import { updateMaintenance, logAssetUsage } from "@/lib/maintenance.functions";
 import { supabase } from "@/integrations/supabase/client";
+import { isServiceableAsset } from "@/lib/asset-types";
 
 export type MaintenanceRow = {
   id: string;
@@ -43,10 +44,6 @@ type AssetUsage = {
   item_type: string | null;
 };
 
-/** Parts / consumables are stock, not serviceable assets — keep them out. */
-const PART_TYPES = ["part", "parts", "consumable", "consumables", "supply", "supplies"];
-const isServiceableAsset = (a: { item_type: string | null }) =>
-  !PART_TYPES.includes((a.item_type ?? "").trim().toLowerCase());
 
 const dateOnly = (v: unknown) => (v ? String(v).slice(0, 10) : "");
 
