@@ -336,6 +336,8 @@ export function InventoryBomDialog({
               kitName={bom.parent.name ?? undefined}
             />
 
+            <KitProcedureSuggestions kitItemId={bom.parent.id} />
+
             {bom.usedIn.length > 0 ? (
               <div className="text-xs text-muted-foreground">
                 Used in:{" "}
