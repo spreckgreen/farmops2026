@@ -33,6 +33,7 @@ import {
   parseProcedureMeta,
   type ProcedureMeta,
 } from "@/lib/procedure-meta";
+import { listKitItems } from "@/lib/kit-deploy.functions";
 
 
 export function Procedures() {
