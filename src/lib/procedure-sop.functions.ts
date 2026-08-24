@@ -207,35 +207,55 @@ export const draftInventorySop = createServerFn({ method: "POST" })
 /** Save an approved draft as a procedure and link it to the inventory item. */
 export const saveInventorySop = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { inventoryItemId: string; name: string; body: string }) => {
-    const inventoryItemId = String(d?.inventoryItemId ?? "").trim();
-    if (!inventoryItemId) throw new Error("inventoryItemId required");
-    const name = validateWikiName(String(d?.name ?? ""));
-    const body = String(d?.body ?? "").trim();
-    if (!body) throw new Error("body required");
-    return { inventoryItemId, name, body };
-  })
+  .inputValidator(
+    (d: {
+      inventoryItemId: string;
+      name: string;
+      body: string;
+      mode?: "create" | "replace" | "append";
+    }) => {
+      const inventoryItemId = String(d?.inventoryItemId ?? "").trim();
+      if (!inventoryItemId) throw new Error("inventoryItemId required");
+      const name = validateWikiName(String(d?.name ?? ""));
+      const body = String(d?.body ?? "").trim();
+      if (!body) throw new Error("body required");
+      const mode = d?.mode ?? "create";
+      return { inventoryItemId, name, body, mode };
+    },
+  )
   .handler(async ({ context, data }) => {
     const { tidyProcedure } = await import("@/lib/tidy-tinywiki");
-    const { buildTinyWikiHtml } = await import("@/lib/tinywiki");
+    const { buildTinyWikiHtml, extractBodyWiki } = await import("@/lib/tinywiki");
+    const { appendProcedureBody } = await import("@/lib/procedure-append");
 
     const { data: existing } = await context.supabase
       .from("procedures")
-      .select("name")
+      .select("name, content")
       .eq("user_id", context.userId)
       .eq("name", data.name)
       .maybeSingle();
-    if (existing) {
+    if (existing && data.mode === "create") {
       throw new Error(
-        `A procedure named "${data.name}" already exists — rename the SOP before saving.`,
+        `A procedure named "${data.name}" already exists — rename the SOP, or choose to append to / replace the existing page.`,
       );
     }
 
-    const cleanBody = tidyProcedure(data.name, data.body).body;
+    const merged =
+      existing && data.mode === "append"
+        ? appendProcedureBody(
+            extractBodyWiki(String(existing.content ?? ""), data.name),
+            data.body,
+            "Generated SOP",
+          )
+        : data.body;
+    const cleanBody = tidyProcedure(data.name, merged).body;
     const html = buildTinyWikiHtml(data.name, cleanBody);
     const { data: row, error } = await context.supabase
       .from("procedures")
-      .insert({ user_id: context.userId, name: data.name, content: html })
+      .upsert(
+        { user_id: context.userId, name: data.name, content: html },
+        { onConflict: "user_id,name" },
+      )
       .select("id, name")
       .single();
     if (error) throw new Error(error.message);
@@ -252,5 +272,11 @@ export const saveInventorySop = createServerFn({ method: "POST" })
       throw new Error(`Saved the procedure, but linking it failed: ${linkError.message}`);
     }
 
-    return { ok: true as const, name: proc.name, linked: !linkError };
+    return {
+      ok: true as const,
+      name: proc.name,
+      linked: !linkError,
+      mode: data.mode,
+      appended: Boolean(existing) && data.mode === "append",
+    };
   });
