@@ -18,11 +18,17 @@ describe("rankModelTiers", () => {
     expect(recommendedModel(tiers)).toBe("gpt-4.1");
   });
 
-  it("ranks Ollama tags by parameter count", () => {
-    const tiers = rankModelTiers(["llama3.2:1b", "llama3.1:8b", "gpt-oss:120b"]);
+  it("ranks Ollama tags by parameter count and skips too-weak tags", () => {
+    const tiers = rankModelTiers([
+      "llama3.2:1b",
+      "llama3.1:8b",
+      "qwen2.5:32b",
+      "gpt-oss:120b",
+    ]);
     expect(tiers.best?.id).toBe("gpt-oss:120b");
-    expect(tiers.good?.id).toBe("llama3.2:1b");
-    expect(tiers.better?.id).toBe("llama3.1:8b");
+    // 1b is below the capability floor for structured-output work.
+    expect(tiers.good?.id).toBe("llama3.1:8b");
+    expect(tiers.better?.id).toBe("qwen2.5:32b");
   });
 
   it("returns empty tiers when nothing usable is listed", () => {
