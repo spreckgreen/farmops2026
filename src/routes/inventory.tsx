@@ -589,7 +589,7 @@ function InventoryPage() {
               <option value="group:assets">Single assets only</option>
               {availableTypes.map((t) => (
                 <option key={t.value} value={t.value}>
-                  {t.label}
+                  {t.label} ({t.count})
                 </option>
               ))}
             </select>
