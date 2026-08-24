@@ -4,10 +4,20 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { X, ScanLine, CheckCircle2, AlertTriangle } from "lucide-react";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { X, ScanLine, CheckCircle2, AlertTriangle, Check, ChevronsUpDown } from "lucide-react";
 import BarcodeScanner from "./BarcodeScanner";
 import type { Asset, AssetFormData } from "./types";
 import { INVENTORY_TYPES } from "@/lib/obsidian-layout";
+import { cn } from "@/lib/utils";
 
 /** Catalog value for the "32 Kits" inventory type (seeded in every environment). */
 const KIT_TYPE = "32_kits";
