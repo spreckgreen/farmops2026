@@ -343,3 +343,62 @@ export const listLinkTargets = createServerFn({ method: "GET" })
           .join(" · ") || r.id,
     }));
   });
+
+/** Repoint a flagged inventory link (part/consumable/missing item) at a
+ *  manual-eligible asset — equipment or ham radio gear — instead of deleting it. */
+export const relinkProcedureLink = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { id: string; inventoryItemId: string }) => {
+    if (!d?.id) throw new Error("id required");
+    if (!d?.inventoryItemId) throw new Error("inventoryItemId required");
+    return { id: String(d.id), inventoryItemId: String(d.inventoryItemId) };
+  })
+  .handler(async ({ context, data }) => {
+    const { data: item, error: itemErr } = await context.supabase
+      .from("inventory_items")
+      .select("id, name, item_type")
+      .eq("user_id", context.userId)
+      .eq("id", data.inventoryItemId)
+      .maybeSingle();
+    if (itemErr) throw new Error(itemErr.message);
+    const target = item as { id: string; name: string | null; item_type: string | null } | null;
+    if (!target) throw new Error("That inventory item was not found.");
+    if (!isManualEligibleType(target.item_type)) {
+      throw new Error(
+        isPartItemType(target.item_type)
+          ? `"${target.name || "Item"}" is a part/consumable. Pick equipment or ham radio gear instead.`
+          : `"${target.name || "Item"}" (${target.item_type || "no type"}) can't hold a manual. Pick equipment or ham radio gear.`,
+      );
+    }
+
+    const { data: linkRow, error: linkErr } = await context.supabase
+      .from("procedure_links")
+      .select("id, procedure_id, procedures(name)")
+      .eq("user_id", context.userId)
+      .eq("id", data.id)
+      .maybeSingle();
+    if (linkErr) throw new Error(linkErr.message);
+    const link = linkRow as { procedure_id: string; procedures: { name: string | null } | null } | null;
+    if (!link) throw new Error("Link not found.");
+
+    const { error } = await context.supabase
+      .from("procedure_links")
+      .update({ inventory_item_id: target.id, maintenance_record_id: null })
+      .eq("user_id", context.userId)
+      .eq("id", data.id);
+    if (error) {
+      if (/duplicate|unique/i.test(error.message))
+        throw new Error("This procedure is already linked to that item.");
+      throw new Error(error.message);
+    }
+
+    if (link.procedures?.name) {
+      await syncProcedureBodyLinks(
+        context.supabase,
+        context.userId,
+        link.procedures.name,
+        link.procedure_id,
+      );
+    }
+    return { ok: true as const, label: target.name || target.id };
+  });
