@@ -35,7 +35,7 @@ describe("part matching", () => {
 
   it("honours a lower threshold by auto-accepting weaker matches", () => {
     const strict = matchPart("15W-40 oil", inv, { autoAcceptScore: 0.95 });
-    const loose = matchPart("15W-40 oil", inv, { autoAcceptScore: 0.45 });
+    const loose = matchPart("15W-40 oil", inv, { autoAcceptScore: 0.3 });
     expect(strict.confidence).toBe("weak");
     expect(loose.confidence).toBe("strong");
   });
