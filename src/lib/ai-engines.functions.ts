@@ -145,6 +145,33 @@ export const setAiEngines = createServerFn({ method: "POST" })
       };
     }
 
+    // Reject a typed-in model that can't do what Bostead needs (e.g. legacy
+    // "gpt-4" has no JSON mode), so the failure shows up here instead of
+    // mid-job as "the model returned no schedule". Only enabled engines are
+    // checked — an off engine keeps whatever it had.
+    const { capabilityGap } = await import("./model-tiers");
+    const gapErrors: Record<string, { model: string }> = {};
+    let gapMessage: string | null = null;
+    for (const id of AI_ENGINE_IDS) {
+      const target = next.engines[id];
+      if (target.enabled === false) continue;
+      const model = (target.model ?? "").trim();
+      if (!model) continue;
+      const reason = capabilityGap(model);
+      if (!reason) continue;
+      const message = `${getAiEngineDef(id).label}: "${model}" can't be used — ${reason} Pick a compatible model (test the connection to see Good/Better/Best options).`;
+      gapErrors[id] = { model: message };
+      gapMessage ??= message;
+    }
+    if (gapMessage) {
+      return {
+        ok: false as const,
+        fieldErrors: gapErrors as typeof fieldErrors,
+        message: gapMessage,
+      };
+    }
+
+
     const warnings: string[] = [];
     const label = getAiEngineDef(next.cloudDefault).label;
 
