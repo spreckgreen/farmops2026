@@ -31,7 +31,28 @@ export function isPartItemType(itemType: string | null | undefined) {
  * storage rows are stock, not assets, so they never appear in asset pickers.
  */
 export function isServiceableAsset(item: { item_type?: string | null }) {
-  return isManualEligibleType(item.item_type);
+  // Kits are groupings, not serviceable machines — service the radio, not the kit.
+  return isManualEligibleType(item.item_type) && !isKitItemType(item.item_type);
+}
+
+/**
+ * Kits are groupings of other inventory (e.g. "Ham Radio Field Deployment Kit"
+ * = radio + antenna + batteries + spare connectors). They live in inventory but
+ * behave differently from single assets: they get checked out and back in.
+ */
+export const KIT_ITEM_TYPES = ["32_kits", "kit", "kits", "field_kit", "assembly"];
+
+export function isKitItemType(itemType: string | null | undefined) {
+  return KIT_ITEM_TYPES.includes((itemType ?? "").trim().toLowerCase());
+}
+
+export function isKitItem(item: { item_type?: string | null }) {
+  return isKitItemType(item.item_type);
+}
+
+/** A single asset: manual-eligible but not a kit. */
+export function isSingleAsset(item: { item_type?: string | null }) {
+  return isManualEligibleType(item.item_type) && !isKitItemType(item.item_type);
 }
 
 /**
@@ -41,12 +62,17 @@ export function isServiceableAsset(item: { item_type?: string | null }) {
  */
 export const MANUAL_ITEM_TYPES = [
   "30_equipment",
+  "32_kits",
   "23_2_ham_radio",
   // legacy / free-text values seen on older rows
   "equipment",
   "asset",
   "ham_radio",
   "radio",
+  "kit",
+  "kits",
+  "field_kit",
+  "assembly",
 ];
 
 export function isManualEligibleType(itemType: string | null | undefined) {
