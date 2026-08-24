@@ -26,6 +26,7 @@ import {
   deleteProcedure,
   type ProcedureRow,
 } from "@/lib/procedures.functions";
+import { backfillMaintenancePlanDocs } from "@/lib/maintenance-plan-backfill.functions";
 import { ProcedureLinks } from "@/components/procedure-links";
 import {
   isMaintenancePlan,
@@ -41,6 +42,7 @@ export function Procedures() {
   const saveHtmlFn = useServerFn(saveProcedureHtml);
   const renameFn = useServerFn(renameProcedure);
   const deleteFn = useServerFn(deleteProcedure);
+  const backfillFn = useServerFn(backfillMaintenancePlanDocs);
 
   const { data: wikis = [] } = useQuery<ProcedureRow[]>({
     queryKey: ["procedures"],
@@ -114,7 +116,30 @@ export function Procedures() {
     onError: (e) => toast.error(e instanceof Error ? e.message : String(e)),
   });
 
+  const backfillMut = useMutation({
+    mutationFn: () => backfillFn({ data: { overwrite: false } }),
+    onSuccess: (res) => {
+      if (!res.pages.length) {
+        toast.info(
+          res.skipped.length
+            ? `Plan pages already exist for ${res.skipped.length} asset${res.skipped.length === 1 ? "" : "s"}.`
+            : "No maintenance records found to build plans from.",
+        );
+      } else {
+        toast.success(
+          `Built ${res.pages.length} maintenance plan page${res.pages.length === 1 ? "" : "s"}` +
+            (res.skipped.length ? ` — ${res.skipped.length} already existed` : ""),
+        );
+        setTypeFilter("maintenance");
+        setSelected(res.pages[0].name);
+      }
+      invalidate();
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : String(e)),
+  });
+
   const deleteMut = useMutation({
+
     mutationFn: (name: string) => deleteFn({ data: { name } }),
     onSuccess: (_d, name) => {
       toast.success(`Deleted "${name}"`);
@@ -398,6 +423,17 @@ export function Procedures() {
           placeholder="Filter…"
           className="h-7 text-xs"
         />
+        <Button
+          size="sm"
+          variant="outline"
+          className="w-full text-[11px]"
+          onClick={() => backfillMut.mutate()}
+          disabled={backfillMut.isPending}
+          title="Create Maintenance plan pages from maintenance records that were generated before plan documents existed"
+        >
+          <Wand2 size={13}/> {backfillMut.isPending ? "Building…" : "Build plan pages"}
+        </Button>
+
         <div className="space-y-1">
           <select
             value={typeFilter}
