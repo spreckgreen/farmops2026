@@ -908,6 +908,107 @@ function Page() {
                 </div>
               )}
 
+              {/* Impact summary — exactly what this import will change */}
+              <div className="rounded-md border border-border bg-background p-4 space-y-3">
+                <p className="text-sm font-medium inline-flex items-center gap-2">
+                  <ClipboardList className="h-4 w-4" /> Import impact summary
+                  {loadingExisting && (
+                    <span className="text-xs text-muted-foreground font-normal">
+                      checking existing records…
+                    </span>
+                  )}
+                </p>
+
+                <div className="grid gap-2 sm:grid-cols-3 text-center">
+                  <div className="rounded-md border border-border p-2">
+                    <p className="text-lg font-semibold">{impact.newIntervals.length}</p>
+                    <p className="text-xs text-muted-foreground">
+                      new maintenance interval{impact.newIntervals.length === 1 ? "" : "s"}
+                    </p>
+                  </div>
+                  <div className="rounded-md border border-border p-2">
+                    <p className="text-lg font-semibold">{impact.overlapping.length}</p>
+                    <p className="text-xs text-muted-foreground">
+                      already scheduled on this asset
+                    </p>
+                  </div>
+                  <div className="rounded-md border border-border p-2">
+                    <p className="text-lg font-semibold">{impact.createdParts.length}</p>
+                    <p className="text-xs text-muted-foreground">
+                      inventory part{impact.createdParts.length === 1 ? "" : "s"} created
+                    </p>
+                  </div>
+                </div>
+
+                <ul className="text-xs space-y-2">
+                  {impact.newIntervals.length > 0 && (
+                    <li>
+                      <span className="font-medium">Created as new records:</span>{" "}
+                      {impact.newIntervals.join(", ")}
+                    </li>
+                  )}
+                  {impact.overlapping.length > 0 && (
+                    <li className="text-amber-600 dark:text-amber-500">
+                      <span className="font-medium inline-flex items-center gap-1">
+                        <AlertTriangle className="h-3.5 w-3.5" />
+                        Already on the schedule — importing adds a second record:
+                      </span>{" "}
+                      {impact.overlapping
+                        .map(
+                          (o) =>
+                            `${o.title}${
+                              o.existing.due_at ? ` (due ${o.existing.due_at})` : ""
+                            }`,
+                        )
+                        .join(", ")}
+                      . Uncheck those intervals above if you'd rather keep the existing
+                      ones.
+                    </li>
+                  )}
+                  {impact.createdParts.length > 0 && (
+                    <li>
+                      <span className="font-medium">
+                        Inventory items that will be created (0 on hand, reorder minimum set
+                        to what the service needs):
+                      </span>{" "}
+                      {impact.createdParts
+                        .map((p) => `${p.name} — ${p.quantity} ${p.unit}`)
+                        .join(", ")}
+                    </li>
+                  )}
+                  {impact.unstockedParts.length > 0 && (
+                    <li className="text-muted-foreground">
+                      <span className="font-medium">
+                        Not added to inventory (part creation is off):
+                      </span>{" "}
+                      {impact.unstockedParts.map((p) => p.name).join(", ")}
+                    </li>
+                  )}
+                  {impact.linkedParts.length > 0 && (
+                    <li>
+                      <span className="font-medium">
+                        Linked to parts you already stock:
+                      </span>{" "}
+                      {impact.linkedParts.join(", ")}
+                    </li>
+                  )}
+                  {(impact.skippedIntervals > 0 || impact.skippedPartCount > 0) && (
+                    <li className="text-muted-foreground">
+                      Skipped: {impact.skippedIntervals} interval
+                      {impact.skippedIntervals === 1 ? "" : "s"}, {impact.skippedPartCount}{" "}
+                      part{impact.skippedPartCount === 1 ? "" : "s"}
+                    </li>
+                  )}
+                  <li className="text-muted-foreground">
+                    Nothing is written until you press “Import to this asset”. Existing
+                    maintenance records and inventory quantities are never overwritten by
+                    this import.
+                  </li>
+                </ul>
+              </div>
+
+
+
               <div className="flex items-center justify-between gap-3">
                 <span className="text-xs text-muted-foreground">
                   Model: {plan.model} · {included.length} of {plan.intervals.length} interval
