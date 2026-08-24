@@ -61,9 +61,12 @@ export async function resolveEngine(
   let model = target.model ?? def.defaultModel ?? opts?.defaultModel ?? null;
 
   if (id === "local") {
-    // Deploy-level CUSTOM_AI_* still configures the local engine.
+    // Local Ollama does not authenticate. Never inherit a legacy cloud key
+    // from CUSTOM_AI_API_KEY or the saved local slot: an old Lovable/OpenAI
+    // credential here can make an otherwise healthy local request fail with
+    // "incorrect API key" after every cloud engine has been switched off.
     baseUrl = target.baseUrl ?? (await getServerEnv("CUSTOM_AI_BASE_URL")) ?? def.defaultBaseUrl;
-    apiKey = target.apiKey ?? (await getServerEnv("CUSTOM_AI_API_KEY")) ?? BUNDLED_OLLAMA_API_KEY;
+    apiKey = BUNDLED_OLLAMA_API_KEY;
     model = target.model ?? (await getServerEnv("CUSTOM_AI_MODEL")) ?? def.defaultModel!;
   }
 
