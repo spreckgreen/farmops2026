@@ -27,6 +27,12 @@ import {
   type ProcedureRow,
 } from "@/lib/procedures.functions";
 import { ProcedureLinks } from "@/components/procedure-links";
+import {
+  isMaintenancePlan,
+  parseProcedureMeta,
+  type ProcedureMeta,
+} from "@/lib/procedure-meta";
+
 
 export function Procedures() {
   const qc = useQueryClient();
@@ -47,7 +53,11 @@ export function Procedures() {
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState("");
   const [filter, setFilter] = useState("");
+  const [typeFilter, setTypeFilter] = useState<"all" | "maintenance" | "other">("all");
+  const [assetFilter, setAssetFilter] = useState("all");
+  const [intervalFilter, setIntervalFilter] = useState("all");
   const fileRef = useRef<HTMLInputElement>(null);
+
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ["procedures"] });
 
@@ -308,10 +318,50 @@ export function Procedures() {
     if (fileRef.current) fileRef.current.value = "";
   }
 
+  // --- Type / asset / interval filtering -------------------------------------
+  const meta = useMemo(() => {
+    const m = new Map<string, ProcedureMeta>();
+    for (const w of wikis) m.set(w.name, parseProcedureMeta(w.content));
+    return m;
+  }, [wikis]);
+
+  const plansOnly = typeFilter === "maintenance";
+  const assetOptions = useMemo(() => {
+    const s = new Set<string>();
+    for (const w of wikis) {
+      const md = meta.get(w.name);
+      if (md && isMaintenancePlan(md) && md.asset) s.add(md.asset);
+    }
+    return Array.from(s).sort((a, b) => a.localeCompare(b));
+  }, [wikis, meta]);
+
+  const intervalOptions = useMemo(() => {
+    const s = new Set<string>();
+    for (const w of wikis) {
+      const md = meta.get(w.name);
+      if (!md || !isMaintenancePlan(md)) continue;
+      if (assetFilter !== "all" && md.asset !== assetFilter) continue;
+      for (const i of md.intervals) s.add(i);
+    }
+    return Array.from(s).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  }, [wikis, meta, assetFilter]);
+
   const filtered = useMemo(
-    () => wikis.filter((w) => w.name.toLowerCase().includes(filter.toLowerCase())),
-    [wikis, filter],
+    () =>
+      wikis.filter((w) => {
+        if (!w.name.toLowerCase().includes(filter.toLowerCase())) return false;
+        const md = meta.get(w.name);
+        const isPlan = !!md && isMaintenancePlan(md);
+        if (typeFilter === "maintenance" && !isPlan) return false;
+        if (typeFilter === "other" && isPlan) return false;
+        if (plansOnly && assetFilter !== "all" && md?.asset !== assetFilter) return false;
+        if (plansOnly && intervalFilter !== "all" && !md?.intervals.includes(intervalFilter))
+          return false;
+        return true;
+      }),
+    [wikis, filter, meta, typeFilter, assetFilter, intervalFilter, plansOnly],
   );
+
 
   // Keep saved HTML's embedded title in sync after rename, by regenerating via builder
   // not necessary — server already rebuilds. Just need fresh content on next select.
@@ -348,6 +398,48 @@ export function Procedures() {
           placeholder="Filter…"
           className="h-7 text-xs"
         />
+        <div className="space-y-1">
+          <select
+            value={typeFilter}
+            onChange={(e) => {
+              const v = e.target.value as "all" | "maintenance" | "other";
+              setTypeFilter(v);
+              if (v !== "maintenance") { setAssetFilter("all"); setIntervalFilter("all"); }
+            }}
+            className="w-full h-7 rounded border border-border bg-background px-2 text-[11px] font-mono"
+            aria-label="Filter by document type"
+          >
+            <option value="all">All types</option>
+            <option value="maintenance">Maintenance plans</option>
+            <option value="other">Other procedures</option>
+          </select>
+          {plansOnly && (
+            <>
+              <select
+                value={assetFilter}
+                onChange={(e) => { setAssetFilter(e.target.value); setIntervalFilter("all"); }}
+                className="w-full h-7 rounded border border-border bg-background px-2 text-[11px] font-mono"
+                aria-label="Filter maintenance plans by asset"
+              >
+                <option value="all">All assets ({assetOptions.length})</option>
+                {assetOptions.map((a) => (
+                  <option key={a} value={a}>{a}</option>
+                ))}
+              </select>
+              <select
+                value={intervalFilter}
+                onChange={(e) => setIntervalFilter(e.target.value)}
+                className="w-full h-7 rounded border border-border bg-background px-2 text-[11px] font-mono"
+                aria-label="Filter maintenance plans by service interval"
+              >
+                <option value="all">All intervals</option>
+                {intervalOptions.map((i) => (
+                  <option key={i} value={i}>{i}</option>
+                ))}
+              </select>
+            </>
+          )}
+        </div>
         <ul className="space-y-0.5 max-h-[420px] overflow-y-auto">
           {filtered.map((w) => (
             <li key={w.name}>
@@ -361,9 +453,21 @@ export function Procedures() {
               >
                 <FileText size={12}/>
                 <span className="flex-1 truncate">{w.name}</span>
+                {(() => {
+                  const md = meta.get(w.name);
+                  return md && isMaintenancePlan(md) ? (
+                    <span
+                      className="shrink-0 rounded bg-primary/10 text-primary px-1 text-[9px] uppercase tracking-wide"
+                      title={`Maintenance plan${md.asset ? ` — ${md.asset}` : ""}`}
+                    >
+                      plan
+                    </span>
+                  ) : null;
+                })()}
               </button>
             </li>
           ))}
+
           {!filtered.length && (
             <li className="text-[11px] text-muted-foreground italic px-2 py-3 text-center">
               {wikis.length ? "No matches" : "No procedures yet"}
