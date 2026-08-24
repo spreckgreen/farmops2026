@@ -22,6 +22,13 @@ export interface EngineTestResult {
   /** Model ids the endpoint advertises (capped), when it lists any. */
   modelsSeen: string[];
   modelFound: boolean | null;
+  /**
+   * Good / Better / Best picks for Bostead's cloud AI features, derived from
+   * the model list the endpoint advertises. Null when it lists nothing.
+   */
+  tiers?: ModelTiers | null;
+  /** The tier Bostead pre-selects (Better). Null when no models were listed. */
+  recommendedModel?: string | null;
   latencyMs: number | null;
   httpStatus: number | null;
 }
