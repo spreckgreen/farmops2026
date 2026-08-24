@@ -255,42 +255,52 @@ export function EditMaintenanceDialog({
           {asset ? (
             <>
               <p className="text-xs text-muted-foreground mb-3">
-                {asset.name} — currently {asset.current_hours ?? 0} h / {asset.current_miles ?? 0} mi.
-                Saving a new reading records a usage snapshot used by forecasting.
+                {asset.name} — tracks {asset.usage_tracking ?? "none"}; currently{" "}
+                {asset.current_hours ?? 0} h / {asset.current_miles ?? 0} mi. Saving a new reading
+                records a usage snapshot used by forecasting.
               </p>
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label htmlFor="edit-hours" className="text-xs text-muted-foreground">
-                    Hours of usage
-                  </Label>
-                  <Input
-                    id="edit-hours"
-                    type="number"
-                    step="0.1"
-                    value={hours}
-                    onChange={(e) => setHours(e.target.value)}
-                    className="mt-1 bg-card/60 border-border"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="edit-miles" className="text-xs text-muted-foreground">
-                    Miles
-                  </Label>
-                  <Input
-                    id="edit-miles"
-                    type="number"
-                    step="0.1"
-                    value={miles}
-                    onChange={(e) => setMiles(e.target.value)}
-                    className="mt-1 bg-card/60 border-border"
-                  />
-                </div>
+                {showHours && (
+                  <div>
+                    <Label htmlFor="edit-hours" className="text-xs text-muted-foreground">
+                      Hours of usage
+                    </Label>
+                    <Input
+                      id="edit-hours"
+                      type="number"
+                      step="0.1"
+                      value={hours}
+                      onChange={(e) => setHours(e.target.value)}
+                      className="mt-1 bg-card/60 border-border"
+                    />
+                  </div>
+                )}
+                {showMiles && (
+                  <div>
+                    <Label htmlFor="edit-miles" className="text-xs text-muted-foreground">
+                      Miles
+                    </Label>
+                    <Input
+                      id="edit-miles"
+                      type="number"
+                      step="0.1"
+                      value={miles}
+                      onChange={(e) => setMiles(e.target.value)}
+                      className="mt-1 bg-card/60 border-border"
+                    />
+                  </div>
+                )}
+                {!showHours && !showMiles && (
+                  <p className="col-span-2 text-xs text-muted-foreground">
+                    This item’s usage tracking is set to “none”. Set it to hours or miles under
+                    Inventory to log readings.
+                  </p>
+                )}
               </div>
             </>
           ) : (
             <p className="text-xs text-muted-foreground">
-              No matching inventory item for “{form.asset_name || "—"}”. Add it under Inventory to
-              track hours and miles.
+              No equipment linked yet. Pick the asset above to log hours or miles.
             </p>
           )}
         </div>
