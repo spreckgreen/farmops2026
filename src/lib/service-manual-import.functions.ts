@@ -176,7 +176,7 @@ export const parseServiceManual = createServerFn({ method: "POST" })
         let escalation: AiEscalation | null = null;
 
         const { generateText, Output, NoObjectGeneratedError } = await import("ai");
-        const { extractJsonObject } = await import("./ai-json");
+        const { extractJsonObject, isStructuredOutputUnsupported } = await import("./ai-json");
 
         const schema = z.object({
           manual_summary: z.string(),
@@ -212,8 +212,21 @@ export const parseServiceManual = createServerFn({ method: "POST" })
           return res.data;
         }
 
+        const JSON_ONLY_SYSTEM =
+          SYSTEM_PROMPT +
+          "\n\nRespond with ONLY a JSON object, no prose, no markdown fences, " +
+          'shaped exactly as: {"manual_summary": string, "intervals": ' +
+          '[{"name": string, "trigger_type": "hours"|"miles"|"months", ' +
+          '"interval_value": number, "tasks": string[], "parts": ' +
+          '[{"name": string, "quantity": number, "unit": string}], ' +
+          '"notes": string|null}], "citations": string[]}';
+
         let parsed: z.infer<typeof Lenient> | null = null;
         let failureReason = "";
+        // Legacy models (OpenAI gpt-4, some Ollama tags) reject response_format
+        // entirely — that's a capability gap, not a bad manual, so we retry as
+        // plain text and never report the raw parameter error as the outcome.
+        let noJsonMode = false;
         try {
           const { output } = await generateText({
             model: provider(modelId),
@@ -226,6 +239,9 @@ export const parseServiceManual = createServerFn({ method: "POST" })
           if (NoObjectGeneratedError.isInstance(error)) {
             parsed = coerce(extractJsonObject(String(error.text ?? "")));
             failureReason = "structured output rejected by model";
+          } else if (isStructuredOutputUnsupported(error)) {
+            noJsonMode = true;
+            failureReason = "";
           } else {
             failureReason = error instanceof Error ? error.message : String(error);
           }
@@ -235,20 +251,29 @@ export const parseServiceManual = createServerFn({ method: "POST" })
           try {
             const { text } = await generateText({
               model: provider(modelId),
-              system:
-                SYSTEM_PROMPT +
-                "\n\nRespond with ONLY a JSON object, no prose, no markdown fences, " +
-                'shaped exactly as: {"manual_summary": string, "intervals": ' +
-                '[{"name": string, "trigger_type": "hours"|"miles"|"months", ' +
-                '"interval_value": number, "tasks": string[], "parts": ' +
-                '[{"name": string, "quantity": number, "unit": string}], ' +
-                '"notes": string|null}], "citations": string[]}',
+              system: JSON_ONLY_SYSTEM,
               prompt: userPrompt,
             });
             parsed = coerce(extractJsonObject(text));
-            if (!parsed && !failureReason) failureReason = "model returned no JSON";
+            failureReason = parsed ? "" : "model returned no usable JSON";
           } catch (error) {
             failureReason = error instanceof Error ? error.message : String(error);
+          }
+        }
+
+        // A long manual can also simply overflow a small context window; one
+        // more plain-text pass on a trimmed manual before giving up.
+        if (!parsed && data.manual_text.length > 24000) {
+          try {
+            const { text } = await generateText({
+              model: provider(modelId),
+              system: JSON_ONLY_SYSTEM,
+              prompt: `${userPrompt.slice(0, 24000)}\n\n[manual truncated]`,
+            });
+            parsed = coerce(extractJsonObject(text));
+            if (parsed) failureReason = "";
+          } catch {
+            // keep the earlier reason
           }
         }
 
@@ -263,6 +288,7 @@ export const parseServiceManual = createServerFn({ method: "POST" })
             provider = hosted.provider;
             modelId = hosted.modelId;
             escalation = hosted.escalation;
+            noJsonMode = false;
             try {
               const { output } = await generateText({
                 model: provider(modelId),
@@ -283,11 +309,16 @@ export const parseServiceManual = createServerFn({ method: "POST" })
             plan_id: crypto.randomUUID(),
             asset_id: asset.id,
             asset_name: assetLabel,
-            summary:
-              `Model "${modelId}" could not extract service intervals from that manual` +
-              (failureReason ? ` (${failureReason}).` : ".") +
-              " Try a larger model for the service-schedule area, or trim the manual to" +
-              " its Service Intervals section.",
+            summary: noJsonMode
+              ? `Model "${modelId}" doesn't support JSON output and its plain-text answer ` +
+                "wasn't usable" +
+                (failureReason ? ` (${failureReason}).` : ".") +
+                ' Pick a newer model for this engine — e.g. "gpt-4.1", "gpt-4o" or ' +
+                '"gpt-5.6-sol" on OpenAI, or a 32B+ tag on Ollama — in Admin → AI Engines.'
+              : `Model "${modelId}" could not extract service intervals from that manual` +
+                (failureReason ? ` (${failureReason}).` : ".") +
+                " Try a larger model for the service-schedule area, or trim the manual to" +
+                " its Service Intervals section.",
             intervals: [],
             citations: [],
             model: modelId,
