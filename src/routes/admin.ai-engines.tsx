@@ -634,6 +634,43 @@ function AiEnginesPage() {
                             )}
                           </div>
                         )}
+                        {(tests[def.id]?.tiers?.incompatible.length ?? 0) > 0 && (
+                          <div className="space-y-1">
+                            <p className="text-xs font-medium">
+                              Not compatible with Bostead's AI features
+                            </p>
+                            <ul className="space-y-1">
+                              {tests[def.id]?.tiers?.incompatible.map((m) => (
+                                <li
+                                  key={m.id}
+                                  className="flex flex-wrap items-center gap-2 rounded-md border border-dashed bg-muted/40 px-2 py-1 text-xs opacity-80"
+                                >
+                                  <span
+                                    aria-disabled="true"
+                                    className="font-mono line-through decoration-muted-foreground/60"
+                                  >
+                                    {m.id}
+                                  </span>
+                                  <Badge variant="outline" className="text-[10px]">
+                                    Compatibility gap
+                                  </Badge>
+                                  <span className="text-muted-foreground">{m.reason}</span>
+                                </li>
+                              ))}
+                            </ul>
+                            <p className="text-[11px] text-muted-foreground">
+                              These are served by the provider but can't be selected here —
+                              they fail structured (JSON) extraction.
+                            </p>
+                          </div>
+                        )}
+                        {capabilityGap(d.model.trim()) && (
+                          <p className="rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-xs text-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+                            <code className="font-mono">{d.model.trim()}</code> has a
+                            compatibility gap: {capabilityGap(d.model.trim())} Pick a tier
+                            below instead.
+                          </p>
+                        )}
                         {tests[def.id]?.tiers?.better && (
                           <div className="space-y-2 rounded-md border bg-background/60 p-2">
                             <p className="text-xs font-medium">
