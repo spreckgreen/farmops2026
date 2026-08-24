@@ -272,7 +272,9 @@ export async function testAiEngine(
     // 404/405 on /models is normal for some gateways — fall
     // through to a 1-token completion instead of reporting a failure.
     if (res.status !== 404 && res.status !== 405) {
-      const { title, hint } = describeHttpStatus(res.status, listMessage, def.label);
+      const { title, hint: baseHint } = describeHttpStatus(res.status, listMessage, def.label);
+      const hint =
+        res.status === 401 || res.status === 403 ? `${baseHint} ${keyNote}` : baseHint;
       return {
         ok: false,
         title,
@@ -339,7 +341,9 @@ export async function testAiEngine(
         httpStatus: res.status,
       };
     }
-    const { title, hint } = describeHttpStatus(res.status, apiMessage, def.label);
+    const { title, hint: baseHint } = describeHttpStatus(res.status, apiMessage, def.label);
+    const hint =
+      res.status === 401 || res.status === 403 ? `${baseHint} ${keyNote}` : baseHint;
     return {
       ok: false,
       title,
