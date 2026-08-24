@@ -40,7 +40,13 @@ type AssetUsage = {
   current_hours: number | null;
   current_miles: number | null;
   usage_tracking: string | null;
+  item_type: string | null;
 };
+
+/** Parts / consumables are stock, not serviceable assets — keep them out. */
+const PART_TYPES = ["part", "parts", "consumable", "consumables", "supply", "supplies"];
+const isServiceableAsset = (a: { item_type: string | null }) =>
+  !PART_TYPES.includes((a.item_type ?? "").trim().toLowerCase());
 
 const dateOnly = (v: unknown) => (v ? String(v).slice(0, 10) : "");
 
