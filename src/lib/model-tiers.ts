@@ -206,3 +206,11 @@ export function rankModelTiers(modelIds: readonly string[]): ModelTiers {
 export function recommendedModel(tiers: ModelTiers): string | null {
   return tiers.better?.id ?? tiers.best?.id ?? tiers.good?.id ?? null;
 }
+
+/** Return which Good/Better/Best tier a model id belongs to, if any. */
+export function tierForModel(modelId: string, tiers: ModelTiers): ModelTier | null {
+  if (tiers.good?.id === modelId) return "good";
+  if (tiers.better?.id === modelId) return "better";
+  if (tiers.best?.id === modelId) return "best";
+  return null;
+}
