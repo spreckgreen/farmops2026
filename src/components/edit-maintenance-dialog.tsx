@@ -89,32 +89,47 @@ export function EditMaintenanceDialog({
     });
     setHours("");
     setMiles("");
-    setAsset(null);
   }, [record]);
 
-  // Look up the linked equipment so usage readings can be logged inline.
+  // Load equipment so the record can be linked explicitly by id (names drift).
   useEffect(() => {
     if (!record) return;
     let cancelled = false;
     (async () => {
-      const base = supabase
+      const { data, error } = await supabase
         .from("inventory_items")
-        .select("id, name, current_hours, current_miles, usage_tracking");
-      const q = record.asset_id
-        ? base.eq("id", record.asset_id)
-        : base.ilike("name", record.asset_name ?? "___none___");
-      const { data, error } = await q.limit(1).maybeSingle();
-      if (!cancelled && !error && data) {
-        const a = data as AssetUsage;
-        setAsset(a);
-        setHours(a.current_hours != null ? String(a.current_hours) : "");
-        setMiles(a.current_miles != null ? String(a.current_miles) : "");
+        .select("id, name, current_hours, current_miles, usage_tracking")
+        .order("name", { ascending: true })
+        .limit(1000);
+      if (cancelled || error || !data) return;
+      const list = data as AssetUsage[];
+      setAssets(list);
+
+      const wanted = (record.asset_name ?? "").trim().toLowerCase();
+      const match =
+        (record.asset_id && list.find((a) => a.id === record.asset_id)) ||
+        list.find((a) => (a.name ?? "").trim().toLowerCase() === wanted) ||
+        list.find(
+          (a) => wanted.length > 3 && (a.name ?? "").trim().toLowerCase().includes(wanted),
+        ) ||
+        null;
+      setAssetId(match?.id ?? "");
+      if (match) {
+        setHours(match.current_hours != null ? String(match.current_hours) : "");
+        setMiles(match.current_miles != null ? String(match.current_miles) : "");
       }
     })();
     return () => {
       cancelled = true;
     };
   }, [record]);
+
+  // Keep readings in sync when the user switches the linked asset.
+  useEffect(() => {
+    if (!asset) return;
+    setHours(asset.current_hours != null ? String(asset.current_hours) : "");
+    setMiles(asset.current_miles != null ? String(asset.current_miles) : "");
+  }, [assetId]);
 
   const save = useMutation({
     mutationFn: async () => {
