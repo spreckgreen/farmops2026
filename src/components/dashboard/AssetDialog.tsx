@@ -306,27 +306,10 @@ const AssetDialog = ({ open, onOpenChange, onSave, asset }: AssetDialogProps) =>
             </div>
             <div className="col-span-2 space-y-2">
               <Label>Inventory Type</Label>
-              <select
+              <InventoryTypeCombobox
                 value={form.item_type}
-                onChange={(e) => setForm({ ...form, item_type: e.target.value })}
-                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
-              >
-                <option value="">— Unclassified —</option>
-                <optgroup label="Kits & assemblies">
-                  {INVENTORY_TYPES.filter((t) => t.value === KIT_TYPE).map((t) => (
-                    <option key={t.value} value={t.value}>
-                      {t.label}
-                    </option>
-                  ))}
-                </optgroup>
-                <optgroup label="All inventory types">
-                  {INVENTORY_TYPES.filter((t) => t.value !== KIT_TYPE).map((t) => (
-                    <option key={t.value} value={t.value}>
-                      {t.label}
-                    </option>
-                  ))}
-                </optgroup>
-              </select>
+                onChange={(value) => setForm({ ...form, item_type: value })}
+              />
               <div className="flex items-center justify-between gap-2">
                 <p className="text-[11px] text-muted-foreground">
                   Controls the Obsidian vault subfolder this item syncs into.
