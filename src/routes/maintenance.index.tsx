@@ -24,6 +24,7 @@ import {
   Stethoscope,
   Sparkles,
   Loader2,
+  BookOpenText,
 } from "lucide-react";
 import { toast } from "sonner";
 import { rowsToCsv, downloadCsv } from "@/lib/csv";
