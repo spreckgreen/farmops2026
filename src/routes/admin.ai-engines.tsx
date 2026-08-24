@@ -112,15 +112,18 @@ function AiEnginesPage() {
       const stored = data.config.engines[def.id];
       next[def.id] = {
         enabled: stored.enabled,
-        baseUrl: stored.baseUrl ?? "",
+        // Nothing saved yet → pre-fill the known-good default so the operator
+        // only has to correct it, never type it from scratch.
+        baseUrl: stored.baseUrl ?? def.defaultBaseUrl ?? "",
         apiKey: "",
         keyTouched: false,
-        model: stored.model ?? "",
+        model: stored.model ?? def.defaultModel ?? "",
       };
     }
     setDrafts(next);
     setCloudDefault(data.config.cloudDefault);
   }, [data]);
+
 
   const [tests, setTests] = useState<Partial<Record<AiEngineId, EngineTestResult>>>({});
   const [testing, setTesting] = useState<AiEngineId | null>(null);
