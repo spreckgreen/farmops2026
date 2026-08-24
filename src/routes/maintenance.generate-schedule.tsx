@@ -9,6 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { requireAuthenticatedUser } from "@/lib/auth-route";
 import { listInventory } from "@/lib/inventory.functions";
+import { isServiceableAsset } from "@/lib/asset-types";
 import { planMaintenanceSchedule } from "@/lib/maintenance-schedule-planner.functions";
 import {
   listExistingSchedules,
@@ -64,7 +65,7 @@ function Page() {
   });
 
   const isLikelyAsset = (i: (typeof inventory)[number]) =>
-    i.item_type === "asset" ||
+    isServiceableAsset(i as { item_type?: string | null }) ||
     Number(i.current_hours ?? 0) > 0 ||
     Number(i.current_miles ?? 0) > 0 ||
     (i.usage_tracking ?? "none") !== "none";
@@ -72,9 +73,10 @@ function Page() {
   const byName = (a: (typeof inventory)[number], b: (typeof inventory)[number]) =>
     (a.name ?? a.sku ?? "").localeCompare(b.name ?? b.sku ?? "");
 
+  // Only equipment / ham radio gear (or items already tracking usage) can be
+  // serviced — parts, consumables, feed and plants never show up here.
   const trackedAssets = inventory.filter(isLikelyAsset).sort(byName);
-  const otherItems = inventory.filter((i) => !isLikelyAsset(i)).sort(byName);
-  const displayAssets = [...trackedAssets, ...otherItems];
+  const displayAssets = trackedAssets;
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [filter, setFilter] = useState("");
