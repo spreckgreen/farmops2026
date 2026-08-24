@@ -306,6 +306,59 @@ function Page() {
     return [...map.values()];
   }, [included]);
 
+  // ---- Import impact summary -------------------------------------------
+  // Existing open maintenance records on this asset, so we can say up front
+  // which intervals are brand new and which ones already have a record.
+  const { data: existingSchedules = [], isFetching: loadingExisting } = useQuery({
+    queryKey: ["existing-schedules", plan?.asset_id],
+    queryFn: () => existingFn({ data: { asset_ids: [plan!.asset_id] } }),
+    enabled: Boolean(plan?.asset_id),
+  });
+
+  const impact = useMemo(() => {
+    const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
+    const existingTitles = new Map<string, ExistingScheduleEntry>();
+    for (const row of existingSchedules) {
+      const t = row.title ?? row.service_type ?? "";
+      if (t) existingTitles.set(norm(t), row);
+    }
+
+    const newIntervals: string[] = [];
+    const overlapping: { title: string; existing: ExistingScheduleEntry }[] = [];
+    for (const iv of included) {
+      const hit = existingTitles.get(norm(iv.title));
+      if (hit) overlapping.push({ title: iv.title, existing: hit });
+      else newIntervals.push(iv.title);
+    }
+
+    // Parts: split into "link to an item you already stock" vs "create new".
+    const linked = new Map<string, string>();
+    for (const iv of included) {
+      for (const p of iv.parts) {
+        if (!p.inventory_item_id) continue;
+        linked.set(p.inventory_item_id, p.matched_name ?? p.name);
+      }
+    }
+
+    const skippedIntervals = (plan?.intervals.length ?? 0) - included.length;
+    const skippedPartCount = (plan?.intervals ?? []).reduce(
+      (n, iv) => n + iv.parts.length,
+      0,
+    ) - included.reduce((n, iv) => n + iv.parts.length, 0);
+
+    return {
+      newIntervals,
+      overlapping,
+      linkedParts: [...linked.values()],
+      createdParts: createParts ? newParts : [],
+      unstockedParts: createParts ? [] : newParts,
+      skippedIntervals,
+      skippedPartCount,
+    };
+  }, [included, existingSchedules, plan, createParts, newParts]);
+
+
+
 
   const applyMut = useMutation({
     mutationFn: async () => {
