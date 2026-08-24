@@ -24,6 +24,7 @@ import {
   Stethoscope,
   Sparkles,
   Loader2,
+  BookOpenText,
 } from "lucide-react";
 import { toast } from "sonner";
 import { rowsToCsv, downloadCsv } from "@/lib/csv";
@@ -160,6 +161,7 @@ function MaintenancePage() {
   const forecastEnabled = useAiFeatureEnabled("maintenance.forecast");
   const scheduleEnabled = useAiFeatureEnabled("maintenance.generate-schedule");
   const diagnoseEnabled = useAiFeatureEnabled("maintenance.diagnose");
+  const importManualEnabled = useAiFeatureEnabled("maintenance.import-manual");
 
 
 
@@ -254,6 +256,20 @@ function MaintenancePage() {
                   {pendingTo === "/maintenance/generate-schedule"
                     ? "Opening…"
                     : "Generate schedule"}
+                </Link>
+              )}
+              {importManualEnabled && (
+                <Link
+                  to="/maintenance/import-manual"
+                  aria-busy={pendingTo === "/maintenance/import-manual"}
+                  className="inline-flex items-center gap-1 rounded-md border border-primary/40 text-primary hover:bg-primary/10 px-3 py-2 text-sm font-medium aria-[busy=true]:opacity-60 aria-[busy=true]:pointer-events-none"
+                >
+                  {pendingTo === "/maintenance/import-manual" ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <BookOpenText className="h-4 w-4" />
+                  )}
+                  Import manual
                 </Link>
               )}
               {diagnoseEnabled && (

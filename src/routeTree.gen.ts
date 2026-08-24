@@ -37,6 +37,7 @@ import { Route as SettingsTroubleshootingRouteImport } from './routes/settings.t
 import { Route as SettingsSelfHostRouteImport } from './routes/settings.self-host'
 import { Route as ProceduresIngestRouteImport } from './routes/procedures.ingest'
 import { Route as NotesDateRouteImport } from './routes/notes.$date'
+import { Route as MaintenanceImportManualRouteImport } from './routes/maintenance.import-manual'
 import { Route as MaintenanceGenerateScheduleRouteImport } from './routes/maintenance.generate-schedule'
 import { Route as MaintenanceForecastRouteImport } from './routes/maintenance.forecast'
 import { Route as MaintenanceDiagnoseRouteImport } from './routes/maintenance.diagnose'
@@ -212,6 +213,11 @@ const NotesDateRoute = NotesDateRouteImport.update({
   id: '/notes/$date',
   path: '/notes/$date',
   getParentRoute: () => rootRouteImport,
+} as any)
+const MaintenanceImportManualRoute = MaintenanceImportManualRouteImport.update({
+  id: '/import-manual',
+  path: '/import-manual',
+  getParentRoute: () => MaintenanceRoute,
 } as any)
 const MaintenanceGenerateScheduleRoute =
   MaintenanceGenerateScheduleRouteImport.update({
@@ -438,6 +444,7 @@ export interface FileRoutesByFullPath {
   '/maintenance/diagnose': typeof MaintenanceDiagnoseRoute
   '/maintenance/forecast': typeof MaintenanceForecastRoute
   '/maintenance/generate-schedule': typeof MaintenanceGenerateScheduleRoute
+  '/maintenance/import-manual': typeof MaintenanceImportManualRoute
   '/notes/$date': typeof NotesDateRoute
   '/procedures/ingest': typeof ProceduresIngestRoute
   '/settings/self-host': typeof SettingsSelfHostRoute
@@ -500,6 +507,7 @@ export interface FileRoutesByTo {
   '/maintenance/diagnose': typeof MaintenanceDiagnoseRoute
   '/maintenance/forecast': typeof MaintenanceForecastRoute
   '/maintenance/generate-schedule': typeof MaintenanceGenerateScheduleRoute
+  '/maintenance/import-manual': typeof MaintenanceImportManualRoute
   '/notes/$date': typeof NotesDateRoute
   '/procedures/ingest': typeof ProceduresIngestRoute
   '/settings/self-host': typeof SettingsSelfHostRoute
@@ -566,6 +574,7 @@ export interface FileRoutesById {
   '/maintenance/diagnose': typeof MaintenanceDiagnoseRoute
   '/maintenance/forecast': typeof MaintenanceForecastRoute
   '/maintenance/generate-schedule': typeof MaintenanceGenerateScheduleRoute
+  '/maintenance/import-manual': typeof MaintenanceImportManualRoute
   '/notes/$date': typeof NotesDateRoute
   '/procedures/ingest': typeof ProceduresIngestRoute
   '/settings/self-host': typeof SettingsSelfHostRoute
@@ -633,6 +642,7 @@ export interface FileRouteTypes {
     | '/maintenance/diagnose'
     | '/maintenance/forecast'
     | '/maintenance/generate-schedule'
+    | '/maintenance/import-manual'
     | '/notes/$date'
     | '/procedures/ingest'
     | '/settings/self-host'
@@ -695,6 +705,7 @@ export interface FileRouteTypes {
     | '/maintenance/diagnose'
     | '/maintenance/forecast'
     | '/maintenance/generate-schedule'
+    | '/maintenance/import-manual'
     | '/notes/$date'
     | '/procedures/ingest'
     | '/settings/self-host'
@@ -760,6 +771,7 @@ export interface FileRouteTypes {
     | '/maintenance/diagnose'
     | '/maintenance/forecast'
     | '/maintenance/generate-schedule'
+    | '/maintenance/import-manual'
     | '/notes/$date'
     | '/procedures/ingest'
     | '/settings/self-host'
@@ -1023,6 +1035,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/notes/$date'
       preLoaderRoute: typeof NotesDateRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/maintenance/import-manual': {
+      id: '/maintenance/import-manual'
+      path: '/import-manual'
+      fullPath: '/maintenance/import-manual'
+      preLoaderRoute: typeof MaintenanceImportManualRouteImport
+      parentRoute: typeof MaintenanceRoute
     }
     '/maintenance/generate-schedule': {
       id: '/maintenance/generate-schedule'
@@ -1321,6 +1340,7 @@ interface MaintenanceRouteChildren {
   MaintenanceDiagnoseRoute: typeof MaintenanceDiagnoseRoute
   MaintenanceForecastRoute: typeof MaintenanceForecastRoute
   MaintenanceGenerateScheduleRoute: typeof MaintenanceGenerateScheduleRoute
+  MaintenanceImportManualRoute: typeof MaintenanceImportManualRoute
   MaintenanceIndexRoute: typeof MaintenanceIndexRoute
 }
 
@@ -1328,6 +1348,7 @@ const MaintenanceRouteChildren: MaintenanceRouteChildren = {
   MaintenanceDiagnoseRoute: MaintenanceDiagnoseRoute,
   MaintenanceForecastRoute: MaintenanceForecastRoute,
   MaintenanceGenerateScheduleRoute: MaintenanceGenerateScheduleRoute,
+  MaintenanceImportManualRoute: MaintenanceImportManualRoute,
   MaintenanceIndexRoute: MaintenanceIndexRoute,
 }
 
