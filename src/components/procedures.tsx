@@ -26,6 +26,7 @@ import {
   deleteProcedure,
   type ProcedureRow,
 } from "@/lib/procedures.functions";
+import { backfillMaintenancePlanDocs } from "@/lib/maintenance-plan-backfill.functions";
 import { ProcedureLinks } from "@/components/procedure-links";
 import {
   isMaintenancePlan,
@@ -41,6 +42,7 @@ export function Procedures() {
   const saveHtmlFn = useServerFn(saveProcedureHtml);
   const renameFn = useServerFn(renameProcedure);
   const deleteFn = useServerFn(deleteProcedure);
+  const backfillFn = useServerFn(backfillMaintenancePlanDocs);
 
   const { data: wikis = [] } = useQuery<ProcedureRow[]>({
     queryKey: ["procedures"],
