@@ -176,7 +176,7 @@ export const parseServiceManual = createServerFn({ method: "POST" })
         let escalation: AiEscalation | null = null;
 
         const { generateText, Output, NoObjectGeneratedError } = await import("ai");
-        const { extractJsonObject } = await import("./ai-json");
+        const { extractJsonObject, isStructuredOutputUnsupported } = await import("./ai-json");
 
         const schema = z.object({
           manual_summary: z.string(),
