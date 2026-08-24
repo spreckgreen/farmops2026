@@ -161,7 +161,29 @@ function Page() {
     },
   });
 
-  const included = plan?.intervals.filter((iv) => !skipped[iv.key]) ?? [];
+  const included = useMemo(
+    () =>
+      (plan?.intervals ?? [])
+        .filter((iv) => !skipped[iv.key])
+        .map((iv) => ({
+          ...iv,
+          parts: iv.parts.filter((_, i) => !skippedParts[partKey(iv.key, i)]),
+        })),
+    [plan, skipped, skippedParts],
+  );
+  const selectAll = (on: boolean) => {
+    if (!plan) return;
+    const ivs: Record<string, boolean> = {};
+    const parts: Record<string, boolean> = {};
+    for (const iv of plan.intervals) {
+      ivs[iv.key] = !on;
+      iv.parts.forEach((_, i) => {
+        parts[partKey(iv.key, i)] = !on;
+      });
+    }
+    setSkipped(ivs);
+    setSkippedParts(parts);
+  };
   const newParts = useMemo(() => {
     const map = new Map<string, { name: string; quantity: number; unit: string }>();
     for (const iv of included) {
@@ -175,6 +197,7 @@ function Page() {
     }
     return [...map.values()];
   }, [included]);
+
 
   const applyMut = useMutation({
     mutationFn: async () => {
