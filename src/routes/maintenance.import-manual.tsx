@@ -92,6 +92,8 @@ function Page() {
   const listInv = useServerFn(listInventory);
   const parseFn = useServerFn(parseServiceManual);
   const applyFn = useServerFn(applyServiceManualImport);
+  const docFn = useServerFn(importManualDocument);
+
 
   const { data: inventory = [] } = useQuery({
     queryKey: ["inventory"],
