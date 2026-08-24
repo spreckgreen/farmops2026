@@ -304,18 +304,7 @@ export const SLIDES: Slide[] = [
     covers: ["Food hub", "Garden", "Orchard", "Livestock", "Storage", "Irrigation"],
   },
   {
-    kind: "shot",
-    kicker: "Section 4 · Food",
-    title: "The food hub",
-    route: "/food",
-    image: food,
-    steps: [
-      "One entry point for growing, raising, preserving, and storing.",
-      "Each area keeps its own records but reports roll up together.",
-      "Start with whatever you already do — one bed or one flock is fine.",
-      "Seasons and prices pages tune the plan as costs move.",
-    ],
-  },
+
   {
     kind: "shot",
     kicker: "Section 4 · Food",
