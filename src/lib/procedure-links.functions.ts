@@ -2,6 +2,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { buildTinyWikiHtml } from "@/lib/tinywiki";
+import { isManualEligibleType, isPartItemType } from "@/lib/asset-types";
 import {
   composeBodyWithLinks,
   extractBodyFromHtml,
@@ -20,11 +21,19 @@ export interface ProcedureLinkRow {
   target_label: string;
   notes: string | null;
   created_at: string;
+  /** True when this link points at a part/consumable (or an item type that can
+   *  no longer hold a manual). The link still works — it is flagged so it can be
+   *  relinked to equipment or ham radio gear instead of silently breaking. */
+  needs_relink?: boolean;
+  relink_reason?: string | null;
+  target_item_type?: string | null;
 }
 
 export interface LinkTargetOption {
   id: string;
   label: string;
+  itemType?: string | null;
+  manualEligible?: boolean;
 }
 
 async function resolveProcedureId(
@@ -153,7 +162,7 @@ export const listProcedureLinks = createServerFn({ method: "GET" })
       .from("procedure_links")
       .select(
         "id, procedure_id, inventory_item_id, maintenance_record_id, notes, created_at, " +
-          "inventory_items(name, sku), maintenance_records(title, asset_name, service_type, performed_at)",
+        "inventory_items(name, sku, item_type), maintenance_records(title, asset_name, service_type, performed_at)",
       )
       .eq("user_id", context.userId)
       .eq("procedure_id", procId)
@@ -166,7 +175,7 @@ export const listProcedureLinks = createServerFn({ method: "GET" })
       maintenance_record_id: string | null;
       notes: string | null;
       created_at: string;
-      inventory_items: { name: string | null; sku: string | null } | null;
+      inventory_items: { name: string | null; sku: string | null; item_type: string | null } | null;
       maintenance_records: {
         title: string | null;
         asset_name: string | null;
@@ -178,6 +187,8 @@ export const listProcedureLinks = createServerFn({ method: "GET" })
       if (r.inventory_item_id) {
         const inv = r.inventory_items;
         const label = [inv?.name, inv?.sku].filter(Boolean).join(" · ") || r.inventory_item_id;
+        const missing = !inv;
+        const eligible = !missing && isManualEligibleType(inv?.item_type);
         return {
           id: r.id,
           procedure_id: r.procedure_id,
@@ -187,6 +198,15 @@ export const listProcedureLinks = createServerFn({ method: "GET" })
           target_label: label,
           notes: r.notes,
           created_at: r.created_at,
+          target_item_type: inv?.item_type ?? null,
+          needs_relink: missing || !eligible,
+          relink_reason: missing
+            ? "The linked inventory item no longer exists."
+            : eligible
+              ? null
+              : isPartItemType(inv?.item_type)
+                ? "Linked to a part/consumable — manuals belong on equipment or ham radio gear."
+                : `Item type "${inv?.item_type || "unset"}" can't hold a manual — relink to equipment or ham radio gear.`,
         };
       }
       const m = r.maintenance_records;
@@ -278,23 +298,29 @@ export const deleteProcedureLink = createServerFn({ method: "POST" })
 
 export const listLinkTargets = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { kind: LinkTargetKind }) => {
+  .inputValidator((d: { kind: LinkTargetKind; manualEligibleOnly?: boolean }) => {
     if (d?.kind !== "inventory" && d?.kind !== "maintenance") throw new Error("kind invalid");
-    return { kind: d.kind };
+    return { kind: d.kind, manualEligibleOnly: d?.manualEligibleOnly !== false };
   })
   .handler(async ({ context, data }): Promise<LinkTargetOption[]> => {
     if (data.kind === "inventory") {
       const { data: rows, error } = await context.supabase
         .from("inventory_items")
-        .select("id, name, sku")
+        .select("id, name, sku, item_type")
         .eq("user_id", context.userId)
         .order("name", { ascending: true })
         .limit(500);
       if (error) throw new Error(error.message);
-      return ((rows ?? []) as Array<{ id: string; name: string | null; sku: string | null }>).map((r) => ({
+      const mapped = (
+        (rows ?? []) as Array<{ id: string; name: string | null; sku: string | null; item_type: string | null }>
+      ).map((r) => ({
         id: r.id,
         label: [r.name || "(unnamed)", r.sku].filter(Boolean).join(" · "),
+        itemType: r.item_type,
+        manualEligible: isManualEligibleType(r.item_type),
       }));
+      // Manuals belong on equipment / ham radio gear — never parts or consumables.
+      return data.manualEligibleOnly ? mapped.filter((m) => m.manualEligible) : mapped;
     }
     const { data: rows, error } = await context.supabase
       .from("maintenance_records")
@@ -316,4 +342,63 @@ export const listLinkTargets = createServerFn({ method: "GET" })
           .filter(Boolean)
           .join(" · ") || r.id,
     }));
+  });
+
+/** Repoint a flagged inventory link (part/consumable/missing item) at a
+ *  manual-eligible asset — equipment or ham radio gear — instead of deleting it. */
+export const relinkProcedureLink = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { id: string; inventoryItemId: string }) => {
+    if (!d?.id) throw new Error("id required");
+    if (!d?.inventoryItemId) throw new Error("inventoryItemId required");
+    return { id: String(d.id), inventoryItemId: String(d.inventoryItemId) };
+  })
+  .handler(async ({ context, data }) => {
+    const { data: item, error: itemErr } = await context.supabase
+      .from("inventory_items")
+      .select("id, name, item_type")
+      .eq("user_id", context.userId)
+      .eq("id", data.inventoryItemId)
+      .maybeSingle();
+    if (itemErr) throw new Error(itemErr.message);
+    const target = item as { id: string; name: string | null; item_type: string | null } | null;
+    if (!target) throw new Error("That inventory item was not found.");
+    if (!isManualEligibleType(target.item_type)) {
+      throw new Error(
+        isPartItemType(target.item_type)
+          ? `"${target.name || "Item"}" is a part/consumable. Pick equipment or ham radio gear instead.`
+          : `"${target.name || "Item"}" (${target.item_type || "no type"}) can't hold a manual. Pick equipment or ham radio gear.`,
+      );
+    }
+
+    const { data: linkRow, error: linkErr } = await context.supabase
+      .from("procedure_links")
+      .select("id, procedure_id, procedures(name)")
+      .eq("user_id", context.userId)
+      .eq("id", data.id)
+      .maybeSingle();
+    if (linkErr) throw new Error(linkErr.message);
+    const link = linkRow as { procedure_id: string; procedures: { name: string | null } | null } | null;
+    if (!link) throw new Error("Link not found.");
+
+    const { error } = await context.supabase
+      .from("procedure_links")
+      .update({ inventory_item_id: target.id, maintenance_record_id: null })
+      .eq("user_id", context.userId)
+      .eq("id", data.id);
+    if (error) {
+      if (/duplicate|unique/i.test(error.message))
+        throw new Error("This procedure is already linked to that item.");
+      throw new Error(error.message);
+    }
+
+    if (link.procedures?.name) {
+      await syncProcedureBodyLinks(
+        context.supabase,
+        context.userId,
+        link.procedures.name,
+        link.procedure_id,
+      );
+    }
+    return { ok: true as const, label: target.name || target.id };
   });
