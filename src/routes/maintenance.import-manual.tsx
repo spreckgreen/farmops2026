@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { requireAuthenticatedUser } from "@/lib/auth-route";
 import { listInventory } from "@/lib/inventory.functions";
+import { isManualEligibleAsset } from "@/lib/asset-types";
 import {
   parseServiceManual,
   applyServiceManualImport,
@@ -446,6 +447,9 @@ function Page() {
           {/* 1. Asset */}
           <section className="rounded-xl border border-border bg-card/40 p-6 space-y-3 mb-6">
             <h2 className="text-sm font-semibold">1. Which asset is this manual for?</h2>
+            <p className="text-xs text-muted-foreground">
+              Equipment and ham radio items only — parts and consumables don't get manuals.
+            </p>
             <Input
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
@@ -481,7 +485,7 @@ function Page() {
               ))}
               {assets.length === 0 && (
                 <p className="px-3 py-4 text-sm text-muted-foreground">
-                  No inventory items match that filter.
+                  No equipment or ham radio items match that filter. Manuals apply to equipment and ham radio gear only — parts and consumables are excluded.
                 </p>
               )}
             </div>
