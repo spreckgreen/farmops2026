@@ -55,7 +55,7 @@ export function Procedures() {
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState("");
   const [filter, setFilter] = useState("");
-  const [typeFilter, setTypeFilter] = useState<"all" | "maintenance" | "other">("all");
+  const [typeFilter, setTypeFilter] = useState<"all" | "maintenance" | "kit" | "asset" | "other">("all");
   const [assetFilter, setAssetFilter] = useState("all");
   const [intervalFilter, setIntervalFilter] = useState("all");
   const fileRef = useRef<HTMLInputElement>(null);
@@ -344,6 +344,25 @@ export function Procedures() {
   }
 
   // --- Type / asset / interval filtering -------------------------------------
+  const kitsFn = useServerFn(listKitItems);
+  const kitsQuery = useQuery({ queryKey: ["kit-items"], queryFn: () => kitsFn({ data: undefined }) });
+  const kitNames = useMemo(
+    () => new Set((kitsQuery.data ?? []).map((k) => k.name.trim().toLowerCase())),
+    [kitsQuery.data],
+  );
+  /** A doc belongs to a kit when its Asset line, or its title, names a kit. */
+  const isKitDoc = useCallback(
+    (docName: string, md: ProcedureMeta | undefined) => {
+      if (kitNames.size === 0) return false;
+      const asset = (md?.asset ?? "").trim().toLowerCase();
+      if (asset && kitNames.has(asset)) return true;
+      const title = docName.trim().toLowerCase();
+      for (const k of kitNames) if (k && title.startsWith(k)) return true;
+      return false;
+    },
+    [kitNames],
+  );
+
   const meta = useMemo(() => {
     const m = new Map<string, ProcedureMeta>();
     for (const w of wikis) m.set(w.name, parseProcedureMeta(w.content));
@@ -377,14 +396,17 @@ export function Procedures() {
         if (!w.name.toLowerCase().includes(filter.toLowerCase())) return false;
         const md = meta.get(w.name);
         const isPlan = !!md && isMaintenancePlan(md);
+        const isKit = isKitDoc(w.name, md);
         if (typeFilter === "maintenance" && !isPlan) return false;
-        if (typeFilter === "other" && isPlan) return false;
+        if (typeFilter === "kit" && !isKit) return false;
+        if (typeFilter === "asset" && (isKit || !md?.asset)) return false;
+        if (typeFilter === "other" && (isPlan || isKit)) return false;
         if (plansOnly && assetFilter !== "all" && md?.asset !== assetFilter) return false;
         if (plansOnly && intervalFilter !== "all" && !md?.intervals.includes(intervalFilter))
           return false;
         return true;
       }),
-    [wikis, filter, meta, typeFilter, assetFilter, intervalFilter, plansOnly],
+    [wikis, filter, meta, typeFilter, assetFilter, intervalFilter, plansOnly, isKitDoc],
   );
 
 
@@ -438,7 +460,7 @@ export function Procedures() {
           <select
             value={typeFilter}
             onChange={(e) => {
-              const v = e.target.value as "all" | "maintenance" | "other";
+              const v = e.target.value as "all" | "maintenance" | "kit" | "asset" | "other";
               setTypeFilter(v);
               if (v !== "maintenance") { setAssetFilter("all"); setIntervalFilter("all"); }
             }}
@@ -447,6 +469,8 @@ export function Procedures() {
           >
             <option value="all">All types</option>
             <option value="maintenance">Maintenance plans</option>
+            <option value="kit">Kits ({kitsQuery.data?.length ?? 0})</option>
+            <option value="asset">Single assets</option>
             <option value="other">Other procedures</option>
           </select>
           {plansOnly && (
@@ -491,6 +515,13 @@ export function Procedures() {
                 <span className="flex-1 truncate">{w.name}</span>
                 {(() => {
                   const md = meta.get(w.name);
+                  if (typeFilter !== "maintenance" && isKitDoc(w.name, md)) {
+                    return (
+                      <span className="shrink-0 rounded bg-amber-500/15 text-amber-600 px-1 text-[9px] uppercase tracking-wide" title="Kit document">
+                        kit
+                      </span>
+                    );
+                  }
                   return md && isMaintenancePlan(md) ? (
                     <span
                       className="shrink-0 rounded bg-primary/10 text-primary px-1 text-[9px] uppercase tracking-wide"
