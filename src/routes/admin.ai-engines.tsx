@@ -324,6 +324,15 @@ function AiEnginesPage() {
   };
 
 
+  /** Engines whose SAVED model has a known compatibility gap. */
+  const legacySaved = AI_ENGINE_DEFS.flatMap((def) => {
+    const saved = data?.config.engines[def.id].model?.trim();
+    if (!saved) return [];
+    const reason = capabilityGap(saved);
+    if (!reason) return [];
+    return [{ id: def.id, label: def.label, model: saved, reason }];
+  });
+
 
   const defaultEngines = AI_ENGINE_DEFS;
 
