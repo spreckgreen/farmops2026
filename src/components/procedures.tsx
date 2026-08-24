@@ -27,6 +27,12 @@ import {
   type ProcedureRow,
 } from "@/lib/procedures.functions";
 import { ProcedureLinks } from "@/components/procedure-links";
+import {
+  isMaintenancePlan,
+  parseProcedureMeta,
+  type ProcedureMeta,
+} from "@/lib/procedure-meta";
+
 
 export function Procedures() {
   const qc = useQueryClient();
