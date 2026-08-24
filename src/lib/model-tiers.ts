@@ -250,7 +250,7 @@ export function rankModelTiers(modelIds: readonly string[]): ModelTiers {
         (a, b) => Math.abs(a.score - midpoint) - Math.abs(b.score - midpoint) || b.score - a.score,
       )[0] ?? best;
 
-  return { good, better, best, ranked, excluded };
+  return { good, better, best, ranked, excluded, incompatible };
 }
 
 /** The model Bostead pre-selects after a successful connection test. */
