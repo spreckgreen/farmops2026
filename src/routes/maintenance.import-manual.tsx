@@ -638,13 +638,14 @@ function Page() {
             )}
           </section>
 
-          {/* 4. Parsed preview */}
-          {plan && (
+          {/* 5. Parsed preview (service schedule only) */}
+          {plan && !isDocument && (
             <section className="rounded-xl border border-border bg-card/40 p-6 space-y-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <h2 className="text-sm font-semibold">
-                    4. Parsed preview — {plan.asset_name}
+                    5. Parsed preview — {plan.asset_name}
+
                   </h2>
                   <p className="text-xs text-muted-foreground mt-1">{plan.summary}</p>
                 </div>
