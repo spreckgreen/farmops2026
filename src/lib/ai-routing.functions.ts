@@ -107,9 +107,10 @@ const AreaStatusInput = z.object({
 export const getAreaRoutingStatus = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => AreaStatusInput.parse(d))
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const { describeAreaRouting } = await import("./ai-routing.server");
     return describeAreaRouting(data.area, {
       hostedDefaultModel: data.hostedDefaultModel ?? "google/gemini-3.6-flash",
+      client: context.supabase,
     });
   });

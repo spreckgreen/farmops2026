@@ -169,6 +169,7 @@ export const parseServiceManual = createServerFn({ method: "POST" })
         const { resolveAreaAi, hostedHandle } = await import("./ai-routing.server");
         const ai = await resolveAreaAi("maintenance.schedule", {
           hostedDefaultModel: "google/gemini-3.6-flash",
+          client: supabase,
         });
         let provider = ai.provider;
         let modelId = ai.modelId;
