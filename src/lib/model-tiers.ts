@@ -208,6 +208,7 @@ const CAPABILITY_FLOOR = 45;
 export function rankModelTiers(modelIds: readonly string[]): ModelTiers {
   const seen = new Set<string>();
   const excluded: string[] = [];
+  const incompatible: IncompatibleModel[] = [];
   const scored: RankedModel[] = [];
 
   for (const raw of modelIds) {
@@ -218,12 +219,17 @@ export function rankModelTiers(modelIds: readonly string[]): ModelTiers {
       excluded.push(id);
       continue;
     }
+    const gap = capabilityGap(id);
+    if (gap) {
+      incompatible.push({ id, reason: gap });
+      continue;
+    }
     scored.push(scoreModel(id));
   }
 
   const ranked = [...scored].sort((a, b) => b.score - a.score || a.id.localeCompare(b.id));
   if (ranked.length === 0) {
-    return { good: null, better: null, best: null, ranked, excluded };
+    return { good: null, better: null, best: null, ranked, excluded, incompatible };
   }
 
   const best = ranked[0];
