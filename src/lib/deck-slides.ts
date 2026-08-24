@@ -78,11 +78,12 @@ export const SLIDES: Slide[] = [
     bullets: [
       "Five sections: daily work, what you own, keeping it running, food, and the back office.",
       "Each page shows the real screen plus the three or four steps to use it.",
-      "Arrow keys or Space move between pages; press G for the grid of all 30.",
-      "Press P (or use Print) to save the whole deck as a PDF handout.",
+      "Set things up in section order — later pages lean on data entered earlier.",
+      "Arrow keys or Space move between pages, G opens the grid, P prints a PDF handout.",
     ],
-    note: "Start at section 1 and set up in order — later sections lean on earlier data.",
+    note: "You don't need every feature on day one. Pick one section and finish it.",
   },
+
 
   {
     kind: "section",
