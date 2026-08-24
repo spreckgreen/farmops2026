@@ -366,18 +366,19 @@ function Page() {
           </Link>
 
           <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-medium text-primary mb-3">
-            <BookOpenText className="h-3 w-3" /> Service manual import
+            <BookOpenText className="h-3 w-3" /> Asset manual import
           </div>
           <h1 className="text-3xl md:text-4xl font-bold tracking-tight mb-2">
-            Import a service manual
+            Generate and import an asset manual
           </h1>
           <p className="text-muted-foreground mb-8 max-w-2xl">
-            Pick the asset, copy the prompt into any AI ("make me a maintenance manual
-            for my Kubota L2501"), paste the answer back here. Each service interval
-            becomes a maintenance record on that asset, and any part it needs that
-            you don't stock yet is created in inventory at the quantity the service
-            calls for.
+            Pick the asset and the manual type — service schedule, operator manual, or
+            workshop manual — copy the prompt into any AI ("make me a workshop manual for
+            my Kubota L2501"), then paste the answer back here. A service schedule becomes
+            maintenance records plus any missing parts in inventory; operator and workshop
+            manuals become procedure pages linked to the asset.
           </p>
+
 
           {/* 1. Asset */}
           <section className="rounded-xl border border-border bg-card/40 p-6 space-y-3 mb-6">
