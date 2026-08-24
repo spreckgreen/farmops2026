@@ -165,7 +165,7 @@ function AiEnginesPage() {
   const [testing, setTesting] = useState<AiEngineId | null>(null);
   const runTest = useServerFn(testAiEngineConnection);
 
-  const testEngine = async (id: AiEngineId) => {
+  const testEngine = async (id: AiEngineId): Promise<EngineTestResult | null> => {
     const d = drafts[id];
     setTesting(id);
     try {
@@ -190,6 +190,7 @@ function AiEnginesPage() {
 
       if (result.ok) toast.success(`${result.title}: ${result.message}`);
       else toast.error(result.title);
+      return result;
     } catch (err) {
       const message = err instanceof Error ? err.message : "Connection test failed";
       setTests((prev) => ({
@@ -208,10 +209,33 @@ function AiEnginesPage() {
         },
       }));
       toast.error(message);
+      return null;
     } finally {
       setTesting(null);
     }
   };
+
+  /**
+   * One-click repair for a rejected save: ask the provider what it serves, take
+   * the recommended Better-tier compatible model, and save straight away so the
+   * operator doesn't have to retype anything.
+   */
+  const useRecommendedModel = async (id: AiEngineId) => {
+    const cached = tests[id]?.recommendedModel ?? null;
+    const recommended = cached ?? (await testEngine(id))?.recommendedModel ?? null;
+    if (!recommended) {
+      toast.error(
+        "No compatible model was reported by this provider — check the base URL and API key, then test again.",
+      );
+      return;
+    }
+    const next: Drafts = { ...drafts, [id]: { ...drafts[id], model: recommended } };
+    setDrafts(next);
+    setFieldErrors((prev) => ({ ...prev, [id]: undefined }));
+    toast.info(`Using ${recommended} (Better tier).`);
+    submit(next);
+  };
+
 
   const patch = (id: AiEngineId, value: Partial<TargetDraft>) =>
     setDrafts((prev) => ({ ...prev, [id]: { ...prev[id], ...value } }));
