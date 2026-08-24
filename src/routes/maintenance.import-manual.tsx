@@ -137,6 +137,7 @@ function Page() {
   const assets = useMemo(() => {
     const q = filter.trim().toLowerCase();
     return inventory
+      .filter((i) => isManualEligibleAsset(i as { item_type?: string | null }))
       .filter((i) =>
         !q
           ? true
