@@ -346,7 +346,7 @@ export function Procedures() {
 
   // --- Type / asset / interval filtering -------------------------------------
   const kitsFn = useServerFn(listKitItems);
-  const kitsQuery = useQuery({ queryKey: ["kit-items"], queryFn: () => kitsFn({ data: undefined }) });
+  const kitsQuery = useQuery({ queryKey: ["kit-items"], queryFn: () => kitsFn({}) });
   const kitNames = useMemo(
     () => new Set((kitsQuery.data ?? []).map((k) => k.name.trim().toLowerCase())),
     [kitsQuery.data],
