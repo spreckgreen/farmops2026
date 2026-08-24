@@ -1174,6 +1174,7 @@ export const refreshPricesSouthernOhio = createServerFn({ method: "POST" })
     const { resolveAreaAi } = await import("./ai-routing.server");
     const priceAi = await resolveAreaAi("food.prices", {
       hostedDefaultModel: "google/gemini-3-flash-preview",
+      client: context.supabase,
     });
     const gateway = priceAi.provider;
     const modelOverride = priceAi.modelId;

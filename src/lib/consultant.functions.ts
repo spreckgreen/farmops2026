@@ -351,6 +351,7 @@ export const askConsultant = createServerFn({ method: "POST" })
     const { resolveAreaAi, runAreaAi } = await import("./ai-routing.server");
     const ai = await resolveAreaAi("consultant", {
       hostedDefaultModel: "google/gemini-3.6-flash",
+      client: context.supabase,
     });
 
     const { generateText } = await import("ai");

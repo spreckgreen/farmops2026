@@ -307,6 +307,7 @@ export const generateSummary = createServerFn({ method: "POST" })
     const { areaForSummaryMode } = await import("./ai-feature-areas");
     const ai = await resolveAreaAi(areaForSummaryMode(data.mode), {
       hostedDefaultModel: "google/gemini-3-flash-preview",
+      client: context.supabase,
     });
     let escalation: import("./ai-feature-areas").AiEscalation | null = null;
 

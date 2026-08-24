@@ -226,6 +226,7 @@ export const askProceduresAi = createServerFn({ method: "POST" })
     const { resolveAreaAi, hostedHandle } = await import("./ai-routing.server");
     const ai = await resolveAreaAi("procedures", {
       hostedDefaultModel: "google/gemini-3-flash-preview",
+      client: context.supabase,
     });
     let provider = ai.provider;
     let modelId = ai.modelId;
