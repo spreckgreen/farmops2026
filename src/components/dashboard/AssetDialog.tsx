@@ -210,15 +210,39 @@ const AssetDialog = ({ open, onOpenChange, onSave, asset }: AssetDialogProps) =>
                 className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
               >
                 <option value="">— Unclassified —</option>
-                {INVENTORY_TYPES.map((t) => (
-                  <option key={t.value} value={t.value}>
-                    {t.label}
-                  </option>
-                ))}
+                <optgroup label="Kits & assemblies">
+                  {INVENTORY_TYPES.filter((t) => t.value === KIT_TYPE).map((t) => (
+                    <option key={t.value} value={t.value}>
+                      {t.label}
+                    </option>
+                  ))}
+                </optgroup>
+                <optgroup label="All inventory types">
+                  {INVENTORY_TYPES.filter((t) => t.value !== KIT_TYPE).map((t) => (
+                    <option key={t.value} value={t.value}>
+                      {t.label}
+                    </option>
+                  ))}
+                </optgroup>
               </select>
-              <p className="text-[11px] text-muted-foreground">
-                Controls the Obsidian vault subfolder this item syncs into.
-              </p>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-[11px] text-muted-foreground">
+                  Controls the Obsidian vault subfolder this item syncs into.
+                </p>
+                {form.item_type !== KIT_TYPE ? (
+                  <button
+                    type="button"
+                    onClick={() => setForm({ ...form, item_type: KIT_TYPE })}
+                    className="shrink-0 text-[11px] font-medium text-primary underline-offset-2 hover:underline"
+                  >
+                    Use 32 Kits
+                  </button>
+                ) : (
+                  <span className="shrink-0 text-[11px] font-medium text-emerald-500">
+                    Saved as a kit — a Parts (BOM) panel appears after saving.
+                  </span>
+                )}
+              </div>
               {asset ? (
                 <SavedTypeCheck
                   savedType={asset.item_type ?? null}
@@ -228,6 +252,7 @@ const AssetDialog = ({ open, onOpenChange, onSave, asset }: AssetDialogProps) =>
                 />
               ) : null}
             </div>
+
 
             <div className="col-span-2 space-y-2">
               <Label>Status</Label>
