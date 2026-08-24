@@ -137,17 +137,25 @@ function Page() {
   const asset = inventory.find((i) => i.id === assetId);
   const assetName = asset?.name ?? asset?.sku ?? "";
 
+  const meta = MANUAL_KIND_META[kind];
+  const isDocument = meta.target === "document";
+
   const prompt = useMemo(
     () =>
-      serviceManualPrompt({
+      manualPrompt(kind, {
         assetName: assetName || "<pick an asset>",
         category: asset?.category ?? null,
         usageTracking: asset?.usage_tracking ?? null,
         currentHours: asset?.current_hours ?? null,
         currentMiles: asset?.current_miles ?? null,
       }),
-    [assetName, asset?.category, asset?.usage_tracking, asset?.current_hours, asset?.current_miles],
+    [kind, assetName, asset?.category, asset?.usage_tracking, asset?.current_hours, asset?.current_miles],
   );
+
+  // Default procedure name follows the asset + kind until the user edits it.
+  const effectiveDocName =
+    docName.trim() || (assetName ? manualProcedureName(assetName, kind === "workshop" ? "workshop" : "operator") : "");
+
 
   const download = (text: string, name: string) => {
     const url = URL.createObjectURL(new Blob([text], { type: "text/markdown" }));
