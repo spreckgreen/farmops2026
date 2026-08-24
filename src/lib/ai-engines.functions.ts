@@ -110,7 +110,23 @@ export const setAiEngines = createServerFn({ method: "POST" })
     for (const id of AI_ENGINE_IDS) {
       engines[id] = mergeTarget(data.engines[id], stored.engines[id]);
     }
-    const next: AiEnginesConfig = { engines, cloudDefault: data.cloudDefault };
+    const requestedDefault = data.cloudDefault;
+    const next: AiEnginesConfig = { engines, cloudDefault: requestedDefault };
+
+    const usable = (id: AiEngineId) =>
+      next.engines[id].enabled !== false && !engineIncomplete(next, id);
+
+    // The picked cloud default is empty or off (e.g. "Other cloud" left blank
+    // because only self-hosted + Ollama Cloud are set up). Move the default to
+    // an engine that actually works instead of nagging about a slot the
+    // operator never intends to fill.
+    if (!usable(requestedDefault)) {
+      const fallback =
+        (["ollama_cloud", "other_cloud"] as AiEngineId[]).find(
+          (id) => getAiEngineDef(id).placement === "cloud" && usable(id),
+        ) ?? (usable("local") ? ("local" as AiEngineId) : null);
+      if (fallback) next.cloudDefault = fallback;
+    }
 
     // Never refuse the save because one engine is unusable — an operator must
     // always be able to store one working engine while another is incomplete.
@@ -124,25 +140,21 @@ export const setAiEngines = createServerFn({ method: "POST" })
         );
       }
     }
-    if (next.engines[next.cloudDefault].enabled === false) {
-      warnings.push(
-        `${label} is the cloud default but switched off, so cloud features will use another enabled cloud engine or the local engine.`,
-      );
-    }
 
-    if (getAiEngineDef(next.cloudDefault).placement === "local") {
+    if (next.cloudDefault !== requestedDefault) {
+      warnings.push(
+        `${getAiEngineDef(requestedDefault).label} is not set up, so ${label} is now the cloud default. Leaving that slot empty is fine.`,
+      );
+    } else if (getAiEngineDef(next.cloudDefault).placement === "local") {
       warnings.push(
         `${label} runs on your own hardware, so cloud-default feature areas will use it too.`,
       );
-    }
-    if (
-      next.engines[next.cloudDefault].enabled !== false &&
-      engineIncomplete(next, next.cloudDefault)
-    ) {
+    } else if (!usable(next.cloudDefault)) {
       warnings.push(
-        `${label} is missing a base URL, API key or model, so cloud-default features will fail until it is completed.`,
+        `${label} is the cloud default but has no usable base URL, API key and model yet, so cloud features will fail until it is completed or another engine is selected.`,
       );
     }
+
     await saveEnginesConfig(next, context.userId);
     const { toEngineView } = await import("@/lib/ai-engines");
     return { ok: true as const, config: toEngineView(next), warnings };

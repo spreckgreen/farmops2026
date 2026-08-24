@@ -191,10 +191,15 @@ function AiEnginesPage() {
     onSuccess: (result) => {
       const warnings = "warnings" in result ? (result.warnings ?? []) : [];
       toast.success("AI engine configuration saved");
+      // The server may move the cloud default to an engine that is actually
+      // usable — mirror that in the picker so the UI matches what was stored.
+      if ("config" in result && result.config?.cloudDefault)
+        setCloudDefault(result.config.cloudDefault);
       for (const w of warnings) toast.warning(w);
       void qc.invalidateQueries({ queryKey: ["ai-engines"] });
       void qc.invalidateQueries({ queryKey: ["ai-routing"] });
     },
+
     onError: (err: unknown) =>
       toast.error(err instanceof Error ? err.message : "Could not save engines"),
   });
