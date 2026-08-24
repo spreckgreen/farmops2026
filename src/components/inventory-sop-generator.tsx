@@ -114,7 +114,7 @@ export function InventorySopGenerator({
               ))}
               {items.length === 0 && !isLoading ? (
                 <div className="px-2 py-3 text-xs text-muted-foreground italic">
-                  No inventory items yet
+                  No equipment or ham radio items yet
                 </div>
               ) : null}
             </SelectContent>
