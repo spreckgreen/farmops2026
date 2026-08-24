@@ -150,7 +150,16 @@ const AssetDialog = ({ open, onOpenChange, onSave, asset }: AssetDialogProps) =>
               <p className="text-[11px] text-muted-foreground">
                 Controls the Obsidian vault subfolder this item syncs into.
               </p>
+              {asset ? (
+                <SavedTypeCheck
+                  savedType={asset.item_type ?? null}
+                  selectedType={form.item_type}
+                  name={form.name}
+                  onUseKitType={() => setForm({ ...form, item_type: KIT_TYPE })}
+                />
+              ) : null}
             </div>
+
             <div className="col-span-2 space-y-2">
               <Label>Status</Label>
               <select
