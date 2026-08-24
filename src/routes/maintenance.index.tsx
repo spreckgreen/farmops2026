@@ -160,6 +160,7 @@ function MaintenancePage() {
   const forecastEnabled = useAiFeatureEnabled("maintenance.forecast");
   const scheduleEnabled = useAiFeatureEnabled("maintenance.generate-schedule");
   const diagnoseEnabled = useAiFeatureEnabled("maintenance.diagnose");
+  const importManualEnabled = useAiFeatureEnabled("maintenance.import-manual");
 
 
 
