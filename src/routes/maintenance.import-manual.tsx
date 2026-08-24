@@ -423,13 +423,57 @@ function Page() {
             </div>
           </section>
 
-          {/* 2. Template */}
+          {/* 2. Manual type */}
           <section className="rounded-xl border border-border bg-card/40 p-6 space-y-3 mb-6">
-            <h2 className="text-sm font-semibold">2. Ask an AI for the manual</h2>
+            <h2 className="text-sm font-semibold">2. Which manual do you want?</h2>
+            <div className="grid gap-2 sm:grid-cols-3">
+              {MANUAL_KINDS.map((k) => {
+                const m = MANUAL_KIND_META[k];
+                const active = kind === k;
+                return (
+                  <button
+                    key={k}
+                    type="button"
+                    onClick={() => {
+                      setKind(k);
+                      setPlan(null);
+                      setResult(null);
+                      setDocResult(null);
+                    }}
+                    className={`rounded-lg border p-3 text-left transition ${
+                      active
+                        ? "border-primary bg-primary/10"
+                        : "border-border bg-background hover:bg-muted/40"
+                    }`}
+                  >
+                    <span className="block text-sm font-medium">{m.label}</span>
+                    <span className="mt-1 block text-xs text-muted-foreground">{m.blurb}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-xs text-muted-foreground">{meta.outcome}</p>
+          </section>
+
+          {/* 3. Template */}
+          <section className="rounded-xl border border-border bg-card/40 p-6 space-y-3 mb-6">
+            <h2 className="text-sm font-semibold">
+              3. Ask an AI for the {meta.label.toLowerCase()}
+            </h2>
             <p className="text-xs text-muted-foreground">
-              This prompt pins the format the importer reads — the{" "}
-              <code className="text-[11px]">Service Intervals</code> bullets with
-              interval, tasks, and a parts list with quantities.
+              {isDocument ? (
+                <>
+                  This prompt pins the headings so the saved page reads cleanly as a
+                  procedure — paste the answer back and it becomes a wiki page on this
+                  asset.
+                </>
+              ) : (
+                <>
+                  This prompt pins the format the importer reads — the{" "}
+                  <code className="text-[11px]">Service Intervals</code> bullets with
+                  interval, tasks, and a parts list with quantities.
+                </>
+              )}
             </p>
             <pre className="max-h-56 overflow-auto rounded-md border border-border bg-background p-3 text-xs whitespace-pre-wrap">
               {prompt}
@@ -450,8 +494,10 @@ function Page() {
                 size="sm"
                 onClick={() =>
                   download(
-                    SERVICE_MANUAL_TEMPLATE,
-                    manualTemplateFileName(assetName || "asset"),
+                    manualTemplateFor(kind) ?? SERVICE_MANUAL_TEMPLATE,
+                    manualTemplateFileName(
+                      `${assetName || "asset"}-${meta.label}`,
+                    ),
                   )
                 }
               >
@@ -459,6 +505,7 @@ function Page() {
               </Button>
             </div>
           </section>
+
 
           {/* 3. Paste */}
           <section className="rounded-xl border border-border bg-card/40 p-6 space-y-3 mb-6">
