@@ -161,7 +161,7 @@ export const listProcedureLinks = createServerFn({ method: "GET" })
       .from("procedure_links")
       .select(
         "id, procedure_id, inventory_item_id, maintenance_record_id, notes, created_at, " +
-          "inventory_items(name, sku), maintenance_records(title, asset_name, service_type, performed_at)",
+        "inventory_items(name, sku, item_type), maintenance_records(title, asset_name, service_type, performed_at)",
       )
       .eq("user_id", context.userId)
       .eq("procedure_id", procId)
@@ -174,7 +174,7 @@ export const listProcedureLinks = createServerFn({ method: "GET" })
       maintenance_record_id: string | null;
       notes: string | null;
       created_at: string;
-      inventory_items: { name: string | null; sku: string | null } | null;
+      inventory_items: { name: string | null; sku: string | null; item_type: string | null } | null;
       maintenance_records: {
         title: string | null;
         asset_name: string | null;
