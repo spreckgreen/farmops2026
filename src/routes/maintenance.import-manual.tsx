@@ -695,7 +695,9 @@ function Page() {
                   </Button>
                   <Button
                     onClick={() => applyMut.mutate()}
-                    disabled={applyMut.isPending || included.length === 0}
+                    disabled={
+                      applyMut.isPending || included.length === 0 || unresolved.length > 0
+                    }
                   >
                     <FileText className="h-4 w-4 mr-1" />
                     {applyMut.isPending ? "Importing…" : "Import to this asset"}
