@@ -14,8 +14,14 @@ export async function getServerEnv(
   client?: SupabaseClient<Database>,
 ): Promise<string | undefined> {
   const now = Date.now();
-  const hit = cache.get(name);
-  if (hit && hit.expires > now) return hit.value;
+  // Request-scoped authenticated clients must read the vault directly. A
+  // previous service-client/RLS failure may have cached an undefined fallback;
+  // reusing that entry would make a newly saved engine key look missing until
+  // the TTL expires.
+  if (!client) {
+    const hit = cache.get(name);
+    if (hit && hit.expires > now) return hit.value;
+  }
 
   let value: string | undefined;
   try {
@@ -41,7 +47,7 @@ export async function getServerEnv(
 
   }
   if (value === undefined) value = process.env[name];
-  cache.set(name, { value, expires: now + TTL_MS });
+  if (!client) cache.set(name, { value, expires: now + TTL_MS });
   return value;
 }
 
