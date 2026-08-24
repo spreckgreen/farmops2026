@@ -131,6 +131,10 @@ export async function resolveAreaAi(
     defaultModel: opts.hostedDefaultModel,
   });
 
+  // "Cloud" (generic) may use any usable cloud engine, but never local.
+  if (!selected && choice === "hosted" && hosted) selected = hosted;
+
+
   // The area explicitly asked for a CLOUD engine. Never silently downgrade that
   // to the local endpoint: a small local model then produces a broken result
   // and the failure looks like "the model returned no schedule" instead of
