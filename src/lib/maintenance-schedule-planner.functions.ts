@@ -345,35 +345,23 @@ export const planMaintenanceSchedule = createServerFn({ method: "POST" })
       }
     }
 
-    // Already routed to hosted AI but the configured hosted model failed (bad
-    // model id, temporary gateway error). Retry once on the known-good default.
-    const HOSTED_DEFAULT = "google/gemini-3.6-flash";
-    if (!parsed && ai.backend === "hosted" && modelId !== HOSTED_DEFAULT) {
-      try {
-        modelId = HOSTED_DEFAULT;
-        const { output } = await generateText({
-          model: provider(modelId),
-          output: Output.object({ schema }),
-          system: systemPrompt,
-          prompt: userPrompt,
-        });
-        parsed = coerce(output) ?? (output as z.infer<typeof schema>);
-        failureReason = "";
-      } catch (error) {
-        failureReason = error instanceof Error ? error.message : String(error);
-      }
-    }
+    // No hard-coded model retry here: `provider` points at whichever
+    // OpenAI-compatible cloud engine the operator configured, so retrying with
+    // a foreign model id (e.g. a Google id on an Ollama/OpenAI endpoint) only
+    // produces a misleading "unknown model" error.
+
 
     if (!parsed) {
       return {
         plan_id: crypto.randomUUID(),
         surface: "maintenance.generate_schedule",
         summary:
-          `${ai.backend === "hosted" ? "Hosted" : "Local"} model "${modelId}" did not ` +
+          `${ai.engineLabel} model "${modelId}" did not ` +
           "return a usable schedule" +
           (failureReason ? ` (${failureReason}).` : ".") +
           (ai.backend === "hosted"
-            ? " Check the model id configured for the service-schedule area in AI settings."
+            ? ` Check that "${modelId}" is a model your ${ai.engineLabel} endpoint` +
+              " actually serves (Admin → AI Engines, or the service-schedule area in AI settings)."
             : " Small local models often struggle with structured output — try a" +
                " larger model (e.g. llama3.1:8b) or route this area to a configured cloud engine."),
         actions: [],
