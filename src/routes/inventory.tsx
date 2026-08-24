@@ -26,6 +26,7 @@ import { InventoryBomDialog } from "@/components/inventory-bom-dialog";
 import { requireAuthenticatedUser } from "@/lib/auth-route";
 import type { Asset, AssetFormData } from "@/components/dashboard/types";
 import { INVENTORY_TYPES } from "@/lib/obsidian-layout";
+import { InventoryTypeCombobox } from "@/components/inventory-type-combobox";
 import { isKitItem, isSingleAsset } from "@/lib/asset-types";
 import { rowsToCsv, downloadCsv } from "@/lib/csv";
 import {
@@ -80,10 +81,10 @@ function fieldLabel(src: Record<string, unknown> | null | undefined, field: stri
   return String(v);
 }
 
-const EDITABLE_FIELDS: Array<{ field: keyof AssetPatch; label: string; kind: "text" | "number" | "status" | "tags" }> = [
+const EDITABLE_FIELDS: Array<{ field: keyof AssetPatch; label: string; kind: "text" | "number" | "status" | "tags" | "itemType" }> = [
   { field: "name", label: "Name", kind: "text" },
   { field: "description", label: "Description", kind: "text" },
-  { field: "item_type", label: "Type", kind: "text" },
+  { field: "item_type", label: "Type", kind: "itemType" },
   { field: "location", label: "Location", kind: "text" },
   { field: "quantity", label: "Quantity", kind: "number" },
   { field: "min_quantity", label: "Min qty", kind: "number" },
@@ -119,7 +120,13 @@ function PatchEditor({
               <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
                 {label}
               </span>
-              {kind === "status" ? (
+              {kind === "itemType" ? (
+                <InventoryTypeCombobox
+                  size="sm"
+                  value={patch.item_type ? String(patch.item_type) : ""}
+                  onChange={(next) => onChange("item_type", next)}
+                />
+              ) : kind === "status" ? (
                 <select
                   className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs"
                   value={String(patch.status)}
