@@ -109,9 +109,10 @@ function describeHttpStatus(
   if (status === 401 || status === 403) {
     return {
       title: status === 401 ? "API key rejected" : "Access denied",
-      hint: "Paste a fresh API key for this engine. For a local Ollama any non-empty value works (e.g. \"ollama\").",
+      hint: `${label} rejected the credentials. Self-hosted Ollama needs no real key (any placeholder works). Ollama Cloud keys come from ollama.com → Settings → Keys and are not OpenAI "sk-" keys. Other providers want their own key.`,
     };
   }
+
   if (status === 402) {
     return {
       title: "Out of credits",
@@ -208,9 +209,10 @@ export async function testAiEngine(
     : base.engines[id].apiKey
       ? "the key stored for this engine"
       : id === "local"
-        ? "the local/bundled default key"
+        ? "a placeholder token (self-hosted Ollama needs no key)"
         : "no key";
   const keyNote = `Sent Authorization: Bearer … using ${keySource} (…${engine.apiKey.slice(-4)}).`;
+
   const headers = authHeaders(def.auth, engine.apiKey);
   const started = Date.now();
 
