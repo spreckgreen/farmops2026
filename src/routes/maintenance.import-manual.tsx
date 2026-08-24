@@ -66,6 +66,14 @@ export const Route = createFileRoute("/maintenance/import-manual")({
 });
 
 const partKey = (ivKey: string, i: number) => `${ivKey}::${i}`;
+const NEW_ITEM = "__new__";
+
+const CONFIDENCE_LABEL: Record<string, string> = {
+  exact: "exact match",
+  strong: "likely match",
+  weak: "unsure",
+  none: "no match found",
+};
 
 function Page() {
   const listInv = useServerFn(listInventory);
@@ -84,6 +92,10 @@ function Page() {
   const [plan, setPlan] = useState<ManualImportPlan | null>(null);
   const [skipped, setSkipped] = useState<Record<string, boolean>>({});
   const [skippedParts, setSkippedParts] = useState<Record<string, boolean>>({});
+  // Per-part match decision: "" = still needs a decision, NEW_ITEM = create it,
+  // otherwise the chosen inventory item id.
+  const [partChoice, setPartChoice] = useState<Record<string, string>>({});
+  const [threshold, setThreshold] = useState(0.82);
   const [createParts, setCreateParts] = useState(true);
   const [result, setResult] = useState<ManualImportResult | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
@@ -145,7 +157,13 @@ function Page() {
       if (!assetId) throw new Error("Pick the asset this manual belongs to");
       if (manualText.trim().length < 40) throw new Error("Paste the service manual first");
       jobProgress.start();
-      return parseFn({ data: { asset_id: assetId, manual_text: manualText.trim() } });
+      return parseFn({
+        data: {
+          asset_id: assetId,
+          manual_text: manualText.trim(),
+          match_threshold: threshold,
+        },
+      });
     },
     onSuccess: (p) => {
       jobProgress.stop();
@@ -156,6 +174,19 @@ function Page() {
       setPlan(p);
       setSkipped({});
       setSkippedParts({});
+      // Pre-seed decisions: confident matches are already resolved, fuzzy or
+      // ambiguous ones start blank so the user has to pick.
+      const seed: Record<string, string> = {};
+      for (const iv of p.intervals) {
+        iv.parts.forEach((part, i) => {
+          seed[partKey(iv.key, i)] = part.inventory_item_id
+            ? part.inventory_item_id
+            : part.candidates.length > 0
+              ? ""
+              : NEW_ITEM;
+        });
+      }
+      setPartChoice(seed);
       setResult(null);
     },
     onError: (e) => {
@@ -171,9 +202,27 @@ function Page() {
         .filter((iv) => !skipped[iv.key])
         .map((iv) => ({
           ...iv,
-          parts: iv.parts.filter((_, i) => !skippedParts[partKey(iv.key, i)]),
+          parts: iv.parts
+            .map((p, i) => ({ p, i }))
+            .filter(({ i }) => !skippedParts[partKey(iv.key, i)])
+            .map(({ p, i }) => {
+              const choice = partChoice[partKey(iv.key, i)] ?? "";
+              const picked = choice && choice !== NEW_ITEM ? choice : null;
+              return {
+                ...p,
+                inventory_item_id: picked,
+                matched_name:
+                  p.candidates.find((c) => c.id === picked)?.label ?? p.matched_name,
+                unresolved: choice === "",
+              };
+            }),
         })),
-    [plan, skipped, skippedParts],
+    [plan, skipped, skippedParts, partChoice],
+  );
+
+  const unresolved = useMemo(
+    () => included.flatMap((iv) => iv.parts.filter((p) => p.unresolved)),
+    [included],
   );
   const selectAll = (on: boolean) => {
     if (!plan) return;
@@ -207,6 +256,12 @@ function Page() {
     mutationFn: async () => {
       if (!plan) throw new Error("Nothing to apply");
       if (included.length === 0) throw new Error("Every interval is unchecked");
+      if (unresolved.length > 0)
+        throw new Error(
+          `Confirm the match for ${unresolved.length} part${
+            unresolved.length === 1 ? "" : "s"
+          } first`,
+        );
       return applyFn({
         data: {
           plan_id: plan.plan_id,
