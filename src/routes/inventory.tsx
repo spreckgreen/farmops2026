@@ -499,8 +499,16 @@ function InventoryPage() {
   };
 
 
-  const usedTypes = new Set(assets.map((a) => a.item_type).filter(Boolean) as string[]);
-  const availableTypes = INVENTORY_TYPES.filter((t) => usedTypes.has(t.value));
+  // Show every catalog type (e.g. "32 Kits") even when no item uses it yet,
+  // with a live count so in-use types are still obvious.
+  const typeCounts = assets.reduce<Record<string, number>>((acc, a) => {
+    if (a.item_type) acc[a.item_type] = (acc[a.item_type] ?? 0) + 1;
+    return acc;
+  }, {});
+  const availableTypes = INVENTORY_TYPES.map((t) => ({
+    ...t,
+    count: typeCounts[t.value] ?? 0,
+  }));
 
   const kitCount = assets.filter((a) => isKitItem(a)).length;
 
