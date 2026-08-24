@@ -8,6 +8,8 @@
 // Server-only: reads process.env + the shared vault. Never import from client
 // code — call sites are server functions that dynamic-import this module.
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/integrations/supabase/types";
 import {
   getAiArea,
   resolveRoutingConfig,
@@ -24,14 +26,20 @@ export const ROUTING_ENV_KEY = "CUSTOM_AI_FEATURE_ROUTING";
 
 type Provider = ReturnType<typeof createOpenAICompatible>;
 
-export async function loadRoutingConfig(): Promise<AiRoutingConfig> {
+export async function loadRoutingConfig(
+  client?: SupabaseClient<Database>,
+): Promise<AiRoutingConfig> {
   const { getServerEnv } = await import("./server-env.server");
-  return resolveRoutingConfig(await getServerEnv(ROUTING_ENV_KEY));
+  return resolveRoutingConfig(await getServerEnv(ROUTING_ENV_KEY, client));
 }
 
-export async function saveRoutingConfig(config: AiRoutingConfig, userId: string) {
+export async function saveRoutingConfig(
+  config: AiRoutingConfig,
+  userId: string,
+  client: SupabaseClient<Database>,
+) {
   const { persistSharedRouting } = await import("./ai-routing-store.server");
-  await persistSharedRouting(serializeRoutingConfig(config), userId);
+  await persistSharedRouting(serializeRoutingConfig(config), userId, client);
   return config;
 }
 
