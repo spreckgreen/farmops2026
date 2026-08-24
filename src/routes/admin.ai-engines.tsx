@@ -31,7 +31,13 @@ import {
   testAiEngineConnection,
 } from "@/lib/ai-engines.functions";
 import type { EngineTestResult } from "@/lib/ai-engine-test.server";
-import { AI_ENGINE_DEFS, type AiEngineId } from "@/lib/ai-engines";
+import {
+  AI_ENGINE_DEFS,
+  engineFieldErrors,
+  type AiEngineId,
+  type EngineFieldErrors,
+} from "@/lib/ai-engines";
+
 import {
   ArrowLeft,
   Cloud,
