@@ -205,7 +205,26 @@ export function EditMaintenanceDialog({
         </DialogHeader>
 
         <div className="grid grid-cols-2 gap-3">
-          {field("asset_name", "Asset")}
+          <div className="col-span-2 sm:col-span-1">
+            <Label htmlFor="edit-asset" className="text-xs text-muted-foreground">
+              Asset (linked equipment)
+            </Label>
+            <select
+              id="edit-asset"
+              value={assetId}
+              onChange={(e) => setAssetId(e.target.value)}
+              className="mt-1 h-9 w-full rounded-md border border-border bg-card/60 px-2 text-sm"
+            >
+              <option value="">
+                {form.asset_name ? `Unlinked — ${form.asset_name}` : "Not linked"}
+              </option>
+              {assets.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name ?? "(unnamed)"}
+                </option>
+              ))}
+            </select>
+          </div>
           {field("title", "Title")}
           {field("service_type", "Service type")}
           {field("status", "Status")}
