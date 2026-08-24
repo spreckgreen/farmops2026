@@ -87,6 +87,98 @@ function SavedTypeCheck({
   );
 }
 
+/**
+ * Searchable, scrollable inventory type picker.
+ * Replaces the native <select> so the 30+ item list never overflows the viewport.
+ */
+function InventoryTypeCombobox({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const selected = INVENTORY_TYPES.find((t) => t.value === value);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="w-full justify-between font-normal"
+        >
+          <span className={cn("truncate", !selected && "text-muted-foreground")}>
+            {selected ? selected.label : "— Unclassified —"}
+          </span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+        <Command
+          filter={(value, search) => {
+            const term = search.toLowerCase();
+            const type = INVENTORY_TYPES.find((t) => t.value === value);
+            if (!type) return 0;
+            const label = type.label.toLowerCase();
+            const code = type.value.toLowerCase();
+            if (label.includes(term) || code.includes(term)) return 1;
+            return 0;
+          }}
+        >
+          <CommandInput placeholder="Search inventory types…" />
+          <CommandList className="max-h-[260px]">
+            <CommandEmpty>No type found.</CommandEmpty>
+            <CommandGroup heading="Kits & assemblies">
+              {INVENTORY_TYPES.filter((t) => t.value === KIT_TYPE).map((t) => (
+                <CommandItem
+                  key={t.value}
+                  value={t.value}
+                  onSelect={() => {
+                    onChange(t.value);
+                    setOpen(false);
+                  }}
+                >
+                  <Check
+                    className={cn(
+                      "mr-2 h-4 w-4",
+                      value === t.value ? "opacity-100" : "opacity-0",
+                    )}
+                  />
+                  {t.label}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+            <CommandGroup heading="All inventory types">
+              {INVENTORY_TYPES.filter((t) => t.value !== KIT_TYPE).map((t) => (
+                <CommandItem
+                  key={t.value}
+                  value={t.value}
+                  onSelect={() => {
+                    onChange(t.value);
+                    setOpen(false);
+                  }}
+                >
+                  <Check
+                    className={cn(
+                      "mr-2 h-4 w-4",
+                      value === t.value ? "opacity-100" : "opacity-0",
+                    )}
+                  />
+                  {t.label}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 interface AssetDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
