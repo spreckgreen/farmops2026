@@ -6,6 +6,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { buildTinyWikiHtml, extractBodyWiki } from "@/lib/tinywiki";
 import { appendProcedureBody } from "@/lib/procedure-append";
 import type { Action, ActionPlan, ActionResult } from "./types";
+import { maintenancePlanName } from "@/lib/maintenance-plan-name";
 
 type Interval = Extract<Action, { type: "maintenance.create_interval" }>;
 
@@ -15,11 +16,7 @@ export interface PlanDocResult {
   mode: "created" | "appended";
 }
 
-/** Page name for an asset's maintenance plan document. */
-export function maintenancePlanName(assetName: string): string {
-  const base = (assetName || "Asset").trim().replace(/[\/\\<>:"|?*]/g, "-");
-  return `${base} — Maintenance plan`.slice(0, 120);
-}
+export { maintenancePlanName } from "@/lib/maintenance-plan-name";
 
 function esc(cell: string): string {
   return String(cell ?? "").replace(/\|/g, "\\|").replace(/\n+/g, " ");
