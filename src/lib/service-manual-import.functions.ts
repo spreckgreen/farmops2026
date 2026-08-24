@@ -10,15 +10,25 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import type { AiEscalation } from "./ai-feature-areas";
 import type { Action, ActionResult, ActionStatus } from "./ai-actions/types";
+import { matchPart, type PartMatchCandidate, type PartMatchConfidence } from "./part-match";
 
 export interface ManualPart {
   name: string;
   quantity: number;
   unit: string;
-  /** Matched inventory item, or null when it must be created on apply. */
+  /**
+   * Auto-accepted inventory match, or null when the user must decide (either a
+   * fuzzy candidate needing confirmation, or nothing matched at all).
+   */
   inventory_item_id: string | null;
   /** Name of the matched inventory item (for the review UI). */
   matched_name: string | null;
+  /** Ranked alternates the review UI offers, best first. */
+  candidates: PartMatchCandidate[];
+  /** How good the top candidate is. */
+  confidence: PartMatchConfidence;
+  /** True when the import should not link this part until the user confirms. */
+  needs_confirmation: boolean;
 }
 
 export interface ManualInterval {
@@ -46,6 +56,11 @@ export interface ManualImportPlan {
 const ParseInput = z.object({
   asset_id: z.string().uuid(),
   manual_text: z.string().trim().min(40).max(120000),
+  /**
+   * How sure a fuzzy match must be to be pre-linked without a confirmation.
+   * Lower = more auto-linking, higher = more prompts. 0.82 by default.
+   */
+  match_threshold: z.coerce.number().min(0.4).max(1).default(0.82),
 });
 
 function recurrenceLabel(
@@ -279,20 +294,9 @@ export const parseServiceManual = createServerFn({ method: "POST" })
           };
         }
 
-        function matchInventory(name: string): { id: string; label: string } | null {
-          const n = name.toLowerCase().trim();
-          if (n.length < 3) return null;
-          let best: { id: string; label: string; len: number } | null = null;
-          for (const item of inv) {
-            if (!item.lower) continue;
-            if (item.lower === n || item.lower.includes(n) || n.includes(item.lower)) {
-              const len = Math.min(item.lower.length, n.length);
-              if (!best || len > best.len)
-                best = { id: item.id, label: item.label, len };
-            }
-          }
-          return best ? { id: best.id, label: best.label } : null;
-        }
+        const matchTargets = inv
+          .filter((i) => i.label)
+          .map((i) => ({ id: i.id, label: i.label }));
 
         const intervals: ManualInterval[] = parsed.intervals.slice(0, 25).map((iv, i) => {
           const trigger = iv.trigger_type;
@@ -307,7 +311,12 @@ export const parseServiceManual = createServerFn({ method: "POST" })
             notes: iv.notes ? String(iv.notes).slice(0, 500) : null,
             parts: (iv.parts ?? []).slice(0, 10).map((p) => {
               const name = String(p.name).slice(0, 200).trim();
-              const match = matchInventory(name);
+              const m = matchPart(name, matchTargets, {
+                autoAcceptScore: data.match_threshold,
+              });
+              // Only a confident, unambiguous hit is pre-linked; everything
+              // else waits for the user's pick in the review step.
+              const auto = m.best && !m.needs_confirmation ? m.best : null;
               return {
                 name,
                 quantity: Math.max(
@@ -315,8 +324,11 @@ export const parseServiceManual = createServerFn({ method: "POST" })
                   Math.round((Number(p.quantity) || 1) * 100) / 100,
                 ),
                 unit: (p.unit ?? "each").toString().slice(0, 30) || "each",
-                inventory_item_id: match?.id ?? null,
-                matched_name: match?.label ?? null,
+                inventory_item_id: auto?.id ?? null,
+                matched_name: auto?.label ?? null,
+                candidates: m.candidates,
+                confidence: m.confidence,
+                needs_confirmation: m.needs_confirmation,
               };
             }),
           };
