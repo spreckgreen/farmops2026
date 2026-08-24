@@ -46,6 +46,7 @@ export const INVENTORY_TYPES: InventoryTypeDef[] = [
   { value: "27_3_pastures", label: "27.3 Pastures", folder: "27 Food Production/27.3 Pastures" },
   { value: "30_equipment", label: "30 Equipment", folder: "30 Equipment" },
   { value: "31_parts", label: "31 Parts", folder: "30 Equipment/31 Parts Catalog" },
+  { value: "32_kits", label: "32 Kits", folder: "30 Equipment/32 Kits" },
   { value: "40_animals", label: "40 Animals", folder: "40 Animals" },
   { value: "41_feed", label: "41 Feed", folder: "40 Animals/41 Feed" },
   { value: "50_food_storage", label: "50 Food Storage", folder: "50 Food Storage" },
