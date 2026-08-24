@@ -477,6 +477,12 @@ function AiEnginesPage() {
                         {def.apiKeyReason}
                         {def.apiKeyWhere ? ` Get one at ${def.apiKeyWhere}.` : ""}
                       </p>
+                      {fieldErrors[def.id]?.apiKey && (
+                        <p className="text-xs font-medium text-destructive">
+                          {fieldErrors[def.id]?.apiKey}
+                        </p>
+                      )}
+
                     </div>
 
                     <div className="space-y-1">
