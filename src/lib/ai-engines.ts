@@ -61,6 +61,16 @@ export const AI_ENGINE_DEFS: readonly AiEngineDef[] = [
     auth: "bearer",
     defaultBaseUrl: BUNDLED_OLLAMA_BASE_URL,
     defaultModel: BUNDLED_OLLAMA_MODEL,
+    apiKeyRequirement: "not-needed",
+    apiKeyReason:
+      "Local Ollama has no accounts and no billing, so it accepts any token. Bostead sends the placeholder \"ollama\" for you — leave this blank.",
+    apiKeyWhere: null,
+    baseUrlRequirement: "optional",
+    baseUrlReason:
+      "Pre-filled with the bundled Ollama container address. Change it only if Ollama runs on another host or port (e.g. http://192.168.1.20:11434/v1).",
+    modelRequirement: "optional",
+    modelReason:
+      "Any tag you have pulled locally, e.g. llama3.2:3b or qwen2.5:7b. Leave as-is to use the bundled default.",
   },
   {
     id: "ollama_cloud",
@@ -70,6 +80,16 @@ export const AI_ENGINE_DEFS: readonly AiEngineDef[] = [
     auth: "bearer",
     defaultBaseUrl: OLLAMA_CLOUD_BASE_URL,
     defaultModel: OLLAMA_CLOUD_DEFAULT_MODEL,
+    apiKeyRequirement: "required",
+    apiKeyReason:
+      "Ollama Cloud bills your account, so every request must be signed with your own key. These are not OpenAI sk-… keys.",
+    apiKeyWhere: "ollama.com → Settings → Keys → Create key",
+    baseUrlRequirement: "optional",
+    baseUrlReason:
+      "Pre-filled with Ollama Cloud's endpoint (https://ollama.com/v1). Leave it unless Ollama publishes a new host.",
+    modelRequirement: "optional",
+    modelReason:
+      "Pre-filled with gpt-oss:120b. Any Ollama Cloud tag works, e.g. deepseek-v3.1:671b.",
   },
   {
     id: "other_cloud",
@@ -79,7 +99,18 @@ export const AI_ENGINE_DEFS: readonly AiEngineDef[] = [
     auth: "bearer",
     defaultBaseUrl: OPENAI_BASE_URL,
     defaultModel: null,
+    apiKeyRequirement: "required",
+    apiKeyReason:
+      "Your provider bills per request and rejects anonymous calls, so a key is mandatory (OpenAI sk-…, OpenRouter sk-or-…, Groq gsk_…).",
+    apiKeyWhere: "your provider's dashboard → API keys",
+    baseUrlRequirement: "optional",
+    baseUrlReason:
+      "Pre-filled with OpenAI (https://api.openai.com/v1). Replace it for another provider, e.g. https://openrouter.ai/api/v1 or https://api.groq.com/openai/v1.",
+    modelRequirement: "required",
+    modelReason:
+      "There is no safe default here — type the exact model id your provider expects, e.g. gpt-4.1-mini or meta-llama/llama-3.3-70b-instruct.",
   },
+
 ] as const;
 
 export const AI_ENGINE_IDS = AI_ENGINE_DEFS.map((e) => e.id) as [AiEngineId, ...AiEngineId[]];
