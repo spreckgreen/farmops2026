@@ -609,10 +609,28 @@ function AiEnginesPage() {
                       />
                       <p className="text-xs text-muted-foreground">{def.modelReason}</p>
                       {fieldErrors[def.id]?.model && (
-                        <p className="text-xs font-medium text-destructive">
-                          {fieldErrors[def.id]?.model}
-                        </p>
+                        <div className="space-y-1">
+                          <p className="text-xs font-medium text-destructive">
+                            {fieldErrors[def.id]?.model}
+                          </p>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs"
+                            disabled={testing === def.id || saveMutation.isPending}
+                            onClick={() => void useRecommendedModel(def.id)}
+                          >
+                            {testing === def.id ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Sparkles className="h-3.5 w-3.5" />
+                            )}
+                            Use recommended compatible model
+                          </Button>
+                        </div>
                       )}
+
 
                     </div>
 
