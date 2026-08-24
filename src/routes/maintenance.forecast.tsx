@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { AppLayout } from "@/components/app-layout";
@@ -18,6 +18,13 @@ import { toast } from "sonner";
 import { handleAiJobInFlight } from "@/lib/ai-inflight-error";
 import { AiFeatureGate } from "@/components/ai-feature-gate";
 import { AiTruncationWarning } from "@/components/ai-truncation-warning";
+import {
+  EditMaintenanceDialog,
+  type MaintenanceRow,
+} from "@/components/edit-maintenance-dialog";
+import type { UsageGap } from "@/lib/maintenance-forecast.functions";
+import { supabase } from "@/integrations/supabase/client";
+import { Gauge } from "lucide-react";
 
 
 export const Route = createFileRoute("/maintenance/forecast")({
@@ -101,6 +108,91 @@ function Column({
   );
 }
 
+/**
+ * Assets that track hours/miles but don't have two readings yet can't be
+ * forecast. Show them explicitly with a one-click way to log the first reading
+ * through the maintenance edit dialog.
+ */
+function UsageGapsCard({ gaps }: { gaps: UsageGap[] }) {
+  const [record, setRecord] = useState<MaintenanceRow | null>(null);
+  const [loadingId, setLoadingId] = useState<string | null>(null);
+
+  const openReading = async (gap: UsageGap) => {
+    if (!gap.recordId) return;
+    setLoadingId(gap.itemId);
+    const { data, error } = await supabase
+      .from("maintenance_records")
+      .select(
+        "id, asset_id, asset_name, title, service_type, status, description, performed_at, due_at, scheduled_date, cost, vendor, notes",
+      )
+      .eq("id", gap.recordId)
+      .maybeSingle();
+    setLoadingId(null);
+    if (error || !data) {
+      toast.error(error?.message ?? "Could not open that maintenance record");
+      return;
+    }
+    setRecord(data as MaintenanceRow);
+  };
+
+  return (
+    <Card className="border-yellow-500/40">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <Gauge className="h-4 w-4 text-yellow-500" />
+          Missing usage readings ({gaps.length})
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        <p className="text-xs text-muted-foreground">
+          Forecasting needs two hours/miles readings per asset to work out a usage rate.
+          Log the current reading now, then again in a few weeks.
+        </p>
+        {gaps.map((gap) => (
+          <div
+            key={gap.itemId}
+            className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card/50 p-3"
+          >
+            <div className="min-w-0">
+              <div className="text-sm font-medium truncate">{gap.itemName}</div>
+              <div className="text-xs text-muted-foreground">
+                tracks {gap.usageTracking} ·{" "}
+                {gap.snapshotCount === 0
+                  ? "no readings yet"
+                  : `${gap.snapshotCount} reading — needs 1 more`}
+              </div>
+            </div>
+            {gap.recordId ? (
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-2 shrink-0"
+                disabled={loadingId === gap.itemId}
+                onClick={() => openReading(gap)}
+              >
+                <Gauge className="h-4 w-4" />
+                {loadingId === gap.itemId ? "Opening…" : "Add reading"}
+              </Button>
+            ) : (
+              <Button asChild size="sm" variant="outline" className="gap-2 shrink-0">
+                <Link to="/maintenance">
+                  <Wrench className="h-4 w-4" /> Log a service first
+                </Link>
+              </Button>
+            )}
+          </div>
+        ))}
+      </CardContent>
+      <EditMaintenanceDialog
+        record={record}
+        onOpenChange={(open) => {
+          if (!open) setRecord(null);
+        }}
+      />
+    </Card>
+  );
+}
+
 function ForecastPage() {
   const qc = useQueryClient();
   const fetchForecast = useServerFn(getMaintenanceForecast);
@@ -153,6 +245,7 @@ function ForecastPage() {
   const buckets = data?.buckets;
   const assets = data?.assets ?? [];
   const withHistory = assets.filter((a) => a.dueItems.length > 0);
+  const usageGaps = data?.usageGaps ?? [];
   const emptyState = !isLoading && assets.length === 0;
 
   return (
@@ -290,6 +383,8 @@ function ForecastPage() {
                 </CardContent>
               </Card>
             )}
+
+            {usageGaps.length > 0 && <UsageGapsCard gaps={usageGaps} />}
 
             {withHistory.length === 0 && (
               <div className="text-xs text-muted-foreground italic">
