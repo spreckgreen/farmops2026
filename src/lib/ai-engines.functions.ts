@@ -173,7 +173,8 @@ export const setAiEngines = createServerFn({ method: "POST" })
 
     await saveEnginesConfig(next, context.userId, context.supabase);
     const { toEngineView } = await import("@/lib/ai-engines");
-    return { ok: true as const, config: toEngineView(next), warnings };
+    return { ok: true as const, config: toEngineView(next), warnings, fieldErrors: {} };
+
   });
 
 const TestInput = z.object({
