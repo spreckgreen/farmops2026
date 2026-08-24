@@ -163,13 +163,22 @@ export function Procedures() {
     renameMut.mutate({ oldName: selected, newName: renameValue.trim() });
   }
 
+  /** Rebuild the export HTML from the stored wiki body so downloads always use
+   *  the current, script-free renderer — older rows were saved with an
+   *  inline-script document that Chrome can blank out under blob:/file: CSP. */
+  function exportHtmlFor(w: ProcedureRow): string {
+    const body = extractBodyWiki(w.content, w.name);
+    return body ? buildTinyWikiHtml(w.name, body) : w.content;
+  }
+
   function exportOne() {
     if (!selected) return;
     const w = wikis.find((x) => x.name === selected);
     if (!w) return;
-    try { validateTinyWikiHtml(w.content); }
+    const html = exportHtmlFor(w);
+    try { validateTinyWikiHtml(html); }
     catch (e) { toast.error(e instanceof Error ? e.message : String(e)); return; }
-    const blob = new Blob([w.content], { type: "text/html;charset=utf-8" });
+    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url; a.download = filenameForExport(w.name); a.click();
@@ -180,7 +189,7 @@ export function Procedures() {
     if (!selected) return;
     const w = wikis.find((x) => x.name === selected);
     if (!w) return;
-    const blob = new Blob([w.content], { type: "text/html;charset=utf-8" });
+    const blob = new Blob([exportHtmlFor(w)], { type: "text/html;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const win = window.open(url, "_blank", "noopener,noreferrer");
     setTimeout(() => URL.revokeObjectURL(url), 60_000);
@@ -189,6 +198,7 @@ export function Procedures() {
       a.href = url; a.download = filenameForExport(w.name); a.click();
     }
   }
+
 
   async function syncToObsidian() {
     const anyWindow = window as unknown as {
