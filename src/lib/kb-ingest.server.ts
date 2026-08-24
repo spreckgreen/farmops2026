@@ -92,7 +92,11 @@ export async function runIngest(
 ): Promise<IngestResult> {
   const started = Date.now();
   const { resolveAreaAi, hostedHandle } = await import("./ai-routing.server");
-  const ai = await resolveAreaAi("kb_ingest", { hostedDefaultModel: "openai/gpt-5.6-sol" });
+  const ai = await resolveAreaAi("kb_ingest", {
+    hostedDefaultModel: "openai/gpt-5.6-sol",
+    // Vault-backed engine keys are readable only with the caller's session.
+    client: context.supabase as never,
+  });
   let provider = ai.provider;
   let modelId = ai.modelId;
   const modelOverride = ai.backend === "local" ? ai.modelId : undefined;

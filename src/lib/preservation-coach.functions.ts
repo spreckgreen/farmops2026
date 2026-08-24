@@ -288,6 +288,7 @@ export const recommendPreservation = createServerFn({ method: "POST" })
       const { resolveAreaAi, hostedHandle } = await import("./ai-routing.server");
       const ai = await resolveAreaAi("food.preservation", {
         hostedDefaultModel: "google/gemini-3.6-flash",
+        client: context.supabase,
       });
       let provider = ai.provider;
       modelId = ai.modelId;

@@ -134,6 +134,7 @@ export const draftInventorySop = createServerFn({ method: "POST" })
     const { resolveAreaAi, hostedHandle } = await import("@/lib/ai-routing.server");
     const ai = await resolveAreaAi("procedures", {
       hostedDefaultModel: "google/gemini-3.6-flash",
+      client: context.supabase,
     });
     let provider = ai.provider;
     let modelId = ai.modelId;

@@ -128,6 +128,7 @@ export const diagnoseSymptom = createServerFn({ method: "POST" })
     const { resolveAreaAi, hostedHandle } = await import("./ai-routing.server");
     const ai = await resolveAreaAi("maintenance.symptom", {
       hostedDefaultModel: "google/gemini-3.6-flash",
+      client: context.supabase,
     });
     let provider = ai.provider;
     let modelId = ai.modelId;

@@ -192,6 +192,7 @@ export const getMaintenanceForecastNarrative = createServerFn({ method: "POST" }
     const { resolveAreaAi, runAreaAi } = await import("./ai-routing.server");
     const ai = await resolveAreaAi("maintenance.forecast", {
       hostedDefaultModel: "google/gemini-3.6-flash",
+      client: context.supabase,
     });
 
     const { generateText } = await import("ai");
