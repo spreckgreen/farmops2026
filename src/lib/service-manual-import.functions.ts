@@ -316,7 +316,7 @@ export const parseServiceManual = createServerFn({ method: "POST" })
               });
               // Only a confident, unambiguous hit is pre-linked; everything
               // else waits for the user's pick in the review step.
-              const auto = m.best && !m.needs_confirmation ? m.best : null;
+              const auto = m.best && !m.needsConfirmation ? m.best : null;
               return {
                 name,
                 quantity: Math.max(
@@ -328,7 +328,7 @@ export const parseServiceManual = createServerFn({ method: "POST" })
                 matched_name: auto?.label ?? null,
                 candidates: m.candidates,
                 confidence: m.confidence,
-                needs_confirmation: m.needs_confirmation,
+                needs_confirmation: m.needsConfirmation,
               };
             }),
           };
