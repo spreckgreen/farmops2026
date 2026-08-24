@@ -362,10 +362,16 @@ function Page() {
                 {parseMut.isPending ? "Reading manual…" : "Read manual"}
               </Button>
             </div>
-            {parseMut.isPending && (
+            {(parseMut.isPending || jobProgress.active) && (
               <AiProgressStages
+                active={parseMut.isPending || jobProgress.active}
+                done={parseMut.isSuccess}
                 startedAt={jobProgress.startedAt}
-                label="Extracting service intervals and parts"
+                stages={[
+                  { id: "prepare", label: "Loading asset & inventory context", estSeconds: 1 },
+                  { id: "ai", label: "Extracting service intervals and parts", estSeconds: 20 },
+                  { id: "format", label: "Matching parts to inventory", estSeconds: 2 },
+                ]}
               />
             )}
           </section>
