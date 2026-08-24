@@ -195,27 +195,28 @@ function AiEnginesPage() {
   const patch = (id: AiEngineId, value: Partial<TargetDraft>) =>
     setDrafts((prev) => ({ ...prev, [id]: { ...prev[id], ...value } }));
 
-  const saveMutation = useMutation({
-    mutationFn: () =>
-      save({
-        data: {
-          cloudDefault,
-          engines: Object.fromEntries(
-            AI_ENGINE_DEFS.map((def) => {
-              const d = drafts[def.id];
-              return [
-                def.id,
-                {
-                  enabled: d.enabled,
-                  baseUrl: d.baseUrl.trim() || null,
-                  apiKey: d.keyTouched ? d.apiKey : null,
-                  model: d.model.trim() || null,
-                },
-              ];
-            }),
-          ),
-        },
+  const buildPayload = (source: Drafts, cloud: AiEngineId) => ({
+    cloudDefault: cloud,
+    engines: Object.fromEntries(
+      AI_ENGINE_DEFS.map((def) => {
+        const d = source[def.id];
+        return [
+          def.id,
+          {
+            enabled: d.enabled,
+            baseUrl: d.baseUrl.trim() || null,
+            // null keeps the stored key; "" clears it (used by "Reset to defaults").
+            apiKey: d.keyTouched ? d.apiKey : null,
+            model: d.model.trim() || null,
+          },
+        ];
       }),
+    ),
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: (override?: Drafts) =>
+      save({ data: buildPayload(override ?? drafts, cloudDefault) }),
     onSuccess: (result) => {
       const warnings = "warnings" in result ? (result.warnings ?? []) : [];
       toast.success("AI engine configuration saved");
@@ -231,6 +232,28 @@ function AiEnginesPage() {
     onError: (err: unknown) =>
       toast.error(err instanceof Error ? err.message : "Could not save engines"),
   });
+
+  /**
+   * One-click restore for a single card: puts the known-good base URL + model
+   * back, and clears any stored key — including keys inherited from an older
+   * config — by sending an explicit empty string. Saved immediately so the
+   * runtime stops using the old credential right away.
+   */
+  const resetEngine = (id: AiEngineId) => {
+    const def = AI_ENGINE_DEFS.find((e) => e.id === id)!;
+    const reset: TargetDraft = {
+      enabled: drafts[id].enabled,
+      baseUrl: def.defaultBaseUrl ?? "",
+      apiKey: "",
+      keyTouched: true,
+      model: def.defaultModel ?? "",
+    };
+    const next: Drafts = { ...drafts, [id]: reset };
+    setDrafts(next);
+    setTests((prev) => ({ ...prev, [id]: undefined }));
+    saveMutation.mutate(next);
+  };
+
 
   const defaultEngines = AI_ENGINE_DEFS;
 
