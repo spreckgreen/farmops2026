@@ -20,11 +20,19 @@ export interface ProcedureLinkRow {
   target_label: string;
   notes: string | null;
   created_at: string;
+  /** True when this link points at a part/consumable (or an item type that can
+   *  no longer hold a manual). The link still works — it is flagged so it can be
+   *  relinked to equipment or ham radio gear instead of silently breaking. */
+  needs_relink?: boolean;
+  relink_reason?: string | null;
+  target_item_type?: string | null;
 }
 
 export interface LinkTargetOption {
   id: string;
   label: string;
+  itemType?: string | null;
+  manualEligible?: boolean;
 }
 
 async function resolveProcedureId(
