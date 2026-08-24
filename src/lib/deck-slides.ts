@@ -3,7 +3,6 @@
 // (src/assets/deck/*.png), so the deck can never drift into mockups.
 import tasks from "@/assets/deck/tasks.png";
 import tasksScheduled from "@/assets/deck/tasks-scheduled.png";
-import tasksBacklog from "@/assets/deck/tasks-backlog.png";
 import projects from "@/assets/deck/projects.png";
 import reports from "@/assets/deck/reports.png";
 import inventory from "@/assets/deck/inventory.png";
@@ -13,8 +12,6 @@ import maintenanceForecast from "@/assets/deck/maintenance-forecast.png";
 import maintenanceGenerate from "@/assets/deck/maintenance-generate-schedule.png";
 import maintenanceImport from "@/assets/deck/maintenance-import-manual.png";
 import procedures from "@/assets/deck/procedures.png";
-import proceduresIngest from "@/assets/deck/procedures-ingest.png";
-import food from "@/assets/deck/food.png";
 import foodGarden from "@/assets/deck/food-garden.png";
 import foodOrchard from "@/assets/deck/food-orchard.png";
 import foodLivestock from "@/assets/deck/food-livestock.png";
@@ -119,20 +116,6 @@ export const SLIDES: Slide[] = [
       "Bulk restamp moves a whole day of missed work forward instead of retyping it.",
     ],
     tip: "All dates use the farm timezone, so \"today\" means today on the property.",
-  },
-  {
-    kind: "shot",
-    kicker: "Section 1 · Daily work",
-    title: "The backlog is allowed to be big",
-    route: "/tasks/backlog",
-    image: tasksBacklog,
-    steps: [
-      "Park every someday idea here instead of losing it — fencing, a hive, a new gate.",
-      "Backlog items carry no date, so they never clutter the day view.",
-      "When a season opens up, move an item to a date to pull it into the plan.",
-      "Review the backlog monthly and delete freely — that's the point.",
-    ],
-    tip: "A task with no date isn't a failure; it's a decision you haven't made yet.",
   },
 
   {
