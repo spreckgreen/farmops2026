@@ -209,9 +209,10 @@ export async function testAiEngine(
     : base.engines[id].apiKey
       ? "the key stored for this engine"
       : id === "local"
-        ? "the local/bundled default key"
+        ? "a placeholder token (self-hosted Ollama needs no key)"
         : "no key";
   const keyNote = `Sent Authorization: Bearer … using ${keySource} (…${engine.apiKey.slice(-4)}).`;
+
   const headers = authHeaders(def.auth, engine.apiKey);
   const started = Date.now();
 
