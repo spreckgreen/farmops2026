@@ -209,3 +209,96 @@ export const createMaintenance = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return inserted;
   });
+
+const UpdateSchema = CreateSchema.partial()
+  .extend({
+    id: z.string().uuid(),
+    description: z.string().trim().max(5000).optional().nullable(),
+    completed_date: z.string().trim().max(64).optional().nullable(),
+    recurrence: z.string().trim().max(100).optional().nullable(),
+  });
+
+export const updateMaintenance = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => UpdateSchema.parse(d))
+  .handler(async ({ data, context }) => {
+    const patch: Record<string, unknown> = {};
+    const setIf = (key: string, value: unknown) => {
+      if (value !== undefined) patch[key] = value;
+    };
+    setIf("title", data.title ?? null);
+    setIf("asset_name", data.asset_name);
+    setIf("service_type", data.service_type ?? null);
+    setIf("status", data.status ?? null);
+    setIf("description", data.description ?? null);
+    setIf("recurrence", data.recurrence ?? "none");
+    setIf("vendor", data.vendor ?? null);
+    setIf("notes", data.notes ?? null);
+    if (data.cost !== undefined) patch.cost = toNumber(data.cost);
+    if (data.performed_at !== undefined) patch.performed_at = toDate(data.performed_at);
+    if (data.due_at !== undefined) patch.due_at = toDate(data.due_at);
+    if (data.scheduled_date !== undefined) patch.scheduled_date = toISO(data.scheduled_date);
+    if (data.completed_date !== undefined) patch.completed_date = toISO(data.completed_date);
+
+    const { data: updated, error } = await context.supabase
+      .from("maintenance_records")
+      .update(patch as never)
+      .eq("id", data.id)
+      .eq("user_id", context.userId)
+      .select()
+      .single();
+    if (error) throw new Error(error.message);
+    return updated;
+  });
+
+/**
+ * Log a usage reading (engine hours / odometer miles) against the equipment a
+ * maintenance record points at. Writing `current_hours` / `current_miles` also
+ * fires the `snapshot_asset_usage` trigger, which keeps the usage history that
+ * the maintenance forecast reads.
+ */
+const UsageSchema = z
+  .object({
+    asset_id: z.string().uuid().optional().nullable(),
+    asset_name: z.string().trim().max(500).optional().nullable(),
+    hours: z.union([z.number(), z.string()]).optional().nullable(),
+    miles: z.union([z.number(), z.string()]).optional().nullable(),
+  })
+  .refine((v) => !!(v.asset_id || v.asset_name), { message: "An asset is required" });
+
+export const logAssetUsage = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => UsageSchema.parse(d))
+  .handler(async ({ data, context }) => {
+    const hours = toNumber(data.hours);
+    const miles = toNumber(data.miles);
+    if (hours === null && miles === null) throw new Error("Enter hours or miles to log");
+
+    let assetId = data.asset_id ?? null;
+    if (!assetId && data.asset_name) {
+      const { data: match, error: findErr } = await context.supabase
+        .from("inventory_items")
+        .select("id")
+        .eq("user_id", context.userId)
+        .ilike("name", data.asset_name)
+        .limit(1)
+        .maybeSingle();
+      if (findErr) throw new Error(findErr.message);
+      if (!match) throw new Error(`No inventory item named "${data.asset_name}"`);
+      assetId = (match as { id: string }).id;
+    }
+
+    const patch: Record<string, unknown> = {};
+    if (hours !== null) patch.current_hours = hours;
+    if (miles !== null) patch.current_miles = miles;
+
+    const { data: updated, error } = await context.supabase
+      .from("inventory_items")
+      .update(patch as never)
+      .eq("id", assetId!)
+      .eq("user_id", context.userId)
+      .select("id, name, current_hours, current_miles, usage_tracking")
+      .single();
+    if (error) throw new Error(error.message);
+    return updated;
+  });
