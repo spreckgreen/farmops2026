@@ -19,6 +19,12 @@ export interface RankedModel {
   reason: string;
 }
 
+export interface IncompatibleModel {
+  id: string;
+  /** Why Bostead refuses to use it, in plain language. */
+  reason: string;
+}
+
 export interface ModelTiers {
   good: RankedModel | null;
   better: RankedModel | null;
@@ -27,6 +33,45 @@ export interface ModelTiers {
   ranked: RankedModel[];
   /** Ids skipped because they can't do chat/structured-output work. */
   excluded: string[];
+  /**
+   * Chat models the provider serves that Bostead cannot use for its cloud AI
+   * features because of a capability gap (e.g. legacy OpenAI `gpt-4`, which
+   * rejects `response_format: json_object`). Listed, never selectable.
+   */
+  incompatible: IncompatibleModel[];
+}
+
+/**
+ * Known compatibility gaps for Bostead's structured-output features (manual
+ * import, schedule planning). Returns the reason when the model can't be used.
+ *
+ * Examples:
+ *   capabilityGap("gpt-4")            -> "Legacy GPT-4 …"
+ *   capabilityGap("gpt-4-32k-0613")   -> "Legacy GPT-4 …"
+ *   capabilityGap("davinci-002")      -> "Completion-only …"
+ *   capabilityGap("gpt-4o")           -> null
+ */
+export function capabilityGap(modelId: string): string | null {
+  const s = String(modelId ?? "").trim().toLowerCase();
+  if (!s) return null;
+
+  // Completion / base models: no chat endpoint, no schema following.
+  if (/(^|[-_/])(davinci|babbage|curie|ada)([-_.]|$)/.test(s) || /-base($|[-_.])/.test(s)) {
+    return "Completion-only base model: no chat or JSON mode support.";
+  }
+
+  // Legacy OpenAI GPT-4 / GPT-4-32k snapshots and gpt-3.5 pre-1106 snapshots
+  // reject response_format: json_object outright.
+  if (/^gpt-4(-32k)?(-\d{4})?$/.test(s) || /^gpt-4(-32k)?-(0314|0613)$/.test(s)) {
+    return "Legacy GPT-4 snapshot: rejects OpenAI JSON mode (response_format), so manual/schedule extraction fails. Use gpt-4.1, gpt-4o or newer.";
+  }
+  if (/^gpt-3\.5-turbo(-16k)?(-0301|-0613)?$/.test(s)) {
+    return "Legacy GPT-3.5 snapshot: no JSON mode and too weak for schedule extraction. Use gpt-4o-mini or newer.";
+  }
+  if (/^gpt-.*instruct/.test(s)) {
+    return "OpenAI instruct/completion model: not a chat model, so structured output is unavailable.";
+  }
+  return null;
 }
 
 /** Model families that can't run a chat/structured-output task at all. */
@@ -163,6 +208,7 @@ const CAPABILITY_FLOOR = 45;
 export function rankModelTiers(modelIds: readonly string[]): ModelTiers {
   const seen = new Set<string>();
   const excluded: string[] = [];
+  const incompatible: IncompatibleModel[] = [];
   const scored: RankedModel[] = [];
 
   for (const raw of modelIds) {
@@ -173,12 +219,17 @@ export function rankModelTiers(modelIds: readonly string[]): ModelTiers {
       excluded.push(id);
       continue;
     }
+    const gap = capabilityGap(id);
+    if (gap) {
+      incompatible.push({ id, reason: gap });
+      continue;
+    }
     scored.push(scoreModel(id));
   }
 
   const ranked = [...scored].sort((a, b) => b.score - a.score || a.id.localeCompare(b.id));
   if (ranked.length === 0) {
-    return { good: null, better: null, best: null, ranked, excluded };
+    return { good: null, better: null, best: null, ranked, excluded, incompatible };
   }
 
   const best = ranked[0];
@@ -199,7 +250,7 @@ export function rankModelTiers(modelIds: readonly string[]): ModelTiers {
         (a, b) => Math.abs(a.score - midpoint) - Math.abs(b.score - midpoint) || b.score - a.score,
       )[0] ?? best;
 
-  return { good, better, best, ranked, excluded };
+  return { good, better, best, ranked, excluded, incompatible };
 }
 
 /** The model Bostead pre-selects after a successful connection test. */
