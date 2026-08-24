@@ -321,6 +321,8 @@ function ForecastPage() {
           </Card>
         )}
 
+        {usageGaps.length > 0 && <UsageGapsCard gaps={usageGaps} />}
+
         {isLoading ? (
           <div className="rounded-lg border border-border bg-card/40 p-8 text-center text-muted-foreground text-sm">
             Loading forecast…
@@ -383,8 +385,6 @@ function ForecastPage() {
                 </CardContent>
               </Card>
             )}
-
-            {usageGaps.length > 0 && <UsageGapsCard gaps={usageGaps} />}
 
             {withHistory.length === 0 && (
               <div className="text-xs text-muted-foreground italic">
