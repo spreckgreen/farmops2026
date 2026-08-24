@@ -62,6 +62,15 @@ export const AI_FEATURES: AiFeatureDef[] = [
     defaultEnabled: true,
   },
   {
+    id: "maintenance.import-manual",
+    label: "Import service manual",
+    description:
+      "Read an AI-written service manual for one asset: intervals become maintenance records and missing parts are stocked in inventory.",
+    weight: "heavy",
+    surfaces: ["/maintenance/import-manual"],
+    defaultEnabled: true,
+  },
+  {
     id: "food.preserve",
     label: "Preservation coach",
     description:
