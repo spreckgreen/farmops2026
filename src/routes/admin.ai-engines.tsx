@@ -68,6 +68,30 @@ export const Route = createFileRoute("/admin/ai-engines")({
   component: AiEnginesPage,
 });
 
+function RequirementBadge({
+  requirement,
+}: {
+  requirement: "required" | "optional" | "not-needed";
+}) {
+  if (requirement === "required")
+    return (
+      <Badge variant="destructive" className="text-[10px] uppercase">
+        required
+      </Badge>
+    );
+  if (requirement === "optional")
+    return (
+      <Badge variant="secondary" className="text-[10px] uppercase">
+        optional — default supplied
+      </Badge>
+    );
+  return (
+    <Badge variant="outline" className="text-[10px] uppercase">
+      not needed
+    </Badge>
+  );
+}
+
 interface TargetDraft {
   enabled: boolean;
   baseUrl: string;
@@ -75,6 +99,7 @@ interface TargetDraft {
   keyTouched: boolean;
   model: string;
 }
+
 
 const emptyDraft: TargetDraft = {
   enabled: true,
