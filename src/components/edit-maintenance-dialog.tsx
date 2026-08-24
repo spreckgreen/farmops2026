@@ -67,9 +67,14 @@ export function EditMaintenanceDialog({
     vendor: "",
     notes: "",
   });
-  const [asset, setAsset] = useState<AssetUsage | null>(null);
+  const [assets, setAssets] = useState<AssetUsage[]>([]);
+  const [assetId, setAssetId] = useState<string>("");
   const [hours, setHours] = useState("");
   const [miles, setMiles] = useState("");
+  const asset = assets.find((a) => a.id === assetId) ?? null;
+  const tracking = (asset?.usage_tracking ?? "").toLowerCase();
+  const showHours = tracking === "hours" || tracking === "both" || tracking === "";
+  const showMiles = tracking === "miles" || tracking === "both" || tracking === "";
 
   useEffect(() => {
     if (!record) return;
@@ -87,32 +92,47 @@ export function EditMaintenanceDialog({
     });
     setHours("");
     setMiles("");
-    setAsset(null);
   }, [record]);
 
-  // Look up the linked equipment so usage readings can be logged inline.
+  // Load equipment so the record can be linked explicitly by id (names drift).
   useEffect(() => {
     if (!record) return;
     let cancelled = false;
     (async () => {
-      const base = supabase
+      const { data, error } = await supabase
         .from("inventory_items")
-        .select("id, name, current_hours, current_miles, usage_tracking");
-      const q = record.asset_id
-        ? base.eq("id", record.asset_id)
-        : base.ilike("name", record.asset_name ?? "___none___");
-      const { data, error } = await q.limit(1).maybeSingle();
-      if (!cancelled && !error && data) {
-        const a = data as AssetUsage;
-        setAsset(a);
-        setHours(a.current_hours != null ? String(a.current_hours) : "");
-        setMiles(a.current_miles != null ? String(a.current_miles) : "");
+        .select("id, name, current_hours, current_miles, usage_tracking")
+        .order("name", { ascending: true })
+        .limit(1000);
+      if (cancelled || error || !data) return;
+      const list = data as AssetUsage[];
+      setAssets(list);
+
+      const wanted = (record.asset_name ?? "").trim().toLowerCase();
+      const match =
+        (record.asset_id && list.find((a) => a.id === record.asset_id)) ||
+        list.find((a) => (a.name ?? "").trim().toLowerCase() === wanted) ||
+        list.find(
+          (a) => wanted.length > 3 && (a.name ?? "").trim().toLowerCase().includes(wanted),
+        ) ||
+        null;
+      setAssetId(match?.id ?? "");
+      if (match) {
+        setHours(match.current_hours != null ? String(match.current_hours) : "");
+        setMiles(match.current_miles != null ? String(match.current_miles) : "");
       }
     })();
     return () => {
       cancelled = true;
     };
   }, [record]);
+
+  // Keep readings in sync when the user switches the linked asset.
+  useEffect(() => {
+    if (!asset) return;
+    setHours(asset.current_hours != null ? String(asset.current_hours) : "");
+    setMiles(asset.current_miles != null ? String(asset.current_miles) : "");
+  }, [assetId]);
 
   const save = useMutation({
     mutationFn: async () => {
@@ -121,7 +141,8 @@ export function EditMaintenanceDialog({
         data: {
           id: record.id,
           title: form.title.trim() || null,
-          asset_name: form.asset_name.trim() || undefined,
+          asset_name: (asset?.name ?? form.asset_name).trim() || undefined,
+          asset_id: assetId || null,
           service_type: form.service_type.trim() || null,
           status: form.status.trim() || null,
           scheduled_date: form.scheduled_date || null,
@@ -187,7 +208,26 @@ export function EditMaintenanceDialog({
         </DialogHeader>
 
         <div className="grid grid-cols-2 gap-3">
-          {field("asset_name", "Asset")}
+          <div className="col-span-2 sm:col-span-1">
+            <Label htmlFor="edit-asset" className="text-xs text-muted-foreground">
+              Asset (linked equipment)
+            </Label>
+            <select
+              id="edit-asset"
+              value={assetId}
+              onChange={(e) => setAssetId(e.target.value)}
+              className="mt-1 h-9 w-full rounded-md border border-border bg-card/60 px-2 text-sm"
+            >
+              <option value="">
+                {form.asset_name ? `Unlinked — ${form.asset_name}` : "Not linked"}
+              </option>
+              {assets.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name ?? "(unnamed)"}
+                </option>
+              ))}
+            </select>
+          </div>
           {field("title", "Title")}
           {field("service_type", "Service type")}
           {field("status", "Status")}
@@ -218,42 +258,52 @@ export function EditMaintenanceDialog({
           {asset ? (
             <>
               <p className="text-xs text-muted-foreground mb-3">
-                {asset.name} — currently {asset.current_hours ?? 0} h / {asset.current_miles ?? 0} mi.
-                Saving a new reading records a usage snapshot used by forecasting.
+                {asset.name} — tracks {asset.usage_tracking ?? "none"}; currently{" "}
+                {asset.current_hours ?? 0} h / {asset.current_miles ?? 0} mi. Saving a new reading
+                records a usage snapshot used by forecasting.
               </p>
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label htmlFor="edit-hours" className="text-xs text-muted-foreground">
-                    Hours of usage
-                  </Label>
-                  <Input
-                    id="edit-hours"
-                    type="number"
-                    step="0.1"
-                    value={hours}
-                    onChange={(e) => setHours(e.target.value)}
-                    className="mt-1 bg-card/60 border-border"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="edit-miles" className="text-xs text-muted-foreground">
-                    Miles
-                  </Label>
-                  <Input
-                    id="edit-miles"
-                    type="number"
-                    step="0.1"
-                    value={miles}
-                    onChange={(e) => setMiles(e.target.value)}
-                    className="mt-1 bg-card/60 border-border"
-                  />
-                </div>
+                {showHours && (
+                  <div>
+                    <Label htmlFor="edit-hours" className="text-xs text-muted-foreground">
+                      Hours of usage
+                    </Label>
+                    <Input
+                      id="edit-hours"
+                      type="number"
+                      step="0.1"
+                      value={hours}
+                      onChange={(e) => setHours(e.target.value)}
+                      className="mt-1 bg-card/60 border-border"
+                    />
+                  </div>
+                )}
+                {showMiles && (
+                  <div>
+                    <Label htmlFor="edit-miles" className="text-xs text-muted-foreground">
+                      Miles
+                    </Label>
+                    <Input
+                      id="edit-miles"
+                      type="number"
+                      step="0.1"
+                      value={miles}
+                      onChange={(e) => setMiles(e.target.value)}
+                      className="mt-1 bg-card/60 border-border"
+                    />
+                  </div>
+                )}
+                {!showHours && !showMiles && (
+                  <p className="col-span-2 text-xs text-muted-foreground">
+                    This item’s usage tracking is set to “none”. Set it to hours or miles under
+                    Inventory to log readings.
+                  </p>
+                )}
               </div>
             </>
           ) : (
             <p className="text-xs text-muted-foreground">
-              No matching inventory item for “{form.asset_name || "—"}”. Add it under Inventory to
-              track hours and miles.
+              No equipment linked yet. Pick the asset above to log hours or miles.
             </p>
           )}
         </div>

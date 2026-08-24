@@ -172,6 +172,7 @@ export const deleteMaintenance = createServerFn({ method: "POST" })
 const CreateSchema = z.object({
   title: z.string().trim().max(500).optional().nullable(),
   asset_name: z.string().trim().min(1).max(500),
+  asset_id: z.string().uuid().optional().nullable(),
   service_type: z.string().trim().max(500).optional().nullable(),
   status: z.string().trim().max(100).optional().nullable(),
   scheduled_date: z.string().trim().max(64).optional().nullable(),
@@ -182,7 +183,12 @@ const CreateSchema = z.object({
   notes: z.string().trim().max(5000).optional().nullable(),
 });
 
-/** Resolve an inventory item id from a free-text asset name (case-insensitive). */
+/**
+ * Resolve an inventory item id from a free-text asset name (case-insensitive).
+ * Falls back to a contains match so stored names with stray whitespace or a
+ * slightly different model suffix (e.g. "Mower Z421KWT " vs "Mower Z421KWT")
+ * still link up instead of silently dropping the asset connection.
+ */
 async function resolveAssetId(
   supabase: { from: (t: string) => any },
   userId: string,
@@ -190,21 +196,33 @@ async function resolveAssetId(
 ): Promise<string | null> {
   const name = (assetName ?? "").trim();
   if (!name) return null;
-  const { data } = await supabase
+  const exact = await supabase
     .from("inventory_items")
     .select("id")
     .eq("user_id", userId)
     .ilike("name", name)
     .limit(1)
     .maybeSingle();
-  return (data as { id: string } | null)?.id ?? null;
+  const hit = (exact.data as { id: string } | null)?.id;
+  if (hit) return hit;
+  const escaped = name.replace(/[%_]/g, (m: string) => `\\${m}`);
+  const fuzzy = await supabase
+    .from("inventory_items")
+    .select("id")
+    .eq("user_id", userId)
+    .ilike("name", `%${escaped}%`)
+    .limit(1)
+    .maybeSingle();
+  return (fuzzy.data as { id: string } | null)?.id ?? null;
 }
 
 export const createMaintenance = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => CreateSchema.parse(d))
   .handler(async ({ data, context }) => {
-    const assetId = await resolveAssetId(context.supabase, context.userId, data.asset_name);
+    const assetId =
+      data.asset_id ??
+      (await resolveAssetId(context.supabase, context.userId, data.asset_name));
     const row = {
       user_id: context.userId,
       title: data.title ?? null,
@@ -247,10 +265,21 @@ export const updateMaintenance = createServerFn({ method: "POST" })
       if (value !== undefined) patch[key] = value;
     };
     setIf("title", data.title ?? null);
+    if (data.asset_id !== undefined && data.asset_id !== null) {
+      // Explicit pick from the asset dropdown always wins.
+      patch.asset_id = data.asset_id;
+    }
     if (data.asset_name !== undefined) {
       patch.asset_name = data.asset_name;
-      // Keep the asset link in sync so usage forecasting can join on asset_id.
-      patch.asset_id = await resolveAssetId(context.supabase, context.userId, data.asset_name);
+      if (patch.asset_id === undefined) {
+        // Keep the link in sync, but never clear an existing link on a miss.
+        const resolved = await resolveAssetId(
+          context.supabase,
+          context.userId,
+          data.asset_name,
+        );
+        if (resolved) patch.asset_id = resolved;
+      }
     }
     setIf("service_type", data.service_type ?? null);
     setIf("status", data.status ?? null);
