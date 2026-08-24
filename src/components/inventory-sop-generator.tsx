@@ -62,12 +62,13 @@ export function InventorySopGenerator({
 
   const save = useMutation({
     mutationFn: () =>
-      saveFn({ data: { inventoryItemId: itemId, name: name.trim(), body } }),
+      saveFn({ data: { inventoryItemId: itemId, name: name.trim(), body, mode: saveMode } }),
     onSuccess: (r) => {
+      const verb = r.appended ? "Added to" : "Saved";
       toast.success(
         r.linked
-          ? `Saved "${r.name}" and linked it to ${selected?.name ?? "the item"}`
-          : `Saved "${r.name}"`,
+          ? `${verb} "${r.name}" and linked it to ${selected?.name ?? "the item"}`
+          : `${verb} "${r.name}"`,
       );
       setDraft(null);
       setBody("");
@@ -170,7 +171,19 @@ export function InventorySopGenerator({
                 {draft.contextUsed.linkedProcedures} linked procedure
                 {draft.contextUsed.linkedProcedures === 1 ? "" : "s"}
               </span>
-              <div className="ml-auto flex gap-2">
+              <div className="ml-auto flex items-center gap-2">
+                <select
+                  value={saveMode}
+                  onChange={(e) =>
+                    setSaveMode(e.target.value as "create" | "append" | "replace")
+                  }
+                  className="rounded-md border border-border bg-card/60 px-2 py-1 text-xs text-foreground"
+                  title="What to do if a procedure with this name already exists"
+                >
+                  <option value="create">New page</option>
+                  <option value="append">Append to existing</option>
+                  <option value="replace">Replace existing</option>
+                </select>
                 <Button variant="ghost" size="sm" onClick={() => setDraft(null)}>
                   Discard
                 </Button>
