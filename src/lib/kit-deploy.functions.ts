@@ -230,8 +230,6 @@ export const checkInKit = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     if (!row) throw new Error("Deployment not found.");
 
-    const { toDeploymentLines } = { toDeploymentLines: null } as { toDeploymentLines: null };
-    void toDeploymentLines;
     const deployment = toDeployment(row as unknown as DeploymentRow);
     if (deployment.status === "returned") {
       throw new Error("This deployment is already checked in.");
