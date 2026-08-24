@@ -26,6 +26,7 @@ import { InventoryBomDialog } from "@/components/inventory-bom-dialog";
 import { requireAuthenticatedUser } from "@/lib/auth-route";
 import type { Asset, AssetFormData } from "@/components/dashboard/types";
 import { INVENTORY_TYPES } from "@/lib/obsidian-layout";
+import { isKitItem, isSingleAsset } from "@/lib/asset-types";
 import { rowsToCsv, downloadCsv } from "@/lib/csv";
 import {
   INVENTORY_CSV_COLUMNS,
@@ -501,6 +502,8 @@ function InventoryPage() {
   const usedTypes = new Set(assets.map((a) => a.item_type).filter(Boolean) as string[]);
   const availableTypes = INVENTORY_TYPES.filter((t) => usedTypes.has(t.value));
 
+  const kitCount = assets.filter((a) => isKitItem(a)).length;
+
   const filtered = assets.filter((a) => {
     const q = search.toLowerCase();
     const typeLabel =
@@ -513,7 +516,14 @@ function InventoryPage() {
       (a.barcode || "").toLowerCase().includes(q) ||
       (a.tags || []).some((t) => t.toLowerCase().includes(q));
     const matchesStatus = statusFilter === "all" || a.status === statusFilter;
-    const matchesType = typeFilter === "all" || a.item_type === typeFilter;
+    const matchesType =
+      typeFilter === "all"
+        ? true
+        : typeFilter === "group:kits"
+          ? isKitItem(a)
+          : typeFilter === "group:assets"
+            ? isSingleAsset(a)
+            : a.item_type === typeFilter;
     const minQ = a.min_quantity ?? 0;
     const qty = a.quantity ?? 0;
     const matchesLowStock = !showLowStock || (minQ > 0 && qty <= minQ);
@@ -567,6 +577,8 @@ function InventoryPage() {
               className="rounded-md border border-border bg-card px-3 py-2 text-sm"
             >
               <option value="all">All Inventory Types</option>
+              <option value="group:kits">Kits only ({kitCount})</option>
+              <option value="group:assets">Single assets only</option>
               {availableTypes.map((t) => (
                 <option key={t.value} value={t.value}>
                   {t.label}
