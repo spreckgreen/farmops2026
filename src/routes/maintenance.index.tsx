@@ -20,6 +20,7 @@ import {
   Download,
   FileText,
   Trash2,
+  Pencil,
   CalendarClock,
   Stethoscope,
   Sparkles,
@@ -30,6 +31,10 @@ import { toast } from "sonner";
 import { rowsToCsv, downloadCsv } from "@/lib/csv";
 import { WelcomingPagesImportHelper } from "@/components/welcoming-pages-import-helper";
 import { NewRecordDialog } from "@/components/new-record-dialog";
+import {
+  EditMaintenanceDialog,
+  type MaintenanceRow,
+} from "@/components/edit-maintenance-dialog";
 import { useAiFeatureEnabled } from "@/hooks/use-ai-settings";
 
 export const Route = createFileRoute("/maintenance/")({
@@ -143,6 +148,7 @@ function MaintenancePage() {
   const [pending, setPending] = useState<Record<string, unknown>[] | null>(null);
   const [pendingName, setPendingName] = useState<string>("");
   const [replace, setReplace] = useState(false);
+  const [editing, setEditing] = useState<MaintenanceRow | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   // Detect in-flight navigation to show feedback on nav links (esp. slow AI routes).
@@ -500,7 +506,14 @@ function MaintenancePage() {
                         {r.cost != null ? `$${Number(r.cost).toFixed(2)}` : "—"}
                       </td>
                       <td className="px-4 py-2 text-muted-foreground">{r.vendor ?? "—"}</td>
-                      <td className="px-4 py-2 text-right">
+                      <td className="px-4 py-2 text-right whitespace-nowrap">
+                        <button
+                          onClick={() => setEditing(r as MaintenanceRow)}
+                          className="text-muted-foreground hover:text-primary mr-3"
+                          aria-label="Edit record"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
                         <button
                           onClick={() => deleteMut.mutate(r.id)}
                           className="text-muted-foreground hover:text-destructive"
@@ -511,12 +524,19 @@ function MaintenancePage() {
                       </td>
                     </tr>
                   ))}
+
                 </tbody>
               </table>
             </div>
           )}
         </div>
       </div>
+      <EditMaintenanceDialog
+        record={editing}
+        onOpenChange={(open) => {
+          if (!open) setEditing(null);
+        }}
+      />
     </AppLayout>
   );
 }
