@@ -44,10 +44,16 @@ export function InventorySopGenerator({
   const [saveMode, setSaveMode] = useState<"create" | "append" | "replace">("create");
 
 
-  const { data: items = [], isLoading } = useQuery({
+  const { data: allItems = [], isLoading } = useQuery({
     queryKey: ["sop-inventory-targets"],
     queryFn: () => listFn({}),
   });
+
+  // Manuals / SOPs only make sense for equipment and ham radio gear.
+  const items = useMemo(
+    () => allItems.filter((i) => isManualEligibleType(i.itemType)),
+    [allItems],
+  );
 
   const selected = useMemo(() => items.find((i) => i.id === itemId) ?? null, [items, itemId]);
 
