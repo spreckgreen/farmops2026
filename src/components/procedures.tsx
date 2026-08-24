@@ -114,7 +114,30 @@ export function Procedures() {
     onError: (e) => toast.error(e instanceof Error ? e.message : String(e)),
   });
 
+  const backfillMut = useMutation({
+    mutationFn: () => backfillFn({ data: { overwrite: false } }),
+    onSuccess: (res) => {
+      if (!res.pages.length) {
+        toast.info(
+          res.skipped.length
+            ? `Plan pages already exist for ${res.skipped.length} asset${res.skipped.length === 1 ? "" : "s"}.`
+            : "No maintenance records found to build plans from.",
+        );
+      } else {
+        toast.success(
+          `Built ${res.pages.length} maintenance plan page${res.pages.length === 1 ? "" : "s"}` +
+            (res.skipped.length ? ` — ${res.skipped.length} already existed` : ""),
+        );
+        setTypeFilter("maintenance");
+        setSelected(res.pages[0].name);
+      }
+      invalidate();
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : String(e)),
+  });
+
   const deleteMut = useMutation({
+
     mutationFn: (name: string) => deleteFn({ data: { name } }),
     onSuccess: (_d, name) => {
       toast.success(`Deleted "${name}"`);
