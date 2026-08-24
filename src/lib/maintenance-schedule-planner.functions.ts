@@ -356,11 +356,12 @@ export const planMaintenanceSchedule = createServerFn({ method: "POST" })
         plan_id: crypto.randomUUID(),
         surface: "maintenance.generate_schedule",
         summary:
-          `${ai.backend === "hosted" ? "Hosted" : "Local"} model "${modelId}" did not ` +
+          `${ai.engineLabel} model "${modelId}" did not ` +
           "return a usable schedule" +
           (failureReason ? ` (${failureReason}).` : ".") +
           (ai.backend === "hosted"
-            ? " Check the model id configured for the service-schedule area in AI settings."
+            ? ` Check that "${modelId}" is a model your ${ai.engineLabel} endpoint` +
+              " actually serves (Admin → AI Engines, or the service-schedule area in AI settings)."
             : " Small local models often struggle with structured output — try a" +
                " larger model (e.g. llama3.1:8b) or route this area to a configured cloud engine."),
         actions: [],
