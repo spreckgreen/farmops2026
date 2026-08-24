@@ -98,6 +98,8 @@ function Page() {
   const parseFn = useServerFn(parseServiceManual);
   const applyFn = useServerFn(applyServiceManualImport);
   const docFn = useServerFn(importManualDocument);
+  const existingFn = useServerFn(listExistingSchedules);
+
 
 
   const { data: inventory = [] } = useQuery({
