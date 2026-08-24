@@ -53,13 +53,13 @@ async function requireAdminRole(
 
 export const getAiRouting = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .handler(async () => {
+  .handler(async ({ context }) => {
     const { loadRoutingConfig } = await import("./ai-routing.server");
-    const config = await loadRoutingConfig();
+    const config = await loadRoutingConfig(context.supabase);
     const { loadEnginesConfig, resolveLocalEngine, resolveHostedEngine } = await import(
       "./ai-engines.server"
     );
-    const engines = await loadEnginesConfig();
+    const engines = await loadEnginesConfig(context.supabase);
     const local = await resolveLocalEngine(engines);
     const hosted = await resolveHostedEngine(engines);
     return {
@@ -80,7 +80,11 @@ export const setAiRouting = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     await requireAdminRole(context.supabase as never, context.userId);
     const { saveRoutingConfig } = await import("./ai-routing.server");
-    const saved = await saveRoutingConfig(data as AiRoutingConfig, context.userId);
+    const saved = await saveRoutingConfig(
+      data as AiRoutingConfig,
+      context.userId,
+      context.supabase,
+    );
     return { ok: true as const, config: saved };
   });
 
@@ -90,6 +94,6 @@ export const resetAiRouting = createServerFn({ method: "POST" })
     await requireAdminRole(context.supabase as never, context.userId);
     const { DEFAULT_ROUTING } = await import("@/lib/ai-feature-areas");
     const { saveRoutingConfig } = await import("./ai-routing.server");
-    const saved = await saveRoutingConfig(DEFAULT_ROUTING, context.userId);
+    const saved = await saveRoutingConfig(DEFAULT_ROUTING, context.userId, context.supabase);
     return { ok: true as const, config: saved };
   });
