@@ -71,16 +71,19 @@ export interface AreaAi {
  */
 export async function resolveAreaAi(
   area: AiAreaId,
-  opts: { hostedDefaultModel: string },
+  opts: {
+    hostedDefaultModel: string;
+    client?: SupabaseClient<Database>;
+  },
 ): Promise<AreaAi> {
   const def = getAiArea(area);
-  const config = await loadRoutingConfig();
+  const config = await loadRoutingConfig(opts.client);
   const route = routeForArea(config, area);
 
   const { loadEnginesConfig, resolveEngine, buildEngineProvider } = await import(
     "./ai-engines.server"
   );
-  const engines = await loadEnginesConfig();
+  const engines = await loadEnginesConfig(opts.client);
 
   // Which engine does this area's choice mean?
   const choice = route.backend;
@@ -322,13 +325,16 @@ export interface AreaRoutingStatus {
  */
 export async function describeAreaRouting(
   area: AiAreaId,
-  opts: { hostedDefaultModel: string },
+  opts: {
+    hostedDefaultModel: string;
+    client?: SupabaseClient<Database>;
+  },
 ): Promise<AreaRoutingStatus> {
   const def = getAiArea(area);
   let choice = "default";
   let autoFallback = true;
   try {
-    const config = await loadRoutingConfig();
+    const config = await loadRoutingConfig(opts.client);
     autoFallback = config.autoFallback;
     choice = routeForArea(config, area).backend;
   } catch {
