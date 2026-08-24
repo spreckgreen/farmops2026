@@ -72,6 +72,9 @@ export function EditMaintenanceDialog({
   const [hours, setHours] = useState("");
   const [miles, setMiles] = useState("");
   const asset = assets.find((a) => a.id === assetId) ?? null;
+  const tracking = (asset?.usage_tracking ?? "").toLowerCase();
+  const showHours = tracking === "hours" || tracking === "both" || tracking === "";
+  const showMiles = tracking === "miles" || tracking === "both" || tracking === "";
 
   useEffect(() => {
     if (!record) return;
