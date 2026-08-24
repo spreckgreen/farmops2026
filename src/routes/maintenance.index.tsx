@@ -500,7 +500,14 @@ function MaintenancePage() {
                         {r.cost != null ? `$${Number(r.cost).toFixed(2)}` : "—"}
                       </td>
                       <td className="px-4 py-2 text-muted-foreground">{r.vendor ?? "—"}</td>
-                      <td className="px-4 py-2 text-right">
+                      <td className="px-4 py-2 text-right whitespace-nowrap">
+                        <button
+                          onClick={() => setEditing(r as MaintenanceRow)}
+                          className="text-muted-foreground hover:text-primary mr-3"
+                          aria-label="Edit record"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
                         <button
                           onClick={() => deleteMut.mutate(r.id)}
                           className="text-muted-foreground hover:text-destructive"
@@ -511,6 +518,7 @@ function MaintenancePage() {
                       </td>
                     </tr>
                   ))}
+
                 </tbody>
               </table>
             </div>
