@@ -376,71 +376,119 @@ function Page() {
             )}
           </section>
 
-          {/* 4. Review */}
+          {/* 4. Parsed preview */}
           {plan && (
             <section className="rounded-xl border border-border bg-card/40 p-6 space-y-4">
-              <div>
-                <h2 className="text-sm font-semibold">
-                  4. Review — {plan.asset_name}
-                </h2>
-                <p className="text-xs text-muted-foreground mt-1">{plan.summary}</p>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h2 className="text-sm font-semibold">
+                    4. Parsed preview — {plan.asset_name}
+                  </h2>
+                  <p className="text-xs text-muted-foreground mt-1">{plan.summary}</p>
+                </div>
+                <div className="flex gap-2">
+                  <Button type="button" variant="outline" size="sm" onClick={() => selectAll(true)}>
+                    Select all
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" onClick={() => selectAll(false)}>
+                    Clear all
+                  </Button>
+                </div>
               </div>
 
-              <div className="space-y-3">
-                {plan.intervals.map((iv) => (
-                  <div
-                    key={iv.key}
-                    className="rounded-md border border-border bg-background p-3 text-sm"
-                  >
-                    <div className="flex items-start gap-2">
-                      <Checkbox
-                        checked={!skipped[iv.key]}
-                        onCheckedChange={(v) =>
-                          setSkipped((s) => ({ ...s, [iv.key]: !v }))
-                        }
-                      />
-                      <div className="flex-1">
-                        <p className="font-medium">
-                          {iv.title}{" "}
-                          <span className="text-xs font-normal text-muted-foreground">
-                            · {iv.recurrence}
-                          </span>
-                        </p>
-                        {iv.tasks.length > 0 && (
-                          <ul className="mt-1 list-disc pl-5 text-xs text-muted-foreground">
-                            {iv.tasks.map((t, i) => (
-                              <li key={i}>{t}</li>
-                            ))}
-                          </ul>
-                        )}
-                        {iv.parts.length > 0 && (
-                          <div className="mt-2 space-y-1">
-                            {iv.parts.map((p, i) => (
-                              <div key={i} className="flex items-center gap-2 text-xs">
-                                <span>
-                                  {p.name} × {p.quantity} {p.unit}
-                                </span>
-                                {p.inventory_item_id ? (
-                                  <span className="rounded border border-primary/30 bg-primary/10 px-1.5 py-0.5 text-primary">
-                                    in inventory{p.matched_name ? `: ${p.matched_name}` : ""}
-                                  </span>
-                                ) : (
-                                  <span className="rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-amber-700 dark:text-amber-300">
-                                    new item
-                                  </span>
-                                )}
+              <div className="overflow-x-auto rounded-md border border-border">
+                <table className="w-full min-w-[820px] text-sm">
+                  <thead className="bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
+                    <tr>
+                      <th className="w-10 p-2" />
+                      <th className="p-2 text-left w-1/4">Interval</th>
+                      <th className="p-2 text-left w-1/3">Tasks</th>
+                      <th className="p-2 text-left">Parts &amp; matches</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {plan.intervals.map((iv) => {
+                      const off = Boolean(skipped[iv.key]);
+                      return (
+                        <tr
+                          key={iv.key}
+                          className={`border-t border-border align-top ${off ? "opacity-50" : ""}`}
+                        >
+                          <td className="p-2">
+                            <Checkbox
+                              aria-label={`Include ${iv.title}`}
+                              checked={!off}
+                              onCheckedChange={(v) =>
+                                setSkipped((s) => ({ ...s, [iv.key]: !v }))
+                              }
+                            />
+                          </td>
+                          <td className="p-2">
+                            <p className="font-medium">{iv.title}</p>
+                            <p className="text-xs text-muted-foreground">{iv.recurrence}</p>
+                            {iv.notes && (
+                              <p className="mt-1 text-xs italic text-muted-foreground">
+                                {iv.notes}
+                              </p>
+                            )}
+                          </td>
+                          <td className="p-2">
+                            {iv.tasks.length === 0 ? (
+                              <span className="text-xs text-muted-foreground">—</span>
+                            ) : (
+                              <ul className="list-disc pl-4 text-xs text-muted-foreground space-y-0.5">
+                                {iv.tasks.map((t, i) => (
+                                  <li key={i}>{t}</li>
+                                ))}
+                              </ul>
+                            )}
+                          </td>
+                          <td className="p-2">
+                            {iv.parts.length === 0 ? (
+                              <span className="text-xs text-muted-foreground">No parts</span>
+                            ) : (
+                              <div className="space-y-1">
+                                {iv.parts.map((p, i) => {
+                                  const pk = partKey(iv.key, i);
+                                  return (
+                                    <label
+                                      key={i}
+                                      className="flex items-center gap-2 text-xs"
+                                    >
+                                      <Checkbox
+                                        aria-label={`Include part ${p.name}`}
+                                        disabled={off}
+                                        checked={!off && !skippedParts[pk]}
+                                        onCheckedChange={(v) =>
+                                          setSkippedParts((s) => ({ ...s, [pk]: !v }))
+                                        }
+                                      />
+                                      <span>
+                                        {p.name} × {p.quantity} {p.unit}
+                                      </span>
+                                      {p.inventory_item_id ? (
+                                        <span className="rounded border border-primary/30 bg-primary/10 px-1.5 py-0.5 text-primary">
+                                          in inventory
+                                          {p.matched_name ? `: ${p.matched_name}` : ""}
+                                        </span>
+                                      ) : (
+                                        <span className="rounded border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-amber-700 dark:text-amber-300">
+                                          new item
+                                        </span>
+                                      )}
+                                    </label>
+                                  );
+                                })}
                               </div>
-                            ))}
-                          </div>
-                        )}
-                        {iv.notes && (
-                          <p className="mt-2 text-xs text-muted-foreground">{iv.notes}</p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
+
 
               <label className="flex items-start gap-2 rounded-md border border-border bg-background p-3 text-sm">
                 <Checkbox
