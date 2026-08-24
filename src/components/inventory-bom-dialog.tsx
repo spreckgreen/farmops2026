@@ -32,6 +32,7 @@ import {
 } from "@/lib/inventory-bom.functions";
 import { formatQty, requirementsFor } from "@/lib/inventory-bom";
 import { KitDeployPanel } from "@/components/kit-deploy-panel";
+import { KitProcedureSuggestions } from "@/components/kit-procedure-suggestions";
 
 const money = (n: number) =>
   n.toLocaleString(undefined, { style: "currency", currency: "USD" });
@@ -335,6 +336,8 @@ export function InventoryBomDialog({
               hasParts={bom.components.length > 0}
               kitName={bom.parent.name ?? undefined}
             />
+
+            <KitProcedureSuggestions kitItemId={bom.parent.id} />
 
             {bom.usedIn.length > 0 ? (
               <div className="text-xs text-muted-foreground">
