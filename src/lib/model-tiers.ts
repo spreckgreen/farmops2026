@@ -68,7 +68,7 @@ export function capabilityGap(modelId: string): string | null {
   if (/^gpt-3\.5-turbo(-16k)?(-0301|-0613)?$/.test(s)) {
     return "Legacy GPT-3.5 snapshot: no JSON mode and too weak for schedule extraction. Use gpt-4o-mini or newer.";
   }
-  if (/instruct/.test(s) && /gpt-3\.5|gpt-4-/.test(s) === false && /^gpt-/.test(s)) {
+  if (/^gpt-.*instruct/.test(s)) {
     return "OpenAI instruct/completion model: not a chat model, so structured output is unavailable.";
   }
   return null;
