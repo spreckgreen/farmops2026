@@ -9,8 +9,23 @@ import {
   type AssetHistoryInput,
 } from "./maintenance-forecast.server";
 
+/**
+ * An asset that tracks hours/miles but doesn't have enough usage readings for
+ * the forecaster to compute a usage rate (needs 2+ snapshots at different times).
+ */
+export interface UsageGap {
+  itemId: string;
+  itemName: string;
+  usageTracking: string;
+  snapshotCount: number;
+  /** A maintenance record for this asset, so the edit dialog can be opened. */
+  recordId: string | null;
+}
+
 export interface ForecastResponse {
   assets: AssetForecast[];
+  /** Assets missing usage snapshots — drives the forecast page empty-state. */
+  usageGaps: UsageGap[];
   buckets: ReturnType<typeof bucketByHorizon>;
   narrative: string | null;
   model: string | null;
@@ -45,6 +60,7 @@ export const getMaintenanceForecast = createServerFn({ method: "GET" })
     if (itemIds.length === 0) {
       return {
         assets: [],
+        usageGaps: [],
         buckets: { h30: [], h60: [], h90: [], later: [], overdue: [] },
         narrative: null,
         model: null,
@@ -133,8 +149,28 @@ export const getMaintenanceForecast = createServerFn({ method: "GET" })
         }),
       );
 
+    // Which usage-tracked assets can't be projected because they lack readings?
+    const usageGaps: UsageGap[] = (items ?? [])
+      .filter((i) => {
+        const track = (i.usage_tracking ?? "none").toLowerCase();
+        if (track !== "hours" && track !== "miles") return false;
+        const snaps = snapByItem.get(i.id) ?? [];
+        const field = track === "hours" ? "hours" : "miles";
+        const withValue = snaps.filter((s) => s[field] != null);
+        return withValue.length < 2;
+      })
+      .map((i) => ({
+        itemId: i.id,
+        itemName: i.name ?? i.sku ?? "Unnamed asset",
+        usageTracking: (i.usage_tracking ?? "none").toLowerCase(),
+        snapshotCount: (snapByItem.get(i.id) ?? []).filter(
+          (s) => s[(i.usage_tracking ?? "").toLowerCase() === "miles" ? "miles" : "hours"] != null,
+        ).length,
+        recordId: recByItem.get(i.id)?.[0]?.id ?? null,
+      }));
+
     const buckets = bucketByHorizon(forecasts);
-    return { assets: forecasts, buckets, narrative: null, model: null };
+    return { assets: forecasts, usageGaps, buckets, narrative: null, model: null };
   });
 
 const NarrativeInput = z.object({
