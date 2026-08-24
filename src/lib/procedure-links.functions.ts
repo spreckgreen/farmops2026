@@ -2,6 +2,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { buildTinyWikiHtml } from "@/lib/tinywiki";
+import { isManualEligibleType, isPartItemType } from "@/lib/asset-types";
 import {
   composeBodyWithLinks,
   extractBodyFromHtml,
