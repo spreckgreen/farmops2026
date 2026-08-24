@@ -507,26 +507,51 @@ function Page() {
           </section>
 
 
-          {/* 3. Paste */}
+          {/* 4. Paste */}
           <section className="rounded-xl border border-border bg-card/40 p-6 space-y-3 mb-6">
-            <h2 className="text-sm font-semibold">3. Paste the manual</h2>
-            <label className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-              <span className="font-medium text-foreground">Part match strictness</span>
-              <input
-                type="range"
-                min={40}
-                max={100}
-                step={2}
-                value={Math.round(threshold * 100)}
-                onChange={(e) => setThreshold(Number(e.target.value) / 100)}
-                className="h-1 w-40 accent-primary"
-              />
-              <span>{Math.round(threshold * 100)}%</span>
-              <span>
-                — matches at or above this confidence link automatically; anything less
-                asks you to confirm.
-              </span>
-            </label>
+            <h2 className="text-sm font-semibold">4. Paste the {meta.label.toLowerCase()}</h2>
+            {isDocument ? (
+              <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+                <label className="block text-xs text-muted-foreground">
+                  <span className="font-medium text-foreground">Procedure page name</span>
+                  <Input
+                    className="mt-1"
+                    value={docName}
+                    onChange={(e) => setDocName(e.target.value.slice(0, 120))}
+                    placeholder={
+                      assetName
+                        ? manualProcedureName(assetName, kind === "workshop" ? "workshop" : "operator")
+                        : "Pick an asset first"
+                    }
+                  />
+                </label>
+                <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Checkbox
+                    checked={overwriteDoc}
+                    onCheckedChange={(v) => setOverwriteDoc(v === true)}
+                  />
+                  Replace existing page
+                </label>
+              </div>
+            ) : (
+              <label className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                <span className="font-medium text-foreground">Part match strictness</span>
+                <input
+                  type="range"
+                  min={40}
+                  max={100}
+                  step={2}
+                  value={Math.round(threshold * 100)}
+                  onChange={(e) => setThreshold(Number(e.target.value) / 100)}
+                  className="h-1 w-40 accent-primary"
+                />
+                <span>{Math.round(threshold * 100)}%</span>
+                <span>
+                  — matches at or above this confidence link automatically; anything less
+                  asks you to confirm.
+                </span>
+              </label>
+            )}
             <Textarea
               value={manualText}
               onChange={(e) => {
@@ -555,14 +580,50 @@ function Page() {
                 {manualText.length.toLocaleString()} characters
               </span>
               <div className="flex-1" />
-              <Button
-                onClick={() => parseMut.mutate()}
-                disabled={parseMut.isPending || !assetId || manualText.trim().length < 40}
-              >
-                <Sparkles className="h-4 w-4 mr-1" />
-                {parseMut.isPending ? "Reading manual…" : "Read manual"}
-              </Button>
+              {isDocument ? (
+                <Button
+                  onClick={() => docMut.mutate()}
+                  disabled={
+                    docMut.isPending ||
+                    !assetId ||
+                    !effectiveDocName ||
+                    manualText.trim().length < 40
+                  }
+                >
+                  <FileText className="h-4 w-4 mr-1" />
+                  {docMut.isPending ? "Saving…" : "Save as procedure"}
+                </Button>
+              ) : (
+                <Button
+                  onClick={() => parseMut.mutate()}
+                  disabled={parseMut.isPending || !assetId || manualText.trim().length < 40}
+                >
+                  <Sparkles className="h-4 w-4 mr-1" />
+                  {parseMut.isPending ? "Reading manual…" : "Read manual"}
+                </Button>
+              )}
             </div>
+            {docResult && (
+              <div className="rounded-md border border-primary/30 bg-primary/5 p-3 text-xs space-y-2">
+                <p className="text-sm font-medium text-foreground">
+                  {docResult.replaced ? "Updated" : "Saved"} “{docResult.name}” and linked
+                  it to {docResult.asset_name}.
+                </p>
+                {docResult.sections.length > 0 && (
+                  <p className="text-muted-foreground">
+                    Sections: {docResult.sections.slice(0, 12).join(" · ")}
+                    {docResult.sections.length > 12 ? " …" : ""}
+                  </p>
+                )}
+                <Link
+                  to="/procedures"
+                  className="inline-flex items-center gap-1 text-primary hover:underline"
+                >
+                  <BookOpenText className="h-3 w-3" /> Open in Procedures
+                </Link>
+              </div>
+            )}
+
             {(parseMut.isPending || jobProgress.active) && (
               <AiProgressStages
                 active={parseMut.isPending || jobProgress.active}
