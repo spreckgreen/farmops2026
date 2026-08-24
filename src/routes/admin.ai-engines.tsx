@@ -68,6 +68,30 @@ export const Route = createFileRoute("/admin/ai-engines")({
   component: AiEnginesPage,
 });
 
+function RequirementBadge({
+  requirement,
+}: {
+  requirement: "required" | "optional" | "not-needed";
+}) {
+  if (requirement === "required")
+    return (
+      <Badge variant="destructive" className="text-[10px] uppercase">
+        required
+      </Badge>
+    );
+  if (requirement === "optional")
+    return (
+      <Badge variant="secondary" className="text-[10px] uppercase">
+        optional — default supplied
+      </Badge>
+    );
+  return (
+    <Badge variant="outline" className="text-[10px] uppercase">
+      not needed
+    </Badge>
+  );
+}
+
 interface TargetDraft {
   enabled: boolean;
   baseUrl: string;
@@ -75,6 +99,7 @@ interface TargetDraft {
   keyTouched: boolean;
   model: string;
 }
+
 
 const emptyDraft: TargetDraft = {
   enabled: true,
@@ -112,15 +137,18 @@ function AiEnginesPage() {
       const stored = data.config.engines[def.id];
       next[def.id] = {
         enabled: stored.enabled,
-        baseUrl: stored.baseUrl ?? "",
+        // Nothing saved yet → pre-fill the known-good default so the operator
+        // only has to correct it, never type it from scratch.
+        baseUrl: stored.baseUrl ?? def.defaultBaseUrl ?? "",
         apiKey: "",
         keyTouched: false,
-        model: stored.model ?? "",
+        model: stored.model ?? def.defaultModel ?? "",
       };
     }
     setDrafts(next);
     setCloudDefault(data.config.cloudDefault);
   }, [data]);
+
 
   const [tests, setTests] = useState<Partial<Record<AiEngineId, EngineTestResult>>>({});
   const [testing, setTesting] = useState<AiEngineId | null>(null);
@@ -289,56 +317,88 @@ function AiEnginesPage() {
                       </p>
                     )}
                     <div className="space-y-1">
-                          <Label htmlFor={`${def.id}-base`}>Base URL</Label>
-                          <Input
-                            id={`${def.id}-base`}
-                            placeholder={def.defaultBaseUrl ?? "https://…/v1"}
-                            value={d.baseUrl}
-                            onChange={(e) => patch(def.id, { baseUrl: e.target.value })}
-                          />
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Label htmlFor={`${def.id}-base`}>Base URL</Label>
+                        <RequirementBadge requirement={def.baseUrlRequirement} />
+                        {def.defaultBaseUrl && d.baseUrl !== def.defaultBaseUrl && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 px-2 text-xs"
+                            onClick={() =>
+                              patch(def.id, { baseUrl: def.defaultBaseUrl ?? "" })
+                            }
+                          >
+                            Reset to default
+                          </Button>
+                        )}
+                      </div>
+                      <Input
+                        id={`${def.id}-base`}
+                        placeholder={def.defaultBaseUrl ?? "https://…/v1"}
+                        value={d.baseUrl}
+                        onChange={(e) => patch(def.id, { baseUrl: e.target.value })}
+                      />
+                      <p className="text-xs text-muted-foreground">{def.baseUrlReason}</p>
                     </div>
                     <div className="space-y-1">
-                          <Label htmlFor={`${def.id}-key`}>
-                            API key{def.id === "local" ? " (not required)" : ""}{" "}
-                            {stored.hasApiKey && <Badge variant="secondary">stored</Badge>}
-                          </Label>
-                          <Input
-                            id={`${def.id}-key`}
-                            type="password"
-                            autoComplete="off"
-                            placeholder={
-                              stored.hasApiKey
-                                ? "•••••• (leave blank to keep)"
-                                : def.id === "local"
-                                  ? "leave blank — local Ollama needs no key"
-                                  : def.id === "ollama_cloud"
-                                    ? "Ollama Cloud key from ollama.com → Settings → Keys"
-                                    : "provider key, e.g. sk-… for OpenAI"
-                            }
-                            value={d.apiKey}
-                            onChange={(e) =>
-                              patch(def.id, { apiKey: e.target.value, keyTouched: true })
-                            }
-                          />
-                          <p className="text-xs text-muted-foreground">
-                            {def.id === "local"
-                              ? "Self-hosted Ollama has no API key. Leave this blank; the app sends a placeholder token that Ollama ignores."
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Label htmlFor={`${def.id}-key`}>API key</Label>
+                        <RequirementBadge requirement={def.apiKeyRequirement} />
+                        {stored.hasApiKey && <Badge variant="secondary">stored</Badge>}
+                      </div>
+                      <Input
+                        id={`${def.id}-key`}
+                        type="password"
+                        autoComplete="off"
+                        disabled={def.apiKeyRequirement === "not-needed"}
+                        placeholder={
+                          def.apiKeyRequirement === "not-needed"
+                            ? "no key needed — handled automatically"
+                            : stored.hasApiKey
+                              ? "•••••• (leave blank to keep the stored key)"
                               : def.id === "ollama_cloud"
-                                ? "Ollama Cloud keys are not OpenAI sk- keys — create one at ollama.com → Settings → Keys and paste it whole."
-                                : "Use the key from your provider (OpenAI sk-…, OpenRouter, Groq, …)."}
-                          </p>
+                                ? "Ollama Cloud key from ollama.com → Settings → Keys"
+                                : "provider key, e.g. sk-… for OpenAI"
+                        }
+                        value={d.apiKey}
+                        onChange={(e) =>
+                          patch(def.id, { apiKey: e.target.value, keyTouched: true })
+                        }
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        {def.apiKeyReason}
+                        {def.apiKeyWhere ? ` Get one at ${def.apiKeyWhere}.` : ""}
+                      </p>
                     </div>
 
                     <div className="space-y-1">
-                      <Label htmlFor={`${def.id}-model`}>Model</Label>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Label htmlFor={`${def.id}-model`}>Model</Label>
+                        <RequirementBadge requirement={def.modelRequirement} />
+                        {def.defaultModel && d.model !== def.defaultModel && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 px-2 text-xs"
+                            onClick={() => patch(def.id, { model: def.defaultModel ?? "" })}
+                          >
+                            Reset to default
+                          </Button>
+                        )}
+                      </div>
                       <Input
                         id={`${def.id}-model`}
                         className="font-mono text-xs"
-                        placeholder={def.defaultModel ?? "openai/gpt-4.1"}
+                        placeholder={def.defaultModel ?? "gpt-4.1-mini"}
                         value={d.model}
                         onChange={(e) => patch(def.id, { model: e.target.value })}
                       />
+                      <p className="text-xs text-muted-foreground">{def.modelReason}</p>
                     </div>
+
                     <div className="flex items-center gap-2 pt-1">
                       <Button
                         type="button"
