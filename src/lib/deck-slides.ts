@@ -305,7 +305,6 @@ export const SLIDES: Slide[] = [
   },
   {
 
-  {
     kind: "shot",
     kicker: "Section 4 · Food",
     title: "Garden beds and plots",
