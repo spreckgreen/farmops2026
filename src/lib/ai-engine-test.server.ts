@@ -166,15 +166,22 @@ async function probe(url: string, headers: HeadersInit, init?: RequestInit) {
 /**
  * Test one engine. `override` lets the admin page test unsaved form values;
  * a null `apiKey` there means "use the stored/env key".
+ *
+ * `client` MUST be the caller's authenticated Supabase client when available:
+ * the stored engine config lives in the vault, and reading it with the service
+ * role can fail on hosted deployments — which used to surface as "Ollama Cloud
+ * is missing API key" even though a key was stored.
  */
 export async function testAiEngine(
   id: AiEngineId,
   override?: Partial<AiEngineTarget>,
   config?: AiEnginesConfig,
+  client?: SupabaseClient<Database>,
 ): Promise<EngineTestResult> {
   const def = getAiEngineDef(id);
   const { loadEnginesConfig } = await import("./ai-engines.server");
-  const base = config ?? (await loadEnginesConfig());
+  const base = config ?? (await loadEnginesConfig(client));
+
 
   // Apply the draft values on a copy so nothing is persisted by a test.
   const merged: AiEnginesConfig = {
