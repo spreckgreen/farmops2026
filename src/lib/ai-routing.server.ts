@@ -130,13 +130,36 @@ export async function resolveAreaAi(
   let selected = await resolveEngine(engineId, engines, {
     defaultModel: opts.hostedDefaultModel,
   });
-  // Chosen engine isn't usable: fall back to the cloud default, then local.
+
+  // The area explicitly asked for a CLOUD engine. Never silently downgrade that
+  // to the local endpoint: a small local model then produces a broken result
+  // and the failure looks like "the model returned no schedule" instead of
+  // "your cloud engine isn't usable". Fail loudly with the actual reason.
+  if (!selected && choice !== "default" && engineId !== "local") {
+    const target = engines.engines[engineId];
+    const { getAiEngineDef } = await import("./ai-engines");
+    const engineDef = getAiEngineDef(engineId);
+    const reason =
+      target.enabled === false
+        ? "it is switched off in Admin → AI Engines"
+        : !(target.apiKey ?? "").trim()
+          ? "no API key is saved for it"
+          : !(target.model ?? engineDef.defaultModel)
+            ? "no model name is saved for it"
+            : "its base URL, key or model is incomplete";
+    throw new Error(
+      `${def.label} is routed to ${engineDef.label}, but ${reason}. Fix that engine (or change this feature's routing) — Bostead will not fall back to the self-hosted engine for a cloud-routed feature.`,
+    );
+  }
+
+  // Legacy "default" routing may still fall back: cloud default, then local.
   if (!selected) selected = hosted ?? local;
   if (!selected) {
     throw new Error(
       `No usable AI engine for ${def.label}: "${engineId}" is not configured, and neither is the cloud default or the local engine.`,
     );
   }
+
 
   const isLocalEngine = selected.placement === "local";
   const backend: AiBackend = isLocalEngine ? "local" : "hosted";
