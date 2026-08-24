@@ -4,10 +4,20 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { X, ScanLine, CheckCircle2, AlertTriangle } from "lucide-react";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { X, ScanLine, CheckCircle2, AlertTriangle, Check, ChevronsUpDown } from "lucide-react";
 import BarcodeScanner from "./BarcodeScanner";
 import type { Asset, AssetFormData } from "./types";
 import { INVENTORY_TYPES } from "@/lib/obsidian-layout";
+import { cn } from "@/lib/utils";
 
 /** Catalog value for the "32 Kits" inventory type (seeded in every environment). */
 const KIT_TYPE = "32_kits";
@@ -74,6 +84,98 @@ function SavedTypeCheck({
         </div>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * Searchable, scrollable inventory type picker.
+ * Replaces the native <select> so the 30+ item list never overflows the viewport.
+ */
+function InventoryTypeCombobox({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const selected = INVENTORY_TYPES.find((t) => t.value === value);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="w-full justify-between font-normal"
+        >
+          <span className={cn("truncate", !selected && "text-muted-foreground")}>
+            {selected ? selected.label : "— Unclassified —"}
+          </span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+        <Command
+          filter={(value, search) => {
+            const term = search.toLowerCase();
+            const type = INVENTORY_TYPES.find((t) => t.value === value);
+            if (!type) return 0;
+            const label = type.label.toLowerCase();
+            const code = type.value.toLowerCase();
+            if (label.includes(term) || code.includes(term)) return 1;
+            return 0;
+          }}
+        >
+          <CommandInput placeholder="Search inventory types…" />
+          <CommandList className="max-h-[260px]">
+            <CommandEmpty>No type found.</CommandEmpty>
+            <CommandGroup heading="Kits & assemblies">
+              {INVENTORY_TYPES.filter((t) => t.value === KIT_TYPE).map((t) => (
+                <CommandItem
+                  key={t.value}
+                  value={t.value}
+                  onSelect={() => {
+                    onChange(t.value);
+                    setOpen(false);
+                  }}
+                >
+                  <Check
+                    className={cn(
+                      "mr-2 h-4 w-4",
+                      value === t.value ? "opacity-100" : "opacity-0",
+                    )}
+                  />
+                  {t.label}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+            <CommandGroup heading="All inventory types">
+              {INVENTORY_TYPES.filter((t) => t.value !== KIT_TYPE).map((t) => (
+                <CommandItem
+                  key={t.value}
+                  value={t.value}
+                  onSelect={() => {
+                    onChange(t.value);
+                    setOpen(false);
+                  }}
+                >
+                  <Check
+                    className={cn(
+                      "mr-2 h-4 w-4",
+                      value === t.value ? "opacity-100" : "opacity-0",
+                    )}
+                  />
+                  {t.label}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -204,27 +306,10 @@ const AssetDialog = ({ open, onOpenChange, onSave, asset }: AssetDialogProps) =>
             </div>
             <div className="col-span-2 space-y-2">
               <Label>Inventory Type</Label>
-              <select
+              <InventoryTypeCombobox
                 value={form.item_type}
-                onChange={(e) => setForm({ ...form, item_type: e.target.value })}
-                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
-              >
-                <option value="">— Unclassified —</option>
-                <optgroup label="Kits & assemblies">
-                  {INVENTORY_TYPES.filter((t) => t.value === KIT_TYPE).map((t) => (
-                    <option key={t.value} value={t.value}>
-                      {t.label}
-                    </option>
-                  ))}
-                </optgroup>
-                <optgroup label="All inventory types">
-                  {INVENTORY_TYPES.filter((t) => t.value !== KIT_TYPE).map((t) => (
-                    <option key={t.value} value={t.value}>
-                      {t.label}
-                    </option>
-                  ))}
-                </optgroup>
-              </select>
+                onChange={(value) => setForm({ ...form, item_type: value })}
+              />
               <div className="flex items-center justify-between gap-2">
                 <p className="text-[11px] text-muted-foreground">
                   Controls the Obsidian vault subfolder this item syncs into.
