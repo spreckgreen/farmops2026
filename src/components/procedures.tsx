@@ -398,6 +398,48 @@ export function Procedures() {
           placeholder="Filter…"
           className="h-7 text-xs"
         />
+        <div className="space-y-1">
+          <select
+            value={typeFilter}
+            onChange={(e) => {
+              const v = e.target.value as "all" | "maintenance" | "other";
+              setTypeFilter(v);
+              if (v !== "maintenance") { setAssetFilter("all"); setIntervalFilter("all"); }
+            }}
+            className="w-full h-7 rounded border border-border bg-background px-2 text-[11px] font-mono"
+            aria-label="Filter by document type"
+          >
+            <option value="all">All types</option>
+            <option value="maintenance">Maintenance plans</option>
+            <option value="other">Other procedures</option>
+          </select>
+          {plansOnly && (
+            <>
+              <select
+                value={assetFilter}
+                onChange={(e) => { setAssetFilter(e.target.value); setIntervalFilter("all"); }}
+                className="w-full h-7 rounded border border-border bg-background px-2 text-[11px] font-mono"
+                aria-label="Filter maintenance plans by asset"
+              >
+                <option value="all">All assets ({assetOptions.length})</option>
+                {assetOptions.map((a) => (
+                  <option key={a} value={a}>{a}</option>
+                ))}
+              </select>
+              <select
+                value={intervalFilter}
+                onChange={(e) => setIntervalFilter(e.target.value)}
+                className="w-full h-7 rounded border border-border bg-background px-2 text-[11px] font-mono"
+                aria-label="Filter maintenance plans by service interval"
+              >
+                <option value="all">All intervals</option>
+                {intervalOptions.map((i) => (
+                  <option key={i} value={i}>{i}</option>
+                ))}
+              </select>
+            </>
+          )}
+        </div>
         <ul className="space-y-0.5 max-h-[420px] overflow-y-auto">
           {filtered.map((w) => (
             <li key={w.name}>
@@ -411,9 +453,21 @@ export function Procedures() {
               >
                 <FileText size={12}/>
                 <span className="flex-1 truncate">{w.name}</span>
+                {(() => {
+                  const md = meta.get(w.name);
+                  return md && isMaintenancePlan(md) ? (
+                    <span
+                      className="shrink-0 rounded bg-primary/10 text-primary px-1 text-[9px] uppercase tracking-wide"
+                      title={`Maintenance plan${md.asset ? ` — ${md.asset}` : ""}`}
+                    >
+                      plan
+                    </span>
+                  ) : null;
+                })()}
               </button>
             </li>
           ))}
+
           {!filtered.length && (
             <li className="text-[11px] text-muted-foreground italic px-2 py-3 text-center">
               {wikis.length ? "No matches" : "No procedures yet"}
