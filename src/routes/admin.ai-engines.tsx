@@ -31,6 +31,7 @@ import {
   testAiEngineConnection,
 } from "@/lib/ai-engines.functions";
 import type { EngineTestResult } from "@/lib/ai-engine-test.server";
+import { tierForModel } from "@/lib/model-tiers";
 import {
   AI_ENGINE_DEFS,
   engineFieldErrors,
@@ -578,13 +579,60 @@ function AiEnginesPage() {
                             {tests[def.id]?.hint}
                           </p>
                         )}
-                        {(tests[def.id]?.modelsSeen.length ?? 0) > 0 && (
-                          <p className="text-xs text-muted-foreground">
-                            Models available:{" "}
-                            <span className="font-mono">
-                              {tests[def.id]?.modelsSeen.join(", ")}
-                            </span>
-                          </p>
+                        {(tests[def.id]?.tiers?.ranked.length ?? 0) > 0 && (
+                          <div className="space-y-1">
+                            <p className="text-xs font-medium">Models available</p>
+                            <div className="flex flex-wrap gap-2">
+                              {tests[def.id]?.tiers?.ranked
+                                .slice(0, 12)
+                                .map((m) => {
+                                  const tier = tierForModel(
+                                    m.id,
+                                    tests[def.id]!.tiers!,
+                                  );
+                                  const active = d.model.trim() === m.id;
+                                  return (
+                                    <button
+                                      key={m.id}
+                                      type="button"
+                                      onClick={() => patch(def.id, { model: m.id })}
+                                      title={m.reason}
+                                      className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs font-mono transition ${
+                                        active
+                                          ? "border-primary bg-primary/10"
+                                          : "hover:bg-muted/60"
+                                      }`}
+                                    >
+                                      {m.id}
+                                      {tier && (
+                                        <Badge
+                                          variant={
+                                            tier === "better"
+                                              ? "default"
+                                              : tier === "good"
+                                                ? "secondary"
+                                                : "outline"
+                                          }
+                                          className="text-[10px]"
+                                        >
+                                          {tier === "better"
+                                            ? "Better"
+                                            : tier === "good"
+                                              ? "Good"
+                                              : "Best"}
+                                        </Badge>
+                                      )}
+                                    </button>
+                                  );
+                                })}
+                            </div>
+                            {(tests[def.id]?.tiers?.ranked.length ?? 0) > 12 && (
+                              <p className="text-xs text-muted-foreground">
+                                +{(tests[def.id]?.tiers?.ranked.length ?? 0) - 12}{" "}
+                                more not shown.
+                              </p>
+                            )}
+                          </div>
                         )}
                         {tests[def.id]?.tiers?.better && (
                           <div className="space-y-2 rounded-md border bg-background/60 p-2">
