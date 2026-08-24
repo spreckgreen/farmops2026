@@ -36,7 +36,21 @@ export interface AiEngineDef {
   auth: "bearer";
   defaultBaseUrl: string | null;
   defaultModel: string | null;
+  /** Whether an API key must be supplied for this engine to work. */
+  apiKeyRequirement: "required" | "optional" | "not-needed";
+  /** Plain-language reason the key is or isn't needed. */
+  apiKeyReason: string;
+  /** Where to get the key (omitted when no key is needed). */
+  apiKeyWhere: string | null;
+  /** Whether the base URL must be typed, or the default is fine. */
+  baseUrlRequirement: "required" | "optional";
+  /** Plain-language note about the base URL default. */
+  baseUrlReason: string;
+  /** Whether the model name must be typed. */
+  modelRequirement: "required" | "optional";
+  modelReason: string;
 }
+
 
 export const AI_ENGINE_DEFS: readonly AiEngineDef[] = [
   {
