@@ -232,7 +232,7 @@ function AiEnginesPage() {
       toast.error(err instanceof Error ? err.message : "Could not save engines"),
   });
 
-  const cloudEngines = AI_ENGINE_DEFS.filter((e) => e.placement === "cloud");
+  const defaultEngines = AI_ENGINE_DEFS;
 
   return (
     <AppLayout>
@@ -472,10 +472,9 @@ function AiEnginesPage() {
               <CardHeader>
                 <CardTitle className="text-base">Cloud default</CardTitle>
                 <CardDescription>
-                  Which cloud engine handles features set to “Cloud default” (and any
-                  auto-fallback from a failed local call). If that engine has no usable key
-                  on this deploy, features automatically use the first other configured cloud
-                  engine instead of failing.
+                  Choose Self-hosted to prevent cloud AI from being used. Otherwise, this
+                  engine handles features set to “Cloud default” and fallback from local AI.
+                  Disabled engines are never used.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -489,9 +488,9 @@ function AiEnginesPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {cloudEngines.map((e) => (
+                      {defaultEngines.map((e) => (
                         <SelectItem key={e.id} value={e.id}>
-                          {e.label}
+                          {e.id === "local" ? "Self-hosted only" : e.label}
                           {data.availability[e.id].available ? "" : " (not configured)"}
                         </SelectItem>
                       ))}
