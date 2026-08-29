@@ -19,7 +19,7 @@ import {
   type StateFilter,
 } from "@/lib/electrical-mermaid";
 import { generateElectricalDiagram } from "@/lib/electrical-diagrams.functions";
-import { Copy, Download, AlertTriangle } from "lucide-react";
+import { Copy, Download, AlertTriangle, FileImage, FileCode2 } from "lucide-react";
 
 export const Route = createFileRoute("/electrical/diagrams")({
   head: () => ({
@@ -64,8 +64,14 @@ function loadMermaid(): Promise<MermaidApi> {
   return mermaidPromise;
 }
 
-function MermaidView({ source }: { source: string }) {
-  const ref = useRef<HTMLDivElement>(null);
+function MermaidView({
+  source,
+  containerRef,
+}: {
+  source: string;
+  containerRef: React.RefObject<HTMLDivElement | null>;
+}) {
+  const ref = containerRef;
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -88,7 +94,7 @@ function MermaidView({ source }: { source: string }) {
     return () => {
       cancelled = true;
     };
-  }, [source]);
+  }, [source, ref]);
 
   if (error) {
     return (
@@ -100,6 +106,35 @@ function MermaidView({ source }: { source: string }) {
   }
   return <div ref={ref} className="overflow-auto [&_svg]:max-w-none" />;
 }
+
+// Serializes the rendered SVG with explicit pixel dimensions so downloaded
+// files and rasterized PNGs are self-contained instead of viewport-dependent.
+function serializeSvg(svg: SVGSVGElement) {
+  const clone = svg.cloneNode(true) as SVGSVGElement;
+  const box = svg.getBoundingClientRect();
+  const viewBox = svg.getAttribute("viewBox")?.split(/[\s,]+/).map(Number);
+  const width = Math.ceil(box.width || viewBox?.[2] || 1200);
+  const height = Math.ceil(box.height || viewBox?.[3] || 800);
+  clone.setAttribute("width", String(width));
+  clone.setAttribute("height", String(height));
+  clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+  clone.setAttribute("xmlns:xlink", "http://www.w3.org/1999/xlink");
+  if (!clone.getAttribute("style")?.includes("background")) {
+    clone.setAttribute("style", `${clone.getAttribute("style") ?? ""};background:#ffffff`);
+  }
+  const markup = new XMLSerializer().serializeToString(clone);
+  return { markup: `<?xml version="1.0" encoding="UTF-8"?>\n${markup}`, width, height };
+}
+
+function saveBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 
 function DiagramsPage() {
   const [type, setType] = useState<DiagramType>("whole_system");
@@ -145,19 +180,75 @@ function DiagramsPage() {
   const errors = (q.data?.issues ?? []).filter((i) => i.severity === "error");
   const warnings = (q.data?.issues ?? []).filter((i) => i.severity === "warning");
 
+  const svgHostRef = useRef<HTMLDivElement>(null);
+  const [exporting, setExporting] = useState<null | "svg" | "png">(null);
+  const baseName = `farmops-electrical-${type}${focus ? `-${focus}` : ""}`;
+
   const copy = async () => {
     await navigator.clipboard.writeText(source);
     toast.success("Mermaid source copied");
   };
   const download = () => {
-    const blob = new Blob([source], { type: "text/vnd.mermaid" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `farmops-electrical-${type}${focus ? `-${focus}` : ""}.mmd`;
-    a.click();
-    URL.revokeObjectURL(url);
+    saveBlob(new Blob([source], { type: "text/vnd.mermaid" }), `${baseName}.mmd`);
   };
+
+  const currentSvg = () => svgHostRef.current?.querySelector("svg") as SVGSVGElement | null;
+
+  const exportSvg = () => {
+    const svg = currentSvg();
+    if (!svg) {
+      toast.error("Nothing to export yet — wait for the diagram to render.");
+      return;
+    }
+    setExporting("svg");
+    try {
+      const { markup } = serializeSvg(svg);
+      saveBlob(new Blob([markup], { type: "image/svg+xml" }), `${baseName}.svg`);
+      toast.success("SVG exported");
+    } finally {
+      setExporting(null);
+    }
+  };
+
+  const exportPng = async () => {
+    const svg = currentSvg();
+    if (!svg) {
+      toast.error("Nothing to export yet — wait for the diagram to render.");
+      return;
+    }
+    setExporting("png");
+    try {
+      const { markup, width, height } = serializeSvg(svg);
+      const scale = 2; // retina-quality raster for docs and sharing
+      const url = URL.createObjectURL(new Blob([markup], { type: "image/svg+xml" }));
+      const img = new Image();
+      img.decoding = "sync";
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error("The rendered diagram could not be rasterized."));
+        img.src = url;
+      });
+      const canvas = document.createElement("canvas");
+      canvas.width = width * scale;
+      canvas.height = height * scale;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("Canvas is unavailable in this browser.");
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.setTransform(scale, 0, 0, scale, 0, 0);
+      ctx.drawImage(img, 0, 0, width, height);
+      URL.revokeObjectURL(url);
+      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
+      if (!blob) throw new Error("The PNG could not be encoded.");
+      saveBlob(blob, `${baseName}.png`);
+      toast.success("PNG exported");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "PNG export failed");
+    } finally {
+      setExporting(null);
+    }
+  };
+
 
   return (
     <ElectricalGate>
@@ -295,14 +386,33 @@ function DiagramsPage() {
                 </select>
               </label>
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <Button variant="outline" size="sm" onClick={copy} disabled={!source}>
                   <Copy className="h-4 w-4 mr-1" /> Copy source
                 </Button>
                 <Button variant="outline" size="sm" onClick={download} disabled={!source}>
                   <Download className="h-4 w-4 mr-1" /> Download .mmd
                 </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={exportSvg}
+                  disabled={!source || exporting !== null}
+                >
+                  <FileCode2 className="h-4 w-4 mr-1" />
+                  {exporting === "svg" ? "Exporting…" : "Export SVG"}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={exportPng}
+                  disabled={!source || exporting !== null}
+                >
+                  <FileImage className="h-4 w-4 mr-1" />
+                  {exporting === "png" ? "Exporting…" : "Export PNG"}
+                </Button>
               </div>
+
             </div>
 
             <p className="text-xs text-muted-foreground">
@@ -354,7 +464,7 @@ function DiagramsPage() {
                 {q.error instanceof Error ? q.error.message : "Could not generate the diagram."}
               </p>
             ) : (
-              <MermaidView source={source} />
+              <MermaidView source={source} containerRef={svgHostRef} />
             )}
           </CardContent>
         </Card>
