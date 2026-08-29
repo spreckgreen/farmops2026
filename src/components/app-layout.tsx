@@ -140,10 +140,17 @@ export function AppLayout({ children }: { children: ReactNode }) {
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
+                      <Link to="/admin/addons" className="flex items-center gap-2 cursor-pointer">
+                        <PackagePlus className="h-4 w-4" />
+                        Add-ons
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
                       <Link to="/admin/export" className="flex items-center gap-2 cursor-pointer">
                         <Download className="h-4 w-4" />
                         Export snapshot
                       </Link>
+
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
                       <Link to="/admin/restore" className="flex items-center gap-2 cursor-pointer">
