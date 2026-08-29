@@ -83,7 +83,19 @@ function Detail({ kind, id }: { kind: ElectricalEntityKind; id: string }) {
       </Card>
     );
 
-  const { record, related } = q.data!;
+  // Nothing below may assume a topology exists: a legacy imported record can
+  // have no relationships, no space count and no as-built links at all.
+  const record = q.data?.record ?? null;
+  const related = q.data?.related ?? [];
+  const warnings = q.data?.warnings ?? [];
+  if (!record)
+    return (
+      <Card>
+        <CardContent className="py-6 text-sm text-muted-foreground">
+          Record not found.
+        </CardContent>
+      </Card>
+    );
   const positions = kind === "panel" ? panelPositions(record["spaces"] as number | null) : [];
 
   return (
