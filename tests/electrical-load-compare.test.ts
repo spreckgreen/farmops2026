@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  completionCorrectionsFromReport,
   compareLoads,
   loadCompareCsv,
   loadCompareMarkdown,
@@ -92,6 +93,21 @@ describe("Load_Master field comparison", () => {
     expect(report.cells.some((c) => ["amps", "demand_va", "completion_percent"].includes(c.field))).toBe(
       false,
     );
+  });
+
+  it("builds a Complete %-only correction list and excludes workbook blanks", () => {
+    const report = compareLoads(
+      [
+        { stableId: "FS-097", values: { completion_percent: "0.75" } },
+        { stableId: "PH-028", values: { completion_percent: "" } },
+        { stableId: "BL-003", values: { completion_percent: "12%" } },
+      ],
+      db,
+    );
+    expect(completionCorrectionsFromReport(report)).toEqual([
+      { load_id: "FS-097", completion_percent: 75 },
+      { load_id: "BL-003", completion_percent: 12 },
+    ]);
   });
 
   it("lists set differences and duplicates", () => {

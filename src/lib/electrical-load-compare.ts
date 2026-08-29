@@ -56,6 +56,11 @@ export interface LoadCompareReport {
   counts: Record<CompareVerdict, number>;
 }
 
+export interface CompletionCorrection {
+  load_id: string;
+  completion_percent: number;
+}
+
 function show(v: unknown): string {
   if (v === null || v === undefined) return "";
   if (typeof v === "boolean") return v ? "yes" : "no";
@@ -182,6 +187,28 @@ export function compareLoads(
     cells,
     counts,
   };
+}
+
+/**
+ * Extract only reviewed, nonblank Complete % differences from a comparison.
+ * Workbook blanks and invalid values are deliberately excluded: applying this
+ * list can never erase a stored percentage or touch another Load field.
+ */
+export function completionCorrectionsFromReport(
+  report: LoadCompareReport,
+): CompletionCorrection[] {
+  const out: CompletionCorrection[] = [];
+  for (const cell of report.cells) {
+    if (cell.field !== "completion_percent") continue;
+    if (cell.verdict !== "mismatch" && cell.verdict !== "farmops_blank") continue;
+    const value = coerceValue(
+      ENTITIES.load.fields.find((field) => field.key === "completion_percent") as EntityField,
+      cell.ods,
+    );
+    if (typeof value !== "number" || !Number.isFinite(value)) continue;
+    out.push({ load_id: cell.loadId, completion_percent: value });
+  }
+  return out;
 }
 
 const CSV_HEADER = "load_id,field,label,ods_owned,ods_value,farmops_value,verdict,reason";

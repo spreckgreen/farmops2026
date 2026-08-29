@@ -69,3 +69,42 @@ export const compareLoadMaster = createServerFn({ method: "POST" })
       generatedAt: new Date().toISOString(),
     };
   });
+
+/** Apply only reviewed, valid Complete % values, matched by permanent Load ID. */
+export const applyLoadCompletionCorrections = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        rows: z
+          .array(
+            z.object({
+              load_id: z.string().trim().min(1).max(60),
+              completion_percent: z.number().int().min(0).max(100),
+            }),
+          )
+          .min(1)
+          .max(5000),
+      })
+      .parse(d),
+  )
+  .handler(async ({ context, data }) => {
+    await requireAddon(context.supabase, context.userId, "electrical");
+    const db = context.supabase as unknown as LooseDb;
+    let updated = 0;
+    const errors: { load_id: string; message: string }[] = [];
+
+    for (const row of data.rows) {
+      const { data: changed, error } = await db
+        .from("electrical_loads")
+        .update({ completion_percent: row.completion_percent })
+        .eq("user_id", context.userId)
+        .eq("load_id", row.load_id)
+        .select("load_id");
+      if (error) errors.push({ load_id: row.load_id, message: error.message });
+      else if (!changed?.length) errors.push({ load_id: row.load_id, message: "Load ID was not found." });
+      else updated++;
+    }
+
+    return { updated, errors };
+  });
