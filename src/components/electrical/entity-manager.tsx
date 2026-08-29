@@ -155,7 +155,16 @@ function FieldInput({
 }
 
 
-export function EntityManager({ kind }: { kind: ElectricalEntityKind }) {
+export function EntityManager({
+  kind,
+  openEditId,
+  onEditHandled,
+}: {
+  kind: ElectricalEntityKind;
+  /** Opens the edit dialog for this row id once the list has loaded (deep link from a detail page). */
+  openEditId?: string | undefined;
+  onEditHandled?: (() => void) | undefined;
+}) {
   const def = ENTITIES[kind];
   const qc = useQueryClient();
   const list = useServerFn(listElectrical);
