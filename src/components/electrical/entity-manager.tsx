@@ -280,6 +280,17 @@ export function EntityManager({
     setEditing({ row });
   };
 
+  // Deep link from a record detail page: /electrical/raceway?edit=<uuid>
+  useEffect(() => {
+    if (!openEditId || editing) return;
+    const row = (query.data ?? []).find((r) => String(r["id"]) === openEditId);
+    if (!row) return;
+    setValues(toValues(def, row));
+    setEditing({ row });
+    onEditHandled?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openEditId, query.data]);
+
   const idCheck = editing ? checkStableId(kind, String(values[def.stableIdField] ?? "")) : null;
   const listFields = def.fields.filter((f) => f.list);
 
