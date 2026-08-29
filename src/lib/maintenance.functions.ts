@@ -272,7 +272,9 @@ export const updateMaintenance = createServerFn({ method: "POST" })
     const setIf = (key: string, value: unknown) => {
       if (value !== undefined) patch[key] = value;
     };
-    setIf("title", data.title ?? null);
+    // Only write a field when the caller actually sent it; `?? null` inside the
+    // call would turn "omitted" into an explicit wipe.
+    if (data.title !== undefined) patch.title = data.title ?? null;
     if (data.asset_id !== undefined && data.asset_id !== null) {
       // Explicit pick from the asset dropdown always wins.
       patch.asset_id = data.asset_id;
