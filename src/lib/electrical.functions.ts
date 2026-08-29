@@ -256,6 +256,85 @@ export const electricalDependents = createServerFn({ method: "GET" })
     return { kind: data.kind, total, groups, children };
   });
 
+/**
+ * Guided cleanup step: clear one referencing FK, or point it at a different
+ * record of the same kind. Only the FK column is written — the read-only
+ * ODS/legacy `*_ref` design values are never rewritten by cleanup.
+ */
+export const resolveElectricalReference = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        /** Entity kind holding the reference. */
+        kind: kindSchema,
+        /** Row id of the referencing record. */
+        id: z.string().uuid(),
+        fkColumn: z.string().min(1).max(80),
+        /** New target row id, or null to unlink. */
+        targetId: z.string().uuid().nullable(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ context, data }) => {
+    await requireAddon(context.supabase, context.userId, "electrical");
+    const db = context.supabase as unknown as LooseDb;
+    const def = ENTITIES[data.kind];
+
+    const spec = relationsFor(data.kind).find((s) => s.fkColumn === data.fkColumn);
+    if (!spec) throw new Error(`${data.fkColumn} is not a relationship on ${def.singular} records.`);
+
+    const { data: row, error: readError } = await db
+      .from(def.table)
+      .select("*")
+      .eq("id", data.id)
+      .maybeSingle();
+    if (readError) throw new Error(readError.message);
+    if (!row) throw new Error("That referencing record no longer exists.");
+
+    const existing = row as Record<string, unknown>;
+    const patch: Record<string, unknown> = { [spec.fkColumn]: data.targetId };
+
+    if (data.targetId) {
+      const merged = { ...existing, ...patch };
+      // Every filled FK on the row must be resolved, otherwise unrelated
+      // endpoints would look like dangling references to applyRelations.
+      const targets: Record<string, RelationTarget | null> = {};
+      for (const other of relationsFor(data.kind)) {
+        const value = merged[other.fkColumn];
+        if (value == null || !String(value)) continue;
+        const target = ENTITIES[other.targetKind];
+        const { data: targetRow } = await db
+          .from(target.table)
+          .select(`id, ${target.stableIdField}`)
+          .eq("id", String(value))
+          .maybeSingle();
+        targets[other.fkColumn] = targetRow
+          ? {
+              id: (targetRow as Record<string, string>)["id"]!,
+              kind: other.targetKind,
+              stableId: String((targetRow as Record<string, string>)[target.stableIdField] ?? ""),
+            }
+          : null;
+      }
+      if (targets[spec.fkColumn] == null) {
+        throw new Error(`That ${ENTITIES[spec.targetKind].singular} no longer exists.`);
+      }
+      const relations = applyRelations(data.kind, merged, targets, {
+        id: data.id,
+        stableId: String(existing[def.stableIdField] ?? ""),
+      });
+      if (relations.errors.length) throw new Error(relations.errors.join(" "));
+      Object.assign(patch, relations.derived);
+    }
+
+
+    const { error } = await db.from(def.table).update(patch).eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true, unlinked: data.targetId == null };
+  });
+
+
 export const deleteElectrical = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
