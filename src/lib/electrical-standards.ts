@@ -104,6 +104,69 @@ export const BUILT_IN_STANDARDS: readonly StandardEntry[] = [
   },
 ];
 
+/**
+ * Stable-ID reference table. This ships with the application rather than
+ * depending on a data seed, so a fresh or existing installation always renders
+ * the reference rows with no manual entry and no duplication risk.
+ */
+export interface StableIdReferenceRow {
+  entity: string;
+  format: string;
+  example: string;
+  notes: string;
+}
+
+export const STABLE_ID_REFERENCE: readonly StableIdReferenceRow[] = [
+  {
+    entity: "Farm Shop Load",
+    format: "FS-###",
+    example: "FS-097",
+    notes: "Stable load ID",
+  },
+  {
+    entity: "Pump House Load",
+    format: "PH-###",
+    example: "PH-028",
+    notes: "Stable load ID (legacy split suffixes PH-019a / PH-019b are permitted)",
+  },
+  {
+    entity: "Boiler Load",
+    format: "BL-###",
+    example: "BL-003",
+    notes: "Stable load ID",
+  },
+  {
+    entity: "House Load",
+    format: "HSE-##",
+    example: "HSE-12",
+    notes: "Stable load ID — House convention is explicit, never a catch-all",
+  },
+  {
+    entity: "Panel",
+    format: "PNL-*",
+    example: "PNL-FS-NE",
+    notes: "Stable panel ID",
+  },
+  {
+    entity: "Raceway",
+    format: "CON-###",
+    example: "CON-030",
+    notes: "Continuous physical raceway",
+  },
+  {
+    entity: "Junction Box",
+    format: "JB-###",
+    example: "JB-014",
+    notes: "Actual accessible physical box only",
+  },
+  {
+    entity: "Branch Run",
+    format: "BR-###",
+    example: "BR-057",
+    notes: "Downstream wiring path",
+  },
+];
+
 /** Merge database rows with the built-in set, preferring stored rows by key. */
 export function mergeStandards(rows: Record<string, unknown>[]): StandardEntry[] {
   const merged = new Map<string, StandardEntry>();
