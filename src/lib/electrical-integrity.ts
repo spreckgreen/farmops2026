@@ -113,7 +113,12 @@ function checkEndpoint(
   kind: "raceway" | "branch",
   row: Row,
   side: "source" | "dest",
-  opts: { required: boolean; fkColumns: { column: string; kind: ElectricalEntityKind }[] },
+  opts: {
+    required: boolean;
+    fkColumns: { column: string; kind: ElectricalEntityKind }[];
+    designText?: string;
+  },
+
 ) {
   const id = sid(kind, row);
   const label = kind === "raceway" ? "Raceway" : "Branch run";
@@ -165,10 +170,21 @@ function checkEndpoint(
 
   if (!ref && !fkRow) {
     if (opts.required) {
-      push("missing_endpoint", "error", `${label} ${id} has no ${side} endpoint.`);
+      // A missing as-built endpoint is INCOMPLETE, not invalid: the ODS design
+      // text is the engineering intent and the physical topology simply has not
+      // been established yet. Errors are reserved for provably wrong states.
+      const design = opts.designText?.trim();
+      push(
+        "incomplete_topology",
+        "warning",
+        design
+          ? `${label} ${id} ${side} endpoint is not linked yet — design value "${design}" still needs a record selected.`
+          : `${label} ${id} has no ${side} endpoint linked yet.`,
+      );
     }
     return;
   }
+
 
   // Legacy text-only reference: resolve it and check the declared type.
   if (!fkRow && ref) {
@@ -254,6 +270,7 @@ export function runIntegrityChecks(graph: ElectricalGraphData): IntegrityFinding
   for (const row of graph.raceway ?? []) {
     checkEndpoint(out, catalog, "raceway", row, "source", {
       required: true,
+      designText: text(row, "from_label"),
       fkColumns: [
         { column: "source_panel_uuid", kind: "panel" },
         { column: "source_jbox_uuid", kind: "jbox" },
@@ -261,11 +278,13 @@ export function runIntegrityChecks(graph: ElectricalGraphData): IntegrityFinding
     });
     checkEndpoint(out, catalog, "raceway", row, "dest", {
       required: true,
+      designText: text(row, "to_label"),
       fkColumns: [
         { column: "dest_panel_uuid", kind: "panel" },
         { column: "dest_jbox_uuid", kind: "jbox" },
       ],
     });
+
     const id = sid("raceway", row);
     const from = text(row, "source_endpoint_ref");
     const to = text(row, "dest_endpoint_ref");
@@ -479,13 +498,25 @@ export function runIntegrityChecks(graph: ElectricalGraphData): IntegrityFinding
   );
 }
 
-export function integritySummary(findings: IntegrityFinding[]) {
+/**
+ * Three QA categories: Errors (provably wrong) | Warnings/Incomplete (topology
+ * not established yet) | Valid (records with nothing outstanding). `records` is
+ * the total number of electrical records scanned, so Valid can be reported.
+ */
+export function integritySummary(findings: IntegrityFinding[], records?: number) {
   const byCode: Record<string, number> = {};
   for (const f of findings) byCode[f.code] = (byCode[f.code] ?? 0) + 1;
+  const flagged = new Set(findings.map((f) => `${f.kind}:${f.id ?? f.stableId}`));
+  const errors = findings.filter((f) => f.severity === "error").length;
+  const warnings = findings.length - errors;
   return {
-    errors: findings.filter((f) => f.severity === "error").length,
-    warnings: findings.filter((f) => f.severity === "warning").length,
+    errors,
+    warnings,
+    incomplete: warnings,
+    records: records ?? 0,
+    valid: records == null ? 0 : Math.max(0, records - flagged.size),
     byCode,
-    exportReady: findings.every((f) => f.severity !== "error"),
+    exportReady: errors === 0,
   };
 }
+

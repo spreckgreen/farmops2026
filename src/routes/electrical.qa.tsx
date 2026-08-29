@@ -10,6 +10,7 @@ import { electricalIntegrityReport } from "@/lib/electrical.functions";
 import { RefAuditReport } from "@/components/electrical/ref-audit-report";
 import { GridAuditReport } from "@/components/electrical/grid-audit-report";
 import { LoadCompareReport } from "@/components/electrical/load-compare-report";
+import { TopologyPunchList } from "@/components/electrical/topology-punch-list";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -130,11 +131,21 @@ function QaReport() {
               <Badge variant={summary?.errors ? "destructive" : "outline"}>
                 {summary?.errors ?? 0} errors
               </Badge>
-              <Badge variant="secondary">{summary?.warnings ?? 0} warnings</Badge>
+              <Badge variant="secondary">
+                {summary?.incomplete ?? 0} warnings / incomplete
+              </Badge>
+              <Badge variant="outline">{summary?.valid ?? 0} valid</Badge>
             </div>
           )}
         </CardContent>
       </Card>
+
+      <TopologyPunchList
+        gaps={q.data?.gaps ?? []}
+        summary={q.data?.gapSummary}
+        loading={q.isLoading}
+      />
+
 
       {!q.isLoading && !q.error && !grouped.length ? (
         <Card>
