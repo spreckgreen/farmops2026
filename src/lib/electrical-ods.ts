@@ -52,10 +52,16 @@ export function parseOdsContentXml(xml: string): Sheet[] {
       const rowBody = r[2] ?? "";
       const cells: string[] = [];
 
+      // Cell annotations (comments) also contain <text:p>; they are not cell
+      // values and must never become one.
+      const cleanBody = rowBody.replace(
+        /<office:annotation\b[\s\S]*?<\/office:annotation>/g,
+        "",
+      );
       const cellRe =
         /<table:(?:covered-)?table-cell\b([^>]*)(?:\/>|>([\s\S]*?)<\/table:(?:covered-)?table-cell>)/g;
       let c: RegExpExecArray | null;
-      while ((c = cellRe.exec(rowBody))) {
+      while ((c = cellRe.exec(cleanBody))) {
         const repeat = Math.min(
           Number(attr(c[1], "table:number-columns-repeated") ?? "1") || 1,
           1000,
@@ -89,11 +95,24 @@ function norm(s: string): string {
   return s.toLowerCase().replace(/[\s_]+/g, " ").trim();
 }
 
-/** Find the header row (first row where >=2 cells look like column names). */
+/**
+ * Find the header row. A title/subtitle row above the real header would shift
+ * every column binding, so a row that actually contains known column names
+ * always wins over the "first row with two filled cells" fallback.
+ */
 export function findHeaderRow(rows: string[][]): number {
-  for (let i = 0; i < Math.min(rows.length, 25); i++) {
-    const filled = rows[i].filter((c) => c.trim()).length;
-    if (filled >= 2) return i;
+  const limit = Math.min(rows.length, 25);
+  let best = { idx: -1, score: 0 };
+  for (let i = 0; i < limit; i++) {
+    const score = rows[i].filter((c) => {
+      const n = norm(c).replace(/\s*\(.*\)\s*$/, "");
+      return Boolean(n) && n in COLUMN_ALIASES;
+    }).length;
+    if (score > best.score) best = { idx: i, score };
+  }
+  if (best.score >= 2) return best.idx;
+  for (let i = 0; i < limit; i++) {
+    if (rows[i].filter((c) => c.trim()).length >= 2) return i;
   }
   return -1;
 }
@@ -195,6 +214,13 @@ const COLUMN_ALIASES: Record<string, string> = {
   description: "description",
   area: "area",
   grid: "grid",
+  "grid ref": "grid",
+  "grid reference": "grid",
+  "grid location": "grid",
+  "grid coord": "grid",
+  "grid coordinate": "grid",
+  "grid cell": "grid",
+  "grid square": "grid",
   location: "location",
   "circuit group id": "circuit_group_ref",
   "circuit group": "circuit_group_ref",
