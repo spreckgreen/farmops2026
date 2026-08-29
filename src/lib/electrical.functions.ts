@@ -296,31 +296,38 @@ export const resolveElectricalReference = createServerFn({ method: "POST" })
     const patch: Record<string, unknown> = { [spec.fkColumn]: data.targetId };
 
     if (data.targetId) {
-      const target = ENTITIES[spec.targetKind];
-      const { data: targetRow } = await db
-        .from(target.table)
-        .select(`id, ${target.stableIdField}`)
-        .eq("id", data.targetId)
-        .maybeSingle();
-      if (!targetRow) throw new Error(`That ${target.singular} no longer exists.`);
       const merged = { ...existing, ...patch };
-      const relations = applyRelations(
-        data.kind,
-        merged,
-        {
-          [spec.fkColumn]: {
-            id: data.targetId,
-            kind: spec.targetKind,
-            stableId: String(
-              (targetRow as Record<string, string>)[target.stableIdField] ?? "",
-            ),
-          },
-        },
-        { id: data.id, stableId: String(existing[def.stableIdField] ?? "") },
-      );
+      // Every filled FK on the row must be resolved, otherwise unrelated
+      // endpoints would look like dangling references to applyRelations.
+      const targets: Record<string, RelationTarget | null> = {};
+      for (const other of relationsFor(data.kind)) {
+        const value = merged[other.fkColumn];
+        if (value == null || !String(value)) continue;
+        const target = ENTITIES[other.targetKind];
+        const { data: targetRow } = await db
+          .from(target.table)
+          .select(`id, ${target.stableIdField}`)
+          .eq("id", String(value))
+          .maybeSingle();
+        targets[other.fkColumn] = targetRow
+          ? {
+              id: (targetRow as Record<string, string>)["id"]!,
+              kind: other.targetKind,
+              stableId: String((targetRow as Record<string, string>)[target.stableIdField] ?? ""),
+            }
+          : null;
+      }
+      if (targets[spec.fkColumn] == null) {
+        throw new Error(`That ${ENTITIES[spec.targetKind].singular} no longer exists.`);
+      }
+      const relations = applyRelations(data.kind, merged, targets, {
+        id: data.id,
+        stableId: String(existing[def.stableIdField] ?? ""),
+      });
       if (relations.errors.length) throw new Error(relations.errors.join(" "));
       Object.assign(patch, relations.derived);
     }
+
 
     const { error } = await db.from(def.table).update(patch).eq("id", data.id);
     if (error) throw new Error(error.message);
