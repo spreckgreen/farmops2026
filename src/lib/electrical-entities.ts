@@ -6,6 +6,7 @@ import {
   INSTALL_STATUSES,
   LABEL_STATUSES,
   PANEL_EXIT_SIDES,
+  parsePercent,
   RACEWAY_ENVIRONMENTS,
   type ElectricalEntityKind,
 } from "@/lib/electrical";
@@ -360,15 +361,10 @@ export function coerceValue(field: EntityField, raw: unknown): unknown {
     const s = String(raw ?? "").trim();
     if (!s) return null;
     // Spreadsheet cells arrive as display text: "1,250", "85 %", "3/4"" etc.
-    const isPercent = s.includes("%");
-    const cleaned = s.replace(/[%\s,]/g, "");
-    const n = Number(cleaned);
-    if (!Number.isFinite(n)) return null;
     // A percent-formatted cell can render as "85%" or as the raw fraction 0.85.
-    if (field.key === "completion_percent" || isPercent) {
-      const pct = n > 0 && n <= 1 && cleaned.includes(".") ? n * 100 : n;
-      return Math.max(0, Math.min(100, Math.round(pct)));
-    }
+    if (field.key === "completion_percent" || s.includes("%")) return parsePercent(s);
+    const n = Number(s.replace(/[\s,]/g, ""));
+    if (!Number.isFinite(n)) return null;
     return n;
   }
   const s = String(raw ?? "").trim();

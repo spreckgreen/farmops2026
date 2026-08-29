@@ -350,6 +350,34 @@ export function farmShopWalkOrder(grids: (string | null | undefined)[]): string[
 
 // ------------------------------------------------------------- completion math
 
+/**
+ * Parse a Complete % cell from the canonical workbook or a form field.
+ *
+ * Spreadsheet cells reach us as display text or as the raw stored value, so all
+ * of these must land on the same integer percent:
+ *   ""  " "  "n/a"  "TBD"   -> null (unknown, never 0)
+ *   "65"  "65 %"  " 65% "   -> 65
+ *   "0.65"  ".65"           -> 65   (ODS percentage cells store the fraction)
+ *   "1"  "1.0"              -> 100  (a stored fraction of 1 is 100%)
+ *   "100%"  "100"           -> 100
+ *   "1,00" style separators  -> commas stripped before parsing
+ *   "65.4%"                 -> 65   (rounded to a whole percent)
+ *   "-10"  "250"            -> clamped to 0 / 100
+ * A percent sign is authoritative: "0.5%" is half a percent, not 50.
+ */
+export function parsePercent(raw: unknown): number | null {
+  const s = String(raw ?? "").trim();
+  if (!s) return null;
+  const hasSign = s.includes("%");
+  const cleaned = s.replace(/[%\s,]/g, "");
+  if (!cleaned || !/^[+-]?(\d+(\.\d*)?|\.\d+)$/.test(cleaned)) return null;
+  const n = Number(cleaned);
+  if (!Number.isFinite(n)) return null;
+  // Without an explicit sign, a value in (0, 1] is a stored fraction.
+  const pct = !hasSign && n > 0 && n <= 1 ? n * 100 : n;
+  return Math.max(0, Math.min(100, Math.round(pct)));
+}
+
 export function completionFromStatus(status: string): number {
   const scale: Record<string, number> = {
     planned: 0,
