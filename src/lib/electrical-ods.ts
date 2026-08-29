@@ -156,8 +156,9 @@ export function findHeaderRow(rows: string[][]): number {
   for (let i = 0; i < limit; i++) {
     const score = rows[i].filter((c) => {
       const n = norm(c).replace(/\s*\(.*\)\s*$/, "");
-      return Boolean(n) && n in COLUMN_ALIASES;
+      return Boolean(n) && isKnownHeader(n);
     }).length;
+
     if (score > best.score) best = { idx: i, score };
   }
   if (best.score >= 2) return best.idx;
