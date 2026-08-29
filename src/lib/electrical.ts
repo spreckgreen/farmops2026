@@ -108,9 +108,12 @@ const ID_PATTERNS: Record<ElectricalEntityKind, RegExp | null> = {
   circuit_group: null,
   panel: /^PNL-[A-Z0-9]+(-[A-Z0-9]+)*$/,
   raceway: /^CON-\d{3,}$/,
-  jbox: /^JB-\d{3,}$/,
-  branch: /^BR-\d{3,}$/,
+  // Junction boxes and branch runs may carry hierarchical numeric segments so a
+  // box or run can be nested under its parent: JB-104-01, BR-104-01-01.
+  jbox: /^JB-\d{3,}(-\d{2,})*$/,
+  branch: /^BR-\d{3,}(-\d{2,})*$/,
 };
+
 
 /** Building prefixes that are legitimate for load IDs. */
 export const LOAD_ID_PREFIXES: Record<string, string> = {
