@@ -67,6 +67,8 @@ export function DependencyCleanup({
   const steps = useMemo(() => stepsFrom(report), [report]);
   const [index, setIndex] = useState(0);
   const [replacement, setReplacement] = useState("");
+  const [preview, setPreview] = useState<CleanupPreview | null>(null);
+  const [pendingTarget, setPendingTarget] = useState<string | null>(null);
 
   const fetchOptions = useServerFn(electricalEntityOptions);
   const options = useQuery({
@@ -75,6 +77,25 @@ export function DependencyCleanup({
   });
 
   const resolve = useServerFn(resolveElectricalReference);
+
+  const dryRun = useMutation({
+    mutationFn: async (vars: { step: Step; targetId: string | null }) =>
+      resolve({
+        data: {
+          kind: vars.step.kind,
+          id: vars.step.rowId,
+          fkColumn: vars.step.fkColumn,
+          targetId: vars.targetId,
+          dryRun: true,
+        },
+      }),
+    onSuccess: (res, vars) => {
+      setPendingTarget(vars.targetId);
+      setPreview(res.preview);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const apply = useMutation({
     mutationFn: async (vars: { step: Step; targetId: string | null }) =>
       resolve({
@@ -92,6 +113,8 @@ export function DependencyCleanup({
           : `${vars.step.stableId}: ${vars.step.fieldLabel} unlinked`,
       );
       setReplacement("");
+      setPreview(null);
+      setPendingTarget(null);
       void qc.invalidateQueries({ queryKey: ["electrical"] });
       onResolved();
     },
@@ -103,6 +126,8 @@ export function DependencyCleanup({
 
   const choices = (options.data?.[targetKind] ?? []).filter((o) => o.id !== targetId);
   const done = report.groups.length ? steps.length : 0;
+  const busy = apply.isPending || dryRun.isPending;
+
 
   return (
     <div className="space-y-3 rounded-md border p-3">
