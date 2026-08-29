@@ -180,19 +180,75 @@ function DiagramsPage() {
   const errors = (q.data?.issues ?? []).filter((i) => i.severity === "error");
   const warnings = (q.data?.issues ?? []).filter((i) => i.severity === "warning");
 
+  const svgHostRef = useRef<HTMLDivElement>(null);
+  const [exporting, setExporting] = useState<null | "svg" | "png">(null);
+  const baseName = `farmops-electrical-${type}${focus ? `-${focus}` : ""}`;
+
   const copy = async () => {
     await navigator.clipboard.writeText(source);
     toast.success("Mermaid source copied");
   };
   const download = () => {
-    const blob = new Blob([source], { type: "text/vnd.mermaid" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `farmops-electrical-${type}${focus ? `-${focus}` : ""}.mmd`;
-    a.click();
-    URL.revokeObjectURL(url);
+    saveBlob(new Blob([source], { type: "text/vnd.mermaid" }), `${baseName}.mmd`);
   };
+
+  const currentSvg = () => svgHostRef.current?.querySelector("svg") as SVGSVGElement | null;
+
+  const exportSvg = () => {
+    const svg = currentSvg();
+    if (!svg) {
+      toast.error("Nothing to export yet — wait for the diagram to render.");
+      return;
+    }
+    setExporting("svg");
+    try {
+      const { markup } = serializeSvg(svg);
+      saveBlob(new Blob([markup], { type: "image/svg+xml" }), `${baseName}.svg`);
+      toast.success("SVG exported");
+    } finally {
+      setExporting(null);
+    }
+  };
+
+  const exportPng = async () => {
+    const svg = currentSvg();
+    if (!svg) {
+      toast.error("Nothing to export yet — wait for the diagram to render.");
+      return;
+    }
+    setExporting("png");
+    try {
+      const { markup, width, height } = serializeSvg(svg);
+      const scale = 2; // retina-quality raster for docs and sharing
+      const url = URL.createObjectURL(new Blob([markup], { type: "image/svg+xml" }));
+      const img = new Image();
+      img.decoding = "sync";
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error("The rendered diagram could not be rasterized."));
+        img.src = url;
+      });
+      const canvas = document.createElement("canvas");
+      canvas.width = width * scale;
+      canvas.height = height * scale;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("Canvas is unavailable in this browser.");
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.setTransform(scale, 0, 0, scale, 0, 0);
+      ctx.drawImage(img, 0, 0, width, height);
+      URL.revokeObjectURL(url);
+      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
+      if (!blob) throw new Error("The PNG could not be encoded.");
+      saveBlob(blob, `${baseName}.png`);
+      toast.success("PNG exported");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "PNG export failed");
+    } finally {
+      setExporting(null);
+    }
+  };
+
 
   return (
     <ElectricalGate>
