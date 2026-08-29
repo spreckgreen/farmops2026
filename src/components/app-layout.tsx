@@ -12,13 +12,15 @@ import {
 import { todayDateString } from "@/lib/slug";
 import { ProfileGate } from "@/components/profile-gate";
 import { useCurrentProfile } from "@/hooks/use-current-profile";
-import { ShieldCheck, ChevronDown, Users, Trash2, Download, Upload, KeyRound, RefreshCw, Server, AlertTriangle } from "lucide-react";
+import { useAddon } from "@/hooks/use-addon";
+import { ShieldCheck, ChevronDown, Users, Trash2, Download, Upload, KeyRound, RefreshCw, Server, AlertTriangle, PackagePlus } from "lucide-react";
 
 export function AppLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const today = todayDateString();
   const profile = useCurrentProfile();
+  const electrical = useAddon("electrical");
 
   const signOut = async () => {
     await queryClient.cancelQueries();
@@ -78,6 +80,12 @@ export function AppLayout({ children }: { children: ReactNode }) {
               <Link to="/procedures" className={navItem} activeProps={navActive}>
                 Procedures
               </Link>
+              {electrical.enabled && (
+                <Link to="/electrical" className={navItem} activeProps={navActive}>
+                  Electrical
+                </Link>
+              )}
+
             </nav>
           </div>
           <div className="flex items-center gap-2">
@@ -134,10 +142,17 @@ export function AppLayout({ children }: { children: ReactNode }) {
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
+                      <Link to="/admin/addons" className="flex items-center gap-2 cursor-pointer">
+                        <PackagePlus className="h-4 w-4" />
+                        Add-ons
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
                       <Link to="/admin/export" className="flex items-center gap-2 cursor-pointer">
                         <Download className="h-4 w-4" />
                         Export snapshot
                       </Link>
+
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
                       <Link to="/admin/restore" className="flex items-center gap-2 cursor-pointer">

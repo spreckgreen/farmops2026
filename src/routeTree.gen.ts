@@ -72,6 +72,7 @@ import { Route as AdminExportKeyRouteImport } from './routes/admin.export-key'
 import { Route as AdminExportRouteImport } from './routes/admin.export'
 import { Route as AdminAiSettingsRouteImport } from './routes/admin.ai-settings'
 import { Route as AdminAiEnginesRouteImport } from './routes/admin.ai-engines'
+import { Route as AdminAddonsRouteImport } from './routes/admin.addons'
 import { Route as ApiPublicReadyRouteImport } from './routes/api/public/ready'
 import { Route as ApiPublicHealthRouteImport } from './routes/api/public/health'
 import { Route as ElectricalItemKindIdRouteImport } from './routes/electrical.item.$kind.$id'
@@ -396,6 +397,11 @@ const AdminAiEnginesRoute = AdminAiEnginesRouteImport.update({
   path: '/admin/ai-engines',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminAddonsRoute = AdminAddonsRouteImport.update({
+  id: '/admin/addons',
+  path: '/admin/addons',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicReadyRoute = ApiPublicReadyRouteImport.update({
   id: '/api/public/ready',
   path: '/api/public/ready',
@@ -452,6 +458,7 @@ export interface FileRoutesByFullPath {
   '/service-scheduling': typeof ServiceSchedulingRoute
   '/sync': typeof SyncRoute
   '/vault': typeof VaultRoute
+  '/admin/addons': typeof AdminAddonsRoute
   '/admin/ai-engines': typeof AdminAiEnginesRoute
   '/admin/ai-settings': typeof AdminAiSettingsRoute
   '/admin/export': typeof AdminExportRoute
@@ -521,6 +528,7 @@ export interface FileRoutesByTo {
   '/service-scheduling': typeof ServiceSchedulingRoute
   '/sync': typeof SyncRoute
   '/vault': typeof VaultRoute
+  '/admin/addons': typeof AdminAddonsRoute
   '/admin/ai-engines': typeof AdminAiEnginesRoute
   '/admin/ai-settings': typeof AdminAiSettingsRoute
   '/admin/export': typeof AdminExportRoute
@@ -594,6 +602,7 @@ export interface FileRoutesById {
   '/service-scheduling': typeof ServiceSchedulingRoute
   '/sync': typeof SyncRoute
   '/vault': typeof VaultRoute
+  '/admin/addons': typeof AdminAddonsRoute
   '/admin/ai-engines': typeof AdminAiEnginesRoute
   '/admin/ai-settings': typeof AdminAiSettingsRoute
   '/admin/export': typeof AdminExportRoute
@@ -668,6 +677,7 @@ export interface FileRouteTypes {
     | '/service-scheduling'
     | '/sync'
     | '/vault'
+    | '/admin/addons'
     | '/admin/ai-engines'
     | '/admin/ai-settings'
     | '/admin/export'
@@ -737,6 +747,7 @@ export interface FileRouteTypes {
     | '/service-scheduling'
     | '/sync'
     | '/vault'
+    | '/admin/addons'
     | '/admin/ai-engines'
     | '/admin/ai-settings'
     | '/admin/export'
@@ -809,6 +820,7 @@ export interface FileRouteTypes {
     | '/service-scheduling'
     | '/sync'
     | '/vault'
+    | '/admin/addons'
     | '/admin/ai-engines'
     | '/admin/ai-settings'
     | '/admin/export'
@@ -882,6 +894,7 @@ export interface RootRouteChildren {
   ServiceSchedulingRoute: typeof ServiceSchedulingRoute
   SyncRoute: typeof SyncRoute
   VaultRoute: typeof VaultRoute
+  AdminAddonsRoute: typeof AdminAddonsRoute
   AdminAiEnginesRoute: typeof AdminAiEnginesRoute
   AdminAiSettingsRoute: typeof AdminAiSettingsRoute
   AdminExportRoute: typeof AdminExportRoute
@@ -1359,6 +1372,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminAiEnginesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/addons': {
+      id: '/admin/addons'
+      path: '/admin/addons'
+      fullPath: '/admin/addons'
+      preLoaderRoute: typeof AdminAddonsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/ready': {
       id: '/api/public/ready'
       path: '/api/public/ready'
@@ -1519,6 +1539,7 @@ const rootRouteChildren: RootRouteChildren = {
   ServiceSchedulingRoute: ServiceSchedulingRoute,
   SyncRoute: SyncRoute,
   VaultRoute: VaultRoute,
+  AdminAddonsRoute: AdminAddonsRoute,
   AdminAiEnginesRoute: AdminAiEnginesRoute,
   AdminAiSettingsRoute: AdminAiSettingsRoute,
   AdminExportRoute: AdminExportRoute,

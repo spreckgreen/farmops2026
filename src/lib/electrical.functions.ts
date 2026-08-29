@@ -25,9 +25,11 @@ type LooseDb = { from: (table: string) => any };
 
 const kindSchema = z.enum(ENTITY_KINDS as [ElectricalEntityKind, ...ElectricalEntityKind[]]);
 
+/** DB rows for electrical tables are flat scalars, so they cross the RPC boundary as-is. */
+export type ElectricalValue = string | number | boolean | null;
 export interface ElectricalRow {
   id: string;
-  [key: string]: unknown;
+  [key: string]: ElectricalValue;
 }
 
 /** List rows for one entity kind, optionally filtered. */
@@ -54,7 +56,7 @@ export const listElectrical = createServerFn({ method: "GET" })
     if (data.status) q = q.eq("install_status", data.status);
     const { data: rows, error } = await q;
     if (error) throw new Error(error.message);
-    let out = (rows ?? []) as ElectricalRow[];
+    let out = (rows ?? []) as unknown as ElectricalRow[];
     if (data.search) {
       const needle = data.search.toLowerCase();
       out = out.filter((r) =>
@@ -160,7 +162,7 @@ export const listWaypoints = createServerFn({ method: "GET" })
       .eq("raceway_id", data.raceway_id)
       .order("sequence");
     if (error) throw new Error(error.message);
-    return (rows ?? []) as ElectricalRow[];
+    return (rows ?? []) as unknown as ElectricalRow[];
   });
 
 export const saveWaypoint = createServerFn({ method: "POST" })
@@ -221,7 +223,7 @@ export const naming_standards = createServerFn({ method: "GET" })
       .select("*")
       .order("sort_order");
     if (error) throw new Error(error.message);
-    return (data ?? []) as ElectricalRow[];
+    return (data ?? []) as unknown as ElectricalRow[];
   });
 
 export interface ElectricalOverview {
@@ -253,7 +255,7 @@ export const electricalOverview = createServerFn({ method: "GET" })
         async (kind) => {
           const { data, error } = await db.from(ENTITIES[kind].table).select("*");
           if (error) throw new Error(error.message);
-          return (data ?? []) as ElectricalRow[];
+          return (data ?? []) as unknown as ElectricalRow[];
         },
       ),
     );
@@ -357,7 +359,7 @@ export const electricalTopology = createServerFn({ method: "GET" })
 
     const { data: row, error } = await db.from(def.table).select("*").eq("id", data.id).single();
     if (error) throw new Error(error.message);
-    const record = row as ElectricalRow;
+    const record = row as unknown as ElectricalRow;
     const stableId = String(record[def.stableIdField] ?? "");
 
     const related: { kind: ElectricalEntityKind; stable_id: string; label: string; relation: string }[] = [];
@@ -370,7 +372,7 @@ export const electricalTopology = createServerFn({ method: "GET" })
       if (!value) return;
       const target = ENTITIES[kind];
       const { data: rows } = await db.from(target.table).select("*").eq(column, value);
-      for (const r of (rows ?? []) as ElectricalRow[]) {
+      for (const r of (rows ?? []) as unknown as ElectricalRow[]) {
         related.push({
           kind,
           stable_id: String(r[target.stableIdField] ?? ""),
