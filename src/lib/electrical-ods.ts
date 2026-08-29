@@ -279,6 +279,8 @@ export interface ImportPlanSheet {
   kind: ElectricalEntityKind | null;
   skipped: number;
   unmapped: string[];
+  /** Every spreadsheet header that bound to a column, for review. */
+  mapping: { source: string; target: string }[];
   rows: ImportPlanRow[];
   /** Proposed raceway merges — reviewed and applied by hand, never automatic. */
   mergeProposals: { conduit_id: string; note: string }[];
