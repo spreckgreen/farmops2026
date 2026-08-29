@@ -76,6 +76,7 @@ const CODE_LABELS: Record<string, string> = {
   orphan_endpoint: "Orphan records",
   incomplete_topology: "Incomplete topology",
   orphan_waypoint: "Orphan waypoints",
+  encoded_parent_mismatch: "Encoded parent does not match linked parent",
 };
 
 function QaReport() {

@@ -21,6 +21,7 @@ import {
   INSTALL_STATUSES,
   RACEWAY_ENVIRONMENTS,
   checkStableId,
+  nextBranchId,
   installStatusLabel,
   type ElectricalEntityKind,
 } from "@/lib/electrical";
@@ -195,6 +196,27 @@ export function EntityManager({
     queryFn: () => loadOptions({ data: { kinds: relationKinds } }),
     enabled: relationKinds.length > 0 && Boolean(editing),
   });
+
+  // Branch IDs inherit the junction box they originate from (BR-104-02-03), so a
+  // new branch is renumbered as soon as its origin box is chosen.
+  const creating = Boolean(editing && !editing.row);
+  const originJboxUuid = kind === "branch" ? String(values["source_jbox_uuid"] ?? "") : "";
+  useEffect(() => {
+    if (!creating || kind !== "branch" || !originJboxUuid) return;
+    const parent = (optionsQuery.data?.["jbox"] ?? []).find((o) => o.id === originJboxUuid);
+    if (!parent?.stableId) return;
+    const existing = (query.data ?? []).map((r) => String(r[def.stableIdField] ?? ""));
+    const suggestion = nextBranchId(parent.stableId, existing);
+    if (!suggestion) return;
+    setValues((prev) =>
+      prev[def.stableIdField] === suggestion
+        ? prev
+        : { ...prev, [def.stableIdField]: suggestion },
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [creating, kind, originJboxUuid, optionsQuery.data, query.data, def.stableIdField]);
+
+
 
   // Field-work values first (what gets edited on a phone), then relationships,
   // then the engineering values the canonical ODS still governs.

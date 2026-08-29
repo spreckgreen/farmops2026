@@ -11,6 +11,8 @@ import {
   ENDPOINT_ENTITY_KIND,
   checkControlledValue,
   checkStableId,
+  encodedParentMismatch,
+  encodedPathNumber,
   findBreakerConflicts,
   type ElectricalEntityKind,
   type EndpointType,
@@ -48,6 +50,7 @@ export const INTEGRITY_CODES = [
   "orphan_endpoint",
   "incomplete_topology",
   "orphan_waypoint",
+  "encoded_parent_mismatch",
 ] as const;
 export type IntegrityCode = (typeof INTEGRITY_CODES)[number];
 
@@ -335,7 +338,50 @@ export function runIntegrityChecks(graph: ElectricalGraphData): IntegrityFinding
         message: `Branch run ${id} is not assigned to a circuit group.`,
       });
     }
+
+    // Encoded origin (BR-104-02-03 → JB-104-02) must agree with the linked box.
+    const jboxUuid = text(row, "source_jbox_uuid");
+    const linkedJbox = jboxUuid ? catalog.byUuid.jbox.get(jboxUuid) : null;
+    if (linkedJbox) {
+      const mismatch = encodedParentMismatch(id, sid("jbox", linkedJbox));
+      if (mismatch) {
+        out.push({
+          code: "encoded_parent_mismatch",
+          severity: "error",
+          kind: "branch",
+          stableId: id,
+          id: rowId(row),
+          message: `Branch run ${id} encodes origin ${mismatch.encoded} but is linked to ${mismatch.linked}. A branch must inherit the ID of the junction box it physically originates from.`,
+        });
+      }
+    }
   }
+
+  // ---------------------------------------- junction box encoded raceway path
+  for (const row of graph.jbox ?? []) {
+    const id = sid("jbox", row);
+    const path = encodedPathNumber(id);
+    if (!path) continue;
+    const linkedRaceways = (graph.raceway ?? []).filter(
+      (r) =>
+        text(r, "source_jbox_uuid") === rowId(row) || text(r, "dest_jbox_uuid") === rowId(row),
+    );
+    if (!linkedRaceways.length) continue;
+    const paths = linkedRaceways.map((r) => encodedPathNumber(sid("raceway", r))).filter(Boolean);
+    if (paths.length && !paths.includes(path)) {
+      out.push({
+        code: "encoded_parent_mismatch",
+        severity: "error",
+        kind: "jbox",
+        stableId: id,
+        id: rowId(row),
+        message: `Junction box ${id} encodes raceway path ${path} but is only linked to raceway ${linkedRaceways
+          .map((r) => sid("raceway", r))
+          .join(", ")}.`,
+      });
+    }
+  }
+
 
   // ----------------------------------------------------- loads / circuit groups
   for (const row of graph.load ?? []) {

@@ -4,11 +4,16 @@ import { coerceValue } from "@/lib/electrical-entities";
 import {
   checkStableId,
   completionFromStatus,
+  encodedBranchOrigin,
+  encodedParentMismatch,
   farmShopWalkOrder,
   findBreakerConflicts,
+  nextBranchId,
+  nextJboxId,
   nextStableId,
   panelPositions,
   parseGrid,
+  parseHierarchicalId,
   sortByPanelExit,
 } from "@/lib/electrical";
 import {
@@ -42,32 +47,55 @@ describe("stable IDs", () => {
   it("accepts the documented formats", () => {
     expect(checkStableId("load", "FS-097").ok).toBe(true);
     expect(checkStableId("panel", "PNL-FS-CRIT").ok).toBe(true);
-    expect(checkStableId("raceway", "CON-030").ok).toBe(true);
-    expect(checkStableId("jbox", "JB-014").ok).toBe(true);
-    expect(checkStableId("branch", "BR-057").ok).toBe(true);
+    expect(checkStableId("raceway", "EMT-104").ok).toBe(true);
+    expect(checkStableId("jbox", "JB-104-01").ok).toBe(true);
+    expect(checkStableId("branch", "BR-104-02-03").ok).toBe(true);
   });
   it("rejects malformed IDs and blanks", () => {
-    expect(checkStableId("raceway", "CON30").ok).toBe(false);
+    expect(checkStableId("raceway", "EMT104").ok).toBe(false);
+    expect(checkStableId("raceway", "EMT-NE-001").ok).toBe(false);
+    expect(checkStableId("raceway", "EMT-104-01").ok).toBe(false);
     expect(checkStableId("jbox", "").ok).toBe(false);
+    expect(checkStableId("jbox", "JB-104-1").ok).toBe(false);
+    expect(checkStableId("branch", "BR-104-2-1").ok).toBe(false);
     expect(checkStableId("branch", "BR 057").ok).toBe(false);
   });
   it("accepts the modelled House convention but rejects unknown prefixes", () => {
     expect(checkStableId("load", "HSE-12").ok).toBe(true);
     expect(checkStableId("load", "WIDGET-1").ok).toBe(false);
   });
-  it("accepts nested junction box and branch run IDs", () => {
-    expect(checkStableId("jbox", "JB-104-01").ok).toBe(true);
-    expect(checkStableId("branch", "BR-104-01-01").ok).toBe(true);
-    expect(checkStableId("jbox", "JB-104-").ok).toBe(false);
-    expect(checkStableId("branch", "BR-104-A").ok).toBe(false);
+  it("keeps legacy IDs valid but flags them", () => {
+    const con = checkStableId("raceway", "CON-030");
+    expect(con.ok).toBe(true);
+    expect(con.warning).toMatch(/EMT/);
+    const jb = checkStableId("jbox", "JB-014");
+    expect(jb.ok).toBe(true);
+    expect(jb.warning).toMatch(/JB-###-##/);
+    expect(checkStableId("branch", "BR-057").warning).toBeTruthy();
   });
-  it("suggests the next sequential ID", () => {
-    expect(nextStableId("raceway", ["CON-001", "CON-030"])).toBe("CON-031");
-    expect(nextStableId("jbox", [])).toBe("JB-001");
-    expect(nextStableId("jbox", ["JB-104-01"])).toBe("JB-105");
+  it("reads the encoded hierarchy", () => {
+    expect(parseHierarchicalId("BR-104-02-03")).toMatchObject({
+      prefix: "BR",
+      path: "104",
+      jbox: "02",
+      branch: "03",
+    });
+    expect(encodedBranchOrigin("BR-104-02-03")).toBe("JB-104-02");
+    expect(encodedParentMismatch("BR-104-02-03", "JB-104-02")).toBeNull();
+    expect(encodedParentMismatch("BR-104-02-03", "JB-104-03")).toMatchObject({
+      encoded: "JB-104-02",
+      linked: "JB-104-03",
+    });
   });
-
+  it("generates the next hierarchical ID", () => {
+    expect(nextStableId("raceway", ["CON-001", "EMT-030"])).toBe("EMT-031");
+    expect(nextJboxId("104", ["JB-104-01", "JB-104-02", "JB-105-01"])).toBe("JB-104-03");
+    expect(nextJboxId(104, [])).toBe("JB-104-01");
+    expect(nextBranchId("JB-104-02", ["BR-104-02-01", "BR-104-01-05"])).toBe("BR-104-02-02");
+    expect(nextBranchId("JB-104-02", [])).toBe("BR-104-02-01");
+  });
 });
+
 
 describe("panel positions", () => {
   it("derives positions from the panel's own space count", () => {

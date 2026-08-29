@@ -56,9 +56,19 @@ function Standards() {
         <CardContent className="text-sm space-y-2 text-muted-foreground">
           <p>
             Stable IDs are permanent and carry no physical attributes — a raceway keeps{" "}
-            <span className="font-mono">CON-030</span> even if its size, route or status
+            <span className="font-mono">EMT-104</span> even if its size, route or status
             changes.
           </p>
+          <p>
+            Raceway, junction box and branch IDs are hierarchical:{" "}
+            <span className="font-mono">EMT-104</span> →{" "}
+            <span className="font-mono">JB-104-02</span> →{" "}
+            <span className="font-mono">BR-104-02-03</span>, so a technician can read the
+            originating raceway and junction box straight from the ID. A branch always inherits
+            the junction box it physically originates from, and branch numbering restarts at{" "}
+            <span className="font-mono">01</span> for each box.
+          </p>
+
           <p>
             Panel raceway exits are numbered from the lower-right corner and proceed
             counterclockwise while facing the panel.

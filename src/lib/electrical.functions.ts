@@ -42,6 +42,9 @@ import {
   INSTALL_STATUSES,
   mergeLegacyStatusNote,
   nextPanelExitOrder,
+  encodedPathNumber,
+  nextBranchId,
+  nextJboxId,
   nextStableId,
   normalizeInstallStatus,
   sortByPanelExit,
@@ -389,10 +392,16 @@ export const deleteElectrical = createServerFn({ method: "POST" })
   });
 
 
-/** Suggest the next sequential ID for CON-/JB-/BR- style records. */
+/**
+ * Suggest the next hierarchical ID. `parentId` makes the suggestion relational:
+ * an EMT path (EMT-104) yields the next junction box (JB-104-03), and a junction
+ * box (JB-104-02) yields the next branch from that box (BR-104-02-05).
+ */
 export const suggestStableId = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => z.object({ kind: kindSchema }).parse(d))
+  .inputValidator((d: unknown) =>
+    z.object({ kind: kindSchema, parentId: z.string().trim().max(40).optional() }).parse(d),
+  )
   .handler(async ({ context, data }) => {
     await requireAddon(context.supabase, context.userId, "electrical");
     const def = ENTITIES[data.kind];
@@ -401,6 +410,15 @@ export const suggestStableId = createServerFn({ method: "GET" })
       .select(def.stableIdField);
     if (error) throw new Error(error.message);
     const ids = ((rows ?? []) as Record<string, string>[]).map((r) => r[def.stableIdField]);
+    const parent = (data.parentId ?? "").trim();
+    if (parent && data.kind === "jbox") {
+      const path = encodedPathNumber(parent);
+      if (path) return { suggestion: nextJboxId(path, ids) };
+    }
+    if (parent && data.kind === "branch") {
+      const suggestion = nextBranchId(parent, ids);
+      if (suggestion) return { suggestion };
+    }
     return { suggestion: nextStableId(data.kind, ids) };
   });
 

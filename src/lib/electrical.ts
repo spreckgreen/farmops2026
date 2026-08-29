@@ -107,12 +107,102 @@ const ID_PATTERNS: Record<ElectricalEntityKind, RegExp | null> = {
   load: null,
   circuit_group: null,
   panel: /^PNL-[A-Z0-9]+(-[A-Z0-9]+)*$/,
-  raceway: /^CON-\d{3,}$/,
-  // Junction boxes and branch runs may carry hierarchical numeric segments so a
-  // box or run can be nested under its parent: JB-104-01, BR-104-01-01.
+  // Raceways: EMT-### is the current convention. CON-### is the pre-existing
+  // ODS-derived convention and stays valid — stable IDs are never renamed.
+  raceway: /^(EMT|CON)-\d{3,}$/,
+  // Hierarchical convention: a junction box encodes its raceway path, and a
+  // branch encodes its raceway path plus the junction box it originates from.
+  jbox: /^JB-\d{3}-\d{2}$/,
+  branch: /^BR-\d{3}-\d{2}-\d{2}$/,
+};
+
+/** Legacy shapes kept valid (with a warning) so imported records never break. */
+const LEGACY_ID_PATTERNS: Partial<Record<ElectricalEntityKind, RegExp>> = {
   jbox: /^JB-\d{3,}(-\d{2,})*$/,
   branch: /^BR-\d{3,}(-\d{2,})*$/,
 };
+
+export const HIERARCHICAL_ID_SHAPES: Record<string, string> = {
+  raceway: "EMT-###",
+  jbox: "JB-###-##",
+  branch: "BR-###-##-##",
+};
+
+export interface ParsedHierarchicalId {
+  prefix: "EMT" | "CON" | "JB" | "BR";
+  /** Three-digit raceway / path number, e.g. 104. */
+  path: string;
+  /** Two-digit junction box sequence along the path (JB / BR only). */
+  jbox: string | null;
+  /** Two-digit branch sequence within the originating junction box. */
+  branch: string | null;
+}
+
+/** Parse a canonical hierarchical ID. Returns null for anything non-conforming. */
+export function parseHierarchicalId(raw: string): ParsedHierarchicalId | null {
+  const id = (raw ?? "").trim().toUpperCase();
+  let m = /^(EMT|CON)-(\d{3})$/.exec(id);
+  if (m) return { prefix: m[1] as "EMT" | "CON", path: m[2], jbox: null, branch: null };
+  m = /^JB-(\d{3})-(\d{2})$/.exec(id);
+  if (m) return { prefix: "JB", path: m[1], jbox: m[2], branch: null };
+  m = /^BR-(\d{3})-(\d{2})-(\d{2})$/.exec(id);
+  if (m) return { prefix: "BR", path: m[1], jbox: m[2], branch: m[3] };
+  return null;
+}
+
+/** The junction box ID a canonical branch ID says it originates from. */
+export function encodedBranchOrigin(branchId: string): string | null {
+  const p = parseHierarchicalId(branchId);
+  if (!p || p.prefix !== "BR" || !p.jbox) return null;
+  return `JB-${p.path}-${p.jbox}`;
+}
+
+/** The raceway path number encoded in a junction box or branch ID. */
+export function encodedPathNumber(id: string): string | null {
+  const p = parseHierarchicalId(id);
+  return p ? p.path : null;
+}
+
+/**
+ * Compare an encoded parent against the actual linked parent stable ID.
+ * Returns null when there is nothing to compare (no encoding, or no link).
+ */
+export function encodedParentMismatch(
+  childId: string,
+  linkedParentId: string | null | undefined,
+): { encoded: string; linked: string } | null {
+  const encoded = encodedBranchOrigin(childId);
+  const linked = (linkedParentId ?? "").trim().toUpperCase();
+  if (!encoded || !linked) return null;
+  return encoded === linked ? null : { encoded, linked };
+}
+
+/** Next junction box ID along a raceway path: JB-104-01, JB-104-02, … */
+export function nextJboxId(pathNumber: string | number, existing: string[]): string {
+  const path = String(pathNumber ?? "").replace(/\D/g, "").padStart(3, "0").slice(-3);
+  if (!/^\d{3}$/.test(path)) return "";
+  let max = 0;
+  for (const id of existing) {
+    const p = parseHierarchicalId(id ?? "");
+    if (p?.prefix === "JB" && p.path === path && p.jbox) max = Math.max(max, Number(p.jbox));
+  }
+  return `JB-${path}-${String(max + 1).padStart(2, "0")}`;
+}
+
+/** Next branch ID originating from a junction box: BR-104-02-01, BR-104-02-02, … */
+export function nextBranchId(jboxId: string, existing: string[]): string {
+  const parent = parseHierarchicalId(jboxId);
+  if (!parent || parent.prefix !== "JB" || !parent.jbox) return "";
+  let max = 0;
+  for (const id of existing) {
+    const p = parseHierarchicalId(id ?? "");
+    if (p?.prefix === "BR" && p.path === parent.path && p.jbox === parent.jbox && p.branch) {
+      max = Math.max(max, Number(p.branch));
+    }
+  }
+  return `BR-${parent.path}-${parent.jbox}-${String(max + 1).padStart(2, "0")}`;
+}
+
 
 
 /** Building prefixes that are legitimate for load IDs. */
@@ -174,23 +264,66 @@ export function checkStableId(kind: ElectricalEntityKind, raw: string): IdCheck 
   if (kind === "load") return checkLoadId(id);
   const pattern = ID_PATTERNS[kind];
   if (!pattern) return { ok: true };
-  if (pattern.test(id)) return { ok: true };
-  return { ok: false, error: `${id} does not match the required format for this record type.` };
+  if (pattern.test(id)) {
+    if (kind === "raceway" && id.toUpperCase().startsWith("CON-")) {
+      return {
+        ok: true,
+        warning: `${id} uses the legacy CON-### raceway convention. New raceways use EMT-###; existing IDs are never renamed.`,
+      };
+    }
+    return { ok: true };
+  }
+  const legacy = LEGACY_ID_PATTERNS[kind];
+  if (legacy?.test(id)) {
+    return {
+      ok: true,
+      warning: `${id} predates the hierarchical convention (${HIERARCHICAL_ID_SHAPES[kind]}). Existing IDs are never renamed, but new records must use the current format.`,
+    };
+  }
+  const shape = HIERARCHICAL_ID_SHAPES[kind];
+  return {
+    ok: false,
+    error: shape
+      ? `${id} does not match the required format ${shape} for this record type.`
+      : `${id} does not match the required format for this record type.`,
+  };
 }
 
 export function nextStableId(kind: ElectricalEntityKind, existing: string[]): string {
-  const prefix =
-    kind === "raceway" ? "CON" : kind === "jbox" ? "JB" : kind === "branch" ? "BR" : "";
-  if (!prefix) return "";
-  let max = 0;
-  for (const id of existing) {
-    // Nested IDs (JB-104-01) count against their parent number only.
-    const m = new RegExp(`^${prefix}-(\\d+)(?:-\\d+)*$`).exec((id ?? "").trim());
-    if (m) max = Math.max(max, Number(m[1]));
+  const ids = (existing ?? []).map((id) => (id ?? "").trim().toUpperCase());
+  if (kind === "raceway") {
+    let max = 0;
+    for (const id of ids) {
+      const m = /^(?:EMT|CON)-(\d+)$/.exec(id);
+      if (m) max = Math.max(max, Number(m[1]));
+    }
+    return `EMT-${String(max + 1).padStart(3, "0")}`;
   }
-  return `${prefix}-${String(max + 1).padStart(3, "0")}`;
-
+  if (kind === "jbox") {
+    // Without an explicit parent path, continue the highest path already in use.
+    let path = "001";
+    for (const id of ids) {
+      const p = parseHierarchicalId(id);
+      if (p?.prefix === "JB" && p.path > path) path = p.path;
+      const m = /^JB-(\d{3,})/.exec(id);
+      if (m && m[1].slice(-3) > path) path = m[1].slice(-3);
+    }
+    return nextJboxId(path, ids);
+  }
+  if (kind === "branch") {
+    let parent = "";
+    for (const id of ids) {
+      const p = parseHierarchicalId(id);
+      if (p?.prefix === "BR" && p.jbox) {
+        const candidate = `JB-${p.path}-${p.jbox}`;
+        if (candidate > parent) parent = candidate;
+      }
+    }
+    return nextBranchId(parent || "JB-001-01", ids);
+  }
+  return "";
 }
+
 
 
 // ------------------------------------------------------- panel exit ordering
