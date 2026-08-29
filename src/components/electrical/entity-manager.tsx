@@ -186,27 +186,27 @@ export function EntityManager({ kind }: { kind: ElectricalEntityKind }) {
     const rest = def.fields.filter(
       (f) => !relation.includes(f) && !fieldWork.includes(f) && !engineering.includes(f),
     );
-    return [
-      { title: "Field work", fields: fieldWork, note: "Status, measurements and notes recorded on site." },
-      relation.length
-        ? {
-            title: "Topology",
-            fields: relation,
-            note: "Pick existing records — the link, not the typed ID, is authoritative.",
-          }
-        : null,
-      { title: "Details", fields: rest, note: undefined as string | undefined },
-      engineering.length
-        ? {
-            title: "Engineering values (ODS-controlled)",
-            fields: engineering,
-            note: "The canonical electrical spreadsheet remains the authority for these. Edit only to match a released revision.",
-          }
-        : null,
-    ].filter((g): g is { title: string; fields: EntityField[]; note?: string } =>
-      Boolean(g && g.fields.length),
-    );
+    const all: { title: string; fields: EntityField[]; note?: string }[] = [
+      {
+        title: "Field work",
+        fields: fieldWork,
+        note: "Status, measurements and notes recorded on site.",
+      },
+      {
+        title: "Topology",
+        fields: relation,
+        note: "Pick existing records — the link, not the typed ID, is authoritative.",
+      },
+      { title: "Details", fields: rest },
+      {
+        title: "Engineering values (ODS-controlled)",
+        fields: engineering,
+        note: "The canonical electrical spreadsheet remains the authority for these. Edit only to match a released revision.",
+      },
+    ];
+    return all.filter((g) => g.fields.length > 0);
   }, [def]);
+
 
 
   const rows = useMemo(() => {
