@@ -781,8 +781,9 @@ export const commitDailyNote = createServerFn({ method: "POST" })
         continue;
       }
 
-      const { data: created } = await supabase
+      const { data: created, error: createErr } = await supabase
         .from("tasks")
+
         .insert({
           user_id: userId,
           slug,
