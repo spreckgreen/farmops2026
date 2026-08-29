@@ -76,6 +76,34 @@ function Standards() {
 
       <Card>
         <CardHeader className="pb-2">
+          <CardTitle className="text-base">Reference table — stable ID formats</CardTitle>
+        </CardHeader>
+        <CardContent className="overflow-x-auto p-0 sm:p-6 sm:pt-0">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/50 text-left">
+              <tr>
+                <th className="px-3 py-2 font-medium">Entity</th>
+                <th className="px-3 py-2 font-medium">Format</th>
+                <th className="px-3 py-2 font-medium">Example</th>
+                <th className="px-3 py-2 font-medium">Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              {STABLE_ID_REFERENCE.map((row) => (
+                <tr key={row.entity} className="border-t border-border align-top">
+                  <td className="px-3 py-2 whitespace-nowrap">{row.entity}</td>
+                  <td className="px-3 py-2 font-mono whitespace-nowrap">{row.format}</td>
+                  <td className="px-3 py-2 font-mono whitespace-nowrap">{row.example}</td>
+                  <td className="px-3 py-2 text-muted-foreground">{row.notes}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2">
           <CardTitle className="text-base">Naming and design standards</CardTitle>
         </CardHeader>
         <CardContent>
