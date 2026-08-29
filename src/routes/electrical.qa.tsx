@@ -8,6 +8,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { ElectricalGate } from "@/components/electrical/electrical-gate";
 import { electricalIntegrityReport } from "@/lib/electrical.functions";
 import { RefAuditReport } from "@/components/electrical/ref-audit-report";
+import { GridAuditReport } from "@/components/electrical/grid-audit-report";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -43,6 +44,7 @@ function QaPage() {
   return (
     <ElectricalGate>
       <div className="space-y-3">
+        <GridAuditReport />
         <RefAuditReport />
         <QaReport />
       </div>
