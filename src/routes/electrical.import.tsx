@@ -171,7 +171,31 @@ function Importer() {
         </CardContent>
       </Card>
 
+      {failures.length ? (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base text-destructive">
+              Rows that failed ({failures.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-1 text-sm">
+            {failures.map((f, i) => (
+              <div key={`${f.stable_id}-${i}`} className="flex flex-wrap gap-2">
+                <Badge variant="outline" className="font-mono">
+                  {f.stable_id || "—"}
+                </Badge>
+                <span className="text-muted-foreground">{f.message}</span>
+              </div>
+            ))}
+            <Button variant="outline" size="sm" onClick={() => setFailures([])}>
+              Dismiss
+            </Button>
+          </CardContent>
+        </Card>
+      ) : null}
+
       {plan ? (
+
         <>
           <Card>
             <CardHeader className="pb-2">
