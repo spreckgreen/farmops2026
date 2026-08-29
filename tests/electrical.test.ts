@@ -55,10 +55,18 @@ describe("stable IDs", () => {
     expect(checkStableId("load", "HSE-12").ok).toBe(true);
     expect(checkStableId("load", "WIDGET-1").ok).toBe(false);
   });
+  it("accepts nested junction box and branch run IDs", () => {
+    expect(checkStableId("jbox", "JB-104-01").ok).toBe(true);
+    expect(checkStableId("branch", "BR-104-01-01").ok).toBe(true);
+    expect(checkStableId("jbox", "JB-104-").ok).toBe(false);
+    expect(checkStableId("branch", "BR-104-A").ok).toBe(false);
+  });
   it("suggests the next sequential ID", () => {
     expect(nextStableId("raceway", ["CON-001", "CON-030"])).toBe("CON-031");
     expect(nextStableId("jbox", [])).toBe("JB-001");
+    expect(nextStableId("jbox", ["JB-104-01"])).toBe("JB-105");
   });
+
 });
 
 describe("panel positions", () => {
