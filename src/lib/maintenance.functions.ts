@@ -269,9 +269,6 @@ export const updateMaintenance = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => UpdateSchema.parse(d))
   .handler(async ({ data, context }) => {
     const patch: Record<string, unknown> = {};
-    const setIf = (key: string, value: unknown) => {
-      if (value !== undefined) patch[key] = value;
-    };
     // Only write a field when the caller actually sent it; `?? null` inside the
     // call would turn "omitted" into an explicit wipe.
     if (data.title !== undefined) patch.title = data.title ?? null;
