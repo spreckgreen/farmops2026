@@ -21,6 +21,7 @@ import {
   INSTALL_STATUSES,
   RACEWAY_ENVIRONMENTS,
   checkStableId,
+  nextBranchId,
   installStatusLabel,
   type ElectricalEntityKind,
 } from "@/lib/electrical";
