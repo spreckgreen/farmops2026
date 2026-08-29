@@ -19,7 +19,9 @@ export const BUILT_IN_STANDARDS: readonly StandardEntry[] = [
     body:
       "Farm Shop load FS-### (FS-097). Pump House load PH-### (PH-028, legacy suffixes PH-019a/PH-019b). " +
       "Boiler load BL-### (BL-004). House load HSE-## . Panel PNL-<building>-<role> (PNL-FS-CRIT). " +
-      "Raceway CON-### (CON-030). Junction box JB-### (JB-014). Branch run BR-### (BR-057). " +
+      "Raceway CON-### (CON-030). Junction box JB-### with optional nested segments (JB-014, JB-104-01). " +
+      "Branch run BR-### with optional nested segments (BR-057, BR-104-01-01). " +
+
       "Stable IDs are permanent: they are never renamed or renumbered, and they carry no physical attributes.",
     sort_order: 10,
   },
