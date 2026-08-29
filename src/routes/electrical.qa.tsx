@@ -76,8 +76,27 @@ const CODE_LABELS: Record<string, string> = {
 
 function QaReport() {
   const run = useServerFn(electricalIntegrityReport);
+  const normalize = useServerFn(normalizeLegacyStatuses);
   const [onlyErrors, setOnlyErrors] = useState(false);
   const q = useQuery({ queryKey: ["electrical", "qa"], queryFn: () => run() });
+
+  const legacyStatuses = (q.data?.findings ?? []).filter(
+    (f) => f.code === "invalid_controlled_value" && /install status/i.test(f.message),
+  ).length;
+
+  const fix = useMutation({
+    mutationFn: async () => normalize(),
+    onSuccess: (r) => {
+      if (r.errors.length) toast.error(`${r.errors.length} record(s) could not be updated.`);
+      toast.success(
+        r.fixed.length
+          ? `Fixed ${r.fixed.length} record(s) — the original text was kept in Notes.`
+          : "No legacy status values found.",
+      );
+      void q.refetch();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   const grouped = useMemo(() => {
     const findings = (q.data?.findings ?? []).filter(
@@ -106,6 +125,18 @@ function QaReport() {
             </p>
           </div>
           <div className="flex gap-2">
+            {legacyStatuses ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1"
+                disabled={fix.isPending}
+                onClick={() => fix.mutate()}
+              >
+                <Wrench className="h-4 w-4" />
+                {fix.isPending ? "Fixing…" : `Fix ${legacyStatuses} legacy status value(s)`}
+              </Button>
+            ) : null}
             <Button variant="outline" size="sm" onClick={() => setOnlyErrors((v) => !v)}>
               {onlyErrors ? "Show warnings too" : "Errors only"}
             </Button>
@@ -121,6 +152,7 @@ function QaReport() {
             </Button>
           </div>
         </CardHeader>
+
         <CardContent>
           {q.isLoading ? (
             <Skeleton className="h-24 w-full" />
