@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { isEntitlementActive } from "@/lib/addons";
+import { coerceValue } from "@/lib/electrical-entities";
 import {
   checkStableId,
   completionFromStatus,
@@ -190,5 +191,27 @@ describe("ODS parsing and import planning", () => {
     const plan = buildPlanSheet(mapped, {}, "conduit_id");
     expect(plan.mergeProposals).toHaveLength(1);
     expect(plan.mergeProposals[0].note).toMatch(/review/i);
+  });
+});
+
+describe("Complete % from the workbook", () => {
+  const field = { key: "completion_percent", label: "Complete %", kind: "number" } as const;
+  it("maps the Complete % header to completion_percent", () => {
+    const xml = `
+<office:document-content>
+ <table:table table:name="Load_Master">
+  <table:table-row><table:table-cell><text:p>Load ID</text:p></table:table-cell><table:table-cell><text:p>Complete %</text:p></table:table-cell><table:table-cell><text:p>Status</text:p></table:table-cell></table:table-row>
+  <table:table-row><table:table-cell><text:p>FS-097</text:p></table:table-cell><table:table-cell><text:p>65%</text:p></table:table-cell><table:table-cell><text:p>planned</text:p></table:table-cell></table:table-row>
+ </table:table>
+</office:document-content>`;
+    const sheets = parseOdsContentXml(xml);
+    const mapped = mapSheet(sheets[0], "load", ["load_id", "completion_percent", "install_status"], "load_id");
+    expect(mapped.rows[0].values["completion_percent"]).toBe("65%");
+  });
+  it("coerces percent text and fractions", () => {
+    expect(coerceValue(field, "65%")).toBe(65);
+    expect(coerceValue(field, "0.65")).toBe(65);
+    expect(coerceValue(field, "100")).toBe(100);
+    expect(coerceValue(field, "")).toBeNull();
   });
 });
