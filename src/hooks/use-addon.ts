@@ -19,6 +19,10 @@ export function useAddon(key: AddonKey) {
   const entry = (q.data ?? []).find((a) => a.key === key) ?? null;
   return {
     isLoading: q.isLoading,
+    // A failed check must never be reported as "not entitled": that made every
+    // gated page (including panel detail) look disabled after a token refresh.
+    error: q.error as Error | null,
+    refetch: q.refetch,
     enabled: Boolean(entry?.enabled),
     status: entry?.status ?? null,
     expiresAt: entry?.expires_at ?? null,
