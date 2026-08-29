@@ -307,11 +307,26 @@ export const ENTITIES: Record<ElectricalEntityKind, EntityDef> = {
 
 export const ENTITY_KINDS = Object.keys(ENTITIES) as ElectricalEntityKind[];
 
-/** Columns the server accepts for a kind — anything else is dropped. */
+/**
+ * Columns the server accepts for a kind — anything else is dropped. Legacy
+ * read-only reference columns are excluded: the database derives them from the
+ * authoritative FK relationships.
+ */
 export function writableColumns(kind: ElectricalEntityKind): string[] {
   const def = ENTITIES[kind];
-  return [def.stableIdField, ...def.fields.map((f) => f.key)];
+  return [def.stableIdField, ...def.fields.filter((f) => !f.readOnly).map((f) => f.key)];
 }
+
+/** Relationship (FK) fields for a kind, in display order. */
+export function relationshipFields(kind: ElectricalEntityKind): EntityField[] {
+  return ENTITIES[kind].fields.filter((f) => f.kind === "entity");
+}
+
+/** Fields most useful during field entry on a phone or tablet. */
+export function fieldEntryFields(kind: ElectricalEntityKind): EntityField[] {
+  return ENTITIES[kind].fields.filter((f) => f.field);
+}
+
 
 export function coerceValue(field: EntityField, raw: unknown): unknown {
   if (field.kind === "bool") return Boolean(raw);
