@@ -394,6 +394,34 @@ export function completionFromStatus(status: string): number {
   return scale[status] ?? 0;
 }
 
+/**
+ * Legacy imports put engineering design text ("Design Basis", "Planning
+ * Assumption", a whole sentence) into install_status, which the database
+ * rejects on any later write. Normalising never discards that text: the caller
+ * moves it into notes with `mergeLegacyStatusNote`.
+ */
+export function normalizeInstallStatus(raw: unknown): {
+  status: InstallStatus;
+  legacy: string | null;
+} {
+  const s = String(raw ?? "").trim();
+  if (!s) return { status: "planned", legacy: null };
+  const key = s.toLowerCase().replace(/[\s/-]+/g, "_");
+  if ((INSTALL_STATUSES as readonly string[]).includes(key))
+    return { status: key as InstallStatus, legacy: null };
+  return { status: "planned", legacy: s };
+}
+
+/** Preserve legacy status text as a notes line, exactly once. */
+export function mergeLegacyStatusNote(notes: unknown, legacy: string | null): string | null {
+  const current = String(notes ?? "").trim();
+  if (!legacy) return current || null;
+  if (current.includes(legacy)) return current;
+  const line = `Design basis (from spreadsheet status): ${legacy}`;
+  return current ? `${current}\n${line}` : line;
+}
+
+
 // ------------------------------------------------------- controlled vocabularies
 // Mirrors public.electrical_allowed() in the database. The database is the
 // integrity boundary; this copy exists so the UI and server functions can

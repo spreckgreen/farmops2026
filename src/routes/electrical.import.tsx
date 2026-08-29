@@ -64,6 +64,8 @@ function Importer() {
   const apply = useServerFn(applyOdsImport);
   const [plan, setPlan] = useState<ImportPlan | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [failures, setFailures] = useState<{ stable_id: string; message: string }[]>([]);
+
 
   const key = (sheet: string, row: number) => `${sheet}#${row}`;
 
@@ -114,12 +116,16 @@ function Importer() {
     },
     onSuccess: (r) => {
       toast.success(`Imported: ${r.created} created, ${r.updated} updated.`);
+      setFailures(r.errors);
       if (r.errors.length) {
-        toast.error(`${r.errors.length} rows failed — see the report below.`);
+        // Keep the reviewed plan on screen so the failed rows stay actionable.
+        toast.error(`${r.errors.length} row(s) failed — see “Rows that failed” below.`);
+        return;
       }
       setPlan(null);
       setSelected(new Set());
     },
+
     onError: (e: Error) => toast.error(e.message),
   });
 
@@ -165,7 +171,31 @@ function Importer() {
         </CardContent>
       </Card>
 
+      {failures.length ? (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base text-destructive">
+              Rows that failed ({failures.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-1 text-sm">
+            {failures.map((f, i) => (
+              <div key={`${f.stable_id}-${i}`} className="flex flex-wrap gap-2">
+                <Badge variant="outline" className="font-mono">
+                  {f.stable_id || "—"}
+                </Badge>
+                <span className="text-muted-foreground">{f.message}</span>
+              </div>
+            ))}
+            <Button variant="outline" size="sm" onClick={() => setFailures([])}>
+              Dismiss
+            </Button>
+          </CardContent>
+        </Card>
+      ) : null}
+
       {plan ? (
+
         <>
           <Card>
             <CardHeader className="pb-2">

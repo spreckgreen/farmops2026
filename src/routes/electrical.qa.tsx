@@ -3,10 +3,13 @@
 // disagreement, breaker conflicts, invalid controlled values) and never edits.
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { ElectricalGate } from "@/components/electrical/electrical-gate";
-import { electricalIntegrityReport } from "@/lib/electrical.functions";
+import {
+  electricalIntegrityReport,
+  normalizeLegacyStatuses,
+} from "@/lib/electrical.functions";
 import { RefAuditReport } from "@/components/electrical/ref-audit-report";
 import { GridAuditReport } from "@/components/electrical/grid-audit-report";
 import { LoadCompareReport } from "@/components/electrical/load-compare-report";
@@ -18,7 +21,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ENTITIES } from "@/lib/electrical-entities";
 import type { ElectricalEntityKind } from "@/lib/electrical";
-import { CheckCircle2, RefreshCw } from "lucide-react";
+import { toast } from "sonner";
+import { CheckCircle2, RefreshCw, Wrench } from "lucide-react";
 
 export const Route = createFileRoute("/electrical/qa")({
   component: QaPage,
@@ -76,8 +80,27 @@ const CODE_LABELS: Record<string, string> = {
 
 function QaReport() {
   const run = useServerFn(electricalIntegrityReport);
+  const normalize = useServerFn(normalizeLegacyStatuses);
   const [onlyErrors, setOnlyErrors] = useState(false);
   const q = useQuery({ queryKey: ["electrical", "qa"], queryFn: () => run() });
+
+  const legacyStatuses = (q.data?.findings ?? []).filter(
+    (f) => f.code === "invalid_controlled_value" && /install status/i.test(f.message),
+  ).length;
+
+  const fix = useMutation({
+    mutationFn: async () => normalize(),
+    onSuccess: (r) => {
+      if (r.errors.length) toast.error(`${r.errors.length} record(s) could not be updated.`);
+      toast.success(
+        r.fixed.length
+          ? `Fixed ${r.fixed.length} record(s) — the original text was kept in Notes.`
+          : "No legacy status values found.",
+      );
+      void q.refetch();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   const grouped = useMemo(() => {
     const findings = (q.data?.findings ?? []).filter(
@@ -106,6 +129,18 @@ function QaReport() {
             </p>
           </div>
           <div className="flex gap-2">
+            {legacyStatuses ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1"
+                disabled={fix.isPending}
+                onClick={() => fix.mutate()}
+              >
+                <Wrench className="h-4 w-4" />
+                {fix.isPending ? "Fixing…" : `Fix ${legacyStatuses} legacy status value(s)`}
+              </Button>
+            ) : null}
             <Button variant="outline" size="sm" onClick={() => setOnlyErrors((v) => !v)}>
               {onlyErrors ? "Show warnings too" : "Errors only"}
             </Button>
@@ -121,6 +156,7 @@ function QaReport() {
             </Button>
           </div>
         </CardHeader>
+
         <CardContent>
           {q.isLoading ? (
             <Skeleton className="h-24 w-full" />

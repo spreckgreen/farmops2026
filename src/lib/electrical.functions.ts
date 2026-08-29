@@ -30,11 +30,14 @@ import {
   farmShopWalkOrder,
   findBreakerConflicts,
   INSTALL_STATUSES,
+  mergeLegacyStatusNote,
   nextPanelExitOrder,
   nextStableId,
+  normalizeInstallStatus,
   sortByPanelExit,
   type ElectricalEntityKind,
 } from "@/lib/electrical";
+
 
 
 type LooseDb = { from: (table: string) => any };
@@ -566,4 +569,43 @@ export const electricalIntegrityReport = createServerFn({ method: "GET" })
       gaps,
       gapSummary: topologyGapSummary(gaps),
     };
+  });
+
+/**
+ * Repair legacy records whose install_status holds engineering design text
+ * ("Design Basis", "Planning Assumption", …). The database rejects those values
+ * on every later write, so the record can be listed but never edited. The text
+ * is preserved in notes; no record is deleted or recreated and no engineering
+ * value is changed.
+ */
+export const normalizeLegacyStatuses = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await requireAddon(context.supabase, context.userId, "electrical");
+    const db = context.supabase as unknown as LooseDb;
+    const fixed: { kind: ElectricalEntityKind; stable_id: string; was: string }[] = [];
+    const errors: { stable_id: string; message: string }[] = [];
+
+    for (const kind of ENTITY_KINDS) {
+      const def = ENTITIES[kind];
+      const { data, error } = await db.from(def.table).select("*");
+      if (error) throw new Error(error.message);
+      for (const row of (data ?? []) as Row[]) {
+        const raw = String(row["install_status"] ?? "");
+        const norm = normalizeInstallStatus(raw);
+        if (!norm.legacy) continue;
+        const patch: Record<string, unknown> = {
+          install_status: norm.status,
+          notes: mergeLegacyStatusNote(row["notes"], norm.legacy),
+        };
+        const { error: writeError } = await db
+          .from(def.table)
+          .update(patch)
+          .eq("id", String(row["id"]));
+        const stableId = String(row[def.stableIdField] ?? "");
+        if (writeError) errors.push({ stable_id: stableId, message: writeError.message });
+        else fixed.push({ kind, stable_id: stableId, was: norm.legacy });
+      }
+    }
+    return { fixed, errors };
   });
