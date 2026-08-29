@@ -64,6 +64,8 @@ function Importer() {
   const apply = useServerFn(applyOdsImport);
   const [plan, setPlan] = useState<ImportPlan | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [failures, setFailures] = useState<{ stable_id: string; message: string }[]>([]);
+
 
   const key = (sheet: string, row: number) => `${sheet}#${row}`;
 
