@@ -82,3 +82,46 @@ export function dependencySummary(report: DependencyReport): string {
   if (!parts.length) return "";
   return parts.join(", ");
 }
+
+/** A single field the cleanup flow would write, with before/after values. */
+export interface FieldChange {
+  column: string;
+  before: string | null;
+  after: string | null;
+}
+
+/** Preview returned by a cleanup dry run — nothing is written. */
+export interface CleanupPreview {
+  kind: ElectricalEntityKind;
+  table: string;
+  rowId: string;
+  stableId: string;
+  action: "unlink" | "reassign";
+  changes: FieldChange[];
+  /** Columns in the patch whose value already matches (no write needed). */
+  unchanged: string[];
+}
+
+function display(value: unknown): string | null {
+  if (value == null || value === "") return null;
+  return typeof value === "string" ? value : String(value);
+}
+
+/**
+ * Compare a proposed patch against the current row. Deterministic column order
+ * so previews and audits are stable.
+ */
+export function diffFieldChanges(
+  before: Record<string, unknown>,
+  patch: Record<string, unknown>,
+): { changes: FieldChange[]; unchanged: string[] } {
+  const changes: FieldChange[] = [];
+  const unchanged: string[] = [];
+  for (const column of Object.keys(patch).sort()) {
+    const next = display(patch[column]);
+    const prev = display(before[column]);
+    if (next === prev) unchanged.push(column);
+    else changes.push({ column, before: prev, after: next });
+  }
+  return { changes, unchanged };
+}
