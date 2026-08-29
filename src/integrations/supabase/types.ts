@@ -131,6 +131,80 @@ export type Database = {
         }
         Relationships: []
       }
+      app_addons: {
+        Row: {
+          active: boolean
+          created_at: string
+          description: string | null
+          key: string
+          name: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          description?: string | null
+          key: string
+          name: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          description?: string | null
+          key?: string
+          name?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      app_entitlements: {
+        Row: {
+          addon_key: string
+          created_at: string
+          expires_at: string | null
+          granted_by: string | null
+          id: string
+          notes: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          addon_key: string
+          created_at?: string
+          expires_at?: string | null
+          granted_by?: string | null
+          id?: string
+          notes?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          addon_key?: string
+          created_at?: string
+          expires_at?: string | null
+          granted_by?: string | null
+          id?: string
+          notes?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "app_entitlements_addon_key_fkey"
+            columns: ["addon_key"]
+            isOneToOne: false
+            referencedRelation: "app_addons"
+            referencedColumns: ["key"]
+          },
+        ]
+      }
       asset_usage_snapshots: {
         Row: {
           created_at: string
@@ -338,6 +412,721 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      electrical_branch_runs: {
+        Row: {
+          branch_id: string
+          cable_type: string | null
+          circuit_group_uuid: string | null
+          circuit_rating_amps: number | null
+          completion_percent: number
+          conductor_count: number | null
+          conductor_size: string | null
+          created_at: string
+          dest_endpoint_ref: string | null
+          dest_endpoint_type: string | null
+          device_side_connected: boolean
+          ground_conductor: string | null
+          id: string
+          install_status: string
+          label_status: string
+          load_uuid: string | null
+          measured_length_ft: number | null
+          notes: string | null
+          path_notes: string | null
+          planned_length_ft: number | null
+          source_endpoint_ref: string | null
+          source_endpoint_type: string | null
+          source_jbox_uuid: string | null
+          source_panel_uuid: string | null
+          source_side_connected: boolean
+          updated_at: string
+          user_id: string
+          voltage: number | null
+          wiring_method: string | null
+        }
+        Insert: {
+          branch_id: string
+          cable_type?: string | null
+          circuit_group_uuid?: string | null
+          circuit_rating_amps?: number | null
+          completion_percent?: number
+          conductor_count?: number | null
+          conductor_size?: string | null
+          created_at?: string
+          dest_endpoint_ref?: string | null
+          dest_endpoint_type?: string | null
+          device_side_connected?: boolean
+          ground_conductor?: string | null
+          id?: string
+          install_status?: string
+          label_status?: string
+          load_uuid?: string | null
+          measured_length_ft?: number | null
+          notes?: string | null
+          path_notes?: string | null
+          planned_length_ft?: number | null
+          source_endpoint_ref?: string | null
+          source_endpoint_type?: string | null
+          source_jbox_uuid?: string | null
+          source_panel_uuid?: string | null
+          source_side_connected?: boolean
+          updated_at?: string
+          user_id: string
+          voltage?: number | null
+          wiring_method?: string | null
+        }
+        Update: {
+          branch_id?: string
+          cable_type?: string | null
+          circuit_group_uuid?: string | null
+          circuit_rating_amps?: number | null
+          completion_percent?: number
+          conductor_count?: number | null
+          conductor_size?: string | null
+          created_at?: string
+          dest_endpoint_ref?: string | null
+          dest_endpoint_type?: string | null
+          device_side_connected?: boolean
+          ground_conductor?: string | null
+          id?: string
+          install_status?: string
+          label_status?: string
+          load_uuid?: string | null
+          measured_length_ft?: number | null
+          notes?: string | null
+          path_notes?: string | null
+          planned_length_ft?: number | null
+          source_endpoint_ref?: string | null
+          source_endpoint_type?: string | null
+          source_jbox_uuid?: string | null
+          source_panel_uuid?: string | null
+          source_side_connected?: boolean
+          updated_at?: string
+          user_id?: string
+          voltage?: number | null
+          wiring_method?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "electrical_branch_runs_circuit_group_uuid_fkey"
+            columns: ["circuit_group_uuid"]
+            isOneToOne: false
+            referencedRelation: "electrical_circuit_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "electrical_branch_runs_load_uuid_fkey"
+            columns: ["load_uuid"]
+            isOneToOne: false
+            referencedRelation: "electrical_loads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "electrical_branch_runs_source_jbox_uuid_fkey"
+            columns: ["source_jbox_uuid"]
+            isOneToOne: false
+            referencedRelation: "electrical_junction_boxes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "electrical_branch_runs_source_panel_uuid_fkey"
+            columns: ["source_panel_uuid"]
+            isOneToOne: false
+            referencedRelation: "electrical_panels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      electrical_circuit_groups: {
+        Row: {
+          backup_eligible: boolean
+          backup_panel: string | null
+          backup_priority: string | null
+          breaker_number: number | null
+          breaker_position: string | null
+          circuit_group_id: string
+          circuit_rating_amps: number | null
+          completion_percent: number
+          continuous_load: boolean
+          created_at: string
+          critical: boolean
+          demand_basis: string | null
+          demand_va: number | null
+          description: string | null
+          generator_start_amps: number | null
+          generator_start_class: string | null
+          id: string
+          install_status: string
+          label_status: string
+          load_shed_group: string | null
+          notes: string | null
+          panel_uuid: string | null
+          phase: string | null
+          suggested_panel: string | null
+          updated_at: string
+          user_id: string
+          voltage: number | null
+        }
+        Insert: {
+          backup_eligible?: boolean
+          backup_panel?: string | null
+          backup_priority?: string | null
+          breaker_number?: number | null
+          breaker_position?: string | null
+          circuit_group_id: string
+          circuit_rating_amps?: number | null
+          completion_percent?: number
+          continuous_load?: boolean
+          created_at?: string
+          critical?: boolean
+          demand_basis?: string | null
+          demand_va?: number | null
+          description?: string | null
+          generator_start_amps?: number | null
+          generator_start_class?: string | null
+          id?: string
+          install_status?: string
+          label_status?: string
+          load_shed_group?: string | null
+          notes?: string | null
+          panel_uuid?: string | null
+          phase?: string | null
+          suggested_panel?: string | null
+          updated_at?: string
+          user_id: string
+          voltage?: number | null
+        }
+        Update: {
+          backup_eligible?: boolean
+          backup_panel?: string | null
+          backup_priority?: string | null
+          breaker_number?: number | null
+          breaker_position?: string | null
+          circuit_group_id?: string
+          circuit_rating_amps?: number | null
+          completion_percent?: number
+          continuous_load?: boolean
+          created_at?: string
+          critical?: boolean
+          demand_basis?: string | null
+          demand_va?: number | null
+          description?: string | null
+          generator_start_amps?: number | null
+          generator_start_class?: string | null
+          id?: string
+          install_status?: string
+          label_status?: string
+          load_shed_group?: string | null
+          notes?: string | null
+          panel_uuid?: string | null
+          phase?: string | null
+          suggested_panel?: string | null
+          updated_at?: string
+          user_id?: string
+          voltage?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "electrical_circuit_groups_panel_uuid_fkey"
+            columns: ["panel_uuid"]
+            isOneToOne: false
+            referencedRelation: "electrical_panels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      electrical_junction_boxes: {
+        Row: {
+          box_type: string | null
+          building: string | null
+          completion_percent: number
+          created_at: string
+          description: string | null
+          dimensions: string | null
+          elevation_zone: string | null
+          grid: string | null
+          id: string
+          install_status: string
+          jbox_id: string
+          label_status: string
+          notes: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          box_type?: string | null
+          building?: string | null
+          completion_percent?: number
+          created_at?: string
+          description?: string | null
+          dimensions?: string | null
+          elevation_zone?: string | null
+          grid?: string | null
+          id?: string
+          install_status?: string
+          jbox_id: string
+          label_status?: string
+          notes?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          box_type?: string | null
+          building?: string | null
+          completion_percent?: number
+          created_at?: string
+          description?: string | null
+          dimensions?: string | null
+          elevation_zone?: string | null
+          grid?: string | null
+          id?: string
+          install_status?: string
+          jbox_id?: string
+          label_status?: string
+          notes?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      electrical_labels: {
+        Row: {
+          created_at: string
+          entity_kind: string
+          entity_stable_id: string
+          id: string
+          installed_at: string | null
+          label_class: string
+          notes: string | null
+          printed_at: string | null
+          queued_at: string
+          reprint_required: boolean
+          state: string
+          template_version: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          entity_kind: string
+          entity_stable_id: string
+          id?: string
+          installed_at?: string | null
+          label_class: string
+          notes?: string | null
+          printed_at?: string | null
+          queued_at?: string
+          reprint_required?: boolean
+          state?: string
+          template_version?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          entity_kind?: string
+          entity_stable_id?: string
+          id?: string
+          installed_at?: string | null
+          label_class?: string
+          notes?: string | null
+          printed_at?: string | null
+          queued_at?: string
+          reprint_required?: boolean
+          state?: string
+          template_version?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      electrical_loads: {
+        Row: {
+          amps: number | null
+          area: string | null
+          backup_eligible: boolean
+          backup_panel: string | null
+          backup_priority: string | null
+          circuit_group_ref: string | null
+          circuit_group_uuid: string | null
+          completion_percent: number
+          connected_va: number | null
+          continuous_load: boolean
+          count: number
+          created_at: string
+          critical: boolean
+          dedicated: boolean
+          demand_basis: string | null
+          demand_va: number | null
+          description: string | null
+          future: boolean
+          grid: string | null
+          id: string
+          install_status: string
+          label_status: string
+          load_id: string
+          load_shed_group: string | null
+          location: string | null
+          notes: string | null
+          phase: string | null
+          updated_at: string
+          user_id: string
+          volts: number | null
+        }
+        Insert: {
+          amps?: number | null
+          area?: string | null
+          backup_eligible?: boolean
+          backup_panel?: string | null
+          backup_priority?: string | null
+          circuit_group_ref?: string | null
+          circuit_group_uuid?: string | null
+          completion_percent?: number
+          connected_va?: number | null
+          continuous_load?: boolean
+          count?: number
+          created_at?: string
+          critical?: boolean
+          dedicated?: boolean
+          demand_basis?: string | null
+          demand_va?: number | null
+          description?: string | null
+          future?: boolean
+          grid?: string | null
+          id?: string
+          install_status?: string
+          label_status?: string
+          load_id: string
+          load_shed_group?: string | null
+          location?: string | null
+          notes?: string | null
+          phase?: string | null
+          updated_at?: string
+          user_id: string
+          volts?: number | null
+        }
+        Update: {
+          amps?: number | null
+          area?: string | null
+          backup_eligible?: boolean
+          backup_panel?: string | null
+          backup_priority?: string | null
+          circuit_group_ref?: string | null
+          circuit_group_uuid?: string | null
+          completion_percent?: number
+          connected_va?: number | null
+          continuous_load?: boolean
+          count?: number
+          created_at?: string
+          critical?: boolean
+          dedicated?: boolean
+          demand_basis?: string | null
+          demand_va?: number | null
+          description?: string | null
+          future?: boolean
+          grid?: string | null
+          id?: string
+          install_status?: string
+          label_status?: string
+          load_id?: string
+          load_shed_group?: string | null
+          location?: string | null
+          notes?: string | null
+          phase?: string | null
+          updated_at?: string
+          user_id?: string
+          volts?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "electrical_loads_circuit_group_uuid_fkey"
+            columns: ["circuit_group_uuid"]
+            isOneToOne: false
+            referencedRelation: "electrical_circuit_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      electrical_naming_standards: {
+        Row: {
+          body: string
+          created_at: string
+          key: string
+          sort_order: number
+          title: string
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          key: string
+          sort_order?: number
+          title: string
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          key?: string
+          sort_order?: number
+          title?: string
+          updated_at?: string
+          version?: number
+        }
+        Relationships: []
+      }
+      electrical_panels: {
+        Row: {
+          backup_class: string | null
+          building: string | null
+          bus_rating_amps: number | null
+          circuits: number | null
+          completion_percent: number
+          created_at: string
+          description: string | null
+          feeder_source: string | null
+          grid: string | null
+          id: string
+          install_status: string
+          label_status: string
+          notes: string | null
+          panel_id: string
+          phase: string | null
+          spaces: number | null
+          updated_at: string
+          user_id: string
+          voltage: number | null
+        }
+        Insert: {
+          backup_class?: string | null
+          building?: string | null
+          bus_rating_amps?: number | null
+          circuits?: number | null
+          completion_percent?: number
+          created_at?: string
+          description?: string | null
+          feeder_source?: string | null
+          grid?: string | null
+          id?: string
+          install_status?: string
+          label_status?: string
+          notes?: string | null
+          panel_id: string
+          phase?: string | null
+          spaces?: number | null
+          updated_at?: string
+          user_id: string
+          voltage?: number | null
+        }
+        Update: {
+          backup_class?: string | null
+          building?: string | null
+          bus_rating_amps?: number | null
+          circuits?: number | null
+          completion_percent?: number
+          created_at?: string
+          description?: string | null
+          feeder_source?: string | null
+          grid?: string | null
+          id?: string
+          install_status?: string
+          label_status?: string
+          notes?: string | null
+          panel_id?: string
+          phase?: string | null
+          spaces?: number | null
+          updated_at?: string
+          user_id?: string
+          voltage?: number | null
+        }
+        Relationships: []
+      }
+      electrical_raceway_waypoints: {
+        Row: {
+          created_at: string
+          direction: string | null
+          grid: string | null
+          id: string
+          label: string | null
+          notes: string | null
+          raceway_id: string
+          sequence: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          direction?: string | null
+          grid?: string | null
+          id?: string
+          label?: string | null
+          notes?: string | null
+          raceway_id: string
+          sequence?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          direction?: string | null
+          grid?: string | null
+          id?: string
+          label?: string | null
+          notes?: string | null
+          raceway_id?: string
+          sequence?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "electrical_raceway_waypoints_raceway_id_fkey"
+            columns: ["raceway_id"]
+            isOneToOne: false
+            referencedRelation: "electrical_raceways"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      electrical_raceways: {
+        Row: {
+          circuit_refs: string | null
+          completion_percent: number
+          conduit_id: string
+          created_at: string
+          description: string | null
+          dest_building: string | null
+          dest_endpoint_ref: string | null
+          dest_endpoint_type: string | null
+          dest_grid: string | null
+          dest_jbox_uuid: string | null
+          dest_panel_uuid: string | null
+          environment: string
+          exit_notes: string | null
+          exit_order: number | null
+          exit_side: string | null
+          id: string
+          install_status: string
+          label_status: string
+          material: string | null
+          measured_length_ft: number | null
+          notes: string | null
+          planned_length_ft: number | null
+          raceway_type: string | null
+          source_building: string | null
+          source_endpoint_ref: string | null
+          source_endpoint_type: string | null
+          source_grid: string | null
+          source_jbox_uuid: string | null
+          source_panel_uuid: string | null
+          spare: boolean
+          trade_size: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          circuit_refs?: string | null
+          completion_percent?: number
+          conduit_id: string
+          created_at?: string
+          description?: string | null
+          dest_building?: string | null
+          dest_endpoint_ref?: string | null
+          dest_endpoint_type?: string | null
+          dest_grid?: string | null
+          dest_jbox_uuid?: string | null
+          dest_panel_uuid?: string | null
+          environment?: string
+          exit_notes?: string | null
+          exit_order?: number | null
+          exit_side?: string | null
+          id?: string
+          install_status?: string
+          label_status?: string
+          material?: string | null
+          measured_length_ft?: number | null
+          notes?: string | null
+          planned_length_ft?: number | null
+          raceway_type?: string | null
+          source_building?: string | null
+          source_endpoint_ref?: string | null
+          source_endpoint_type?: string | null
+          source_grid?: string | null
+          source_jbox_uuid?: string | null
+          source_panel_uuid?: string | null
+          spare?: boolean
+          trade_size?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          circuit_refs?: string | null
+          completion_percent?: number
+          conduit_id?: string
+          created_at?: string
+          description?: string | null
+          dest_building?: string | null
+          dest_endpoint_ref?: string | null
+          dest_endpoint_type?: string | null
+          dest_grid?: string | null
+          dest_jbox_uuid?: string | null
+          dest_panel_uuid?: string | null
+          environment?: string
+          exit_notes?: string | null
+          exit_order?: number | null
+          exit_side?: string | null
+          id?: string
+          install_status?: string
+          label_status?: string
+          material?: string | null
+          measured_length_ft?: number | null
+          notes?: string | null
+          planned_length_ft?: number | null
+          raceway_type?: string | null
+          source_building?: string | null
+          source_endpoint_ref?: string | null
+          source_endpoint_type?: string | null
+          source_grid?: string | null
+          source_jbox_uuid?: string | null
+          source_panel_uuid?: string | null
+          spare?: boolean
+          trade_size?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "electrical_raceways_dest_jbox_uuid_fkey"
+            columns: ["dest_jbox_uuid"]
+            isOneToOne: false
+            referencedRelation: "electrical_junction_boxes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "electrical_raceways_dest_panel_uuid_fkey"
+            columns: ["dest_panel_uuid"]
+            isOneToOne: false
+            referencedRelation: "electrical_panels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "electrical_raceways_source_jbox_uuid_fkey"
+            columns: ["source_jbox_uuid"]
+            isOneToOne: false
+            referencedRelation: "electrical_junction_boxes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "electrical_raceways_source_panel_uuid_fkey"
+            columns: ["source_panel_uuid"]
+            isOneToOne: false
+            referencedRelation: "electrical_panels"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       food_plan_entries: {
         Row: {
