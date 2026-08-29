@@ -45,7 +45,7 @@ describe("controlled values", () => {
   it("rejects values outside the vocabulary and ignores blanks", () => {
     expect(checkControlledValue("install_status", "planned")).toBeNull();
     expect(checkControlledValue("install_status", "")).toBeNull();
-    expect(checkControlledValue("install_status", "Design Basis")).toMatch(/install_status/);
+    expect(checkControlledValue("install_status", "Design Basis")).toMatch(/install status/);
     expect(checkControlledValue("environment", "INTERIOR")).toBeNull();
     expect(checkControlledValue("exit_side", "Sideways")).toBeTruthy();
     expect(checkControlledValue("description", "anything")).toBeNull();
@@ -148,14 +148,14 @@ describe("integrity report", () => {
   it("is clean for consistent records", () => {
     const findings = runIntegrityChecks(
       graph({
-        panel: [{ id: PANEL_ID, panel_id: "PNL-FS-CRIT", install_status: "installed" } as Row],
-        jbox: [{ id: JBOX_ID, jbox_id: "JB-014", install_status: "installed" } as Row],
+        panel: [{ id: PANEL_ID, panel_id: "PNL-FS-CRIT", install_status: "raceway_installed" } as Row],
+        jbox: [{ id: JBOX_ID, jbox_id: "JB-014", install_status: "raceway_installed" } as Row],
         raceway: [
           {
             id: "55555555-5555-5555-5555-555555555555",
             conduit_id: "CON-030",
             environment: "INTERIOR",
-            install_status: "installed",
+            install_status: "raceway_installed",
             source_panel_uuid: PANEL_ID,
             source_endpoint_type: "panel",
             source_endpoint_ref: "PNL-FS-CRIT",

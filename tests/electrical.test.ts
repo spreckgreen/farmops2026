@@ -50,10 +50,9 @@ describe("stable IDs", () => {
     expect(checkStableId("jbox", "").ok).toBe(false);
     expect(checkStableId("branch", "BR 057").ok).toBe(false);
   });
-  it("warns but allows pre-existing House load IDs", () => {
-    const r = checkStableId("load", "HSE-12");
-    expect(r.ok).toBe(true);
-    expect(r.warning).toBeTruthy();
+  it("accepts the modelled House convention but rejects unknown prefixes", () => {
+    expect(checkStableId("load", "HSE-12").ok).toBe(true);
+    expect(checkStableId("load", "WIDGET-1").ok).toBe(false);
   });
   it("suggests the next sequential ID", () => {
     expect(nextStableId("raceway", ["CON-001", "CON-030"])).toBe("CON-031");
