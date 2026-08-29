@@ -429,7 +429,7 @@ export function mapSheet(
   const used = new Set<string>();
   const columns = header.map((source) => {
     const n = norm(source).replace(/\s*\(.*\)\s*$/, "");
-    const alias = COLUMN_ALIASES[n];
+    const alias = aliasFor(kind, n);
     const target =
       (alias && targets.includes(alias) ? alias : null) ??
       targets.find((t) => norm(t) === n) ??
