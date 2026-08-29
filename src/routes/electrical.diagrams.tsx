@@ -64,8 +64,14 @@ function loadMermaid(): Promise<MermaidApi> {
   return mermaidPromise;
 }
 
-function MermaidView({ source }: { source: string }) {
-  const ref = useRef<HTMLDivElement>(null);
+function MermaidView({
+  source,
+  containerRef,
+}: {
+  source: string;
+  containerRef: React.RefObject<HTMLDivElement | null>;
+}) {
+  const ref = containerRef;
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -88,7 +94,7 @@ function MermaidView({ source }: { source: string }) {
     return () => {
       cancelled = true;
     };
-  }, [source]);
+  }, [source, ref]);
 
   if (error) {
     return (
@@ -100,6 +106,35 @@ function MermaidView({ source }: { source: string }) {
   }
   return <div ref={ref} className="overflow-auto [&_svg]:max-w-none" />;
 }
+
+// Serializes the rendered SVG with explicit pixel dimensions so downloaded
+// files and rasterized PNGs are self-contained instead of viewport-dependent.
+function serializeSvg(svg: SVGSVGElement) {
+  const clone = svg.cloneNode(true) as SVGSVGElement;
+  const box = svg.getBoundingClientRect();
+  const viewBox = svg.getAttribute("viewBox")?.split(/[\s,]+/).map(Number);
+  const width = Math.ceil(box.width || viewBox?.[2] || 1200);
+  const height = Math.ceil(box.height || viewBox?.[3] || 800);
+  clone.setAttribute("width", String(width));
+  clone.setAttribute("height", String(height));
+  clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+  clone.setAttribute("xmlns:xlink", "http://www.w3.org/1999/xlink");
+  if (!clone.getAttribute("style")?.includes("background")) {
+    clone.setAttribute("style", `${clone.getAttribute("style") ?? ""};background:#ffffff`);
+  }
+  const markup = new XMLSerializer().serializeToString(clone);
+  return { markup: `<?xml version="1.0" encoding="UTF-8"?>\n${markup}`, width, height };
+}
+
+function saveBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 
 function DiagramsPage() {
   const [type, setType] = useState<DiagramType>("whole_system");
