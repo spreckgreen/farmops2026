@@ -220,16 +220,25 @@ export const electricalDependents = createServerFn({ method: "GET" })
     const groups: DependentGroup[] = [];
 
     for (const spec of dependentSpecs(data.kind)) {
-      const { data: rows } = await db
+      const columns = ["id", spec.stableIdField, spec.descriptionField]
+        .filter(Boolean)
+        .join(", ");
+      const { data: rows, error } = await db
         .from(spec.table)
-        .select(`id, ${spec.stableIdField}, description`)
+        .select(columns)
         .eq(spec.fkColumn, data.id)
         .order(spec.stableIdField);
+      // Never swallow this: an ignored error made a referenced record look safe
+      // to delete, and the ON DELETE SET NULL FKs then blanked the links.
+      if (error) throw new Error(error.message);
       const list = ((rows ?? []) as Record<string, string | null>[]).map((r) => ({
         id: String(r["id"]),
         stableId: String(r[spec.stableIdField] ?? ""),
-        description: (r["description"] as string | null) ?? null,
+        description: spec.descriptionField
+          ? ((r[spec.descriptionField] as string | null) ?? null)
+          : null,
       }));
+
       if (!list.length) continue;
       groups.push({
         kind: spec.kind,

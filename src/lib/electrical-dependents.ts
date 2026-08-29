@@ -19,6 +19,12 @@ export interface DependentSpec {
   table: string;
   /** Stable-ID column of the referencing entity. */
   stableIdField: string;
+  /**
+   * Column used as the human-readable label, or null when the entity has none.
+   * Branch runs, for example, have no `description` column — selecting it would
+   * make PostgREST reject the whole query and hide the dependency.
+   */
+  descriptionField: string | null;
 }
 
 /** Every FK column across all entities that can point at `target`. */
@@ -29,15 +35,22 @@ export function dependentSpecs(target: ElectricalEntityKind): DependentSpec[] {
       if (spec.targetKind !== target) continue;
       const def = ENTITIES[kind];
       const field = def.fields.find((f) => f.key === spec.fkColumn);
+      const descriptionField = def.fields.some((f) => f.key === "description")
+        ? "description"
+        : def.fields.some((f) => f.key === "notes")
+          ? "notes"
+          : null;
       out.push({
         kind,
         fkColumn: spec.fkColumn,
         fieldLabel: field?.label ?? spec.fkColumn,
         table: def.table,
         stableIdField: def.stableIdField,
+        descriptionField,
       });
     }
   }
+
   return out;
 }
 
