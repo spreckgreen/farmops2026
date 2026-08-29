@@ -46,6 +46,24 @@ export const Route = createFileRoute("/electrical/diagrams")({
 const selectClass =
   "h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground";
 
+// Mermaid is huge (cytoscape, katex, dompurify...). Bundling it blew up the
+// SSR/worker build with a V8 out-of-memory abort, so it is loaded in the
+// browser from a CDN at runtime and never enters the build graph.
+const MERMAID_URL = "https://esm.sh/mermaid@11.17.2";
+type MermaidApi = {
+  initialize: (config: Record<string, unknown>) => void;
+  render: (id: string, src: string) => Promise<{ svg: string; bindFunctions?: (el: Element) => void }>;
+};
+let mermaidPromise: Promise<MermaidApi> | undefined;
+function loadMermaid(): Promise<MermaidApi> {
+  if (!mermaidPromise) {
+    mermaidPromise = import(/* @vite-ignore */ MERMAID_URL).then(
+      (m) => (m.default ?? m) as MermaidApi,
+    );
+  }
+  return mermaidPromise;
+}
+
 function MermaidView({ source }: { source: string }) {
   const ref = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string | null>(null);
@@ -54,7 +72,8 @@ function MermaidView({ source }: { source: string }) {
     let cancelled = false;
     (async () => {
       try {
-        const mermaid = (await import("mermaid")).default;
+        const mermaid = await loadMermaid();
+
         mermaid.initialize({ startOnLoad: false, securityLevel: "loose", theme: "neutral" });
         const id = `d${Math.random().toString(36).slice(2)}`;
         const { svg, bindFunctions } = await mermaid.render(id, source);
