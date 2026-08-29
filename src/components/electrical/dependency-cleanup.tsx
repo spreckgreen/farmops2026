@@ -14,13 +14,13 @@ import {
   resolveElectricalReference,
 } from "@/lib/electrical.functions";
 import { ENTITIES } from "@/lib/electrical-entities";
-import type { DependencyReport } from "@/lib/electrical-dependents";
+import type { CleanupPreview, DependencyReport } from "@/lib/electrical-dependents";
 import type { ElectricalEntityKind } from "@/lib/electrical";
 import { EntitySelect } from "@/components/electrical/entity-select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { ExternalLink, Link2Off, Wand2 } from "lucide-react";
+import { ArrowRight, Eye, ExternalLink, Link2Off, Wand2 } from "lucide-react";
 
 interface Step {
   kind: ElectricalEntityKind;

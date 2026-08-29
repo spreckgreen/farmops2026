@@ -42,3 +42,27 @@ describe("dependentSpecs", () => {
     expect(summary).toBe("2 raceways (Source panel), 1 waypoints");
   });
 });
+
+describe("diffFieldChanges", () => {
+  it("reports only columns whose value actually changes", () => {
+    const before = { source_panel_uuid: "abc", source_endpoint_ref: "PNL-H1", notes: "keep" };
+    const { changes, unchanged } = diffFieldChanges(before, {
+      source_panel_uuid: null,
+      source_endpoint_ref: "PNL-H1",
+    });
+    expect(unchanged).toEqual(["source_endpoint_ref"]);
+    expect(changes).toEqual([
+      { column: "source_panel_uuid", before: "abc", after: null },
+    ]);
+  });
+
+  it("orders changes deterministically and normalizes empty values", () => {
+    const { changes } = diffFieldChanges(
+      { b: "", a: 1 },
+      { b: "x", a: 2 },
+    );
+    expect(changes.map((c) => c.column)).toEqual(["a", "b"]);
+    expect(changes[1]).toEqual({ column: "b", before: null, after: "x" });
+    expect(changes[0]).toEqual({ column: "a", before: "1", after: "2" });
+  });
+});
