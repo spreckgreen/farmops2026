@@ -83,6 +83,7 @@ export const saveElectrical = createServerFn({ method: "POST" })
     await requireAddon(context.supabase, context.userId, "electrical");
     const def = ENTITIES[data.kind];
     const allowed = new Set(writableColumns(data.kind));
+    const db = context.supabase as unknown as LooseDb;
 
     const patch: Record<string, unknown> = {};
     for (const [key, raw] of Object.entries(data.values)) {
@@ -101,11 +102,62 @@ export const saveElectrical = createServerFn({ method: "POST" })
       if (!check.ok) throw new Error(check.error ?? "Invalid stable ID.");
     }
 
+    // Controlled vocabularies are enforced here as well as in the database, so
+    // the user gets a readable message instead of a trigger error.
+    for (const [key, value] of Object.entries(patch)) {
+      const problem = checkControlledValue(key, value);
+      if (problem) throw new Error(problem);
+    }
+
     if (typeof patch["install_status"] === "string" && patch["completion_percent"] == null) {
       patch["completion_percent"] = completionFromStatus(patch["install_status"] as string);
     }
 
-    const db = context.supabase as unknown as LooseDb;
+    // Duplicate stable IDs are rejected before the write so the message names
+    // the conflicting record rather than surfacing a unique-index violation.
+    if (stableId) {
+      const { data: clash } = await db
+        .from(def.table)
+        .select("id")
+        .eq(def.stableIdField, stableId)
+        .limit(2);
+      const others = ((clash ?? []) as { id: string }[]).filter((r) => r.id !== data.id);
+      if (others.length) throw new Error(`${def.stableIdLabel} ${stableId} is already in use.`);
+    }
+
+    // Resolve every FK selection to its target so the legacy reference columns
+    // can be derived and impossible topology rejected.
+    let existing: Record<string, unknown> = {};
+    if (data.id) {
+      const { data: row } = await db.from(def.table).select("*").eq("id", data.id).single();
+      existing = (row ?? {}) as Record<string, unknown>;
+    }
+    const merged = { ...existing, ...patch };
+    const targets: Record<string, RelationTarget | null> = {};
+    for (const spec of relationsFor(data.kind)) {
+      const value = merged[spec.fkColumn];
+      if (value == null || !String(value)) continue;
+      const target = ENTITIES[spec.targetKind];
+      const { data: row } = await db
+        .from(target.table)
+        .select(`id, ${target.stableIdField}`)
+        .eq("id", String(value))
+        .maybeSingle();
+      targets[spec.fkColumn] = row
+        ? {
+            id: (row as Record<string, string>)["id"]!,
+            kind: spec.targetKind,
+            stableId: String((row as Record<string, string>)[target.stableIdField] ?? ""),
+          }
+        : null;
+    }
+    const relations = applyRelations(data.kind, merged, targets, {
+      id: data.id ?? null,
+      stableId: stableId || String(existing[def.stableIdField] ?? ""),
+    });
+    if (relations.errors.length) throw new Error(relations.errors.join(" "));
+    Object.assign(patch, relations.derived);
+
     if (data.id) {
       const { error } = await db.from(def.table).update(patch).eq("id", data.id);
       if (error) throw new Error(error.message);
@@ -119,6 +171,7 @@ export const saveElectrical = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true, id: (inserted as { id: string }).id };
   });
+
 
 export const deleteElectrical = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
