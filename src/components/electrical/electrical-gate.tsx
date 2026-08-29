@@ -45,6 +45,10 @@ export function ElectricalNav() {
       <Link to="/electrical/import" className={item} activeProps={active}>
         ODS import
       </Link>
+      <Link to="/electrical/export" className={item} activeProps={active}>
+        Reconciliation export
+      </Link>
+
     </nav>
   );
 }
