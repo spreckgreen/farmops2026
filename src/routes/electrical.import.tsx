@@ -116,12 +116,16 @@ function Importer() {
     },
     onSuccess: (r) => {
       toast.success(`Imported: ${r.created} created, ${r.updated} updated.`);
+      setFailures(r.errors);
       if (r.errors.length) {
-        toast.error(`${r.errors.length} rows failed — see the report below.`);
+        // Keep the reviewed plan on screen so the failed rows stay actionable.
+        toast.error(`${r.errors.length} row(s) failed — see “Rows that failed” below.`);
+        return;
       }
       setPlan(null);
       setSelected(new Set());
     },
+
     onError: (e: Error) => toast.error(e.message),
   });
 
