@@ -159,12 +159,14 @@ function Detail({ kind, id }: { kind: ElectricalEntityKind; id: string }) {
               Edit
             </Link>
           </Button>
-          <DeleteRecord
+          <DeleteDependencyDialog
             kind={kind}
             id={id}
             label={String(record[def.stableIdField] ?? "")}
             singular={def.singular}
+            onDeleted={() => void navigate({ to: "/electrical/$kind", params: { kind } })}
           />
+
         </div>
       </div>
 
