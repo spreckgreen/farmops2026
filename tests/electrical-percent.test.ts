@@ -103,7 +103,7 @@ describe("Complete % import regression (Load_Master fixture)", () => {
   it("classifies the sheet and binds the Complete % header", () => {
     expect(sheet.name).toBe("Load_Master");
     const kind = classifySheet(sheet);
-    expect(kind).toBe("loads");
+    expect(kind).toBe("load");
     const mapped = mapSheet(sheet, kind, ["load_id", "description", "completion_percent"], "load_id");
     expect(mapped.columns.map((c) => c.target)).toContain("completion_percent");
   });
