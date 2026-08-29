@@ -64,6 +64,7 @@ vi.mock("@/lib/log.functions", () => ({
   refreshDailyNoteFromLog: refreshDailyNoteFromLogImpl,
   listProjects: listProjectsImpl,
   setDailyNoteRatings: vi.fn(async () => ({ ok: true })),
+  removeTaskFromToday: vi.fn(async () => ({ ok: true })),
 }));
 
 
