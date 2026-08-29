@@ -11,6 +11,8 @@ import {
   ENDPOINT_ENTITY_KIND,
   checkControlledValue,
   checkStableId,
+  encodedParentMismatch,
+  encodedPathNumber,
   findBreakerConflicts,
   type ElectricalEntityKind,
   type EndpointType,
