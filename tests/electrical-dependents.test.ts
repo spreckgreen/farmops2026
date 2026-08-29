@@ -66,3 +66,14 @@ describe("diffFieldChanges", () => {
     expect(changes[0]).toEqual({ column: "a", before: "1", after: "2" });
   });
 });
+
+describe("dependent description column", () => {
+  it("never selects a description column the referencing table lacks", () => {
+    const branchSpecs = dependentSpecs("panel").filter((s) => s.kind === "branch");
+    expect(branchSpecs.length).toBeGreaterThan(0);
+    for (const s of branchSpecs) expect(s.descriptionField).toBe("notes");
+    for (const s of dependentSpecs("panel").filter((s) => s.kind === "raceway")) {
+      expect(s.descriptionField).toBe("description");
+    }
+  });
+});
