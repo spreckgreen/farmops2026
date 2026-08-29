@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { ElectricalGate } from "@/components/electrical/electrical-gate";
 import { naming_standards } from "@/lib/electrical.functions";
-import { mergeStandards } from "@/lib/electrical-standards";
+import { mergeStandards, STABLE_ID_REFERENCE } from "@/lib/electrical-standards";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -71,6 +71,34 @@ function Standards() {
             Interior and site raceways live in one dataset and are separated by the
             environment field, not by duplicate records.
           </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Reference table — stable ID formats</CardTitle>
+        </CardHeader>
+        <CardContent className="overflow-x-auto p-0 sm:p-6 sm:pt-0">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/50 text-left">
+              <tr>
+                <th className="px-3 py-2 font-medium">Entity</th>
+                <th className="px-3 py-2 font-medium">Format</th>
+                <th className="px-3 py-2 font-medium">Example</th>
+                <th className="px-3 py-2 font-medium">Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              {STABLE_ID_REFERENCE.map((row) => (
+                <tr key={row.entity} className="border-t border-border align-top">
+                  <td className="px-3 py-2 whitespace-nowrap">{row.entity}</td>
+                  <td className="px-3 py-2 font-mono whitespace-nowrap">{row.format}</td>
+                  <td className="px-3 py-2 font-mono whitespace-nowrap">{row.example}</td>
+                  <td className="px-3 py-2 text-muted-foreground">{row.notes}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </CardContent>
       </Card>
 
