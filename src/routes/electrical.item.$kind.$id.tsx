@@ -7,6 +7,7 @@ import { ElectricalGate } from "@/components/electrical/electrical-gate";
 import { ENTITIES, ENTITY_KINDS } from "@/lib/electrical-entities";
 import {
   electricalTopology,
+  deleteElectrical,
   deleteWaypoint,
   listWaypoints,
   saveWaypoint,
