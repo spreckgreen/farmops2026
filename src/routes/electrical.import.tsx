@@ -222,6 +222,26 @@ function Importer() {
                   </p>
                 ) : null}
 
+                {sheet.mapping?.length ? (
+                  <details className="text-xs">
+                    <summary className="cursor-pointer text-muted-foreground">
+                      Column mapping ({sheet.mapping.length} bound
+                      {sheet.mapping.some((m) => m.target === "completion_percent")
+                        ? ", Complete % included"
+                        : ", no Complete % column found"}
+                      )
+                    </summary>
+                    <ul className="mt-1 space-y-0.5">
+                      {sheet.mapping.map((m) => (
+                        <li key={m.target}>
+                          <span className="font-medium">{m.source}</span> →{" "}
+                          <span className="font-mono">{m.target}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                ) : null}
+
                 {sheet.mergeProposals.map((m, i) => (
                   <div
                     key={i}

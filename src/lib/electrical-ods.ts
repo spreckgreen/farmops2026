@@ -172,6 +172,16 @@ const COLUMN_ALIASES: Record<string, string> = {
   "completion %": "completion_percent",
   "completion percent": "completion_percent",
   "pct complete": "completion_percent",
+  // Header text like "Complete (%)" normalises to "complete" because the
+  // trailing parenthetical is stripped, so the bare forms are aliased too.
+  complete: "completion_percent",
+  "percent done": "completion_percent",
+  "% done": "completion_percent",
+  progress: "completion_percent",
+  "install complete": "completion_percent",
+  "installed percent": "completion_percent",
+  "installed %": "completion_percent",
+  "install %": "completion_percent",
   notes: "notes",
   comments: "notes",
 
@@ -269,6 +279,8 @@ export interface ImportPlanSheet {
   kind: ElectricalEntityKind | null;
   skipped: number;
   unmapped: string[];
+  /** Every spreadsheet header that bound to a column, for review. */
+  mapping: { source: string; target: string }[];
   rows: ImportPlanRow[];
   /** Proposed raceway merges — reviewed and applied by hand, never automatic. */
   mergeProposals: { conduit_id: string; note: string }[];
@@ -328,6 +340,9 @@ export function buildPlanSheet(
     kind: mapped.kind,
     skipped: mapped.skipped,
     unmapped: mapped.columns.filter((c) => c.source.trim() && !c.target).map((c) => c.source),
+    mapping: mapped.columns
+      .filter((c) => c.target)
+      .map((c) => ({ source: c.source, target: c.target as string })),
     rows,
     mergeProposals,
   };
