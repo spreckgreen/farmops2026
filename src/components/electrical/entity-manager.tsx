@@ -107,21 +107,34 @@ function FieldInput({
     );
   }
   if (field.kind === "select") {
+    const current = String(value);
+    const known = field.options ?? [];
+    // A legacy imported value (engineering text in install_status) must stay
+    // visible instead of being silently swapped for the first valid option.
+    const legacy = current && !known.includes(current) ? current : null;
     return (
       <div className="space-y-1">
         <Label className="text-xs">{field.label}</Label>
         <select
           className="h-10 w-full rounded-md border border-input bg-background px-2 text-sm"
-          value={String(value)}
+          value={current}
           onChange={(e) => onChange(e.target.value)}
         >
           <option value="">—</option>
-          {(field.options ?? []).map((o) => (
+          {legacy ? <option value={legacy}>{legacy} (legacy — not allowed)</option> : null}
+          {known.map((o) => (
             <option key={o} value={o}>
               {field.key === "install_status" ? installStatusLabel(o) : o}
             </option>
           ))}
         </select>
+        {legacy ? (
+          <p className="text-xs text-amber-600 dark:text-amber-400">
+            This value came from the spreadsheet and the database will reject it — choose a
+            real status before saving, or run “Fix legacy statuses” on the QA page.
+          </p>
+        ) : null}
+
         {field.hint ? <p className="text-xs text-muted-foreground">{field.hint}</p> : null}
       </div>
     );
