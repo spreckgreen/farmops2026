@@ -92,10 +92,16 @@ export const ENTITIES: Record<ElectricalEntityKind, EntityDef> = {
     singular: "raceway",
     fields: [
       { key: "description", label: "Description", kind: "text", list: true },
+      { key: "route_group", label: "Route group", kind: "text", list: true },
+      { key: "from_label", label: "From", kind: "text", list: true },
+      { key: "to_label", label: "To", kind: "text", list: true },
+      { key: "purpose", label: "Purpose", kind: "text", list: true },
+      { key: "service_type", label: "Service type", kind: "text", list: true },
       { key: "environment", label: "Environment", kind: "select", options: RACEWAY_ENVIRONMENTS, list: true },
-      { key: "raceway_type", label: "Raceway type", kind: "text" },
+      { key: "raceway_type", label: "Raceway type", kind: "text", list: true },
       { key: "trade_size", label: "Trade size", kind: "text", list: true },
-      { key: "material", label: "Material", kind: "text" },
+      { key: "material", label: "Material", kind: "text", list: true },
+
       { key: "source_panel_uuid", label: "Source panel", kind: "entity", entityKind: "panel", field: true },
       { key: "source_jbox_uuid", label: "Source junction box", kind: "entity", entityKind: "jbox", field: true },
       { key: "source_endpoint_type", label: "Source endpoint type", kind: "select", options: ENDPOINT_TYPES },
