@@ -151,6 +151,7 @@ export function RefAuditReport() {
                       <th className="px-2 py-1 font-medium">Record</th>
                       <th className="px-2 py-1 font-medium">Relationship</th>
                       <th className="px-2 py-1 font-medium">Reference</th>
+                      <th className="px-2 py-1 font-medium">Read from</th>
                       <th className="px-2 py-1 font-medium">Linked</th>
                       <th className="px-2 py-1 font-medium">Handling</th>
                       <th className="px-2 py-1 font-medium">Detail</th>
@@ -170,6 +171,9 @@ export function RefAuditReport() {
                           {r.fkColumn}
                         </td>
                         <td className="px-2 py-1 font-mono">{r.reference || "—"}</td>
+                        <td className="px-2 py-1 text-muted-foreground">
+                          {r.referenceSource || "—"}
+                        </td>
                         <td className="px-2 py-1 font-mono">{r.fkTarget || "—"}</td>
                         <td className="px-2 py-1">
                           <Badge
