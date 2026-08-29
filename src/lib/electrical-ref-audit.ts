@@ -368,14 +368,14 @@ export function refAuditToMarkdown(report: RefAuditReport, generatedAt: string):
       continue;
     }
     out.push(
-      "| Record | Relationship | Reference | Linked | Handling | Reason | Detail |",
-      "| --- | --- | --- | --- | --- | --- | --- |",
+      "| Record | Relationship | Reference | Read from | Linked | Handling | Reason | Detail |",
+      "| --- | --- | --- | --- | --- | --- | --- | --- |",
     );
     for (const r of rows) {
       out.push(
         `| ${r.kind} ${r.stableId} | ${r.fkColumn} | ${r.reference || "—"} | ${
-          r.fkTarget || "—"
-        } | ${r.disposition} | ${r.reason} | ${r.detail} |`,
+          r.referenceSource || "—"
+        } | ${r.fkTarget || "—"} | ${r.disposition} | ${r.reason} | ${r.detail} |`,
       );
     }
   }
