@@ -20,6 +20,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { AlertTriangle, ExternalLink, Trash2 } from "lucide-react";
+import { DependencyCleanup } from "@/components/electrical/dependency-cleanup";
 
 export function DeleteDependencyDialog({
   kind,
