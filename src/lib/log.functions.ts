@@ -796,7 +796,9 @@ export const commitDailyNote = createServerFn({ method: "POST" })
         })
         .select("id, slug, title, status, closed_at, project_tags, start_at, percent_complete, created_at")
         .single();
+      if (createErr) throw dbError(createErr);
       if (created) {
+
         tasksBySlug.set(created.slug, created);
         tasksByTitle.set(created.title.toLowerCase(), created);
         recentTasks.push(created);
