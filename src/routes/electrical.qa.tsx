@@ -88,15 +88,23 @@ function QaReport() {
     (f) => f.code === "invalid_controlled_value" && /install status/i.test(f.message),
   ).length;
 
+  const [preview, setPreview] = useState<
+    { kind: string; stable_id: string; was: string; now: string }[] | null
+  >(null);
+
   const fix = useMutation({
-    mutationFn: async () => normalize(),
+    mutationFn: async (apply: boolean) => normalize({ data: { apply } }),
     onSuccess: (r) => {
+      if (!r.applied) {
+        setPreview(r.proposed);
+        if (!r.proposed.length) toast.success("No legacy status values found.");
+        return;
+      }
       if (r.errors.length) toast.error(`${r.errors.length} record(s) could not be updated.`);
       toast.success(
-        r.fixed.length
-          ? `Fixed ${r.fixed.length} record(s) — the original text was kept in Notes.`
-          : "No legacy status values found.",
+        `Fixed ${r.fixed.length} record(s) — the original text was kept verbatim in Notes.`,
       );
+      setPreview(null);
       void q.refetch();
     },
     onError: (e: Error) => toast.error(e.message),
@@ -135,10 +143,10 @@ function QaReport() {
                 size="sm"
                 className="gap-1"
                 disabled={fix.isPending}
-                onClick={() => fix.mutate()}
+                onClick={() => fix.mutate(false)}
               >
                 <Wrench className="h-4 w-4" />
-                {fix.isPending ? "Fixing…" : `Fix ${legacyStatuses} legacy status value(s)`}
+                {fix.isPending ? "Checking…" : `Review ${legacyStatuses} legacy status value(s)`}
               </Button>
             ) : null}
             <Button variant="outline" size="sm" onClick={() => setOnlyErrors((v) => !v)}>
