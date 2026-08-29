@@ -215,3 +215,22 @@ describe("electrical mermaid diagrams", () => {
     expect(out.mermaid).toContain("No records match these filters");
   });
 });
+
+describe("source availability without a renderer", () => {
+  it("generates deterministic Mermaid source with no browser or CDN present", () => {
+    // Node test environment: no window, no mermaid module, no network.
+    const graph = {
+      panel: [{ id: "p1", panel_id: "PNL-FS-CRIT", install_status: "planned" }],
+      circuit_group: [],
+      load: [],
+      raceway: [],
+      jbox: [],
+      branch: [],
+      waypoint: [],
+    } as never;
+    const a = buildDiagram(graph, { type: "system" });
+    const b = buildDiagram(graph, { type: "system" });
+    expect(a.source).toContain("PNL-FS-CRIT");
+    expect(a.source).toBe(b.source);
+  });
+});
