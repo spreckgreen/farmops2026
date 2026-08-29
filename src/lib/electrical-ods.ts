@@ -126,7 +126,78 @@ export interface SheetImport {
 }
 
 /**
- * Map a sheet's columns onto entity columns by fuzzy header match.
+ * Explicit header aliases for the canonical workbook. Fuzzy substring matching
+ * alone silently mis-binds columns (a "Purpose" column landing in Notes), so
+ * these exact aliases are tried first and the loose fallback is only used for
+ * headers that already read like the target column name.
+ */
+const COLUMN_ALIASES: Record<string, string> = {
+  // Conduit_Runs
+  "conduit id": "conduit_id",
+  conduit: "conduit_id",
+  "route group": "route_group",
+  route: "route_group",
+  "run group": "route_group",
+  from: "from_label",
+  "from location": "from_label",
+  source: "from_label",
+  to: "to_label",
+  "to location": "to_label",
+  destination: "to_label",
+  purpose: "purpose",
+  "conduit purpose": "purpose",
+  "service type": "service_type",
+  service: "service_type",
+  "conduit type": "raceway_type",
+  "raceway type": "raceway_type",
+  "trade size": "trade_size",
+  size: "trade_size",
+  "conduit size": "trade_size",
+  material: "material",
+  "length ft": "planned_length_ft",
+  length: "planned_length_ft",
+  "planned length": "planned_length_ft",
+  "planned length ft": "planned_length_ft",
+  "measured length": "measured_length_ft",
+  "measured length ft": "measured_length_ft",
+  "as built length": "measured_length_ft",
+  environment: "environment",
+  status: "install_status",
+  "install status": "install_status",
+  notes: "notes",
+  comments: "notes",
+  "circuit refs": "circuit_refs",
+  circuits: "circuit_refs",
+  "exit order": "exit_order",
+  "exit side": "exit_side",
+  // Load_Master
+  "load id": "load_id",
+  "load description": "description",
+  description: "description",
+  area: "area",
+  grid: "grid",
+  location: "location",
+  "circuit group id": "circuit_group_ref",
+  "circuit group": "circuit_group_ref",
+  "circuit group description": "description",
+  "source circuit": "source_circuit",
+  amps: "amps",
+  volts: "volts",
+  voltage: "voltage",
+  "connected va": "connected_va",
+  "demand va": "demand_va",
+  "demand basis": "demand_basis",
+  count: "count",
+  // Panels
+  "panel id": "panel_id",
+  "bus rating": "bus_rating_amps",
+  "bus rating amps": "bus_rating_amps",
+  spaces: "spaces",
+  building: "building",
+};
+
+/**
+ * Map a sheet's columns onto entity columns.
  * `targets` is the writable column list for the detected kind.
  */
 export function mapSheet(
@@ -140,15 +211,20 @@ export function mapSheet(
     return { sheet: sheet.name, kind, headerRow, columns: [], rows: [], skipped: sheet.rows.length };
   }
   const header = sheet.rows[headerRow];
+  const used = new Set<string>();
   const columns = header.map((source) => {
-    const n = norm(source);
+    const n = norm(source).replace(/\s*\(.*\)\s*$/, "");
+    const alias = COLUMN_ALIASES[n];
     const target =
+      (alias && targets.includes(alias) ? alias : null) ??
       targets.find((t) => norm(t) === n) ??
-      targets.find((t) => norm(t).replace(/ (ft|a|va)$/, "") === n.replace(/\s*\(.*\)$/, "")) ??
-      targets.find((t) => n && (norm(t).includes(n) || n.includes(norm(t)))) ??
+      targets.find((t) => norm(t).replace(/ (ft|a|va)$/, "") === n) ??
       null;
+    if (!target || used.has(target)) return { source, target: null };
+    used.add(target);
     return { source, target };
   });
+
 
   const rows: MappedRow[] = [];
   let skipped = 0;

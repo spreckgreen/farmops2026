@@ -3,6 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { ElectricalGate } from "@/components/electrical/electrical-gate";
 import { naming_standards } from "@/lib/electrical.functions";
+import { mergeStandards } from "@/lib/electrical-standards";
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
@@ -40,6 +42,10 @@ function StandardsPage() {
 function Standards() {
   const fetcher = useServerFn(naming_standards);
   const q = useQuery({ queryKey: ["electrical", "standards"], queryFn: () => fetcher() });
+  const rows = mergeStandards((q.data ?? []) as unknown as Record<string, unknown>[]);
+  const storedKeys = new Set(
+    ((q.data ?? []) as unknown as Record<string, unknown>[]).map((r) => String(r["key"] ?? "")),
+  );
 
   return (
     <div className="space-y-3">
@@ -70,47 +76,37 @@ function Standards() {
 
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-base">Reference table</CardTitle>
+          <CardTitle className="text-base">Naming and design standards</CardTitle>
         </CardHeader>
         <CardContent>
           {q.isLoading ? (
             <Skeleton className="h-40 w-full" />
-          ) : q.error ? (
-            <p className="text-sm text-destructive">{(q.error as Error).message}</p>
-          ) : !(q.data ?? []).length ? (
-            <p className="text-sm text-muted-foreground">No naming standards recorded.</p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/50 text-left">
-                  <tr>
-                    <th className="px-3 py-2 font-medium">Entity</th>
-                    <th className="px-3 py-2 font-medium">Format</th>
-                    <th className="px-3 py-2 font-medium">Example</th>
-                    <th className="px-3 py-2 font-medium">Notes</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(q.data ?? []).map((row) => (
-                    <tr key={String(row["id"])} className="border-t border-border align-top">
-                      <td className="px-3 py-2 whitespace-nowrap">
-                        {String(row["entity"] ?? row["entity_kind"] ?? "")}
-                      </td>
-                      <td className="px-3 py-2 font-mono whitespace-nowrap">
-                        {String(row["format"] ?? row["pattern"] ?? "")}
-                      </td>
-                      <td className="px-3 py-2">
-                        <Badge variant="secondary" className="font-mono">
-                          {String(row["example"] ?? "")}
-                        </Badge>
-                      </td>
-                      <td className="px-3 py-2 text-muted-foreground">
-                        {String(row["notes"] ?? row["description"] ?? "")}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="space-y-3">
+              {q.error ? (
+                <p className="text-sm text-destructive">
+                  Stored standards could not be loaded ({(q.error as Error).message}). Showing
+                  the built-in conventions.
+                </p>
+              ) : null}
+              {rows.map((row) => (
+                <div key={row.key} className="rounded-md border border-border p-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm font-medium">{row.title}</span>
+                    <Badge variant="secondary" className="font-mono text-xs">
+                      {row.key}
+                    </Badge>
+                    {storedKeys.has(row.key) ? null : (
+                      <Badge variant="outline" className="text-xs">
+                        Built-in
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="mt-1 text-sm text-muted-foreground whitespace-pre-line">
+                    {row.body}
+                  </p>
+                </div>
+              ))}
             </div>
           )}
         </CardContent>
@@ -118,3 +114,4 @@ function Standards() {
     </div>
   );
 }
+

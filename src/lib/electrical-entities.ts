@@ -92,10 +92,16 @@ export const ENTITIES: Record<ElectricalEntityKind, EntityDef> = {
     singular: "raceway",
     fields: [
       { key: "description", label: "Description", kind: "text", list: true },
+      { key: "route_group", label: "Route group", kind: "text", list: true },
+      { key: "from_label", label: "From", kind: "text", list: true },
+      { key: "to_label", label: "To", kind: "text", list: true },
+      { key: "purpose", label: "Purpose", kind: "text", list: true },
+      { key: "service_type", label: "Service type", kind: "text", list: true },
       { key: "environment", label: "Environment", kind: "select", options: RACEWAY_ENVIRONMENTS, list: true },
-      { key: "raceway_type", label: "Raceway type", kind: "text" },
+      { key: "raceway_type", label: "Raceway type", kind: "text", list: true },
       { key: "trade_size", label: "Trade size", kind: "text", list: true },
-      { key: "material", label: "Material", kind: "text" },
+      { key: "material", label: "Material", kind: "text", list: true },
+
       { key: "source_panel_uuid", label: "Source panel", kind: "entity", entityKind: "panel", field: true },
       { key: "source_jbox_uuid", label: "Source junction box", kind: "entity", entityKind: "jbox", field: true },
       { key: "source_endpoint_type", label: "Source endpoint type", kind: "select", options: ENDPOINT_TYPES },
@@ -137,9 +143,10 @@ export const ENTITIES: Record<ElectricalEntityKind, EntityDef> = {
         field: true,
       },
       { key: "exit_notes", label: "Panel exit notes", kind: "text" },
-      { key: "planned_length_ft", label: "Planned length (ft)", kind: "number" },
+      { key: "planned_length_ft", label: "Planned length (ft)", kind: "number", list: true },
       { key: "measured_length_ft", label: "Measured length (ft)", kind: "number", list: true, field: true },
-      { key: "circuit_refs", label: "Conductor / circuit refs", kind: "text" },
+      { key: "circuit_refs", label: "Conductor / circuit refs", kind: "text", list: true },
+
       { key: "spare", label: "Spare / reserve", kind: "bool" },
 
       ...statusFields,
@@ -243,6 +250,14 @@ export const ENTITIES: Record<ElectricalEntityKind, EntityDef> = {
         readOnly: true,
         hint: "Kept for ODS compatibility. Derived from the linked circuit group.",
       },
+      {
+        key: "source_circuit",
+        label: "Source circuit (Load_Master)",
+        kind: "text",
+        list: true,
+        hint: "Circuit reference as released in the canonical workbook.",
+      },
+
       { key: "amps", label: "Amps", kind: "number", engineering: true },
       { key: "volts", label: "Volts", kind: "number", engineering: true },
       { key: "connected_va", label: "Connected VA", kind: "number", engineering: true },
