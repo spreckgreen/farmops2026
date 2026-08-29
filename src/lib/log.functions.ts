@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { dbError } from "@/lib/db-errors";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import { slugify, taskRenamePatch, patchMutatesSlug } from "./slug";
@@ -256,7 +257,7 @@ export const refreshDailyNoteFromLog = createServerFn({ method: "POST" })
       .select("id, raw_content, created_at")
       .eq("daily_note_id", data.noteId)
       .order("created_at", { ascending: true });
-    if (error) throw new Error(error.message);
+    if (error) throw dbError(error);
 
     // Treat the current draft as authoritative for deletions: if the user
     // removed lines from the textarea, drop matching activity_log rows so
@@ -294,7 +295,7 @@ export const refreshDailyNoteFromLog = createServerFn({ method: "POST" })
     const toDelete = [...explicitlyDeletedIds, ...duplicateIds];
     if (toDelete.length > 0) {
       const { error: delErr } = await supabase.from("activity_log").delete().in("id", toDelete);
-      if (delErr) throw new Error(delErr.message);
+      if (delErr) throw dbError(delErr);
     }
 
     const rebuilt = kept.map((entry) => entry.raw_content).join("\n");
@@ -319,7 +320,7 @@ export const refreshDailyNoteFromLog = createServerFn({ method: "POST" })
       .from("daily_notes")
       .update({ markdown_content: markdown })
       .eq("id", data.noteId);
-    if (updErr) throw new Error(updErr.message);
+    if (updErr) throw dbError(updErr);
     return {
       markdown,
       restored: kept.length,
@@ -375,7 +376,7 @@ export const getDailyNote = createServerFn({ method: "POST" })
         .insert({ date: data.date, user_id: userId, markdown_content: seed })
         .select()
         .single();
-      if (error) throw new Error(error.message);
+      if (error) throw dbError(error);
       note = created;
     } else {
       // On every open: check the note's "## Weather" block for the newer
@@ -500,7 +501,7 @@ export const setDailyNoteRatings = createServerFn({ method: "POST" })
           message: DAY_COLOUR_UNSUPPORTED_MESSAGE,
         };
       }
-      throw new Error(error.message);
+      throw dbError(error);
     }
 
     return {
@@ -682,7 +683,7 @@ export const saveDailyNote = createServerFn({ method: "POST" })
       .from("daily_notes")
       .update({ markdown_content: data.markdown })
       .eq("id", data.noteId);
-    if (updErr) throw new Error(updErr.message);
+    if (updErr) throw dbError(updErr);
     return { saved: true, newEntries: 0 };
   });
 
@@ -701,7 +702,7 @@ export const commitDailyNote = createServerFn({ method: "POST" })
       .from("daily_notes")
       .update({ markdown_content: data.markdown })
       .eq("id", data.noteId);
-    if (updErr) throw new Error(updErr.message);
+    if (updErr) throw dbError(updErr);
 
     const parsed = parseMarkdown(data.markdown);
 
@@ -990,9 +991,9 @@ export const commitDailyNote = createServerFn({ method: "POST" })
         .from("activity_log")
         .delete()
         .eq("daily_note_id", data.noteId);
-      if (delErr) throw new Error(delErr.message);
+      if (delErr) throw dbError(delErr);
       const { error: insErr } = await supabase.from("activity_log").insert(entries);
-      if (insErr) throw new Error(insErr.message);
+      if (insErr) throw dbError(insErr);
     }
 
     await invalidateSummaries(supabase, userId);
@@ -1054,7 +1055,7 @@ export const listTasks = createServerFn({ method: "POST" })
       .eq("user_id", userId)
       .or(conditions.join(","))
       .order("created_at", { ascending: false });
-    if (error) throw new Error(error.message);
+    if (error) throw dbError(error);
 
     // The activity log is authoritative for "touched on this day": every task
     // in the result is the canonical row the note's `#task/<slug>` resolved to
@@ -1211,7 +1212,7 @@ export const setTaskStatus = createServerFn({ method: "POST" })
     }
 
     const { error } = await supabase.from("tasks").update(update as never).eq("id", data.id);
-    if (error) throw new Error(error.message);
+    if (error) throw dbError(error);
 
     if (prevStatus !== data.status || (data.note ?? "").trim()) {
       await logTaskChange(supabase, {
@@ -1272,7 +1273,7 @@ export const updateTask = createServerFn({ method: "POST" })
 
     if (Object.keys(patch).length > 0) {
       const { error } = await supabase.from("tasks").update(patch as never).eq("id", data.id);
-      if (error) throw new Error(error.message);
+      if (error) throw dbError(error);
     }
 
 
@@ -1294,7 +1295,7 @@ export const deleteTask = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { error } = await context.supabase.from("tasks").delete().eq("id", data.id);
-    if (error) throw new Error(error.message);
+    if (error) throw dbError(error);
     await invalidateSummaries(context.supabase, context.userId);
     return { ok: true };
   });
@@ -1307,7 +1308,7 @@ export const listProjectTags = createServerFn({ method: "GET" })
     const { data, error } = await context.supabase
       .from("tasks")
       .select("project_tags");
-    if (error) throw new Error(error.message);
+    if (error) throw dbError(error);
     const tags = new Set<string>();
     for (const row of data ?? []) {
       for (const t of (row.project_tags ?? []) as string[]) tags.add(t);
@@ -1330,7 +1331,7 @@ export const listScheduledTasks = createServerFn({ method: "POST" })
       .order("start_at", { ascending: true, nullsFirst: false });
     if (data.tag) q = q.contains("project_tags", [data.tag]);
     const { data: rows, error } = await q;
-    if (error) throw new Error(error.message);
+    if (error) throw dbError(error);
     return rows ?? [];
   });
 
@@ -1416,7 +1417,7 @@ export const updateSummary = createServerFn({ method: "POST" })
       .from("summaries")
       .update(update as never)
       .eq("id", data.id);
-    if (error) throw new Error(error.message);
+    if (error) throw dbError(error);
     return { ok: true };
   });
 
@@ -1432,7 +1433,7 @@ export const listProjects = createServerFn({ method: "GET" })
       .select("*")
       .order("start_date", { ascending: true, nullsFirst: false })
       .order("name", { ascending: true });
-    if (error) throw new Error(error.message);
+    if (error) throw dbError(error);
     return data ?? [];
   });
 
@@ -1470,7 +1471,7 @@ export const upsertProject = createServerFn({ method: "POST" })
         .select("slug")
         .eq("id", data.id)
         .maybeSingle();
-      if (prevErr) throw new Error(prevErr.message);
+      if (prevErr) throw dbError(prevErr);
       const oldSlug = prev?.slug ?? null;
       const newSlug = data.slug;
       const slugChanged = !!oldSlug && oldSlug !== newSlug;
@@ -1496,7 +1497,7 @@ export const upsertProject = createServerFn({ method: "POST" })
         .from("projects")
         .update(payload)
         .eq("id", data.id);
-      if (error) throw new Error(error.message);
+      if (error) throw dbError(error);
 
       if (slugChanged && oldSlug) {
         await cascadeRenameProjectSlug(supabase, userId, oldSlug, newSlug);
@@ -1510,7 +1511,7 @@ export const upsertProject = createServerFn({ method: "POST" })
       .insert(payload)
       .select("id")
       .single();
-    if (error) throw new Error(error.message);
+    if (error) throw dbError(error);
     await invalidateSummaries(supabase, userId);
     return { ok: true as const, id: inserted.id, slugChanged: false };
   });
@@ -1595,7 +1596,7 @@ export const deleteProject = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { error } = await context.supabase.from("projects").delete().eq("id", data.id);
-    if (error) throw new Error(error.message);
+    if (error) throw dbError(error);
     await invalidateSummaries(context.supabase, context.userId);
     return { ok: true };
   });
@@ -1620,7 +1621,7 @@ export const listProjectDesignElements = createServerFn({ method: "POST" })
       .eq("project_id", data.project_id)
       .order("sort_order", { ascending: true })
       .order("created_at", { ascending: true });
-    if (error) throw new Error(error.message);
+    if (error) throw dbError(error);
     return rows ?? [];
   });
 
@@ -1647,7 +1648,7 @@ export const upsertProjectDesignElement = createServerFn({ method: "POST" })
       .from("project_design_elements")
       .select("id, weight")
       .eq("project_id", data.project_id);
-    if (sumErr) throw new Error(sumErr.message);
+    if (sumErr) throw dbError(sumErr);
     const otherTotal = (siblings ?? [])
       .filter((s) => s.id !== data.id)
       .reduce((acc, s) => acc + Number(s.weight ?? 0), 0);
@@ -1672,7 +1673,7 @@ export const upsertProjectDesignElement = createServerFn({ method: "POST" })
         .from("project_design_elements")
         .update(payload)
         .eq("id", data.id);
-      if (error) throw new Error(error.message);
+      if (error) throw dbError(error);
       return { ok: true as const, id: data.id };
     }
     const { data: inserted, error } = await supabase
@@ -1680,7 +1681,7 @@ export const upsertProjectDesignElement = createServerFn({ method: "POST" })
       .insert(payload)
       .select("id")
       .single();
-    if (error) throw new Error(error.message);
+    if (error) throw dbError(error);
     return { ok: true as const, id: inserted.id };
   });
 
@@ -1695,7 +1696,7 @@ export const setProjectDesignElementCompleted = createServerFn({ method: "POST" 
       .from("project_design_elements")
       .update({ completed: data.completed })
       .eq("id", data.id);
-    if (error) throw new Error(error.message);
+    if (error) throw dbError(error);
     return { ok: true };
   });
 
@@ -1710,7 +1711,7 @@ export const listTaskProjectLinks = createServerFn({ method: "POST" })
       .select("id, project_id, title, weight, completed, project:projects!project_design_elements_project_id_fkey(id, slug, name)")
       .eq("task_id", data.task_id)
       .order("created_at", { ascending: true });
-    if (error) throw new Error(error.message);
+    if (error) throw dbError(error);
 
     const links = rows ?? [];
     // Report each project's total allocation so the UI can show headroom.
@@ -1750,7 +1751,7 @@ export const unlinkTaskFromProject = createServerFn({ method: "POST" })
       .select("id, task_id, project_id, project:projects!project_design_elements_project_id_fkey(slug)")
       .eq("id", data.element_id)
       .single();
-    if (getErr) throw new Error(getErr.message);
+    if (getErr) throw dbError(getErr);
 
     const projectSlug = (element as { project?: { slug: string } | null }).project?.slug ?? null;
 
@@ -1758,7 +1759,7 @@ export const unlinkTaskFromProject = createServerFn({ method: "POST" })
       .from("project_design_elements")
       .delete()
       .eq("id", data.element_id);
-    if (delErr) throw new Error(delErr.message);
+    if (delErr) throw dbError(delErr);
 
     let tagRemoved = false;
     if (data.remove_tag && element.task_id && projectSlug) {
@@ -1775,7 +1776,7 @@ export const unlinkTaskFromProject = createServerFn({ method: "POST" })
           .from("tasks")
           .update({ project_tags: tags })
           .eq("id", task.id);
-        if (updErr) throw new Error(updErr.message);
+        if (updErr) throw dbError(updErr);
         tagRemoved = true;
       }
     }
@@ -1797,13 +1798,13 @@ export const setProjectDesignElementWeight = createServerFn({ method: "POST" })
       .select("id, project_id")
       .eq("id", data.id)
       .single();
-    if (getErr) throw new Error(getErr.message);
+    if (getErr) throw dbError(getErr);
 
     const { data: siblings, error: sumErr } = await supabase
       .from("project_design_elements")
       .select("id, weight")
       .eq("project_id", element.project_id);
-    if (sumErr) throw new Error(sumErr.message);
+    if (sumErr) throw dbError(sumErr);
     const otherTotal = (siblings ?? [])
       .filter((s) => s.id !== data.id)
       .reduce((acc, s) => acc + Number(s.weight ?? 0), 0);
@@ -1817,7 +1818,7 @@ export const setProjectDesignElementWeight = createServerFn({ method: "POST" })
       .from("project_design_elements")
       .update({ weight: data.weight })
       .eq("id", data.id);
-    if (error) throw new Error(error.message);
+    if (error) throw dbError(error);
     return { ok: true as const, weight: data.weight, project_total_weight: otherTotal + data.weight };
   });
 
@@ -1829,7 +1830,7 @@ export const deleteProjectDesignElement = createServerFn({ method: "POST" })
       .from("project_design_elements")
       .delete()
       .eq("id", data.id);
-    if (error) throw new Error(error.message);
+    if (error) throw dbError(error);
     return { ok: true };
   });
 
@@ -1846,7 +1847,7 @@ export const promoteDesignElementToBacklog = createServerFn({ method: "POST" })
       .select("id, title, description, project_id, task_id, projects(slug)")
       .eq("id", data.id)
       .maybeSingle();
-    if (getErr) throw new Error(getErr.message);
+    if (getErr) throw dbError(getErr);
     if (!element) throw new Error("Design element not found");
     const el = element as unknown as {
       id: string;
@@ -1892,12 +1893,12 @@ export const promoteDesignElementToBacklog = createServerFn({ method: "POST" })
       })
       .select("id, slug")
       .single();
-    if (insErr) throw new Error(insErr.message);
+    if (insErr) throw dbError(insErr);
     const { error: linkErr } = await supabase
       .from("project_design_elements")
       .update({ task_id: created.id })
       .eq("id", el.id);
-    if (linkErr) throw new Error(linkErr.message);
+    if (linkErr) throw dbError(linkErr);
     await invalidateSummaries(supabase, userId);
     return { ok: true as const, already: false, slug: created.slug };
   });
@@ -1927,7 +1928,7 @@ export const assignTaskToProjectAsDesignElement = createServerFn({ method: "POST
       .select("id, title, status, project_tags")
       .eq("id", data.task_id)
       .maybeSingle();
-    if (taskErr) throw new Error(taskErr.message);
+    if (taskErr) throw dbError(taskErr);
     if (!task) throw new Error("Task not found");
 
     const { data: project, error: projErr } = await supabase
@@ -1935,7 +1936,7 @@ export const assignTaskToProjectAsDesignElement = createServerFn({ method: "POST
       .select("id, slug")
       .eq("id", data.project_id)
       .maybeSingle();
-    if (projErr) throw new Error(projErr.message);
+    if (projErr) throw dbError(projErr);
     if (!project) throw new Error("Project not found");
 
     // Reuse an existing element if this task is already assigned to this project.
@@ -1954,7 +1955,7 @@ export const assignTaskToProjectAsDesignElement = createServerFn({ method: "POST
       .from("project_design_elements")
       .select("weight")
       .eq("project_id", data.project_id);
-    if (sumErr) throw new Error(sumErr.message);
+    if (sumErr) throw dbError(sumErr);
     const otherTotal = (siblings ?? []).reduce(
       (acc, s) => acc + Number(s.weight ?? 0),
       0,
@@ -1979,7 +1980,7 @@ export const assignTaskToProjectAsDesignElement = createServerFn({ method: "POST
       })
       .select("id")
       .single();
-    if (insErr) throw new Error(insErr.message);
+    if (insErr) throw dbError(insErr);
 
 
     // Ensure the project slug is tagged on the task so it appears in the
@@ -1990,7 +1991,7 @@ export const assignTaskToProjectAsDesignElement = createServerFn({ method: "POST
         .from("tasks")
         .update({ project_tags: [...tags, project.slug] })
         .eq("id", data.task_id);
-      if (tagErr) throw new Error(tagErr.message);
+      if (tagErr) throw dbError(tagErr);
     }
 
     await invalidateSummaries(supabase, userId);
@@ -2020,7 +2021,7 @@ export const listDesignElementTasks = createServerFn({ method: "POST" })
       .eq("design_element_id", data.design_element_id)
       .order("status", { ascending: true })
       .order("created_at", { ascending: true });
-    if (error) throw new Error(error.message);
+    if (error) throw dbError(error);
     return rows ?? [];
   });
 
@@ -2044,7 +2045,7 @@ export const createDesignElementTask = createServerFn({ method: "POST" })
       .select("id, project_id, projects(slug)")
       .eq("id", data.design_element_id)
       .maybeSingle();
-    if (elErr) throw new Error(elErr.message);
+    if (elErr) throw dbError(elErr);
     if (!element) throw new Error("Design element not found");
     const projectSlug =
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -2076,7 +2077,7 @@ export const createDesignElementTask = createServerFn({ method: "POST" })
       })
       .select("id, slug, title, status, start_at, percent_complete, project_tags")
       .single();
-    if (error) throw new Error(error.message);
+    if (error) throw dbError(error);
     return row;
   });
 
@@ -2121,11 +2122,11 @@ export const importTasksFromTiddlers = createServerFn({ method: "POST" })
       };
       if (existing) {
         const { error } = await supabase.from("tasks").update(payload).eq("id", existing.id);
-        if (error) throw new Error(error.message);
+        if (error) throw dbError(error);
         updated++;
       } else {
         const { error } = await supabase.from("tasks").insert(payload);
-        if (error) throw new Error(error.message);
+        if (error) throw dbError(error);
         inserted++;
       }
     }
@@ -2207,7 +2208,7 @@ export const importSummariesFromTiddlers = createServerFn({ method: "POST" })
           .from("summaries")
           .update(payload)
           .eq("id", existingId);
-        if (error) throw new Error(error.message);
+        if (error) throw dbError(error);
         updated++;
       } else {
         // generated_summary is NOT NULL — seed with the same body if we have nothing else.
@@ -2215,7 +2216,7 @@ export const importSummariesFromTiddlers = createServerFn({ method: "POST" })
           ...payload,
           generated_summary: s.body ?? {},
         });
-        if (error) throw new Error(error.message);
+        if (error) throw dbError(error);
         inserted++;
       }
     }
@@ -2267,7 +2268,7 @@ export const listBacklog = createServerFn({ method: "POST" })
 
     // Exclude tasks already pulled into today's activity log.
     const { data: tasks, error } = await query;
-    if (error) throw new Error(error.message);
+    if (error) throw dbError(error);
     const todaySet = new Set(todayTaskIds);
     const filtered = (tasks ?? []).filter((t) => !todaySet.has(t.id));
     return filtered;
@@ -2307,7 +2308,7 @@ export const createBacklogTask = createServerFn({ method: "POST" })
       })
       .select("*")
       .single();
-    if (error) throw new Error(error.message);
+    if (error) throw dbError(error);
     return row;
   });
 
@@ -2333,7 +2334,7 @@ export const addTaskToToday = createServerFn({ method: "POST" })
 
       .eq("id", data.taskId)
       .maybeSingle();
-    if (taskErr) throw new Error(taskErr.message);
+    if (taskErr) throw dbError(taskErr);
     if (!task) throw new Error("Task not found");
 
     // Ensure today's daily note exists.
@@ -2349,7 +2350,7 @@ export const addTaskToToday = createServerFn({ method: "POST" })
         .insert({ user_id: userId, date, markdown_content: "" })
         .select("id, markdown_content")
         .single();
-      if (insErr) throw new Error(insErr.message);
+      if (insErr) throw dbError(insErr);
       note = created;
     }
 
@@ -2415,7 +2416,7 @@ export const removeTaskFromToday = createServerFn({ method: "POST" })
       .select("id, slug, status")
       .eq("id", data.taskId)
       .maybeSingle();
-    if (taskErr) throw new Error(taskErr.message);
+    if (taskErr) throw dbError(taskErr);
     if (!task) throw new Error("Task not found");
 
     const { data: note } = await supabase
@@ -2433,7 +2434,7 @@ export const removeTaskFromToday = createServerFn({ method: "POST" })
           .from("daily_notes")
           .update({ markdown_content: next })
           .eq("id", note.id);
-        if (updErr) throw new Error(updErr.message);
+        if (updErr) throw dbError(updErr);
       }
 
       const { error: delErr } = await supabase
@@ -2442,7 +2443,7 @@ export const removeTaskFromToday = createServerFn({ method: "POST" })
         .eq("user_id", userId)
         .eq("daily_note_id", note.id)
         .eq("task_id", task.id);
-      if (delErr) throw new Error(delErr.message);
+      if (delErr) throw dbError(delErr);
     }
 
     // Back in the backlog: no scheduled start, and a done task reopens.
@@ -2456,7 +2457,7 @@ export const removeTaskFromToday = createServerFn({ method: "POST" })
       .update(patch)
       .eq("id", task.id)
       .eq("user_id", userId);
-    if (taskUpdErr) throw new Error(taskUpdErr.message);
+    if (taskUpdErr) throw dbError(taskUpdErr);
 
     return { ok: true as const, taskId: task.id };
   });
@@ -2535,7 +2536,7 @@ export const listDueMaintenance = createServerFn({ method: "POST" })
       .from("maintenance_records")
       .select("id, title, asset_name, service_type, status, due_at, scheduled_date, completed_date")
       .eq("user_id", userId);
-    if (error) throw new Error(error.message);
+    if (error) throw dbError(error);
 
     const inMonth = (records ?? []).filter((r) => {
       if (r.completed_date) return false;
@@ -2592,7 +2593,7 @@ export const addMaintenanceToToday = createServerFn({ method: "POST" })
       .select("id, title, asset_name, service_type")
       .eq("id", data.maintenanceId)
       .maybeSingle();
-    if (recErr) throw new Error(recErr.message);
+    if (recErr) throw dbError(recErr);
     if (!rec) throw new Error("Maintenance record not found");
 
     const label =
@@ -2621,7 +2622,7 @@ export const addMaintenanceToToday = createServerFn({ method: "POST" })
         })
         .select("id, slug, title, project_tags, start_at, percent_complete")
         .single();
-      if (insErr) throw new Error(insErr.message);
+      if (insErr) throw dbError(insErr);
       task = created;
     }
     if (!task) throw new Error("Failed to resolve maintenance task");
@@ -2641,7 +2642,7 @@ export const addMaintenanceToToday = createServerFn({ method: "POST" })
         .insert({ user_id: userId, date, markdown_content: "" })
         .select("id, markdown_content")
         .single();
-      if (nErr) throw new Error(nErr.message);
+      if (nErr) throw dbError(nErr);
       note = created;
     }
 
@@ -2771,7 +2772,7 @@ export const addReorderToToday = createServerFn({ method: "POST" })
         .select("id, name, vendor")
         .eq("id", data.itemId)
         .maybeSingle();
-      if (itemErr) throw new Error(itemErr.message);
+      if (itemErr) throw dbError(itemErr);
       if (!item || !item.name) throw new Error("Item not found");
       name = item.name;
       vendor = item.vendor ?? null;
@@ -2781,7 +2782,7 @@ export const addReorderToToday = createServerFn({ method: "POST" })
         .select("id, name")
         .eq("id", data.itemId)
         .maybeSingle();
-      if (itemErr) throw new Error(itemErr.message);
+      if (itemErr) throw dbError(itemErr);
       if (!item || !item.name) throw new Error("Item not found");
       name = item.name;
     }
@@ -2807,7 +2808,7 @@ export const addReorderToToday = createServerFn({ method: "POST" })
         })
         .select("id, slug, title, project_tags, start_at, percent_complete")
         .single();
-      if (insErr) throw new Error(insErr.message);
+      if (insErr) throw dbError(insErr);
       task = created;
     }
     if (!task) throw new Error("Failed to resolve reorder task");
@@ -2826,7 +2827,7 @@ export const addReorderToToday = createServerFn({ method: "POST" })
         .insert({ user_id: userId, date, markdown_content: "" })
         .select("id, markdown_content")
         .single();
-      if (nErr) throw new Error(nErr.message);
+      if (nErr) throw dbError(nErr);
       note = created;
     }
 
