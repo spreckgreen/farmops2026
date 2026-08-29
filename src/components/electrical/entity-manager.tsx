@@ -404,21 +404,24 @@ export function EntityManager({
                     </td>
                   ))}
                   <td className="px-3 py-2 text-right whitespace-nowrap">
-                    <Button variant="ghost" size="sm" onClick={() => openEdit(row)}>
-                      <Pencil className="h-4 w-4" />
-                    </Button>
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => {
-                        if (confirm(`Delete ${String(row[def.stableIdField])}?`)) {
-                          deleteMutation.mutate(String(row["id"]));
-                        }
-                      }}
+                      aria-label={`Edit ${String(row[def.stableIdField] ?? "")}`}
+                      onClick={() => openEdit(row)}
                     >
-                      <Trash2 className="h-4 w-4 text-destructive" />
+                      <Pencil className="h-4 w-4" />
                     </Button>
+                    <DeleteDependencyDialog
+                      iconOnly
+                      kind={kind}
+                      id={String(row["id"])}
+                      label={String(row[def.stableIdField] ?? "")}
+                      singular={def.singular}
+                      onDeleted={() => void query.refetch()}
+                    />
                   </td>
+
                 </tr>
               ))}
             </tbody>
