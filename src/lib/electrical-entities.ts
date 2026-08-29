@@ -5,9 +5,11 @@ import {
   ENDPOINT_TYPES,
   INSTALL_STATUSES,
   LABEL_STATUSES,
+  PANEL_EXIT_SIDES,
   RACEWAY_ENVIRONMENTS,
   type ElectricalEntityKind,
 } from "@/lib/electrical";
+
 
 export type FieldKind = "text" | "textarea" | "number" | "bool" | "select" | "entity";
 
