@@ -149,6 +149,7 @@ export function EntityManager({ kind }: { kind: ElectricalEntityKind }) {
   const save = useServerFn(saveElectrical);
   const remove = useServerFn(deleteElectrical);
   const suggest = useServerFn(suggestStableId);
+  const loadOptions = useServerFn(electricalEntityOptions);
 
   const [search, setSearch] = useState("");
   const [environment, setEnvironment] = useState("");
@@ -161,6 +162,52 @@ export function EntityManager({ kind }: { kind: ElectricalEntityKind }) {
     queryFn: () =>
       list({ data: { kind, environment: environment || undefined, status: status || undefined } }),
   });
+
+  // Records this kind can be linked to, so the relationship pickers show stable
+  // IDs instead of asking for typed-in references.
+  const relationKinds = useMemo(
+    () => [...new Set(relationsFor(kind).map((r) => r.targetKind))],
+    [kind],
+  );
+  const optionsQuery = useQuery({
+    queryKey: ["electrical", "options", relationKinds],
+    queryFn: () => loadOptions({ data: { kinds: relationKinds } }),
+    enabled: relationKinds.length > 0 && Boolean(editing),
+  });
+
+  // Field-work values first (what gets edited on a phone), then relationships,
+  // then the engineering values the canonical ODS still governs.
+  const groups = useMemo(() => {
+    const relation = def.fields.filter((f) => f.kind === "entity" || f.readOnly);
+    const fieldWork = def.fields.filter((f) => f.field && !relation.includes(f));
+    const engineering = def.fields.filter(
+      (f) => f.engineering && !relation.includes(f) && !fieldWork.includes(f),
+    );
+    const rest = def.fields.filter(
+      (f) => !relation.includes(f) && !fieldWork.includes(f) && !engineering.includes(f),
+    );
+    return [
+      { title: "Field work", fields: fieldWork, note: "Status, measurements and notes recorded on site." },
+      relation.length
+        ? {
+            title: "Topology",
+            fields: relation,
+            note: "Pick existing records — the link, not the typed ID, is authoritative.",
+          }
+        : null,
+      { title: "Details", fields: rest, note: undefined as string | undefined },
+      engineering.length
+        ? {
+            title: "Engineering values (ODS-controlled)",
+            fields: engineering,
+            note: "The canonical electrical spreadsheet remains the authority for these. Edit only to match a released revision.",
+          }
+        : null,
+    ].filter((g): g is { title: string; fields: EntityField[]; note?: string } =>
+      Boolean(g && g.fields.length),
+    );
+  }, [def]);
+
 
   const rows = useMemo(() => {
     const needle = search.trim().toLowerCase();
