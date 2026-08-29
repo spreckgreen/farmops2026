@@ -9,7 +9,7 @@ import {
   type ElectricalEntityKind,
 } from "@/lib/electrical";
 
-export type FieldKind = "text" | "textarea" | "number" | "bool" | "select";
+export type FieldKind = "text" | "textarea" | "number" | "bool" | "select" | "entity";
 
 export interface EntityField {
   key: string;
@@ -18,6 +18,27 @@ export interface EntityField {
   options?: readonly string[];
   /** Shown in the compact list view. */
   list?: boolean;
+  /**
+   * For `kind: "entity"` — which electrical record this FK column points at.
+   * The stored value is the target row's UUID; the UI always displays the
+   * target's human-readable stable ID.
+   */
+  entityKind?: ElectricalEntityKind;
+  /**
+   * Legacy free-text reference retained for import/export compatibility. It is
+   * displayed but not editable: the FK relationship is authoritative and the
+   * database keeps this column in sync with it.
+   */
+  readOnly?: boolean;
+  /**
+   * Engineering value governed by the canonical electrical ODS. FarmOps shows a
+   * caution before these are edited so Phase 4.1 never silently supersedes the
+   * engineering release authority.
+   */
+  engineering?: boolean;
+  /** Field-work fields are surfaced first on phone/tablet. */
+  field?: boolean;
+  hint?: string;
 }
 
 export interface EntityDef {
@@ -31,11 +52,12 @@ export interface EntityDef {
 }
 
 const statusFields: EntityField[] = [
-  { key: "install_status", label: "Install status", kind: "select", options: INSTALL_STATUSES, list: true },
+  { key: "install_status", label: "Install status", kind: "select", options: INSTALL_STATUSES, list: true, field: true },
   { key: "completion_percent", label: "Complete %", kind: "number", list: true },
-  { key: "label_status", label: "Label", kind: "select", options: LABEL_STATUSES },
-  { key: "notes", label: "Notes", kind: "textarea" },
+  { key: "label_status", label: "Label", kind: "select", options: LABEL_STATUSES, field: true },
+  { key: "notes", label: "Notes", kind: "textarea", field: true },
 ];
+
 
 export const ENTITIES: Record<ElectricalEntityKind, EntityDef> = {
   panel: {
