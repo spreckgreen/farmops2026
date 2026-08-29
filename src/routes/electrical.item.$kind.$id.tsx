@@ -23,6 +23,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, Pencil, Plus, Trash2 } from "lucide-react";
+import { DeleteDependencyDialog } from "@/components/electrical/delete-dependency-dialog";
+
 
 
 export const Route = createFileRoute("/electrical/item/$kind/$id")({
