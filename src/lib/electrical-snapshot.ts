@@ -281,8 +281,10 @@ export function serializeSnapshot(snapshot: ElectricalSnapshot): string {
 }
 
 export function snapshotFilename(generatedAt: string): string {
-  const stamp = generatedAt.replace(/\.\d+Z$/, "Z").replace(/[:]/g, "").replace(/-/g, "-");
-  return `farmops-electrical-snapshot-${stamp.replace(/Z$/, "").replace(/\..*$/, "")}.json`;
+  // 2026-08-29T16:23:45.123Z -> farmops-electrical-snapshot-2026-08-29T162345.json
+  const [date, rest = ""] = generatedAt.split("T");
+  const time = rest.replace(/\..*$/, "").replace(/Z$/, "").replace(/:/g, "");
+  return `farmops-electrical-snapshot-${date}T${time}.json`;
 }
 
 /** Records modified at or after `since`, grouped by collection. */
