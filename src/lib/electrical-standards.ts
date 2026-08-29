@@ -157,15 +157,15 @@ export const STABLE_ID_REFERENCE: readonly StableIdReferenceRow[] = [
   },
   {
     entity: "Junction Box",
-    format: "JB-###",
-    example: "JB-014",
-    notes: "Actual accessible physical box only",
+    format: "JB-###[-##…]",
+    example: "JB-014, JB-104-01",
+    notes: "Actual accessible physical box only; optional nested numeric segments",
   },
   {
     entity: "Branch Run",
-    format: "BR-###",
-    example: "BR-057",
-    notes: "Downstream wiring path",
+    format: "BR-###[-##…]",
+    example: "BR-057, BR-104-01-01",
+    notes: "Downstream wiring path; optional nested numeric segments",
   },
 ];
 
