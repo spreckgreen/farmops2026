@@ -476,3 +476,99 @@ export const electricalTopology = createServerFn({ method: "GET" })
 
     return { record, related };
   });
+
+export interface EntityOption {
+  id: string;
+  stableId: string;
+  label: string;
+  context: string;
+  installStatus: string;
+}
+
+/**
+ * Selector data for the relationship pickers: stable ID plus enough context
+ * (description, building, grid) that the right record is obvious in the field.
+ */
+export const electricalEntityOptions = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ kinds: z.array(kindSchema).min(1).max(6) }).parse(d))
+  .handler(async ({ context, data }): Promise<Record<string, EntityOption[]>> => {
+    await requireAddon(context.supabase, context.userId, "electrical");
+    const db = context.supabase as unknown as LooseDb;
+    const out: Record<string, EntityOption[]> = {};
+    for (const kind of [...new Set(data.kinds)]) {
+      const def = ENTITIES[kind];
+      const { data: rows, error } = await db.from(def.table).select("*").order(def.stableIdField);
+      if (error) throw new Error(error.message);
+      out[kind] = ((rows ?? []) as unknown as ElectricalRow[]).map((r) => ({
+        id: String(r["id"]),
+        stableId: String(r[def.stableIdField] ?? ""),
+        label: String(r["description"] ?? r["area"] ?? ""),
+        context: [r["building"], r["grid"], r["area"], r["location"]]
+          .map((v) => String(v ?? "").trim())
+          .filter(Boolean)
+          .join(" · "),
+        installStatus: String(r["install_status"] ?? ""),
+      }));
+    }
+    return out;
+  });
+
+/** Next free physical exit order for a panel (lower-right, then counterclockwise). */
+export const suggestPanelExitOrder = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ panel_uuid: z.string().uuid() }).parse(d))
+  .handler(async ({ context, data }) => {
+    await requireAddon(context.supabase, context.userId, "electrical");
+    const { data: rows, error } = await (context.supabase as unknown as LooseDb)
+      .from("electrical_raceways")
+      .select("exit_order")
+      .eq("source_panel_uuid", data.panel_uuid);
+    if (error) throw new Error(error.message);
+    const used = ((rows ?? []) as { exit_order: number | null }[]).map((r) => r.exit_order);
+    return { suggestion: nextPanelExitOrder(used) };
+  });
+
+export interface IntegrityReport {
+  findings: IntegrityFinding[];
+  summary: ReturnType<typeof integritySummary>;
+}
+
+/**
+ * Electrical QA: duplicate/malformed IDs, invalid controlled values, orphans,
+ * FK/reference disagreement, breaker conflicts and incomplete topology.
+ * Report only — it never rewrites records.
+ */
+export const electricalIntegrityReport = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<IntegrityReport> => {
+    await requireAddon(context.supabase, context.userId, "electrical");
+    const db = context.supabase as unknown as LooseDb;
+    const kinds: ElectricalEntityKind[] = [
+      "panel",
+      "circuit_group",
+      "load",
+      "raceway",
+      "jbox",
+      "branch",
+    ];
+    const fetched = await Promise.all(
+      kinds.map(async (kind) => {
+        const { data, error } = await db.from(ENTITIES[kind].table).select("*");
+        if (error) throw new Error(error.message);
+        return (data ?? []) as Row[];
+      }),
+    );
+    const { data: waypoints } = await db.from("electrical_raceway_waypoints").select("*");
+    const graph: ElectricalGraphData = {
+      panel: fetched[0]!,
+      circuit_group: fetched[1]!,
+      load: fetched[2]!,
+      raceway: fetched[3]!,
+      jbox: fetched[4]!,
+      branch: fetched[5]!,
+      waypoint: (waypoints ?? []) as Row[],
+    };
+    const findings = runIntegrityChecks(graph);
+    return { findings, summary: integritySummary(findings) };
+  });
