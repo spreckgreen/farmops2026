@@ -511,7 +511,11 @@ export const suggestPanelExitOrder = createServerFn({ method: "GET" })
 export interface IntegrityReport {
   findings: IntegrityFinding[];
   summary: ReturnType<typeof integritySummary>;
+  /** Raceways whose as-built topology is not fully established yet. */
+  gaps: TopologyGap[];
+  gapSummary: ReturnType<typeof topologyGapSummary>;
 }
+
 
 /**
  * Electrical QA: duplicate/malformed IDs, invalid controlled values, orphans,
