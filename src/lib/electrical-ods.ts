@@ -302,6 +302,107 @@ const COLUMN_ALIASES: Record<string, string> = {
 };
 
 /**
+ * Per-sheet aliases, tried before the shared table. The shared table is tuned
+ * for Conduit_Runs / Load_Master, where headers such as "Source", "Circuits" or
+ * "Description" mean something different than they do on the Panels sheet — the
+ * reason panel description/building/grid/rating columns previously bound to
+ * nothing and stayed NULL.
+ */
+const KIND_ALIASES: Partial<Record<ElectricalEntityKind, Record<string, string>>> = {
+  panel: {
+    panel: "panel_id",
+    "panel id": "panel_id",
+    "panel name": "panel_id",
+    "panel tag": "panel_id",
+    "panel description": "description",
+    description: "description",
+    "panel desc": "description",
+    desc: "description",
+    "serves": "description",
+    building: "building",
+    bldg: "building",
+    "building location": "building",
+    location: "building",
+    "panel location": "building",
+    room: "building",
+    grid: "grid",
+    "grid ref": "grid",
+    "grid reference": "grid",
+    "grid location": "grid",
+    "grid coord": "grid",
+    "grid coordinate": "grid",
+    "grid cell": "grid",
+    "bus rating": "bus_rating_amps",
+    "bus rating amps": "bus_rating_amps",
+    "bus rating a": "bus_rating_amps",
+    "bus amps": "bus_rating_amps",
+    bus: "bus_rating_amps",
+    "main rating": "bus_rating_amps",
+    "main breaker": "bus_rating_amps",
+    "main breaker amps": "bus_rating_amps",
+    "main breaker a": "bus_rating_amps",
+    mcb: "bus_rating_amps",
+    "panel rating": "bus_rating_amps",
+    "rating amps": "bus_rating_amps",
+    "rating a": "bus_rating_amps",
+    "amp rating": "bus_rating_amps",
+    ampacity: "bus_rating_amps",
+    amps: "bus_rating_amps",
+    voltage: "voltage",
+    volts: "voltage",
+    v: "voltage",
+    "nominal voltage": "voltage",
+    "system voltage": "voltage",
+    phase: "phase",
+    ph: "phase",
+    phasing: "phase",
+    "phase wire": "phase",
+    "phase config": "phase",
+    "phase configuration": "phase",
+    wires: "phase",
+    spaces: "spaces",
+    "spaces available": "spaces",
+    "space count": "spaces",
+    poles: "spaces",
+    "pole spaces": "spaces",
+    circuits: "circuits",
+    "circuit count": "circuits",
+    "number of circuits": "circuits",
+    "max circuits": "circuits",
+    "circuit positions": "circuits",
+    "feeder source": "feeder_source",
+    "feeder": "feeder_source",
+    "feeder from": "feeder_source",
+    "fed from": "feeder_source",
+    "fed by": "feeder_source",
+    source: "feeder_source",
+    "source panel": "feeder_source",
+    "upstream panel": "feeder_source",
+    "upstream source": "feeder_source",
+    "supply source": "feeder_source",
+    "backup class": "backup_class",
+    "generator class": "backup_class",
+    "backup generator class": "backup_class",
+    status: "install_status",
+    "install status": "install_status",
+    notes: "notes",
+    comments: "notes",
+    remarks: "notes",
+  },
+};
+
+function aliasFor(kind: ElectricalEntityKind | null, header: string): string | undefined {
+  return (kind ? KIND_ALIASES[kind]?.[header] : undefined) ?? COLUMN_ALIASES[header];
+}
+
+/** Every header this importer recognises, for header-row detection. */
+function isKnownHeader(header: string): boolean {
+  if (header in COLUMN_ALIASES) return true;
+  return Object.values(KIND_ALIASES).some((m) => m && header in m);
+}
+
+
+/**
  * Map a sheet's columns onto entity columns.
  * `targets` is the writable column list for the detected kind.
  */
