@@ -1,0 +1,71 @@
+// Read-only Load_Master comparison. Parses the supplied workbook, compares
+// every ODS-owned Load field against FarmOps and returns a report. It never
+// writes: releasing engineering values stays an explicit ODS import decision.
+import { createServerFn } from "@tanstack/react-start";
+import { z } from "zod";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireAddon } from "@/lib/addons.server";
+import { ENTITIES, importColumns } from "@/lib/electrical-entities";
+import { classifySheet, mapSheet, parseOdsContentXml } from "@/lib/electrical-ods";
+import {
+  compareLoads,
+  type LoadCompareReport,
+  type OdsLoadRow,
+} from "@/lib/electrical-load-compare";
+
+type LooseDb = { from: (table: string) => any };
+
+export interface LoadComparePayload extends LoadCompareReport {
+  fileName: string;
+  sheetName: string | null;
+  generatedAt: string;
+}
+
+export const compareLoadMaster = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        file_name: z.string().trim().min(1).max(200),
+        base64: z.string().min(1).max(30_000_000),
+      })
+      .parse(d),
+  )
+  .handler(async ({ context, data }): Promise<LoadComparePayload> => {
+    await requireAddon(context.supabase, context.userId, "electrical");
+
+    const { unzipSync, strFromU8 } = await import("fflate");
+    const binary = atob(data.base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    const files = unzipSync(bytes, { filter: (f) => f.name === "content.xml" });
+    const content = files["content.xml"];
+    if (!content) {
+      throw new Error("That file does not look like an .ods spreadsheet (no content.xml).");
+    }
+    const sheets = parseOdsContentXml(strFromU8(content));
+
+    const loadSheet = sheets.find((s) => classifySheet(s) === "load");
+    if (!loadSheet) {
+      throw new Error("No Load_Master sheet was found in that workbook.");
+    }
+
+    const def = ENTITIES.load;
+    const mapped = mapSheet(loadSheet, "load", importColumns("load"), def.stableIdField);
+    const odsRows: OdsLoadRow[] = mapped.rows.map((r) => ({
+      stableId: r.stableId,
+      values: r.values,
+    }));
+
+    const db = context.supabase as unknown as LooseDb;
+    const { data: rows, error } = await db.from(def.table).select("*");
+    if (error) throw new Error(error.message);
+
+    const report = compareLoads(odsRows, (rows ?? []) as Record<string, unknown>[]);
+    return {
+      ...report,
+      fileName: data.file_name,
+      sheetName: loadSheet.name,
+      generatedAt: new Date().toISOString(),
+    };
+  });
