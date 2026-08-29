@@ -46,11 +46,8 @@ export function parseOdsContentXml(xml: string): Sheet[] {
     const body = t[2];
     const rows: string[][] = [];
 
-    const rowRe = /<table:table-row\b([^>]*)(?:\/>|>([\s\S]*?)<\/table:table-row>)/g;
-    let r: RegExpExecArray | null;
-    while ((r = rowRe.exec(body))) {
-      const rowRepeat = Math.min(Number(attr(r[1], "table:number-rows-repeated") ?? "1") || 1, 1000);
-      const rowBody = r[2] ?? "";
+    for (const { attrs: rowAttrs, inner: rowBody } of scanElements(body, "table:table-row")) {
+      const rowRepeat = Math.min(Number(attr(rowAttrs, "table:number-rows-repeated") ?? "1") || 1, 1000);
       const cells: string[] = [];
 
       // Cell annotations (comments) also contain <text:p>; they are not cell
@@ -59,15 +56,17 @@ export function parseOdsContentXml(xml: string): Sheet[] {
         /<office:annotation\b[\s\S]*?<\/office:annotation>/g,
         "",
       );
-      const cellRe =
-        /<table:(?:covered-)?table-cell\b([^>]*)(?:\/>|>([\s\S]*?)<\/table:(?:covered-)?table-cell>)/g;
-      let c: RegExpExecArray | null;
-      while ((c = cellRe.exec(cleanBody))) {
+      for (const cell of [
+        ...scanElements(cleanBody, "table:table-cell"),
+        ...scanElements(cleanBody, "table:covered-table-cell"),
+      ].sort((a, b) => a.start - b.start)) {
         const repeat = Math.min(
-          Number(attr(c[1], "table:number-columns-repeated") ?? "1") || 1,
+          Number(attr(cell.attrs, "table:number-columns-repeated") ?? "1") || 1,
           1000,
         );
-        const value = c[2] ? cellText(c[2]) : (attr(c[1], "office:value") ?? "");
+        const value = cell.inner
+          ? cellText(cell.inner)
+          : (attr(cell.attrs, "office:value") ?? "");
         for (let i = 0; i < repeat; i++) cells.push(value);
       }
 
