@@ -205,6 +205,10 @@ if [ -n "$ENV_FILE" ]; then
   # shellcheck disable=SC1090
   . "./$ENV_FILE"
   set +a
+  # The deployed revision always comes from the checked-out source, never from
+  # an optional value that may happen to exist in the environment file.
+  APP_REVISION="$AFTER"
+  export APP_REVISION
   log "Exported $ENV_FILE for Docker build-time VITE_* arguments"
 fi
 
