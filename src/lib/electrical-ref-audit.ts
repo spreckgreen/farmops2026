@@ -36,8 +36,11 @@ export interface RefAuditRow {
   slot: "source" | "dest" | "";
   /** Legacy free-text reference stored on the record. */
   reference: string;
+  /** Which column the legacy reference was read from. */
+  referenceSource: string;
   /** Stable ID of the row the FK actually points at. */
   fkTarget: string;
+
   disposition: AuditDisposition;
   reason: AuditReason;
   detail: string;
