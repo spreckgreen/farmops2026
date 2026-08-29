@@ -7,7 +7,6 @@ import { ElectricalGate } from "@/components/electrical/electrical-gate";
 import { ENTITIES, ENTITY_KINDS } from "@/lib/electrical-entities";
 import {
   electricalTopology,
-  deleteElectrical,
   deleteWaypoint,
   listWaypoints,
   saveWaypoint,
@@ -23,46 +22,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, Pencil, Plus, Trash2 } from "lucide-react";
+import { DeleteDependencyDialog } from "@/components/electrical/delete-dependency-dialog";
 
-function DeleteRecord({
-  kind,
-  id,
-  label,
-  singular,
-}: {
-  kind: ElectricalEntityKind;
-  id: string;
-  label: string;
-  singular: string;
-}) {
-  const navigate = useNavigate();
-  const qc = useQueryClient();
-  const remove = useServerFn(deleteElectrical);
-  const del = useMutation({
-    mutationFn: async () => remove({ data: { kind, id } }),
-    onSuccess: () => {
-      toast.success(`Deleted ${label || singular}`);
-      void qc.invalidateQueries({ queryKey: ["electrical"] });
-      void navigate({ to: "/electrical/$kind", params: { kind } });
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
 
-  return (
-    <Button
-      variant="outline"
-      size="sm"
-      className="gap-1 text-destructive"
-      disabled={del.isPending}
-      onClick={() => {
-        if (confirm(`Delete ${label || singular}? Stable IDs are never reused.`)) del.mutate();
-      }}
-    >
-      <Trash2 className="h-4 w-4" />
-      {del.isPending ? "Deleting…" : "Delete"}
-    </Button>
-  );
-}
 
 export const Route = createFileRoute("/electrical/item/$kind/$id")({
   component: ItemPage,
@@ -108,6 +70,8 @@ function ItemPage() {
 
 function Detail({ kind, id }: { kind: ElectricalEntityKind; id: string }) {
   const def = ENTITIES[kind];
+  const navigate = useNavigate();
+
   const fetcher = useServerFn(electricalTopology);
   const q = useQuery({
     queryKey: ["electrical", "topology", kind, id],
@@ -159,12 +123,14 @@ function Detail({ kind, id }: { kind: ElectricalEntityKind; id: string }) {
               Edit
             </Link>
           </Button>
-          <DeleteRecord
+          <DeleteDependencyDialog
             kind={kind}
             id={id}
             label={String(record[def.stableIdField] ?? "")}
             singular={def.singular}
+            onDeleted={() => void navigate({ to: "/electrical/$kind", params: { kind } })}
           />
+
         </div>
       </div>
 

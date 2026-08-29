@@ -15,7 +15,14 @@ import {
   relationsFor,
   type RelationTarget,
 } from "@/lib/electrical-relations";
+import {
+  dependentSpecs,
+  type DependencyReport,
+  type DependentChildGroup,
+  type DependentGroup,
+} from "@/lib/electrical-dependents";
 import { runIntegrityChecks, integritySummary, type IntegrityFinding } from "@/lib/electrical-integrity";
+
 import { collectTopology, topologyLookups } from "@/lib/electrical-topology";
 import {
   topologyGapSummary,
@@ -192,6 +199,63 @@ export const saveElectrical = createServerFn({ method: "POST" })
   });
 
 
+/**
+ * List every record that references this one, grouped by referencing entity
+ * and field, so the UI can show an actionable dependency breakdown with links.
+ */
+export const electricalDependents = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ kind: kindSchema, id: z.string().uuid() }).parse(d),
+  )
+  .handler(async ({ context, data }): Promise<DependencyReport> => {
+    await requireAddon(context.supabase, context.userId, "electrical");
+    const db = context.supabase as unknown as LooseDb;
+    const groups: DependentGroup[] = [];
+
+    for (const spec of dependentSpecs(data.kind)) {
+      const { data: rows } = await db
+        .from(spec.table)
+        .select(`id, ${spec.stableIdField}, description`)
+        .eq(spec.fkColumn, data.id)
+        .order(spec.stableIdField);
+      const list = ((rows ?? []) as Record<string, string | null>[]).map((r) => ({
+        id: String(r["id"]),
+        stableId: String(r[spec.stableIdField] ?? ""),
+        description: (r["description"] as string | null) ?? null,
+      }));
+      if (!list.length) continue;
+      groups.push({
+        kind: spec.kind,
+        title: ENTITIES[spec.kind].title,
+        fkColumn: spec.fkColumn,
+        fieldLabel: spec.fieldLabel,
+        rows: list,
+      });
+    }
+
+    const children: DependentChildGroup[] = [];
+    if (data.kind === "raceway") {
+      const { data: wps } = await db
+        .from("electrical_raceway_waypoints")
+        .select("id")
+        .eq("raceway_id", data.id);
+      const count = ((wps ?? []) as unknown[]).length;
+      if (count) {
+        children.push({
+          title: "Waypoints",
+          count,
+          hint: "Remove the waypoints from this raceway's detail page first.",
+        });
+      }
+    }
+
+    const total =
+      groups.reduce((n, g) => n + g.rows.length, 0) +
+      children.reduce((n, c) => n + c.count, 0);
+    return { kind: data.kind, total, groups, children };
+  });
+
 export const deleteElectrical = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
@@ -205,16 +269,17 @@ export const deleteElectrical = createServerFn({ method: "POST" })
       .eq("id", data.id);
     if (error) {
       // A record still referenced by other topology must not be silently
-      // orphaned — explain what to unlink first.
+      // orphaned — name exactly what still points at it.
       if (/foreign key|violates/i.test(error.message)) {
         throw new Error(
-          `This ${ENTITIES[data.kind].singular} is still referenced by other electrical records. Clear those links (endpoints, waypoints or circuit references) first, then delete it.`,
+          `This ${ENTITIES[data.kind].singular} is still referenced by other electrical records. Open the dependency breakdown, clear each reference, then delete it.`,
         );
       }
       throw new Error(error.message);
     }
     return { ok: true };
   });
+
 
 /** Suggest the next sequential ID for CON-/JB-/BR- style records. */
 export const suggestStableId = createServerFn({ method: "GET" })
