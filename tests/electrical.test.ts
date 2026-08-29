@@ -4,11 +4,16 @@ import { coerceValue } from "@/lib/electrical-entities";
 import {
   checkStableId,
   completionFromStatus,
+  encodedBranchOrigin,
+  encodedParentMismatch,
   farmShopWalkOrder,
   findBreakerConflicts,
+  nextBranchId,
+  nextJboxId,
   nextStableId,
   panelPositions,
   parseGrid,
+  parseHierarchicalId,
   sortByPanelExit,
 } from "@/lib/electrical";
 import {
