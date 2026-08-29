@@ -30,11 +30,14 @@ import {
   farmShopWalkOrder,
   findBreakerConflicts,
   INSTALL_STATUSES,
+  mergeLegacyStatusNote,
   nextPanelExitOrder,
   nextStableId,
+  normalizeInstallStatus,
   sortByPanelExit,
   type ElectricalEntityKind,
 } from "@/lib/electrical";
+
 
 
 type LooseDb = { from: (table: string) => any };
