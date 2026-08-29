@@ -8,6 +8,7 @@ import { useAddon } from "@/hooks/use-addon";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { ENTITIES, ENTITY_KINDS } from "@/lib/electrical-entities";
 import { Zap } from "lucide-react";
 
@@ -79,6 +80,21 @@ export function ElectricalGate({ children }: { children: ReactNode }) {
             <Skeleton className="h-8 w-full" />
             <Skeleton className="h-40 w-full" />
           </div>
+        ) : addon.error ? (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Couldn't check your Electrical add-on</CardTitle>
+            </CardHeader>
+            <CardContent className="text-sm text-muted-foreground space-y-2">
+              <p>
+                Your electrical records are untouched — only the add-on check failed
+                {addon.error.message ? `: ${addon.error.message}` : "."}
+              </p>
+              <Button size="sm" variant="outline" onClick={() => void addon.refetch()}>
+                Try again
+              </Button>
+            </CardContent>
+          </Card>
         ) : addon.enabled ? (
           <>
             <ElectricalNav />
