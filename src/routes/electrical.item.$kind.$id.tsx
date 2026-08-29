@@ -249,6 +249,9 @@ function Waypoints({ racewayId }: { racewayId: string }) {
   const remove = useServerFn(deleteWaypoint);
   const [grid, setGrid] = useState("");
   const [direction, setDirection] = useState("");
+  // Inline edit buffer for one existing waypoint at a time.
+  const [editId, setEditId] = useState<string | null>(null);
+  const [draft, setDraft] = useState({ sequence: "1", grid: "", direction: "", notes: "" });
 
   const q = useQuery({
     queryKey: ["electrical", "waypoints", racewayId],
@@ -276,11 +279,44 @@ function Waypoints({ racewayId }: { racewayId: string }) {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const del = useMutation({
-    mutationFn: async (id: string) => remove({ data: { id } }),
-    onSuccess: invalidate,
+  const update = useMutation({
+    mutationFn: async (id: string) =>
+      save({
+        data: {
+          id,
+          raceway_id: racewayId,
+          sequence: Math.max(1, Number(draft.sequence) || 1),
+          grid: draft.grid || undefined,
+          direction: draft.direction || undefined,
+          notes: draft.notes || undefined,
+        },
+      }),
+    onSuccess: () => {
+      toast.success("Waypoint updated");
+      setEditId(null);
+      invalidate();
+    },
     onError: (e: Error) => toast.error(e.message),
   });
+
+  const del = useMutation({
+    mutationFn: async (id: string) => remove({ data: { id } }),
+    onSuccess: () => {
+      toast.success("Waypoint deleted");
+      invalidate();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const startEdit = (w: Record<string, unknown>) => {
+    setEditId(String(w["id"]));
+    setDraft({
+      sequence: String(w["sequence"] ?? 1),
+      grid: String(w["grid"] ?? ""),
+      direction: String(w["direction"] ?? ""),
+      notes: String(w["notes"] ?? ""),
+    });
+  };
 
   return (
     <Card>
@@ -295,17 +331,73 @@ function Waypoints({ racewayId }: { racewayId: string }) {
         {q.isLoading ? (
           <Skeleton className="h-16 w-full" />
         ) : (
-          <ol className="space-y-1 text-sm">
-            {(q.data ?? []).map((w) => (
-              <li key={String(w["id"])} className="flex items-center gap-2">
-                <Badge variant="outline">{String(w["sequence"])}</Badge>
-                <span className="font-mono">{String(w["grid"] ?? "—")}</span>
-                <span className="text-muted-foreground">{String(w["direction"] ?? "")}</span>
-                <Button variant="ghost" size="sm" onClick={() => del.mutate(String(w["id"]))}>
-                  <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                </Button>
-              </li>
-            ))}
+          <ol className="space-y-2 text-sm">
+            {(q.data ?? []).map((w) =>
+              editId === String(w["id"]) ? (
+                <li key={String(w["id"])} className="space-y-2 rounded-md border p-2">
+                  <div className="flex flex-wrap gap-2">
+                    <Input
+                      className="w-20"
+                      type="number"
+                      min={1}
+                      value={draft.sequence}
+                      onChange={(e) => setDraft((d) => ({ ...d, sequence: e.target.value }))}
+                    />
+                    <Input
+                      className="w-28"
+                      placeholder="Grid"
+                      value={draft.grid}
+                      onChange={(e) =>
+                        setDraft((d) => ({ ...d, grid: e.target.value.toUpperCase() }))
+                      }
+                    />
+                    <Input
+                      className="flex-1 min-w-[160px]"
+                      placeholder="Direction / note"
+                      value={draft.direction}
+                      onChange={(e) => setDraft((d) => ({ ...d, direction: e.target.value }))}
+                    />
+                  </div>
+                  <Input
+                    placeholder="Notes"
+                    value={draft.notes}
+                    onChange={(e) => setDraft((d) => ({ ...d, notes: e.target.value }))}
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      disabled={update.isPending}
+                      onClick={() => update.mutate(String(w["id"]))}
+                    >
+                      {update.isPending ? "Saving…" : "Save"}
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => setEditId(null)}>
+                      Cancel
+                    </Button>
+                  </div>
+                </li>
+              ) : (
+                <li key={String(w["id"])} className="flex items-center gap-2">
+                  <Badge variant="outline">{String(w["sequence"])}</Badge>
+                  <span className="font-mono">{String(w["grid"] ?? "—")}</span>
+                  <span className="text-muted-foreground">{String(w["direction"] ?? "")}</span>
+                  <Button variant="ghost" size="sm" onClick={() => startEdit(w)}>
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      if (confirm(`Delete waypoint ${String(w["sequence"])}?`)) {
+                        del.mutate(String(w["id"]));
+                      }
+                    }}
+                  >
+                    <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                  </Button>
+                </li>
+              ),
+            )}
           </ol>
         )}
         <div className="flex flex-wrap gap-2">
@@ -334,3 +426,4 @@ function Waypoints({ racewayId }: { racewayId: string }) {
     </Card>
   );
 }
+

@@ -7,7 +7,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import {
-  deleteElectrical,
   electricalEntityOptions,
   listElectrical,
   saveElectrical,
@@ -41,7 +40,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Plus, Trash2, Pencil, Search } from "lucide-react";
+import { Plus, Pencil, Search } from "lucide-react";
+import { DeleteDependencyDialog } from "@/components/electrical/delete-dependency-dialog";
 
 type Values = Record<string, string | boolean>;
 
@@ -169,7 +169,6 @@ export function EntityManager({
   const qc = useQueryClient();
   const list = useServerFn(listElectrical);
   const save = useServerFn(saveElectrical);
-  const remove = useServerFn(deleteElectrical);
   const suggest = useServerFn(suggestStableId);
   const loadOptions = useServerFn(electricalEntityOptions);
 
@@ -254,14 +253,10 @@ export function EntityManager({
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: async (id: string) => remove({ data: { kind, id } }),
-    onSuccess: () => {
-      toast.success(`Deleted ${def.singular}`);
-      invalidate();
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
+  // Row deletes go through DeleteDependencyDialog so every tab gets the same
+  // dependency breakdown and guided cleanup before anything is removed.
+
+
 
   const openNew = async () => {
     const next = toValues(def);
@@ -404,21 +399,24 @@ export function EntityManager({
                     </td>
                   ))}
                   <td className="px-3 py-2 text-right whitespace-nowrap">
-                    <Button variant="ghost" size="sm" onClick={() => openEdit(row)}>
-                      <Pencil className="h-4 w-4" />
-                    </Button>
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => {
-                        if (confirm(`Delete ${String(row[def.stableIdField])}?`)) {
-                          deleteMutation.mutate(String(row["id"]));
-                        }
-                      }}
+                      aria-label={`Edit ${String(row[def.stableIdField] ?? "")}`}
+                      onClick={() => openEdit(row)}
                     >
-                      <Trash2 className="h-4 w-4 text-destructive" />
+                      <Pencil className="h-4 w-4" />
                     </Button>
+                    <DeleteDependencyDialog
+                      iconOnly
+                      kind={kind}
+                      id={String(row["id"])}
+                      label={String(row[def.stableIdField] ?? "")}
+                      singular={def.singular}
+                      onDeleted={() => void query.refetch()}
+                    />
                   </td>
+
                 </tr>
               ))}
             </tbody>

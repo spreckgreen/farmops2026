@@ -28,12 +28,15 @@ export function DeleteDependencyDialog({
   label,
   singular,
   onDeleted,
+  iconOnly = false,
 }: {
   kind: ElectricalEntityKind;
   id: string;
   label: string;
   singular: string;
   onDeleted: () => void;
+  /** Compact trigger for table rows. */
+  iconOnly?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const qc = useQueryClient();
@@ -62,15 +65,27 @@ export function DeleteDependencyDialog({
 
   return (
     <>
-      <Button
-        variant="outline"
-        size="sm"
-        className="gap-1 text-destructive"
-        onClick={() => setOpen(true)}
-      >
-        <Trash2 className="h-4 w-4" />
-        Delete
-      </Button>
+      {iconOnly ? (
+        <Button
+          variant="ghost"
+          size="sm"
+          aria-label={`Delete ${label || singular}`}
+          onClick={() => setOpen(true)}
+        >
+          <Trash2 className="h-4 w-4 text-destructive" />
+        </Button>
+      ) : (
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-1 text-destructive"
+          onClick={() => setOpen(true)}
+        >
+          <Trash2 className="h-4 w-4" />
+          Delete
+        </Button>
+      )}
+
 
       <Dialog open={open} onOpenChange={(v) => !del.isPending && setOpen(v)}>
         <DialogContent className="max-w-lg">
