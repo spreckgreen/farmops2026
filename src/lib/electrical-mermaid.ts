@@ -366,7 +366,7 @@ export function buildDiagram(
   const panelIds = new Set(panels.map((p) => sid("panel", p)));
 
   // ---- utility / service + feeders
-  if (type === "whole_system" || type === "site" || type === "critical_power") {
+  if (panels.length && (type === "whole_system" || type === "site" || type === "critical_power")) {
     const utility = b.node("utility", "UTILITY", "Utility service", undefined, "utility");
     for (const p of panels) {
       const key = b.node("panel", sid("panel", p), panelLabel(p), p);
