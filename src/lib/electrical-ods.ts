@@ -36,6 +36,56 @@ function cellText(cellXml: string): string {
   return parts.join(" ").replace(/\s+/g, " ").trim();
 }
 
+interface ScannedElement {
+  attrs: string;
+  inner: string;
+  start: number;
+}
+
+/**
+ * Scan same-level XML elements by tag name. A hand-rolled scanner rather than
+ * one regex: a single pattern with a `/>|>` alternation backtracks on
+ * self-closing tags and swallows the following sibling, which is exactly how
+ * empty ODS cells used to shift every later column to the left.
+ */
+function scanElements(xml: string, tag: string): ScannedElement[] {
+  const out: ScannedElement[] = [];
+  const open = new RegExp(`<${tag}\\b([^>]*?)(/?)>`, "g");
+  const closeTag = `</${tag}>`;
+  let m: RegExpExecArray | null;
+  while ((m = open.exec(xml))) {
+    const start = m.index;
+    if (m[2] === "/") {
+      out.push({ attrs: m[1], inner: "", start });
+      continue;
+    }
+    // Walk forward honouring nesting of the same tag.
+    let depth = 1;
+    let cursor = open.lastIndex;
+    const contentStart = cursor;
+    while (depth > 0) {
+      const nextClose = xml.indexOf(closeTag, cursor);
+      if (nextClose < 0) break;
+      const nextOpen = new RegExp(`<${tag}\\b([^>]*?)(/?)>`, "g");
+      nextOpen.lastIndex = cursor;
+      const nested = nextOpen.exec(xml);
+      if (nested && nested.index < nextClose && nested[2] !== "/") {
+        depth++;
+        cursor = nextOpen.lastIndex;
+        continue;
+      }
+      depth--;
+      cursor = nextClose + closeTag.length;
+      if (depth === 0) {
+        out.push({ attrs: m[1], inner: xml.slice(contentStart, nextClose), start });
+        open.lastIndex = cursor;
+      }
+    }
+    if (depth > 0) break;
+  }
+  return out;
+}
+
 /** Parse the `content.xml` of an .ods file into sheets of string cells. */
 export function parseOdsContentXml(xml: string): Sheet[] {
   const sheets: Sheet[] = [];
