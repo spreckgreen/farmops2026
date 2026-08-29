@@ -7,6 +7,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { ElectricalGate } from "@/components/electrical/electrical-gate";
 import { electricalIntegrityReport } from "@/lib/electrical.functions";
+import { RefAuditReport } from "@/components/electrical/ref-audit-report";
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
@@ -40,10 +42,14 @@ export const Route = createFileRoute("/electrical/qa")({
 function QaPage() {
   return (
     <ElectricalGate>
-      <QaReport />
+      <div className="space-y-3">
+        <RefAuditReport />
+        <QaReport />
+      </div>
     </ElectricalGate>
   );
 }
+
 
 const CODE_LABELS: Record<string, string> = {
   duplicate_stable_id: "Duplicate stable IDs",
