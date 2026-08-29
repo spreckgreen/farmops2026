@@ -47,11 +47,18 @@ export const Route = createFileRoute("/electrical/$kind")({
 
 function EntityListPage() {
   const { kind } = Route.useParams();
+  const { edit } = Route.useSearch();
+  const navigate = Route.useNavigate();
   return (
     <ElectricalGate>
       <div className="space-y-3">
         {kind === "circuit_group" ? <CircuitGroupDerive /> : null}
-        <EntityManager key={kind} kind={kind as ElectricalEntityKind} />
+        <EntityManager
+          key={kind}
+          kind={kind as ElectricalEntityKind}
+          openEditId={edit}
+          onEditHandled={() => void navigate({ search: {}, replace: true })}
+        />
       </div>
     </ElectricalGate>
   );
