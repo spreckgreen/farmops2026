@@ -151,9 +151,23 @@ function auditSlot(
   ctx: { selfStableId: string; selfId: string; collided: boolean },
 ): RefAuditRow {
   const index = indexes[spec.targetKind];
-  const reference = text(row, spec.refColumn);
+  const direct = text(row, spec.refColumn);
+  // Loads carry the released circuit reference in `source_circuit` or, on older
+  // imports, inside a "Source Circuit: …" note. Both are legitimate legacy
+  // references, so the audit reads them instead of reporting "nothing to do".
+  const fallback =
+    !direct && kind === "load" && spec.targetKind === "circuit_group"
+      ? (loadGroupRef({
+          id: ctx.selfId,
+          load_id: ctx.selfStableId,
+          notes: text(row, "notes") || null,
+          source_circuit: text(row, "source_circuit") || null,
+        }) ?? null)
+      : null;
+  const reference = direct || fallback?.ref || "";
+  const referenceSource = direct ? spec.refColumn : (fallback?.source ?? "");
   const fk = text(row, spec.fkColumn);
-  const candidates = index.byStableId.get(reference) ?? [];
+  const candidates = reference ? (index.byStableId.get(reference) ?? []) : [];
   const fkRow = fk ? index.byId.get(fk) : undefined;
   const fkTarget = fkRow ? stableIdOf(spec.targetKind, fkRow) : "";
 
@@ -165,9 +179,11 @@ function auditSlot(
     targetKind: spec.targetKind,
     slot: (spec.slot ?? "") as "source" | "dest" | "",
     reference,
+    referenceSource,
     fkTarget,
     candidates: candidates.length,
   };
+
 
   if (ctx.collided) {
     return {
