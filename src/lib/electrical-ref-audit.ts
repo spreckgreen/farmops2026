@@ -6,6 +6,7 @@
 // audit only reports, so ambiguity is surfaced instead of resolved silently.
 import { ENTITIES } from "@/lib/electrical-entities";
 import { relationsFor, type RelationSpec } from "@/lib/electrical-relations";
+import { loadGroupRef } from "@/lib/electrical-circuit-groups";
 import type { ElectricalEntityKind } from "@/lib/electrical";
 import type { ElectricalGraphData, Row } from "@/lib/electrical-mermaid";
 
@@ -290,6 +291,7 @@ const CSV_HEADER = [
   "target_kind",
   "slot",
   "legacy_reference",
+  "reference_source",
   "linked_record",
   "match_candidates",
   "handling",
@@ -309,6 +311,7 @@ export function refAuditToCsv(report: RefAuditReport): string {
         r.targetKind,
         r.slot,
         r.reference,
+        r.referenceSource,
         r.fkTarget,
         r.candidates,
         r.disposition,
