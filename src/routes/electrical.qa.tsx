@@ -3,10 +3,13 @@
 // disagreement, breaker conflicts, invalid controlled values) and never edits.
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { ElectricalGate } from "@/components/electrical/electrical-gate";
-import { electricalIntegrityReport } from "@/lib/electrical.functions";
+import {
+  electricalIntegrityReport,
+  normalizeLegacyStatuses,
+} from "@/lib/electrical.functions";
 import { RefAuditReport } from "@/components/electrical/ref-audit-report";
 import { GridAuditReport } from "@/components/electrical/grid-audit-report";
 import { LoadCompareReport } from "@/components/electrical/load-compare-report";
@@ -18,7 +21,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ENTITIES } from "@/lib/electrical-entities";
 import type { ElectricalEntityKind } from "@/lib/electrical";
-import { CheckCircle2, RefreshCw } from "lucide-react";
+import { toast } from "sonner";
+import { CheckCircle2, RefreshCw, Wrench } from "lucide-react";
 
 export const Route = createFileRoute("/electrical/qa")({
   component: QaPage,
