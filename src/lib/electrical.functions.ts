@@ -239,7 +239,7 @@ export const electricalDependents = createServerFn({ method: "GET" })
       const { data: wps } = await db
         .from("electrical_raceway_waypoints")
         .select("id")
-        .eq("raceway_uuid", data.id);
+        .eq("raceway_id", data.id);
       const count = ((wps ?? []) as unknown[]).length;
       if (count) {
         children.push({
