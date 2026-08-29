@@ -19,7 +19,7 @@ import {
   type StateFilter,
 } from "@/lib/electrical-mermaid";
 import { generateElectricalDiagram } from "@/lib/electrical-diagrams.functions";
-import { Copy, Download, AlertTriangle } from "lucide-react";
+import { Copy, Download, AlertTriangle, FileImage, FileCode2 } from "lucide-react";
 
 export const Route = createFileRoute("/electrical/diagrams")({
   head: () => ({
