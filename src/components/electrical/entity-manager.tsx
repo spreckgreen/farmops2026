@@ -364,16 +364,29 @@ export function EntityManager({ kind }: { kind: ElectricalEntityKind }) {
                 </p>
               )}
             </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {def.fields.map((f) => (
-                <FieldInput
-                  key={f.key}
-                  field={f}
-                  value={values[f.key] ?? (f.kind === "bool" ? false : "")}
-                  onChange={(v) => setValues((prev) => ({ ...prev, [f.key]: v }))}
-                />
-              ))}
-            </div>
+            {groups.map((group) => (
+              <div key={group.title} className="space-y-2">
+                <div>
+                  <h4 className="text-sm font-medium">{group.title}</h4>
+                  {group.note ? (
+                    <p className="text-xs text-muted-foreground">{group.note}</p>
+                  ) : null}
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {group.fields.map((f) => (
+                    <FieldInput
+                      key={f.key}
+                      field={f}
+                      value={values[f.key] ?? (f.kind === "bool" ? false : "")}
+                      onChange={(v) => setValues((prev) => ({ ...prev, [f.key]: v }))}
+                      options={f.entityKind ? (optionsQuery.data?.[f.entityKind] ?? []) : undefined}
+                      optionsLoading={optionsQuery.isLoading}
+                    />
+                  ))}
+                </div>
+              </div>
+            ))}
+
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditing(null)}>
