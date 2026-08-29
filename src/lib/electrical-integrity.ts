@@ -165,10 +165,21 @@ function checkEndpoint(
 
   if (!ref && !fkRow) {
     if (opts.required) {
-      push("missing_endpoint", "error", `${label} ${id} has no ${side} endpoint.`);
+      // A missing as-built endpoint is INCOMPLETE, not invalid: the ODS design
+      // text is the engineering intent and the physical topology simply has not
+      // been established yet. Errors are reserved for provably wrong states.
+      const design = opts.designText?.trim();
+      push(
+        "incomplete_topology",
+        "warning",
+        design
+          ? `${label} ${id} ${side} endpoint is not linked yet — design value "${design}" still needs a record selected.`
+          : `${label} ${id} has no ${side} endpoint linked yet.`,
+      );
     }
     return;
   }
+
 
   // Legacy text-only reference: resolve it and check the declared type.
   if (!fkRow && ref) {
