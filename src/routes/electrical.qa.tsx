@@ -40,10 +40,14 @@ export const Route = createFileRoute("/electrical/qa")({
 function QaPage() {
   return (
     <ElectricalGate>
-      <QaReport />
+      <div className="space-y-3">
+        <RefAuditReport />
+        <QaReport />
+      </div>
     </ElectricalGate>
   );
 }
+
 
 const CODE_LABELS: Record<string, string> = {
   duplicate_stable_id: "Duplicate stable IDs",
