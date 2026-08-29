@@ -77,6 +77,7 @@ import { Route as AdminAiEnginesRouteImport } from './routes/admin.ai-engines'
 import { Route as AdminAddonsRouteImport } from './routes/admin.addons'
 import { Route as ApiPublicReadyRouteImport } from './routes/api/public/ready'
 import { Route as ApiPublicHealthRouteImport } from './routes/api/public/health'
+import { Route as ApiElectricalSnapshotRouteImport } from './routes/api/electrical/snapshot'
 import { Route as ElectricalItemKindIdRouteImport } from './routes/electrical.item.$kind.$id'
 import { Route as ApiPublicWebhooksRachioRouteImport } from './routes/api/public/webhooks/rachio'
 import { Route as ApiPublicHooksTaskHealthRouteImport } from './routes/api/public/hooks/task-health'
@@ -424,6 +425,11 @@ const ApiPublicHealthRoute = ApiPublicHealthRouteImport.update({
   path: '/api/public/health',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiElectricalSnapshotRoute = ApiElectricalSnapshotRouteImport.update({
+  id: '/api/electrical/snapshot',
+  path: '/api/electrical/snapshot',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ElectricalItemKindIdRoute = ElectricalItemKindIdRouteImport.update({
   id: '/electrical/item/$kind/$id',
   path: '/electrical/item/$kind/$id',
@@ -520,6 +526,7 @@ export interface FileRoutesByFullPath {
   '/maintenance/': typeof MaintenanceIndexRoute
   '/procedures/': typeof ProceduresIndexRoute
   '/tasks/': typeof TasksIndexRoute
+  '/api/electrical/snapshot': typeof ApiElectricalSnapshotRoute
   '/api/public/health': typeof ApiPublicHealthRouteWithChildren
   '/api/public/ready': typeof ApiPublicReadyRoute
   '/api/public/health/procedures': typeof ApiPublicHealthProceduresRoute
@@ -592,6 +599,7 @@ export interface FileRoutesByTo {
   '/maintenance': typeof MaintenanceIndexRoute
   '/procedures': typeof ProceduresIndexRoute
   '/tasks': typeof TasksIndexRoute
+  '/api/electrical/snapshot': typeof ApiElectricalSnapshotRoute
   '/api/public/health': typeof ApiPublicHealthRouteWithChildren
   '/api/public/ready': typeof ApiPublicReadyRoute
   '/api/public/health/procedures': typeof ApiPublicHealthProceduresRoute
@@ -668,6 +676,7 @@ export interface FileRoutesById {
   '/maintenance/': typeof MaintenanceIndexRoute
   '/procedures/': typeof ProceduresIndexRoute
   '/tasks/': typeof TasksIndexRoute
+  '/api/electrical/snapshot': typeof ApiElectricalSnapshotRoute
   '/api/public/health': typeof ApiPublicHealthRouteWithChildren
   '/api/public/ready': typeof ApiPublicReadyRoute
   '/api/public/health/procedures': typeof ApiPublicHealthProceduresRoute
@@ -745,6 +754,7 @@ export interface FileRouteTypes {
     | '/maintenance/'
     | '/procedures/'
     | '/tasks/'
+    | '/api/electrical/snapshot'
     | '/api/public/health'
     | '/api/public/ready'
     | '/api/public/health/procedures'
@@ -817,6 +827,7 @@ export interface FileRouteTypes {
     | '/maintenance'
     | '/procedures'
     | '/tasks'
+    | '/api/electrical/snapshot'
     | '/api/public/health'
     | '/api/public/ready'
     | '/api/public/health/procedures'
@@ -892,6 +903,7 @@ export interface FileRouteTypes {
     | '/maintenance/'
     | '/procedures/'
     | '/tasks/'
+    | '/api/electrical/snapshot'
     | '/api/public/health'
     | '/api/public/ready'
     | '/api/public/health/procedures'
@@ -947,6 +959,7 @@ export interface RootRouteChildren {
   AdminIndexRoute: typeof AdminIndexRoute
   ElectricalIndexRoute: typeof ElectricalIndexRoute
   TasksIndexRoute: typeof TasksIndexRoute
+  ApiElectricalSnapshotRoute: typeof ApiElectricalSnapshotRoute
   ApiPublicHealthRoute: typeof ApiPublicHealthRouteWithChildren
   ApiPublicReadyRoute: typeof ApiPublicReadyRoute
   ApiPublicHooksRachioSyncRoute: typeof ApiPublicHooksRachioSyncRoute
@@ -1433,6 +1446,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHealthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/electrical/snapshot': {
+      id: '/api/electrical/snapshot'
+      path: '/api/electrical/snapshot'
+      fullPath: '/api/electrical/snapshot'
+      preLoaderRoute: typeof ApiElectricalSnapshotRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/electrical/item/$kind/$id': {
       id: '/electrical/item/$kind/$id'
       path: '/electrical/item/$kind/$id'
@@ -1608,6 +1628,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminIndexRoute: AdminIndexRoute,
   ElectricalIndexRoute: ElectricalIndexRoute,
   TasksIndexRoute: TasksIndexRoute,
+  ApiElectricalSnapshotRoute: ApiElectricalSnapshotRoute,
   ApiPublicHealthRoute: ApiPublicHealthRouteWithChildren,
   ApiPublicReadyRoute: ApiPublicReadyRoute,
   ApiPublicHooksRachioSyncRoute: ApiPublicHooksRachioSyncRoute,
