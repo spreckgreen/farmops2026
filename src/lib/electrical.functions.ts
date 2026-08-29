@@ -17,6 +17,11 @@ import {
 } from "@/lib/electrical-relations";
 import { runIntegrityChecks, integritySummary, type IntegrityFinding } from "@/lib/electrical-integrity";
 import { collectTopology, topologyLookups } from "@/lib/electrical-topology";
+import {
+  topologyGapSummary,
+  topologyGaps,
+  type TopologyGap,
+} from "@/lib/electrical-topology-resolve";
 import type { ElectricalGraphData, Row } from "@/lib/electrical-mermaid";
 import {
   checkControlledValue,
@@ -553,5 +558,12 @@ export const electricalIntegrityReport = createServerFn({ method: "GET" })
       waypoint: (waypoints ?? []) as Row[],
     };
     const findings = runIntegrityChecks(graph);
-    return { findings, summary: integritySummary(findings) };
+    const records = kinds.reduce((n, k) => n + (graph[k] ?? []).length, 0);
+    const gaps = topologyGaps(graph);
+    return {
+      findings,
+      summary: integritySummary(findings, records),
+      gaps,
+      gapSummary: topologyGapSummary(gaps),
+    };
   });
