@@ -16,14 +16,7 @@ import {
   type RelationTarget,
 } from "@/lib/electrical-relations";
 import { runIntegrityChecks, integritySummary, type IntegrityFinding } from "@/lib/electrical-integrity";
-import {
-  relatedFromRows,
-  sortRelated,
-  topologyLookups,
-  topologyWarning,
-  type RelatedRecord,
-  type TopologyWarning,
-} from "@/lib/electrical-topology";
+import { collectTopology, topologyLookups } from "@/lib/electrical-topology";
 import type { ElectricalGraphData, Row } from "@/lib/electrical-mermaid";
 import {
   checkControlledValue,
@@ -445,26 +438,21 @@ export const electricalTopology = createServerFn({ method: "GET" })
     const record = row as unknown as ElectricalRow;
     const stableId = String(record[def.stableIdField] ?? "");
 
-    const related: RelatedRecord[] = [];
-    const warnings: TopologyWarning[] = [];
+    const plan = topologyLookups(
+      data.kind,
+      record as unknown as Record<string, unknown>,
+      stableId,
+    );
+    const { related, warnings } = await collectTopology(plan, async (lookup) => {
+      const { data: rows, error: lookupError } = await db
+        .from(ENTITIES[lookup.kind].table)
+        .select("*")
+        .eq(lookup.column, lookup.value);
+      if (lookupError) throw new Error(lookupError.message);
+      return (rows ?? []) as Record<string, unknown>[];
+    });
 
-    for (const lookup of topologyLookups(data.kind, record as unknown as Record<string, unknown>, stableId)) {
-      try {
-        const { data: rows, error: lookupError } = await db
-          .from(ENTITIES[lookup.kind].table)
-          .select("*")
-          .eq(lookup.column, lookup.value);
-        if (lookupError) {
-          warnings.push(topologyWarning(lookup, lookupError.message));
-          continue;
-        }
-        related.push(...relatedFromRows(lookup, (rows ?? []) as Record<string, unknown>[]));
-      } catch (e) {
-        warnings.push(topologyWarning(lookup, e instanceof Error ? e.message : String(e)));
-      }
-    }
-
-    return { record, related: sortRelated(related), warnings };
+    return { record, related, warnings };
   });
 
 
