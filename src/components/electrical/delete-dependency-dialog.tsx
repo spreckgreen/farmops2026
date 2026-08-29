@@ -96,11 +96,23 @@ export function DeleteDependencyDialog({
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
                 <p>
                   {report!.total} record{report!.total === 1 ? "" : "s"} still reference this{" "}
-                  {singular}. Open each one below and clear the listed field, then delete.
+                  {singular}. Use guided cleanup to unlink or reassign each one, then delete.
                 </p>
               </div>
 
+              {report!.groups.length ? (
+                <DependencyCleanup
+                  report={report!}
+                  targetKind={kind}
+                  targetId={id}
+                  singular={singular}
+                  onNavigate={() => setOpen(false)}
+                  onResolved={() => void deps.refetch()}
+                />
+              ) : null}
+
               <div className="max-h-72 space-y-4 overflow-y-auto">
+
                 {report!.groups.map((group) => (
                   <div key={`${group.kind}-${group.fkColumn}`} className="space-y-2">
                     <div className="flex items-center justify-between gap-2">
