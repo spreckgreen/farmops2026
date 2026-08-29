@@ -113,7 +113,12 @@ function checkEndpoint(
   kind: "raceway" | "branch",
   row: Row,
   side: "source" | "dest",
-  opts: { required: boolean; fkColumns: { column: string; kind: ElectricalEntityKind }[] },
+  opts: {
+    required: boolean;
+    fkColumns: { column: string; kind: ElectricalEntityKind }[];
+    designText?: string;
+  },
+
 ) {
   const id = sid(kind, row);
   const label = kind === "raceway" ? "Raceway" : "Branch run";
