@@ -135,7 +135,7 @@ export function parseOdsContentXml(xml: string): Sheet[] {
 const HEADER_HINTS: Record<ElectricalEntityKind, string[]> = {
   load: ["load id", "load_id", "load description"],
   circuit_group: ["circuit group", "circuit_group_id", "suggested panel"],
-  panel: ["panel id", "panel_id", "bus rating", "spaces"],
+  panel: ["panel id", "panel_id", "bus rating", "spaces", "panels", "feeder source", "fed from", "main breaker"],
   raceway: ["conduit id", "conduit_id", "trade size", "raceway"],
   jbox: ["jbox", "j-box", "junction box"],
   branch: ["branch id", "branch_id", "wiring method"],
