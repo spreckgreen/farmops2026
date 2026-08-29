@@ -184,10 +184,12 @@ export function nextStableId(kind: ElectricalEntityKind, existing: string[]): st
   if (!prefix) return "";
   let max = 0;
   for (const id of existing) {
-    const m = new RegExp(`^${prefix}-(\\d+)$`).exec((id ?? "").trim());
+    // Nested IDs (JB-104-01) count against their parent number only.
+    const m = new RegExp(`^${prefix}-(\\d+)(?:-\\d+)*$`).exec((id ?? "").trim());
     if (m) max = Math.max(max, Number(m[1]));
   }
   return `${prefix}-${String(max + 1).padStart(3, "0")}`;
+
 }
 
 
