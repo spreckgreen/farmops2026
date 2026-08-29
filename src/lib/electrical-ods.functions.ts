@@ -58,6 +58,7 @@ export const previewOdsImport = createServerFn({ method: "POST" })
           kind: null,
           skipped: sheet.rows.length,
           unmapped: [],
+          mapping: [],
           rows: [],
           mergeProposals: [],
         });
