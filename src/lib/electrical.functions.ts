@@ -17,10 +17,13 @@ import {
 } from "@/lib/electrical-relations";
 import {
   dependentSpecs,
+  diffFieldChanges,
+  type CleanupPreview,
   type DependencyReport,
   type DependentChildGroup,
   type DependentGroup,
 } from "@/lib/electrical-dependents";
+
 import { runIntegrityChecks, integritySummary, type IntegrityFinding } from "@/lib/electrical-integrity";
 
 import { collectTopology, topologyLookups } from "@/lib/electrical-topology";
