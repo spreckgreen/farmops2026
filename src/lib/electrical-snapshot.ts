@@ -101,10 +101,43 @@ export interface SnapshotInput {
   qa?: SnapshotQaFinding[];
 }
 
+/**
+ * Columns FarmOps captures in the field. Everything else on an ODS-derived
+ * entity belongs to the engineering workbook.
+ */
+export const FARMOPS_OWNED_FIELDS = new Set([
+  "install_status",
+  "label_status",
+  "completion_percent",
+  "notes",
+  "measured_length_ft",
+  "device_side_connected",
+  "source_side_connected",
+  "exit_order",
+  "exit_side",
+  "exit_notes",
+]);
+
+/** Read-only text imported from the workbook and kept beside the relational FKs. */
+export const LEGACY_REFERENCE_FIELDS = new Set([
+  "from_label",
+  "to_label",
+  "source_endpoint_ref",
+  "source_endpoint_type",
+  "dest_endpoint_ref",
+  "dest_endpoint_type",
+  "circuit_group_ref",
+  "suggested_panel",
+  "source_circuit",
+]);
+
 function ownershipFor(field: EntityField): FieldOwnership {
+  if (LEGACY_REFERENCE_FIELDS.has(field.key)) return "imported_legacy";
   if (field.engineering) return "engineering_design";
-  if (field.readOnly) return "imported_legacy";
-  return "farmops_as_built";
+  if (FARMOPS_OWNED_FIELDS.has(field.key)) return "farmops_as_built";
+  // Relationship pickers are as-built topology established in FarmOps.
+  if (field.kind === "entity") return "farmops_as_built";
+  return "engineering_design";
 }
 
 /** Ownership map for one entity kind, including its derived relation keys. */
