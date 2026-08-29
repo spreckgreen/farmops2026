@@ -264,23 +264,66 @@ export function checkStableId(kind: ElectricalEntityKind, raw: string): IdCheck 
   if (kind === "load") return checkLoadId(id);
   const pattern = ID_PATTERNS[kind];
   if (!pattern) return { ok: true };
-  if (pattern.test(id)) return { ok: true };
-  return { ok: false, error: `${id} does not match the required format for this record type.` };
+  if (pattern.test(id)) {
+    if (kind === "raceway" && id.toUpperCase().startsWith("CON-")) {
+      return {
+        ok: true,
+        warning: `${id} uses the legacy CON-### raceway convention. New raceways use EMT-###; existing IDs are never renamed.`,
+      };
+    }
+    return { ok: true };
+  }
+  const legacy = LEGACY_ID_PATTERNS[kind];
+  if (legacy?.test(id)) {
+    return {
+      ok: true,
+      warning: `${id} predates the hierarchical convention (${HIERARCHICAL_ID_SHAPES[kind]}). Existing IDs are never renamed, but new records must use the current format.`,
+    };
+  }
+  const shape = HIERARCHICAL_ID_SHAPES[kind];
+  return {
+    ok: false,
+    error: shape
+      ? `${id} does not match the required format ${shape} for this record type.`
+      : `${id} does not match the required format for this record type.`,
+  };
 }
 
 export function nextStableId(kind: ElectricalEntityKind, existing: string[]): string {
-  const prefix =
-    kind === "raceway" ? "CON" : kind === "jbox" ? "JB" : kind === "branch" ? "BR" : "";
-  if (!prefix) return "";
-  let max = 0;
-  for (const id of existing) {
-    // Nested IDs (JB-104-01) count against their parent number only.
-    const m = new RegExp(`^${prefix}-(\\d+)(?:-\\d+)*$`).exec((id ?? "").trim());
-    if (m) max = Math.max(max, Number(m[1]));
+  const ids = (existing ?? []).map((id) => (id ?? "").trim().toUpperCase());
+  if (kind === "raceway") {
+    let max = 0;
+    for (const id of ids) {
+      const m = /^(?:EMT|CON)-(\d+)$/.exec(id);
+      if (m) max = Math.max(max, Number(m[1]));
+    }
+    return `EMT-${String(max + 1).padStart(3, "0")}`;
   }
-  return `${prefix}-${String(max + 1).padStart(3, "0")}`;
-
+  if (kind === "jbox") {
+    // Without an explicit parent path, continue the highest path already in use.
+    let path = "001";
+    for (const id of ids) {
+      const p = parseHierarchicalId(id);
+      if (p?.prefix === "JB" && p.path > path) path = p.path;
+      const m = /^JB-(\d{3,})/.exec(id);
+      if (m && m[1].slice(-3) > path) path = m[1].slice(-3);
+    }
+    return nextJboxId(path, ids);
+  }
+  if (kind === "branch") {
+    let parent = "";
+    for (const id of ids) {
+      const p = parseHierarchicalId(id);
+      if (p?.prefix === "BR" && p.jbox) {
+        const candidate = `JB-${p.path}-${p.jbox}`;
+        if (candidate > parent) parent = candidate;
+      }
+    }
+    return nextBranchId(parent || "JB-001-01", ids);
+  }
+  return "";
 }
+
 
 
 // ------------------------------------------------------- panel exit ordering
