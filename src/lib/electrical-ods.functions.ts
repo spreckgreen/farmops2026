@@ -122,9 +122,16 @@ export const applyOdsImport = createServerFn({ method: "POST" })
         const field = def.fields.find((f) => f.key === key)!;
         patch[key] = coerceValue(field, raw);
       }
-      if (typeof patch["install_status"] === "string") {
+      // Only derive completion from status when the sheet didn't supply an
+      // explicit Complete % — the workbook value wins when present.
+      const suppliedCompletion = Object.prototype.hasOwnProperty.call(
+        row.values,
+        "completion_percent",
+      );
+      if (!suppliedCompletion && typeof patch["install_status"] === "string") {
         patch["completion_percent"] = completionFromStatus(patch["install_status"] as string);
       }
+
 
       if (row.existing_id) {
         const { error } = await db.from(def.table).update(patch).eq("id", row.existing_id);
