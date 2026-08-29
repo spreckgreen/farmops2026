@@ -112,6 +112,20 @@ function Detail({ kind, id }: { kind: ElectricalEntityKind; id: string }) {
         <Badge variant="outline">
           {installStatusLabel(String(record["install_status"] ?? "planned"))}
         </Badge>
+        <div className="ml-auto flex items-center gap-2">
+          <Button asChild variant="outline" size="sm" className="gap-1">
+            <Link to="/electrical/$kind" params={{ kind }} search={{ edit: id }}>
+              <Pencil className="h-4 w-4" />
+              Edit
+            </Link>
+          </Button>
+          <DeleteRecord
+            kind={kind}
+            id={id}
+            label={String(record[def.stableIdField] ?? "")}
+            singular={def.singular}
+          />
+        </div>
       </div>
 
       <div className="grid gap-3 lg:grid-cols-2">
