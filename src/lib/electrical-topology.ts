@@ -119,3 +119,25 @@ export function sortRelated(rows: RelatedRecord[]): RelatedRecord[] {
       a.stable_id.localeCompare(b.stable_id),
   );
 }
+
+/**
+ * Execute a lookup plan with an injected reader. Each lookup fails on its own:
+ * the caller always gets the related rows that *could* be read plus a warning
+ * for each that could not. Pure with respect to the reader, so the tolerance
+ * behaviour is unit-testable without a database.
+ */
+export async function collectTopology(
+  plan: TopologyLookup[],
+  read: (lookup: TopologyLookup) => Promise<Rec[]>,
+): Promise<{ related: RelatedRecord[]; warnings: TopologyWarning[] }> {
+  const related: RelatedRecord[] = [];
+  const warnings: TopologyWarning[] = [];
+  for (const lookup of plan) {
+    try {
+      related.push(...relatedFromRows(lookup, await read(lookup)));
+    } catch (e) {
+      warnings.push(topologyWarning(lookup, e instanceof Error ? e.message : String(e)));
+    }
+  }
+  return { related: sortRelated(related), warnings };
+}
