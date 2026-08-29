@@ -1,7 +1,7 @@
 // Generic list + create/edit surface for every electrical entity kind.
 // Field definitions come from @/lib/electrical-entities so the UI, the server
 // whitelist and the ODS importer can never disagree about an entity's shape.
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
