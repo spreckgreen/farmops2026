@@ -108,6 +108,8 @@ function ItemPage() {
 
 function Detail({ kind, id }: { kind: ElectricalEntityKind; id: string }) {
   const def = ENTITIES[kind];
+  const navigate = useNavigate();
+
   const fetcher = useServerFn(electricalTopology);
   const q = useQuery({
     queryKey: ["electrical", "topology", kind, id],
