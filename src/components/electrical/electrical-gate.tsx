@@ -31,6 +31,9 @@ export function ElectricalNav() {
           {ENTITIES[kind].title}
         </Link>
       ))}
+      <Link to="/electrical/diagrams" className={item} activeProps={active}>
+        Diagrams
+      </Link>
       <Link to="/electrical/standards" className={item} activeProps={active}>
         Standards
       </Link>
