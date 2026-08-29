@@ -6,6 +6,7 @@
 // always a reviewable dry run first, and it never destructively merges raceway
 // segments — merges are proposed, never applied automatically.
 import type { ElectricalEntityKind } from "@/lib/electrical";
+import { classifyGrid } from "@/lib/electrical-grid";
 
 export type Sheet = { name: string; rows: string[][] };
 
@@ -135,6 +136,14 @@ export interface MappedRow {
   sourceRow: number;
 }
 
+export interface RejectedCell {
+  sourceRow: number;
+  stableId: string;
+  column: string;
+  value: string;
+  reason: string;
+}
+
 export interface SheetImport {
   sheet: string;
   kind: ElectricalEntityKind | null;
@@ -142,6 +151,8 @@ export interface SheetImport {
   columns: { source: string; target: string | null }[];
   rows: MappedRow[];
   skipped: number;
+  /** Cells refused because the value cannot belong to that column. */
+  rejected: RejectedCell[];
 }
 
 /**
@@ -253,7 +264,15 @@ export function mapSheet(
 ): SheetImport {
   const headerRow = findHeaderRow(sheet.rows);
   if (headerRow < 0 || !kind) {
-    return { sheet: sheet.name, kind, headerRow, columns: [], rows: [], skipped: sheet.rows.length };
+    return {
+      sheet: sheet.name,
+      kind,
+      headerRow,
+      columns: [],
+      rows: [],
+      skipped: sheet.rows.length,
+      rejected: [],
+    };
   }
   const header = sheet.rows[headerRow];
   const used = new Set<string>();
@@ -272,6 +291,7 @@ export function mapSheet(
 
 
   const rows: MappedRow[] = [];
+  const rejected: RejectedCell[] = [];
   let skipped = 0;
   for (let i = headerRow + 1; i < sheet.rows.length; i++) {
     const raw = sheet.rows[i];
@@ -280,17 +300,36 @@ export function mapSheet(
     columns.forEach((col, idx) => {
       if (!col.target) return;
       const v = (raw[idx] ?? "").trim();
-      if (v) values[col.target] = v;
+      if (!v) return;
+      values[col.target] = v;
     });
     const stableId = (values[stableIdField] ?? "").trim();
     if (!stableId) {
       skipped++;
       continue;
     }
+    // Grid is ODS-owned but must still be a grid value: a drifted percent,
+    // rating or note is refused instead of stored, and never replaced by a
+    // neighbouring cell.
+    if (values["grid"] != null) {
+      const g = classifyGrid(values["grid"]);
+      if (g.status === "invalid") {
+        rejected.push({
+          sourceRow: i + 1,
+          stableId,
+          column: "grid",
+          value: values["grid"],
+          reason: g.reason ?? "invalid grid value",
+        });
+        delete values["grid"];
+      } else if (g.value && g.value !== values["grid"]) {
+        values["grid"] = g.value;
+      }
+    }
     rows.push({ values, stableId, sourceRow: i + 1 });
   }
 
-  return { sheet: sheet.name, kind, headerRow, columns, rows, skipped };
+  return { sheet: sheet.name, kind, headerRow, columns, rows, skipped, rejected };
 }
 
 export interface ImportPlanRow extends MappedRow {
@@ -310,6 +349,8 @@ export interface ImportPlanSheet {
   rows: ImportPlanRow[];
   /** Proposed raceway merges — reviewed and applied by hand, never automatic. */
   mergeProposals: { conduit_id: string; note: string }[];
+  /** Cells refused by column validation, shown in the dry-run review. */
+  rejected: RejectedCell[];
 }
 
 /** Diff mapped rows against what is already in the database. */
@@ -371,6 +412,7 @@ export function buildPlanSheet(
       .map((c) => ({ source: c.source, target: c.target as string })),
     rows,
     mergeProposals,
+    rejected: mapped.rejected,
   };
 }
 

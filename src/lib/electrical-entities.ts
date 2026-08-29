@@ -10,6 +10,7 @@ import {
   RACEWAY_ENVIRONMENTS,
   type ElectricalEntityKind,
 } from "@/lib/electrical";
+import { classifyGrid } from "@/lib/electrical-grid";
 
 
 export type FieldKind = "text" | "textarea" | "number" | "bool" | "select" | "entity";
@@ -73,7 +74,7 @@ export const ENTITIES: Record<ElectricalEntityKind, EntityDef> = {
     fields: [
       { key: "description", label: "Description", kind: "text", list: true },
       { key: "building", label: "Building / location", kind: "text", list: true },
-      { key: "grid", label: "Grid", kind: "text", list: true },
+      { key: "grid", label: "Grid", kind: "text", list: true, readOnly: true, engineering: true, hint: "Grid is owned by the canonical electrical ODS." },
       { key: "bus_rating_amps", label: "Bus / main rating (A)", kind: "number" },
       { key: "voltage", label: "Voltage", kind: "number" },
       { key: "phase", label: "Phase", kind: "text" },
@@ -163,7 +164,7 @@ export const ENTITIES: Record<ElectricalEntityKind, EntityDef> = {
     fields: [
       { key: "description", label: "Description", kind: "text", list: true },
       { key: "building", label: "Building / location", kind: "text", list: true },
-      { key: "grid", label: "Grid", kind: "text", list: true },
+      { key: "grid", label: "Grid", kind: "text", list: true, readOnly: true, engineering: true, hint: "Grid is owned by the canonical electrical ODS." },
       { key: "elevation_zone", label: "Elevation / zone", kind: "text" },
       { key: "box_type", label: "Box type", kind: "text", list: true },
       { key: "dimensions", label: "Dimensions", kind: "text" },
@@ -234,7 +235,7 @@ export const ENTITIES: Record<ElectricalEntityKind, EntityDef> = {
       { key: "description", label: "Load description", kind: "text", list: true },
       { key: "count", label: "Count", kind: "number" },
       { key: "dedicated", label: "Dedicated circuit", kind: "bool", list: true },
-      { key: "grid", label: "Grid", kind: "text", list: true },
+      { key: "grid", label: "Grid", kind: "text", list: true, readOnly: true, engineering: true, hint: "Grid is owned by the canonical electrical ODS." },
       { key: "location", label: "Location", kind: "text" },
       {
         key: "circuit_group_uuid",
@@ -356,6 +357,11 @@ export function fieldEntryFields(kind: ElectricalEntityKind): EntityField[] {
 
 export function coerceValue(field: EntityField, raw: unknown): unknown {
   if (field.kind === "bool") return Boolean(raw);
+
+  if (field.key === "grid") {
+    const g = classifyGrid(raw);
+    return g.value;
+  }
 
   if (field.kind === "number") {
     const s = String(raw ?? "").trim();
