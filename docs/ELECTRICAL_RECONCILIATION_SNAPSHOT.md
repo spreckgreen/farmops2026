@@ -1,4 +1,4 @@
-# Electrical Reconciliation Snapshot (Phase 5A)
+# Electrical Reconciliation Snapshot (Phase 4.2)
 
 Read-only machine interface that lets the external **BosteadFarmsBuildDocs**
 document system reconcile FarmOps field/as-built electrical records against the
@@ -116,7 +116,7 @@ Identical electrical data produces byte-identical JSON:
 
 Only `generated_at` differs between two exports of unchanged data.
 
-## Boundaries (Phase 5A)
+## Boundaries (Phase 4.2)
 
 Implemented: snapshot builder, API endpoint, UI download, ownership metadata,
 QA reporting, docs, tests.

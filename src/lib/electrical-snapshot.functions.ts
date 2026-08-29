@@ -1,4 +1,4 @@
-// Phase 5A — read-only snapshot endpoint used by BosteadFarmsBuildDocs.
+// Phase 4.2 — read-only snapshot endpoint used by BosteadFarmsBuildDocs.
 //
 // Reads only. It never writes an electrical record and never touches the
 // canonical PremoFarmElectrical.ods workbook.
