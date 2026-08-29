@@ -58,14 +58,41 @@ function FieldInput({
   field,
   value,
   onChange,
+  options,
+  optionsLoading,
 }: {
   field: EntityField;
   value: string | boolean;
   onChange: (v: string | boolean) => void;
+  options?: EntityOption[];
+  optionsLoading?: boolean;
 }) {
+  if (field.kind === "entity") {
+    return (
+      <EntitySelect
+        label={field.label}
+        hint={field.hint}
+        options={options ?? []}
+        loading={optionsLoading}
+        value={String(value)}
+        onChange={onChange}
+      />
+    );
+  }
+  if (field.readOnly) {
+    return (
+      <div className="space-y-1">
+        <Label className="text-xs">{field.label}</Label>
+        <Input readOnly disabled className="font-mono" value={String(value)} />
+        <p className="text-xs text-muted-foreground">
+          {field.hint ?? "Derived from the linked record."}
+        </p>
+      </div>
+    );
+  }
   if (field.kind === "bool") {
     return (
-      <label className="flex items-center gap-2 text-sm">
+      <label className="flex min-h-10 items-center gap-2 text-sm">
         <Checkbox checked={Boolean(value)} onCheckedChange={(c) => onChange(Boolean(c))} />
         {field.label}
       </label>
@@ -84,7 +111,7 @@ function FieldInput({
       <div className="space-y-1">
         <Label className="text-xs">{field.label}</Label>
         <select
-          className="w-full h-9 rounded-md border border-input bg-background px-2 text-sm"
+          className="h-10 w-full rounded-md border border-input bg-background px-2 text-sm"
           value={String(value)}
           onChange={(e) => onChange(e.target.value)}
         >
@@ -95,6 +122,7 @@ function FieldInput({
             </option>
           ))}
         </select>
+        {field.hint ? <p className="text-xs text-muted-foreground">{field.hint}</p> : null}
       </div>
     );
   }
@@ -102,13 +130,17 @@ function FieldInput({
     <div className="space-y-1">
       <Label className="text-xs">{field.label}</Label>
       <Input
+        className="h-10"
         type={field.kind === "number" ? "number" : "text"}
+        inputMode={field.kind === "number" ? "decimal" : undefined}
         value={String(value)}
         onChange={(e) => onChange(e.target.value)}
       />
+      {field.hint ? <p className="text-xs text-muted-foreground">{field.hint}</p> : null}
     </div>
   );
 }
+
 
 export function EntityManager({ kind }: { kind: ElectricalEntityKind }) {
   const def = ENTITIES[kind];
