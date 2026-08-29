@@ -6,6 +6,7 @@
 // always a reviewable dry run first, and it never destructively merges raceway
 // segments — merges are proposed, never applied automatically.
 import type { ElectricalEntityKind } from "@/lib/electrical";
+import { classifyGrid } from "@/lib/electrical-grid";
 
 export type Sheet = { name: string; rows: string[][] };
 
@@ -35,6 +36,56 @@ function cellText(cellXml: string): string {
   return parts.join(" ").replace(/\s+/g, " ").trim();
 }
 
+interface ScannedElement {
+  attrs: string;
+  inner: string;
+  start: number;
+}
+
+/**
+ * Scan same-level XML elements by tag name. A hand-rolled scanner rather than
+ * one regex: a single pattern with a `/>|>` alternation backtracks on
+ * self-closing tags and swallows the following sibling, which is exactly how
+ * empty ODS cells used to shift every later column to the left.
+ */
+function scanElements(xml: string, tag: string): ScannedElement[] {
+  const out: ScannedElement[] = [];
+  const open = new RegExp(`<${tag}\\b([^>]*?)(/?)>`, "g");
+  const closeTag = `</${tag}>`;
+  let m: RegExpExecArray | null;
+  while ((m = open.exec(xml))) {
+    const start = m.index;
+    if (m[2] === "/") {
+      out.push({ attrs: m[1], inner: "", start });
+      continue;
+    }
+    // Walk forward honouring nesting of the same tag.
+    let depth = 1;
+    let cursor = open.lastIndex;
+    const contentStart = cursor;
+    while (depth > 0) {
+      const nextClose = xml.indexOf(closeTag, cursor);
+      if (nextClose < 0) break;
+      const nextOpen = new RegExp(`<${tag}\\b([^>]*?)(/?)>`, "g");
+      nextOpen.lastIndex = cursor;
+      const nested = nextOpen.exec(xml);
+      if (nested && nested.index < nextClose && nested[2] !== "/") {
+        depth++;
+        cursor = nextOpen.lastIndex;
+        continue;
+      }
+      depth--;
+      cursor = nextClose + closeTag.length;
+      if (depth === 0) {
+        out.push({ attrs: m[1], inner: xml.slice(contentStart, nextClose), start });
+        open.lastIndex = cursor;
+      }
+    }
+    if (depth > 0) break;
+  }
+  return out;
+}
+
 /** Parse the `content.xml` of an .ods file into sheets of string cells. */
 export function parseOdsContentXml(xml: string): Sheet[] {
   const sheets: Sheet[] = [];
@@ -45,22 +96,27 @@ export function parseOdsContentXml(xml: string): Sheet[] {
     const body = t[2];
     const rows: string[][] = [];
 
-    const rowRe = /<table:table-row\b([^>]*)(?:\/>|>([\s\S]*?)<\/table:table-row>)/g;
-    let r: RegExpExecArray | null;
-    while ((r = rowRe.exec(body))) {
-      const rowRepeat = Math.min(Number(attr(r[1], "table:number-rows-repeated") ?? "1") || 1, 1000);
-      const rowBody = r[2] ?? "";
+    for (const { attrs: rowAttrs, inner: rowBody } of scanElements(body, "table:table-row")) {
+      const rowRepeat = Math.min(Number(attr(rowAttrs, "table:number-rows-repeated") ?? "1") || 1, 1000);
       const cells: string[] = [];
 
-      const cellRe =
-        /<table:(?:covered-)?table-cell\b([^>]*)(?:\/>|>([\s\S]*?)<\/table:(?:covered-)?table-cell>)/g;
-      let c: RegExpExecArray | null;
-      while ((c = cellRe.exec(rowBody))) {
+      // Cell annotations (comments) also contain <text:p>; they are not cell
+      // values and must never become one.
+      const cleanBody = rowBody.replace(
+        /<office:annotation\b[\s\S]*?<\/office:annotation>/g,
+        "",
+      );
+      for (const cell of [
+        ...scanElements(cleanBody, "table:table-cell"),
+        ...scanElements(cleanBody, "table:covered-table-cell"),
+      ].sort((a, b) => a.start - b.start)) {
         const repeat = Math.min(
-          Number(attr(c[1], "table:number-columns-repeated") ?? "1") || 1,
+          Number(attr(cell.attrs, "table:number-columns-repeated") ?? "1") || 1,
           1000,
         );
-        const value = c[2] ? cellText(c[2]) : (attr(c[1], "office:value") ?? "");
+        const value = cell.inner
+          ? cellText(cell.inner)
+          : (attr(cell.attrs, "office:value") ?? "");
         for (let i = 0; i < repeat; i++) cells.push(value);
       }
 
@@ -89,11 +145,24 @@ function norm(s: string): string {
   return s.toLowerCase().replace(/[\s_]+/g, " ").trim();
 }
 
-/** Find the header row (first row where >=2 cells look like column names). */
+/**
+ * Find the header row. A title/subtitle row above the real header would shift
+ * every column binding, so a row that actually contains known column names
+ * always wins over the "first row with two filled cells" fallback.
+ */
 export function findHeaderRow(rows: string[][]): number {
-  for (let i = 0; i < Math.min(rows.length, 25); i++) {
-    const filled = rows[i].filter((c) => c.trim()).length;
-    if (filled >= 2) return i;
+  const limit = Math.min(rows.length, 25);
+  let best = { idx: -1, score: 0 };
+  for (let i = 0; i < limit; i++) {
+    const score = rows[i].filter((c) => {
+      const n = norm(c).replace(/\s*\(.*\)\s*$/, "");
+      return Boolean(n) && n in COLUMN_ALIASES;
+    }).length;
+    if (score > best.score) best = { idx: i, score };
+  }
+  if (best.score >= 2) return best.idx;
+  for (let i = 0; i < limit; i++) {
+    if (rows[i].filter((c) => c.trim()).length >= 2) return i;
   }
   return -1;
 }
@@ -116,6 +185,14 @@ export interface MappedRow {
   sourceRow: number;
 }
 
+export interface RejectedCell {
+  sourceRow: number;
+  stableId: string;
+  column: string;
+  value: string;
+  reason: string;
+}
+
 export interface SheetImport {
   sheet: string;
   kind: ElectricalEntityKind | null;
@@ -123,6 +200,8 @@ export interface SheetImport {
   columns: { source: string; target: string | null }[];
   rows: MappedRow[];
   skipped: number;
+  /** Cells refused because the value cannot belong to that column. */
+  rejected: RejectedCell[];
 }
 
 /**
@@ -195,6 +274,13 @@ const COLUMN_ALIASES: Record<string, string> = {
   description: "description",
   area: "area",
   grid: "grid",
+  "grid ref": "grid",
+  "grid reference": "grid",
+  "grid location": "grid",
+  "grid coord": "grid",
+  "grid coordinate": "grid",
+  "grid cell": "grid",
+  "grid square": "grid",
   location: "location",
   "circuit group id": "circuit_group_ref",
   "circuit group": "circuit_group_ref",
@@ -227,7 +313,15 @@ export function mapSheet(
 ): SheetImport {
   const headerRow = findHeaderRow(sheet.rows);
   if (headerRow < 0 || !kind) {
-    return { sheet: sheet.name, kind, headerRow, columns: [], rows: [], skipped: sheet.rows.length };
+    return {
+      sheet: sheet.name,
+      kind,
+      headerRow,
+      columns: [],
+      rows: [],
+      skipped: sheet.rows.length,
+      rejected: [],
+    };
   }
   const header = sheet.rows[headerRow];
   const used = new Set<string>();
@@ -246,6 +340,7 @@ export function mapSheet(
 
 
   const rows: MappedRow[] = [];
+  const rejected: RejectedCell[] = [];
   let skipped = 0;
   for (let i = headerRow + 1; i < sheet.rows.length; i++) {
     const raw = sheet.rows[i];
@@ -254,17 +349,36 @@ export function mapSheet(
     columns.forEach((col, idx) => {
       if (!col.target) return;
       const v = (raw[idx] ?? "").trim();
-      if (v) values[col.target] = v;
+      if (!v) return;
+      values[col.target] = v;
     });
     const stableId = (values[stableIdField] ?? "").trim();
     if (!stableId) {
       skipped++;
       continue;
     }
+    // Grid is ODS-owned but must still be a grid value: a drifted percent,
+    // rating or note is refused instead of stored, and never replaced by a
+    // neighbouring cell.
+    if (values["grid"] != null) {
+      const g = classifyGrid(values["grid"]);
+      if (g.status === "invalid") {
+        rejected.push({
+          sourceRow: i + 1,
+          stableId,
+          column: "grid",
+          value: values["grid"],
+          reason: g.reason ?? "invalid grid value",
+        });
+        delete values["grid"];
+      } else if (g.value && g.value !== values["grid"]) {
+        values["grid"] = g.value;
+      }
+    }
     rows.push({ values, stableId, sourceRow: i + 1 });
   }
 
-  return { sheet: sheet.name, kind, headerRow, columns, rows, skipped };
+  return { sheet: sheet.name, kind, headerRow, columns, rows, skipped, rejected };
 }
 
 export interface ImportPlanRow extends MappedRow {
@@ -284,6 +398,8 @@ export interface ImportPlanSheet {
   rows: ImportPlanRow[];
   /** Proposed raceway merges — reviewed and applied by hand, never automatic. */
   mergeProposals: { conduit_id: string; note: string }[];
+  /** Cells refused by column validation, shown in the dry-run review. */
+  rejected: RejectedCell[];
 }
 
 /** Diff mapped rows against what is already in the database. */
@@ -345,6 +461,7 @@ export function buildPlanSheet(
       .map((c) => ({ source: c.source, target: c.target as string })),
     rows,
     mergeProposals,
+    rejected: mapped.rejected,
   };
 }
 

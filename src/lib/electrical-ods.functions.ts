@@ -61,6 +61,7 @@ export const previewOdsImport = createServerFn({ method: "POST" })
           mapping: [],
           rows: [],
           mergeProposals: [],
+          rejected: [],
         });
         continue;
       }

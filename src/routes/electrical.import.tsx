@@ -242,6 +242,24 @@ function Importer() {
                   </details>
                 ) : null}
 
+                {sheet.rejected.length ? (
+                  <details className="text-xs text-muted-foreground">
+                    <summary className="cursor-pointer">
+                      Rejected cells ({sheet.rejected.length}) — values that cannot belong to
+                      that column, left unchanged
+                    </summary>
+                    <ul className="mt-1 space-y-0.5">
+                      {sheet.rejected.map((r, i) => (
+                        <li key={`${r.stableId}-${r.column}-${i}`}>
+                          <span className="font-mono">{r.stableId}</span>{" "}
+                          <span className="font-mono">{r.column}</span> ={" "}
+                          <span className="font-mono">{r.value}</span> — {r.reason}
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                ) : null}
+
                 {sheet.mergeProposals.map((m, i) => (
                   <div
                     key={i}
