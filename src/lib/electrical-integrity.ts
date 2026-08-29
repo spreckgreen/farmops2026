@@ -270,6 +270,7 @@ export function runIntegrityChecks(graph: ElectricalGraphData): IntegrityFinding
   for (const row of graph.raceway ?? []) {
     checkEndpoint(out, catalog, "raceway", row, "source", {
       required: true,
+      designText: text(row, "from_label"),
       fkColumns: [
         { column: "source_panel_uuid", kind: "panel" },
         { column: "source_jbox_uuid", kind: "jbox" },
@@ -277,11 +278,13 @@ export function runIntegrityChecks(graph: ElectricalGraphData): IntegrityFinding
     });
     checkEndpoint(out, catalog, "raceway", row, "dest", {
       required: true,
+      designText: text(row, "to_label"),
       fkColumns: [
         { column: "dest_panel_uuid", kind: "panel" },
         { column: "dest_jbox_uuid", kind: "jbox" },
       ],
     });
+
     const id = sid("raceway", row);
     const from = text(row, "source_endpoint_ref");
     const to = text(row, "dest_endpoint_ref");
