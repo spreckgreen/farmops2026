@@ -143,9 +143,10 @@ export const ENTITIES: Record<ElectricalEntityKind, EntityDef> = {
         field: true,
       },
       { key: "exit_notes", label: "Panel exit notes", kind: "text" },
-      { key: "planned_length_ft", label: "Planned length (ft)", kind: "number" },
+      { key: "planned_length_ft", label: "Planned length (ft)", kind: "number", list: true },
       { key: "measured_length_ft", label: "Measured length (ft)", kind: "number", list: true, field: true },
-      { key: "circuit_refs", label: "Conductor / circuit refs", kind: "text" },
+      { key: "circuit_refs", label: "Conductor / circuit refs", kind: "text", list: true },
+
       { key: "spare", label: "Spare / reserve", kind: "bool" },
 
       ...statusFields,
