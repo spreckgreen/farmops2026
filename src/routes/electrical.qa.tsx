@@ -88,15 +88,23 @@ function QaReport() {
     (f) => f.code === "invalid_controlled_value" && /install status/i.test(f.message),
   ).length;
 
+  const [preview, setPreview] = useState<
+    { kind: string; stable_id: string; was: string; now: string }[] | null
+  >(null);
+
   const fix = useMutation({
-    mutationFn: async () => normalize(),
+    mutationFn: async (apply: boolean) => normalize({ data: { apply } }),
     onSuccess: (r) => {
+      if (!r.applied) {
+        setPreview(r.proposed);
+        if (!r.proposed.length) toast.success("No legacy status values found.");
+        return;
+      }
       if (r.errors.length) toast.error(`${r.errors.length} record(s) could not be updated.`);
       toast.success(
-        r.fixed.length
-          ? `Fixed ${r.fixed.length} record(s) — the original text was kept in Notes.`
-          : "No legacy status values found.",
+        `Fixed ${r.fixed.length} record(s) — the original text was kept verbatim in Notes.`,
       );
+      setPreview(null);
       void q.refetch();
     },
     onError: (e: Error) => toast.error(e.message),
@@ -135,10 +143,10 @@ function QaReport() {
                 size="sm"
                 className="gap-1"
                 disabled={fix.isPending}
-                onClick={() => fix.mutate()}
+                onClick={() => fix.mutate(false)}
               >
                 <Wrench className="h-4 w-4" />
-                {fix.isPending ? "Fixing…" : `Fix ${legacyStatuses} legacy status value(s)`}
+                {fix.isPending ? "Checking…" : `Review ${legacyStatuses} legacy status value(s)`}
               </Button>
             ) : null}
             <Button variant="outline" size="sm" onClick={() => setOnlyErrors((v) => !v)}>
@@ -157,7 +165,37 @@ function QaReport() {
           </div>
         </CardHeader>
 
+        {preview?.length ? (
+          <CardContent className="space-y-2 border-b border-border pb-3">
+            <p className="text-sm">
+              These records hold engineering text in the controlled Install status field, so the
+              database rejects every write to them. Nothing changes until you apply: the original
+              wording is kept verbatim in Notes and no record is deleted, recreated or renamed.
+            </p>
+            <div className="space-y-1 text-sm">
+              {preview.map((p) => (
+                <div key={`${p.kind}-${p.stable_id}`} className="flex flex-wrap gap-2">
+                  <Badge variant="outline" className="font-mono">
+                    {p.stable_id}
+                  </Badge>
+                  <span className="text-muted-foreground">“{p.was}”</span>
+                  <span>→ Install status “{p.now}” + Notes line</span>
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-2 pt-1">
+              <Button size="sm" disabled={fix.isPending} onClick={() => fix.mutate(true)}>
+                {fix.isPending ? "Applying…" : `Apply to ${preview.length} record(s)`}
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => setPreview(null)}>
+                Cancel
+              </Button>
+            </div>
+          </CardContent>
+        ) : null}
+
         <CardContent>
+
           {q.isLoading ? (
             <Skeleton className="h-24 w-full" />
           ) : q.error ? (

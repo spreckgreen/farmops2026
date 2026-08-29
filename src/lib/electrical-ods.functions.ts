@@ -110,6 +110,9 @@ export const applyOdsImport = createServerFn({ method: "POST" })
     let created = 0;
     let updated = 0;
     const errors: { stable_id: string; message: string }[] = [];
+    // Engineering status text that had to be moved into notes to be writable.
+    const normalized: { stable_id: string; was: string; now: string }[] = [];
+
 
     for (const row of data.rows) {
       const kind = row.kind as ElectricalEntityKind;
@@ -132,12 +135,16 @@ export const applyOdsImport = createServerFn({ method: "POST" })
         patch[key] = coerceValue(field, raw);
       }
       // Engineering status text ("Design Basis") is not an install status. Keep
-      // the words in notes and store a valid controlled value, so the row can
-      // actually be written and later edited.
+      // the words verbatim in notes, store a valid controlled value so the row
+      // can be written at all, and report every such rewrite — nothing about an
+      // engineering-owned field changes silently.
       if (Object.prototype.hasOwnProperty.call(row.values, "install_status")) {
         const norm = normalizeInstallStatus(patch["install_status"]);
+        if (norm.legacy) {
+          patch["notes"] = mergeLegacyStatusNote(patch["notes"], norm.legacy);
+          normalized.push({ stable_id: row.stable_id, was: norm.legacy, now: norm.status });
+        }
         patch["install_status"] = norm.status;
-        if (norm.legacy) patch["notes"] = mergeLegacyStatusNote(patch["notes"], norm.legacy);
       }
       // Only derive completion from status when the sheet didn't supply an
       // explicit Complete % — the workbook value wins when present.
@@ -164,5 +171,5 @@ export const applyOdsImport = createServerFn({ method: "POST" })
       }
     }
 
-    return { created, updated, errors };
+    return { created, updated, errors, normalized };
   });

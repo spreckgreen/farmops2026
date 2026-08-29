@@ -65,6 +65,9 @@ function Importer() {
   const [plan, setPlan] = useState<ImportPlan | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [failures, setFailures] = useState<{ stable_id: string; message: string }[]>([]);
+  const [normalized, setNormalized] = useState<
+    { stable_id: string; was: string; now: string }[]
+  >([]);
 
 
   const key = (sheet: string, row: number) => `${sheet}#${row}`;
@@ -117,6 +120,7 @@ function Importer() {
     onSuccess: (r) => {
       toast.success(`Imported: ${r.created} created, ${r.updated} updated.`);
       setFailures(r.errors);
+      setNormalized(r.normalized);
       if (r.errors.length) {
         // Keep the reviewed plan on screen so the failed rows stay actionable.
         toast.error(`${r.errors.length} row(s) failed — see “Rows that failed” below.`);
@@ -170,6 +174,31 @@ function Importer() {
           </label>
         </CardContent>
       </Card>
+
+      {normalized.length ? (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">
+              Status text moved to Notes ({normalized.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-1 text-sm">
+            <p className="text-muted-foreground">
+              These sheet cells hold engineering wording the Install status field cannot store.
+              The wording was kept verbatim in Notes; no other value was changed.
+            </p>
+            {normalized.map((n, i) => (
+              <div key={`${n.stable_id}-${i}`} className="flex flex-wrap gap-2">
+                <Badge variant="outline" className="font-mono">
+                  {n.stable_id}
+                </Badge>
+                <span className="text-muted-foreground">“{n.was}”</span>
+                <span>→ {n.now}</span>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      ) : null}
 
       {failures.length ? (
         <Card>
