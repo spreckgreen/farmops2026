@@ -1,0 +1,265 @@
+// Pure ODS (OpenDocument Spreadsheet) parsing + classification for the
+// electrical import. No DOM, no Node built-ins: this runs in the Worker and in
+// tests. Unzipping lives in electrical-ods.functions.ts (fflate).
+//
+// The canonical ODS stays the engineering release authority: this import is
+// always a reviewable dry run first, and it never destructively merges raceway
+// segments — merges are proposed, never applied automatically.
+import type { ElectricalEntityKind } from "@/lib/electrical";
+
+export type Sheet = { name: string; rows: string[][] };
+
+function decodeXmlEntities(s: string): string {
+  return s
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&#(\d+);/g, (_, d: string) => String.fromCodePoint(Number(d)))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, h: string) => String.fromCodePoint(parseInt(h, 16)))
+    .replace(/&amp;/g, "&");
+}
+
+function attr(tag: string, name: string): string | null {
+  const m = new RegExp(`${name}="([^"]*)"`).exec(tag);
+  return m ? decodeXmlEntities(m[1]) : null;
+}
+
+function cellText(cellXml: string): string {
+  const parts: string[] = [];
+  const re = /<text:p\b[^>]*>([\s\S]*?)<\/text:p>|<text:p\b[^>]*\/>/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(cellXml))) {
+    parts.push(decodeXmlEntities((m[1] ?? "").replace(/<[^>]+>/g, "")));
+  }
+  return parts.join(" ").replace(/\s+/g, " ").trim();
+}
+
+/** Parse the `content.xml` of an .ods file into sheets of string cells. */
+export function parseOdsContentXml(xml: string): Sheet[] {
+  const sheets: Sheet[] = [];
+  const tableRe = /<table:table\b([^>]*)>([\s\S]*?)<\/table:table>/g;
+  let t: RegExpExecArray | null;
+  while ((t = tableRe.exec(xml))) {
+    const name = attr(t[1], "table:name") ?? `Sheet ${sheets.length + 1}`;
+    const body = t[2];
+    const rows: string[][] = [];
+
+    const rowRe = /<table:table-row\b([^>]*)(?:\/>|>([\s\S]*?)<\/table:table-row>)/g;
+    let r: RegExpExecArray | null;
+    while ((r = rowRe.exec(body))) {
+      const rowRepeat = Math.min(Number(attr(r[1], "table:number-rows-repeated") ?? "1") || 1, 1000);
+      const rowBody = r[2] ?? "";
+      const cells: string[] = [];
+
+      const cellRe =
+        /<table:(?:covered-)?table-cell\b([^>]*)(?:\/>|>([\s\S]*?)<\/table:(?:covered-)?table-cell>)/g;
+      let c: RegExpExecArray | null;
+      while ((c = cellRe.exec(rowBody))) {
+        const repeat = Math.min(
+          Number(attr(c[1], "table:number-columns-repeated") ?? "1") || 1,
+          1000,
+        );
+        const value = c[2] ? cellText(c[2]) : (attr(c[1], "office:value") ?? "");
+        for (let i = 0; i < repeat; i++) cells.push(value);
+      }
+
+      while (cells.length && cells[cells.length - 1] === "") cells.pop();
+      for (let i = 0; i < rowRepeat; i++) rows.push([...cells]);
+    }
+
+    while (rows.length && rows[rows.length - 1].every((c) => c === "")) rows.pop();
+    sheets.push({ name, rows });
+  }
+  return sheets;
+}
+
+// ------------------------------------------------------------ classification
+
+const HEADER_HINTS: Record<ElectricalEntityKind, string[]> = {
+  load: ["load id", "load_id", "load description"],
+  circuit_group: ["circuit group", "circuit_group_id", "suggested panel"],
+  panel: ["panel id", "panel_id", "bus rating", "spaces"],
+  raceway: ["conduit id", "conduit_id", "trade size", "raceway"],
+  jbox: ["jbox", "j-box", "junction box"],
+  branch: ["branch id", "branch_id", "wiring method"],
+};
+
+function norm(s: string): string {
+  return s.toLowerCase().replace(/[\s_]+/g, " ").trim();
+}
+
+/** Find the header row (first row where >=2 cells look like column names). */
+export function findHeaderRow(rows: string[][]): number {
+  for (let i = 0; i < Math.min(rows.length, 25); i++) {
+    const filled = rows[i].filter((c) => c.trim()).length;
+    if (filled >= 2) return i;
+  }
+  return -1;
+}
+
+export function classifySheet(sheet: Sheet): ElectricalEntityKind | null {
+  const headerIdx = findHeaderRow(sheet.rows);
+  const header = headerIdx >= 0 ? sheet.rows[headerIdx].map(norm) : [];
+  const haystack = [norm(sheet.name), ...header].join(" | ");
+  let best: { kind: ElectricalEntityKind; score: number } | null = null;
+  for (const kind of Object.keys(HEADER_HINTS) as ElectricalEntityKind[]) {
+    const score = HEADER_HINTS[kind].filter((h) => haystack.includes(h)).length;
+    if (score > 0 && (!best || score > best.score)) best = { kind, score };
+  }
+  return best?.kind ?? null;
+}
+
+export interface MappedRow {
+  values: Record<string, string>;
+  stableId: string;
+  sourceRow: number;
+}
+
+export interface SheetImport {
+  sheet: string;
+  kind: ElectricalEntityKind | null;
+  headerRow: number;
+  columns: { source: string; target: string | null }[];
+  rows: MappedRow[];
+  skipped: number;
+}
+
+/**
+ * Map a sheet's columns onto entity columns by fuzzy header match.
+ * `targets` is the writable column list for the detected kind.
+ */
+export function mapSheet(
+  sheet: Sheet,
+  kind: ElectricalEntityKind | null,
+  targets: string[],
+  stableIdField: string,
+): SheetImport {
+  const headerRow = findHeaderRow(sheet.rows);
+  if (headerRow < 0 || !kind) {
+    return { sheet: sheet.name, kind, headerRow, columns: [], rows: [], skipped: sheet.rows.length };
+  }
+  const header = sheet.rows[headerRow];
+  const columns = header.map((source) => {
+    const n = norm(source);
+    const target =
+      targets.find((t) => norm(t) === n) ??
+      targets.find((t) => norm(t).replace(/ (ft|a|va)$/, "") === n.replace(/\s*\(.*\)$/, "")) ??
+      targets.find((t) => n && (norm(t).includes(n) || n.includes(norm(t)))) ??
+      null;
+    return { source, target };
+  });
+
+  const rows: MappedRow[] = [];
+  let skipped = 0;
+  for (let i = headerRow + 1; i < sheet.rows.length; i++) {
+    const raw = sheet.rows[i];
+    if (!raw.some((c) => c.trim())) continue;
+    const values: Record<string, string> = {};
+    columns.forEach((col, idx) => {
+      if (!col.target) return;
+      const v = (raw[idx] ?? "").trim();
+      if (v) values[col.target] = v;
+    });
+    const stableId = (values[stableIdField] ?? "").trim();
+    if (!stableId) {
+      skipped++;
+      continue;
+    }
+    rows.push({ values, stableId, sourceRow: i + 1 });
+  }
+
+  return { sheet: sheet.name, kind, headerRow, columns, rows, skipped };
+}
+
+export interface ImportPlanRow extends MappedRow {
+  action: "create" | "update" | "unchanged";
+  existingId: string | null;
+  changes: { column: string; from: string; to: string }[];
+  warnings: string[];
+}
+
+export interface ImportPlanSheet {
+  sheet: string;
+  kind: ElectricalEntityKind | null;
+  skipped: number;
+  unmapped: string[];
+  rows: ImportPlanRow[];
+  /** Proposed raceway merges — reviewed and applied by hand, never automatic. */
+  mergeProposals: { conduit_id: string; note: string }[];
+}
+
+/** Diff mapped rows against what is already in the database. */
+export function buildPlanSheet(
+  mapped: SheetImport,
+  existing: Record<string, Record<string, unknown>>,
+  stableIdField: string,
+): ImportPlanSheet {
+  const rows: ImportPlanRow[] = mapped.rows.map((row) => {
+    const current = existing[row.stableId];
+    const warnings: string[] = [];
+    if (!current) {
+      return { ...row, action: "create", existingId: null, changes: [], warnings };
+    }
+    const changes: { column: string; from: string; to: string }[] = [];
+    for (const [column, to] of Object.entries(row.values)) {
+      if (column === stableIdField) continue;
+      const from = current[column] == null ? "" : String(current[column]);
+      if (from.trim() !== to.trim()) changes.push({ column, from, to });
+    }
+    const measured = changes.find((c) => c.column === "measured_length_ft");
+    if (measured && measured.from) {
+      warnings.push("Field-measured length would be overwritten by the ODS value.");
+    }
+    return {
+      ...row,
+      action: changes.length ? "update" : "unchanged",
+      existingId: String(current["id"] ?? ""),
+      changes,
+      warnings,
+    };
+  });
+
+  const mergeProposals: { conduit_id: string; note: string }[] = [];
+  if (mapped.kind === "raceway") {
+    const seen = new Map<string, string[]>();
+    for (const row of mapped.rows) {
+      const key = `${row.values["source_endpoint_ref"] ?? ""}->${row.values["dest_endpoint_ref"] ?? ""}`;
+      if (!key.trim() || key === "->") continue;
+      seen.set(key, [...(seen.get(key) ?? []), row.stableId]);
+    }
+    for (const [key, ids] of seen) {
+      if (ids.length > 1) {
+        mergeProposals.push({
+          conduit_id: ids.join(", "),
+          note: `${ids.length} rows share endpoints ${key} — review whether these are one continuous raceway before merging.`,
+        });
+      }
+    }
+  }
+
+  return {
+    sheet: mapped.sheet,
+    kind: mapped.kind,
+    skipped: mapped.skipped,
+    unmapped: mapped.columns.filter((c) => c.source.trim() && !c.target).map((c) => c.source),
+    rows,
+    mergeProposals,
+  };
+}
+
+export function planTotals(sheets: ImportPlanSheet[]) {
+  let create = 0;
+  let update = 0;
+  let unchanged = 0;
+  let warnings = 0;
+  for (const s of sheets) {
+    for (const r of s.rows) {
+      if (r.action === "create") create++;
+      else if (r.action === "update") update++;
+      else unchanged++;
+      warnings += r.warnings.length;
+    }
+  }
+  return { create, update, unchanged, warnings };
+}

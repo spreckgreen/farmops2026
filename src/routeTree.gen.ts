@@ -29,6 +29,7 @@ import { Route as TasksIndexRouteImport } from './routes/tasks.index'
 import { Route as ProceduresIndexRouteImport } from './routes/procedures.index'
 import { Route as MaintenanceIndexRouteImport } from './routes/maintenance.index'
 import { Route as FoodIndexRouteImport } from './routes/food.index'
+import { Route as ElectricalIndexRouteImport } from './routes/electrical.index'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as TasksScheduledRouteImport } from './routes/tasks.scheduled'
 import { Route as TasksRefsRouteImport } from './routes/tasks.refs'
@@ -55,6 +56,9 @@ import { Route as FoodLivestockRouteImport } from './routes/food.livestock'
 import { Route as FoodIrrigationRouteImport } from './routes/food.irrigation'
 import { Route as FoodGardenRouteImport } from './routes/food.garden'
 import { Route as FoodCropsRouteImport } from './routes/food.crops'
+import { Route as ElectricalStandardsRouteImport } from './routes/electrical.standards'
+import { Route as ElectricalImportRouteImport } from './routes/electrical.import'
+import { Route as ElectricalKindRouteImport } from './routes/electrical.$kind'
 import { Route as AdminVaultSecretsRouteImport } from './routes/admin.vault-secrets'
 import { Route as AdminVaultRotationRouteImport } from './routes/admin.vault-rotation'
 import { Route as AdminVaultBackupRouteImport } from './routes/admin.vault-backup'
@@ -70,6 +74,7 @@ import { Route as AdminAiSettingsRouteImport } from './routes/admin.ai-settings'
 import { Route as AdminAiEnginesRouteImport } from './routes/admin.ai-engines'
 import { Route as ApiPublicReadyRouteImport } from './routes/api/public/ready'
 import { Route as ApiPublicHealthRouteImport } from './routes/api/public/health'
+import { Route as ElectricalItemKindIdRouteImport } from './routes/electrical.item.$kind.$id'
 import { Route as ApiPublicWebhooksRachioRouteImport } from './routes/api/public/webhooks/rachio'
 import { Route as ApiPublicHooksTaskHealthRouteImport } from './routes/api/public/hooks/task-health'
 import { Route as ApiPublicHooksRachioSyncRouteImport } from './routes/api/public/hooks/rachio-sync'
@@ -174,6 +179,11 @@ const FoodIndexRoute = FoodIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => FoodRoute,
+} as any)
+const ElectricalIndexRoute = ElectricalIndexRouteImport.update({
+  id: '/electrical/',
+  path: '/electrical/',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AdminIndexRoute = AdminIndexRouteImport.update({
   id: '/admin/',
@@ -306,6 +316,21 @@ const FoodCropsRoute = FoodCropsRouteImport.update({
   path: '/crops',
   getParentRoute: () => FoodRoute,
 } as any)
+const ElectricalStandardsRoute = ElectricalStandardsRouteImport.update({
+  id: '/electrical/standards',
+  path: '/electrical/standards',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ElectricalImportRoute = ElectricalImportRouteImport.update({
+  id: '/electrical/import',
+  path: '/electrical/import',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ElectricalKindRoute = ElectricalKindRouteImport.update({
+  id: '/electrical/$kind',
+  path: '/electrical/$kind',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminVaultSecretsRoute = AdminVaultSecretsRouteImport.update({
   id: '/admin/vault-secrets',
   path: '/admin/vault-secrets',
@@ -381,6 +406,11 @@ const ApiPublicHealthRoute = ApiPublicHealthRouteImport.update({
   path: '/api/public/health',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ElectricalItemKindIdRoute = ElectricalItemKindIdRouteImport.update({
+  id: '/electrical/item/$kind/$id',
+  path: '/electrical/item/$kind/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicWebhooksRachioRoute = ApiPublicWebhooksRachioRouteImport.update({
   id: '/api/public/webhooks/rachio',
   path: '/api/public/webhooks/rachio',
@@ -435,6 +465,9 @@ export interface FileRoutesByFullPath {
   '/admin/vault-backup': typeof AdminVaultBackupRoute
   '/admin/vault-rotation': typeof AdminVaultRotationRoute
   '/admin/vault-secrets': typeof AdminVaultSecretsRoute
+  '/electrical/$kind': typeof ElectricalKindRoute
+  '/electrical/import': typeof ElectricalImportRoute
+  '/electrical/standards': typeof ElectricalStandardsRoute
   '/food/crops': typeof FoodCropsRoute
   '/food/garden': typeof FoodGardenRoute
   '/food/irrigation': typeof FoodIrrigationRoute
@@ -461,6 +494,7 @@ export interface FileRoutesByFullPath {
   '/tasks/refs': typeof TasksRefsRoute
   '/tasks/scheduled': typeof TasksScheduledRoute
   '/admin/': typeof AdminIndexRoute
+  '/electrical/': typeof ElectricalIndexRoute
   '/food/': typeof FoodIndexRoute
   '/maintenance/': typeof MaintenanceIndexRoute
   '/procedures/': typeof ProceduresIndexRoute
@@ -471,6 +505,7 @@ export interface FileRoutesByFullPath {
   '/api/public/hooks/rachio-sync': typeof ApiPublicHooksRachioSyncRoute
   '/api/public/hooks/task-health': typeof ApiPublicHooksTaskHealthRoute
   '/api/public/webhooks/rachio': typeof ApiPublicWebhooksRachioRoute
+  '/electrical/item/$kind/$id': typeof ElectricalItemKindIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -499,6 +534,9 @@ export interface FileRoutesByTo {
   '/admin/vault-backup': typeof AdminVaultBackupRoute
   '/admin/vault-rotation': typeof AdminVaultRotationRoute
   '/admin/vault-secrets': typeof AdminVaultSecretsRoute
+  '/electrical/$kind': typeof ElectricalKindRoute
+  '/electrical/import': typeof ElectricalImportRoute
+  '/electrical/standards': typeof ElectricalStandardsRoute
   '/food/crops': typeof FoodCropsRoute
   '/food/garden': typeof FoodGardenRoute
   '/food/irrigation': typeof FoodIrrigationRoute
@@ -525,6 +563,7 @@ export interface FileRoutesByTo {
   '/tasks/refs': typeof TasksRefsRoute
   '/tasks/scheduled': typeof TasksScheduledRoute
   '/admin': typeof AdminIndexRoute
+  '/electrical': typeof ElectricalIndexRoute
   '/food': typeof FoodIndexRoute
   '/maintenance': typeof MaintenanceIndexRoute
   '/procedures': typeof ProceduresIndexRoute
@@ -535,6 +574,7 @@ export interface FileRoutesByTo {
   '/api/public/hooks/rachio-sync': typeof ApiPublicHooksRachioSyncRoute
   '/api/public/hooks/task-health': typeof ApiPublicHooksTaskHealthRoute
   '/api/public/webhooks/rachio': typeof ApiPublicWebhooksRachioRoute
+  '/electrical/item/$kind/$id': typeof ElectricalItemKindIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -567,6 +607,9 @@ export interface FileRoutesById {
   '/admin/vault-backup': typeof AdminVaultBackupRoute
   '/admin/vault-rotation': typeof AdminVaultRotationRoute
   '/admin/vault-secrets': typeof AdminVaultSecretsRoute
+  '/electrical/$kind': typeof ElectricalKindRoute
+  '/electrical/import': typeof ElectricalImportRoute
+  '/electrical/standards': typeof ElectricalStandardsRoute
   '/food/crops': typeof FoodCropsRoute
   '/food/garden': typeof FoodGardenRoute
   '/food/irrigation': typeof FoodIrrigationRoute
@@ -593,6 +636,7 @@ export interface FileRoutesById {
   '/tasks/refs': typeof TasksRefsRoute
   '/tasks/scheduled': typeof TasksScheduledRoute
   '/admin/': typeof AdminIndexRoute
+  '/electrical/': typeof ElectricalIndexRoute
   '/food/': typeof FoodIndexRoute
   '/maintenance/': typeof MaintenanceIndexRoute
   '/procedures/': typeof ProceduresIndexRoute
@@ -603,6 +647,7 @@ export interface FileRoutesById {
   '/api/public/hooks/rachio-sync': typeof ApiPublicHooksRachioSyncRoute
   '/api/public/hooks/task-health': typeof ApiPublicHooksTaskHealthRoute
   '/api/public/webhooks/rachio': typeof ApiPublicWebhooksRachioRoute
+  '/electrical/item/$kind/$id': typeof ElectricalItemKindIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -636,6 +681,9 @@ export interface FileRouteTypes {
     | '/admin/vault-backup'
     | '/admin/vault-rotation'
     | '/admin/vault-secrets'
+    | '/electrical/$kind'
+    | '/electrical/import'
+    | '/electrical/standards'
     | '/food/crops'
     | '/food/garden'
     | '/food/irrigation'
@@ -662,6 +710,7 @@ export interface FileRouteTypes {
     | '/tasks/refs'
     | '/tasks/scheduled'
     | '/admin/'
+    | '/electrical/'
     | '/food/'
     | '/maintenance/'
     | '/procedures/'
@@ -672,6 +721,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/rachio-sync'
     | '/api/public/hooks/task-health'
     | '/api/public/webhooks/rachio'
+    | '/electrical/item/$kind/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -700,6 +750,9 @@ export interface FileRouteTypes {
     | '/admin/vault-backup'
     | '/admin/vault-rotation'
     | '/admin/vault-secrets'
+    | '/electrical/$kind'
+    | '/electrical/import'
+    | '/electrical/standards'
     | '/food/crops'
     | '/food/garden'
     | '/food/irrigation'
@@ -726,6 +779,7 @@ export interface FileRouteTypes {
     | '/tasks/refs'
     | '/tasks/scheduled'
     | '/admin'
+    | '/electrical'
     | '/food'
     | '/maintenance'
     | '/procedures'
@@ -736,6 +790,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/rachio-sync'
     | '/api/public/hooks/task-health'
     | '/api/public/webhooks/rachio'
+    | '/electrical/item/$kind/$id'
   id:
     | '__root__'
     | '/'
@@ -767,6 +822,9 @@ export interface FileRouteTypes {
     | '/admin/vault-backup'
     | '/admin/vault-rotation'
     | '/admin/vault-secrets'
+    | '/electrical/$kind'
+    | '/electrical/import'
+    | '/electrical/standards'
     | '/food/crops'
     | '/food/garden'
     | '/food/irrigation'
@@ -793,6 +851,7 @@ export interface FileRouteTypes {
     | '/tasks/refs'
     | '/tasks/scheduled'
     | '/admin/'
+    | '/electrical/'
     | '/food/'
     | '/maintenance/'
     | '/procedures/'
@@ -803,6 +862,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/rachio-sync'
     | '/api/public/hooks/task-health'
     | '/api/public/webhooks/rachio'
+    | '/electrical/item/$kind/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -835,6 +895,9 @@ export interface RootRouteChildren {
   AdminVaultBackupRoute: typeof AdminVaultBackupRoute
   AdminVaultRotationRoute: typeof AdminVaultRotationRoute
   AdminVaultSecretsRoute: typeof AdminVaultSecretsRoute
+  ElectricalKindRoute: typeof ElectricalKindRoute
+  ElectricalImportRoute: typeof ElectricalImportRoute
+  ElectricalStandardsRoute: typeof ElectricalStandardsRoute
   NotesDateRoute: typeof NotesDateRoute
   SettingsSelfHostRoute: typeof SettingsSelfHostRoute
   SettingsTroubleshootingRoute: typeof SettingsTroubleshootingRoute
@@ -843,12 +906,14 @@ export interface RootRouteChildren {
   TasksRefsRoute: typeof TasksRefsRoute
   TasksScheduledRoute: typeof TasksScheduledRoute
   AdminIndexRoute: typeof AdminIndexRoute
+  ElectricalIndexRoute: typeof ElectricalIndexRoute
   TasksIndexRoute: typeof TasksIndexRoute
   ApiPublicHealthRoute: typeof ApiPublicHealthRouteWithChildren
   ApiPublicReadyRoute: typeof ApiPublicReadyRoute
   ApiPublicHooksRachioSyncRoute: typeof ApiPublicHooksRachioSyncRoute
   ApiPublicHooksTaskHealthRoute: typeof ApiPublicHooksTaskHealthRoute
   ApiPublicWebhooksRachioRoute: typeof ApiPublicWebhooksRachioRoute
+  ElectricalItemKindIdRoute: typeof ElectricalItemKindIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -992,6 +1057,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/food/'
       preLoaderRoute: typeof FoodIndexRouteImport
       parentRoute: typeof FoodRoute
+    }
+    '/electrical/': {
+      id: '/electrical/'
+      path: '/electrical'
+      fullPath: '/electrical/'
+      preLoaderRoute: typeof ElectricalIndexRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/admin/': {
       id: '/admin/'
@@ -1175,6 +1247,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof FoodCropsRouteImport
       parentRoute: typeof FoodRoute
     }
+    '/electrical/standards': {
+      id: '/electrical/standards'
+      path: '/electrical/standards'
+      fullPath: '/electrical/standards'
+      preLoaderRoute: typeof ElectricalStandardsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/electrical/import': {
+      id: '/electrical/import'
+      path: '/electrical/import'
+      fullPath: '/electrical/import'
+      preLoaderRoute: typeof ElectricalImportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/electrical/$kind': {
+      id: '/electrical/$kind'
+      path: '/electrical/$kind'
+      fullPath: '/electrical/$kind'
+      preLoaderRoute: typeof ElectricalKindRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/vault-secrets': {
       id: '/admin/vault-secrets'
       path: '/admin/vault-secrets'
@@ -1278,6 +1371,13 @@ declare module '@tanstack/react-router' {
       path: '/api/public/health'
       fullPath: '/api/public/health'
       preLoaderRoute: typeof ApiPublicHealthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/electrical/item/$kind/$id': {
+      id: '/electrical/item/$kind/$id'
+      path: '/electrical/item/$kind/$id'
+      fullPath: '/electrical/item/$kind/$id'
+      preLoaderRoute: typeof ElectricalItemKindIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/webhooks/rachio': {
@@ -1432,6 +1532,9 @@ const rootRouteChildren: RootRouteChildren = {
   AdminVaultBackupRoute: AdminVaultBackupRoute,
   AdminVaultRotationRoute: AdminVaultRotationRoute,
   AdminVaultSecretsRoute: AdminVaultSecretsRoute,
+  ElectricalKindRoute: ElectricalKindRoute,
+  ElectricalImportRoute: ElectricalImportRoute,
+  ElectricalStandardsRoute: ElectricalStandardsRoute,
   NotesDateRoute: NotesDateRoute,
   SettingsSelfHostRoute: SettingsSelfHostRoute,
   SettingsTroubleshootingRoute: SettingsTroubleshootingRoute,
@@ -1440,12 +1543,14 @@ const rootRouteChildren: RootRouteChildren = {
   TasksRefsRoute: TasksRefsRoute,
   TasksScheduledRoute: TasksScheduledRoute,
   AdminIndexRoute: AdminIndexRoute,
+  ElectricalIndexRoute: ElectricalIndexRoute,
   TasksIndexRoute: TasksIndexRoute,
   ApiPublicHealthRoute: ApiPublicHealthRouteWithChildren,
   ApiPublicReadyRoute: ApiPublicReadyRoute,
   ApiPublicHooksRachioSyncRoute: ApiPublicHooksRachioSyncRoute,
   ApiPublicHooksTaskHealthRoute: ApiPublicHooksTaskHealthRoute,
   ApiPublicWebhooksRachioRoute: ApiPublicWebhooksRachioRoute,
+  ElectricalItemKindIdRoute: ElectricalItemKindIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
