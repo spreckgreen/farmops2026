@@ -17,10 +17,13 @@ import {
 } from "@/lib/electrical-relations";
 import {
   dependentSpecs,
+  diffFieldChanges,
+  type CleanupPreview,
   type DependencyReport,
   type DependentChildGroup,
   type DependentGroup,
 } from "@/lib/electrical-dependents";
+
 import { runIntegrityChecks, integritySummary, type IntegrityFinding } from "@/lib/electrical-integrity";
 
 import { collectTopology, topologyLookups } from "@/lib/electrical-topology";
@@ -260,6 +263,9 @@ export const electricalDependents = createServerFn({ method: "GET" })
  * Guided cleanup step: clear one referencing FK, or point it at a different
  * record of the same kind. Only the FK column is written — the read-only
  * ODS/legacy `*_ref` design values are never rewritten by cleanup.
+ *
+ * With `dryRun: true` nothing is written; the exact record and field-level
+ * before/after changes are returned so they can be reviewed first.
  */
 export const resolveElectricalReference = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -273,6 +279,8 @@ export const resolveElectricalReference = createServerFn({ method: "POST" })
         fkColumn: z.string().min(1).max(80),
         /** New target row id, or null to unlink. */
         targetId: z.string().uuid().nullable(),
+        /** Preview only — no write is performed. */
+        dryRun: z.boolean().optional(),
       })
       .parse(d),
   )
@@ -328,11 +336,32 @@ export const resolveElectricalReference = createServerFn({ method: "POST" })
       Object.assign(patch, relations.derived);
     }
 
+    const diff = diffFieldChanges(existing, patch);
+    const preview: CleanupPreview = {
+      kind: data.kind,
+      table: def.table,
+      rowId: data.id,
+      stableId: String(existing[def.stableIdField] ?? ""),
+      action: data.targetId ? "reassign" : "unlink",
+      changes: diff.changes,
+      unchanged: diff.unchanged,
+    };
 
-    const { error } = await db.from(def.table).update(patch).eq("id", data.id);
-    if (error) throw new Error(error.message);
-    return { ok: true, unlinked: data.targetId == null };
+    if (data.dryRun) return { ok: true, dryRun: true, applied: false, preview };
+
+    if (diff.changes.length) {
+      const { error } = await db.from(def.table).update(patch).eq("id", data.id);
+      if (error) throw new Error(error.message);
+    }
+    return {
+      ok: true,
+      dryRun: false,
+      applied: diff.changes.length > 0,
+      unlinked: data.targetId == null,
+      preview,
+    };
   });
+
 
 
 export const deleteElectrical = createServerFn({ method: "POST" })

@@ -14,13 +14,13 @@ import {
   resolveElectricalReference,
 } from "@/lib/electrical.functions";
 import { ENTITIES } from "@/lib/electrical-entities";
-import type { DependencyReport } from "@/lib/electrical-dependents";
+import type { CleanupPreview, DependencyReport } from "@/lib/electrical-dependents";
 import type { ElectricalEntityKind } from "@/lib/electrical";
 import { EntitySelect } from "@/components/electrical/entity-select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { ExternalLink, Link2Off, Wand2 } from "lucide-react";
+import { ArrowRight, Eye, ExternalLink, Link2Off, Wand2 } from "lucide-react";
 
 interface Step {
   kind: ElectricalEntityKind;
@@ -67,6 +67,8 @@ export function DependencyCleanup({
   const steps = useMemo(() => stepsFrom(report), [report]);
   const [index, setIndex] = useState(0);
   const [replacement, setReplacement] = useState("");
+  const [preview, setPreview] = useState<CleanupPreview | null>(null);
+  const [pendingTarget, setPendingTarget] = useState<string | null>(null);
 
   const fetchOptions = useServerFn(electricalEntityOptions);
   const options = useQuery({
@@ -75,6 +77,25 @@ export function DependencyCleanup({
   });
 
   const resolve = useServerFn(resolveElectricalReference);
+
+  const dryRun = useMutation({
+    mutationFn: async (vars: { step: Step; targetId: string | null }) =>
+      resolve({
+        data: {
+          kind: vars.step.kind,
+          id: vars.step.rowId,
+          fkColumn: vars.step.fkColumn,
+          targetId: vars.targetId,
+          dryRun: true,
+        },
+      }),
+    onSuccess: (res, vars) => {
+      setPendingTarget(vars.targetId);
+      setPreview(res.preview);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const apply = useMutation({
     mutationFn: async (vars: { step: Step; targetId: string | null }) =>
       resolve({
@@ -92,6 +113,8 @@ export function DependencyCleanup({
           : `${vars.step.stableId}: ${vars.step.fieldLabel} unlinked`,
       );
       setReplacement("");
+      setPreview(null);
+      setPendingTarget(null);
       void qc.invalidateQueries({ queryKey: ["electrical"] });
       onResolved();
     },
@@ -103,6 +126,8 @@ export function DependencyCleanup({
 
   const choices = (options.data?.[targetKind] ?? []).filter((o) => o.id !== targetId);
   const done = report.groups.length ? steps.length : 0;
+  const busy = apply.isPending || dryRun.isPending;
+
 
   return (
     <div className="space-y-3 rounded-md border p-3">
@@ -146,34 +171,94 @@ export function DependencyCleanup({
         options={choices}
         loading={options.isPending}
         value={replacement}
-        onChange={setReplacement}
+        onChange={(v) => {
+          setReplacement(v);
+          setPreview(null);
+        }}
       />
+
+      {preview ? (
+        <div className="space-y-2 rounded-md border border-primary/40 bg-primary/5 p-3 text-sm">
+          <p className="flex items-center gap-2 font-medium">
+            <Eye className="h-4 w-4" />
+            Dry run — nothing has been saved yet
+          </p>
+          <p className="text-muted-foreground">
+            {preview.action === "unlink" ? "Unlink" : "Reassign"} on{" "}
+            <span className="font-mono text-foreground">{preview.stableId || preview.rowId}</span>{" "}
+            ({preview.table})
+          </p>
+          {preview.changes.length ? (
+            <ul className="space-y-1">
+              {preview.changes.map((c) => (
+                <li key={c.column} className="font-mono text-xs">
+                  <span className="text-foreground">{c.column}</span>:{" "}
+                  <span className="text-muted-foreground line-through">{c.before ?? "—"}</span>{" "}
+                  <ArrowRight className="inline h-3 w-3" />{" "}
+                  <span className="text-foreground">{c.after ?? "—"}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-muted-foreground">
+              No field changes — this record already matches. Nothing will be written.
+            </p>
+          )}
+          {preview.unchanged.length ? (
+            <p className="text-xs text-muted-foreground">
+              Unchanged: {preview.unchanged.join(", ")}
+            </p>
+          ) : null}
+          <div className="flex flex-wrap gap-2 pt-1">
+            <Button
+              size="sm"
+              disabled={busy || !preview.changes.length}
+              onClick={() => apply.mutate({ step, targetId: pendingTarget })}
+            >
+              {apply.isPending ? "Applying…" : "Apply these changes"}
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={busy}
+              onClick={() => {
+                setPreview(null);
+                setPendingTarget(null);
+              }}
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      ) : null}
 
       <div className="flex flex-wrap items-center gap-2">
         <Button
           size="sm"
           variant="outline"
           className="gap-1"
-          disabled={apply.isPending}
-          onClick={() => apply.mutate({ step, targetId: null })}
+          disabled={busy}
+          onClick={() => dryRun.mutate({ step, targetId: null })}
         >
           <Link2Off className="h-4 w-4" />
-          Unlink
+          Preview unlink
         </Button>
         <Button
           size="sm"
-          disabled={apply.isPending || !replacement}
-          onClick={() => apply.mutate({ step, targetId: replacement })}
+          disabled={busy || !replacement}
+          onClick={() => dryRun.mutate({ step, targetId: replacement })}
         >
-          {apply.isPending ? "Saving…" : "Reassign"}
+          {dryRun.isPending ? "Checking…" : "Preview reassign"}
         </Button>
         {steps.length > 1 ? (
           <Button
             size="sm"
             variant="ghost"
-            disabled={apply.isPending}
+            disabled={busy}
             onClick={() => {
               setReplacement("");
+              setPreview(null);
+              setPendingTarget(null);
               setIndex((i) => (i + 1) % steps.length);
             }}
           >
@@ -181,6 +266,7 @@ export function DependencyCleanup({
           </Button>
         ) : null}
       </div>
+
     </div>
   );
 }
