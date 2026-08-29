@@ -68,6 +68,7 @@ export const ENDPOINT_TYPES = [
   "load",
   "other",
 ] as const;
+export type EndpointType = (typeof ENDPOINT_TYPES)[number];
 
 // ---------------------------------------------------------------- stable IDs
 
@@ -79,16 +80,60 @@ export type ElectricalEntityKind =
   | "jbox"
   | "branch";
 
+/**
+ * Which entity table an endpoint type resolves to. `null` means the endpoint is
+ * a physical thing FarmOps does not model as its own record (a piece of
+ * equipment, a handhole, "other"), so no FK can be demanded for it.
+ */
+export const ENDPOINT_ENTITY_KIND: Record<EndpointType, ElectricalEntityKind | null> = {
+  panel: "panel",
+  junction_box: "jbox",
+  load: "load",
+  equipment: null,
+  handhole: null,
+  other: null,
+};
+
+export function endpointTypeForKind(kind: ElectricalEntityKind): EndpointType | null {
+  if (kind === "panel") return "panel";
+  if (kind === "jbox") return "junction_box";
+  if (kind === "load") return "load";
+  return null;
+}
+
 const ID_PATTERNS: Record<ElectricalEntityKind, RegExp | null> = {
-  // Farm Shop / Pump House / Boiler use the ### convention; House loads keep
-  // their existing convention, so any non-empty token is accepted for those.
-  load: /^(FS|PH|BL)-\d{3}$/,
+  // Loads get their own dedicated check (see checkLoadId) because each building
+  // prefix is a separate controlled convention.
+  load: null,
   circuit_group: null,
   panel: /^PNL-[A-Z0-9]+(-[A-Z0-9]+)*$/,
   raceway: /^CON-\d{3,}$/,
   jbox: /^JB-\d{3,}$/,
   branch: /^BR-\d{3,}$/,
 };
+
+/** Building prefixes that are legitimate for load IDs. */
+export const LOAD_ID_PREFIXES: Record<string, string> = {
+  FS: "Farm Shop",
+  PH: "Pump House",
+  BL: "Boiler",
+  HSE: "House",
+};
+
+/**
+ * FS/PH/BL use three digits; an optional lowercase suffix letter covers split
+ * loads that already exist in the canonical spreadsheet (PH-019a / PH-019b).
+ */
+const LOAD_BUILDING_ID = /^(FS|PH|BL)-\d{3}[a-z]?$/;
+/** The House convention is modelled explicitly rather than being a catch-all. */
+const LOAD_HOUSE_ID = /^HSE-\d{2,3}[a-z]?$/;
+
+/**
+ * Controlled exception list for pre-existing load IDs that predate the
+ * conventions above. Adding to this list is a deliberate, reviewable act — an
+ * unknown ID is never silently waved through as "probably a House ID".
+ */
+export const LEGACY_LOAD_IDS: readonly string[] = [];
 
 export interface IdCheck {
   ok: boolean;
@@ -97,20 +142,36 @@ export interface IdCheck {
   error?: string;
 }
 
+export function checkLoadId(raw: string): IdCheck {
+  const id = (raw ?? "").trim();
+  if (!id) return { ok: false, error: "A load ID is required." };
+  if (LOAD_BUILDING_ID.test(id)) return { ok: true };
+  if (LOAD_HOUSE_ID.test(id)) return { ok: true };
+  if (LEGACY_LOAD_IDS.includes(id)) {
+    return { ok: true, warning: `${id} is on the controlled legacy exception list.` };
+  }
+  const prefix = /^([A-Za-z]+)/.exec(id)?.[1]?.toUpperCase() ?? "";
+  if (prefix in LOAD_ID_PREFIXES) {
+    const shape = prefix === "HSE" ? "HSE-##" : `${prefix}-###`;
+    return {
+      ok: false,
+      error: `${id} is a malformed ${LOAD_ID_PREFIXES[prefix]} load ID — expected ${shape}.`,
+    };
+  }
+  return {
+    ok: false,
+    error: `${id} does not use a known load prefix (${Object.keys(LOAD_ID_PREFIXES).join(", ")}).`,
+  };
+}
+
 export function checkStableId(kind: ElectricalEntityKind, raw: string): IdCheck {
   const id = (raw ?? "").trim();
   if (!id) return { ok: false, error: "A stable ID is required." };
   if (/\s/.test(id)) return { ok: false, error: "Stable IDs cannot contain spaces." };
+  if (kind === "load") return checkLoadId(id);
   const pattern = ID_PATTERNS[kind];
   if (!pattern) return { ok: true };
   if (pattern.test(id)) return { ok: true };
-  if (kind === "load") {
-    // House loads preserve their existing convention rather than being renamed.
-    return {
-      ok: true,
-      warning: `${id} is outside the FS-/PH-/BL-### convention — acceptable only for pre-existing House IDs.`,
-    };
-  }
   return { ok: false, error: `${id} does not match the required format for this record type.` };
 }
 
@@ -125,6 +186,7 @@ export function nextStableId(kind: ElectricalEntityKind, existing: string[]): st
   }
   return `${prefix}-${String(max + 1).padStart(3, "0")}`;
 }
+
 
 // ------------------------------------------------------- panel exit ordering
 
@@ -302,4 +364,38 @@ export function completionFromStatus(status: string): number {
     as_built_verified: 100,
   };
   return scale[status] ?? 0;
+}
+
+// ------------------------------------------------------- controlled vocabularies
+// Mirrors public.electrical_allowed() in the database. The database is the
+// integrity boundary; this copy exists so the UI and server functions can
+// explain a rejection before the write is attempted.
+export const CONTROLLED_VALUES: Record<string, readonly string[]> = {
+  install_status: INSTALL_STATUSES,
+  label_status: LABEL_STATUSES,
+  label_class: LABEL_CLASSES,
+  environment: RACEWAY_ENVIRONMENTS,
+  source_endpoint_type: ENDPOINT_TYPES,
+  dest_endpoint_type: ENDPOINT_TYPES,
+  exit_side: PANEL_EXIT_SIDES,
+};
+
+export function checkControlledValue(column: string, value: unknown): string | null {
+  const allowed = CONTROLLED_VALUES[column];
+  if (!allowed) return null;
+  const v = String(value ?? "").trim();
+  if (!v) return null;
+  if (allowed.includes(v)) return null;
+  return `${v} is not an allowed ${column.replace(/_/g, " ")} value.`;
+}
+
+/**
+ * Next free physical exit order for a panel. Exit order is a physical attribute
+ * of where a raceway leaves the enclosure — it is deliberately separate from the
+ * Conduit ID and changing it never renames CON-###.
+ */
+export function nextPanelExitOrder(existing: (number | null | undefined)[]): number {
+  let max = 0;
+  for (const n of existing) if (typeof n === "number" && Number.isFinite(n)) max = Math.max(max, n);
+  return max + 1;
 }

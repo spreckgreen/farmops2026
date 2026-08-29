@@ -3,7 +3,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import { requireAddon } from "@/lib/addons.server";
-import { ENTITIES, coerceValue, writableColumns } from "@/lib/electrical-entities";
+import { ENTITIES, coerceValue, importColumns } from "@/lib/electrical-entities";
 import { checkStableId, completionFromStatus, type ElectricalEntityKind } from "@/lib/electrical";
 import {
   buildPlanSheet,
@@ -64,7 +64,7 @@ export const previewOdsImport = createServerFn({ method: "POST" })
         continue;
       }
       const def = ENTITIES[kind];
-      const mapped = mapSheet(sheet, kind, writableColumns(kind), def.stableIdField);
+      const mapped = mapSheet(sheet, kind, importColumns(kind), def.stableIdField);
       const { data: rows, error } = await db.from(def.table).select("*");
       if (error) throw new Error(error.message);
       const existing: Record<string, Record<string, unknown>> = {};
@@ -115,7 +115,7 @@ export const applyOdsImport = createServerFn({ method: "POST" })
         continue;
       }
 
-      const allowed = new Set(writableColumns(kind));
+      const allowed = new Set(importColumns(kind));
       const patch: Record<string, unknown> = { [def.stableIdField]: row.stable_id };
       for (const [key, raw] of Object.entries(row.values)) {
         if (!allowed.has(key) || key === def.stableIdField) continue;

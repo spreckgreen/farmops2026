@@ -34,9 +34,13 @@ export function ElectricalNav() {
       <Link to="/electrical/diagrams" className={item} activeProps={active}>
         Diagrams
       </Link>
+      <Link to="/electrical/qa" className={item} activeProps={active}>
+        QA
+      </Link>
       <Link to="/electrical/standards" className={item} activeProps={active}>
         Standards
       </Link>
+
       <Link to="/electrical/import" className={item} activeProps={active}>
         ODS import
       </Link>

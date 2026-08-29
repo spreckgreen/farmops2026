@@ -11,15 +11,25 @@ import {
   writableColumns,
 } from "@/lib/electrical-entities";
 import {
+  applyRelations,
+  relationsFor,
+  type RelationTarget,
+} from "@/lib/electrical-relations";
+import { runIntegrityChecks, integritySummary, type IntegrityFinding } from "@/lib/electrical-integrity";
+import type { ElectricalGraphData, Row } from "@/lib/electrical-mermaid";
+import {
+  checkControlledValue,
   checkStableId,
   completionFromStatus,
   farmShopWalkOrder,
   findBreakerConflicts,
   INSTALL_STATUSES,
+  nextPanelExitOrder,
   nextStableId,
   sortByPanelExit,
   type ElectricalEntityKind,
 } from "@/lib/electrical";
+
 
 type LooseDb = { from: (table: string) => any };
 
@@ -83,6 +93,7 @@ export const saveElectrical = createServerFn({ method: "POST" })
     await requireAddon(context.supabase, context.userId, "electrical");
     const def = ENTITIES[data.kind];
     const allowed = new Set(writableColumns(data.kind));
+    const db = context.supabase as unknown as LooseDb;
 
     const patch: Record<string, unknown> = {};
     for (const [key, raw] of Object.entries(data.values)) {
@@ -101,11 +112,62 @@ export const saveElectrical = createServerFn({ method: "POST" })
       if (!check.ok) throw new Error(check.error ?? "Invalid stable ID.");
     }
 
+    // Controlled vocabularies are enforced here as well as in the database, so
+    // the user gets a readable message instead of a trigger error.
+    for (const [key, value] of Object.entries(patch)) {
+      const problem = checkControlledValue(key, value);
+      if (problem) throw new Error(problem);
+    }
+
     if (typeof patch["install_status"] === "string" && patch["completion_percent"] == null) {
       patch["completion_percent"] = completionFromStatus(patch["install_status"] as string);
     }
 
-    const db = context.supabase as unknown as LooseDb;
+    // Duplicate stable IDs are rejected before the write so the message names
+    // the conflicting record rather than surfacing a unique-index violation.
+    if (stableId) {
+      const { data: clash } = await db
+        .from(def.table)
+        .select("id")
+        .eq(def.stableIdField, stableId)
+        .limit(2);
+      const others = ((clash ?? []) as { id: string }[]).filter((r) => r.id !== data.id);
+      if (others.length) throw new Error(`${def.stableIdLabel} ${stableId} is already in use.`);
+    }
+
+    // Resolve every FK selection to its target so the legacy reference columns
+    // can be derived and impossible topology rejected.
+    let existing: Record<string, unknown> = {};
+    if (data.id) {
+      const { data: row } = await db.from(def.table).select("*").eq("id", data.id).single();
+      existing = (row ?? {}) as Record<string, unknown>;
+    }
+    const merged = { ...existing, ...patch };
+    const targets: Record<string, RelationTarget | null> = {};
+    for (const spec of relationsFor(data.kind)) {
+      const value = merged[spec.fkColumn];
+      if (value == null || !String(value)) continue;
+      const target = ENTITIES[spec.targetKind];
+      const { data: row } = await db
+        .from(target.table)
+        .select(`id, ${target.stableIdField}`)
+        .eq("id", String(value))
+        .maybeSingle();
+      targets[spec.fkColumn] = row
+        ? {
+            id: (row as Record<string, string>)["id"]!,
+            kind: spec.targetKind,
+            stableId: String((row as Record<string, string>)[target.stableIdField] ?? ""),
+          }
+        : null;
+    }
+    const relations = applyRelations(data.kind, merged, targets, {
+      id: data.id ?? null,
+      stableId: stableId || String(existing[def.stableIdField] ?? ""),
+    });
+    if (relations.errors.length) throw new Error(relations.errors.join(" "));
+    Object.assign(patch, relations.derived);
+
     if (data.id) {
       const { error } = await db.from(def.table).update(patch).eq("id", data.id);
       if (error) throw new Error(error.message);
@@ -119,6 +181,7 @@ export const saveElectrical = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true, id: (inserted as { id: string }).id };
   });
+
 
 export const deleteElectrical = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -412,4 +475,100 @@ export const electricalTopology = createServerFn({ method: "GET" })
     }
 
     return { record, related };
+  });
+
+export interface EntityOption {
+  id: string;
+  stableId: string;
+  label: string;
+  context: string;
+  installStatus: string;
+}
+
+/**
+ * Selector data for the relationship pickers: stable ID plus enough context
+ * (description, building, grid) that the right record is obvious in the field.
+ */
+export const electricalEntityOptions = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ kinds: z.array(kindSchema).min(1).max(6) }).parse(d))
+  .handler(async ({ context, data }): Promise<Record<string, EntityOption[]>> => {
+    await requireAddon(context.supabase, context.userId, "electrical");
+    const db = context.supabase as unknown as LooseDb;
+    const out: Record<string, EntityOption[]> = {};
+    for (const kind of [...new Set(data.kinds)]) {
+      const def = ENTITIES[kind];
+      const { data: rows, error } = await db.from(def.table).select("*").order(def.stableIdField);
+      if (error) throw new Error(error.message);
+      out[kind] = ((rows ?? []) as unknown as ElectricalRow[]).map((r) => ({
+        id: String(r["id"]),
+        stableId: String(r[def.stableIdField] ?? ""),
+        label: String(r["description"] ?? r["area"] ?? ""),
+        context: [r["building"], r["grid"], r["area"], r["location"]]
+          .map((v) => String(v ?? "").trim())
+          .filter(Boolean)
+          .join(" · "),
+        installStatus: String(r["install_status"] ?? ""),
+      }));
+    }
+    return out;
+  });
+
+/** Next free physical exit order for a panel (lower-right, then counterclockwise). */
+export const suggestPanelExitOrder = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ panel_uuid: z.string().uuid() }).parse(d))
+  .handler(async ({ context, data }) => {
+    await requireAddon(context.supabase, context.userId, "electrical");
+    const { data: rows, error } = await (context.supabase as unknown as LooseDb)
+      .from("electrical_raceways")
+      .select("exit_order")
+      .eq("source_panel_uuid", data.panel_uuid);
+    if (error) throw new Error(error.message);
+    const used = ((rows ?? []) as { exit_order: number | null }[]).map((r) => r.exit_order);
+    return { suggestion: nextPanelExitOrder(used) };
+  });
+
+export interface IntegrityReport {
+  findings: IntegrityFinding[];
+  summary: ReturnType<typeof integritySummary>;
+}
+
+/**
+ * Electrical QA: duplicate/malformed IDs, invalid controlled values, orphans,
+ * FK/reference disagreement, breaker conflicts and incomplete topology.
+ * Report only — it never rewrites records.
+ */
+export const electricalIntegrityReport = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<IntegrityReport> => {
+    await requireAddon(context.supabase, context.userId, "electrical");
+    const db = context.supabase as unknown as LooseDb;
+    const kinds: ElectricalEntityKind[] = [
+      "panel",
+      "circuit_group",
+      "load",
+      "raceway",
+      "jbox",
+      "branch",
+    ];
+    const fetched = await Promise.all(
+      kinds.map(async (kind) => {
+        const { data, error } = await db.from(ENTITIES[kind].table).select("*");
+        if (error) throw new Error(error.message);
+        return (data ?? []) as Row[];
+      }),
+    );
+    const { data: waypoints } = await db.from("electrical_raceway_waypoints").select("*");
+    const graph: ElectricalGraphData = {
+      panel: fetched[0]!,
+      circuit_group: fetched[1]!,
+      load: fetched[2]!,
+      raceway: fetched[3]!,
+      jbox: fetched[4]!,
+      branch: fetched[5]!,
+      waypoint: (waypoints ?? []) as Row[],
+    };
+    const findings = runIntegrityChecks(graph);
+    return { findings, summary: integritySummary(findings) };
   });

@@ -8,12 +8,16 @@ import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import {
   deleteElectrical,
+  electricalEntityOptions,
   listElectrical,
   saveElectrical,
   suggestStableId,
   type ElectricalRow,
+  type EntityOption,
 } from "@/lib/electrical.functions";
 import { ENTITIES, type EntityField } from "@/lib/electrical-entities";
+import { relationsFor } from "@/lib/electrical-relations";
+import { EntitySelect } from "@/components/electrical/entity-select";
 import {
   INSTALL_STATUSES,
   RACEWAY_ENVIRONMENTS,
@@ -21,6 +25,7 @@ import {
   installStatusLabel,
   type ElectricalEntityKind,
 } from "@/lib/electrical";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -53,14 +58,41 @@ function FieldInput({
   field,
   value,
   onChange,
+  options,
+  optionsLoading,
 }: {
   field: EntityField;
   value: string | boolean;
   onChange: (v: string | boolean) => void;
+  options?: EntityOption[];
+  optionsLoading?: boolean;
 }) {
+  if (field.kind === "entity") {
+    return (
+      <EntitySelect
+        label={field.label}
+        hint={field.hint}
+        options={options ?? []}
+        loading={optionsLoading}
+        value={String(value)}
+        onChange={onChange}
+      />
+    );
+  }
+  if (field.readOnly) {
+    return (
+      <div className="space-y-1">
+        <Label className="text-xs">{field.label}</Label>
+        <Input readOnly disabled className="font-mono" value={String(value)} />
+        <p className="text-xs text-muted-foreground">
+          {field.hint ?? "Derived from the linked record."}
+        </p>
+      </div>
+    );
+  }
   if (field.kind === "bool") {
     return (
-      <label className="flex items-center gap-2 text-sm">
+      <label className="flex min-h-10 items-center gap-2 text-sm">
         <Checkbox checked={Boolean(value)} onCheckedChange={(c) => onChange(Boolean(c))} />
         {field.label}
       </label>
@@ -79,7 +111,7 @@ function FieldInput({
       <div className="space-y-1">
         <Label className="text-xs">{field.label}</Label>
         <select
-          className="w-full h-9 rounded-md border border-input bg-background px-2 text-sm"
+          className="h-10 w-full rounded-md border border-input bg-background px-2 text-sm"
           value={String(value)}
           onChange={(e) => onChange(e.target.value)}
         >
@@ -90,6 +122,7 @@ function FieldInput({
             </option>
           ))}
         </select>
+        {field.hint ? <p className="text-xs text-muted-foreground">{field.hint}</p> : null}
       </div>
     );
   }
@@ -97,13 +130,17 @@ function FieldInput({
     <div className="space-y-1">
       <Label className="text-xs">{field.label}</Label>
       <Input
+        className="h-10"
         type={field.kind === "number" ? "number" : "text"}
+        inputMode={field.kind === "number" ? "decimal" : undefined}
         value={String(value)}
         onChange={(e) => onChange(e.target.value)}
       />
+      {field.hint ? <p className="text-xs text-muted-foreground">{field.hint}</p> : null}
     </div>
   );
 }
+
 
 export function EntityManager({ kind }: { kind: ElectricalEntityKind }) {
   const def = ENTITIES[kind];
@@ -112,6 +149,7 @@ export function EntityManager({ kind }: { kind: ElectricalEntityKind }) {
   const save = useServerFn(saveElectrical);
   const remove = useServerFn(deleteElectrical);
   const suggest = useServerFn(suggestStableId);
+  const loadOptions = useServerFn(electricalEntityOptions);
 
   const [search, setSearch] = useState("");
   const [environment, setEnvironment] = useState("");
@@ -124,6 +162,52 @@ export function EntityManager({ kind }: { kind: ElectricalEntityKind }) {
     queryFn: () =>
       list({ data: { kind, environment: environment || undefined, status: status || undefined } }),
   });
+
+  // Records this kind can be linked to, so the relationship pickers show stable
+  // IDs instead of asking for typed-in references.
+  const relationKinds = useMemo(
+    () => [...new Set(relationsFor(kind).map((r) => r.targetKind))],
+    [kind],
+  );
+  const optionsQuery = useQuery({
+    queryKey: ["electrical", "options", relationKinds],
+    queryFn: () => loadOptions({ data: { kinds: relationKinds } }),
+    enabled: relationKinds.length > 0 && Boolean(editing),
+  });
+
+  // Field-work values first (what gets edited on a phone), then relationships,
+  // then the engineering values the canonical ODS still governs.
+  const groups = useMemo(() => {
+    const relation = def.fields.filter((f) => f.kind === "entity" || f.readOnly);
+    const fieldWork = def.fields.filter((f) => f.field && !relation.includes(f));
+    const engineering = def.fields.filter(
+      (f) => f.engineering && !relation.includes(f) && !fieldWork.includes(f),
+    );
+    const rest = def.fields.filter(
+      (f) => !relation.includes(f) && !fieldWork.includes(f) && !engineering.includes(f),
+    );
+    const all: { title: string; fields: EntityField[]; note?: string }[] = [
+      {
+        title: "Field work",
+        fields: fieldWork,
+        note: "Status, measurements and notes recorded on site.",
+      },
+      {
+        title: "Topology",
+        fields: relation,
+        note: "Pick existing records — the link, not the typed ID, is authoritative.",
+      },
+      { title: "Details", fields: rest },
+      {
+        title: "Engineering values (ODS-controlled)",
+        fields: engineering,
+        note: "The canonical electrical spreadsheet remains the authority for these. Edit only to match a released revision.",
+      },
+    ];
+    return all.filter((g) => g.fields.length > 0);
+  }, [def]);
+
+
 
   const rows = useMemo(() => {
     const needle = search.trim().toLowerCase();
@@ -327,16 +411,29 @@ export function EntityManager({ kind }: { kind: ElectricalEntityKind }) {
                 </p>
               )}
             </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {def.fields.map((f) => (
-                <FieldInput
-                  key={f.key}
-                  field={f}
-                  value={values[f.key] ?? (f.kind === "bool" ? false : "")}
-                  onChange={(v) => setValues((prev) => ({ ...prev, [f.key]: v }))}
-                />
-              ))}
-            </div>
+            {groups.map((group) => (
+              <div key={group.title} className="space-y-2">
+                <div>
+                  <h4 className="text-sm font-medium">{group.title}</h4>
+                  {group.note ? (
+                    <p className="text-xs text-muted-foreground">{group.note}</p>
+                  ) : null}
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {group.fields.map((f) => (
+                    <FieldInput
+                      key={f.key}
+                      field={f}
+                      value={values[f.key] ?? (f.kind === "bool" ? false : "")}
+                      onChange={(v) => setValues((prev) => ({ ...prev, [f.key]: v }))}
+                      options={f.entityKind ? (optionsQuery.data?.[f.entityKind] ?? []) : undefined}
+                      optionsLoading={optionsQuery.isLoading}
+                    />
+                  ))}
+                </div>
+              </div>
+            ))}
+
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditing(null)}>

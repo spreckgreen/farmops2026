@@ -2821,6 +2821,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      electrical_allowed: { Args: { _domain: string }; Returns: string[] }
       restore_table_diagnostics: { Args: { _table: string }; Returns: Json }
     }
     Enums: {
