@@ -48,7 +48,7 @@ function EntityListPage() {
     <ElectricalGate>
       <div className="space-y-3">
         {kind === "circuit_group" ? <CircuitGroupDerive /> : null}
-        <EntityManager kind={kind as ElectricalEntityKind} />
+        <EntityManager key={kind} kind={kind as ElectricalEntityKind} />
       </div>
     </ElectricalGate>
   );

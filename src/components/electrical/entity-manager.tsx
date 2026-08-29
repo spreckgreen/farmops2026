@@ -316,8 +316,17 @@ export function EntityManager({ kind }: { kind: ElectricalEntityKind }) {
       ) : !rows.length ? (
         <Card>
           <CardContent className="py-8 text-sm text-muted-foreground text-center">
-            No {def.title.toLowerCase()} yet. Add one by hand, or import the engineering
-            spreadsheet from the ODS import tab.
+            {query.data?.length ? (
+              <>
+                No {def.title.toLowerCase()} match the current search or filters. Clear them to
+                show all {def.title.toLowerCase()}.
+              </>
+            ) : (
+              <>
+                No {def.title.toLowerCase()} yet. Add one by hand, or import the engineering
+                spreadsheet from the ODS import tab.
+              </>
+            )}
           </CardContent>
         </Card>
       ) : (
