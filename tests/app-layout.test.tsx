@@ -46,7 +46,21 @@ vi.mock("@/components/profile-gate", () => ({
   ProfileGate: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AppLayout } from "@/components/app-layout";
+
+// AppLayout calls useAddon("electrical"), which uses useQuery and therefore
+// needs a real QueryClient in context even though useQueryClient is mocked.
+function renderLayout(children: React.ReactNode) {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false, gcTime: 0 } },
+  });
+  return render(
+    <QueryClientProvider client={client}>
+      <AppLayout>{children}</AppLayout>
+    </QueryClientProvider>,
+  );
+}
 
 describe("AppLayout top navigation", () => {
   beforeEach(() => {
