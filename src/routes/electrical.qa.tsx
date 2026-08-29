@@ -130,11 +130,21 @@ function QaReport() {
               <Badge variant={summary?.errors ? "destructive" : "outline"}>
                 {summary?.errors ?? 0} errors
               </Badge>
-              <Badge variant="secondary">{summary?.warnings ?? 0} warnings</Badge>
+              <Badge variant="secondary">
+                {summary?.incomplete ?? 0} warnings / incomplete
+              </Badge>
+              <Badge variant="outline">{summary?.valid ?? 0} valid</Badge>
             </div>
           )}
         </CardContent>
       </Card>
+
+      <TopologyPunchList
+        gaps={q.data?.gaps ?? []}
+        summary={q.data?.gapSummary}
+        loading={q.isLoading}
+      />
+
 
       {!q.isLoading && !q.error && !grouped.length ? (
         <Card>
