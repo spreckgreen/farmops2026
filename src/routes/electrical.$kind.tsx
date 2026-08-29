@@ -44,7 +44,11 @@ function EntityListPage() {
   const { kind } = Route.useParams();
   return (
     <ElectricalGate>
-      <EntityManager kind={kind as ElectricalEntityKind} />
+      <div className="space-y-3">
+        {kind === "circuit_group" ? <CircuitGroupDerive /> : null}
+        <EntityManager kind={kind as ElectricalEntityKind} />
+      </div>
     </ElectricalGate>
   );
 }
+
