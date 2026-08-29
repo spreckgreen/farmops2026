@@ -64,6 +64,7 @@ vi.mock("@/lib/log.functions", () => ({
   refreshDailyNoteFromLog: refreshDailyNoteFromLogImpl,
   listProjects: listProjectsImpl,
   setDailyNoteRatings: vi.fn(async () => ({ ok: true })),
+  removeTaskFromToday: vi.fn(async () => ({ ok: true })),
 }));
 
 
@@ -137,7 +138,8 @@ function renderNotePage() {
 
 async function openMarkdownEditor() {
   await userClick(screen.getByRole("button", { name: /edit markdown/i }));
-  return (await screen.findByRole("textbox")) as HTMLTextAreaElement;
+  // The page also renders a "Filter…" input, so scope to the markdown textarea.
+  return (await screen.findByPlaceholderText(/# Daily note/i)) as HTMLTextAreaElement;
 }
 
 async function userClick(element: HTMLElement) {

@@ -46,7 +46,21 @@ vi.mock("@/components/profile-gate", () => ({
   ProfileGate: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AppLayout } from "@/components/app-layout";
+
+// AppLayout calls useAddon("electrical"), which uses useQuery and therefore
+// needs a real QueryClient in context even though useQueryClient is mocked.
+function renderLayout(children: React.ReactNode) {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false, gcTime: 0 } },
+  });
+  return render(
+    <QueryClientProvider client={client}>
+      <AppLayout>{children}</AppLayout>
+    </QueryClientProvider>,
+  );
+}
 
 describe("AppLayout top navigation", () => {
   beforeEach(() => {
@@ -57,11 +71,7 @@ describe("AppLayout top navigation", () => {
   });
 
   it("renders all primary nav links", () => {
-    render(
-      <AppLayout>
-        <div>child</div>
-      </AppLayout>,
-    );
+    renderLayout(<div>child</div>);
     for (const label of [
       "Today",
       "Tasks",
@@ -79,41 +89,25 @@ describe("AppLayout top navigation", () => {
   });
 
   it("Maintenance and Inventory link to internal routes", () => {
-    render(
-      <AppLayout>
-        <div />
-      </AppLayout>,
-    );
+    renderLayout(<div />);
     expect(screen.getByRole("link", { name: "Maintenance" })).toHaveAttribute("href", "/maintenance");
     expect(screen.getByRole("link", { name: "Inventory" })).toHaveAttribute("href", "/inventory");
   });
 
   it("places Maintenance after Inventory in the primary nav", () => {
-    render(
-      <AppLayout>
-        <div />
-      </AppLayout>,
-    );
+    renderLayout(<div />);
     const labels = screen.getAllByRole("link").map((link) => link.textContent?.trim());
     expect(labels.indexOf("Inventory")).toBeLessThan(labels.indexOf("Maintenance"));
   });
 
   it("Today link points at /notes/<today>", () => {
-    render(
-      <AppLayout>
-        <div />
-      </AppLayout>,
-    );
+    renderLayout(<div />);
     const link = screen.getByRole("link", { name: "Today" });
     expect(link.getAttribute("href")).toMatch(/\/notes\/\d{4}-\d{2}-\d{2}/);
   });
 
   it("Sign out calls supabase signOut then navigates to /auth", async () => {
-    render(
-      <AppLayout>
-        <div />
-      </AppLayout>,
-    );
+    renderLayout(<div />);
     await userEvent.click(screen.getByRole("button", { name: /sign out/i }));
     expect(cancelQueries).toHaveBeenCalledOnce();
     expect(clear).toHaveBeenCalledOnce();
@@ -124,11 +118,7 @@ describe("AppLayout top navigation", () => {
   });
 
   it("renders children inside main", () => {
-    render(
-      <AppLayout>
-        <div data-testid="child">hello</div>
-      </AppLayout>,
-    );
+    renderLayout(<div data-testid="child">hello</div>);
     expect(screen.getByTestId("child")).toBeInTheDocument();
   });
 });
