@@ -770,6 +770,7 @@ export type Database = {
           location: string | null
           notes: string | null
           phase: string | null
+          source_circuit: string | null
           updated_at: string
           user_id: string
           volts: number | null
@@ -802,6 +803,7 @@ export type Database = {
           location?: string | null
           notes?: string | null
           phase?: string | null
+          source_circuit?: string | null
           updated_at?: string
           user_id: string
           volts?: number | null
@@ -834,6 +836,7 @@ export type Database = {
           location?: string | null
           notes?: string | null
           phase?: string | null
+          source_circuit?: string | null
           updated_at?: string
           user_id?: string
           volts?: number | null
@@ -1008,6 +1011,7 @@ export type Database = {
           exit_notes: string | null
           exit_order: number | null
           exit_side: string | null
+          from_label: string | null
           id: string
           install_status: string
           label_status: string
@@ -1015,7 +1019,10 @@ export type Database = {
           measured_length_ft: number | null
           notes: string | null
           planned_length_ft: number | null
+          purpose: string | null
           raceway_type: string | null
+          route_group: string | null
+          service_type: string | null
           source_building: string | null
           source_endpoint_ref: string | null
           source_endpoint_type: string | null
@@ -1023,6 +1030,7 @@ export type Database = {
           source_jbox_uuid: string | null
           source_panel_uuid: string | null
           spare: boolean
+          to_label: string | null
           trade_size: string | null
           updated_at: string
           user_id: string
@@ -1043,6 +1051,7 @@ export type Database = {
           exit_notes?: string | null
           exit_order?: number | null
           exit_side?: string | null
+          from_label?: string | null
           id?: string
           install_status?: string
           label_status?: string
@@ -1050,7 +1059,10 @@ export type Database = {
           measured_length_ft?: number | null
           notes?: string | null
           planned_length_ft?: number | null
+          purpose?: string | null
           raceway_type?: string | null
+          route_group?: string | null
+          service_type?: string | null
           source_building?: string | null
           source_endpoint_ref?: string | null
           source_endpoint_type?: string | null
@@ -1058,6 +1070,7 @@ export type Database = {
           source_jbox_uuid?: string | null
           source_panel_uuid?: string | null
           spare?: boolean
+          to_label?: string | null
           trade_size?: string | null
           updated_at?: string
           user_id: string
@@ -1078,6 +1091,7 @@ export type Database = {
           exit_notes?: string | null
           exit_order?: number | null
           exit_side?: string | null
+          from_label?: string | null
           id?: string
           install_status?: string
           label_status?: string
@@ -1085,7 +1099,10 @@ export type Database = {
           measured_length_ft?: number | null
           notes?: string | null
           planned_length_ft?: number | null
+          purpose?: string | null
           raceway_type?: string | null
+          route_group?: string | null
+          service_type?: string | null
           source_building?: string | null
           source_endpoint_ref?: string | null
           source_endpoint_type?: string | null
@@ -1093,6 +1110,7 @@ export type Database = {
           source_jbox_uuid?: string | null
           source_panel_uuid?: string | null
           spare?: boolean
+          to_label?: string | null
           trade_size?: string | null
           updated_at?: string
           user_id?: string
