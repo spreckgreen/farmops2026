@@ -9,9 +9,8 @@ import type { ElectricalEntityKind } from "@/lib/electrical";
 
 export const Route = createFileRoute("/electrical/$kind")({
   component: EntityListPage,
-  validateSearch: (search: Record<string, unknown>) => ({
-    edit: typeof search["edit"] === "string" ? (search["edit"] as string) : undefined,
-  }),
+  validateSearch: (search: Record<string, unknown>): { edit?: string } =>
+    typeof search["edit"] === "string" ? { edit: search["edit"] as string } : {},
   errorComponent: ({ error }) => (
     <Card>
       <CardContent className="py-6 text-sm text-destructive">{error.message}</CardContent>
@@ -57,7 +56,7 @@ function EntityListPage() {
           key={kind}
           kind={kind as ElectricalEntityKind}
           openEditId={edit}
-          onEditHandled={() => void navigate({ search: {}, replace: true })}
+          onEditHandled={() => void navigate({ search: (): { edit?: string } => ({}), replace: true })}
         />
       </div>
     </ElectricalGate>

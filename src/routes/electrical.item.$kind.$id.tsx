@@ -43,7 +43,7 @@ function DeleteRecord({
     onSuccess: () => {
       toast.success(`Deleted ${label || singular}`);
       void qc.invalidateQueries({ queryKey: ["electrical"] });
-      void navigate({ to: "/electrical/$kind", params: { kind }, search: {} });
+      void navigate({ to: "/electrical/$kind", params: { kind } });
     },
     onError: (e: Error) => toast.error(e.message),
   });
