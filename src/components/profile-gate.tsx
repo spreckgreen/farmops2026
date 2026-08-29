@@ -32,20 +32,31 @@ export function ProfileGate({ children }: { children: ReactNode }) {
   }
 
   if (error) {
+    const message = (error as Error).message;
+    const expired = message.includes("Unauthorized");
     return (
       <Centered>
         <AlertCircle className="h-8 w-8 text-destructive" />
-        <h1 className="text-lg font-semibold">Couldn't load your profile</h1>
+        <h1 className="text-lg font-semibold">
+          {expired ? "Your session expired" : "Couldn't load your profile"}
+        </h1>
         <p className="text-sm text-muted-foreground max-w-md">
-          {(error as Error).message}
+          {expired ? "Sign in again to continue." : message}
         </p>
         <div className="flex gap-2">
-          <Button onClick={() => refetch()}>Try again</Button>
-          <Button variant="ghost" onClick={signOut}>Sign out</Button>
+          {expired ? (
+            <Button onClick={signOut}>Sign in again</Button>
+          ) : (
+            <>
+              <Button onClick={() => refetch()}>Try again</Button>
+              <Button variant="ghost" onClick={signOut}>Sign out</Button>
+            </>
+          )}
         </div>
       </Centered>
     );
   }
+
 
   if (!data) return null;
 
