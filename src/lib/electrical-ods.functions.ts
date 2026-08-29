@@ -4,7 +4,14 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import { requireAddon } from "@/lib/addons.server";
 import { ENTITIES, coerceValue, importColumns } from "@/lib/electrical-entities";
-import { checkStableId, completionFromStatus, type ElectricalEntityKind } from "@/lib/electrical";
+import {
+  checkStableId,
+  completionFromStatus,
+  mergeLegacyStatusNote,
+  normalizeInstallStatus,
+  type ElectricalEntityKind,
+} from "@/lib/electrical";
+
 import {
   buildPlanSheet,
   classifySheet,
