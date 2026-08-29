@@ -330,6 +330,7 @@ export function fieldEntryFields(kind: ElectricalEntityKind): EntityField[] {
 
 export function coerceValue(field: EntityField, raw: unknown): unknown {
   if (field.kind === "bool") return Boolean(raw);
+
   if (field.kind === "number") {
     const s = String(raw ?? "").trim();
     if (!s) return null;
