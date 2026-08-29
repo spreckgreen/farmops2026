@@ -498,13 +498,25 @@ export function runIntegrityChecks(graph: ElectricalGraphData): IntegrityFinding
   );
 }
 
-export function integritySummary(findings: IntegrityFinding[]) {
+/**
+ * Three QA categories: Errors (provably wrong) | Warnings/Incomplete (topology
+ * not established yet) | Valid (records with nothing outstanding). `records` is
+ * the total number of electrical records scanned, so Valid can be reported.
+ */
+export function integritySummary(findings: IntegrityFinding[], records?: number) {
   const byCode: Record<string, number> = {};
   for (const f of findings) byCode[f.code] = (byCode[f.code] ?? 0) + 1;
+  const flagged = new Set(findings.map((f) => `${f.kind}:${f.id ?? f.stableId}`));
+  const errors = findings.filter((f) => f.severity === "error").length;
+  const warnings = findings.length - errors;
   return {
-    errors: findings.filter((f) => f.severity === "error").length,
-    warnings: findings.filter((f) => f.severity === "warning").length,
+    errors,
+    warnings,
+    incomplete: warnings,
+    records: records ?? 0,
+    valid: records == null ? 0 : Math.max(0, records - flagged.size),
     byCode,
-    exportReady: findings.every((f) => f.severity !== "error"),
+    exportReady: errors === 0,
   };
 }
+
