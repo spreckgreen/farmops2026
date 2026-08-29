@@ -49,9 +49,11 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 ARG VITE_SUPABASE_URL
 ARG VITE_SUPABASE_PUBLISHABLE_KEY
 ARG VITE_SUPABASE_PROJECT_ID
+ARG APP_REVISION=unknown
 ENV VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
 ENV VITE_SUPABASE_PUBLISHABLE_KEY=${VITE_SUPABASE_PUBLISHABLE_KEY}
 ENV VITE_SUPABASE_PROJECT_ID=${VITE_SUPABASE_PROJECT_ID}
+LABEL org.opencontainers.image.revision=${APP_REVISION}
 
 COPY --from=deps /app/node_modules ./node_modules
 # Bring the unified install log forward from the deps stage so the runner

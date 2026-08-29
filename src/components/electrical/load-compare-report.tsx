@@ -4,13 +4,15 @@
 import { useMemo, useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Download, FileSpreadsheet } from "lucide-react";
+import { Download, FileSpreadsheet, Percent } from "lucide-react";
 import { toast } from "sonner";
 import {
+  applyLoadCompletionCorrections,
   compareLoadMaster,
   type LoadComparePayload,
 } from "@/lib/electrical-load-compare.functions";
 import {
+  completionCorrectionsFromReport,
   loadCompareCsv,
   loadCompareMarkdown,
   type CompareVerdict,
@@ -52,6 +54,7 @@ type Filter = "all" | "mismatch" | "engineering";
 
 export function LoadCompareReport() {
   const compare = useServerFn(compareLoadMaster);
+  const applyCompletion = useServerFn(applyLoadCompletionCorrections);
   const fileRef = useRef<HTMLInputElement>(null);
   const [report, setReport] = useState<LoadComparePayload | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
@@ -74,6 +77,20 @@ export function LoadCompareReport() {
     if (filter === "engineering") return all.filter((c) => c.engineering);
     return all;
   }, [report, filter]);
+  const completionCorrections = useMemo(
+    () => (report ? completionCorrectionsFromReport(report) : []),
+    [report],
+  );
+
+  const correctCompletion = useMutation({
+    mutationFn: () => applyCompletion({ data: { rows: completionCorrections } }),
+    onSuccess: (result) => {
+      toast.success(`Updated Complete % on ${result.updated} load(s).`);
+      if (result.errors.length) toast.error(`${result.errors.length} load(s) could not be updated.`);
+      setReport(null);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   const stamp = (report?.generatedAt ?? new Date().toISOString())
     .slice(0, 19)
@@ -139,6 +156,16 @@ export function LoadCompareReport() {
             <Download className="h-4 w-4 mr-1" />
             Markdown
           </Button>
+          <Button
+            size="sm"
+            disabled={!completionCorrections.length || correctCompletion.isPending}
+            onClick={() => correctCompletion.mutate()}
+          >
+            <Percent className="h-4 w-4 mr-1" />
+            {correctCompletion.isPending
+              ? "Updating…"
+              : `Update Complete % (${completionCorrections.length})`}
+          </Button>
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -163,6 +190,10 @@ export function LoadCompareReport() {
               </Badge>
               <Badge variant="outline">{report.counts.match} matching fields</Badge>
             </div>
+            <p className="text-xs text-muted-foreground">
+              The update action changes only nonblank Complete % differences matched by exact Load
+              ID. It does not modify Grid, engineering values, stable IDs, or the workbook.
+            </p>
 
             {(report.missingInFarmOps.length ||
               report.missingInOds.length ||

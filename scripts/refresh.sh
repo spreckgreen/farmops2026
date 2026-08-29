@@ -97,9 +97,28 @@ fi
 
 AFTER="$(git rev-parse HEAD)"
 
-if [ "$BEFORE" = "$AFTER" ] && [ "$FORCE" -eq 0 ]; then
-  log "Already up to date (${AFTER:0:10}). Nothing to do. Use --force to rebuild anyway."
+# A user may run `git pull` before this script. Comparing BEFORE/AFTER alone
+# incorrectly treated that case as already deployed and left the old container
+# running. New images carry their source revision; compare HEAD to the running
+# app instead. Images built before revision labels intentionally report blank
+# and therefore get rebuilt once.
+APP_REVISION="$AFTER"
+export APP_REVISION
+APP_CONTAINER="$(${DOCKER[@]} compose ps -q app 2>/dev/null || true)"
+DEPLOYED_REVISION=""
+if [ -n "$APP_CONTAINER" ]; then
+  DEPLOYED_REVISION="$(${DOCKER[@]} inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$APP_CONTAINER" 2>/dev/null || true)"
+fi
+
+if [ "$DEPLOYED_REVISION" = "$AFTER" ] && [ "$FORCE" -eq 0 ]; then
+  log "Source and running app are already at ${AFTER:0:10}. Nothing to do. Use --force to rebuild anyway."
   exit 0
+fi
+
+if [ -z "$DEPLOYED_REVISION" ]; then
+  log "Running app has no source revision label — rebuilding from ${AFTER:0:10}"
+elif [ "$DEPLOYED_REVISION" != "$AFTER" ]; then
+  log "Running app is ${DEPLOYED_REVISION:0:10}; rebuilding from ${AFTER:0:10}"
 fi
 
 if [ "$BEFORE" != "$AFTER" ]; then
