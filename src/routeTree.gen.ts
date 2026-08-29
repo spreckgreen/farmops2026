@@ -57,6 +57,7 @@ import { Route as FoodIrrigationRouteImport } from './routes/food.irrigation'
 import { Route as FoodGardenRouteImport } from './routes/food.garden'
 import { Route as FoodCropsRouteImport } from './routes/food.crops'
 import { Route as ElectricalStandardsRouteImport } from './routes/electrical.standards'
+import { Route as ElectricalImportRouteImport } from './routes/electrical.import'
 import { Route as ElectricalKindRouteImport } from './routes/electrical.$kind'
 import { Route as AdminVaultSecretsRouteImport } from './routes/admin.vault-secrets'
 import { Route as AdminVaultRotationRouteImport } from './routes/admin.vault-rotation'
@@ -320,6 +321,11 @@ const ElectricalStandardsRoute = ElectricalStandardsRouteImport.update({
   path: '/electrical/standards',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ElectricalImportRoute = ElectricalImportRouteImport.update({
+  id: '/electrical/import',
+  path: '/electrical/import',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ElectricalKindRoute = ElectricalKindRouteImport.update({
   id: '/electrical/$kind',
   path: '/electrical/$kind',
@@ -460,6 +466,7 @@ export interface FileRoutesByFullPath {
   '/admin/vault-rotation': typeof AdminVaultRotationRoute
   '/admin/vault-secrets': typeof AdminVaultSecretsRoute
   '/electrical/$kind': typeof ElectricalKindRoute
+  '/electrical/import': typeof ElectricalImportRoute
   '/electrical/standards': typeof ElectricalStandardsRoute
   '/food/crops': typeof FoodCropsRoute
   '/food/garden': typeof FoodGardenRoute
@@ -528,6 +535,7 @@ export interface FileRoutesByTo {
   '/admin/vault-rotation': typeof AdminVaultRotationRoute
   '/admin/vault-secrets': typeof AdminVaultSecretsRoute
   '/electrical/$kind': typeof ElectricalKindRoute
+  '/electrical/import': typeof ElectricalImportRoute
   '/electrical/standards': typeof ElectricalStandardsRoute
   '/food/crops': typeof FoodCropsRoute
   '/food/garden': typeof FoodGardenRoute
@@ -600,6 +608,7 @@ export interface FileRoutesById {
   '/admin/vault-rotation': typeof AdminVaultRotationRoute
   '/admin/vault-secrets': typeof AdminVaultSecretsRoute
   '/electrical/$kind': typeof ElectricalKindRoute
+  '/electrical/import': typeof ElectricalImportRoute
   '/electrical/standards': typeof ElectricalStandardsRoute
   '/food/crops': typeof FoodCropsRoute
   '/food/garden': typeof FoodGardenRoute
@@ -673,6 +682,7 @@ export interface FileRouteTypes {
     | '/admin/vault-rotation'
     | '/admin/vault-secrets'
     | '/electrical/$kind'
+    | '/electrical/import'
     | '/electrical/standards'
     | '/food/crops'
     | '/food/garden'
@@ -741,6 +751,7 @@ export interface FileRouteTypes {
     | '/admin/vault-rotation'
     | '/admin/vault-secrets'
     | '/electrical/$kind'
+    | '/electrical/import'
     | '/electrical/standards'
     | '/food/crops'
     | '/food/garden'
@@ -812,6 +823,7 @@ export interface FileRouteTypes {
     | '/admin/vault-rotation'
     | '/admin/vault-secrets'
     | '/electrical/$kind'
+    | '/electrical/import'
     | '/electrical/standards'
     | '/food/crops'
     | '/food/garden'
@@ -884,6 +896,7 @@ export interface RootRouteChildren {
   AdminVaultRotationRoute: typeof AdminVaultRotationRoute
   AdminVaultSecretsRoute: typeof AdminVaultSecretsRoute
   ElectricalKindRoute: typeof ElectricalKindRoute
+  ElectricalImportRoute: typeof ElectricalImportRoute
   ElectricalStandardsRoute: typeof ElectricalStandardsRoute
   NotesDateRoute: typeof NotesDateRoute
   SettingsSelfHostRoute: typeof SettingsSelfHostRoute
@@ -1241,6 +1254,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ElectricalStandardsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/electrical/import': {
+      id: '/electrical/import'
+      path: '/electrical/import'
+      fullPath: '/electrical/import'
+      preLoaderRoute: typeof ElectricalImportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/electrical/$kind': {
       id: '/electrical/$kind'
       path: '/electrical/$kind'
@@ -1513,6 +1533,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminVaultRotationRoute: AdminVaultRotationRoute,
   AdminVaultSecretsRoute: AdminVaultSecretsRoute,
   ElectricalKindRoute: ElectricalKindRoute,
+  ElectricalImportRoute: ElectricalImportRoute,
   ElectricalStandardsRoute: ElectricalStandardsRoute,
   NotesDateRoute: NotesDateRoute,
   SettingsSelfHostRoute: SettingsSelfHostRoute,
