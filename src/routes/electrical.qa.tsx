@@ -165,7 +165,37 @@ function QaReport() {
           </div>
         </CardHeader>
 
+        {preview?.length ? (
+          <CardContent className="space-y-2 border-b border-border pb-3">
+            <p className="text-sm">
+              These records hold engineering text in the controlled Install status field, so the
+              database rejects every write to them. Nothing changes until you apply: the original
+              wording is kept verbatim in Notes and no record is deleted, recreated or renamed.
+            </p>
+            <div className="space-y-1 text-sm">
+              {preview.map((p) => (
+                <div key={`${p.kind}-${p.stable_id}`} className="flex flex-wrap gap-2">
+                  <Badge variant="outline" className="font-mono">
+                    {p.stable_id}
+                  </Badge>
+                  <span className="text-muted-foreground">“{p.was}”</span>
+                  <span>→ Install status “{p.now}” + Notes line</span>
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-2 pt-1">
+              <Button size="sm" disabled={fix.isPending} onClick={() => fix.mutate(true)}>
+                {fix.isPending ? "Applying…" : `Apply to ${preview.length} record(s)`}
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => setPreview(null)}>
+                Cancel
+              </Button>
+            </div>
+          </CardContent>
+        ) : null}
+
         <CardContent>
+
           {q.isLoading ? (
             <Skeleton className="h-24 w-full" />
           ) : q.error ? (
