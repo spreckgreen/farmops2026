@@ -172,6 +172,16 @@ const COLUMN_ALIASES: Record<string, string> = {
   "completion %": "completion_percent",
   "completion percent": "completion_percent",
   "pct complete": "completion_percent",
+  // Header text like "Complete (%)" normalises to "complete" because the
+  // trailing parenthetical is stripped, so the bare forms are aliased too.
+  complete: "completion_percent",
+  "percent done": "completion_percent",
+  "% done": "completion_percent",
+  progress: "completion_percent",
+  "install complete": "completion_percent",
+  "installed percent": "completion_percent",
+  "installed %": "completion_percent",
+  "install %": "completion_percent",
   notes: "notes",
   comments: "notes",
 
