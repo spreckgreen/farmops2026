@@ -16,6 +16,14 @@ import {
   type RelationTarget,
 } from "@/lib/electrical-relations";
 import { runIntegrityChecks, integritySummary, type IntegrityFinding } from "@/lib/electrical-integrity";
+import {
+  relatedFromRows,
+  sortRelated,
+  topologyLookups,
+  topologyWarning,
+  type RelatedRecord,
+  type TopologyWarning,
+} from "@/lib/electrical-topology";
 import type { ElectricalGraphData, Row } from "@/lib/electrical-mermaid";
 import {
   checkControlledValue,
