@@ -118,8 +118,8 @@ const ID_PATTERNS: Record<ElectricalEntityKind, RegExp | null> = {
 
 /** Legacy shapes kept valid (with a warning) so imported records never break. */
 const LEGACY_ID_PATTERNS: Partial<Record<ElectricalEntityKind, RegExp>> = {
-  jbox: /^JB-\d{3,}(-\d+)*$/,
-  branch: /^BR-\d{3,}(-\d+)*$/,
+  jbox: /^JB-\d{3,}(-\d{2,})*$/,
+  branch: /^BR-\d{3,}(-\d{2,})*$/,
 };
 
 export const HIERARCHICAL_ID_SHAPES: Record<string, string> = {
