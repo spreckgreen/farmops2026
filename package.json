@@ -24,7 +24,7 @@
     "test:e2e": "playwright test",
     "test:e2e:install": "playwright install --with-deps chromium",
     "verify": "vitest run && vite build",
-    "prepublish:check": "vitest run && bun scripts/test-rls.ts && echo '\u2705 Run the Deep Security Scan in the Lovable Security tab before clicking Publish.'"
+    "prepublish:check": "vitest run && bun scripts/test-rls.ts && echo '✅ Run the Deep Security Scan in the Lovable Security tab before clicking Publish.'"
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "^2.0.48",
@@ -75,6 +75,7 @@
     "input-otp": "^1.4.2",
     "lucide-react": "^0.575.0",
     "mammoth": "^1.12.0",
+    "mermaid": "^11.17.2",
     "papaparse": "^5.5.3",
     "pdfjs-dist": "^6.2.108",
     "react": "^19.2.0",
