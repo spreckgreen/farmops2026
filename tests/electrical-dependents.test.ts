@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dependencySummary, dependentSpecs } from "@/lib/electrical-dependents";
+import { dependencySummary, dependentSpecs, diffFieldChanges } from "@/lib/electrical-dependents";
 
 describe("dependentSpecs", () => {
   it("finds every FK pointing at a panel", () => {
