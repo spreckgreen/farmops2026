@@ -230,7 +230,7 @@ describe("source availability without a renderer", () => {
     } as never;
     const a = buildDiagram(graph, { type: "system" });
     const b = buildDiagram(graph, { type: "system" });
-    expect(a.source).toContain("PNL-FS-CRIT");
-    expect(a.source).toBe(b.source);
+    expect(a.mermaid).toContain("PNL-FS-CRIT");
+    expect(a.mermaid).toBe(b.mermaid);
   });
 });
