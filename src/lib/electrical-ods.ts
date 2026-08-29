@@ -340,6 +340,9 @@ export function buildPlanSheet(
     kind: mapped.kind,
     skipped: mapped.skipped,
     unmapped: mapped.columns.filter((c) => c.source.trim() && !c.target).map((c) => c.source),
+    mapping: mapped.columns
+      .filter((c) => c.target)
+      .map((c) => ({ source: c.source, target: c.target as string })),
     rows,
     mergeProposals,
   };
