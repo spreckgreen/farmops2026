@@ -186,23 +186,30 @@ export const STABLE_ID_REFERENCE: readonly StableIdReferenceRow[] = [
     notes: "Stable panel ID",
   },
   {
-    entity: "Raceway",
+    entity: "EMT Raceway",
+    format: "EMT-###",
+    example: "EMT-104",
+    notes: "Encodes the raceway / path ID; root identifier inherited downstream",
+  },
+  {
+    entity: "Raceway (legacy ODS)",
     format: "CON-###",
     example: "CON-030",
-    notes: "Continuous physical raceway",
+    notes: "Pre-existing continuous raceway ID — still valid and never renamed",
   },
   {
     entity: "Junction Box",
-    format: "JB-###[-##…]",
-    example: "JB-014, JB-104-01",
-    notes: "Actual accessible physical box only; optional nested numeric segments",
+    format: "JB-###-##",
+    example: "JB-104-02",
+    notes: "Encodes raceway path + junction box sequence; actual accessible box only",
   },
   {
-    entity: "Branch Run",
-    format: "BR-###[-##…]",
-    example: "BR-057, BR-104-01-01",
-    notes: "Downstream wiring path; optional nested numeric segments",
+    entity: "Branch Raceway",
+    format: "BR-###-##-##",
+    example: "BR-104-02-03",
+    notes: "Encodes raceway path + origin junction box + branch sequence (resets per box)",
   },
+
 ];
 
 /** Merge database rows with the built-in set, preferring stored rows by key. */
