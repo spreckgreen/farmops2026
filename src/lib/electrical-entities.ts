@@ -317,6 +317,16 @@ export function writableColumns(kind: ElectricalEntityKind): string[] {
   return [def.stableIdField, ...def.fields.filter((f) => !f.readOnly).map((f) => f.key)];
 }
 
+/**
+ * Columns accepted from a canonical ODS import. The spreadsheet remains the
+ * engineering authority, so it may still set the legacy stable-ID reference
+ * columns that the in-app forms treat as derived.
+ */
+export function importColumns(kind: ElectricalEntityKind): string[] {
+  const def = ENTITIES[kind];
+  return [def.stableIdField, ...def.fields.filter((f) => f.kind !== "entity").map((f) => f.key)];
+}
+
 /** Relationship (FK) fields for a kind, in display order. */
 export function relationshipFields(kind: ElectricalEntityKind): EntityField[] {
   return ENTITIES[kind].fields.filter((f) => f.kind === "entity");
