@@ -7,7 +7,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import {
-  deleteElectrical,
   electricalEntityOptions,
   listElectrical,
   saveElectrical,
@@ -170,7 +169,6 @@ export function EntityManager({
   const qc = useQueryClient();
   const list = useServerFn(listElectrical);
   const save = useServerFn(saveElectrical);
-  const remove = useServerFn(deleteElectrical);
   const suggest = useServerFn(suggestStableId);
   const loadOptions = useServerFn(electricalEntityOptions);
 
