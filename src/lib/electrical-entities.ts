@@ -369,10 +369,18 @@ export function coerceValue(field: EntityField, raw: unknown): unknown {
     // Spreadsheet cells arrive as display text: "1,250", "85 %", "3/4"" etc.
     // A percent-formatted cell can render as "85%" or as the raw fraction 0.85.
     if (field.key === "completion_percent" || s.includes("%")) return parsePercent(s);
-    const n = Number(s.replace(/[\s,]/g, ""));
-    if (!Number.isFinite(n)) return null;
-    return n;
+    const bare = s.replace(/[\s,]/g, "");
+    const direct = Number(bare);
+    if (Number.isFinite(direct)) return direct;
+    // Engineering cells carry units and multi-value notation: "200 A",
+    // "240V 1Ph", "120/240V". Pull the numeric tokens rather than dropping the
+    // whole value, and take the nominal (highest) figure for voltages such as
+    // "120/240" where the panel rating is the larger number.
+    const tokens = (bare.match(/-?\d+(?:\.\d+)?/g) ?? []).map(Number).filter(Number.isFinite);
+    if (!tokens.length) return null;
+    return field.key === "voltage" ? Math.max(...tokens) : tokens[0];
   }
+
   const s = String(raw ?? "").trim();
   return s || null;
 }
