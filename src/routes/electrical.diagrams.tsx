@@ -464,7 +464,7 @@ function DiagramsPage() {
                 {q.error instanceof Error ? q.error.message : "Could not generate the diagram."}
               </p>
             ) : (
-              <MermaidView source={source} />
+              <MermaidView source={source} containerRef={svgHostRef} />
             )}
           </CardContent>
         </Card>
