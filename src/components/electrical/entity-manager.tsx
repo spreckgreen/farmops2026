@@ -8,12 +8,16 @@ import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import {
   deleteElectrical,
+  electricalEntityOptions,
   listElectrical,
   saveElectrical,
   suggestStableId,
   type ElectricalRow,
+  type EntityOption,
 } from "@/lib/electrical.functions";
 import { ENTITIES, type EntityField } from "@/lib/electrical-entities";
+import { relationsFor } from "@/lib/electrical-relations";
+import { EntitySelect } from "@/components/electrical/entity-select";
 import {
   INSTALL_STATUSES,
   RACEWAY_ENVIRONMENTS,
@@ -21,6 +25,7 @@ import {
   installStatusLabel,
   type ElectricalEntityKind,
 } from "@/lib/electrical";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
