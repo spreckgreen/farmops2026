@@ -386,14 +386,33 @@ function DiagramsPage() {
                 </select>
               </label>
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <Button variant="outline" size="sm" onClick={copy} disabled={!source}>
                   <Copy className="h-4 w-4 mr-1" /> Copy source
                 </Button>
                 <Button variant="outline" size="sm" onClick={download} disabled={!source}>
                   <Download className="h-4 w-4 mr-1" /> Download .mmd
                 </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={exportSvg}
+                  disabled={!source || exporting !== null}
+                >
+                  <FileCode2 className="h-4 w-4 mr-1" />
+                  {exporting === "svg" ? "Exporting…" : "Export SVG"}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={exportPng}
+                  disabled={!source || exporting !== null}
+                >
+                  <FileImage className="h-4 w-4 mr-1" />
+                  {exporting === "png" ? "Exporting…" : "Export PNG"}
+                </Button>
               </div>
+
             </div>
 
             <p className="text-xs text-muted-foreground">
