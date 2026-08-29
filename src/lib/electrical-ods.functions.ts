@@ -124,6 +124,14 @@ export const applyOdsImport = createServerFn({ method: "POST" })
         const field = def.fields.find((f) => f.key === key)!;
         patch[key] = coerceValue(field, raw);
       }
+      // Engineering status text ("Design Basis") is not an install status. Keep
+      // the words in notes and store a valid controlled value, so the row can
+      // actually be written and later edited.
+      if (Object.prototype.hasOwnProperty.call(row.values, "install_status")) {
+        const norm = normalizeInstallStatus(patch["install_status"]);
+        patch["install_status"] = norm.status;
+        if (norm.legacy) patch["notes"] = mergeLegacyStatusNote(patch["notes"], norm.legacy);
+      }
       // Only derive completion from status when the sheet didn't supply an
       // explicit Complete % — the workbook value wins when present.
       const suppliedCompletion = Object.prototype.hasOwnProperty.call(
@@ -133,6 +141,7 @@ export const applyOdsImport = createServerFn({ method: "POST" })
       if (!suppliedCompletion && typeof patch["install_status"] === "string") {
         patch["completion_percent"] = completionFromStatus(patch["install_status"] as string);
       }
+
 
 
       if (row.existing_id) {
