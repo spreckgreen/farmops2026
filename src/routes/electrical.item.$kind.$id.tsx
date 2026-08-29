@@ -24,45 +24,6 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, Pencil, Plus, Trash2 } from "lucide-react";
 
-function DeleteRecord({
-  kind,
-  id,
-  label,
-  singular,
-}: {
-  kind: ElectricalEntityKind;
-  id: string;
-  label: string;
-  singular: string;
-}) {
-  const navigate = useNavigate();
-  const qc = useQueryClient();
-  const remove = useServerFn(deleteElectrical);
-  const del = useMutation({
-    mutationFn: async () => remove({ data: { kind, id } }),
-    onSuccess: () => {
-      toast.success(`Deleted ${label || singular}`);
-      void qc.invalidateQueries({ queryKey: ["electrical"] });
-      void navigate({ to: "/electrical/$kind", params: { kind } });
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  return (
-    <Button
-      variant="outline"
-      size="sm"
-      className="gap-1 text-destructive"
-      disabled={del.isPending}
-      onClick={() => {
-        if (confirm(`Delete ${label || singular}? Stable IDs are never reused.`)) del.mutate();
-      }}
-    >
-      <Trash2 className="h-4 w-4" />
-      {del.isPending ? "Deleting…" : "Delete"}
-    </Button>
-  );
-}
 
 export const Route = createFileRoute("/electrical/item/$kind/$id")({
   component: ItemPage,
