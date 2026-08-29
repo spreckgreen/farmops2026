@@ -1,0 +1,195 @@
+import { describe, expect, it } from "vitest";
+import { isEntitlementActive } from "@/lib/addons";
+import {
+  checkStableId,
+  completionFromStatus,
+  farmShopWalkOrder,
+  findBreakerConflicts,
+  nextStableId,
+  panelPositions,
+  parseGrid,
+  sortByPanelExit,
+} from "@/lib/electrical";
+import {
+  buildPlanSheet,
+  classifySheet,
+  mapSheet,
+  parseOdsContentXml,
+  planTotals,
+} from "@/lib/electrical-ods";
+
+describe("entitlements", () => {
+  const now = new Date("2026-01-01T00:00:00Z");
+  it("allows active and trialing entitlements", () => {
+    expect(isEntitlementActive({ status: "active", expires_at: null }, now)).toBe(true);
+    expect(isEntitlementActive({ status: "trialing", expires_at: null }, now)).toBe(true);
+  });
+  it("fails closed for missing, expired, disabled or unknown rows", () => {
+    expect(isEntitlementActive(null, now)).toBe(false);
+    expect(isEntitlementActive({ status: "disabled", expires_at: null }, now)).toBe(false);
+    expect(isEntitlementActive({ status: "expired", expires_at: null }, now)).toBe(false);
+    expect(isEntitlementActive({ status: "sneaky", expires_at: null }, now)).toBe(false);
+    expect(isEntitlementActive({ status: "active", expires_at: "2025-12-31" }, now)).toBe(false);
+    expect(isEntitlementActive({ status: "active", expires_at: "not a date" }, now)).toBe(false);
+  });
+  it("honours a future expiry", () => {
+    expect(isEntitlementActive({ status: "active", expires_at: "2026-06-01" }, now)).toBe(true);
+  });
+});
+
+describe("stable IDs", () => {
+  it("accepts the documented formats", () => {
+    expect(checkStableId("load", "FS-097").ok).toBe(true);
+    expect(checkStableId("panel", "PNL-FS-CRIT").ok).toBe(true);
+    expect(checkStableId("raceway", "CON-030").ok).toBe(true);
+    expect(checkStableId("jbox", "JB-014").ok).toBe(true);
+    expect(checkStableId("branch", "BR-057").ok).toBe(true);
+  });
+  it("rejects malformed IDs and blanks", () => {
+    expect(checkStableId("raceway", "CON30").ok).toBe(false);
+    expect(checkStableId("jbox", "").ok).toBe(false);
+    expect(checkStableId("branch", "BR 057").ok).toBe(false);
+  });
+  it("warns but allows pre-existing House load IDs", () => {
+    const r = checkStableId("load", "HSE-12");
+    expect(r.ok).toBe(true);
+    expect(r.warning).toBeTruthy();
+  });
+  it("suggests the next sequential ID", () => {
+    expect(nextStableId("raceway", ["CON-001", "CON-030"])).toBe("CON-031");
+    expect(nextStableId("jbox", [])).toBe("JB-001");
+  });
+});
+
+describe("panel positions", () => {
+  it("derives positions from the panel's own space count", () => {
+    const p = panelPositions(48);
+    expect(p).toHaveLength(48);
+    expect(p.filter((x) => x.side === "Left")).toHaveLength(24);
+    expect(p[0]).toMatchObject({ side: "Left", index: 1, breaker: 1 });
+    expect(p[1]).toMatchObject({ side: "Right", index: 1, breaker: 2 });
+    expect(panelPositions(12)).toHaveLength(12);
+    expect(panelPositions(null)).toHaveLength(0);
+  });
+  it("orders raceways from the lower-right corner counterclockwise", () => {
+    const sorted = sortByPanelExit([
+      { exit_order: 3, exit_side: "Top" },
+      { exit_order: 1, exit_side: "Lower Right" },
+      { exit_order: 2, exit_side: "Right" },
+    ]);
+    expect(sorted.map((s) => s.exit_side)).toEqual(["Lower Right", "Right", "Top"]);
+  });
+  it("flags two circuits on the same breaker", () => {
+    const conflicts = findBreakerConflicts([
+      { circuit_group_id: "CG-1", panel_uuid: "p1", breaker_number: 5 },
+      { circuit_group_id: "CG-2", panel_uuid: "p1", breaker_number: 5 },
+      { circuit_group_id: "CG-3", panel_uuid: "p1", breaker_number: 7 },
+    ]);
+    expect(conflicts).toHaveLength(1);
+    expect(conflicts[0].ids).toEqual(["CG-1", "CG-2"]);
+  });
+});
+
+describe("Farm Shop walk order", () => {
+  it("parses grid references", () => {
+    expect(parseGrid("a6")).toMatchObject({ raw: "A6", row: 1, col: 6 });
+    expect(parseGrid("nope")).toBeNull();
+  });
+  it("starts at A6 (NE) and runs clockwise", () => {
+    const cells = ["C1", "A1", "A6", "C6", "B6", "B1"];
+    const order = farmShopWalkOrder(cells);
+    expect(order[0]).toBe("A6");
+    expect(order[1]).toBe("B6");
+    expect(order[2]).toBe("C6");
+    expect(order[3]).toBe("C1");
+    expect(order).toHaveLength(6);
+  });
+  it("ignores blanks and duplicates", () => {
+    expect(farmShopWalkOrder([null, "", "A6", "A6"])).toEqual(["A6"]);
+  });
+});
+
+describe("completion mapping", () => {
+  it("maps status to a percentage", () => {
+    expect(completionFromStatus("planned")).toBe(0);
+    expect(completionFromStatus("complete")).toBe(100);
+    expect(completionFromStatus("junk")).toBe(0);
+  });
+});
+
+const ODS_XML = `
+<office:document-content>
+ <table:table table:name="Conduit Schedule">
+  <table:table-row><table:table-cell><text:p>Conduit ID</text:p></table:table-cell><table:table-cell><text:p>Trade Size</text:p></table:table-cell><table:table-cell><text:p>Environment</text:p></table:table-cell><table:table-cell><text:p>Mystery</text:p></table:table-cell></table:table-row>
+  <table:table-row><table:table-cell><text:p>CON-030</text:p></table:table-cell><table:table-cell><text:p>1&quot;</text:p></table:table-cell><table:table-cell><text:p>INTERIOR</text:p></table:table-cell><table:table-cell><text:p>x</text:p></table:table-cell></table:table-row>
+  <table:table-row><table:table-cell><text:p>CON-031</text:p></table:table-cell><table:table-cell><text:p>3/4&quot;</text:p></table:table-cell><table:table-cell><text:p>SITE_UNDERGROUND</text:p></table:table-cell></table:table-row>
+  <table:table-row><table:table-cell table:number-columns-repeated="3"/></table:table-row>
+ </table:table>
+</office:document-content>`;
+
+describe("ODS parsing and import planning", () => {
+  const sheets = parseOdsContentXml(ODS_XML);
+
+  it("reads sheets, rows and entities", () => {
+    expect(sheets).toHaveLength(1);
+    expect(sheets[0].name).toBe("Conduit Schedule");
+    expect(sheets[0].rows[1][1]).toBe('1"');
+  });
+
+  it("classifies the sheet by name and headers", () => {
+    expect(classifySheet(sheets[0])).toBe("raceway");
+  });
+
+  it("maps known columns and reports unmapped ones", () => {
+    const mapped = mapSheet(
+      sheets[0],
+      "raceway",
+      ["conduit_id", "trade_size", "environment"],
+      "conduit_id",
+    );
+    expect(mapped.rows).toHaveLength(2);
+    expect(mapped.rows[0].stableId).toBe("CON-030");
+    expect(mapped.rows[0].values["trade_size"]).toBe('1"');
+    expect(mapped.columns.find((c) => c.source === "Mystery")?.target).toBeNull();
+  });
+
+  it("diffs against existing rows and warns before overwriting field measurements", () => {
+    const mapped = mapSheet(
+      sheets[0],
+      "raceway",
+      ["conduit_id", "trade_size", "environment", "measured_length_ft"],
+      "conduit_id",
+    );
+    mapped.rows[0].values["measured_length_ft"] = "40";
+    const plan = buildPlanSheet(
+      mapped,
+      {
+        "CON-030": {
+          id: "11111111-1111-1111-1111-111111111111",
+          conduit_id: "CON-030",
+          trade_size: '1"',
+          environment: "INTERIOR",
+          measured_length_ft: 38,
+        },
+      },
+      "conduit_id",
+    );
+    const updated = plan.rows.find((r) => r.stableId === "CON-030")!;
+    expect(updated.action).toBe("update");
+    expect(updated.warnings[0]).toMatch(/measured/i);
+    expect(plan.rows.find((r) => r.stableId === "CON-031")!.action).toBe("create");
+    expect(plan.unmapped).toContain("Mystery");
+    expect(planTotals([plan])).toMatchObject({ create: 1, update: 1 });
+  });
+
+  it("proposes raceway merges instead of applying them", () => {
+    const mapped = mapSheet(sheets[0], "raceway", ["conduit_id"], "conduit_id");
+    mapped.rows[0].values["source_endpoint_ref"] = "PNL-FS-CRIT";
+    mapped.rows[0].values["dest_endpoint_ref"] = "JB-014";
+    mapped.rows[1].values["source_endpoint_ref"] = "PNL-FS-CRIT";
+    mapped.rows[1].values["dest_endpoint_ref"] = "JB-014";
+    const plan = buildPlanSheet(mapped, {}, "conduit_id");
+    expect(plan.mergeProposals).toHaveLength(1);
+    expect(plan.mergeProposals[0].note).toMatch(/review/i);
+  });
+});
