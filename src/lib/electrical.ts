@@ -365,3 +365,37 @@ export function completionFromStatus(status: string): number {
   };
   return scale[status] ?? 0;
 }
+
+// ------------------------------------------------------- controlled vocabularies
+// Mirrors public.electrical_allowed() in the database. The database is the
+// integrity boundary; this copy exists so the UI and server functions can
+// explain a rejection before the write is attempted.
+export const CONTROLLED_VALUES: Record<string, readonly string[]> = {
+  install_status: INSTALL_STATUSES,
+  label_status: LABEL_STATUSES,
+  label_class: LABEL_CLASSES,
+  environment: RACEWAY_ENVIRONMENTS,
+  source_endpoint_type: ENDPOINT_TYPES,
+  dest_endpoint_type: ENDPOINT_TYPES,
+  exit_side: PANEL_EXIT_SIDES,
+};
+
+export function checkControlledValue(column: string, value: unknown): string | null {
+  const allowed = CONTROLLED_VALUES[column];
+  if (!allowed) return null;
+  const v = String(value ?? "").trim();
+  if (!v) return null;
+  if (allowed.includes(v)) return null;
+  return `${v} is not an allowed ${column.replace(/_/g, " ")} value.`;
+}
+
+/**
+ * Next free physical exit order for a panel. Exit order is a physical attribute
+ * of where a raceway leaves the enclosure — it is deliberately separate from the
+ * Conduit ID and changing it never renames CON-###.
+ */
+export function nextPanelExitOrder(existing: (number | null | undefined)[]): number {
+  let max = 0;
+  for (const n of existing) if (typeof n === "number" && Number.isFinite(n)) max = Math.max(max, n);
+  return max + 1;
+}
