@@ -269,10 +269,9 @@ export const updateMaintenance = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => UpdateSchema.parse(d))
   .handler(async ({ data, context }) => {
     const patch: Record<string, unknown> = {};
-    const setIf = (key: string, value: unknown) => {
-      if (value !== undefined) patch[key] = value;
-    };
-    setIf("title", data.title ?? null);
+    // Only write a field when the caller actually sent it; `?? null` inside the
+    // call would turn "omitted" into an explicit wipe.
+    if (data.title !== undefined) patch.title = data.title ?? null;
     if (data.asset_id !== undefined && data.asset_id !== null) {
       // Explicit pick from the asset dropdown always wins.
       patch.asset_id = data.asset_id;
@@ -289,12 +288,12 @@ export const updateMaintenance = createServerFn({ method: "POST" })
         if (resolved) patch.asset_id = resolved;
       }
     }
-    setIf("service_type", data.service_type ?? null);
-    setIf("status", data.status ?? null);
-    setIf("description", data.description ?? null);
-    setIf("recurrence", data.recurrence ?? "none");
-    setIf("vendor", data.vendor ?? null);
-    setIf("notes", data.notes ?? null);
+    if (data.service_type !== undefined) patch.service_type = data.service_type ?? null;
+    if (data.status !== undefined) patch.status = data.status ?? null;
+    if (data.description !== undefined) patch.description = data.description ?? null;
+    if (data.recurrence !== undefined) patch.recurrence = data.recurrence ?? "none";
+    if (data.vendor !== undefined) patch.vendor = data.vendor ?? null;
+    if (data.notes !== undefined) patch.notes = data.notes ?? null;
     if (data.cost !== undefined) patch.cost = toNumber(data.cost);
     if (data.performed_at !== undefined) patch.performed_at = toDate(data.performed_at);
     if (data.due_at !== undefined) patch.due_at = toDate(data.due_at);
