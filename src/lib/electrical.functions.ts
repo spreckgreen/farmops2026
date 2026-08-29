@@ -11,15 +11,25 @@ import {
   writableColumns,
 } from "@/lib/electrical-entities";
 import {
+  applyRelations,
+  relationsFor,
+  type RelationTarget,
+} from "@/lib/electrical-relations";
+import { runIntegrityChecks, integritySummary, type IntegrityFinding } from "@/lib/electrical-integrity";
+import type { ElectricalGraphData, Row } from "@/lib/electrical-mermaid";
+import {
+  checkControlledValue,
   checkStableId,
   completionFromStatus,
   farmShopWalkOrder,
   findBreakerConflicts,
   INSTALL_STATUSES,
+  nextPanelExitOrder,
   nextStableId,
   sortByPanelExit,
   type ElectricalEntityKind,
 } from "@/lib/electrical";
+
 
 type LooseDb = { from: (table: string) => any };
 
