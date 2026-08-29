@@ -250,6 +250,14 @@ export const ENTITIES: Record<ElectricalEntityKind, EntityDef> = {
         readOnly: true,
         hint: "Kept for ODS compatibility. Derived from the linked circuit group.",
       },
+      {
+        key: "source_circuit",
+        label: "Source circuit (Load_Master)",
+        kind: "text",
+        list: true,
+        hint: "Circuit reference as released in the canonical workbook.",
+      },
+
       { key: "amps", label: "Amps", kind: "number", engineering: true },
       { key: "volts", label: "Volts", kind: "number", engineering: true },
       { key: "connected_va", label: "Connected VA", kind: "number", engineering: true },
