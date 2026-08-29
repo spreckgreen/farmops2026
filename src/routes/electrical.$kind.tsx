@@ -1,6 +1,8 @@
 import { createFileRoute, notFound } from "@tanstack/react-router";
 import { ElectricalGate } from "@/components/electrical/electrical-gate";
 import { EntityManager } from "@/components/electrical/entity-manager";
+import { CircuitGroupDerive } from "@/components/electrical/circuit-group-derive";
+
 import { ENTITIES, ENTITY_KINDS } from "@/lib/electrical-entities";
 import { Card, CardContent } from "@/components/ui/card";
 import type { ElectricalEntityKind } from "@/lib/electrical";
