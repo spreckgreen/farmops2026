@@ -255,14 +255,10 @@ export function EntityManager({
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: async (id: string) => remove({ data: { kind, id } }),
-    onSuccess: () => {
-      toast.success(`Deleted ${def.singular}`);
-      invalidate();
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
+  // Row deletes go through DeleteDependencyDialog so every tab gets the same
+  // dependency breakdown and guided cleanup before anything is removed.
+
+
 
   const openNew = async () => {
     const next = toValues(def);
