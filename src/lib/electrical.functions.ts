@@ -580,32 +580,47 @@ export const electricalIntegrityReport = createServerFn({ method: "GET" })
  */
 export const normalizeLegacyStatuses = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
+  .inputValidator((d: unknown) => z.object({ apply: z.boolean().default(false) }).parse(d ?? {}))
+  .handler(async ({ context, data }) => {
     await requireAddon(context.supabase, context.userId, "electrical");
     const db = context.supabase as unknown as LooseDb;
+    // Dry run by default: engineering-owned values are never rewritten without
+    // the operator seeing the exact before/after first.
+    const proposed: {
+      kind: ElectricalEntityKind;
+      stable_id: string;
+      was: string;
+      now: string;
+      notes_preview: string;
+    }[] = [];
     const fixed: { kind: ElectricalEntityKind; stable_id: string; was: string }[] = [];
     const errors: { stable_id: string; message: string }[] = [];
 
     for (const kind of ENTITY_KINDS) {
       const def = ENTITIES[kind];
-      const { data, error } = await db.from(def.table).select("*");
+      const { data: rows, error } = await db.from(def.table).select("*");
       if (error) throw new Error(error.message);
-      for (const row of (data ?? []) as Row[]) {
-        const raw = String(row["install_status"] ?? "");
-        const norm = normalizeInstallStatus(raw);
+      for (const row of (rows ?? []) as Row[]) {
+        const norm = normalizeInstallStatus(row["install_status"]);
         if (!norm.legacy) continue;
-        const patch: Record<string, unknown> = {
-          install_status: norm.status,
-          notes: mergeLegacyStatusNote(row["notes"], norm.legacy),
-        };
+        const notes = mergeLegacyStatusNote(row["notes"], norm.legacy);
+        const stableId = String(row[def.stableIdField] ?? "");
+        proposed.push({
+          kind,
+          stable_id: stableId,
+          was: norm.legacy,
+          now: norm.status,
+          notes_preview: notes ?? "",
+        });
+        if (!data.apply) continue;
         const { error: writeError } = await db
           .from(def.table)
-          .update(patch)
+          .update({ install_status: norm.status, notes })
           .eq("id", String(row["id"]));
-        const stableId = String(row[def.stableIdField] ?? "");
         if (writeError) errors.push({ stable_id: stableId, message: writeError.message });
         else fixed.push({ kind, stable_id: stableId, was: norm.legacy });
       }
     }
-    return { fixed, errors };
+    return { applied: data.apply, proposed, fixed, errors };
   });
+
