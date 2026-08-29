@@ -203,7 +203,16 @@ export const deleteElectrical = createServerFn({ method: "POST" })
       .from(ENTITIES[data.kind].table)
       .delete()
       .eq("id", data.id);
-    if (error) throw new Error(error.message);
+    if (error) {
+      // A record still referenced by other topology must not be silently
+      // orphaned — explain what to unlink first.
+      if (/foreign key|violates/i.test(error.message)) {
+        throw new Error(
+          `This ${ENTITIES[data.kind].singular} is still referenced by other electrical records. Clear those links (endpoints, waypoints or circuit references) first, then delete it.`,
+        );
+      }
+      throw new Error(error.message);
+    }
     return { ok: true };
   });
 

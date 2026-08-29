@@ -1,7 +1,7 @@
 // Generic list + create/edit surface for every electrical entity kind.
 // Field definitions come from @/lib/electrical-entities so the UI, the server
 // whitelist and the ODS importer can never disagree about an entity's shape.
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -155,7 +155,16 @@ function FieldInput({
 }
 
 
-export function EntityManager({ kind }: { kind: ElectricalEntityKind }) {
+export function EntityManager({
+  kind,
+  openEditId,
+  onEditHandled,
+}: {
+  kind: ElectricalEntityKind;
+  /** Opens the edit dialog for this row id once the list has loaded (deep link from a detail page). */
+  openEditId?: string | undefined;
+  onEditHandled?: (() => void) | undefined;
+}) {
   const def = ENTITIES[kind];
   const qc = useQueryClient();
   const list = useServerFn(listElectrical);
@@ -270,6 +279,17 @@ export function EntityManager({ kind }: { kind: ElectricalEntityKind }) {
     setValues(toValues(def, row));
     setEditing({ row });
   };
+
+  // Deep link from a record detail page: /electrical/raceway?edit=<uuid>
+  useEffect(() => {
+    if (!openEditId || editing) return;
+    const row = (query.data ?? []).find((r) => String(r["id"]) === openEditId);
+    if (!row) return;
+    setValues(toValues(def, row));
+    setEditing({ row });
+    onEditHandled?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openEditId, query.data]);
 
   const idCheck = editing ? checkStableId(kind, String(values[def.stableIdField] ?? "")) : null;
   const listFields = def.fields.filter((f) => f.list);

@@ -1,4 +1,4 @@
-import { createFileRoute, Link, notFound } from "@tanstack/react-router";
+import { createFileRoute, Link, notFound, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
@@ -7,6 +7,7 @@ import { ElectricalGate } from "@/components/electrical/electrical-gate";
 import { ENTITIES, ENTITY_KINDS } from "@/lib/electrical-entities";
 import {
   electricalTopology,
+  deleteElectrical,
   deleteWaypoint,
   listWaypoints,
   saveWaypoint,
@@ -21,7 +22,47 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Pencil, Plus, Trash2 } from "lucide-react";
+
+function DeleteRecord({
+  kind,
+  id,
+  label,
+  singular,
+}: {
+  kind: ElectricalEntityKind;
+  id: string;
+  label: string;
+  singular: string;
+}) {
+  const navigate = useNavigate();
+  const qc = useQueryClient();
+  const remove = useServerFn(deleteElectrical);
+  const del = useMutation({
+    mutationFn: async () => remove({ data: { kind, id } }),
+    onSuccess: () => {
+      toast.success(`Deleted ${label || singular}`);
+      void qc.invalidateQueries({ queryKey: ["electrical"] });
+      void navigate({ to: "/electrical/$kind", params: { kind } });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      className="gap-1 text-destructive"
+      disabled={del.isPending}
+      onClick={() => {
+        if (confirm(`Delete ${label || singular}? Stable IDs are never reused.`)) del.mutate();
+      }}
+    >
+      <Trash2 className="h-4 w-4" />
+      {del.isPending ? "Deleting…" : "Delete"}
+    </Button>
+  );
+}
 
 export const Route = createFileRoute("/electrical/item/$kind/$id")({
   component: ItemPage,
@@ -111,6 +152,20 @@ function Detail({ kind, id }: { kind: ElectricalEntityKind; id: string }) {
         <Badge variant="outline">
           {installStatusLabel(String(record["install_status"] ?? "planned"))}
         </Badge>
+        <div className="ml-auto flex items-center gap-2">
+          <Button asChild variant="outline" size="sm" className="gap-1">
+            <Link to="/electrical/$kind" params={{ kind }} search={{ edit: id }}>
+              <Pencil className="h-4 w-4" />
+              Edit
+            </Link>
+          </Button>
+          <DeleteRecord
+            kind={kind}
+            id={id}
+            label={String(record[def.stableIdField] ?? "")}
+            singular={def.singular}
+          />
+        </div>
       </div>
 
       <div className="grid gap-3 lg:grid-cols-2">
