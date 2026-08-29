@@ -110,6 +110,9 @@ export const applyOdsImport = createServerFn({ method: "POST" })
     let created = 0;
     let updated = 0;
     const errors: { stable_id: string; message: string }[] = [];
+    // Engineering status text that had to be moved into notes to be writable.
+    const normalized: { stable_id: string; was: string; now: string }[] = [];
+
 
     for (const row of data.rows) {
       const kind = row.kind as ElectricalEntityKind;
