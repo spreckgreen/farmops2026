@@ -1,4 +1,4 @@
-// Phase 5A — Electrical Reconciliation Snapshot (pure builder).
+// Phase 4.2 — Electrical Reconciliation Snapshot (pure builder).
 //
 // Produces a deterministic, versioned, read-only view of the FarmOps electrical
 // records so the external BosteadFarmsBuildDocs reconciler can compare them

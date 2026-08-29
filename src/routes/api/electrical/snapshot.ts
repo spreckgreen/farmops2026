@@ -1,5 +1,5 @@
 /**
- * GET /api/electrical/snapshot — Phase 5A reconciliation snapshot.
+ * GET /api/electrical/snapshot — Phase 4.2 reconciliation snapshot.
  *
  * Read-only machine interface for BosteadFarmsBuildDocs. Requires a Supabase
  * user bearer token (`Authorization: Bearer <access_token>`) and an active
