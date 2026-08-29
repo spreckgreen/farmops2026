@@ -41,7 +41,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Plus, Trash2, Pencil, Search } from "lucide-react";
+import { Plus, Pencil, Search } from "lucide-react";
+import { DeleteDependencyDialog } from "@/components/electrical/delete-dependency-dialog";
 
 type Values = Record<string, string | boolean>;
 
