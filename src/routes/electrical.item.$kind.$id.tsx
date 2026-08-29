@@ -160,7 +160,20 @@ function Detail({ kind, id }: { kind: ElectricalEntityKind; id: string }) {
                 </div>
               ))
             )}
+            {warnings.length ? (
+              <div className="mt-2 space-y-1 rounded-md border border-border bg-muted/40 p-2">
+                <p className="text-xs font-medium">
+                  Some relationship lookups were unavailable — the record above is unaffected.
+                </p>
+                {warnings.map((w, i) => (
+                  <p key={`${w.kind}-${w.column}-${i}`} className="text-xs text-muted-foreground">
+                    {w.message}
+                  </p>
+                ))}
+              </div>
+            ) : null}
           </CardContent>
+
         </Card>
       </div>
 
