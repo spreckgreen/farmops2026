@@ -78,6 +78,12 @@ export function AppLayout({ children }: { children: ReactNode }) {
               <Link to="/procedures" className={navItem} activeProps={navActive}>
                 Procedures
               </Link>
+              {electrical.enabled && (
+                <Link to="/electrical" className={navItem} activeProps={navActive}>
+                  Electrical
+                </Link>
+              )}
+
             </nav>
           </div>
           <div className="flex items-center gap-2">
