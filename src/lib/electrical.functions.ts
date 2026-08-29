@@ -16,6 +16,7 @@ import {
   type RelationTarget,
 } from "@/lib/electrical-relations";
 import { runIntegrityChecks, integritySummary, type IntegrityFinding } from "@/lib/electrical-integrity";
+import { collectTopology, topologyLookups } from "@/lib/electrical-topology";
 import type { ElectricalGraphData, Row } from "@/lib/electrical-mermaid";
 import {
   checkControlledValue,
@@ -409,7 +410,14 @@ export const electricalOverview = createServerFn({ method: "GET" })
     return { counts, byStatus, fieldWalk, issues, worklist };
   });
 
-/** Linked topology for one record: what it connects to in both directions. */
+/**
+ * Linked topology for one record: what it connects to in both directions.
+ *
+ * The record itself is the only hard requirement. Every relationship lookup is
+ * executed independently and a failure (missing relationship table/column in an
+ * older deployment, or an unreadable related table) is reported as a warning —
+ * an incomplete or unavailable topology never prevents the record from opening.
+ */
 export const electricalTopology = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
@@ -420,62 +428,33 @@ export const electricalTopology = createServerFn({ method: "GET" })
     const db = context.supabase as unknown as LooseDb;
     const def = ENTITIES[data.kind];
 
-    const { data: row, error } = await db.from(def.table).select("*").eq("id", data.id).single();
+    const { data: row, error } = await db
+      .from(def.table)
+      .select("*")
+      .eq("id", data.id)
+      .maybeSingle();
     if (error) throw new Error(error.message);
+    if (!row) throw new Error(`This ${def.singular} record is not available to your account.`);
     const record = row as unknown as ElectricalRow;
     const stableId = String(record[def.stableIdField] ?? "");
 
-    const related: { kind: ElectricalEntityKind; stable_id: string; label: string; relation: string }[] = [];
-    const push = async (
-      kind: ElectricalEntityKind,
-      column: string,
-      value: string,
-      relation: string,
-    ) => {
-      if (!value) return;
-      const target = ENTITIES[kind];
-      const { data: rows } = await db.from(target.table).select("*").eq(column, value);
-      for (const r of (rows ?? []) as unknown as ElectricalRow[]) {
-        related.push({
-          kind,
-          stable_id: String(r[target.stableIdField] ?? ""),
-          label: String(r["description"] ?? r["dest_endpoint_ref"] ?? ""),
-          relation,
-        });
-      }
-    };
+    const plan = topologyLookups(
+      data.kind,
+      record as unknown as Record<string, unknown>,
+      stableId,
+    );
+    const { related, warnings } = await collectTopology(plan, async (lookup) => {
+      const { data: rows, error: lookupError } = await db
+        .from(ENTITIES[lookup.kind].table)
+        .select("*")
+        .eq(lookup.column, lookup.value);
+      if (lookupError) throw new Error(lookupError.message);
+      return (rows ?? []) as Record<string, unknown>[];
+    });
 
-    if (data.kind === "panel") {
-      await push("circuit_group", "suggested_panel", stableId, "circuit on this panel");
-      await push("raceway", "source_endpoint_ref", stableId, "raceway leaving panel");
-      await push("raceway", "dest_endpoint_ref", stableId, "raceway entering panel");
-    } else if (data.kind === "circuit_group") {
-      await push("load", "circuit_group_ref", stableId, "load on this circuit");
-      await push("panel", "panel_id", String(record["suggested_panel"] ?? ""), "panel");
-    } else if (data.kind === "load") {
-      await push("circuit_group", "circuit_group_id", String(record["circuit_group_ref"] ?? ""), "circuit group");
-      await push("branch", "dest_endpoint_ref", stableId, "branch run feeding load");
-    } else if (data.kind === "raceway") {
-      for (const ref of [record["source_endpoint_ref"], record["dest_endpoint_ref"]]) {
-        const value = String(ref ?? "");
-        if (value.startsWith("PNL-")) await push("panel", "panel_id", value, "endpoint");
-        if (value.startsWith("JB-")) await push("jbox", "jbox_id", value, "endpoint");
-      }
-    } else if (data.kind === "jbox") {
-      await push("raceway", "source_endpoint_ref", stableId, "raceway leaving box");
-      await push("raceway", "dest_endpoint_ref", stableId, "raceway entering box");
-      await push("branch", "source_endpoint_ref", stableId, "branch run from box");
-    } else if (data.kind === "branch") {
-      for (const ref of [record["source_endpoint_ref"], record["dest_endpoint_ref"]]) {
-        const value = String(ref ?? "");
-        if (value.startsWith("PNL-")) await push("panel", "panel_id", value, "endpoint");
-        if (value.startsWith("JB-")) await push("jbox", "jbox_id", value, "endpoint");
-        if (/^(FS|PH|BL)-/.test(value)) await push("load", "load_id", value, "endpoint");
-      }
-    }
-
-    return { record, related };
+    return { record, related, warnings };
   });
+
 
 export interface EntityOption {
   id: string;
