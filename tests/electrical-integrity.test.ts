@@ -8,6 +8,7 @@ import {
 } from "@/lib/electrical";
 import { applyRelations, relationsFor } from "@/lib/electrical-relations";
 import { integritySummary, runIntegrityChecks } from "@/lib/electrical-integrity";
+import { topologyGapSummary, topologyGaps } from "@/lib/electrical-topology-resolve";
 import type { ElectricalGraphData, Row } from "@/lib/electrical-mermaid";
 
 const PANEL_ID = "11111111-1111-1111-1111-111111111111";
@@ -206,5 +207,90 @@ describe("integrity report", () => {
       }),
     );
     expect(findings.map((f) => f.code)).toContain("orphan_waypoint");
+  });
+});
+
+describe("missing vs invalid topology", () => {
+  it("treats an unlinked raceway endpoint as incomplete, not an error", () => {
+    const findings = runIntegrityChecks(
+      graph({
+        raceway: [
+          {
+            id: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+            conduit_id: "CON-030",
+            from_label: "Farm Shop panel",
+            to_label: "JB-014",
+          } as Row,
+        ],
+      }),
+    );
+    const topo = findings.filter((f) => f.code === "incomplete_topology");
+    expect(topo).toHaveLength(2);
+    expect(topo.every((f) => f.severity === "warning")).toBe(true);
+    expect(findings.some((f) => f.code === "missing_endpoint")).toBe(false);
+    const summary = integritySummary(findings, 1);
+    expect(summary.errors).toBe(0);
+    expect(summary.incomplete).toBe(2);
+    expect(summary.valid).toBe(0);
+  });
+
+  it("still errors on a nonexistent referenced endpoint", () => {
+    const findings = runIntegrityChecks(
+      graph({
+        raceway: [
+          {
+            id: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+            conduit_id: "CON-031",
+            source_endpoint_type: "panel",
+            source_endpoint_ref: "PNL-NOPE",
+          } as Row,
+        ],
+      }),
+    );
+    expect(findings.some((f) => f.code === "unknown_endpoint" && f.severity === "error")).toBe(true);
+  });
+});
+
+describe("topology punch list", () => {
+  it("proposes only exact single stable-ID matches and keeps design text", () => {
+    const gaps = topologyGaps(
+      graph({
+        panel: [{ id: PANEL_ID, panel_id: "PNL-FS-CRIT" } as Row],
+        jbox: [{ id: JBOX_ID, jbox_id: "JB-014" } as Row],
+        raceway: [
+          {
+            id: "cccccccc-cccc-cccc-cccc-cccccccccccc",
+            conduit_id: "CON-030",
+            from_label: "PNL-FS-CRIT",
+            to_label: "somewhere by the barn",
+          } as Row,
+        ],
+      }),
+    );
+    expect(gaps).toHaveLength(1);
+    const [source, dest] = gaps[0]!.slots;
+    expect(source!.proposalStableId).toBe("PNL-FS-CRIT");
+    expect(dest!.proposalId).toBeNull();
+    expect(dest!.designText).toBe("somewhere by the barn");
+    expect(topologyGapSummary(gaps)).toMatchObject({ openSlots: 2, proposals: 1, unresolved: 1 });
+  });
+
+  it("omits raceways whose endpoints are both linked", () => {
+    expect(
+      topologyGaps(
+        graph({
+          panel: [{ id: PANEL_ID, panel_id: "PNL-FS-CRIT" } as Row],
+          jbox: [{ id: JBOX_ID, jbox_id: "JB-014" } as Row],
+          raceway: [
+            {
+              id: "dddddddd-dddd-dddd-dddd-dddddddddddd",
+              conduit_id: "CON-032",
+              source_panel_uuid: PANEL_ID,
+              dest_jbox_uuid: JBOX_ID,
+            } as Row,
+          ],
+        }),
+      ),
+    ).toEqual([]);
   });
 });
