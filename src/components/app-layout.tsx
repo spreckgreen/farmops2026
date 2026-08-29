@@ -12,13 +12,15 @@ import {
 import { todayDateString } from "@/lib/slug";
 import { ProfileGate } from "@/components/profile-gate";
 import { useCurrentProfile } from "@/hooks/use-current-profile";
-import { ShieldCheck, ChevronDown, Users, Trash2, Download, Upload, KeyRound, RefreshCw, Server, AlertTriangle } from "lucide-react";
+import { useAddon } from "@/hooks/use-addon";
+import { ShieldCheck, ChevronDown, Users, Trash2, Download, Upload, KeyRound, RefreshCw, Server, AlertTriangle, PackagePlus } from "lucide-react";
 
 export function AppLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const today = todayDateString();
   const profile = useCurrentProfile();
+  const electrical = useAddon("electrical");
 
   const signOut = async () => {
     await queryClient.cancelQueries();
