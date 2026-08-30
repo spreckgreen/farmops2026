@@ -482,34 +482,34 @@ export function runParallelComparison(input: ValidationInput): ValidationReport 
    * no dedicated FarmOps field is only accepted as an expected transformation
    * when the value is provably present here — never by reclassification.
    */
-  const extrasIndex = new Map<string, Record<string, string>>();
+  const extrasIndex = new Map<string, Record<string, unknown>>();
   for (const kind of Object.keys(ENTITIES) as ElectricalEntityKind[]) {
     const collection = COLLECTION_FOR_KIND[kind];
     for (const rec of snapshot[collection] ?? []) {
-      const raw = rec[ODS_EXTRAS_FIELD];
-      if (typeof raw !== "string" || !raw.trim()) continue;
-      try {
-        const parsed = JSON.parse(raw) as unknown;
-        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-          const id = String(rec["stable_id"] ?? "").trim();
-          if (id) extrasIndex.set(`${collection}:${id}`, parsed as Record<string, string>);
-        }
-      } catch {
-        // Unparseable capture is not evidence of preservation: leave it out so
-        // the column is still reported as loss.
-      }
+      // Unparseable capture is not evidence of preservation: it is left out so
+      // the column is still reported as loss.
+      const parsed = parseOdsExtras(rec[ODS_EXTRAS_FIELD]);
+      if (!parsed) continue;
+      const id = String(rec["stable_id"] ?? "").trim();
+      if (id) extrasIndex.set(`${collection}:${id}`, parsed);
     }
   }
+  /**
+   * Byte-identical preservation proof for one worksheet column: every sampled
+   * populated ODS cell must be found, unchanged, in that record's capture under
+   * a key whose recorded source identity is this worksheet and header.
+   */
   const preservedVerbatim = (
     collection: string,
+    sheet: string,
     column: string,
     samples: { stableId: string; value: string }[],
   ): boolean =>
     samples.length > 0 &&
     samples.every((s) => {
       const extras = extrasIndex.get(`${collection}:${s.stableId.trim()}`);
-      const kept = extras?.[column.trim()];
-      return typeof kept === "string" && kept.trim() === s.value.trim();
+      if (!extras) return false;
+      return preservedOdsValues(extras, sheet, column).includes(s.value);
     });
 
   // --- unmapped workbook columns: the semantic-loss detector -----------------
