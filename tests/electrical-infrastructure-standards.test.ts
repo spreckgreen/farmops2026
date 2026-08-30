@@ -71,7 +71,7 @@ describe("infrastructure ID standards", () => {
     }
   });
 
-  it("still accepts canonical DEV- and NET- IDs after narrowing the legacy matcher", () => {
+  it("still accepts canonical DEV- and NET- IDs with the legacy matcher removed", () => {
     for (const id of ["NET-SW-FS-01", "DEV-HAM-RADIO-FS-01"]) {
       expect(checkInfrastructureId("device", id).ok, id).toBe(true);
       expect(checkInfrastructureId("device", id, { mode: "existing" }).ok, id).toBe(true);
