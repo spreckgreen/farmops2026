@@ -12,6 +12,7 @@
 // page, forms, validators, QA and ID generators share one definition.
 
 import {
+  INFRA_ROLE_CODES,
   canonicalInfrastructurePattern,
   checkInfrastructureId,
   infrastructureShape,
@@ -315,7 +316,7 @@ export function powerAssetTypeLabel(value: string): string {
 export const CURRENT_TYPES = ["AC", "DC"] as const;
 
 /** Suggested rack roles. Free text is still accepted for unforeseen roles. */
-export const RACK_ROLES = ["NET", "HAM", "SERVER", "AV", "CONTROL", "OTHER"] as const;
+export const RACK_ROLES = [...Object.keys(INFRA_ROLE_CODES), "OTHER"] as const;
 
 /** Suggested device roles; the list is advisory, not a schema constraint. */
 export const DEVICE_ROLES = [
