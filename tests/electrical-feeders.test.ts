@@ -103,7 +103,8 @@ describe("SOR status", () => {
     expect(status.authority).toBe("canonical_ods");
     expect(status.farmops_role).toMatch(/Candidate SOR/);
     expect(status.cutover.approved).toBe(false);
-    expect(status.snapshot_schema_version).toBe("1.0");
+    expect(status.snapshot_schema_version).toBe("1.1");
+    expect(status.phase).toBe("4.3");
   });
 
   it("lists cutover blockers and never clears them on warnings alone", () => {
