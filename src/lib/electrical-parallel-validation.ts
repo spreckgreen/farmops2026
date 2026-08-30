@@ -30,6 +30,8 @@ import { FIELD_MAP, FIELD_MAP_VERSION } from "@/lib/electrical-field-map";
 import {
   FARMOPS_NATIVE_KINDS,
   ODS_EXTRAS_FIELD,
+  parseOdsExtras,
+  preservedOdsValues,
   type ElectricalEntityKind,
 } from "@/lib/electrical";
 
@@ -527,7 +529,7 @@ export function runParallelComparison(input: ValidationInput): ValidationReport 
       // not bind is an importer omission, not a missing mapping.
       const samples = (col.samples ?? []).slice(0, 5);
       const collection = sheet.kind ? COLLECTION_FOR_KIND[sheet.kind] : sheet.sheet;
-      const preserved = preservedVerbatim(collection, col.column, samples);
+      const preserved = preservedVerbatim(collection, sheet.sheet, col.column, samples);
       const rootCause = explained
         ? `documented_${mapped!.classification}`
         : preserved
