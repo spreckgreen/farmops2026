@@ -111,9 +111,13 @@ const ID_PATTERNS: Record<ElectricalEntityKind, RegExp | null> = {
   // Feeders: FDR-### is the FarmOps convention. Feeder rows imported from the
   // canonical workbook keep whatever ID they were released with.
   feeder: /^FDR-\d{3}$/,
-  // Raceways: EMT-### is the current convention. CON-### is the pre-existing
-  // ODS-derived convention and stays valid — stable IDs are never renamed.
-  raceway: /^(EMT|CON)-\d{3,}$/,
+  // Raceways: CON-### is the canonical stable ID for EVERY raceway type. The
+  // construction (EMT, FLEX/FMC/LFMC, PVC, underground, sleeve, …) is the typed
+  // `raceway_type` attribute and is never encoded into the identity, so a
+  // planned EMT run that is installed as flex keeps its CON-### ID. EMT-###
+  // remains accepted only because records created under the short-lived
+  // EMT-### rule are never renamed.
+  raceway: /^(CON|EMT)-\d{3,}$/,
   // Hierarchical convention: a junction box encodes its raceway path, and a
   // branch encodes its raceway path plus the junction box it originates from.
   jbox: /^JB-\d{3}-\d{2}$/,
