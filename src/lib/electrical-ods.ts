@@ -5,7 +5,13 @@
 // The canonical ODS stays the engineering release authority: this import is
 // always a reviewable dry run first, and it never destructively merges raceway
 // segments — merges are proposed, never applied automatically.
-import { ODS_EXTRAS_FIELD, type ElectricalEntityKind } from "@/lib/electrical";
+import {
+  ODS_EXTRAS_FIELD,
+  ODS_EXTRAS_SOURCE_KEY,
+  odsExtrasEntryKey,
+  type ElectricalEntityKind,
+  type OdsExtrasSource,
+} from "@/lib/electrical";
 import { classifyGrid } from "@/lib/electrical-grid";
 
 export type Sheet = { name: string; rows: string[][] };
