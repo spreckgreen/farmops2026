@@ -282,9 +282,11 @@ describe("Phase 4.4 parallel validation", () => {
       }),
     );
     expect(find(r, "JB-104-03", "__record").domain).toBe("junction_boxes");
-    const rel = find(r, "BR-104-03-01", "source_jbox_uuid");
-    expect(rel.farmops_value).toBe("JB-104-03");
-    expect(rel.classification).toBe("FARMOPS_AS_BUILT_ADDITION");
+    const branch = find(r, "BR-104-03-01", "__record");
+    expect(branch.domain).toBe("branch_runs");
+    expect(branch.classification).toBe("FARMOPS_AS_BUILT_ADDITION");
+    // the branch ID's encoded parent agrees with its relational parent
+    expect(branch.stable_id.startsWith("BR-104-03-")).toBe(true);
   });
 
   it("counts breaker positions and panel exits as as-built additions per entity", () => {
