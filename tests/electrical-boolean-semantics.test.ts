@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { booleanFromSelect, booleanSelectValue, parseBooleanCell } from "@/lib/electrical-boolean";
 import { ENTITIES, coerceValue } from "@/lib/electrical-entities";
-import { booleanDiagnostics } from "@/lib/electrical-boolean-diagnostics";
+import {
+  booleanDiagnostics,
+  booleanRecordCsv,
+  categoryACorrectionPlan,
+  correctionPlanCsv,
+} from "@/lib/electrical-boolean-diagnostics";
 import type { ComparisonRecord, ValidationReport } from "@/lib/electrical-parallel-validation";
 
 function boolField(kind: "load", key: string) {
