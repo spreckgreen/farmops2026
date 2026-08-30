@@ -180,6 +180,54 @@ export function preservedOdsValues(
   return [...new Set(out)];
 }
 
+/**
+ * Every preserved entry for one worksheet column, with the key it is stored
+ * under and the source identity that proves what it is. Diagnostics need the
+ * key, not just the value, to say whether capture is missing or merely
+ * differently keyed.
+ */
+export function preservedOdsEntries(
+  extras: Record<string, unknown> | null,
+  sheet: string,
+  header: string,
+): { key: string; value: string; bySource: boolean }[] {
+  if (!extras) return [];
+  const wanted = header.trim();
+  const out = new Map<string, { key: string; value: string; bySource: boolean }>();
+  const source = extras[ODS_EXTRAS_SOURCE_KEY];
+  if (source && typeof source === "object" && !Array.isArray(source)) {
+    for (const [key, meta] of Object.entries(source as Record<string, unknown>)) {
+      if (!meta || typeof meta !== "object") continue;
+      const m = meta as Partial<OdsExtrasSource>;
+      if (String(m.header ?? "").trim() !== wanted) continue;
+      if (m.sheet && sheet && String(m.sheet).trim() !== sheet.trim()) continue;
+      const v = extras[key];
+      if (typeof v === "string") out.set(key, { key, value: v, bySource: true });
+    }
+  }
+  for (const key of Object.keys(extras).sort()) {
+    if (key === ODS_EXTRAS_SOURCE_KEY || out.has(key)) continue;
+    if (key.replace(/#\d+$/, "").trim() !== wanted) continue;
+    const v = extras[key];
+    if (typeof v === "string") out.set(key, { key, value: v, bySource: false });
+  }
+  return [...out.values()];
+}
+
+/** Non-reserved keys actually present in a record's lossless capture. */
+export function odsExtrasKeys(extras: Record<string, unknown> | null): string[] {
+  if (!extras) return [];
+  return Object.keys(extras)
+    .filter((k) => k !== ODS_EXTRAS_SOURCE_KEY)
+    .sort();
+}
+
+/** True when the capture carries worksheet/header/column source identity. */
+export function odsExtrasHasSourceMetadata(extras: Record<string, unknown> | null): boolean {
+  const s = extras?.[ODS_EXTRAS_SOURCE_KEY];
+  return Boolean(s && typeof s === "object" && !Array.isArray(s) && Object.keys(s).length > 0);
+}
+
 
 
 /**
