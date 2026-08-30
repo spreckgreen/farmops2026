@@ -289,3 +289,30 @@ remains readable for pre-existing records (never renamed), and
 
 Mapping matrix `1.2`; validation schema and normalization `1.2`; snapshot schema
 unchanged at `1.2`.
+
+## Infrastructure ↔ FarmOps Asset authority (Phase 4.4a)
+
+Equipment racks, power distribution assets and powered devices do **not** form a
+second inventory system. Each carries an optional `asset_uuid` link to the
+existing FarmOps Inventory/Asset record, plus a derived read-only `asset_ref`
+name for display.
+
+| Owner | Fields |
+| --- | --- |
+| Inventory/Asset | manufacturer, model, serial number, acquisition, cost, warranty, manuals, maintenance schedules, service history, lifecycle status, replacement/retirement history |
+| Infrastructure entity | stable infrastructure ID, role/type, topology, rack membership, network relationships, electrical relationships, upstream + immediate power relationships, ports/interfaces, infrastructure design/as-built attributes |
+
+Rules:
+
+- `asset_uuid` is nullable so planned infrastructure and non-inventoried passive
+  structures exist before or without an Asset.
+- Replacing the physical unit only changes `asset_uuid`. The stable
+  infrastructure ID, role and every relationship are preserved, so dependency
+  and failure-domain history survives equipment swaps.
+- `manufacturer` / `model` on power assets and devices are superseded: shown
+  read-only so pre-4.4a values are never lost, with Inventory/Asset as the
+  single authority going forward.
+- `asset_uuid` is never populated from a workbook column and is excluded from
+  canonical-ODS field comparison (ownership `farmops_as_built`).
+- Snapshot schema stays 1.2 — the asset link is an additional FarmOps-native
+  field, not a new collection or contract change.
