@@ -41,9 +41,25 @@ export interface RepairBlocked {
   reason: string;
 }
 
+/**
+ * A dependent record that spells a corrected branch-run stable ID. Renaming the
+ * branch in place (same UUID, same relational parent) leaves this text stale, so
+ * it is propagated in the same preview/apply pass.
+ */
+export interface DependentRefRepair {
+  table: string;
+  id: string;
+  field: string;
+  /** Stable ID of the dependent record, for display. */
+  stable_id: string;
+  was: string;
+  now: string;
+}
+
 export interface RepairPlan {
   refs: RefRepair[];
   branchIds: BranchIdRepair[];
+  dependents: DependentRefRepair[];
   blocked: RepairBlocked[];
 }
 
@@ -64,7 +80,12 @@ export interface RepairInput {
   jboxes: Row[];
   panels: Row[];
   branches: Row[];
+  /** Optional dependent collections that carry stable-ID text. */
+  feeders?: Row[];
+  labels?: Row[];
+  exits?: Row[];
 }
+
 
 /**
  * Build the repair plan. Only exact, relationally proven corrections are
