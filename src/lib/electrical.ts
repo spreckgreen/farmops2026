@@ -133,7 +133,7 @@ const LEGACY_ID_PATTERNS: Partial<Record<ElectricalEntityKind, RegExp>> = {
 };
 
 export const HIERARCHICAL_ID_SHAPES: Record<string, string> = {
-  raceway: "EMT-###",
+  raceway: "CON-###",
   jbox: "JB-###-##",
   branch: "BR-###-##-##",
   feeder: "FDR-###",
