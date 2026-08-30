@@ -8,6 +8,7 @@
 import {
   ODS_EXTRAS_FIELD,
   ODS_EXTRAS_SOURCE_KEY,
+  mergeOdsExtras,
   odsExtrasEntryKey,
   type ElectricalEntityKind,
   type OdsExtrasSource,
