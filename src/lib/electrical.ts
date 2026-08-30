@@ -79,7 +79,52 @@ export type ElectricalEntityKind =
   | "feeder"
   | "raceway"
   | "jbox"
-  | "branch";
+  | "branch"
+  // FarmOps-native infrastructure entities. They have no canonical ODS
+  // counterpart and are never added to the workbook to force equivalence.
+  | "rack"
+  | "power_asset"
+  | "device";
+
+/**
+ * Reusable power-distribution equipment types. The type is *data*: a new type
+ * never requires a new table, and nothing here is specific to ham radio.
+ */
+export const POWER_ASSET_TYPES = [
+  "AC_DC_POWER_SUPPLY",
+  "UPS",
+  "PDU",
+  "DC_DISTRIBUTION",
+] as const;
+export type PowerAssetType = (typeof POWER_ASSET_TYPES)[number];
+
+export function powerAssetTypeLabel(value: string): string {
+  const map: Record<string, string> = {
+    AC_DC_POWER_SUPPLY: "AC→DC power supply",
+    UPS: "UPS",
+    PDU: "PDU",
+    DC_DISTRIBUTION: "DC distribution",
+  };
+  return map[value] ?? value;
+}
+
+/** AC / DC on either side of a power asset. Unknown stays unset, never guessed. */
+export const CURRENT_TYPES = ["AC", "DC"] as const;
+
+/** Suggested rack roles. Free text is still accepted for unforeseen roles. */
+export const RACK_ROLES = ["NET", "HAM", "SERVER", "AV", "CONTROL", "OTHER"] as const;
+
+/** Suggested device roles; the list is advisory, not a schema constraint. */
+export const DEVICE_ROLES = [
+  "NETWORK",
+  "RADIO",
+  "SERVER",
+  "SENSOR",
+  "CONTROL",
+  "APPLIANCE",
+  "OTHER",
+] as const;
+
 
 /**
  * Which entity table an endpoint type resolves to. `null` means the endpoint is
