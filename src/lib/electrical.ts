@@ -276,10 +276,10 @@ export function checkStableId(kind: ElectricalEntityKind, raw: string): IdCheck 
   const pattern = ID_PATTERNS[kind];
   if (!pattern) return { ok: true };
   if (pattern.test(id)) {
-    if (kind === "raceway" && id.toUpperCase().startsWith("CON-")) {
+    if (kind === "raceway" && id.toUpperCase().startsWith("EMT-")) {
       return {
         ok: true,
-        warning: `${id} uses the legacy CON-### raceway convention. New raceways use EMT-###; existing IDs are never renamed.`,
+        warning: `${id} encodes a raceway material in its stable ID. The canonical raceway ID is CON-### for every raceway type (EMT, FLEX, PVC, underground) — record the construction in Raceway type instead. Existing IDs are never renamed.`,
       };
     }
     return { ok: true };
