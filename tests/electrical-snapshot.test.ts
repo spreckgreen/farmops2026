@@ -63,6 +63,7 @@ function input(overrides: Partial<Record<ElectricalEntityKind, RawRow[]>> = {}) 
       },
     ],
     circuit_group: [],
+    feeder: [],
     ...overrides,
   };
   return {
@@ -90,6 +91,9 @@ describe("electrical reconciliation snapshot", () => {
     }
     expect(snap.counts.branch_runs).toBe(0);
     expect(snap.counts.circuit_groups).toBe(0);
+    // Phase 4.2: feeders are a first-class collection, present even when empty.
+    expect(snap.counts.feeders).toBe(0);
+    expect(snap.feeders).toEqual([]);
   });
 
   it("exports UUID and stable ID for every record", () => {
