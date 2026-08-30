@@ -263,6 +263,10 @@ export interface OdsSheetRows {
     samples?: { stableId: string; value: string }[];
     /** Set when a second header meant a FarmOps column already bound. */
     collidedWith?: string;
+    /** 0-based worksheet column index, for the collision-safe capture key. */
+    columnIndex?: number;
+    /** This header text appears more than once on the worksheet. */
+    duplicateHeader?: boolean;
   }[];
 }
 
