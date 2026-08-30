@@ -30,10 +30,10 @@ export const BUILT_IN_STANDARDS: readonly StandardEntry[] = [
     title: "Hierarchical raceway / junction box / branch convention",
     body:
       "A field technician must be able to read the originating raceway and junction box directly from the ID.\n" +
-      "EMT-### — the three digits are the unique raceway path ID and become the root inherited downstream.\n" +
-      "JB-###-## — parent EMT path, then the sequential junction box number along that path.\n" +
-      "BR-###-##-## — EMT path, the junction box the branch physically originates from, then the branch sequence.\n" +
-      "BR-104-02-03 reads as branch 03 originating from junction box 02 on EMT path 104.\n" +
+      "CON-### — the three digits are the unique raceway path ID and become the root inherited downstream.\n" +
+      "JB-###-## — parent raceway path, then the sequential junction box number along that path.\n" +
+      "BR-###-##-## — raceway path, the junction box the branch physically originates from, then the branch sequence.\n" +
+      "BR-104-02-03 reads as branch 03 originating from junction box 02 on raceway path 104.\n" +
       "Branch numbering restarts at 01 for each junction box; each box keeps its own branch sequence.",
     sort_order: 12,
   },
@@ -42,8 +42,8 @@ export const BUILT_IN_STANDARDS: readonly StandardEntry[] = [
     title: "Branch origin rule",
     body:
       "A branch MUST inherit the identifier of the junction box it physically originates from — never number " +
-      "branches against the root EMT raceway alone, because that loses the junction box relationship.\n" +
-      "Correct: EMT-104 > JB-104-01 > JB-104-02 > BR-104-02-01 … BR-104-02-04.\n" +
+      "branches against the root raceway alone, because that loses the junction box relationship.\n" +
+      "Correct: CON-104 > JB-104-01 > JB-104-02 > BR-104-02-01 … BR-104-02-04.\n" +
       "Incorrect: BR-104-01, BR-104-02, BR-104-03, BR-104-04.",
     sort_order: 14,
   },
@@ -52,7 +52,7 @@ export const BUILT_IN_STANDARDS: readonly StandardEntry[] = [
     title: "ID validation and parent agreement",
     body:
       "The same rules validate the Standards page, record create/edit forms and Source of Record checks.\n" +
-      "EMT ^EMT-\\d{3}$ (valid EMT-104; invalid EMT-NE-001, EMT-104-01).\n" +
+      "Raceway ^CON-\\d{3}$ (valid CON-104; invalid CON-NE-001, CON-104-01).\n" +
       "Junction box ^JB-\\d{3}-\\d{2}$ (valid JB-104-01; invalid JB-104, JB-104-1).\n" +
       "Branch ^BR-\\d{3}-\\d{2}-\\d{2}$ (valid BR-104-02-01; invalid BR-104-01, BR-104-2-1).\n" +
       "Where relationship data exists, the encoded parent must match the linked parent record: BR-104-02-03 " +
@@ -65,8 +65,8 @@ export const BUILT_IN_STANDARDS: readonly StandardEntry[] = [
     key: "raceway_continuity",
     title: "Continuous raceway rule",
     body:
-      "An EMT-### is one continuous physical raceway between actual accessible endpoints (panel, junction box, " +
-      "handhole, or equipment). Changing size, status, or measured length never splits or renames a raceway.",
+      "A CON-### is one continuous physical raceway between actual accessible endpoints (panel, junction box, " +
+      "handhole, or equipment). Changing size, type, status, or measured length never splits or renames a raceway.",
     sort_order: 20,
   },
   {
@@ -187,16 +187,13 @@ export const STABLE_ID_REFERENCE: readonly StableIdReferenceRow[] = [
     notes: "Stable panel ID",
   },
   {
-    entity: "EMT Raceway",
-    format: "EMT-###",
-    example: "EMT-104",
-    notes: "Encodes the raceway / path ID; root identifier inherited downstream",
-  },
-  {
-    entity: "Raceway (legacy ODS)",
+    entity: "Raceway (all types)",
     format: "CON-###",
-    example: "CON-030",
-    notes: "Pre-existing continuous raceway ID — still valid and never renamed",
+    example: "CON-105",
+    notes:
+      "Canonical raceway ID for EMT, FLEX/FMC/LFMC, PVC, underground and sleeves alike. " +
+      "Encodes the raceway / path ID; root identifier inherited downstream. Construction is the " +
+      "separate Raceway type field and is never part of the ID.",
   },
   {
     entity: "Junction Box",
