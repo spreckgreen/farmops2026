@@ -16,7 +16,7 @@ import { ENTITIES, type EntityField } from "@/lib/electrical-entities";
 import { relationsFor } from "@/lib/electrical-relations";
 import type { ElectricalEntityKind } from "@/lib/electrical";
 
-export const SNAPSHOT_SCHEMA_VERSION = "1.1";
+export const SNAPSHOT_SCHEMA_VERSION = "1.2";
 
 export type FieldOwnership =
   | "engineering_design"
@@ -34,7 +34,10 @@ export type SnapshotCollection =
   | "junction_boxes"
   | "branch_runs"
   | "panel_breaker_positions"
-  | "panel_exits";
+  | "panel_exits"
+  | "equipment_racks"
+  | "power_assets"
+  | "devices";
 
 /** Collection name for each entity kind. Stable part of the wire contract. */
 export const COLLECTION_FOR_KIND: Record<ElectricalEntityKind, SnapshotCollection> = {
@@ -45,6 +48,9 @@ export const COLLECTION_FOR_KIND: Record<ElectricalEntityKind, SnapshotCollectio
   raceway: "raceways",
   jbox: "junction_boxes",
   branch: "branch_runs",
+  rack: "equipment_racks",
+  power_asset: "power_assets",
+  device: "devices",
 };
 
 /** Deterministic collection order in the emitted document. */
@@ -59,7 +65,11 @@ export const SNAPSHOT_COLLECTIONS: SnapshotCollection[] = [
   "branch_runs",
   "panel_breaker_positions",
   "panel_exits",
+  "equipment_racks",
+  "power_assets",
+  "devices",
 ];
+
 
 /** Row-level bookkeeping columns — not owned engineering or field values. */
 export const METADATA_FIELDS = ["uuid", "stable_id", "created_at", "updated_at"] as const;
