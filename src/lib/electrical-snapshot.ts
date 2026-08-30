@@ -455,6 +455,10 @@ export function buildElectricalSnapshot(input: SnapshotInput): ElectricalSnapsho
     branch_runs: collections.branch_runs ?? [],
     panel_breaker_positions: collections.panel_breaker_positions ?? [],
     panel_exits: collections.panel_exits ?? [],
+    equipment_racks: collections.equipment_racks ?? [],
+    power_assets: collections.power_assets ?? [],
+    devices: collections.devices ?? [],
+
   };
 }
 
