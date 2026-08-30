@@ -35,8 +35,10 @@ import {
   type ElectricalEntityKind,
 } from "@/lib/electrical";
 
-export const VALIDATION_SCHEMA_VERSION = "1.2";
-export const NORMALIZATION_VERSION = "1.2";
+// 1.3 — lossless capture now records worksheet/header/column source identity,
+// so preservation is proven by source, not by key text alone.
+export const VALIDATION_SCHEMA_VERSION = "1.3";
+export const NORMALIZATION_VERSION = "1.3";
 export const MAPPING_VERSION = FIELD_MAP_VERSION;
 
 /* -------------------------------------------------- 4.4a disposition model */
