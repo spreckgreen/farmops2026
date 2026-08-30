@@ -140,17 +140,9 @@ export const BUILT_IN_STANDARDS: readonly StandardEntry[] = [
   {
     key: "infrastructure_ids",
     title: "Infrastructure ID formats — racks, power assets, network and powered devices",
-    body:
-      "Equipment rack RACK-<SITE>-<ROLE>-## (RACK-FS-NET-01, RACK-FS-HAM-01, RACK-PH-NET-01).\n" +
-      "Power distribution asset PWR-<TYPE>-<SITE>-<ROLE>-## (PWR-PDU-FS-NET-01, PWR-PSU-FS-HAM-01, PWR-UPS-FS-NET-01); " +
-      "TYPE is PDU, PSU, UPS, CONV or CHG and is a readability aid — the typed Asset type field stays authoritative.\n" +
-      "Network device NET-<TYPE>-<SITE>-## (NET-SW-FS-01, NET-SW-PH-01); TYPE is SW, RTR, AP, FW, BR or ONT.\n" +
-      "Powered device DEV-<CLASS>-<ROLE>-<SITE>-## (DEV-HAM-RADIO-FS-01, DEV-NET-SERVER-FS-01, DEV-NET-NVR-FS-01).\n" +
-      "SITE is a controlled location code (FS, PH, BLR, HSE, SITE) and ROLE a controlled infrastructure class (NET, HAM, SERVER, AV, CONTROL, SEC).\n" +
-      "The infrastructure ID names the operational role, never the hardware: replacing the physical switch, rack or power " +
-      "supply keeps NET-SW-PH-01, RACK-FS-NET-01 and PWR-PSU-FS-HAM-01 and rebuilds no topology.\n" +
-      "Create a powered-device record only when its power dependency or topology matters operationally — ordinary " +
-      "inventory items do not need an infrastructure record.",
+    // Generated from INFRASTRUCTURE_ID_STANDARDS so the Standards page can never
+    // drift from the vocabulary the validator and ID generators actually enforce.
+    body: infrastructureIdStandardsBody(),
     sort_order: 92,
   },
   {
