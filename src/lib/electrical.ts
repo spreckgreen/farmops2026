@@ -6,6 +6,20 @@
 //  - a panel's raceway exit order starts lower-right and runs counterclockwise;
 //  - the Farm Shop field walk starts at A6 (NE) and runs clockwise, outside-in;
 //  - interior and site raceways are one dataset filtered by environment.
+//
+// Infrastructure (rack / power asset / device) naming rules are NOT declared
+// here: they live in `electrical-infrastructure-standards.ts` so the Standards
+// page, forms, validators, QA and ID generators share one definition.
+
+import {
+  INFRA_ROLE_CODES,
+  canonicalInfrastructurePattern,
+  checkInfrastructureId,
+  infrastructureShape,
+  legacyInfrastructurePattern,
+  type InfrastructureKind,
+} from "./electrical-infrastructure-standards";
+
 
 export const INSTALL_STATUSES = [
   "planned",
@@ -302,7 +316,7 @@ export function powerAssetTypeLabel(value: string): string {
 export const CURRENT_TYPES = ["AC", "DC"] as const;
 
 /** Suggested rack roles. Free text is still accepted for unforeseen roles. */
-export const RACK_ROLES = ["NET", "HAM", "SERVER", "AV", "CONTROL", "OTHER"] as const;
+export const RACK_ROLES = [...Object.keys(INFRA_ROLE_CODES), "OTHER"] as const;
 
 /** Suggested device roles; the list is advisory, not a schema constraint. */
 export const DEVICE_ROLES = [
@@ -357,13 +371,10 @@ const ID_PATTERNS: Record<ElectricalEntityKind, RegExp | null> = {
   // branch encodes its raceway path plus the junction box it originates from.
   jbox: /^JB-\d{3}-\d{2}$/,
   branch: /^BR-\d{3}-\d{2}-\d{2}$/,
-  // RACK-<SITE>-<ROLE>-## e.g. RACK-FS-NET-01, RACK-FS-HAM-01.
-  rack: /^RACK-[A-Z0-9]+-[A-Z0-9]+-\d{2}$/,
-  // Type-readable prefix plus site/role, e.g. PSU-FS-HAM-01, UPS-FS-NET-01.
-  // The prefix is a readability convenience only: `asset_type` is authoritative.
-  power_asset: /^(PSU|UPS|PDU|DCD)-[A-Z0-9]+-[A-Z0-9]+-\d{2}$/,
-  // Devices keep the site's existing convention, e.g. NET-SW-FS-01.
-  device: /^[A-Z][A-Z0-9]*(-[A-Z0-9]+){1,4}$/,
+  // Infrastructure conventions come from the shared standards module.
+  rack: canonicalInfrastructurePattern("rack"),
+  power_asset: canonicalInfrastructurePattern("power_asset"),
+  device: canonicalInfrastructurePattern("device"),
 };
 
 /** Legacy shapes kept valid (with a warning) so imported records never break. */
@@ -372,6 +383,9 @@ const LEGACY_ID_PATTERNS: Partial<Record<ElectricalEntityKind, RegExp>> = {
   branch: /^BR-\d{3,}(-\d{2,})*$/,
   // Workbook-released feeder identifiers such as FD-1 or F-SERVICE-01.
   feeder: /^(FDR|FD|F)-[A-Za-z0-9]+(-[A-Za-z0-9]+)*$/,
+  rack: legacyInfrastructurePattern("rack") ?? undefined,
+  power_asset: legacyInfrastructurePattern("power_asset") ?? undefined,
+  device: legacyInfrastructurePattern("device") ?? undefined,
 };
 
 export const HIERARCHICAL_ID_SHAPES: Record<string, string> = {
@@ -379,10 +393,16 @@ export const HIERARCHICAL_ID_SHAPES: Record<string, string> = {
   jbox: "JB-###-##",
   branch: "BR-###-##-##",
   feeder: "FDR-###",
-  rack: "RACK-<SITE>-<ROLE>-##",
-  power_asset: "PSU|UPS|PDU|DCD-<SITE>-<ROLE>-##",
-  device: "<ROLE>-<TYPE>-<SITE>-##",
+  rack: infrastructureShape("rack"),
+  power_asset: infrastructureShape("power_asset"),
+  device: infrastructureShape("device"),
 };
+
+const INFRASTRUCTURE_KINDS: readonly InfrastructureKind[] = ["rack", "power_asset", "device"];
+
+export function isInfrastructureKind(kind: string): kind is InfrastructureKind {
+  return (INFRASTRUCTURE_KINDS as readonly string[]).includes(kind);
+}
 
 /**
  * Next sequential ID for a site/role scoped infrastructure convention, e.g.
@@ -552,6 +572,12 @@ export function checkStableId(
   if (!id) return { ok: false, error: "A stable ID is required." };
   if (/\s/.test(id)) return { ok: false, error: "Stable IDs cannot contain spaces." };
   if (kind === "load") return checkLoadId(id);
+  // Infrastructure IDs get the shared standards validator, which reports the
+  // offending token plus a compliant example instead of "invalid ID".
+  if (isInfrastructureKind(kind)) {
+    const check = checkInfrastructureId(kind, id, { mode: opts.mode });
+    return { ok: check.ok, error: check.error, warning: check.warning };
+  }
   const pattern = ID_PATTERNS[kind];
   if (!pattern) return { ok: true };
   if (pattern.test(id)) {
