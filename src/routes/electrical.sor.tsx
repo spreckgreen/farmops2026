@@ -147,8 +147,13 @@ function SorStatusView() {
             <Link to="/electrical/qa" className="underline">
               QA
             </Link>
+            . The Phase 4.4 semantic comparison against the canonical workbook lives on{" "}
+            <Link to="/electrical/validation" className="underline">
+              Parallel validation
+            </Link>
             .
           </p>
+
         </CardContent>
       </Card>
     </div>
