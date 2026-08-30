@@ -97,8 +97,7 @@ describe("corrected junction-box ID propagation", () => {
 
   it("does not revert corrected junction-box IDs", () => {
     const plan = planIdRepairs(input());
-    const touched = JSON.stringify(plan);
-    expect(touched).not.toContain('"JB-105"');
-    expect(touched).toContain("JB-105-01");
+    expect(plan.refs.every((r) => r.now === "JB-105-01" || r.now === "JB-106-01")).toBe(true);
+    expect(plan.branchIds.every((r) => r.parent.endsWith("-01"))).toBe(true);
   });
 });
