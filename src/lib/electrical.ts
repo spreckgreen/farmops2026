@@ -306,6 +306,14 @@ export function nextStableId(kind: ElectricalEntityKind, existing: string[]): st
     }
     return `EMT-${String(max + 1).padStart(3, "0")}`;
   }
+  if (kind === "feeder") {
+    let max = 0;
+    for (const id of ids) {
+      const m = /^(?:FDR|FD|F)-(\d+)$/.exec(id);
+      if (m) max = Math.max(max, Number(m[1]));
+    }
+    return `FDR-${String(max + 1).padStart(3, "0")}`;
+  }
   if (kind === "jbox") {
     // Without an explicit parent path, continue the highest path already in use.
     let path = "001";
