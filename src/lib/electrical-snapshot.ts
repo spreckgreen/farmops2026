@@ -112,6 +112,14 @@ export interface ElectricalSnapshot {
   panel_breaker_positions: SnapshotRecord[];
   /** Phase 4.3: one record per physical raceway penetration of a panel. */
   panel_exits: SnapshotRecord[];
+  /**
+   * FarmOps-native infrastructure with no canonical ODS counterpart. Exported
+   * for reconciliation transparency only — never written back to the workbook.
+   */
+  equipment_racks: SnapshotRecord[];
+  power_assets: SnapshotRecord[];
+  devices: SnapshotRecord[];
+
 }
 
 export type RawRow = Record<string, unknown>;
