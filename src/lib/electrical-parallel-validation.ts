@@ -640,6 +640,22 @@ export function runParallelComparison(input: ValidationInput): ValidationReport 
               rows: samples.map((s) => {
                 const extras = extrasIndex.get(`${collection}:${s.stableId.trim()}`) ?? null;
                 const actual = extras ? extras[preservationKey] : undefined;
+                const entries = preservedOdsEntries(extras, sheet.sheet, col.column);
+                const hasSource = odsExtrasHasSourceMetadata(extras);
+                // `capture_present` only says the record carries some capture.
+                // The actionable answer is per-column, so the reason
+                // distinguishes a missing record, capture that never included
+                // this column, capture with no source identity, and a value
+                // that is present but not byte-identical.
+                const reason = !extras
+                  ? extrasIndex.has(`${collection}:${s.stableId.trim()}`)
+                    ? ("capture_absent" as const)
+                    : ("record_not_found" as const)
+                  : entries.length === 0
+                    ? hasSource
+                      ? ("column_absent_from_capture" as const)
+                      : ("capture_lacks_source_metadata" as const)
+                    : ("value_differs" as const);
                 return {
                   stable_id: s.stableId,
                   ods_value: s.value,
@@ -647,6 +663,10 @@ export function runParallelComparison(input: ValidationInput): ValidationReport 
                   actual_extras_value: typeof actual === "string" ? actual : null,
                   actual_preserved_values: preservedOdsValues(extras, sheet.sheet, col.column),
                   capture_present: extras !== null,
+                  capture_has_column: entries.length > 0,
+                  capture_has_source_metadata: hasSource,
+                  capture_keys: odsExtrasKeys(extras).slice(0, 40),
+                  reason,
                 };
               }),
             }
@@ -716,6 +736,35 @@ export function runParallelComparison(input: ValidationInput): ValidationReport 
       });
     }
 
+  }
+
+  // --- non-entity worksheets: workbook metadata, preserved not mapped -------
+  const workbookMetadata = input.workbookMetadata ?? [];
+  for (const sheet of workbookMetadata) {
+    for (const col of sheet.columns) {
+      if (!col.populated_rows) continue;
+      push({
+        domain: "workbook_metadata",
+        stable_id: `${sheet.sheet}:${col.header}`,
+        field: col.header,
+        label: col.header,
+        ods_worksheet: sheet.sheet,
+        ods_column: col.header,
+        ods_value: col.values.map((v) => v.value).join(" | "),
+        farmops_entity: `report.workbook_metadata["${sheet.sheet}"]`,
+        farmops_field: null,
+        farmops_value: col.values.map((v) => v.value).join(" | "),
+        authority: "structural",
+        classification: "EXPECTED_TRANSFORMATION",
+        rules: ["verbatim_preservation"],
+        root_cause: "documented_non_entity_workbook_structure",
+        note:
+          `${sheet.sheet} is workbook structure (metadata / reference list), not an electrical entity: ` +
+          `it has no stable IDs and must not become panels, feeders or any other record. Its ${col.populated_rows} ` +
+          `populated cell(s) are carried verbatim in the reconciliation artifact's workbook_metadata section, ` +
+          `so nothing canonical is dropped and nothing is written to the workbook or the database.`,
+      });
+    }
   }
 
   // Every FarmOps stable ID, so an ODS-only record can be explained by an
@@ -1244,6 +1293,7 @@ export function runParallelComparison(input: ValidationInput): ValidationReport 
       reasons,
     },
     records,
+    workbook_metadata: workbookMetadata,
   };
 }
 
