@@ -348,6 +348,13 @@ export function checkInfrastructureId(
     };
   }
 
+  const prefix = id.split("-", 1)[0];
+  if (kind === "device" && prefix && prefix !== "NET" && prefix !== "DEV") {
+    return {
+      ok: false,
+      error: `${id} has an invalid prefix "${prefix}" — powered devices use NET- (network roles) or DEV- (powered roles); only the historical SW-<SITE>-<n> shape (e.g. SW-FS-1) is compatibility-only for records that already exist. Compliant example: ${example}.`,
+    };
+  }
   return {
     ok: false,
     error: `${id} does not match the required ${std.label.toLowerCase()} format ${infrastructureShape(kind)}. ${describeShapeTokens(kind)} Compliant example: ${example}.`,
