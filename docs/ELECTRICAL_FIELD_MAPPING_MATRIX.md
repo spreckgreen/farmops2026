@@ -33,15 +33,18 @@ so the page, the export and this file cannot drift.
 - `electrical_panel_exits` — one record per physical raceway penetration:
   panel, optional raceway link, physical `exit_order`, `exit_side`, trade size and
   field status. Exit order is unique per panel and is deliberately independent of
-  the raceway's `CON-###` / `EMT-###` identity.
+  the raceway's `CON-###` identity.
 - Both collections ship in the reconciliation snapshot
   (`panel_breaker_positions`, `panel_exits`; schema version 1.1) with per-field
   ownership metadata, so BosteadFarmsBuildDocs sees them without any ODS write.
 
 ## Naming and hierarchy review (item 3)
 
-- Raceways: `EMT-###` going forward; existing `CON-###` IDs remain valid and are
-  never renamed (warned, not rejected).
+- Raceways: `CON-###` for every raceway type. Construction (EMT, FLEX/FMC/LFMC,
+  PVC, underground, sleeve) is the typed `raceway_type` attribute and is never
+  encoded into the identity, so a run installed as flex keeps its `CON-###` ID.
+  `EMT-###` is not a raceway identity convention; any record created under that
+  short-lived rule is reported, never renamed.
 - Junction boxes: `JB-###-##`, inheriting the raceway path.
 - Branch runs: `BR-###-##-##`, inheriting the originating junction box.
 - QA code `encoded_parent_mismatch` reports any record whose encoded ancestry
@@ -104,14 +107,14 @@ recomputed, never stored.
 | Panels | Fed From / Feeder Source | Directly mapped | electrical_panels.feeder_source (legacy) + electrical_feeders.source_panel_uuid/dest_panel_uuid | engineering_design | Text preserved; the relational feeder record carries the authoritative link. | complete |
 | Panels | Backup / Generator Class | Directly mapped | electrical_panels.backup_class | engineering_design | Verbatim text; drives the critical-power diagram view. | complete |
 | Panels | Panel schedule grid (breaker rows) | Directly mapped | electrical_breaker_positions (one row per physical space) | shared | Normalized: side, position, breaker number, poles, circuit group or load, OCP. Duplicate slots and duplicate breaker numbers are rejected by a unique index and reported in QA. | complete |
-| Panels | Raceway exits from panel | Directly mapped | electrical_panel_exits (panel_uuid, raceway_uuid, exit_order, exit_side) | shared | Physical exit order is stored separately from the CON-### / EMT-### raceway identity; order is unique per panel and starts lower-right, counterclockwise. | complete |
+| Panels | Raceway exits from panel | Directly mapped | electrical_panel_exits (panel_uuid, raceway_uuid, exit_order, exit_side) | shared | Physical exit order is stored separately from the CON-### raceway identity; order is unique per panel and starts lower-right, counterclockwise. | complete |
 | Panels | Spare / available space count | Derived | Computed from panel layout minus recorded breaker positions | generated | Recomputed on the panel detail page; not stored. | complete |
 | Feeders | Feeder ID | Directly mapped | electrical_feeders.feeder_id | engineering_design | FDR-### convention; workbook-released IDs kept with a warning. | complete |
 | Feeders | From / To panel | Directly mapped | electrical_feeders.source_panel_uuid / dest_panel_uuid + *_endpoint_ref | engineering_design | Legacy text retained; FK on exact match only. | complete |
 | Feeders | OCP / Ampacity | Directly mapped | electrical_feeders.ocp_amps / ampacity_amps | engineering_design | Numeric coercion. | complete |
 | Feeders | Conductor / Neutral / EGC size | Directly mapped | electrical_feeders.conductor_size, neutral_size, egc_size | engineering_design | Verbatim text. | complete |
 | Feeders | Length / Voltage drop | Directly mapped | electrical_feeders.planned_length_ft, measured_length_ft, voltage_drop_percent | shared | Planned length and calculated drop are engineering; measured length is FarmOps field data and is never overwritten silently. | complete |
-| Conduit_Runs | Conduit ID | Directly mapped | electrical_raceways.conduit_id | engineering_design | EMT-### going forward; existing CON-### IDs stay valid and are never renamed. | complete |
+| Conduit_Runs | Conduit ID | Directly mapped | electrical_raceways.conduit_id | engineering_design | CON-### for every raceway type; the construction lives in raceway_type and is never encoded into the ID. Existing IDs are never renamed. | complete |
 | Conduit_Runs | From / To | Directly mapped | electrical_raceways.from_label / to_label (read-only design text) + source_*_uuid / dest_*_uuid | shared | Design text preserved read-only beside the FarmOps as-built FKs; a missing FK is incomplete, not invalid. | complete |
 | Conduit_Runs | Route Group | Directly mapped | electrical_raceways.route_group | engineering_design | Verbatim text. | complete |
 | Conduit_Runs | Purpose / Service Type | Directly mapped | electrical_raceways.purpose / service_type | engineering_design | Verbatim text. | complete |

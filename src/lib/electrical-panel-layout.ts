@@ -5,7 +5,7 @@
 //  - a panel's breaker capacity comes from that panel's own configuration
 //    (spaces / breaker columns / positions per column) and is never assumed;
 //  - physical exit ORDER is an attribute of the panel penetration, completely
-//    separate from the CON-### / EMT-### identity of the raceway that leaves.
+//    separate from the CON-### identity of the raceway that leaves.
 import { PANEL_EXIT_SIDES } from "@/lib/electrical";
 
 export const BREAKER_SIDES = ["Left", "Right"] as const;

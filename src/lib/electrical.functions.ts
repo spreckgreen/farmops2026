@@ -403,7 +403,7 @@ export const deleteElectrical = createServerFn({ method: "POST" })
 
 /**
  * Suggest the next hierarchical ID. `parentId` makes the suggestion relational:
- * an EMT path (EMT-104) yields the next junction box (JB-104-03), and a junction
+ * a raceway path (CON-104) yields the next junction box (JB-104-03), and a junction
  * box (JB-104-02) yields the next branch from that box (BR-104-02-05).
  */
 export const suggestStableId = createServerFn({ method: "GET" })
