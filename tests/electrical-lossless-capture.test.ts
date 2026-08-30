@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { ODS_EXTRAS_FIELD, checkStableId } from "@/lib/electrical";
+import {
+  ODS_EXTRAS_FIELD,
+  checkStableId,
+  parseOdsExtras,
+  preservedOdsValues,
+} from "@/lib/electrical";
 import { ENTITIES, importColumns, writableColumns } from "@/lib/electrical-entities";
 import { mapSheet } from "@/lib/electrical-ods";
 import { FIELD_MAP } from "@/lib/electrical-field-map";
@@ -49,9 +54,13 @@ describe("Phase 4.4a — lossless capture of canonical columns", () => {
   it("preserves every unmapped populated column verbatim under its exact header", () => {
     const mapped = mapSheet(sheet, "load", importColumns("load"), "load_id");
     const extras = JSON.parse(mapped.rows[0]!.values[ODS_EXTRAS_FIELD]!) as Record<string, string>;
-    expect(extras).toEqual({
-      "Harmonic Distortion Factor": "0.08",
-      "Insulation Class": "THHN 90C",
+    expect(extras["Harmonic Distortion Factor"]).toBe("0.08");
+    expect(extras["Insulation Class"]).toBe("THHN 90C");
+    // Source identity makes the preserved value traceable to its canonical cell.
+    expect((extras as any).__source["Insulation Class"]).toEqual({
+      sheet: "Load_Master",
+      header: "Insulation Class",
+      column: 4,
     });
   });
 
@@ -180,5 +189,40 @@ describe("Phase 4.4a — sheet-specific importer aliases", () => {
       const bound = mapped.columns.find((x) => x.source === c.header);
       expect(bound?.target, `${c.kind}/${c.header}`).toBe(c.target);
     }
+  });
+});
+
+describe("Phase 4.4a — duplicate and unnamed header preservation", () => {
+  it("keeps both occurrences of an identical duplicate header", () => {
+    const dup = {
+      name: "Load_Master",
+      rows: [
+        ["Load ID", "Source / Reference", "Source / Reference"],
+        ["FS-042", "Sheet 3", "Field survey"],
+      ],
+    };
+    const mapped = mapSheet(dup, "load", importColumns("load"), "load_id");
+    const extras = JSON.parse(mapped.rows[0]!.values[ODS_EXTRAS_FIELD]!) as Record<string, unknown>;
+    const values = preservedOdsValues(extras, "Load_Master", "Source / Reference");
+    expect(values).toContain("Sheet 3");
+    expect(values).toContain("Field survey");
+  });
+
+  it("preserves populated cells under unnamed columns", () => {
+    const unnamed = {
+      name: "Load_Master",
+      rows: [
+        ["Load ID", ""],
+        ["FS-042", "12.5 kVA"],
+      ],
+    };
+    const mapped = mapSheet(unnamed, "load", importColumns("load"), "load_id");
+    const extras = JSON.parse(mapped.rows[0]!.values[ODS_EXTRAS_FIELD]!) as Record<string, unknown>;
+    expect(Object.values(extras)).toContain("12.5 kVA");
+  });
+
+  it("rejects capture that is not valid JSON as preservation evidence", () => {
+    expect(parseOdsExtras("not json")).toBeNull();
+    expect(preservedOdsValues(parseOdsExtras("not json"), "Load_Master", "Any")).toEqual([]);
   });
 });
