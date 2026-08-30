@@ -303,21 +303,24 @@ describe("Phase 4.4 parallel validation", () => {
   });
 
   it("respects each panel's own capacity and exit ordering rules", () => {
-    const small = validatePanelLayout(
-      { panel_id: "PNL-PH", spaces: 12 },
-      [
-        { position_number: 1, side: "left" },
-        { position_number: 30, side: "left" },
+    const small = validatePanelLayout({
+      panels: [{ id: "p1", panel_id: "PNL-PH", spaces: 12 }],
+      positions: [
+        { id: "a", panel_uuid: "p1", side: "Left", position: 1, breaker_number: 1, circuit_group_uuid: "g1" },
+        { id: "b", panel_uuid: "p1", side: "Left", position: 30, breaker_number: 59, circuit_group_uuid: "g2" },
       ],
-      [{ exit_order: 1 }, { exit_order: 3 }],
-    );
-    expect(JSON.stringify(small)).toContain("30");
-    const ok = validatePanelLayout(
-      { panel_id: "PNL-FS-NW", spaces: 30 },
-      [{ position_number: 1, side: "left" }],
-      [{ exit_order: 1 }],
-    );
-    expect(ok.errors.length).toBe(0);
+      exits: [],
+    });
+    expect(small.some((f) => f.severity === "error" && f.panelId === "PNL-PH")).toBe(true);
+
+    const wide = validatePanelLayout({
+      panels: [{ id: "p2", panel_id: "PNL-FS-NW", spaces: 30 }],
+      positions: [
+        { id: "c", panel_uuid: "p2", side: "Left", position: 1, breaker_number: 1, circuit_group_uuid: "g1" },
+      ],
+      exits: [],
+    });
+    expect(wide.filter((f) => f.severity === "error")).toHaveLength(0);
   });
 
   it("produces deterministic output including the ODS SHA-256", () => {
