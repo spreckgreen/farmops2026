@@ -433,3 +433,8 @@ export function buildPowerAssetId(
   const head = `PWR-${t}-${s}-${r}-`;
   return `${head}${nextSequence(head, existing)}`;
 }
+
+/** Type guard so UI code can ask "does this kind use an infrastructure ID?". */
+export function isInfrastructureIdKind(kind: string): kind is InfrastructureKind {
+  return kind === "rack" || kind === "power_asset" || kind === "device";
+}

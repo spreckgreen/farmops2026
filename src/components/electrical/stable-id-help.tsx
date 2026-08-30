@@ -4,7 +4,7 @@ import {
   INFRASTRUCTURE_ID_STANDARDS,
   describeInfrastructureId,
   isInfrastructureIdKind,
-} from "@/lib/electrical-standards-registry";
+} from "@/lib/electrical-infrastructure-standards";
 import { HIERARCHICAL_ID_SHAPES } from "@/lib/electrical";
 
 export function StableIdHelp({ kind, value }: { kind: string; value: string }) {
