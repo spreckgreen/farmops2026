@@ -17,6 +17,7 @@ import {
 import { ENTITIES, type EntityField } from "@/lib/electrical-entities";
 import { relationsFor } from "@/lib/electrical-relations";
 import { EntitySelect } from "@/components/electrical/entity-select";
+import { AssetLinkSelect } from "@/components/electrical/asset-link-select";
 import {
   INSTALL_STATUSES,
   RACEWAY_ENVIRONMENTS,
@@ -68,6 +69,16 @@ function FieldInput({
   options?: EntityOption[];
   optionsLoading?: boolean;
 }) {
+  if (field.kind === "asset") {
+    return (
+      <AssetLinkSelect
+        label={field.label}
+        hint={field.hint}
+        value={String(value)}
+        onChange={onChange}
+      />
+    );
+  }
   if (field.kind === "entity") {
     return (
       <EntitySelect
@@ -221,7 +232,9 @@ export function EntityManager({
   // Field-work values first (what gets edited on a phone), then relationships,
   // then the engineering values the canonical ODS still governs.
   const groups = useMemo(() => {
-    const relation = def.fields.filter((f) => f.kind === "entity" || f.readOnly);
+    const relation = def.fields.filter(
+      (f) => f.kind === "entity" || f.kind === "asset" || f.readOnly,
+    );
     const fieldWork = def.fields.filter((f) => f.field && !relation.includes(f));
     const engineering = def.fields.filter(
       (f) => f.engineering && !relation.includes(f) && !fieldWork.includes(f),
@@ -236,9 +249,9 @@ export function EntityManager({
         note: "Status, measurements and notes recorded on site.",
       },
       {
-        title: "Topology",
+        title: "Topology & asset link",
         fields: relation,
-        note: "Pick existing records — the link, not the typed ID, is authoritative.",
+        note: "Pick existing records — the link, not the typed ID, is authoritative. Equipment identity, cost, warranty and maintenance live on the linked inventory asset.",
       },
       { title: "Details", fields: rest },
       {

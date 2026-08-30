@@ -7,6 +7,7 @@ import { requireAddon } from "@/lib/addons.server";
 import {
   ENTITIES,
   ENTITY_KINDS,
+  assetLinkField,
   coerceValue,
   writableColumns,
 } from "@/lib/electrical-entities";
@@ -192,6 +193,30 @@ export const saveElectrical = createServerFn({ method: "POST" })
     });
     if (relations.errors.length) throw new Error(relations.errors.join(" "));
     Object.assign(patch, relations.derived);
+
+    // Phase 4.4a — infrastructure asset integration. The infrastructure record
+    // carries only a link to the authoritative Inventory/Asset record; the asset
+    // name is mirrored for display. Clearing or swapping the link leaves the
+    // stable infrastructure ID and every relationship untouched.
+    const assetField = assetLinkField(data.kind);
+    if (assetField && Object.prototype.hasOwnProperty.call(patch, assetField.key)) {
+      const assetId = String(patch[assetField.key] ?? "");
+      if (!assetId) {
+        patch[assetField.key] = null;
+        patch["asset_ref"] = null;
+      } else {
+        const { data: asset } = await db
+          .from("inventory_items")
+          .select("id, name")
+          .eq("id", assetId)
+          .maybeSingle();
+        if (!asset) {
+          throw new Error("The selected inventory asset no longer exists.");
+        }
+        patch["asset_ref"] = String((asset as { name: string | null }).name ?? "") || null;
+      }
+    }
+
 
     if (data.id) {
       const { error } = await db.from(def.table).update(patch).eq("id", data.id);
