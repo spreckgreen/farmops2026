@@ -21,7 +21,21 @@ import {
 import { classifyGrid } from "@/lib/electrical-grid";
 
 
-export type FieldKind = "text" | "textarea" | "number" | "bool" | "select" | "entity";
+export type FieldKind =
+  | "text"
+  | "textarea"
+  | "number"
+  | "bool"
+  | "select"
+  | "entity"
+  /**
+   * Link to the authoritative FarmOps Inventory/Asset record for this physical
+   * equipment. Infrastructure entities describe role and topology only — the
+   * Asset system owns manufacturer, model, serial, cost, warranty, manuals,
+   * maintenance schedules and lifecycle. Always optional: planned infrastructure
+   * and non-inventoried passive structures exist without an Asset.
+   */
+  | "asset";
 
 export interface EntityField {
   key: string;
@@ -68,6 +82,54 @@ const statusFields: EntityField[] = [
   { key: "completion_percent", label: "Complete %", kind: "number", list: true },
   { key: "label_status", label: "Label", kind: "select", options: LABEL_STATUSES, field: true },
   { key: "notes", label: "Notes", kind: "textarea", field: true },
+];
+
+/**
+ * Phase 4.4a — infrastructure asset integration. The optional link to the
+ * existing FarmOps Inventory/Asset record. Replacing the physical unit only
+ * changes this link: the stable infrastructure ID, role and every relationship
+ * stay exactly as they are.
+ */
+function assetLinkFields(what: string): EntityField[] {
+  return [
+    {
+      key: "asset_uuid",
+      label: "Inventory asset",
+      kind: "asset",
+      field: true,
+      hint: `Optional. Link the Asset record for the installed ${what} — manufacturer, model, serial, cost, warranty, manuals, maintenance schedules and lifecycle all live there, not here. Swapping in a replacement Asset never changes this infrastructure ID or its topology.`,
+    },
+    {
+      key: "asset_ref",
+      label: "Asset name (derived)",
+      kind: "text",
+      list: true,
+      readOnly: true,
+      hint: "Derived from the linked inventory asset.",
+    },
+  ];
+}
+
+/**
+ * Superseded by the Asset link above. Kept visible but read-only so historical
+ * values entered before Phase 4.4a are never lost, while Inventory/Asset stays
+ * the single authority for equipment identity.
+ */
+const supersededEquipmentFields: EntityField[] = [
+  {
+    key: "manufacturer",
+    label: "Manufacturer (superseded)",
+    kind: "text",
+    readOnly: true,
+    hint: "Inventory/Asset owns manufacturer — link an asset instead. Shown for records entered before the asset link existed.",
+  },
+  {
+    key: "model",
+    label: "Model (superseded)",
+    kind: "text",
+    readOnly: true,
+    hint: "Inventory/Asset owns model — link an asset instead. Shown for records entered before the asset link existed.",
+  },
 ];
 
 
@@ -447,6 +509,7 @@ export const ENTITIES: Record<ElectricalEntityKind, EntityDef> = {
       { key: "location_note", label: "Physical location", kind: "text", field: true },
       { key: "rack_size_u", label: "Rack size (U)", kind: "number" },
       { key: "mounting", label: "Mounting", kind: "text", hint: "Floor, wall, open frame, …" },
+      ...assetLinkFields("rack, when the rack itself is inventory-managed"),
       ...statusFields,
     ],
   },
@@ -460,8 +523,8 @@ export const ENTITIES: Record<ElectricalEntityKind, EntityDef> = {
     fields: [
       { key: "description", label: "Description", kind: "text", list: true },
       { key: "asset_type", label: "Asset type", kind: "select", options: POWER_ASSET_TYPES, list: true },
-      { key: "manufacturer", label: "Manufacturer", kind: "text" },
-      { key: "model", label: "Model", kind: "text", list: true },
+      ...assetLinkFields("power equipment"),
+      ...supersededEquipmentFields,
       { key: "rack_uuid", label: "Installed in rack", kind: "entity", entityKind: "rack", field: true },
       { key: "rack_ref", label: "Rack ID (derived)", kind: "text", readOnly: true, hint: "Derived from the linked rack." },
       { key: "input_type", label: "Input type", kind: "select", options: CURRENT_TYPES },
@@ -500,8 +563,8 @@ export const ENTITIES: Record<ElectricalEntityKind, EntityDef> = {
       { key: "description", label: "Description", kind: "text", list: true },
       { key: "device_role", label: "Device role", kind: "select", options: DEVICE_ROLES, list: true },
       { key: "device_type", label: "Device type", kind: "text", hint: "Switch, transceiver, router, …" },
-      { key: "manufacturer", label: "Manufacturer", kind: "text" },
-      { key: "model", label: "Model", kind: "text", list: true },
+      ...assetLinkFields("device"),
+      ...supersededEquipmentFields,
       { key: "rack_uuid", label: "Installed in rack", kind: "entity", entityKind: "rack", field: true },
       { key: "rack_ref", label: "Rack ID (derived)", kind: "text", readOnly: true },
       { key: "rack_position_u", label: "Rack position (U)", kind: "number" },
@@ -567,7 +630,17 @@ export function writableColumns(kind: ElectricalEntityKind): string[] {
  */
 export function importColumns(kind: ElectricalEntityKind): string[] {
   const def = ENTITIES[kind];
-  return [def.stableIdField, ...def.fields.filter((f) => f.kind !== "entity").map((f) => f.key)];
+  return [
+    def.stableIdField,
+    // Relationship and Inventory/Asset links are established in FarmOps, never
+    // set by a workbook column.
+    ...def.fields.filter((f) => f.kind !== "entity" && f.kind !== "asset").map((f) => f.key),
+  ];
+}
+
+/** The Inventory/Asset link field for a kind, when it has one. */
+export function assetLinkField(kind: ElectricalEntityKind): EntityField | undefined {
+  return ENTITIES[kind].fields.find((f) => f.kind === "asset");
 }
 
 /** Relationship (FK) fields for a kind, in display order. */

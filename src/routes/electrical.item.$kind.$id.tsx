@@ -145,6 +145,23 @@ function Detail({ kind, id }: { kind: ElectricalEntityKind; id: string }) {
               {def.fields.map((f) => {
                 const value = record[f.key];
                 if (value == null || value === "" || value === false) return null;
+                // The inventory asset link is shown by name, pointing at the
+                // Asset record that owns manufacturer, serial, cost, warranty
+                // and maintenance — never as a raw id.
+                if (f.kind === "asset") {
+                  return (
+                    <div key={f.key} className="contents">
+                      <dt className="text-muted-foreground">{f.label}</dt>
+                      <dd>
+                        <Link to="/inventory" className="underline underline-offset-2">
+                          {String(record["asset_ref"] ?? "") || "Linked asset"}
+                        </Link>
+                      </dd>
+                    </div>
+                  );
+                }
+                // Already rendered as the link above.
+                if (f.key === "asset_ref" && record["asset_uuid"]) return null;
                 return (
                   <div key={f.key} className="contents">
                     <dt className="text-muted-foreground">{f.label}</dt>

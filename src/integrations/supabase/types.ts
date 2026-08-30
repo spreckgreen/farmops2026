@@ -727,6 +727,8 @@ export type Database = {
       electrical_devices: {
         Row: {
           address: string | null
+          asset_ref: string | null
+          asset_uuid: string | null
           building: string | null
           circuit_group_ref: string | null
           circuit_group_uuid: string | null
@@ -761,6 +763,8 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          asset_ref?: string | null
+          asset_uuid?: string | null
           building?: string | null
           circuit_group_ref?: string | null
           circuit_group_uuid?: string | null
@@ -795,6 +799,8 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          asset_ref?: string | null
+          asset_uuid?: string | null
           building?: string | null
           circuit_group_ref?: string | null
           circuit_group_uuid?: string | null
@@ -828,6 +834,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "electrical_devices_asset_uuid_fkey"
+            columns: ["asset_uuid"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "electrical_devices_circuit_group_uuid_fkey"
             columns: ["circuit_group_uuid"]
@@ -1413,7 +1426,9 @@ export type Database = {
       }
       electrical_power_assets: {
         Row: {
+          asset_ref: string | null
           asset_type: string
+          asset_uuid: string | null
           building: string | null
           capacity_note: string | null
           completion_percent: number | null
@@ -1450,7 +1465,9 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          asset_ref?: string | null
           asset_type?: string
+          asset_uuid?: string | null
           building?: string | null
           capacity_note?: string | null
           completion_percent?: number | null
@@ -1487,7 +1504,9 @@ export type Database = {
           user_id: string
         }
         Update: {
+          asset_ref?: string | null
           asset_type?: string
+          asset_uuid?: string | null
           building?: string | null
           capacity_note?: string | null
           completion_percent?: number | null
@@ -1524,6 +1543,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "electrical_power_assets_asset_uuid_fkey"
+            columns: ["asset_uuid"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "electrical_power_assets_rack_uuid_fkey"
             columns: ["rack_uuid"]
@@ -1772,6 +1798,8 @@ export type Database = {
       }
       electrical_racks: {
         Row: {
+          asset_ref: string | null
+          asset_uuid: string | null
           building: string | null
           completion_percent: number | null
           created_at: string
@@ -1791,6 +1819,8 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          asset_ref?: string | null
+          asset_uuid?: string | null
           building?: string | null
           completion_percent?: number | null
           created_at?: string
@@ -1810,6 +1840,8 @@ export type Database = {
           user_id: string
         }
         Update: {
+          asset_ref?: string | null
+          asset_uuid?: string | null
           building?: string | null
           completion_percent?: number | null
           created_at?: string
@@ -1828,7 +1860,15 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "electrical_racks_asset_uuid_fkey"
+            columns: ["asset_uuid"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       food_plan_entries: {
         Row: {
