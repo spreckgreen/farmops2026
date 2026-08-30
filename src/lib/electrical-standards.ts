@@ -19,7 +19,8 @@ export const BUILT_IN_STANDARDS: readonly StandardEntry[] = [
     body:
       "Farm Shop load FS-### (FS-097). Pump House load PH-### (PH-028, legacy suffixes PH-019a/PH-019b). " +
       "Boiler load BL-### (BL-004). House load HSE-## . Panel PNL-<building>-<role> (PNL-FS-CRIT). " +
-      "EMT raceway EMT-### (EMT-104; legacy ODS-derived CON-### remains valid and is never renamed). " +
+      "Raceway CON-### (CON-105) for every raceway type — construction (EMT, FLEX/FMC/LFMC, PVC, " +
+      "underground, sleeve) is the separate Raceway type field and is never encoded into the ID. " +
       "Junction box JB-###-## (JB-104-01). Branch raceway BR-###-##-## (BR-104-02-03). " +
       "Stable IDs are permanent: they are never renamed or renumbered, and they carry no physical attributes.",
     sort_order: 10,
