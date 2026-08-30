@@ -9,7 +9,7 @@
 // owns each value, not who may display it.
 
 /** Mapping matrix version, quoted by the Phase 4.4 validation report. */
-export const FIELD_MAP_VERSION = "1.1";
+export const FIELD_MAP_VERSION = "1.2";
 
 export const MAPPING_CLASSES = [
   "directly_mapped",
@@ -18,7 +18,11 @@ export const MAPPING_CLASSES = [
   "obsolete",
   "intentionally_excluded",
 ] as const;
-export type MappingClass = (typeof MAPPING_CLASSES)[number];
+export type MappingClass = (typeof MAPPING_CLASSES)[number  // Phase 4.4a — lossless capture. Any populated canonical column that has no
+  // dedicated FarmOps field is stored verbatim under its exact workbook header,
+  // so canonical engineering data is preserved rather than reported as loss.
+  { worksheet: "*", field: "(any column with no dedicated FarmOps field)", classification: "directly_mapped", farmops: "<entity>.ods_extras[\"<exact workbook header>\"]", authority: eng, transformation: "Stored verbatim as JSON keyed by the exact workbook header. No coercion, no unit conversion, no inference. Read-only in FarmOps; never written back to the canonical workbook.", coverage: "complete" },
+];
 
 export const MAPPING_CLASS_LABELS: Record<MappingClass, string> = {
   directly_mapped: "Directly mapped",
