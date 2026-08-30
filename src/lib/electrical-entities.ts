@@ -655,7 +655,10 @@ export function fieldEntryFields(kind: ElectricalEntityKind): EntityField[] {
 
 
 export function coerceValue(field: EntityField, raw: unknown): unknown {
-  if (field.kind === "bool") return Boolean(raw);
+  // Yes/No engineering fields are tri-state: "N" is false, blank/TBD is null
+  // ("not stated"). Never fall back to Boolean(raw), which turned the text "N"
+  // into true and a blank cell into false.
+  if (field.kind === "bool") return parseBooleanCell(raw).value;
 
   if (field.key === "grid") {
     const g = classifyGrid(raw);
