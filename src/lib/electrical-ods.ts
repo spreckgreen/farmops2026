@@ -775,9 +775,11 @@ export function mapSheet(
       }
     }
     if (Object.keys(extras).length && targets.includes(ODS_EXTRAS_FIELD)) {
-      values[ODS_EXTRAS_FIELD] = JSON.stringify(
-        Object.fromEntries(Object.keys(extras).sort().map((k) => [k, extras[k]!])),
-      );
+      const sorted = Object.keys(extras).sort();
+      values[ODS_EXTRAS_FIELD] = JSON.stringify({
+        ...Object.fromEntries(sorted.map((k) => [k, extras[k]!])),
+        [ODS_EXTRAS_SOURCE_KEY]: Object.fromEntries(sorted.map((k) => [k, extrasSource[k]!])),
+      });
     }
     rows.push({ values, stableId, sourceRow: i + 1 });
   }
