@@ -6,6 +6,19 @@
 //  - a panel's raceway exit order starts lower-right and runs counterclockwise;
 //  - the Farm Shop field walk starts at A6 (NE) and runs clockwise, outside-in;
 //  - interior and site raceways are one dataset filtered by environment.
+//
+// Infrastructure (rack / power asset / device) naming rules are NOT declared
+// here: they live in `electrical-infrastructure-standards.ts` so the Standards
+// page, forms, validators, QA and ID generators share one definition.
+
+import {
+  canonicalInfrastructurePattern,
+  checkInfrastructureId,
+  infrastructureShape,
+  legacyInfrastructurePattern,
+  type InfrastructureKind,
+} from "./electrical-infrastructure-standards";
+
 
 export const INSTALL_STATUSES = [
   "planned",
