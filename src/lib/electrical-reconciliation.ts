@@ -202,7 +202,7 @@ export function lossDiagnosticsCsv(report: ValidationReport): string {
           row.capture_present,
           r.root_cause,
         ]
-          .map(csvCell)
+          .map((v) => csvCell(String(v)))
           .join(","),
       );
     }
