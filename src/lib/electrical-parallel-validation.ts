@@ -27,10 +27,11 @@ import {
   type SnapshotRecord,
 } from "@/lib/electrical-snapshot";
 import { FIELD_MAP, FIELD_MAP_VERSION } from "@/lib/electrical-field-map";
+import { ODS_EXTRAS_FIELD } from "@/lib/electrical";
 import { FARMOPS_NATIVE_KINDS, type ElectricalEntityKind } from "@/lib/electrical";
 
-export const VALIDATION_SCHEMA_VERSION = "1.1";
-export const NORMALIZATION_VERSION = "1.1";
+export const VALIDATION_SCHEMA_VERSION = "1.2";
+export const NORMALIZATION_VERSION = "1.2";
 export const MAPPING_VERSION = FIELD_MAP_VERSION;
 
 /* -------------------------------------------------- 4.4a disposition model */
@@ -126,6 +127,7 @@ export const NORMALIZATION_RULES: NormalizationRule[] = [
   { id: "dual_voltage", description: '"120/240V" keeps the higher nominal voltage (240).' },
   { id: "numeric_tolerance", description: "Numbers equal within 0.005 are the same value." },
   { id: "relational_fk_from_text", description: "Workbook stable-ID text compared against the resolved FarmOps relationship's stable ID." },
+  { id: "verbatim_preservation", description: "A canonical column with no dedicated FarmOps field is stored verbatim in ods_extras under its exact workbook header." },
   { id: "set_ordering", description: "Set-like relationships (circuit-group membership) compared as sorted stable-ID sets, independent of row order." },
 ];
 
@@ -252,6 +254,8 @@ export interface OdsSheetRows {
     populated: boolean;
     populatedRows?: number;
     samples?: { stableId: string; value: string }[];
+    /** Set when a second header meant a FarmOps column already bound. */
+    collidedWith?: string;
   }[];
 }
 
@@ -469,6 +473,42 @@ export function runParallelComparison(input: ValidationInput): ValidationReport 
 
   const push = (r: DraftRecord, field?: EntityField) => records.push(finalizeRecord(r, field));
 
+  /**
+   * Phase 4.4a lossless capture index: `collection:STABLE_ID` -> the workbook
+   * columns preserved verbatim on that FarmOps record. A canonical column with
+   * no dedicated FarmOps field is only accepted as an expected transformation
+   * when the value is provably present here — never by reclassification.
+   */
+  const extrasIndex = new Map<string, Record<string, string>>();
+  for (const kind of Object.keys(ENTITIES) as ElectricalEntityKind[]) {
+    const collection = COLLECTION_FOR_KIND[kind];
+    for (const rec of snapshot[collection] ?? []) {
+      const raw = rec[ODS_EXTRAS_FIELD];
+      if (typeof raw !== "string" || !raw.trim()) continue;
+      try {
+        const parsed = JSON.parse(raw) as unknown;
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+          const id = String(rec["stable_id"] ?? "").trim();
+          if (id) extrasIndex.set(`${collection}:${id}`, parsed as Record<string, string>);
+        }
+      } catch {
+        // Unparseable capture is not evidence of preservation: leave it out so
+        // the column is still reported as loss.
+      }
+    }
+  }
+  const preservedVerbatim = (
+    collection: string,
+    column: string,
+    samples: { stableId: string; value: string }[],
+  ): boolean =>
+    samples.length > 0 &&
+    samples.every((s) => {
+      const extras = extrasIndex.get(`${collection}:${s.stableId.trim()}`);
+      const kept = extras?.[column.trim()];
+      return typeof kept === "string" && kept.trim() === s.value.trim();
+    });
+
   // --- unmapped workbook columns: the semantic-loss detector -----------------
   for (const sheet of input.sheets) {
     for (const col of sheet.unmapped ?? []) {
@@ -482,12 +522,18 @@ export function runParallelComparison(input: ValidationInput): ValidationReport 
           mapped.classification === "intentionally_excluded");
       // A column the mapping matrix calls directly mapped but the importer did
       // not bind is an importer omission, not a missing mapping.
+      const samples = (col.samples ?? []).slice(0, 5);
+      const collection = sheet.kind ? COLLECTION_FOR_KIND[sheet.kind] : sheet.sheet;
+      const preserved = preservedVerbatim(collection, col.column, samples);
       const rootCause = explained
         ? `documented_${mapped!.classification}`
-        : mapped
-          ? "importer_omission_alias_missing"
-          : "missing_mapping_no_farmops_destination";
-      const samples = (col.samples ?? []).slice(0, 5);
+        : preserved
+          ? "documented_verbatim_preservation_in_ods_extras"
+          : col.collidedWith
+            ? "duplicate_header_collision_importer_defect"
+            : mapped
+              ? "importer_omission_alias_missing"
+              : "missing_mapping_no_farmops_destination";
       const evidence = samples.length
         ? ` Affected workbook rows: ${samples.map((s) => `${s.stableId || "(no id)"}="${s.value}"`).join(", ")}${
             col.populatedRows && col.populatedRows > samples.length
@@ -496,7 +542,7 @@ export function runParallelComparison(input: ValidationInput): ValidationReport 
           }.`
         : "";
       push({
-        domain: sheet.kind ? COLLECTION_FOR_KIND[sheet.kind] : sheet.sheet,
+        domain: collection,
         stable_id: `${sheet.sheet}:${col.column}`,
         field: col.column,
         label: col.column,
@@ -505,19 +551,25 @@ export function runParallelComparison(input: ValidationInput): ValidationReport 
         ods_value: samples.length
           ? samples.map((s) => s.value).join(" | ")
           : "(populated column)",
-        farmops_entity: mapped?.farmops ?? null,
-        farmops_field: null,
-        farmops_value: "",
+        farmops_entity: preserved
+          ? `${collection}.${ODS_EXTRAS_FIELD}["${col.column.trim()}"]`
+          : (mapped?.farmops ?? null),
+        farmops_field: preserved ? ODS_EXTRAS_FIELD : null,
+        farmops_value: preserved ? samples.map((s) => s.value).join(" | ") : "",
         authority: "engineering_design",
-        classification: explained ? "EXPECTED_TRANSFORMATION" : "LOSS",
-        rules: [],
+        classification: explained || preserved ? "EXPECTED_TRANSFORMATION" : "LOSS",
+        rules: preserved ? ["verbatim_preservation"] : [],
         root_cause: rootCause,
         note:
           (explained
             ? `Mapping ${mapped!.classification}: ${mapped!.transformation}`
-            : mapped
-              ? `The mapping matrix maps this column to ${mapped.farmops}, but the importer bound no column — add the header alias.`
-              : "Populated workbook column has no FarmOps destination in the mapping matrix.") +
+            : preserved
+              ? `Canonical column with no dedicated FarmOps field: preserved verbatim in ${collection}.${ODS_EXTRAS_FIELD} under its exact workbook header. No engineering value is dropped and nothing is written back to the workbook.`
+              : col.collidedWith
+                ? `Two workbook headers mean ${col.collidedWith}; this one bound to nothing. Importer defect — give the column its own destination or preserve it verbatim.`
+                : mapped
+                  ? `The mapping matrix maps this column to ${mapped.farmops}, but the importer bound no column — add the header alias.`
+                  : "Populated workbook column has no FarmOps destination in the mapping matrix.") +
           evidence,
       });
     }
@@ -636,6 +688,9 @@ export function runParallelComparison(input: ValidationInput): ValidationReport 
 
       for (const field of def.fields) {
         if (field.kind === "entity" || !allowed.has(field.key)) continue;
+        // The lossless-capture column is evidence about other columns, not a
+        // canonical field of its own: comparing it would double-report.
+        if (field.key === ODS_EXTRAS_FIELD) continue;
         const own = ownership[field.key] ?? "engineering_design";
         const odsNorm = normalizeValue(field, odsRow.values[field.key]);
         const fpNorm = normalizeValue(field, rec[field.key]);
