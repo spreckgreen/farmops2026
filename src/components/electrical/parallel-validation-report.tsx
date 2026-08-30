@@ -228,11 +228,37 @@ export function ParallelValidationReport() {
                   </Badge>
                 ))}
               </div>
+
+              <div className="rounded-md border p-2 text-xs space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">Phase 4.4a acceptance gate</span>
+                  <Badge variant={report.gate.status === "PASS" ? "outline" : "destructive"}>
+                    {report.gate.status}
+                  </Badge>
+                </div>
+                <p className="text-muted-foreground">
+                  Semantic loss {report.gate.loss} (must be 0) · unexplained ODS-only{" "}
+                  {report.gate.unexplained_ods_only} (must be 0) · unexplained{" "}
+                  {report.gate.unexplained} · awaiting a human decision{" "}
+                  {report.gate.open_dispositions}
+                </p>
+                {report.gate.reasons.map((r) => (
+                  <p key={r} className="text-destructive">
+                    {r}
+                  </p>
+                ))}
+                <p className="text-muted-foreground">
+                  FarmOps-only buckets — A {report.farmops_only_by_category.A} · B{" "}
+                  {report.farmops_only_by_category.B} · C {report.farmops_only_by_category.C} · D{" "}
+                  {report.farmops_only_by_category.D} · E {report.farmops_only_by_category.E}
+                </p>
+              </div>
               <p className="text-xs text-muted-foreground">
                 Semantic loss must be zero before a Phase 4.5 cutover can even be considered. Every
                 conflict and every ODS-only value has to be dispositioned individually — this report
                 does not decide either value for you.
               </p>
+
             </>
           )}
         </CardContent>
