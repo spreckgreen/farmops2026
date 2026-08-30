@@ -142,7 +142,7 @@ describe("Phase 4.3 field mapping matrix", () => {
   });
 
   it("advances the displayed phase without moving authority", () => {
-    expect(SOR_PHASE).toBe("4.3");
+    expect(SOR_PHASE).toBe("4.4");
     expect(SOR_AUTHORITY).toBe("canonical_ods");
   });
 });
