@@ -203,17 +203,20 @@ describe("Phase 4.4a — duplicate and unnamed header preservation", () => {
     };
     const mapped = mapSheet(dup, "load", importColumns("load"), "load_id");
     const extras = JSON.parse(mapped.rows[0]!.values[ODS_EXTRAS_FIELD]!) as Record<string, unknown>;
-    const values = preservedOdsValues(extras, "Load_Master", "Source / Reference");
-    expect(values).toContain("Sheet 3");
-    expect(values).toContain("Field survey");
+    // The first occurrence binds the typed field; the second is preserved
+    // verbatim under a column-numbered key instead of overwriting the first.
+    expect(mapped.rows[0]!.values["source_reference"]).toBe("Sheet 3");
+    expect(preservedOdsValues(extras, "Load_Master", "Source / Reference")).toEqual([
+      "Field survey",
+    ]);
   });
 
   it("preserves populated cells under unnamed columns", () => {
     const unnamed = {
       name: "Load_Master",
       rows: [
-        ["Load ID", ""],
-        ["FS-042", "12.5 kVA"],
+        ["Load ID", "Load Description", ""],
+        ["FS-042", "Welder", "12.5 kVA"],
       ],
     };
     const mapped = mapSheet(unnamed, "load", importColumns("load"), "load_id");
