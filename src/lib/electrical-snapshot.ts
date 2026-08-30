@@ -16,7 +16,7 @@ import { ENTITIES, type EntityField } from "@/lib/electrical-entities";
 import { relationsFor } from "@/lib/electrical-relations";
 import type { ElectricalEntityKind } from "@/lib/electrical";
 
-export const SNAPSHOT_SCHEMA_VERSION = "1.0";
+export const SNAPSHOT_SCHEMA_VERSION = "1.1";
 
 export type FieldOwnership =
   | "engineering_design"
@@ -32,7 +32,9 @@ export type SnapshotCollection =
   | "raceways"
   | "raceway_waypoints"
   | "junction_boxes"
-  | "branch_runs";
+  | "branch_runs"
+  | "panel_breaker_positions"
+  | "panel_exits";
 
 /** Collection name for each entity kind. Stable part of the wire contract. */
 export const COLLECTION_FOR_KIND: Record<ElectricalEntityKind, SnapshotCollection> = {
@@ -55,6 +57,8 @@ export const SNAPSHOT_COLLECTIONS: SnapshotCollection[] = [
   "raceway_waypoints",
   "junction_boxes",
   "branch_runs",
+  "panel_breaker_positions",
+  "panel_exits",
 ];
 
 /** Row-level bookkeeping columns — not owned engineering or field values. */
@@ -94,6 +98,10 @@ export interface ElectricalSnapshot {
   raceway_waypoints: SnapshotRecord[];
   junction_boxes: SnapshotRecord[];
   branch_runs: SnapshotRecord[];
+  /** Phase 4.3: one record per physical breaker space in a panel. */
+  panel_breaker_positions: SnapshotRecord[];
+  /** Phase 4.3: one record per physical raceway penetration of a panel. */
+  panel_exits: SnapshotRecord[];
 }
 
 export type RawRow = Record<string, unknown>;
@@ -102,6 +110,9 @@ export interface SnapshotInput {
   generatedAt: string;
   rows: Record<ElectricalEntityKind, RawRow[]>;
   waypoints: RawRow[];
+  /** Phase 4.3 child collections; optional so older callers keep compiling. */
+  breakerPositions?: RawRow[];
+  panelExits?: RawRow[];
   qa?: SnapshotQaFinding[];
 }
 
@@ -253,6 +264,108 @@ export const WAYPOINT_OWNERSHIP: Record<string, FieldOwnership> = {
   notes: "farmops_as_built",
 };
 
+function buildBreakerPositionRecord(
+  row: RawRow,
+  panels: Map<string, string>,
+  groups: Map<string, string>,
+  loads: Map<string, string>,
+): SnapshotRecord {
+  const panelUuid = row["panel_uuid"];
+  const groupUuid = row["circuit_group_uuid"];
+  const loadUuid = row["load_uuid"];
+  return sortKeys({
+    uuid: scalar(row["id"]),
+    // A breaker position is identified by its panel plus its physical slot.
+    stable_id:
+      typeof panelUuid === "string" && panels.get(panelUuid)
+        ? `${panels.get(panelUuid)}:${String(row["side"] ?? "")}${String(row["position"] ?? "")}`
+        : null,
+    panel_uuid: scalar(panelUuid),
+    panel_stable_id: typeof panelUuid === "string" ? (panels.get(panelUuid) ?? null) : null,
+    side: scalar(row["side"]),
+    position: scalar(row["position"]),
+    breaker_number: scalar(row["breaker_number"]),
+    poles: scalar(row["poles"]),
+    circuit_group_uuid: scalar(groupUuid),
+    circuit_group_stable_id: typeof groupUuid === "string" ? (groups.get(groupUuid) ?? null) : null,
+    load_uuid: scalar(loadUuid),
+    load_stable_id: typeof loadUuid === "string" ? (loads.get(loadUuid) ?? null) : null,
+    label: scalar(row["label"]),
+    ocp_amps: scalar(row["ocp_amps"]),
+    install_status: scalar(row["install_status"]),
+    label_status: scalar(row["label_status"]),
+    completion_percent: scalar(row["completion_percent"]),
+    notes: scalar(row["notes"]),
+    created_at: scalar(row["created_at"]),
+    updated_at: scalar(row["updated_at"]),
+  });
+}
+
+function buildPanelExitRecord(
+  row: RawRow,
+  panels: Map<string, string>,
+  raceways: Map<string, string>,
+): SnapshotRecord {
+  const panelUuid = row["panel_uuid"];
+  const racewayUuid = row["raceway_uuid"];
+  return sortKeys({
+    uuid: scalar(row["id"]),
+    stable_id:
+      typeof panelUuid === "string" && panels.get(panelUuid)
+        ? `${panels.get(panelUuid)}:X${String(row["exit_order"] ?? "")}`
+        : null,
+    panel_uuid: scalar(panelUuid),
+    panel_stable_id: typeof panelUuid === "string" ? (panels.get(panelUuid) ?? null) : null,
+    raceway_uuid: scalar(racewayUuid),
+    raceway_stable_id:
+      typeof racewayUuid === "string" ? (raceways.get(racewayUuid) ?? null) : null,
+    raceway_ref: scalar(row["raceway_ref"]),
+    exit_order: scalar(row["exit_order"]),
+    exit_side: scalar(row["exit_side"]),
+    trade_size: scalar(row["trade_size"]),
+    install_status: scalar(row["install_status"]),
+    label_status: scalar(row["label_status"]),
+    completion_percent: scalar(row["completion_percent"]),
+    notes: scalar(row["notes"]),
+    created_at: scalar(row["created_at"]),
+    updated_at: scalar(row["updated_at"]),
+  });
+}
+
+export const BREAKER_POSITION_OWNERSHIP: Record<string, FieldOwnership> = {
+  panel_uuid: "engineering_design",
+  panel_stable_id: "engineering_design",
+  side: "engineering_design",
+  position: "engineering_design",
+  breaker_number: "engineering_design",
+  poles: "engineering_design",
+  circuit_group_uuid: "engineering_design",
+  circuit_group_stable_id: "engineering_design",
+  load_uuid: "engineering_design",
+  load_stable_id: "engineering_design",
+  label: "engineering_design",
+  ocp_amps: "engineering_design",
+  install_status: "farmops_as_built",
+  label_status: "farmops_as_built",
+  completion_percent: "farmops_as_built",
+  notes: "farmops_as_built",
+};
+
+export const PANEL_EXIT_OWNERSHIP: Record<string, FieldOwnership> = {
+  panel_uuid: "farmops_as_built",
+  panel_stable_id: "farmops_as_built",
+  raceway_uuid: "farmops_as_built",
+  raceway_stable_id: "farmops_as_built",
+  raceway_ref: "imported_legacy",
+  exit_order: "farmops_as_built",
+  exit_side: "farmops_as_built",
+  trade_size: "engineering_design",
+  install_status: "farmops_as_built",
+  label_status: "farmops_as_built",
+  completion_percent: "farmops_as_built",
+  notes: "farmops_as_built",
+};
+
 export function buildElectricalSnapshot(input: SnapshotInput): ElectricalSnapshot {
   const kinds = Object.keys(ENTITIES) as ElectricalEntityKind[];
   const indexes = {} as Record<ElectricalEntityKind, Map<string, string>>;
@@ -273,6 +386,15 @@ export function buildElectricalSnapshot(input: SnapshotInput): ElectricalSnapsho
       return Number(a["sequence"] ?? 0) - Number(b["sequence"] ?? 0);
     });
 
+  collections.panel_breaker_positions = (input.breakerPositions ?? [])
+    .map((row) =>
+      buildBreakerPositionRecord(row, indexes.panel, indexes.circuit_group, indexes.load),
+    )
+    .sort(compareRecords);
+  collections.panel_exits = (input.panelExits ?? [])
+    .map((row) => buildPanelExitRecord(row, indexes.panel, indexes.raceway))
+    .sort(compareRecords);
+
   const counts = {} as Record<SnapshotCollection, number>;
   const ownership = {} as Record<SnapshotCollection, Record<string, FieldOwnership>>;
   for (const collection of SNAPSHOT_COLLECTIONS) {
@@ -280,6 +402,8 @@ export function buildElectricalSnapshot(input: SnapshotInput): ElectricalSnapsho
   }
   for (const kind of kinds) ownership[COLLECTION_FOR_KIND[kind]] = ownershipMap(kind);
   ownership.raceway_waypoints = WAYPOINT_OWNERSHIP;
+  ownership.panel_breaker_positions = BREAKER_POSITION_OWNERSHIP;
+  ownership.panel_exits = PANEL_EXIT_OWNERSHIP;
 
   const findings = [...(input.qa ?? [])].sort(
     (a, b) =>
@@ -311,6 +435,8 @@ export function buildElectricalSnapshot(input: SnapshotInput): ElectricalSnapsho
     raceway_waypoints: collections.raceway_waypoints ?? [],
     junction_boxes: collections.junction_boxes ?? [],
     branch_runs: collections.branch_runs ?? [],
+    panel_breaker_positions: collections.panel_breaker_positions ?? [],
+    panel_exits: collections.panel_exits ?? [],
   };
 }
 
