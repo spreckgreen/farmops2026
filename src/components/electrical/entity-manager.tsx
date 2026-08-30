@@ -18,6 +18,7 @@ import { ENTITIES, type EntityField } from "@/lib/electrical-entities";
 import { relationsFor } from "@/lib/electrical-relations";
 import { EntitySelect } from "@/components/electrical/entity-select";
 import { AssetLinkSelect } from "@/components/electrical/asset-link-select";
+import { StableIdHelp } from "@/components/electrical/stable-id-help";
 import {
   INSTALL_STATUSES,
   RACEWAY_ENVIRONMENTS,
