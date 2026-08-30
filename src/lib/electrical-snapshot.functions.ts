@@ -7,6 +7,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { requireAddon } from "@/lib/addons.server";
 import { ENTITIES, ENTITY_KINDS } from "@/lib/electrical-entities";
 import { runIntegrityChecks } from "@/lib/electrical-integrity";
+import { validatePanelLayout } from "@/lib/electrical-panel-layout";
 import type { ElectricalGraphData, Row } from "@/lib/electrical-mermaid";
 import {
   buildElectricalSnapshot,
@@ -39,6 +40,16 @@ export async function collectSnapshot(supabase: unknown): Promise<ElectricalSnap
   if (wpError) throw new Error(wpError.message);
   const waypointRows = (waypoints ?? []) as RawRow[];
 
+  // Phase 4.3 child collections.
+  const { data: positions, error: bpError } = await db
+    .from("electrical_breaker_positions")
+    .select("*");
+  if (bpError) throw new Error(bpError.message);
+  const { data: exits, error: exError } = await db.from("electrical_panel_exits").select("*");
+  if (exError) throw new Error(exError.message);
+  const breakerPositions = (positions ?? []) as RawRow[];
+  const panelExits = (exits ?? []) as RawRow[];
+
   const graph: ElectricalGraphData = {
     panel: rows.panel as Row[],
     circuit_group: rows.circuit_group as Row[],
@@ -48,17 +59,30 @@ export async function collectSnapshot(supabase: unknown): Promise<ElectricalSnap
     branch: rows.branch as Row[],
     waypoint: waypointRows as Row[],
   };
+  const layoutFindings = validatePanelLayout({
+    panels: rows.panel as Record<string, unknown>[],
+    positions: breakerPositions as Record<string, unknown>[],
+    exits: panelExits as Record<string, unknown>[],
+    raceways: rows.raceway as Record<string, unknown>[],
+  }).map((f) => ({
+    code: f.code,
+    severity: f.severity,
+    stable_id: f.panelId,
+    message: f.message,
+  }));
   const qa = runIntegrityChecks(graph).map((f) => ({
     code: f.code,
     severity: f.severity,
     stable_id: f.stableId,
     message: f.message,
-  }));
+  })).concat(layoutFindings);
 
   return buildElectricalSnapshot({
     generatedAt: new Date().toISOString(),
     rows,
     waypoints: waypointRows,
+    breakerPositions,
+    panelExits,
     qa,
   });
 }

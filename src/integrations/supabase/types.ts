@@ -538,6 +538,88 @@ export type Database = {
           },
         ]
       }
+      electrical_breaker_positions: {
+        Row: {
+          breaker_number: number | null
+          circuit_group_uuid: string | null
+          completion_percent: number | null
+          created_at: string
+          id: string
+          install_status: string | null
+          label: string | null
+          label_status: string | null
+          load_uuid: string | null
+          notes: string | null
+          ocp_amps: number | null
+          panel_uuid: string
+          poles: number
+          position: number
+          side: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          breaker_number?: number | null
+          circuit_group_uuid?: string | null
+          completion_percent?: number | null
+          created_at?: string
+          id?: string
+          install_status?: string | null
+          label?: string | null
+          label_status?: string | null
+          load_uuid?: string | null
+          notes?: string | null
+          ocp_amps?: number | null
+          panel_uuid: string
+          poles?: number
+          position: number
+          side?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          breaker_number?: number | null
+          circuit_group_uuid?: string | null
+          completion_percent?: number | null
+          created_at?: string
+          id?: string
+          install_status?: string | null
+          label?: string | null
+          label_status?: string | null
+          load_uuid?: string | null
+          notes?: string | null
+          ocp_amps?: number | null
+          panel_uuid?: string
+          poles?: number
+          position?: number
+          side?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "electrical_breaker_positions_circuit_group_uuid_fkey"
+            columns: ["circuit_group_uuid"]
+            isOneToOne: false
+            referencedRelation: "electrical_circuit_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "electrical_breaker_positions_load_uuid_fkey"
+            columns: ["load_uuid"]
+            isOneToOne: false
+            referencedRelation: "electrical_loads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "electrical_breaker_positions_panel_uuid_fkey"
+            columns: ["panel_uuid"]
+            isOneToOne: false
+            referencedRelation: "electrical_panels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       electrical_circuit_groups: {
         Row: {
           backup_eligible: boolean
@@ -1020,9 +1102,76 @@ export type Database = {
         }
         Relationships: []
       }
+      electrical_panel_exits: {
+        Row: {
+          completion_percent: number | null
+          created_at: string
+          exit_order: number
+          exit_side: string | null
+          id: string
+          install_status: string | null
+          label_status: string | null
+          notes: string | null
+          panel_uuid: string
+          raceway_ref: string | null
+          raceway_uuid: string | null
+          trade_size: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          completion_percent?: number | null
+          created_at?: string
+          exit_order: number
+          exit_side?: string | null
+          id?: string
+          install_status?: string | null
+          label_status?: string | null
+          notes?: string | null
+          panel_uuid: string
+          raceway_ref?: string | null
+          raceway_uuid?: string | null
+          trade_size?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          completion_percent?: number | null
+          created_at?: string
+          exit_order?: number
+          exit_side?: string | null
+          id?: string
+          install_status?: string | null
+          label_status?: string | null
+          notes?: string | null
+          panel_uuid?: string
+          raceway_ref?: string | null
+          raceway_uuid?: string | null
+          trade_size?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "electrical_panel_exits_panel_uuid_fkey"
+            columns: ["panel_uuid"]
+            isOneToOne: false
+            referencedRelation: "electrical_panels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "electrical_panel_exits_raceway_uuid_fkey"
+            columns: ["raceway_uuid"]
+            isOneToOne: false
+            referencedRelation: "electrical_raceways"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       electrical_panels: {
         Row: {
           backup_class: string | null
+          breaker_columns: number | null
           building: string | null
           bus_rating_amps: number | null
           circuits: number | null
@@ -1037,6 +1186,7 @@ export type Database = {
           notes: string | null
           panel_id: string
           phase: string | null
+          positions_per_column: number | null
           spaces: number | null
           updated_at: string
           user_id: string
@@ -1044,6 +1194,7 @@ export type Database = {
         }
         Insert: {
           backup_class?: string | null
+          breaker_columns?: number | null
           building?: string | null
           bus_rating_amps?: number | null
           circuits?: number | null
@@ -1058,6 +1209,7 @@ export type Database = {
           notes?: string | null
           panel_id: string
           phase?: string | null
+          positions_per_column?: number | null
           spaces?: number | null
           updated_at?: string
           user_id: string
@@ -1065,6 +1217,7 @@ export type Database = {
         }
         Update: {
           backup_class?: string | null
+          breaker_columns?: number | null
           building?: string | null
           bus_rating_amps?: number | null
           circuits?: number | null
@@ -1079,6 +1232,7 @@ export type Database = {
           notes?: string | null
           panel_id?: string
           phase?: string | null
+          positions_per_column?: number | null
           spaces?: number | null
           updated_at?: string
           user_id?: string

@@ -38,6 +38,9 @@ export function ElectricalNav() {
       <Link to="/electrical/qa" className={item} activeProps={active}>
         QA
       </Link>
+      <Link to="/electrical/mapping" className={item} activeProps={active}>
+        Field mapping
+      </Link>
       <Link to="/electrical/standards" className={item} activeProps={active}>
         Standards
       </Link>

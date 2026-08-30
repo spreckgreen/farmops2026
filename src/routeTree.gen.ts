@@ -59,6 +59,7 @@ import { Route as FoodCropsRouteImport } from './routes/food.crops'
 import { Route as ElectricalStandardsRouteImport } from './routes/electrical.standards'
 import { Route as ElectricalSorRouteImport } from './routes/electrical.sor'
 import { Route as ElectricalQaRouteImport } from './routes/electrical.qa'
+import { Route as ElectricalMappingRouteImport } from './routes/electrical.mapping'
 import { Route as ElectricalImportRouteImport } from './routes/electrical.import'
 import { Route as ElectricalExportRouteImport } from './routes/electrical.export'
 import { Route as ElectricalDiagramsRouteImport } from './routes/electrical.diagrams'
@@ -337,6 +338,11 @@ const ElectricalQaRoute = ElectricalQaRouteImport.update({
   path: '/electrical/qa',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ElectricalMappingRoute = ElectricalMappingRouteImport.update({
+  id: '/electrical/mapping',
+  path: '/electrical/mapping',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ElectricalImportRoute = ElectricalImportRouteImport.update({
   id: '/electrical/import',
   path: '/electrical/import',
@@ -506,6 +512,7 @@ export interface FileRoutesByFullPath {
   '/electrical/diagrams': typeof ElectricalDiagramsRoute
   '/electrical/export': typeof ElectricalExportRoute
   '/electrical/import': typeof ElectricalImportRoute
+  '/electrical/mapping': typeof ElectricalMappingRoute
   '/electrical/qa': typeof ElectricalQaRoute
   '/electrical/sor': typeof ElectricalSorRoute
   '/electrical/standards': typeof ElectricalStandardsRoute
@@ -581,6 +588,7 @@ export interface FileRoutesByTo {
   '/electrical/diagrams': typeof ElectricalDiagramsRoute
   '/electrical/export': typeof ElectricalExportRoute
   '/electrical/import': typeof ElectricalImportRoute
+  '/electrical/mapping': typeof ElectricalMappingRoute
   '/electrical/qa': typeof ElectricalQaRoute
   '/electrical/sor': typeof ElectricalSorRoute
   '/electrical/standards': typeof ElectricalStandardsRoute
@@ -660,6 +668,7 @@ export interface FileRoutesById {
   '/electrical/diagrams': typeof ElectricalDiagramsRoute
   '/electrical/export': typeof ElectricalExportRoute
   '/electrical/import': typeof ElectricalImportRoute
+  '/electrical/mapping': typeof ElectricalMappingRoute
   '/electrical/qa': typeof ElectricalQaRoute
   '/electrical/sor': typeof ElectricalSorRoute
   '/electrical/standards': typeof ElectricalStandardsRoute
@@ -740,6 +749,7 @@ export interface FileRouteTypes {
     | '/electrical/diagrams'
     | '/electrical/export'
     | '/electrical/import'
+    | '/electrical/mapping'
     | '/electrical/qa'
     | '/electrical/sor'
     | '/electrical/standards'
@@ -815,6 +825,7 @@ export interface FileRouteTypes {
     | '/electrical/diagrams'
     | '/electrical/export'
     | '/electrical/import'
+    | '/electrical/mapping'
     | '/electrical/qa'
     | '/electrical/sor'
     | '/electrical/standards'
@@ -893,6 +904,7 @@ export interface FileRouteTypes {
     | '/electrical/diagrams'
     | '/electrical/export'
     | '/electrical/import'
+    | '/electrical/mapping'
     | '/electrical/qa'
     | '/electrical/sor'
     | '/electrical/standards'
@@ -972,6 +984,7 @@ export interface RootRouteChildren {
   ElectricalDiagramsRoute: typeof ElectricalDiagramsRoute
   ElectricalExportRoute: typeof ElectricalExportRoute
   ElectricalImportRoute: typeof ElectricalImportRoute
+  ElectricalMappingRoute: typeof ElectricalMappingRoute
   ElectricalQaRoute: typeof ElectricalQaRoute
   ElectricalSorRoute: typeof ElectricalSorRoute
   ElectricalStandardsRoute: typeof ElectricalStandardsRoute
@@ -1346,6 +1359,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ElectricalQaRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/electrical/mapping': {
+      id: '/electrical/mapping'
+      path: '/electrical/mapping'
+      fullPath: '/electrical/mapping'
+      preLoaderRoute: typeof ElectricalMappingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/electrical/import': {
       id: '/electrical/import'
       path: '/electrical/import'
@@ -1657,6 +1677,7 @@ const rootRouteChildren: RootRouteChildren = {
   ElectricalDiagramsRoute: ElectricalDiagramsRoute,
   ElectricalExportRoute: ElectricalExportRoute,
   ElectricalImportRoute: ElectricalImportRoute,
+  ElectricalMappingRoute: ElectricalMappingRoute,
   ElectricalQaRoute: ElectricalQaRoute,
   ElectricalSorRoute: ElectricalSorRoute,
   ElectricalStandardsRoute: ElectricalStandardsRoute,
