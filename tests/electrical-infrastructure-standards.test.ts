@@ -52,6 +52,36 @@ describe("infrastructure ID standards", () => {
     expect(created.ok).toBe(false);
   });
 
+  it("keeps the known legacy SW-<SITE>-<n> powered device IDs valid on existing records", () => {
+    for (const id of ["SW-FS-1", "SW-FS-2", "SW-PH-1"]) {
+      const check = checkInfrastructureId("device", id, { mode: "existing" });
+      expect(check.ok, id).toBe(true);
+      expect(check.warning, id).toBeTruthy();
+    }
+  });
+
+  it("refuses the legacy SW-<SITE>-<n> shape for new device records", () => {
+    const check = checkInfrastructureId("device", "SW-FS-1", { mode: "create" });
+    expect(check.ok).toBe(false);
+    expect(check.error).toContain("compatibility-only");
+  });
+
+  it("rejects an arbitrary device prefix as invalid, not compatibility-only", () => {
+    for (const id of ["NETWORK-SW-FS-01", "RTR-FS-1", "AP-HSE-2"]) {
+      const check = checkInfrastructureId("device", id, { mode: "existing" });
+      expect(check.ok, id).toBe(false);
+      expect(check.error, id).toContain("invalid prefix");
+      expect(check.error, id).not.toContain("predates");
+    }
+  });
+
+  it("still accepts canonical DEV- and NET- IDs after narrowing the legacy matcher", () => {
+    for (const id of ["NET-SW-FS-01", "DEV-HAM-RADIO-FS-01"]) {
+      expect(checkInfrastructureId("device", id).ok, id).toBe(true);
+      expect(checkInfrastructureId("device", id, { mode: "existing" }).ok, id).toBe(true);
+    }
+  });
+
   it("explains what each token means for helper text", () => {
     expect(describeInfrastructureId("device", "NET-SW-PH-01")).toBe(
       "Switch, Pump House, sequence 01",
