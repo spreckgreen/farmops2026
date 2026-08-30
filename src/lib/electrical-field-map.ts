@@ -152,7 +152,11 @@ export const FIELD_MAP: FieldMapRow[] = [
   { worksheet: "Any worksheet", field: "Legacy \"Design Basis\" / \"Planning Assumption\" status words", classification: "obsolete", farmops: "install_status normalized; original text kept verbatim in notes", authority: "shared", transformation: "Superseded by the controlled install-status list. Normalization is preview-first and never silent.", coverage: "complete" },
   { worksheet: "Any worksheet", field: "Manual per-row \"% complete\" typed as free text", classification: "obsolete", farmops: "completion_percent (numeric)", authority: field, transformation: "Parsed into a number; unparseable text is refused and reported instead of guessed.", coverage: "complete" },
   { worksheet: "Any worksheet", field: "Cell comments / annotations", classification: "intentionally_excluded", farmops: "Not imported as values", authority: eng, transformation: "Annotations are stripped by the parser so a comment can never become a cell value.", coverage: "not_modelled" },
+  // Phase 4.4a — lossless capture: a populated canonical column with no
+  // dedicated FarmOps field is preserved verbatim instead of reported as loss.
+  { worksheet: "Any worksheet", field: "(any populated column with no dedicated FarmOps field)", classification: "directly_mapped", farmops: "<entity>.ods_extras[\"<exact workbook header>\"]", authority: eng, transformation: "Stored verbatim as JSON keyed by the exact workbook header: no coercion, no unit conversion, no inference. Read-only in FarmOps and never written back to the canonical workbook.", coverage: "complete" },
 ];
+
 
 export interface FieldMapSummary {
   total: number;
