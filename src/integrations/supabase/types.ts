@@ -433,6 +433,7 @@ export type Database = {
           load_uuid: string | null
           measured_length_ft: number | null
           notes: string | null
+          ods_extras: string | null
           path_notes: string | null
           planned_length_ft: number | null
           source_endpoint_ref: string | null
@@ -464,6 +465,7 @@ export type Database = {
           load_uuid?: string | null
           measured_length_ft?: number | null
           notes?: string | null
+          ods_extras?: string | null
           path_notes?: string | null
           planned_length_ft?: number | null
           source_endpoint_ref?: string | null
@@ -495,6 +497,7 @@ export type Database = {
           load_uuid?: string | null
           measured_length_ft?: number | null
           notes?: string | null
+          ods_extras?: string | null
           path_notes?: string | null
           planned_length_ft?: number | null
           source_endpoint_ref?: string | null
@@ -643,6 +646,7 @@ export type Database = {
           label_status: string
           load_shed_group: string | null
           notes: string | null
+          ods_extras: string | null
           panel_uuid: string | null
           phase: string | null
           suggested_panel: string | null
@@ -672,6 +676,7 @@ export type Database = {
           label_status?: string
           load_shed_group?: string | null
           notes?: string | null
+          ods_extras?: string | null
           panel_uuid?: string | null
           phase?: string | null
           suggested_panel?: string | null
@@ -701,6 +706,7 @@ export type Database = {
           label_status?: string
           load_shed_group?: string | null
           notes?: string | null
+          ods_extras?: string | null
           panel_uuid?: string | null
           phase?: string | null
           suggested_panel?: string | null
@@ -886,6 +892,7 @@ export type Database = {
           notes: string | null
           ocp_rating_amps: number | null
           ocp_type: string | null
+          ods_extras: string | null
           phase: string | null
           planned_length_ft: number | null
           raceway_ref: string | null
@@ -924,6 +931,7 @@ export type Database = {
           notes?: string | null
           ocp_rating_amps?: number | null
           ocp_type?: string | null
+          ods_extras?: string | null
           phase?: string | null
           planned_length_ft?: number | null
           raceway_ref?: string | null
@@ -962,6 +970,7 @@ export type Database = {
           notes?: string | null
           ocp_rating_amps?: number | null
           ocp_type?: string | null
+          ods_extras?: string | null
           phase?: string | null
           planned_length_ft?: number | null
           raceway_ref?: string | null
@@ -1013,6 +1022,7 @@ export type Database = {
           jbox_id: string
           label_status: string
           notes: string | null
+          ods_extras: string | null
           updated_at: string
           user_id: string
         }
@@ -1030,6 +1040,7 @@ export type Database = {
           jbox_id: string
           label_status?: string
           notes?: string | null
+          ods_extras?: string | null
           updated_at?: string
           user_id: string
         }
@@ -1047,6 +1058,7 @@ export type Database = {
           jbox_id?: string
           label_status?: string
           notes?: string | null
+          ods_extras?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -1133,6 +1145,7 @@ export type Database = {
           load_shed_group: string | null
           location: string | null
           notes: string | null
+          ods_extras: string | null
           phase: string | null
           source_circuit: string | null
           source_reference: string | null
@@ -1170,6 +1183,7 @@ export type Database = {
           load_shed_group?: string | null
           location?: string | null
           notes?: string | null
+          ods_extras?: string | null
           phase?: string | null
           source_circuit?: string | null
           source_reference?: string | null
@@ -1207,6 +1221,7 @@ export type Database = {
           load_shed_group?: string | null
           location?: string | null
           notes?: string | null
+          ods_extras?: string | null
           phase?: string | null
           source_circuit?: string | null
           source_reference?: string | null
@@ -1337,6 +1352,7 @@ export type Database = {
           install_status: string
           label_status: string
           notes: string | null
+          ods_extras: string | null
           panel_id: string
           phase: string | null
           positions_per_column: number | null
@@ -1360,6 +1376,7 @@ export type Database = {
           install_status?: string
           label_status?: string
           notes?: string | null
+          ods_extras?: string | null
           panel_id: string
           phase?: string | null
           positions_per_column?: number | null
@@ -1383,6 +1400,7 @@ export type Database = {
           install_status?: string
           label_status?: string
           notes?: string | null
+          ods_extras?: string | null
           panel_id?: string
           phase?: string | null
           positions_per_column?: number | null
@@ -1621,6 +1639,7 @@ export type Database = {
           material: string | null
           measured_length_ft: number | null
           notes: string | null
+          ods_extras: string | null
           planned_length_ft: number | null
           purpose: string | null
           raceway_type: string | null
@@ -1661,6 +1680,7 @@ export type Database = {
           material?: string | null
           measured_length_ft?: number | null
           notes?: string | null
+          ods_extras?: string | null
           planned_length_ft?: number | null
           purpose?: string | null
           raceway_type?: string | null
@@ -1701,6 +1721,7 @@ export type Database = {
           material?: string | null
           measured_length_ft?: number | null
           notes?: string | null
+          ods_extras?: string | null
           planned_length_ft?: number | null
           purpose?: string | null
           raceway_type?: string | null
