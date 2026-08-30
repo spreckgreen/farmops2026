@@ -308,7 +308,7 @@ export function nextStableId(kind: ElectricalEntityKind, existing: string[]): st
       const m = /^(?:EMT|CON)-(\d+)$/.exec(id);
       if (m) max = Math.max(max, Number(m[1]));
     }
-    return `EMT-${String(max + 1).padStart(3, "0")}`;
+    return `CON-${String(max + 1).padStart(3, "0")}`;
   }
   if (kind === "feeder") {
     let max = 0;
