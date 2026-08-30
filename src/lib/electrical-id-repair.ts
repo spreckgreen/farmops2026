@@ -253,6 +253,8 @@ export function planIdRepairs(input: RepairInput): RepairPlan {
 }
 
 export function repairPlanIsEmpty(plan: RepairPlan): boolean {
-
-  return plan.refs.length === 0 && plan.branchIds.length === 0;
+  return (
+    plan.refs.length === 0 && plan.branchIds.length === 0 && plan.dependents.length === 0
+  );
 }
+
