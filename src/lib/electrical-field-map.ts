@@ -8,6 +8,9 @@
 // The workbook remains the engineering system of record: `authority` records who
 // owns each value, not who may display it.
 
+/** Mapping matrix version, quoted by the Phase 4.4 validation report. */
+export const FIELD_MAP_VERSION = "1.0";
+
 export const MAPPING_CLASSES = [
   "directly_mapped",
   "derived",

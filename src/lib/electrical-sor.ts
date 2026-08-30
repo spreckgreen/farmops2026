@@ -21,7 +21,7 @@ export type SorAuthority = "canonical_ods" | "farmops";
 
 export const SOR_AUTHORITY: SorAuthority = "canonical_ods";
 
-export const SOR_PHASE: SorPhase = "4.3";
+export const SOR_PHASE: SorPhase = "4.4";
 
 export const SOR_MODEL_VERSION = "1.2";
 
@@ -86,7 +86,9 @@ export function cutoverBlockers(input: SorStatusInput): string[] {
   // Phase 4.3 delivered the complete ODS -> FarmOps field mapping matrix and the
   // normalized panel breaker positions / panel raceway exits, so that blocker is
   // cleared. Everything after it still requires explicit owner sign-off.
-  blockers.push("Phase 4.4 lossless parallel validation has not been signed off.");
+  blockers.push(
+    "Phase 4.4 lossless parallel validation must be run against the canonical ODS baseline and signed off (Electrical -> Parallel validation).",
+  );
   blockers.push("Phase 4.5 cutover requires explicit owner approval.");
   return blockers;
 }

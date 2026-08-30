@@ -47,6 +47,10 @@ export function ElectricalNav() {
       <Link to="/electrical/sor" className={item} activeProps={active}>
         SOR status
       </Link>
+      <Link to="/electrical/validation" className={item} activeProps={active}>
+        Parallel validation
+      </Link>
+
 
       <Link to="/electrical/import" className={item} activeProps={active}>
         ODS import
