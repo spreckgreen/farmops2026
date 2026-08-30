@@ -3,7 +3,12 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { ElectricalGate } from "@/components/electrical/electrical-gate";
 import { naming_standards } from "@/lib/electrical.functions";
-import { mergeStandards, STABLE_ID_REFERENCE } from "@/lib/electrical-standards";
+import {
+  mergeStandards,
+  INFRASTRUCTURE_ID_REFERENCE,
+  STABLE_ID_REFERENCE,
+} from "@/lib/electrical-standards";
+import { INFRASTRUCTURE_ID_STANDARDS } from "@/lib/electrical-infrastructure-standards";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -101,7 +106,7 @@ function Standards() {
               </tr>
             </thead>
             <tbody>
-              {STABLE_ID_REFERENCE.map((row) => (
+              {[...STABLE_ID_REFERENCE, ...INFRASTRUCTURE_ID_REFERENCE].map((row) => (
                 <tr key={row.entity} className="border-t border-border align-top">
                   <td className="px-3 py-2 whitespace-nowrap">{row.entity}</td>
                   <td className="px-3 py-2 font-mono whitespace-nowrap">{row.format}</td>
@@ -111,6 +116,55 @@ function Standards() {
               ))}
             </tbody>
           </table>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">
+            Infrastructure ID tokens — racks, power assets and devices
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4 text-sm">
+          {(["rack", "power_asset", "device"] as const).map((kind) => {
+            const std = INFRASTRUCTURE_ID_STANDARDS[kind];
+            return (
+              <div key={kind} className="space-y-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-medium">{std.label}</span>
+                  <Badge variant="outline" className="text-xs">
+                    {std.assignment === "user-assigned" ? "User-assigned" : "System-generated"}
+                  </Badge>
+                </div>
+                {std.formats.map((format) => (
+                  <div key={format.shape} className="rounded-md border border-border p-3">
+                    <p className="font-mono text-sm">{format.shape}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Examples: <span className="font-mono">{format.examples.join(", ")}</span>
+                    </p>
+                    <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
+                      {format.tokens.map((t) => (
+                        <li key={t.token}>
+                          <span className="font-mono">{t.token}</span> — {t.meaning}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+                <p className="text-xs text-muted-foreground">{std.assignmentNote}</p>
+                <p className="text-xs text-muted-foreground">{std.stabilityNote}</p>
+                {std.legacyFormats?.length ? (
+                  <p className="text-xs text-muted-foreground">
+                    Pre-standard shapes still accepted on existing records (never renamed, never
+                    created):{" "}
+                    <span className="font-mono">
+                      {std.legacyFormats.map((f) => f.shape).join(", ")}
+                    </span>
+                  </p>
+                ) : null}
+              </div>
+            );
+          })}
         </CardContent>
       </Card>
 
