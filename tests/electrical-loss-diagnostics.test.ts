@@ -59,6 +59,7 @@ const unmappedSheet = (
       populatedRows: values.length,
       columnIndex,
       duplicateHeader: duplicate,
+      ...(duplicate ? { collidedWith: "circuit_group_ref" } : {}),
       samples: values.map((v) => ({ stableId: v.stableId, value: v.value })),
     },
   ],
