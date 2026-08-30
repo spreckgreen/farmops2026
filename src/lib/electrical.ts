@@ -98,6 +98,16 @@ export const FARMOPS_NATIVE_KINDS = new Set<ElectricalEntityKind>([
 ]);
 
 /**
+ * Phase 4.4a lossless capture column. Every ODS-backed entity carries it: any
+ * populated canonical workbook column that has no dedicated FarmOps field is
+ * stored here verbatim, keyed by its exact workbook header, so canonical
+ * engineering information is preserved instead of reported as semantic loss.
+ * Written only by the workbook import; never hand-edited.
+ */
+export const ODS_EXTRAS_FIELD = "ods_extras";
+
+
+/**
  * Reusable power-distribution equipment types. The type is *data*: a new type
  * never requires a new table, and nothing here is specific to ham radio.
  */
