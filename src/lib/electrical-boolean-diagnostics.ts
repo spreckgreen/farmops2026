@@ -326,7 +326,7 @@ export interface BooleanCorrectionPlan {
 }
 
 const BOOL_COLUMNS = new Map<string, { stableIdField: string; columns: Set<string> }>(
-  ENTITIES.map((def) => [
+  Object.values(ENTITIES).map((def) => [
     def.table,
     {
       stableIdField: def.stableIdField,
