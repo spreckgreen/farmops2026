@@ -1,3 +1,4 @@
+import { lossDiagnosticsCsv } from "@/lib/electrical-reconciliation";
 import { describe, expect, it } from "vitest";
 import {
   ODS_EXTRAS_FIELD,
@@ -227,5 +228,70 @@ describe("Phase 4.4a — duplicate and unnamed header preservation", () => {
   it("rejects capture that is not valid JSON as preservation evidence", () => {
     expect(parseOdsExtras("not json")).toBeNull();
     expect(preservedOdsValues(parseOdsExtras("not json"), "Load_Master", "Any")).toEqual([]);
+  });
+});
+
+describe("Phase 4.4a — remaining LOSS is fully diagnosable", () => {
+  const snap = buildElectricalSnapshot({
+    generatedAt: "2026-08-30T00:00:00.000Z",
+    rows: Object.fromEntries(
+      (Object.keys(ENTITIES) as ElectricalEntityKind[]).map((k) => [k, []]),
+    ) as Record<ElectricalEntityKind, RawRow[]>,
+    waypoints: [],
+    breakerPositions: [],
+    panelExits: [],
+    qa: [],
+  });
+
+  const report = runParallelComparison({
+    odsFileName: "PremoFarmElectrical.ods",
+    odsSha256: "d".repeat(64),
+    comparedAt: "2026-08-31T00:00:00.000Z",
+    sheets: [
+      {
+        sheet: "Load_Master",
+        kind: "load",
+        rows: [{ stableId: "FS-042", values: {} }],
+        unmapped: [
+          {
+            column: "Harmonic Factor",
+            populated: true,
+            populatedRows: 1,
+            columnIndex: 11,
+            duplicateHeader: true,
+            samples: [{ stableId: "FS-042", value: "0.08" }],
+          },
+        ],
+      },
+    ],
+    snapshot: {
+      ...snap,
+      loads: [{ stable_id: "FS-042", id: "u1", area: "Farm Shop" }],
+    } as typeof snap,
+    snapshotSha256: "e".repeat(64),
+  });
+
+  it("names worksheet, header, collision-safe key, value and actual capture", () => {
+    const loss = report.records.find((r) => r.classification === "LOSS")!;
+    const d = loss.loss_diagnostic!;
+    expect(d.worksheet).toBe("Load_Master");
+    expect(d.original_header).toBe("Harmonic Factor");
+    expect(d.preservation_key).toBe("Harmonic Factor#12");
+    expect(d.worksheet_column).toBe(12);
+    expect(d.rows[0]).toMatchObject({
+      stable_id: "FS-042",
+      ods_value: "0.08",
+      expected_extras_key: "Harmonic Factor#12",
+      actual_extras_value: null,
+      capture_present: false,
+    });
+    expect(loss.note).toContain('ods_extras["Harmonic Factor#12"]');
+  });
+
+  it("exports one diagnostic CSV row per affected workbook row", () => {
+    const csv = lossDiagnosticsCsv(report);
+    expect(csv.split("\n")[0]).toContain("expected_ods_extras_key,actual_ods_extras_value");
+    expect(csv).toContain("Harmonic Factor#12");
+    expect(csv).toContain("FS-042");
   });
 });

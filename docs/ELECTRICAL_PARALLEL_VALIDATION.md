@@ -344,3 +344,23 @@ Rules:
   canonical-ODS field comparison (ownership `farmops_as_built`).
 - Snapshot schema stays 1.2 — the asset link is an additional FarmOps-native
   field, not a new collection or contract change.
+
+## Remaining semantic-loss diagnostics (Phase 4.4a)
+
+Every finding that still classifies as `LOSS` now carries a `loss_diagnostic`
+block so it can be traced to a single workbook cell without guessing:
+
+- `worksheet`, `original_header`, `worksheet_column` (1-based)
+- `preservation_key` — the collision-safe `ods_extras` key the value was expected
+  under: the exact header, or `Header#<column>` when that header text repeats
+- `duplicate_header`, `collided_with`, `farmops_collection`
+- `rows[]` — per affected record: `stable_id`, `ods_value`,
+  `expected_extras_key`, `actual_extras_value` (`null` when the key is absent),
+  `actual_preserved_values` (everything captured for that source column) and
+  `capture_present` (whether the record has any capture at all)
+
+The same detail is written into the finding's note, exported as
+`phase-4.4a-loss-diagnostics.csv` (one row per affected workbook row) and
+tabulated in the reconciliation Markdown report. A value only leaves `LOSS` when
+preservation is proven; the diagnostics never reclassify anything. Reads only:
+no database write, and the canonical workbook is untouched.

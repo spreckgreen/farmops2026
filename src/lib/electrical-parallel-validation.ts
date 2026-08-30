@@ -30,6 +30,7 @@ import { FIELD_MAP, FIELD_MAP_VERSION } from "@/lib/electrical-field-map";
 import {
   FARMOPS_NATIVE_KINDS,
   ODS_EXTRAS_FIELD,
+  odsExtrasEntryKey,
   parseOdsExtras,
   preservedOdsValues,
   type ElectricalEntityKind,
@@ -263,6 +264,10 @@ export interface OdsSheetRows {
     samples?: { stableId: string; value: string }[];
     /** Set when a second header meant a FarmOps column already bound. */
     collidedWith?: string;
+    /** 0-based worksheet column index, for the collision-safe capture key. */
+    columnIndex?: number;
+    /** This header text appears more than once on the worksheet. */
+    duplicateHeader?: boolean;
   }[];
 }
 
@@ -302,6 +307,33 @@ export interface ComparisonRecord {
   farmops_only_category: FarmOpsOnlyCategory | null;
   /** The workbook states "to be determined" rather than a value. */
   tbd: boolean;
+  /**
+   * Phase 4.4a diagnostic for a remaining semantic-loss finding: exactly what
+   * the workbook holds, the collision-safe capture key it should have been
+   * preserved under, and what the FarmOps record actually holds there.
+   */
+  loss_diagnostic?: LossDiagnostic;
+}
+
+export interface LossDiagnostic {
+  worksheet: string;
+  original_header: string;
+  /** `Header` or `Header#<1-based column>` when the header text repeats. */
+  preservation_key: string;
+  worksheet_column: number | null;
+  duplicate_header: boolean;
+  collided_with: string | null;
+  farmops_collection: string;
+  rows: {
+    stable_id: string;
+    ods_value: string;
+    expected_extras_key: string;
+    /** Value found under that key, or null when nothing is captured. */
+    actual_extras_value: string | null;
+    /** Everything captured for this worksheet column, by source identity. */
+    actual_preserved_values: string[];
+    capture_present: boolean;
+  }[];
 }
 
 export interface ValidationReport {
@@ -543,6 +575,40 @@ export function runParallelComparison(input: ValidationInput): ValidationReport 
             : mapped
               ? "importer_omission_alias_missing"
               : "missing_mapping_no_farmops_destination";
+      const classification: Classification =
+        explained || preserved ? "EXPECTED_TRANSFORMATION" : "LOSS";
+      // A remaining LOSS must be actionable: name the exact capture key that was
+      // expected and what the record actually holds there.
+      const preservationKey = odsExtrasEntryKey(
+        col.column,
+        col.columnIndex ?? 0,
+        Boolean(col.duplicateHeader || col.collidedWith),
+      );
+      const loss_diagnostic: LossDiagnostic | undefined =
+        classification === "LOSS"
+          ? {
+              worksheet: sheet.sheet,
+              original_header: col.column.trim(),
+              preservation_key: preservationKey,
+              worksheet_column:
+                col.columnIndex === undefined ? null : col.columnIndex + 1,
+              duplicate_header: Boolean(col.duplicateHeader || col.collidedWith),
+              collided_with: col.collidedWith ?? null,
+              farmops_collection: String(collection),
+              rows: samples.map((s) => {
+                const extras = extrasIndex.get(`${collection}:${s.stableId.trim()}`) ?? null;
+                const actual = extras ? extras[preservationKey] : undefined;
+                return {
+                  stable_id: s.stableId,
+                  ods_value: s.value,
+                  expected_extras_key: preservationKey,
+                  actual_extras_value: typeof actual === "string" ? actual : null,
+                  actual_preserved_values: preservedOdsValues(extras, sheet.sheet, col.column),
+                  capture_present: extras !== null,
+                };
+              }),
+            }
+          : undefined;
       const evidence = samples.length
         ? ` Affected workbook rows: ${samples.map((s) => `${s.stableId || "(no id)"}="${s.value}"`).join(", ")}${
             col.populatedRows && col.populatedRows > samples.length
@@ -566,9 +632,10 @@ export function runParallelComparison(input: ValidationInput): ValidationReport 
         farmops_field: preserved ? ODS_EXTRAS_FIELD : null,
         farmops_value: preserved ? samples.map((s) => s.value).join(" | ") : "",
         authority: "engineering_design",
-        classification: explained || preserved ? "EXPECTED_TRANSFORMATION" : "LOSS",
+        classification,
         rules: preserved ? ["verbatim_preservation"] : [],
         root_cause: rootCause,
+        loss_diagnostic,
         note:
           (explained
             ? `Mapping ${mapped!.classification}: ${mapped!.transformation}`
@@ -583,7 +650,27 @@ export function runParallelComparison(input: ValidationInput): ValidationReport 
                 : mapped
                   ? `The mapping matrix maps this column to ${mapped.farmops}, but the importer bound no column — add the header alias.`
                   : "Populated workbook column has no FarmOps destination in the mapping matrix.") +
-          evidence,
+          evidence +
+          (loss_diagnostic
+            ? ` Expected preservation key ${collection}.${ODS_EXTRAS_FIELD}["${loss_diagnostic.preservation_key}"]${
+                loss_diagnostic.worksheet_column
+                  ? ` (worksheet ${loss_diagnostic.worksheet}, column ${loss_diagnostic.worksheet_column})`
+                  : ""
+              }; actual: ${
+                loss_diagnostic.rows
+                  .map(
+                    (r) =>
+                      `${r.stable_id || "(no id)"} -> ${
+                        r.actual_extras_value === null
+                          ? r.capture_present
+                            ? "key absent from capture"
+                            : "no capture on record"
+                          : `"${r.actual_extras_value}"`
+                      }`,
+                  )
+                  .join(", ") || "no sampled rows"
+              }.`
+            : ""),
       });
     }
 

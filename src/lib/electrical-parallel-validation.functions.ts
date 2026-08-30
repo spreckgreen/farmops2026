@@ -62,9 +62,14 @@ export const runElectricalParallelValidation = createServerFn({ method: "POST" }
         .filter(({ col }) => !col.target && col.source.trim())
         .map(({ col, idx }) => {
           const populatedRows = bodyRows.filter((row) => (row[idx] ?? "").trim() !== "");
+          const header = col.source.trim();
+          const duplicateHeader =
+            mapped.columns.filter((c) => c.source.trim() === header && header).length > 1;
           return {
-            column: col.source.trim(),
+            column: header,
             collidedWith: col.collidedWith,
+            columnIndex: idx,
+            duplicateHeader,
             populated: populatedRows.length > 0,
             populatedRows: populatedRows.length,
             samples: populatedRows.slice(0, 5).map((row) => ({
