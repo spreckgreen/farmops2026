@@ -110,7 +110,35 @@ export const RELATIONS: Record<ElectricalEntityKind, RelationSpec[]> = {
     // endpoint: it never occupies the source/destination slots.
     { fkColumn: "raceway_uuid", targetKind: "raceway", refColumn: "raceway_ref" },
   ],
+  // FarmOps-native infrastructure. Racks own no relationships of their own.
+  rack: [],
+  power_asset: [
+    { fkColumn: "rack_uuid", targetKind: "rack", refColumn: "rack_ref" },
+    { fkColumn: "source_panel_uuid", targetKind: "panel", refColumn: "source_panel_ref" },
+    {
+      fkColumn: "source_circuit_group_uuid",
+      targetKind: "circuit_group",
+      refColumn: "source_circuit_group_ref",
+    },
+    { fkColumn: "source_load_uuid", targetKind: "load", refColumn: "source_load_ref" },
+    { fkColumn: "source_branch_uuid", targetKind: "branch", refColumn: "source_branch_ref" },
+    {
+      fkColumn: "upstream_power_asset_uuid",
+      targetKind: "power_asset",
+      refColumn: "upstream_power_asset_ref",
+    },
+  ],
+  device: [
+    { fkColumn: "rack_uuid", targetKind: "rack", refColumn: "rack_ref" },
+    // Immediate power source. The upstream electrical source is a separate
+    // relation so a shared power asset is never flattened into its branch.
+    { fkColumn: "power_asset_uuid", targetKind: "power_asset", refColumn: "power_asset_ref" },
+    { fkColumn: "circuit_group_uuid", targetKind: "circuit_group", refColumn: "circuit_group_ref" },
+    { fkColumn: "load_uuid", targetKind: "load", refColumn: "load_ref" },
+    { fkColumn: "uplink_device_uuid", targetKind: "device", refColumn: "uplink_device_ref" },
+  ],
 };
+
 
 export function relationsFor(kind: ElectricalEntityKind): RelationSpec[] {
   return RELATIONS[kind] ?? [];
