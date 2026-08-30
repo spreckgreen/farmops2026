@@ -14,7 +14,7 @@
 //  - collections are always present, even when empty.
 import { ENTITIES, type EntityField } from "@/lib/electrical-entities";
 import { relationsFor } from "@/lib/electrical-relations";
-import type { ElectricalEntityKind } from "@/lib/electrical";
+import { FARMOPS_NATIVE_KINDS, type ElectricalEntityKind } from "@/lib/electrical";
 
 export const SNAPSHOT_SCHEMA_VERSION = "1.2";
 

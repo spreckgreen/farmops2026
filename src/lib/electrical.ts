@@ -87,6 +87,17 @@ export type ElectricalEntityKind =
   | "device";
 
 /**
+ * Entities FarmOps owns outright. They are legitimate infrastructure /
+ * as-built / planning extensions and have no canonical ODS counterpart, so they
+ * are never added to the workbook to force validation equivalence.
+ */
+export const FARMOPS_NATIVE_KINDS = new Set<ElectricalEntityKind>([
+  "rack",
+  "power_asset",
+  "device",
+]);
+
+/**
  * Reusable power-distribution equipment types. The type is *data*: a new type
  * never requires a new table, and nothing here is specific to ham radio.
  */
