@@ -228,11 +228,21 @@ export const INFRASTRUCTURE_ID_STANDARDS: Record<
     ],
     legacyFormats: [
       {
-        name: "Pre-standard device ID",
-        shape: "<PREFIX>-…",
-        pattern: /^[A-Z][A-Z0-9]*(-[A-Z0-9]+){1,4}$/,
+        name: "Pre-standard powered device ID",
+        // The only historical Powered Device IDs FarmOps needs to preserve use
+        // the SW (switch) role prefix with a short site code and a simple
+        // sequence, e.g. SW-FS-1. Anything else — including plausible-looking
+        // prefixes such as NETWORK-SW-FS-01 — is an invalid ID, not a
+        // compatibility case. Do not widen this allow-list without a real
+        // pre-existing record that requires it.
+        shape: "SW-<SITE>-<n>",
+        pattern: /^SW-([A-Z0-9]+)-(\d+)$/,
         examples: ["SW-FS-1"],
-        tokens: [],
+        tokens: [
+          { token: "SW", meaning: "Fixed historical prefix — a pre-standard switch-role device" },
+          SITE_TOKEN,
+          { token: "<n>", meaning: "Historical sequence number (one or more digits, not zero-padded)" },
+        ],
       },
     ],
   },
