@@ -978,9 +978,11 @@ export type Database = {
           created_at: string
           critical: boolean
           dedicated: boolean
+          dedicated_shared: string | null
           demand_basis: string | null
           demand_va: number | null
           description: string | null
+          equipment_model: string | null
           future: boolean
           grid: string | null
           id: string
@@ -992,6 +994,8 @@ export type Database = {
           notes: string | null
           phase: string | null
           source_circuit: string | null
+          source_reference: string | null
+          suggested_panel: string | null
           updated_at: string
           user_id: string
           volts: number | null
@@ -1011,9 +1015,11 @@ export type Database = {
           created_at?: string
           critical?: boolean
           dedicated?: boolean
+          dedicated_shared?: string | null
           demand_basis?: string | null
           demand_va?: number | null
           description?: string | null
+          equipment_model?: string | null
           future?: boolean
           grid?: string | null
           id?: string
@@ -1025,6 +1031,8 @@ export type Database = {
           notes?: string | null
           phase?: string | null
           source_circuit?: string | null
+          source_reference?: string | null
+          suggested_panel?: string | null
           updated_at?: string
           user_id: string
           volts?: number | null
@@ -1044,9 +1052,11 @@ export type Database = {
           created_at?: string
           critical?: boolean
           dedicated?: boolean
+          dedicated_shared?: string | null
           demand_basis?: string | null
           demand_va?: number | null
           description?: string | null
+          equipment_model?: string | null
           future?: boolean
           grid?: string | null
           id?: string
@@ -1058,6 +1068,8 @@ export type Database = {
           notes?: string | null
           phase?: string | null
           source_circuit?: string | null
+          source_reference?: string | null
+          suggested_panel?: string | null
           updated_at?: string
           user_id?: string
           volts?: number | null

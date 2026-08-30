@@ -53,15 +53,25 @@ export const runElectricalParallelValidation = createServerFn({ method: "POST" }
       const def = ENTITIES[kind];
       const mapped = mapSheet(sheet, kind, importColumns(kind), def.stableIdField);
       const headerRow = findHeaderRow(sheet.rows);
+      const bodyRows = sheet.rows.slice(headerRow + 1);
+      // Phase 4.4a: an unmapped column carries the workbook rows and values at
+      // risk, so a LOSS finding names real engineering data.
+      const stableIdIdx = mapped.columns.findIndex((c) => c.target === def.stableIdField);
       const unmapped = mapped.columns
         .map((col, idx) => ({ col, idx }))
         .filter(({ col }) => !col.target && col.source.trim())
-        .map(({ col, idx }) => ({
-          column: col.source.trim(),
-          populated: sheet.rows
-            .slice(headerRow + 1)
-            .some((row) => (row[idx] ?? "").trim() !== ""),
-        }));
+        .map(({ col, idx }) => {
+          const populatedRows = bodyRows.filter((row) => (row[idx] ?? "").trim() !== "");
+          return {
+            column: col.source.trim(),
+            populated: populatedRows.length > 0,
+            populatedRows: populatedRows.length,
+            samples: populatedRows.slice(0, 5).map((row) => ({
+              stableId: stableIdIdx >= 0 ? (row[stableIdIdx] ?? "").trim() : "",
+              value: (row[idx] ?? "").trim(),
+            })),
+          };
+        });
       return {
         sheet: sheet.name,
         kind,
@@ -75,6 +85,9 @@ export const runElectricalParallelValidation = createServerFn({ method: "POST" }
     });
 
     const snapshot = await collectSnapshot(context.supabase);
+    const snapshotSha256 = await sha256Hex(
+      new TextEncoder().encode(JSON.stringify(snapshot)),
+    );
 
     return runParallelComparison({
       odsFileName: data.file_name,
@@ -82,5 +95,7 @@ export const runElectricalParallelValidation = createServerFn({ method: "POST" }
       comparedAt: new Date().toISOString(),
       sheets: parsed,
       snapshot,
+      snapshotSha256,
     });
   });
+

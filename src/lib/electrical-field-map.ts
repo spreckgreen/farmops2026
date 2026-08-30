@@ -9,7 +9,7 @@
 // owns each value, not who may display it.
 
 /** Mapping matrix version, quoted by the Phase 4.4 validation report. */
-export const FIELD_MAP_VERSION = "1.0";
+export const FIELD_MAP_VERSION = "1.1";
 
 export const MAPPING_CLASSES = [
   "directly_mapped",
@@ -72,6 +72,17 @@ export const FIELD_MAP: FieldMapRow[] = [
   { worksheet: "Load_Master", field: "Notes", classification: "directly_mapped", farmops: "electrical_loads.notes", authority: "shared", transformation: "Verbatim; FarmOps appends dated field notes rather than replacing engineering prose.", coverage: "complete" },
   { worksheet: "Load_Master", field: "Row totals / subtotal rows", classification: "derived", farmops: "Recomputed in /electrical (overview + reports)", authority: "generated", transformation: "Recomputed from the load rows; spreadsheet subtotal rows are not stored.", coverage: "complete", notes: "Load_Master is deliberately not reproduced as one flat table: loads, circuit groups, panels and branch runs are separate normalized entities." },
   { worksheet: "Load_Master", field: "Row colour / conditional formatting", classification: "display_only", farmops: "Status badges derived from install_status", authority: "generated", transformation: "Presentation only; colour carries no data FarmOps stores.", coverage: "complete" },
+  // Phase 4.4a — canonical Load_Master columns that had no destination and were
+  // reported as semantic LOSS. Each now has an explicit column and importer alias.
+  { worksheet: "Load_Master", field: "Equipment / Model", classification: "directly_mapped", farmops: "electrical_loads.equipment_model", authority: eng, transformation: "Verbatim text.", coverage: "complete" },
+  { worksheet: "Load_Master", field: "Source / Reference", classification: "directly_mapped", farmops: "electrical_loads.source_reference", authority: eng, transformation: "Verbatim text (drawing / catalogue citation).", coverage: "complete" },
+  { worksheet: "Load_Master", field: "Suggested Panel", classification: "directly_mapped", farmops: "electrical_loads.suggested_panel", authority: eng, transformation: "Verbatim text; the relational panel assignment stays on the circuit group and is never inferred from this suggestion.", coverage: "complete" },
+  { worksheet: "Load_Master", field: "Connected kVA", classification: "directly_mapped", farmops: "electrical_loads.connected_va", authority: eng, transformation: "kVA x 1000 -> VA, applied once at import. Deterministic and reversible.", coverage: "complete" },
+  { worksheet: "Load_Master", field: "D/S", classification: "directly_mapped", farmops: "electrical_loads.dedicated_shared (text) + dedicated (boolean, only when explicit)", authority: eng, transformation: 'Tri-state text preserved verbatim: "Dedicated"/"Shared"/"TBD". TBD and blank never become true or false.', coverage: "complete" },
+  { worksheet: "Load_Master", field: "Critical", classification: "directly_mapped", farmops: "electrical_loads.critical", authority: eng, transformation: "Yes/No only. Blank or TBD is left null — not defaulted to false or true.", coverage: "complete" },
+  { worksheet: "Load_Master", field: "Future", classification: "directly_mapped", farmops: "electrical_loads.future", authority: eng, transformation: "Yes/No only. Blank or TBD is left null.", coverage: "complete" },
+  { worksheet: "Load_Master", field: "Continuous Load", classification: "directly_mapped", farmops: "electrical_loads.continuous_load", authority: eng, transformation: "Yes/No only. Blank or TBD is left null.", coverage: "complete" },
+  { worksheet: "Load_Master", field: "Backup Eligible", classification: "directly_mapped", farmops: "electrical_loads.backup_eligible", authority: eng, transformation: "Yes/No only. Blank or TBD is left null.", coverage: "complete" },
 
   // ----------------------------------------------------------- Circuit_Groups
   { worksheet: "Circuit_Groups", field: "Circuit Group ID", classification: "directly_mapped", farmops: "electrical_circuit_groups.circuit_group_id", authority: eng, transformation: "Trimmed; never renamed.", coverage: "complete" },
