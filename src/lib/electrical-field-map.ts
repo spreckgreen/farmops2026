@@ -18,11 +18,8 @@ export const MAPPING_CLASSES = [
   "obsolete",
   "intentionally_excluded",
 ] as const;
-export type MappingClass = (typeof MAPPING_CLASSES)[number  // Phase 4.4a — lossless capture. Any populated canonical column that has no
-  // dedicated FarmOps field is stored verbatim under its exact workbook header,
-  // so canonical engineering data is preserved rather than reported as loss.
-  { worksheet: "*", field: "(any column with no dedicated FarmOps field)", classification: "directly_mapped", farmops: "<entity>.ods_extras[\"<exact workbook header>\"]", authority: eng, transformation: "Stored verbatim as JSON keyed by the exact workbook header. No coercion, no unit conversion, no inference. Read-only in FarmOps; never written back to the canonical workbook.", coverage: "complete" },
-];
+export type MappingClass = (typeof MAPPING_CLASSES)[number];
+
 
 export const MAPPING_CLASS_LABELS: Record<MappingClass, string> = {
   directly_mapped: "Directly mapped",
