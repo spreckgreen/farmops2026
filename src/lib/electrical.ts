@@ -106,6 +106,81 @@ export const FARMOPS_NATIVE_KINDS = new Set<ElectricalEntityKind>([
  */
 export const ODS_EXTRAS_FIELD = "ods_extras";
 
+/**
+ * Reserved entry inside the lossless-capture JSON that records where each
+ * preserved value came from: worksheet, exact header, and 1-based worksheet
+ * column. Without it a preserved value cannot be traced back to its canonical
+ * meaning, and two columns carrying the same header text are indistinguishable.
+ */
+export const ODS_EXTRAS_SOURCE_KEY = "__source";
+
+export interface OdsExtrasSource {
+  sheet: string;
+  header: string;
+  column: number;
+}
+
+/**
+ * The JSON key for one preserved column. The exact workbook header is used as
+ * the key so the common case stays human-readable; a header text that appears
+ * more than once on the same worksheet is suffixed with its worksheet column
+ * number so neither duplicate overwrites the other.
+ */
+export function odsExtrasEntryKey(header: string, columnIndex: number, duplicate: boolean): string {
+  const h = header.trim();
+  return duplicate ? `${h}#${columnIndex + 1}` : h;
+}
+
+/** Parse a stored lossless-capture value; unparseable capture is not evidence. */
+export function parseOdsExtras(raw: unknown): Record<string, unknown> | null {
+  if (typeof raw !== "string" || !raw.trim()) return null;
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+    return parsed as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Every value preserved for one worksheet column, resolved by source identity
+ * first (worksheet + exact header) and then by key shape, so duplicate headers
+ * and later key-format changes still prove byte-identical preservation.
+ */
+export function preservedOdsValues(
+  extras: Record<string, unknown> | null,
+  sheet: string,
+  header: string,
+): string[] {
+  if (!extras) return [];
+  const wanted = header.trim();
+  const source = extras[ODS_EXTRAS_SOURCE_KEY];
+  const out: string[] = [];
+  const take = (key: string) => {
+    const v = extras[key];
+    if (typeof v === "string") out.push(v);
+  };
+  if (source && typeof source === "object" && !Array.isArray(source)) {
+    for (const [key, meta] of Object.entries(source as Record<string, unknown>)) {
+      if (!meta || typeof meta !== "object") continue;
+      const m = meta as Partial<OdsExtrasSource>;
+      if (String(m.header ?? "").trim() !== wanted) continue;
+      // A worksheet name is only used to narrow when it is recorded.
+      if (m.sheet && sheet && String(m.sheet).trim() !== sheet.trim()) continue;
+      take(key);
+    }
+  }
+  // Exact-header key, plus the `Header#<column>` duplicate form.
+  for (const key of Object.keys(extras).sort()) {
+    if (key === ODS_EXTRAS_SOURCE_KEY) continue;
+    const base = key.replace(/#\d+$/, "").trim();
+    if (base === wanted) take(key);
+  }
+  return [...new Set(out)];
+}
+
+
 
 /**
  * Reusable power-distribution equipment types. The type is *data*: a new type
