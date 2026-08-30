@@ -249,7 +249,7 @@ snapshot schema stays `1.2`, and no Phase 4.5 / cutover work is performed.
 | Root cause group | Correction |
 | --- | --- |
 | `importer_omission_alias_missing` — sheet-specific engineering headers on Feeders, Conduit_Runs, J-Boxes, Branch_Circuits and Circuit_Groups bound to nothing because only Load_Master and Panel_Schedule had per-sheet aliases | Added per-kind header aliases for those five worksheets (`KIND_ALIASES` in `src/lib/electrical-ods.ts`) |
-| `duplicate_header_collision_importer_defect` — two workbook headers meaning the same FarmOps column: the second was silently dropped | `mapSheet` now reports the collision (`columns[].collidedWith`) and the losing column's values are preserved verbatim |
+| `duplicate_header_collision_importer_defect` — two workbook headers meaning the same FarmOps column: the second was silently dropped | `mapSheet` reports the collision (`columns[].collidedWith`); the losing column's values are preserved verbatim under a column-numbered key, and once proven present the finding reports `duplicate_header_collision_preserved_verbatim` |
 | `missing_mapping_no_farmops_destination` — a populated canonical column with no dedicated FarmOps field | New lossless-capture column `ods_extras` on the seven ODS-backed tables stores the value verbatim, keyed by its exact workbook header |
 
 ### Lossless capture (`ods_extras`)
@@ -257,7 +257,14 @@ snapshot schema stays `1.2`, and no Phase 4.5 / cutover work is performed.
 - Present on `electrical_panels`, `electrical_loads`, `electrical_circuit_groups`,
   `electrical_feeders`, `electrical_raceways`, `electrical_junction_boxes`,
   `electrical_branch_runs`.
-- Contains a JSON object: `{"<exact workbook header>": "<verbatim cell text>"}`.
+- Contains a JSON object: `{"<exact workbook header>": "<verbatim cell text>"}`,
+  plus a reserved `__source` entry recording the worksheet, exact header and
+  1-based worksheet column for every preserved value, e.g.
+  `"__source": {"Insulation Class": {"sheet": "Load_Master", "header": "Insulation Class", "column": 4}}`.
+  A header text that occurs twice on the same worksheet is keyed
+  `"<header>#<column>"` (e.g. `"Source / Reference#3"`) so neither duplicate
+  overwrites the other, and a populated cell under an unnamed column is keyed
+  `"(unnamed column <N>)"`.
   No coercion, unit conversion or inference. Read-only in FarmOps (importer
   writes it; forms never do) and never written back to the workbook.
 - The validator only downgrades such a column from `LOSS` to
@@ -268,6 +275,27 @@ snapshot schema stays `1.2`, and no Phase 4.5 / cutover work is performed.
   reclassification.
 - `ods_extras` is excluded from ordinary field-by-field comparison: it is
   evidence about other columns, not a canonical field of its own.
+
+#### Preservation backfill for records imported before the capture column
+
+Records that were imported before `ods_extras` existed hold no preserved copy,
+so parallel validation correctly still reports those columns as `LOSS`. The
+`/electrical/import` page has a **Preserve canonical columns that have no
+FarmOps field** flow for this:
+
+1. Upload the unchanged canonical workbook — this is a dry run
+   (`previewOdsPreservation`) and writes nothing.
+2. Review the per-record list of columns that would be preserved, plus counts of
+   records already preserved and workbook rows with no FarmOps record.
+3. Apply (`applyOdsPreservation`) writes **only** `ods_extras` on existing
+   records. No engineering field, stable ID, relationship or install state
+   changes, no record is created or deleted, and the workbook is never written.
+
+Validator schema/normalization version is `1.3` for the source-identity capture
+format. Acceptance for the LOSS gate is determined by rerunning
+`/electrical/validation` on the self-hosted production instance against the
+unchanged canonical ODS after this backfill — Lovable Cloud data proves nothing
+about production acceptance.
 
 ### FarmOps-native infrastructure (snapshot 1.2)
 
