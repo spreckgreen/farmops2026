@@ -306,6 +306,33 @@ export interface ComparisonRecord {
   farmops_only_category: FarmOpsOnlyCategory | null;
   /** The workbook states "to be determined" rather than a value. */
   tbd: boolean;
+  /**
+   * Phase 4.4a diagnostic for a remaining semantic-loss finding: exactly what
+   * the workbook holds, the collision-safe capture key it should have been
+   * preserved under, and what the FarmOps record actually holds there.
+   */
+  loss_diagnostic?: LossDiagnostic;
+}
+
+export interface LossDiagnostic {
+  worksheet: string;
+  original_header: string;
+  /** `Header` or `Header#<1-based column>` when the header text repeats. */
+  preservation_key: string;
+  worksheet_column: number | null;
+  duplicate_header: boolean;
+  collided_with: string | null;
+  farmops_collection: string;
+  rows: {
+    stable_id: string;
+    ods_value: string;
+    expected_extras_key: string;
+    /** Value found under that key, or null when nothing is captured. */
+    actual_extras_value: string | null;
+    /** Everything captured for this worksheet column, by source identity. */
+    actual_preserved_values: string[];
+    capture_present: boolean;
+  }[];
 }
 
 export interface ValidationReport {
