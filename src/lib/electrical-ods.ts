@@ -823,6 +823,10 @@ export function mapSheet(
           value: values["grid"],
           reason: g.reason ?? "invalid grid value",
         });
+        // Refusing the typed value must not discard the canonical cell: it is
+        // preserved verbatim so a rejected cell is never semantic loss.
+        const gridIdx = columns.findIndex((c) => c.target === "grid");
+        if (gridIdx >= 0) preserve(gridIdx, values["grid"]!, false);
         delete values["grid"];
       } else if (g.value && g.value !== values["grid"]) {
         values["grid"] = g.value;
