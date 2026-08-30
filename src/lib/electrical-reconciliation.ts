@@ -208,6 +208,10 @@ export function lossDiagnosticsCsv(report: ValidationReport): string {
           row.actual_extras_value ?? "(absent)",
           row.actual_preserved_values.join(" | "),
           row.capture_present,
+          row.capture_has_column,
+          row.capture_has_source_metadata,
+          row.capture_keys.join(" | "),
+          row.reason,
           r.root_cause,
         ]
           .map((v) => csvCell(String(v)))
