@@ -22,7 +22,7 @@ export function IdRepairReport() {
     mutationFn: async (apply: boolean) => repair({ data: { apply } }),
     onSuccess: (r) => {
       setPlan(r.plan);
-      const count = r.plan.refs.length + r.plan.branchIds.length;
+      const count = r.plan.refs.length + r.plan.branchIds.length + r.plan.dependents.length;
       if (!r.applied) {
         if (!count) toast.success("No stale junction-box references or encoded parents found.");
         return;
@@ -34,7 +34,10 @@ export function IdRepairReport() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const pending = plan ? plan.refs.length + plan.branchIds.length : 0;
+  const pending = plan
+    ? plan.refs.length + plan.branchIds.length + plan.dependents.length
+    : 0;
+
 
   return (
     <Card>
