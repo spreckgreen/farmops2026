@@ -31,15 +31,18 @@ import {
   FARMOPS_NATIVE_KINDS,
   ODS_EXTRAS_FIELD,
   odsExtrasEntryKey,
+  odsExtrasHasSourceMetadata,
+  odsExtrasKeys,
   parseOdsExtras,
+  preservedOdsEntries,
   preservedOdsValues,
   type ElectricalEntityKind,
 } from "@/lib/electrical";
 
 // 1.3 — lossless capture now records worksheet/header/column source identity,
 // so preservation is proven by source, not by key text alone.
-export const VALIDATION_SCHEMA_VERSION = "1.3";
-export const NORMALIZATION_VERSION = "1.3";
+export const VALIDATION_SCHEMA_VERSION = "1.4";
+export const NORMALIZATION_VERSION = "1.4";
 export const MAPPING_VERSION = FIELD_MAP_VERSION;
 
 /* -------------------------------------------------- 4.4a disposition model */
@@ -276,6 +279,8 @@ export interface ValidationInput {
   odsSha256: string;
   comparedAt: string;
   sheets: OdsSheetRows[];
+  /** Non-entity worksheets, preserved verbatim instead of mapped to entities. */
+  workbookMetadata?: WorkbookMetadataSheet[];
   snapshot: ElectricalSnapshot;
   /** Checksum of the serialized FarmOps snapshot, when the caller computed it. */
   snapshotSha256?: string;
@@ -332,7 +337,38 @@ export interface LossDiagnostic {
     actual_extras_value: string | null;
     /** Everything captured for this worksheet column, by source identity. */
     actual_preserved_values: string[];
+    /** The record carries some lossless capture. Not per-column evidence. */
     capture_present: boolean;
+    /** This worksheet column is present in that capture (by source or key). */
+    capture_has_column: boolean;
+    /** The capture records worksheet/header/column source identity. */
+    capture_has_source_metadata: boolean;
+    /** Keys the capture actually holds, so a mis-key is visible. */
+    capture_keys: string[];
+    /** Why preservation could not be proven for this row. */
+    reason:
+      | "record_not_found"
+      | "capture_absent"
+      | "column_absent_from_capture"
+      | "capture_lacks_source_metadata"
+      | "value_differs";
+  }[];
+}
+
+/**
+ * A worksheet that is workbook structure rather than electrical entities
+ * (metadata, drop-down lists, legends). Its populated values are carried
+ * verbatim in the reconciliation artifact so nothing canonical is dropped, and
+ * they are never mapped onto panels, feeders or any other entity.
+ */
+export interface WorkbookMetadataSheet {
+  sheet: string;
+  columns: {
+    header: string;
+    /** 1-based worksheet column. */
+    column: number;
+    populated_rows: number;
+    values: { row: number; value: string }[];
   }[];
 }
 
@@ -365,6 +401,12 @@ export interface ValidationReport {
     reasons: string[];
   };
   records: ComparisonRecord[];
+  /**
+   * Verbatim contents of the workbook's non-entity worksheets. Preserved so
+   * Phase 4.4a can claim losslessness without inventing entities for workbook
+   * metadata or reference lists.
+   */
+  workbook_metadata: WorkbookMetadataSheet[];
 }
 
 /* -------------------------------------------------- 4.4a record enrichment */
