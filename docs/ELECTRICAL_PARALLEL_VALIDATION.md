@@ -457,3 +457,32 @@ FS-094 and PH-028 Circuit Rating Amps classify as `EXPECTED_TRANSFORMATION`.
 Acceptance still requires LOSS = 0. Missing records, unresolved engineering
 decisions, TBD states and FarmOps as-built observations keep their own
 classifications and dispositions and are never converted to MATCH.
+
+## Phase 4.4a — capture-overwrite defect (final LOSS = 14 population)
+
+Root cause of the remaining semantic loss on existing mapped records
+(`BL-003`, `BL-004`, `FS-056`, `FS-062`, `FS-063`): `ods_extras` was written
+wholesale. Because several canonical worksheets key on the same record
+(`Load_Master`, circuit-group and installation sheets), the last sheet imported
+replaced the capture written by the earlier ones, so keys such as
+`Calculated Complete %`, the installation/generator columns, `Existing Panel`
+and the collision-safe `Circuit Group Description#10` / `#33` /
+`Circuit Group ID#32` disappeared from a record that still had capture.
+
+Corrections (importer/preservation only — reconciliation stays read-only and
+the canonical ODS is never written):
+
+- `mergeOdsExtras()` unions preserved entries and their `__source` identity.
+  Import plan, `applyOdsImport` and the preservation backfill all merge instead
+  of replacing. Collision-safe `Header#<column>` keys are never collapsed onto
+  the bare header.
+- A column that collided with a field already bound (e.g. `Comments` after
+  `Notes`) now also gets a collision-safe key.
+- A transformed column (kVA -> VA) preserves its verbatim canonical text.
+- A cell refused by column validation (invalid `Grid`) is preserved verbatim
+  instead of being dropped.
+
+Unchanged: numeric-equivalent captures (`20` vs `20.00`) prove preservation;
+absent destination records (`FDR-001..003`) stay record-level `ODS_ONLY` /
+`record_not_populated_in_farmops`; a genuinely missing preservation key on an
+existing record still reports `LOSS`. Gate still requires LOSS = 0.
