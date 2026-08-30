@@ -34,7 +34,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { booleanSelectValue } from "@/lib/electrical-boolean";
 import {
   Dialog,
   DialogContent,
@@ -51,7 +58,7 @@ function toValues(def: (typeof ENTITIES)[ElectricalEntityKind], row?: Electrical
   const values: Values = { [def.stableIdField]: String(row?.[def.stableIdField] ?? "") };
   for (const f of def.fields) {
     const raw = row?.[f.key];
-    values[f.key] = f.kind === "bool" ? Boolean(raw) : raw == null ? "" : String(raw);
+    values[f.key] = f.kind === "bool" ? booleanSelectValue(raw) : raw == null ? "" : String(raw);
   }
   return values;
 }
@@ -436,10 +443,12 @@ export function EntityManager({
                   {listFields.map((f) => (
                     <td key={f.key} className="px-3 py-2 align-top">
                       {f.kind === "bool" ? (
-                        row[f.key] ? (
+                        row[f.key] === true ? (
                           <Badge variant="secondary">yes</Badge>
+                        ) : row[f.key] === false ? (
+                          <Badge variant="outline">no</Badge>
                         ) : (
-                          <span className="text-muted-foreground">—</span>
+                          <span className="text-muted-foreground">not stated</span>
                         )
                       ) : f.key === "install_status" ? (
                         <Badge variant="outline">{installStatusLabel(String(row[f.key] ?? ""))}</Badge>
@@ -514,7 +523,7 @@ export function EntityManager({
                     <FieldInput
                       key={f.key}
                       field={f}
-                      value={values[f.key] ?? (f.kind === "bool" ? false : "")}
+                      value={values[f.key] ?? (f.kind === "bool" ? "unknown" : "")}
                       onChange={(v) => setValues((prev) => ({ ...prev, [f.key]: v }))}
                       options={f.entityKind ? (optionsQuery.data?.[f.entityKind] ?? []) : undefined}
                       optionsLoading={optionsQuery.isLoading}
