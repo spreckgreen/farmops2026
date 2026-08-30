@@ -170,7 +170,9 @@ function ownershipFor(field: EntityField): FieldOwnership {
   if (field.engineering) return "engineering_design";
   if (FARMOPS_OWNED_FIELDS.has(field.key)) return "farmops_as_built";
   // Relationship pickers are as-built topology established in FarmOps.
-  if (field.kind === "entity") return "farmops_as_built";
+  // FK links and the Inventory/Asset link are FarmOps-native: the canonical ODS
+  // has no counterpart for either.
+  if (field.kind === "entity" || field.kind === "asset") return "farmops_as_built";
   return "engineering_design";
 }
 
