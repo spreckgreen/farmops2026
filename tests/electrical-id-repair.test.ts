@@ -73,7 +73,7 @@ describe("corrected junction-box ID propagation", () => {
     expect(plan.branchIds.some((r) => r.was === "BR-106-01-01")).toBe(false);
   });
 
-  it("takes the next free sequence instead of colliding", () => {
+  it("blocks instead of bumping when the corrected ID is already in use", () => {
     const plan = planIdRepairs(
       input({
         branches: [
@@ -82,8 +82,29 @@ describe("corrected junction-box ID propagation", () => {
         ],
       }),
     );
-    expect(plan.branchIds[0]!.now).toBe("BR-105-01-03");
+    expect(plan.branchIds).toEqual([]);
+    expect(plan.blocked[0]!.reason).toContain("already in use");
   });
+
+  it("propagates a corrected branch ID into dependent references", () => {
+    const plan = planIdRepairs({
+      ...input(),
+      labels: [{ id: "l1", entity_kind: "branch", entity_stable_id: "BR-105-02-02" }],
+      feeders: [
+        {
+          id: "f1",
+          feeder_id: "FS-001",
+          source_endpoint_ref: "BR-105-02-02",
+          dest_endpoint_ref: null,
+        },
+      ],
+    });
+    expect(plan.dependents.map((d) => [d.table, d.field, d.was, d.now])).toEqual([
+      ["electrical_feeders", "source_endpoint_ref", "BR-105-02-02", "BR-105-01-02"],
+      ["electrical_labels", "entity_stable_id", "BR-105-02-02", "BR-105-01-02"],
+    ]);
+  });
+
 
   it("blocks — never guesses — when the encoded raceway path disagrees", () => {
     const plan = planIdRepairs(

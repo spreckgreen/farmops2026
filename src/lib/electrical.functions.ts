@@ -857,13 +857,16 @@ export const repairEncodedTopology = createServerFn({ method: "POST" })
       if (error) throw new Error(error.message);
       return (rows ?? []) as RepairRow[];
     };
-    const [raceways, jboxes, panels, branches] = await Promise.all([
+    const [raceways, jboxes, panels, branches, feeders, labels, exits] = await Promise.all([
       load("electrical_raceways"),
       load("electrical_junction_boxes"),
       load("electrical_panels"),
       load("electrical_branch_runs"),
+      load("electrical_feeders"),
+      load("electrical_labels"),
+      load("electrical_panel_exits"),
     ]);
-    const plan = planIdRepairs({ raceways, jboxes, panels, branches });
+    const plan = planIdRepairs({ raceways, jboxes, panels, branches, feeders, labels, exits });
     const errors: { stable_id: string; message: string }[] = [];
     const applied: string[] = [];
     if (data.apply) {
@@ -875,6 +878,17 @@ export const repairEncodedTopology = createServerFn({ method: "POST" })
           .eq("id", repair.id);
         if (error) errors.push({ stable_id: repair.was, message: error.message });
         else applied.push(`${repair.was} -> ${repair.now}`);
+      }
+      for (const repair of plan.dependents) {
+        const { error } = await db
+          .from(repair.table)
+          .update({ [repair.field]: repair.now })
+          .eq("id", repair.id);
+        if (error) errors.push({ stable_id: repair.stable_id, message: error.message });
+        else
+          applied.push(
+            `${repair.table}.${repair.field} (${repair.stable_id}): ${repair.was} -> ${repair.now}`,
+          );
       }
       for (const repair of plan.refs) {
         const table =
@@ -889,5 +903,6 @@ export const repairEncodedTopology = createServerFn({ method: "POST" })
         else applied.push(`${repair.stable_id}.${repair.field}: ${repair.was} -> ${repair.now}`);
       }
     }
+
     return { applied: data.apply, plan, changes: applied, errors };
   });

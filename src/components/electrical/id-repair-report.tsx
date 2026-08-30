@@ -22,7 +22,7 @@ export function IdRepairReport() {
     mutationFn: async (apply: boolean) => repair({ data: { apply } }),
     onSuccess: (r) => {
       setPlan(r.plan);
-      const count = r.plan.refs.length + r.plan.branchIds.length;
+      const count = r.plan.refs.length + r.plan.branchIds.length + r.plan.dependents.length;
       if (!r.applied) {
         if (!count) toast.success("No stale junction-box references or encoded parents found.");
         return;
@@ -34,7 +34,10 @@ export function IdRepairReport() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const pending = plan ? plan.refs.length + plan.branchIds.length : 0;
+  const pending = plan
+    ? plan.refs.length + plan.branchIds.length + plan.dependents.length
+    : 0;
+
 
   return (
     <Card>
@@ -86,6 +89,22 @@ export function IdRepairReport() {
                 ))}
               </div>
             ) : null}
+            {plan.dependents.length ? (
+              <div className="space-y-1">
+                <p className="font-medium">Dependent references to corrected branch IDs</p>
+                {plan.dependents.map((r, i) => (
+                  <div key={`${r.table}-${r.id}-${r.field}-${i}`} className="rounded-md border border-border p-2">
+                    <span className="font-mono">{r.stable_id}</span>{" "}
+                    <Badge variant="secondary" className="font-mono text-xs">
+                      {r.table}.{r.field}
+                    </Badge>{" "}
+                    <span className="font-mono line-through">{r.was}</span> →{" "}
+                    <span className="font-mono">{r.now}</span>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
             {plan.refs.length ? (
               <div className="space-y-1">
                 <p className="font-medium">Legacy endpoint references</p>

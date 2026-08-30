@@ -41,9 +41,25 @@ export interface RepairBlocked {
   reason: string;
 }
 
+/**
+ * A dependent record that spells a corrected branch-run stable ID. Renaming the
+ * branch in place (same UUID, same relational parent) leaves this text stale, so
+ * it is propagated in the same preview/apply pass.
+ */
+export interface DependentRefRepair {
+  table: string;
+  id: string;
+  field: string;
+  /** Stable ID of the dependent record, for display. */
+  stable_id: string;
+  was: string;
+  now: string;
+}
+
 export interface RepairPlan {
   refs: RefRepair[];
   branchIds: BranchIdRepair[];
+  dependents: DependentRefRepair[];
   blocked: RepairBlocked[];
 }
 
@@ -64,7 +80,12 @@ export interface RepairInput {
   jboxes: Row[];
   panels: Row[];
   branches: Row[];
+  /** Optional dependent collections that carry stable-ID text. */
+  feeders?: Row[];
+  labels?: Row[];
+  exits?: Row[];
 }
+
 
 /**
  * Build the repair plan. Only exact, relationally proven corrections are
@@ -152,20 +173,15 @@ export function planIdRepairs(input: RepairInput): RepairPlan {
         });
         continue;
       }
-      // Only the junction-box sequence was mis-entered: keep the branch
-      // sequence when it is free under the corrected box, otherwise take the
-      // next free sequence rather than colliding.
-      let seq = Number(encoded.branch);
-      let next = `${expectedPrefix}${String(seq).padStart(2, "0")}`;
-      while (taken.has(next.toUpperCase())) {
-        seq += 1;
-        if (seq > 99) break;
-        next = `${expectedPrefix}${String(seq).padStart(2, "0")}`;
-      }
+      // Only the junction-box sequence was mis-entered. The installed physical
+      // label keeps its own branch sequence, so the corrected ID is exact — it
+      // is never bumped to another sequence. If that exact ID is already in use
+      // by a different record, stop and report instead of guessing.
+      const next = `${expectedPrefix}${String(Number(encoded.branch)).padStart(2, "0")}`;
       if (taken.has(next.toUpperCase())) {
         blocked.push({
           stable_id: was,
-          reason: `No free branch sequence remains under ${parent}.`,
+          reason: `${next} is already in use by another branch run. Confirm the installed labels for both records before any ID change.`,
         });
         continue;
       }
@@ -175,9 +191,70 @@ export function planIdRepairs(input: RepairInput): RepairPlan {
     }
   }
 
-  return { refs, branchIds, blocked };
+  // Propagate corrected branch stable IDs into dependent text references. The
+  // record itself is renamed in place — same UUID, same relational parent.
+  const renamed = new Map<string, string>();
+  for (const r of branchIds) renamed.set(r.was.toUpperCase(), r.now);
+  const dependents: DependentRefRepair[] = [];
+  if (renamed.size) {
+    const scan: { table: string; rows: Row[]; stableField: string; fields: string[] }[] = [
+      {
+        table: "electrical_raceways",
+        rows: input.raceways,
+        stableField: "conduit_id",
+        fields: ["source_endpoint_ref", "dest_endpoint_ref"],
+      },
+      {
+        table: "electrical_branch_runs",
+        rows: input.branches,
+        stableField: "branch_id",
+        fields: ["source_endpoint_ref", "dest_endpoint_ref"],
+      },
+      {
+        table: "electrical_feeders",
+        rows: input.feeders ?? [],
+        stableField: "feeder_id",
+        fields: ["source_endpoint_ref", "dest_endpoint_ref", "raceway_ref"],
+      },
+      {
+        table: "electrical_labels",
+        rows: input.labels ?? [],
+        stableField: "entity_stable_id",
+        fields: ["entity_stable_id"],
+      },
+      {
+        table: "electrical_panel_exits",
+        rows: input.exits ?? [],
+        stableField: "raceway_ref",
+        fields: ["raceway_ref"],
+      },
+    ];
+    for (const group of scan) {
+      for (const row of group.rows) {
+        for (const field of group.fields) {
+          const current = s(row[field]);
+          if (!current) continue;
+          const now = renamed.get(current.toUpperCase());
+          if (!now || now === current) continue;
+          dependents.push({
+            table: group.table,
+            id: s(row["id"]),
+            field,
+            stable_id: s(row[group.stableField]) || s(row["id"]),
+            was: current,
+            now,
+          });
+        }
+      }
+    }
+  }
+
+  return { refs, branchIds, dependents, blocked };
 }
 
 export function repairPlanIsEmpty(plan: RepairPlan): boolean {
-  return plan.refs.length === 0 && plan.branchIds.length === 0;
+  return (
+    plan.refs.length === 0 && plan.branchIds.length === 0 && plan.dependents.length === 0
+  );
 }
+
