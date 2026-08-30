@@ -8,6 +8,7 @@ import {
   checkStableId,
   completionFromStatus,
   mergeLegacyStatusNote,
+  mergeOdsExtras,
   normalizeInstallStatus,
   ODS_EXTRAS_FIELD,
   ODS_EXTRAS_SOURCE_KEY,
@@ -249,8 +250,8 @@ export const previewOdsPreservation = createServerFn({ method: "POST" })
         existing.set(String(r[def.stableIdField] ?? "").trim(), r);
       }
       for (const row of mapped.rows) {
-        const next = row.values[ODS_EXTRAS_FIELD];
-        if (!next) continue;
+        const captured = row.values[ODS_EXTRAS_FIELD];
+        if (!captured) continue;
         const record = existing.get(row.stableId.trim());
         if (!record) {
           missing.push({ sheet: sheet.name, stable_id: row.stableId });
@@ -259,6 +260,8 @@ export const previewOdsPreservation = createServerFn({ method: "POST" })
         const was = typeof record[ODS_EXTRAS_FIELD] === "string"
           ? (record[ODS_EXTRAS_FIELD] as string)
           : "";
+        // Additive: already-preserved keys from other worksheets are kept.
+        const next = mergeOdsExtras(was, captured) ?? captured;
         if (was === next) {
           alreadyPreserved++;
           continue;
