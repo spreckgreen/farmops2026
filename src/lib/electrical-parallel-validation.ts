@@ -631,9 +631,10 @@ export function runParallelComparison(input: ValidationInput): ValidationReport 
         farmops_field: preserved ? ODS_EXTRAS_FIELD : null,
         farmops_value: preserved ? samples.map((s) => s.value).join(" | ") : "",
         authority: "engineering_design",
-        classification: explained || preserved ? "EXPECTED_TRANSFORMATION" : "LOSS",
+        classification,
         rules: preserved ? ["verbatim_preservation"] : [],
         root_cause: rootCause,
+        loss_diagnostic,
         note:
           (explained
             ? `Mapping ${mapped!.classification}: ${mapped!.transformation}`
