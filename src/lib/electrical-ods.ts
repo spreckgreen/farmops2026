@@ -701,7 +701,14 @@ export function mapSheet(
       targets.find((t) => norm(t) === n) ??
       targets.find((t) => norm(t).replace(/ (ft|a|va)$/, "") === n) ??
       null;
-    if (!target || used.has(target)) return { source, target: null };
+    // The lossless-capture column is never bound to a worksheet header: the
+    // importer fills it from the columns that bind to nothing.
+    if (target === ODS_EXTRAS_FIELD) return { source, target: null };
+    if (!target) return { source, target: null };
+    // Two headers meaning the same FarmOps column: the first wins, and the
+    // second is reported as a collision rather than vanishing silently. Its
+    // values are still preserved verbatim in the lossless-capture column.
+    if (used.has(target)) return { source, target: null, collidedWith: target };
     used.add(target);
     // A kVA-headed column feeding a VA column is scaled once, here, so the
     // stored engineering value keeps the canonical magnitude.
@@ -717,9 +724,15 @@ export function mapSheet(
     const raw = sheet.rows[i];
     if (!raw.some((c) => c.trim())) continue;
     const values: Record<string, string> = {};
+    // Phase 4.4a: canonical columns with no dedicated FarmOps field are kept
+    // verbatim under their exact workbook header instead of being dropped.
+    const extras: Record<string, string> = {};
     columns.forEach((col, idx) => {
-      if (!col.target) return;
       const v = (raw[idx] ?? "").trim();
+      if (!col.target) {
+        if (v && col.source.trim()) extras[col.source.trim()] = v;
+        return;
+      }
       if (!v) return;
       if (col.scale) {
         const n = Number(v.replace(/,/g, "").replace(/[^0-9.\-]/g, ""));
@@ -754,8 +767,14 @@ export function mapSheet(
         values["grid"] = g.value;
       }
     }
+    if (Object.keys(extras).length && targets.includes(ODS_EXTRAS_FIELD)) {
+      values[ODS_EXTRAS_FIELD] = JSON.stringify(
+        Object.fromEntries(Object.keys(extras).sort().map((k) => [k, extras[k]!])),
+      );
+    }
     rows.push({ values, stableId, sourceRow: i + 1 });
   }
+
 
   return { sheet: sheet.name, kind, headerRow, columns, rows, skipped, rejected };
 }
