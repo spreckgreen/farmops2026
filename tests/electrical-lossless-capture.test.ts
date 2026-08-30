@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ODS_EXTRAS_FIELD, isValidStableId } from "@/lib/electrical";
+import { ODS_EXTRAS_FIELD, checkStableId } from "@/lib/electrical";
 import { ENTITIES, importColumns, writableColumns } from "@/lib/electrical-entities";
 import { mapSheet } from "@/lib/electrical-ods";
 import { FIELD_MAP } from "@/lib/electrical-field-map";
@@ -98,7 +98,7 @@ describe("Phase 4.4a — lossless capture of canonical columns", () => {
         ],
       }),
     );
-    const rec = r.records.find((x) => x.ods_field === "Harmonic Distortion Factor")!;
+    const rec = r.records.find((x) => x.ods_column === "Harmonic Distortion Factor")!;
     expect(rec.classification).toBe("EXPECTED_TRANSFORMATION");
     expect(rec.root_cause).toBe("documented_verbatim_preservation_in_ods_extras");
     expect(rec.farmops_field).toBe(ODS_EXTRAS_FIELD);
@@ -151,9 +151,13 @@ describe("Phase 4.4a — lossless capture of canonical columns", () => {
   });
 
   it("keeps CON-### canonical and refuses new EMT-### raceway IDs", () => {
-    expect(isValidStableId("raceway", "CON-104")).toBe(true);
-    expect(isValidStableId("raceway", "EMT-104", { allowLegacy: true })).toBe(true);
-    expect(isValidStableId("raceway", "EMT-104")).toBe(false);
+    expect(checkStableId("raceway", "CON-104").ok).toBe(true);
+    // Pre-existing EMT records stay readable and are never renamed...
+    expect(checkStableId("raceway", "EMT-104", { mode: "existing" }).ok).toBe(true);
+    // ...but a new EMT-### raceway ID cannot be created.
+    const created = checkStableId("raceway", "EMT-104", { mode: "create" });
+    expect(created.ok).toBe(false);
+    expect(created.error).toContain("CON-###");
   });
 });
 
