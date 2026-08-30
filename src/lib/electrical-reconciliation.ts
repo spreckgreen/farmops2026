@@ -42,7 +42,6 @@ export const PRE_4_4A_BASELINE: ReconciliationBaseline = {
     CONFLICT: 203,
     LOSS: 67,
     INCOMPLETE: 111,
-    UNKNOWN: 0,
   },
 };
 
