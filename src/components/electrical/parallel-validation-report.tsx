@@ -31,7 +31,12 @@ import {
 import {
   booleanDiagnostics,
   booleanDiagnosticsCsv,
+  booleanRecordCsv,
+  categoryACorrectionPlan,
+  correctionPlanCsv,
 } from "@/lib/electrical-boolean-diagnostics";
+import { previewBooleanCorrection } from "@/lib/electrical-boolean-correction.functions";
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
