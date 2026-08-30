@@ -76,6 +76,7 @@ export type ElectricalEntityKind =
   | "load"
   | "circuit_group"
   | "panel"
+  | "feeder"
   | "raceway"
   | "jbox"
   | "branch";
