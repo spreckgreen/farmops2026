@@ -17,6 +17,34 @@ export interface StandardEntry {
   sort_order: number;
 }
 
+const INFRA_KINDS: readonly InfrastructureKind[] = ["rack", "power_asset", "device"];
+
+/**
+ * Render the infrastructure naming standard straight out of the shared module:
+ * shapes, examples, token meanings and controlled vocabularies all come from
+ * `INFRASTRUCTURE_ID_STANDARDS`, never from prose duplicated here.
+ */
+export function infrastructureIdStandardsBody(): string {
+  const lines: string[] = [];
+  for (const kind of INFRA_KINDS) {
+    const std = INFRASTRUCTURE_ID_STANDARDS[kind];
+    for (const format of std.formats) {
+      lines.push(`${format.name} ${format.shape} (${format.examples.join(", ")}).`);
+      for (const token of format.tokens) {
+        if (!token.token.startsWith("<")) continue;
+        lines.push(`  ${token.token} — ${token.meaning}.`);
+      }
+    }
+    lines.push(`  ${std.stabilityNote}`);
+    for (const legacy of std.legacyFormats ?? []) {
+      lines.push(
+        `  Legacy ${legacy.shape} remains valid on records that already exist and is refused for new records.`,
+      );
+    }
+  }
+  return lines.join("\n");
+}
+
 export const BUILT_IN_STANDARDS: readonly StandardEntry[] = [
   {
     key: "id_formats",
