@@ -57,6 +57,7 @@ import { Route as FoodIrrigationRouteImport } from './routes/food.irrigation'
 import { Route as FoodGardenRouteImport } from './routes/food.garden'
 import { Route as FoodCropsRouteImport } from './routes/food.crops'
 import { Route as ElectricalStandardsRouteImport } from './routes/electrical.standards'
+import { Route as ElectricalSorRouteImport } from './routes/electrical.sor'
 import { Route as ElectricalQaRouteImport } from './routes/electrical.qa'
 import { Route as ElectricalImportRouteImport } from './routes/electrical.import'
 import { Route as ElectricalExportRouteImport } from './routes/electrical.export'
@@ -326,6 +327,11 @@ const ElectricalStandardsRoute = ElectricalStandardsRouteImport.update({
   path: '/electrical/standards',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ElectricalSorRoute = ElectricalSorRouteImport.update({
+  id: '/electrical/sor',
+  path: '/electrical/sor',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ElectricalQaRoute = ElectricalQaRouteImport.update({
   id: '/electrical/qa',
   path: '/electrical/qa',
@@ -501,6 +507,7 @@ export interface FileRoutesByFullPath {
   '/electrical/export': typeof ElectricalExportRoute
   '/electrical/import': typeof ElectricalImportRoute
   '/electrical/qa': typeof ElectricalQaRoute
+  '/electrical/sor': typeof ElectricalSorRoute
   '/electrical/standards': typeof ElectricalStandardsRoute
   '/food/crops': typeof FoodCropsRoute
   '/food/garden': typeof FoodGardenRoute
@@ -575,6 +582,7 @@ export interface FileRoutesByTo {
   '/electrical/export': typeof ElectricalExportRoute
   '/electrical/import': typeof ElectricalImportRoute
   '/electrical/qa': typeof ElectricalQaRoute
+  '/electrical/sor': typeof ElectricalSorRoute
   '/electrical/standards': typeof ElectricalStandardsRoute
   '/food/crops': typeof FoodCropsRoute
   '/food/garden': typeof FoodGardenRoute
@@ -653,6 +661,7 @@ export interface FileRoutesById {
   '/electrical/export': typeof ElectricalExportRoute
   '/electrical/import': typeof ElectricalImportRoute
   '/electrical/qa': typeof ElectricalQaRoute
+  '/electrical/sor': typeof ElectricalSorRoute
   '/electrical/standards': typeof ElectricalStandardsRoute
   '/food/crops': typeof FoodCropsRoute
   '/food/garden': typeof FoodGardenRoute
@@ -732,6 +741,7 @@ export interface FileRouteTypes {
     | '/electrical/export'
     | '/electrical/import'
     | '/electrical/qa'
+    | '/electrical/sor'
     | '/electrical/standards'
     | '/food/crops'
     | '/food/garden'
@@ -806,6 +816,7 @@ export interface FileRouteTypes {
     | '/electrical/export'
     | '/electrical/import'
     | '/electrical/qa'
+    | '/electrical/sor'
     | '/electrical/standards'
     | '/food/crops'
     | '/food/garden'
@@ -883,6 +894,7 @@ export interface FileRouteTypes {
     | '/electrical/export'
     | '/electrical/import'
     | '/electrical/qa'
+    | '/electrical/sor'
     | '/electrical/standards'
     | '/food/crops'
     | '/food/garden'
@@ -961,6 +973,7 @@ export interface RootRouteChildren {
   ElectricalExportRoute: typeof ElectricalExportRoute
   ElectricalImportRoute: typeof ElectricalImportRoute
   ElectricalQaRoute: typeof ElectricalQaRoute
+  ElectricalSorRoute: typeof ElectricalSorRoute
   ElectricalStandardsRoute: typeof ElectricalStandardsRoute
   NotesDateRoute: typeof NotesDateRoute
   SettingsSelfHostRoute: typeof SettingsSelfHostRoute
@@ -1319,6 +1332,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ElectricalStandardsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/electrical/sor': {
+      id: '/electrical/sor'
+      path: '/electrical/sor'
+      fullPath: '/electrical/sor'
+      preLoaderRoute: typeof ElectricalSorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/electrical/qa': {
       id: '/electrical/qa'
       path: '/electrical/qa'
@@ -1638,6 +1658,7 @@ const rootRouteChildren: RootRouteChildren = {
   ElectricalExportRoute: ElectricalExportRoute,
   ElectricalImportRoute: ElectricalImportRoute,
   ElectricalQaRoute: ElectricalQaRoute,
+  ElectricalSorRoute: ElectricalSorRoute,
   ElectricalStandardsRoute: ElectricalStandardsRoute,
   NotesDateRoute: NotesDateRoute,
   SettingsSelfHostRoute: SettingsSelfHostRoute,
