@@ -64,6 +64,7 @@ export const runElectricalParallelValidation = createServerFn({ method: "POST" }
           const populatedRows = bodyRows.filter((row) => (row[idx] ?? "").trim() !== "");
           return {
             column: col.source.trim(),
+            collidedWith: col.collidedWith,
             populated: populatedRows.length > 0,
             populatedRows: populatedRows.length,
             samples: populatedRows.slice(0, 5).map((row) => ({

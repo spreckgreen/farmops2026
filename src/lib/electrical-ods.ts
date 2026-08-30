@@ -5,7 +5,7 @@
 // The canonical ODS stays the engineering release authority: this import is
 // always a reviewable dry run first, and it never destructively merges raceway
 // segments — merges are proposed, never applied automatically.
-import type { ElectricalEntityKind } from "@/lib/electrical";
+import { ODS_EXTRAS_FIELD, type ElectricalEntityKind } from "@/lib/electrical";
 import { classifyGrid } from "@/lib/electrical-grid";
 
 export type Sheet = { name: string; rows: string[][] };
@@ -205,7 +205,7 @@ export interface SheetImport {
   sheet: string;
   kind: ElectricalEntityKind | null;
   headerRow: number;
-  columns: { source: string; target: string | null; scale?: number }[];
+  columns: { source: string; target: string | null; scale?: number; collidedWith?: string }[];
   rows: MappedRow[];
   skipped: number;
   /** Cells refused because the value cannot belong to that column. */
@@ -349,7 +349,232 @@ const KIND_ALIASES: Partial<Record<ElectricalEntityKind, Record<string, string>>
     "backup eligible": "backup_eligible",
     "backup priority": "backup_priority",
     "load shed group": "load_shed_group",
+    dedicated: "dedicated",
+    "dedicated circuit": "dedicated",
+    phase: "phase",
+    "load count": "count",
+    qty: "count",
+    quantity: "count",
+    "backup panel": "backup_panel",
+    "generator panel": "backup_panel",
+    notes: "notes",
+    remarks: "notes",
+    comments: "notes",
+    status: "install_status",
+    "install status": "install_status",
   },
+
+  // Phase 4.4a: the canonical Feeders / Conduit_Runs / J-Box / Branch /
+  // Circuit_Groups worksheets previously relied on the shared alias table
+  // alone, so sheet-specific engineering headers bound to nothing and were
+  // reported as semantic LOSS. These per-sheet aliases are the importer fix.
+  feeder: {
+    "feeder id": "feeder_id",
+    feeder: "feeder_id",
+    "feeder tag": "feeder_id",
+    description: "description",
+    "feeder description": "description",
+    from: "source_endpoint_ref",
+    "from panel": "source_endpoint_ref",
+    "source panel": "source_endpoint_ref",
+    source: "source_endpoint_ref",
+    to: "dest_endpoint_ref",
+    "to panel": "dest_endpoint_ref",
+    "fed panel": "dest_endpoint_ref",
+    destination: "dest_endpoint_ref",
+    "serves panel": "dest_endpoint_ref",
+    "conduit id": "raceway_ref",
+    raceway: "raceway_ref",
+    "raceway id": "raceway_ref",
+    "service type": "service_type",
+    service: "service_type",
+    "conductor material": "conductor_material",
+    material: "conductor_material",
+    "conductor size": "conductor_size",
+    "wire size": "conductor_size",
+    awg: "conductor_size",
+    "conductor count": "conductor_count",
+    conductors: "conductor_count",
+    neutral: "neutral_conductor",
+    "neutral conductor": "neutral_conductor",
+    ground: "ground_conductor",
+    "ground conductor": "ground_conductor",
+    egc: "ground_conductor",
+    "equipment grounding conductor": "ground_conductor",
+    voltage: "voltage",
+    volts: "voltage",
+    phase: "phase",
+    ampacity: "ampacity_amps",
+    "conductor ampacity": "ampacity_amps",
+    "ampacity amps": "ampacity_amps",
+    ocp: "ocp_rating_amps",
+    "ocp rating": "ocp_rating_amps",
+    "ocp amps": "ocp_rating_amps",
+    "overcurrent rating": "ocp_rating_amps",
+    breaker: "ocp_rating_amps",
+    "breaker size": "ocp_rating_amps",
+    "ocp type": "ocp_type",
+    "overcurrent device": "ocp_type",
+    "demand basis": "demand_basis",
+    "demand va": "demand_va",
+    "length ft": "planned_length_ft",
+    length: "planned_length_ft",
+    "planned length": "planned_length_ft",
+    "measured length": "measured_length_ft",
+    "backup class": "backup_class",
+    "generator class": "backup_class",
+    critical: "critical",
+    future: "future",
+    status: "install_status",
+    "install status": "install_status",
+    notes: "notes",
+    remarks: "notes",
+    comments: "notes",
+  },
+
+  raceway: {
+    "conduit id": "conduit_id",
+    conduit: "conduit_id",
+    "raceway id": "conduit_id",
+    description: "description",
+    "run description": "description",
+    "route group": "route_group",
+    "raceway type": "raceway_type",
+    "conduit type": "raceway_type",
+    type: "raceway_type",
+    "source building": "source_building",
+    "destination building": "dest_building",
+    "dest building": "dest_building",
+    "source grid": "source_grid",
+    "destination grid": "dest_grid",
+    "dest grid": "dest_grid",
+    "exit order": "exit_order",
+    "exit side": "exit_side",
+    "exit position": "exit_side",
+    "exit notes": "exit_notes",
+    "circuit refs": "circuit_refs",
+    "conductor refs": "circuit_refs",
+    circuits: "circuit_refs",
+    spare: "spare",
+    "spare capacity": "spare",
+    reserve: "spare",
+  },
+
+  jbox: {
+    "jbox id": "jbox_id",
+    "j box id": "jbox_id",
+    "junction box id": "jbox_id",
+    jbox: "jbox_id",
+    "junction box": "jbox_id",
+    description: "description",
+    building: "building",
+    "building location": "building",
+    location: "building",
+    grid: "grid",
+    "grid ref": "grid",
+    "elevation zone": "elevation_zone",
+    elevation: "elevation_zone",
+    zone: "elevation_zone",
+    "box type": "box_type",
+    type: "box_type",
+    dimensions: "dimensions",
+    size: "dimensions",
+    "box size": "dimensions",
+    status: "install_status",
+    "install status": "install_status",
+    notes: "notes",
+    remarks: "notes",
+    comments: "notes",
+  },
+
+  branch: {
+    "branch id": "branch_id",
+    branch: "branch_id",
+    "branch circuit id": "branch_id",
+    from: "source_endpoint_ref",
+    "from panel": "source_endpoint_ref",
+    source: "source_endpoint_ref",
+    to: "dest_endpoint_ref",
+    "to load": "dest_endpoint_ref",
+    destination: "dest_endpoint_ref",
+    load: "dest_endpoint_ref",
+    "load id": "dest_endpoint_ref",
+    "wiring method": "wiring_method",
+    method: "wiring_method",
+    "cable type": "cable_type",
+    cable: "cable_type",
+    "conductor type": "cable_type",
+    "conductor size": "conductor_size",
+    "wire size": "conductor_size",
+    awg: "conductor_size",
+    "conductor count": "conductor_count",
+    conductors: "conductor_count",
+    ground: "ground_conductor",
+    "ground conductor": "ground_conductor",
+    egc: "ground_conductor",
+    voltage: "voltage",
+    volts: "voltage",
+    "circuit rating": "circuit_rating_amps",
+    "circuit rating amps": "circuit_rating_amps",
+    breaker: "circuit_rating_amps",
+    "breaker size": "circuit_rating_amps",
+    amps: "circuit_rating_amps",
+    "length ft": "planned_length_ft",
+    length: "planned_length_ft",
+    "planned length": "planned_length_ft",
+    "measured length": "measured_length_ft",
+    "path notes": "path_notes",
+    "grid path": "path_notes",
+    routing: "path_notes",
+    status: "install_status",
+    "install status": "install_status",
+    notes: "notes",
+    remarks: "notes",
+    comments: "notes",
+  },
+
+  circuit_group: {
+    "circuit group id": "circuit_group_id",
+    "circuit group": "circuit_group_id",
+    "circuit id": "circuit_group_id",
+    "circuit group description": "description",
+    description: "description",
+    serves: "description",
+    "suggested panel": "suggested_panel",
+    "proposed panel": "suggested_panel",
+    panel: "suggested_panel",
+    "breaker number": "breaker_number",
+    breaker: "breaker_number",
+    "breaker no": "breaker_number",
+    "circuit number": "breaker_number",
+    "breaker position": "breaker_position",
+    position: "breaker_position",
+    "circuit rating": "circuit_rating_amps",
+    "circuit rating amps": "circuit_rating_amps",
+    "breaker size": "circuit_rating_amps",
+    amps: "circuit_rating_amps",
+    voltage: "voltage",
+    volts: "voltage",
+    phase: "phase",
+    "demand basis": "demand_basis",
+    "demand va": "demand_va",
+    "continuous load": "continuous_load",
+    continuous: "continuous_load",
+    critical: "critical",
+    "backup eligible": "backup_eligible",
+    "backup priority": "backup_priority",
+    "backup panel": "backup_panel",
+    "load shed group": "load_shed_group",
+    "generator start class": "generator_start_class",
+    "generator start amps": "generator_start_amps",
+    status: "install_status",
+    "install status": "install_status",
+    notes: "notes",
+    remarks: "notes",
+    comments: "notes",
+  },
+
+
 
   panel: {
     panel: "panel_id",
@@ -476,7 +701,14 @@ export function mapSheet(
       targets.find((t) => norm(t) === n) ??
       targets.find((t) => norm(t).replace(/ (ft|a|va)$/, "") === n) ??
       null;
-    if (!target || used.has(target)) return { source, target: null };
+    // The lossless-capture column is never bound to a worksheet header: the
+    // importer fills it from the columns that bind to nothing.
+    if (target === ODS_EXTRAS_FIELD) return { source, target: null };
+    if (!target) return { source, target: null };
+    // Two headers meaning the same FarmOps column: the first wins, and the
+    // second is reported as a collision rather than vanishing silently. Its
+    // values are still preserved verbatim in the lossless-capture column.
+    if (used.has(target)) return { source, target: null, collidedWith: target };
     used.add(target);
     // A kVA-headed column feeding a VA column is scaled once, here, so the
     // stored engineering value keeps the canonical magnitude.
@@ -492,9 +724,15 @@ export function mapSheet(
     const raw = sheet.rows[i];
     if (!raw.some((c) => c.trim())) continue;
     const values: Record<string, string> = {};
+    // Phase 4.4a: canonical columns with no dedicated FarmOps field are kept
+    // verbatim under their exact workbook header instead of being dropped.
+    const extras: Record<string, string> = {};
     columns.forEach((col, idx) => {
-      if (!col.target) return;
       const v = (raw[idx] ?? "").trim();
+      if (!col.target) {
+        if (v && col.source.trim()) extras[col.source.trim()] = v;
+        return;
+      }
       if (!v) return;
       if (col.scale) {
         const n = Number(v.replace(/,/g, "").replace(/[^0-9.\-]/g, ""));
@@ -529,8 +767,14 @@ export function mapSheet(
         values["grid"] = g.value;
       }
     }
+    if (Object.keys(extras).length && targets.includes(ODS_EXTRAS_FIELD)) {
+      values[ODS_EXTRAS_FIELD] = JSON.stringify(
+        Object.fromEntries(Object.keys(extras).sort().map((k) => [k, extras[k]!])),
+      );
+    }
     rows.push({ values, stableId, sourceRow: i + 1 });
   }
+
 
   return { sheet: sheet.name, kind, headerRow, columns, rows, skipped, rejected };
 }

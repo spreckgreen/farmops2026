@@ -238,3 +238,54 @@ planning extensions. They have no canonical ODS counterpart, are never added to
 the Phase 4.4 report as `FARMOPS_AS_BUILT_ADDITION` with FarmOps-only category
 **B — valid schema enrichment**. `SOR_AUTHORITY` remains `canonical_ods` and the
 project stays in Phase 4.4a.
+
+## Phase 4.4a continuation — closing the semantic-loss gate
+
+The canonical workbook is never modified. `SOR_AUTHORITY = canonical_ods`,
+snapshot schema stays `1.2`, and no Phase 4.5 / cutover work is performed.
+
+### LOSS root-cause groups and corrections
+
+| Root cause group | Correction |
+| --- | --- |
+| `importer_omission_alias_missing` — sheet-specific engineering headers on Feeders, Conduit_Runs, J-Boxes, Branch_Circuits and Circuit_Groups bound to nothing because only Load_Master and Panel_Schedule had per-sheet aliases | Added per-kind header aliases for those five worksheets (`KIND_ALIASES` in `src/lib/electrical-ods.ts`) |
+| `duplicate_header_collision_importer_defect` — two workbook headers meaning the same FarmOps column: the second was silently dropped | `mapSheet` now reports the collision (`columns[].collidedWith`) and the losing column's values are preserved verbatim |
+| `missing_mapping_no_farmops_destination` — a populated canonical column with no dedicated FarmOps field | New lossless-capture column `ods_extras` on the seven ODS-backed tables stores the value verbatim, keyed by its exact workbook header |
+
+### Lossless capture (`ods_extras`)
+
+- Present on `electrical_panels`, `electrical_loads`, `electrical_circuit_groups`,
+  `electrical_feeders`, `electrical_raceways`, `electrical_junction_boxes`,
+  `electrical_branch_runs`.
+- Contains a JSON object: `{"<exact workbook header>": "<verbatim cell text>"}`.
+  No coercion, unit conversion or inference. Read-only in FarmOps (importer
+  writes it; forms never do) and never written back to the workbook.
+- The validator only downgrades such a column from `LOSS` to
+  `EXPECTED_TRANSFORMATION` when the value is **provably** present, byte-for-byte,
+  on the matching stable-ID record (`root_cause =
+  documented_verbatim_preservation_in_ods_extras`). Missing, altered or
+  unparseable capture stays `LOSS`, so failures are not hidden by
+  reclassification.
+- `ods_extras` is excluded from ordinary field-by-field comparison: it is
+  evidence about other columns, not a canonical field of its own.
+
+### FarmOps-native infrastructure (snapshot 1.2)
+
+Equipment racks, power distribution assets, powered devices / power dependencies
+and network links are FarmOps-native (`FARMOPS_NATIVE_KINDS`). They are excluded
+from canonical-ODS equivalence checks and reported as documented infrastructure /
+as-built / planning extensions. `PNL-FS-NET` remains a first-class electrical
+panel and is never converted into a rack or network device.
+
+### Raceway identity
+
+`CON-###` is the canonical raceway stable ID for every raceway type. `EMT`,
+`FLEX`, `PVC` and underground are *raceway types*, not ID namespaces. `EMT-###`
+remains readable for pre-existing records (never renamed), and
+`checkStableId(kind, id, { mode: "create" })` now refuses creation of any new
+`EMT-###` raceway ID.
+
+### Versions
+
+Mapping matrix `1.2`; validation schema and normalization `1.2`; snapshot schema
+unchanged at `1.2`.

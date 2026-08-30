@@ -98,6 +98,16 @@ export const FARMOPS_NATIVE_KINDS = new Set<ElectricalEntityKind>([
 ]);
 
 /**
+ * Phase 4.4a lossless capture column. Every ODS-backed entity carries it: any
+ * populated canonical workbook column that has no dedicated FarmOps field is
+ * stored here verbatim, keyed by its exact workbook header, so canonical
+ * engineering information is preserved instead of reported as semantic loss.
+ * Written only by the workbook import; never hand-edited.
+ */
+export const ODS_EXTRAS_FIELD = "ods_extras";
+
+
+/**
  * Reusable power-distribution equipment types. The type is *data*: a new type
  * never requires a new table, and nothing here is specific to ham radio.
  */
@@ -358,7 +368,17 @@ export function checkLoadId(raw: string): IdCheck {
   };
 }
 
-export function checkStableId(kind: ElectricalEntityKind, raw: string): IdCheck {
+/**
+ * `mode: "create"` refuses legacy-only namespaces outright: `EMT-###` stays
+ * readable for pre-existing raceways (never renamed) but no *new* EMT-### ID
+ * may be created — `CON-###` is the canonical raceway identity for every
+ * raceway type, with EMT/FLEX/PVC recorded as the raceway type instead.
+ */
+export function checkStableId(
+  kind: ElectricalEntityKind,
+  raw: string,
+  opts: { mode?: "create" | "existing" } = {},
+): IdCheck {
   const id = (raw ?? "").trim();
   if (!id) return { ok: false, error: "A stable ID is required." };
   if (/\s/.test(id)) return { ok: false, error: "Stable IDs cannot contain spaces." };
@@ -367,6 +387,12 @@ export function checkStableId(kind: ElectricalEntityKind, raw: string): IdCheck 
   if (!pattern) return { ok: true };
   if (pattern.test(id)) {
     if (kind === "raceway" && id.toUpperCase().startsWith("EMT-")) {
+      if (opts.mode === "create") {
+        return {
+          ok: false,
+          error: `${id} uses the legacy EMT-### namespace, which is compatibility-only for pre-existing records. New raceways must use the canonical ID CON-### for every raceway type — record EMT/FLEX/PVC/underground in Raceway type instead.`,
+        };
+      }
       return {
         ok: true,
         warning: `${id} encodes a raceway material in its stable ID. The canonical raceway ID is CON-### for every raceway type (EMT, FLEX, PVC, underground) — record the construction in Raceway type instead. Existing IDs are never renamed.`,

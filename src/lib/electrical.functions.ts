@@ -131,7 +131,9 @@ export const saveElectrical = createServerFn({ method: "POST" })
 
     const stableId = String(patch[def.stableIdField] ?? "").trim();
     if (!data.id || stableId) {
-      const check = checkStableId(data.kind, stableId);
+      const check = checkStableId(data.kind, stableId, {
+        mode: data.id ? "existing" : "create",
+      });
       if (!check.ok) throw new Error(check.error ?? "Invalid stable ID.");
     }
 
