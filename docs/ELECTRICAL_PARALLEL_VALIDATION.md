@@ -16,6 +16,12 @@ field/as-built authority. Phase 4.5 requires explicit owner authorization.
 
 ## Read-only guarantees
 
+Phase 4.4 is a **reconciliation** phase, never a synchronization phase. Neither
+system may automatically overwrite the other: the canonical ODS stays
+authoritative for engineering design, FarmOps stays authoritative for approved
+field/as-built observations, and every difference crossing that authority
+boundary requires explicit human disposition.
+
 - The workbook is unzipped in memory; only `content.xml` is read. Nothing is
   written back, and no ODS XML is preserved or compared.
 - The comparison reads electrical rows through the existing reconciliation
