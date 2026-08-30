@@ -5,6 +5,11 @@
 // so these canonical entries are used as a fallback and to fill gaps by key.
 // They document convention only — they never change stable IDs or records.
 
+import {
+  INFRASTRUCTURE_ID_STANDARDS,
+  type InfrastructureKind,
+} from "./electrical-infrastructure-standards";
+
 export interface StandardEntry {
   key: string;
   title: string;
@@ -133,6 +138,45 @@ export const BUILT_IN_STANDARDS: readonly StandardEntry[] = [
     sort_order: 80,
   },
   {
+    key: "infrastructure_ids",
+    title: "Infrastructure ID formats — racks, power assets, network and powered devices",
+    body:
+      "Equipment rack RACK-<SITE>-<ROLE>-## (RACK-FS-NET-01, RACK-FS-HAM-01, RACK-PH-NET-01).\n" +
+      "Power distribution asset PWR-<TYPE>-<SITE>-<ROLE>-## (PWR-PDU-FS-NET-01, PWR-PSU-FS-HAM-01, PWR-UPS-FS-NET-01); " +
+      "TYPE is PDU, PSU, UPS, CONV or CHG and is a readability aid — the typed Asset type field stays authoritative.\n" +
+      "Network device NET-<TYPE>-<SITE>-## (NET-SW-FS-01, NET-SW-PH-01); TYPE is SW, RTR, AP, FW, BR or ONT.\n" +
+      "Powered device DEV-<CLASS>-<ROLE>-<SITE>-## (DEV-HAM-RADIO-FS-01, DEV-NET-SERVER-FS-01, DEV-NET-NVR-FS-01).\n" +
+      "SITE is a controlled location code (FS, PH, BLR, HSE, SITE) and ROLE a controlled infrastructure class (NET, HAM, SERVER, AV, CONTROL, SEC).\n" +
+      "The infrastructure ID names the operational role, never the hardware: replacing the physical switch, rack or power " +
+      "supply keeps NET-SW-PH-01, RACK-FS-NET-01 and PWR-PSU-FS-HAM-01 and rebuilds no topology.\n" +
+      "Create a powered-device record only when its power dependency or topology matters operationally — ordinary " +
+      "inventory items do not need an infrastructure record.",
+    sort_order: 92,
+  },
+  {
+    key: "infrastructure_power_topology",
+    title: "Immediate versus upstream power source",
+    body:
+      "Every power asset and device preserves BOTH its immediate power source and its upstream electrical source, so " +
+      "failure domains stay computable:\n" +
+      "PNL-FS-NET → receptacle / circuit → UPS or PDU → switch.\n" +
+      "PNL-FS-NW → 30A branch circuit → PWR-PSU-FS-HAM-01 → DEV-HAM-RADIO-FS-01.\n" +
+      "A rack is not an electrical panel, and a shared DC power supply is not a panel merely because it distributes " +
+      "power. The ham rack is ordinary reusable infrastructure topology (RACK-FS-HAM-01 containing " +
+      "PWR-PSU-FS-HAM-01 plus radio device roles), never a special-case schema.",
+    sort_order: 94,
+  },
+  {
+    key: "infrastructure_asset_linkage",
+    title: "Infrastructure vs Inventory Asset ownership",
+    body:
+      "Racks, power assets and devices expose both \"link an existing FarmOps Asset\" and \"create an Asset and link\". " +
+      "Infrastructure owns the stable ID, role and topology. The linked Inventory Asset remains authoritative for " +
+      "manufacturer, model, serial number, warranty, maintenance and replacement history — never duplicate those " +
+      "lifecycle fields on the infrastructure record.",
+    sort_order: 96,
+  },
+  {
     key: "authority",
     title: "Authority boundary",
     body:
@@ -209,6 +253,19 @@ export const STABLE_ID_REFERENCE: readonly StableIdReferenceRow[] = [
   },
 
 ];
+
+/** Infrastructure reference rows, derived from the centralized standards. */
+export const INFRASTRUCTURE_ID_REFERENCE: readonly StableIdReferenceRow[] = (
+  ["rack", "power_asset", "device"] as InfrastructureKind[]
+).flatMap((kind) => {
+  const std = INFRASTRUCTURE_ID_STANDARDS[kind];
+  return std.formats.map((format) => ({
+    entity: format.name,
+    format: format.shape,
+    example: format.examples[0],
+    notes: std.stabilityNote,
+  }));
+});
 
 /** Merge database rows with the built-in set, preferring stored rows by key. */
 export function mergeStandards(rows: Record<string, unknown>[]): StandardEntry[] {
