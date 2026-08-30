@@ -162,6 +162,21 @@ export const applyOdsImport = createServerFn({ method: "POST" })
 
 
       if (row.existing_id) {
+        // Lossless capture is merged with whatever is already preserved on the
+        // record, never replaced: several canonical worksheets describe the same
+        // record, and an import of one must not erase another's preserved keys.
+        if (patch[ODS_EXTRAS_FIELD] != null) {
+          const { data: current } = await db
+            .from(def.table)
+            .select(ODS_EXTRAS_FIELD)
+            .eq("id", row.existing_id)
+            .maybeSingle();
+          const merged = mergeOdsExtras(
+            (current as Record<string, unknown> | null)?.[ODS_EXTRAS_FIELD],
+            patch[ODS_EXTRAS_FIELD],
+          );
+          if (merged) patch[ODS_EXTRAS_FIELD] = merged;
+        }
         const { error } = await db.from(def.table).update(patch).eq("id", row.existing_id);
         if (error) errors.push({ stable_id: row.stable_id, message: error.message });
         else updated++;
