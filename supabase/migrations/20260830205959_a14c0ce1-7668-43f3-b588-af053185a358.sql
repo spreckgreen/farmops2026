@@ -1,0 +1,18 @@
+ALTER TABLE public.electrical_loads
+  ALTER COLUMN critical DROP NOT NULL, ALTER COLUMN critical DROP DEFAULT,
+  ALTER COLUMN future DROP NOT NULL, ALTER COLUMN future DROP DEFAULT,
+  ALTER COLUMN continuous_load DROP NOT NULL, ALTER COLUMN continuous_load DROP DEFAULT,
+  ALTER COLUMN backup_eligible DROP NOT NULL, ALTER COLUMN backup_eligible DROP DEFAULT,
+  ALTER COLUMN dedicated DROP NOT NULL, ALTER COLUMN dedicated DROP DEFAULT;
+
+ALTER TABLE public.electrical_feeders
+  ALTER COLUMN critical DROP NOT NULL, ALTER COLUMN critical DROP DEFAULT,
+  ALTER COLUMN future DROP NOT NULL, ALTER COLUMN future DROP DEFAULT;
+
+ALTER TABLE public.electrical_circuit_groups
+  ALTER COLUMN critical DROP NOT NULL, ALTER COLUMN critical DROP DEFAULT,
+  ALTER COLUMN continuous_load DROP NOT NULL, ALTER COLUMN continuous_load DROP DEFAULT,
+  ALTER COLUMN backup_eligible DROP NOT NULL, ALTER COLUMN backup_eligible DROP DEFAULT;
+
+ALTER TABLE public.electrical_raceways
+  ALTER COLUMN spare DROP NOT NULL, ALTER COLUMN spare DROP DEFAULT;
