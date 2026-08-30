@@ -690,7 +690,10 @@ export function runParallelComparison(input: ValidationInput): ValidationReport 
       if (!rec) continue;
 
       for (const field of def.fields) {
-        if (field.kind === "entity" || !allowed.has(field.key)) continue;
+        // Relationship links and the Inventory/Asset link are FarmOps-native and
+        // are never compared against the canonical ODS.
+        if (field.kind === "entity" || field.kind === "asset") continue;
+        if (!allowed.has(field.key)) continue;
         // The lossless-capture column is evidence about other columns, not a
         // canonical field of its own: comparing it would double-report.
         if (field.key === ODS_EXTRAS_FIELD) continue;
