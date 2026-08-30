@@ -767,26 +767,43 @@ export function mapSheet(
     // recoverable and duplicate header text cannot overwrite itself.
     const extras: Record<string, string> = {};
     const extrasSource: Record<string, OdsExtrasSource> = {};
+    // One worksheet column, preserved verbatim under a collision-safe key.
+    // A column is keyed with its worksheet column number whenever its header
+    // text repeats on the sheet *or* it collided with a column already bound to
+    // the same FarmOps field, so two different headers meaning the same thing
+    // can never collapse onto one bare-header key.
+    const preserve = (idx: number, value: string, collided: boolean) => {
+      const source = (columns[idx]?.source ?? "").trim();
+      const header = source || `(unnamed column ${idx + 1})`;
+      const key = odsExtrasEntryKey(
+        header,
+        idx,
+        collided || duplicateHeaders.has(norm(header)),
+      );
+      extras[key] = value;
+      extrasSource[key] = { sheet: sheet.name, header, column: idx + 1 };
+    };
+    const scaledColumns: { idx: number; column: string; value: string }[] = [];
     columns.forEach((col, idx) => {
       const v = (raw[idx] ?? "").trim();
+      if (!v) return;
       if (!col.target) {
-        if (!v) return;
-        const header = col.source.trim() || `(unnamed column ${idx + 1})`;
-        const key = odsExtrasEntryKey(header, idx, duplicateHeaders.has(norm(header)));
-        extras[key] = v;
-        extrasSource[key] = { sheet: sheet.name, header, column: idx + 1 };
+        preserve(idx, v, Boolean(col.collidedWith));
         return;
       }
-      if (!v) return;
       if (col.scale) {
         const n = Number(v.replace(/,/g, "").replace(/[^0-9.\-]/g, ""));
         if (Number.isFinite(n)) {
           values[col.target] = String(n * col.scale);
+          // The stored engineering magnitude is a transformation of the
+          // canonical cell, so the original text is preserved verbatim too.
+          scaledColumns.push({ idx, column: col.target, value: v });
           return;
         }
       }
       values[col.target] = v;
     });
+    for (const s of scaledColumns) preserve(s.idx, s.value, false);
 
     const stableId = (values[stableIdField] ?? "").trim();
     if (!stableId) {
