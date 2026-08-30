@@ -103,11 +103,26 @@ function FieldInput({
     );
   }
   if (field.kind === "bool") {
+    // Tri-state: leaving a field "Not stated" stores null instead of forcing
+    // a "no" that the engineering source never said.
+    const current = booleanSelectValue(value);
     return (
-      <label className="flex min-h-10 items-center gap-2 text-sm">
-        <Checkbox checked={Boolean(value)} onCheckedChange={(c) => onChange(Boolean(c))} />
-        {field.label}
-      </label>
+      <div className="space-y-1">
+        <Label className="text-xs">{field.label}</Label>
+        <Select value={current} onValueChange={(v) => onChange(v)}>
+          <SelectTrigger>
+            <SelectValue placeholder="Not stated" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="yes">Yes</SelectItem>
+            <SelectItem value="no">No</SelectItem>
+            <SelectItem value="unknown">Not stated</SelectItem>
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground">
+          {field.hint ?? "Not stated leaves this engineering value unknown."}
+        </p>
+      </div>
     );
   }
   if (field.kind === "textarea") {
