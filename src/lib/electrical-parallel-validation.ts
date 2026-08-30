@@ -404,7 +404,27 @@ export function finalizeRecord(draft: DraftRecord, field?: EntityField): Compari
 }
 
 
+/** Does the mapping matrix already express this FarmOps column? */
+function matrixCoversColumn(table: string, key: string): boolean {
+  const needle = `${table}.${key}`.toLowerCase();
+  return FIELD_MAP.some((r) => r.farmops.toLowerCase().includes(needle));
+}
+
+/**
+ * A FarmOps value that merely repeats the column default carries no
+ * engineering meaning, so it is an import artifact rather than new data.
+ */
+function looksLikeDefaultArtifact(field: EntityField, value: NormalValue): boolean {
+  if (value === false) return true;
+  if (field.kind === "number" && value === 0) return true;
+  if (typeof value === "string" && ["planned", "unknown", "tbd"].includes(value.toLowerCase())) {
+    return true;
+  }
+  return false;
+}
+
 /* ---------------------------------------------------------------- comparing */
+
 
 function emptySummary(): Record<Classification, number> {
   const out = {} as Record<Classification, number>;
