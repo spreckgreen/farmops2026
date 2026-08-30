@@ -598,22 +598,47 @@ export function runParallelComparison(input: ValidationInput): ValidationReport 
     }
   }
   /**
-   * Byte-identical preservation proof for one worksheet column: every sampled
-   * populated ODS cell must be found, unchanged, in that record's capture under
-   * a key whose recorded source identity is this worksheet and header.
+   * Every FarmOps stable ID per collection, so a column whose workbook rows have
+   * no destination record at all is reported at record level rather than as one
+   * capture failure per field.
+   */
+  const idsByCollection = new Map<string, Set<string>>();
+  for (const kind of Object.keys(ENTITIES) as ElectricalEntityKind[]) {
+    const collection = COLLECTION_FOR_KIND[kind];
+    const set = idsByCollection.get(collection) ?? new Set<string>();
+    for (const rec of snapshot[collection] ?? []) {
+      const id = String(rec["stable_id"] ?? "").trim();
+      if (id) set.add(id.toUpperCase());
+    }
+    idsByCollection.set(collection, set);
+  }
+  const recordExists = (collection: string, stableId: string) =>
+    idsByCollection.get(collection)?.has(stableId.trim().toUpperCase()) ?? false;
+  /**
+   * Preservation proof for one worksheet column: every sampled populated ODS
+   * cell must be found in that record's capture under a key whose recorded
+   * source identity is this worksheet and header, with the same engineering
+   * value under the field-aware equality rules (20 == 20.00 == "20").
    */
   const preservedVerbatim = (
     collection: string,
     sheet: string,
     column: string,
     samples: { stableId: string; value: string }[],
-  ): boolean =>
-    samples.length > 0 &&
-    samples.every((s) => {
+  ): { preserved: boolean; rules: string[] } => {
+    if (!samples.length) return { preserved: false, rules: [] };
+    const rules = new Set<string>();
+    const preserved = samples.every((s) => {
       const extras = extrasIndex.get(`${collection}:${s.stableId.trim()}`);
       if (!extras) return false;
-      return preservedOdsValues(extras, sheet, column).includes(s.value);
+      return preservedOdsValues(extras, sheet, column).some((v) => {
+        const eq = capturedValueEquivalent(s.value, v);
+        if (eq.equal) eq.rules.forEach((r) => rules.add(r));
+        return eq.equal;
+      });
     });
+    return { preserved, rules: [...rules] };
+  };
 
   // --- unmapped workbook columns: the semantic-loss detector -----------------
   for (const sheet of input.sheets) {
@@ -630,20 +655,39 @@ export function runParallelComparison(input: ValidationInput): ValidationReport 
       // not bind is an importer omission, not a missing mapping.
       const samples = (col.samples ?? []).slice(0, 5);
       const collection = sheet.kind ? COLLECTION_FOR_KIND[sheet.kind] : sheet.sheet;
-      const preserved = preservedVerbatim(collection, sheet.sheet, col.column, samples);
+      const proof = preservedVerbatim(collection, sheet.sheet, col.column, samples);
+      const preserved = proof.preserved;
+      // Phase 4.4a: when the destination record itself was never populated in
+      // FarmOps, this is a record-level reconciliation finding (ODS_ONLY /
+      // CORRECT_FARMOPS). It is not eight independent capture failures, and the
+      // canonical engineering values stay visible in the report.
+      const missingRecordIds = samples
+        .filter((s) => s.stableId.trim() && !recordExists(collection, s.stableId))
+        .map((s) => s.stableId.trim());
+      const recordAbsent =
+        !explained &&
+        !preserved &&
+        samples.length > 0 &&
+        missingRecordIds.length === samples.length;
       const rootCause = explained
         ? `documented_${mapped!.classification}`
         : preserved
           ? col.collidedWith
             ? "duplicate_header_collision_preserved_verbatim"
             : "documented_verbatim_preservation_in_ods_extras"
-          : col.collidedWith
-            ? "duplicate_header_collision_importer_defect"
-            : mapped
-              ? "importer_omission_alias_missing"
-              : "missing_mapping_no_farmops_destination";
-      const classification: Classification =
-        explained || preserved ? "EXPECTED_TRANSFORMATION" : "LOSS";
+          : recordAbsent
+            ? "record_not_populated_in_farmops"
+            : col.collidedWith
+              ? "duplicate_header_collision_importer_defect"
+              : mapped
+                ? "importer_omission_alias_missing"
+                : "missing_mapping_no_farmops_destination";
+      const classification: Classification = explained || preserved
+        ? "EXPECTED_TRANSFORMATION"
+        : recordAbsent
+          ? "ODS_ONLY"
+          : "LOSS";
+
       // A remaining LOSS must be actionable: name the exact capture key that was
       // expected and what the record actually holds there.
       const preservationKey = odsExtrasEntryKey(
