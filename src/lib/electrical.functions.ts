@@ -25,6 +25,7 @@ import {
 } from "@/lib/electrical-dependents";
 
 import { runIntegrityChecks, integritySummary, type IntegrityFinding } from "@/lib/electrical-integrity";
+import { planIdRepairs, type Row as RepairRow } from "@/lib/electrical-id-repair";
 
 import { collectTopology, topologyLookups } from "@/lib/electrical-topology";
 import {
@@ -403,7 +404,7 @@ export const deleteElectrical = createServerFn({ method: "POST" })
 
 /**
  * Suggest the next hierarchical ID. `parentId` makes the suggestion relational:
- * an EMT path (EMT-104) yields the next junction box (JB-104-03), and a junction
+ * a raceway path (CON-104) yields the next junction box (JB-104-03), and a junction
  * box (JB-104-02) yields the next branch from that box (BR-104-02-05).
  */
 export const suggestStableId = createServerFn({ method: "GET" })
@@ -833,3 +834,60 @@ export const normalizeLegacyStatuses = createServerFn({ method: "POST" })
     return { applied: data.apply, proposed, fixed, errors };
   });
 
+
+/**
+ * Phase 4.2 topology repair: propagate corrected junction-box stable IDs
+ * (JB-105 -> JB-105-01) into the stale dependent data that still spells the
+ * old, unsuffixed name — legacy endpoint reference text and branch-run stable
+ * IDs whose encoded junction-box sequence reflects the mis-entered box.
+ *
+ * Preview-first by default. The relational parent is authoritative: corrected
+ * junction-box IDs are never reverted to satisfy validation, records are updated
+ * in place (never deleted or recreated), and anything ambiguous is reported
+ * blocked instead of guessed.
+ */
+export const repairEncodedTopology = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ apply: z.boolean().default(false) }).parse(d ?? {}))
+  .handler(async ({ context, data }) => {
+    await requireAddon(context.supabase, context.userId, "electrical");
+    const db = context.supabase as unknown as LooseDb;
+    const load = async (table: string) => {
+      const { data: rows, error } = await db.from(table).select("*");
+      if (error) throw new Error(error.message);
+      return (rows ?? []) as RepairRow[];
+    };
+    const [raceways, jboxes, panels, branches] = await Promise.all([
+      load("electrical_raceways"),
+      load("electrical_junction_boxes"),
+      load("electrical_panels"),
+      load("electrical_branch_runs"),
+    ]);
+    const plan = planIdRepairs({ raceways, jboxes, panels, branches });
+    const errors: { stable_id: string; message: string }[] = [];
+    const applied: string[] = [];
+    if (data.apply) {
+      // Branch IDs first so the refreshed reference text lands on final IDs.
+      for (const repair of plan.branchIds) {
+        const { error } = await db
+          .from("electrical_branch_runs")
+          .update({ branch_id: repair.now })
+          .eq("id", repair.id);
+        if (error) errors.push({ stable_id: repair.was, message: error.message });
+        else applied.push(`${repair.was} -> ${repair.now}`);
+      }
+      for (const repair of plan.refs) {
+        const table =
+          repair.stable_id.toUpperCase().startsWith("BR-")
+            ? "electrical_branch_runs"
+            : "electrical_raceways";
+        const { error } = await db
+          .from(table)
+          .update({ [repair.field]: repair.now })
+          .eq("id", repair.id);
+        if (error) errors.push({ stable_id: repair.stable_id, message: error.message });
+        else applied.push(`${repair.stable_id}.${repair.field}: ${repair.was} -> ${repair.now}`);
+      }
+    }
+    return { applied: data.apply, plan, changes: applied, errors };
+  });

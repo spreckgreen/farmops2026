@@ -10,6 +10,7 @@ import {
   electricalIntegrityReport,
   normalizeLegacyStatuses,
 } from "@/lib/electrical.functions";
+import { IdRepairReport } from "@/components/electrical/id-repair-report";
 import { RefAuditReport } from "@/components/electrical/ref-audit-report";
 import { GridAuditReport } from "@/components/electrical/grid-audit-report";
 import { LoadCompareReport } from "@/components/electrical/load-compare-report";
@@ -52,6 +53,7 @@ function QaPage() {
       <div className="space-y-3">
         <GridAuditReport />
         <LoadCompareReport />
+        <IdRepairReport />
         <RefAuditReport />
         <QaReport />
       </div>

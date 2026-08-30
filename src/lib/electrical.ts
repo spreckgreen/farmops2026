@@ -111,9 +111,13 @@ const ID_PATTERNS: Record<ElectricalEntityKind, RegExp | null> = {
   // Feeders: FDR-### is the FarmOps convention. Feeder rows imported from the
   // canonical workbook keep whatever ID they were released with.
   feeder: /^FDR-\d{3}$/,
-  // Raceways: EMT-### is the current convention. CON-### is the pre-existing
-  // ODS-derived convention and stays valid — stable IDs are never renamed.
-  raceway: /^(EMT|CON)-\d{3,}$/,
+  // Raceways: CON-### is the canonical stable ID for EVERY raceway type. The
+  // construction (EMT, FLEX/FMC/LFMC, PVC, underground, sleeve, …) is the typed
+  // `raceway_type` attribute and is never encoded into the identity, so a
+  // planned EMT run that is installed as flex keeps its CON-### ID. EMT-###
+  // remains accepted only because records created under the short-lived
+  // EMT-### rule are never renamed.
+  raceway: /^(CON|EMT)-\d{3,}$/,
   // Hierarchical convention: a junction box encodes its raceway path, and a
   // branch encodes its raceway path plus the junction box it originates from.
   jbox: /^JB-\d{3}-\d{2}$/,
@@ -129,7 +133,7 @@ const LEGACY_ID_PATTERNS: Partial<Record<ElectricalEntityKind, RegExp>> = {
 };
 
 export const HIERARCHICAL_ID_SHAPES: Record<string, string> = {
-  raceway: "EMT-###",
+  raceway: "CON-###",
   jbox: "JB-###-##",
   branch: "BR-###-##-##",
   feeder: "FDR-###",
@@ -272,10 +276,10 @@ export function checkStableId(kind: ElectricalEntityKind, raw: string): IdCheck 
   const pattern = ID_PATTERNS[kind];
   if (!pattern) return { ok: true };
   if (pattern.test(id)) {
-    if (kind === "raceway" && id.toUpperCase().startsWith("CON-")) {
+    if (kind === "raceway" && id.toUpperCase().startsWith("EMT-")) {
       return {
         ok: true,
-        warning: `${id} uses the legacy CON-### raceway convention. New raceways use EMT-###; existing IDs are never renamed.`,
+        warning: `${id} encodes a raceway material in its stable ID. The canonical raceway ID is CON-### for every raceway type (EMT, FLEX, PVC, underground) — record the construction in Raceway type instead. Existing IDs are never renamed.`,
       };
     }
     return { ok: true };
@@ -304,7 +308,7 @@ export function nextStableId(kind: ElectricalEntityKind, existing: string[]): st
       const m = /^(?:EMT|CON)-(\d+)$/.exec(id);
       if (m) max = Math.max(max, Number(m[1]));
     }
-    return `EMT-${String(max + 1).padStart(3, "0")}`;
+    return `CON-${String(max + 1).padStart(3, "0")}`;
   }
   if (kind === "feeder") {
     let max = 0;

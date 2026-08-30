@@ -47,14 +47,14 @@ describe("stable IDs", () => {
   it("accepts the documented formats", () => {
     expect(checkStableId("load", "FS-097").ok).toBe(true);
     expect(checkStableId("panel", "PNL-FS-CRIT").ok).toBe(true);
-    expect(checkStableId("raceway", "EMT-104").ok).toBe(true);
+    expect(checkStableId("raceway", "CON-105").ok).toBe(true);
     expect(checkStableId("jbox", "JB-104-01").ok).toBe(true);
     expect(checkStableId("branch", "BR-104-02-03").ok).toBe(true);
   });
   it("rejects malformed IDs and blanks", () => {
-    expect(checkStableId("raceway", "EMT104").ok).toBe(false);
-    expect(checkStableId("raceway", "EMT-NE-001").ok).toBe(false);
-    expect(checkStableId("raceway", "EMT-104-01").ok).toBe(false);
+    expect(checkStableId("raceway", "CON105").ok).toBe(false);
+    expect(checkStableId("raceway", "CON-NE-001").ok).toBe(false);
+    expect(checkStableId("raceway", "CON-104-01").ok).toBe(false);
     expect(checkStableId("jbox", "").ok).toBe(false);
     expect(checkStableId("jbox", "JB-104-1").ok).toBe(false);
     expect(checkStableId("branch", "BR-104-2-1").ok).toBe(false);
@@ -67,7 +67,12 @@ describe("stable IDs", () => {
   it("keeps legacy IDs valid but flags them", () => {
     const con = checkStableId("raceway", "CON-030");
     expect(con.ok).toBe(true);
-    expect(con.warning).toMatch(/EMT/);
+    // CON-### is the canonical raceway ID, so it carries no warning at all.
+    expect(con.warning).toBeUndefined();
+    // Records created under the short-lived EMT-### rule stay valid but are reported.
+    const emt = checkStableId("raceway", "EMT-104");
+    expect(emt.ok).toBe(true);
+    expect(emt.warning).toMatch(/CON-###/);
     const jb = checkStableId("jbox", "JB-014");
     expect(jb.ok).toBe(true);
     expect(jb.warning).toMatch(/JB-###-##/);
@@ -88,7 +93,7 @@ describe("stable IDs", () => {
     });
   });
   it("generates the next hierarchical ID", () => {
-    expect(nextStableId("raceway", ["CON-001", "EMT-030"])).toBe("EMT-031");
+    expect(nextStableId("raceway", ["CON-001", "EMT-030"])).toBe("CON-031");
     expect(nextJboxId("104", ["JB-104-01", "JB-104-02", "JB-105-01"])).toBe("JB-104-03");
     expect(nextJboxId(104, [])).toBe("JB-104-01");
     expect(nextBranchId("JB-104-02", ["BR-104-02-01", "BR-104-01-05"])).toBe("BR-104-02-02");

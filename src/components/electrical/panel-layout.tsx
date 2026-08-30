@@ -2,7 +2,7 @@
 //
 // Both are first-class records, not free text: a breaker position is one
 // physical slot in one panel, and an exit is one physical penetration whose
-// ORDER is independent of the CON-###/EMT-### identity of the raceway leaving.
+// ORDER is independent of the CON-### identity of the raceway leaving.
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -341,7 +341,7 @@ function PanelExits({
         <CardTitle className="text-base">Panel raceway exits ({rows.length})</CardTitle>
         <p className="text-sm text-muted-foreground">
           Physical exit order starts at the lower right and runs counterclockwise. Exit order is a
-          property of the penetration, not of the raceway's CON-### / EMT-### ID.
+          property of the penetration, not of the raceway's CON-### ID.
         </p>
       </CardHeader>
       <CardContent className="space-y-3">

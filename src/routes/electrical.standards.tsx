@@ -56,12 +56,14 @@ function Standards() {
         <CardContent className="text-sm space-y-2 text-muted-foreground">
           <p>
             Stable IDs are permanent and carry no physical attributes — a raceway keeps{" "}
-            <span className="font-mono">EMT-104</span> even if its size, route or status
-            changes.
+            <span className="font-mono">CON-105</span> even if its size, type, route or status
+            changes. Every raceway uses <span className="font-mono">CON-###</span> regardless of
+            construction; EMT, FLEX/FMC/LFMC, PVC and underground conduit are recorded in the
+            Raceway type field, never in the ID.
           </p>
           <p>
             Raceway, junction box and branch IDs are hierarchical:{" "}
-            <span className="font-mono">EMT-104</span> →{" "}
+            <span className="font-mono">CON-104</span> →{" "}
             <span className="font-mono">JB-104-02</span> →{" "}
             <span className="font-mono">BR-104-02-03</span>, so a technician can read the
             originating raceway and junction box straight from the ID. A branch always inherits
