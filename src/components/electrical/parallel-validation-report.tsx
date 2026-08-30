@@ -28,6 +28,10 @@ import {
   reconciliationMarkdown,
   unresolvedCsv,
 } from "@/lib/electrical-reconciliation";
+import {
+  booleanDiagnostics,
+  booleanDiagnosticsCsv,
+} from "@/lib/electrical-boolean-diagnostics";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -401,6 +405,80 @@ export function ParallelValidationReport() {
         </>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * Phase 4.4b Task 1 — group the boolean_or_default_semantics conflicts by
+ * where the FarmOps value came from, so implementation-created defaults are
+ * visible separately from genuine engineering disagreements. Read-only.
+ */
+function BooleanSemanticsPanel({ report }: { report: ValidationReport }) {
+  const diag = useMemo(() => booleanDiagnostics(report), [report]);
+  if (diag.total_findings === 0) return null;
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
+        <CardTitle className="text-base">
+          Yes/No semantics diagnostics ({diag.total_findings})
+        </CardTitle>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() =>
+            download("phase-4.4b-boolean-semantics.csv", booleanDiagnosticsCsv(diag), "text/csv")
+          }
+        >
+          <Download className="mr-1 h-4 w-4" />
+          CSV
+        </Button>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <p className="text-sm text-muted-foreground">
+          {diag.implementation_created} finding(s) are implementation-created defaults;{" "}
+          {diag.true_disagreements} are true engineering disagreements needing disposition. Nothing
+          here is corrected automatically.
+        </p>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead className="text-muted-foreground">
+              <tr className="border-b border-border text-left">
+                <th className="px-2 py-1">Entity</th>
+                <th className="px-2 py-1">Field</th>
+                <th className="px-2 py-1">ODS</th>
+                <th className="px-2 py-1">FarmOps</th>
+                <th className="px-2 py-1">Source of value</th>
+                <th className="px-2 py-1">Records</th>
+                <th className="px-2 py-1">Proposed correction</th>
+              </tr>
+            </thead>
+            <tbody>
+              {diag.groups.map((g) => (
+                <tr
+                  key={[g.domain, g.field, g.ods_value, g.farmops_value, g.default_source].join("|")}
+                  className="border-b border-border last:border-0 align-top"
+                >
+                  <td className="px-2 py-1 font-mono">{g.domain}</td>
+                  <td className="px-2 py-1 font-mono">{g.field}</td>
+                  <td className="px-2 py-1">
+                    {g.ods_value || <span className="text-muted-foreground">(blank)</span>}{" "}
+                    <span className="text-muted-foreground">→ {g.ods_meaning}</span>
+                  </td>
+                  <td className="px-2 py-1 font-mono">{g.farmops_value}</td>
+                  <td className="px-2 py-1">
+                    <Badge variant={g.implementation_created ? "destructive" : "outline"}>
+                      {g.default_source}
+                    </Badge>
+                  </td>
+                  <td className="px-2 py-1 font-mono">{g.affected_records}</td>
+                  <td className="px-2 py-1 text-muted-foreground">{g.proposed_correction}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
