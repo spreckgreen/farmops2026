@@ -78,7 +78,10 @@ describe("Phase 4.4a — capture is additive across canonical worksheets", () =>
     const change = plan.rows[0]!.changes.find((c) => c.column === ODS_EXTRAS_FIELD)!;
     const to = parseOdsExtras(change.to)!;
     expect(to["Installation Notes"]).toBe("Pulled 2025-04");
-    expect(Object.keys(to).filter((k) => k.startsWith("Circuit Group Description"))).toHaveLength(2);
+    // The typed field takes the first occurrence; the duplicate is preserved
+    // under its collision-safe key and does not touch the existing entries.
+    expect(to["Circuit Group Description#3"]).toBe("Shop receptacles");
+    expect(to["Circuit Group Description"]).toBeUndefined();
   });
 });
 

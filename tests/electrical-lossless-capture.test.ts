@@ -78,7 +78,12 @@ describe("Phase 4.4a — lossless capture of canonical columns", () => {
     expect(collided?.source).toBe("Description");
     expect(collided?.collidedWith).toBe("description");
     const extras = JSON.parse(mapped.rows[0]!.values[ODS_EXTRAS_FIELD]!) as Record<string, string>;
-    expect(extras["Description"]).toBe("Shop welder 240V");
+    // A collided header keeps a collision-safe key so it can never overwrite
+    // the column already bound to the same FarmOps field.
+    expect(extras["Description#3"]).toBe("Shop welder 240V");
+    expect(preservedOdsValues(extras, "Load_Master", "Description")).toEqual([
+      "Shop welder 240V",
+    ]);
   });
 
   it("classifies a preserved column as an expected transformation, not LOSS", () => {
