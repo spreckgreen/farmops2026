@@ -1049,48 +1049,40 @@ export function serializeValidationReport(report: ValidationReport): string {
   return JSON.stringify(report, null, 2);
 }
 
-function csvCell(v: string): string {
+export function csvCell(v: string): string {
   return /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
 }
 
-export function validationCsv(report: ValidationReport): string {
-  const header = [
-    "domain",
-    "stable_id",
-    "field",
-    "label",
-    "ods_worksheet",
-    "ods_column",
-    "ods_value",
-    "farmops_entity",
-    "farmops_field",
-    "farmops_value",
-    "authority",
-    "classification",
-    "rules",
-    "note",
-  ].join(",");
-  const lines = report.records.map((r) =>
-    [
-      r.domain,
-      r.stable_id,
-      r.field,
-      r.label,
-      r.ods_worksheet ?? "",
-      r.ods_column ?? "",
-      r.ods_value,
-      r.farmops_entity ?? "",
-      r.farmops_field ?? "",
-      r.farmops_value,
-      r.authority,
-      r.classification,
-      r.rules.join(";"),
-      r.note,
-    ]
-      .map(csvCell)
-      .join(","),
-  );
+const CSV_COLUMNS: { header: string; get: (r: ComparisonRecord) => string }[] = [
+  { header: "domain", get: (r) => r.domain },
+  { header: "stable_id", get: (r) => r.stable_id },
+  { header: "field", get: (r) => r.field },
+  { header: "label", get: (r) => r.label },
+  { header: "ods_worksheet", get: (r) => r.ods_worksheet ?? "" },
+  { header: "ods_column", get: (r) => r.ods_column ?? "" },
+  { header: "ods_value", get: (r) => r.ods_value },
+  { header: "farmops_entity", get: (r) => r.farmops_entity ?? "" },
+  { header: "farmops_field", get: (r) => r.farmops_field ?? "" },
+  { header: "farmops_value", get: (r) => r.farmops_value },
+  { header: "authority", get: (r) => r.authority },
+  { header: "authority_class", get: (r) => r.authority_class },
+  { header: "classification", get: (r) => r.classification },
+  { header: "disposition", get: (r) => r.disposition },
+  { header: "root_cause", get: (r) => r.root_cause },
+  { header: "farmops_only_category", get: (r) => r.farmops_only_category ?? "" },
+  { header: "tbd", get: (r) => (r.tbd ? "true" : "false") },
+  { header: "rules", get: (r) => r.rules.join(";") },
+  { header: "note", get: (r) => r.note },
+];
+
+export function recordsToCsv(records: ComparisonRecord[]): string {
+  const header = CSV_COLUMNS.map((c) => c.header).join(",");
+  const lines = records.map((r) => CSV_COLUMNS.map((c) => csvCell(c.get(r))).join(","));
   return [header, ...lines].join("\n");
+}
+
+export function validationCsv(report: ValidationReport): string {
+  return recordsToCsv(report.records);
 }
 
 export function validationMarkdown(report: ValidationReport): string {
@@ -1103,24 +1095,32 @@ export function validationMarkdown(report: ValidationReport): string {
     `- Canonical ODS: ${report.ods.file_name}`,
     `- ODS SHA-256: ${report.ods.sha256}`,
     `- FarmOps snapshot: ${report.farmops.snapshot_generated_at} (schema ${report.farmops.snapshot_schema_version})`,
+    `- FarmOps snapshot SHA-256: ${report.farmops.snapshot_sha256 ?? "(not computed)"}`,
     `- Compared at: ${report.compared_at}`,
     `- SOR authority: ${report.sor_authority} (FarmOps role: ${report.farmops_role})`,
+    `- Acceptance gate: ${report.gate.status}${report.gate.reasons.length ? ` — ${report.gate.reasons.join(" ")}` : ""}`,
     "",
     "## Summary",
     "",
   ];
   for (const c of CLASSIFICATIONS) out.push(`- ${CLASSIFICATION_LABELS[c]}: ${report.summary[c]}`);
+  out.push("", "## Dispositions", "");
+  for (const d of DISPOSITIONS) out.push(`- ${d}: ${report.by_disposition[d]}`);
+  out.push("", "## FarmOps-only categories", "");
+  for (const c of Object.keys(FARMOPS_ONLY_CATEGORIES) as FarmOpsOnlyCategory[]) {
+    out.push(`- ${c} — ${FARMOPS_ONLY_CATEGORIES[c]}: ${report.farmops_only_by_category[c]}`);
+  }
   out.push(
     "",
     "## Differences",
     "",
-    "| Domain | Stable ID | Field | ODS | FarmOps | Authority | Classification | Note |",
-    "| --- | --- | --- | --- | --- | --- | --- | --- |",
+    "| Domain | Stable ID | Field | ODS | FarmOps | Authority | Classification | Disposition | Root cause | Note |",
+    "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
   );
   for (const r of report.records) {
     if (r.classification === "MATCH") continue;
     out.push(
-      `| ${r.domain} | ${r.stable_id} | ${r.label} | ${r.ods_value || "(blank)"} | ${r.farmops_value || "(blank)"} | ${r.authority} | ${r.classification} | ${r.note.replace(/\|/g, "\\|")} |`,
+      `| ${r.domain} | ${r.stable_id} | ${r.label} | ${r.ods_value || "(blank)"} | ${r.farmops_value || "(blank)"} | ${r.authority_class} | ${r.classification} | ${r.disposition} | ${r.root_cause} | ${r.note.replace(/\|/g, "\\|")} |`,
     );
   }
   out.push(
@@ -1129,6 +1129,7 @@ export function validationMarkdown(report: ValidationReport): string {
   );
   return out.join("\n");
 }
+
 
 export function validationFilename(comparedAt: string, ext: string): string {
   const stamp = comparedAt.slice(0, 19).replace(/[:T]/g, "-");
