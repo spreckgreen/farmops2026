@@ -417,7 +417,108 @@ export const ENTITIES: Record<ElectricalEntityKind, EntityDef> = {
       ...statusFields,
     ],
   },
+
+  // ---------------------------------------------------------------------------
+  // FarmOps-native infrastructure. Reusable by design: a rack's purpose and a
+  // power asset's type are data, so network, ham radio or any future rack needs
+  // no schema exception. These entities have no canonical ODS counterpart.
+  // ---------------------------------------------------------------------------
+  rack: {
+    kind: "rack",
+    table: "electrical_racks",
+    stableIdField: "rack_id",
+    stableIdLabel: "Rack ID",
+    title: "Equipment racks",
+    singular: "equipment rack",
+    fields: [
+      { key: "description", label: "Description", kind: "text", list: true },
+      { key: "rack_role", label: "Rack role", kind: "select", options: RACK_ROLES, list: true, hint: "NET, HAM, SERVER, …" },
+      { key: "site_area", label: "Site / area", kind: "text", list: true },
+      { key: "building", label: "Building", kind: "text", list: true },
+      { key: "grid", label: "Grid", kind: "text" },
+      { key: "location_note", label: "Physical location", kind: "text", field: true },
+      { key: "rack_size_u", label: "Rack size (U)", kind: "number" },
+      { key: "mounting", label: "Mounting", kind: "text", hint: "Floor, wall, open frame, …" },
+      ...statusFields,
+    ],
+  },
+  power_asset: {
+    kind: "power_asset",
+    table: "electrical_power_assets",
+    stableIdField: "power_asset_id",
+    stableIdLabel: "Power asset ID",
+    title: "Power assets",
+    singular: "power distribution asset",
+    fields: [
+      { key: "description", label: "Description", kind: "text", list: true },
+      { key: "asset_type", label: "Asset type", kind: "select", options: POWER_ASSET_TYPES, list: true },
+      { key: "manufacturer", label: "Manufacturer", kind: "text" },
+      { key: "model", label: "Model", kind: "text", list: true },
+      { key: "rack_uuid", label: "Installed in rack", kind: "entity", entityKind: "rack", field: true },
+      { key: "rack_ref", label: "Rack ID (derived)", kind: "text", readOnly: true, hint: "Derived from the linked rack." },
+      { key: "input_type", label: "Input type", kind: "select", options: CURRENT_TYPES },
+      { key: "input_voltage", label: "Input voltage", kind: "number" },
+      { key: "input_current_amps", label: "Input current / rating (A)", kind: "number" },
+      { key: "output_type", label: "Output type", kind: "select", options: CURRENT_TYPES },
+      { key: "output_voltage", label: "Output voltage", kind: "number", list: true },
+      { key: "output_current_amps", label: "Output current / rating (A)", kind: "number", list: true },
+      { key: "capacity_note", label: "Capacity note", kind: "text" },
+      // Upstream electrical source: whichever level is actually known. Nothing
+      // is inferred, so an unknown upstream simply stays unset.
+      { key: "source_panel_uuid", label: "Upstream panel", kind: "entity", entityKind: "panel", field: true },
+      { key: "source_panel_ref", label: "Panel ID (derived)", kind: "text", readOnly: true },
+      { key: "source_circuit_group_uuid", label: "Upstream circuit", kind: "entity", entityKind: "circuit_group", field: true },
+      { key: "source_circuit_group_ref", label: "Circuit ID (derived)", kind: "text", readOnly: true },
+      { key: "source_load_uuid", label: "Upstream load / outlet", kind: "entity", entityKind: "load", field: true },
+      { key: "source_load_ref", label: "Load ID (derived)", kind: "text", readOnly: true },
+      { key: "source_branch_uuid", label: "Upstream branch run", kind: "entity", entityKind: "branch", field: true },
+      { key: "source_branch_ref", label: "Branch ID (derived)", kind: "text", readOnly: true },
+      { key: "upstream_power_asset_uuid", label: "Fed from power asset", kind: "entity", entityKind: "power_asset", hint: "e.g. a PDU fed from a UPS." },
+      { key: "upstream_power_asset_ref", label: "Upstream asset ID (derived)", kind: "text", readOnly: true },
+      { key: "building", label: "Building", kind: "text", list: true },
+      { key: "grid", label: "Grid", kind: "text" },
+      { key: "location_note", label: "Physical location", kind: "text" },
+      ...statusFields,
+    ],
+  },
+  device: {
+    kind: "device",
+    table: "electrical_devices",
+    stableIdField: "device_id",
+    stableIdLabel: "Device ID",
+    title: "Powered devices",
+    singular: "device",
+    fields: [
+      { key: "description", label: "Description", kind: "text", list: true },
+      { key: "device_role", label: "Device role", kind: "select", options: DEVICE_ROLES, list: true },
+      { key: "device_type", label: "Device type", kind: "text", hint: "Switch, transceiver, router, …" },
+      { key: "manufacturer", label: "Manufacturer", kind: "text" },
+      { key: "model", label: "Model", kind: "text", list: true },
+      { key: "rack_uuid", label: "Installed in rack", kind: "entity", entityKind: "rack", field: true },
+      { key: "rack_ref", label: "Rack ID (derived)", kind: "text", readOnly: true },
+      { key: "rack_position_u", label: "Rack position (U)", kind: "number" },
+      // Immediate power source and upstream electrical source are preserved
+      // separately so failure domains stay computable.
+      { key: "power_asset_uuid", label: "Immediate power source", kind: "entity", entityKind: "power_asset", list: true, field: true },
+      { key: "power_asset_ref", label: "Power asset ID (derived)", kind: "text", readOnly: true },
+      { key: "circuit_group_uuid", label: "Upstream circuit", kind: "entity", entityKind: "circuit_group", field: true },
+      { key: "circuit_group_ref", label: "Circuit ID (derived)", kind: "text", readOnly: true },
+      { key: "load_uuid", label: "Upstream load / outlet", kind: "entity", entityKind: "load" },
+      { key: "load_ref", label: "Load ID (derived)", kind: "text", readOnly: true },
+      { key: "uplink_device_uuid", label: "Network uplink device", kind: "entity", entityKind: "device" },
+      { key: "uplink_device_ref", label: "Uplink device ID (derived)", kind: "text", readOnly: true },
+      { key: "input_voltage", label: "Input voltage", kind: "number" },
+      { key: "input_current_amps", label: "Input current (A)", kind: "number" },
+      { key: "hostname", label: "Hostname", kind: "text" },
+      { key: "address", label: "Address", kind: "text", hint: "IP, callsign or other addressing." },
+      { key: "building", label: "Building", kind: "text", list: true },
+      { key: "grid", label: "Grid", kind: "text" },
+      { key: "location_note", label: "Physical location", kind: "text" },
+      ...statusFields,
+    ],
+  },
 };
+
 
 export const ENTITY_KINDS = Object.keys(ENTITIES) as ElectricalEntityKind[];
 
