@@ -636,6 +636,145 @@ export type Database = {
           },
         ]
       }
+      electrical_feeders: {
+        Row: {
+          ampacity_amps: number | null
+          backup_class: string | null
+          completion_percent: number
+          conductor_count: number | null
+          conductor_material: string | null
+          conductor_size: string | null
+          created_at: string
+          critical: boolean
+          demand_basis: string | null
+          demand_va: number | null
+          description: string | null
+          dest_endpoint_ref: string | null
+          dest_endpoint_type: string | null
+          dest_panel_uuid: string | null
+          feeder_id: string
+          future: boolean
+          ground_conductor: string | null
+          id: string
+          install_status: string
+          label_status: string
+          measured_length_ft: number | null
+          neutral_conductor: string | null
+          notes: string | null
+          ocp_rating_amps: number | null
+          ocp_type: string | null
+          phase: string | null
+          planned_length_ft: number | null
+          raceway_ref: string | null
+          raceway_uuid: string | null
+          service_type: string | null
+          source_endpoint_ref: string | null
+          source_endpoint_type: string | null
+          source_panel_uuid: string | null
+          updated_at: string
+          user_id: string
+          voltage: number | null
+        }
+        Insert: {
+          ampacity_amps?: number | null
+          backup_class?: string | null
+          completion_percent?: number
+          conductor_count?: number | null
+          conductor_material?: string | null
+          conductor_size?: string | null
+          created_at?: string
+          critical?: boolean
+          demand_basis?: string | null
+          demand_va?: number | null
+          description?: string | null
+          dest_endpoint_ref?: string | null
+          dest_endpoint_type?: string | null
+          dest_panel_uuid?: string | null
+          feeder_id: string
+          future?: boolean
+          ground_conductor?: string | null
+          id?: string
+          install_status?: string
+          label_status?: string
+          measured_length_ft?: number | null
+          neutral_conductor?: string | null
+          notes?: string | null
+          ocp_rating_amps?: number | null
+          ocp_type?: string | null
+          phase?: string | null
+          planned_length_ft?: number | null
+          raceway_ref?: string | null
+          raceway_uuid?: string | null
+          service_type?: string | null
+          source_endpoint_ref?: string | null
+          source_endpoint_type?: string | null
+          source_panel_uuid?: string | null
+          updated_at?: string
+          user_id: string
+          voltage?: number | null
+        }
+        Update: {
+          ampacity_amps?: number | null
+          backup_class?: string | null
+          completion_percent?: number
+          conductor_count?: number | null
+          conductor_material?: string | null
+          conductor_size?: string | null
+          created_at?: string
+          critical?: boolean
+          demand_basis?: string | null
+          demand_va?: number | null
+          description?: string | null
+          dest_endpoint_ref?: string | null
+          dest_endpoint_type?: string | null
+          dest_panel_uuid?: string | null
+          feeder_id?: string
+          future?: boolean
+          ground_conductor?: string | null
+          id?: string
+          install_status?: string
+          label_status?: string
+          measured_length_ft?: number | null
+          neutral_conductor?: string | null
+          notes?: string | null
+          ocp_rating_amps?: number | null
+          ocp_type?: string | null
+          phase?: string | null
+          planned_length_ft?: number | null
+          raceway_ref?: string | null
+          raceway_uuid?: string | null
+          service_type?: string | null
+          source_endpoint_ref?: string | null
+          source_endpoint_type?: string | null
+          source_panel_uuid?: string | null
+          updated_at?: string
+          user_id?: string
+          voltage?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "electrical_feeders_dest_panel_uuid_fkey"
+            columns: ["dest_panel_uuid"]
+            isOneToOne: false
+            referencedRelation: "electrical_panels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "electrical_feeders_raceway_uuid_fkey"
+            columns: ["raceway_uuid"]
+            isOneToOne: false
+            referencedRelation: "electrical_raceways"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "electrical_feeders_source_panel_uuid_fkey"
+            columns: ["source_panel_uuid"]
+            isOneToOne: false
+            referencedRelation: "electrical_panels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       electrical_junction_boxes: {
         Row: {
           box_type: string | null
