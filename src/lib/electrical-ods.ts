@@ -692,6 +692,17 @@ export function mapSheet(
     };
   }
   const header = sheet.rows[headerRow];
+  // Header text that occurs more than once on this worksheet. Preserved values
+  // from such columns are keyed with their column number so one duplicate never
+  // silently overwrites the other.
+  const headerCounts = new Map<string, number>();
+  for (const h of header) {
+    const n = norm(h);
+    if (n) headerCounts.set(n, (headerCounts.get(n) ?? 0) + 1);
+  }
+  const duplicateHeaders = new Set(
+    [...headerCounts.entries()].filter(([, n]) => n > 1).map(([h]) => h),
+  );
   const used = new Set<string>();
   const columns = header.map((source) => {
     const n = norm(source).replace(/\s*\(.*\)\s*$/, "");
