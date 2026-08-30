@@ -124,7 +124,7 @@ function BreakerPositions({
   const optionsFn = useServerFn(electricalEntityOptions);
   const groups = useQuery({
     queryKey: ["electrical", "options", "circuit_group"],
-    queryFn: () => optionsFn({ data: { kind: "circuit_group" } }),
+    queryFn: () => optionsFn({ data: { kinds: ["circuit_group"] } }),
   });
 
   const first = free[0];
@@ -246,7 +246,7 @@ function BreakerPositions({
             <EntitySelect
               label="Circuit group (optional)"
               hint="Leave empty while the assignment is unknown — it stays reportable rather than guessed."
-              options={groups.data ?? []}
+              options={groups.data?.["circuit_group"] ?? []}
               loading={groups.isLoading}
               value={group}
               onChange={setGroup}
@@ -309,7 +309,7 @@ function PanelExits({
             ? "connects to this panel"
             : "not linked to this panel",
         context: String(r["trade_size"] ?? ""),
-        status: null as string | null,
+        installStatus: "",
       })),
     [raceways, panelUuid],
   );
