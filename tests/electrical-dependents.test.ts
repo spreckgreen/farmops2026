@@ -12,17 +12,26 @@ describe("dependentSpecs", () => {
       // Phase 4.2 feeders land upstream/downstream of panels.
       "feeder.source_panel_uuid",
       "feeder.dest_panel_uuid",
+      // Phase 4.4a: a power asset can be fed straight from a panel.
+      "power_asset.source_panel_uuid",
     ]);
     expect(dependentSpecs("panel")[0]!.fieldLabel).toBe("Source panel");
   });
 
-  it("finds loads referenced by branch runs", () => {
-    expect(dependentSpecs("load").map((s) => s.fkColumn)).toEqual(["load_uuid"]);
+  it("finds loads referenced by branch runs and power assets", () => {
+    expect(dependentSpecs("load").map((s) => `${s.kind}.${s.fkColumn}`)).toEqual([
+      "branch.load_uuid",
+      "power_asset.source_load_uuid",
+      "device.load_uuid",
+    ]);
   });
 
-  it("returns nothing for kinds nothing points at", () => {
-    expect(dependentSpecs("branch")).toEqual([]);
+  it("finds the FarmOps-native references to a branch run", () => {
+    expect(dependentSpecs("branch").map((s) => `${s.kind}.${s.fkColumn}`)).toEqual([
+      "power_asset.source_branch_uuid",
+    ]);
   });
+
 
   it("summarises a report for toasts", () => {
     const summary = dependencySummary({
