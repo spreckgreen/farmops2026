@@ -574,6 +574,40 @@ export function runParallelComparison(input: ValidationInput): ValidationReport 
             : mapped
               ? "importer_omission_alias_missing"
               : "missing_mapping_no_farmops_destination";
+      const classification: Classification =
+        explained || preserved ? "EXPECTED_TRANSFORMATION" : "LOSS";
+      // A remaining LOSS must be actionable: name the exact capture key that was
+      // expected and what the record actually holds there.
+      const preservationKey = odsExtrasEntryKey(
+        col.column,
+        col.columnIndex ?? 0,
+        Boolean(col.duplicateHeader || col.collidedWith),
+      );
+      const loss_diagnostic: LossDiagnostic | undefined =
+        classification === "LOSS"
+          ? {
+              worksheet: sheet.sheet,
+              original_header: col.column.trim(),
+              preservation_key: preservationKey,
+              worksheet_column:
+                col.columnIndex === undefined ? null : col.columnIndex + 1,
+              duplicate_header: Boolean(col.duplicateHeader || col.collidedWith),
+              collided_with: col.collidedWith ?? null,
+              farmops_collection: String(collection),
+              rows: samples.map((s) => {
+                const extras = extrasIndex.get(`${collection}:${s.stableId.trim()}`) ?? null;
+                const actual = extras ? extras[preservationKey] : undefined;
+                return {
+                  stable_id: s.stableId,
+                  ods_value: s.value,
+                  expected_extras_key: preservationKey,
+                  actual_extras_value: typeof actual === "string" ? actual : null,
+                  actual_preserved_values: preservedOdsValues(extras, sheet.sheet, col.column),
+                  capture_present: extras !== null,
+                };
+              }),
+            }
+          : undefined;
       const evidence = samples.length
         ? ` Affected workbook rows: ${samples.map((s) => `${s.stableId || "(no id)"}="${s.value}"`).join(", ")}${
             col.populatedRows && col.populatedRows > samples.length
