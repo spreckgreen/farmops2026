@@ -414,47 +414,112 @@ export function ParallelValidationReport() {
 }
 
 /**
- * Phase 4.4b Task 1 — group the boolean_or_default_semantics conflicts by
- * where the FarmOps value came from, so implementation-created defaults are
- * visible separately from genuine engineering disagreements. Read-only.
+ * Phase 4.4b Task 1B — group the boolean_or_default_semantics conflicts by
+ * provenance and classify each as A (implementation artifact), B (engineering
+ * disagreement), C (not representable as boolean) or D (provenance
+ * insufficient). Only Category A is offered to the preview-first correction
+ * tool; everything else is read-only.
  */
 function BooleanSemanticsPanel({ report }: { report: ValidationReport }) {
   const diag = useMemo(() => booleanDiagnostics(report), [report]);
+  const plan = useMemo(() => categoryACorrectionPlan(diag), [diag]);
+  const preview = useServerFn(previewBooleanCorrection);
+  const [previewed, setPreviewed] = useState<Awaited<ReturnType<typeof preview>> | null>(null);
+
+  const run = useMutation({
+    mutationFn: (confirm: boolean) =>
+      preview({
+        data: {
+          confirm,
+          entries: plan.entries.map((e) => ({
+            table: e.table,
+            stable_id: e.stable_id,
+            column: e.column,
+            expected_current: e.current_value === "true" ? true : e.current_value === "false" ? false : null,
+            proposed_value: e.proposed_value,
+            evidence: e.evidence.slice(0, 500),
+          })),
+        },
+      }),
+    onSuccess: (result) => {
+      setPreviewed(result);
+      toast.success(
+        result.applied
+          ? `Applied ${result.changed} Yes/No correction(s).`
+          : `Preview: ${result.changed} record(s) would change, ${result.skipped} skipped.`,
+      );
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   if (diag.total_findings === 0) return null;
+  const c = diag.counts_by_category;
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2">
+      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 pb-2">
         <CardTitle className="text-base">
           Yes/No semantics diagnostics ({diag.total_findings})
         </CardTitle>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() =>
-            download("phase-4.4b-boolean-semantics.csv", booleanDiagnosticsCsv(diag), "text/csv")
-          }
-        >
-          <Download className="mr-1 h-4 w-4" />
-          CSV
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() =>
+              download("phase-4.4b-boolean-groups.csv", booleanDiagnosticsCsv(diag), "text/csv")
+            }
+          >
+            <Download className="mr-1 h-4 w-4" />
+            Groups CSV
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() =>
+              download("phase-4.4b-boolean-records.csv", booleanRecordCsv(diag), "text/csv")
+            }
+          >
+            <Download className="mr-1 h-4 w-4" />
+            Stable-ID CSV
+          </Button>
+          {plan.entries.length ? (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() =>
+                download("phase-4.4b-category-a-plan.csv", correctionPlanCsv(plan), "text/csv")
+              }
+            >
+              <Download className="mr-1 h-4 w-4" />
+              Category-A plan
+            </Button>
+          ) : null}
+        </div>
       </CardHeader>
       <CardContent className="space-y-3">
+        <div className="flex flex-wrap gap-2 text-xs">
+          <Badge variant="destructive">A implementation artifact: {c.A}</Badge>
+          <Badge variant="outline">B engineering disagreement: {c.B}</Badge>
+          <Badge variant="outline">C not representable as Yes/No: {c.C}</Badge>
+          <Badge variant="outline">D provenance insufficient: {c.D}</Badge>
+        </div>
         <p className="text-sm text-muted-foreground">
-          {diag.implementation_created} finding(s) are implementation-created defaults;{" "}
-          {diag.true_disagreements} are true engineering disagreements needing disposition. Nothing
-          here is corrected automatically.
+          Only Category A is eligible for automatic correction. Categories B, C and D stay
+          untouched and require human disposition. Corrections are preview-first and change only
+          the affected Yes/No column.
         </p>
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead className="text-muted-foreground">
               <tr className="border-b border-border text-left">
+                <th className="px-2 py-1">Cat</th>
                 <th className="px-2 py-1">Entity</th>
                 <th className="px-2 py-1">Field</th>
                 <th className="px-2 py-1">ODS</th>
                 <th className="px-2 py-1">FarmOps</th>
-                <th className="px-2 py-1">Source of value</th>
+                <th className="px-2 py-1">Provenance</th>
+                <th className="px-2 py-1">Old default/coercion</th>
                 <th className="px-2 py-1">Records</th>
-                <th className="px-2 py-1">Proposed correction</th>
+                <th className="px-2 py-1">Proposed action</th>
               </tr>
             </thead>
             <tbody>
@@ -463,6 +528,9 @@ function BooleanSemanticsPanel({ report }: { report: ValidationReport }) {
                   key={[g.domain, g.field, g.ods_value, g.farmops_value, g.default_source].join("|")}
                   className="border-b border-border last:border-0 align-top"
                 >
+                  <td className="px-2 py-1">
+                    <Badge variant={g.category === "A" ? "destructive" : "outline"}>{g.category}</Badge>
+                  </td>
                   <td className="px-2 py-1 font-mono">{g.domain}</td>
                   <td className="px-2 py-1 font-mono">{g.field}</td>
                   <td className="px-2 py-1">
@@ -470,11 +538,8 @@ function BooleanSemanticsPanel({ report }: { report: ValidationReport }) {
                     <span className="text-muted-foreground">→ {g.ods_meaning}</span>
                   </td>
                   <td className="px-2 py-1 font-mono">{g.farmops_value}</td>
-                  <td className="px-2 py-1">
-                    <Badge variant={g.implementation_created ? "destructive" : "outline"}>
-                      {g.default_source}
-                    </Badge>
-                  </td>
+                  <td className="px-2 py-1 text-muted-foreground">{g.provenance}</td>
+                  <td className="px-2 py-1 text-muted-foreground">{g.legacy_behavior}</td>
                   <td className="px-2 py-1 font-mono">{g.affected_records}</td>
                   <td className="px-2 py-1 text-muted-foreground">{g.proposed_correction}</td>
                 </tr>
@@ -482,10 +547,83 @@ function BooleanSemanticsPanel({ report }: { report: ValidationReport }) {
             </tbody>
           </table>
         </div>
+
+        {plan.entries.length ? (
+          <div className="space-y-2 rounded-md border border-border p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm">
+                Category-A correction set: {plan.entries.length} record(s) across{" "}
+                {new Set(plan.entries.map((e) => `${e.table}.${e.column}`)).size} field(s).
+              </p>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" disabled={run.isPending} onClick={() => run.mutate(false)}>
+                  Preview
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={run.isPending || !previewed || previewed.applied || previewed.changed === 0}
+                  onClick={() => run.mutate(true)}
+                >
+                  Apply {previewed && !previewed.applied ? previewed.changed : ""}
+                </Button>
+              </div>
+            </div>
+            {plan.unmappable.length ? (
+              <p className="text-xs text-muted-foreground">
+                Not correctable automatically (no writable column): {plan.unmappable.join(", ")}
+              </p>
+            ) : null}
+            {previewed ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead className="text-muted-foreground">
+                    <tr className="border-b border-border text-left">
+                      <th className="px-2 py-1">Stable ID</th>
+                      <th className="px-2 py-1">Field</th>
+                      <th className="px-2 py-1">Current</th>
+                      <th className="px-2 py-1">ODS</th>
+                      <th className="px-2 py-1">Proposed</th>
+                      <th className="px-2 py-1">Status</th>
+                      <th className="px-2 py-1">Evidence</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {previewed.rows.slice(0, 300).map((r, i) => (
+                      <tr key={`${r.table}-${r.stable_id}-${r.column}-${i}`} className="border-b border-border last:border-0 align-top">
+                        <td className="px-2 py-1 font-mono">{r.stable_id}</td>
+                        <td className="px-2 py-1 font-mono">{r.column}</td>
+                        <td className="px-2 py-1 font-mono">{String(r.live_value)}</td>
+                        <td className="px-2 py-1">
+                          {plan.entries.find((e) => e.stable_id === r.stable_id && e.column === r.column)
+                            ?.ods_value || "(blank)"}
+                        </td>
+                        <td className="px-2 py-1 font-mono">
+                          {r.proposed_value === null ? "null (not stated)" : String(r.proposed_value)}
+                        </td>
+                        <td className="px-2 py-1">
+                          <Badge variant={r.status === "failed" || r.status === "drifted" ? "destructive" : "outline"}>
+                            {r.status}
+                          </Badge>
+                        </td>
+                        <td className="px-2 py-1 text-muted-foreground">{r.detail ?? r.evidence}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : null}
+          </div>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            No Category-A records with provable implementation provenance — no production backfill
+            is justified from this run.
+          </p>
+        )}
       </CardContent>
     </Card>
   );
 }
+
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
