@@ -237,6 +237,31 @@ export function sameNormalized(a: NormalValue, b: NormalValue): boolean {
   return String(a).toLowerCase() === String(b).toLowerCase();
 }
 
+/**
+ * Phase 4.4a: is a preserved capture value the same engineering value as the
+ * workbook cell? Preservation is proven by meaning, not by byte shape: 20,
+ * 20.0, 20.00 and "20" are one value, and case/whitespace differences in text
+ * are not semantic loss. Anything else stays a real difference.
+ */
+export function capturedValueEquivalent(
+  odsValue: string,
+  captured: unknown,
+): { equal: boolean; rules: string[] } {
+  const a = collapse(odsValue);
+  const b = collapse(captured);
+  if (a.text === b.text) return { equal: true, rules: [] };
+  const na = Number(a.text.replace(/,/g, ""));
+  const nb = Number(b.text.replace(/,/g, ""));
+  if (a.text !== "" && b.text !== "" && Number.isFinite(na) && Number.isFinite(nb)) {
+    return { equal: Math.abs(na - nb) < 0.005, rules: ["numeric_tolerance"] };
+  }
+  if (a.text.toLowerCase() === b.text.toLowerCase()) {
+    return { equal: true, rules: ["case_fold", "whitespace_trim"] };
+  }
+  return { equal: false, rules: [] };
+}
+
+
 function display(v: unknown): string {
   if (v === null || v === undefined) return "";
   if (typeof v === "boolean") return v ? "true" : "false";
