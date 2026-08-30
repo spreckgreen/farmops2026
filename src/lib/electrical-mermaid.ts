@@ -24,6 +24,11 @@ export interface ElectricalGraphData {
   // Feeders are panel-to-panel records; diagram views index them lazily.
   feeder?: Row[];
   waypoint?: Row[];
+  // FarmOps-native infrastructure. Optional so existing callers keep compiling
+  // and so the electrical views never change shape.
+  rack?: Row[];
+  power_asset?: Row[];
+  device?: Row[];
 }
 
 export const DIAGRAM_TYPES = [
@@ -34,6 +39,11 @@ export const DIAGRAM_TYPES = [
   "jbox",
   "site",
   "critical_power",
+  // Infrastructure views. Deliberately separate: combining power, network, rack
+  // and power-dependency topology into one diagram is unreadable.
+  "network",
+  "rack",
+  "power_dependency",
 ] as const;
 export type DiagramType = (typeof DIAGRAM_TYPES)[number];
 
@@ -45,6 +55,9 @@ export const DIAGRAM_LABELS: Record<DiagramType, string> = {
   jbox: "Junction-box topology",
   site: "Site infrastructure",
   critical_power: "Critical-power topology",
+  network: "Network topology",
+  rack: "Rack / equipment topology",
+  power_dependency: "Power dependency topology",
 };
 
 /** As-designed vs as-built comparison buckets. */
@@ -157,6 +170,9 @@ const SHAPES: Record<string, [string, string]> = {
   branch: [">", "]"],
   circuit_group: ["[/", "/]"],
   load: ["(", ")"],
+  rack: ["[[", "]]"],
+  power_asset: ["[/", "\\]"],
+  device: ["(", ")"],
   unknown: ["[", "]"],
 };
 
@@ -339,6 +355,9 @@ export function buildDiagram(
   data: ElectricalGraphData,
   filters: DiagramFilters,
 ): GeneratedDiagram {
+  if (INFRASTRUCTURE_TYPES.has(filters.type)) {
+    return buildInfrastructureDiagram(data, filters);
+  }
   const b = new Builder();
   const idx = indexRows(data);
   duplicateIdIssues(data, b);
@@ -732,6 +751,9 @@ export function renderMermaid(
   lines.push("  classDef load fill:#e2e8f0,stroke:#94a3b8,color:#0f172a;");
   lines.push("  classDef critical fill:#b91c1c,stroke:#7f1d1d,color:#ffffff;");
   lines.push("  classDef future fill:#f1f5f9,stroke:#94a3b8,color:#475569,stroke-dasharray: 4 3;");
+  lines.push("  classDef rack fill:#0369a1,stroke:#075985,color:#ffffff;");
+  lines.push("  classDef power_asset fill:#c2410c,stroke:#7c2d12,color:#ffffff;");
+  lines.push("  classDef device fill:#e0f2fe,stroke:#0284c7,color:#0c4a6e;");
   lines.push("  classDef waypoint fill:#ffffff,stroke:#cbd5e1,color:#475569,stroke-dasharray: 2 2;");
   lines.push("  classDef unknown fill:#fee2e2,stroke:#b91c1c,color:#7f1d1d;");
 
@@ -746,4 +768,230 @@ export function renderMermaid(
   }
 
   return lines.join("\n");
+}
+
+
+/* ------------------------------------------------- infrastructure views */
+
+export const INFRASTRUCTURE_TYPES = new Set<DiagramType>([
+  "network",
+  "rack",
+  "power_dependency",
+]);
+
+function rackLabel(r: Row): string {
+  const parts = [s(r["rack_id"])];
+  const desc = s(r["description"]) || s(r["rack_role"]);
+  if (desc) parts.push(desc);
+  const size = s(r["rack_size_u"]);
+  if (size) parts.push(`${size}U`);
+  return parts.join("<br/>");
+}
+
+function powerAssetLabel(r: Row): string {
+  const parts = [s(r["power_asset_id"])];
+  const type = s(r["asset_type"]);
+  if (type) parts.push(type.replace(/_/g, " "));
+  const out = [s(r["output_voltage"]) ? `${s(r["output_voltage"])}V` : "", s(r["output_current_amps"]) ? `${s(r["output_current_amps"])}A` : ""]
+    .filter(Boolean)
+    .join(" / ");
+  if (out) parts.push(out);
+  return parts.join("<br/>");
+}
+
+function deviceLabel(r: Row): string {
+  const parts = [s(r["device_id"])];
+  const desc = s(r["description"]) || s(r["device_type"]) || s(r["device_role"]);
+  if (desc) parts.push(desc);
+  return parts.join("<br/>");
+}
+
+/**
+ * Rack, network and power-dependency views built from the same relational
+ * records as the electrical views. Kept as its own builder so the electrical
+ * topology diagrams are never widened into an unreadable combined drawing.
+ *
+ * The power-dependency view preserves both levels of the chain:
+ * panel -> circuit / load -> power asset -> powered devices. Devices that share
+ * one power asset are attached to that asset, never re-attached individually to
+ * the upstream branch circuit.
+ */
+export function buildInfrastructureDiagram(
+  data: ElectricalGraphData,
+  filters: DiagramFilters,
+): GeneratedDiagram {
+  const b = new Builder();
+  const state = filters.state ?? "all";
+  const type = filters.type;
+  const focus = (filters.focus ?? "").trim();
+
+  const racks = (data.rack ?? []).filter((r) => passesCommonFilters(r, filters));
+  const assets = (data.power_asset ?? []).filter((r) => passesCommonFilters(r, filters));
+  let devices = (data.device ?? []).filter((r) => passesCommonFilters(r, filters));
+  if (type === "network") {
+    devices = devices.filter(
+      (d) => s(d["device_role"]).toUpperCase() === "NETWORK" || s(d["uplink_device_ref"]) !== "",
+    );
+  }
+  if (focus) {
+    if (type === "rack") {
+      const keep = focus.toUpperCase();
+      const inRack = (row: Row) => s(row["rack_ref"]).toUpperCase() === keep;
+      devices = devices.filter(inRack);
+    }
+    if (type === "power_dependency") {
+      const keep = focus.toUpperCase();
+      devices = devices.filter((d) => s(d["power_asset_ref"]).toUpperCase() === keep);
+    }
+  }
+
+  const rackById = new Map<string, Row>();
+  for (const r of racks) if (sid("rack", r)) rackById.set(sid("rack", r), r);
+  const assetById = new Map<string, Row>();
+  for (const a of assets) if (sid("power_asset", a)) assetById.set(sid("power_asset", a), a);
+  const panelById = new Map<string, Row>();
+  for (const p of data.panel ?? []) if (sid("panel", p)) panelById.set(sid("panel", p), p);
+  const groupById = new Map<string, Row>();
+  for (const g of data.circuit_group ?? []) {
+    if (sid("circuit_group", g)) groupById.set(sid("circuit_group", g), g);
+  }
+  const loadById = new Map<string, Row>();
+  for (const l of data.load ?? []) if (sid("load", l)) loadById.set(sid("load", l), l);
+
+  const rackNode = (id: string): string | null => {
+    if (!id) return null;
+    const row = rackById.get(id);
+    if (row) return b.node("rack", id, rackLabel(row), row);
+    b.issue("warning", "broken_topology", `Unknown equipment rack ${id} is referenced.`);
+    return b.node("unknown", id, `${id}<br/>(unknown rack)`, undefined, "unknown");
+  };
+
+  const assetNode = (id: string): string | null => {
+    if (!id) return null;
+    const row = assetById.get(id);
+    if (row) return b.node("power_asset", id, powerAssetLabel(row), row);
+    b.issue("warning", "broken_topology", `Unknown power asset ${id} is referenced.`);
+    return b.node("unknown", id, `${id}<br/>(unknown power asset)`, undefined, "unknown");
+  };
+
+  if (type === "rack") {
+    for (const r of racks) {
+      if (focus && sid("rack", r) !== focus) continue;
+      rackNode(sid("rack", r));
+    }
+    for (const a of assets) {
+      const rack = s(a["rack_ref"]);
+      if (focus && rack.toUpperCase() !== focus.toUpperCase()) continue;
+      const key = b.node("power_asset", sid("power_asset", a), powerAssetLabel(a), a);
+      const rk = rackNode(rack);
+      if (rk) b.edge(rk, key, "mounted in");
+    }
+    for (const d of devices) {
+      const key = b.node("device", sid("device", d), deviceLabel(d), d);
+      const rk = rackNode(s(d["rack_ref"]));
+      const slot = s(d["rack_position_u"]);
+      if (rk) b.edge(rk, key, slot ? `U${slot}` : undefined);
+    }
+  }
+
+  if (type === "network") {
+    for (const d of devices) {
+      const key = b.node("device", sid("device", d), deviceLabel(d), d);
+      const rack = s(d["rack_ref"]);
+      if (rack) {
+        const rk = rackNode(rack);
+        if (rk) b.edge(rk, key, "houses", true);
+      }
+      const uplink = s(d["uplink_device_ref"]);
+      if (!uplink) continue;
+      const up = devices.find((x) => sid("device", x) === uplink) ?? null;
+      if (up) {
+        b.edge(b.node("device", uplink, deviceLabel(up), up), key, "uplink");
+      } else {
+        b.issue("warning", "broken_topology", `Device ${sid("device", d)} uplinks to unknown device ${uplink}.`);
+        b.edge(b.node("unknown", uplink, `${uplink}<br/>(unknown)`, undefined, "unknown"), key, "uplink");
+      }
+    }
+  }
+
+  if (type === "power_dependency") {
+    for (const a of assets) {
+      const id = sid("power_asset", a);
+      const key = b.node("power_asset", id, powerAssetLabel(a), a);
+      // Upstream electrical source at the most specific known level.
+      const upstreamAsset = s(a["upstream_power_asset_ref"]);
+      const load = s(a["source_load_ref"]);
+      const group = s(a["source_circuit_group_ref"]);
+      const panel = s(a["source_panel_ref"]);
+      if (upstreamAsset) {
+        const up = assetNode(upstreamAsset);
+        if (up) b.edge(up, key, "feeds");
+      }
+      if (load && loadById.has(load)) {
+        const row = loadById.get(load)!;
+        b.edge(b.node("load", load, `${load}<br/>${s(row["description"])}`, row), key, "outlet");
+      }
+      if (group && groupById.has(group)) {
+        const row = groupById.get(group)!;
+        b.edge(
+          b.node("circuit_group", group, [group, s(row["description"])].filter(Boolean).join("<br/>"), row),
+          key,
+          "circuit",
+        );
+      }
+      if (panel && panelById.has(panel)) {
+        const row = panelById.get(panel)!;
+        const target = group && groupById.has(group)
+          ? b.node("circuit_group", group, [group, s(groupById.get(group)!["description"])].filter(Boolean).join("<br/>"), groupById.get(group)!)
+          : key;
+        b.edge(b.node("panel", panel, panelLabel(row), row), target, "panel");
+      }
+      if (!upstreamAsset && !load && !group && !panel) {
+        b.issue(
+          "warning",
+          "missing_endpoint",
+          `Power asset ${id} has no recorded upstream power source.`,
+        );
+      }
+    }
+
+    for (const d of devices) {
+      const key = b.node("device", sid("device", d), deviceLabel(d), d);
+      const asset = s(d["power_asset_ref"]);
+      if (asset) {
+        const ak = assetNode(asset);
+        if (ak) b.edge(ak, key, "powers");
+        continue;
+      }
+      // No power asset: the device is fed directly from the electrical system.
+      const load = s(d["load_ref"]);
+      const group = s(d["circuit_group_ref"]);
+      if (load && loadById.has(load)) {
+        const row = loadById.get(load)!;
+        b.edge(b.node("load", load, `${load}<br/>${s(row["description"])}`, row), key, "direct");
+      } else if (group && groupById.has(group)) {
+        const row = groupById.get(group)!;
+        b.edge(
+          b.node("circuit_group", group, [group, s(row["description"])].filter(Boolean).join("<br/>"), row),
+          key,
+          "direct",
+        );
+      } else {
+        b.issue(
+          "warning",
+          "missing_endpoint",
+          `Device ${sid("device", d)} has no recorded power source.`,
+        );
+      }
+    }
+  }
+
+  detectCycles(b);
+
+  return {
+    mermaid: renderMermaid([...b.nodes.values()], b.edges, filters, state),
+    nodes: [...b.nodes.values()],
+    edges: b.edges,
+    issues: sortIssues(b.issues),
+  };
 }
