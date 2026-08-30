@@ -138,7 +138,7 @@ describe("Phase 4.4a — LOSS diagnostics and non-entity worksheets", () => {
     expect(diag(r)!.rows[0].reason).toBe("value_differs");
   });
 
-  it("names an absent Feeders record rather than blaming capture", () => {
+  it("reports an absent Feeders record at record level, not as field-capture loss", () => {
     const r = run(
       [
         {
@@ -154,15 +154,98 @@ describe("Phase 4.4a — LOSS diagnostics and non-entity worksheets", () => {
               duplicateHeader: false,
               samples: [{ stableId: "FDR-001", value: "1.8" }],
             },
+            {
+              column: "Conductor Insulation",
+              populated: true,
+              populatedRows: 1,
+              columnIndex: 13,
+              duplicateHeader: false,
+              samples: [{ stableId: "FDR-001", value: "THHN" }],
+            },
           ],
         },
       ],
       snapshot({ feeder: [] }),
     );
-    const d = diag(r)!;
-    expect(d.rows[0].reason).toBe("record_not_found");
-    expect(d.rows[0].capture_present).toBe(false);
+    const recs = r.records.filter((x) => x.ods_worksheet === "Feeders");
+    expect(recs).toHaveLength(2);
+    for (const rec of recs) {
+      expect(rec.classification).toBe("ODS_ONLY");
+      expect(rec.root_cause).toBe("record_not_populated_in_farmops");
+      expect(rec.disposition).toBe("CORRECT_FARMOPS");
+      expect(rec.loss_diagnostic).toBeUndefined();
+      // The canonical engineering value is still visible in the report.
+      expect(rec.ods_value).not.toBe("");
+    }
+    // A missing destination record never inflates the semantic-loss count.
+    expect(r.summary.LOSS).toBe(0);
   });
+
+  it("treats numerically equivalent captured values as preserved, not LOSS", () => {
+    const r = run(
+      [unmappedSheet([{ stableId: "FS-094", value: "20" }], "Circuit Rating Amps")],
+      snapshot({
+        load: [
+          {
+            id: "l1",
+            load_id: "FS-094",
+            [ODS_EXTRAS_FIELD]: JSON.stringify({ "Circuit Rating Amps": "20.00" }),
+          },
+        ],
+      }),
+    );
+    const rec = r.records.find((x) => x.ods_column === "Circuit Rating Amps")!;
+    expect(rec.classification).toBe("EXPECTED_TRANSFORMATION");
+    expect(rec.rules).toContain("numeric_tolerance");
+    expect(r.summary.LOSS).toBe(0);
+  });
+
+  it("names an existing record whose capture is missing the worksheet column", () => {
+    const r = run(
+      [unmappedSheet([{ stableId: "FS-063", value: "88" }], "Calculated Complete %")],
+      snapshot({
+        load: [
+          {
+            id: "l2",
+            load_id: "FS-063",
+            [ODS_EXTRAS_FIELD]: JSON.stringify({
+              "Existing Panel": "PNL-FS-NW",
+              [ODS_EXTRAS_SOURCE_KEY]: {
+                "Existing Panel": {
+                  sheet: "Load_Master",
+                  header: "Existing Panel",
+                  column: 7,
+                },
+              },
+            }),
+          },
+        ],
+      }),
+    );
+    const rec = r.records.find((x) => x.ods_column === "Calculated Complete %")!;
+    expect(rec.classification).toBe("LOSS");
+    expect(rec.root_cause).toBe("ods_extras_capture_incomplete_for_existing_record");
+    expect(rec.loss_diagnostic!.rows[0].reason).toBe("column_absent_from_capture");
+  });
+
+  it("keeps collision-safe duplicate-header capture keys", () => {
+    const r = run(
+      [
+        unmappedSheet(
+          [{ stableId: "FS-056", value: "Barn lighting" }],
+          "Circuit Group Description",
+          true,
+          32,
+        ),
+      ],
+      snapshot({ load: [load({ "Circuit Group Description": "Barn lighting" })] }),
+    );
+    const rec = r.records.find((x) => x.ods_column === "Circuit Group Description")!;
+    // Preservation must be proven under the collision-safe key, not the bare header.
+    expect(rec.classification).toBe("LOSS");
+    expect(rec.loss_diagnostic!.preservation_key).toBe("Circuit Group Description#33");
+  });
+
 
   it("never treats Design_Lists or Workbook_Info as electrical entities", () => {
     expect(isNonEntitySheet("Design_Lists")).toBe(true);
