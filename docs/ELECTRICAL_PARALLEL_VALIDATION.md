@@ -420,3 +420,40 @@ reported as `EXPECTED_TRANSFORMATION` with root cause
 No new generic backfill is required. Load_Master captures already exist;
 Feeders needs records, not capture; metadata sheets are preserved at report
 level. Validator/normalization versions are `1.4`.
+
+## Phase 4.4a — remaining LOSS by failure class (LOSS 22)
+
+Read-only diagnostics only. No workbook writes, no database writes, no Phase 4.5.
+
+### 1. Missing destination record (FDR-001 / FDR-002 / FDR-003)
+
+When every sampled workbook row for a column belongs to a stable ID that has no
+FarmOps record, the finding is record-level, not eight field-capture failures:
+classification `ODS_ONLY`, root cause `record_not_populated_in_farmops`,
+disposition `CORRECT_FARMOPS`, and no `loss_diagnostic`. The canonical
+engineering values stay visible in the report (`ods_value`), so no ODS
+information is hidden, and the feeder records are deliberately not created.
+
+### 2. Existing record whose capture lacks the key
+
+An existing record that carries `ods_extras` but not this worksheet column is an
+import/preservation gap, reported as LOSS with root cause
+`ods_extras_capture_incomplete_for_existing_record` (or
+`ods_extras_collision_key_missing_for_existing_record` for duplicate headers,
+which continue to use collision-safe keys such as
+`Circuit Group Description#10`, `Circuit Group ID#32`,
+`Circuit Group Description#33`). The finding is not softened: it stays LOSS until
+the exact value is captured under its source identity.
+
+### 3. Field-aware equality before loss classification
+
+Preservation proof now compares engineering meaning, not byte shape:
+`capturedValueEquivalent()` treats `20`, `20.0`, `20.00` and `"20"` as one value
+(rule `numeric_tolerance`) and folds case/whitespace for text. Cases such as
+FS-094 and PH-028 Circuit Rating Amps classify as `EXPECTED_TRANSFORMATION`.
+
+### 4. Gate semantics unchanged
+
+Acceptance still requires LOSS = 0. Missing records, unresolved engineering
+decisions, TBD states and FarmOps as-built observations keep their own
+classifications and dispositions and are never converted to MATCH.
