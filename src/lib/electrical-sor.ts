@@ -21,9 +21,9 @@ export type SorAuthority = "canonical_ods" | "farmops";
 
 export const SOR_AUTHORITY: SorAuthority = "canonical_ods";
 
-export const SOR_PHASE: SorPhase = "4.2";
+export const SOR_PHASE: SorPhase = "4.3";
 
-export const SOR_MODEL_VERSION = "1.1";
+export const SOR_MODEL_VERSION = "1.2";
 
 export interface SorStatus {
   /** Which system currently owns engineering truth. */
@@ -83,7 +83,9 @@ export function cutoverBlockers(input: SorStatusInput): string[] {
   if (!input.counts.panels || !input.counts.raceways) {
     blockers.push("The engineering dataset is not fully represented in FarmOps yet.");
   }
-  blockers.push("Phase 4.3 field-mapping matrix is not complete.");
+  // Phase 4.3 delivered the complete ODS -> FarmOps field mapping matrix and the
+  // normalized panel breaker positions / panel raceway exits, so that blocker is
+  // cleared. Everything after it still requires explicit owner sign-off.
   blockers.push("Phase 4.4 lossless parallel validation has not been signed off.");
   blockers.push("Phase 4.5 cutover requires explicit owner approval.");
   return blockers;
