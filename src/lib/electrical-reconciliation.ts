@@ -158,6 +158,10 @@ export function lossDiagnosticsCsv(report: ValidationReport): string {
     "actual_ods_extras_value",
     "actual_preserved_values",
     "capture_present",
+    "capture_has_column",
+    "capture_has_source_metadata",
+    "capture_keys",
+    "capture_reason",
     "root_cause",
   ].join(",");
   const lines: string[] = [];
@@ -166,7 +170,7 @@ export function lossDiagnosticsCsv(report: ValidationReport): string {
     const d = r.loss_diagnostic;
     if (!d) {
       lines.push(
-        ["", r.ods_column ?? "", "", "", "", "", r.domain, r.stable_id, r.ods_value, "", "", "", "", r.root_cause]
+        ["", r.ods_column ?? "", "", "", "", "", r.domain, r.stable_id, r.ods_value, "", "", "", "", "", "", "", "", r.root_cause]
           .map(csvCell)
           .join(","),
       );
@@ -182,6 +186,10 @@ export function lossDiagnosticsCsv(report: ValidationReport): string {
             actual_extras_value: null,
             actual_preserved_values: [],
             capture_present: false,
+            capture_has_column: false,
+            capture_has_source_metadata: false,
+            capture_keys: [],
+            reason: "record_not_found" as const,
           },
         ];
     for (const row of rows) {

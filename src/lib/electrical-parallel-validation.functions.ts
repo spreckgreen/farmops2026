@@ -8,12 +8,19 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { requireAddon } from "@/lib/addons.server";
 import { ENTITIES, importColumns } from "@/lib/electrical-entities";
-import { classifySheet, findHeaderRow, mapSheet, parseOdsContentXml } from "@/lib/electrical-ods";
+import {
+  classifySheet,
+  findHeaderRow,
+  isNonEntitySheet,
+  mapSheet,
+  parseOdsContentXml,
+} from "@/lib/electrical-ods";
 import { collectSnapshot } from "@/lib/electrical-snapshot.functions";
 import {
   runParallelComparison,
   type OdsSheetRows,
   type ValidationReport,
+  type WorkbookMetadataSheet,
 } from "@/lib/electrical-parallel-validation";
 
 async function sha256Hex(bytes: Uint8Array): Promise<string> {
@@ -46,6 +53,32 @@ export const runElectricalParallelValidation = createServerFn({ method: "POST" }
       throw new Error("That file does not look like an .ods spreadsheet (no content.xml).");
     }
     const sheets = parseOdsContentXml(strFromU8(content));
+
+    // Non-entity worksheets (workbook metadata, drop-down lists) are preserved
+    // verbatim instead of being forced onto an entity: mapping them produced
+    // panel/feeder findings for rows that have no stable identity at all.
+    const workbookMetadata: WorkbookMetadataSheet[] = sheets
+      .filter((sheet) => isNonEntitySheet(sheet.name))
+      .map((sheet) => {
+        const headerRow = findHeaderRow(sheet.rows);
+        const header = headerRow >= 0 ? sheet.rows[headerRow] : [];
+        const body = sheet.rows.slice(headerRow + 1);
+        const width = Math.max(header.length, ...sheet.rows.map((r) => r.length), 0);
+        const columns: WorkbookMetadataSheet["columns"] = [];
+        for (let idx = 0; idx < width; idx++) {
+          const values = body
+            .map((row, i) => ({ row: headerRow + 2 + i, value: (row[idx] ?? "").trim() }))
+            .filter((v) => v.value !== "");
+          if (!values.length) continue;
+          columns.push({
+            header: (header[idx] ?? "").trim() || `(unnamed column ${idx + 1})`,
+            column: idx + 1,
+            populated_rows: values.length,
+            values,
+          });
+        }
+        return { sheet: sheet.name, columns };
+      });
 
     const parsed: OdsSheetRows[] = sheets.map((sheet) => {
       const kind = classifySheet(sheet);
@@ -100,6 +133,7 @@ export const runElectricalParallelValidation = createServerFn({ method: "POST" }
       odsSha256: sha256,
       comparedAt: new Date().toISOString(),
       sheets: parsed,
+      workbookMetadata,
       snapshot,
       snapshotSha256,
     });
