@@ -177,7 +177,13 @@ function ownershipFor(field: EntityField): FieldOwnership {
 /** Ownership map for one entity kind, including its derived relation keys. */
 export function ownershipMap(kind: ElectricalEntityKind): Record<string, FieldOwnership> {
   const out: Record<string, FieldOwnership> = {};
-  for (const field of ENTITIES[kind].fields) out[field.key] = ownershipFor(field);
+  // FarmOps-native infrastructure is owned end-to-end by FarmOps: the canonical
+  // workbook has no counterpart, so no field can be engineering-design owned.
+  const native = FARMOPS_NATIVE_KINDS.has(kind);
+  for (const field of ENTITIES[kind].fields) {
+    out[field.key] = native ? "farmops_as_built" : ownershipFor(field);
+  }
+
   for (const spec of relationsFor(kind)) {
     out[relationStableIdKey(spec.fkColumn)] = out[spec.fkColumn] ?? "farmops_as_built";
   }
