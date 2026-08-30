@@ -27,7 +27,7 @@ import {
   type SnapshotRecord,
 } from "@/lib/electrical-snapshot";
 import { FIELD_MAP, FIELD_MAP_VERSION } from "@/lib/electrical-field-map";
-import type { ElectricalEntityKind } from "@/lib/electrical";
+import { FARMOPS_NATIVE_KINDS, type ElectricalEntityKind } from "@/lib/electrical";
 
 export const VALIDATION_SCHEMA_VERSION = "1.1";
 export const NORMALIZATION_VERSION = "1.1";
