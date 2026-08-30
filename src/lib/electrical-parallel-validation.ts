@@ -29,9 +29,48 @@ import {
 import { FIELD_MAP, FIELD_MAP_VERSION } from "@/lib/electrical-field-map";
 import type { ElectricalEntityKind } from "@/lib/electrical";
 
-export const VALIDATION_SCHEMA_VERSION = "1.0";
-export const NORMALIZATION_VERSION = "1.0";
+export const VALIDATION_SCHEMA_VERSION = "1.1";
+export const NORMALIZATION_VERSION = "1.1";
 export const MAPPING_VERSION = FIELD_MAP_VERSION;
+
+/* -------------------------------------------------- 4.4a disposition model */
+
+/**
+ * Who is allowed to decide a difference. Phase 4.4a never lets one system
+ * silently win: a design field is the workbook's, an as-built field is
+ * FarmOps's, a derived field must be recomputed, and anything else is an
+ * engineering decision that stays visible until a human makes it.
+ */
+export const AUTHORITY_CLASSES = [
+  "DESIGN_CANONICAL",
+  "AS_BUILT_OPERATIONAL",
+  "DERIVED",
+  "DECISION_REQUIRED",
+  "STRUCTURAL",
+] as const;
+export type AuthorityClass = (typeof AUTHORITY_CLASSES)[number];
+
+export const DISPOSITIONS = [
+  "ACCEPTED",
+  "REVIEW_REQUIRED",
+  "ENGINEERING_DECISION_REQUIRED",
+  "CORRECT_FARMOPS",
+  "CORRECT_MAPPING",
+  "UNRESOLVED_ENGINEERING_REFERENCE",
+  "TBD_ENGINEERING_STATE",
+] as const;
+export type Disposition = (typeof DISPOSITIONS)[number];
+
+/** Phase 4.4a §6 buckets for FarmOps-only information. */
+export const FARMOPS_ONLY_CATEGORIES = {
+  A: "Legitimate as-built / operational extension",
+  B: "Valid schema enrichment",
+  C: "Import / default artifact",
+  D: "Duplicate or identity error",
+  E: "Engineering decision required",
+} as const;
+export type FarmOpsOnlyCategory = keyof typeof FARMOPS_ONLY_CATEGORIES;
+
 
 /* ------------------------------------------------------------------ classes */
 
@@ -76,9 +115,11 @@ export const NORMALIZATION_RULES: NormalizationRule[] = [
   { id: "whitespace_trim", description: "Leading/trailing and repeated whitespace collapsed." },
   { id: "case_fold", description: "Text compared case-insensitively where case carries no engineering meaning." },
   { id: "null_equivalence", description: "Empty string and null are the same absence of a value." },
-  { id: "not_applicable_null", description: '"n/a", "na", "none", "tbd", "-" read as no value.' },
-  { id: "boolean_yes_no", description: 'Yes/Y/True/1/X -> true; No/N/False/0 -> false.' },
+  { id: "not_applicable_null", description: '"n/a", "na", "none", "-" read as no value.' },
+  { id: "tbd_unknown", description: '"TBD", "?", "unknown" is a third state: not a value, and never equal to blank, true, false or 0.' },
+  { id: "boolean_yes_no", description: 'Yes/Y/True/X -> true; No/N/False -> false. Blank and TBD stay unknown; 1/0 only count for a column already stored as a boolean.' },
   { id: "strip_units", description: 'Unit suffixes removed before numeric comparison ("20 A" -> 20, "45 ft" -> 45).' },
+  { id: "kva_to_va", description: '"12 kVA" -> 12000 VA when the destination column is volt-amperes.' },
   { id: "thousands_separator", description: '"12,000" -> 12000.' },
   { id: "percent", description: '"65%" -> 65; a 0-1 fraction is read as a percentage of 100.' },
   { id: "dual_voltage", description: '"120/240V" keeps the higher nominal voltage (240).' },
@@ -92,11 +133,14 @@ export type NormalValue = string | number | boolean | null;
 export interface Normalized {
   value: NormalValue;
   rules: string[];
+  /** True when the source states "to be determined" rather than a value. */
+  tbd?: boolean;
 }
 
-const NULLISH = new Set(["", "n/a", "na", "none", "null", "tbd", "-", "—"]);
-const TRUEISH = new Set(["yes", "y", "true", "t", "1", "x", "✓"]);
-const FALSEISH = new Set(["no", "n", "false", "f", "0"]);
+const NULLISH = new Set(["", "n/a", "na", "none", "null", "-", "—"]);
+const TBDISH = new Set(["tbd", "t.b.d.", "tbd?", "?", "??", "unknown", "unk", "to be determined"]);
+const TRUEISH = new Set(["yes", "y", "true", "t", "x", "✓"]);
+const FALSEISH = new Set(["no", "n", "false", "f"]);
 
 function collapse(raw: unknown): { text: string; rules: string[] } {
   const rules: string[] = [];
@@ -112,6 +156,10 @@ export function normalizeValue(field: EntityField, raw: unknown): Normalized {
   const { text, rules } = collapse(raw);
   const lower = text.toLowerCase();
 
+  if (TBDISH.has(lower)) {
+    return { value: null, rules: [...rules, "tbd_unknown"], tbd: true };
+  }
+
   if (NULLISH.has(lower)) {
     return { value: null, rules: [...rules, text === "" ? "null_equivalence" : "not_applicable_null"] };
   }
@@ -119,8 +167,13 @@ export function normalizeValue(field: EntityField, raw: unknown): Normalized {
   if (field.kind === "bool") {
     if (TRUEISH.has(lower)) return { value: true, rules: [...rules, "boolean_yes_no"] };
     if (FALSEISH.has(lower)) return { value: false, rules: [...rules, "boolean_yes_no"] };
+    // "1"/"0" are only trusted when the value already arrived as a stored
+    // number — a workbook cell holding 1 or 0 in a Yes/No column is ambiguous
+    // and stays unknown rather than being invented as true or false.
+    if (typeof raw === "number") return { value: raw !== 0, rules: [...rules, "boolean_yes_no"] };
     return { value: text, rules };
   }
+
 
   if (field.kind === "number") {
     if (typeof raw === "number") return { value: raw, rules };
@@ -145,7 +198,12 @@ export function normalizeValue(field: EntityField, raw: unknown): Normalized {
       value = value * 100;
       applied.push("percent");
     }
+    if (field.key.endsWith("_va") && /kva/.test(work)) {
+      value = value * 1000;
+      applied.push("kva_to_va");
+    }
     return { value, rules: applied };
+
   }
 
   return { value: text, rules };
@@ -184,8 +242,16 @@ export interface OdsSheetRows {
   sheet: string;
   kind: ElectricalEntityKind | null;
   rows: OdsEntityRow[];
-  /** Headers that bound to no FarmOps column, with a sample of their values. */
-  unmapped?: { column: string; populated: boolean }[];
+  /**
+   * Headers that bound to no FarmOps column. Phase 4.4a carries per-record
+   * evidence so a LOSS finding names the workbook rows and values at risk.
+   */
+  unmapped?: {
+    column: string;
+    populated: boolean;
+    populatedRows?: number;
+    samples?: { stableId: string; value: string }[];
+  }[];
 }
 
 export interface ValidationInput {
@@ -194,6 +260,8 @@ export interface ValidationInput {
   comparedAt: string;
   sheets: OdsSheetRows[];
   snapshot: ElectricalSnapshot;
+  /** Checksum of the serialized FarmOps snapshot, when the caller computed it. */
+  snapshotSha256?: string;
 }
 
 export interface ComparisonRecord {
@@ -212,6 +280,16 @@ export interface ComparisonRecord {
   /** Normalization / transformation rules that applied. */
   rules: string[];
   note: string;
+  /** Phase 4.4a: who may decide this difference. */
+  authority_class: AuthorityClass;
+  /** Phase 4.4a: what must happen next. Never an automatic overwrite. */
+  disposition: Disposition;
+  /** Phase 4.4a: machine-readable cause, "unclassified" when unexplained. */
+  root_cause: string;
+  /** Phase 4.4a §6 bucket, for FarmOps-only findings only. */
+  farmops_only_category: FarmOpsOnlyCategory | null;
+  /** The workbook states "to be determined" rather than a value. */
+  tbd: boolean;
 }
 
 export interface ValidationReport {
@@ -222,12 +300,109 @@ export interface ValidationReport {
   sor_authority: "canonical_ods";
   farmops_role: "candidate_sor";
   ods: { file_name: string; sha256: string; worksheets: string[] };
-  farmops: { snapshot_schema_version: string; snapshot_generated_at: string };
+  farmops: {
+    snapshot_schema_version: string;
+    snapshot_generated_at: string;
+    snapshot_sha256: string | null;
+  };
   summary: Record<Classification, number>;
   by_domain: Record<string, Record<Classification, number>>;
   as_built_additions_by_entity: Record<string, number>;
+  by_root_cause: Record<string, number>;
+  by_disposition: Record<Disposition, number>;
+  farmops_only_by_category: Record<FarmOpsOnlyCategory, number>;
+  /** Phase 4.4a acceptance gate — computed, never asserted by hand. */
+  gate: {
+    loss: number;
+    unexplained_ods_only: number;
+    unexplained: number;
+    open_dispositions: number;
+    status: "PASS" | "FAIL";
+    reasons: string[];
+  };
   records: ComparisonRecord[];
 }
+
+/* -------------------------------------------------- 4.4a record enrichment */
+
+function authorityClassFor(
+  authority: FieldOwnership | "structural",
+  field?: EntityField,
+): AuthorityClass {
+  if (authority === "structural") return "STRUCTURAL";
+  if (authority === "farmops_as_built") return "AS_BUILT_OPERATIONAL";
+  if (authority === "unknown") return "DECISION_REQUIRED";
+  if (field && DERIVED_FIELDS.has(field.key)) return "DERIVED";
+  return "DESIGN_CANONICAL";
+}
+
+/** Columns FarmOps recomputes rather than stores as released design values. */
+const DERIVED_FIELDS = new Set([
+  "connected_va_total",
+  "demand_va_total",
+  "load_count",
+  "completion_percent",
+]);
+
+function dispositionFor(
+  classification: Classification,
+  cls: AuthorityClass,
+  tbd: boolean,
+  category: FarmOpsOnlyCategory | null,
+): Disposition {
+  switch (classification) {
+    case "MATCH":
+    case "EXPECTED_TRANSFORMATION":
+    case "FARMOPS_AS_BUILT_ADDITION":
+      return "ACCEPTED";
+    case "LOSS":
+      return "CORRECT_MAPPING";
+    case "ODS_ONLY":
+      return "CORRECT_FARMOPS";
+    case "FARMOPS_ONLY":
+      return category === "A" || category === "B" ? "ACCEPTED" : "REVIEW_REQUIRED";
+    case "INCOMPLETE":
+      return tbd ? "TBD_ENGINEERING_STATE" : "UNRESOLVED_ENGINEERING_REFERENCE";
+    case "CONFLICT":
+      if (cls === "DERIVED") return "CORRECT_MAPPING";
+      if (cls === "AS_BUILT_OPERATIONAL") return "REVIEW_REQUIRED";
+      return "ENGINEERING_DECISION_REQUIRED";
+    default:
+      return "REVIEW_REQUIRED";
+  }
+}
+
+type DraftRecord = Omit<
+  ComparisonRecord,
+  "authority_class" | "disposition" | "root_cause" | "farmops_only_category" | "tbd"
+> &
+  Partial<
+    Pick<
+      ComparisonRecord,
+      "authority_class" | "disposition" | "root_cause" | "farmops_only_category" | "tbd"
+    >
+  >;
+
+/**
+ * Fill in the Phase 4.4a decision metadata. Defaults never soften a finding:
+ * an unexplained difference keeps root cause "unclassified" so the acceptance
+ * gate can count it.
+ */
+export function finalizeRecord(draft: DraftRecord, field?: EntityField): ComparisonRecord {
+  const authority_class = draft.authority_class ?? authorityClassFor(draft.authority, field);
+  const tbd = draft.tbd ?? false;
+  const category = draft.farmops_only_category ?? null;
+  return {
+    ...draft,
+    authority_class,
+    tbd,
+    farmops_only_category: category,
+    root_cause: draft.root_cause ?? "unclassified",
+    disposition:
+      draft.disposition ?? dispositionFor(draft.classification, authority_class, tbd, category),
+  };
+}
+
 
 /* ---------------------------------------------------------------- comparing */
 
@@ -271,7 +446,7 @@ export function runParallelComparison(input: ValidationInput): ValidationReport 
   const records: ComparisonRecord[] = [];
   const snapshot = input.snapshot;
 
-  const push = (r: ComparisonRecord) => records.push(r);
+  const push = (r: DraftRecord, field?: EntityField) => records.push(finalizeRecord(r, field));
 
   // --- unmapped workbook columns: the semantic-loss detector -----------------
   for (const sheet of input.sheets) {
@@ -284,6 +459,21 @@ export function runParallelComparison(input: ValidationInput): ValidationReport 
           mapped.classification === "display_only" ||
           mapped.classification === "obsolete" ||
           mapped.classification === "intentionally_excluded");
+      // A column the mapping matrix calls directly mapped but the importer did
+      // not bind is an importer omission, not a missing mapping.
+      const rootCause = explained
+        ? `documented_${mapped!.classification}`
+        : mapped
+          ? "importer_omission_alias_missing"
+          : "missing_mapping_no_farmops_destination";
+      const samples = (col.samples ?? []).slice(0, 5);
+      const evidence = samples.length
+        ? ` Affected workbook rows: ${samples.map((s) => `${s.stableId || "(no id)"}="${s.value}"`).join(", ")}${
+            col.populatedRows && col.populatedRows > samples.length
+              ? ` (+${col.populatedRows - samples.length} more)`
+              : ""
+          }.`
+        : "";
       push({
         domain: sheet.kind ? COLLECTION_FOR_KIND[sheet.kind] : sheet.sheet,
         stable_id: `${sheet.sheet}:${col.column}`,
@@ -291,21 +481,47 @@ export function runParallelComparison(input: ValidationInput): ValidationReport 
         label: col.column,
         ods_worksheet: sheet.sheet,
         ods_column: col.column,
-        ods_value: "(populated column)",
+        ods_value: samples.length
+          ? samples.map((s) => s.value).join(" | ")
+          : "(populated column)",
         farmops_entity: mapped?.farmops ?? null,
         farmops_field: null,
         farmops_value: "",
         authority: "engineering_design",
         classification: explained ? "EXPECTED_TRANSFORMATION" : "LOSS",
         rules: [],
-        note: explained
-          ? `Mapping ${mapped!.classification}: ${mapped!.transformation}`
-          : "Populated workbook column has no FarmOps destination in the Phase 4.3 mapping.",
+        root_cause: rootCause,
+        note:
+          (explained
+            ? `Mapping ${mapped!.classification}: ${mapped!.transformation}`
+            : mapped
+              ? `The mapping matrix maps this column to ${mapped.farmops}, but the importer bound no column — add the header alias.`
+              : "Populated workbook column has no FarmOps destination in the mapping matrix.") +
+          evidence,
       });
     }
+
   }
 
+  // Every FarmOps stable ID, so an ODS-only record can be explained by an
+  // identity/worksheet mismatch instead of being reported as simply missing.
+  const farmopsIndex = new Map<string, string>();
+  for (const kind of Object.keys(ENTITIES) as ElectricalEntityKind[]) {
+    const collection = COLLECTION_FOR_KIND[kind];
+    for (const rec of snapshot[collection] ?? []) {
+      const id = String(rec["stable_id"] ?? "").trim();
+      if (id) farmopsIndex.set(id.toUpperCase(), collection);
+    }
+  }
+  /** CON-### is the canonical raceway identity; EMT-### is legacy compatibility. */
+  const legacyVariants = (id: string): string[] => {
+    const m = id.toUpperCase().match(/^(CON|EMT)-(\d+)$/);
+    if (!m) return [];
+    return m[1] === "CON" ? [`EMT-${m[2]}`] : [`CON-${m[2]}`];
+  };
+
   // --- per-entity field comparison ------------------------------------------
+
   for (const kind of Object.keys(ENTITIES) as ElectricalEntityKind[]) {
     const def = ENTITIES[kind];
     const collection = COLLECTION_FOR_KIND[kind];
@@ -330,6 +546,13 @@ export function runParallelComparison(input: ValidationInput): ValidationReport 
     // records present on one side only
     for (const [id] of odsRows) {
       if (fpRows.has(id)) continue;
+      const elsewhere = farmopsIndex.get(id.toUpperCase());
+      const legacy = legacyVariants(id).find((v) => farmopsIndex.has(v));
+      const rootCause = elsewhere
+        ? "identity_present_in_other_collection"
+        : legacy
+          ? "legacy_stable_id_equivalence"
+          : "record_not_populated_in_farmops";
       push({
         domain: collection,
         stable_id: id,
@@ -340,15 +563,22 @@ export function runParallelComparison(input: ValidationInput): ValidationReport 
         ods_value: id,
         farmops_entity: def.table,
         farmops_field: def.stableIdField,
-        farmops_value: "",
+        farmops_value: legacy ?? "",
         authority: "structural",
-        classification: "ODS_ONLY",
-        rules: [],
-        note: "Workbook record has not been populated in FarmOps.",
+        classification: legacy ? "EXPECTED_TRANSFORMATION" : "ODS_ONLY",
+        rules: legacy ? ["relational_fk_from_text"] : [],
+        root_cause: rootCause,
+        disposition: elsewhere ? "CORRECT_MAPPING" : undefined,
+        note: elsewhere
+          ? `The same stable ID exists in FarmOps as ${elsewhere}: the worksheet classification or entity mapping is wrong, the record is not missing.`
+          : legacy
+            ? `Present in FarmOps under the pre-existing legacy identifier ${legacy}; CON-### stays canonical and no record is renamed.`
+            : "Workbook record has not been populated in FarmOps.",
       });
     }
     for (const [id] of fpRows) {
       if (!id || odsRows.has(id)) continue;
+      const asBuilt = AS_BUILT_KINDS.has(kind);
       push({
         domain: collection,
         stable_id: id,
@@ -361,15 +591,18 @@ export function runParallelComparison(input: ValidationInput): ValidationReport 
         farmops_field: def.stableIdField,
         farmops_value: id,
         authority: "structural",
-        classification: AS_BUILT_KINDS.has(kind)
-          ? "FARMOPS_AS_BUILT_ADDITION"
-          : "FARMOPS_ONLY",
+        classification: asBuilt ? "FARMOPS_AS_BUILT_ADDITION" : "FARMOPS_ONLY",
         rules: [],
-        note: AS_BUILT_KINDS.has(kind)
+        farmops_only_category: asBuilt ? "A" : "E",
+        root_cause: asBuilt
+          ? "field_installed_after_design_release"
+          : "farmops_record_without_workbook_counterpart",
+        note: asBuilt
           ? "Field-installed record created after the canonical design release."
-          : "FarmOps record with no workbook counterpart — review required.",
+          : "FarmOps record with no workbook counterpart — engineering decision required.",
       });
     }
+
 
     for (const [id, odsRow] of odsRows) {
       const rec = fpRows.get(id);
@@ -380,7 +613,10 @@ export function runParallelComparison(input: ValidationInput): ValidationReport 
         const own = ownership[field.key] ?? "engineering_design";
         const odsNorm = normalizeValue(field, odsRow.values[field.key]);
         const fpNorm = normalizeValue(field, rec[field.key]);
-        if (odsNorm.value === null && fpNorm.value === null) continue;
+        const bothAbsent = odsNorm.value === null && fpNorm.value === null;
+        // A workbook "TBD" against a blank FarmOps cell is still reportable:
+        // unknown is a state, not an absence.
+        if (bothAbsent && !odsNorm.tbd) continue;
 
         const odsText = display(odsRow.values[field.key]);
         const fpText = display(rec[field.key]);
@@ -400,60 +636,125 @@ export function runParallelComparison(input: ValidationInput): ValidationReport 
           rules,
         };
 
+        // Tri-state semantics: TBD is never equal to blank, false, true or 0,
+        // and is never resolved by the validator.
+        if (odsNorm.tbd) {
+          push(
+            {
+              ...base,
+              classification: "INCOMPLETE",
+              tbd: true,
+              root_cause: "tbd_engineering_state_in_workbook",
+              note:
+                fpNorm.value === null
+                  ? 'The workbook states "to be determined"; FarmOps holds no value. Unknown is preserved as unknown.'
+                  : `The workbook states "to be determined" while FarmOps holds ${fpText}. Only an engineer may decide this.`,
+            },
+            field,
+          );
+          continue;
+        }
+
         if (sameNormalized(odsNorm.value, fpNorm.value)) {
           const identical = odsText === fpText;
-          push({
-            ...base,
-            classification: identical ? "MATCH" : "EXPECTED_TRANSFORMATION",
-            note: identical
-              ? "Same engineering value."
-              : `Same meaning after normalization (${rules.join(", ") || "representation"}).`,
-          });
+          push(
+            {
+              ...base,
+              classification: identical ? "MATCH" : "EXPECTED_TRANSFORMATION",
+              root_cause: identical ? "identical_value" : "documented_normalization",
+              note: identical
+                ? "Same engineering value."
+                : `Same meaning after normalization (${rules.join(", ") || "representation"}).`,
+            },
+            field,
+          );
           continue;
         }
 
         if (odsNorm.value === null) {
-          push({
-            ...base,
-            classification:
-              own === "farmops_as_built"
-                ? "FARMOPS_AS_BUILT_ADDITION"
-                : "FARMOPS_ONLY",
-            note:
-              own === "farmops_as_built"
-                ? "Field/as-built value with no design counterpart in the workbook."
-                : "FarmOps holds a value the workbook leaves blank — review required.",
-          });
+          const asBuiltField = own === "farmops_as_built";
+          const category: FarmOpsOnlyCategory = asBuiltField
+            ? "A"
+            : looksLikeDefaultArtifact(field, fpNorm.value)
+              ? "C"
+              : matrixCoversColumn(def.table, field.key)
+                ? "E"
+                : "B";
+          push(
+            {
+              ...base,
+              classification: asBuiltField ? "FARMOPS_AS_BUILT_ADDITION" : "FARMOPS_ONLY",
+              farmops_only_category: category,
+              root_cause: asBuiltField
+                ? "as_built_observation_no_design_counterpart"
+                : category === "C"
+                  ? "importer_or_column_default_artifact"
+                  : category === "B"
+                    ? "schema_enrichment_beyond_workbook"
+                    : "farmops_value_where_workbook_is_blank",
+              note: `${FARMOPS_ONLY_CATEGORIES[category]}: ${
+                asBuiltField
+                  ? "field/as-built value with no design counterpart in the workbook."
+                  : category === "C"
+                    ? "value equals the column default, so it carries no engineering meaning."
+                    : category === "B"
+                      ? "FarmOps models information the workbook does not express."
+                      : "FarmOps holds a value the workbook leaves blank — engineering review required."
+              }`,
+            },
+            field,
+          );
           continue;
         }
 
         if (fpNorm.value === null) {
-          push({
-            ...base,
-            classification: own === "farmops_as_built" ? "INCOMPLETE" : "ODS_ONLY",
-            note:
-              own === "farmops_as_built"
-                ? "Field value not captured yet; the model can represent it."
-                : "Workbook value is not populated in FarmOps.",
-          });
+          push(
+            {
+              ...base,
+              classification: own === "farmops_as_built" ? "INCOMPLETE" : "ODS_ONLY",
+              root_cause:
+                own === "farmops_as_built"
+                  ? "field_observation_not_captured_yet"
+                  : "workbook_value_not_imported",
+              note:
+                own === "farmops_as_built"
+                  ? "Field value not captured yet; the model can represent it."
+                  : "Workbook value is not populated in FarmOps.",
+            },
+            field,
+          );
           continue;
         }
 
         // Both sides hold a value and they disagree.
         if (own === "farmops_as_built") {
-          push({
-            ...base,
-            classification: "FARMOPS_AS_BUILT_ADDITION",
-            note: "As-built observation recorded against a design value — not a conflict.",
-          });
+          push(
+            {
+              ...base,
+              classification: "FARMOPS_AS_BUILT_ADDITION",
+              farmops_only_category: "A",
+              root_cause: "as_built_observation_against_design_value",
+              note: "As-built observation recorded against a design value — not a conflict.",
+            },
+            field,
+          );
           continue;
         }
-        push({
-          ...base,
-          classification: "CONFLICT",
-          note: "Both systems hold a value for the same engineering concept and they disagree.",
-        });
+        push(
+          {
+            ...base,
+            classification: "CONFLICT",
+            root_cause: DERIVED_FIELDS.has(field.key)
+              ? "derived_value_recomputation_difference"
+              : field.kind === "bool"
+                ? "boolean_or_default_semantics"
+                : "design_value_disagreement",
+            note: "Both systems hold a value for the same engineering concept and they disagree.",
+          },
+          field,
+        );
       }
+
 
       // relationship (FK) comparison, always by stable ID — never by UUID
       for (const rel of relationshipFields(kind)) {

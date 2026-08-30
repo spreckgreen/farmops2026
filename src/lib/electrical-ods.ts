@@ -199,7 +199,7 @@ export interface SheetImport {
   sheet: string;
   kind: ElectricalEntityKind | null;
   headerRow: number;
-  columns: { source: string; target: string | null }[];
+  columns: { source: string; target: string | null; scale?: number }[];
   rows: MappedRow[];
   skipped: number;
   /** Cells refused because the value cannot belong to that column. */
@@ -311,6 +311,40 @@ const COLUMN_ALIASES: Record<string, string> = {
  * nothing and stayed NULL.
  */
 const KIND_ALIASES: Partial<Record<ElectricalEntityKind, Record<string, string>>> = {
+  load: {
+    // Phase 4.4a: canonical Load_Master columns that previously bound to
+    // nothing and were reported as semantic LOSS.
+    "equipment / model": "equipment_model",
+    "equipment model": "equipment_model",
+    equipment: "equipment_model",
+    model: "equipment_model",
+    "equipment description": "equipment_model",
+    "source / reference": "source_reference",
+    "source reference": "source_reference",
+    "source ref": "source_reference",
+    reference: "source_reference",
+    ref: "source_reference",
+    "suggested panel": "suggested_panel",
+    "panel suggestion": "suggested_panel",
+    "proposed panel": "suggested_panel",
+    "d/s": "dedicated_shared",
+    "d s": "dedicated_shared",
+    ds: "dedicated_shared",
+    "dedicated / shared": "dedicated_shared",
+    "dedicated shared": "dedicated_shared",
+    "connected kva": "connected_va",
+    kva: "connected_va",
+    "connected load kva": "connected_va",
+    "connected va": "connected_va",
+    critical: "critical",
+    future: "future",
+    "continuous load": "continuous_load",
+    continuous: "continuous_load",
+    "backup eligible": "backup_eligible",
+    "backup priority": "backup_priority",
+    "load shed group": "load_shed_group",
+  },
+
   panel: {
     panel: "panel_id",
     "panel id": "panel_id",
@@ -438,7 +472,10 @@ export function mapSheet(
       null;
     if (!target || used.has(target)) return { source, target: null };
     used.add(target);
-    return { source, target };
+    // A kVA-headed column feeding a VA column is scaled once, here, so the
+    // stored engineering value keeps the canonical magnitude.
+    const scale = /\bkva\b/.test(n) && target.endsWith("_va") ? 1000 : undefined;
+    return { source, target, scale };
   });
 
 
@@ -453,8 +490,16 @@ export function mapSheet(
       if (!col.target) return;
       const v = (raw[idx] ?? "").trim();
       if (!v) return;
+      if (col.scale) {
+        const n = Number(v.replace(/,/g, "").replace(/[^0-9.\-]/g, ""));
+        if (Number.isFinite(n)) {
+          values[col.target] = String(n * col.scale);
+          return;
+        }
+      }
       values[col.target] = v;
     });
+
     const stableId = (values[stableIdField] ?? "").trim();
     if (!stableId) {
       skipped++;
