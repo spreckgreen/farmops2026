@@ -524,8 +524,28 @@ export const ENTITIES: Record<ElectricalEntityKind, EntityDef> = {
   },
 };
 
+/**
+ * Phase 4.4a — lossless capture. Every ODS-backed entity gets the verbatim
+ * preservation column so a canonical workbook column with no dedicated FarmOps
+ * field is still stored (keyed by its exact workbook header) rather than
+ * dropped. It is read-only: the importer writes it, the forms never do.
+ * FarmOps-native kinds (racks, power assets, devices) are never imported from
+ * the workbook, so they do not carry it.
+ */
+for (const kind of Object.keys(ENTITIES) as ElectricalEntityKind[]) {
+  if (FARMOPS_NATIVE_KINDS.has(kind)) continue;
+  ENTITIES[kind].fields.push({
+    key: ODS_EXTRAS_FIELD,
+    label: "Preserved workbook columns",
+    kind: "textarea",
+    readOnly: true,
+    engineering: true,
+    hint: "Canonical ODS columns with no dedicated FarmOps field, preserved verbatim as JSON by the workbook import.",
+  });
+}
 
 export const ENTITY_KINDS = Object.keys(ENTITIES) as ElectricalEntityKind[];
+
 
 /**
  * Columns the server accepts for a kind — anything else is dropped. Legacy
