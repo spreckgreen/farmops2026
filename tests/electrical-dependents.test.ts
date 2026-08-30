@@ -9,6 +9,9 @@ describe("dependentSpecs", () => {
       "raceway.dest_panel_uuid",
       "branch.source_panel_uuid",
       "circuit_group.panel_uuid",
+      // Phase 4.2 feeders land upstream/downstream of panels.
+      "feeder.source_panel_uuid",
+      "feeder.dest_panel_uuid",
     ]);
     expect(dependentSpecs("panel")[0]!.fieldLabel).toBe("Source panel");
   });
