@@ -504,11 +504,8 @@ export function EntityManager({
                 <p className="text-xs text-destructive">{idCheck.error}</p>
               ) : idCheck?.warning ? (
                 <p className="text-xs text-amber-600 dark:text-amber-400">{idCheck.warning}</p>
-              ) : (
-                <p className="text-xs text-muted-foreground">
-                  Stable IDs never change once assigned — they carry no physical attributes.
-                </p>
-              )}
+              ) : null}
+              <StableIdHelp kind={kind} value={String(values[def.stableIdField] ?? "")} />
             </div>
             {groups.map((group) => (
               <div key={group.title} className="space-y-2">
