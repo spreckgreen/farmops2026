@@ -16,6 +16,7 @@ import {
   RACK_ROLES,
   type ElectricalEntityKind,
 } from "@/lib/electrical";
+import { parseBooleanCell } from "@/lib/electrical-boolean";
 
 
 import { classifyGrid } from "@/lib/electrical-grid";
