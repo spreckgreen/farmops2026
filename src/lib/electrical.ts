@@ -571,6 +571,12 @@ export function checkStableId(
   if (!id) return { ok: false, error: "A stable ID is required." };
   if (/\s/.test(id)) return { ok: false, error: "Stable IDs cannot contain spaces." };
   if (kind === "load") return checkLoadId(id);
+  // Infrastructure IDs get the shared standards validator, which reports the
+  // offending token plus a compliant example instead of "invalid ID".
+  if (isInfrastructureKind(kind)) {
+    const check = checkInfrastructureId(kind, id, { mode: opts.mode });
+    return { ok: check.ok, error: check.error, warning: check.warning };
+  }
   const pattern = ID_PATTERNS[kind];
   if (!pattern) return { ok: true };
   if (pattern.test(id)) {
