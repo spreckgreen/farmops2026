@@ -45,13 +45,15 @@ enabled. `Cache-Control: private, no-store` — the payload is session-scoped.
   "field_ownership": { "panels": { "description": "engineering_design", "completion_percent": "farmops_as_built" } },
   "metadata_fields": ["uuid", "stable_id", "created_at", "updated_at"],
   "qa": { "errors": 0, "warnings": 12, "findings": [{ "code": "incomplete_topology", "severity": "warning", "stable_id": "CON-030", "message": "…" }] },
-  "panels": [], "loads": [], "circuit_groups": [],
+  "panels": [], "loads": [], "circuit_groups": [], "feeders": [],
   "raceways": [], "raceway_waypoints": [],
   "junction_boxes": [], "branch_runs": []
 }
 ```
 
-All seven collections are always present, even when empty.
+All eight collections are always present, even when empty — including
+`feeders`, added in Phase 4.2 as a normalized panel-to-panel entity rather than
+free text on a panel record.
 
 ### Identity
 
@@ -134,3 +136,22 @@ to BosteadFarmsBuildDocs and later phases.
 | `src/routes/api/electrical/snapshot.ts` | Bearer-token JSON API route |
 | `src/routes/electrical.export.tsx` | In-app preview + download |
 | `tests/electrical-snapshot.test.ts` | Schema, identity, relationships, nulls, ownership, determinism |
+
+
+## SOR status (Phase 4.2)
+
+`/electrical/sor` renders the authority state behind this snapshot, and
+`electricalSorStatus` returns the same values as JSON:
+
+- **Current authority** — `canonical_ods` today. FarmOps is a *candidate* SOR
+  holding field / as-installed truth; it never writes, replaces or synchronizes
+  `BosteadFarmsBuildDocs/documents/VOL-01_Electrical/source/data/PremoFarmElectrical.ods`.
+- **Data model version** (`1.1`, bumped when electrical entities change shape)
+  and **snapshot schema version** (`1.0`).
+- Record counts per collection, last electrical record change, last
+  reconciliation snapshot, and unresolved QA errors/warnings.
+- **Cutover blockers.** An empty blocker list still does not make FarmOps
+  authoritative: Phase 4.5 is an explicit, owner-approved event that also
+  requires the archived pre-cutover ODS checksum. Flipping `SOR_AUTHORITY` in
+  `src/lib/electrical-sor.ts` is the only way authority changes, and it is not
+  automated.
