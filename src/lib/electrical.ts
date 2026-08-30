@@ -131,6 +131,52 @@ export function odsExtrasEntryKey(header: string, columnIndex: number, duplicate
   return duplicate ? `${h}#${columnIndex + 1}` : h;
 }
 
+/**
+ * Phase 4.4a defect fix: one FarmOps record is described by several canonical
+ * worksheets (Load_Master, circuit-group and installation sheets all key on the
+ * same load). Writing the capture column wholesale meant the last sheet
+ * imported erased the keys preserved by the earlier ones, which the validator
+ * correctly reported as semantic loss on an existing record. Capture is
+ * therefore merged: every previously preserved entry and its source identity is
+ * kept, the incoming run wins for a key it actually carries, and collision-safe
+ * `Header#<column>` keys are never collapsed onto their bare header.
+ */
+export function mergeOdsExtras(existing: unknown, next: unknown): string | null {
+  const a = parseOdsExtras(existing) ?? (typeof existing === "object" && existing ? (existing as Record<string, unknown>) : null);
+  const b = parseOdsExtras(next) ?? (typeof next === "object" && next ? (next as Record<string, unknown>) : null);
+  if (!a && !b) return null;
+  const values = new Map<string, string>();
+  const sources = new Map<string, OdsExtrasSource>();
+  for (const src of [a, b]) {
+    if (!src) continue;
+    const meta = src[ODS_EXTRAS_SOURCE_KEY];
+    for (const [key, v] of Object.entries(src)) {
+      if (key === ODS_EXTRAS_SOURCE_KEY) continue;
+      if (typeof v === "string") values.set(key, v);
+    }
+    if (meta && typeof meta === "object" && !Array.isArray(meta)) {
+      for (const [key, m] of Object.entries(meta as Record<string, unknown>)) {
+        if (!m || typeof m !== "object") continue;
+        const s = m as Partial<OdsExtrasSource>;
+        if (!s.header) continue;
+        sources.set(key, {
+          sheet: String(s.sheet ?? ""),
+          header: String(s.header),
+          column: Number(s.column ?? 0),
+        });
+      }
+    }
+  }
+  if (!values.size) return null;
+  const keys = [...values.keys()].sort();
+  const out: Record<string, unknown> = Object.fromEntries(keys.map((k) => [k, values.get(k)!]));
+  const src = Object.fromEntries(
+    keys.filter((k) => sources.has(k)).map((k) => [k, sources.get(k)!]),
+  );
+  if (Object.keys(src).length) out[ODS_EXTRAS_SOURCE_KEY] = src;
+  return JSON.stringify(out);
+}
+
 /** Parse a stored lossless-capture value; unparseable capture is not evidence. */
 export function parseOdsExtras(raw: unknown): Record<string, unknown> | null {
   if (typeof raw !== "string" || !raw.trim()) return null;

@@ -8,6 +8,7 @@ import {
   checkStableId,
   completionFromStatus,
   mergeLegacyStatusNote,
+  mergeOdsExtras,
   normalizeInstallStatus,
   ODS_EXTRAS_FIELD,
   ODS_EXTRAS_SOURCE_KEY,
@@ -162,6 +163,21 @@ export const applyOdsImport = createServerFn({ method: "POST" })
 
 
       if (row.existing_id) {
+        // Lossless capture is merged with whatever is already preserved on the
+        // record, never replaced: several canonical worksheets describe the same
+        // record, and an import of one must not erase another's preserved keys.
+        if (patch[ODS_EXTRAS_FIELD] != null) {
+          const { data: current } = await db
+            .from(def.table)
+            .select(ODS_EXTRAS_FIELD)
+            .eq("id", row.existing_id)
+            .maybeSingle();
+          const merged = mergeOdsExtras(
+            (current as Record<string, unknown> | null)?.[ODS_EXTRAS_FIELD],
+            patch[ODS_EXTRAS_FIELD],
+          );
+          if (merged) patch[ODS_EXTRAS_FIELD] = merged;
+        }
         const { error } = await db.from(def.table).update(patch).eq("id", row.existing_id);
         if (error) errors.push({ stable_id: row.stable_id, message: error.message });
         else updated++;
@@ -234,8 +250,8 @@ export const previewOdsPreservation = createServerFn({ method: "POST" })
         existing.set(String(r[def.stableIdField] ?? "").trim(), r);
       }
       for (const row of mapped.rows) {
-        const next = row.values[ODS_EXTRAS_FIELD];
-        if (!next) continue;
+        const captured = row.values[ODS_EXTRAS_FIELD];
+        if (!captured) continue;
         const record = existing.get(row.stableId.trim());
         if (!record) {
           missing.push({ sheet: sheet.name, stable_id: row.stableId });
@@ -244,6 +260,8 @@ export const previewOdsPreservation = createServerFn({ method: "POST" })
         const was = typeof record[ODS_EXTRAS_FIELD] === "string"
           ? (record[ODS_EXTRAS_FIELD] as string)
           : "";
+        // Additive: already-preserved keys from other worksheets are kept.
+        const next = mergeOdsExtras(was, captured) ?? captured;
         if (was === next) {
           alreadyPreserved++;
           continue;

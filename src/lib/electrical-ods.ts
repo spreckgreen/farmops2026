@@ -8,6 +8,7 @@
 import {
   ODS_EXTRAS_FIELD,
   ODS_EXTRAS_SOURCE_KEY,
+  mergeOdsExtras,
   odsExtrasEntryKey,
   type ElectricalEntityKind,
   type OdsExtrasSource,
@@ -767,26 +768,43 @@ export function mapSheet(
     // recoverable and duplicate header text cannot overwrite itself.
     const extras: Record<string, string> = {};
     const extrasSource: Record<string, OdsExtrasSource> = {};
+    // One worksheet column, preserved verbatim under a collision-safe key.
+    // A column is keyed with its worksheet column number whenever its header
+    // text repeats on the sheet *or* it collided with a column already bound to
+    // the same FarmOps field, so two different headers meaning the same thing
+    // can never collapse onto one bare-header key.
+    const preserve = (idx: number, value: string, collided: boolean) => {
+      const source = (columns[idx]?.source ?? "").trim();
+      const header = source || `(unnamed column ${idx + 1})`;
+      const key = odsExtrasEntryKey(
+        header,
+        idx,
+        collided || duplicateHeaders.has(norm(header)),
+      );
+      extras[key] = value;
+      extrasSource[key] = { sheet: sheet.name, header, column: idx + 1 };
+    };
+    const scaledColumns: { idx: number; column: string; value: string }[] = [];
     columns.forEach((col, idx) => {
       const v = (raw[idx] ?? "").trim();
+      if (!v) return;
       if (!col.target) {
-        if (!v) return;
-        const header = col.source.trim() || `(unnamed column ${idx + 1})`;
-        const key = odsExtrasEntryKey(header, idx, duplicateHeaders.has(norm(header)));
-        extras[key] = v;
-        extrasSource[key] = { sheet: sheet.name, header, column: idx + 1 };
+        preserve(idx, v, Boolean(col.collidedWith));
         return;
       }
-      if (!v) return;
       if (col.scale) {
         const n = Number(v.replace(/,/g, "").replace(/[^0-9.\-]/g, ""));
         if (Number.isFinite(n)) {
           values[col.target] = String(n * col.scale);
+          // The stored engineering magnitude is a transformation of the
+          // canonical cell, so the original text is preserved verbatim too.
+          scaledColumns.push({ idx, column: col.target, value: v });
           return;
         }
       }
       values[col.target] = v;
     });
+    for (const s of scaledColumns) preserve(s.idx, s.value, false);
 
     const stableId = (values[stableIdField] ?? "").trim();
     if (!stableId) {
@@ -806,6 +824,10 @@ export function mapSheet(
           value: values["grid"],
           reason: g.reason ?? "invalid grid value",
         });
+        // Refusing the typed value must not discard the canonical cell: it is
+        // preserved verbatim so a rejected cell is never semantic loss.
+        const gridIdx = columns.findIndex((c) => c.target === "grid");
+        if (gridIdx >= 0) preserve(gridIdx, values["grid"]!, false);
         delete values["grid"];
       } else if (g.value && g.value !== values["grid"]) {
         values["grid"] = g.value;
@@ -859,10 +881,18 @@ export function buildPlanSheet(
       return { ...row, action: "create", existingId: null, changes: [], warnings };
     }
     const changes: { column: string; from: string; to: string }[] = [];
-    for (const [column, to] of Object.entries(row.values)) {
+    for (const [column, value] of Object.entries(row.values)) {
       if (column === stableIdField) continue;
       const from = current[column] == null ? "" : String(current[column]);
+      // Capture is additive: the proposed value is the union of what is already
+      // preserved and what this worksheet contributes, so importing one sheet
+      // never erases another sheet's preserved keys.
+      const to =
+        column === ODS_EXTRAS_FIELD
+          ? (mergeOdsExtras(current[column], value) ?? value)
+          : value;
       if (from.trim() !== to.trim()) changes.push({ column, from, to });
+      if (column === ODS_EXTRAS_FIELD) row.values[column] = to;
     }
     const measured = changes.find((c) => c.column === "measured_length_ft");
     if (measured && measured.from) {
