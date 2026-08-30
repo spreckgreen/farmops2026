@@ -168,6 +168,26 @@ export function ParallelValidationReport() {
               <Download className="h-4 w-4 mr-1" />
               Markdown
             </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={!report}
+              onClick={() => {
+                if (!report) return;
+                download(
+                  RECONCILIATION_FILES.markdown,
+                  reconciliationMarkdown(report),
+                  "text/markdown",
+                );
+                download(RECONCILIATION_FILES.json, reconciliationJson(report), "application/json");
+                download(RECONCILIATION_FILES.conflicts, conflictsCsv(report), "text/csv");
+                download(RECONCILIATION_FILES.unresolved, unresolvedCsv(report), "text/csv");
+              }}
+            >
+              <Download className="h-4 w-4 mr-1" />
+              Phase 4.4a artifacts
+            </Button>
+
           </div>
         </CardHeader>
         <CardContent className="space-y-3">
