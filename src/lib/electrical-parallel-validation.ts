@@ -533,7 +533,9 @@ export function runParallelComparison(input: ValidationInput): ValidationReport 
       const rootCause = explained
         ? `documented_${mapped!.classification}`
         : preserved
-          ? "documented_verbatim_preservation_in_ods_extras"
+          ? col.collidedWith
+            ? "duplicate_header_collision_preserved_verbatim"
+            : "documented_verbatim_preservation_in_ods_extras"
           : col.collidedWith
             ? "duplicate_header_collision_importer_defect"
             : mapped
@@ -557,7 +559,7 @@ export function runParallelComparison(input: ValidationInput): ValidationReport 
           ? samples.map((s) => s.value).join(" | ")
           : "(populated column)",
         farmops_entity: preserved
-          ? `${collection}.${ODS_EXTRAS_FIELD}["${col.column.trim()}"]`
+          ? `${collection}.${ODS_EXTRAS_FIELD}["${col.column.trim()}"] (source: ${sheet.sheet} / ${col.column.trim()})`
           : (mapped?.farmops ?? null),
         farmops_field: preserved ? ODS_EXTRAS_FIELD : null,
         farmops_value: preserved ? samples.map((s) => s.value).join(" | ") : "",
@@ -569,7 +571,11 @@ export function runParallelComparison(input: ValidationInput): ValidationReport 
           (explained
             ? `Mapping ${mapped!.classification}: ${mapped!.transformation}`
             : preserved
-              ? `Canonical column with no dedicated FarmOps field: preserved verbatim in ${collection}.${ODS_EXTRAS_FIELD} under its exact workbook header. No engineering value is dropped and nothing is written back to the workbook.`
+              ? `${
+                  col.collidedWith
+                    ? `Two workbook headers mean ${col.collidedWith}; this one bound to no column, and its values are`
+                    : "Canonical column with no dedicated FarmOps field:"
+                } preserved verbatim in ${collection}.${ODS_EXTRAS_FIELD}, keyed by its exact workbook header with worksheet, header and column number recorded so the canonical meaning is recoverable. No engineering value is dropped and nothing is written back to the workbook.`
               : col.collidedWith
                 ? `Two workbook headers mean ${col.collidedWith}; this one bound to nothing. Importer defect — give the column its own destination or preserve it verbatim.`
                 : mapped
