@@ -2,14 +2,19 @@
 // edit forms) and the server functions (column whitelists) read from here, so
 // there is exactly one definition of each entity's shape.
 import {
+  CURRENT_TYPES,
+  DEVICE_ROLES,
   ENDPOINT_TYPES,
   INSTALL_STATUSES,
   LABEL_STATUSES,
   PANEL_EXIT_SIDES,
   parsePercent,
+  POWER_ASSET_TYPES,
   RACEWAY_ENVIRONMENTS,
+  RACK_ROLES,
   type ElectricalEntityKind,
 } from "@/lib/electrical";
+
 import { classifyGrid } from "@/lib/electrical-grid";
 
 
