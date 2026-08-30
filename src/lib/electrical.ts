@@ -370,13 +370,10 @@ const ID_PATTERNS: Record<ElectricalEntityKind, RegExp | null> = {
   // branch encodes its raceway path plus the junction box it originates from.
   jbox: /^JB-\d{3}-\d{2}$/,
   branch: /^BR-\d{3}-\d{2}-\d{2}$/,
-  // RACK-<SITE>-<ROLE>-## e.g. RACK-FS-NET-01, RACK-FS-HAM-01.
-  rack: /^RACK-[A-Z0-9]+-[A-Z0-9]+-\d{2}$/,
-  // Type-readable prefix plus site/role, e.g. PSU-FS-HAM-01, UPS-FS-NET-01.
-  // The prefix is a readability convenience only: `asset_type` is authoritative.
-  power_asset: /^(PSU|UPS|PDU|DCD)-[A-Z0-9]+-[A-Z0-9]+-\d{2}$/,
-  // Devices keep the site's existing convention, e.g. NET-SW-FS-01.
-  device: /^[A-Z][A-Z0-9]*(-[A-Z0-9]+){1,4}$/,
+  // Infrastructure conventions come from the shared standards module.
+  rack: canonicalInfrastructurePattern("rack"),
+  power_asset: canonicalInfrastructurePattern("power_asset"),
+  device: canonicalInfrastructurePattern("device"),
 };
 
 /** Legacy shapes kept valid (with a warning) so imported records never break. */
@@ -385,6 +382,9 @@ const LEGACY_ID_PATTERNS: Partial<Record<ElectricalEntityKind, RegExp>> = {
   branch: /^BR-\d{3,}(-\d{2,})*$/,
   // Workbook-released feeder identifiers such as FD-1 or F-SERVICE-01.
   feeder: /^(FDR|FD|F)-[A-Za-z0-9]+(-[A-Za-z0-9]+)*$/,
+  rack: legacyInfrastructurePattern("rack") ?? undefined,
+  power_asset: legacyInfrastructurePattern("power_asset") ?? undefined,
+  device: legacyInfrastructurePattern("device") ?? undefined,
 };
 
 export const HIERARCHICAL_ID_SHAPES: Record<string, string> = {
@@ -392,10 +392,16 @@ export const HIERARCHICAL_ID_SHAPES: Record<string, string> = {
   jbox: "JB-###-##",
   branch: "BR-###-##-##",
   feeder: "FDR-###",
-  rack: "RACK-<SITE>-<ROLE>-##",
-  power_asset: "PSU|UPS|PDU|DCD-<SITE>-<ROLE>-##",
-  device: "<ROLE>-<TYPE>-<SITE>-##",
+  rack: infrastructureShape("rack"),
+  power_asset: infrastructureShape("power_asset"),
+  device: infrastructureShape("device"),
 };
+
+const INFRASTRUCTURE_KINDS: readonly InfrastructureKind[] = ["rack", "power_asset", "device"];
+
+export function isInfrastructureKind(kind: string): kind is InfrastructureKind {
+  return (INFRASTRUCTURE_KINDS as readonly string[]).includes(kind);
+}
 
 /**
  * Next sequential ID for a site/role scoped infrastructure convention, e.g.
