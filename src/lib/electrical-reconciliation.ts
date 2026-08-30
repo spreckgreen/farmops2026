@@ -138,6 +138,78 @@ export function unresolvedCsv(report: ValidationReport): string {
   return recordsToCsv(report.records.filter(isUnresolved));
 }
 
+/**
+ * Per-row diagnostics for every remaining semantic-loss finding: the workbook
+ * cell, the collision-safe capture key it was expected under, and what the
+ * FarmOps record actually holds there. Read-only.
+ */
+export function lossDiagnosticsCsv(report: ValidationReport): string {
+  const header = [
+    "worksheet",
+    "original_header",
+    "collision_safe_key",
+    "worksheet_column",
+    "duplicate_header",
+    "collided_with",
+    "farmops_collection",
+    "stable_id",
+    "ods_value",
+    "expected_ods_extras_key",
+    "actual_ods_extras_value",
+    "actual_preserved_values",
+    "capture_present",
+    "root_cause",
+  ].join(",");
+  const lines: string[] = [];
+  for (const r of report.records) {
+    if (r.classification !== "LOSS") continue;
+    const d = r.loss_diagnostic;
+    if (!d) {
+      lines.push(
+        ["", r.ods_column ?? "", "", "", "", "", r.domain, r.stable_id, r.ods_value, "", "", "", "", r.root_cause]
+          .map(csvCell)
+          .join(","),
+      );
+      continue;
+    }
+    const rows = d.rows.length
+      ? d.rows
+      : [
+          {
+            stable_id: "",
+            ods_value: r.ods_value,
+            expected_extras_key: d.preservation_key,
+            actual_extras_value: null,
+            actual_preserved_values: [],
+            capture_present: false,
+          },
+        ];
+    for (const row of rows) {
+      lines.push(
+        [
+          d.worksheet,
+          d.original_header,
+          d.preservation_key,
+          d.worksheet_column ?? "",
+          d.duplicate_header,
+          d.collided_with ?? "",
+          d.farmops_collection,
+          row.stable_id,
+          row.ods_value,
+          row.expected_extras_key,
+          row.actual_extras_value ?? "(absent)",
+          row.actual_preserved_values.join(" | "),
+          row.capture_present,
+          r.root_cause,
+        ]
+          .map(csvCell)
+          .join(","),
+      );
+    }
+  }
+  return [header, ...lines].join("\n");
+}
+
 export function reconciliationMarkdown(
   report: ValidationReport,
   baseline: ReconciliationBaseline = PRE_4_4A_BASELINE,
@@ -210,6 +282,30 @@ export function reconciliationMarkdown(
     }
   }
 
+  out.push("", "## Remaining semantic loss — diagnostics", "");
+  if (!data.losses.length) {
+    out.push("None.");
+  } else {
+    out.push(
+      "| Worksheet | Header | Collision-safe key | Stable ID | ODS value | Expected ods_extras key | Actual ods_extras value |",
+      "| --- | --- | --- | --- | --- | --- | --- |",
+    );
+    for (const r of data.losses) {
+      const d = r.loss_diagnostic;
+      if (!d || !d.rows.length) {
+        out.push(
+          `| ${r.ods_worksheet ?? ""} | ${r.ods_column ?? r.field} | ${d?.preservation_key ?? "(unknown)"} | ${r.stable_id} | ${r.ods_value || "(blank)"} | ${d?.preservation_key ?? "(unknown)"} | (absent) |`,
+        );
+        continue;
+      }
+      for (const row of d.rows) {
+        out.push(
+          `| ${d.worksheet} | ${d.original_header} | ${d.preservation_key} | ${row.stable_id || "(no id)"} | ${row.ods_value || "(blank)"} | ${row.expected_extras_key} | ${row.actual_extras_value ?? (row.capture_present ? "(key absent from capture)" : "(no capture on record)")} |`,
+        );
+      }
+    }
+  }
+
   out.push("", "## Unresolved / TBD", "");
   if (!data.unresolved.length) {
     out.push("None.");
@@ -241,4 +337,5 @@ export const RECONCILIATION_FILES = {
   json: "phase-4.4a-reconciliation.json",
   conflicts: "phase-4.4a-conflicts.csv",
   unresolved: "phase-4.4a-unresolved.csv",
+  loss: "phase-4.4a-loss-diagnostics.csv",
 } as const;

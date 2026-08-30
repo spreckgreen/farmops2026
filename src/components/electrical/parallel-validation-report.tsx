@@ -23,6 +23,7 @@ import {
 import {
   RECONCILIATION_FILES,
   conflictsCsv,
+  lossDiagnosticsCsv,
   reconciliationJson,
   reconciliationMarkdown,
   unresolvedCsv,
@@ -189,6 +190,7 @@ export function ParallelValidationReport() {
                 download(RECONCILIATION_FILES.json, reconciliationJson(report), "application/json");
                 download(RECONCILIATION_FILES.conflicts, conflictsCsv(report), "text/csv");
                 download(RECONCILIATION_FILES.unresolved, unresolvedCsv(report), "text/csv");
+                download(RECONCILIATION_FILES.loss, lossDiagnosticsCsv(report), "text/csv");
               }}
             >
               <Download className="h-4 w-4 mr-1" />
