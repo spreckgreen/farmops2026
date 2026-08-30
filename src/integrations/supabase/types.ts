@@ -625,7 +625,7 @@ export type Database = {
       }
       electrical_circuit_groups: {
         Row: {
-          backup_eligible: boolean
+          backup_eligible: boolean | null
           backup_panel: string | null
           backup_priority: string | null
           breaker_number: number | null
@@ -633,9 +633,9 @@ export type Database = {
           circuit_group_id: string
           circuit_rating_amps: number | null
           completion_percent: number
-          continuous_load: boolean
+          continuous_load: boolean | null
           created_at: string
-          critical: boolean
+          critical: boolean | null
           demand_basis: string | null
           demand_va: number | null
           description: string | null
@@ -655,7 +655,7 @@ export type Database = {
           voltage: number | null
         }
         Insert: {
-          backup_eligible?: boolean
+          backup_eligible?: boolean | null
           backup_panel?: string | null
           backup_priority?: string | null
           breaker_number?: number | null
@@ -663,9 +663,9 @@ export type Database = {
           circuit_group_id: string
           circuit_rating_amps?: number | null
           completion_percent?: number
-          continuous_load?: boolean
+          continuous_load?: boolean | null
           created_at?: string
-          critical?: boolean
+          critical?: boolean | null
           demand_basis?: string | null
           demand_va?: number | null
           description?: string | null
@@ -685,7 +685,7 @@ export type Database = {
           voltage?: number | null
         }
         Update: {
-          backup_eligible?: boolean
+          backup_eligible?: boolean | null
           backup_panel?: string | null
           backup_priority?: string | null
           breaker_number?: number | null
@@ -693,9 +693,9 @@ export type Database = {
           circuit_group_id?: string
           circuit_rating_amps?: number | null
           completion_percent?: number
-          continuous_load?: boolean
+          continuous_load?: boolean | null
           created_at?: string
-          critical?: boolean
+          critical?: boolean | null
           demand_basis?: string | null
           demand_va?: number | null
           description?: string | null
@@ -887,7 +887,7 @@ export type Database = {
           conductor_material: string | null
           conductor_size: string | null
           created_at: string
-          critical: boolean
+          critical: boolean | null
           demand_basis: string | null
           demand_va: number | null
           description: string | null
@@ -895,7 +895,7 @@ export type Database = {
           dest_endpoint_type: string | null
           dest_panel_uuid: string | null
           feeder_id: string
-          future: boolean
+          future: boolean | null
           ground_conductor: string | null
           id: string
           install_status: string
@@ -926,7 +926,7 @@ export type Database = {
           conductor_material?: string | null
           conductor_size?: string | null
           created_at?: string
-          critical?: boolean
+          critical?: boolean | null
           demand_basis?: string | null
           demand_va?: number | null
           description?: string | null
@@ -934,7 +934,7 @@ export type Database = {
           dest_endpoint_type?: string | null
           dest_panel_uuid?: string | null
           feeder_id: string
-          future?: boolean
+          future?: boolean | null
           ground_conductor?: string | null
           id?: string
           install_status?: string
@@ -965,7 +965,7 @@ export type Database = {
           conductor_material?: string | null
           conductor_size?: string | null
           created_at?: string
-          critical?: boolean
+          critical?: boolean | null
           demand_basis?: string | null
           demand_va?: number | null
           description?: string | null
@@ -973,7 +973,7 @@ export type Database = {
           dest_endpoint_type?: string | null
           dest_panel_uuid?: string | null
           feeder_id?: string
-          future?: boolean
+          future?: boolean | null
           ground_conductor?: string | null
           id?: string
           install_status?: string
@@ -1132,24 +1132,24 @@ export type Database = {
         Row: {
           amps: number | null
           area: string | null
-          backup_eligible: boolean
+          backup_eligible: boolean | null
           backup_panel: string | null
           backup_priority: string | null
           circuit_group_ref: string | null
           circuit_group_uuid: string | null
           completion_percent: number
           connected_va: number | null
-          continuous_load: boolean
+          continuous_load: boolean | null
           count: number
           created_at: string
-          critical: boolean
-          dedicated: boolean
+          critical: boolean | null
+          dedicated: boolean | null
           dedicated_shared: string | null
           demand_basis: string | null
           demand_va: number | null
           description: string | null
           equipment_model: string | null
-          future: boolean
+          future: boolean | null
           grid: string | null
           id: string
           install_status: string
@@ -1170,24 +1170,24 @@ export type Database = {
         Insert: {
           amps?: number | null
           area?: string | null
-          backup_eligible?: boolean
+          backup_eligible?: boolean | null
           backup_panel?: string | null
           backup_priority?: string | null
           circuit_group_ref?: string | null
           circuit_group_uuid?: string | null
           completion_percent?: number
           connected_va?: number | null
-          continuous_load?: boolean
+          continuous_load?: boolean | null
           count?: number
           created_at?: string
-          critical?: boolean
-          dedicated?: boolean
+          critical?: boolean | null
+          dedicated?: boolean | null
           dedicated_shared?: string | null
           demand_basis?: string | null
           demand_va?: number | null
           description?: string | null
           equipment_model?: string | null
-          future?: boolean
+          future?: boolean | null
           grid?: string | null
           id?: string
           install_status?: string
@@ -1208,24 +1208,24 @@ export type Database = {
         Update: {
           amps?: number | null
           area?: string | null
-          backup_eligible?: boolean
+          backup_eligible?: boolean | null
           backup_panel?: string | null
           backup_priority?: string | null
           circuit_group_ref?: string | null
           circuit_group_uuid?: string | null
           completion_percent?: number
           connected_va?: number | null
-          continuous_load?: boolean
+          continuous_load?: boolean | null
           count?: number
           created_at?: string
-          critical?: boolean
-          dedicated?: boolean
+          critical?: boolean | null
+          dedicated?: boolean | null
           dedicated_shared?: string | null
           demand_basis?: string | null
           demand_va?: number | null
           description?: string | null
           equipment_model?: string | null
-          future?: boolean
+          future?: boolean | null
           grid?: string | null
           id?: string
           install_status?: string
@@ -1677,7 +1677,7 @@ export type Database = {
           source_grid: string | null
           source_jbox_uuid: string | null
           source_panel_uuid: string | null
-          spare: boolean
+          spare: boolean | null
           to_label: string | null
           trade_size: string | null
           updated_at: string
@@ -1718,7 +1718,7 @@ export type Database = {
           source_grid?: string | null
           source_jbox_uuid?: string | null
           source_panel_uuid?: string | null
-          spare?: boolean
+          spare?: boolean | null
           to_label?: string | null
           trade_size?: string | null
           updated_at?: string
@@ -1759,7 +1759,7 @@ export type Database = {
           source_grid?: string | null
           source_jbox_uuid?: string | null
           source_panel_uuid?: string | null
-          spare?: boolean
+          spare?: boolean | null
           to_label?: string | null
           trade_size?: string | null
           updated_at?: string
