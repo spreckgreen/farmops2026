@@ -812,15 +812,23 @@ export function runParallelComparison(input: ValidationInput): ValidationReport 
           push({
             ...base,
             classification: "FARMOPS_AS_BUILT_ADDITION",
+            farmops_only_category: "A",
+            root_cause: "relationship_established_in_the_field",
             note: "Relationship established in FarmOps with no workbook equivalent.",
           });
           continue;
         }
         if (!fpStable) {
+          const resolvable = farmopsIndex.has(odsText.toUpperCase());
           push({
             ...base,
             classification: "INCOMPLETE",
-            note: "Workbook reference kept read-only; the FarmOps relationship is not established yet.",
+            root_cause: resolvable
+              ? "relationship_not_established_yet"
+              : "unresolved_reference_text_not_a_stable_id",
+            note: resolvable
+              ? `Workbook reference "${odsText}" names an existing FarmOps record but the relationship is not established yet.`
+              : `Workbook reference "${odsText}" is descriptive text, not a stable identifier. It is preserved verbatim and never guessed at.`,
           });
           continue;
         }
@@ -828,12 +836,25 @@ export function runParallelComparison(input: ValidationInput): ValidationReport 
           normalizeValue(TEXT_FIELD, odsText).value,
           normalizeValue(TEXT_FIELD, fpStable).value,
         );
+        if (same) {
+          push({
+            ...base,
+            classification: "EXPECTED_TRANSFORMATION",
+            root_cause: "documented_normalization",
+            note: "Workbook reference text represented as a normalized relationship.",
+          });
+          continue;
+        }
+        const odsResolvable = farmopsIndex.has(odsText.toUpperCase());
         push({
           ...base,
-          classification: same ? "EXPECTED_TRANSFORMATION" : "CONFLICT",
-          note: same
-            ? "Workbook reference text represented as a normalized relationship."
-            : "Workbook reference and the FarmOps relationship point at different records.",
+          classification: odsResolvable ? "CONFLICT" : "INCOMPLETE",
+          root_cause: odsResolvable
+            ? "relationship_points_at_a_different_record"
+            : "unresolved_reference_text_not_a_stable_id",
+          note: odsResolvable
+            ? "Workbook reference and the FarmOps relationship point at different records."
+            : `Workbook reference "${odsText}" is descriptive text; the FarmOps relationship resolves to ${fpStable}. Preserved for engineering review.`,
         });
       }
     }
@@ -875,23 +896,37 @@ export function runParallelComparison(input: ValidationInput): ValidationReport 
       rules: ["set_ordering"],
     };
     if (a.length && b.length && a.join(" ") === b.join(" ")) {
-      push({ ...base, classification: "MATCH", note: "Same membership set, row order ignored." });
+      push({
+        ...base,
+        classification: "MATCH",
+        root_cause: "identical_membership_set",
+        note: "Same membership set, row order ignored.",
+      });
     } else if (!b.length) {
-      push({ ...base, classification: "INCOMPLETE", note: "Membership not resolved in FarmOps yet." });
+      push({
+        ...base,
+        classification: "INCOMPLETE",
+        root_cause: "relationship_not_established_yet",
+        note: "Membership not resolved in FarmOps yet.",
+      });
     } else if (!a.length) {
       push({
         ...base,
         classification: "FARMOPS_ONLY",
-        note: "FarmOps group membership with no workbook grouping — review required.",
+        farmops_only_category: "E",
+        root_cause: "farmops_grouping_without_workbook_grouping",
+        note: "FarmOps group membership with no workbook grouping — engineering decision required.",
       });
     } else {
       push({
         ...base,
         classification: "CONFLICT",
-        note: "Circuit-group membership differs between the workbook and FarmOps.",
+        root_cause: "membership_set_disagreement",
+        note: `Circuit-group membership differs: workbook has ${a.length} member(s), FarmOps ${b.length}.`,
       });
     }
   }
+
 
   // --- Phase 4.3 child collections are as-built by definition ---------------
   const childCollections: [string, string, string][] = [
