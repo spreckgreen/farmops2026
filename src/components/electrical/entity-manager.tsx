@@ -344,7 +344,13 @@ export function EntityManager({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openEditId, query.data]);
 
-  const idCheck = editing ? checkStableId(kind, String(values[def.stableIdField] ?? "")) : null;
+  // Create and edit share one validator; only the mode differs, so legacy
+  // compatibility IDs stay valid while editing and are refused for new records.
+  const idCheck = editing
+    ? checkStableId(kind, String(values[def.stableIdField] ?? ""), {
+        mode: creating ? "create" : "existing",
+      })
+    : null;
   const listFields = def.fields.filter((f) => f.list);
 
   return (
