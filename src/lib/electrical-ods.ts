@@ -725,12 +725,19 @@ export function mapSheet(
     if (!raw.some((c) => c.trim())) continue;
     const values: Record<string, string> = {};
     // Phase 4.4a: canonical columns with no dedicated FarmOps field are kept
-    // verbatim under their exact workbook header instead of being dropped.
+    // verbatim under their exact workbook header instead of being dropped, with
+    // the worksheet/header/column recorded so the value's canonical meaning is
+    // recoverable and duplicate header text cannot overwrite itself.
     const extras: Record<string, string> = {};
+    const extrasSource: Record<string, OdsExtrasSource> = {};
     columns.forEach((col, idx) => {
       const v = (raw[idx] ?? "").trim();
       if (!col.target) {
-        if (v && col.source.trim()) extras[col.source.trim()] = v;
+        if (!v) return;
+        const header = col.source.trim() || `(unnamed column ${idx + 1})`;
+        const key = odsExtrasEntryKey(header, idx, duplicateHeaders.has(norm(header)));
+        extras[key] = v;
+        extrasSource[key] = { sheet: sheet.name, header, column: idx + 1 };
         return;
       }
       if (!v) return;
