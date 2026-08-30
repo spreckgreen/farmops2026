@@ -30,6 +30,7 @@ import { FIELD_MAP, FIELD_MAP_VERSION } from "@/lib/electrical-field-map";
 import {
   FARMOPS_NATIVE_KINDS,
   ODS_EXTRAS_FIELD,
+  odsExtrasEntryKey,
   parseOdsExtras,
   preservedOdsValues,
   type ElectricalEntityKind,
@@ -649,7 +650,27 @@ export function runParallelComparison(input: ValidationInput): ValidationReport 
                 : mapped
                   ? `The mapping matrix maps this column to ${mapped.farmops}, but the importer bound no column — add the header alias.`
                   : "Populated workbook column has no FarmOps destination in the mapping matrix.") +
-          evidence,
+          evidence +
+          (loss_diagnostic
+            ? ` Expected preservation key ${collection}.${ODS_EXTRAS_FIELD}["${loss_diagnostic.preservation_key}"]${
+                loss_diagnostic.worksheet_column
+                  ? ` (worksheet ${loss_diagnostic.worksheet}, column ${loss_diagnostic.worksheet_column})`
+                  : ""
+              }; actual: ${
+                loss_diagnostic.rows
+                  .map(
+                    (r) =>
+                      `${r.stable_id || "(no id)"} -> ${
+                        r.actual_extras_value === null
+                          ? r.capture_present
+                            ? "key absent from capture"
+                            : "no capture on record"
+                          : `"${r.actual_extras_value}"`
+                      }`,
+                  )
+                  .join(", ") || "no sampled rows"
+              }.`
+            : ""),
       });
     }
 
