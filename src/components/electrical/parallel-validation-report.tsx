@@ -382,6 +382,8 @@ export function ParallelValidationReport() {
             </CardContent>
           </Card>
 
+          <BooleanSemanticsPanel report={report} />
+
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-base">Normalization rules applied</CardTitle>
