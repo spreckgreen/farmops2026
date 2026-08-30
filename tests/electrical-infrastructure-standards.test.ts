@@ -52,18 +52,14 @@ describe("infrastructure ID standards", () => {
     expect(created.ok).toBe(false);
   });
 
-  it("keeps the known legacy SW-<SITE>-<n> powered device IDs valid on existing records", () => {
-    for (const id of ["SW-FS-1", "SW-FS-2", "SW-PH-1"]) {
-      const check = checkInfrastructureId("device", id, { mode: "existing" });
-      expect(check.ok, id).toBe(true);
-      expect(check.warning, id).toBeTruthy();
+  it("has no legacy powered device matcher — an inventory of real records found none", () => {
+    expect(INFRASTRUCTURE_ID_STANDARDS.device.legacyFormats ?? []).toEqual([]);
+    // Even a plausible-looking legacy shape is rejected outright in both modes.
+    for (const mode of ["create", "existing"] as const) {
+      const check = checkInfrastructureId("device", "SW-FS-1", { mode });
+      expect(check.ok).toBe(false);
+      expect(check.error).toContain("invalid prefix");
     }
-  });
-
-  it("refuses the legacy SW-<SITE>-<n> shape for new device records", () => {
-    const check = checkInfrastructureId("device", "SW-FS-1", { mode: "create" });
-    expect(check.ok).toBe(false);
-    expect(check.error).toContain("compatibility-only");
   });
 
   it("rejects an arbitrary device prefix as invalid, not compatibility-only", () => {
