@@ -718,6 +718,147 @@ export type Database = {
           },
         ]
       }
+      electrical_devices: {
+        Row: {
+          address: string | null
+          building: string | null
+          circuit_group_ref: string | null
+          circuit_group_uuid: string | null
+          completion_percent: number | null
+          created_at: string
+          description: string | null
+          device_id: string
+          device_role: string | null
+          device_type: string | null
+          grid: string | null
+          hostname: string | null
+          id: string
+          input_current_amps: number | null
+          input_voltage: number | null
+          install_status: string
+          label_status: string
+          load_ref: string | null
+          load_uuid: string | null
+          location_note: string | null
+          manufacturer: string | null
+          model: string | null
+          notes: string | null
+          power_asset_ref: string | null
+          power_asset_uuid: string | null
+          rack_position_u: number | null
+          rack_ref: string | null
+          rack_uuid: string | null
+          updated_at: string
+          uplink_device_ref: string | null
+          uplink_device_uuid: string | null
+          user_id: string
+        }
+        Insert: {
+          address?: string | null
+          building?: string | null
+          circuit_group_ref?: string | null
+          circuit_group_uuid?: string | null
+          completion_percent?: number | null
+          created_at?: string
+          description?: string | null
+          device_id: string
+          device_role?: string | null
+          device_type?: string | null
+          grid?: string | null
+          hostname?: string | null
+          id?: string
+          input_current_amps?: number | null
+          input_voltage?: number | null
+          install_status?: string
+          label_status?: string
+          load_ref?: string | null
+          load_uuid?: string | null
+          location_note?: string | null
+          manufacturer?: string | null
+          model?: string | null
+          notes?: string | null
+          power_asset_ref?: string | null
+          power_asset_uuid?: string | null
+          rack_position_u?: number | null
+          rack_ref?: string | null
+          rack_uuid?: string | null
+          updated_at?: string
+          uplink_device_ref?: string | null
+          uplink_device_uuid?: string | null
+          user_id: string
+        }
+        Update: {
+          address?: string | null
+          building?: string | null
+          circuit_group_ref?: string | null
+          circuit_group_uuid?: string | null
+          completion_percent?: number | null
+          created_at?: string
+          description?: string | null
+          device_id?: string
+          device_role?: string | null
+          device_type?: string | null
+          grid?: string | null
+          hostname?: string | null
+          id?: string
+          input_current_amps?: number | null
+          input_voltage?: number | null
+          install_status?: string
+          label_status?: string
+          load_ref?: string | null
+          load_uuid?: string | null
+          location_note?: string | null
+          manufacturer?: string | null
+          model?: string | null
+          notes?: string | null
+          power_asset_ref?: string | null
+          power_asset_uuid?: string | null
+          rack_position_u?: number | null
+          rack_ref?: string | null
+          rack_uuid?: string | null
+          updated_at?: string
+          uplink_device_ref?: string | null
+          uplink_device_uuid?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "electrical_devices_circuit_group_uuid_fkey"
+            columns: ["circuit_group_uuid"]
+            isOneToOne: false
+            referencedRelation: "electrical_circuit_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "electrical_devices_load_uuid_fkey"
+            columns: ["load_uuid"]
+            isOneToOne: false
+            referencedRelation: "electrical_loads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "electrical_devices_power_asset_uuid_fkey"
+            columns: ["power_asset_uuid"]
+            isOneToOne: false
+            referencedRelation: "electrical_power_assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "electrical_devices_rack_uuid_fkey"
+            columns: ["rack_uuid"]
+            isOneToOne: false
+            referencedRelation: "electrical_racks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "electrical_devices_uplink_device_uuid_fkey"
+            columns: ["uplink_device_uuid"]
+            isOneToOne: false
+            referencedRelation: "electrical_devices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       electrical_feeders: {
         Row: {
           ampacity_amps: number | null
@@ -1252,6 +1393,163 @@ export type Database = {
         }
         Relationships: []
       }
+      electrical_power_assets: {
+        Row: {
+          asset_type: string
+          building: string | null
+          capacity_note: string | null
+          completion_percent: number | null
+          created_at: string
+          description: string | null
+          grid: string | null
+          id: string
+          input_current_amps: number | null
+          input_type: string | null
+          input_voltage: number | null
+          install_status: string
+          label_status: string
+          location_note: string | null
+          manufacturer: string | null
+          model: string | null
+          notes: string | null
+          output_current_amps: number | null
+          output_type: string | null
+          output_voltage: number | null
+          power_asset_id: string
+          rack_ref: string | null
+          rack_uuid: string | null
+          source_branch_ref: string | null
+          source_branch_uuid: string | null
+          source_circuit_group_ref: string | null
+          source_circuit_group_uuid: string | null
+          source_load_ref: string | null
+          source_load_uuid: string | null
+          source_panel_ref: string | null
+          source_panel_uuid: string | null
+          updated_at: string
+          upstream_power_asset_ref: string | null
+          upstream_power_asset_uuid: string | null
+          user_id: string
+        }
+        Insert: {
+          asset_type?: string
+          building?: string | null
+          capacity_note?: string | null
+          completion_percent?: number | null
+          created_at?: string
+          description?: string | null
+          grid?: string | null
+          id?: string
+          input_current_amps?: number | null
+          input_type?: string | null
+          input_voltage?: number | null
+          install_status?: string
+          label_status?: string
+          location_note?: string | null
+          manufacturer?: string | null
+          model?: string | null
+          notes?: string | null
+          output_current_amps?: number | null
+          output_type?: string | null
+          output_voltage?: number | null
+          power_asset_id: string
+          rack_ref?: string | null
+          rack_uuid?: string | null
+          source_branch_ref?: string | null
+          source_branch_uuid?: string | null
+          source_circuit_group_ref?: string | null
+          source_circuit_group_uuid?: string | null
+          source_load_ref?: string | null
+          source_load_uuid?: string | null
+          source_panel_ref?: string | null
+          source_panel_uuid?: string | null
+          updated_at?: string
+          upstream_power_asset_ref?: string | null
+          upstream_power_asset_uuid?: string | null
+          user_id: string
+        }
+        Update: {
+          asset_type?: string
+          building?: string | null
+          capacity_note?: string | null
+          completion_percent?: number | null
+          created_at?: string
+          description?: string | null
+          grid?: string | null
+          id?: string
+          input_current_amps?: number | null
+          input_type?: string | null
+          input_voltage?: number | null
+          install_status?: string
+          label_status?: string
+          location_note?: string | null
+          manufacturer?: string | null
+          model?: string | null
+          notes?: string | null
+          output_current_amps?: number | null
+          output_type?: string | null
+          output_voltage?: number | null
+          power_asset_id?: string
+          rack_ref?: string | null
+          rack_uuid?: string | null
+          source_branch_ref?: string | null
+          source_branch_uuid?: string | null
+          source_circuit_group_ref?: string | null
+          source_circuit_group_uuid?: string | null
+          source_load_ref?: string | null
+          source_load_uuid?: string | null
+          source_panel_ref?: string | null
+          source_panel_uuid?: string | null
+          updated_at?: string
+          upstream_power_asset_ref?: string | null
+          upstream_power_asset_uuid?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "electrical_power_assets_rack_uuid_fkey"
+            columns: ["rack_uuid"]
+            isOneToOne: false
+            referencedRelation: "electrical_racks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "electrical_power_assets_source_branch_uuid_fkey"
+            columns: ["source_branch_uuid"]
+            isOneToOne: false
+            referencedRelation: "electrical_branch_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "electrical_power_assets_source_circuit_group_uuid_fkey"
+            columns: ["source_circuit_group_uuid"]
+            isOneToOne: false
+            referencedRelation: "electrical_circuit_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "electrical_power_assets_source_load_uuid_fkey"
+            columns: ["source_load_uuid"]
+            isOneToOne: false
+            referencedRelation: "electrical_loads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "electrical_power_assets_source_panel_uuid_fkey"
+            columns: ["source_panel_uuid"]
+            isOneToOne: false
+            referencedRelation: "electrical_panels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "electrical_power_assets_upstream_power_asset_uuid_fkey"
+            columns: ["upstream_power_asset_uuid"]
+            isOneToOne: false
+            referencedRelation: "electrical_power_assets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       electrical_raceway_waypoints: {
         Row: {
           created_at: string
@@ -1450,6 +1748,66 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      electrical_racks: {
+        Row: {
+          building: string | null
+          completion_percent: number | null
+          created_at: string
+          description: string | null
+          grid: string | null
+          id: string
+          install_status: string
+          label_status: string
+          location_note: string | null
+          mounting: string | null
+          notes: string | null
+          rack_id: string
+          rack_role: string | null
+          rack_size_u: number | null
+          site_area: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          building?: string | null
+          completion_percent?: number | null
+          created_at?: string
+          description?: string | null
+          grid?: string | null
+          id?: string
+          install_status?: string
+          label_status?: string
+          location_note?: string | null
+          mounting?: string | null
+          notes?: string | null
+          rack_id: string
+          rack_role?: string | null
+          rack_size_u?: number | null
+          site_area?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          building?: string | null
+          completion_percent?: number | null
+          created_at?: string
+          description?: string | null
+          grid?: string | null
+          id?: string
+          install_status?: string
+          label_status?: string
+          location_note?: string | null
+          mounting?: string | null
+          notes?: string | null
+          rack_id?: string
+          rack_role?: string | null
+          rack_size_u?: number | null
+          site_area?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       food_plan_entries: {
         Row: {
