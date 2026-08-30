@@ -67,7 +67,7 @@ function SorStatusView() {
     );
 
   const s = q.data!;
-  const farmopsAuthoritative = s.authority === "farmops";
+  const farmopsAuthoritative = (s.authority as string) === "farmops";
 
   return (
     <div className="space-y-3">

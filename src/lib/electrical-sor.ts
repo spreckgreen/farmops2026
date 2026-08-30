@@ -17,7 +17,9 @@ export type SorPhase = (typeof SOR_PHASES)[number];
  * Flip this to "farmops" only as part of the Phase 4.5 cutover event, together
  * with the archived pre-cutover ODS checksum and the cutover timestamp.
  */
-export const SOR_AUTHORITY: "canonical_ods" | "farmops" = "canonical_ods";
+export type SorAuthority = "canonical_ods" | "farmops";
+
+export const SOR_AUTHORITY: SorAuthority = "canonical_ods";
 
 export const SOR_PHASE: SorPhase = "4.2";
 
@@ -25,7 +27,7 @@ export const SOR_MODEL_VERSION = "1.1";
 
 export interface SorStatus {
   /** Which system currently owns engineering truth. */
-  authority: typeof SOR_AUTHORITY;
+  authority: SorAuthority;
   authority_label: string;
   farmops_role: string;
   phase: SorPhase;
@@ -47,13 +49,13 @@ export interface SorStatus {
   cutover: { approved: false; date: null; ods_checksum: null };
 }
 
-export function authorityLabel(authority: typeof SOR_AUTHORITY): string {
+export function authorityLabel(authority: SorAuthority): string {
   return authority === "farmops"
     ? "FarmOps Electrical Database"
     : "Canonical ODS (PremoFarmElectrical.ods)";
 }
 
-export function farmopsRole(authority: typeof SOR_AUTHORITY): string {
+export function farmopsRole(authority: SorAuthority): string {
   return authority === "farmops"
     ? "System of Record"
     : "Candidate SOR / field authority";
@@ -72,7 +74,7 @@ export interface SorStatusInput {
  */
 export function cutoverBlockers(input: SorStatusInput): string[] {
   const blockers: string[] = [];
-  if (SOR_AUTHORITY === "farmops") return blockers;
+  if ((SOR_AUTHORITY as SorAuthority) === "farmops") return blockers;
   if (input.qa.errors > 0) {
     blockers.push(
       `${input.qa.errors} unresolved electrical QA error${input.qa.errors === 1 ? "" : "s"} must be explained or fixed.`,

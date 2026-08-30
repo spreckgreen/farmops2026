@@ -21,6 +21,8 @@ export interface ElectricalGraphData {
   raceway: Row[];
   jbox: Row[];
   branch: Row[];
+  // Feeders are panel-to-panel records; diagram views index them lazily.
+  feeder?: Row[];
   waypoint?: Row[];
 }
 
