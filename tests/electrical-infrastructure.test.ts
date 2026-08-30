@@ -5,7 +5,13 @@ import {
   nextScopedId,
   POWER_ASSET_TYPES,
 } from "@/lib/electrical";
-import { ENTITIES, ENTITY_KINDS, writableColumns } from "@/lib/electrical-entities";
+import {
+  ENTITIES,
+  ENTITY_KINDS,
+  assetLinkField,
+  importColumns,
+  writableColumns,
+} from "@/lib/electrical-entities";
 import { relationsFor, applyRelations } from "@/lib/electrical-relations";
 import {
   buildElectricalSnapshot,
@@ -224,7 +230,7 @@ describe("infrastructure → FarmOps Asset integration", () => {
   });
 
   it("keeps the asset link out of canonical-ODS field comparison", () => {
-    const link = assetLinkField("device")!;
-    expect(ownershipFor(link)).toBe("farmops_as_built");
+    expect(ownershipMap("device")["asset_uuid"]).toBe("farmops_as_built");
+    expect(ownershipMap("power_asset")["asset_uuid"]).toBe("farmops_as_built");
   });
 });
