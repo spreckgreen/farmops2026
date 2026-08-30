@@ -23,6 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, Pencil, Plus, Trash2 } from "lucide-react";
 import { DeleteDependencyDialog } from "@/components/electrical/delete-dependency-dialog";
+import { PanelLayoutPanels } from "@/components/electrical/panel-layout";
 
 
 
@@ -236,6 +237,8 @@ function Detail({ kind, id }: { kind: ElectricalEntityKind; id: string }) {
           </CardContent>
         </Card>
       ) : null}
+
+      {kind === "panel" ? <PanelLayoutPanels panelUuid={id} /> : null}
 
       {kind === "raceway" ? <Waypoints racewayId={id} /> : null}
     </div>
