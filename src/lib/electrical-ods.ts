@@ -5,7 +5,7 @@
 // The canonical ODS stays the engineering release authority: this import is
 // always a reviewable dry run first, and it never destructively merges raceway
 // segments — merges are proposed, never applied automatically.
-import type { ElectricalEntityKind } from "@/lib/electrical";
+import { ODS_EXTRAS_FIELD, type ElectricalEntityKind } from "@/lib/electrical";
 import { classifyGrid } from "@/lib/electrical-grid";
 
 export type Sheet = { name: string; rows: string[][] };
@@ -205,7 +205,7 @@ export interface SheetImport {
   sheet: string;
   kind: ElectricalEntityKind | null;
   headerRow: number;
-  columns: { source: string; target: string | null; scale?: number }[];
+  columns: { source: string; target: string | null; scale?: number; collidedWith?: string }[];
   rows: MappedRow[];
   skipped: number;
   /** Cells refused because the value cannot belong to that column. */
