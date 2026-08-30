@@ -185,3 +185,46 @@ function emptyGraph(): ElectricalGraphData {
     device: [],
   };
 }
+
+// Phase 4.4a — infrastructure asset integration. Infrastructure entities carry
+// a role and topology plus an optional link to the authoritative FarmOps
+// Inventory/Asset record; they never re-implement inventory.
+describe("infrastructure → FarmOps Asset integration", () => {
+  it("gives every physical-equipment kind an optional asset link", () => {
+    for (const kind of ["rack", "power_asset", "device"] as ElectricalEntityKind[]) {
+      const link = assetLinkField(kind);
+      expect(link, kind).toBeDefined();
+      expect(link!.key).toBe("asset_uuid");
+      expect(link!.kind).toBe("asset");
+      // Optional: planned infrastructure and passive structures have no asset.
+      expect(link!.required).not.toBe(true);
+      const ref = ENTITIES[kind].fields.find((f) => f.key === "asset_ref");
+      expect(ref?.readOnly, kind).toBe(true);
+    }
+  });
+
+  it("treats Inventory/Asset as the authority for equipment identity", () => {
+    for (const kind of ["power_asset", "device"] as ElectricalEntityKind[]) {
+      for (const key of ["manufacturer", "model"]) {
+        const f = ENTITIES[kind].fields.find((x) => x.key === key);
+        // Historical values stay visible, but are no longer editable here.
+        expect(f?.readOnly, `${kind}.${key}`).toBe(true);
+      }
+      // Lifecycle/cost/warranty/service fields must not be duplicated at all.
+      for (const key of ["serial_number", "cost", "warranty_expires", "purchase_date"]) {
+        expect(ENTITIES[kind].fields.some((x) => x.key === key)).toBe(false);
+      }
+    }
+  });
+
+  it("never imports the asset link from a workbook column", () => {
+    for (const kind of ["rack", "power_asset", "device"] as ElectricalEntityKind[]) {
+      expect(importColumns(kind)).not.toContain("asset_uuid");
+    }
+  });
+
+  it("keeps the asset link out of canonical-ODS field comparison", () => {
+    const link = assetLinkField("device")!;
+    expect(ownershipFor(link)).toBe("farmops_as_built");
+  });
+});
