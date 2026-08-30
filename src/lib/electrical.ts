@@ -167,6 +167,13 @@ const ID_PATTERNS: Record<ElectricalEntityKind, RegExp | null> = {
   // branch encodes its raceway path plus the junction box it originates from.
   jbox: /^JB-\d{3}-\d{2}$/,
   branch: /^BR-\d{3}-\d{2}-\d{2}$/,
+  // RACK-<SITE>-<ROLE>-## e.g. RACK-FS-NET-01, RACK-FS-HAM-01.
+  rack: /^RACK-[A-Z0-9]+-[A-Z0-9]+-\d{2}$/,
+  // Type-readable prefix plus site/role, e.g. PSU-FS-HAM-01, UPS-FS-NET-01.
+  // The prefix is a readability convenience only: `asset_type` is authoritative.
+  power_asset: /^(PSU|UPS|PDU|DCD)-[A-Z0-9]+-[A-Z0-9]+-\d{2}$/,
+  // Devices keep the site's existing convention, e.g. NET-SW-FS-01.
+  device: /^[A-Z][A-Z0-9]*(-[A-Z0-9]+){1,4}$/,
 };
 
 /** Legacy shapes kept valid (with a warning) so imported records never break. */
@@ -182,7 +189,34 @@ export const HIERARCHICAL_ID_SHAPES: Record<string, string> = {
   jbox: "JB-###-##",
   branch: "BR-###-##-##",
   feeder: "FDR-###",
+  rack: "RACK-<SITE>-<ROLE>-##",
+  power_asset: "PSU|UPS|PDU|DCD-<SITE>-<ROLE>-##",
+  device: "<ROLE>-<TYPE>-<SITE>-##",
 };
+
+/**
+ * Next sequential ID for a site/role scoped infrastructure convention, e.g.
+ * nextScopedId("RACK", "FS", "NET", ["RACK-FS-NET-01"]) -> "RACK-FS-NET-02".
+ */
+export function nextScopedId(
+  prefix: string,
+  site: string,
+  role: string,
+  existing: string[],
+): string {
+  const p = (prefix ?? "").trim().toUpperCase();
+  const st = (site ?? "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+  const rl = (role ?? "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+  if (!p || !st || !rl) return "";
+  const head = `${p}-${st}-${rl}-`;
+  let max = 0;
+  for (const id of existing) {
+    const m = new RegExp(`^${head}(\\d{2,})$`).exec((id ?? "").trim().toUpperCase());
+    if (m) max = Math.max(max, Number(m[1]));
+  }
+  return `${head}${String(max + 1).padStart(2, "0")}`;
+}
+
 
 export interface ParsedHierarchicalId {
   prefix: "EMT" | "CON" | "JB" | "BR";
