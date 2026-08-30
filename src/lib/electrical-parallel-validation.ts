@@ -30,11 +30,15 @@ import { FIELD_MAP, FIELD_MAP_VERSION } from "@/lib/electrical-field-map";
 import {
   FARMOPS_NATIVE_KINDS,
   ODS_EXTRAS_FIELD,
+  parseOdsExtras,
+  preservedOdsValues,
   type ElectricalEntityKind,
 } from "@/lib/electrical";
 
-export const VALIDATION_SCHEMA_VERSION = "1.2";
-export const NORMALIZATION_VERSION = "1.2";
+// 1.3 — lossless capture now records worksheet/header/column source identity,
+// so preservation is proven by source, not by key text alone.
+export const VALIDATION_SCHEMA_VERSION = "1.3";
+export const NORMALIZATION_VERSION = "1.3";
 export const MAPPING_VERSION = FIELD_MAP_VERSION;
 
 /* -------------------------------------------------- 4.4a disposition model */
@@ -482,34 +486,34 @@ export function runParallelComparison(input: ValidationInput): ValidationReport 
    * no dedicated FarmOps field is only accepted as an expected transformation
    * when the value is provably present here — never by reclassification.
    */
-  const extrasIndex = new Map<string, Record<string, string>>();
+  const extrasIndex = new Map<string, Record<string, unknown>>();
   for (const kind of Object.keys(ENTITIES) as ElectricalEntityKind[]) {
     const collection = COLLECTION_FOR_KIND[kind];
     for (const rec of snapshot[collection] ?? []) {
-      const raw = rec[ODS_EXTRAS_FIELD];
-      if (typeof raw !== "string" || !raw.trim()) continue;
-      try {
-        const parsed = JSON.parse(raw) as unknown;
-        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-          const id = String(rec["stable_id"] ?? "").trim();
-          if (id) extrasIndex.set(`${collection}:${id}`, parsed as Record<string, string>);
-        }
-      } catch {
-        // Unparseable capture is not evidence of preservation: leave it out so
-        // the column is still reported as loss.
-      }
+      // Unparseable capture is not evidence of preservation: it is left out so
+      // the column is still reported as loss.
+      const parsed = parseOdsExtras(rec[ODS_EXTRAS_FIELD]);
+      if (!parsed) continue;
+      const id = String(rec["stable_id"] ?? "").trim();
+      if (id) extrasIndex.set(`${collection}:${id}`, parsed);
     }
   }
+  /**
+   * Byte-identical preservation proof for one worksheet column: every sampled
+   * populated ODS cell must be found, unchanged, in that record's capture under
+   * a key whose recorded source identity is this worksheet and header.
+   */
   const preservedVerbatim = (
     collection: string,
+    sheet: string,
     column: string,
     samples: { stableId: string; value: string }[],
   ): boolean =>
     samples.length > 0 &&
     samples.every((s) => {
       const extras = extrasIndex.get(`${collection}:${s.stableId.trim()}`);
-      const kept = extras?.[column.trim()];
-      return typeof kept === "string" && kept.trim() === s.value.trim();
+      if (!extras) return false;
+      return preservedOdsValues(extras, sheet, column).includes(s.value);
     });
 
   // --- unmapped workbook columns: the semantic-loss detector -----------------
@@ -527,11 +531,13 @@ export function runParallelComparison(input: ValidationInput): ValidationReport 
       // not bind is an importer omission, not a missing mapping.
       const samples = (col.samples ?? []).slice(0, 5);
       const collection = sheet.kind ? COLLECTION_FOR_KIND[sheet.kind] : sheet.sheet;
-      const preserved = preservedVerbatim(collection, col.column, samples);
+      const preserved = preservedVerbatim(collection, sheet.sheet, col.column, samples);
       const rootCause = explained
         ? `documented_${mapped!.classification}`
         : preserved
-          ? "documented_verbatim_preservation_in_ods_extras"
+          ? col.collidedWith
+            ? "duplicate_header_collision_preserved_verbatim"
+            : "documented_verbatim_preservation_in_ods_extras"
           : col.collidedWith
             ? "duplicate_header_collision_importer_defect"
             : mapped
@@ -555,7 +561,7 @@ export function runParallelComparison(input: ValidationInput): ValidationReport 
           ? samples.map((s) => s.value).join(" | ")
           : "(populated column)",
         farmops_entity: preserved
-          ? `${collection}.${ODS_EXTRAS_FIELD}["${col.column.trim()}"]`
+          ? `${collection}.${ODS_EXTRAS_FIELD}["${col.column.trim()}"] (source: ${sheet.sheet} / ${col.column.trim()})`
           : (mapped?.farmops ?? null),
         farmops_field: preserved ? ODS_EXTRAS_FIELD : null,
         farmops_value: preserved ? samples.map((s) => s.value).join(" | ") : "",
@@ -567,7 +573,11 @@ export function runParallelComparison(input: ValidationInput): ValidationReport 
           (explained
             ? `Mapping ${mapped!.classification}: ${mapped!.transformation}`
             : preserved
-              ? `Canonical column with no dedicated FarmOps field: preserved verbatim in ${collection}.${ODS_EXTRAS_FIELD} under its exact workbook header. No engineering value is dropped and nothing is written back to the workbook.`
+              ? `${
+                  col.collidedWith
+                    ? `Two workbook headers mean ${col.collidedWith}; this one bound to no column, and its values are`
+                    : "Canonical column with no dedicated FarmOps field:"
+                } preserved verbatim in ${collection}.${ODS_EXTRAS_FIELD}, keyed by its exact workbook header with worksheet, header and column number recorded so the canonical meaning is recoverable. No engineering value is dropped and nothing is written back to the workbook.`
               : col.collidedWith
                 ? `Two workbook headers mean ${col.collidedWith}; this one bound to nothing. Importer defect — give the column its own destination or preserve it verbatim.`
                 : mapped

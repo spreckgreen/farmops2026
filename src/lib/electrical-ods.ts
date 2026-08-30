@@ -5,7 +5,13 @@
 // The canonical ODS stays the engineering release authority: this import is
 // always a reviewable dry run first, and it never destructively merges raceway
 // segments — merges are proposed, never applied automatically.
-import { ODS_EXTRAS_FIELD, type ElectricalEntityKind } from "@/lib/electrical";
+import {
+  ODS_EXTRAS_FIELD,
+  ODS_EXTRAS_SOURCE_KEY,
+  odsExtrasEntryKey,
+  type ElectricalEntityKind,
+  type OdsExtrasSource,
+} from "@/lib/electrical";
 import { classifyGrid } from "@/lib/electrical-grid";
 
 export type Sheet = { name: string; rows: string[][] };
@@ -692,6 +698,17 @@ export function mapSheet(
     };
   }
   const header = sheet.rows[headerRow];
+  // Header text that occurs more than once on this worksheet. Preserved values
+  // from such columns are keyed with their column number so one duplicate never
+  // silently overwrites the other.
+  const headerCounts = new Map<string, number>();
+  for (const h of header) {
+    const n = norm(h);
+    if (n) headerCounts.set(n, (headerCounts.get(n) ?? 0) + 1);
+  }
+  const duplicateHeaders = new Set(
+    [...headerCounts.entries()].filter(([, n]) => n > 1).map(([h]) => h),
+  );
   const used = new Set<string>();
   const columns = header.map((source) => {
     const n = norm(source).replace(/\s*\(.*\)\s*$/, "");
@@ -725,12 +742,19 @@ export function mapSheet(
     if (!raw.some((c) => c.trim())) continue;
     const values: Record<string, string> = {};
     // Phase 4.4a: canonical columns with no dedicated FarmOps field are kept
-    // verbatim under their exact workbook header instead of being dropped.
+    // verbatim under their exact workbook header instead of being dropped, with
+    // the worksheet/header/column recorded so the value's canonical meaning is
+    // recoverable and duplicate header text cannot overwrite itself.
     const extras: Record<string, string> = {};
+    const extrasSource: Record<string, OdsExtrasSource> = {};
     columns.forEach((col, idx) => {
       const v = (raw[idx] ?? "").trim();
       if (!col.target) {
-        if (v && col.source.trim()) extras[col.source.trim()] = v;
+        if (!v) return;
+        const header = col.source.trim() || `(unnamed column ${idx + 1})`;
+        const key = odsExtrasEntryKey(header, idx, duplicateHeaders.has(norm(header)));
+        extras[key] = v;
+        extrasSource[key] = { sheet: sheet.name, header, column: idx + 1 };
         return;
       }
       if (!v) return;
@@ -768,9 +792,11 @@ export function mapSheet(
       }
     }
     if (Object.keys(extras).length && targets.includes(ODS_EXTRAS_FIELD)) {
-      values[ODS_EXTRAS_FIELD] = JSON.stringify(
-        Object.fromEntries(Object.keys(extras).sort().map((k) => [k, extras[k]!])),
-      );
+      const sorted = Object.keys(extras).sort();
+      values[ODS_EXTRAS_FIELD] = JSON.stringify({
+        ...Object.fromEntries(sorted.map((k) => [k, extras[k]!])),
+        [ODS_EXTRAS_SOURCE_KEY]: Object.fromEntries(sorted.map((k) => [k, extrasSource[k]!])),
+      });
     }
     rows.push({ values, stableId, sourceRow: i + 1 });
   }

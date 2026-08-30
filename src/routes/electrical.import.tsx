@@ -6,8 +6,11 @@ import { toast } from "sonner";
 import { ElectricalGate } from "@/components/electrical/electrical-gate";
 import {
   applyOdsImport,
+  applyOdsPreservation,
   previewOdsImport,
+  previewOdsPreservation,
   type ImportPlan,
+  type PreservationPlan,
 } from "@/lib/electrical-ods.functions";
 import { ENTITIES } from "@/lib/electrical-entities";
 import type { ElectricalEntityKind } from "@/lib/electrical";
@@ -62,6 +65,9 @@ function readAsBase64(file: File): Promise<string> {
 function Importer() {
   const preview = useServerFn(previewOdsImport);
   const apply = useServerFn(applyOdsImport);
+  const previewPreserve = useServerFn(previewOdsPreservation);
+  const applyPreserve = useServerFn(applyOdsPreservation);
+  const [preservation, setPreservation] = useState<PreservationPlan | null>(null);
   const [plan, setPlan] = useState<ImportPlan | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [failures, setFailures] = useState<{ stable_id: string; message: string }[]>([]);
@@ -133,6 +139,39 @@ function Importer() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const preservePreviewMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const base64 = await readAsBase64(file);
+      return previewPreserve({ data: { file_name: file.name, base64 } });
+    },
+    onSuccess: (result) => {
+      setPreservation(result);
+      toast.success(
+        `${result.proposals.length} record(s) would gain preserved columns; ${result.already_preserved} already preserved.`,
+      );
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const preserveApplyMutation = useMutation({
+    mutationFn: async () => {
+      const rows = (preservation?.proposals ?? []).map((p) => ({
+        kind: p.kind,
+        stable_id: p.stable_id,
+        existing_id: p.existing_id,
+        now: p.now,
+      }));
+      if (!rows.length) throw new Error("Nothing to preserve.");
+      return applyPreserve({ data: { rows } });
+    },
+    onSuccess: (r) => {
+      toast.success(`Preserved canonical columns on ${r.updated} record(s).`);
+      if (r.errors.length) setFailures(r.errors);
+      setPreservation(null);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const toggle = (k: string) =>
     setSelected((prev) => {
       const next = new Set(prev);
@@ -172,6 +211,87 @@ function Importer() {
               </span>
             </Button>
           </label>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">
+            Preserve canonical columns that have no FarmOps field
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm">
+          <p className="text-muted-foreground">
+            Workbook columns with no dedicated FarmOps field — and duplicate headers that lose a
+            binding — are kept verbatim, with their worksheet, header and column number recorded,
+            so parallel validation can prove nothing was dropped. Records imported before that
+            capture existed have none. This is a dry run first, and applying it writes only the
+            preserved copy: no engineering field, stable ID, relationship or install state
+            changes, and no record is created or deleted.
+          </p>
+          <label className="inline-flex items-center gap-2">
+            <input
+              type="file"
+              accept=".ods,application/vnd.oasis.opendocument.spreadsheet"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) preservePreviewMutation.mutate(file);
+                e.target.value = "";
+              }}
+            />
+            <Button asChild variant="outline" className="gap-2">
+              <span>
+                <Upload className="h-4 w-4" />
+                {preservePreviewMutation.isPending
+                  ? "Checking…"
+                  : "Preview preservation backfill"}
+              </span>
+            </Button>
+          </label>
+
+          {preservation ? (
+            <div className="space-y-2 rounded-md border p-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant="secondary">{preservation.proposals.length} to preserve</Badge>
+                <Badge variant="outline">
+                  {preservation.already_preserved} already preserved
+                </Badge>
+                {preservation.missing_records.length ? (
+                  <Badge variant="destructive">
+                    {preservation.missing_records.length} workbook row(s) not in FarmOps
+                  </Badge>
+                ) : null}
+                <div className="ml-auto flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setPreservation(null)}>
+                    Discard
+                  </Button>
+                  <Button
+                    size="sm"
+                    disabled={
+                      preserveApplyMutation.isPending || !preservation.proposals.length
+                    }
+                    onClick={() => preserveApplyMutation.mutate()}
+                  >
+                    {preserveApplyMutation.isPending
+                      ? "Preserving…"
+                      : `Preserve ${preservation.proposals.length} record(s)`}
+                  </Button>
+                </div>
+              </div>
+              <ul className="max-h-64 space-y-1 overflow-auto text-xs">
+                {preservation.proposals.map((p) => (
+                  <li key={`${p.kind}-${p.stable_id}`} className="flex flex-wrap gap-2">
+                    <Badge variant="outline" className="font-mono">
+                      {p.stable_id}
+                    </Badge>
+                    <span className="text-muted-foreground">{p.sheet}</span>
+                    <span>{p.columns.join(", ")}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
         </CardContent>
       </Card>
 

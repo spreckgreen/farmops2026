@@ -9,6 +9,9 @@ import {
   completionFromStatus,
   mergeLegacyStatusNote,
   normalizeInstallStatus,
+  ODS_EXTRAS_FIELD,
+  ODS_EXTRAS_SOURCE_KEY,
+  parseOdsExtras,
   type ElectricalEntityKind,
 } from "@/lib/electrical";
 
@@ -172,4 +175,149 @@ export const applyOdsImport = createServerFn({ method: "POST" })
     }
 
     return { created, updated, errors, normalized };
+  });
+
+/* ---------------------------------------------- 4.4a preservation backfill */
+
+export interface PreservationProposal {
+  sheet: string;
+  kind: ElectricalEntityKind;
+  stable_id: string;
+  existing_id: string;
+  was: string;
+  now: string;
+  columns: string[];
+}
+
+export interface PreservationPlan {
+  file_name: string;
+  proposals: PreservationProposal[];
+  already_preserved: number;
+  missing_records: { sheet: string; stable_id: string }[];
+}
+
+/**
+ * Dry run for the lossless-capture backfill. Records imported before the
+ * capture column existed carry no preserved copy of the canonical columns that
+ * have no typed FarmOps destination, which the validator correctly reports as
+ * semantic loss. This proposes writing that capture — and nothing else — for
+ * existing records only. It performs no writes and never creates records.
+ */
+export const previewOdsPreservation = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        file_name: z.string().trim().min(1).max(200),
+        base64: z.string().min(1).max(30_000_000),
+      })
+      .parse(d),
+  )
+  .handler(async ({ context, data }): Promise<PreservationPlan> => {
+    await requireAddon(context.supabase, context.userId, "electrical");
+    const db = context.supabase as unknown as LooseDb;
+    const sheets = await odsToSheets(data.base64);
+    const proposals: PreservationProposal[] = [];
+    const missing: { sheet: string; stable_id: string }[] = [];
+    let alreadyPreserved = 0;
+
+    for (const sheet of sheets) {
+      const kind = classifySheet(sheet);
+      if (!kind) continue;
+      const def = ENTITIES[kind];
+      if (!def.fields.some((f) => f.key === ODS_EXTRAS_FIELD)) continue;
+      const mapped = mapSheet(sheet, kind, importColumns(kind), def.stableIdField);
+      const { data: rows, error } = await db.from(def.table).select("*");
+      if (error) throw new Error(error.message);
+      const existing = new Map<string, Record<string, unknown>>();
+      for (const r of (rows ?? []) as Record<string, unknown>[]) {
+        existing.set(String(r[def.stableIdField] ?? "").trim(), r);
+      }
+      for (const row of mapped.rows) {
+        const next = row.values[ODS_EXTRAS_FIELD];
+        if (!next) continue;
+        const record = existing.get(row.stableId.trim());
+        if (!record) {
+          missing.push({ sheet: sheet.name, stable_id: row.stableId });
+          continue;
+        }
+        const was = typeof record[ODS_EXTRAS_FIELD] === "string"
+          ? (record[ODS_EXTRAS_FIELD] as string)
+          : "";
+        if (was === next) {
+          alreadyPreserved++;
+          continue;
+        }
+        const parsed = parseOdsExtras(next) ?? {};
+        proposals.push({
+          sheet: sheet.name,
+          kind,
+          stable_id: row.stableId,
+          existing_id: String(record["id"]),
+          was,
+          now: next,
+          columns: Object.keys(parsed)
+            .filter((k) => k !== ODS_EXTRAS_SOURCE_KEY)
+            .sort(),
+        });
+      }
+    }
+
+    return {
+      file_name: data.file_name,
+      proposals,
+      already_preserved: alreadyPreserved,
+      missing_records: missing,
+    };
+  });
+
+/**
+ * Apply reviewed preservation proposals. Writes only the lossless-capture
+ * column on existing records: no engineering field, stable ID, relationship or
+ * install state is touched, and no record is created or deleted.
+ */
+export const applyOdsPreservation = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        rows: z
+          .array(
+            z.object({
+              kind: z.string().min(1).max(40),
+              stable_id: z.string().trim().min(1).max(60),
+              existing_id: z.string().uuid(),
+              now: z.string().min(1).max(200_000),
+            }),
+          )
+          .min(1)
+          .max(5000),
+      })
+      .parse(d),
+  )
+  .handler(async ({ context, data }) => {
+    await requireAddon(context.supabase, context.userId, "electrical");
+    const db = context.supabase as unknown as LooseDb;
+    let updated = 0;
+    const errors: { stable_id: string; message: string }[] = [];
+    for (const row of data.rows) {
+      const def = ENTITIES[row.kind as ElectricalEntityKind];
+      if (!def || !def.fields.some((f) => f.key === ODS_EXTRAS_FIELD)) {
+        errors.push({ stable_id: row.stable_id, message: `Unknown record type ${row.kind}.` });
+        continue;
+      }
+      // The payload must be the capture JSON the importer produced; anything
+      // else is refused rather than stored as unverifiable evidence.
+      if (!parseOdsExtras(row.now)) {
+        errors.push({ stable_id: row.stable_id, message: "Preserved capture is not valid JSON." });
+        continue;
+      }
+      const { error } = await db
+        .from(def.table)
+        .update({ [ODS_EXTRAS_FIELD]: row.now })
+        .eq("id", row.existing_id);
+      if (error) errors.push({ stable_id: row.stable_id, message: error.message });
+      else updated++;
+    }
+    return { updated, errors };
   });
