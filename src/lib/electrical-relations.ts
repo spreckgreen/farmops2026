@@ -89,6 +89,27 @@ export const RELATIONS: Record<ElectricalEntityKind, RelationSpec[]> = {
   ],
   load: [{ fkColumn: "circuit_group_uuid", targetKind: "circuit_group", refColumn: "circuit_group_ref" }],
   circuit_group: [{ fkColumn: "panel_uuid", targetKind: "panel", refColumn: "suggested_panel" }],
+  feeder: [
+    {
+      fkColumn: "source_panel_uuid",
+      targetKind: "panel",
+      slot: "source",
+      endpointType: "panel",
+      refColumn: "source_endpoint_ref",
+      typeColumn: "source_endpoint_type",
+    },
+    {
+      fkColumn: "dest_panel_uuid",
+      targetKind: "panel",
+      slot: "dest",
+      endpointType: "panel",
+      refColumn: "dest_endpoint_ref",
+      typeColumn: "dest_endpoint_type",
+    },
+    // The raceway a feeder is pulled through is a plain relationship, not an
+    // endpoint: it never occupies the source/destination slots.
+    { fkColumn: "raceway_uuid", targetKind: "raceway", refColumn: "raceway_ref" },
+  ],
 };
 
 export function relationsFor(kind: ElectricalEntityKind): RelationSpec[] {

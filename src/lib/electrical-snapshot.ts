@@ -28,6 +28,7 @@ export type SnapshotCollection =
   | "panels"
   | "loads"
   | "circuit_groups"
+  | "feeders"
   | "raceways"
   | "raceway_waypoints"
   | "junction_boxes"
@@ -38,6 +39,7 @@ export const COLLECTION_FOR_KIND: Record<ElectricalEntityKind, SnapshotCollectio
   panel: "panels",
   load: "loads",
   circuit_group: "circuit_groups",
+  feeder: "feeders",
   raceway: "raceways",
   jbox: "junction_boxes",
   branch: "branch_runs",
@@ -48,6 +50,7 @@ export const SNAPSHOT_COLLECTIONS: SnapshotCollection[] = [
   "panels",
   "loads",
   "circuit_groups",
+  "feeders",
   "raceways",
   "raceway_waypoints",
   "junction_boxes",
@@ -86,6 +89,7 @@ export interface ElectricalSnapshot {
   panels: SnapshotRecord[];
   loads: SnapshotRecord[];
   circuit_groups: SnapshotRecord[];
+  feeders: SnapshotRecord[];
   raceways: SnapshotRecord[];
   raceway_waypoints: SnapshotRecord[];
   junction_boxes: SnapshotRecord[];
@@ -111,6 +115,7 @@ export const FARMOPS_OWNED_FIELDS = new Set([
   "completion_percent",
   "notes",
   "measured_length_ft",
+  "raceway_uuid",
   "device_side_connected",
   "source_side_connected",
   "exit_order",
@@ -301,6 +306,7 @@ export function buildElectricalSnapshot(input: SnapshotInput): ElectricalSnapsho
     panels: collections.panels ?? [],
     loads: collections.loads ?? [],
     circuit_groups: collections.circuit_groups ?? [],
+    feeders: collections.feeders ?? [],
     raceways: collections.raceways ?? [],
     raceway_waypoints: collections.raceway_waypoints ?? [],
     junction_boxes: collections.junction_boxes ?? [],

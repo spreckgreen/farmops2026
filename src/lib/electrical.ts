@@ -76,6 +76,7 @@ export type ElectricalEntityKind =
   | "load"
   | "circuit_group"
   | "panel"
+  | "feeder"
   | "raceway"
   | "jbox"
   | "branch";
@@ -107,6 +108,9 @@ const ID_PATTERNS: Record<ElectricalEntityKind, RegExp | null> = {
   load: null,
   circuit_group: null,
   panel: /^PNL-[A-Z0-9]+(-[A-Z0-9]+)*$/,
+  // Feeders: FDR-### is the FarmOps convention. Feeder rows imported from the
+  // canonical workbook keep whatever ID they were released with.
+  feeder: /^FDR-\d{3}$/,
   // Raceways: EMT-### is the current convention. CON-### is the pre-existing
   // ODS-derived convention and stays valid — stable IDs are never renamed.
   raceway: /^(EMT|CON)-\d{3,}$/,
@@ -120,12 +124,15 @@ const ID_PATTERNS: Record<ElectricalEntityKind, RegExp | null> = {
 const LEGACY_ID_PATTERNS: Partial<Record<ElectricalEntityKind, RegExp>> = {
   jbox: /^JB-\d{3,}(-\d{2,})*$/,
   branch: /^BR-\d{3,}(-\d{2,})*$/,
+  // Workbook-released feeder identifiers such as FD-1 or F-SERVICE-01.
+  feeder: /^(FDR|FD|F)-[A-Za-z0-9]+(-[A-Za-z0-9]+)*$/,
 };
 
 export const HIERARCHICAL_ID_SHAPES: Record<string, string> = {
   raceway: "EMT-###",
   jbox: "JB-###-##",
   branch: "BR-###-##-##",
+  feeder: "FDR-###",
 };
 
 export interface ParsedHierarchicalId {
@@ -298,6 +305,14 @@ export function nextStableId(kind: ElectricalEntityKind, existing: string[]): st
       if (m) max = Math.max(max, Number(m[1]));
     }
     return `EMT-${String(max + 1).padStart(3, "0")}`;
+  }
+  if (kind === "feeder") {
+    let max = 0;
+    for (const id of ids) {
+      const m = /^(?:FDR|FD|F)-(\d+)$/.exec(id);
+      if (m) max = Math.max(max, Number(m[1]));
+    }
+    return `FDR-${String(max + 1).padStart(3, "0")}`;
   }
   if (kind === "jbox") {
     // Without an explicit parent path, continue the highest path already in use.
