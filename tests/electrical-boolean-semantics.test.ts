@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { booleanFromSelect, booleanSelectValue, parseBooleanCell } from "@/lib/electrical-boolean";
 import { ENTITIES, coerceValue } from "@/lib/electrical-entities";
-import { booleanDiagnostics } from "@/lib/electrical-boolean-diagnostics";
+import {
+  booleanDiagnostics,
+  booleanRecordCsv,
+  categoryACorrectionPlan,
+  correctionPlanCsv,
+} from "@/lib/electrical-boolean-diagnostics";
 import type { ComparisonRecord, ValidationReport } from "@/lib/electrical-parallel-validation";
 
 function boolField(kind: "load", key: string) {
@@ -132,5 +137,78 @@ describe("Phase 4.4b boolean diagnostics", () => {
       reportOf([record({ root_cause: "design_value_disagreement" })]),
     );
     expect(diag.total_findings).toBe(0);
+  });
+});
+
+describe("Phase 4.4b Task 1B classification", () => {
+  it("classifies importer coercion as Category A with a false proposal", () => {
+    const diag = booleanDiagnostics(reportOf([record({ stable_id: "FS-010" })]));
+    const g = diag.groups[0]!;
+    expect(g.category).toBe("A");
+    expect(g.proposed_value).toBe(false);
+    expect(diag.counts_by_category.A).toBe(1);
+  });
+
+  it("classifies NOT NULL column defaults as Category A proposing null", () => {
+    const diag = booleanDiagnostics(
+      reportOf([
+        record({ stable_id: "FS-011", ods_value: "", farmops_value: "false", field: "critical", farmops_field: "critical" }),
+      ]),
+    );
+    expect(diag.groups[0]?.category).toBe("A");
+    expect(diag.groups[0]?.proposed_value).toBeNull();
+  });
+
+  it("classifies explicit disagreements as Category B and leaves them alone", () => {
+    const diag = booleanDiagnostics(
+      reportOf([record({ stable_id: "FS-012", ods_value: "Y", farmops_value: "false" })]),
+    );
+    expect(diag.groups[0]?.category).toBe("B");
+    expect(diag.groups[0]?.proposed_value).toBeUndefined();
+  });
+
+  it("classifies TBD and unrepresentable states as Category C", () => {
+    const diag = booleanDiagnostics(reportOf([record({ stable_id: "FS-013", ods_value: "TBD" })]));
+    expect(diag.groups[0]?.category).toBe("C");
+    expect(diag.groups[0]?.proposed_value).toBeUndefined();
+  });
+
+  it("classifies unrecognised workbook text as Category D", () => {
+    const diag = booleanDiagnostics(
+      reportOf([record({ stable_id: "FS-014", ods_value: "maybe later", farmops_value: "true" })]),
+    );
+    expect(diag.groups[0]?.category).toBe("D");
+  });
+
+  it("builds a Category-A-only correction plan with per-record evidence", () => {
+    const diag = booleanDiagnostics(
+      reportOf([
+        record({ stable_id: "FS-020" }),
+        record({ stable_id: "FS-021", ods_value: "Y", farmops_value: "false" }),
+        record({ stable_id: "FS-022", ods_value: "TBD" }),
+      ]),
+    );
+    const plan = categoryACorrectionPlan(diag);
+    expect(plan.entries.map((e) => e.stable_id)).toEqual(["FS-020"]);
+    expect(plan.entries[0]).toMatchObject({
+      table: "electrical_loads",
+      column: "future",
+      stable_id_field: "load_id",
+      proposed_value: false,
+    });
+    expect(plan.skipped_categories.B).toBe(1);
+    expect(plan.skipped_categories.C).toBe(1);
+    expect(correctionPlanCsv(plan)).toContain("FS-020");
+    expect(correctionPlanCsv(plan)).not.toContain("FS-021");
+  });
+
+  it("exports every individual stable ID for drill-down", () => {
+    const diag = booleanDiagnostics(
+      reportOf([record({ stable_id: "FS-030" }), record({ stable_id: "FS-031" })]),
+    );
+    const csv = booleanRecordCsv(diag);
+    expect(csv).toContain("FS-030");
+    expect(csv).toContain("FS-031");
+    expect(csv.trim().split("\n")).toHaveLength(3);
   });
 });
