@@ -140,7 +140,13 @@ const HEADER_HINTS: Record<ElectricalEntityKind, string[]> = {
   raceway: ["conduit id", "conduit_id", "trade size", "raceway"],
   jbox: ["jbox", "j-box", "junction box"],
   branch: ["branch id", "branch_id", "wiring method"],
+  // FarmOps-native infrastructure: never imported from the canonical workbook,
+  // so no worksheet is ever classified as one of these.
+  rack: [],
+  power_asset: [],
+  device: [],
 };
+
 
 function norm(s: string): string {
   return s.toLowerCase().replace(/[\s_]+/g, " ").trim();
