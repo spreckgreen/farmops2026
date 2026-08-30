@@ -14,9 +14,9 @@
 //  - collections are always present, even when empty.
 import { ENTITIES, type EntityField } from "@/lib/electrical-entities";
 import { relationsFor } from "@/lib/electrical-relations";
-import type { ElectricalEntityKind } from "@/lib/electrical";
+import { FARMOPS_NATIVE_KINDS, type ElectricalEntityKind } from "@/lib/electrical";
 
-export const SNAPSHOT_SCHEMA_VERSION = "1.1";
+export const SNAPSHOT_SCHEMA_VERSION = "1.2";
 
 export type FieldOwnership =
   | "engineering_design"
@@ -34,7 +34,10 @@ export type SnapshotCollection =
   | "junction_boxes"
   | "branch_runs"
   | "panel_breaker_positions"
-  | "panel_exits";
+  | "panel_exits"
+  | "equipment_racks"
+  | "power_assets"
+  | "devices";
 
 /** Collection name for each entity kind. Stable part of the wire contract. */
 export const COLLECTION_FOR_KIND: Record<ElectricalEntityKind, SnapshotCollection> = {
@@ -45,6 +48,9 @@ export const COLLECTION_FOR_KIND: Record<ElectricalEntityKind, SnapshotCollectio
   raceway: "raceways",
   jbox: "junction_boxes",
   branch: "branch_runs",
+  rack: "equipment_racks",
+  power_asset: "power_assets",
+  device: "devices",
 };
 
 /** Deterministic collection order in the emitted document. */
@@ -59,7 +65,11 @@ export const SNAPSHOT_COLLECTIONS: SnapshotCollection[] = [
   "branch_runs",
   "panel_breaker_positions",
   "panel_exits",
+  "equipment_racks",
+  "power_assets",
+  "devices",
 ];
+
 
 /** Row-level bookkeeping columns — not owned engineering or field values. */
 export const METADATA_FIELDS = ["uuid", "stable_id", "created_at", "updated_at"] as const;
@@ -102,6 +112,14 @@ export interface ElectricalSnapshot {
   panel_breaker_positions: SnapshotRecord[];
   /** Phase 4.3: one record per physical raceway penetration of a panel. */
   panel_exits: SnapshotRecord[];
+  /**
+   * FarmOps-native infrastructure with no canonical ODS counterpart. Exported
+   * for reconciliation transparency only — never written back to the workbook.
+   */
+  equipment_racks: SnapshotRecord[];
+  power_assets: SnapshotRecord[];
+  devices: SnapshotRecord[];
+
 }
 
 export type RawRow = Record<string, unknown>;
@@ -159,7 +177,13 @@ function ownershipFor(field: EntityField): FieldOwnership {
 /** Ownership map for one entity kind, including its derived relation keys. */
 export function ownershipMap(kind: ElectricalEntityKind): Record<string, FieldOwnership> {
   const out: Record<string, FieldOwnership> = {};
-  for (const field of ENTITIES[kind].fields) out[field.key] = ownershipFor(field);
+  // FarmOps-native infrastructure is owned end-to-end by FarmOps: the canonical
+  // workbook has no counterpart, so no field can be engineering-design owned.
+  const native = FARMOPS_NATIVE_KINDS.has(kind);
+  for (const field of ENTITIES[kind].fields) {
+    out[field.key] = native ? "farmops_as_built" : ownershipFor(field);
+  }
+
   for (const spec of relationsFor(kind)) {
     out[relationStableIdKey(spec.fkColumn)] = out[spec.fkColumn] ?? "farmops_as_built";
   }
@@ -437,6 +461,10 @@ export function buildElectricalSnapshot(input: SnapshotInput): ElectricalSnapsho
     branch_runs: collections.branch_runs ?? [],
     panel_breaker_positions: collections.panel_breaker_positions ?? [],
     panel_exits: collections.panel_exits ?? [],
+    equipment_racks: collections.equipment_racks ?? [],
+    power_assets: collections.power_assets ?? [],
+    devices: collections.devices ?? [],
+
   };
 }
 

@@ -57,6 +57,9 @@ export async function collectSnapshot(supabase: unknown): Promise<ElectricalSnap
     raceway: rows.raceway as Row[],
     jbox: rows.jbox as Row[],
     branch: rows.branch as Row[],
+    rack: rows.rack as Row[],
+    power_asset: rows.power_asset as Row[],
+    device: rows.device as Row[],
     waypoint: waypointRows as Row[],
   };
   const layoutFindings = validatePanelLayout({

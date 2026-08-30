@@ -195,3 +195,46 @@ Phase 4.4 JSON/CSV/Markdown exports.
 
 Phase 4.5 and SOR cutover remain out of scope: `SOR_AUTHORITY` stays
 `canonical_ods`.
+
+## Phase 4.4a addendum — equipment racks and shared power infrastructure
+
+FarmOps models racks, power distribution equipment and powered devices as
+reusable, first-class entities. There is no ham-radio-specific table or column:
+a rack's purpose (`rack_role`) and a power asset's type (`asset_type`) are data.
+
+| Entity | Table | Stable ID | Examples |
+| --- | --- | --- | --- |
+| Equipment rack | `electrical_racks` | `RACK-<SITE>-<ROLE>-##` | `RACK-FS-NET-01`, `RACK-FS-HAM-01` |
+| Power distribution asset | `electrical_power_assets` | `PSU|UPS|PDU|DCD-<SITE>-<ROLE>-##` | `PSU-FS-HAM-01`, `UPS-FS-NET-01`, `PDU-FS-NET-01` |
+| Powered device | `electrical_devices` | site convention | `NET-SW-FS-01` |
+
+Supported power asset types: `AC_DC_POWER_SUPPLY`, `UPS`, `PDU`,
+`DC_DISTRIBUTION`. Adding a type never requires a new table.
+
+### Power dependency topology
+
+    Panel -> Circuit / Load -> Power asset -> Powered device(s)
+
+Both levels are preserved on each record: a device stores its *immediate* power
+source (`power_asset_uuid`) and, separately, its upstream electrical source
+(`circuit_group_uuid` / `load_uuid`). Several devices may share one power asset,
+and they are never modelled as independently connected to the upstream branch
+circuit, so failure domains stay computable. A power asset can itself be fed by
+another power asset (`upstream_power_asset_uuid`), e.g. a PDU on a UPS.
+
+Nothing is inferred: an unknown DC voltage or PSU rating simply stays unset.
+
+### Diagram views
+
+Generated Mermaid views are deliberately separate — electrical power topology,
+network topology, rack/equipment topology and power dependency topology are
+distinct diagram types rather than one combined drawing.
+
+### SOR position
+
+Racks, power assets and devices are FarmOps-native infrastructure/as-built/
+planning extensions. They have no canonical ODS counterpart, are never added to
+`PremoFarmElectrical.ods` to force validation equivalence, and are classified in
+the Phase 4.4 report as `FARMOPS_AS_BUILT_ADDITION` with FarmOps-only category
+**B — valid schema enrichment**. `SOR_AUTHORITY` remains `canonical_ods` and the
+project stays in Phase 4.4a.

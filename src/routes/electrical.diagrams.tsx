@@ -173,8 +173,15 @@ function DiagramsPage() {
         ? (options?.raceways ?? [])
         : type === "jbox"
           ? (options?.jboxes ?? [])
-          : [];
-  const needsFocus = focusOptions.length > 0 || ["single_panel", "raceway", "jbox"].includes(type);
+          : type === "rack"
+            ? (options?.racks ?? [])
+            : type === "power_dependency"
+              ? (options?.powerAssets ?? [])
+              : [];
+  const needsFocus =
+    focusOptions.length > 0 ||
+    ["single_panel", "raceway", "jbox", "rack", "power_dependency"].includes(type);
+
 
   const source = q.data?.mermaid ?? "";
   const errors = (q.data?.issues ?? []).filter((i) => i.severity === "error");

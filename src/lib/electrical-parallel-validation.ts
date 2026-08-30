@@ -27,7 +27,7 @@ import {
   type SnapshotRecord,
 } from "@/lib/electrical-snapshot";
 import { FIELD_MAP, FIELD_MAP_VERSION } from "@/lib/electrical-field-map";
-import type { ElectricalEntityKind } from "@/lib/electrical";
+import { FARMOPS_NATIVE_KINDS, type ElectricalEntityKind } from "@/lib/electrical";
 
 export const VALIDATION_SCHEMA_VERSION = "1.1";
 export const NORMALIZATION_VERSION = "1.1";
@@ -102,6 +102,7 @@ export const CLASSIFICATION_LABELS: Record<Classification, string> = {
  * canonical design release. A FarmOps-only record here is evidence, not a
  * defect: CON-### raceways, JB-###-## boxes and BR-###-##-## branches.
  */
+/** FarmOps-native infrastructure kinds are always FarmOps-only by design. */
 export const AS_BUILT_KINDS = new Set<ElectricalEntityKind>(["raceway", "jbox", "branch"]);
 
 /* ----------------------------------------------------------- normalization */
@@ -598,7 +599,8 @@ export function runParallelComparison(input: ValidationInput): ValidationReport 
     }
     for (const [id] of fpRows) {
       if (!id || odsRows.has(id)) continue;
-      const asBuilt = AS_BUILT_KINDS.has(kind);
+      const native = FARMOPS_NATIVE_KINDS.has(kind);
+      const asBuilt = native || AS_BUILT_KINDS.has(kind);
       push({
         domain: collection,
         stable_id: id,
@@ -613,13 +615,17 @@ export function runParallelComparison(input: ValidationInput): ValidationReport 
         authority: "structural",
         classification: asBuilt ? "FARMOPS_AS_BUILT_ADDITION" : "FARMOPS_ONLY",
         rules: [],
-        farmops_only_category: asBuilt ? "A" : "E",
-        root_cause: asBuilt
-          ? "field_installed_after_design_release"
-          : "farmops_record_without_workbook_counterpart",
-        note: asBuilt
-          ? "Field-installed record created after the canonical design release."
-          : "FarmOps record with no workbook counterpart — engineering decision required.",
+        farmops_only_category: native ? "B" : asBuilt ? "A" : "E",
+        root_cause: native
+          ? "farmops_native_infrastructure_entity"
+          : asBuilt
+            ? "field_installed_after_design_release"
+            : "farmops_record_without_workbook_counterpart",
+        note: native
+          ? `FarmOps-native ${def.singular}: infrastructure/planning entity with no canonical workbook counterpart. It is not added to the ODS and does not indicate loss.`
+          : asBuilt
+            ? "Field-installed record created after the canonical design release."
+            : "FarmOps record with no workbook counterpart — engineering decision required.",
       });
     }
 

@@ -41,6 +41,8 @@ export interface DiagramPayload extends GeneratedDiagram {
     raceways: string[];
     jboxes: string[];
     environments: string[];
+    racks: string[];
+    powerAssets: string[];
   };
 }
 
@@ -58,6 +60,9 @@ export const generateElectricalDiagram = createServerFn({ method: "GET" })
       "raceway",
       "jbox",
       "branch",
+      "rack",
+      "power_asset",
+      "device",
     ];
     const fetched = await Promise.all(
       kinds.map(async (kind) => {
@@ -81,6 +86,9 @@ export const generateElectricalDiagram = createServerFn({ method: "GET" })
       raceway: fetched[3],
       jbox: fetched[4],
       branch: fetched[5],
+      rack: fetched[6],
+      power_asset: fetched[7],
+      device: fetched[8],
       waypoint: (waypoints ?? []) as Row[],
     };
 
@@ -104,6 +112,8 @@ export const generateElectricalDiagram = createServerFn({ method: "GET" })
       raceways: uniq(graph.raceway.map((r) => r["conduit_id"] as string)),
       jboxes: uniq(graph.jbox.map((j) => j["jbox_id"] as string)),
       environments: uniq(graph.raceway.map((r) => r["environment"] as string)),
+      racks: uniq((graph.rack ?? []).map((r) => r["rack_id"] as string)),
+      powerAssets: uniq((graph.power_asset ?? []).map((r) => r["power_asset_id"] as string)),
     };
 
     return { ...buildDiagram(graph, data), options };
