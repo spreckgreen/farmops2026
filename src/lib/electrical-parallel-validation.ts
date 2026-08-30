@@ -31,15 +31,18 @@ import {
   FARMOPS_NATIVE_KINDS,
   ODS_EXTRAS_FIELD,
   odsExtrasEntryKey,
+  odsExtrasHasSourceMetadata,
+  odsExtrasKeys,
   parseOdsExtras,
+  preservedOdsEntries,
   preservedOdsValues,
   type ElectricalEntityKind,
 } from "@/lib/electrical";
 
 // 1.3 — lossless capture now records worksheet/header/column source identity,
 // so preservation is proven by source, not by key text alone.
-export const VALIDATION_SCHEMA_VERSION = "1.3";
-export const NORMALIZATION_VERSION = "1.3";
+export const VALIDATION_SCHEMA_VERSION = "1.4";
+export const NORMALIZATION_VERSION = "1.4";
 export const MAPPING_VERSION = FIELD_MAP_VERSION;
 
 /* -------------------------------------------------- 4.4a disposition model */
@@ -276,6 +279,8 @@ export interface ValidationInput {
   odsSha256: string;
   comparedAt: string;
   sheets: OdsSheetRows[];
+  /** Non-entity worksheets, preserved verbatim instead of mapped to entities. */
+  workbookMetadata?: WorkbookMetadataSheet[];
   snapshot: ElectricalSnapshot;
   /** Checksum of the serialized FarmOps snapshot, when the caller computed it. */
   snapshotSha256?: string;
@@ -332,7 +337,38 @@ export interface LossDiagnostic {
     actual_extras_value: string | null;
     /** Everything captured for this worksheet column, by source identity. */
     actual_preserved_values: string[];
+    /** The record carries some lossless capture. Not per-column evidence. */
     capture_present: boolean;
+    /** This worksheet column is present in that capture (by source or key). */
+    capture_has_column: boolean;
+    /** The capture records worksheet/header/column source identity. */
+    capture_has_source_metadata: boolean;
+    /** Keys the capture actually holds, so a mis-key is visible. */
+    capture_keys: string[];
+    /** Why preservation could not be proven for this row. */
+    reason:
+      | "record_not_found"
+      | "capture_absent"
+      | "column_absent_from_capture"
+      | "capture_lacks_source_metadata"
+      | "value_differs";
+  }[];
+}
+
+/**
+ * A worksheet that is workbook structure rather than electrical entities
+ * (metadata, drop-down lists, legends). Its populated values are carried
+ * verbatim in the reconciliation artifact so nothing canonical is dropped, and
+ * they are never mapped onto panels, feeders or any other entity.
+ */
+export interface WorkbookMetadataSheet {
+  sheet: string;
+  columns: {
+    header: string;
+    /** 1-based worksheet column. */
+    column: number;
+    populated_rows: number;
+    values: { row: number; value: string }[];
   }[];
 }
 
@@ -365,6 +401,12 @@ export interface ValidationReport {
     reasons: string[];
   };
   records: ComparisonRecord[];
+  /**
+   * Verbatim contents of the workbook's non-entity worksheets. Preserved so
+   * Phase 4.4a can claim losslessness without inventing entities for workbook
+   * metadata or reference lists.
+   */
+  workbook_metadata: WorkbookMetadataSheet[];
 }
 
 /* -------------------------------------------------- 4.4a record enrichment */
@@ -598,6 +640,22 @@ export function runParallelComparison(input: ValidationInput): ValidationReport 
               rows: samples.map((s) => {
                 const extras = extrasIndex.get(`${collection}:${s.stableId.trim()}`) ?? null;
                 const actual = extras ? extras[preservationKey] : undefined;
+                const entries = preservedOdsEntries(extras, sheet.sheet, col.column);
+                const hasSource = odsExtrasHasSourceMetadata(extras);
+                // `capture_present` only says the record carries some capture.
+                // The actionable answer is per-column, so the reason
+                // distinguishes a missing record, capture that never included
+                // this column, capture with no source identity, and a value
+                // that is present but not byte-identical.
+                const reason = !extras
+                  ? extrasIndex.has(`${collection}:${s.stableId.trim()}`)
+                    ? ("capture_absent" as const)
+                    : ("record_not_found" as const)
+                  : entries.length === 0
+                    ? hasSource
+                      ? ("column_absent_from_capture" as const)
+                      : ("capture_lacks_source_metadata" as const)
+                    : ("value_differs" as const);
                 return {
                   stable_id: s.stableId,
                   ods_value: s.value,
@@ -605,6 +663,10 @@ export function runParallelComparison(input: ValidationInput): ValidationReport 
                   actual_extras_value: typeof actual === "string" ? actual : null,
                   actual_preserved_values: preservedOdsValues(extras, sheet.sheet, col.column),
                   capture_present: extras !== null,
+                  capture_has_column: entries.length > 0,
+                  capture_has_source_metadata: hasSource,
+                  capture_keys: odsExtrasKeys(extras).slice(0, 40),
+                  reason,
                 };
               }),
             }
@@ -674,6 +736,35 @@ export function runParallelComparison(input: ValidationInput): ValidationReport 
       });
     }
 
+  }
+
+  // --- non-entity worksheets: workbook metadata, preserved not mapped -------
+  const workbookMetadata = input.workbookMetadata ?? [];
+  for (const sheet of workbookMetadata) {
+    for (const col of sheet.columns) {
+      if (!col.populated_rows) continue;
+      push({
+        domain: "workbook_metadata",
+        stable_id: `${sheet.sheet}:${col.header}`,
+        field: col.header,
+        label: col.header,
+        ods_worksheet: sheet.sheet,
+        ods_column: col.header,
+        ods_value: col.values.map((v) => v.value).join(" | "),
+        farmops_entity: `report.workbook_metadata["${sheet.sheet}"]`,
+        farmops_field: null,
+        farmops_value: col.values.map((v) => v.value).join(" | "),
+        authority: "structural",
+        classification: "EXPECTED_TRANSFORMATION",
+        rules: ["verbatim_preservation"],
+        root_cause: "documented_non_entity_workbook_structure",
+        note:
+          `${sheet.sheet} is workbook structure (metadata / reference list), not an electrical entity: ` +
+          `it has no stable IDs and must not become panels, feeders or any other record. Its ${col.populated_rows} ` +
+          `populated cell(s) are carried verbatim in the reconciliation artifact's workbook_metadata section, ` +
+          `so nothing canonical is dropped and nothing is written to the workbook or the database.`,
+      });
+    }
   }
 
   // Every FarmOps stable ID, so an ODS-only record can be explained by an
@@ -1202,6 +1293,7 @@ export function runParallelComparison(input: ValidationInput): ValidationReport 
       reasons,
     },
     records,
+    workbook_metadata: workbookMetadata,
   };
 }
 

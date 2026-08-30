@@ -364,3 +364,59 @@ The same detail is written into the finding's note, exported as
 tabulated in the reconciliation Markdown report. A value only leaves `LOSS` when
 preservation is proven; the diagnostics never reclassify anything. Reads only:
 no database write, and the canonical workbook is untouched.
+
+## Phase 4.4a — LOSS diagnostics analysis (119 diagnostic rows)
+
+Reconciliation only. The canonical workbook is never written, and no engineering
+field, as-built field, stable ID or relationship is changed by any of this.
+
+### A. 70 Load_Master findings with `capture_present=true`
+
+`capture_present` only meant "this record holds some `ods_extras` JSON". It was
+never per-column evidence, and the diagnostic column `actual_ods_extras_value`
+was read with a plain top-level `ods_extras[collision_safe_key]` lookup, so a
+value preserved under source identity (`__source`) showed `(absent)`.
+
+Classification itself already resolved preservation through `__source`
+(`preservedOdsValues`), so no finding was misclassified — the diagnostics were
+misleading. Diagnostics now report, per row:
+
+- `capture_has_column` — this worksheet column is present in the capture,
+  resolved by `__source` worksheet + header + column, then by exact/ordinal key;
+- `capture_has_source_metadata` — the capture carries source identity at all;
+- `capture_keys` — the keys the record actually holds, so a mis-key is visible;
+- `reason` — `record_not_found`, `capture_absent`,
+  `column_absent_from_capture`, `capture_lacks_source_metadata`, or
+  `value_differs`.
+
+A finding becomes `EXPECTED_TRANSFORMATION` only when the exact populated value
+is proven preserved for that worksheet column (root cause
+`documented_verbatim_preservation_in_ods_extras`, or
+`duplicate_header_collision_preserved_verbatim` for collided columns). Rows that
+remain LOSS now say which layer is at fault instead of implying a bad lookup.
+
+### B. 24 Feeders findings with `capture_present=false`
+
+The preservation backfill only updates `ods_extras` on records that already
+exist and match by stable ID; it never creates entities. The Feeders worksheet
+rows have no matching FarmOps feeder records, so there was nothing to capture
+into. These rows are reported with `reason=record_not_found` and stay LOSS.
+Closing them requires real, stable-ID-matched feeder records — not a backfill,
+and not fabricated IDs.
+
+### C/D. `Design_Lists` and `Workbook_Info`
+
+These are workbook structure — reference lists and metadata — with no stable
+IDs. Fuzzy header scoring previously read `Design_Lists` as panels and
+`Workbook_Info` as feeders. `isNonEntitySheet()` now excludes such sheets from
+entity classification before scoring, so they can never become panel or feeder
+records. Their populated cells are preserved verbatim in the report's
+`workbook_metadata` section (worksheet, header, 1-based column, row, value) and
+reported as `EXPECTED_TRANSFORMATION` with root cause
+`documented_non_entity_workbook_structure`.
+
+### Backfill
+
+No new generic backfill is required. Load_Master captures already exist;
+Feeders needs records, not capture; metadata sheets are preserved at report
+level. Validator/normalization versions are `1.4`.

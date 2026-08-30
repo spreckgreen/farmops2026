@@ -181,7 +181,27 @@ export function findHeaderRow(rows: string[][]): number {
   return -1;
 }
 
+/**
+ * Worksheets that are workbook structure — metadata, drop-down lists, legends,
+ * instructions — not electrical entities. Fuzzy header hints previously read
+ * `Design_Lists` as panels and `Workbook_Info` as feeders, which would turn
+ * workbook metadata into engineering records. They are recognised by name and
+ * excluded from entity classification entirely; their populated values are
+ * preserved as workbook metadata instead.
+ */
+const NON_ENTITY_SHEET_PATTERNS: RegExp[] = [
+  /^workbook[_\s-]*info$/i,
+  /^design[_\s-]*lists?$/i,
+  /(^|[_\s-])(info|metadata|lists?|legend|lookup|lookups|notes|readme|instructions|revision|revisions|changelog|cover|toc|index|validation)$/i,
+];
+
+export function isNonEntitySheet(name: string): boolean {
+  const n = name.trim();
+  return NON_ENTITY_SHEET_PATTERNS.some((re) => re.test(n));
+}
+
 export function classifySheet(sheet: Sheet): ElectricalEntityKind | null {
+  if (isNonEntitySheet(sheet.name)) return null;
   const headerIdx = findHeaderRow(sheet.rows);
   const header = headerIdx >= 0 ? sheet.rows[headerIdx].map(norm) : [];
   const haystack = [norm(sheet.name), ...header].join(" | ");
