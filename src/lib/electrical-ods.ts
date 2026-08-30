@@ -880,10 +880,18 @@ export function buildPlanSheet(
       return { ...row, action: "create", existingId: null, changes: [], warnings };
     }
     const changes: { column: string; from: string; to: string }[] = [];
-    for (const [column, to] of Object.entries(row.values)) {
+    for (const [column, value] of Object.entries(row.values)) {
       if (column === stableIdField) continue;
       const from = current[column] == null ? "" : String(current[column]);
+      // Capture is additive: the proposed value is the union of what is already
+      // preserved and what this worksheet contributes, so importing one sheet
+      // never erases another sheet's preserved keys.
+      const to =
+        column === ODS_EXTRAS_FIELD
+          ? (mergeOdsExtras(current[column], value) ?? value)
+          : value;
       if (from.trim() !== to.trim()) changes.push({ column, from, to });
+      if (column === ODS_EXTRAS_FIELD) row.values[column] = to;
     }
     const measured = changes.find((c) => c.column === "measured_length_ft");
     if (measured && measured.from) {
