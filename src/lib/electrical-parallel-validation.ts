@@ -740,6 +740,18 @@ export function runParallelComparison(input: ValidationInput): ValidationReport 
               }),
             }
           : undefined;
+      // An existing record whose capture simply never included this worksheet
+      // column is an import/backfill gap, not a missing mapping: name it so the
+      // preservation path is fixed rather than the finding softened.
+      const captureGap =
+        loss_diagnostic &&
+        loss_diagnostic.rows.length > 0 &&
+        loss_diagnostic.rows.every((r) => r.reason === "column_absent_from_capture");
+      const finalRootCause = captureGap
+        ? col.collidedWith || col.duplicateHeader
+          ? "ods_extras_collision_key_missing_for_existing_record"
+          : "ods_extras_capture_incomplete_for_existing_record"
+        : rootCause;
       const evidence = samples.length
         ? ` Affected workbook rows: ${samples.map((s) => `${s.stableId || "(no id)"}="${s.value}"`).join(", ")}${
             col.populatedRows && col.populatedRows > samples.length
@@ -764,8 +776,8 @@ export function runParallelComparison(input: ValidationInput): ValidationReport 
         farmops_value: preserved ? samples.map((s) => s.value).join(" | ") : "",
         authority: "engineering_design",
         classification,
-        rules: preserved ? ["verbatim_preservation"] : [],
-        root_cause: rootCause,
+        rules: preserved ? ["verbatim_preservation", ...proof.rules] : [],
+        root_cause: finalRootCause,
         loss_diagnostic,
         note:
           (explained
@@ -776,11 +788,16 @@ export function runParallelComparison(input: ValidationInput): ValidationReport 
                     ? `Two workbook headers mean ${col.collidedWith}; this one bound to no column, and its values are`
                     : "Canonical column with no dedicated FarmOps field:"
                 } preserved verbatim in ${collection}.${ODS_EXTRAS_FIELD}, keyed by its exact workbook header with worksheet, header and column number recorded so the canonical meaning is recoverable. No engineering value is dropped and nothing is written back to the workbook.`
-              : col.collidedWith
-                ? `Two workbook headers mean ${col.collidedWith}; this one bound to nothing. Importer defect — give the column its own destination or preserve it verbatim.`
-                : mapped
-                  ? `The mapping matrix maps this column to ${mapped.farmops}, but the importer bound no column — add the header alias.`
-                  : "Populated workbook column has no FarmOps destination in the mapping matrix.") +
+              : recordAbsent
+                ? `The FarmOps ${collection} record(s) ${[...new Set(missingRecordIds)].join(", ")} do not exist yet, so this canonical column has no destination record. This is a record-level reconciliation finding (populate the record in FarmOps), not a capture failure: the canonical engineering values stay visible here and neither the workbook nor the database is written.`
+                : captureGap
+                  ? `The FarmOps record exists and carries lossless capture, but this worksheet column is absent from it — the import/preservation path did not record ${collection}.${ODS_EXTRAS_FIELD}["${preservationKey}"]. Fix the preservation path; the finding stays semantic loss until the exact value is captured.`
+                  : col.collidedWith
+                    ? `Two workbook headers mean ${col.collidedWith}; this one bound to nothing. Importer defect — give the column its own destination or preserve it verbatim.`
+                    : mapped
+                      ? `The mapping matrix maps this column to ${mapped.farmops}, but the importer bound no column — add the header alias.`
+                      : "Populated workbook column has no FarmOps destination in the mapping matrix.") +
+
           evidence +
           (loss_diagnostic
             ? ` Expected preservation key ${collection}.${ODS_EXTRAS_FIELD}["${loss_diagnostic.preservation_key}"]${
