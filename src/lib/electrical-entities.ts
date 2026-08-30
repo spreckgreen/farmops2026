@@ -503,8 +503,8 @@ export const ENTITIES: Record<ElectricalEntityKind, EntityDef> = {
     singular: "equipment rack",
     fields: [
       { key: "description", label: "Description", kind: "text", list: true },
-      { key: "rack_role", label: "Rack role", kind: "select", options: RACK_ROLES, list: true, hint: "NET, HAM, SERVER, …" },
-      { key: "site_area", label: "Site / area", kind: "text", list: true },
+      { key: "rack_role", label: "Rack role", kind: "select", options: RACK_ROLES, list: true, hint: "Controlled infrastructure class; the same token used in RACK-<SITE>-<ROLE>-##." },
+      { key: "site_area", label: "Site / area", kind: "text", list: true, hint: "Controlled location code used in the rack ID: FS, PH, BLR, HSE, SITE." },
       { key: "building", label: "Building", kind: "text", list: true },
       { key: "grid", label: "Grid", kind: "text" },
       { key: "location_note", label: "Physical location", kind: "text", field: true },
@@ -563,7 +563,7 @@ export const ENTITIES: Record<ElectricalEntityKind, EntityDef> = {
     fields: [
       { key: "description", label: "Description", kind: "text", list: true },
       { key: "device_role", label: "Device role", kind: "select", options: DEVICE_ROLES, list: true },
-      { key: "device_type", label: "Device type", kind: "text", hint: "Switch, transceiver, router, …" },
+      { key: "device_type", label: "Device type", kind: "text", hint: "Switch, transceiver, router, … Network roles use the ID tokens SW, RTR, AP, FW, BR, ONT." },
       ...assetLinkFields("device"),
       ...supersededEquipmentFields,
       { key: "rack_uuid", label: "Installed in rack", kind: "entity", entityKind: "rack", field: true },
