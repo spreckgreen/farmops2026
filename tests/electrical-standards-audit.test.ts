@@ -49,10 +49,10 @@ describe("Phase 4.4b standards validation — rejections name the offending toke
     ] as [InfrastructureKind, string][]) {
       const check = checkInfrastructureId(kind, id, { mode: "create" });
       expect(check.ok, id).toBe(false);
-      // Either "does not match the required format" or, for the deliberately
-      // broad device legacy shape, the compatibility-only refusal — both name
-      // the canonical shape and refuse creation.
-      expect(check.error).toMatch(/does not match the required|compatibility-only/);
+      // Either "does not match the required format" or an explicit
+      // invalid-prefix diagnosis — both name the canonical shape and refuse
+      // creation. Devices have no legacy compatibility matcher.
+      expect(check.error).toMatch(/does not match the required|invalid prefix/);
       expect(check.error).toContain(INFRASTRUCTURE_ID_STANDARDS[kind].formats[0].shape);
       // Every failure shows a compliant example, never bare "invalid ID".
       expect(check.error).toContain(INFRASTRUCTURE_ID_STANDARDS[kind].formats[0].examples[0]);
