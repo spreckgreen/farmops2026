@@ -226,25 +226,10 @@ export const INFRASTRUCTURE_ID_STANDARDS: Record<
         ],
       },
     ],
-    legacyFormats: [
-      {
-        name: "Pre-standard powered device ID",
-        // The only historical Powered Device IDs FarmOps needs to preserve use
-        // the SW (switch) role prefix with a short site code and a simple
-        // sequence, e.g. SW-FS-1. Anything else — including plausible-looking
-        // prefixes such as NETWORK-SW-FS-01 — is an invalid ID, not a
-        // compatibility case. Do not widen this allow-list without a real
-        // pre-existing record that requires it.
-        shape: "SW-<SITE>-<n>",
-        pattern: /^SW-([A-Z0-9]+)-(\d+)$/,
-        examples: ["SW-FS-1"],
-        tokens: [
-          { token: "SW", meaning: "Fixed historical prefix — a pre-standard switch-role device" },
-          SITE_TOKEN,
-          { token: "<n>", meaning: "Historical sequence number (one or more digits, not zero-padded)" },
-        ],
-      },
-    ],
+    // No legacy formats: an inventory of the actual powered-device records
+    // found no pre-standard IDs to preserve, so there is deliberately no
+    // compatibility-only matcher here. Do not add one without a real
+    // pre-existing record that requires it.
   },
 };
 
@@ -352,7 +337,7 @@ export function checkInfrastructureId(
   if (kind === "device" && prefix && prefix !== "NET" && prefix !== "DEV") {
     return {
       ok: false,
-      error: `${id} has an invalid prefix "${prefix}" — powered devices use NET- (network roles) or DEV- (powered roles); only the historical SW-<SITE>-<n> shape (e.g. SW-FS-1) is compatibility-only for records that already exist. Format: ${infrastructureShape(kind)}. Compliant example: ${example}.`,
+      error: `${id} has an invalid prefix "${prefix}" — powered devices use NET- (network roles) or DEV- (powered roles). Format: ${infrastructureShape(kind)}. Compliant example: ${example}.`,
     };
   }
   return {
