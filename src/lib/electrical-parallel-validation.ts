@@ -951,6 +951,8 @@ export function runParallelComparison(input: ValidationInput): ValidationReport 
         authority: "farmops_as_built",
         classification: "FARMOPS_AS_BUILT_ADDITION",
         rules: [],
+        farmops_only_category: "A",
+        root_cause: "physical_model_without_workbook_design_table",
         note: "Physical model captured in FarmOps; the canonical workbook has no equivalent design table.",
       });
     }
@@ -968,6 +970,14 @@ export function runParallelComparison(input: ValidationInput): ValidationReport 
   const summary = emptySummary();
   const byDomain: Record<string, Record<Classification, number>> = {};
   const asBuilt: Record<string, number> = {};
+  const byRootCause: Record<string, number> = {};
+  const byDisposition = {} as Record<Disposition, number>;
+  for (const d of DISPOSITIONS) byDisposition[d] = 0;
+  const byCategory = {} as Record<FarmOpsOnlyCategory, number>;
+  for (const c of Object.keys(FARMOPS_ONLY_CATEGORIES) as FarmOpsOnlyCategory[]) byCategory[c] = 0;
+
+  let unexplained = 0;
+  let unexplainedOdsOnly = 0;
   for (const r of records) {
     summary[r.classification]++;
     byDomain[r.domain] = byDomain[r.domain] ?? emptySummary();
@@ -975,7 +985,24 @@ export function runParallelComparison(input: ValidationInput): ValidationReport 
     if (r.classification === "FARMOPS_AS_BUILT_ADDITION") {
       asBuilt[r.domain] = (asBuilt[r.domain] ?? 0) + 1;
     }
+    byRootCause[r.root_cause] = (byRootCause[r.root_cause] ?? 0) + 1;
+    byDisposition[r.disposition]++;
+    if (r.farmops_only_category) byCategory[r.farmops_only_category]++;
+    if (r.root_cause === "unclassified") {
+      unexplained++;
+      if (r.classification === "ODS_ONLY") unexplainedOdsOnly++;
+    }
   }
+
+  // Every finding that is not accepted needs a human disposition. The gate
+  // never passes by reclassifying a difference into something benign.
+  const openDispositions = records.filter((r) => r.disposition !== "ACCEPTED").length;
+  const reasons: string[] = [];
+  if (summary.LOSS > 0) reasons.push(`${summary.LOSS} LOSS finding(s) must reach zero.`);
+  if (unexplainedOdsOnly > 0) {
+    reasons.push(`${unexplainedOdsOnly} ODS-only finding(s) have no root cause.`);
+  }
+  if (unexplained > 0) reasons.push(`${unexplained} finding(s) are unexplained.`);
 
   return {
     schema_version: VALIDATION_SCHEMA_VERSION,
@@ -992,15 +1019,28 @@ export function runParallelComparison(input: ValidationInput): ValidationReport 
     farmops: {
       snapshot_schema_version: snapshot.schema_version,
       snapshot_generated_at: snapshot.generated_at,
+      snapshot_sha256: input.snapshotSha256 ?? null,
     },
     summary,
     by_domain: Object.fromEntries(Object.keys(byDomain).sort().map((k) => [k, byDomain[k]!])),
     as_built_additions_by_entity: Object.fromEntries(
       Object.keys(asBuilt).sort().map((k) => [k, asBuilt[k]!]),
     ),
+    by_root_cause: Object.fromEntries(Object.keys(byRootCause).sort().map((k) => [k, byRootCause[k]!])),
+    by_disposition: byDisposition,
+    farmops_only_by_category: byCategory,
+    gate: {
+      loss: summary.LOSS,
+      unexplained_ods_only: unexplainedOdsOnly,
+      unexplained,
+      open_dispositions: openDispositions,
+      status: reasons.length === 0 ? "PASS" : "FAIL",
+      reasons,
+    },
     records,
   };
 }
+
 
 /* ------------------------------------------------------------------ exports */
 
