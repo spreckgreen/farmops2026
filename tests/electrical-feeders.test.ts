@@ -104,7 +104,7 @@ describe("SOR status", () => {
     expect(status.farmops_role).toMatch(/Candidate SOR/);
     expect(status.cutover.approved).toBe(false);
     expect(status.snapshot_schema_version).toBe("1.1");
-    expect(status.phase).toBe("4.3");
+    expect(status.phase).toBe("4.4");
   });
 
   it("lists cutover blockers and never clears them on warnings alone", () => {
