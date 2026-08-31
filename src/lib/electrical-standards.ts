@@ -103,6 +103,19 @@ export const BUILT_IN_STANDARDS: readonly StandardEntry[] = [
     sort_order: 20,
   },
   {
+    key: "ordered_junction_points",
+    title: "Ordered junction points along one raceway",
+    body:
+      "One continuous raceway can pass through several junction boxes in physical order. Each box records the " +
+      "parent raceway plus its position along it (CON-104 > position 1 JB-104-01 > position 2 JB-104-02 > " +
+      "position 3 JB-104-03). That link and position are the authoritative topology; the encoded ID only " +
+      "cross-checks it. Never create an artificial raceway between two boxes on the same run, and a branch " +
+      "leaving an intermediate box (BR-104-02-01) does not terminate the raceway. Branch runs keep their " +
+      "immediate junction-box source — no redundant panel source is recorded. QA reports duplicate, missing, " +
+      "or invalid positions and any identity disagreement; it never renames a record.",
+    sort_order: 22,
+  },
+  {
     key: "waypoints",
     title: "Waypoint vs endpoint",
     body:
