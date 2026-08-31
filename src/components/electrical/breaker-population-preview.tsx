@@ -28,10 +28,14 @@ import {
   BREAKER_POPULATION_CSV,
   breakerMismatchCsv,
   breakerPositionMismatches,
+  isCreatable,
   POPULATION_ACTION_LABELS,
+  SAFETY_CLASS_LABELS,
   type BreakerPopulationRow,
+  type BreakerSafetyClass,
   type PopulationAction,
 } from "@/lib/electrical-breaker-population";
+
 import {
   FIELD_RECONCILIATION_SCOPES,
   type FieldReconciliationScopeId,
@@ -67,7 +71,22 @@ const ACTION_VARIANT: Record<PopulationAction, "default" | "secondary" | "outlin
   conflict_do_not_apply: "destructive",
 };
 
-type Filter = "all" | "create" | "exists" | "blocked" | "review" | "amps_unknown" | "verification";
+const SAFETY_VARIANT: Record<BreakerSafetyClass, "default" | "outline" | "destructive"> = {
+  SAFE_STRUCTURAL_CREATE: "default",
+  CREATE_WITH_VERIFICATION_FLAGS: "outline",
+  BLOCKED: "destructive",
+};
+
+type Filter =
+  | "all"
+  | "safe"
+  | "flagged"
+  | "create"
+  | "exists"
+  | "blocked"
+  | "review"
+  | "amps_unknown"
+  | "verification";
 
 export function BreakerPopulationPreview({
   scope: scopeId = "house",
@@ -82,6 +101,15 @@ export function BreakerPopulationPreview({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [filter, setFilter] = useState<Filter>("all");
   const [armed, setArmed] = useState(false);
+  const [expanded, setExpanded] = useState<string | null>(null);
+  /**
+   * Post-Apply re-preview gate: the keys just created. The same workbook must be
+   * uploaded again and must classify these as existing rather than proposing a
+   * duplicate create.
+   */
+  const [repreview, setRepreview] = useState<{ keys: string[]; verdict: string | null } | null>(
+    null,
+  );
   // One panel photo per panel in the workbook (e.g. PNL-H1, PNL-H2). Every
   // circuit observed in that panel links to it as evidence of observation.
   const [panelPhotos, setPanelPhotos] = useState<Record<string, ObservationPhoto | null>>({});
@@ -94,13 +122,34 @@ export function BreakerPopulationPreview({
     onSuccess: (r) => {
       setResult(r);
       setArmed(false);
-      setSelected(new Set(r.rows.filter((x) => x.action === "propose_create").map((x) => x.key)));
+      setExpanded(null);
+      // Only unflagged structural creates are pre-selected; a verification-flagged
+      // row must be ticked deliberately.
+      setSelected(
+        new Set(
+          r.rows.filter((x) => x.safety_class === "SAFE_STRUCTURAL_CREATE").map((x) => x.key),
+        ),
+      );
+      setRepreview((prev) => {
+        if (!prev) return null;
+        const still = prev.keys.filter((k) => {
+          const row = r.rows.find((x) => x.key === k);
+          return row ? row.action !== "already_exists" : false;
+        });
+        return {
+          keys: prev.keys,
+          verdict: still.length
+            ? `${still.length} of ${prev.keys.length} created breaker(s) are still not classified as existing — investigate before creating anything else.`
+            : `All ${prev.keys.length} created breaker(s) now classify as existing; no duplicate creation is proposed.`,
+        };
+      });
       toast.success(
-        `Preview only — nothing was created. ${r.diagnostics.unique_breakers_considered} logical breaker(s), ${r.diagnostics.eligible_to_create} eligible to create.`,
+        `Preview only — nothing was created. ${r.diagnostics.unique_breakers_considered} logical breaker(s), ${r.diagnostics.safe_structural_creates} safe structural create(s), ${r.diagnostics.creates_requiring_verification} with verification flags.`,
       );
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
 
   /** Circuits that can be linked to a panel photo (photo attached for their panel). */
   const evidenceFor = (onlySelected: boolean) =>
@@ -127,24 +176,26 @@ export function BreakerPopulationPreview({
 
   const applyMutation = useMutation({
     mutationFn: async ({ confirm, evidenceOnly }: { confirm: boolean; evidenceOnly?: boolean }) => {
-      const records = evidenceOnly
+      const chosen = evidenceOnly
         ? []
-        : (result?.rows ?? [])
-            .filter(
-              (r) => r.action === "propose_create" && selected.has(r.key) && r.panel_id && r.poles,
-            )
-            .map((r) => ({
-              panel_id: r.panel_id!,
-              positions_text: r.positions_text,
-              poles: r.poles!,
-              ocp_amps: r.ocp_amps,
-              label: r.label,
-              slots: r.slots.map((s) => ({
-                breaker_number: s.breaker_number,
-                side: s.side,
-                position: s.position,
-              })),
-            }));
+        : (result?.rows ?? []).filter(
+            (r) => isCreatable(r) && selected.has(r.key) && r.panel_id && r.poles,
+          );
+      const records = chosen.map((r) => ({
+        panel_id: r.panel_id!,
+        positions_text: r.positions_text,
+        poles: r.poles!,
+        ocp_amps: r.ocp_amps,
+        label: r.label,
+        safety_class: r.safety_class,
+        requires_field_verification: r.requires_field_verification,
+        notes: r.verification_note,
+        slots: r.slots.map((s) => ({
+          breaker_number: s.breaker_number,
+          side: s.side,
+          position: s.position,
+        })),
+      }));
       const evidence = evidenceFor(!evidenceOnly);
       if (!records.length && !evidence.length) {
         throw new Error(
@@ -153,19 +204,34 @@ export function BreakerPopulationPreview({
             : "Select at least one eligible breaker first.",
         );
       }
-      return apply({ data: { confirm, scope: scopeId, records, evidence } });
+      const res = await apply({ data: { confirm, scope: scopeId, records, evidence } });
+      return { res, keys: chosen.map((r) => r.key) };
     },
-    onSuccess: (r) => {
+    onSuccess: ({ res: r, keys }) => {
       if (!r.confirmed) {
         toast.success(`Dry run — nothing written. ${r.results.length} record(s) would be created.`);
         return;
       }
       toast.success(
-        `${r.created} record group(s) created, ${r.blocked} blocked as now-occupied, ${r.failed} failed. ${r.evidence_recorded} circuit(s) linked to a panel photo.`,
+        `${r.created} record group(s) created (${r.created_with_verification_flags} flagged for field verification), ${r.blocked} blocked, ${r.failed} failed. ${r.evidence_recorded} circuit(s) linked to a panel photo.`,
       );
       for (const e of r.evidence_errors.slice(0, 2)) toast.warning(`Photo evidence: ${e}`);
       const failures = r.results.filter((x) => x.status !== "created");
       for (const f of failures.slice(0, 4)) toast.warning(`${f.panel_id} ${f.positions_text}: ${f.detail}`);
+      if (r.repreview_required) {
+        const created = new Set(
+          r.results.filter((x) => x.status === "created").map((x) => `${x.panel_id}|${x.positions_text}`),
+        );
+        setRepreview({
+          keys: keys.filter((k) => {
+            const row = (result?.rows ?? []).find((x) => x.key === k);
+            return row ? created.has(`${row.panel_id}|${row.positions_text}`) : false;
+          }),
+          verdict: null,
+        });
+        setArmed(false);
+        toast.info("Re-upload the same workbook: those breakers must now classify as existing.");
+      }
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -174,18 +240,23 @@ export function BreakerPopulationPreview({
   const rows = useMemo(() => {
     const all = result?.rows ?? [];
     switch (filter) {
+      case "safe":
+        return all.filter((r) => r.safety_class === "SAFE_STRUCTURAL_CREATE");
+      case "flagged":
+        return all.filter((r) => r.safety_class === "CREATE_WITH_VERIFICATION_FLAGS");
       case "create":
-        return all.filter((r) => r.action === "propose_create");
+        return all.filter(isCreatable);
       case "exists":
         return all.filter((r) => r.action === "already_exists");
       case "blocked":
-        return all.filter((r) => r.action.startsWith("blocked") || r.action === "conflict_do_not_apply");
+        return all.filter((r) => r.safety_class === "BLOCKED");
       case "review":
         return all.filter((r) => r.action === "requires_review");
       case "amps_unknown":
         return all.filter((r) => r.amps_unknown);
       case "verification":
-        return all.filter((r) => r.verification_required);
+        return all.filter((r) => r.requires_field_verification || r.verification_required);
+
       default:
         return all;
     }
