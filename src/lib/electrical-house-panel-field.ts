@@ -74,17 +74,33 @@ export interface ObservationProvenance {
   observed_text: string;
 }
 
-/** One reconcilable attribute observed on a panel-directory photograph. */
-export type ObservedFieldKey = "ocp_amps" | "poles" | "label";
+/**
+ * One reconcilable attribute observed on a panel-directory photograph.
+ *
+ * `ocp_amps`, `poles` and `label` are the only attributes FarmOps stores on a
+ * breaker position. `notes`, `photo` and `other` are evidence-only: they are
+ * emitted (never dropped) but they are never proposed as FarmOps updates.
+ */
+export type ObservedFieldKey = "ocp_amps" | "poles" | "label" | "notes" | "photo" | "other";
+
+export const COMPARABLE_FIELDS: ObservedFieldKey[] = ["ocp_amps", "poles", "label"];
 
 export const OBSERVED_FIELD_LABELS: Record<ObservedFieldKey, string> = {
   ocp_amps: "Breaker amps",
   poles: "Poles",
   label: "Directory description",
+  notes: "Notes",
+  photo: "Photo reference",
+  other: "Other transcription field",
 };
+
+/** Why a comparison value is absent — these are NOT the same state. */
+export type ComparisonState = "present" | "blank" | "record_absent" | "no_mapping";
 
 export interface ObservedField {
   field: ObservedFieldKey;
+  /** Header text as transcribed, used verbatim for evidence-only columns. */
+  field_label?: string;
   /** Verbatim cell text as transcribed from the photograph. */
   observed_text: string;
   /** Typed interpretation, or null when the source is uncertain/unknown. */
@@ -95,6 +111,7 @@ export interface ObservedField {
   unknown_value: boolean;
   provenance: ObservationProvenance;
 }
+
 
 /** One logical breaker (not one panel position). */
 export interface BreakerObservation {
