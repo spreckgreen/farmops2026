@@ -1448,12 +1448,14 @@ export function fieldReconciliationMarkdown(
   parsed: ParseResult,
   rows: ReconciliationRow[],
   generatedAt: string,
+  scope: FieldReconciliationScope = HOUSE_SCOPE,
 ): string {
   const totals = reconciliationTotals(parsed, rows);
   const out: string[] = [
-    "# Phase 4.4b — House Panel Field-Observation Reconciliation",
+    `# Phase 4.4b — ${scope.area} Panel Field-Observation Reconciliation`,
     "",
     "Photo-derived panel-directory evidence compared against the canonical",
+
     "engineering dataset and current FarmOps values. Field observation is",
     "evidence of the installed system, not authority: `SOR_AUTHORITY` remains",
     "`canonical_ods` and this report writes nothing.",
