@@ -506,174 +506,44 @@ export interface PathProposal {
   proposed_sequence: number | null;
   evidence: string;
   status: "proposed" | "already_linked" | "no_evidence" | "conflict";
+  /** The precise terminal state from the shared resolver, never collapsed. */
+  resolution: PathResolutionStatus;
+  /** Path number read from this box's own stable ID. */
+  extracted_path: string | null;
+  /** Every visible raceway on that path, after endpoint narrowing. */
+  matching_raceways: string[];
+}
+
+/** Coarse bucket kept for the existing preview UI and CSV. */
+function proposalStatus(status: PathResolutionStatus): PathProposal["status"] {
+  if (status === "proposed") return "proposed";
+  if (status === "already_linked") return "already_linked";
+  if (status === "parent_conflict" || status === "sequence_conflict") return "conflict";
+  return "no_evidence";
 }
 
 /**
- * Propose (never write) the parent raceway / position for junction boxes that
- * do not have them yet. Evidence is canonical stable-ID agreement plus the
- * existing relational records; every proposal still requires explicit review.
+ * Propose (never write) the parent raceway / position for junction boxes that do
+ * not have them yet. This is a projection of `resolveJboxRacewayCandidates` — the
+ * same candidate resolution QA uses — so every box appears here with a terminal
+ * status and an explicit reason, and none is silently dropped.
  */
 export function planJboxRacewayPopulation(graph: ElectricalGraphData): PathProposal[] {
-  const jboxes = graph.jbox ?? [];
-  const raceways = graph.raceway ?? [];
-  const racewayByUuid = new Map(raceways.filter((r) => r.id).map((r) => [String(r.id), r]));
-  const racewaysByPath = new Map<string, Row[]>();
-  for (const r of raceways) {
-    const path = racewayPathNumber(sid("raceway", r));
-    if (!path) continue;
-    racewaysByPath.set(path, [...(racewaysByPath.get(path) ?? []), r]);
-  }
-  // Raceways that name a junction box as their own source/destination endpoint.
-  // An endpoint relationship is *evidence of membership*, never a substitute for
-  // it: the box still needs its ordered-path link, so this map only ever adds
-  // proposals — it must not suppress them for the box or for any box downstream.
-  const endpointRaceways = new Map<string, Row[]>();
-  for (const r of raceways) {
-    for (const col of ["source_jbox_uuid", "dest_jbox_uuid"]) {
-      const boxUuid = text(r, col);
-      if (!boxUuid) continue;
-      const list = endpointRaceways.get(boxUuid) ?? [];
-      if (!list.some((x) => String(x.id) === String(r.id))) list.push(r);
-      endpointRaceways.set(boxUuid, list);
-    }
-  }
-  // Positions already taken, so a proposal never collides with a stored one.
-  const taken = new Map<string, string>();
-  for (const jb of jboxes) {
-    const parentUuid = text(jb, "raceway_uuid");
-    const sequence = num(jb, "raceway_sequence");
-    if (parentUuid && sequence != null) taken.set(`${parentUuid}:${sequence}`, sid("jbox", jb));
-  }
-  /** Lowest free position on a raceway, used only when the ID encodes none. */
-  const nextFreeSequence = (racewayUuid: string): number => {
-    let n = 1;
-    while (taken.has(`${racewayUuid}:${n}`)) n++;
-    return n;
-  };
-
-
-  const out: PathProposal[] = [];
-  for (const jb of jboxes) {
-    const id = sid("jbox", jb);
-    const uuid = jb.id ? String(jb.id) : null;
-    const currentUuid = text(jb, "raceway_uuid") || null;
-    const currentSeq = num(jb, "raceway_sequence");
-    const current = currentUuid ? racewayByUuid.get(currentUuid) : undefined;
-    const base = {
-      jbox_id: id,
-      jbox_uuid: uuid,
-      current_raceway: current ? sid("raceway", current) : null,
-      current_raceway_uuid: currentUuid,
-      current_sequence: currentSeq,
-    };
-    const encoded = parseHierarchicalId(id);
-    const endpointCandidates = uuid ? (endpointRaceways.get(uuid) ?? []) : [];
-    if (!encoded || encoded.prefix !== "JB" || !encoded.jbox) {
-      // The ID says nothing, but a raceway endpoint relationship can still pin
-      // exactly one parent run.
-      if (endpointCandidates.length === 1 && !currentUuid) {
-        const r = endpointCandidates[0]!;
-        const rUuid = r.id ? String(r.id) : "";
-        const seq = nextFreeSequence(rUuid);
-        out.push({
-          ...base,
-          proposed_raceway: sid("raceway", r),
-          proposed_raceway_uuid: rUuid,
-          proposed_sequence: seq,
-          evidence: `${sid("raceway", r)} already records ${id} as one of its endpoints; that raceway is the only run naming this box, so position ${seq} is the next free junction point on it.`,
-          status: "proposed",
-        });
-        continue;
-      }
-      out.push({
-        ...base,
-        proposed_raceway: null,
-        proposed_raceway_uuid: null,
-        proposed_sequence: null,
-        evidence: `${id} does not encode a canonical path/position, so no relationship can be proposed from its ID.`,
-        status: "no_evidence",
-      });
-      continue;
-    }
-    let candidates = racewaysByPath.get(encoded.path) ?? [];
-    // Disambiguate several raceways on one path number using the endpoint
-    // relationship, when it points at exactly one of those candidates.
-    if (candidates.length > 1 && endpointCandidates.length) {
-      const narrowed = candidates.filter((c) =>
-        endpointCandidates.some((e) => String(e.id) === String(c.id)),
-      );
-      if (narrowed.length === 1) candidates = narrowed;
-    }
-    if (candidates.length !== 1) {
-      out.push({
-        ...base,
-        proposed_raceway: null,
-        proposed_raceway_uuid: null,
-        proposed_sequence: null,
-        evidence:
-          candidates.length === 0
-            ? `No raceway records path ${encoded.path}.`
-            : `Path ${encoded.path} matches ${candidates.length} raceways (${candidates
-                .map((r) => sid("raceway", r))
-                .sort()
-                .join(", ")}) — the parent must be chosen by hand.`,
-        status: "no_evidence",
-      });
-      continue;
-    }
-    const target = candidates[0]!;
-    const targetUuid = target.id ? String(target.id) : "";
-    const targetId = sid("raceway", target);
-
-    const proposedSeq = Number(encoded.jbox);
-    const evidence = `${id} encodes path ${encoded.path} position ${proposedSeq}; ${targetId} is the only raceway on path ${encoded.path}.`;
-
-    if (currentUuid === targetUuid && currentSeq === proposedSeq) {
-      out.push({
-        ...base,
-        proposed_raceway: targetId,
-        proposed_raceway_uuid: targetUuid,
-        proposed_sequence: proposedSeq,
-        evidence,
-        status: "already_linked",
-      });
-      continue;
-    }
-    // Existing relational topology that disagrees is never overwritten here.
-    if (currentUuid && currentUuid !== targetUuid) {
-      out.push({
-        ...base,
-        proposed_raceway: targetId,
-        proposed_raceway_uuid: targetUuid,
-        proposed_sequence: proposedSeq,
-        evidence: `${id} is already linked to ${base.current_raceway ?? "another raceway"}; ${evidence} Resolve by hand — FarmOps will not overwrite an existing relationship.`,
-        status: "conflict",
-      });
-      continue;
-    }
-    const holder = taken.get(`${targetUuid}:${proposedSeq}`);
-    if (holder && holder !== id) {
-      out.push({
-        ...base,
-        proposed_raceway: targetId,
-        proposed_raceway_uuid: targetUuid,
-        proposed_sequence: proposedSeq,
-        evidence: `Position ${proposedSeq} on ${targetId} is already held by ${holder}.`,
-        status: "conflict",
-      });
-      continue;
-    }
-    out.push({
-      ...base,
-      proposed_raceway: targetId,
-      proposed_raceway_uuid: targetUuid,
-      proposed_sequence: proposedSeq,
-      evidence,
-      status: "proposed",
-    });
-  }
-
-  return out.sort((a, b) => a.jbox_id.localeCompare(b.jbox_id));
+  return resolveJboxRacewayCandidates(graph).map((r) => ({
+    jbox_id: r.jbox_id,
+    jbox_uuid: r.jbox_uuid,
+    current_raceway: r.current_raceway,
+    current_raceway_uuid: r.current_raceway_uuid,
+    current_sequence: r.current_sequence,
+    proposed_raceway: r.target_raceway,
+    proposed_raceway_uuid: r.target_raceway_uuid,
+    proposed_sequence: r.proposed_sequence,
+    evidence: r.reason,
+    status: proposalStatus(r.status),
+    resolution: r.status,
+    extracted_path: r.extracted_path,
+    matching_raceways: r.matching_raceways.map((m) => m.stable_id),
+  }));
 }
 
 export function pathProposalCsv(rows: PathProposal[]): string {
