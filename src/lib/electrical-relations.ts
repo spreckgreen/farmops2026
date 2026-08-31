@@ -26,7 +26,10 @@ export interface RelationSpec {
 
 export const RELATIONS: Record<ElectricalEntityKind, RelationSpec[]> = {
   panel: [],
-  jbox: [],
+  // Phase 4.4b — the continuous raceway a junction box sits on. Not an endpoint
+  // slot: the box is a junction point *along* the run, not its source or
+  // destination, so several boxes may share one raceway in physical order.
+  jbox: [{ fkColumn: "raceway_uuid", targetKind: "raceway", refColumn: "raceway_ref" }],
   raceway: [
     {
       fkColumn: "source_panel_uuid",
