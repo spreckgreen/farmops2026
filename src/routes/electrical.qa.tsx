@@ -55,6 +55,7 @@ function QaPage() {
         <LoadCompareReport />
         <IdRepairReport />
         <RefAuditReport />
+        <RacewayPathPopulation />
         <QaReport />
       </div>
     </ElectricalGate>
