@@ -58,7 +58,9 @@ function QaPage() {
         <IdRepairReport />
         <RefAuditReport />
         <RacewayPathPopulation />
-        <HousePanelFieldReconciliation />
+        <HousePanelFieldReconciliation scope="house" />
+        <HousePanelFieldReconciliation scope="farm_shop" />
+
         <QaReport />
       </div>
     </ElectricalGate>
