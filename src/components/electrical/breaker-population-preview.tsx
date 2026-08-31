@@ -355,6 +355,17 @@ export function BreakerPopulationPreview({
           </div>
         )}
 
+        {repreview && (
+          <div className="rounded-md border border-dashed p-3 text-sm">
+            <div className="font-medium">Post-Apply re-preview required</div>
+            <p className="text-xs text-muted-foreground">
+              {repreview.keys.length} breaker(s) were created. Upload the same workbook again: those
+              records must classify as “already exists”, not propose a duplicate create.
+            </p>
+            {repreview.verdict && <p className="mt-1 text-xs">{repreview.verdict}</p>}
+          </div>
+        )}
+
         {result && (
           <>
             <div className="flex flex-wrap items-center gap-2">
@@ -364,13 +375,16 @@ export function BreakerPopulationPreview({
                 onChange={(e) => setFilter(e.target.value as Filter)}
               >
                 <option value="all">All rows</option>
-                <option value="create">Eligible to create</option>
+                <option value="safe">Safe structural creates</option>
+                <option value="flagged">Creates requiring verification</option>
+                <option value="create">Eligible to create (either class)</option>
                 <option value="exists">Already exists</option>
-                <option value="blocked">Blocked / conflicts</option>
+                <option value="blocked">Blocked</option>
                 <option value="review">Requires review</option>
                 <option value="amps_unknown">Breaker amps unknown</option>
                 <option value="verification">Verification required</option>
               </select>
+
               <Button
                 size="sm"
                 variant="outline"
