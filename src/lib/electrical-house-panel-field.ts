@@ -921,9 +921,17 @@ export interface ReconcileInput {
    * this panel" instead of a bare `(silent)`.
    */
   canonicalPanels?: string[];
-  /** Current-revision parent of PNL-H2, or null when not represented. */
+  /** Naming + topology candidates for the area being reconciled. */
+  scope?: FieldReconciliationScope;
+  /** Current-revision parent of PNL-H2 (House scope shorthand). */
   currentSubpanelParent?: string | null;
+  /**
+   * Current-revision parent of each candidate sub-panel, keyed by panel id
+   * (e.g. `{ "PNL-FS-CRIT": "PNL-FS-NW" }`). Absent key = not represented.
+   */
+  currentParents?: Record<string, string | null>;
 }
+
 
 
 const str = (v: unknown) => (v === null || v === undefined || v === "" ? null : String(v));
