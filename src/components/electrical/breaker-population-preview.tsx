@@ -301,6 +301,38 @@ export function BreakerPopulationPreview({
               </Button>
             </div>
 
+            <div className="space-y-2 rounded-md border p-3">
+              <div className="text-sm font-medium">Panel photos</div>
+              <p className="text-xs text-muted-foreground">
+                Attach one photo per panel from this workbook. Every circuit observed in that panel
+                links to its panel photo as evidence of observation; the photo itself stays evidence
+                and is never turned into an engineering value.
+              </p>
+              <div className="flex flex-wrap gap-4">
+                {panelKeys.map((key) => {
+                  const circuits = (result.rows ?? []).filter(
+                    (r) => (r.panel_id ?? r.panel_source_name) === key,
+                  ).length;
+                  return (
+                    <div key={key} className="rounded-md border p-2">
+                      <div className="text-xs font-medium">{key}</div>
+                      <div className="mb-1 text-[11px] text-muted-foreground">
+                        {circuits} circuit{circuits === 1 ? "" : "s"}
+                      </div>
+                      <ObservationPhotoCell
+                        photo={panelPhotos[key] ?? null}
+                        onChange={(photo) => setPanelPhotos((prev) => ({ ...prev, [key]: photo }))}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                {photoCount} of {panelKeys.length} panel photo(s) attached · {linkedCircuits}{" "}
+                circuit(s) would be linked.
+              </div>
+            </div>
+
             <div className="flex flex-wrap items-center gap-3 rounded-md border border-dashed p-3 text-sm">
               <ShieldAlert className="h-4 w-4 text-muted-foreground" />
               <span className="text-muted-foreground">
@@ -314,16 +346,25 @@ export function BreakerPopulationPreview({
                 size="sm"
                 variant="outline"
                 disabled={applyMutation.isPending || !selectedCount}
-                onClick={() => applyMutation.mutate(false)}
+                onClick={() => applyMutation.mutate({ confirm: false })}
               >
                 Dry run
               </Button>
               <Button
                 size="sm"
+                variant="outline"
+                disabled={!armed || applyMutation.isPending || !photoCount}
+                onClick={() => applyMutation.mutate({ confirm: true, evidenceOnly: true })}
+              >
+                Link photos to circuits only
+              </Button>
+              <Button
+                size="sm"
                 disabled={!armed || applyMutation.isPending || !selectedCount}
-                onClick={() => applyMutation.mutate(true)}
+                onClick={() => applyMutation.mutate({ confirm: true })}
               >
                 {applyMutation.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
+
                 Create selected records
               </Button>
             </div>
