@@ -480,6 +480,30 @@ export function buildDiagram(
     if (src === dst && src) {
       b.issue("error", "circular_reference", `Raceway ${id} starts and ends at ${src}.`);
     }
+
+    // ---- ordered junction points along this one continuous raceway
+    //
+    // CON-104 passing through JB-104-01 → JB-104-02 → JB-104-03 is a single
+    // physical run: the chain below shows the physical order, it does not imply
+    // separate raceways between the boxes. A branch leaving an intermediate box
+    // never terminates the chain.
+    const points = orderedJunctionPoints(s(r["id"]), data.jbox).filter((p) => p.stableId);
+    let previous: string | null = null;
+    const chained = new Set<string>();
+    for (const point of points) {
+      if (chained.has(point.stableId)) continue;
+      chained.add(point.stableId);
+      jboxIds.add(point.stableId);
+      const jbKey = b.node(
+        "jbox",
+        point.stableId,
+        `${point.stableId}<br/>${s(point.row["box_type"]) || "J-box"}`,
+        point.row,
+      );
+      const label = point.sequence == null ? "junction point" : `junction ${positionLabel(point.sequence)}`;
+      b.edge(previous ?? key, jbKey, label);
+      previous = jbKey;
+    }
     // Route waypoints (site view only — they describe bends, not devices).
     if (type === "site" || type === "raceway") {
       const wps = (data.waypoint ?? [])
