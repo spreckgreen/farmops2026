@@ -216,6 +216,15 @@ function Detail({ kind, id }: { kind: ElectricalEntityKind; id: string }) {
         </Card>
       </div>
 
+      {kind === "raceway" ? <RacewayJunctionPoints racewayId={id} /> : null}
+      {kind === "jbox" ? (
+        <JboxRacewayTopology
+          racewayUuid={(record["raceway_uuid"] as string | null) ?? null}
+          racewayRef={(record["raceway_ref"] as string | null) ?? null}
+          sequence={(record["raceway_sequence"] as number | null) ?? null}
+        />
+      ) : null}
+
       {kind === "panel" ? (
         <Card>
           <CardHeader className="pb-2">
