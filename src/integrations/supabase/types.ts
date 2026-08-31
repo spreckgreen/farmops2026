@@ -1022,6 +1022,10 @@ export type Database = {
       }
       electrical_field_observations: {
         Row: {
+          applied_at: string | null
+          applied_previous_value: string | null
+          applied_value: string | null
+          apply_status: string | null
           canonical_value: string | null
           classification: string | null
           confidence: string | null
@@ -1046,6 +1050,7 @@ export type Database = {
           position: number | null
           positions_text: string | null
           proposed_action: string | null
+          scope: string | null
           side: string | null
           source_column: string | null
           source_photo: string | null
@@ -1057,6 +1062,10 @@ export type Database = {
           worksheet: string | null
         }
         Insert: {
+          applied_at?: string | null
+          applied_previous_value?: string | null
+          applied_value?: string | null
+          apply_status?: string | null
           canonical_value?: string | null
           classification?: string | null
           confidence?: string | null
@@ -1081,6 +1090,7 @@ export type Database = {
           position?: number | null
           positions_text?: string | null
           proposed_action?: string | null
+          scope?: string | null
           side?: string | null
           source_column?: string | null
           source_photo?: string | null
@@ -1092,6 +1102,10 @@ export type Database = {
           worksheet?: string | null
         }
         Update: {
+          applied_at?: string | null
+          applied_previous_value?: string | null
+          applied_value?: string | null
+          apply_status?: string | null
           canonical_value?: string | null
           classification?: string | null
           confidence?: string | null
@@ -1116,6 +1130,7 @@ export type Database = {
           position?: number | null
           positions_text?: string | null
           proposed_action?: string | null
+          scope?: string | null
           side?: string | null
           source_column?: string | null
           source_photo?: string | null
