@@ -83,15 +83,8 @@ function Services() {
   const q = useQuery({ queryKey: ["electrical", "services"], queryFn: () => fetchState() });
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ["electrical", "services"] });
-  const mutate = <T,>(fn: (input: { data: T }) => Promise<unknown>, ok: string) =>
-    useMutation({
-      mutationFn: (data: T) => fn({ data }),
-      onSuccess: () => {
-        toast.success(ok);
-        invalidate();
-      },
-      onError: (e: Error) => toast.error(e.message),
-    });
+  const mutate = useSaveFactory(invalidate);
+
 
   const addService = mutate(useServerFn(saveService), "Service saved");
   const addConfig = mutate(useServerFn(saveServiceConfiguration), "Configuration revision saved");
