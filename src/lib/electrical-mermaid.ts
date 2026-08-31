@@ -440,8 +440,13 @@ export function buildDiagram(
     );
   }
   if (type === "jbox" && focus) {
+    // A box in the middle of a continuous run is not an endpoint of it, so the
+    // relational junction points count as membership too.
     raceways = raceways.filter(
-      (r) => s(r["source_endpoint_ref"]) === focus || s(r["dest_endpoint_ref"]) === focus,
+      (r) =>
+        s(r["source_endpoint_ref"]) === focus ||
+        s(r["dest_endpoint_ref"]) === focus ||
+        orderedJunctionPoints(s(r["id"]), data.jbox).some((p) => p.stableId === focus),
     );
   }
   if (type === "critical_power") {
