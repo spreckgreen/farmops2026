@@ -299,6 +299,8 @@ export function findHeaderRow(sheet: Sheet): HeaderMap | null {
     }
   }
   return best;
+}
+
 
 
 // ------------------------------------------------------------ value semantics
