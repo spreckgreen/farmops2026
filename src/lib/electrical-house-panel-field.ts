@@ -1148,27 +1148,50 @@ export function reconcileHousePanelObservations(input: ReconcileInput): Reconcil
 // ------------------------------------------------------------------ reporting
 
 export interface ReconciliationTotals {
-  source_rows_parsed: number;
-  logical_breakers: number;
+  /** Non-empty spreadsheet rows read. NOT the breaker count. */
+  source_rows_read: number;
+  duplicate_source_rows_suppressed: number;
+  multipole_continuation_rows_merged: number;
+  unique_logical_breakers: number;
+  field_observations_emitted: number;
+  sheets_recognized: number;
+  sheets_skipped: number;
   single_pole: number;
   multi_pole: number;
-  matched_circuits: number;
+  fields_compared_against_farmops: number;
+  farmops_record_absent: number;
+  canonical_no_mapping: number;
+  canonical_record_absent: number;
+  canonical_present: number;
+  source_evidence_conflicts: number;
   unresolved_observations: number;
   exact_matches: number;
   conflicts: number;
   verification_required: number;
+  topology_evidence_rows: number;
   topology_proposals: number;
   eligible_farmops_updates: number;
 }
 
 export function reconciliationTotals(parsed: ParseResult, rows: ReconciliationRow[]): ReconciliationTotals {
   const breakers = parsed.observations;
+  const d = parsed.diagnostics;
   return {
-    source_rows_parsed: parsed.rows_parsed,
-    logical_breakers: breakers.length,
+    source_rows_read: d.source_rows_read,
+    duplicate_source_rows_suppressed: d.duplicate_source_rows_suppressed,
+    multipole_continuation_rows_merged: d.multipole_continuation_rows_merged,
+    unique_logical_breakers: d.unique_logical_breakers,
+    field_observations_emitted: d.field_observations_emitted,
+    sheets_recognized: d.sheets_recognized,
+    sheets_skipped: d.sheets_skipped.length,
     single_pole: breakers.filter((b) => (b.poles ?? 1) === 1).length,
     multi_pole: breakers.filter((b) => (b.poles ?? 1) > 1).length,
-    matched_circuits: rows.filter((r) => r.farmops_value !== null && r.field !== "parent_panel").length,
+    fields_compared_against_farmops: rows.filter((r) => r.farmops_state === "present").length,
+    farmops_record_absent: rows.filter((r) => r.farmops_state === "record_absent").length,
+    canonical_no_mapping: rows.filter((r) => r.canonical_state === "no_mapping").length,
+    canonical_record_absent: rows.filter((r) => r.canonical_state === "record_absent").length,
+    canonical_present: rows.filter((r) => r.canonical_state === "present").length,
+    source_evidence_conflicts: rows.filter((r) => r.classification === "SOURCE_EVIDENCE_CONFLICT").length,
     unresolved_observations: rows.filter(
       (r) =>
         r.classification === "UNRESOLVED_PANEL_IDENTITY" ||
@@ -1181,10 +1204,12 @@ export function reconciliationTotals(parsed: ParseResult, rows: ReconciliationRo
       (r) => r.classification === "THREE_WAY_CONFLICT" || r.classification === "CANONICAL_DIFFERS_FROM_FIELD",
     ).length,
     verification_required: rows.filter((r) => r.verification_required).length,
+    topology_evidence_rows: rows.filter((r) => r.field === "parent_panel").length,
     topology_proposals: rows.filter((r) => r.classification === "TOPOLOGY_PROPOSAL").length,
     eligible_farmops_updates: rows.filter((r) => r.proposed_action === "propose_farmops_update" && r.target).length,
   };
 }
+
 
 const csvCell = (value: unknown) => {
   const s = value === null || value === undefined ? "" : String(value);
