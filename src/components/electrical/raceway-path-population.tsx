@@ -88,10 +88,11 @@ export function RacewayPathPopulation() {
               {result.diagnostics.databaseTotals.raceways} raceways.
             </p>
             <p>
-              Proposals: {result.diagnostics.statusCounts.proposed} proposed,{" "}
-              {result.diagnostics.statusCounts.already_linked} already linked,{" "}
-              {result.diagnostics.statusCounts.conflict} conflict,{" "}
-              {result.diagnostics.statusCounts.no_evidence} no evidence.
+              Resolver states:{" "}
+              {Object.entries(result.diagnostics.resolutionCounts)
+                .map(([k, v]) => `${v} ${k.replace(/_/g, " ")}`)
+                .join(", ")}
+              .
             </p>
             {result.diagnostics.racewaysByPath.length ? (
               <p className="font-mono">
@@ -106,14 +107,61 @@ export function RacewayPathPopulation() {
           </div>
         ) : null}
 
+        {/* Per-record decisions. Shown even when nothing is eligible, so a
+            junction box is never invisible in this report. */}
         {result ? (
-          !result.rows.length ? (
-            <p className="text-muted-foreground">
-              {result.diagnostics.jboxRows === 0
-                ? "No junction-box records were visible to this account, so there is nothing to propose. Check that the records exist in this environment and are owned by this user."
-                : "No junction boxes to review."}
-            </p>
-          ) : (
+          <div className="overflow-x-auto rounded-md border">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-muted/50">
+                <tr>
+                  <th className="p-2">J-box</th>
+                  <th className="p-2">Path</th>
+                  <th className="p-2">Parent raceway UUID</th>
+                  <th className="p-2">Position</th>
+                  <th className="p-2">Matching raceways</th>
+                  <th className="p-2">Status</th>
+                  <th className="p-2">Reason</th>
+                </tr>
+              </thead>
+              <tbody>
+                {!result.diagnostics.resolutions.length ? (
+                  <tr>
+                    <td colSpan={7} className="p-2 text-muted-foreground">
+                      No junction-box records were visible to this account, so there is nothing to
+                      resolve.
+                    </td>
+                  </tr>
+                ) : (
+                  result.diagnostics.resolutions.map((d) => (
+                    <tr key={d.jbox_id} className="border-t align-top">
+                      <td className="p-2 font-mono">{d.jbox_id}</td>
+                      <td className="p-2 font-mono">{d.extracted_path ?? "—"}</td>
+                      <td className="p-2 font-mono">{d.raceway_uuid ?? "null"}</td>
+                      <td className="p-2 font-mono">{d.sequence ?? "null"}</td>
+                      <td className="p-2 font-mono">
+                        {d.matching_raceways.length ? d.matching_raceways.join(", ") : "none"}
+                      </td>
+                      <td className="p-2">
+                        <Badge variant={d.status === "proposed" ? "default" : "secondary"}>
+                          {d.status.replace(/_/g, " ")}
+                        </Badge>
+                        {d.proposed_raceway ? (
+                          <span className="ml-1 font-mono text-muted-foreground">
+                            → {d.proposed_raceway} / {d.proposed_sequence}
+                          </span>
+                        ) : null}
+                      </td>
+                      <td className="p-2 text-muted-foreground">{d.rejection_reason}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
+
+        {result ? (
+          !result.rows.length ? null : (
             <div className="space-y-1.5">
               {result.rows.map((r) => (
                 <div key={r.jbox_id} className="flex flex-wrap items-center gap-2 border-b py-1">

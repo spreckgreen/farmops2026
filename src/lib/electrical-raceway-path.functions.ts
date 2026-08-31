@@ -10,15 +10,36 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { requireAddon } from "@/lib/addons.server";
 import {
+  buildRacewaysByPath,
   orderedJunctionPoints,
   planJboxRacewayPopulation,
-  racewayPathNumber,
+  resolveJboxRacewayCandidates,
   type PathProposal,
+  type PathResolution,
 } from "@/lib/electrical-raceway-path";
 
 export interface PathPopulationRow extends PathProposal {
   outcome: "would_change" | "skipped" | "applied" | "failed" | "drifted";
   detail?: string;
+}
+
+/**
+ * One diagnostic row per junction box, straight from the shared resolver. This
+ * is returned unfiltered so a box can never be invisible in the report:
+ * jbox_id | extracted_path | raceway_uuid | sequence | matching_raceways |
+ * status | rejection_reason.
+ */
+export interface PathDiagnosticRow {
+  jbox_id: string;
+  extracted_path: string | null;
+  raceway_uuid: string | null;
+  sequence: number | null;
+  matching_raceways: string[];
+  endpoint_raceways: string[];
+  status: PathResolution["status"];
+  rejection_reason: string;
+  proposed_raceway: string | null;
+  proposed_sequence: number | null;
 }
 
 /**
@@ -35,10 +56,14 @@ export interface PathPopulationDiagnostics {
   linkedJboxes: number;
   /** Proposal statuses, so "all already linked" reads differently to "no evidence". */
   statusCounts: Record<PathProposal["status"], number>;
+  /** Counts per precise resolver state, so no state hides inside a bucket. */
+  resolutionCounts: Record<PathResolution["status"], number>;
   /** Every raceway stable ID per encoded path number, e.g. "104": ["CON-104"]. */
   racewaysByPath: { path: string; raceways: string[] }[];
   /** Backend totals, used to prove the preview did not silently stop at an API row cap. */
   databaseTotals: { jboxes: number; raceways: number };
+  /** Per-record decision for every junction box, never filtered. */
+  resolutions: PathDiagnosticRow[];
 }
 
 export interface PathPopulationResult {
@@ -92,23 +117,19 @@ export const previewRacewayPathPopulation = createServerFn({ method: "POST" })
       readAll("electrical_raceways"),
     ]);
 
-    const plan = planJboxRacewayPopulation({
+    const graph = {
       panel: [],
       circuit_group: [],
       load: [],
       raceway: rw.rows,
       jbox: jb.rows,
       branch: [],
-    } as never);
+    } as never;
+    const plan = planJboxRacewayPopulation(graph);
+    const resolutions = resolveJboxRacewayCandidates(graph);
     const jboxRowsRead = jb.rows;
     const racewayRowsRead = rw.rows;
-    const byPath = new Map<string, string[]>();
-    for (const r of racewayRowsRead) {
-      const id = String(r["conduit_id"] ?? "").trim();
-      const path = racewayPathNumber(id);
-      if (!path) continue;
-      byPath.set(path, [...(byPath.get(path) ?? []), id].sort());
-    }
+    const byPath = buildRacewaysByPath(racewayRowsRead as never);
     const statusCounts: Record<PathProposal["status"], number> = {
       proposed: 0,
       already_linked: 0,
@@ -116,15 +137,42 @@ export const previewRacewayPathPopulation = createServerFn({ method: "POST" })
       conflict: 0,
     };
     for (const p of plan) statusCounts[p.status]++;
+    const resolutionCounts: Record<PathResolution["status"], number> = {
+      proposed: 0,
+      already_linked: 0,
+      ambiguous_raceway: 0,
+      no_matching_raceway: 0,
+      parent_conflict: 0,
+      sequence_conflict: 0,
+      unparseable_id: 0,
+    };
+    for (const r of resolutions) resolutionCounts[r.status]++;
     const diagnostics: PathPopulationDiagnostics = {
       jboxRows: jboxRowsRead.length,
       racewayRows: racewayRowsRead.length,
       linkedJboxes: jboxRowsRead.filter((j) => String(j["raceway_uuid"] ?? "").trim()).length,
       statusCounts,
+      resolutionCounts,
       racewaysByPath: [...byPath.entries()]
         .sort((a, b) => a[0].localeCompare(b[0]))
-        .map(([path, raceways]) => ({ path, raceways })),
+        .map(([path, rows]) => ({
+          path,
+          raceways: rows.map((r) => String(r["conduit_id"] ?? "").trim()).sort(),
+        })),
       databaseTotals: { jboxes: jb.total, raceways: rw.total },
+      // Unfiltered: every junction box the preview saw, with its exact decision.
+      resolutions: resolutions.map((r) => ({
+        jbox_id: r.jbox_id,
+        extracted_path: r.extracted_path,
+        raceway_uuid: r.current_raceway_uuid,
+        sequence: r.current_sequence,
+        matching_raceways: r.matching_raceways.map((m) => m.stable_id),
+        endpoint_raceways: r.endpoint_raceways,
+        status: r.status,
+        rejection_reason: r.reason,
+        proposed_raceway: r.target_raceway,
+        proposed_sequence: r.proposed_sequence,
+      })),
     };
 
     const wanted = new Set(data.jbox_ids.map((s) => s.trim().toUpperCase()));
