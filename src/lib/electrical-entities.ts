@@ -307,6 +307,33 @@ export const ENTITIES: Record<ElectricalEntityKind, EntityDef> = {
       { key: "elevation_zone", label: "Elevation / zone", kind: "text" },
       { key: "box_type", label: "Box type", kind: "text", list: true },
       { key: "dimensions", label: "Dimensions", kind: "text" },
+      // Phase 4.4b — continuous raceway topology. One physical raceway passes
+      // through several boxes in physical order; the link plus the position is
+      // authoritative, the encoded ID only cross-checks it.
+      {
+        key: "raceway_uuid",
+        label: "Parent raceway / path",
+        kind: "entity",
+        entityKind: "raceway",
+        field: true,
+        hint: "The continuous raceway this box sits on, e.g. CON-104 — NW EMT, 3/4\" EMT. Junction boxes along one physical run all share the same raceway.",
+      },
+      {
+        key: "raceway_sequence",
+        label: "Position on raceway",
+        kind: "number",
+        list: true,
+        field: true,
+        hint: "Physical order of this junction box along the continuous parent raceway. Example: JB-104-02 on CON-104 uses position 2.",
+      },
+      {
+        key: "raceway_ref",
+        label: "Parent raceway ID (derived)",
+        kind: "text",
+        list: true,
+        readOnly: true,
+        hint: "Derived from the linked raceway. The link is authoritative.",
+      },
       ...statusFields,
     ],
   },

@@ -18,6 +18,7 @@ import {
   type EndpointType,
 } from "@/lib/electrical";
 import { ENTITIES } from "@/lib/electrical-entities";
+import { RACEWAY_PATH_CODES, racewayPathFindings } from "@/lib/electrical-raceway-path";
 import type { ElectricalGraphData, Row } from "@/lib/electrical-mermaid";
 
 export type IntegritySeverity = "error" | "warning";
@@ -51,6 +52,7 @@ export const INTEGRITY_CODES = [
   "incomplete_topology",
   "orphan_waypoint",
   "encoded_parent_mismatch",
+  ...RACEWAY_PATH_CODES,
 ] as const;
 export type IntegrityCode = (typeof INTEGRITY_CODES)[number];
 
@@ -532,7 +534,11 @@ export function runIntegrityChecks(graph: ElectricalGraphData): IntegrityFinding
     }
   }
 
+  // Phase 4.4b — continuous raceway / ordered junction-box topology.
+  out.push(...racewayPathFindings(graph));
+
   // Deterministic ordering: errors first, then code, kind, stable ID, message.
+
   const rank = (f: IntegrityFinding) => (f.severity === "error" ? 0 : 1);
   return out.sort(
     (a, b) =>

@@ -1036,6 +1036,9 @@ export type Database = {
           label_status: string
           notes: string | null
           ods_extras: string | null
+          raceway_ref: string | null
+          raceway_sequence: number | null
+          raceway_uuid: string | null
           updated_at: string
           user_id: string
         }
@@ -1054,6 +1057,9 @@ export type Database = {
           label_status?: string
           notes?: string | null
           ods_extras?: string | null
+          raceway_ref?: string | null
+          raceway_sequence?: number | null
+          raceway_uuid?: string | null
           updated_at?: string
           user_id: string
         }
@@ -1072,10 +1078,21 @@ export type Database = {
           label_status?: string
           notes?: string | null
           ods_extras?: string | null
+          raceway_ref?: string | null
+          raceway_sequence?: number | null
+          raceway_uuid?: string | null
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "electrical_junction_boxes_raceway_uuid_fkey"
+            columns: ["raceway_uuid"]
+            isOneToOne: false
+            referencedRelation: "electrical_raceways"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       electrical_labels: {
         Row: {

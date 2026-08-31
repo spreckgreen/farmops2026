@@ -24,6 +24,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, Pencil, Plus, Trash2 } from "lucide-react";
 import { DeleteDependencyDialog } from "@/components/electrical/delete-dependency-dialog";
 import { PanelLayoutPanels } from "@/components/electrical/panel-layout";
+import {
+  JboxRacewayTopology,
+  RacewayJunctionPoints,
+} from "@/components/electrical/raceway-path";
 
 
 
@@ -215,6 +219,15 @@ function Detail({ kind, id }: { kind: ElectricalEntityKind; id: string }) {
 
         </Card>
       </div>
+
+      {kind === "raceway" ? <RacewayJunctionPoints racewayId={id} /> : null}
+      {kind === "jbox" ? (
+        <JboxRacewayTopology
+          racewayUuid={(record["raceway_uuid"] as string | null) ?? null}
+          racewayRef={(record["raceway_ref"] as string | null) ?? null}
+          sequence={(record["raceway_sequence"] as number | null) ?? null}
+        />
+      ) : null}
 
       {kind === "panel" ? (
         <Card>
