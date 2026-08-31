@@ -313,10 +313,13 @@ export function HousePanelFieldReconciliation() {
                 <option value="all">Everything</option>
                 <option value="matches">Matches</option>
                 <option value="conflicts">Differences / conflicts</option>
+                <option value="source_conflicts">Source-evidence conflicts</option>
                 <option value="verification">Verification required</option>
                 <option value="low_confidence">Low / unknown confidence</option>
                 <option value="updates">Proposed FarmOps updates</option>
-                <option value="topology">Topology proposals</option>
+                <option value="evidence_only">Evidence-only fields</option>
+                <option value="topology">Topology evidence</option>
+
               </select>
               <Button
                 variant="outline"
