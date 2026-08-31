@@ -1332,6 +1332,9 @@ export interface ReconciliationTotals {
   verification_required: number;
   topology_evidence_rows: number;
   topology_proposals: number;
+  /** Sub-panel feeder evidence that matched more than one candidate panel. */
+  topology_ambiguous: number;
+
   eligible_farmops_updates: number;
 }
 
