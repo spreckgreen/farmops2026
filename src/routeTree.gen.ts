@@ -59,6 +59,7 @@ import { Route as FoodCropsRouteImport } from './routes/food.crops'
 import { Route as ElectricalValidationRouteImport } from './routes/electrical.validation'
 import { Route as ElectricalStandardsRouteImport } from './routes/electrical.standards'
 import { Route as ElectricalSorRouteImport } from './routes/electrical.sor'
+import { Route as ElectricalServicesRouteImport } from './routes/electrical.services'
 import { Route as ElectricalQaRouteImport } from './routes/electrical.qa'
 import { Route as ElectricalMappingRouteImport } from './routes/electrical.mapping'
 import { Route as ElectricalImportRouteImport } from './routes/electrical.import'
@@ -339,6 +340,11 @@ const ElectricalSorRoute = ElectricalSorRouteImport.update({
   path: '/electrical/sor',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ElectricalServicesRoute = ElectricalServicesRouteImport.update({
+  id: '/electrical/services',
+  path: '/electrical/services',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ElectricalQaRoute = ElectricalQaRouteImport.update({
   id: '/electrical/qa',
   path: '/electrical/qa',
@@ -520,6 +526,7 @@ export interface FileRoutesByFullPath {
   '/electrical/import': typeof ElectricalImportRoute
   '/electrical/mapping': typeof ElectricalMappingRoute
   '/electrical/qa': typeof ElectricalQaRoute
+  '/electrical/services': typeof ElectricalServicesRoute
   '/electrical/sor': typeof ElectricalSorRoute
   '/electrical/standards': typeof ElectricalStandardsRoute
   '/electrical/validation': typeof ElectricalValidationRoute
@@ -597,6 +604,7 @@ export interface FileRoutesByTo {
   '/electrical/import': typeof ElectricalImportRoute
   '/electrical/mapping': typeof ElectricalMappingRoute
   '/electrical/qa': typeof ElectricalQaRoute
+  '/electrical/services': typeof ElectricalServicesRoute
   '/electrical/sor': typeof ElectricalSorRoute
   '/electrical/standards': typeof ElectricalStandardsRoute
   '/electrical/validation': typeof ElectricalValidationRoute
@@ -678,6 +686,7 @@ export interface FileRoutesById {
   '/electrical/import': typeof ElectricalImportRoute
   '/electrical/mapping': typeof ElectricalMappingRoute
   '/electrical/qa': typeof ElectricalQaRoute
+  '/electrical/services': typeof ElectricalServicesRoute
   '/electrical/sor': typeof ElectricalSorRoute
   '/electrical/standards': typeof ElectricalStandardsRoute
   '/electrical/validation': typeof ElectricalValidationRoute
@@ -760,6 +769,7 @@ export interface FileRouteTypes {
     | '/electrical/import'
     | '/electrical/mapping'
     | '/electrical/qa'
+    | '/electrical/services'
     | '/electrical/sor'
     | '/electrical/standards'
     | '/electrical/validation'
@@ -837,6 +847,7 @@ export interface FileRouteTypes {
     | '/electrical/import'
     | '/electrical/mapping'
     | '/electrical/qa'
+    | '/electrical/services'
     | '/electrical/sor'
     | '/electrical/standards'
     | '/electrical/validation'
@@ -917,6 +928,7 @@ export interface FileRouteTypes {
     | '/electrical/import'
     | '/electrical/mapping'
     | '/electrical/qa'
+    | '/electrical/services'
     | '/electrical/sor'
     | '/electrical/standards'
     | '/electrical/validation'
@@ -998,6 +1010,7 @@ export interface RootRouteChildren {
   ElectricalImportRoute: typeof ElectricalImportRoute
   ElectricalMappingRoute: typeof ElectricalMappingRoute
   ElectricalQaRoute: typeof ElectricalQaRoute
+  ElectricalServicesRoute: typeof ElectricalServicesRoute
   ElectricalSorRoute: typeof ElectricalSorRoute
   ElectricalStandardsRoute: typeof ElectricalStandardsRoute
   ElectricalValidationRoute: typeof ElectricalValidationRoute
@@ -1372,6 +1385,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ElectricalSorRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/electrical/services': {
+      id: '/electrical/services'
+      path: '/electrical/services'
+      fullPath: '/electrical/services'
+      preLoaderRoute: typeof ElectricalServicesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/electrical/qa': {
       id: '/electrical/qa'
       path: '/electrical/qa'
@@ -1699,6 +1719,7 @@ const rootRouteChildren: RootRouteChildren = {
   ElectricalImportRoute: ElectricalImportRoute,
   ElectricalMappingRoute: ElectricalMappingRoute,
   ElectricalQaRoute: ElectricalQaRoute,
+  ElectricalServicesRoute: ElectricalServicesRoute,
   ElectricalSorRoute: ElectricalSorRoute,
   ElectricalStandardsRoute: ElectricalStandardsRoute,
   ElectricalValidationRoute: ElectricalValidationRoute,
