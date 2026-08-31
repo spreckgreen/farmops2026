@@ -549,8 +549,10 @@ export function BreakerPopulationPreview({
                     <th className="p-2">Confidence</th>
                     <th className="p-2">Verification</th>
                     <th className="p-2">Existing FarmOps record</th>
+                    <th className="p-2">Safety class</th>
                     <th className="p-2">Proposed action</th>
                     <th className="p-2">Blocking reason</th>
+
                   </tr>
                 </thead>
                 <tbody>
