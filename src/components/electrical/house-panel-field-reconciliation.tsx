@@ -74,8 +74,9 @@ export function HousePanelFieldReconciliation() {
       });
       setSelected(next);
       toast.success(
-        `Preview only — no records changed. ${r.totals.logical_breakers} logical breaker(s), ${r.totals.eligible_farmops_updates} eligible FarmOps update(s).`,
+        `Preview only — no records changed. ${r.totals.source_rows_read} source row(s) → ${r.totals.unique_logical_breakers} logical breaker(s), ${r.totals.eligible_farmops_updates} eligible FarmOps update(s).`,
       );
+
     },
     onError: (e: Error) => toast.error(e.message),
   });
