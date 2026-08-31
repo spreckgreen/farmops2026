@@ -183,6 +183,10 @@ export function ObservationPhotoCell({
 
   async function view() {
     if (!photo) return;
+    if (isLinkedPhotoBucket(photo.bucket)) {
+      window.open(photo.path, "_blank", "noopener,noreferrer");
+      return;
+    }
     const { data, error } = await supabase.storage
       .from(OBSERVATION_PHOTO_BUCKET)
       .createSignedUrl(photo.path, 300);
