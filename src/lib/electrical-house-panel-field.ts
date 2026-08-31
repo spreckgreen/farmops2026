@@ -806,9 +806,16 @@ export interface ReconcileInput {
    * canonical dataset says nothing about that attribute.
    */
   canonical?: Record<string, string>;
+  /**
+   * Panels for which the canonical capture contained ANY circuit-level
+   * attribute. Lets a blank comparison be reported as "no canonical mapping for
+   * this panel" instead of a bare `(silent)`.
+   */
+  canonicalPanels?: string[];
   /** Current-revision parent of PNL-H2, or null when not represented. */
   currentSubpanelParent?: string | null;
 }
+
 
 const str = (v: unknown) => (v === null || v === undefined || v === "" ? null : String(v));
 
