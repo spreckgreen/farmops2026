@@ -374,32 +374,39 @@ export function buildServicePanelTopology(links: Row[]): ServicePanelNode[] {
       children: [],
     });
   }
+  // Parent map used both for cycle avoidance and for attaching children.
+  const parentOf = new Map<string, string>();
+  for (const r of rows) {
+    const ref = linkRef(r);
+    const p = parentRef(r);
+    if (!ref || !p || p === ref) continue;
+    if (str(r["fed_from_kind"]) === "service_equipment") continue;
+    if (!nodes.has(p)) continue;
+    parentOf.set(ref, p);
+  }
+  const wouldLoop = (ref: string): boolean => {
+    const seen = new Set<string>([ref]);
+    let cursor = parentOf.get(ref);
+    while (cursor) {
+      if (seen.has(cursor)) return true;
+      seen.add(cursor);
+      cursor = parentOf.get(cursor);
+    }
+    return false;
+  };
   const roots: ServicePanelNode[] = [];
   for (const r of rows) {
     const ref = linkRef(r);
     const node = ref ? nodes.get(ref) : undefined;
     if (!node) continue;
-    const parent = node.parentRef && node.parentRef !== ref ? nodes.get(node.parentRef) : undefined;
-    if (parent && str(r["fed_from_kind"]) !== "service_equipment" && !hasAncestor(parent, ref)) {
-      parent.children.push(node);
-    } else {
-      roots.push(node);
-    }
+    const p = parentOf.get(ref);
+    const parent = p && !wouldLoop(ref) ? nodes.get(p) : undefined;
+    if (parent) parent.children.push(node);
+    else roots.push(node);
   }
   return roots;
 }
 
-function hasAncestor(node: ServicePanelNode, ref: string): boolean {
-  let cursor: ServicePanelNode | undefined = node;
-  const seen = new Set<string>();
-  while (cursor) {
-    if (cursor.panelRef === ref) return true;
-    if (seen.has(cursor.panelRef)) return true;
-    seen.add(cursor.panelRef);
-    cursor = undefined;
-  }
-  return false;
-}
 
 /** Human-readable chains, e.g. `SVC-HOUSE → PNL-H1 → PNL-H2`. */
 export function renderServiceTopology(serviceId: string, links: Row[]): string[] {
