@@ -17,6 +17,9 @@ import {
 } from "@/lib/electrical-services";
 
 type LooseDb = { from: (table: string) => any };
+/** Serializable row shape for values crossing the server-function boundary. */
+type SRow = Record<string, string | number | boolean | null>;
+type SPatch = { id: string; patch: SRow; reason: string };
 
 const SERVICES = "electrical_services";
 const CONFIGS = "electrical_service_configurations";
@@ -29,10 +32,10 @@ const nullableUuid = z.string().uuid().nullable().optional();
 const nullableNumber = z.number().min(0).max(100000).nullable().optional();
 const nullableDate = z.string().trim().max(10).nullable().optional();
 
-async function rows(db: LooseDb, table: string, order: string): Promise<Row[]> {
+async function rows(db: LooseDb, table: string, order: string): Promise<SRow[]> {
   const { data, error } = await db.from(table).select("*").order(order);
   if (error) throw new Error(error.message);
-  return (data ?? []) as Row[];
+  return (data ?? []) as SRow[];
 }
 
 /** Everything the services page needs, plus current-state QA findings. */
@@ -57,7 +60,12 @@ export const serviceState = createServerFn({ method: "GET" })
       interties,
       intertieConfigs,
       panels,
-      findings: validateServiceState({ services, configs, interties, intertieConfigs }),
+      findings: validateServiceState({
+        services: services as Row[],
+        configs: configs as Row[],
+        interties: interties as Row[],
+        intertieConfigs: intertieConfigs as Row[],
+      }),
     };
   });
 
@@ -181,7 +189,7 @@ export const commissionServiceConfiguration = createServerFn({ method: "POST" })
       const { error: uErr } = await db.from(CONFIGS).update(own.patch).eq("id", data.id);
       if (uErr) throw new Error(uErr.message);
     }
-    return { patches };
+    return { patches: patches as unknown as SPatch[] };
   });
 
 export const deleteServiceConfiguration = createServerFn({ method: "POST" })
@@ -364,5 +372,5 @@ export const commissionIntertieConfiguration = createServerFn({ method: "POST" }
       const { error: uErr } = await db.from(INTERTIE_CONFIGS).update(own.patch).eq("id", data.id);
       if (uErr) throw new Error(uErr.message);
     }
-    return { patches };
+    return { patches: patches as unknown as SPatch[] };
   });
