@@ -113,7 +113,11 @@ export function HousePanelFieldReconciliation() {
 
   const applyMutation = useMutation({
     mutationFn: async (confirm: boolean) => {
-      const rows = (result?.rows ?? []).filter((r, i) => selected.has(rowKey(r, i)));
+      const pairs = (result?.rows ?? [])
+        .map((r, i) => ({ r, key: rowKey(r, i) }))
+        .filter(({ key }) => selected.has(key));
+      const rows = pairs.map((p) => p.r);
+
       return apply({
         data: {
           confirm,
