@@ -17,7 +17,11 @@
 //    record is blocked, not created.
 //  - An existing FarmOps record is compared, never duplicated or overwritten.
 import {
+  AMP_STATUS_LABELS,
+  classifyAmpObservation,
   slotForBreakerNumber,
+  type AmpObservationStatus,
+  type AmpSourceTrace,
   type BreakerObservation,
   type Confidence,
   type FarmOpsBreaker,
@@ -77,6 +81,20 @@ export interface BreakerPopulationRow {
   ocp_amps: number | null;
   amps_unknown: boolean;
   amps_observed_text: string | null;
+  /**
+   * Why amperage is or is not known, traced back to the workbook column.
+   * Directory description text such as `AC 1ST FL 30A` never contributes.
+   */
+  amp_status: AmpObservationStatus;
+  amp_status_label: string;
+  /** Header text of the mapped breaker-amp column, null when the sheet has none. */
+  amp_source_column: string | null;
+  /** True when an explicit amp cell (numeric or uncertain) was observed. */
+  amp_observation_present: boolean;
+  /** Provenance sentence for the amp observation, when one exists. */
+  amp_evidence: string | null;
+  /** Populated only for `blocked_position_mismatch` rows. */
+  mismatch: BreakerPositionMismatch | null;
   /** Directory description exactly as observed. Never cleaned into a value. */
   label: string | null;
   label_observed_text: string | null;
@@ -93,6 +111,27 @@ export interface BreakerPopulationRow {
   evidence: string;
 }
 
+/**
+ * Full inspection record for one blocked position/pole mismatch. Presented so a
+ * genuine transcription problem can be told apart from a parser problem; nothing
+ * here is auto-repaired.
+ */
+export interface BreakerPositionMismatch {
+  panel: string;
+  /** Circuit text exactly as transcribed, e.g. "26/28". */
+  raw_circuit_text: string;
+  /** Positions the parser extracted from that text. */
+  parsed_positions: number[];
+  /** Pole count as observed (Poles column) or derived, with its origin. */
+  observed_poles: number | null;
+  observed_poles_text: string | null;
+  poles_source: BreakerPopulationRow["poles_source"];
+  source_sheet: string | null;
+  /** Every source row that contributed: primary, merged continuations, duplicates. */
+  source_rows: number[];
+  reason: string;
+}
+
 export interface BreakerPopulationDiagnostics {
   unique_breakers_considered: number;
   eligible_to_create: number;
@@ -100,6 +139,12 @@ export interface BreakerPopulationDiagnostics {
   blocked_position_mismatch: number;
   blocked_unresolved: number;
   breaker_amps_unknown: number;
+  /** Breakers with an explicit amp cell in the workbook (numeric or uncertain). */
+  explicit_amp_observations: number;
+  explicit_numeric_amps: number;
+  blank_amps: number;
+  uncertain_amps: number;
+  no_amp_mapping: number;
   verification_required: number;
   conflicts: number;
   requires_review: number;
