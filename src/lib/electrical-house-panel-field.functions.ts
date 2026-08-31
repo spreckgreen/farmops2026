@@ -282,11 +282,14 @@ const observationEntry = fieldEntry
 
 const applyInput = z.object({
   confirm: z.boolean().default(false),
+  /** Panel area the evidence came from, recorded on the journal rows. */
+  scope: z.enum(["house", "farm_shop"]).default("house"),
   fields: z.array(fieldEntry).max(2000).default([]),
   topology: z.array(topologyEntry).max(20).default([]),
   /** Evidence rows recorded verbatim with their provenance and disposition. */
   observations: z.array(observationEntry).max(2000).default([]),
 });
+
 
 export interface ApplyFieldRow {
   panel_id: string;
