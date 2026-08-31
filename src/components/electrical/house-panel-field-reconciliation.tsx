@@ -191,12 +191,17 @@ export function HousePanelFieldReconciliation() {
             r.classification === "CANONICAL_DIFFERS_FROM_FIELD" ||
             r.classification === "FARMOPS_DIFFERS_FROM_FIELD"
           );
+        case "source_conflicts":
+          return r.classification === "SOURCE_EVIDENCE_CONFLICT";
         case "verification":
           return r.verification_required;
         case "updates":
           return r.proposed_action === "propose_farmops_update";
+        case "evidence_only":
+          return r.proposed_action === "preserve_observation_only";
         case "topology":
-          return r.classification === "TOPOLOGY_PROPOSAL";
+          return r.field === "parent_panel";
+
         case "low_confidence":
           return r.confidence === "low" || r.confidence === "unknown";
         default:
