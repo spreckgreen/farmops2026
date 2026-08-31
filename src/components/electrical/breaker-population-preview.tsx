@@ -192,6 +192,22 @@ export function BreakerPopulationPreview({
   const selectable = (r: BreakerPopulationRow) => r.action === "propose_create";
   const selectedCount = (result?.rows ?? []).filter((r) => selectable(r) && selected.has(r.key)).length;
 
+  // Panels present in the uploaded workbook, in first-seen order.
+  const panelKeys = useMemo(() => {
+    const seen: string[] = [];
+    for (const r of result?.rows ?? []) {
+      const key = r.panel_id ?? r.panel_source_name;
+      if (key && !seen.includes(key)) seen.push(key);
+    }
+    return seen;
+  }, [result]);
+
+  const photoCount = panelKeys.filter((k) => panelPhotos[k]).length;
+  const linkedCircuits = (result?.rows ?? []).filter(
+    (r) => panelPhotos[r.panel_id ?? r.panel_source_name],
+  ).length;
+
+
   return (
     <Card>
       <CardHeader className="pb-2">
