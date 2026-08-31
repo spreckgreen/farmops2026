@@ -14,6 +14,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
+  ObservationPhotoCell,
+  type ObservationPhoto,
+} from "@/components/electrical/observation-photo-cell";
+
+import {
   applyBreakerPopulation,
   previewBreakerPopulation,
   type BreakerPopulationPreview,
