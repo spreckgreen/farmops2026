@@ -495,7 +495,14 @@ export const applyHousePanelFieldUpdates = createServerFn({ method: "POST" })
         proposed_action: o.proposed_action || null,
         disposition: o.disposition,
         verification_status: o.disposition === "needs_field_verification" ? "required" : "not_required",
+        photo_bucket: o.photo_path ? (o.photo_bucket || "field-observations") : null,
+        photo_path: o.photo_path,
+        photo_name: o.photo_name,
+        photo_mime: o.photo_mime,
+        photo_size: o.photo_size,
+        photo_uploaded_at: o.photo_path ? new Date().toISOString() : null,
       }));
+
       const { error } = await db.from(OBS_TABLE).insert(payload);
       if (error) throw new Error(error.message);
       recorded = payload.length;
