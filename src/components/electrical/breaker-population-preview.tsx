@@ -634,6 +634,23 @@ export function BreakerPopulationPreview({
                           <span className="text-muted-foreground">absent</span>
                         )}
                       </td>
+                      <td className="max-w-[16rem] p-2">
+                        <Badge variant={SAFETY_VARIANT[r.safety_class]}>
+                          {SAFETY_CLASS_LABELS[r.safety_class]}
+                        </Badge>
+                        <ul className="mt-1 list-disc pl-4 text-[11px] text-muted-foreground">
+                          {r.safety_reasons.map((reason, i) => (
+                            <li key={i}>{reason}</li>
+                          ))}
+                        </ul>
+                        <button
+                          type="button"
+                          className="mt-1 underline underline-offset-2"
+                          onClick={() => setExpanded((k) => (k === r.key ? null : r.key))}
+                        >
+                          {expanded === r.key ? "Hide" : "Show"} columns that would be populated
+                        </button>
+                      </td>
                       <td className="p-2">
                         <Badge variant={ACTION_VARIANT[r.action]}>
                           {POPULATION_ACTION_LABELS[r.action]}
@@ -644,7 +661,43 @@ export function BreakerPopulationPreview({
                         {r.evidence && <div className="mt-1 text-[11px]">{r.evidence}</div>}
                       </td>
                     </tr>
+                    {expanded === r.key && (
+                      <tr className="border-t bg-muted/30">
+                        <td colSpan={12} className="p-2">
+                          <div className="mb-1 text-[11px] font-medium">
+                            Exactly these columns would be written for {r.panel_id ?? r.panel_source_name}{" "}
+                            {r.positions_text} — nothing else, and no NULL is filled later by inference.
+                          </div>
+                          <table className="w-full text-[11px]">
+                            <thead className="text-left text-muted-foreground">
+                              <tr>
+                                <th className="p-1">Column</th>
+                                <th className="p-1">Value</th>
+                                <th className="p-1">Source evidence</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {r.proposed_columns.map((c) => (
+                                <tr key={c.column} className="border-t">
+                                  <td className="p-1 font-mono">{c.column}</td>
+                                  <td className="p-1">
+                                    {c.value === null || c.value === "" ? (
+                                      <span className="text-muted-foreground">NULL</span>
+                                    ) : (
+                                      String(c.value)
+                                    )}
+                                  </td>
+                                  <td className="p-1 text-muted-foreground">{c.source_evidence}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </td>
+                      </tr>
+                    )}
+                    </>
                   ))}
+
                 </tbody>
               </table>
             </div>
