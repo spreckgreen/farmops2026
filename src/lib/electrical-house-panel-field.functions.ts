@@ -153,9 +153,13 @@ export const previewHousePanelFieldReconciliation = createServerFn({ method: "PO
     }
 
 
-    // Current-revision parent of PNL-H2, read only from the CURRENT service
-    // configuration. Proposed/future revisions are never consulted or changed.
-    let currentSubpanelParent: string | null = null;
+    // Current-revision parent of each candidate sub-panel in this scope, read
+    // only from the CURRENT service configuration. Proposed/future revisions are
+    // never consulted or changed.
+    const children = new Set(
+      scope.subpanel_feeds.flatMap((f) => f.candidates.map((c) => c.child)),
+    );
+    const currentParents: Record<string, string | null> = {};
     const { data: configs } = await db
       .from("electrical_service_configurations")
       .select("id, is_current")
@@ -168,9 +172,12 @@ export const previewHousePanelFieldReconciliation = createServerFn({ method: "PO
         .in("service_config_uuid", currentIds);
       for (const l of ((links ?? []) as Record<string, unknown>[])) {
         const ref = String(l["panel_ref"] ?? byUuid.get(String(l["panel_uuid"])) ?? "");
-        if (ref !== "PNL-H2") continue;
-        if (String(l["fed_from_kind"] ?? "") !== "panel") continue;
-        currentSubpanelParent =
+        if (!children.has(ref)) continue;
+        if (String(l["fed_from_kind"] ?? "") !== "panel") {
+          currentParents[ref] = null;
+          continue;
+        }
+        currentParents[ref] =
           String(l["fed_from_panel_ref"] ?? byUuid.get(String(l["fed_from_panel_uuid"])) ?? "") || null;
       }
     }
@@ -180,11 +187,14 @@ export const previewHousePanelFieldReconciliation = createServerFn({ method: "PO
       farmops,
       canonical,
       canonicalPanels,
-      currentSubpanelParent,
+      scope,
+      currentParents,
     });
     const generated_at = new Date().toISOString();
     return {
       phase: FIELD_RECONCILIATION_PHASE,
+      scope: scope.id,
+      scope_label: scope.label,
       workbook: data.file_name,
       generated_at,
       rows,
@@ -192,11 +202,12 @@ export const previewHousePanelFieldReconciliation = createServerFn({ method: "PO
       diagnostics: parsed.diagnostics,
       warnings: parsed.warnings,
       csv: fieldReconciliationCsv(rows),
-      markdown: fieldReconciliationMarkdown(parsed, rows, generated_at),
+      markdown: fieldReconciliationMarkdown(parsed, rows, generated_at, scope),
 
       wrote_anything: false,
       sor_authority: "canonical_ods",
     };
+
   });
 
 // ------------------------------------------------------------------- applying
