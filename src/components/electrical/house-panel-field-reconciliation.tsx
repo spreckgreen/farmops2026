@@ -150,7 +150,7 @@ export function HousePanelFieldReconciliation() {
               proposed_parent: r.topology!.proposed_parent,
               evidence: r.topology!.evidence,
             })),
-          observations: rows.map((r) => ({
+          observations: pairs.map(({ r, key }) => ({
             panel_id: r.panel_id ?? r.panel_source_name,
             field: r.field,
             side: r.side,
@@ -170,7 +170,13 @@ export function HousePanelFieldReconciliation() {
             source_row: r.provenance.source_row,
             source_column: r.provenance.source_column,
             source_photo: r.provenance.source_photo,
+            photo_bucket: photos[key]?.bucket ?? null,
+            photo_path: photos[key]?.path ?? null,
+            photo_name: photos[key]?.name ?? null,
+            photo_mime: photos[key]?.mime ?? null,
+            photo_size: photos[key]?.size ?? null,
           })),
+
         },
       });
     },
