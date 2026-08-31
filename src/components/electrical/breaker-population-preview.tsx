@@ -117,7 +117,7 @@ export function BreakerPopulationPreview({
         confidence: r.confidence ?? null,
         verification_status: r.verification_required ? "verification_required" : "not_required",
         proposed_action: r.action,
-        worksheet: r.source_worksheet ?? null,
+        worksheet: null,
         workbook: result?.workbook ?? "",
         photo: panelPhotos[r.panel_id ?? r.panel_source_name]!,
       }));
