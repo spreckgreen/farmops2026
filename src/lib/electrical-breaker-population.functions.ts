@@ -311,11 +311,59 @@ export const applyBreakerPopulation = createServerFn({ method: "POST" })
       });
     }
 
+    // Photo evidence is recorded per observed circuit, alongside whatever the
+    // create attempt did with that circuit. It is written only on confirm.
+    const evidence_errors: string[] = [];
+    let evidence_recorded = 0;
+    if (data.confirm && data.evidence.length) {
+      const outcomeByCircuit = new Map(
+        results.map((r) => [`${r.panel_id}|${r.positions_text}`, r]),
+      );
+      const now = new Date().toISOString();
+      const payload = data.evidence.map((ev) => {
+        const outcome = ev.panel_id
+          ? outcomeByCircuit.get(`${ev.panel_id}|${ev.positions_text}`)
+          : undefined;
+        return {
+          user_id: context.userId,
+          scope: data.scope,
+          workbook: ev.workbook || "(photo upload)",
+          worksheet: ev.worksheet,
+          panel_ref: ev.panel_id ?? ev.panel_source_name || null,
+          panel_uuid: ev.panel_id ? (uuidByPanel.get(ev.panel_id) ?? null) : null,
+          positions_text: ev.positions_text,
+          poles: ev.poles,
+          field: "breaker_position_photo",
+          observed_text: ev.observed_text || ev.positions_text || "(photo only)",
+          notes: ev.notes,
+          confidence: ev.confidence,
+          verification_status: ev.verification_status,
+          proposed_action: ev.proposed_action,
+          disposition: "evidence_recorded",
+          apply_status: outcome?.status ?? "photo_only",
+          applied_at: now,
+          observed_at: now,
+          photo_bucket: ev.photo.bucket,
+          photo_path: ev.photo.path,
+          photo_name: ev.photo.name,
+          photo_mime: ev.photo.mime || null,
+          photo_size: ev.photo.size || null,
+          photo_uploaded_at: now,
+        };
+      });
+      const { error } = await db.from("electrical_field_observations").insert(payload);
+      if (error) evidence_errors.push(error.message);
+      else evidence_recorded = payload.length;
+    }
+
     return {
       confirmed: data.confirm,
       results,
       created: results.filter((r) => r.status === "created").length,
       blocked: results.filter((r) => r.status === "blocked_now_exists").length,
       failed: results.filter((r) => r.status === "failed").length,
+      evidence_recorded,
+      evidence_errors,
     };
+
   });
