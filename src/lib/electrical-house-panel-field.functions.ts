@@ -23,8 +23,10 @@ import {
   reconciliationTotals,
   type FarmOpsBreaker,
   type ObservationDisposition,
+  type ParseDiagnostics,
   type ReconciliationRow,
   type ReconciliationTotals,
+
 } from "@/lib/electrical-house-panel-field";
 
 type LooseDb = { from: (table: string) => any };
@@ -83,6 +85,8 @@ export interface HousePanelPreview {
   generated_at: string;
   rows: ReconciliationRow[];
   totals: ReconciliationTotals;
+  /** Parser state: sheets seen/recognized/skipped, rows read, merges, suppressions. */
+  diagnostics: ParseDiagnostics;
   warnings: string[];
   csv: string;
   markdown: string;
@@ -90,6 +94,7 @@ export interface HousePanelPreview {
   wrote_anything: false;
   sor_authority: "canonical_ods";
 }
+
 
 const previewInput = z.object({
   file_name: z.string().trim().min(1).max(200),
@@ -134,7 +139,13 @@ export const previewHousePanelFieldReconciliation = createServerFn({ method: "PO
       .filter((b) => b.panel_id);
 
     const canonical: Record<string, string> = {};
-    for (const p of panelRows) Object.assign(canonical, canonicalFromPanel(p.panel_id, p.ods_extras));
+    const canonicalPanels: string[] = [];
+    for (const p of panelRows) {
+      const part = canonicalFromPanel(p.panel_id, p.ods_extras);
+      if (Object.keys(part).length) canonicalPanels.push(p.panel_id);
+      Object.assign(canonical, part);
+    }
+
 
     // Current-revision parent of PNL-H2, read only from the CURRENT service
     // configuration. Proposed/future revisions are never consulted or changed.
@@ -158,7 +169,13 @@ export const previewHousePanelFieldReconciliation = createServerFn({ method: "PO
       }
     }
 
-    const rows = reconcileHousePanelObservations({ parsed, farmops, canonical, currentSubpanelParent });
+    const rows = reconcileHousePanelObservations({
+      parsed,
+      farmops,
+      canonical,
+      canonicalPanels,
+      currentSubpanelParent,
+    });
     const generated_at = new Date().toISOString();
     return {
       phase: FIELD_RECONCILIATION_PHASE,
@@ -166,9 +183,11 @@ export const previewHousePanelFieldReconciliation = createServerFn({ method: "PO
       generated_at,
       rows,
       totals: reconciliationTotals(parsed, rows),
+      diagnostics: parsed.diagnostics,
       warnings: parsed.warnings,
       csv: fieldReconciliationCsv(rows),
       markdown: fieldReconciliationMarkdown(parsed, rows, generated_at),
+
       wrote_anything: false,
       sor_authority: "canonical_ods",
     };

@@ -13,7 +13,12 @@ import {
   previewHousePanelFieldReconciliation,
   type HousePanelPreview,
 } from "@/lib/electrical-house-panel-field.functions";
-import { FIELD_RECONCILIATION_CSV, type ReconciliationRow } from "@/lib/electrical-house-panel-field";
+import {
+  FIELD_RECONCILIATION_CSV,
+  type ComparisonState,
+  type ReconciliationRow,
+} from "@/lib/electrical-house-panel-field";
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -36,12 +41,27 @@ type Filter =
   | "all"
   | "matches"
   | "conflicts"
+  | "source_conflicts"
   | "verification"
   | "updates"
   | "topology"
+  | "evidence_only"
   | "low_confidence";
 
 const rowKey = (r: ReconciliationRow, i: number) => `${r.key}#${r.field}#${i}`;
+
+/** A blank comparison is never shown as one undifferentiated "(silent)". */
+function stateCell(value: string | null, state: ComparisonState) {
+  if (value !== null) return value;
+  const label =
+    state === "blank"
+      ? "(stored blank)"
+      : state === "record_absent"
+        ? "(no record)"
+        : "(no mapping)";
+  return <span className="text-xs text-muted-foreground">{label}</span>;
+}
+
 
 function download(name: string, body: string, mime: string) {
   const blob = new Blob([body], { type: mime });
@@ -74,8 +94,9 @@ export function HousePanelFieldReconciliation() {
       });
       setSelected(next);
       toast.success(
-        `Preview only — no records changed. ${r.totals.logical_breakers} logical breaker(s), ${r.totals.eligible_farmops_updates} eligible FarmOps update(s).`,
+        `Preview only — no records changed. ${r.totals.source_rows_read} source row(s) → ${r.totals.unique_logical_breakers} logical breaker(s), ${r.totals.eligible_farmops_updates} eligible FarmOps update(s).`,
       );
+
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -170,12 +191,17 @@ export function HousePanelFieldReconciliation() {
             r.classification === "CANONICAL_DIFFERS_FROM_FIELD" ||
             r.classification === "FARMOPS_DIFFERS_FROM_FIELD"
           );
+        case "source_conflicts":
+          return r.classification === "SOURCE_EVIDENCE_CONFLICT";
         case "verification":
           return r.verification_required;
         case "updates":
           return r.proposed_action === "propose_farmops_update";
+        case "evidence_only":
+          return r.proposed_action === "preserve_observation_only";
         case "topology":
-          return r.classification === "TOPOLOGY_PROPOSAL";
+          return r.field === "parent_panel";
+
         case "low_confidence":
           return r.confidence === "low" || r.confidence === "unknown";
         default:
@@ -220,20 +246,51 @@ export function HousePanelFieldReconciliation() {
         {result ? (
           <>
             <div className="flex flex-wrap gap-2 text-sm">
-              <Badge variant="outline">{totals?.source_rows_parsed} source rows</Badge>
-              <Badge variant="outline">{totals?.logical_breakers} logical breakers</Badge>
+              <Badge variant="outline">{totals?.source_rows_read} source rows read</Badge>
+              <Badge variant="outline">{totals?.unique_logical_breakers} logical breakers</Badge>
+              <Badge variant="outline">{totals?.multipole_continuation_rows_merged} continuation rows merged</Badge>
+              <Badge variant="outline">
+                {totals?.duplicate_source_rows_suppressed} duplicate rows suppressed
+              </Badge>
+              <Badge variant="outline">{totals?.field_observations_emitted} observations</Badge>
+              <Badge variant="outline">
+                {totals?.sheets_recognized} sheets parsed / {totals?.sheets_skipped} skipped
+              </Badge>
               <Badge variant="outline">{totals?.single_pole} single-pole</Badge>
               <Badge variant="outline">{totals?.multi_pole} multi-pole</Badge>
-              <Badge variant="outline">{totals?.matched_circuits} matched</Badge>
+              <Badge variant="outline">{totals?.fields_compared_against_farmops} compared to FarmOps</Badge>
+              <Badge variant="secondary">{totals?.farmops_record_absent} no FarmOps record</Badge>
+              <Badge variant="secondary">{totals?.canonical_no_mapping} no canonical mapping</Badge>
               <Badge variant="outline">{totals?.exact_matches} exact matches</Badge>
               <Badge variant="secondary">{totals?.unresolved_observations} new / unresolved</Badge>
               <Badge variant={totals?.conflicts ? "destructive" : "outline"}>
                 {totals?.conflicts} conflicts
               </Badge>
+              <Badge variant={totals?.source_evidence_conflicts ? "destructive" : "outline"}>
+                {totals?.source_evidence_conflicts} source conflicts
+              </Badge>
               <Badge variant="secondary">{totals?.verification_required} verification required</Badge>
-              <Badge variant="secondary">{totals?.topology_proposals} topology proposals</Badge>
+              <Badge variant="secondary">
+                {totals?.topology_proposals} topology proposals / {totals?.topology_evidence_rows} evidence
+              </Badge>
               <Badge variant="outline">{totals?.eligible_farmops_updates} eligible updates</Badge>
             </div>
+
+            <p className="text-xs text-muted-foreground">
+              Source rows are spreadsheet rows, not breakers: multi-pole continuation rows and
+              duplicate representations of the same breaker on another sheet collapse into the
+              logical-breaker count.
+            </p>
+
+            {result.diagnostics.sheets_skipped.length ? (
+              <div className="text-xs text-muted-foreground">
+                Sheets not parsed:{" "}
+                {result.diagnostics.sheets_skipped
+                  .map((s) => `${s.worksheet} (${s.reason})`)
+                  .join("; ")}
+              </div>
+            ) : null}
+
 
             <div className="flex flex-wrap items-center gap-2">
               <select
@@ -256,10 +313,13 @@ export function HousePanelFieldReconciliation() {
                 <option value="all">Everything</option>
                 <option value="matches">Matches</option>
                 <option value="conflicts">Differences / conflicts</option>
+                <option value="source_conflicts">Source-evidence conflicts</option>
                 <option value="verification">Verification required</option>
                 <option value="low_confidence">Low / unknown confidence</option>
                 <option value="updates">Proposed FarmOps updates</option>
-                <option value="topology">Topology proposals</option>
+                <option value="evidence_only">Evidence-only fields</option>
+                <option value="topology">Topology evidence</option>
+
               </select>
               <Button
                 variant="outline"
@@ -333,9 +393,18 @@ export function HousePanelFieldReconciliation() {
                             </span>
                           ) : null}
                         </td>
-                        <td className="p-1">{r.field_label}</td>
-                        <td className="p-1">{r.canonical_value ?? "(silent)"}</td>
-                        <td className="p-1">{r.farmops_value ?? "(none)"}</td>
+                        <td className="p-1">
+                          {r.field_label}
+                          {r.duplicate_sources?.length ? (
+                            <div className="text-xs text-muted-foreground">
+                              also on{" "}
+                              {r.duplicate_sources.map((d) => `${d.worksheet}:${d.source_row}`).join(", ")}
+                            </div>
+                          ) : null}
+                        </td>
+                        <td className="p-1">{stateCell(r.canonical_value, r.canonical_state)}</td>
+                        <td className="p-1">{stateCell(r.farmops_value, r.farmops_state)}</td>
+
                         <td className="p-1">
                           <span className="font-medium">{r.field_observed_text || "(blank)"}</span>
                           {r.field_interpreted !== null &&

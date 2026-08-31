@@ -38,7 +38,9 @@ export const RECONCILIATION_CLASSIFICATIONS = [
   "UNKNOWN_FIELD_VALUE",
   "UNRESOLVED_PANEL_IDENTITY",
   "UNRESOLVED_CIRCUIT_POSITION",
+  "SOURCE_EVIDENCE_CONFLICT",
   "TOPOLOGY_PROPOSAL",
+
 ] as const;
 export type ReconciliationClassification = (typeof RECONCILIATION_CLASSIFICATIONS)[number];
 
@@ -74,17 +76,33 @@ export interface ObservationProvenance {
   observed_text: string;
 }
 
-/** One reconcilable attribute observed on a panel-directory photograph. */
-export type ObservedFieldKey = "ocp_amps" | "poles" | "label";
+/**
+ * One reconcilable attribute observed on a panel-directory photograph.
+ *
+ * `ocp_amps`, `poles` and `label` are the only attributes FarmOps stores on a
+ * breaker position. `notes`, `photo` and `other` are evidence-only: they are
+ * emitted (never dropped) but they are never proposed as FarmOps updates.
+ */
+export type ObservedFieldKey = "ocp_amps" | "poles" | "label" | "notes" | "photo" | "other";
+
+export const COMPARABLE_FIELDS: ObservedFieldKey[] = ["ocp_amps", "poles", "label"];
 
 export const OBSERVED_FIELD_LABELS: Record<ObservedFieldKey, string> = {
   ocp_amps: "Breaker amps",
   poles: "Poles",
   label: "Directory description",
+  notes: "Notes",
+  photo: "Photo reference",
+  other: "Other transcription field",
 };
+
+/** Why a comparison value is absent — these are NOT the same state. */
+export type ComparisonState = "present" | "blank" | "record_absent" | "no_mapping";
 
 export interface ObservedField {
   field: ObservedFieldKey;
+  /** Header text as transcribed, used verbatim for evidence-only columns. */
+  field_label?: string;
   /** Verbatim cell text as transcribed from the photograph. */
   observed_text: string;
   /** Typed interpretation, or null when the source is uncertain/unknown. */
@@ -95,6 +113,7 @@ export interface ObservedField {
   unknown_value: boolean;
   provenance: ObservationProvenance;
 }
+
 
 /** One logical breaker (not one panel position). */
 export interface BreakerObservation {
@@ -114,34 +133,92 @@ export interface BreakerObservation {
   fields: ObservedField[];
   notes: string;
   provenance: ObservationProvenance;
+  /**
+   * Other source representations of this same logical breaker (e.g. the same
+   * schedule transcribed on both Bulk_Update and House_Main). Suppressed for
+   * counting, never discarded: their provenance is kept here.
+   */
+  duplicate_sources: ObservationProvenance[];
+  /** Positions merged in from continuation rows of a multi-pole breaker. */
+  merged_positions_from: ObservationProvenance[];
+}
+
+/** Where two source representations of the same breaker disagree. */
+export interface SourceEvidenceConflict {
+  panel_id: string | null;
+  panel_source_name: string;
+  positions_text: string;
+  field: ObservedFieldKey;
+  field_label: string;
+  kept_text: string;
+  kept: ObservationProvenance;
+  other_text: string;
+  other: ObservationProvenance;
+}
+
+export interface ParseDiagnostics {
+  sheets_seen: number;
+  sheets_recognized: number;
+  sheets_skipped: { worksheet: string; reason: string }[];
+  /** Non-empty data rows read across all recognized sheets. */
+  source_rows_read: number;
+  /** Rows suppressed because another sheet held the same logical breaker. */
+  duplicate_source_rows_suppressed: number;
+  /** Rows folded into a preceding multi-pole breaker as continuation slots. */
+  multipole_continuation_rows_merged: number;
+  unique_logical_breakers: number;
+  field_observations_emitted: number;
 }
 
 export interface ParseResult {
   workbook: string;
   rows_parsed: number;
   observations: BreakerObservation[];
+  diagnostics: ParseDiagnostics;
+  conflicts: SourceEvidenceConflict[];
   warnings: string[];
 }
+
 
 // --------------------------------------------------------------- header logic
 
 const HEADER_SYNONYMS: Record<string, string[]> = {
-  panel: ["panel", "panel name", "panel id", "panelboard", "source panel"],
+  panel: ["panel", "panel name", "panel id", "panelboard", "source panel", "panel ref", "board"],
   circuit: [
     "circuit",
     "circuits",
     "circuit #",
     "circuit no",
+    "circuit number",
+    "ckt",
+    "ckt #",
     "position",
     "positions",
+    "slot",
+    "slots",
     "breaker",
     "breaker #",
+    "breaker no",
     "breaker number",
     "space",
     "spaces",
   ],
-  poles: ["poles", "pole", "pole count", "no of poles"],
-  amps: ["amps", "breaker amps", "amp", "amperage", "rating", "breaker size", "ocp", "ocp amps"],
+  poles: ["poles", "pole", "pole count", "no of poles", "number of poles", "pole qty"],
+  amps: [
+    "amps",
+    "breaker amps",
+    "amp",
+    "amperage",
+    "rating",
+    "breaker size",
+    "breaker rating",
+    "size",
+    "ocp",
+    "ocp amps",
+    "trip",
+    "trip rating",
+    "a",
+  ],
   description: [
     "description",
     "load",
@@ -150,14 +227,27 @@ const HEADER_SYNONYMS: Record<string, string[]> = {
     "circuit description",
     "directory",
     "directory text",
+    "served",
+    "serves",
+    "load served",
+    "device",
+    "usage",
   ],
-  notes: ["notes", "note", "comment", "comments"],
-  photo: ["photo", "source photo", "image", "file", "photo reference", "picture"],
+  notes: ["notes", "note", "comment", "comments", "remarks"],
+  photo: ["photo", "source photo", "image", "file", "photo reference", "picture", "photo file"],
   confidence: ["confidence"],
   verification: ["verification", "verification status", "verified"],
 };
 
-const norm = (s: unknown) => String(s ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+/** Normalize a header cell: underscores, punctuation and case are irrelevant. */
+const norm = (s: unknown) =>
+  String(s ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[_.]+/g, " ")
+    .replace(/[()\[\]:]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 
 function headerRole(cell: string): string | null {
   const n = norm(cell);
@@ -166,33 +256,52 @@ function headerRole(cell: string): string | null {
     if (list.includes(n)) return role;
   }
   for (const [role, list] of Object.entries(HEADER_SYNONYMS)) {
-    if (list.some((h) => n === h || n.startsWith(`${h} `) || n.endsWith(` ${h}`))) return role;
+    if (list.some((h) => h.length > 2 && (n.startsWith(`${h} `) || n.endsWith(` ${h}`)))) return role;
   }
   return null;
 }
+
 
 interface HeaderMap {
   index: number;
   roles: Map<string, number>;
   headers: string[];
+  /** Populated columns with a header that maps to no known role. */
+  unmapped: number[];
 }
 
-/** Find the header row of a transcription sheet (scans the first rows only). */
+/**
+ * Find the header row of a transcription sheet.
+ *
+ * The BEST scoring row in the scanned window wins, not the first row that
+ * happens to yield two roles: picking the first weak match is exactly how a
+ * sheet ends up reconciling only `Poles`.
+ */
 export function findHeaderRow(sheet: Sheet): HeaderMap | null {
-  const limit = Math.min(sheet.rows.length, 12);
+  const limit = Math.min(sheet.rows.length, 15);
+  let best: HeaderMap | null = null;
+  let bestScore = 0;
   for (let i = 0; i < limit; i++) {
     const row = sheet.rows[i] ?? [];
     const roles = new Map<string, number>();
+    const unmapped: number[] = [];
     row.forEach((cell, col) => {
       const role = headerRole(cell);
       if (role && !roles.has(role)) roles.set(role, col);
+      else if (!role && String(cell ?? "").trim() !== "") unmapped.push(col);
     });
-    if (roles.has("circuit") && (roles.has("amps") || roles.has("description") || roles.has("poles"))) {
-      return { index: i, roles, headers: row.map((c) => String(c ?? "").trim()) };
+    if (!roles.has("circuit")) continue;
+    if (!roles.has("amps") && !roles.has("description") && !roles.has("poles")) continue;
+    const score = roles.size;
+    if (score > bestScore) {
+      bestScore = score;
+      best = { index: i, roles, headers: row.map((c) => String(c ?? "").trim()), unmapped };
     }
   }
-  return null;
+  return best;
 }
+
+
 
 // ------------------------------------------------------------ value semantics
 
@@ -308,18 +417,53 @@ export interface ParseOptions {
   defaultPanelName?: string;
 }
 
-/** Parse transcription sheets into logical breaker observations. */
+interface RawRow {
+  sheet: string;
+  /** Higher wins when two sheets describe the same breaker. */
+  precedence: number;
+  source_row: number;
+  panel_source_name: string;
+  panel_id: string | null;
+  positions: number[];
+  positions_text: string;
+  poles: number | null;
+  poles_stated: number | null;
+  amps_text: string;
+  description_text: string;
+  notes: string;
+  fields: ObservedField[];
+  provenance: ObservationProvenance;
+  merged_positions_from: ObservationProvenance[];
+  consumed: boolean;
+}
+
+/** Bulk sheets are treated as the lower-precedence representation. */
+function sheetPrecedence(name: string): number {
+  return /bulk/i.test(name) ? 0 : 1;
+}
+
+const eq = (a: string, b: string) => norm(a) === norm(b);
+
+/** Parse transcription sheets into deduplicated logical breaker observations. */
 export function parseHousePanelSheets(sheets: Sheet[], opts: ParseOptions): ParseResult {
   const warnings: string[] = [];
-  const observations: BreakerObservation[] = [];
-  let rowsParsed = 0;
+  const skipped: { worksheet: string; reason: string }[] = [];
+  const raw: RawRow[] = [];
+  let rowsRead = 0;
+  let recognized = 0;
 
   for (const sheet of sheets) {
     const header = findHeaderRow(sheet);
     if (!header) {
-      warnings.push(`Sheet "${sheet.name}" has no recognizable panel-directory header row; skipped.`);
+      const reason = sheet.rows.length
+        ? "no recognizable panel-directory header row"
+        : "sheet is empty";
+      skipped.push({ worksheet: sheet.name, reason });
+      warnings.push(`Sheet "${sheet.name}" skipped: ${reason}.`);
+
       continue;
     }
+    recognized++;
     const col = (role: string) => header.roles.get(role);
     const cell = (row: string[], role: string) => {
       const i = col(role);
@@ -327,7 +471,7 @@ export function parseHousePanelSheets(sheets: Sheet[], opts: ParseOptions): Pars
     };
     const headerName = (role: string) => {
       const i = col(role);
-      return i === undefined ? "" : header.headers[i] ?? "";
+      return i === undefined ? "" : (header.headers[i] ?? "");
     };
     const sheetPanelName = /sub/i.test(sheet.name)
       ? "HOUSE-SUBPANEL"
@@ -338,17 +482,18 @@ export function parseHousePanelSheets(sheets: Sheet[], opts: ParseOptions): Pars
     for (let r = header.index + 1; r < sheet.rows.length; r++) {
       const row = sheet.rows[r] ?? [];
       if (row.every((c) => String(c ?? "").trim() === "")) continue;
-      rowsParsed++;
+      rowsRead++;
       const sourceRow = r + 1;
       const panelSourceName = cell(row, "panel") || sheetPanelName;
       const panelId = resolvePanelIdentity(panelSourceName, opts.aliases, opts.knownPanelIds);
       const positionsText = cell(row, "circuit");
       const positions = parsePositions(positionsText);
       const polesText = cell(row, "poles");
-      const polesFromColumn = /^\d{1,2}$/.test(polesText) ? Number(polesText) : null;
-      const poles = polesFromColumn ?? (positions.length ? positions.length : null);
+      const polesStated = /^\d{1,2}$/.test(polesText) ? Number(polesText) : null;
       const photo = cell(row, "photo");
       const notes = cell(row, "notes");
+      const ampsText = cell(row, "amps");
+      const descriptionText = cell(row, "description");
 
       const prov = (column: string, observed: string): ObservationProvenance => ({
         workbook: opts.workbook,
@@ -359,64 +504,240 @@ export function parseHousePanelSheets(sheets: Sheet[], opts: ParseOptions): Pars
         observed_text: observed,
       });
 
+      // Every populated transcription cell becomes its own observation, with the
+      // real source column preserved. Poles is one field among several, never
+      // the only reconciled field.
       const fields: ObservedField[] = [];
-      if (col("amps") !== undefined) {
-        const observed = cell(row, "amps");
-        const parsed = interpretAmps(observed);
+      if (ampsText !== "") {
+        const parsed = interpretAmps(ampsText);
         fields.push({
           field: "ocp_amps",
-          observed_text: observed,
+          observed_text: ampsText,
           interpreted: parsed.interpreted,
           confidence: parsed.confidence,
           verification_required: parsed.verification_required,
           unknown_value: parsed.unknown_value,
-          provenance: prov(headerName("amps") || "Breaker Amps", observed),
+          provenance: prov(headerName("amps") || "Breaker Amps", ampsText),
         });
       }
-      if (poles !== null) {
-        fields.push({
-          field: "poles",
-          observed_text: polesText || positionsText,
-          interpreted: poles,
-          confidence: polesFromColumn !== null || positions.length ? "high" : "low",
-          verification_required: false,
-          unknown_value: false,
-          provenance: prov(headerName("poles") || headerName("circuit") || "Poles", polesText || positionsText),
-        });
-      }
-      if (col("description") !== undefined) {
-        const observed = cell(row, "description");
-        const parsed = interpretDescription(observed);
+      if (descriptionText !== "") {
+        const parsed = interpretDescription(descriptionText);
         fields.push({
           field: "label",
-          observed_text: observed,
+          observed_text: descriptionText,
           interpreted: parsed.interpreted,
           confidence: parsed.confidence,
           verification_required: parsed.verification_required,
           unknown_value: parsed.unknown_value,
-          provenance: prov(headerName("description") || "Description", observed),
+          provenance: prov(headerName("description") || "Description", descriptionText),
+        });
+      }
+      if (notes !== "") {
+        const uncertain = isUncertainText(notes) || isUnknownText(notes);
+        fields.push({
+          field: "notes",
+          observed_text: notes,
+          interpreted: notes,
+          confidence: uncertain ? "low" : "medium",
+          verification_required: uncertain,
+          unknown_value: false,
+          provenance: prov(headerName("notes") || "Notes", notes),
+        });
+      }
+      if (photo !== "") {
+        fields.push({
+          field: "photo",
+          observed_text: photo,
+          interpreted: photo,
+          confidence: "high",
+          verification_required: false,
+          unknown_value: false,
+          provenance: prov(headerName("photo") || "Photo", photo),
+        });
+      }
+      for (const c of header.unmapped) {
+        const text = String(row[c] ?? "").trim();
+        if (text === "") continue;
+        const columnName = header.headers[c] || `Column ${c + 1}`;
+        fields.push({
+          field: "other",
+          field_label: columnName,
+          observed_text: text,
+          interpreted: text,
+          confidence: "medium",
+          verification_required: isUncertainText(text) || isUnknownText(text),
+          unknown_value: false,
+          provenance: prov(columnName, text),
         });
       }
 
-      observations.push({
-        key: `${sheet.name}#${sourceRow}`,
+      raw.push({
+        sheet: sheet.name,
+        precedence: sheetPrecedence(sheet.name),
+        source_row: sourceRow,
         panel_source_name: panelSourceName,
         panel_id: panelId,
-        identity_status: panelId ? "resolved" : "unresolved",
         positions,
         positions_text: positionsText,
-        poles,
-        slot: positions.length ? slotForBreakerNumber(positions[0]) : null,
-        position_status: positions.length ? "resolved" : "unresolved",
-        fields,
+        poles: polesStated ?? (positions.length > 1 ? positions.length : positions.length ? 1 : null),
+        poles_stated: polesStated,
+        amps_text: ampsText,
+        description_text: descriptionText,
         notes,
+        fields,
         provenance: prov(headerName("circuit") || "Circuit", positionsText),
+        merged_positions_from: [],
+        consumed: false,
       });
     }
   }
 
-  return { workbook: opts.workbook, rows_parsed: rowsParsed, observations, warnings };
+  // ------------------------------------------- multi-pole continuation merging
+  //
+  // `Poles = 2` on a row listing a single position does not describe a
+  // two-pole breaker per position: the paired position is normally transcribed
+  // on its own row. Fold that continuation row into ONE logical breaker so a
+  // 2-pole 60 A feeder is never counted twice.
+  let merged = 0;
+  for (const r of raw) {
+    if (r.consumed) continue;
+    const poles = r.poles_stated ?? 0;
+    if (poles < 2 || r.positions.length !== 1) continue;
+    for (let k = 1; k < poles; k++) {
+      const wanted = r.positions[0] + 2 * k;
+      const cont = raw.find(
+        (o) =>
+          !o.consumed &&
+          o !== r &&
+          o.sheet === r.sheet &&
+          eq(o.panel_source_name, r.panel_source_name) &&
+          o.positions.length === 1 &&
+          o.positions[0] === wanted &&
+          (o.description_text === "" || eq(o.description_text, r.description_text)) &&
+          (o.amps_text === "" || eq(o.amps_text, r.amps_text)),
+      );
+      if (!cont) break;
+      cont.consumed = true;
+      merged++;
+      r.positions.push(wanted);
+      r.merged_positions_from.push(cont.provenance);
+    }
+    if (r.positions.length > 1) r.positions_text = r.positions.join("/");
+  }
+
+  // ------------------------------------------------- cross-sheet deduplication
+  const identity = (r: RawRow) =>
+    `${(r.panel_id ?? r.panel_source_name).toUpperCase()}|${[...r.positions].sort((a, b) => a - b).join("-") || r.positions_text.toUpperCase()}`;
+
+  const kept = new Map<string, RawRow>();
+  const suppressed: { kept: RawRow; other: RawRow }[] = [];
+  for (const r of raw) {
+    if (r.consumed) continue;
+    const id = identity(r);
+    const existing = kept.get(id);
+    if (!existing) {
+      kept.set(id, r);
+      continue;
+    }
+    // Deterministic precedence: panel-specific sheet wins over bulk; ties keep
+    // the first representation read.
+    if (r.precedence > existing.precedence) {
+      kept.set(id, r);
+      suppressed.push({ kept: r, other: existing });
+    } else {
+      suppressed.push({ kept: existing, other: r });
+    }
+  }
+
+  const conflicts: SourceEvidenceConflict[] = [];
+  for (const { kept: k, other } of suppressed) {
+    for (const f of other.fields) {
+      if (!COMPARABLE_FIELDS.includes(f.field)) continue;
+      const mine = k.fields.find((x) => x.field === f.field);
+      if (!mine) continue;
+      if (eq(mine.observed_text, f.observed_text)) continue;
+      conflicts.push({
+        panel_id: k.panel_id,
+        panel_source_name: k.panel_source_name,
+        positions_text: k.positions_text,
+        field: f.field,
+        field_label: OBSERVED_FIELD_LABELS[f.field],
+        kept_text: mine.observed_text,
+        kept: mine.provenance,
+        other_text: f.observed_text,
+        other: f.provenance,
+      });
+    }
+  }
+
+  const observations: BreakerObservation[] = [];
+  for (const r of kept.values()) {
+    const dupes = suppressed.filter((s) => s.kept === r).map((s) => s.other.provenance);
+    if (r.poles !== null) {
+      r.fields.unshift({
+        field: "poles",
+        observed_text: r.poles_stated !== null ? String(r.poles_stated) : r.positions_text,
+        interpreted: r.poles,
+        confidence: r.poles_stated !== null || r.positions.length ? "high" : "low",
+        verification_required: false,
+        unknown_value: false,
+        provenance: {
+          ...r.provenance,
+          source_column: r.poles_stated !== null ? "Poles" : r.provenance.source_column,
+          observed_text: r.poles_stated !== null ? String(r.poles_stated) : r.positions_text,
+        },
+      });
+    }
+    observations.push({
+      key: `${r.sheet}#${r.source_row}`,
+      panel_source_name: r.panel_source_name,
+      panel_id: r.panel_id,
+      identity_status: r.panel_id ? "resolved" : "unresolved",
+      positions: r.positions,
+      positions_text: r.positions_text,
+      poles: r.poles,
+      slot: r.positions.length ? slotForBreakerNumber(r.positions[0]) : null,
+      position_status: r.positions.length ? "resolved" : "unresolved",
+      fields: r.fields,
+      notes: r.notes,
+      provenance: r.provenance,
+      duplicate_sources: dupes,
+      merged_positions_from: r.merged_positions_from,
+    });
+  }
+
+  if (suppressed.length) {
+    warnings.push(
+      `${suppressed.length} duplicate source representation(s) suppressed: the same panel and positions appeared on more than one sheet. Provenance of every representation is retained.`,
+    );
+  }
+  if (conflicts.length) {
+    warnings.push(
+      `${conflicts.length} source-evidence conflict(s): two sheets disagree about the same breaker. Neither value was silently chosen.`,
+    );
+  }
+
+  const diagnostics: ParseDiagnostics = {
+    sheets_seen: sheets.length,
+    sheets_recognized: recognized,
+    sheets_skipped: skipped,
+    source_rows_read: rowsRead,
+    duplicate_source_rows_suppressed: suppressed.length,
+    multipole_continuation_rows_merged: merged,
+    unique_logical_breakers: observations.length,
+    field_observations_emitted: observations.reduce((n, o) => n + o.fields.length, 0),
+  };
+
+  return {
+    workbook: opts.workbook,
+    rows_parsed: rowsRead,
+    observations,
+    diagnostics,
+    conflicts,
+    warnings,
+  };
 }
+
 
 // ------------------------------------------------------------- reconciliation
 
@@ -441,6 +762,15 @@ export interface ReconciliationRow {
   proposed_action: ProposedAction;
   detail: string;
   provenance: ObservationProvenance;
+  /**
+   * Why canonical / FarmOps is absent. `(silent)` is not one state: a missing
+   * mapping, a missing record and a blank stored value are different findings.
+   */
+  canonical_state: ComparisonState;
+  farmops_state: ComparisonState;
+  /** Provenance of any other source sheet describing the same breaker. */
+  duplicate_sources?: ObservationProvenance[];
+
   /** Present for rows that could become a FarmOps update. */
   target?: {
     table: "electrical_breaker_positions";
@@ -480,9 +810,16 @@ export interface ReconcileInput {
    * canonical dataset says nothing about that attribute.
    */
   canonical?: Record<string, string>;
+  /**
+   * Panels for which the canonical capture contained ANY circuit-level
+   * attribute. Lets a blank comparison be reported as "no canonical mapping for
+   * this panel" instead of a bare `(silent)`.
+   */
+  canonicalPanels?: string[];
   /** Current-revision parent of PNL-H2, or null when not represented. */
   currentSubpanelParent?: string | null;
 }
+
 
 const str = (v: unknown) => (v === null || v === undefined || v === "" ? null : String(v));
 
@@ -578,10 +915,46 @@ const SUBPANEL_LABEL = /sub\s*-?\s*panel/i;
 
 export function reconcileHousePanelObservations(input: ReconcileInput): ReconciliationRow[] {
   const canonical = input.canonical ?? {};
+  const canonicalPanels = new Set(
+    input.canonicalPanels ?? [...new Set(Object.keys(canonical).map((k) => k.split("|")[0]))],
+  );
   const live = new Map<string, FarmOpsBreaker>();
-  for (const b of input.farmops) live.set(`${b.panel_id}|${b.side}|${b.position}`, b);
+  const farmopsPanels = new Set<string>();
+  for (const b of input.farmops) {
+    live.set(`${b.panel_id}|${b.side}|${b.position}`, b);
+    farmopsPanels.add(b.panel_id);
+  }
 
   const rows: ReconciliationRow[] = [];
+
+  // Source-evidence conflicts are reported first, and never resolved silently.
+  for (const c of input.parsed.conflicts) {
+    rows.push({
+      key: `conflict#${c.panel_id ?? c.panel_source_name}#${c.positions_text}#${c.field}`,
+      panel_source_name: c.panel_source_name,
+      panel_id: c.panel_id,
+      positions_text: c.positions_text,
+      positions: [],
+      poles: null,
+      side: "",
+      position: null,
+      field: c.field,
+      field_label: `${c.field_label} (source conflict)`,
+      canonical_value: null,
+      farmops_value: null,
+      field_observed_text: `${c.kept_text} (${c.kept.worksheet}) vs ${c.other_text} (${c.other.worksheet})`,
+      field_interpreted: null,
+      confidence: "low",
+      verification_required: true,
+      classification: "SOURCE_EVIDENCE_CONFLICT",
+      proposed_action: "requires_review",
+      detail: `Two source representations disagree about ${c.field_label}; neither was chosen.`,
+      provenance: c.kept,
+      canonical_state: "no_mapping",
+      farmops_state: "no_mapping",
+      duplicate_sources: [c.other],
+    });
+  }
 
   for (const obs of input.parsed.observations) {
     const base = {
@@ -593,6 +966,7 @@ export function reconcileHousePanelObservations(input: ReconcileInput): Reconcil
       poles: obs.poles,
       side: obs.slot?.side ?? "",
       position: obs.slot?.position ?? null,
+      duplicate_sources: obs.duplicate_sources.length ? obs.duplicate_sources : undefined,
     };
 
     if (obs.identity_status === "unresolved") {
@@ -610,6 +984,8 @@ export function reconcileHousePanelObservations(input: ReconcileInput): Reconcil
         proposed_action: "requires_review",
         detail: `"${obs.panel_source_name}" does not resolve to exactly one existing panel identity.`,
         provenance: obs.provenance,
+        canonical_state: "no_mapping",
+        farmops_state: "no_mapping",
       });
       continue;
     }
@@ -628,6 +1004,8 @@ export function reconcileHousePanelObservations(input: ReconcileInput): Reconcil
         proposed_action: "requires_review",
         detail: `Positions "${obs.positions_text}" could not be resolved to physical panel slots.`,
         provenance: obs.provenance,
+        canonical_state: "no_mapping",
+        farmops_state: "no_mapping",
       });
       continue;
     }
@@ -635,17 +1013,67 @@ export function reconcileHousePanelObservations(input: ReconcileInput): Reconcil
     const slotKey = `${obs.panel_id}|${obs.slot.side}|${obs.slot.position}`;
     const liveRow = live.get(slotKey);
     const primaryBreaker = obs.positions[0];
+    const panelHasFarmOpsRows = farmopsPanels.has(String(obs.panel_id));
 
     for (const f of obs.fields) {
-      const canonicalValue = str(canonical[`${obs.panel_id}|${primaryBreaker}|${f.field}`] ?? null);
-      const farmopsValue =
-        liveRow == null
+      const comparable = COMPARABLE_FIELDS.includes(f.field);
+
+      // ------------------------------------------------ canonical comparison
+      const canonicalKey = `${obs.panel_id}|${primaryBreaker}|${f.field}`;
+      const canonicalRaw = comparable ? (canonical[canonicalKey] ?? null) : null;
+      const canonicalValue = str(canonicalRaw);
+      const canonical_state: ComparisonState = !comparable
+        ? "no_mapping"
+        : canonicalValue !== null
+          ? "present"
+          : canonicalRaw !== null
+            ? "blank"
+            : canonicalPanels.has(String(obs.panel_id))
+              ? "record_absent"
+              : "no_mapping";
+
+      // -------------------------------------------------- FarmOps comparison
+      const farmopsRaw = !comparable
+        ? null
+        : liveRow == null
           ? null
           : f.field === "label"
-            ? str(liveRow.label)
+            ? liveRow.label
             : f.field === "poles"
-              ? str(liveRow.poles)
-              : str(liveRow.ocp_amps);
+              ? liveRow.poles
+              : liveRow.ocp_amps;
+      const farmopsValue = str(farmopsRaw);
+      const farmops_state: ComparisonState = !comparable
+        ? "no_mapping"
+        : liveRow == null
+          ? "record_absent"
+          : farmopsValue === null
+            ? "blank"
+            : "present";
+
+      if (!comparable) {
+        // Notes, photo references and other transcription columns are evidence
+        // only: FarmOps stores no equivalent, so nothing may be proposed.
+        rows.push({
+          ...base,
+          field: f.field,
+          field_label: f.field_label || OBSERVED_FIELD_LABELS[f.field],
+          canonical_value: null,
+          farmops_value: null,
+          field_observed_text: f.observed_text,
+          field_interpreted: f.interpreted,
+          confidence: f.confidence,
+          verification_required: f.verification_required,
+          classification: "FIELD_OBSERVATION_NEW",
+          proposed_action: "preserve_observation_only",
+          detail: "Evidence-only transcription field; FarmOps holds no equivalent attribute.",
+          provenance: f.provenance,
+          canonical_state,
+          farmops_state,
+        });
+        continue;
+      }
+
       const c = classify(f, canonicalValue, farmopsValue);
       const row: ReconciliationRow = {
         ...base,
@@ -661,6 +1089,8 @@ export function reconcileHousePanelObservations(input: ReconcileInput): Reconcil
         proposed_action: c.action,
         detail: c.detail,
         provenance: f.provenance,
+        canonical_state,
+        farmops_state,
       };
       if (c.action === "propose_farmops_update" && f.interpreted !== null && liveRow) {
         row.target = {
@@ -674,7 +1104,9 @@ export function reconcileHousePanelObservations(input: ReconcileInput): Reconcil
         };
       } else if (c.action === "propose_farmops_update" && !liveRow) {
         row.proposed_action = "requires_review";
-        row.detail = "No FarmOps breaker-position record exists for that slot yet; review before creating one.";
+        row.detail = panelHasFarmOpsRows
+          ? `FarmOps has breaker positions for ${obs.panel_id} but none at ${obs.slot.side} ${obs.slot.position}; creating one is a separate previewable proposal.`
+          : `FarmOps holds no breaker-position records at all for ${obs.panel_id} — a dataset state, not a parse failure. Creating them is a separate previewable proposal.`;
       }
       rows.push(row);
     }
@@ -684,9 +1116,8 @@ export function reconcileHousePanelObservations(input: ReconcileInput): Reconcil
     const feederLabel = obs.fields.find((f) => f.field === "label" && SUBPANEL_LABEL.test(f.observed_text));
     if (feederLabel && obs.panel_id === "PNL-H1" && (obs.poles ?? 1) >= 2) {
       const currentParent = input.currentSubpanelParent ?? null;
-      const evidence = `PNL-H1 positions ${obs.positions_text} — ${feederLabel.observed_text} — ${obs.poles}-pole ${
-        obs.fields.find((f) => f.field === "ocp_amps")?.interpreted ?? "?"
-      } A`;
+      const amps = obs.fields.find((f) => f.field === "ocp_amps")?.interpreted ?? "?";
+      const evidence = `PNL-H1 positions ${obs.positions_text} — ${feederLabel.observed_text} — ${obs.poles}-pole ${amps} A`;
       const already = currentParent === "PNL-H1";
       rows.push({
         ...base,
@@ -702,9 +1133,11 @@ export function reconcileHousePanelObservations(input: ReconcileInput): Reconcil
         classification: already ? "MATCH" : "TOPOLOGY_PROPOSAL",
         proposed_action: already ? "no_change" : "propose_topology_update",
         detail: already
-          ? "The current service revision already represents SVC-HOUSE → PNL-H1 → PNL-H2."
-          : "Field evidence supports PNL-H1 → 60 A feeder → PNL-H2 in the current as-built revision.",
+          ? `No topology proposal is required: the current service revision already represents SVC-HOUSE → PNL-H1 → PNL-H2, and this evidence (${evidence}) confirms it.`
+          : `Field evidence (${evidence}) supports PNL-H1 → PNL-H2 in the current as-built revision.`,
         provenance: feederLabel.provenance,
+        canonical_state: "no_mapping",
+        farmops_state: currentParent === null ? "record_absent" : "present",
         topology: already
           ? undefined
           : { panel_id: "PNL-H2", current_parent: currentParent, proposed_parent: "PNL-H1", evidence },
@@ -715,30 +1148,54 @@ export function reconcileHousePanelObservations(input: ReconcileInput): Reconcil
   return rows;
 }
 
+
 // ------------------------------------------------------------------ reporting
 
 export interface ReconciliationTotals {
-  source_rows_parsed: number;
-  logical_breakers: number;
+  /** Non-empty spreadsheet rows read. NOT the breaker count. */
+  source_rows_read: number;
+  duplicate_source_rows_suppressed: number;
+  multipole_continuation_rows_merged: number;
+  unique_logical_breakers: number;
+  field_observations_emitted: number;
+  sheets_recognized: number;
+  sheets_skipped: number;
   single_pole: number;
   multi_pole: number;
-  matched_circuits: number;
+  fields_compared_against_farmops: number;
+  farmops_record_absent: number;
+  canonical_no_mapping: number;
+  canonical_record_absent: number;
+  canonical_present: number;
+  source_evidence_conflicts: number;
   unresolved_observations: number;
   exact_matches: number;
   conflicts: number;
   verification_required: number;
+  topology_evidence_rows: number;
   topology_proposals: number;
   eligible_farmops_updates: number;
 }
 
 export function reconciliationTotals(parsed: ParseResult, rows: ReconciliationRow[]): ReconciliationTotals {
   const breakers = parsed.observations;
+  const d = parsed.diagnostics;
   return {
-    source_rows_parsed: parsed.rows_parsed,
-    logical_breakers: breakers.length,
+    source_rows_read: d.source_rows_read,
+    duplicate_source_rows_suppressed: d.duplicate_source_rows_suppressed,
+    multipole_continuation_rows_merged: d.multipole_continuation_rows_merged,
+    unique_logical_breakers: d.unique_logical_breakers,
+    field_observations_emitted: d.field_observations_emitted,
+    sheets_recognized: d.sheets_recognized,
+    sheets_skipped: d.sheets_skipped.length,
     single_pole: breakers.filter((b) => (b.poles ?? 1) === 1).length,
     multi_pole: breakers.filter((b) => (b.poles ?? 1) > 1).length,
-    matched_circuits: rows.filter((r) => r.farmops_value !== null && r.field !== "parent_panel").length,
+    fields_compared_against_farmops: rows.filter((r) => r.farmops_state === "present").length,
+    farmops_record_absent: rows.filter((r) => r.farmops_state === "record_absent").length,
+    canonical_no_mapping: rows.filter((r) => r.canonical_state === "no_mapping").length,
+    canonical_record_absent: rows.filter((r) => r.canonical_state === "record_absent").length,
+    canonical_present: rows.filter((r) => r.canonical_state === "present").length,
+    source_evidence_conflicts: rows.filter((r) => r.classification === "SOURCE_EVIDENCE_CONFLICT").length,
     unresolved_observations: rows.filter(
       (r) =>
         r.classification === "UNRESOLVED_PANEL_IDENTITY" ||
@@ -751,10 +1208,12 @@ export function reconciliationTotals(parsed: ParseResult, rows: ReconciliationRo
       (r) => r.classification === "THREE_WAY_CONFLICT" || r.classification === "CANONICAL_DIFFERS_FROM_FIELD",
     ).length,
     verification_required: rows.filter((r) => r.verification_required).length,
+    topology_evidence_rows: rows.filter((r) => r.field === "parent_panel").length,
     topology_proposals: rows.filter((r) => r.classification === "TOPOLOGY_PROPOSAL").length,
     eligible_farmops_updates: rows.filter((r) => r.proposed_action === "propose_farmops_update" && r.target).length,
   };
 }
+
 
 const csvCell = (value: unknown) => {
   const s = value === null || value === undefined ? "" : String(value);
@@ -771,7 +1230,9 @@ export function fieldReconciliationCsv(rows: ReconciliationRow[]): string {
     "poles",
     "field",
     "canonical_engineering",
+    "canonical_state",
     "farmops_current",
+    "farmops_state",
     "field_observed_text",
     "field_interpreted",
     "confidence",
@@ -784,6 +1245,7 @@ export function fieldReconciliationCsv(rows: ReconciliationRow[]): string {
     "source_row",
     "source_column",
     "source_photo",
+    "duplicate_source_worksheets",
   ].join(",");
   const lines = rows.map((r) =>
     [
@@ -795,7 +1257,9 @@ export function fieldReconciliationCsv(rows: ReconciliationRow[]): string {
       r.poles ?? "",
       r.field_label,
       r.canonical_value ?? "",
+      r.canonical_state,
       r.farmops_value ?? "",
+      r.farmops_state,
       r.field_observed_text,
       r.field_interpreted ?? "",
       r.confidence,
@@ -808,10 +1272,12 @@ export function fieldReconciliationCsv(rows: ReconciliationRow[]): string {
       r.provenance.source_row,
       r.provenance.source_column,
       r.provenance.source_photo,
+      (r.duplicate_sources ?? []).map((d) => `${d.worksheet}:${d.source_row}`).join(" | "),
     ]
       .map(csvCell)
       .join(","),
   );
+
   return [header, ...lines].join("\n");
 }
 
@@ -841,33 +1307,64 @@ export function fieldReconciliationMarkdown(
 
   out.push(
     "",
+    "`source rows read` counts spreadsheet rows, not breakers: continuation rows",
+    "of multi-pole breakers and duplicate representations of the same breaker on",
+    "another sheet are collapsed into `unique logical breakers`.",
+  );
+
+  if (parsed.diagnostics.sheets_skipped.length) {
+    out.push("", "### Sheets not parsed", "", "| Worksheet | Reason |", "| --- | --- |");
+    for (const s of parsed.diagnostics.sheets_skipped) out.push(`| ${s.worksheet} | ${s.reason} |`);
+  }
+
+  out.push(
+    "",
     "## Observations",
     "",
     "| Panel | Position(s) | Field | Engineering / canonical | FarmOps | Field observed | Confidence | Classification | Proposed action |",
     "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
   );
+  const state = (value: string | null, s: ComparisonState) =>
+    value !== null
+      ? value
+      : s === "blank"
+        ? "(stored blank)"
+        : s === "record_absent"
+          ? "(no record)"
+          : "(no mapping)";
   for (const r of rows) {
     out.push(
-      `| ${r.panel_id ?? r.panel_source_name} | ${r.positions_text || "(none)"} | ${r.field_label} | ${
-        r.canonical_value ?? "(silent)"
-      } | ${r.farmops_value ?? "(none)"} | ${r.field_observed_text || "(blank)"} | ${r.confidence} | ${
+      `| ${r.panel_id ?? r.panel_source_name} | ${r.positions_text || "(none)"} | ${r.field_label} | ${state(
+        r.canonical_value,
+        r.canonical_state,
+      )} | ${state(r.farmops_value, r.farmops_state)} | ${r.field_observed_text || "(blank)"} | ${r.confidence} | ${
         r.classification
       } | ${r.proposed_action} |`,
     );
   }
 
   const topology = rows.filter((r) => r.topology);
-  out.push("", "## Topology proposals", "");
-  if (!topology.length) out.push("None.");
-  else {
-    for (const r of topology) {
+  const topologyEvidence = rows.filter((r) => r.field === "parent_panel");
+  out.push("", "## Topology", "");
+  if (!topologyEvidence.length) out.push("No sub-panel feeder evidence was observed.");
+  for (const r of topologyEvidence) {
+    if (r.topology) {
       out.push(
-        `- ${r.topology!.panel_id}: current parent ${r.topology!.current_parent ?? "(not represented)"} → proposed parent ${
-          r.topology!.proposed_parent
-        }; evidence: ${r.topology!.evidence}`,
+        `- PROPOSAL — ${r.topology.panel_id}: current parent ${r.topology.current_parent ?? "(not represented)"} → proposed parent ${
+          r.topology.proposed_parent
+        }; evidence: ${r.topology.evidence}`,
       );
+    } else {
+      out.push(`- ALREADY CORRECT — ${r.detail}`);
     }
   }
+  if (topologyEvidence.length && !topology.length) {
+    out.push(
+      "",
+      "Topology was evaluated and required no change; the absence of a proposal is a result, not a gap.",
+    );
+  }
+
 
   if (parsed.warnings.length) {
     out.push("", "## Parser warnings", "");

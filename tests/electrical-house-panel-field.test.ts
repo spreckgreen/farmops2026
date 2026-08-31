@@ -188,7 +188,9 @@ describe("three-way reconciliation", () => {
 
   it("produces diagnostics, CSV and a Markdown report", () => {
     const totals = reconciliationTotals(parsed, rows);
-    expect(totals.logical_breakers).toBe(parsed.observations.length);
+    expect(totals.unique_logical_breakers).toBe(parsed.observations.length);
+    expect(totals.source_rows_read).toBeGreaterThanOrEqual(totals.unique_logical_breakers);
+
     expect(totals.multi_pole).toBe(1);
     expect(totals.single_pole).toBeGreaterThan(0);
     expect(totals.topology_proposals).toBe(1);
