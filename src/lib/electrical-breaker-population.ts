@@ -230,11 +230,41 @@ export function planBreakerPopulation(input: BreakerPopulationInput): BreakerPop
       poles_source = "single_position";
     }
 
-    // ---- amps: only when actually known. Uncertain / unknown stays null.
+    // ---- amps: only when the workbook's own amp column states a number.
+    // The amp trace is taken from the source row, so "no amp column on the
+    // sheet", "amp cell blank" and "amp cell says VERIFY" stay distinguishable.
+    const ampTraces: AmpSourceTrace[] = group.map(
+      (g) => g.amp_source ?? classifyAmpObservation(
+        g.fields.some((f) => f.field === "ocp_amps") ? "Breaker Amps" : null,
+        g.fields.find((f) => f.field === "ocp_amps")?.observed_text ?? "",
+      ),
+    );
+    const ampTrace =
+      ampTraces.find((t) => t.status === "explicit_numeric") ??
+      ampTraces.find((t) => t.status === "uncertain") ??
+      ampTraces.find((t) => t.status === "blank") ??
+      ampTraces[0] ?? { column: null, cell_text: "", status: "no_mapping" as AmpObservationStatus, mapped: false };
+
     const ampsKnown =
-      !!ampsField && !ampsField.verification_required && !ampsField.unknown_value
+      ampTrace.status === "explicit_numeric" && ampsField && !ampsField.unknown_value
         ? numOrNull(ampsField.interpreted)
-        : null;
+        : ampTrace.status === "explicit_numeric"
+          ? numOrNull(ampTrace.cell_text)
+          : null;
+    const ampProvenance = ampsField?.provenance ?? null;
+    const amp_evidence =
+      ampTrace.status === "no_mapping" || ampTrace.status === "blank"
+        ? null
+        : [
+            `column “${ampTrace.column ?? "Breaker Amps"}”`,
+            ampProvenance?.worksheet ? `sheet “${ampProvenance.worksheet}”` : primary.provenance.worksheet ? `sheet “${primary.provenance.worksheet}”` : null,
+            (ampProvenance?.source_row ?? primary.provenance.source_row)
+              ? `row ${ampProvenance?.source_row ?? primary.provenance.source_row}`
+              : null,
+            `observed “${ampTrace.cell_text}”`,
+          ]
+            .filter(Boolean)
+            .join(" · ");
 
     // ---- label: observed text only, verification state preserved.
     const labelUsable = !!labelField && !labelField.unknown_value;
@@ -308,6 +338,34 @@ export function planBreakerPopulation(input: BreakerPopulationInput): BreakerPop
       blocking_reason = "Pole count could not be established from the evidence.";
     }
 
+    const source_rows = [
+      primary.provenance.source_row,
+      ...primary.merged_positions_from.map((m) => m.source_row),
+      ...primary.duplicate_sources.map((d) => d.source_row),
+      ...group.slice(1).map((g) => g.provenance.source_row),
+    ].filter((n): n is number => typeof n === "number" && Number.isFinite(n));
+
+    const mismatch: BreakerPositionMismatch | null =
+      action === "blocked_position_mismatch"
+        ? {
+            panel: primary.panel_id ?? primary.panel_source_name,
+            raw_circuit_text: primary.positions_text,
+            parsed_positions: positions,
+            observed_poles: poles,
+            observed_poles_text:
+              primary.poles_stated !== null && primary.poles_stated !== undefined
+                ? String(primary.poles_stated)
+                : polesField?.observed_text || null,
+            poles_source,
+            source_sheet: primary.provenance.worksheet ?? null,
+            source_rows: [...new Set(source_rows)].sort((a, b) => a - b),
+            reason:
+              poles_source === "observed" || primary.poles_stated
+                ? `Poles column states ${poles}, but the circuit text “${primary.positions_text}” parses to ${slots.length} physical position${slots.length === 1 ? "" : "s"} (${positions.join(", ") || "none"}). Either the transcription omits a paired position or the circuit text is not a position list.`
+                : `A ${poles}-pole breaker was derived, but only ${slots.length} position${slots.length === 1 ? "" : "s"} resolved from “${primary.positions_text}”.`,
+          }
+        : null;
+
     rows.push({
       key: id,
       panel_id: primary.panel_id,
@@ -319,7 +377,13 @@ export function planBreakerPopulation(input: BreakerPopulationInput): BreakerPop
       poles_source,
       ocp_amps: ampsKnown,
       amps_unknown: ampsKnown === null,
-      amps_observed_text: ampsField?.observed_text || null,
+      amps_observed_text: ampsField?.observed_text || (ampTrace.cell_text || null),
+      amp_status: ampTrace.status,
+      amp_status_label: AMP_STATUS_LABELS[ampTrace.status],
+      amp_source_column: ampTrace.column,
+      amp_observation_present: ampTrace.status === "explicit_numeric" || ampTrace.status === "uncertain",
+      amp_evidence,
+      mismatch,
       label,
       label_observed_text: labelField?.observed_text || null,
       confidence,
@@ -368,6 +432,11 @@ export function breakerPopulationDiagnostics(rows: BreakerPopulationRow[]): Brea
     blocked_position_mismatch: count("blocked_position_mismatch"),
     blocked_unresolved: count("blocked_unresolved"),
     breaker_amps_unknown: rows.filter((r) => r.amps_unknown).length,
+    explicit_amp_observations: rows.filter((r) => r.amp_observation_present).length,
+    explicit_numeric_amps: rows.filter((r) => r.amp_status === "explicit_numeric").length,
+    blank_amps: rows.filter((r) => r.amp_status === "blank").length,
+    uncertain_amps: rows.filter((r) => r.amp_status === "uncertain").length,
+    no_amp_mapping: rows.filter((r) => r.amp_status === "no_mapping").length,
     verification_required: rows.filter((r) => r.verification_required).length,
     conflicts: count("conflict_do_not_apply"),
     requires_review: count("requires_review"),
@@ -375,6 +444,43 @@ export function breakerPopulationDiagnostics(rows: BreakerPopulationRow[]): Brea
       .filter((r) => r.action === "propose_create")
       .reduce((n, r) => n + r.slots.length, 0),
   };
+}
+
+/** Every blocked position/pole mismatch, for inspection before any correction. */
+export function breakerPositionMismatches(rows: BreakerPopulationRow[]): BreakerPositionMismatch[] {
+  return rows.map((r) => r.mismatch).filter((m): m is BreakerPositionMismatch => m !== null);
+}
+
+export const BREAKER_MISMATCH_CSV = "phase-4.4b-breaker-position-mismatches.csv";
+
+export function breakerMismatchCsv(rows: BreakerPopulationRow[]): string {
+  const head = [
+    "panel",
+    "raw_circuit_text",
+    "parsed_occupied_positions",
+    "observed_poles",
+    "observed_poles_text",
+    "poles_source",
+    "source_sheet",
+    "source_rows",
+    "reason",
+  ];
+  const lines = breakerPositionMismatches(rows).map((m) =>
+    [
+      m.panel,
+      m.raw_circuit_text,
+      m.parsed_positions.join("/"),
+      m.observed_poles ?? "",
+      m.observed_poles_text ?? "",
+      m.poles_source,
+      m.source_sheet ?? "",
+      m.source_rows.join(" "),
+      m.reason,
+    ]
+      .map(csvCell)
+      .join(","),
+  );
+  return [head.join(","), ...lines].join("\n");
 }
 
 // ------------------------------------------------------------------- exports
@@ -394,6 +500,9 @@ export function breakerPopulationCsv(rows: BreakerPopulationRow[]): string {
     "poles_source",
     "breaker_amps",
     "amps_observed_text",
+    "amp_status",
+    "amp_source_column",
+    "amp_evidence",
     "directory_description",
     "confidence",
     "verification_status",
@@ -414,6 +523,9 @@ export function breakerPopulationCsv(rows: BreakerPopulationRow[]): string {
       r.poles_source,
       r.ocp_amps ?? "UNKNOWN",
       r.amps_observed_text ?? "",
+      r.amp_status,
+      r.amp_source_column ?? "",
+      r.amp_evidence ?? "",
       r.label ?? "",
       r.confidence,
       r.verification_status,
@@ -464,6 +576,9 @@ export function breakerPopulationMarkdown(
     `- Blocked by position/pole mismatch: ${d.blocked_position_mismatch}`,
     `- Blocked by unresolved panel or position: ${d.blocked_unresolved}`,
     `- Breaker amps unknown: ${d.breaker_amps_unknown}`,
+    `- Explicit amp observations: ${d.explicit_amp_observations} (numeric ${d.explicit_numeric_amps}, uncertain ${d.uncertain_amps})`,
+    `- Blank amp cells: ${d.blank_amps}`,
+    `- No breaker-amp column mapping: ${d.no_amp_mapping}`,
     `- Verification required: ${d.verification_required}`,
     `- Source conflicts: ${d.conflicts}`,
     `- Requires review: ${d.requires_review}`,
