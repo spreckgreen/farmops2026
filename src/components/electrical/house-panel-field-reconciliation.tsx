@@ -85,6 +85,9 @@ export function HousePanelFieldReconciliation() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [panel, setPanel] = useState<string>("all");
   const [filter, setFilter] = useState<Filter>("all");
+  /** Photo evidence keyed by reconciliation row. */
+  const [photos, setPhotos] = useState<Record<string, ObservationPhoto>>({});
+
 
   const previewMutation = useMutation({
     mutationFn: async (file: File) => {
