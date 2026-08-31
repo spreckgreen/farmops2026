@@ -1,10 +1,8 @@
 // Phase 4.4b — preview-first population of the continuous-raceway topology.
 //
-// Preview re-reads the live junction boxes and raceways and reports the exact
-// proposal per record. Apply requires `confirm: true` and writes ONLY
-// raceway_uuid / raceway_sequence / raceway_ref on the junction box. It never
-// touches stable IDs, other relationships, ods_extras, engineering values,
-// labels, installation state or the canonical ODS.
+// This production-verification endpoint re-reads the live junction boxes and
+// raceways and reports the exact pre-resolver and resolver state per record.
+// It is deliberately read-only: no input accepted by this function can write.
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";

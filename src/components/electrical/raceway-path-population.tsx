@@ -1,9 +1,7 @@
 // Phase 4.4b — preview-first population of continuous-raceway topology.
 //
-// Preview writes nothing. Apply writes only the parent-raceway link, the
-// position and the derived reference, and only for boxes that are still
-// unlinked. Existing relationships, stable IDs and engineering values are never
-// overwritten.
+// Read-only production diagnostic for continuous-raceway topology. It exposes
+// owner-scoped fetch visibility and unfiltered resolver results and never writes.
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -37,9 +35,8 @@ export function RacewayPathPopulation() {
       <CardContent className="space-y-3 text-sm">
         <p className="text-muted-foreground">
           Proposes the parent raceway and physical position for junction boxes that are not linked
-          yet. Preview first: nothing is written until you apply, and boxes that already have a
-          different parent, an ambiguous path or a taken position are left untouched for manual
-          review.
+          yet. This production-verification preview is read-only; boxes that already have a different
+          parent, an ambiguous path or a taken position are left untouched for manual review.
         </p>
         <div className="flex flex-wrap gap-2">
           <Button size="sm" variant="outline" disabled={m.isPending} onClick={() => m.mutate()}>
