@@ -1542,7 +1542,7 @@ export function fieldReconciliationMarkdown(
     "",
     "- Preview performed no database writes.",
     "- The canonical ODS was not written.",
-    "- The proposed future 400 A House revision was not modified.",
+    "- No proposed / future service revision was modified; only the current as-built revision is ever considered.",
     "- Phase 4.4a semantic-loss protections (LOSS = 0) are untouched: no `ods_extras` value was changed.",
     "- Verbatim observed text is retained beside every interpretation.",
   );
