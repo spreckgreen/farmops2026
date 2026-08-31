@@ -75,6 +75,32 @@ export const previewRacewayPathPopulation = createServerFn({ method: "POST" })
       jbox: jb.data ?? [],
       branch: [],
     } as never);
+    const jboxRowsRead = (jb.data ?? []) as Record<string, unknown>[];
+    const racewayRowsRead = (rw.data ?? []) as Record<string, unknown>[];
+    const byPath = new Map<string, string[]>();
+    for (const r of racewayRowsRead) {
+      const id = String(r["conduit_id"] ?? "").trim();
+      const path = racewayPathNumber(id);
+      if (!path) continue;
+      byPath.set(path, [...(byPath.get(path) ?? []), id].sort());
+    }
+    const statusCounts: Record<PathProposal["status"], number> = {
+      proposed: 0,
+      already_linked: 0,
+      no_evidence: 0,
+      conflict: 0,
+    };
+    for (const p of plan) statusCounts[p.status]++;
+    const diagnostics: PathPopulationDiagnostics = {
+      jboxRows: jboxRowsRead.length,
+      racewayRows: racewayRowsRead.length,
+      linkedJboxes: jboxRowsRead.filter((j) => String(j["raceway_uuid"] ?? "").trim()).length,
+      statusCounts,
+      racewaysByPath: [...byPath.entries()]
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([path, raceways]) => ({ path, raceways })),
+    };
+
     const wanted = new Set(data.jbox_ids.map((s) => s.trim().toUpperCase()));
     const rows: PathPopulationRow[] = [];
     let changed = 0;
