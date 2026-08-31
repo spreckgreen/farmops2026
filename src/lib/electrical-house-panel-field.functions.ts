@@ -169,7 +169,13 @@ export const previewHousePanelFieldReconciliation = createServerFn({ method: "PO
       }
     }
 
-    const rows = reconcileHousePanelObservations({ parsed, farmops, canonical, currentSubpanelParent });
+    const rows = reconcileHousePanelObservations({
+      parsed,
+      farmops,
+      canonical,
+      canonicalPanels,
+      currentSubpanelParent,
+    });
     const generated_at = new Date().toISOString();
     return {
       phase: FIELD_RECONCILIATION_PHASE,
@@ -177,9 +183,11 @@ export const previewHousePanelFieldReconciliation = createServerFn({ method: "PO
       generated_at,
       rows,
       totals: reconciliationTotals(parsed, rows),
+      diagnostics: parsed.diagnostics,
       warnings: parsed.warnings,
       csv: fieldReconciliationCsv(rows),
       markdown: fieldReconciliationMarkdown(parsed, rows, generated_at),
+
       wrote_anything: false,
       sor_authority: "canonical_ods",
     };
