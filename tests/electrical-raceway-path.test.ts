@@ -184,7 +184,7 @@ describe("CON-104 exact production topology", () => {
 
   it("chains all three boxes in order and keeps the run going past the branches", () => {
     const out = buildDiagram(graph({ branch: branches } as never), { type: "whole_system" });
-    const key = (stableId: string) => out.nodes.find((n) => n.stableId === stableId)?.id;
+    const key = (stableId: string) => out.nodes.find((n) => n.stableId === stableId)?.key;
     const con = key("CON-104")!;
     const j1 = key("JB-104-01")!;
     const j2 = key("JB-104-02")!;
