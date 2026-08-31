@@ -389,12 +389,74 @@ export function buildDiagram(
 
   // ---- utility / service + feeders
   if (panels.length && (type === "whole_system" || type === "site" || type === "critical_power")) {
-    const utility = b.node("utility", "UTILITY", "Utility service", undefined, "utility");
+    // Authoritative service-to-panel relationships come from the current
+    // service revision (one resolver, shared with Electrical → Services).
+    const service = resolveServiceTopology({
+      panels: data.panel,
+      services: data.service,
+      serviceConfigs: data.service_config,
+      servicePanels: data.service_panel,
+      interties: data.intertie,
+      intertieConfigs: data.intertie_config,
+    });
+    const modelled = service.services.length > 0;
+    const serviceKeys = new Map<string, string>();
+    if (modelled) {
+      for (const svc of service.services) {
+        const label = svc.ampacityAmps
+          ? `${svc.serviceId}<br/>${svc.ampacityAmps}A utility service`
+          : `${svc.serviceId}<br/>Utility service`;
+        serviceKeys.set(svc.serviceId, b.node("utility", svc.serviceId, label, undefined, "utility"));
+      }
+      for (const edge of service.edges) {
+        const child = idx.panelById.get(edge.to);
+        if (edge.kind === "service") {
+          const from = serviceKeys.get(edge.from);
+          if (!from) continue;
+          b.edge(
+            from,
+            child ? b.node("panel", edge.to, panelLabel(child), child) : b.node("unknown", edge.to, `${edge.to}<br/>(unknown)`, undefined, "unknown"),
+            edge.ampacityAmps ? `service ${edge.ampacityAmps}A` : "service",
+          );
+        } else {
+          const parent = idx.panelById.get(edge.from);
+          b.edge(
+            parent ? b.node("panel", edge.from, panelLabel(parent), parent) : b.node("unknown", edge.from, `${edge.from}<br/>(unknown)`, undefined, "unknown"),
+            child ? b.node("panel", edge.to, panelLabel(child), child) : b.node("unknown", edge.to, `${edge.to}<br/>(unknown)`, undefined, "unknown"),
+            "feeder",
+          );
+        }
+      }
+      for (const it of service.interties) {
+        const a = serviceKeys.get(it.fromServiceId);
+        const c = serviceKeys.get(it.toServiceId);
+        if (!a || !c) continue;
+        const node = b.node("utility", it.intertieId, `${it.intertieId}<br/>${it.normalState || "intertie"}`, undefined, "intertie");
+        b.edge(a, node, it.transferMethod || "intertie", true);
+        b.edge(node, c, it.normalState || "intertie", true);
+      }
+      for (const f of servicePanelDomainFindings(service)) {
+        b.issue(
+          f.severity,
+          f.code === "ambiguous_service_domain"
+            ? "ambiguous_service_domain"
+            : f.code === "panel_feeder_cycle"
+              ? "circular_reference"
+              : "unresolved_upstream",
+          f.message,
+        );
+      }
+    }
+    const utility = modelled
+      ? ""
+      : b.node("utility", "UTILITY", "Utility service", undefined, "utility");
     for (const p of panels) {
       const key = b.node("panel", sid("panel", p), panelLabel(p), p);
       const feeder = s(p["feeder_source"]);
       if (!feeder) {
-        b.edge(utility, key, "service");
+        // No modelled upstream source: never fabricate a service connection when
+        // explicit service identities exist.
+        if (utility) b.edge(utility, key, "service");
         continue;
       }
       const upstream = idx.panelById.get(feeder);
@@ -404,7 +466,7 @@ export function buildDiagram(
       } else if (feeder.toUpperCase().startsWith("PNL-")) {
         b.issue("error", "unknown_panel", `Panel ${sid("panel", p)} is fed from unknown panel ${feeder}.`);
         b.edge(b.node("unknown", feeder, `${feeder}<br/>(unknown)`, undefined, "unknown"), key, "feeder");
-      } else {
+      } else if (utility) {
         b.edge(utility, key, `feeder: ${feeder}`);
       }
     }
