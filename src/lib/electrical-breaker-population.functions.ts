@@ -135,6 +135,14 @@ export const previewBreakerPopulation = createServerFn({ method: "POST" })
 
 // ------------------------------------------------------------------- apply
 
+const photoSchema = z.object({
+  bucket: z.string().trim().min(1).max(80),
+  path: z.string().trim().min(1).max(400),
+  name: z.string().trim().min(1).max(200),
+  mime: z.string().trim().max(120).default(""),
+  size: z.number().int().nonnegative().default(0),
+});
+
 const applyInput = z.object({
   /** Must be true; Preview never sets it. */
   confirm: z.boolean(),
@@ -160,6 +168,30 @@ const applyInput = z.object({
       }),
     )
     .max(400),
+  /**
+   * Supporting photos, one per observed circuit. These are evidence, not
+   * engineering values: they land in electrical_field_observations keyed by
+   * panel + occupied positions and are never copied into breaker fields.
+   */
+  evidence: z
+    .array(
+      z.object({
+        panel_id: z.string().trim().max(60).nullable().default(null),
+        panel_source_name: z.string().trim().max(120).default(""),
+        positions_text: z.string().trim().max(60).default(""),
+        poles: z.number().int().min(1).max(3).nullable().default(null),
+        observed_text: z.string().trim().max(500).default(""),
+        notes: z.string().trim().max(1000).nullable().default(null),
+        confidence: z.string().trim().max(40).nullable().default(null),
+        verification_status: z.string().trim().max(40).nullable().default(null),
+        proposed_action: z.string().trim().max(60).nullable().default(null),
+        worksheet: z.string().trim().max(200).nullable().default(null),
+        workbook: z.string().trim().max(200).default(""),
+        photo: photoSchema,
+      }),
+    )
+    .max(400)
+    .default([]),
 });
 
 export type BreakerCreateStatus = "would_create" | "created" | "blocked_now_exists" | "failed";
@@ -178,7 +210,11 @@ export interface BreakerPopulationApplyResult {
   created: number;
   blocked: number;
   failed: number;
+  /** Photo evidence rows written to the observation journal. */
+  evidence_recorded: number;
+  evidence_errors: string[];
 }
+
 
 export const applyBreakerPopulation = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
