@@ -7,6 +7,7 @@
 
 import { ENTITIES } from "@/lib/electrical-entities";
 import { isSiteEnvironment, type ElectricalEntityKind } from "@/lib/electrical";
+import { orderedJunctionPoints, positionLabel } from "@/lib/electrical-raceway-path";
 
 export type ElectricalValue = string | number | boolean | null;
 export interface Row {
