@@ -196,7 +196,8 @@ export function findHeaderRow(sheet: Sheet): HeaderMap | null {
 
 // ------------------------------------------------------------ value semantics
 
-const UNCERTAIN = /(^|\W)(verify|unverified|unsure|tbd|to be determined|assumed|maybe|\?)/i;
+// A question mark anywhere in the transcription is an uncertainty marker.
+const UNCERTAIN = /\?|(^|\W)(verify|unverified|unsure|tbd|to be determined|assumed|maybe)/i;
 const UNKNOWN_TEXT = /(^|\W)(unknown|unidentified|not known|no label)/i;
 
 export function isUncertainText(raw: unknown): boolean {
