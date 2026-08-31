@@ -12,19 +12,24 @@ import {
   commissionIntertieConfiguration,
   commissionServiceConfiguration,
   deleteServiceConfiguration,
+  deleteServicePanelLink,
   saveIntertie,
   saveIntertieConfiguration,
   saveService,
   saveServiceConfiguration,
+  saveServicePanelLink,
   serviceState,
 } from "@/lib/electrical-services.functions";
 import {
+  FED_FROM_KINDS,
   INTERTIE_LIFECYCLE_STATES,
   SERVICE_ID_SHAPE,
   SERVICE_LIFECYCLE_STATES,
   currentIntertieConfiguration,
   currentServiceConfiguration,
+  fedFromKindLabel,
   futureServiceConfigurations,
+  renderServiceTopology,
   groupByParent,
   intertieLifecycleLabel,
   serviceLifecycleLabel,
@@ -113,6 +118,8 @@ function Services() {
     "Revision commissioned as the current configuration",
   );
   const removeConfig = mutate(useServerFn(deleteServiceConfiguration), "Revision removed");
+  const addPanel = mutate(useServerFn(saveServicePanelLink), "Panel membership saved");
+  const removePanel = mutate(useServerFn(deleteServicePanelLink), "Panel membership removed");
   const addTie = mutate(useServerFn(saveIntertie), "Intertie saved");
   const addTieConfig = mutate(useServerFn(saveIntertieConfiguration), "Intertie revision saved");
   const commissionTie = mutate(
@@ -123,6 +130,10 @@ function Services() {
   const data = q.data;
   const configsByService = useMemo(
     () => groupByParent((data?.configs ?? []) as Row[], "service_uuid"),
+    [data],
+  );
+  const panelsByConfig = useMemo(
+    () => groupByParent((data?.servicePanels ?? []) as Row[], "service_config_uuid"),
     [data],
   );
   const configsByTie = useMemo(
@@ -327,6 +338,158 @@ function Services() {
           })}
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+/**
+ * Panel membership for one configuration revision. The "fed from" choice is what
+ * makes PNL-H2 a subpanel of PNL-H1 today and a second service-fed panel in a
+ * proposed 400 A design — the panel keeps the same stable ID in both.
+ */
+function RevisionPanels({
+  serviceId,
+  configUuid,
+  isCurrent,
+  links,
+  panels,
+  pending,
+  onAdd,
+  onRemove,
+}: {
+  serviceId: string;
+  configUuid: string;
+  isCurrent: boolean;
+  links: Row[];
+  panels: Row[];
+  pending: boolean;
+  onAdd: (v: Record<string, unknown>) => void;
+  onRemove: (id: string) => void;
+}) {
+  const [panelUuid, setPanelUuid] = useState("");
+  const [kind, setKind] = useState<string>("service_equipment");
+  const [parentUuid, setParentUuid] = useState("");
+  const [amps, setAmps] = useState("");
+  const [role, setRole] = useState("");
+
+  const byUuid = new Map(panels.map((p) => [str(p["id"]), str(p["panel_id"])]));
+  const chains = renderServiceTopology(serviceId || "SERVICE", links);
+
+  const submit = () => {
+    if (!panelUuid) {
+      toast.error("Choose the panel this revision feeds.");
+      return;
+    }
+    if (kind === "panel" && !parentUuid) {
+      toast.error("Choose the parent panel that feeds it.");
+      return;
+    }
+    onAdd({
+      service_config_uuid: configUuid,
+      panel_uuid: panelUuid,
+      panel_ref: byUuid.get(panelUuid) ?? null,
+      role: role.trim() || null,
+      sequence: links.length + 1,
+      fed_from_kind: kind,
+      fed_from_panel_uuid: kind === "panel" ? parentUuid : null,
+      fed_from_panel_ref: kind === "panel" ? (byUuid.get(parentUuid) ?? null) : null,
+      panel_ampacity_amps: amps.trim() ? Number(amps) : null,
+    });
+    setPanelUuid("");
+    setParentUuid("");
+    setAmps("");
+    setRole("");
+  };
+
+  return (
+    <div className="rounded-md bg-muted/40 p-2 space-y-2 text-sm">
+      <p className="text-xs text-muted-foreground">
+        Panel topology for this revision{isCurrent ? " (active)" : " (stored design, not installed)"}
+      </p>
+      {chains.length === 0 ? (
+        <p className="text-muted-foreground">No panels linked to this revision yet.</p>
+      ) : (
+        <ul className="space-y-0.5 font-mono text-xs">
+          {chains.map((chain) => (
+            <li key={chain}>{chain}</li>
+          ))}
+        </ul>
+      )}
+      {links.map((l) => (
+        <div key={str(l["id"])} className="flex flex-wrap items-center gap-2">
+          <span className="font-mono">{str(l["panel_ref"])}</span>
+          <span className="text-muted-foreground">
+            fed from {fedFromKindLabel(l["fed_from_kind"])}
+            {str(l["fed_from_panel_ref"]) ? ` ${str(l["fed_from_panel_ref"])}` : ""}
+          </span>
+          {str(l["panel_ampacity_amps"]) && (
+            <Badge variant="outline">{str(l["panel_ampacity_amps"])} A</Badge>
+          )}
+          {str(l["role"]) && <span className="text-muted-foreground">{str(l["role"])}</span>}
+          <Button
+            size="sm"
+            variant="ghost"
+            className="ml-auto"
+            disabled={pending}
+            onClick={() => onRemove(str(l["id"]))}
+          >
+            Unlink
+          </Button>
+        </div>
+      ))}
+      <div className="grid gap-2 sm:grid-cols-5">
+        <Field label="Panel">
+          <Select value={panelUuid} onValueChange={setPanelUuid}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select panel" />
+            </SelectTrigger>
+            <SelectContent>
+              {panels.map((p) => (
+                <SelectItem key={str(p["id"])} value={str(p["id"])}>
+                  {str(p["panel_id"])}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
+        <Field label="Fed from">
+          <Select value={kind} onValueChange={setKind}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {FED_FROM_KINDS.map((k) => (
+                <SelectItem key={k} value={k}>
+                  {fedFromKindLabel(k)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
+        <Field label="Parent panel">
+          <Select value={parentUuid} onValueChange={setParentUuid} disabled={kind !== "panel"}>
+            <SelectTrigger>
+              <SelectValue placeholder="—" />
+            </SelectTrigger>
+            <SelectContent>
+              {panels.map((p) => (
+                <SelectItem key={str(p["id"])} value={str(p["id"])}>
+                  {str(p["panel_id"])}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
+        <Field label="Panel ampacity (A)">
+          <Input value={amps} onChange={(e) => setAmps(e.target.value)} placeholder="200" />
+        </Field>
+        <Field label="Role">
+          <Input value={role} onChange={(e) => setRole(e.target.value)} placeholder="primary" />
+        </Field>
+      </div>
+      <Button size="sm" variant="secondary" disabled={pending} onClick={submit}>
+        Add panel to revision
+      </Button>
     </div>
   );
 }
