@@ -1036,6 +1036,12 @@ export type Database = {
           observed_text: string
           panel_ref: string | null
           panel_uuid: string | null
+          photo_bucket: string | null
+          photo_mime: string | null
+          photo_name: string | null
+          photo_path: string | null
+          photo_size: number | null
+          photo_uploaded_at: string | null
           poles: number | null
           position: number | null
           positions_text: string | null
@@ -1065,6 +1071,12 @@ export type Database = {
           observed_text: string
           panel_ref?: string | null
           panel_uuid?: string | null
+          photo_bucket?: string | null
+          photo_mime?: string | null
+          photo_name?: string | null
+          photo_path?: string | null
+          photo_size?: number | null
+          photo_uploaded_at?: string | null
           poles?: number | null
           position?: number | null
           positions_text?: string | null
@@ -1094,6 +1106,12 @@ export type Database = {
           observed_text?: string
           panel_ref?: string | null
           panel_uuid?: string | null
+          photo_bucket?: string | null
+          photo_mime?: string | null
+          photo_name?: string | null
+          photo_path?: string | null
+          photo_size?: number | null
+          photo_uploaded_at?: string | null
           poles?: number | null
           position?: number | null
           positions_text?: string | null

@@ -24,6 +24,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Camera, Download, FileText, ShieldAlert } from "lucide-react";
+import {
+  ObservationPhotoCell,
+  type ObservationPhoto,
+} from "@/components/electrical/observation-photo-cell";
+
 
 function readAsBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -80,6 +85,9 @@ export function HousePanelFieldReconciliation() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [panel, setPanel] = useState<string>("all");
   const [filter, setFilter] = useState<Filter>("all");
+  /** Photo evidence keyed by reconciliation row. */
+  const [photos, setPhotos] = useState<Record<string, ObservationPhoto>>({});
+
 
   const previewMutation = useMutation({
     mutationFn: async (file: File) => {
@@ -93,6 +101,8 @@ export function HousePanelFieldReconciliation() {
         if (row.proposed_action === "propose_farmops_update" && row.target) next.add(rowKey(row, i));
       });
       setSelected(next);
+      setPhotos({});
+
       toast.success(
         `Preview only — no records changed. ${r.totals.source_rows_read} source row(s) → ${r.totals.unique_logical_breakers} logical breaker(s), ${r.totals.eligible_farmops_updates} eligible FarmOps update(s).`,
       );
@@ -103,7 +113,11 @@ export function HousePanelFieldReconciliation() {
 
   const applyMutation = useMutation({
     mutationFn: async (confirm: boolean) => {
-      const rows = (result?.rows ?? []).filter((r, i) => selected.has(rowKey(r, i)));
+      const pairs = (result?.rows ?? [])
+        .map((r, i) => ({ r, key: rowKey(r, i) }))
+        .filter(({ key }) => selected.has(key));
+      const rows = pairs.map((p) => p.r);
+
       return apply({
         data: {
           confirm,
@@ -136,7 +150,7 @@ export function HousePanelFieldReconciliation() {
               proposed_parent: r.topology!.proposed_parent,
               evidence: r.topology!.evidence,
             })),
-          observations: rows.map((r) => ({
+          observations: pairs.map(({ r, key }) => ({
             panel_id: r.panel_id ?? r.panel_source_name,
             field: r.field,
             side: r.side,
@@ -156,7 +170,13 @@ export function HousePanelFieldReconciliation() {
             source_row: r.provenance.source_row,
             source_column: r.provenance.source_column,
             source_photo: r.provenance.source_photo,
+            photo_bucket: photos[key]?.bucket ?? null,
+            photo_path: photos[key]?.path ?? null,
+            photo_name: photos[key]?.name ?? null,
+            photo_mime: photos[key]?.mime ?? null,
+            photo_size: photos[key]?.size ?? null,
           })),
+
         },
       });
     },
@@ -356,6 +376,8 @@ export function HousePanelFieldReconciliation() {
                     <th className="p-1">Engineering / canonical</th>
                     <th className="p-1">FarmOps</th>
                     <th className="p-1">Field observed</th>
+                    <th className="p-1">Photo evidence</th>
+
                     <th className="p-1">Confidence</th>
                     <th className="p-1">Classification</th>
                     <th className="p-1">Proposed action</th>
@@ -414,6 +436,26 @@ export function HousePanelFieldReconciliation() {
                             </span>
                           ) : null}
                         </td>
+                        <td className="p-1">
+                          <ObservationPhotoCell
+                            photo={photos[k] ?? null}
+                            disabled={applyMutation.isPending}
+                            onChange={(p) =>
+                              setPhotos((prev) => {
+                                const next = { ...prev };
+                                if (p) next[k] = p;
+                                else delete next[k];
+                                return next;
+                              })
+                            }
+                          />
+                          {r.provenance.source_photo ? (
+                            <div className="mt-1 text-xs text-muted-foreground">
+                              cited: {r.provenance.source_photo}
+                            </div>
+                          ) : null}
+                        </td>
+
                         <td className="p-1">{r.confidence}</td>
                         <td className="p-1">
                           <Badge

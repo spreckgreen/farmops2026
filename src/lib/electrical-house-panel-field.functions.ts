@@ -241,6 +241,12 @@ const observationEntry = fieldEntry
     farmops_value: z.string().max(500).nullable().default(null),
     interpreted_value: z.string().max(500).nullable().default(null),
     proposed_action: z.string().max(40).default(""),
+    /** Photo evidence stored in the private field-observations bucket. */
+    photo_bucket: z.string().max(100).nullable().default(null),
+    photo_path: z.string().max(400).nullable().default(null),
+    photo_name: z.string().max(300).nullable().default(null),
+    photo_mime: z.string().max(100).nullable().default(null),
+    photo_size: z.number().int().nonnegative().nullable().default(null),
     disposition: z.enum([
       "observed",
       "verified",
@@ -250,6 +256,7 @@ const observationEntry = fieldEntry
       "needs_field_verification",
     ] as [ObservationDisposition, ...ObservationDisposition[]]),
   });
+
 
 const applyInput = z.object({
   confirm: z.boolean().default(false),
@@ -488,7 +495,14 @@ export const applyHousePanelFieldUpdates = createServerFn({ method: "POST" })
         proposed_action: o.proposed_action || null,
         disposition: o.disposition,
         verification_status: o.disposition === "needs_field_verification" ? "required" : "not_required",
+        photo_bucket: o.photo_path ? (o.photo_bucket || "field-observations") : null,
+        photo_path: o.photo_path,
+        photo_name: o.photo_name,
+        photo_mime: o.photo_mime,
+        photo_size: o.photo_size,
+        photo_uploaded_at: o.photo_path ? new Date().toISOString() : null,
       }));
+
       const { error } = await db.from(OBS_TABLE).insert(payload);
       if (error) throw new Error(error.message);
       recorded = payload.length;
