@@ -83,6 +83,11 @@ export function RacewayPathPopulation() {
               {result.diagnostics.racewayRows === 1 ? "" : "s"}.
             </p>
             <p>
+              Complete read verified: {result.diagnostics.jboxRows}/
+              {result.diagnostics.databaseTotals.jboxes} junction boxes and {result.diagnostics.racewayRows}/
+              {result.diagnostics.databaseTotals.raceways} raceways.
+            </p>
+            <p>
               Proposals: {result.diagnostics.statusCounts.proposed} proposed,{" "}
               {result.diagnostics.statusCounts.already_linked} already linked,{" "}
               {result.diagnostics.statusCounts.conflict} conflict,{" "}

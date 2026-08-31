@@ -37,6 +37,8 @@ export interface PathPopulationDiagnostics {
   statusCounts: Record<PathProposal["status"], number>;
   /** Every raceway stable ID per encoded path number, e.g. "104": ["CON-104"]. */
   racewaysByPath: { path: string; raceways: string[] }[];
+  /** Backend totals, used to prove the preview did not silently stop at an API row cap. */
+  databaseTotals: { jboxes: number; raceways: number };
 }
 
 export interface PathPopulationResult {
@@ -61,23 +63,45 @@ export const previewRacewayPathPopulation = createServerFn({ method: "POST" })
   .handler(async ({ context, data }): Promise<PathPopulationResult> => {
     await requireAddon(context.supabase, context.userId, "electrical");
     const db = context.supabase as unknown as { from: (t: string) => any };
+    const readAll = async (table: string) => {
+      const pageSize = 500;
+      const rows: Record<string, unknown>[] = [];
+      let total = 0;
+      for (let from = 0; ; from += pageSize) {
+        const { data: page, error, count } = await db
+          .from(table)
+          .select("*", { count: "exact" })
+          .order("id", { ascending: true })
+          .range(from, from + pageSize - 1);
+        if (error) throw new Error(error.message);
+        if (from === 0) total = count ?? 0;
+        const batch = (page ?? []) as Record<string, unknown>[];
+        rows.push(...batch);
+        if (batch.length < pageSize) break;
+      }
+      // A partial graph can produce a confident but false "nothing to correct".
+      if (rows.length !== total) {
+        throw new Error(
+          `Raceway path preview read ${rows.length} of ${total} rows from ${table}; no proposals were produced from incomplete data.`,
+        );
+      }
+      return { rows, total };
+    };
     const [jb, rw] = await Promise.all([
-      db.from("electrical_junction_boxes").select("*"),
-      db.from("electrical_raceways").select("*"),
+      readAll("electrical_junction_boxes"),
+      readAll("electrical_raceways"),
     ]);
-    if (jb.error) throw new Error(jb.error.message);
-    if (rw.error) throw new Error(rw.error.message);
 
     const plan = planJboxRacewayPopulation({
       panel: [],
       circuit_group: [],
       load: [],
-      raceway: rw.data ?? [],
-      jbox: jb.data ?? [],
+      raceway: rw.rows,
+      jbox: jb.rows,
       branch: [],
     } as never);
-    const jboxRowsRead = (jb.data ?? []) as Record<string, unknown>[];
-    const racewayRowsRead = (rw.data ?? []) as Record<string, unknown>[];
+    const jboxRowsRead = jb.rows;
+    const racewayRowsRead = rw.rows;
     const byPath = new Map<string, string[]>();
     for (const r of racewayRowsRead) {
       const id = String(r["conduit_id"] ?? "").trim();
@@ -100,6 +124,7 @@ export const previewRacewayPathPopulation = createServerFn({ method: "POST" })
       racewaysByPath: [...byPath.entries()]
         .sort((a, b) => a[0].localeCompare(b[0]))
         .map(([path, raceways]) => ({ path, raceways })),
+      databaseTotals: { jboxes: jb.total, raceways: rw.total },
     };
 
     const wanted = new Set(data.jbox_ids.map((s) => s.trim().toUpperCase()));
