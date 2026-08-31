@@ -4,7 +4,7 @@
 // writes. Apply stays disabled until the preview has been reviewed and the
 // "Apply is armed" switch is explicitly turned on, and it creates only the
 // records that are still selected and still missing in live FarmOps.
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -557,8 +557,8 @@ export function BreakerPopulationPreview({
                 </thead>
                 <tbody>
                   {rows.map((r) => (
-                    <>
-                    <tr key={r.key} className="border-t align-top">
+                    <Fragment key={r.key}>
+                    <tr className="border-t align-top">
 
                       <td className="p-2">
                         <Checkbox
@@ -697,7 +697,7 @@ export function BreakerPopulationPreview({
                         </td>
                       </tr>
                     )}
-                    </>
+                    </Fragment>
                   ))}
 
                 </tbody>
