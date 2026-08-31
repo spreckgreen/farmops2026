@@ -2117,6 +2117,60 @@ export type Database = {
           },
         ]
       }
+      electrical_service_panels: {
+        Row: {
+          created_at: string
+          id: string
+          notes: string | null
+          panel_ref: string | null
+          panel_uuid: string | null
+          role: string | null
+          sequence: number | null
+          service_config_uuid: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          panel_ref?: string | null
+          panel_uuid?: string | null
+          role?: string | null
+          sequence?: number | null
+          service_config_uuid: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          panel_ref?: string | null
+          panel_uuid?: string | null
+          role?: string | null
+          sequence?: number | null
+          service_config_uuid?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "electrical_service_panels_panel_uuid_fkey"
+            columns: ["panel_uuid"]
+            isOneToOne: false
+            referencedRelation: "electrical_panels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "electrical_service_panels_service_config_uuid_fkey"
+            columns: ["service_config_uuid"]
+            isOneToOne: false
+            referencedRelation: "electrical_service_configurations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       electrical_services: {
         Row: {
           building: string | null
