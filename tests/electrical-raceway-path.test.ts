@@ -237,3 +237,50 @@ describe("CON-104 exact production topology", () => {
     expect(plan[0]!.evidence).toContain("matches 2 raceways");
   });
 });
+
+describe("production CON-104 ordered path", () => {
+  const graph = (p: Record<string, unknown[]>) =>
+    ({ panel: [], circuit_group: [], load: [], raceway: [], jbox: [], branch: [], ...p }) as never;
+
+  it("proposes all three unlinked boxes even though CON-104 already ends at JB-104-01", () => {
+    const plan = planJboxRacewayPopulation(
+      graph({
+        raceway: [
+          {
+            id: "r104",
+            conduit_id: "CON-104",
+            source_panel_uuid: "p-nw",
+            dest_jbox_uuid: "j1",
+            dest_endpoint_ref: "JB-104-01",
+          },
+        ],
+        jbox: [
+          { id: "j1", jbox_id: "JB-104-01", raceway_uuid: null, raceway_sequence: null },
+          { id: "j2", jbox_id: "JB-104-02", raceway_uuid: null, raceway_sequence: null },
+          { id: "j3", jbox_id: "JB-104-03", raceway_uuid: null, raceway_sequence: null },
+        ],
+      }),
+    );
+    const proposed = plan.filter((p) => p.status === "proposed");
+    expect(proposed).toHaveLength(3);
+    expect(
+      proposed.map((p) => [p.jbox_id, p.proposed_raceway, p.proposed_sequence]),
+    ).toEqual([
+      ["JB-104-01", "CON-104", 1],
+      ["JB-104-02", "CON-104", 2],
+      ["JB-104-03", "CON-104", 3],
+    ]);
+  });
+
+  it("uses the endpoint relationship when the box ID encodes no path", () => {
+    const plan = planJboxRacewayPopulation(
+      graph({
+        raceway: [{ id: "r104", conduit_id: "CON-104", dest_jbox_uuid: "jx" }],
+        jbox: [{ id: "jx", jbox_id: "JB-NW-MAIN" }],
+      }),
+    );
+    expect(plan[0]?.status).toBe("proposed");
+    expect(plan[0]?.proposed_raceway).toBe("CON-104");
+    expect(plan[0]?.proposed_sequence).toBe(1);
+  });
+});

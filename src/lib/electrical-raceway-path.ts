@@ -257,6 +257,20 @@ export function planJboxRacewayPopulation(graph: ElectricalGraphData): PathPropo
     if (!path) continue;
     racewaysByPath.set(path, [...(racewaysByPath.get(path) ?? []), r]);
   }
+  // Raceways that name a junction box as their own source/destination endpoint.
+  // An endpoint relationship is *evidence of membership*, never a substitute for
+  // it: the box still needs its ordered-path link, so this map only ever adds
+  // proposals — it must not suppress them for the box or for any box downstream.
+  const endpointRaceways = new Map<string, Row[]>();
+  for (const r of raceways) {
+    for (const col of ["source_jbox_uuid", "dest_jbox_uuid"]) {
+      const boxUuid = text(r, col);
+      if (!boxUuid) continue;
+      const list = endpointRaceways.get(boxUuid) ?? [];
+      if (!list.some((x) => String(x.id) === String(r.id))) list.push(r);
+      endpointRaceways.set(boxUuid, list);
+    }
+  }
   // Positions already taken, so a proposal never collides with a stored one.
   const taken = new Map<string, string>();
   for (const jb of jboxes) {
@@ -264,6 +278,13 @@ export function planJboxRacewayPopulation(graph: ElectricalGraphData): PathPropo
     const sequence = num(jb, "raceway_sequence");
     if (parentUuid && sequence != null) taken.set(`${parentUuid}:${sequence}`, sid("jbox", jb));
   }
+  /** Lowest free position on a raceway, used only when the ID encodes none. */
+  const nextFreeSequence = (racewayUuid: string): number => {
+    let n = 1;
+    while (taken.has(`${racewayUuid}:${n}`)) n++;
+    return n;
+  };
+
 
   const out: PathProposal[] = [];
   for (const jb of jboxes) {
@@ -280,7 +301,24 @@ export function planJboxRacewayPopulation(graph: ElectricalGraphData): PathPropo
       current_sequence: currentSeq,
     };
     const encoded = parseHierarchicalId(id);
+    const endpointCandidates = uuid ? (endpointRaceways.get(uuid) ?? []) : [];
     if (!encoded || encoded.prefix !== "JB" || !encoded.jbox) {
+      // The ID says nothing, but a raceway endpoint relationship can still pin
+      // exactly one parent run.
+      if (endpointCandidates.length === 1 && !currentUuid) {
+        const r = endpointCandidates[0]!;
+        const rUuid = r.id ? String(r.id) : "";
+        const seq = nextFreeSequence(rUuid);
+        out.push({
+          ...base,
+          proposed_raceway: sid("raceway", r),
+          proposed_raceway_uuid: rUuid,
+          proposed_sequence: seq,
+          evidence: `${sid("raceway", r)} already records ${id} as one of its endpoints; that raceway is the only run naming this box, so position ${seq} is the next free junction point on it.`,
+          status: "proposed",
+        });
+        continue;
+      }
       out.push({
         ...base,
         proposed_raceway: null,
@@ -291,7 +329,15 @@ export function planJboxRacewayPopulation(graph: ElectricalGraphData): PathPropo
       });
       continue;
     }
-    const candidates = racewaysByPath.get(encoded.path) ?? [];
+    let candidates = racewaysByPath.get(encoded.path) ?? [];
+    // Disambiguate several raceways on one path number using the endpoint
+    // relationship, when it points at exactly one of those candidates.
+    if (candidates.length > 1 && endpointCandidates.length) {
+      const narrowed = candidates.filter((c) =>
+        endpointCandidates.some((e) => String(e.id) === String(c.id)),
+      );
+      if (narrowed.length === 1) candidates = narrowed;
+    }
     if (candidates.length !== 1) {
       out.push({
         ...base,
@@ -312,6 +358,7 @@ export function planJboxRacewayPopulation(graph: ElectricalGraphData): PathPropo
     const target = candidates[0]!;
     const targetUuid = target.id ? String(target.id) : "";
     const targetId = sid("raceway", target);
+
     const proposedSeq = Number(encoded.jbox);
     const evidence = `${id} encodes path ${encoded.path} position ${proposedSeq}; ${targetId} is the only raceway on path ${encoded.path}.`;
 
