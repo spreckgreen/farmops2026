@@ -583,6 +583,23 @@ export function breakerPopulationMarkdown(
     `- Source conflicts: ${d.conflicts}`,
     `- Requires review: ${d.requires_review}`,
     "",
+    ...(rows.some((r) => r.mismatch)
+      ? [
+          "## Position / pole mismatches (inspection only — not repaired)",
+          "",
+          "| Panel | Raw circuit text | Parsed positions | Observed poles | Source sheet | Source row(s) | Reason |",
+          "| --- | --- | --- | --- | --- | --- | --- |",
+          ...breakerPositionMismatches(rows).map(
+            (m) =>
+              `| ${m.panel} | ${m.raw_circuit_text} | ${m.parsed_positions.join("/") || "(none)"} | ${
+                m.observed_poles ?? "?"
+              }${m.observed_poles_text ? ` (“${m.observed_poles_text}”)` : ""} | ${m.source_sheet ?? "?"} | ${
+                m.source_rows.join(", ") || "?"
+              } | ${m.reason.replace(/\|/g, "/")} |`,
+          ),
+          "",
+        ]
+      : []),
     "## Guarantees",
     "",
     "- One proposed record per unique logical breaker (panel + occupied positions), never per spreadsheet row.",
