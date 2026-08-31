@@ -12,6 +12,7 @@ import { requireAddon } from "@/lib/addons.server";
 import {
   orderedJunctionPoints,
   planJboxRacewayPopulation,
+  racewayPathNumber,
   type PathProposal,
 } from "@/lib/electrical-raceway-path";
 
