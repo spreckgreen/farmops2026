@@ -16,6 +16,7 @@ import { GridAuditReport } from "@/components/electrical/grid-audit-report";
 import { LoadCompareReport } from "@/components/electrical/load-compare-report";
 import { TopologyPunchList } from "@/components/electrical/topology-punch-list";
 import { RacewayPathPopulation } from "@/components/electrical/raceway-path-population";
+import { FieldObservationJournal } from "@/components/electrical/field-observation-journal";
 import { HousePanelFieldReconciliation } from "@/components/electrical/house-panel-field-reconciliation";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
