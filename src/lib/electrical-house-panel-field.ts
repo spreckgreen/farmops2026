@@ -266,24 +266,40 @@ interface HeaderMap {
   index: number;
   roles: Map<string, number>;
   headers: string[];
+  /** Populated columns with a header that maps to no known role. */
+  unmapped: number[];
 }
 
-/** Find the header row of a transcription sheet (scans the first rows only). */
+/**
+ * Find the header row of a transcription sheet.
+ *
+ * The BEST scoring row in the scanned window wins, not the first row that
+ * happens to yield two roles: picking the first weak match is exactly how a
+ * sheet ends up reconciling only `Poles`.
+ */
 export function findHeaderRow(sheet: Sheet): HeaderMap | null {
-  const limit = Math.min(sheet.rows.length, 12);
+  const limit = Math.min(sheet.rows.length, 15);
+  let best: HeaderMap | null = null;
+  let bestScore = 0;
   for (let i = 0; i < limit; i++) {
     const row = sheet.rows[i] ?? [];
     const roles = new Map<string, number>();
+    const unmapped: number[] = [];
     row.forEach((cell, col) => {
       const role = headerRole(cell);
       if (role && !roles.has(role)) roles.set(role, col);
+      else if (!role && String(cell ?? "").trim() !== "") unmapped.push(col);
     });
-    if (roles.has("circuit") && (roles.has("amps") || roles.has("description") || roles.has("poles"))) {
-      return { index: i, roles, headers: row.map((c) => String(c ?? "").trim()) };
+    if (!roles.has("circuit")) continue;
+    if (!roles.has("amps") && !roles.has("description") && !roles.has("poles")) continue;
+    const score = roles.size;
+    if (score > bestScore) {
+      bestScore = score;
+      best = { index: i, roles, headers: row.map((c) => String(c ?? "").trim()), unmapped };
     }
   }
-  return null;
-}
+  return best;
+
 
 // ------------------------------------------------------------ value semantics
 
