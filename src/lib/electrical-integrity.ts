@@ -532,7 +532,11 @@ export function runIntegrityChecks(graph: ElectricalGraphData): IntegrityFinding
     }
   }
 
+  // Phase 4.4b — continuous raceway / ordered junction-box topology.
+  out.push(...racewayPathFindings(graph));
+
   // Deterministic ordering: errors first, then code, kind, stable ID, message.
+
   const rank = (f: IntegrityFinding) => (f.severity === "error" ? 0 : 1);
   return out.sort(
     (a, b) =>
