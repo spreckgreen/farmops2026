@@ -1303,33 +1303,64 @@ export function fieldReconciliationMarkdown(
 
   out.push(
     "",
+    "`source rows read` counts spreadsheet rows, not breakers: continuation rows",
+    "of multi-pole breakers and duplicate representations of the same breaker on",
+    "another sheet are collapsed into `unique logical breakers`.",
+  );
+
+  if (parsed.diagnostics.sheets_skipped.length) {
+    out.push("", "### Sheets not parsed", "", "| Worksheet | Reason |", "| --- | --- |");
+    for (const s of parsed.diagnostics.sheets_skipped) out.push(`| ${s.worksheet} | ${s.reason} |`);
+  }
+
+  out.push(
+    "",
     "## Observations",
     "",
     "| Panel | Position(s) | Field | Engineering / canonical | FarmOps | Field observed | Confidence | Classification | Proposed action |",
     "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
   );
+  const state = (value: string | null, s: ComparisonState) =>
+    value !== null
+      ? value
+      : s === "blank"
+        ? "(stored blank)"
+        : s === "record_absent"
+          ? "(no record)"
+          : "(no mapping)";
   for (const r of rows) {
     out.push(
-      `| ${r.panel_id ?? r.panel_source_name} | ${r.positions_text || "(none)"} | ${r.field_label} | ${
-        r.canonical_value ?? "(silent)"
-      } | ${r.farmops_value ?? "(none)"} | ${r.field_observed_text || "(blank)"} | ${r.confidence} | ${
+      `| ${r.panel_id ?? r.panel_source_name} | ${r.positions_text || "(none)"} | ${r.field_label} | ${state(
+        r.canonical_value,
+        r.canonical_state,
+      )} | ${state(r.farmops_value, r.farmops_state)} | ${r.field_observed_text || "(blank)"} | ${r.confidence} | ${
         r.classification
       } | ${r.proposed_action} |`,
     );
   }
 
   const topology = rows.filter((r) => r.topology);
-  out.push("", "## Topology proposals", "");
-  if (!topology.length) out.push("None.");
-  else {
-    for (const r of topology) {
+  const topologyEvidence = rows.filter((r) => r.field === "parent_panel");
+  out.push("", "## Topology", "");
+  if (!topologyEvidence.length) out.push("No sub-panel feeder evidence was observed.");
+  for (const r of topologyEvidence) {
+    if (r.topology) {
       out.push(
-        `- ${r.topology!.panel_id}: current parent ${r.topology!.current_parent ?? "(not represented)"} → proposed parent ${
-          r.topology!.proposed_parent
-        }; evidence: ${r.topology!.evidence}`,
+        `- PROPOSAL — ${r.topology.panel_id}: current parent ${r.topology.current_parent ?? "(not represented)"} → proposed parent ${
+          r.topology.proposed_parent
+        }; evidence: ${r.topology.evidence}`,
       );
+    } else {
+      out.push(`- ALREADY CORRECT — ${r.detail}`);
     }
   }
+  if (topologyEvidence.length && !topology.length) {
+    out.push(
+      "",
+      "Topology was evaluated and required no change; the absence of a proposal is a result, not a gap.",
+    );
+  }
+
 
   if (parsed.warnings.length) {
     out.push("", "## Parser warnings", "");
