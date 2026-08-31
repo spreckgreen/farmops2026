@@ -459,6 +459,58 @@ export function EntityManager({
         </Button>
       </div>
 
+      {total > 0 ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant="secondary">
+            {filtered === total
+              ? `${total} ${def.title.toLowerCase()}`
+              : `${filtered} of ${total} ${def.title.toLowerCase()}`}
+          </Badge>
+          {statusCounts.map(([s, n]) => (
+            <Badge key={s} variant="outline">
+              {s === "unspecified" ? "No status" : installStatusLabel(s)}: {n}
+            </Badge>
+          ))}
+          {search || environment || status ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-1"
+              onClick={() => {
+                setSearch("");
+                setEnvironment("");
+                setStatus("");
+              }}
+            >
+              <X className="h-4 w-4" />
+              Clear filters
+            </Button>
+          ) : null}
+          <div className="ml-auto flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1"
+              disabled={!filtered}
+              onClick={exportCsv}
+            >
+              <Download className="h-4 w-4" />
+              Export CSV
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1"
+              disabled={!filtered}
+              onClick={exportJson}
+            >
+              <FileJson className="h-4 w-4" />
+              Export JSON
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
       {query.isLoading ? (
         <Skeleton className="h-40 w-full" />
       ) : query.error ? (
