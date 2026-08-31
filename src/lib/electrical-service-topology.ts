@@ -200,7 +200,7 @@ export function resolveServiceTopology(
   const intertieConfigs = groupByParent(input.intertieConfigs ?? [], "intertie_uuid");
   const serviceIdByUuid = new Map<string, string>();
   for (const svc of ordered) serviceIdByUuid.set(str(svc["id"]), str(svc["service_id"]));
-  const resolveService = (row: Row, uuidKey: string, refKey: string) =>
+  const resolveService = (row: Record<string, unknown>, uuidKey: string, refKey: string) =>
     serviceIdByUuid.get(str(row[uuidKey])) || str(row[refKey]);
 
   const interties: IntertieLink[] = [];
