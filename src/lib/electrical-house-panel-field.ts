@@ -133,14 +133,52 @@ export interface BreakerObservation {
   fields: ObservedField[];
   notes: string;
   provenance: ObservationProvenance;
+  /**
+   * Other source representations of this same logical breaker (e.g. the same
+   * schedule transcribed on both Bulk_Update and House_Main). Suppressed for
+   * counting, never discarded: their provenance is kept here.
+   */
+  duplicate_sources: ObservationProvenance[];
+  /** Positions merged in from continuation rows of a multi-pole breaker. */
+  merged_positions_from: ObservationProvenance[];
+}
+
+/** Where two source representations of the same breaker disagree. */
+export interface SourceEvidenceConflict {
+  panel_id: string | null;
+  panel_source_name: string;
+  positions_text: string;
+  field: ObservedFieldKey;
+  field_label: string;
+  kept_text: string;
+  kept: ObservationProvenance;
+  other_text: string;
+  other: ObservationProvenance;
+}
+
+export interface ParseDiagnostics {
+  sheets_seen: number;
+  sheets_recognized: number;
+  sheets_skipped: string[];
+  /** Non-empty data rows read across all recognized sheets. */
+  source_rows_read: number;
+  /** Rows suppressed because another sheet held the same logical breaker. */
+  duplicate_source_rows_suppressed: number;
+  /** Rows folded into a preceding multi-pole breaker as continuation slots. */
+  multipole_continuation_rows_merged: number;
+  unique_logical_breakers: number;
+  field_observations_emitted: number;
 }
 
 export interface ParseResult {
   workbook: string;
   rows_parsed: number;
   observations: BreakerObservation[];
+  diagnostics: ParseDiagnostics;
+  conflicts: SourceEvidenceConflict[];
   warnings: string[];
 }
+
 
 // --------------------------------------------------------------- header logic
 
