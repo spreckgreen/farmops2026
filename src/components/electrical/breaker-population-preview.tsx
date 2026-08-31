@@ -14,6 +14,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
+  ObservationPhotoCell,
+  type ObservationPhoto,
+} from "@/components/electrical/observation-photo-cell";
+
+import {
   applyBreakerPopulation,
   previewBreakerPopulation,
   type BreakerPopulationPreview,
@@ -74,6 +79,9 @@ export function BreakerPopulationPreview({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [filter, setFilter] = useState<Filter>("all");
   const [armed, setArmed] = useState(false);
+  // One panel photo per panel in the workbook (e.g. PNL-H1, PNL-H2). Every
+  // circuit observed in that panel links to it as evidence of observation.
+  const [panelPhotos, setPanelPhotos] = useState<Record<string, ObservationPhoto | null>>({});
 
   const previewMutation = useMutation({
     mutationFn: async (file: File) => {
@@ -91,24 +99,58 @@ export function BreakerPopulationPreview({
     onError: (e: Error) => toast.error(e.message),
   });
 
+  /** Circuits that can be linked to a panel photo (photo attached for their panel). */
+  const evidenceFor = (onlySelected: boolean) =>
+    (result?.rows ?? [])
+      .filter((r) => {
+        const photo = panelPhotos[r.panel_id ?? r.panel_source_name];
+        if (!photo) return false;
+        return onlySelected ? selected.has(r.key) : true;
+      })
+      .map((r) => ({
+        panel_id: r.panel_id ?? null,
+        panel_source_name: r.panel_source_name ?? "",
+        positions_text: r.positions_text,
+        poles: r.poles ?? null,
+        observed_text: r.label_observed_text ?? r.label ?? r.positions_text,
+        notes: r.evidence ?? null,
+        confidence: r.confidence ?? null,
+        verification_status: r.verification_required ? "verification_required" : "not_required",
+        proposed_action: r.action,
+        worksheet: null,
+        workbook: result?.workbook ?? "",
+        photo: panelPhotos[r.panel_id ?? r.panel_source_name]!,
+      }));
+
   const applyMutation = useMutation({
-    mutationFn: async (confirm: boolean) => {
-      const records = (result?.rows ?? [])
-        .filter((r) => r.action === "propose_create" && selected.has(r.key) && r.panel_id && r.poles)
-        .map((r) => ({
-          panel_id: r.panel_id!,
-          positions_text: r.positions_text,
-          poles: r.poles!,
-          ocp_amps: r.ocp_amps,
-          label: r.label,
-          slots: r.slots.map((s) => ({
-            breaker_number: s.breaker_number,
-            side: s.side,
-            position: s.position,
-          })),
-        }));
-      if (!records.length) throw new Error("Select at least one eligible breaker first.");
-      return apply({ data: { confirm, scope: scopeId, records } });
+    mutationFn: async ({ confirm, evidenceOnly }: { confirm: boolean; evidenceOnly?: boolean }) => {
+      const records = evidenceOnly
+        ? []
+        : (result?.rows ?? [])
+            .filter(
+              (r) => r.action === "propose_create" && selected.has(r.key) && r.panel_id && r.poles,
+            )
+            .map((r) => ({
+              panel_id: r.panel_id!,
+              positions_text: r.positions_text,
+              poles: r.poles!,
+              ocp_amps: r.ocp_amps,
+              label: r.label,
+              slots: r.slots.map((s) => ({
+                breaker_number: s.breaker_number,
+                side: s.side,
+                position: s.position,
+              })),
+            }));
+      const evidence = evidenceFor(!evidenceOnly);
+      if (!records.length && !evidence.length) {
+        throw new Error(
+          evidenceOnly
+            ? "Attach at least one panel photo first."
+            : "Select at least one eligible breaker first.",
+        );
+      }
+      return apply({ data: { confirm, scope: scopeId, records, evidence } });
     },
     onSuccess: (r) => {
       if (!r.confirmed) {
@@ -116,13 +158,15 @@ export function BreakerPopulationPreview({
         return;
       }
       toast.success(
-        `${r.created} record group(s) created, ${r.blocked} blocked as now-occupied, ${r.failed} failed.`,
+        `${r.created} record group(s) created, ${r.blocked} blocked as now-occupied, ${r.failed} failed. ${r.evidence_recorded} circuit(s) linked to a panel photo.`,
       );
+      for (const e of r.evidence_errors.slice(0, 2)) toast.warning(`Photo evidence: ${e}`);
       const failures = r.results.filter((x) => x.status !== "created");
       for (const f of failures.slice(0, 4)) toast.warning(`${f.panel_id} ${f.positions_text}: ${f.detail}`);
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
 
   const rows = useMemo(() => {
     const all = result?.rows ?? [];
@@ -147,6 +191,22 @@ export function BreakerPopulationPreview({
   const d = result?.diagnostics;
   const selectable = (r: BreakerPopulationRow) => r.action === "propose_create";
   const selectedCount = (result?.rows ?? []).filter((r) => selectable(r) && selected.has(r.key)).length;
+
+  // Panels present in the uploaded workbook, in first-seen order.
+  const panelKeys = useMemo(() => {
+    const seen: string[] = [];
+    for (const r of result?.rows ?? []) {
+      const key = r.panel_id ?? r.panel_source_name;
+      if (key && !seen.includes(key)) seen.push(key);
+    }
+    return seen;
+  }, [result]);
+
+  const photoCount = panelKeys.filter((k) => panelPhotos[k]).length;
+  const linkedCircuits = (result?.rows ?? []).filter(
+    (r) => panelPhotos[r.panel_id ?? r.panel_source_name],
+  ).length;
+
 
   return (
     <Card>
@@ -241,6 +301,38 @@ export function BreakerPopulationPreview({
               </Button>
             </div>
 
+            <div className="space-y-2 rounded-md border p-3">
+              <div className="text-sm font-medium">Panel photos</div>
+              <p className="text-xs text-muted-foreground">
+                Attach one photo per panel from this workbook. Every circuit observed in that panel
+                links to its panel photo as evidence of observation; the photo itself stays evidence
+                and is never turned into an engineering value.
+              </p>
+              <div className="flex flex-wrap gap-4">
+                {panelKeys.map((key) => {
+                  const circuits = (result.rows ?? []).filter(
+                    (r) => (r.panel_id ?? r.panel_source_name) === key,
+                  ).length;
+                  return (
+                    <div key={key} className="rounded-md border p-2">
+                      <div className="text-xs font-medium">{key}</div>
+                      <div className="mb-1 text-[11px] text-muted-foreground">
+                        {circuits} circuit{circuits === 1 ? "" : "s"}
+                      </div>
+                      <ObservationPhotoCell
+                        photo={panelPhotos[key] ?? null}
+                        onChange={(photo) => setPanelPhotos((prev) => ({ ...prev, [key]: photo }))}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                {photoCount} of {panelKeys.length} panel photo(s) attached · {linkedCircuits}{" "}
+                circuit(s) would be linked.
+              </div>
+            </div>
+
             <div className="flex flex-wrap items-center gap-3 rounded-md border border-dashed p-3 text-sm">
               <ShieldAlert className="h-4 w-4 text-muted-foreground" />
               <span className="text-muted-foreground">
@@ -254,16 +346,25 @@ export function BreakerPopulationPreview({
                 size="sm"
                 variant="outline"
                 disabled={applyMutation.isPending || !selectedCount}
-                onClick={() => applyMutation.mutate(false)}
+                onClick={() => applyMutation.mutate({ confirm: false })}
               >
                 Dry run
               </Button>
               <Button
                 size="sm"
+                variant="outline"
+                disabled={!armed || applyMutation.isPending || !photoCount}
+                onClick={() => applyMutation.mutate({ confirm: true, evidenceOnly: true })}
+              >
+                Link photos to circuits only
+              </Button>
+              <Button
+                size="sm"
                 disabled={!armed || applyMutation.isPending || !selectedCount}
-                onClick={() => applyMutation.mutate(true)}
+                onClick={() => applyMutation.mutate({ confirm: true })}
               >
                 {applyMutation.isPending && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
+
                 Create selected records
               </Button>
             </div>
