@@ -23,8 +23,10 @@ import {
   reconciliationTotals,
   type FarmOpsBreaker,
   type ObservationDisposition,
+  type ParseDiagnostics,
   type ReconciliationRow,
   type ReconciliationTotals,
+
 } from "@/lib/electrical-house-panel-field";
 
 type LooseDb = { from: (table: string) => any };
