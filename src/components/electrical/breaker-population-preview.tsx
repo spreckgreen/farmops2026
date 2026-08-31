@@ -557,7 +557,9 @@ export function BreakerPopulationPreview({
                 </thead>
                 <tbody>
                   {rows.map((r) => (
+                    <>
                     <tr key={r.key} className="border-t align-top">
+
                       <td className="p-2">
                         <Checkbox
                           disabled={!selectable(r)}
