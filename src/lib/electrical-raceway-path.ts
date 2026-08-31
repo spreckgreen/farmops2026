@@ -423,15 +423,25 @@ export function racewayPathFindings(graph: ElectricalGraphData): PathFinding[] {
         });
       }
     }
-    // A box whose ID names a known path but which has no relational parent.
-    if (!parentUuid && encoded?.prefix === "JB" && (racewaysByPath.get(encoded.path)?.length ?? 0) > 0) {
+    // A box whose ID names a known path but which has no relational parent. The
+    // shared resolver decides whether that is actionable, and its reason is
+    // reported verbatim so QA and the correction preview always agree.
+    const resolution = resolutionById.get(id);
+    if (
+      !parentUuid &&
+      encoded?.prefix === "JB" &&
+      resolution &&
+      resolution.matching_raceways.length > 0
+    ) {
       out.push({
         code: "orphan_path_topology",
         severity: "warning",
         kind: "jbox",
         stableId: id,
         id: uuid,
-        message: `Junction box ${id} names path ${encoded.path} in its ID but has no parent raceway link. Review and link it — FarmOps never infers topology from the ID alone.`,
+        message: isActionableResolution(resolution)
+          ? `Junction box ${id} names path ${encoded.path} in its ID but has no parent raceway link. The correction preview proposes ${resolution.target_raceway} position ${resolution.proposed_sequence} — review and apply it; FarmOps never infers topology from the ID alone.`
+          : `Junction box ${id} names path ${encoded.path} in its ID but has no parent raceway link, and it is not automatically correctable (${resolution.status}): ${resolution.reason}`,
       });
     }
   }
