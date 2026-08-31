@@ -541,8 +541,23 @@ export const applyHousePanelFieldUpdates = createServerFn({ method: "POST" })
         photo_name: o.photo_name,
         photo_mime: o.photo_mime,
         photo_size: o.photo_size,
-        photo_uploaded_at: o.photo_path ? new Date().toISOString() : null,
-      }));
+        photo_uploaded_at: o.photo_path ? now : null,
+        scope: data.scope,
+        apply_status: outcome?.status ?? "not_applied",
+        applied_value: applied
+          ? o.field === "parent_panel"
+            ? (outcome as ApplyTopologyRow).proposed_parent
+            : String((outcome as ApplyFieldRow).proposed_value)
+          : null,
+        applied_previous_value: applied
+          ? o.field === "parent_panel"
+            ? (outcome as ApplyTopologyRow).current_parent
+            : (outcome as ApplyFieldRow).live_value
+          : null,
+        applied_at: applied ? now : null,
+        };
+      });
+
 
       const { error } = await db.from(OBS_TABLE).insert(payload);
       if (error) throw new Error(error.message);
