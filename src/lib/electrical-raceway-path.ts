@@ -360,12 +360,11 @@ export function racewayPathFindings(graph: ElectricalGraphData): PathFinding[] {
   const jboxes = graph.jbox ?? [];
   const raceways = graph.raceway ?? [];
   const racewayByUuid = new Map(raceways.filter((r) => r.id).map((r) => [String(r.id), r]));
-  const racewaysByPath = new Map<string, Row[]>();
-  for (const r of raceways) {
-    const path = racewayPathNumber(sid("raceway", r));
-    if (!path) continue;
-    racewaysByPath.set(path, [...(racewaysByPath.get(path) ?? []), r]);
-  }
+  // Same resolver the correction preview uses, so QA cannot call a box an
+  // actionable orphan that the preview then silently excludes.
+  const resolutionById = new Map(
+    resolveJboxRacewayCandidates(graph).map((r) => [r.jbox_id, r] as const),
+  );
 
   const seen = new Map<string, string[]>();
   for (const jb of jboxes) {
