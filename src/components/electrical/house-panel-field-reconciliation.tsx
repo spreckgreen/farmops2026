@@ -220,20 +220,51 @@ export function HousePanelFieldReconciliation() {
         {result ? (
           <>
             <div className="flex flex-wrap gap-2 text-sm">
-              <Badge variant="outline">{totals?.source_rows_parsed} source rows</Badge>
-              <Badge variant="outline">{totals?.logical_breakers} logical breakers</Badge>
+              <Badge variant="outline">{totals?.source_rows_read} source rows read</Badge>
+              <Badge variant="outline">{totals?.unique_logical_breakers} logical breakers</Badge>
+              <Badge variant="outline">{totals?.multipole_continuation_rows_merged} continuation rows merged</Badge>
+              <Badge variant="outline">
+                {totals?.duplicate_source_rows_suppressed} duplicate rows suppressed
+              </Badge>
+              <Badge variant="outline">{totals?.field_observations_emitted} observations</Badge>
+              <Badge variant="outline">
+                {totals?.sheets_recognized} sheets parsed / {totals?.sheets_skipped} skipped
+              </Badge>
               <Badge variant="outline">{totals?.single_pole} single-pole</Badge>
               <Badge variant="outline">{totals?.multi_pole} multi-pole</Badge>
-              <Badge variant="outline">{totals?.matched_circuits} matched</Badge>
+              <Badge variant="outline">{totals?.fields_compared_against_farmops} compared to FarmOps</Badge>
+              <Badge variant="secondary">{totals?.farmops_record_absent} no FarmOps record</Badge>
+              <Badge variant="secondary">{totals?.canonical_no_mapping} no canonical mapping</Badge>
               <Badge variant="outline">{totals?.exact_matches} exact matches</Badge>
               <Badge variant="secondary">{totals?.unresolved_observations} new / unresolved</Badge>
               <Badge variant={totals?.conflicts ? "destructive" : "outline"}>
                 {totals?.conflicts} conflicts
               </Badge>
+              <Badge variant={totals?.source_evidence_conflicts ? "destructive" : "outline"}>
+                {totals?.source_evidence_conflicts} source conflicts
+              </Badge>
               <Badge variant="secondary">{totals?.verification_required} verification required</Badge>
-              <Badge variant="secondary">{totals?.topology_proposals} topology proposals</Badge>
+              <Badge variant="secondary">
+                {totals?.topology_proposals} topology proposals / {totals?.topology_evidence_rows} evidence
+              </Badge>
               <Badge variant="outline">{totals?.eligible_farmops_updates} eligible updates</Badge>
             </div>
+
+            <p className="text-xs text-muted-foreground">
+              Source rows are spreadsheet rows, not breakers: multi-pole continuation rows and
+              duplicate representations of the same breaker on another sheet collapse into the
+              logical-breaker count.
+            </p>
+
+            {result.diagnostics.sheets_skipped.length ? (
+              <div className="text-xs text-muted-foreground">
+                Sheets not parsed:{" "}
+                {result.diagnostics.sheets_skipped
+                  .map((s) => `${s.worksheet} (${s.reason})`)
+                  .join("; ")}
+              </div>
+            ) : null}
+
 
             <div className="flex flex-wrap items-center gap-2">
               <select
