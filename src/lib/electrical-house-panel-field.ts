@@ -417,18 +417,49 @@ export interface ParseOptions {
   defaultPanelName?: string;
 }
 
-/** Parse transcription sheets into logical breaker observations. */
+interface RawRow {
+  sheet: string;
+  /** Higher wins when two sheets describe the same breaker. */
+  precedence: number;
+  source_row: number;
+  panel_source_name: string;
+  panel_id: string | null;
+  positions: number[];
+  positions_text: string;
+  poles: number | null;
+  poles_stated: number | null;
+  amps_text: string;
+  description_text: string;
+  notes: string;
+  fields: ObservedField[];
+  provenance: ObservationProvenance;
+  merged_positions_from: ObservationProvenance[];
+  consumed: boolean;
+}
+
+/** Bulk sheets are treated as the lower-precedence representation. */
+function sheetPrecedence(name: string): number {
+  return /bulk/i.test(name) ? 0 : 1;
+}
+
+const eq = (a: string, b: string) => norm(a) === norm(b);
+
+/** Parse transcription sheets into deduplicated logical breaker observations. */
 export function parseHousePanelSheets(sheets: Sheet[], opts: ParseOptions): ParseResult {
   const warnings: string[] = [];
-  const observations: BreakerObservation[] = [];
-  let rowsParsed = 0;
+  const skipped: string[] = [];
+  const raw: RawRow[] = [];
+  let rowsRead = 0;
+  let recognized = 0;
 
   for (const sheet of sheets) {
     const header = findHeaderRow(sheet);
     if (!header) {
+      skipped.push(sheet.name);
       warnings.push(`Sheet "${sheet.name}" has no recognizable panel-directory header row; skipped.`);
       continue;
     }
+    recognized++;
     const col = (role: string) => header.roles.get(role);
     const cell = (row: string[], role: string) => {
       const i = col(role);
@@ -436,7 +467,7 @@ export function parseHousePanelSheets(sheets: Sheet[], opts: ParseOptions): Pars
     };
     const headerName = (role: string) => {
       const i = col(role);
-      return i === undefined ? "" : header.headers[i] ?? "";
+      return i === undefined ? "" : (header.headers[i] ?? "");
     };
     const sheetPanelName = /sub/i.test(sheet.name)
       ? "HOUSE-SUBPANEL"
@@ -447,17 +478,18 @@ export function parseHousePanelSheets(sheets: Sheet[], opts: ParseOptions): Pars
     for (let r = header.index + 1; r < sheet.rows.length; r++) {
       const row = sheet.rows[r] ?? [];
       if (row.every((c) => String(c ?? "").trim() === "")) continue;
-      rowsParsed++;
+      rowsRead++;
       const sourceRow = r + 1;
       const panelSourceName = cell(row, "panel") || sheetPanelName;
       const panelId = resolvePanelIdentity(panelSourceName, opts.aliases, opts.knownPanelIds);
       const positionsText = cell(row, "circuit");
       const positions = parsePositions(positionsText);
       const polesText = cell(row, "poles");
-      const polesFromColumn = /^\d{1,2}$/.test(polesText) ? Number(polesText) : null;
-      const poles = polesFromColumn ?? (positions.length ? positions.length : null);
+      const polesStated = /^\d{1,2}$/.test(polesText) ? Number(polesText) : null;
       const photo = cell(row, "photo");
       const notes = cell(row, "notes");
+      const ampsText = cell(row, "amps");
+      const descriptionText = cell(row, "description");
 
       const prov = (column: string, observed: string): ObservationProvenance => ({
         workbook: opts.workbook,
@@ -468,64 +500,240 @@ export function parseHousePanelSheets(sheets: Sheet[], opts: ParseOptions): Pars
         observed_text: observed,
       });
 
+      // Every populated transcription cell becomes its own observation, with the
+      // real source column preserved. Poles is one field among several, never
+      // the only reconciled field.
       const fields: ObservedField[] = [];
-      if (col("amps") !== undefined) {
-        const observed = cell(row, "amps");
-        const parsed = interpretAmps(observed);
+      if (ampsText !== "") {
+        const parsed = interpretAmps(ampsText);
         fields.push({
           field: "ocp_amps",
-          observed_text: observed,
+          observed_text: ampsText,
           interpreted: parsed.interpreted,
           confidence: parsed.confidence,
           verification_required: parsed.verification_required,
           unknown_value: parsed.unknown_value,
-          provenance: prov(headerName("amps") || "Breaker Amps", observed),
+          provenance: prov(headerName("amps") || "Breaker Amps", ampsText),
         });
       }
-      if (poles !== null) {
-        fields.push({
-          field: "poles",
-          observed_text: polesText || positionsText,
-          interpreted: poles,
-          confidence: polesFromColumn !== null || positions.length ? "high" : "low",
-          verification_required: false,
-          unknown_value: false,
-          provenance: prov(headerName("poles") || headerName("circuit") || "Poles", polesText || positionsText),
-        });
-      }
-      if (col("description") !== undefined) {
-        const observed = cell(row, "description");
-        const parsed = interpretDescription(observed);
+      if (descriptionText !== "") {
+        const parsed = interpretDescription(descriptionText);
         fields.push({
           field: "label",
-          observed_text: observed,
+          observed_text: descriptionText,
           interpreted: parsed.interpreted,
           confidence: parsed.confidence,
           verification_required: parsed.verification_required,
           unknown_value: parsed.unknown_value,
-          provenance: prov(headerName("description") || "Description", observed),
+          provenance: prov(headerName("description") || "Description", descriptionText),
+        });
+      }
+      if (notes !== "") {
+        const uncertain = isUncertainText(notes) || isUnknownText(notes);
+        fields.push({
+          field: "notes",
+          observed_text: notes,
+          interpreted: notes,
+          confidence: uncertain ? "low" : "medium",
+          verification_required: uncertain,
+          unknown_value: false,
+          provenance: prov(headerName("notes") || "Notes", notes),
+        });
+      }
+      if (photo !== "") {
+        fields.push({
+          field: "photo",
+          observed_text: photo,
+          interpreted: photo,
+          confidence: "high",
+          verification_required: false,
+          unknown_value: false,
+          provenance: prov(headerName("photo") || "Photo", photo),
+        });
+      }
+      for (const c of header.unmapped) {
+        const text = String(row[c] ?? "").trim();
+        if (text === "") continue;
+        const columnName = header.headers[c] || `Column ${c + 1}`;
+        fields.push({
+          field: "other",
+          field_label: columnName,
+          observed_text: text,
+          interpreted: text,
+          confidence: "medium",
+          verification_required: isUncertainText(text) || isUnknownText(text),
+          unknown_value: false,
+          provenance: prov(columnName, text),
         });
       }
 
-      observations.push({
-        key: `${sheet.name}#${sourceRow}`,
+      raw.push({
+        sheet: sheet.name,
+        precedence: sheetPrecedence(sheet.name),
+        source_row: sourceRow,
         panel_source_name: panelSourceName,
         panel_id: panelId,
-        identity_status: panelId ? "resolved" : "unresolved",
         positions,
         positions_text: positionsText,
-        poles,
-        slot: positions.length ? slotForBreakerNumber(positions[0]) : null,
-        position_status: positions.length ? "resolved" : "unresolved",
-        fields,
+        poles: polesStated ?? (positions.length > 1 ? positions.length : positions.length ? 1 : null),
+        poles_stated: polesStated,
+        amps_text: ampsText,
+        description_text: descriptionText,
         notes,
+        fields,
         provenance: prov(headerName("circuit") || "Circuit", positionsText),
+        merged_positions_from: [],
+        consumed: false,
       });
     }
   }
 
-  return { workbook: opts.workbook, rows_parsed: rowsParsed, observations, warnings };
+  // ------------------------------------------- multi-pole continuation merging
+  //
+  // `Poles = 2` on a row listing a single position does not describe a
+  // two-pole breaker per position: the paired position is normally transcribed
+  // on its own row. Fold that continuation row into ONE logical breaker so a
+  // 2-pole 60 A feeder is never counted twice.
+  let merged = 0;
+  for (const r of raw) {
+    if (r.consumed) continue;
+    const poles = r.poles_stated ?? 0;
+    if (poles < 2 || r.positions.length !== 1) continue;
+    for (let k = 1; k < poles; k++) {
+      const wanted = r.positions[0] + 2 * k;
+      const cont = raw.find(
+        (o) =>
+          !o.consumed &&
+          o !== r &&
+          o.sheet === r.sheet &&
+          eq(o.panel_source_name, r.panel_source_name) &&
+          o.positions.length === 1 &&
+          o.positions[0] === wanted &&
+          (o.description_text === "" || eq(o.description_text, r.description_text)) &&
+          (o.amps_text === "" || eq(o.amps_text, r.amps_text)),
+      );
+      if (!cont) break;
+      cont.consumed = true;
+      merged++;
+      r.positions.push(wanted);
+      r.merged_positions_from.push(cont.provenance);
+    }
+    if (r.positions.length > 1) r.positions_text = r.positions.join("/");
+  }
+
+  // ------------------------------------------------- cross-sheet deduplication
+  const identity = (r: RawRow) =>
+    `${(r.panel_id ?? r.panel_source_name).toUpperCase()}|${[...r.positions].sort((a, b) => a - b).join("-") || r.positions_text.toUpperCase()}`;
+
+  const kept = new Map<string, RawRow>();
+  const suppressed: { kept: RawRow; other: RawRow }[] = [];
+  for (const r of raw) {
+    if (r.consumed) continue;
+    const id = identity(r);
+    const existing = kept.get(id);
+    if (!existing) {
+      kept.set(id, r);
+      continue;
+    }
+    // Deterministic precedence: panel-specific sheet wins over bulk; ties keep
+    // the first representation read.
+    if (r.precedence > existing.precedence) {
+      kept.set(id, r);
+      suppressed.push({ kept: r, other: existing });
+    } else {
+      suppressed.push({ kept: existing, other: r });
+    }
+  }
+
+  const conflicts: SourceEvidenceConflict[] = [];
+  for (const { kept: k, other } of suppressed) {
+    for (const f of other.fields) {
+      if (!COMPARABLE_FIELDS.includes(f.field)) continue;
+      const mine = k.fields.find((x) => x.field === f.field);
+      if (!mine) continue;
+      if (eq(mine.observed_text, f.observed_text)) continue;
+      conflicts.push({
+        panel_id: k.panel_id,
+        panel_source_name: k.panel_source_name,
+        positions_text: k.positions_text,
+        field: f.field,
+        field_label: OBSERVED_FIELD_LABELS[f.field],
+        kept_text: mine.observed_text,
+        kept: mine.provenance,
+        other_text: f.observed_text,
+        other: f.provenance,
+      });
+    }
+  }
+
+  const observations: BreakerObservation[] = [];
+  for (const r of kept.values()) {
+    const dupes = suppressed.filter((s) => s.kept === r).map((s) => s.other.provenance);
+    if (r.poles !== null) {
+      r.fields.unshift({
+        field: "poles",
+        observed_text: r.poles_stated !== null ? String(r.poles_stated) : r.positions_text,
+        interpreted: r.poles,
+        confidence: r.poles_stated !== null || r.positions.length ? "high" : "low",
+        verification_required: false,
+        unknown_value: false,
+        provenance: {
+          ...r.provenance,
+          source_column: r.poles_stated !== null ? "Poles" : r.provenance.source_column,
+          observed_text: r.poles_stated !== null ? String(r.poles_stated) : r.positions_text,
+        },
+      });
+    }
+    observations.push({
+      key: `${r.sheet}#${r.source_row}`,
+      panel_source_name: r.panel_source_name,
+      panel_id: r.panel_id,
+      identity_status: r.panel_id ? "resolved" : "unresolved",
+      positions: r.positions,
+      positions_text: r.positions_text,
+      poles: r.poles,
+      slot: r.positions.length ? slotForBreakerNumber(r.positions[0]) : null,
+      position_status: r.positions.length ? "resolved" : "unresolved",
+      fields: r.fields,
+      notes: r.notes,
+      provenance: r.provenance,
+      duplicate_sources: dupes,
+      merged_positions_from: r.merged_positions_from,
+    });
+  }
+
+  if (suppressed.length) {
+    warnings.push(
+      `${suppressed.length} duplicate source representation(s) suppressed: the same panel and positions appeared on more than one sheet. Provenance of every representation is retained.`,
+    );
+  }
+  if (conflicts.length) {
+    warnings.push(
+      `${conflicts.length} source-evidence conflict(s): two sheets disagree about the same breaker. Neither value was silently chosen.`,
+    );
+  }
+
+  const diagnostics: ParseDiagnostics = {
+    sheets_seen: sheets.length,
+    sheets_recognized: recognized,
+    sheets_skipped: skipped,
+    source_rows_read: rowsRead,
+    duplicate_source_rows_suppressed: suppressed.length,
+    multipole_continuation_rows_merged: merged,
+    unique_logical_breakers: observations.length,
+    field_observations_emitted: observations.reduce((n, o) => n + o.fields.length, 0),
+  };
+
+  return {
+    workbook: opts.workbook,
+    rows_parsed: rowsRead,
+    observations,
+    diagnostics,
+    conflicts,
+    warnings,
+  };
 }
+
 
 // ------------------------------------------------------------- reconciliation
 
