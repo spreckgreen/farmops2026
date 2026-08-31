@@ -161,3 +161,79 @@ describe("continuous raceway / ordered junction boxes", () => {
     expect(plan.find((p) => p.jbox_id === "JB-104-02")?.status).toBe("conflict");
   });
 });
+
+// Production defect regression (Phase 4.4b): PNL-FS-NW → CON-104 →
+// JB-104-01 → JB-104-02 → JB-104-03, with four branches leaving JB-104-02 and
+// one leaving JB-104-03. The rendered run must continue *through* the
+// intermediate branches to the last box.
+describe("CON-104 exact production topology", () => {
+  const branches = [
+    ...[1, 2, 3, 4].map((n) => ({
+      id: `b2${n}`,
+      branch_id: `BR-104-02-0${n}`,
+      source_jbox_uuid: "j2",
+      source_endpoint_ref: "JB-104-02",
+    })),
+    {
+      id: "b31",
+      branch_id: "BR-104-03-01",
+      source_jbox_uuid: "j3",
+      source_endpoint_ref: "JB-104-03",
+    },
+  ];
+
+  it("chains all three boxes in order and keeps the run going past the branches", () => {
+    const out = buildDiagram(graph({ branch: branches } as never), { type: "whole_system" });
+    const key = (stableId: string) => out.nodes.find((n) => n.stableId === stableId)?.key;
+    const con = key("CON-104")!;
+    const j1 = key("JB-104-01")!;
+    const j2 = key("JB-104-02")!;
+    const j3 = key("JB-104-03")!;
+    expect([con, j1, j2, j3].every(Boolean)).toBe(true);
+    const has = (from: string, to: string) =>
+      out.edges.some((e) => e.from === from && e.to === to);
+    expect(has(con, j1)).toBe(true);
+    expect(has(j1, j2)).toBe(true);
+    expect(has(j2, j3)).toBe(true);
+    // One physical run: no extra raceway invented between the boxes.
+    expect(out.nodes.filter((n) => n.klass === "raceway")).toHaveLength(1);
+    for (const br of branches) {
+      expect(out.nodes.some((n) => n.stableId === br.branch_id)).toBe(true);
+    }
+    expect(out.edges.map((e) => e.label)).toEqual(
+      expect.arrayContaining(["junction 01", "junction 02", "junction 03"]),
+    );
+  });
+
+  it("proposes positions 1/2/3 when the same boxes are still unlinked", () => {
+    const plan = planJboxRacewayPopulation(
+      graph({
+        jbox: [
+          { id: "j1", jbox_id: "JB-104-01" },
+          { id: "j2", jbox_id: "JB-104-02" },
+          { id: "j3", jbox_id: "JB-104-03" },
+        ],
+        branch: branches,
+      } as never),
+    );
+    expect(plan.map((p) => [p.jbox_id, p.status, p.proposed_raceway, p.proposed_sequence])).toEqual([
+      ["JB-104-01", "proposed", "CON-104", 1],
+      ["JB-104-02", "proposed", "CON-104", 2],
+      ["JB-104-03", "proposed", "CON-104", 3],
+    ]);
+  });
+
+  it("never proposes across an ambiguous path (CON-104 plus legacy EMT-104)", () => {
+    const plan = planJboxRacewayPopulation(
+      graph({
+        raceway: [
+          { id: "r104", conduit_id: "CON-104" },
+          { id: "r104b", conduit_id: "EMT-104" },
+        ],
+        jbox: [{ id: "j1", jbox_id: "JB-104-01" }],
+      } as never),
+    );
+    expect(plan[0]!.status).toBe("no_evidence");
+    expect(plan[0]!.evidence).toContain("matches 2 raceways");
+  });
+});

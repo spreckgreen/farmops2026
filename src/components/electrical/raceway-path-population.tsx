@@ -75,8 +75,39 @@ export function RacewayPathPopulation() {
         </div>
 
         {result ? (
+          <div className="rounded-md border bg-muted/40 p-2 text-xs text-muted-foreground space-y-1">
+            <p>
+              Read {result.diagnostics.jboxRows} junction box
+              {result.diagnostics.jboxRows === 1 ? "" : "es"} ({result.diagnostics.linkedJboxes}{" "}
+              already linked) and {result.diagnostics.racewayRows} raceway
+              {result.diagnostics.racewayRows === 1 ? "" : "s"}.
+            </p>
+            <p>
+              Proposals: {result.diagnostics.statusCounts.proposed} proposed,{" "}
+              {result.diagnostics.statusCounts.already_linked} already linked,{" "}
+              {result.diagnostics.statusCounts.conflict} conflict,{" "}
+              {result.diagnostics.statusCounts.no_evidence} no evidence.
+            </p>
+            {result.diagnostics.racewaysByPath.length ? (
+              <p className="font-mono">
+                Paths:{" "}
+                {result.diagnostics.racewaysByPath
+                  .map((p) => `${p.path} → ${p.raceways.join(" / ")}`)
+                  .join("  •  ")}
+              </p>
+            ) : (
+              <p>No raceway records encode a canonical CON-### path number.</p>
+            )}
+          </div>
+        ) : null}
+
+        {result ? (
           !result.rows.length ? (
-            <p className="text-muted-foreground">No junction boxes to review.</p>
+            <p className="text-muted-foreground">
+              {result.diagnostics.jboxRows === 0
+                ? "No junction-box records were visible to this account, so there is nothing to propose. Check that the records exist in this environment and are owned by this user."
+                : "No junction boxes to review."}
+            </p>
           ) : (
             <div className="space-y-1.5">
               {result.rows.map((r) => (
