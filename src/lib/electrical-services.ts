@@ -312,6 +312,198 @@ export function planCommissionIntertieConfiguration(
   return patches;
 }
 
+// -------------------------------------------------- panel topology per revision
+//
+// Panel parentage is mutable topology, not identity. PNL-H2 is a subpanel of
+// PNL-H1 in the current 200 A House revision and can be fed directly from the
+// upgraded service equipment in a proposed 400 A revision — the panel keeps its
+// stable ID in both, because the parent lives on the revision's membership row,
+// never on the panel record.
+
+export const FED_FROM_KINDS = ["service_equipment", "panel"] as const;
+export type FedFromKind = (typeof FED_FROM_KINDS)[number];
+
+export function fedFromKindLabel(value: unknown): string {
+  const key = str(value);
+  if (key === "service_equipment") return "Service equipment";
+  if (key === "panel") return "Another panel";
+  return key || "Not stated";
+}
+
+export interface ServicePanelNode {
+  id: string;
+  panelRef: string;
+  role: string;
+  sequence: number | null;
+  ampacityAmps: string;
+  fedFromKind: string;
+  parentRef: string;
+  children: ServicePanelNode[];
+}
+
+const linkRef = (row: Row) => str(row["panel_ref"]) || str(row["panel_uuid"]);
+const parentRef = (row: Row) => str(row["fed_from_panel_ref"]) || str(row["fed_from_panel_uuid"]);
+
+function bySequence(a: Row, b: Row): number {
+  const sa = Number(a["sequence"] ?? 9999);
+  const sb = Number(b["sequence"] ?? 9999);
+  if (sa !== sb) return sa - sb;
+  return linkRef(a).localeCompare(linkRef(b));
+}
+
+/**
+ * Build the panel tree for one configuration revision. Rows fed from the service
+ * equipment (or with no stated parent) are roots; rows fed from another panel
+ * hang under it. Rows whose parent is not part of the same revision stay roots so
+ * nothing disappears from the rendering.
+ */
+export function buildServicePanelTopology(links: Row[]): ServicePanelNode[] {
+  const rows = [...(links ?? [])].sort(bySequence);
+  const nodes = new Map<string, ServicePanelNode>();
+  for (const r of rows) {
+    const ref = linkRef(r);
+    if (!ref) continue;
+    nodes.set(ref, {
+      id: str(r["id"]),
+      panelRef: ref,
+      role: str(r["role"]),
+      sequence: r["sequence"] === null || r["sequence"] === undefined ? null : Number(r["sequence"]),
+      ampacityAmps: str(r["panel_ampacity_amps"]),
+      fedFromKind: str(r["fed_from_kind"]),
+      parentRef: parentRef(r),
+      children: [],
+    });
+  }
+  const roots: ServicePanelNode[] = [];
+  for (const r of rows) {
+    const ref = linkRef(r);
+    const node = ref ? nodes.get(ref) : undefined;
+    if (!node) continue;
+    const parent = node.parentRef && node.parentRef !== ref ? nodes.get(node.parentRef) : undefined;
+    if (parent && str(r["fed_from_kind"]) !== "service_equipment" && !hasAncestor(parent, ref)) {
+      parent.children.push(node);
+    } else {
+      roots.push(node);
+    }
+  }
+  return roots;
+}
+
+function hasAncestor(node: ServicePanelNode, ref: string): boolean {
+  let cursor: ServicePanelNode | undefined = node;
+  const seen = new Set<string>();
+  while (cursor) {
+    if (cursor.panelRef === ref) return true;
+    if (seen.has(cursor.panelRef)) return true;
+    seen.add(cursor.panelRef);
+    cursor = undefined;
+  }
+  return false;
+}
+
+/** Human-readable chains, e.g. `SVC-HOUSE → PNL-H1 → PNL-H2`. */
+export function renderServiceTopology(serviceId: string, links: Row[]): string[] {
+  const out: string[] = [];
+  const walk = (node: ServicePanelNode, prefix: string[]) => {
+    const label = node.ampacityAmps ? `${node.panelRef} (${node.ampacityAmps} A)` : node.panelRef;
+    const path = [...prefix, label];
+    if (!node.children.length) out.push(path.join(" → "));
+    else for (const child of node.children) walk(child, path);
+  };
+  for (const root of buildServicePanelTopology(links)) walk(root, [serviceId]);
+  return out;
+}
+
+/**
+ * Topology QA for one revision's panel membership. Severity is caller-supplied:
+ * a proposed redesign is reported as information so storing the future 400 A
+ * arrangement never fails the as-built system.
+ */
+export function validateServicePanelTopology(
+  serviceId: string,
+  links: Row[],
+  severity: ServiceFindingSeverity,
+): ServiceFinding[] {
+  const findings: ServiceFinding[] = [];
+  const rows = links ?? [];
+  const refs = new Set(rows.map(linkRef).filter(Boolean));
+
+  for (const r of rows) {
+    const ref = linkRef(r);
+    const kind = str(r["fed_from_kind"]);
+    const parent = parentRef(r);
+    if (!ref) {
+      findings.push({
+        code: "panel_link_no_panel",
+        severity,
+        serviceId,
+        message: `${serviceId} has a panel membership row with no panel referenced.`,
+      });
+      continue;
+    }
+    if (kind === "panel") {
+      if (!parent) {
+        findings.push({
+          code: "panel_parent_missing",
+          severity: severity === "info" ? "info" : "warning",
+          serviceId,
+          message: `${ref} is recorded as fed from another panel but the parent panel is not stated. This is missing information, not a contradiction.`,
+        });
+      } else if (parent === ref) {
+        findings.push({
+          code: "panel_parent_self",
+          severity,
+          serviceId,
+          message: `${ref} is recorded as fed from itself.`,
+        });
+      } else if (!refs.has(parent)) {
+        findings.push({
+          code: "panel_parent_not_in_revision",
+          severity,
+          serviceId,
+          message: `${ref} is fed from ${parent}, which is not part of this configuration revision. Add ${parent} to the revision or correct the feed.`,
+        });
+      }
+    } else if (!kind) {
+      findings.push({
+        code: "panel_feed_not_stated",
+        severity: severity === "info" ? "info" : "warning",
+        serviceId,
+        message: `${ref} does not state whether it is fed from the service equipment or from another panel.`,
+      });
+    }
+  }
+
+  // Cycle detection over the stated parentage, independent of the tree builder.
+  const parentOf = new Map<string, string>();
+  for (const r of rows) {
+    if (str(r["fed_from_kind"]) === "panel") {
+      const ref = linkRef(r);
+      const p = parentRef(r);
+      if (ref && p && refs.has(p)) parentOf.set(ref, p);
+    }
+  }
+  for (const start of parentOf.keys()) {
+    const seen = new Set<string>([start]);
+    let cursor = parentOf.get(start);
+    while (cursor) {
+      if (seen.has(cursor)) {
+        findings.push({
+          code: "panel_parent_cycle",
+          severity,
+          serviceId,
+          message: `Panel feed chain starting at ${start} loops back on itself (${[...seen].join(" → ")} → ${cursor}).`,
+        });
+        break;
+      }
+      seen.add(cursor);
+      cursor = parentOf.get(cursor);
+    }
+  }
+
+  return findings;
+}
+
 // -------------------------------------------------------------------- QA
 
 export type ServiceFindingSeverity = "error" | "warning" | "info";
@@ -326,9 +518,11 @@ export interface ServiceFinding {
 export interface ServiceQaInput {
   services: Row[];
   configs: Row[];
+  servicePanels?: Row[];
   interties?: Row[];
   intertieConfigs?: Row[];
 }
+
 
 /**
  * QA over the ACTIVE topology only.
