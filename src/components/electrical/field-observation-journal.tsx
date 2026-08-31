@@ -9,6 +9,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { Download, Eye, Loader2, NotebookPen, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { isLinkedPhotoBucket } from "@/components/electrical/observation-photo-cell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -143,6 +144,11 @@ export function FieldObservationJournal() {
 
   async function viewPhoto(e: JournalEntry) {
     if (!e.photo_path) return;
+    // OneDrive / Google Drive evidence is a share link, not a stored object.
+    if (isLinkedPhotoBucket(e.photo_bucket)) {
+      window.open(e.photo_path, "_blank", "noopener,noreferrer");
+      return;
+    }
     const { data, error } = await supabase.storage
       .from(e.photo_bucket || "field-observations")
       .createSignedUrl(e.photo_path, 300);
