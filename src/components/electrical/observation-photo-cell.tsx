@@ -199,6 +199,11 @@ export function ObservationPhotoCell({
 
   async function remove() {
     if (!photo) return;
+    // A link is only a reference: dropping it must never touch the cloud file.
+    if (isLinkedPhotoBucket(photo.bucket)) {
+      onChange(null);
+      return;
+    }
     setBusy(true);
     const { error } = await supabase.storage.from(OBSERVATION_PHOTO_BUCKET).remove([photo.path]);
     setBusy(false);
