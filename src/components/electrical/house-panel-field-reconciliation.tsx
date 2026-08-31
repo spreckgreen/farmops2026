@@ -13,7 +13,12 @@ import {
   previewHousePanelFieldReconciliation,
   type HousePanelPreview,
 } from "@/lib/electrical-house-panel-field.functions";
-import { FIELD_RECONCILIATION_CSV, type ReconciliationRow } from "@/lib/electrical-house-panel-field";
+import {
+  FIELD_RECONCILIATION_CSV,
+  type ComparisonState,
+  type ReconciliationRow,
+} from "@/lib/electrical-house-panel-field";
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
