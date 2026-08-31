@@ -1226,7 +1226,9 @@ export function fieldReconciliationCsv(rows: ReconciliationRow[]): string {
     "poles",
     "field",
     "canonical_engineering",
+    "canonical_state",
     "farmops_current",
+    "farmops_state",
     "field_observed_text",
     "field_interpreted",
     "confidence",
@@ -1239,6 +1241,7 @@ export function fieldReconciliationCsv(rows: ReconciliationRow[]): string {
     "source_row",
     "source_column",
     "source_photo",
+    "duplicate_source_worksheets",
   ].join(",");
   const lines = rows.map((r) =>
     [
@@ -1250,7 +1253,9 @@ export function fieldReconciliationCsv(rows: ReconciliationRow[]): string {
       r.poles ?? "",
       r.field_label,
       r.canonical_value ?? "",
+      r.canonical_state,
       r.farmops_value ?? "",
+      r.farmops_state,
       r.field_observed_text,
       r.field_interpreted ?? "",
       r.confidence,
@@ -1263,10 +1268,12 @@ export function fieldReconciliationCsv(rows: ReconciliationRow[]): string {
       r.provenance.source_row,
       r.provenance.source_column,
       r.provenance.source_photo,
+      (r.duplicate_sources ?? []).map((d) => `${d.worksheet}:${d.source_row}`).join(" | "),
     ]
       .map(csvCell)
       .join(","),
   );
+
   return [header, ...lines].join("\n");
 }
 
