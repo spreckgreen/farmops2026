@@ -911,10 +911,46 @@ const SUBPANEL_LABEL = /sub\s*-?\s*panel/i;
 
 export function reconcileHousePanelObservations(input: ReconcileInput): ReconciliationRow[] {
   const canonical = input.canonical ?? {};
+  const canonicalPanels = new Set(
+    input.canonicalPanels ?? [...new Set(Object.keys(canonical).map((k) => k.split("|")[0]))],
+  );
   const live = new Map<string, FarmOpsBreaker>();
-  for (const b of input.farmops) live.set(`${b.panel_id}|${b.side}|${b.position}`, b);
+  const farmopsPanels = new Set<string>();
+  for (const b of input.farmops) {
+    live.set(`${b.panel_id}|${b.side}|${b.position}`, b);
+    farmopsPanels.add(b.panel_id);
+  }
 
   const rows: ReconciliationRow[] = [];
+
+  // Source-evidence conflicts are reported first, and never resolved silently.
+  for (const c of input.parsed.conflicts) {
+    rows.push({
+      key: `conflict#${c.panel_id ?? c.panel_source_name}#${c.positions_text}#${c.field}`,
+      panel_source_name: c.panel_source_name,
+      panel_id: c.panel_id,
+      positions_text: c.positions_text,
+      positions: [],
+      poles: null,
+      side: "",
+      position: null,
+      field: c.field,
+      field_label: `${c.field_label} (source conflict)`,
+      canonical_value: null,
+      farmops_value: null,
+      field_observed_text: `${c.kept_text} (${c.kept.worksheet}) vs ${c.other_text} (${c.other.worksheet})`,
+      field_interpreted: null,
+      confidence: "low",
+      verification_required: true,
+      classification: "SOURCE_EVIDENCE_CONFLICT",
+      proposed_action: "requires_review",
+      detail: `Two source representations disagree about ${c.field_label}; neither was chosen.`,
+      provenance: c.kept,
+      canonical_state: "no_mapping",
+      farmops_state: "no_mapping",
+      duplicate_sources: [c.other],
+    });
+  }
 
   for (const obs of input.parsed.observations) {
     const base = {
@@ -926,6 +962,7 @@ export function reconcileHousePanelObservations(input: ReconcileInput): Reconcil
       poles: obs.poles,
       side: obs.slot?.side ?? "",
       position: obs.slot?.position ?? null,
+      duplicate_sources: obs.duplicate_sources.length ? obs.duplicate_sources : undefined,
     };
 
     if (obs.identity_status === "unresolved") {
@@ -943,6 +980,8 @@ export function reconcileHousePanelObservations(input: ReconcileInput): Reconcil
         proposed_action: "requires_review",
         detail: `"${obs.panel_source_name}" does not resolve to exactly one existing panel identity.`,
         provenance: obs.provenance,
+        canonical_state: "no_mapping",
+        farmops_state: "no_mapping",
       });
       continue;
     }
@@ -961,6 +1000,8 @@ export function reconcileHousePanelObservations(input: ReconcileInput): Reconcil
         proposed_action: "requires_review",
         detail: `Positions "${obs.positions_text}" could not be resolved to physical panel slots.`,
         provenance: obs.provenance,
+        canonical_state: "no_mapping",
+        farmops_state: "no_mapping",
       });
       continue;
     }
@@ -968,17 +1009,67 @@ export function reconcileHousePanelObservations(input: ReconcileInput): Reconcil
     const slotKey = `${obs.panel_id}|${obs.slot.side}|${obs.slot.position}`;
     const liveRow = live.get(slotKey);
     const primaryBreaker = obs.positions[0];
+    const panelHasFarmOpsRows = farmopsPanels.has(String(obs.panel_id));
 
     for (const f of obs.fields) {
-      const canonicalValue = str(canonical[`${obs.panel_id}|${primaryBreaker}|${f.field}`] ?? null);
-      const farmopsValue =
-        liveRow == null
+      const comparable = COMPARABLE_FIELDS.includes(f.field);
+
+      // ------------------------------------------------ canonical comparison
+      const canonicalKey = `${obs.panel_id}|${primaryBreaker}|${f.field}`;
+      const canonicalRaw = comparable ? (canonical[canonicalKey] ?? null) : null;
+      const canonicalValue = str(canonicalRaw);
+      const canonical_state: ComparisonState = !comparable
+        ? "no_mapping"
+        : canonicalValue !== null
+          ? "present"
+          : canonicalRaw !== null
+            ? "blank"
+            : canonicalPanels.has(String(obs.panel_id))
+              ? "record_absent"
+              : "no_mapping";
+
+      // -------------------------------------------------- FarmOps comparison
+      const farmopsRaw = !comparable
+        ? null
+        : liveRow == null
           ? null
           : f.field === "label"
-            ? str(liveRow.label)
+            ? liveRow.label
             : f.field === "poles"
-              ? str(liveRow.poles)
-              : str(liveRow.ocp_amps);
+              ? liveRow.poles
+              : liveRow.ocp_amps;
+      const farmopsValue = str(farmopsRaw);
+      const farmops_state: ComparisonState = !comparable
+        ? "no_mapping"
+        : liveRow == null
+          ? "record_absent"
+          : farmopsValue === null
+            ? "blank"
+            : "present";
+
+      if (!comparable) {
+        // Notes, photo references and other transcription columns are evidence
+        // only: FarmOps stores no equivalent, so nothing may be proposed.
+        rows.push({
+          ...base,
+          field: f.field,
+          field_label: f.field_label || OBSERVED_FIELD_LABELS[f.field],
+          canonical_value: null,
+          farmops_value: null,
+          field_observed_text: f.observed_text,
+          field_interpreted: f.interpreted,
+          confidence: f.confidence,
+          verification_required: f.verification_required,
+          classification: "FIELD_OBSERVATION_NEW",
+          proposed_action: "preserve_observation_only",
+          detail: "Evidence-only transcription field; FarmOps holds no equivalent attribute.",
+          provenance: f.provenance,
+          canonical_state,
+          farmops_state,
+        });
+        continue;
+      }
+
       const c = classify(f, canonicalValue, farmopsValue);
       const row: ReconciliationRow = {
         ...base,
@@ -994,6 +1085,8 @@ export function reconcileHousePanelObservations(input: ReconcileInput): Reconcil
         proposed_action: c.action,
         detail: c.detail,
         provenance: f.provenance,
+        canonical_state,
+        farmops_state,
       };
       if (c.action === "propose_farmops_update" && f.interpreted !== null && liveRow) {
         row.target = {
@@ -1007,7 +1100,9 @@ export function reconcileHousePanelObservations(input: ReconcileInput): Reconcil
         };
       } else if (c.action === "propose_farmops_update" && !liveRow) {
         row.proposed_action = "requires_review";
-        row.detail = "No FarmOps breaker-position record exists for that slot yet; review before creating one.";
+        row.detail = panelHasFarmOpsRows
+          ? `FarmOps has breaker positions for ${obs.panel_id} but none at ${obs.slot.side} ${obs.slot.position}; creating one is a separate previewable proposal.`
+          : `FarmOps holds no breaker-position records at all for ${obs.panel_id} — a dataset state, not a parse failure. Creating them is a separate previewable proposal.`;
       }
       rows.push(row);
     }
@@ -1017,9 +1112,8 @@ export function reconcileHousePanelObservations(input: ReconcileInput): Reconcil
     const feederLabel = obs.fields.find((f) => f.field === "label" && SUBPANEL_LABEL.test(f.observed_text));
     if (feederLabel && obs.panel_id === "PNL-H1" && (obs.poles ?? 1) >= 2) {
       const currentParent = input.currentSubpanelParent ?? null;
-      const evidence = `PNL-H1 positions ${obs.positions_text} — ${feederLabel.observed_text} — ${obs.poles}-pole ${
-        obs.fields.find((f) => f.field === "ocp_amps")?.interpreted ?? "?"
-      } A`;
+      const amps = obs.fields.find((f) => f.field === "ocp_amps")?.interpreted ?? "?";
+      const evidence = `PNL-H1 positions ${obs.positions_text} — ${feederLabel.observed_text} — ${obs.poles}-pole ${amps} A`;
       const already = currentParent === "PNL-H1";
       rows.push({
         ...base,
@@ -1035,9 +1129,11 @@ export function reconcileHousePanelObservations(input: ReconcileInput): Reconcil
         classification: already ? "MATCH" : "TOPOLOGY_PROPOSAL",
         proposed_action: already ? "no_change" : "propose_topology_update",
         detail: already
-          ? "The current service revision already represents SVC-HOUSE → PNL-H1 → PNL-H2."
-          : "Field evidence supports PNL-H1 → 60 A feeder → PNL-H2 in the current as-built revision.",
+          ? `No topology proposal is required: the current service revision already represents SVC-HOUSE → PNL-H1 → PNL-H2, and this evidence (${evidence}) confirms it.`
+          : `Field evidence (${evidence}) supports PNL-H1 → PNL-H2 in the current as-built revision.`,
         provenance: feederLabel.provenance,
+        canonical_state: "no_mapping",
+        farmops_state: currentParent === null ? "record_absent" : "present",
         topology: already
           ? undefined
           : { panel_id: "PNL-H2", current_parent: currentParent, proposed_parent: "PNL-H1", evidence },
@@ -1047,6 +1143,7 @@ export function reconcileHousePanelObservations(input: ReconcileInput): Reconcil
 
   return rows;
 }
+
 
 // ------------------------------------------------------------------ reporting
 
