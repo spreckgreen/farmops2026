@@ -80,6 +80,9 @@ const CODE_LABELS: Record<string, string> = {
   orphan_endpoint: "Orphan records",
   incomplete_topology: "Incomplete topology",
   orphan_waypoint: "Orphan waypoints",
+  unresolved_upstream_topology: "Unresolved upstream topology",
+  ambiguous_service_domain: "Ambiguous service domain",
+  panel_feeder_cycle: "Panel feeder cycles",
   encoded_parent_mismatch: "Encoded parent does not match linked parent",
 };
 
