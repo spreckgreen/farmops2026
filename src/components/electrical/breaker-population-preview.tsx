@@ -24,7 +24,10 @@ import {
   type BreakerPopulationPreview,
 } from "@/lib/electrical-breaker-population.functions";
 import {
+  BREAKER_MISMATCH_CSV,
   BREAKER_POPULATION_CSV,
+  breakerMismatchCsv,
+  breakerPositionMismatches,
   POPULATION_ACTION_LABELS,
   type BreakerPopulationRow,
   type PopulationAction,
@@ -202,6 +205,12 @@ export function BreakerPopulationPreview({
     return seen;
   }, [result]);
 
+  // Position/pole mismatches are shown in full for inspection; nothing is repaired.
+  const mismatches = useMemo(
+    () => breakerPositionMismatches(result?.rows ?? []),
+    [result],
+  );
+
   const photoCount = panelKeys.filter((k) => panelPhotos[k]).length;
   const linkedCircuits = (result?.rows ?? []).filter(
     (r) => panelPhotos[r.panel_id ?? r.panel_source_name],
@@ -255,6 +264,13 @@ export function BreakerPopulationPreview({
               {d.blocked_unresolved} unresolved
             </Badge>
             <Badge variant="outline">{d.breaker_amps_unknown} amps unknown</Badge>
+            <Badge variant="outline">{d.explicit_amp_observations} explicit amp observations</Badge>
+            <Badge variant="outline">{d.explicit_numeric_amps} explicit numeric amps</Badge>
+            <Badge variant="outline">{d.blank_amps} blank amps</Badge>
+            <Badge variant="outline">{d.uncertain_amps} uncertain amps</Badge>
+            <Badge variant={d.no_amp_mapping ? "destructive" : "outline"}>
+              {d.no_amp_mapping} no amp mapping
+            </Badge>
             <Badge variant="outline">{d.verification_required} verification required</Badge>
             <Badge variant={d.conflicts ? "destructive" : "outline"}>{d.conflicts} conflicts</Badge>
             <Badge variant="outline">{d.requires_review} requires review</Badge>
@@ -299,7 +315,66 @@ export function BreakerPopulationPreview({
               >
                 <FileText className="h-4 w-4" /> Markdown
               </Button>
+              {mismatches.length > 0 && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1"
+                  onClick={() =>
+                    download(BREAKER_MISMATCH_CSV, breakerMismatchCsv(result.rows), "text/csv")
+                  }
+                >
+                  <Download className="h-4 w-4" /> Mismatch CSV
+                </Button>
+              )}
             </div>
+
+            {mismatches.length > 0 && (
+              <div className="space-y-2 rounded-md border border-destructive/40 p-3">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <ShieldAlert className="h-4 w-4 text-destructive" />
+                  {mismatches.length} position/pole mismatch(es) — inspection only
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Nothing here is repaired automatically. Compare the raw circuit text against the
+                  parsed positions to tell a transcription problem from a parser problem.
+                </p>
+                <div className="overflow-auto">
+                  <table className="w-full text-xs">
+                    <thead className="bg-muted/60 text-left">
+                      <tr>
+                        <th className="p-2">Panel</th>
+                        <th className="p-2">Raw circuit text</th>
+                        <th className="p-2">Parsed occupied positions</th>
+                        <th className="p-2">Observed poles</th>
+                        <th className="p-2">Source sheet</th>
+                        <th className="p-2">Source row(s)</th>
+                        <th className="p-2">Reason</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {mismatches.map((m, i) => (
+                        <tr key={`${m.panel}-${m.raw_circuit_text}-${i}`} className="border-t align-top">
+                          <td className="p-2 font-medium">{m.panel}</td>
+                          <td className="p-2 font-mono">“{m.raw_circuit_text}”</td>
+                          <td className="p-2">{m.parsed_positions.join(" / ") || "—"}</td>
+                          <td className="p-2">
+                            {m.observed_poles ?? "?"}
+                            <div className="text-muted-foreground">
+                              {m.observed_poles_text ? `“${m.observed_poles_text}” · ` : ""}
+                              {m.poles_source.replace(/_/g, " ")}
+                            </div>
+                          </td>
+                          <td className="p-2">{m.source_sheet ?? "—"}</td>
+                          <td className="p-2">{m.source_rows.join(", ") || "—"}</td>
+                          <td className="max-w-[22rem] p-2 text-muted-foreground">{m.reason}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
 
             <div className="space-y-2 rounded-md border p-3">
               <div className="text-sm font-medium">Panel photos</div>
@@ -422,6 +497,10 @@ export function BreakerPopulationPreview({
                         )}
                         {r.amps_observed_text && (
                           <div className="text-muted-foreground">“{r.amps_observed_text}”</div>
+                        )}
+                        <div className="text-[11px] text-muted-foreground">{r.amp_status_label}</div>
+                        {r.amp_evidence && (
+                          <div className="text-[11px] text-muted-foreground">{r.amp_evidence}</div>
                         )}
                       </td>
                       <td className="max-w-[15rem] p-2">
