@@ -61,6 +61,8 @@ function QaPage() {
         <RacewayPathPopulation />
         <HousePanelFieldReconciliation scope="house" />
         <HousePanelFieldReconciliation scope="farm_shop" />
+        <FieldObservationJournal />
+
 
         <QaReport />
       </div>
