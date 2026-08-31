@@ -246,7 +246,7 @@ export function HousePanelFieldReconciliation({
       <CardHeader className="pb-2">
         <CardTitle className="flex items-center gap-2 text-base">
           <Camera className="h-4 w-4" />
-          House panel field-observation reconciliation
+          {scope.area} panel field-observation reconciliation
         </CardTitle>
         <p className="text-sm text-muted-foreground">
           Transcribed panel-directory photographs compared three ways: engineering / canonical,
