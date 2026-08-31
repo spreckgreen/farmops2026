@@ -36,12 +36,27 @@ type Filter =
   | "all"
   | "matches"
   | "conflicts"
+  | "source_conflicts"
   | "verification"
   | "updates"
   | "topology"
+  | "evidence_only"
   | "low_confidence";
 
 const rowKey = (r: ReconciliationRow, i: number) => `${r.key}#${r.field}#${i}`;
+
+/** A blank comparison is never shown as one undifferentiated "(silent)". */
+function stateCell(value: string | null, state: ComparisonState) {
+  if (value !== null) return value;
+  const label =
+    state === "blank"
+      ? "(stored blank)"
+      : state === "record_absent"
+        ? "(no record)"
+        : "(no mapping)";
+  return <span className="text-xs text-muted-foreground">{label}</span>;
+}
+
 
 function download(name: string, body: string, mime: string) {
   const blob = new Blob([body], { type: mime });
