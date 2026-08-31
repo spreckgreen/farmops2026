@@ -376,6 +376,8 @@ export function HousePanelFieldReconciliation() {
                     <th className="p-1">Engineering / canonical</th>
                     <th className="p-1">FarmOps</th>
                     <th className="p-1">Field observed</th>
+                    <th className="p-1">Photo evidence</th>
+
                     <th className="p-1">Confidence</th>
                     <th className="p-1">Classification</th>
                     <th className="p-1">Proposed action</th>
