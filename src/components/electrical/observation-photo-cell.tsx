@@ -46,6 +46,31 @@ function safeName(name: string) {
   return (cleaned || "photo").slice(-80);
 }
 
+/**
+ * Recognises the share-link hosts we support, e.g.
+ *  - https://1drv.ms/i/s!AbCdEf...              (OneDrive personal)
+ *  - https://contoso-my.sharepoint.com/:i:/g/...(OneDrive for Business)
+ *  - https://drive.google.com/file/d/1AbC.../view
+ * Returns the sentinel bucket, or null when the host is not one of those.
+ */
+export function classifyPhotoLink(raw: string): { bucket: string; label: string } | null {
+  let url: URL;
+  try {
+    url = new URL(raw.trim());
+  } catch {
+    return null;
+  }
+  if (url.protocol !== "https:") return null;
+  const host = url.hostname.toLowerCase();
+  if (host === "1drv.ms" || host.endsWith("sharepoint.com") || host === "onedrive.live.com") {
+    return { bucket: ONEDRIVE_PHOTO_BUCKET, label: "OneDrive" };
+  }
+  if (host === "drive.google.com" || host === "docs.google.com" || host === "drive.usercontent.google.com") {
+    return { bucket: GOOGLE_DRIVE_PHOTO_BUCKET, label: "Google Drive" };
+  }
+  return null;
+}
+
 export function ObservationPhotoCell({
   photo,
   onChange,
