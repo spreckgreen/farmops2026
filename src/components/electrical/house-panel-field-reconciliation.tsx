@@ -337,6 +337,34 @@ export function HousePanelFieldReconciliation({
             ) : null}
 
 
+            <div className="rounded-md border border-border p-2">
+              <div className="text-sm font-medium">Panel photo evidence</div>
+              <p className="mb-2 text-xs text-muted-foreground">
+                Attach one photograph per panel — direct upload or a OneDrive / Google Drive link.
+                Every circuit on that panel inherits it as evidence; a per-circuit photo below
+                overrides the panel photo for that row.
+              </p>
+              <div className="flex flex-wrap gap-3">
+                {panels.map((p) => (
+                  <div key={p} className="flex items-center gap-2 rounded border border-border/60 px-2 py-1">
+                    <span className="font-mono text-xs">{p}</span>
+                    <ObservationPhotoCell
+                      photo={panelPhotos[p] ?? null}
+                      disabled={applyMutation.isPending}
+                      onChange={(photo) =>
+                        setPanelPhotos((prev) => {
+                          const next = { ...prev };
+                          if (photo) next[p] = photo;
+                          else delete next[p];
+                          return next;
+                        })
+                      }
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
             <div className="flex flex-wrap items-center gap-2">
               <select
                 className="h-8 rounded-md border border-input bg-background px-2 text-sm"
@@ -464,7 +492,7 @@ export function HousePanelFieldReconciliation({
                         </td>
                         <td className="p-1">
                           <ObservationPhotoCell
-                            photo={photos[k] ?? null}
+                            photo={photos[k] ?? panelPhotos[r.panel_id ?? r.panel_source_name] ?? null}
                             disabled={applyMutation.isPending}
                             onChange={(p) =>
                               setPhotos((prev) => {
@@ -475,6 +503,11 @@ export function HousePanelFieldReconciliation({
                               })
                             }
                           />
+                          {!photos[k] && panelPhotos[r.panel_id ?? r.panel_source_name] ? (
+                            <div className="mt-1 text-xs text-muted-foreground">
+                              inherited from panel photo
+                            </div>
+                          ) : null}
                           {r.provenance.source_photo ? (
                             <div className="mt-1 text-xs text-muted-foreground">
                               cited: {r.provenance.source_photo}
