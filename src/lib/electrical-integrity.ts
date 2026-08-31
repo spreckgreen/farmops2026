@@ -18,6 +18,7 @@ import {
   type EndpointType,
 } from "@/lib/electrical";
 import { ENTITIES } from "@/lib/electrical-entities";
+import { RACEWAY_PATH_CODES, racewayPathFindings } from "@/lib/electrical-raceway-path";
 import type { ElectricalGraphData, Row } from "@/lib/electrical-mermaid";
 
 export type IntegritySeverity = "error" | "warning";
