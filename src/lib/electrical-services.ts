@@ -593,6 +593,15 @@ export function validateServiceState(input: ServiceQaInput): ServiceFinding[] {
       }
     }
 
+    // Panel membership: the current revision is evaluated as the live topology;
+    // stored future revisions are reported as information only.
+    const panelsByConfig = groupByParent(input.servicePanels ?? [], "service_config_uuid");
+    if (current) {
+      findings.push(
+        ...validateServicePanelTopology(sid, panelsByConfig.get(str(current["id"])) ?? [], "error"),
+      );
+    }
+
     for (const future of futureServiceConfigurations(configs)) {
       findings.push({
         code: "future_configuration_recorded",
@@ -604,7 +613,20 @@ export function validateServiceState(input: ServiceQaInput): ServiceFinding[] {
             str(future["ampacity_amps"]) ? ` at ${str(future["ampacity_amps"])} A` : ""
           }. It is stored for analysis only and is not evaluated as energized.`,
       });
+      const futureLinks = panelsByConfig.get(str(future["id"])) ?? [];
+      if (futureLinks.length) {
+        findings.push({
+          code: "future_topology_recorded",
+          severity: "info",
+          serviceId: sid,
+          message:
+            `Proposed topology for ${sid}: ${renderServiceTopology(sid, futureLinks).join("; ")}. ` +
+            `Panel identities are unchanged; this arrangement is not installed.`,
+        });
+      }
+      findings.push(...validateServicePanelTopology(sid, futureLinks, "info"));
     }
+
   }
 
   const byIntertie = groupByParent(input.intertieConfigs ?? [], "intertie_uuid");
