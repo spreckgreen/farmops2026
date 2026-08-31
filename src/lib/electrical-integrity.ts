@@ -51,6 +51,7 @@ export const INTEGRITY_CODES = [
   "incomplete_topology",
   "orphan_waypoint",
   "encoded_parent_mismatch",
+  ...RACEWAY_PATH_CODES,
 ] as const;
 export type IntegrityCode = (typeof INTEGRITY_CODES)[number];
 
