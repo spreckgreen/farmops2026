@@ -217,6 +217,48 @@ export interface ObservedField {
 }
 
 
+/**
+ * How the workbook's breaker-amperage column mapped for one source row.
+ *
+ * These four states are deliberately distinct: "the sheet has no amp column",
+ * "the amp cell is blank", "the amp cell says VERIFY/?" and "the amp cell holds
+ * a number" are different findings and must never collapse into "unknown".
+ * Amperage-looking text inside the directory description (e.g. `AC 1ST FL 30A`)
+ * is NEVER an amp observation.
+ */
+export type AmpObservationStatus = "explicit_numeric" | "uncertain" | "blank" | "no_mapping";
+
+export interface AmpSourceTrace {
+  /** Header text of the detected breaker-amp column; null when unmapped. */
+  column: string | null;
+  /** Verbatim amp cell text; "" when the mapped cell is blank. */
+  cell_text: string;
+  status: AmpObservationStatus;
+  /** True when the sheet had an amp column at all (mapping succeeded). */
+  mapped: boolean;
+}
+
+export const AMP_STATUS_LABELS: Record<AmpObservationStatus, string> = {
+  explicit_numeric: "Explicit numeric amps",
+  uncertain: "Uncertain amps (VERIFY / ? / TBD)",
+  blank: "Amp column present but cell blank",
+  no_mapping: "No breaker-amp column on the source sheet",
+};
+
+/** Classify the amp cell of one source row. Description text is never consulted. */
+export function classifyAmpObservation(column: string | null, rawCell: unknown): AmpSourceTrace {
+  const cell_text = String(rawCell ?? "").trim();
+  if (!column) return { column: null, cell_text, status: "no_mapping", mapped: false };
+  if (cell_text === "") return { column, cell_text, status: "blank", mapped: true };
+  const parsed = interpretAmps(cell_text);
+  return {
+    column,
+    cell_text,
+    status: typeof parsed.interpreted === "number" ? "explicit_numeric" : "uncertain",
+    mapped: true,
+  };
+}
+
 /** One logical breaker (not one panel position). */
 export interface BreakerObservation {
   key: string;
@@ -229,11 +271,15 @@ export interface BreakerObservation {
   /** Verbatim position text, e.g. "26/28". */
   positions_text: string;
   poles: number | null;
+  /** Pole count as explicitly transcribed in the Poles column, else null. */
+  poles_stated: number | null;
   /** Physical slot of the first position (side + column position). */
   slot: { side: "Left" | "Right"; position: number } | null;
   position_status: "resolved" | "unresolved";
   fields: ObservedField[];
   notes: string;
+  /** Trace of the breaker-amp column for this observation's source row. */
+  amp_source: AmpSourceTrace;
   provenance: ObservationProvenance;
   /**
    * Other source representations of this same logical breaker (e.g. the same
@@ -244,6 +290,7 @@ export interface BreakerObservation {
   /** Positions merged in from continuation rows of a multi-pole breaker. */
   merged_positions_from: ObservationProvenance[];
 }
+
 
 /** Where two source representations of the same breaker disagree. */
 export interface SourceEvidenceConflict {
@@ -317,6 +364,12 @@ const HEADER_SYNONYMS: Record<string, string[]> = {
     "size",
     "ocp",
     "ocp amps",
+    "ocp a",
+    "brkr amps",
+    "breaker amp",
+    "amp size",
+    "amp rating",
+    "amps a",
     "trip",
     "trip rating",
     "a",
@@ -534,6 +587,8 @@ interface RawRow {
   poles: number | null;
   poles_stated: number | null;
   amps_text: string;
+  amp_source: AmpSourceTrace;
+
   description_text: string;
   notes: string;
   fields: ObservedField[];
@@ -598,7 +653,14 @@ export function parseHousePanelSheets(sheets: Sheet[], opts: ParseOptions): Pars
       const photo = cell(row, "photo");
       const notes = cell(row, "notes");
       const ampsText = cell(row, "amps");
+      // Trace the workbook's real amp column. A blank cell is NOT the same as a
+      // sheet without an amp column, and the description is never consulted.
+      const ampSource = classifyAmpObservation(
+        col("amps") === undefined ? null : headerName("amps") || "Breaker Amps",
+        ampsText,
+      );
       const descriptionText = cell(row, "description");
+
 
       const prov = (column: string, observed: string): ObservationProvenance => ({
         workbook: opts.workbook,
@@ -687,6 +749,7 @@ export function parseHousePanelSheets(sheets: Sheet[], opts: ParseOptions): Pars
         poles: polesStated ?? (positions.length > 1 ? positions.length : positions.length ? 1 : null),
         poles_stated: polesStated,
         amps_text: ampsText,
+        amp_source: ampSource,
         description_text: descriptionText,
         notes,
         fields,
@@ -801,10 +864,12 @@ export function parseHousePanelSheets(sheets: Sheet[], opts: ParseOptions): Pars
       positions: r.positions,
       positions_text: r.positions_text,
       poles: r.poles,
+      poles_stated: r.poles_stated,
       slot: r.positions.length ? slotForBreakerNumber(r.positions[0]) : null,
       position_status: r.positions.length ? "resolved" : "unresolved",
       fields: r.fields,
       notes: r.notes,
+      amp_source: r.amp_source,
       provenance: r.provenance,
       duplicate_sources: dupes,
       merged_positions_from: r.merged_positions_from,
