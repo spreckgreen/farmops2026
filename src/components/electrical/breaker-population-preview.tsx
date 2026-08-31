@@ -325,9 +325,16 @@ export function BreakerPopulationPreview({
         {d && (
           <div className="flex flex-wrap gap-2 text-xs">
             <Badge variant="secondary">{d.unique_breakers_considered} unique breakers considered</Badge>
-            <Badge>{d.eligible_to_create} eligible to create</Badge>
+            <Badge>{d.safe_structural_creates} safe structural creates</Badge>
+            <Badge variant="outline">
+              {d.creates_requiring_verification} creates requiring verification
+            </Badge>
+            <Badge variant={d.blocked_total ? "destructive" : "outline"}>
+              {d.blocked_total} blocked
+            </Badge>
             <Badge variant="outline">{d.positions_to_create} positions</Badge>
             <Badge variant="secondary">{d.already_existing} already existing</Badge>
+
             <Badge variant={d.blocked_position_mismatch ? "destructive" : "outline"}>
               {d.blocked_position_mismatch} position/pole mismatch
             </Badge>
