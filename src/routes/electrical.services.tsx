@@ -215,45 +215,55 @@ function Services() {
                   <p className="text-sm text-muted-foreground">No configuration revisions yet.</p>
                 )}
                 {configs.map((c) => (
-                  <div
-                    key={str(c["id"])}
-                    className="flex flex-wrap items-center gap-2 rounded-md border border-border p-2 text-sm"
-                  >
-                    <Badge variant={c["is_current"] ? "default" : "outline"}>
-                      {serviceLifecycleLabel(c["lifecycle_state"])}
-                    </Badge>
-                    <span>{str(c["revision_label"]) || "(unlabelled)"}</span>
-                    <span className="text-muted-foreground">
-                      {str(c["ampacity_amps"]) || "—"} A · {str(c["voltage"]) || "—"} ·{" "}
-                      {str(c["phase"]) || "—"}
-                    </span>
-                    {str(c["service_equipment"]) && (
-                      <span className="text-muted-foreground">{str(c["service_equipment"])}</span>
-                    )}
-                    <span className="ml-auto flex gap-2">
-                      {!c["is_current"] && (
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          disabled={commission.isPending}
-                          onClick={() => commission.mutate({ id: str(c["id"]), date: null })}
-                        >
-                          Commission as current
-                        </Button>
+                  <div key={str(c["id"])} className="rounded-md border border-border p-2 space-y-2">
+                    <div className="flex flex-wrap items-center gap-2 text-sm">
+                      <Badge variant={c["is_current"] ? "default" : "outline"}>
+                        {serviceLifecycleLabel(c["lifecycle_state"])}
+                      </Badge>
+                      <span>{str(c["revision_label"]) || "(unlabelled)"}</span>
+                      <span className="text-muted-foreground">
+                        {str(c["ampacity_amps"]) || "—"} A · {str(c["voltage"]) || "—"} ·{" "}
+                        {str(c["phase"]) || "—"}
+                      </span>
+                      {str(c["service_equipment"]) && (
+                        <span className="text-muted-foreground">{str(c["service_equipment"])}</span>
                       )}
-                      {!c["is_current"] && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          disabled={removeConfig.isPending}
-                          onClick={() => removeConfig.mutate({ id: str(c["id"]) })}
-                        >
-                          Delete
-                        </Button>
-                      )}
-                    </span>
+                      <span className="ml-auto flex gap-2">
+                        {!c["is_current"] && (
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            disabled={commission.isPending}
+                            onClick={() => commission.mutate({ id: str(c["id"]), date: null })}
+                          >
+                            Commission as current
+                          </Button>
+                        )}
+                        {!c["is_current"] && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            disabled={removeConfig.isPending}
+                            onClick={() => removeConfig.mutate({ id: str(c["id"]) })}
+                          >
+                            Delete
+                          </Button>
+                        )}
+                      </span>
+                    </div>
+                    <RevisionPanels
+                      serviceId={str(svc["service_id"])}
+                      configUuid={str(c["id"])}
+                      isCurrent={c["is_current"] === true}
+                      links={panelsByConfig.get(str(c["id"])) ?? []}
+                      panels={(data?.panels ?? []) as Row[]}
+                      pending={addPanel.isPending || removePanel.isPending}
+                      onAdd={(v) => addPanel.mutate(v)}
+                      onRemove={(id) => removePanel.mutate({ id })}
+                    />
                   </div>
                 ))}
+
               </div>
               <NewConfigForm
                 serviceUuid={str(svc["id"])}
