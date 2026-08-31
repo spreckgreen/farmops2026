@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  buildServicePanelTopology,
   checkIntertieId,
   checkServiceId,
   currentIntertieConfiguration,
@@ -8,6 +9,8 @@ import {
   groupByParent,
   planCommissionIntertieConfiguration,
   planCommissionServiceConfiguration,
+  renderServiceTopology,
+  validateServicePanelTopology,
   validateServiceState,
   type Row,
 } from "@/lib/electrical-services";
