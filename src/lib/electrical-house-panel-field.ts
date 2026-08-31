@@ -581,6 +581,8 @@ interface RawRow {
   poles: number | null;
   poles_stated: number | null;
   amps_text: string;
+  amp_source: AmpSourceTrace;
+
   description_text: string;
   notes: string;
   fields: ObservedField[];
