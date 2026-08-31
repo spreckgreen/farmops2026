@@ -183,22 +183,42 @@ export interface ParseResult {
 // --------------------------------------------------------------- header logic
 
 const HEADER_SYNONYMS: Record<string, string[]> = {
-  panel: ["panel", "panel name", "panel id", "panelboard", "source panel"],
+  panel: ["panel", "panel name", "panel id", "panelboard", "source panel", "panel ref", "board"],
   circuit: [
     "circuit",
     "circuits",
     "circuit #",
     "circuit no",
+    "circuit number",
+    "ckt",
+    "ckt #",
     "position",
     "positions",
+    "slot",
+    "slots",
     "breaker",
     "breaker #",
+    "breaker no",
     "breaker number",
     "space",
     "spaces",
   ],
-  poles: ["poles", "pole", "pole count", "no of poles"],
-  amps: ["amps", "breaker amps", "amp", "amperage", "rating", "breaker size", "ocp", "ocp amps"],
+  poles: ["poles", "pole", "pole count", "no of poles", "number of poles", "pole qty"],
+  amps: [
+    "amps",
+    "breaker amps",
+    "amp",
+    "amperage",
+    "rating",
+    "breaker size",
+    "breaker rating",
+    "size",
+    "ocp",
+    "ocp amps",
+    "trip",
+    "trip rating",
+    "a",
+  ],
   description: [
     "description",
     "load",
@@ -207,14 +227,27 @@ const HEADER_SYNONYMS: Record<string, string[]> = {
     "circuit description",
     "directory",
     "directory text",
+    "served",
+    "serves",
+    "load served",
+    "device",
+    "usage",
   ],
-  notes: ["notes", "note", "comment", "comments"],
-  photo: ["photo", "source photo", "image", "file", "photo reference", "picture"],
+  notes: ["notes", "note", "comment", "comments", "remarks"],
+  photo: ["photo", "source photo", "image", "file", "photo reference", "picture", "photo file"],
   confidence: ["confidence"],
   verification: ["verification", "verification status", "verified"],
 };
 
-const norm = (s: unknown) => String(s ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+/** Normalize a header cell: underscores, punctuation and case are irrelevant. */
+const norm = (s: unknown) =>
+  String(s ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[_.]+/g, " ")
+    .replace(/[()\[\]:]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 
 function headerRole(cell: string): string | null {
   const n = norm(cell);
@@ -223,10 +256,11 @@ function headerRole(cell: string): string | null {
     if (list.includes(n)) return role;
   }
   for (const [role, list] of Object.entries(HEADER_SYNONYMS)) {
-    if (list.some((h) => n === h || n.startsWith(`${h} `) || n.endsWith(` ${h}`))) return role;
+    if (list.some((h) => h.length > 2 && (n.startsWith(`${h} `) || n.endsWith(` ${h}`)))) return role;
   }
   return null;
 }
+
 
 interface HeaderMap {
   index: number;
