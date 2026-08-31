@@ -6,6 +6,7 @@
 import { describe, expect, it } from "vitest";
 import type { Sheet } from "@/lib/electrical-ods";
 import {
+  FARM_SHOP_SCOPE,
   fieldReconciliationCsv,
   fieldReconciliationMarkdown,
   interpretAmps,
@@ -208,5 +209,87 @@ describe("three-way reconciliation", () => {
       expect(r.target?.table ?? "electrical_breaker_positions").toBe("electrical_breaker_positions");
       expect(r.topology?.panel_id ?? "PNL-H2").toBe("PNL-H2");
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Farm Shop scope: same evidence model, different naming and topology
+// candidates. Ambiguity is reported, never guessed.
+// ---------------------------------------------------------------------------
+describe("farm shop scope", () => {
+  const shopSheets: Sheet[] = [
+    {
+      name: "Shop NW",
+      rows: [
+        HEADER,
+        ["FARM SHOP NW", "1", "1", "20", "Welder receptacle", "", "IMG_3001.jpg"],
+        ["FARM SHOP NW", "3/5", "2", "60", "CRITICAL SUB PANEL", "", "IMG_3001.jpg"],
+      ],
+    },
+    { name: "Shop Critical", rows: [HEADER, ["", "2", "1", "15", "Freezer", "", "IMG_3010.jpg"]] },
+  ];
+
+  const shopParsed = parseHousePanelSheets(shopSheets, {
+    workbook: "farm_shop_panels.ods",
+    aliases: FARM_SHOP_SCOPE.aliases,
+    sheetPanelHints: FARM_SHOP_SCOPE.sheet_panel_hints,
+  });
+
+  it("resolves farm shop panel identity from aliases and worksheet hints", () => {
+    expect(shopParsed.observations.map((o) => o.panel_id)).toEqual(
+      expect.arrayContaining(["PNL-FS-NW", "PNL-FS-CRIT"]),
+    );
+  });
+
+  it("proposes an unambiguous sub-panel feeder and reports the current parent", () => {
+    const rows = reconcileHousePanelObservations({
+      parsed: shopParsed,
+      farmops: [],
+      scope: FARM_SHOP_SCOPE,
+      currentParents: { "PNL-FS-CRIT": null },
+    });
+    const topo = rows.find((r) => r.field === "parent_panel");
+    expect(topo?.classification).toBe("TOPOLOGY_PROPOSAL");
+    expect(topo?.panel_id).toBe("PNL-FS-CRIT");
+    expect(topo?.topology?.proposed_parent).toBe("PNL-FS-NW");
+  });
+
+  it("does not guess when the feeder label matches more than one candidate", () => {
+    const ambiguous = parseHousePanelSheets(
+      [
+        {
+          name: "Shop NW",
+          rows: [
+            HEADER,
+            ["FARM SHOP NW", "3/5", "2", "60", "SUB PANEL - critical equipment", "", "IMG_3002.jpg"],
+          ],
+        },
+      ],
+      {
+        workbook: "farm_shop_panels.ods",
+        aliases: FARM_SHOP_SCOPE.aliases,
+        sheetPanelHints: FARM_SHOP_SCOPE.sheet_panel_hints,
+      },
+    );
+    const rows = reconcileHousePanelObservations({
+      parsed: ambiguous,
+      farmops: [],
+      scope: FARM_SHOP_SCOPE,
+    });
+    const topo = rows.find((r) => r.field === "parent_panel");
+    expect(topo?.classification).toBe("TOPOLOGY_AMBIGUOUS");
+    expect(topo?.proposed_action).toBe("requires_review");
+    expect(topo?.topology).toBeUndefined();
+    expect(reconciliationTotals(ambiguous, rows).topology_ambiguous).toBe(1);
+  });
+
+  it("titles the report with the scope area", () => {
+    const rows = reconcileHousePanelObservations({
+      parsed: shopParsed,
+      farmops: [],
+      scope: FARM_SHOP_SCOPE,
+    });
+    const md = fieldReconciliationMarkdown(shopParsed, rows, "2026-01-01T00:00:00.000Z", FARM_SHOP_SCOPE);
+    expect(md).toContain("Farm Shop Panel Field-Observation Reconciliation");
   });
 });
