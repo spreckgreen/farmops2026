@@ -1020,6 +1020,104 @@ export type Database = {
           },
         ]
       }
+      electrical_field_observations: {
+        Row: {
+          canonical_value: string | null
+          classification: string | null
+          confidence: string | null
+          created_at: string
+          disposition: string
+          farmops_value: string | null
+          field: string
+          id: string
+          interpreted_value: string | null
+          notes: string | null
+          observed_at: string
+          observed_text: string
+          panel_ref: string | null
+          panel_uuid: string | null
+          poles: number | null
+          position: number | null
+          positions_text: string | null
+          proposed_action: string | null
+          side: string | null
+          source_column: string | null
+          source_photo: string | null
+          source_row: number | null
+          updated_at: string
+          user_id: string
+          verification_status: string | null
+          workbook: string
+          worksheet: string | null
+        }
+        Insert: {
+          canonical_value?: string | null
+          classification?: string | null
+          confidence?: string | null
+          created_at?: string
+          disposition?: string
+          farmops_value?: string | null
+          field: string
+          id?: string
+          interpreted_value?: string | null
+          notes?: string | null
+          observed_at?: string
+          observed_text: string
+          panel_ref?: string | null
+          panel_uuid?: string | null
+          poles?: number | null
+          position?: number | null
+          positions_text?: string | null
+          proposed_action?: string | null
+          side?: string | null
+          source_column?: string | null
+          source_photo?: string | null
+          source_row?: number | null
+          updated_at?: string
+          user_id: string
+          verification_status?: string | null
+          workbook: string
+          worksheet?: string | null
+        }
+        Update: {
+          canonical_value?: string | null
+          classification?: string | null
+          confidence?: string | null
+          created_at?: string
+          disposition?: string
+          farmops_value?: string | null
+          field?: string
+          id?: string
+          interpreted_value?: string | null
+          notes?: string | null
+          observed_at?: string
+          observed_text?: string
+          panel_ref?: string | null
+          panel_uuid?: string | null
+          poles?: number | null
+          position?: number | null
+          positions_text?: string | null
+          proposed_action?: string | null
+          side?: string | null
+          source_column?: string | null
+          source_photo?: string | null
+          source_row?: number | null
+          updated_at?: string
+          user_id?: string
+          verification_status?: string | null
+          workbook?: string
+          worksheet?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "electrical_field_observations_panel_uuid_fkey"
+            columns: ["panel_uuid"]
+            isOneToOne: false
+            referencedRelation: "electrical_panels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       electrical_intertie_configurations: {
         Row: {
           capacity_amps: number | null
