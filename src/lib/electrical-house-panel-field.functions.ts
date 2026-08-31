@@ -494,10 +494,26 @@ export const applyHousePanelFieldUpdates = createServerFn({ method: "POST" })
     }
 
     // Field evidence is stored with its provenance so a later reader can always
-    // separate "what the photo appeared to say" from FarmOps and canonical.
+    // separate "what the photo appeared to say" from FarmOps and canonical, and
+    // so the journal can say whether the value actually landed in FarmOps.
+    const writeOutcome = new Map<string, ApplyFieldRow>();
+    for (const f of fields) {
+      writeOutcome.set(`${f.panel_id}|${f.side}|${f.position}|${f.column}`, f);
+    }
+    const topologyOutcome = new Map<string, ApplyTopologyRow>();
+    for (const t of topology) topologyOutcome.set(`${t.panel_id}|parent_panel`, t);
+
     let recorded = 0;
     if (data.confirm && data.observations.length) {
-      const payload = data.observations.map((o) => ({
+      const now = new Date().toISOString();
+      const payload = data.observations.map((o) => {
+        const outcome =
+          o.field === "parent_panel"
+            ? topologyOutcome.get(`${o.panel_id}|parent_panel`)
+            : writeOutcome.get(`${o.panel_id}|${o.side}|${o.position}|${o.field}`);
+        const applied = outcome?.status === "changed";
+        return {
+
         user_id: context.userId,
         workbook: o.workbook || "(unknown workbook)",
         worksheet: o.worksheet || null,
