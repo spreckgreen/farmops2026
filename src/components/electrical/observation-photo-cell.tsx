@@ -6,11 +6,30 @@
 // only the storage path plus enough metadata to identify the file later.
 import { useRef, useState } from "react";
 import { toast } from "sonner";
-import { Camera, Eye, Loader2, X } from "lucide-react";
+import { Camera, Eye, Link2, Loader2, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 export const OBSERVATION_PHOTO_BUCKET = "field-observations";
+
+/**
+ * Evidence can live in this project's private storage bucket, or stay in the
+ * team's own document store (OneDrive / Google Drive) and be referenced by
+ * link. Link evidence keeps the same row shape: `bucket` carries the sentinel
+ * source and `path` carries the URL, so nothing downstream needs new columns.
+ */
+export const ONEDRIVE_PHOTO_BUCKET = "onedrive-link";
+export const GOOGLE_DRIVE_PHOTO_BUCKET = "google-drive-link";
+
+export function isLinkedPhotoBucket(bucket: string | null | undefined) {
+  return bucket === ONEDRIVE_PHOTO_BUCKET || bucket === GOOGLE_DRIVE_PHOTO_BUCKET;
+}
 
 export interface ObservationPhoto {
   bucket: string;
