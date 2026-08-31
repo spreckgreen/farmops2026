@@ -647,7 +647,14 @@ export function parseHousePanelSheets(sheets: Sheet[], opts: ParseOptions): Pars
       const photo = cell(row, "photo");
       const notes = cell(row, "notes");
       const ampsText = cell(row, "amps");
+      // Trace the workbook's real amp column. A blank cell is NOT the same as a
+      // sheet without an amp column, and the description is never consulted.
+      const ampSource = classifyAmpObservation(
+        col("amps") === undefined ? null : headerName("amps") || "Breaker Amps",
+        ampsText,
+      );
       const descriptionText = cell(row, "description");
+
 
       const prov = (column: string, observed: string): ObservationProvenance => ({
         workbook: opts.workbook,
