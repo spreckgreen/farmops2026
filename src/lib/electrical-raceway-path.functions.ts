@@ -10,15 +10,36 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { requireAddon } from "@/lib/addons.server";
 import {
+  buildRacewaysByPath,
   orderedJunctionPoints,
   planJboxRacewayPopulation,
-  racewayPathNumber,
+  resolveJboxRacewayCandidates,
   type PathProposal,
+  type PathResolution,
 } from "@/lib/electrical-raceway-path";
 
 export interface PathPopulationRow extends PathProposal {
   outcome: "would_change" | "skipped" | "applied" | "failed" | "drifted";
   detail?: string;
+}
+
+/**
+ * One diagnostic row per junction box, straight from the shared resolver. This
+ * is returned unfiltered so a box can never be invisible in the report:
+ * jbox_id | extracted_path | raceway_uuid | sequence | matching_raceways |
+ * status | rejection_reason.
+ */
+export interface PathDiagnosticRow {
+  jbox_id: string;
+  extracted_path: string | null;
+  raceway_uuid: string | null;
+  sequence: number | null;
+  matching_raceways: string[];
+  endpoint_raceways: string[];
+  status: PathResolution["status"];
+  rejection_reason: string;
+  proposed_raceway: string | null;
+  proposed_sequence: number | null;
 }
 
 /**
@@ -35,10 +56,14 @@ export interface PathPopulationDiagnostics {
   linkedJboxes: number;
   /** Proposal statuses, so "all already linked" reads differently to "no evidence". */
   statusCounts: Record<PathProposal["status"], number>;
+  /** Counts per precise resolver state, so no state hides inside a bucket. */
+  resolutionCounts: Record<PathResolution["status"], number>;
   /** Every raceway stable ID per encoded path number, e.g. "104": ["CON-104"]. */
   racewaysByPath: { path: string; raceways: string[] }[];
   /** Backend totals, used to prove the preview did not silently stop at an API row cap. */
   databaseTotals: { jboxes: number; raceways: number };
+  /** Per-record decision for every junction box, never filtered. */
+  resolutions: PathDiagnosticRow[];
 }
 
 export interface PathPopulationResult {
