@@ -263,7 +263,7 @@ export function BreakerPopulationPreview({
   }, [result, filter]);
 
   const d = result?.diagnostics;
-  const selectable = (r: BreakerPopulationRow) => r.action === "propose_create";
+  const selectable = (r: BreakerPopulationRow) => isCreatable(r);
   const selectedCount = (result?.rows ?? []).filter((r) => selectable(r) && selected.has(r.key)).length;
 
   // Panels present in the uploaded workbook, in first-seen order.
