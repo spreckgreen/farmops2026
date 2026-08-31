@@ -143,6 +143,11 @@ export function FieldObservationJournal() {
 
   async function viewPhoto(e: JournalEntry) {
     if (!e.photo_path) return;
+    // OneDrive / Google Drive evidence is a share link, not a stored object.
+    if (isLinkedPhotoBucket(e.photo_bucket)) {
+      window.open(e.photo_path, "_blank", "noopener,noreferrer");
+      return;
+    }
     const { data, error } = await supabase.storage
       .from(e.photo_bucket || "field-observations")
       .createSignedUrl(e.photo_path, 300);
