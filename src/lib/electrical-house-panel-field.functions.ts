@@ -139,7 +139,13 @@ export const previewHousePanelFieldReconciliation = createServerFn({ method: "PO
       .filter((b) => b.panel_id);
 
     const canonical: Record<string, string> = {};
-    for (const p of panelRows) Object.assign(canonical, canonicalFromPanel(p.panel_id, p.ods_extras));
+    const canonicalPanels: string[] = [];
+    for (const p of panelRows) {
+      const part = canonicalFromPanel(p.panel_id, p.ods_extras);
+      if (Object.keys(part).length) canonicalPanels.push(p.panel_id);
+      Object.assign(canonical, part);
+    }
+
 
     // Current-revision parent of PNL-H2, read only from the CURRENT service
     // configuration. Proposed/future revisions are never consulted or changed.
