@@ -82,8 +82,28 @@ function Services() {
   const fetchState = useServerFn(serviceState);
   const q = useQuery({ queryKey: ["electrical", "services"], queryFn: () => fetchState() });
 
-  const invalidate = () => qc.invalidateQueries({ queryKey: ["electrical", "services"] });
-  const mutate = useSaveFactory(invalidate);
+  // One mutation runner drives every action so hook order never varies.
+  const runner = useMutation({
+    mutationFn: (v: {
+      fn: (input: { data: Record<string, unknown> }) => Promise<unknown>;
+      data: Record<string, unknown>;
+      ok: string;
+    }) => v.fn({ data: v.data }),
+    onSuccess: (_r, v) => {
+      toast.success(v.ok);
+      qc.invalidateQueries({ queryKey: ["electrical", "services"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  const mutate = (
+    fn: (input: { data: Record<string, unknown> }) => Promise<unknown>,
+    ok: string,
+  ) => ({
+    mutate: (data: Record<string, unknown>) => runner.mutate({ fn, data, ok }),
+    isPending: runner.isPending,
+  });
+
+
 
 
   const addService = mutate(useServerFn(saveService), "Service saved");
