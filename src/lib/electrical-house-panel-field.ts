@@ -758,6 +758,15 @@ export interface ReconciliationRow {
   proposed_action: ProposedAction;
   detail: string;
   provenance: ObservationProvenance;
+  /**
+   * Why canonical / FarmOps is absent. `(silent)` is not one state: a missing
+   * mapping, a missing record and a blank stored value are different findings.
+   */
+  canonical_state: ComparisonState;
+  farmops_state: ComparisonState;
+  /** Provenance of any other source sheet describing the same breaker. */
+  duplicate_sources?: ObservationProvenance[];
+
   /** Present for rows that could become a FarmOps update. */
   target?: {
     table: "electrical_breaker_positions";
