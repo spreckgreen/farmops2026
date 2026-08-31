@@ -861,6 +861,7 @@ export function renderMermaid(
   lines.push("  classDef power_asset fill:#c2410c,stroke:#7c2d12,color:#ffffff;");
   lines.push("  classDef device fill:#e0f2fe,stroke:#0284c7,color:#0c4a6e;");
   lines.push("  classDef waypoint fill:#ffffff,stroke:#cbd5e1,color:#475569,stroke-dasharray: 2 2;");
+  lines.push("  classDef intertie fill:#fef9c3,stroke:#a16207,color:#713f12,stroke-dasharray: 5 3;");
   lines.push("  classDef unknown fill:#fee2e2,stroke:#b91c1c,color:#7f1d1d;");
 
   const byClass = new Map<string, string[]>();
