@@ -20,11 +20,30 @@ export interface PathPopulationRow extends PathProposal {
   detail?: string;
 }
 
+/**
+ * Read-only facts about the data the preview actually saw. Without these a
+ * production preview that reports "nothing to correct" is indistinguishable
+ * from one that never saw the junction boxes at all.
+ */
+export interface PathPopulationDiagnostics {
+  /** Junction-box rows visible to the signed-in user. */
+  jboxRows: number;
+  /** Raceway rows visible to the signed-in user. */
+  racewayRows: number;
+  /** Junction boxes that already carry a parent raceway link. */
+  linkedJboxes: number;
+  /** Proposal statuses, so "all already linked" reads differently to "no evidence". */
+  statusCounts: Record<PathProposal["status"], number>;
+  /** Every raceway stable ID per encoded path number, e.g. "104": ["CON-104"]. */
+  racewaysByPath: { path: string; raceways: string[] }[];
+}
+
 export interface PathPopulationResult {
   applied: boolean;
   changed: number;
   skipped: number;
   rows: PathPopulationRow[];
+  diagnostics: PathPopulationDiagnostics;
 }
 
 export const previewRacewayPathPopulation = createServerFn({ method: "POST" })
