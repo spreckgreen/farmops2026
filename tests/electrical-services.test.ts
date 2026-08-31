@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  buildServicePanelTopology,
   checkIntertieId,
   checkServiceId,
   currentIntertieConfiguration,
@@ -8,6 +9,8 @@ import {
   groupByParent,
   planCommissionIntertieConfiguration,
   planCommissionServiceConfiguration,
+  renderServiceTopology,
+  validateServicePanelTopology,
   validateServiceState,
   type Row,
 } from "@/lib/electrical-services";
@@ -203,5 +206,140 @@ describe("intertie configuration is mutable engineering data", () => {
   it("rejects capacity encoded in the intertie identity", () => {
     expect(checkIntertieId("ITIE-HOUSE-FS").ok).toBe(true);
     expect(checkIntertieId("ITIE-HOUSE-100A").ok).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------- House topology
+// PNL-H2 is a subpanel of PNL-H1 today and can be fed directly from a proposed
+// 400 A service without any panel gaining a new stable ID.
+describe("House panel topology, current vs proposed", () => {
+  const svc = { id: "svc-1", service_id: "SVC-HOUSE" };
+  const currentCfg = {
+    id: "cfg-200",
+    service_uuid: "svc-1",
+    lifecycle_state: "existing",
+    is_current: true,
+    revision_label: "200 A as-built",
+    ampacity_amps: 200,
+    voltage: "120/240",
+    phase: "single",
+    commissioned_date: "2019-05-01",
+  };
+  const futureCfg = {
+    id: "cfg-400",
+    service_uuid: "svc-1",
+    lifecycle_state: "proposed",
+    is_current: false,
+    revision_label: "400 A proposal",
+    ampacity_amps: 400,
+    voltage: "120/240",
+    phase: "single",
+    effective_date: "2027-01-01",
+  };
+  const currentLinks = [
+    {
+      id: "l1",
+      service_config_uuid: "cfg-200",
+      panel_ref: "PNL-H1",
+      role: "primary",
+      sequence: 1,
+      fed_from_kind: "service_equipment",
+      panel_ampacity_amps: 200,
+    },
+    {
+      id: "l2",
+      service_config_uuid: "cfg-200",
+      panel_ref: "PNL-H2",
+      role: "subpanel",
+      sequence: 2,
+      fed_from_kind: "panel",
+      fed_from_panel_ref: "PNL-H1",
+    },
+  ];
+  const futureLinks = [
+    {
+      id: "l3",
+      service_config_uuid: "cfg-400",
+      panel_ref: "PNL-H1",
+      sequence: 1,
+      fed_from_kind: "service_equipment",
+      panel_ampacity_amps: 200,
+    },
+    {
+      id: "l4",
+      service_config_uuid: "cfg-400",
+      panel_ref: "PNL-H2",
+      sequence: 2,
+      fed_from_kind: "service_equipment",
+      panel_ampacity_amps: 200,
+    },
+  ];
+
+  it("renders the current cascaded chain", () => {
+    expect(renderServiceTopology("SVC-HOUSE", currentLinks)).toEqual([
+      "SVC-HOUSE → PNL-H1 (200 A) → PNL-H2",
+    ]);
+  });
+
+  it("renders the proposed dual-200 A arrangement with unchanged panel IDs", () => {
+    expect(renderServiceTopology("SVC-HOUSE", futureLinks)).toEqual([
+      "SVC-HOUSE → PNL-H1 (200 A)",
+      "SVC-HOUSE → PNL-H2 (200 A)",
+    ]);
+  });
+
+  it("keeps QA on the current topology while the proposal only informs", () => {
+    const findings = validateServiceState({
+      services: [svc],
+      configs: [currentCfg, futureCfg],
+      servicePanels: [...currentLinks, ...futureLinks],
+    });
+    expect(findings.some((f) => f.severity === "error")).toBe(false);
+    const info = findings.filter((f) => f.code === "future_topology_recorded");
+    expect(info).toHaveLength(1);
+    expect(info[0]!.message).toContain("SVC-HOUSE → PNL-H2 (200 A)");
+    expect(info[0]!.message).toContain("not installed");
+  });
+
+  it("flags a parent that is not part of the same revision", () => {
+    const findings = validateServicePanelTopology(
+      "SVC-HOUSE",
+      [{ id: "x", panel_ref: "PNL-H2", fed_from_kind: "panel", fed_from_panel_ref: "PNL-GHOST" }],
+      "error",
+    );
+    expect(findings[0]!.code).toBe("panel_parent_not_in_revision");
+  });
+
+  it("detects a feed cycle without recursing forever", () => {
+    const links = [
+      { id: "a", panel_ref: "PNL-H1", fed_from_kind: "panel", fed_from_panel_ref: "PNL-H2" },
+      { id: "b", panel_ref: "PNL-H2", fed_from_kind: "panel", fed_from_panel_ref: "PNL-H1" },
+    ];
+    expect(
+      validateServicePanelTopology("SVC-HOUSE", links, "error").some(
+        (f) => f.code === "panel_parent_cycle",
+      ),
+    ).toBe(true);
+    expect(buildServicePanelTopology(links).length).toBeGreaterThan(0);
+  });
+
+  it("treats commissioning the 400 A revision as the new current topology", () => {
+    const patches = planCommissionServiceConfiguration([currentCfg, futureCfg], "cfg-400", {
+      date: "2027-03-01",
+    });
+    const applied = [currentCfg, futureCfg].map((c) => {
+      const p = patches.find((x) => x.id === c.id);
+      return p ? { ...c, ...p.patch } : c;
+    });
+    const current = currentServiceConfiguration(applied)!;
+    expect(current["id"]).toBe("cfg-400");
+    expect(current["ampacity_amps"]).toBe(400);
+    const findings = validateServiceState({
+      services: [svc],
+      configs: applied,
+      servicePanels: [...currentLinks, ...futureLinks],
+    });
+    expect(findings.some((f) => f.severity === "error")).toBe(false);
+    expect(findings.some((f) => f.code === "future_topology_recorded")).toBe(false);
   });
 });
