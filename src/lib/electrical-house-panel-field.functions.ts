@@ -110,6 +110,7 @@ export const previewHousePanelFieldReconciliation = createServerFn({ method: "PO
   .handler(async ({ context, data }): Promise<HousePanelPreview> => {
     await requireAddon(context.supabase, context.userId, "electrical");
     const db = context.supabase as unknown as LooseDb;
+    const scope = FIELD_RECONCILIATION_SCOPES[data.scope];
     const sheets = await odsToSheets(data.base64);
 
     const { data: panels, error: panelErr } = await db
@@ -120,9 +121,11 @@ export const previewHousePanelFieldReconciliation = createServerFn({ method: "PO
 
     const parsed = parseHousePanelSheets(sheets, {
       workbook: data.file_name,
-      aliases: HOUSE_PANEL_ALIASES,
+      aliases: scope.aliases,
+      sheetPanelHints: scope.sheet_panel_hints,
       knownPanelIds: panelRows.map((p) => p.panel_id),
     });
+
 
     const byUuid = new Map(panelRows.map((p) => [p.id, p.panel_id]));
     const { data: breakers, error: brErr } = await db
