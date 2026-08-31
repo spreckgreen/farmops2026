@@ -578,11 +578,11 @@ export function parseHousePanelSheets(sheets: Sheet[], opts: ParseOptions): Pars
       const i = col(role);
       return i === undefined ? "" : (header.headers[i] ?? "");
     };
-    const sheetPanelName = /sub/i.test(sheet.name)
-      ? "HOUSE-SUBPANEL"
-      : /main/i.test(sheet.name)
-        ? "HOUSE-MAIN"
-        : (opts.defaultPanelName ?? "");
+    const hints = opts.sheetPanelHints ?? HOUSE_SCOPE.sheet_panel_hints;
+    const sheetPanelName =
+      hints.find((h) => h.pattern.test(sheet.name))?.panel_source_name ??
+      (opts.defaultPanelName ?? "");
+
 
     for (let r = header.index + 1; r < sheet.rows.length; r++) {
       const row = sheet.rows[r] ?? [];
