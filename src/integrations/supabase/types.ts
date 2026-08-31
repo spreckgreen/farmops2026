@@ -1020,6 +1020,159 @@ export type Database = {
           },
         ]
       }
+      electrical_intertie_configurations: {
+        Row: {
+          capacity_amps: number | null
+          commissioned_date: string | null
+          created_at: string
+          effective_date: string | null
+          endpoint_a_panel_uuid: string | null
+          endpoint_a_ref: string | null
+          endpoint_a_service_uuid: string | null
+          endpoint_b_panel_uuid: string | null
+          endpoint_b_ref: string | null
+          endpoint_b_service_uuid: string | null
+          id: string
+          intertie_ref: string | null
+          intertie_uuid: string
+          is_current: boolean
+          isolation_method: string | null
+          lifecycle_state: string
+          normal_state: string | null
+          notes: string | null
+          ods_extras: string | null
+          permitted_states: string | null
+          retired_date: string | null
+          revision_label: string | null
+          transfer_method: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          capacity_amps?: number | null
+          commissioned_date?: string | null
+          created_at?: string
+          effective_date?: string | null
+          endpoint_a_panel_uuid?: string | null
+          endpoint_a_ref?: string | null
+          endpoint_a_service_uuid?: string | null
+          endpoint_b_panel_uuid?: string | null
+          endpoint_b_ref?: string | null
+          endpoint_b_service_uuid?: string | null
+          id?: string
+          intertie_ref?: string | null
+          intertie_uuid: string
+          is_current?: boolean
+          isolation_method?: string | null
+          lifecycle_state?: string
+          normal_state?: string | null
+          notes?: string | null
+          ods_extras?: string | null
+          permitted_states?: string | null
+          retired_date?: string | null
+          revision_label?: string | null
+          transfer_method?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          capacity_amps?: number | null
+          commissioned_date?: string | null
+          created_at?: string
+          effective_date?: string | null
+          endpoint_a_panel_uuid?: string | null
+          endpoint_a_ref?: string | null
+          endpoint_a_service_uuid?: string | null
+          endpoint_b_panel_uuid?: string | null
+          endpoint_b_ref?: string | null
+          endpoint_b_service_uuid?: string | null
+          id?: string
+          intertie_ref?: string | null
+          intertie_uuid?: string
+          is_current?: boolean
+          isolation_method?: string | null
+          lifecycle_state?: string
+          normal_state?: string | null
+          notes?: string | null
+          ods_extras?: string | null
+          permitted_states?: string | null
+          retired_date?: string | null
+          revision_label?: string | null
+          transfer_method?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "electrical_intertie_configurations_endpoint_a_panel_uuid_fkey"
+            columns: ["endpoint_a_panel_uuid"]
+            isOneToOne: false
+            referencedRelation: "electrical_panels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "electrical_intertie_configurations_endpoint_a_service_uuid_fkey"
+            columns: ["endpoint_a_service_uuid"]
+            isOneToOne: false
+            referencedRelation: "electrical_services"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "electrical_intertie_configurations_endpoint_b_panel_uuid_fkey"
+            columns: ["endpoint_b_panel_uuid"]
+            isOneToOne: false
+            referencedRelation: "electrical_panels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "electrical_intertie_configurations_endpoint_b_service_uuid_fkey"
+            columns: ["endpoint_b_service_uuid"]
+            isOneToOne: false
+            referencedRelation: "electrical_services"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "electrical_intertie_configurations_intertie_uuid_fkey"
+            columns: ["intertie_uuid"]
+            isOneToOne: false
+            referencedRelation: "electrical_interties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      electrical_interties: {
+        Row: {
+          created_at: string
+          id: string
+          intertie_id: string
+          name: string | null
+          notes: string | null
+          ods_extras: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          intertie_id: string
+          name?: string | null
+          notes?: string | null
+          ods_extras?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          intertie_id?: string
+          name?: string | null
+          notes?: string | null
+          ods_extras?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       electrical_junction_boxes: {
         Row: {
           box_type: string | null
@@ -1886,6 +2039,125 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      electrical_service_configurations: {
+        Row: {
+          ampacity_amps: number | null
+          commissioned_date: string | null
+          created_at: string
+          effective_date: string | null
+          entry_point: string | null
+          id: string
+          is_current: boolean
+          lifecycle_state: string
+          meter_arrangement: string | null
+          notes: string | null
+          ods_extras: string | null
+          phase: string | null
+          retired_date: string | null
+          revision_label: string | null
+          service_equipment: string | null
+          service_ref: string | null
+          service_uuid: string
+          updated_at: string
+          user_id: string
+          voltage: string | null
+        }
+        Insert: {
+          ampacity_amps?: number | null
+          commissioned_date?: string | null
+          created_at?: string
+          effective_date?: string | null
+          entry_point?: string | null
+          id?: string
+          is_current?: boolean
+          lifecycle_state?: string
+          meter_arrangement?: string | null
+          notes?: string | null
+          ods_extras?: string | null
+          phase?: string | null
+          retired_date?: string | null
+          revision_label?: string | null
+          service_equipment?: string | null
+          service_ref?: string | null
+          service_uuid: string
+          updated_at?: string
+          user_id: string
+          voltage?: string | null
+        }
+        Update: {
+          ampacity_amps?: number | null
+          commissioned_date?: string | null
+          created_at?: string
+          effective_date?: string | null
+          entry_point?: string | null
+          id?: string
+          is_current?: boolean
+          lifecycle_state?: string
+          meter_arrangement?: string | null
+          notes?: string | null
+          ods_extras?: string | null
+          phase?: string | null
+          retired_date?: string | null
+          revision_label?: string | null
+          service_equipment?: string | null
+          service_ref?: string | null
+          service_uuid?: string
+          updated_at?: string
+          user_id?: string
+          voltage?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "electrical_service_configurations_service_uuid_fkey"
+            columns: ["service_uuid"]
+            isOneToOne: false
+            referencedRelation: "electrical_services"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      electrical_services: {
+        Row: {
+          building: string | null
+          created_at: string
+          id: string
+          name: string | null
+          notes: string | null
+          ods_extras: string | null
+          service_id: string
+          site_code: string | null
+          updated_at: string
+          user_id: string
+          utility_account: string | null
+        }
+        Insert: {
+          building?: string | null
+          created_at?: string
+          id?: string
+          name?: string | null
+          notes?: string | null
+          ods_extras?: string | null
+          service_id: string
+          site_code?: string | null
+          updated_at?: string
+          user_id: string
+          utility_account?: string | null
+        }
+        Update: {
+          building?: string | null
+          created_at?: string
+          id?: string
+          name?: string | null
+          notes?: string | null
+          ods_extras?: string | null
+          service_id?: string
+          site_code?: string | null
+          updated_at?: string
+          user_id?: string
+          utility_account?: string | null
+        }
+        Relationships: []
       }
       food_plan_entries: {
         Row: {
