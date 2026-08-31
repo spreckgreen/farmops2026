@@ -220,6 +220,7 @@ const observationEntry = fieldEntry
     side: z.string().max(10).default(""),
     position: z.number().int().nonnegative().nullable().default(null),
     farmops_value: z.string().max(500).nullable().default(null),
+    interpreted_value: z.string().max(500).nullable().default(null),
     proposed_action: z.string().max(40).default(""),
     disposition: z.enum([
       "observed",
@@ -460,7 +461,7 @@ export const applyHousePanelFieldUpdates = createServerFn({ method: "POST" })
         poles: o.poles,
         field: o.field,
         observed_text: o.observed_text,
-        interpreted_value: null,
+        interpreted_value: o.interpreted_value,
         confidence: o.confidence || null,
         canonical_value: o.canonical_value,
         farmops_value: o.farmops_value,
