@@ -517,7 +517,10 @@ export interface ParseOptions {
   knownPanelIds?: string[];
   /** Panel name for sheets that do not carry a panel column. */
   defaultPanelName?: string;
+  /** Worksheet-name → panel-name hints; defaults to the House scope hints. */
+  sheetPanelHints?: { pattern: RegExp; panel_source_name: string }[];
 }
+
 
 interface RawRow {
   sheet: string;
