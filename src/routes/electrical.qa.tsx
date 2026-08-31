@@ -15,6 +15,7 @@ import { RefAuditReport } from "@/components/electrical/ref-audit-report";
 import { GridAuditReport } from "@/components/electrical/grid-audit-report";
 import { LoadCompareReport } from "@/components/electrical/load-compare-report";
 import { TopologyPunchList } from "@/components/electrical/topology-punch-list";
+import { RacewayPathPopulation } from "@/components/electrical/raceway-path-population";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
