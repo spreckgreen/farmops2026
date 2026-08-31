@@ -50,7 +50,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Plus, Pencil, Search } from "lucide-react";
+import { Plus, Pencil, Search, Download, FileJson, X } from "lucide-react";
+import { rowsToCsv, downloadCsv } from "@/lib/csv";
 import { DeleteDependencyDialog } from "@/components/electrical/delete-dependency-dialog";
 
 type Values = Record<string, string | boolean>;
