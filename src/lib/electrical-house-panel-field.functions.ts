@@ -82,7 +82,11 @@ function canonicalFromPanel(panelId: string, extrasRaw: unknown): Record<string,
 
 export interface HousePanelPreview {
   phase: string;
+  /** Panel area reconciled: `house` or `farm_shop`. */
+  scope: "house" | "farm_shop";
+  scope_label: string;
   workbook: string;
+
   generated_at: string;
   rows: ReconciliationRow[];
   totals: ReconciliationTotals;
