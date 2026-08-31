@@ -302,6 +302,10 @@ export function HousePanelFieldReconciliation({
               <Badge variant="secondary">
                 {totals?.topology_proposals} topology proposals / {totals?.topology_evidence_rows} evidence
               </Badge>
+              <Badge variant={totals?.topology_ambiguous ? "destructive" : "outline"}>
+                {totals?.topology_ambiguous} ambiguous sub-panel feeders
+              </Badge>
+
               <Badge variant="outline">{totals?.eligible_farmops_updates} eligible updates</Badge>
             </div>
 
