@@ -99,7 +99,10 @@ export interface HousePanelPreview {
 const previewInput = z.object({
   file_name: z.string().trim().min(1).max(200),
   base64: z.string().min(1).max(30_000_000),
+  /** Which panel area the photographs describe. Defaults to the House. */
+  scope: z.enum(["house", "farm_shop"]).default("house"),
 });
+
 
 export const previewHousePanelFieldReconciliation = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
