@@ -301,7 +301,24 @@ export function planJboxRacewayPopulation(graph: ElectricalGraphData): PathPropo
       current_sequence: currentSeq,
     };
     const encoded = parseHierarchicalId(id);
+    const endpointCandidates = uuid ? (endpointRaceways.get(uuid) ?? []) : [];
     if (!encoded || encoded.prefix !== "JB" || !encoded.jbox) {
+      // The ID says nothing, but a raceway endpoint relationship can still pin
+      // exactly one parent run.
+      if (endpointCandidates.length === 1 && !currentUuid) {
+        const r = endpointCandidates[0]!;
+        const rUuid = r.id ? String(r.id) : "";
+        const seq = nextFreeSequence(rUuid);
+        out.push({
+          ...base,
+          proposed_raceway: sid("raceway", r),
+          proposed_raceway_uuid: rUuid,
+          proposed_sequence: seq,
+          evidence: `${sid("raceway", r)} already records ${id} as one of its endpoints; that raceway is the only run naming this box, so position ${seq} is the next free junction point on it.`,
+          status: "proposed",
+        });
+        continue;
+      }
       out.push({
         ...base,
         proposed_raceway: null,
@@ -312,7 +329,15 @@ export function planJboxRacewayPopulation(graph: ElectricalGraphData): PathPropo
       });
       continue;
     }
-    const candidates = racewaysByPath.get(encoded.path) ?? [];
+    let candidates = racewaysByPath.get(encoded.path) ?? [];
+    // Disambiguate several raceways on one path number using the endpoint
+    // relationship, when it points at exactly one of those candidates.
+    if (candidates.length > 1 && endpointCandidates.length) {
+      const narrowed = candidates.filter((c) =>
+        endpointCandidates.some((e) => String(e.id) === String(c.id)),
+      );
+      if (narrowed.length === 1) candidates = narrowed;
+    }
     if (candidates.length !== 1) {
       out.push({
         ...base,
@@ -333,6 +358,7 @@ export function planJboxRacewayPopulation(graph: ElectricalGraphData): PathPropo
     const target = candidates[0]!;
     const targetUuid = target.id ? String(target.id) : "";
     const targetId = sid("raceway", target);
+
     const proposedSeq = Number(encoded.jbox);
     const evidence = `${id} encodes path ${encoded.path} position ${proposedSeq}; ${targetId} is the only raceway on path ${encoded.path}.`;
 
