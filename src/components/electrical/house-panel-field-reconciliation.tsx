@@ -101,6 +101,8 @@ export function HousePanelFieldReconciliation() {
         if (row.proposed_action === "propose_farmops_update" && row.target) next.add(rowKey(row, i));
       });
       setSelected(next);
+      setPhotos({});
+
       toast.success(
         `Preview only — no records changed. ${r.totals.source_rows_read} source row(s) → ${r.totals.unique_logical_breakers} logical breaker(s), ${r.totals.eligible_farmops_updates} eligible FarmOps update(s).`,
       );
