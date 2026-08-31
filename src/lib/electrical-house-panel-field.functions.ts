@@ -15,7 +15,8 @@ import { requireAddon } from "@/lib/addons.server";
 import { parseOdsContentXml } from "@/lib/electrical-ods";
 import {
   FIELD_RECONCILIATION_PHASE,
-  HOUSE_PANEL_ALIASES,
+  FIELD_RECONCILIATION_SCOPES,
+
   fieldReconciliationCsv,
   fieldReconciliationMarkdown,
   parseHousePanelSheets,
