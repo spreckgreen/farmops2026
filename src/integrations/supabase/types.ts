@@ -2120,8 +2120,12 @@ export type Database = {
       electrical_service_panels: {
         Row: {
           created_at: string
+          fed_from_kind: string | null
+          fed_from_panel_ref: string | null
+          fed_from_panel_uuid: string | null
           id: string
           notes: string | null
+          panel_ampacity_amps: number | null
           panel_ref: string | null
           panel_uuid: string | null
           role: string | null
@@ -2132,8 +2136,12 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          fed_from_kind?: string | null
+          fed_from_panel_ref?: string | null
+          fed_from_panel_uuid?: string | null
           id?: string
           notes?: string | null
+          panel_ampacity_amps?: number | null
           panel_ref?: string | null
           panel_uuid?: string | null
           role?: string | null
@@ -2144,8 +2152,12 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          fed_from_kind?: string | null
+          fed_from_panel_ref?: string | null
+          fed_from_panel_uuid?: string | null
           id?: string
           notes?: string | null
+          panel_ampacity_amps?: number | null
           panel_ref?: string | null
           panel_uuid?: string | null
           role?: string | null
@@ -2155,6 +2167,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "electrical_service_panels_fed_from_panel_uuid_fkey"
+            columns: ["fed_from_panel_uuid"]
+            isOneToOne: false
+            referencedRelation: "electrical_panels"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "electrical_service_panels_panel_uuid_fkey"
             columns: ["panel_uuid"]
