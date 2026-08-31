@@ -9,6 +9,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { Download, Eye, Loader2, NotebookPen, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { isLinkedPhotoBucket } from "@/components/electrical/observation-photo-cell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
