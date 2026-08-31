@@ -24,6 +24,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Camera, Download, FileText, ShieldAlert } from "lucide-react";
+import {
+  ObservationPhotoCell,
+  type ObservationPhoto,
+} from "@/components/electrical/observation-photo-cell";
+
 
 function readAsBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
