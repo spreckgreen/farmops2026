@@ -1224,38 +1224,77 @@ export function reconcileHousePanelObservations(input: ReconcileInput): Reconcil
       rows.push(row);
     }
 
-    // Topology evidence: a main-panel breaker labelled SUB PANEL feeding a
-    // second panel is evidence, not an instruction to mutate topology.
-    const feederLabel = obs.fields.find((f) => f.field === "label" && SUBPANEL_LABEL.test(f.observed_text));
-    if (feederLabel && obs.panel_id === "PNL-H1" && (obs.poles ?? 1) >= 2) {
-      const currentParent = input.currentSubpanelParent ?? null;
+    // Topology evidence: a parent-panel breaker labelled as feeding another
+    // panel is evidence, not an instruction to mutate topology. When more than
+    // one candidate sub-panel matches, the ambiguity is reported, never guessed.
+    const feed = scope.subpanel_feeds.find((f) => f.parent === obs.panel_id);
+    const feederLabel = obs.fields.find(
+      (f) =>
+        f.field === "label" &&
+        (SUBPANEL_LABEL.test(f.observed_text) ||
+          (feed?.candidates ?? []).some((c) => c.pattern.test(f.observed_text))),
+    );
+    if (feed && feederLabel && (obs.poles ?? 1) >= 2) {
+      const parent = feed.parent;
       const amps = obs.fields.find((f) => f.field === "ocp_amps")?.interpreted ?? "?";
-      const evidence = `PNL-H1 positions ${obs.positions_text} — ${feederLabel.observed_text} — ${obs.poles}-pole ${amps} A`;
-      const already = currentParent === "PNL-H1";
-      rows.push({
-        ...base,
-        panel_id: "PNL-H2",
-        field: "parent_panel",
-        field_label: "Upstream parent panel",
-        canonical_value: null,
-        farmops_value: currentParent,
-        field_observed_text: feederLabel.observed_text,
-        field_interpreted: "PNL-H1",
-        confidence: "high",
-        verification_required: false,
-        classification: already ? "MATCH" : "TOPOLOGY_PROPOSAL",
-        proposed_action: already ? "no_change" : "propose_topology_update",
-        detail: already
-          ? `No topology proposal is required: the current service revision already represents SVC-HOUSE → PNL-H1 → PNL-H2, and this evidence (${evidence}) confirms it.`
-          : `Field evidence (${evidence}) supports PNL-H1 → PNL-H2 in the current as-built revision.`,
-        provenance: feederLabel.provenance,
-        canonical_state: "no_mapping",
-        farmops_state: currentParent === null ? "record_absent" : "present",
-        topology: already
-          ? undefined
-          : { panel_id: "PNL-H2", current_parent: currentParent, proposed_parent: "PNL-H1", evidence },
-      });
+      const evidence = `${parent} positions ${obs.positions_text} — ${feederLabel.observed_text} — ${obs.poles}-pole ${amps} A`;
+      const named = feed.candidates.filter((c) => c.pattern.test(feederLabel.observed_text));
+      const child =
+        named.length === 1
+          ? named[0].child
+          : named.length === 0 && feed.candidates.length === 1
+            ? feed.candidates[0].child
+            : null;
+
+      if (!child) {
+        rows.push({
+          ...base,
+          field: "parent_panel",
+          field_label: "Upstream parent panel",
+          canonical_value: null,
+          farmops_value: null,
+          field_observed_text: feederLabel.observed_text,
+          field_interpreted: parent,
+          confidence: "low",
+          verification_required: true,
+          classification: "TOPOLOGY_AMBIGUOUS",
+          proposed_action: "requires_review",
+          detail: `Field evidence (${evidence}) shows a sub-panel feeder from ${parent}, but it matches more than one candidate sub-panel (${feed.candidates
+            .map((c) => c.child)
+            .join(", ")}). No topology change is proposed; identify the fed panel in the field.`,
+          provenance: feederLabel.provenance,
+          canonical_state: "no_mapping",
+          farmops_state: "no_mapping",
+        });
+      } else {
+        const currentParent = currentParents[child] ?? null;
+        const already = currentParent === parent;
+        rows.push({
+          ...base,
+          panel_id: child,
+          field: "parent_panel",
+          field_label: "Upstream parent panel",
+          canonical_value: null,
+          farmops_value: currentParent,
+          field_observed_text: feederLabel.observed_text,
+          field_interpreted: parent,
+          confidence: "high",
+          verification_required: false,
+          classification: already ? "MATCH" : "TOPOLOGY_PROPOSAL",
+          proposed_action: already ? "no_change" : "propose_topology_update",
+          detail: already
+            ? `No topology proposal is required: the current service revision already represents ${parent} → ${child}, and this evidence (${evidence}) confirms it.`
+            : `Field evidence (${evidence}) supports ${parent} → ${child} in the current as-built revision.`,
+          provenance: feederLabel.provenance,
+          canonical_state: "no_mapping",
+          farmops_state: currentParent === null ? "record_absent" : "present",
+          topology: already
+            ? undefined
+            : { panel_id: child, current_parent: currentParent, proposed_parent: parent, evidence },
+        });
+      }
     }
+
   }
 
   return rows;
