@@ -1027,10 +1027,16 @@ function classify(
 const SUBPANEL_LABEL = /sub\s*-?\s*panel/i;
 
 export function reconcileHousePanelObservations(input: ReconcileInput): ReconciliationRow[] {
+  const scope = input.scope ?? HOUSE_SCOPE;
+  const currentParents: Record<string, string | null> = { ...(input.currentParents ?? {}) };
+  if (input.currentSubpanelParent !== undefined && currentParents["PNL-H2"] === undefined) {
+    currentParents["PNL-H2"] = input.currentSubpanelParent;
+  }
   const canonical = input.canonical ?? {};
   const canonicalPanels = new Set(
     input.canonicalPanels ?? [...new Set(Object.keys(canonical).map((k) => k.split("|")[0]))],
   );
+
   const live = new Map<string, FarmOpsBreaker>();
   const farmopsPanels = new Set<string>();
   for (const b of input.farmops) {
