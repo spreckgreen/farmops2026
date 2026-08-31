@@ -549,12 +549,15 @@ export function planJboxRacewayPopulation(graph: ElectricalGraphData): PathPropo
 export function pathProposalCsv(rows: PathProposal[]): string {
   const head = [
     "jbox_id",
+    "extracted_path",
+    "raceway_uuid",
+    "sequence",
+    "matching_raceways",
     "current_parent",
     "proposed_parent",
-    "current_sequence",
     "proposed_sequence",
     "status",
-    "evidence",
+    "rejection_reason",
   ];
   const cell = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
   return [
@@ -562,11 +565,14 @@ export function pathProposalCsv(rows: PathProposal[]): string {
     ...rows.map((r) =>
       [
         r.jbox_id,
+        r.extracted_path ?? "",
+        r.current_raceway_uuid ?? "",
+        r.current_sequence ?? "",
+        r.matching_raceways.join(" | "),
         r.current_raceway ?? "",
         r.proposed_raceway ?? "",
-        r.current_sequence ?? "",
         r.proposed_sequence ?? "",
-        r.status,
+        r.resolution,
         r.evidence,
       ]
         .map(cell)
