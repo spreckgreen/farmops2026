@@ -82,6 +82,66 @@ export function ObservationPhotoCell({
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
+  const [linkOpen, setLinkOpen] = useState(false);
+  const [linkUrl, setLinkUrl] = useState("");
+  const [linkName, setLinkName] = useState("");
+  const linked = isLinkedPhotoBucket(photo?.bucket);
+
+  function attachLink() {
+    const kind = classifyPhotoLink(linkUrl);
+    if (!kind) {
+      toast.error(
+        "Paste an https share link from OneDrive (1drv.ms, *.sharepoint.com) or Google Drive (drive.google.com).",
+      );
+      return;
+    }
+    onChange({
+      bucket: kind.bucket,
+      path: linkUrl.trim(),
+      name: linkName.trim() || `${kind.label} photo`,
+      mime: "",
+      size: 0,
+    });
+    setLinkOpen(false);
+    setLinkUrl("");
+    setLinkName("");
+    toast.success(`${kind.label} link recorded as evidence for this row.`);
+  }
+
+  function linkPopover(trigger: React.ReactNode) {
+    return (
+      <Popover open={linkOpen} onOpenChange={setLinkOpen}>
+        <PopoverTrigger asChild>{trigger}</PopoverTrigger>
+        <PopoverContent align="start" className="w-80 space-y-2">
+          <div className="text-sm font-medium">Link a cloud photo</div>
+          <p className="text-xs text-muted-foreground">
+            Use a share link instead of uploading. Supported: OneDrive (1drv.ms,
+            your-tenant.sharepoint.com) and Google Drive (drive.google.com). Make sure the link is
+            viewable by whoever needs the evidence.
+          </p>
+          <Input
+            value={linkUrl}
+            onChange={(e) => setLinkUrl(e.target.value)}
+            placeholder="https://drive.google.com/file/d/1AbC.../view"
+          />
+          <Input
+            value={linkName}
+            onChange={(e) => setLinkName(e.target.value)}
+            placeholder="Label (e.g. PNL-H1 directory photo)"
+          />
+          <div className="flex justify-end gap-2">
+            <Button size="sm" variant="ghost" onClick={() => setLinkOpen(false)}>
+              Cancel
+            </Button>
+            <Button size="sm" disabled={!linkUrl.trim()} onClick={attachLink}>
+              Save link
+            </Button>
+          </div>
+        </PopoverContent>
+      </Popover>
+    );
+  }
+
 
   async function upload(file: File) {
     if (!file.type.startsWith("image/")) {
