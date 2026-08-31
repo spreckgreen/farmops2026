@@ -3,6 +3,10 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
+import {
+  resolveServiceTopology,
+  servicePanelDomainFindings,
+} from "@/lib/electrical-service-topology";
 import { requireAddon } from "@/lib/addons.server";
 import {
   ENTITIES,
@@ -798,6 +802,38 @@ export const electricalIntegrityReport = createServerFn({ method: "GET" })
       waypoint: (waypoints ?? []) as Row[],
     };
     const findings = runIntegrityChecks(graph);
+
+    // Service-domain QA: panels that cannot be reached from exactly one current
+    // utility service are reported, never attached to one automatically.
+    const serviceTables = [
+      "electrical_services",
+      "electrical_service_configurations",
+      "electrical_service_panels",
+    ] as const;
+    const serviceRows = await Promise.all(
+      serviceTables.map(async (table) => {
+        const { data } = await db.from(table).select("*");
+        return (data ?? []) as Row[];
+      }),
+    );
+    const resolution = resolveServiceTopology({
+      panels: graph.panel,
+      services: serviceRows[0],
+      serviceConfigs: serviceRows[1],
+      servicePanels: serviceRows[2],
+    });
+    for (const f of servicePanelDomainFindings(resolution)) {
+      const panelRow = graph.panel.find((p) => String(p["panel_id"] ?? "").trim() === f.panelRef);
+      findings.push({
+        code: f.code,
+        severity: f.severity === "error" ? "error" : "warning",
+        kind: "panel",
+        stableId: f.panelRef,
+        id: (panelRow?.["id"] as string | undefined) ?? null,
+        message: f.message,
+      });
+    }
+
     const records = kinds.reduce((n, k) => n + (graph[k] ?? []).length, 0);
     const gaps = topologyGaps(graph);
     return {

@@ -79,6 +79,22 @@ export const generateElectricalDiagram = createServerFn({ method: "GET" })
       .select("*")
       .order("sequence");
 
+    // Service identities + their revisions are the authoritative source of
+    // service-to-panel relationships in the generated topology.
+    const serviceTables = [
+      "electrical_services",
+      "electrical_service_configurations",
+      "electrical_service_panels",
+      "electrical_interties",
+      "electrical_intertie_configurations",
+    ] as const;
+    const serviceRows = await Promise.all(
+      serviceTables.map(async (table) => {
+        const { data: rows } = await db.from(table).select("*");
+        return (rows ?? []) as Row[];
+      }),
+    );
+
     const graph: ElectricalGraphData = {
       panel: fetched[0],
       circuit_group: fetched[1],
@@ -90,6 +106,11 @@ export const generateElectricalDiagram = createServerFn({ method: "GET" })
       power_asset: fetched[7],
       device: fetched[8],
       waypoint: (waypoints ?? []) as Row[],
+      service: serviceRows[0],
+      service_config: serviceRows[1],
+      service_panel: serviceRows[2],
+      intertie: serviceRows[3],
+      intertie_config: serviceRows[4],
     };
 
     const uniq = (values: (string | null | undefined)[]) =>
