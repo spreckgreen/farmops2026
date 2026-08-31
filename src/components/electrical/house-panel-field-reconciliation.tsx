@@ -436,6 +436,26 @@ export function HousePanelFieldReconciliation() {
                             </span>
                           ) : null}
                         </td>
+                        <td className="p-1">
+                          <ObservationPhotoCell
+                            photo={photos[k] ?? null}
+                            disabled={applyMutation.isPending}
+                            onChange={(p) =>
+                              setPhotos((prev) => {
+                                const next = { ...prev };
+                                if (p) next[k] = p;
+                                else delete next[k];
+                                return next;
+                              })
+                            }
+                          />
+                          {r.provenance.source_photo ? (
+                            <div className="mt-1 text-xs text-muted-foreground">
+                              cited: {r.provenance.source_photo}
+                            </div>
+                          ) : null}
+                        </td>
+
                         <td className="p-1">{r.confidence}</td>
                         <td className="p-1">
                           <Badge
