@@ -50,7 +50,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Plus, Pencil, Search } from "lucide-react";
+import { Plus, Pencil, Search, Download, FileJson, X } from "lucide-react";
+import { rowsToCsv, downloadCsv } from "@/lib/csv";
 import { DeleteDependencyDialog } from "@/components/electrical/delete-dependency-dialog";
 
 type Values = Record<string, string | boolean>;
@@ -353,6 +354,67 @@ export function EntityManager({
     : null;
   const listFields = def.fields.filter((f) => f.list);
 
+  // Export columns mirror the record shape: stable ID first, then every defined
+  // field, so a CSV/JSON export round-trips what the tab actually stores.
+  const exportColumns = useMemo(
+    () => [
+      { key: def.stableIdField, label: def.stableIdLabel },
+      ...def.fields.map((f) => ({ key: f.key, label: f.label })),
+    ],
+    [def],
+  );
+
+  const total = query.data?.length ?? 0;
+  const filtered = rows.length;
+  const statusCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const r of rows) {
+      const s = String(r["install_status"] ?? "") || "unspecified";
+      counts.set(s, (counts.get(s) ?? 0) + 1);
+    }
+    return [...counts.entries()].sort((a, b) => b[1] - a[1]);
+  }, [rows]);
+
+  const stamp = new Date().toISOString().slice(0, 10);
+
+  const exportCsv = () => {
+    const body = rowsToCsv(
+      rows.map((r) => {
+        const out: Record<string, unknown> = {};
+        for (const c of exportColumns) out[c.key] = r[c.key] ?? "";
+        return out;
+      }),
+      exportColumns,
+    );
+    downloadCsv(`electrical-${kind}-${stamp}.csv`, body);
+  };
+
+  const exportJson = () => {
+    const body = JSON.stringify(
+      {
+        kind,
+        title: def.title,
+        generatedAt: new Date().toISOString(),
+        filters: { search: search.trim() || null, environment: environment || null, status: status || null },
+        count: filtered,
+        totalBeforeFilters: total,
+        rows: rows.map((r) => {
+          const out: Record<string, unknown> = {};
+          for (const c of exportColumns) out[c.key] = r[c.key] ?? null;
+          return out;
+        }),
+      },
+      null,
+      2,
+    );
+    const url = URL.createObjectURL(new Blob([body], { type: "application/json" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `electrical-${kind}-${stamp}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-end gap-2">
@@ -396,6 +458,58 @@ export function EntityManager({
           New {def.singular}
         </Button>
       </div>
+
+      {total > 0 ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant="secondary">
+            {filtered === total
+              ? `${total} ${def.title.toLowerCase()}`
+              : `${filtered} of ${total} ${def.title.toLowerCase()}`}
+          </Badge>
+          {statusCounts.map(([s, n]) => (
+            <Badge key={s} variant="outline">
+              {s === "unspecified" ? "No status" : installStatusLabel(s)}: {n}
+            </Badge>
+          ))}
+          {search || environment || status ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-1"
+              onClick={() => {
+                setSearch("");
+                setEnvironment("");
+                setStatus("");
+              }}
+            >
+              <X className="h-4 w-4" />
+              Clear filters
+            </Button>
+          ) : null}
+          <div className="ml-auto flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1"
+              disabled={!filtered}
+              onClick={exportCsv}
+            >
+              <Download className="h-4 w-4" />
+              Export CSV
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1"
+              disabled={!filtered}
+              onClick={exportJson}
+            >
+              <FileJson className="h-4 w-4" />
+              Export JSON
+            </Button>
+          </div>
+        </div>
+      ) : null}
 
       {query.isLoading ? (
         <Skeleton className="h-40 w-full" />
