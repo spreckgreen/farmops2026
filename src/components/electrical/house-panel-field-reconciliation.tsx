@@ -117,6 +117,7 @@ export function HousePanelFieldReconciliation({
       });
       setSelected(next);
       setPhotos({});
+      setPanelPhotos({});
 
       toast.success(
         `Preview only — no records changed. ${r.totals.source_rows_read} source row(s) → ${r.totals.unique_logical_breakers} logical breaker(s), ${r.totals.eligible_farmops_updates} eligible FarmOps update(s).`,
@@ -167,7 +168,9 @@ export function HousePanelFieldReconciliation({
               proposed_parent: r.topology!.proposed_parent,
               evidence: r.topology!.evidence,
             })),
-          observations: pairs.map(({ r, key }) => ({
+          observations: pairs.map(({ r, key }) => {
+            const photo = photos[key] ?? panelPhotos[r.panel_id ?? r.panel_source_name] ?? null;
+            return {
             panel_id: r.panel_id ?? r.panel_source_name,
             field: r.field,
             side: r.side,
@@ -187,12 +190,13 @@ export function HousePanelFieldReconciliation({
             source_row: r.provenance.source_row,
             source_column: r.provenance.source_column,
             source_photo: r.provenance.source_photo,
-            photo_bucket: photos[key]?.bucket ?? null,
-            photo_path: photos[key]?.path ?? null,
-            photo_name: photos[key]?.name ?? null,
-            photo_mime: photos[key]?.mime ?? null,
-            photo_size: photos[key]?.size ?? null,
-          })),
+            photo_bucket: photo?.bucket ?? null,
+            photo_path: photo?.path ?? null,
+            photo_name: photo?.name ?? null,
+            photo_mime: photo?.mime ?? null,
+            photo_size: photo?.size ?? null,
+            };
+          }),
 
         },
       });
