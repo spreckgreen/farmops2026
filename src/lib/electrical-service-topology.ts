@@ -209,8 +209,8 @@ export function resolveServiceTopology(
   )) {
     const cfg = currentIntertieConfiguration(intertieConfigs.get(str(it["id"])) ?? []);
     if (!cfg) continue;
-    const from = resolveService(cfg, "from_service_uuid", "from_service_ref");
-    const to = resolveService(cfg, "to_service_uuid", "to_service_ref");
+    const from = resolveService(cfg, "endpoint_a_service_uuid", "endpoint_a_ref");
+    const to = resolveService(cfg, "endpoint_b_service_uuid", "endpoint_b_ref");
     if (!from || !to) continue;
     interties.push({
       intertieId: str(it["intertie_id"]) || str(it["id"]),
