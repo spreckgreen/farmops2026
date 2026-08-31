@@ -95,6 +95,12 @@ export function HousePanelFieldReconciliation({
   const [filter, setFilter] = useState<Filter>("all");
   /** Photo evidence keyed by reconciliation row. */
   const [photos, setPhotos] = useState<Record<string, ObservationPhoto>>({});
+  /**
+   * Panel-level photo evidence: one upload or OneDrive / Google Drive link that
+   * every circuit on that panel inherits unless the row carries its own photo.
+   */
+  const [panelPhotos, setPanelPhotos] = useState<Record<string, ObservationPhoto>>({});
+
 
 
   const previewMutation = useMutation({
