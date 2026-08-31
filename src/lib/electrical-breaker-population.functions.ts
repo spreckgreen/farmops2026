@@ -329,7 +329,7 @@ export const applyBreakerPopulation = createServerFn({ method: "POST" })
           scope: data.scope,
           workbook: ev.workbook || "(photo upload)",
           worksheet: ev.worksheet,
-          panel_ref: ev.panel_id ?? ev.panel_source_name || null,
+          panel_ref: ev.panel_id ?? (ev.panel_source_name || null),
           panel_uuid: ev.panel_id ? (uuidByPanel.get(ev.panel_id) ?? null) : null,
           positions_text: ev.positions_text,
           poles: ev.poles,
