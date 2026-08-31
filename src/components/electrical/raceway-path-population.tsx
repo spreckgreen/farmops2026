@@ -5,7 +5,7 @@
 // unlinked. Existing relationships, stable IDs and engineering values are never
 // overwritten.
 import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,22 +19,15 @@ import {
 
 export function RacewayPathPopulation() {
   const run = useServerFn(previewRacewayPathPopulation);
-  const qc = useQueryClient();
   const [result, setResult] = useState<PathPopulationResult | null>(null);
 
   const m = useMutation({
-    mutationFn: (confirm: boolean) => run({ data: { jbox_ids: [], confirm } }),
+    mutationFn: () => run({ data: { jbox_ids: [], confirm: false } }),
     onSuccess: (r) => {
       setResult(r);
-      if (r.applied) {
-        toast.success(`Linked ${r.changed} junction box${r.changed === 1 ? "" : "es"}.`);
-        void qc.invalidateQueries({ queryKey: ["electrical"] });
-      }
     },
     onError: (e: Error) => toast.error(e.message),
   });
-
-  const eligible = (result?.rows ?? []).filter((r) => r.outcome === "would_change");
 
   return (
     <Card>
@@ -49,11 +42,8 @@ export function RacewayPathPopulation() {
           review.
         </p>
         <div className="flex flex-wrap gap-2">
-          <Button size="sm" variant="outline" disabled={m.isPending} onClick={() => m.mutate(false)}>
+          <Button size="sm" variant="outline" disabled={m.isPending} onClick={() => m.mutate()}>
             Preview proposals
-          </Button>
-          <Button size="sm" disabled={m.isPending || !eligible.length} onClick={() => m.mutate(true)}>
-            Apply {eligible.length || ""} link{eligible.length === 1 ? "" : "s"}
           </Button>
           {result?.rows.length ? (
             <Button
@@ -76,6 +66,10 @@ export function RacewayPathPopulation() {
 
         {result ? (
           <div className="rounded-md border bg-muted/40 p-2 text-xs text-muted-foreground space-y-1">
+            <p className="font-mono">
+              Build: {result.diagnostics.buildVersion} · Diagnostic: {result.diagnostics.diagnosticVersion}
+            </p>
+            <p className="font-mono">Authenticated auth.uid(): {result.diagnostics.authUid}</p>
             <p>
               Read {result.diagnostics.jboxRows} junction box
               {result.diagnostics.jboxRows === 1 ? "" : "es"} ({result.diagnostics.linkedJboxes}{" "}
@@ -104,6 +98,39 @@ export function RacewayPathPopulation() {
             ) : (
               <p>No raceway records encode a canonical CON-### path number.</p>
             )}
+          </div>
+        ) : null}
+
+        {result ? (
+          <div className="overflow-x-auto rounded-md border">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-muted/50">
+                <tr>
+                  <th className="p-2">auth_uid</th>
+                  <th className="p-2">JB-104-01</th>
+                  <th className="p-2">JB-104-02</th>
+                  <th className="p-2">JB-104-03</th>
+                  <th className="p-2">CON-104</th>
+                  <th className="p-2">J-boxes fetched</th>
+                  <th className="p-2">Raceways fetched</th>
+                  <th className="p-2">Passed to resolver</th>
+                  <th className="p-2">Resolver results</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-t font-mono">
+                  <td className="p-2">{result.diagnostics.path104.auth_uid}</td>
+                  <td className="p-2">{String(result.diagnostics.path104.jbox_104_01_visible)}</td>
+                  <td className="p-2">{String(result.diagnostics.path104.jbox_104_02_visible)}</td>
+                  <td className="p-2">{String(result.diagnostics.path104.jbox_104_03_visible)}</td>
+                  <td className="p-2">{String(result.diagnostics.path104.con_104_visible)}</td>
+                  <td className="p-2">{result.diagnostics.path104.jboxes_fetched}</td>
+                  <td className="p-2">{result.diagnostics.path104.raceways_fetched}</td>
+                  <td className="p-2">{result.diagnostics.path104.rows_passed_to_resolver}</td>
+                  <td className="p-2">{result.diagnostics.path104.resolver_results}</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         ) : null}
 
