@@ -8,6 +8,10 @@
 import { ENTITIES } from "@/lib/electrical-entities";
 import { isSiteEnvironment, type ElectricalEntityKind } from "@/lib/electrical";
 import { orderedJunctionPoints, positionLabel } from "@/lib/electrical-raceway-path";
+import {
+  resolveServiceTopology,
+  servicePanelDomainFindings,
+} from "@/lib/electrical-service-topology";
 
 export type ElectricalValue = string | number | boolean | null;
 export interface Row {
@@ -30,6 +34,13 @@ export interface ElectricalGraphData {
   rack?: Row[];
   power_asset?: Row[];
   device?: Row[];
+  // Service-revision model. When present, service-to-panel relationships come
+  // from the current revision instead of a synthetic utility root.
+  service?: Row[];
+  service_config?: Row[];
+  service_panel?: Row[];
+  intertie?: Row[];
+  intertie_config?: Row[];
 }
 
 export const DIAGRAM_TYPES = [
@@ -111,7 +122,9 @@ export interface DiagramIssue {
     | "unknown_panel"
     | "duplicate_id"
     | "broken_topology"
-    | "circular_reference";
+    | "circular_reference"
+    | "unresolved_upstream"
+    | "ambiguous_service_domain";
   message: string;
 }
 
@@ -165,6 +178,7 @@ export function mermaidLabel(text: string): string {
 
 const SHAPES: Record<string, [string, string]> = {
   utility: ["[(", ")]"],
+  intertie: ["{{", "}}"],
   panel: ["[", "]"],
   raceway: ["([", "])"],
   jbox: ["{{", "}}"],
