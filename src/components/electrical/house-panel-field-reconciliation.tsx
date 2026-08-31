@@ -354,7 +354,7 @@ export function HousePanelFieldReconciliation({
                 variant="outline"
                 size="sm"
                 className="gap-1"
-                onClick={() => download(FIELD_RECONCILIATION_CSV, result.csv, "text/csv")}
+                onClick={() => download(scope.csv_name, result.csv, "text/csv")}
               >
                 <Download className="h-4 w-4" /> CSV
               </Button>
@@ -364,11 +364,12 @@ export function HousePanelFieldReconciliation({
                 className="gap-1"
                 onClick={() =>
                   download(
-                    "phase-4.4b-house-panel-field-reconciliation.md",
+                    scope.markdown_name,
                     result.markdown,
                     "text/markdown",
                   )
                 }
+
               >
                 <FileText className="h-4 w-4" /> Markdown report
               </Button>
