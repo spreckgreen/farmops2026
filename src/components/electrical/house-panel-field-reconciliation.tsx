@@ -365,9 +365,18 @@ export function HousePanelFieldReconciliation() {
                             </span>
                           ) : null}
                         </td>
-                        <td className="p-1">{r.field_label}</td>
-                        <td className="p-1">{r.canonical_value ?? "(silent)"}</td>
-                        <td className="p-1">{r.farmops_value ?? "(none)"}</td>
+                        <td className="p-1">
+                          {r.field_label}
+                          {r.duplicate_sources?.length ? (
+                            <div className="text-xs text-muted-foreground">
+                              also on{" "}
+                              {r.duplicate_sources.map((d) => `${d.worksheet}:${d.source_row}`).join(", ")}
+                            </div>
+                          ) : null}
+                        </td>
+                        <td className="p-1">{stateCell(r.canonical_value, r.canonical_state)}</td>
+                        <td className="p-1">{stateCell(r.farmops_value, r.farmops_state)}</td>
+
                         <td className="p-1">
                           <span className="font-medium">{r.field_observed_text || "(blank)"}</span>
                           {r.field_interpreted !== null &&
