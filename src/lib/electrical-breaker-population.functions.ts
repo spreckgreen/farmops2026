@@ -155,6 +155,16 @@ const applyInput = z.object({
         poles: z.number().int().min(1).max(3),
         ocp_amps: z.number().positive().nullable().default(null),
         label: z.string().trim().max(300).nullable().default(null),
+        /**
+         * Safety-gate verdict computed by the Preview. BLOCKED rows are refused
+         * server-side even if a client sends them.
+         */
+        safety_class: z
+          .enum(["SAFE_STRUCTURAL_CREATE", "CREATE_WITH_VERIFICATION_FLAGS", "BLOCKED"])
+          .default("SAFE_STRUCTURAL_CREATE"),
+        requires_field_verification: z.boolean().default(false),
+        /** Verification flag + verbatim uncertain observed text; never an engineering value. */
+        notes: z.string().trim().max(2000).nullable().default(null),
         slots: z
           .array(
             z.object({
@@ -168,6 +178,7 @@ const applyInput = z.object({
       }),
     )
     .max(400),
+
   /**
    * Supporting photos, one per observed circuit. These are evidence, not
    * engineering values: they land in electrical_field_observations keyed by
@@ -194,7 +205,12 @@ const applyInput = z.object({
     .default([]),
 });
 
-export type BreakerCreateStatus = "would_create" | "created" | "blocked_now_exists" | "failed";
+export type BreakerCreateStatus =
+  | "would_create"
+  | "created"
+  | "blocked_now_exists"
+  | "blocked_safety_gate"
+  | "failed";
 
 export interface BreakerCreateResult {
   panel_id: string;
@@ -202,14 +218,23 @@ export interface BreakerCreateResult {
   status: BreakerCreateStatus;
   detail: string;
   positions_created: number;
+  safety_class?: string;
+  requires_field_verification?: boolean;
 }
 
 export interface BreakerPopulationApplyResult {
   confirmed: boolean;
   results: BreakerCreateResult[];
   created: number;
+  created_with_verification_flags: number;
   blocked: number;
   failed: number;
+  /**
+   * After a confirmed Apply the same workbook must be re-previewed: those
+   * records must classify as existing instead of proposing a duplicate create.
+   */
+  repreview_required: boolean;
+
   /** Photo evidence rows written to the observation journal. */
   evidence_recorded: number;
   evidence_errors: string[];
@@ -234,7 +259,19 @@ export const applyBreakerPopulation = createServerFn({ method: "POST" })
 
     const results: BreakerCreateResult[] = [];
     for (const rec of data.records) {
+      if (rec.safety_class === "BLOCKED") {
+        results.push({
+          panel_id: rec.panel_id,
+          positions_text: rec.positions_text,
+          status: "blocked_safety_gate",
+          detail: "The safety gate classified this breaker as BLOCKED; nothing was created.",
+          positions_created: 0,
+          safety_class: rec.safety_class,
+        });
+        continue;
+      }
       const panelUuid = uuidByPanel.get(rec.panel_id);
+
       if (!panelUuid) {
         results.push({
           panel_id: rec.panel_id,
@@ -280,6 +317,8 @@ export const applyBreakerPopulation = createServerFn({ method: "POST" })
         continue;
       }
 
+      // Only structural facts are written. NULL stays NULL: nothing is filled
+      // in later by inference, and no directory text becomes an amperage.
       const payload = rec.slots.map((s) => ({
         user_id: context.userId,
         panel_uuid: panelUuid,
@@ -289,6 +328,7 @@ export const applyBreakerPopulation = createServerFn({ method: "POST" })
         poles: rec.poles,
         ocp_amps: rec.ocp_amps,
         label: rec.label,
+        notes: rec.notes,
       }));
       const { error } = await db.from(BREAKERS).insert(payload);
       if (error) {
@@ -298,6 +338,7 @@ export const applyBreakerPopulation = createServerFn({ method: "POST" })
           status: "failed",
           detail: error.message,
           positions_created: 0,
+          safety_class: rec.safety_class,
         });
         continue;
       }
@@ -306,9 +347,14 @@ export const applyBreakerPopulation = createServerFn({ method: "POST" })
         panel_id: rec.panel_id,
         positions_text: rec.positions_text,
         status: "created",
-        detail: `${rec.slots.length} position${rec.slots.length === 1 ? "" : "s"} created.`,
+        detail: `${rec.slots.length} position${rec.slots.length === 1 ? "" : "s"} created${
+          rec.requires_field_verification ? " and flagged for field verification" : ""
+        }.`,
         positions_created: rec.slots.length,
+        safety_class: rec.safety_class,
+        requires_field_verification: rec.requires_field_verification,
       });
+
     }
 
     // Photo evidence is recorded per observed circuit, alongside whatever the
@@ -356,14 +402,20 @@ export const applyBreakerPopulation = createServerFn({ method: "POST" })
       else evidence_recorded = payload.length;
     }
 
+    const created = results.filter((r) => r.status === "created");
     return {
       confirmed: data.confirm,
       results,
-      created: results.filter((r) => r.status === "created").length,
-      blocked: results.filter((r) => r.status === "blocked_now_exists").length,
+      created: created.length,
+      created_with_verification_flags: created.filter((r) => r.requires_field_verification).length,
+      blocked: results.filter(
+        (r) => r.status === "blocked_now_exists" || r.status === "blocked_safety_gate",
+      ).length,
       failed: results.filter((r) => r.status === "failed").length,
+      repreview_required: data.confirm && created.length > 0,
       evidence_recorded,
       evidence_errors,
     };
+
 
   });
