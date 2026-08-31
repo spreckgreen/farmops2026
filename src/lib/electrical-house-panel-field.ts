@@ -665,7 +665,7 @@ export function reconcileHousePanelObservations(input: ReconcileInput): Reconcil
       if (c.action === "propose_farmops_update" && f.interpreted !== null && liveRow) {
         row.target = {
           table: "electrical_breaker_positions",
-          panel_id: obs.panel_id,
+          panel_id: String(obs.panel_id),
           side: obs.slot.side,
           position: obs.slot.position,
           column: f.field,
