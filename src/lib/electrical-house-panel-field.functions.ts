@@ -282,11 +282,14 @@ const observationEntry = fieldEntry
 
 const applyInput = z.object({
   confirm: z.boolean().default(false),
+  /** Panel area the evidence came from, recorded on the journal rows. */
+  scope: z.enum(["house", "farm_shop"]).default("house"),
   fields: z.array(fieldEntry).max(2000).default([]),
   topology: z.array(topologyEntry).max(20).default([]),
   /** Evidence rows recorded verbatim with their provenance and disposition. */
   observations: z.array(observationEntry).max(2000).default([]),
 });
+
 
 export interface ApplyFieldRow {
   panel_id: string;
@@ -491,10 +494,26 @@ export const applyHousePanelFieldUpdates = createServerFn({ method: "POST" })
     }
 
     // Field evidence is stored with its provenance so a later reader can always
-    // separate "what the photo appeared to say" from FarmOps and canonical.
+    // separate "what the photo appeared to say" from FarmOps and canonical, and
+    // so the journal can say whether the value actually landed in FarmOps.
+    const writeOutcome = new Map<string, ApplyFieldRow>();
+    for (const f of fields) {
+      writeOutcome.set(`${f.panel_id}|${f.side}|${f.position}|${f.column}`, f);
+    }
+    const topologyOutcome = new Map<string, ApplyTopologyRow>();
+    for (const t of topology) topologyOutcome.set(`${t.panel_id}|parent_panel`, t);
+
     let recorded = 0;
     if (data.confirm && data.observations.length) {
-      const payload = data.observations.map((o) => ({
+      const now = new Date().toISOString();
+      const payload = data.observations.map((o) => {
+        const outcome =
+          o.field === "parent_panel"
+            ? topologyOutcome.get(`${o.panel_id}|parent_panel`)
+            : writeOutcome.get(`${o.panel_id}|${o.side}|${o.position}|${o.field}`);
+        const applied = outcome?.status === "changed";
+        return {
+
         user_id: context.userId,
         workbook: o.workbook || "(unknown workbook)",
         worksheet: o.worksheet || null,
@@ -522,8 +541,23 @@ export const applyHousePanelFieldUpdates = createServerFn({ method: "POST" })
         photo_name: o.photo_name,
         photo_mime: o.photo_mime,
         photo_size: o.photo_size,
-        photo_uploaded_at: o.photo_path ? new Date().toISOString() : null,
-      }));
+        photo_uploaded_at: o.photo_path ? now : null,
+        scope: data.scope,
+        apply_status: outcome?.status ?? "not_applied",
+        applied_value: applied
+          ? o.field === "parent_panel"
+            ? (outcome as ApplyTopologyRow).proposed_parent
+            : String((outcome as ApplyFieldRow).proposed_value)
+          : null,
+        applied_previous_value: applied
+          ? o.field === "parent_panel"
+            ? (outcome as ApplyTopologyRow).current_parent
+            : (outcome as ApplyFieldRow).live_value
+          : null,
+        applied_at: applied ? now : null,
+        };
+      });
+
 
       const { error } = await db.from(OBS_TABLE).insert(payload);
       if (error) throw new Error(error.message);
