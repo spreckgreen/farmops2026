@@ -447,7 +447,7 @@ const eq = (a: string, b: string) => norm(a) === norm(b);
 /** Parse transcription sheets into deduplicated logical breaker observations. */
 export function parseHousePanelSheets(sheets: Sheet[], opts: ParseOptions): ParseResult {
   const warnings: string[] = [];
-  const skipped: string[] = [];
+  const skipped: { worksheet: string; reason: string }[] = [];
   const raw: RawRow[] = [];
   let rowsRead = 0;
   let recognized = 0;
@@ -455,8 +455,12 @@ export function parseHousePanelSheets(sheets: Sheet[], opts: ParseOptions): Pars
   for (const sheet of sheets) {
     const header = findHeaderRow(sheet);
     if (!header) {
-      skipped.push(sheet.name);
-      warnings.push(`Sheet "${sheet.name}" has no recognizable panel-directory header row; skipped.`);
+      const reason = sheet.rows.length
+        ? "no recognizable panel-directory header row"
+        : "sheet is empty";
+      skipped.push({ worksheet: sheet.name, reason });
+      warnings.push(`Sheet "${sheet.name}" skipped: ${reason}.`);
+
       continue;
     }
     recognized++;
