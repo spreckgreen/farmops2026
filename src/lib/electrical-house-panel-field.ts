@@ -27,6 +27,106 @@ export const HOUSE_PANEL_ALIASES: Record<string, string> = {
   "HOUSE-SUB-PANEL": "PNL-H2",
 };
 
+/** Workbook panel name → existing Farm Shop panel identity. Never renames. */
+export const FARM_SHOP_PANEL_ALIASES: Record<string, string> = {
+  "FARM SHOP NE": "PNL-FS-NE",
+  "FARM-SHOP-NE": "PNL-FS-NE",
+  "SHOP NE": "PNL-FS-NE",
+  "FS NE": "PNL-FS-NE",
+  "FARM SHOP NW": "PNL-FS-NW",
+  "FARM-SHOP-NW": "PNL-FS-NW",
+  "SHOP NW": "PNL-FS-NW",
+  "FS NW": "PNL-FS-NW",
+  "FARM SHOP EQUIPMENT": "PNL-FS-EQ",
+  "FARM-SHOP-EQUIPMENT": "PNL-FS-EQ",
+  "SHOP EQUIPMENT": "PNL-FS-EQ",
+  "FS EQ": "PNL-FS-EQ",
+  "FARM SHOP CRITICAL": "PNL-FS-CRIT",
+  "FARM-SHOP-CRITICAL": "PNL-FS-CRIT",
+  "SHOP CRITICAL": "PNL-FS-CRIT",
+  "FS CRIT": "PNL-FS-CRIT",
+};
+
+/**
+ * A reconciliation scope is only naming + topology candidates: the evidence
+ * model, comparison states, provenance and apply path are identical for every
+ * scope so House and Farm Shop photos are reconciled the same way.
+ */
+export interface FieldReconciliationScope {
+  id: "house" | "farm_shop";
+  label: string;
+  /** Building/area wording used in report and UI copy. */
+  area: string;
+  csv_name: string;
+  markdown_name: string;
+  aliases: Record<string, string>;
+  /** Panel name inferred from a worksheet name when a sheet has no panel column. */
+  sheet_panel_hints: { pattern: RegExp; panel_source_name: string }[];
+  /**
+   * Sub-panel feeder candidates. A labelled multi-pole breaker in `parent` is
+   * evidence that one of `candidates` is fed from it — never an instruction, and
+   * never resolved by guessing when more than one candidate matches.
+   */
+  subpanel_feeds: {
+    parent: string;
+    candidates: { child: string; pattern: RegExp }[];
+  }[];
+}
+
+export const HOUSE_SCOPE: FieldReconciliationScope = {
+  id: "house",
+  label: "House panel",
+  area: "House",
+  csv_name: FIELD_RECONCILIATION_CSV,
+  markdown_name: "phase-4.4b-house-panel-field-reconciliation.md",
+  aliases: HOUSE_PANEL_ALIASES,
+  sheet_panel_hints: [
+    { pattern: /sub/i, panel_source_name: "HOUSE-SUBPANEL" },
+    { pattern: /main/i, panel_source_name: "HOUSE-MAIN" },
+  ],
+  subpanel_feeds: [
+    { parent: "PNL-H1", candidates: [{ child: "PNL-H2", pattern: /sub\s*-?\s*panel/i }] },
+  ],
+};
+
+export const FARM_SHOP_SCOPE: FieldReconciliationScope = {
+  id: "farm_shop",
+  label: "Farm Shop panel",
+  area: "Farm Shop",
+  csv_name: "phase-4.4b-farm-shop-panel-field-reconciliation.csv",
+  markdown_name: "phase-4.4b-farm-shop-panel-field-reconciliation.md",
+  aliases: FARM_SHOP_PANEL_ALIASES,
+  sheet_panel_hints: [
+    { pattern: /crit/i, panel_source_name: "FARM SHOP CRITICAL" },
+    { pattern: /\beq\b|equip/i, panel_source_name: "FARM SHOP EQUIPMENT" },
+    { pattern: /\bne\b|north\s*east/i, panel_source_name: "FARM SHOP NE" },
+    { pattern: /\bnw\b|north\s*west|west/i, panel_source_name: "FARM SHOP NW" },
+  ],
+  subpanel_feeds: [
+    {
+      parent: "PNL-FS-NW",
+      candidates: [
+        { child: "PNL-FS-CRIT", pattern: /crit|transfer|microgrid|backup/i },
+        { child: "PNL-FS-EQ", pattern: /equip|machine|\beq\b/i },
+      ],
+    },
+    {
+      parent: "PNL-FS-NE",
+      candidates: [
+        { child: "PNL-FS-EQ", pattern: /equip|machine|\beq\b/i },
+        { child: "PNL-FS-CRIT", pattern: /crit|transfer|microgrid|backup/i },
+      ],
+    },
+  ],
+};
+
+export const FIELD_RECONCILIATION_SCOPES = {
+  house: HOUSE_SCOPE,
+  farm_shop: FARM_SHOP_SCOPE,
+} as const satisfies Record<string, FieldReconciliationScope>;
+
+export type FieldReconciliationScopeId = keyof typeof FIELD_RECONCILIATION_SCOPES;
+
 export const RECONCILIATION_CLASSIFICATIONS = [
   "MATCH",
   "FIELD_OBSERVATION_NEW",
@@ -40,9 +140,11 @@ export const RECONCILIATION_CLASSIFICATIONS = [
   "UNRESOLVED_CIRCUIT_POSITION",
   "SOURCE_EVIDENCE_CONFLICT",
   "TOPOLOGY_PROPOSAL",
+  "TOPOLOGY_AMBIGUOUS",
 
 ] as const;
 export type ReconciliationClassification = (typeof RECONCILIATION_CLASSIFICATIONS)[number];
+
 
 export const PROPOSED_ACTIONS = [
   "no_change",
