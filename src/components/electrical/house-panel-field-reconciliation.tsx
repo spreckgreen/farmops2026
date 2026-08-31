@@ -95,6 +95,12 @@ export function HousePanelFieldReconciliation({
   const [filter, setFilter] = useState<Filter>("all");
   /** Photo evidence keyed by reconciliation row. */
   const [photos, setPhotos] = useState<Record<string, ObservationPhoto>>({});
+  /**
+   * Panel-level photo evidence: one upload or OneDrive / Google Drive link that
+   * every circuit on that panel inherits unless the row carries its own photo.
+   */
+  const [panelPhotos, setPanelPhotos] = useState<Record<string, ObservationPhoto>>({});
+
 
 
   const previewMutation = useMutation({
@@ -111,6 +117,7 @@ export function HousePanelFieldReconciliation({
       });
       setSelected(next);
       setPhotos({});
+      setPanelPhotos({});
 
       toast.success(
         `Preview only — no records changed. ${r.totals.source_rows_read} source row(s) → ${r.totals.unique_logical_breakers} logical breaker(s), ${r.totals.eligible_farmops_updates} eligible FarmOps update(s).`,
@@ -161,7 +168,9 @@ export function HousePanelFieldReconciliation({
               proposed_parent: r.topology!.proposed_parent,
               evidence: r.topology!.evidence,
             })),
-          observations: pairs.map(({ r, key }) => ({
+          observations: pairs.map(({ r, key }) => {
+            const photo = photos[key] ?? panelPhotos[r.panel_id ?? r.panel_source_name] ?? null;
+            return {
             panel_id: r.panel_id ?? r.panel_source_name,
             field: r.field,
             side: r.side,
@@ -181,12 +190,13 @@ export function HousePanelFieldReconciliation({
             source_row: r.provenance.source_row,
             source_column: r.provenance.source_column,
             source_photo: r.provenance.source_photo,
-            photo_bucket: photos[key]?.bucket ?? null,
-            photo_path: photos[key]?.path ?? null,
-            photo_name: photos[key]?.name ?? null,
-            photo_mime: photos[key]?.mime ?? null,
-            photo_size: photos[key]?.size ?? null,
-          })),
+            photo_bucket: photo?.bucket ?? null,
+            photo_path: photo?.path ?? null,
+            photo_name: photo?.name ?? null,
+            photo_mime: photo?.mime ?? null,
+            photo_size: photo?.size ?? null,
+            };
+          }),
 
         },
       });
@@ -327,6 +337,34 @@ export function HousePanelFieldReconciliation({
             ) : null}
 
 
+            <div className="rounded-md border border-border p-2">
+              <div className="text-sm font-medium">Panel photo evidence</div>
+              <p className="mb-2 text-xs text-muted-foreground">
+                Attach one photograph per panel — direct upload or a OneDrive / Google Drive link.
+                Every circuit on that panel inherits it as evidence; a per-circuit photo below
+                overrides the panel photo for that row.
+              </p>
+              <div className="flex flex-wrap gap-3">
+                {panels.map((p) => (
+                  <div key={p} className="flex items-center gap-2 rounded border border-border/60 px-2 py-1">
+                    <span className="font-mono text-xs">{p}</span>
+                    <ObservationPhotoCell
+                      photo={panelPhotos[p] ?? null}
+                      disabled={applyMutation.isPending}
+                      onChange={(photo) =>
+                        setPanelPhotos((prev) => {
+                          const next = { ...prev };
+                          if (photo) next[p] = photo;
+                          else delete next[p];
+                          return next;
+                        })
+                      }
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
             <div className="flex flex-wrap items-center gap-2">
               <select
                 className="h-8 rounded-md border border-input bg-background px-2 text-sm"
@@ -454,7 +492,7 @@ export function HousePanelFieldReconciliation({
                         </td>
                         <td className="p-1">
                           <ObservationPhotoCell
-                            photo={photos[k] ?? null}
+                            photo={photos[k] ?? panelPhotos[r.panel_id ?? r.panel_source_name] ?? null}
                             disabled={applyMutation.isPending}
                             onChange={(p) =>
                               setPhotos((prev) => {
@@ -465,6 +503,11 @@ export function HousePanelFieldReconciliation({
                               })
                             }
                           />
+                          {!photos[k] && panelPhotos[r.panel_id ?? r.panel_source_name] ? (
+                            <div className="mt-1 text-xs text-muted-foreground">
+                              inherited from panel photo
+                            </div>
+                          ) : null}
                           {r.provenance.source_photo ? (
                             <div className="mt-1 text-xs text-muted-foreground">
                               cited: {r.provenance.source_photo}
