@@ -159,7 +159,7 @@ export interface SourceEvidenceConflict {
 export interface ParseDiagnostics {
   sheets_seen: number;
   sheets_recognized: number;
-  sheets_skipped: string[];
+  sheets_skipped: { worksheet: string; reason: string }[];
   /** Non-empty data rows read across all recognized sheets. */
   source_rows_read: number;
   /** Rows suppressed because another sheet held the same logical breaker. */
