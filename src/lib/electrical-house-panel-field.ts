@@ -27,6 +27,106 @@ export const HOUSE_PANEL_ALIASES: Record<string, string> = {
   "HOUSE-SUB-PANEL": "PNL-H2",
 };
 
+/** Workbook panel name → existing Farm Shop panel identity. Never renames. */
+export const FARM_SHOP_PANEL_ALIASES: Record<string, string> = {
+  "FARM SHOP NE": "PNL-FS-NE",
+  "FARM-SHOP-NE": "PNL-FS-NE",
+  "SHOP NE": "PNL-FS-NE",
+  "FS NE": "PNL-FS-NE",
+  "FARM SHOP NW": "PNL-FS-NW",
+  "FARM-SHOP-NW": "PNL-FS-NW",
+  "SHOP NW": "PNL-FS-NW",
+  "FS NW": "PNL-FS-NW",
+  "FARM SHOP EQUIPMENT": "PNL-FS-EQ",
+  "FARM-SHOP-EQUIPMENT": "PNL-FS-EQ",
+  "SHOP EQUIPMENT": "PNL-FS-EQ",
+  "FS EQ": "PNL-FS-EQ",
+  "FARM SHOP CRITICAL": "PNL-FS-CRIT",
+  "FARM-SHOP-CRITICAL": "PNL-FS-CRIT",
+  "SHOP CRITICAL": "PNL-FS-CRIT",
+  "FS CRIT": "PNL-FS-CRIT",
+};
+
+/**
+ * A reconciliation scope is only naming + topology candidates: the evidence
+ * model, comparison states, provenance and apply path are identical for every
+ * scope so House and Farm Shop photos are reconciled the same way.
+ */
+export interface FieldReconciliationScope {
+  id: "house" | "farm_shop";
+  label: string;
+  /** Building/area wording used in report and UI copy. */
+  area: string;
+  csv_name: string;
+  markdown_name: string;
+  aliases: Record<string, string>;
+  /** Panel name inferred from a worksheet name when a sheet has no panel column. */
+  sheet_panel_hints: { pattern: RegExp; panel_source_name: string }[];
+  /**
+   * Sub-panel feeder candidates. A labelled multi-pole breaker in `parent` is
+   * evidence that one of `candidates` is fed from it — never an instruction, and
+   * never resolved by guessing when more than one candidate matches.
+   */
+  subpanel_feeds: {
+    parent: string;
+    candidates: { child: string; pattern: RegExp }[];
+  }[];
+}
+
+export const HOUSE_SCOPE: FieldReconciliationScope = {
+  id: "house",
+  label: "House panel",
+  area: "House",
+  csv_name: FIELD_RECONCILIATION_CSV,
+  markdown_name: "phase-4.4b-house-panel-field-reconciliation.md",
+  aliases: HOUSE_PANEL_ALIASES,
+  sheet_panel_hints: [
+    { pattern: /sub/i, panel_source_name: "HOUSE-SUBPANEL" },
+    { pattern: /main/i, panel_source_name: "HOUSE-MAIN" },
+  ],
+  subpanel_feeds: [
+    { parent: "PNL-H1", candidates: [{ child: "PNL-H2", pattern: /sub\s*-?\s*panel/i }] },
+  ],
+};
+
+export const FARM_SHOP_SCOPE: FieldReconciliationScope = {
+  id: "farm_shop",
+  label: "Farm Shop panel",
+  area: "Farm Shop",
+  csv_name: "phase-4.4b-farm-shop-panel-field-reconciliation.csv",
+  markdown_name: "phase-4.4b-farm-shop-panel-field-reconciliation.md",
+  aliases: FARM_SHOP_PANEL_ALIASES,
+  sheet_panel_hints: [
+    { pattern: /crit/i, panel_source_name: "FARM SHOP CRITICAL" },
+    { pattern: /\beq\b|equip/i, panel_source_name: "FARM SHOP EQUIPMENT" },
+    { pattern: /\bne\b|north\s*east/i, panel_source_name: "FARM SHOP NE" },
+    { pattern: /\bnw\b|north\s*west|west/i, panel_source_name: "FARM SHOP NW" },
+  ],
+  subpanel_feeds: [
+    {
+      parent: "PNL-FS-NW",
+      candidates: [
+        { child: "PNL-FS-CRIT", pattern: /crit|transfer|microgrid|backup/i },
+        { child: "PNL-FS-EQ", pattern: /equip|machine|\beq\b/i },
+      ],
+    },
+    {
+      parent: "PNL-FS-NE",
+      candidates: [
+        { child: "PNL-FS-EQ", pattern: /equip|machine|\beq\b/i },
+        { child: "PNL-FS-CRIT", pattern: /crit|transfer|microgrid|backup/i },
+      ],
+    },
+  ],
+};
+
+export const FIELD_RECONCILIATION_SCOPES = {
+  house: HOUSE_SCOPE,
+  farm_shop: FARM_SHOP_SCOPE,
+} as const satisfies Record<string, FieldReconciliationScope>;
+
+export type FieldReconciliationScopeId = keyof typeof FIELD_RECONCILIATION_SCOPES;
+
 export const RECONCILIATION_CLASSIFICATIONS = [
   "MATCH",
   "FIELD_OBSERVATION_NEW",
@@ -40,9 +140,11 @@ export const RECONCILIATION_CLASSIFICATIONS = [
   "UNRESOLVED_CIRCUIT_POSITION",
   "SOURCE_EVIDENCE_CONFLICT",
   "TOPOLOGY_PROPOSAL",
+  "TOPOLOGY_AMBIGUOUS",
 
 ] as const;
 export type ReconciliationClassification = (typeof RECONCILIATION_CLASSIFICATIONS)[number];
+
 
 export const PROPOSED_ACTIONS = [
   "no_change",
@@ -415,7 +517,10 @@ export interface ParseOptions {
   knownPanelIds?: string[];
   /** Panel name for sheets that do not carry a panel column. */
   defaultPanelName?: string;
+  /** Worksheet-name → panel-name hints; defaults to the House scope hints. */
+  sheetPanelHints?: { pattern: RegExp; panel_source_name: string }[];
 }
+
 
 interface RawRow {
   sheet: string;
@@ -473,11 +578,11 @@ export function parseHousePanelSheets(sheets: Sheet[], opts: ParseOptions): Pars
       const i = col(role);
       return i === undefined ? "" : (header.headers[i] ?? "");
     };
-    const sheetPanelName = /sub/i.test(sheet.name)
-      ? "HOUSE-SUBPANEL"
-      : /main/i.test(sheet.name)
-        ? "HOUSE-MAIN"
-        : (opts.defaultPanelName ?? "");
+    const hints = opts.sheetPanelHints ?? HOUSE_SCOPE.sheet_panel_hints;
+    const sheetPanelName =
+      hints.find((h) => h.pattern.test(sheet.name))?.panel_source_name ??
+      (opts.defaultPanelName ?? "");
+
 
     for (let r = header.index + 1; r < sheet.rows.length; r++) {
       const row = sheet.rows[r] ?? [];
@@ -816,9 +921,17 @@ export interface ReconcileInput {
    * this panel" instead of a bare `(silent)`.
    */
   canonicalPanels?: string[];
-  /** Current-revision parent of PNL-H2, or null when not represented. */
+  /** Naming + topology candidates for the area being reconciled. */
+  scope?: FieldReconciliationScope;
+  /** Current-revision parent of PNL-H2 (House scope shorthand). */
   currentSubpanelParent?: string | null;
+  /**
+   * Current-revision parent of each candidate sub-panel, keyed by panel id
+   * (e.g. `{ "PNL-FS-CRIT": "PNL-FS-NW" }`). Absent key = not represented.
+   */
+  currentParents?: Record<string, string | null>;
 }
+
 
 
 const str = (v: unknown) => (v === null || v === undefined || v === "" ? null : String(v));
@@ -914,10 +1027,16 @@ function classify(
 const SUBPANEL_LABEL = /sub\s*-?\s*panel/i;
 
 export function reconcileHousePanelObservations(input: ReconcileInput): ReconciliationRow[] {
+  const scope = input.scope ?? HOUSE_SCOPE;
+  const currentParents: Record<string, string | null> = { ...(input.currentParents ?? {}) };
+  if (input.currentSubpanelParent !== undefined && currentParents["PNL-H2"] === undefined) {
+    currentParents["PNL-H2"] = input.currentSubpanelParent;
+  }
   const canonical = input.canonical ?? {};
   const canonicalPanels = new Set(
     input.canonicalPanels ?? [...new Set(Object.keys(canonical).map((k) => k.split("|")[0]))],
   );
+
   const live = new Map<string, FarmOpsBreaker>();
   const farmopsPanels = new Set<string>();
   for (const b of input.farmops) {
@@ -1111,38 +1230,77 @@ export function reconcileHousePanelObservations(input: ReconcileInput): Reconcil
       rows.push(row);
     }
 
-    // Topology evidence: a main-panel breaker labelled SUB PANEL feeding a
-    // second panel is evidence, not an instruction to mutate topology.
-    const feederLabel = obs.fields.find((f) => f.field === "label" && SUBPANEL_LABEL.test(f.observed_text));
-    if (feederLabel && obs.panel_id === "PNL-H1" && (obs.poles ?? 1) >= 2) {
-      const currentParent = input.currentSubpanelParent ?? null;
+    // Topology evidence: a parent-panel breaker labelled as feeding another
+    // panel is evidence, not an instruction to mutate topology. When more than
+    // one candidate sub-panel matches, the ambiguity is reported, never guessed.
+    const feed = scope.subpanel_feeds.find((f) => f.parent === obs.panel_id);
+    const feederLabel = obs.fields.find(
+      (f) =>
+        f.field === "label" &&
+        (SUBPANEL_LABEL.test(f.observed_text) ||
+          (feed?.candidates ?? []).some((c) => c.pattern.test(f.observed_text))),
+    );
+    if (feed && feederLabel && (obs.poles ?? 1) >= 2) {
+      const parent = feed.parent;
       const amps = obs.fields.find((f) => f.field === "ocp_amps")?.interpreted ?? "?";
-      const evidence = `PNL-H1 positions ${obs.positions_text} — ${feederLabel.observed_text} — ${obs.poles}-pole ${amps} A`;
-      const already = currentParent === "PNL-H1";
-      rows.push({
-        ...base,
-        panel_id: "PNL-H2",
-        field: "parent_panel",
-        field_label: "Upstream parent panel",
-        canonical_value: null,
-        farmops_value: currentParent,
-        field_observed_text: feederLabel.observed_text,
-        field_interpreted: "PNL-H1",
-        confidence: "high",
-        verification_required: false,
-        classification: already ? "MATCH" : "TOPOLOGY_PROPOSAL",
-        proposed_action: already ? "no_change" : "propose_topology_update",
-        detail: already
-          ? `No topology proposal is required: the current service revision already represents SVC-HOUSE → PNL-H1 → PNL-H2, and this evidence (${evidence}) confirms it.`
-          : `Field evidence (${evidence}) supports PNL-H1 → PNL-H2 in the current as-built revision.`,
-        provenance: feederLabel.provenance,
-        canonical_state: "no_mapping",
-        farmops_state: currentParent === null ? "record_absent" : "present",
-        topology: already
-          ? undefined
-          : { panel_id: "PNL-H2", current_parent: currentParent, proposed_parent: "PNL-H1", evidence },
-      });
+      const evidence = `${parent} positions ${obs.positions_text} — ${feederLabel.observed_text} — ${obs.poles}-pole ${amps} A`;
+      const named = feed.candidates.filter((c) => c.pattern.test(feederLabel.observed_text));
+      const child =
+        named.length === 1
+          ? named[0].child
+          : named.length === 0 && feed.candidates.length === 1
+            ? feed.candidates[0].child
+            : null;
+
+      if (!child) {
+        rows.push({
+          ...base,
+          field: "parent_panel",
+          field_label: "Upstream parent panel",
+          canonical_value: null,
+          farmops_value: null,
+          field_observed_text: feederLabel.observed_text,
+          field_interpreted: parent,
+          confidence: "low",
+          verification_required: true,
+          classification: "TOPOLOGY_AMBIGUOUS",
+          proposed_action: "requires_review",
+          detail: `Field evidence (${evidence}) shows a sub-panel feeder from ${parent}, but it matches more than one candidate sub-panel (${feed.candidates
+            .map((c) => c.child)
+            .join(", ")}). No topology change is proposed; identify the fed panel in the field.`,
+          provenance: feederLabel.provenance,
+          canonical_state: "no_mapping",
+          farmops_state: "no_mapping",
+        });
+      } else {
+        const currentParent = currentParents[child] ?? null;
+        const already = currentParent === parent;
+        rows.push({
+          ...base,
+          panel_id: child,
+          field: "parent_panel",
+          field_label: "Upstream parent panel",
+          canonical_value: null,
+          farmops_value: currentParent,
+          field_observed_text: feederLabel.observed_text,
+          field_interpreted: parent,
+          confidence: "high",
+          verification_required: false,
+          classification: already ? "MATCH" : "TOPOLOGY_PROPOSAL",
+          proposed_action: already ? "no_change" : "propose_topology_update",
+          detail: already
+            ? `No topology proposal is required: the current service revision already represents ${parent} → ${child}, and this evidence (${evidence}) confirms it.`
+            : `Field evidence (${evidence}) supports ${parent} → ${child} in the current as-built revision.`,
+          provenance: feederLabel.provenance,
+          canonical_state: "no_mapping",
+          farmops_state: currentParent === null ? "record_absent" : "present",
+          topology: already
+            ? undefined
+            : { panel_id: child, current_parent: currentParent, proposed_parent: parent, evidence },
+        });
+      }
     }
+
   }
 
   return rows;
@@ -1174,6 +1332,9 @@ export interface ReconciliationTotals {
   verification_required: number;
   topology_evidence_rows: number;
   topology_proposals: number;
+  /** Sub-panel feeder evidence that matched more than one candidate panel. */
+  topology_ambiguous: number;
+
   eligible_farmops_updates: number;
 }
 
@@ -1210,6 +1371,8 @@ export function reconciliationTotals(parsed: ParseResult, rows: ReconciliationRo
     verification_required: rows.filter((r) => r.verification_required).length,
     topology_evidence_rows: rows.filter((r) => r.field === "parent_panel").length,
     topology_proposals: rows.filter((r) => r.classification === "TOPOLOGY_PROPOSAL").length,
+    topology_ambiguous: rows.filter((r) => r.classification === "TOPOLOGY_AMBIGUOUS").length,
+
     eligible_farmops_updates: rows.filter((r) => r.proposed_action === "propose_farmops_update" && r.target).length,
   };
 }
@@ -1285,12 +1448,14 @@ export function fieldReconciliationMarkdown(
   parsed: ParseResult,
   rows: ReconciliationRow[],
   generatedAt: string,
+  scope: FieldReconciliationScope = HOUSE_SCOPE,
 ): string {
   const totals = reconciliationTotals(parsed, rows);
   const out: string[] = [
-    "# Phase 4.4b — House Panel Field-Observation Reconciliation",
+    `# Phase 4.4b — ${scope.area} Panel Field-Observation Reconciliation`,
     "",
     "Photo-derived panel-directory evidence compared against the canonical",
+
     "engineering dataset and current FarmOps values. Field observation is",
     "evidence of the installed system, not authority: `SOR_AUTHORITY` remains",
     "`canonical_ods` and this report writes nothing.",
@@ -1377,7 +1542,7 @@ export function fieldReconciliationMarkdown(
     "",
     "- Preview performed no database writes.",
     "- The canonical ODS was not written.",
-    "- The proposed future 400 A House revision was not modified.",
+    "- No proposed / future service revision was modified; only the current as-built revision is ever considered.",
     "- Phase 4.4a semantic-loss protections (LOSS = 0) are untouched: no `ods_extras` value was changed.",
     "- Verbatim observed text is retained beside every interpretation.",
   );

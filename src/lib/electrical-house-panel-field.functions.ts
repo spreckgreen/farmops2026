@@ -15,7 +15,8 @@ import { requireAddon } from "@/lib/addons.server";
 import { parseOdsContentXml } from "@/lib/electrical-ods";
 import {
   FIELD_RECONCILIATION_PHASE,
-  HOUSE_PANEL_ALIASES,
+  FIELD_RECONCILIATION_SCOPES,
+
   fieldReconciliationCsv,
   fieldReconciliationMarkdown,
   parseHousePanelSheets,
@@ -81,7 +82,11 @@ function canonicalFromPanel(panelId: string, extrasRaw: unknown): Record<string,
 
 export interface HousePanelPreview {
   phase: string;
+  /** Panel area reconciled: `house` or `farm_shop`. */
+  scope: "house" | "farm_shop";
+  scope_label: string;
   workbook: string;
+
   generated_at: string;
   rows: ReconciliationRow[];
   totals: ReconciliationTotals;
@@ -99,7 +104,10 @@ export interface HousePanelPreview {
 const previewInput = z.object({
   file_name: z.string().trim().min(1).max(200),
   base64: z.string().min(1).max(30_000_000),
+  /** Which panel area the photographs describe. Defaults to the House. */
+  scope: z.enum(["house", "farm_shop"]).default("house"),
 });
+
 
 export const previewHousePanelFieldReconciliation = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -107,6 +115,7 @@ export const previewHousePanelFieldReconciliation = createServerFn({ method: "PO
   .handler(async ({ context, data }): Promise<HousePanelPreview> => {
     await requireAddon(context.supabase, context.userId, "electrical");
     const db = context.supabase as unknown as LooseDb;
+    const scope = FIELD_RECONCILIATION_SCOPES[data.scope];
     const sheets = await odsToSheets(data.base64);
 
     const { data: panels, error: panelErr } = await db
@@ -117,9 +126,11 @@ export const previewHousePanelFieldReconciliation = createServerFn({ method: "PO
 
     const parsed = parseHousePanelSheets(sheets, {
       workbook: data.file_name,
-      aliases: HOUSE_PANEL_ALIASES,
+      aliases: scope.aliases,
+      sheetPanelHints: scope.sheet_panel_hints,
       knownPanelIds: panelRows.map((p) => p.panel_id),
     });
+
 
     const byUuid = new Map(panelRows.map((p) => [p.id, p.panel_id]));
     const { data: breakers, error: brErr } = await db
@@ -147,9 +158,13 @@ export const previewHousePanelFieldReconciliation = createServerFn({ method: "PO
     }
 
 
-    // Current-revision parent of PNL-H2, read only from the CURRENT service
-    // configuration. Proposed/future revisions are never consulted or changed.
-    let currentSubpanelParent: string | null = null;
+    // Current-revision parent of each candidate sub-panel in this scope, read
+    // only from the CURRENT service configuration. Proposed/future revisions are
+    // never consulted or changed.
+    const children = new Set(
+      scope.subpanel_feeds.flatMap((f) => f.candidates.map((c) => c.child)),
+    );
+    const currentParents: Record<string, string | null> = {};
     const { data: configs } = await db
       .from("electrical_service_configurations")
       .select("id, is_current")
@@ -162,9 +177,12 @@ export const previewHousePanelFieldReconciliation = createServerFn({ method: "PO
         .in("service_config_uuid", currentIds);
       for (const l of ((links ?? []) as Record<string, unknown>[])) {
         const ref = String(l["panel_ref"] ?? byUuid.get(String(l["panel_uuid"])) ?? "");
-        if (ref !== "PNL-H2") continue;
-        if (String(l["fed_from_kind"] ?? "") !== "panel") continue;
-        currentSubpanelParent =
+        if (!children.has(ref)) continue;
+        if (String(l["fed_from_kind"] ?? "") !== "panel") {
+          currentParents[ref] = null;
+          continue;
+        }
+        currentParents[ref] =
           String(l["fed_from_panel_ref"] ?? byUuid.get(String(l["fed_from_panel_uuid"])) ?? "") || null;
       }
     }
@@ -174,11 +192,14 @@ export const previewHousePanelFieldReconciliation = createServerFn({ method: "PO
       farmops,
       canonical,
       canonicalPanels,
-      currentSubpanelParent,
+      scope,
+      currentParents,
     });
     const generated_at = new Date().toISOString();
     return {
       phase: FIELD_RECONCILIATION_PHASE,
+      scope: scope.id,
+      scope_label: scope.label,
       workbook: data.file_name,
       generated_at,
       rows,
@@ -186,11 +207,12 @@ export const previewHousePanelFieldReconciliation = createServerFn({ method: "PO
       diagnostics: parsed.diagnostics,
       warnings: parsed.warnings,
       csv: fieldReconciliationCsv(rows),
-      markdown: fieldReconciliationMarkdown(parsed, rows, generated_at),
+      markdown: fieldReconciliationMarkdown(parsed, rows, generated_at, scope),
 
       wrote_anything: false,
       sor_authority: "canonical_ods",
     };
+
   });
 
 // ------------------------------------------------------------------- applying

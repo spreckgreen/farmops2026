@@ -14,10 +14,12 @@ import {
   type HousePanelPreview,
 } from "@/lib/electrical-house-panel-field.functions";
 import {
-  FIELD_RECONCILIATION_CSV,
+  FIELD_RECONCILIATION_SCOPES,
   type ComparisonState,
+  type FieldReconciliationScopeId,
   type ReconciliationRow,
 } from "@/lib/electrical-house-panel-field";
+
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -78,7 +80,13 @@ function download(name: string, body: string, mime: string) {
   URL.revokeObjectURL(url);
 }
 
-export function HousePanelFieldReconciliation() {
+export function HousePanelFieldReconciliation({
+  scope: scopeId = "house",
+}: {
+  /** Panel area whose photographs are being reconciled. */
+  scope?: FieldReconciliationScopeId;
+} = {}) {
+  const scope = FIELD_RECONCILIATION_SCOPES[scopeId];
   const preview = useServerFn(previewHousePanelFieldReconciliation);
   const apply = useServerFn(applyHousePanelFieldUpdates);
   const [result, setResult] = useState<HousePanelPreview | null>(null);
@@ -92,8 +100,9 @@ export function HousePanelFieldReconciliation() {
   const previewMutation = useMutation({
     mutationFn: async (file: File) => {
       const base64 = await readAsBase64(file);
-      return preview({ data: { file_name: file.name, base64 } });
+      return preview({ data: { file_name: file.name, base64, scope: scopeId } });
     },
+
     onSuccess: (r) => {
       setResult(r);
       const next = new Set<string>();
@@ -237,7 +246,7 @@ export function HousePanelFieldReconciliation() {
       <CardHeader className="pb-2">
         <CardTitle className="flex items-center gap-2 text-base">
           <Camera className="h-4 w-4" />
-          House panel field-observation reconciliation
+          {scope.area} panel field-observation reconciliation
         </CardTitle>
         <p className="text-sm text-muted-foreground">
           Transcribed panel-directory photographs compared three ways: engineering / canonical,
@@ -293,6 +302,10 @@ export function HousePanelFieldReconciliation() {
               <Badge variant="secondary">
                 {totals?.topology_proposals} topology proposals / {totals?.topology_evidence_rows} evidence
               </Badge>
+              <Badge variant={totals?.topology_ambiguous ? "destructive" : "outline"}>
+                {totals?.topology_ambiguous} ambiguous sub-panel feeders
+              </Badge>
+
               <Badge variant="outline">{totals?.eligible_farmops_updates} eligible updates</Badge>
             </div>
 
@@ -345,7 +358,7 @@ export function HousePanelFieldReconciliation() {
                 variant="outline"
                 size="sm"
                 className="gap-1"
-                onClick={() => download(FIELD_RECONCILIATION_CSV, result.csv, "text/csv")}
+                onClick={() => download(scope.csv_name, result.csv, "text/csv")}
               >
                 <Download className="h-4 w-4" /> CSV
               </Button>
@@ -355,11 +368,12 @@ export function HousePanelFieldReconciliation() {
                 className="gap-1"
                 onClick={() =>
                   download(
-                    "phase-4.4b-house-panel-field-reconciliation.md",
+                    scope.markdown_name,
                     result.markdown,
                     "text/markdown",
                   )
                 }
+
               >
                 <FileText className="h-4 w-4" /> Markdown report
               </Button>
