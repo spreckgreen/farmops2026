@@ -228,8 +228,15 @@ export function ObservationPhotoCell({
       />
       {photo ? (
         <>
-          <div className="max-w-[9rem] truncate text-xs" title={photo.name}>
-            {photo.name}
+          <div className="max-w-[9rem] truncate text-xs" title={photo.path}>
+            {linked ? (
+              <span className="inline-flex items-center gap-1">
+                <Link2 className="h-3 w-3 shrink-0" />
+                {photo.name}
+              </span>
+            ) : (
+              photo.name
+            )}
           </div>
           <div className="flex items-center gap-1">
             <Button size="sm" variant="ghost" className="h-6 px-1" onClick={() => void view()}>
@@ -244,6 +251,11 @@ export function ObservationPhotoCell({
             >
               {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Camera className="h-3.5 w-3.5" />}
             </Button>
+            {linkPopover(
+              <Button size="sm" variant="ghost" className="h-6 px-1" disabled={busy || disabled}>
+                <Link2 className="h-3.5 w-3.5" />
+              </Button>,
+            )}
             <Button
               size="sm"
               variant="ghost"
@@ -256,16 +268,30 @@ export function ObservationPhotoCell({
           </div>
         </>
       ) : (
-        <Button
-          size="sm"
-          variant="outline"
-          className="h-7 gap-1 text-xs"
-          disabled={busy || disabled}
-          onClick={() => inputRef.current?.click()}
-        >
-          {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Camera className="h-3.5 w-3.5" />}
-          Photo
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 gap-1 text-xs"
+            disabled={busy || disabled}
+            onClick={() => inputRef.current?.click()}
+          >
+            {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Camera className="h-3.5 w-3.5" />}
+            Photo
+          </Button>
+          {linkPopover(
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 gap-1 text-xs"
+              disabled={busy || disabled}
+              title="Link a OneDrive or Google Drive photo"
+            >
+              <Link2 className="h-3.5 w-3.5" />
+              Link
+            </Button>,
+          )}
+        </div>
       )}
     </div>
   );
