@@ -122,7 +122,7 @@ describe("planBreakerPopulation", () => {
   it("classifies an existing record as already_exists and compares values", () => {
     const existing: FarmOpsBreaker = {
       panel_id: "PNL-H1",
-      side: "Left",
+      side: "Right",
       position: 13,
       breaker_number: 26,
       poles: 2,
