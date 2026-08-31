@@ -108,6 +108,96 @@ function useDelete(onChanged: () => void) {
   });
 }
 
+/**
+ * Direct field-correction editor for one recorded slot. Amps and notes are
+ * typed verbatim from field verification — nothing is derived from label text,
+ * and a blank amperage stays unknown rather than becoming a guess.
+ */
+function BreakerRowEditor({
+  panel,
+  row,
+  onDone,
+}: {
+  panel: Row;
+  row: Row;
+  onDone: () => void;
+}) {
+  const save = useServerFn(saveBreakerPosition);
+  const [poles, setPoles] = useState(String(Number(row["poles"] ?? 1)));
+  const [amps, setAmps] = useState(row["ocp_amps"] == null ? "" : String(row["ocp_amps"]));
+  const [label, setLabel] = useState(String(row["label"] ?? ""));
+  const [notes, setNotes] = useState(String(row["notes"] ?? ""));
+
+  const update = useMutation({
+    mutationFn: async () =>
+      save({
+        data: {
+          id: String(row["id"]),
+          panel_uuid: String(panel["id"]),
+          side: String(row["side"]),
+          position: Number(row["position"]),
+          breaker_number:
+            row["breaker_number"] == null ? null : Number(row["breaker_number"]),
+          poles: Number(poles) || 1,
+          label: label.trim() || null,
+          ocp_amps: amps.trim() === "" ? null : Number(amps),
+          notes: notes.trim() || null,
+        },
+      }),
+    onSuccess: () => {
+      toast.success(`${String(row["side"])} ${String(row["position"])} updated.`);
+      onDone();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <div className="grid w-full gap-2 rounded-md border border-border bg-muted/30 p-2 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="space-y-1">
+        <Label className="text-xs">Poles</Label>
+        <Input
+          inputMode="numeric"
+          value={poles}
+          onChange={(e) => setPoles(e.target.value.replace(/\D/g, ""))}
+        />
+      </div>
+      <div className="space-y-1">
+        <Label className="text-xs">Breaker amps (A)</Label>
+        <Input
+          inputMode="numeric"
+          placeholder="leave blank if unverified"
+          value={amps}
+          onChange={(e) => setAmps(e.target.value.replace(/[^\d.]/g, ""))}
+        />
+      </div>
+      <div className="space-y-1">
+        <Label className="text-xs">Label / served load</Label>
+        <Input
+          value={label}
+          placeholder="leave blank while the load is unidentified"
+          onChange={(e) => setLabel(e.target.value)}
+        />
+      </div>
+      <div className="space-y-1">
+        <Label className="text-xs">Field note</Label>
+        <Input
+          value={notes}
+          placeholder='e.g. "loose wire; dining room"'
+          onChange={(e) => setNotes(e.target.value)}
+        />
+      </div>
+      <div className="flex items-end gap-2 lg:col-span-4">
+        <Button size="sm" disabled={update.isPending} onClick={() => update.mutate()}>
+          {update.isPending ? "Saving…" : "Save correction"}
+        </Button>
+        <Button size="sm" variant="ghost" onClick={onDone}>
+          Cancel
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function BreakerPositions({
   panel,
   rows,
@@ -133,6 +223,9 @@ function BreakerPositions({
   const [poles, setPoles] = useState("1");
   const [group, setGroup] = useState("");
   const [label, setLabel] = useState("");
+  const [amps, setAmps] = useState("");
+  const [notes, setNotes] = useState("");
+  const [editing, setEditing] = useState<string | null>(null);
 
   const suggestedBreaker = expectedBreakerNumber(layout, side, Number(position));
 
@@ -147,12 +240,16 @@ function BreakerPositions({
           breaker_number: suggestedBreaker,
           circuit_group_uuid: group || null,
           label: label.trim() || null,
+          ocp_amps: amps.trim() === "" ? null : Number(amps),
+          notes: notes.trim() || null,
         },
       }),
     onSuccess: () => {
       toast.success(`${side} ${position} recorded.`);
       setGroup("");
       setLabel("");
+      setAmps("");
+      setNotes("");
       onChanged();
     },
     onError: (e: Error) => toast.error(e.message),
@@ -178,30 +275,56 @@ function BreakerPositions({
         ) : (
           <div className="space-y-1 text-sm">
             {rows.map((r) => (
-              <div
-                key={String(r["id"])}
-                className="flex flex-wrap items-center gap-2 border-b border-border py-1"
-              >
-                <span className="font-mono">
-                  {String(r["side"])} {String(r["position"])}
-                </span>
-                <Badge variant="outline">breaker {String(r["breaker_number"] ?? "—")}</Badge>
-                <span className="text-muted-foreground">
-                  {Number(r["poles"] ?? 1)}-pole
-                  {r["label"] ? ` · ${String(r["label"])}` : ""}
-                </span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="ml-auto text-destructive"
-                  onClick={() => {
-                    if (confirm(`Remove ${String(r["side"])} ${String(r["position"])}?`)) {
-                      del.mutate({ table: "breaker_position", id: String(r["id"]) });
-                    }
-                  }}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+              <div key={String(r["id"])} className="space-y-2 border-b border-border py-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-mono">
+                    {String(r["side"])} {String(r["position"])}
+                  </span>
+                  <Badge variant="outline">breaker {String(r["breaker_number"] ?? "—")}</Badge>
+                  <span className="text-muted-foreground">
+                    {Number(r["poles"] ?? 1)}-pole ·{" "}
+                    {r["ocp_amps"] == null ? "amps unknown" : `${String(r["ocp_amps"])} A`}
+                    {r["label"] ? ` · ${String(r["label"])}` : " · load unidentified"}
+                  </span>
+                  {r["notes"] ? (
+                    <span className="text-xs text-muted-foreground italic">
+                      {String(r["notes"])}
+                    </span>
+                  ) : null}
+                  <div className="ml-auto flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() =>
+                        setEditing((cur) => (cur === String(r["id"]) ? null : String(r["id"])))
+                      }
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-destructive"
+                      onClick={() => {
+                        if (confirm(`Remove ${String(r["side"])} ${String(r["position"])}?`)) {
+                          del.mutate({ table: "breaker_position", id: String(r["id"]) });
+                        }
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+                {editing === String(r["id"]) ? (
+                  <BreakerRowEditor
+                    panel={panel}
+                    row={r}
+                    onDone={() => {
+                      setEditing(null);
+                      onChanged();
+                    }}
+                  />
+                ) : null}
               </div>
             ))}
           </div>
@@ -239,8 +362,25 @@ function BreakerPositions({
             />
           </div>
           <div className="space-y-1">
+            <Label className="text-xs">Breaker amps (A, optional)</Label>
+            <Input
+              inputMode="numeric"
+              placeholder="blank stays unknown"
+              value={amps}
+              onChange={(e) => setAmps(e.target.value.replace(/[^\d.]/g, ""))}
+            />
+          </div>
+          <div className="space-y-1">
             <Label className="text-xs">Label (optional)</Label>
             <Input value={label} onChange={(e) => setLabel(e.target.value)} />
+          </div>
+          <div className="space-y-1 lg:col-span-2">
+            <Label className="text-xs">Field note (optional)</Label>
+            <Input
+              value={notes}
+              placeholder='e.g. "loose wire; dining room"'
+              onChange={(e) => setNotes(e.target.value)}
+            />
           </div>
           <div className="lg:col-span-3">
             <EntitySelect
