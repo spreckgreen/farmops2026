@@ -79,6 +79,9 @@ export function BreakerPopulationPreview({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [filter, setFilter] = useState<Filter>("all");
   const [armed, setArmed] = useState(false);
+  // One panel photo per panel in the workbook (e.g. PNL-H1, PNL-H2). Every
+  // circuit observed in that panel links to it as evidence of observation.
+  const [panelPhotos, setPanelPhotos] = useState<Record<string, ObservationPhoto | null>>({});
 
   const previewMutation = useMutation({
     mutationFn: async (file: File) => {
@@ -96,24 +99,58 @@ export function BreakerPopulationPreview({
     onError: (e: Error) => toast.error(e.message),
   });
 
+  /** Circuits that can be linked to a panel photo (photo attached for their panel). */
+  const evidenceFor = (onlySelected: boolean) =>
+    (result?.rows ?? [])
+      .filter((r) => {
+        const photo = panelPhotos[r.panel_id ?? r.panel_source_name];
+        if (!photo) return false;
+        return onlySelected ? selected.has(r.key) : true;
+      })
+      .map((r) => ({
+        panel_id: r.panel_id ?? null,
+        panel_source_name: r.panel_source_name ?? "",
+        positions_text: r.positions_text,
+        poles: r.poles ?? null,
+        observed_text: r.label_observed_text ?? r.label ?? r.positions_text,
+        notes: r.evidence ?? null,
+        confidence: r.confidence ?? null,
+        verification_status: r.verification_required ? "verification_required" : "not_required",
+        proposed_action: r.action,
+        worksheet: r.source_worksheet ?? null,
+        workbook: result?.workbook ?? "",
+        photo: panelPhotos[r.panel_id ?? r.panel_source_name]!,
+      }));
+
   const applyMutation = useMutation({
-    mutationFn: async (confirm: boolean) => {
-      const records = (result?.rows ?? [])
-        .filter((r) => r.action === "propose_create" && selected.has(r.key) && r.panel_id && r.poles)
-        .map((r) => ({
-          panel_id: r.panel_id!,
-          positions_text: r.positions_text,
-          poles: r.poles!,
-          ocp_amps: r.ocp_amps,
-          label: r.label,
-          slots: r.slots.map((s) => ({
-            breaker_number: s.breaker_number,
-            side: s.side,
-            position: s.position,
-          })),
-        }));
-      if (!records.length) throw new Error("Select at least one eligible breaker first.");
-      return apply({ data: { confirm, scope: scopeId, records } });
+    mutationFn: async ({ confirm, evidenceOnly }: { confirm: boolean; evidenceOnly?: boolean }) => {
+      const records = evidenceOnly
+        ? []
+        : (result?.rows ?? [])
+            .filter(
+              (r) => r.action === "propose_create" && selected.has(r.key) && r.panel_id && r.poles,
+            )
+            .map((r) => ({
+              panel_id: r.panel_id!,
+              positions_text: r.positions_text,
+              poles: r.poles!,
+              ocp_amps: r.ocp_amps,
+              label: r.label,
+              slots: r.slots.map((s) => ({
+                breaker_number: s.breaker_number,
+                side: s.side,
+                position: s.position,
+              })),
+            }));
+      const evidence = evidenceFor(!evidenceOnly);
+      if (!records.length && !evidence.length) {
+        throw new Error(
+          evidenceOnly
+            ? "Attach at least one panel photo first."
+            : "Select at least one eligible breaker first.",
+        );
+      }
+      return apply({ data: { confirm, scope: scopeId, records, evidence } });
     },
     onSuccess: (r) => {
       if (!r.confirmed) {
@@ -121,13 +158,15 @@ export function BreakerPopulationPreview({
         return;
       }
       toast.success(
-        `${r.created} record group(s) created, ${r.blocked} blocked as now-occupied, ${r.failed} failed.`,
+        `${r.created} record group(s) created, ${r.blocked} blocked as now-occupied, ${r.failed} failed. ${r.evidence_recorded} circuit(s) linked to a panel photo.`,
       );
+      for (const e of r.evidence_errors.slice(0, 2)) toast.warning(`Photo evidence: ${e}`);
       const failures = r.results.filter((x) => x.status !== "created");
       for (const f of failures.slice(0, 4)) toast.warning(`${f.panel_id} ${f.positions_text}: ${f.detail}`);
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
 
   const rows = useMemo(() => {
     const all = result?.rows ?? [];
