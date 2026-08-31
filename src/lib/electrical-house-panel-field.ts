@@ -1371,6 +1371,8 @@ export function reconciliationTotals(parsed: ParseResult, rows: ReconciliationRo
     verification_required: rows.filter((r) => r.verification_required).length,
     topology_evidence_rows: rows.filter((r) => r.field === "parent_panel").length,
     topology_proposals: rows.filter((r) => r.classification === "TOPOLOGY_PROPOSAL").length,
+    topology_ambiguous: rows.filter((r) => r.classification === "TOPOLOGY_AMBIGUOUS").length,
+
     eligible_farmops_updates: rows.filter((r) => r.proposed_action === "propose_farmops_update" && r.target).length,
   };
 }
