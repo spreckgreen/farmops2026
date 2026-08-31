@@ -6,6 +6,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { requireAddon } from "@/lib/addons.server";
 import {
+  FED_FROM_KINDS,
   INTERTIE_LIFECYCLE_STATES,
   SERVICE_LIFECYCLE_STATES,
   checkIntertieId,
@@ -63,6 +64,7 @@ export const serviceState = createServerFn({ method: "GET" })
       findings: validateServiceState({
         services: services as Row[],
         configs: configs as Row[],
+        servicePanels: servicePanels as Row[],
         interties: interties as Row[],
         intertieConfigs: intertieConfigs as Row[],
       }),
@@ -225,6 +227,10 @@ export const saveServicePanelLink = createServerFn({ method: "POST" })
         panel_uuid: nullableUuid,
         panel_ref: text(60),
         role: text(60),
+        fed_from_kind: z.enum(FED_FROM_KINDS as unknown as [string, ...string[]]).nullable().optional(),
+        fed_from_panel_uuid: nullableUuid,
+        fed_from_panel_ref: text(60),
+        panel_ampacity_amps: nullableNumber,
         sequence: z.number().int().min(1).max(999).nullable().optional(),
         notes: text(2000),
       })
