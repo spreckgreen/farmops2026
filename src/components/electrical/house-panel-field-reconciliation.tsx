@@ -130,6 +130,8 @@ export function HousePanelFieldReconciliation({
       return apply({
         data: {
           confirm,
+          scope: scopeId,
+
           fields: rows
             .filter((r) => r.target)
             .map((r) => ({
