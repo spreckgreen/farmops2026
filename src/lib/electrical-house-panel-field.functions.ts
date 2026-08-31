@@ -83,6 +83,8 @@ export interface HousePanelPreview {
   generated_at: string;
   rows: ReconciliationRow[];
   totals: ReconciliationTotals;
+  /** Parser state: sheets seen/recognized/skipped, rows read, merges, suppressions. */
+  diagnostics: ParseDiagnostics;
   warnings: string[];
   csv: string;
   markdown: string;
@@ -90,6 +92,7 @@ export interface HousePanelPreview {
   wrote_anything: false;
   sor_authority: "canonical_ods";
 }
+
 
 const previewInput = z.object({
   file_name: z.string().trim().min(1).max(200),
