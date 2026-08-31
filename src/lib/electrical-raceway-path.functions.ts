@@ -1,10 +1,8 @@
 // Phase 4.4b — preview-first population of the continuous-raceway topology.
 //
-// Preview re-reads the live junction boxes and raceways and reports the exact
-// proposal per record. Apply requires `confirm: true` and writes ONLY
-// raceway_uuid / raceway_sequence / raceway_ref on the junction box. It never
-// touches stable IDs, other relationships, ods_extras, engineering values,
-// labels, installation state or the canonical ODS.
+// This production-verification endpoint re-reads the live junction boxes and
+// raceways and reports the exact pre-resolver and resolver state per record.
+// It is deliberately read-only: no input accepted by this function can write.
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -48,6 +46,11 @@ export interface PathDiagnosticRow {
  * from one that never saw the junction boxes at all.
  */
 export interface PathPopulationDiagnostics {
+  /** Authenticated subject used by the explicit owner-scoped reads. */
+  authUid: string;
+  /** Deploy identity plus a source marker proving this diagnostic build is running. */
+  buildVersion: string;
+  diagnosticVersion: "raceway-path-data-path-v1";
   /** Junction-box rows visible to the signed-in user. */
   jboxRows: number;
   /** Raceway rows visible to the signed-in user. */
@@ -62,6 +65,18 @@ export interface PathPopulationDiagnostics {
   racewaysByPath: { path: string; raceways: string[] }[];
   /** Backend totals, used to prove the preview did not silently stop at an API row cap. */
   databaseTotals: { jboxes: number; raceways: number };
+  /** Exact pre/post-resolver evidence for the production path-104 investigation. */
+  path104: {
+    auth_uid: string;
+    jbox_104_01_visible: boolean;
+    jbox_104_02_visible: boolean;
+    jbox_104_03_visible: boolean;
+    con_104_visible: boolean;
+    jboxes_fetched: number;
+    raceways_fetched: number;
+    rows_passed_to_resolver: number;
+    resolver_results: number;
+  };
   /** Per-record decision for every junction box, never filtered. */
   resolutions: PathDiagnosticRow[];
 }
@@ -79,9 +94,10 @@ export const previewRacewayPathPopulation = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) =>
     z
       .object({
-        /** Junction-box stable IDs to act on. Empty = every eligible proposal. */
+        /** Junction-box stable IDs to inspect. Empty = every resolver result. */
         jbox_ids: z.array(z.string().trim().min(1)).max(2000).default([]),
-        confirm: z.boolean().default(false),
+        /** Production verification is intentionally read-only. */
+        confirm: z.literal(false).default(false),
       })
       .parse(d ?? {}),
   )
@@ -96,6 +112,7 @@ export const previewRacewayPathPopulation = createServerFn({ method: "POST" })
         const { data: page, error, count } = await db
           .from(table)
           .select("*", { count: "exact" })
+          .eq("user_id", context.userId)
           .order("id", { ascending: true })
           .range(from, from + pageSize - 1);
         if (error) throw new Error(error.message);
@@ -130,6 +147,17 @@ export const previewRacewayPathPopulation = createServerFn({ method: "POST" })
     const jboxRowsRead = jb.rows;
     const racewayRowsRead = rw.rows;
     const byPath = buildRacewaysByPath(racewayRowsRead as never);
+    const jboxIdsRead = new Set(
+      jboxRowsRead.map((row) => String(row["jbox_id"] ?? "").trim().toUpperCase()),
+    );
+    const racewayIdsRead = new Set(
+      racewayRowsRead.map((row) => String(row["conduit_id"] ?? "").trim().toUpperCase()),
+    );
+    const buildVersion =
+      process.env["GIT_COMMIT"] ??
+      process.env["SOURCE_COMMIT"] ??
+      process.env["BUILD_ID"] ??
+      "not-injected";
     const statusCounts: Record<PathProposal["status"], number> = {
       proposed: 0,
       already_linked: 0,
@@ -148,6 +176,9 @@ export const previewRacewayPathPopulation = createServerFn({ method: "POST" })
     };
     for (const r of resolutions) resolutionCounts[r.status]++;
     const diagnostics: PathPopulationDiagnostics = {
+      authUid: context.userId,
+      buildVersion,
+      diagnosticVersion: "raceway-path-data-path-v1",
       jboxRows: jboxRowsRead.length,
       racewayRows: racewayRowsRead.length,
       linkedJboxes: jboxRowsRead.filter((j) => String(j["raceway_uuid"] ?? "").trim()).length,
@@ -160,6 +191,17 @@ export const previewRacewayPathPopulation = createServerFn({ method: "POST" })
           raceways: rows.map((r) => String(r["conduit_id"] ?? "").trim()).sort(),
         })),
       databaseTotals: { jboxes: jb.total, raceways: rw.total },
+      path104: {
+        auth_uid: context.userId,
+        jbox_104_01_visible: jboxIdsRead.has("JB-104-01"),
+        jbox_104_02_visible: jboxIdsRead.has("JB-104-02"),
+        jbox_104_03_visible: jboxIdsRead.has("JB-104-03"),
+        con_104_visible: racewayIdsRead.has("CON-104"),
+        jboxes_fetched: jboxRowsRead.length,
+        raceways_fetched: racewayRowsRead.length,
+        rows_passed_to_resolver: jboxRowsRead.length,
+        resolver_results: resolutions.length,
+      },
       // Unfiltered: every junction box the preview saw, with its exact decision.
       resolutions: resolutions.map((r) => ({
         jbox_id: r.jbox_id,
@@ -188,31 +230,11 @@ export const previewRacewayPathPopulation = createServerFn({ method: "POST" })
         skipped++;
         continue;
       }
-      if (!data.confirm) {
-        rows.push({ ...proposal, outcome: "would_change" });
-        changed++;
-        continue;
-      }
-      const { error } = await db
-        .from("electrical_junction_boxes")
-        .update({
-          raceway_uuid: proposal.proposed_raceway_uuid,
-          raceway_sequence: proposal.proposed_sequence,
-          raceway_ref: proposal.proposed_raceway,
-        })
-        .eq("id", proposal.jbox_uuid)
-        // Drift protection: only write when the record is still unlinked.
-        .is("raceway_uuid", null);
-      if (error) {
-        rows.push({ ...proposal, outcome: "failed", detail: error.message });
-        skipped++;
-        continue;
-      }
-      rows.push({ ...proposal, outcome: "applied" });
+      rows.push({ ...proposal, outcome: "would_change" });
       changed++;
     }
 
-    return { applied: data.confirm, changed, skipped, rows, diagnostics };
+    return { applied: false, changed, skipped, rows, diagnostics };
   });
 
 export const listRacewayJunctionPoints = createServerFn({ method: "GET" })
