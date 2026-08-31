@@ -138,7 +138,7 @@ export const previewRacewayPathPopulation = createServerFn({ method: "POST" })
       changed++;
     }
 
-    return { applied: data.confirm, changed, skipped, rows };
+    return { applied: data.confirm, changed, skipped, rows, diagnostics };
   });
 
 export const listRacewayJunctionPoints = createServerFn({ method: "GET" })
