@@ -80,7 +80,13 @@ function download(name: string, body: string, mime: string) {
   URL.revokeObjectURL(url);
 }
 
-export function HousePanelFieldReconciliation() {
+export function HousePanelFieldReconciliation({
+  scope: scopeId = "house",
+}: {
+  /** Panel area whose photographs are being reconciled. */
+  scope?: FieldReconciliationScopeId;
+} = {}) {
+  const scope = FIELD_RECONCILIATION_SCOPES[scopeId];
   const preview = useServerFn(previewHousePanelFieldReconciliation);
   const apply = useServerFn(applyHousePanelFieldUpdates);
   const [result, setResult] = useState<HousePanelPreview | null>(null);
@@ -94,8 +100,9 @@ export function HousePanelFieldReconciliation() {
   const previewMutation = useMutation({
     mutationFn: async (file: File) => {
       const base64 = await readAsBase64(file);
-      return preview({ data: { file_name: file.name, base64 } });
+      return preview({ data: { file_name: file.name, base64, scope: scopeId } });
     },
+
     onSuccess: (r) => {
       setResult(r);
       const next = new Set<string>();
