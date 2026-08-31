@@ -16,6 +16,7 @@ import { GridAuditReport } from "@/components/electrical/grid-audit-report";
 import { LoadCompareReport } from "@/components/electrical/load-compare-report";
 import { TopologyPunchList } from "@/components/electrical/topology-punch-list";
 import { RacewayPathPopulation } from "@/components/electrical/raceway-path-population";
+import { BreakerPopulationPreview } from "@/components/electrical/breaker-population-preview";
 import { FieldObservationJournal } from "@/components/electrical/field-observation-journal";
 import { HousePanelFieldReconciliation } from "@/components/electrical/house-panel-field-reconciliation";
 
@@ -61,6 +62,7 @@ function QaPage() {
         <RacewayPathPopulation />
         <HousePanelFieldReconciliation scope="house" />
         <HousePanelFieldReconciliation scope="farm_shop" />
+        <BreakerPopulationPreview scope="house" />
         <FieldObservationJournal />
 
 
