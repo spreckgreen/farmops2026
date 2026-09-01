@@ -48,6 +48,8 @@ import {
   type GateRow,
 } from "@/lib/electrical-boolean-gate";
 
+import { NumericSemanticsPanel } from "@/components/electrical/numeric-semantics-panel";
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -403,6 +405,8 @@ export function ParallelValidationReport() {
           </Card>
 
           <BooleanSemanticsPanel report={report} />
+
+          <NumericSemanticsPanel report={report} />
 
           <Card>
             <CardHeader className="pb-2">
