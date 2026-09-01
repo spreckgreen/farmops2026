@@ -8,7 +8,13 @@ import { toast } from "sonner";
 import { Camera, CameraOff, Printer, QrCode, Search } from "lucide-react";
 
 import { ElectricalGate } from "@/components/electrical/electrical-gate";
-import { PanelQrLabel, type QrSize } from "@/components/electrical/panel-qr-label";
+import {
+  LABEL_FORMATS,
+  LABEL_FORMAT_LIST,
+  PanelQrLabel,
+  labelPrintCss,
+  type LabelFormat,
+} from "@/components/electrical/panel-qr-label";
 import { requireAuthenticatedUser } from "@/lib/auth-route";
 import { listPanelLabels, type PanelLabel } from "@/lib/panel-access.functions";
 import { parsePanelQr } from "@/lib/electrical-panel-access";
