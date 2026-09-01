@@ -71,8 +71,21 @@ export function BryantVoltageApplyGate({
   });
 
   const applyMutation = useMutation({
-    mutationFn: async () =>
-      runApply({ data: { confirm: true, approved: [...approved] } }) as unknown as Promise<BryantVoltageGateResult>,
+    mutationFn: async () => {
+      if (!baseline?.authorized) {
+        throw new Error(
+          "Canonical evidence must come from the authorized Phase 4.4a baseline workbook.",
+        );
+      }
+      return runApply({
+        data: {
+          file_name: baseline.file_name,
+          base64: baseline.base64,
+          confirm: true,
+          approved: [...approved],
+        },
+      }) as unknown as Promise<BryantVoltageGateResult>;
+    },
     onSuccess: (r) => {
       setResult(r);
       setConfirmed(false);
