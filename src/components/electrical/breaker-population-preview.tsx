@@ -17,6 +17,7 @@ import {
   ObservationPhotoCell,
   type ObservationPhoto,
 } from "@/components/electrical/observation-photo-cell";
+import { PanelCoverageDiagnostic } from "@/components/electrical/panel-coverage-diagnostic";
 
 import {
   applyBreakerPopulation,
