@@ -220,3 +220,34 @@ export function PanelQrLabel({ panel, origin, format = "letter-2x5", className }
     </div>
   );
 }
+
+/**
+ * One shortened, text-only label cell (Avery 8593 file-folder stock). The stable
+ * ID stays large and monospaced so it is readable on a conduit or box; the
+ * condensed detail line is truncated by the cell, never wrapped off the label.
+ */
+export function ShortLabelCell({
+  stableId,
+  detail,
+  className,
+}: {
+  stableId: string;
+  detail: string;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "panel-label-cell flex flex-col justify-center overflow-hidden break-inside-avoid rounded border border-border bg-card px-2 py-1",
+        className,
+      )}
+    >
+      <p className="truncate font-mono text-[11px] font-bold leading-tight text-foreground">
+        {stableId}
+      </p>
+      {detail ? (
+        <p className="truncate text-[8px] leading-tight text-muted-foreground">{detail}</p>
+      ) : null}
+    </div>
+  );
+}
