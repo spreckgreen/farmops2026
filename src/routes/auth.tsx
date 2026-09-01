@@ -28,8 +28,10 @@ function AuthPage() {
   // After sign-in (or when already signed in) land on the page the user asked
   // for — e.g. /electrical/panel/PNL-H1 from a scanned panel label.
   const goAfterAuth = () => {
-    if (redirectTo) window.location.replace(redirectTo);
-    else void navigate({ to: "/", replace: true });
+    // Client-side navigation only: a full-page replace would re-render the
+    // target on the server, where the session isn't visible, and bounce back
+    // here — the "blinking login page" loop after scanning a panel label.
+    void navigate({ to: redirectTo ?? "/", replace: true });
   };
 
   useEffect(() => {
