@@ -17,7 +17,6 @@ import { generateElectricalDiagram } from "@/lib/electrical-diagrams.functions";
 import {
   STATE_FILTERS,
   STATE_FILTER_LABELS,
-  type DiagramType,
   type StateFilter,
 } from "@/lib/electrical-mermaid";
 import {
@@ -374,5 +373,3 @@ function TopologyPack() {
     </div>
   );
 }
-
-export type { DiagramType };
