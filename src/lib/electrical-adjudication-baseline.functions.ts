@@ -75,7 +75,7 @@ export async function baselineFromUpload(
 
 export const buildAdjudicationBaseline = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => odsBaselineInput.parse(d))
+  .inputValidator((d: unknown) => parseOdsBaselineInput(d))
   .handler(async ({ context, data }): Promise<AdjudicationBaseline> => {
     await requireAddon(context.supabase, context.userId, "electrical");
     return baselineFromUpload(data);

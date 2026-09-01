@@ -29,6 +29,7 @@ import {
 import {
   baselineFromUpload,
   odsBaselineInput,
+  parseOdsBaselineInput,
 } from "@/lib/electrical-adjudication-baseline.functions";
 import {
   BRYANT_FREQUENCY_HZ,
@@ -276,7 +277,7 @@ async function runGate(
 
 export const previewBryantVoltageCorrection = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => odsBaselineInput.parse(d))
+  .inputValidator((d: unknown) => parseOdsBaselineInput(d))
   .handler(async ({ context, data }): Promise<BryantVoltageGateResult> => {
     await requireAddon(context.supabase, context.userId, "electrical");
     const baseline = await baselineFromUpload(data);
@@ -288,7 +289,10 @@ export const previewBryantVoltageCorrection = createServerFn({ method: "POST" })
 
 export const applyBryantVoltageCorrection = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => inputSchema.parse({ ...(d as object), confirm: true }))
+  .inputValidator((d: unknown) => {
+    parseOdsBaselineInput(d);
+    return inputSchema.parse({ ...(d as object), confirm: true });
+  })
   .handler(async ({ context, data }): Promise<BryantVoltageGateResult> => {
     await requireAddon(context.supabase, context.userId, "electrical");
     const baseline = await baselineFromUpload(data);
