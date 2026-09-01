@@ -164,24 +164,32 @@
   }
 }
 
-/* Welcoming Pages parity — amber accents on dark */
+/* Amber accents on light paper */
 @layer utilities {
   .text-gradient-amber {
-    background-image: linear-gradient(135deg, oklch(0.78 0.17 65), oklch(0.88 0.15 80));
+    background-image: linear-gradient(135deg, oklch(0.58 0.14 55), oklch(0.66 0.15 75));
     background-clip: text;
     -webkit-background-clip: text;
     color: transparent;
   }
   .shadow-glow {
-    box-shadow: 0 0 60px oklch(0.78 0.17 65 / 0.18);
+    box-shadow: 0 8px 30px oklch(0.58 0.14 55 / 0.12);
   }
   .shadow-glow-strong {
-    box-shadow: 0 0 100px oklch(0.78 0.17 65 / 0.28);
+    box-shadow: 0 14px 50px oklch(0.58 0.14 55 / 0.18);
   }
   .bg-gradient-card {
-    background: linear-gradient(145deg, oklch(0.18 0.01 250) 0%, oklch(0.12 0.01 250) 100%);
+    background: linear-gradient(145deg, oklch(1 0 0) 0%, oklch(0.965 0.012 85) 100%);
   }
 }
+
+.dark .text-gradient-amber {
+  background-image: linear-gradient(135deg, oklch(0.78 0.17 65), oklch(0.88 0.15 80));
+}
+.dark .bg-gradient-card {
+  background: linear-gradient(145deg, oklch(0.18 0.01 250) 0%, oklch(0.12 0.01 250) 100%);
+}
+
 
 /* Print styles for Food Reports */
 @media print {
