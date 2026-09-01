@@ -310,7 +310,14 @@ export type NumericState =
   /** Engineering notation that is not a number (TBD, ?, range, approximate). */
   | "non_numeric"
   /** A number whose unit cannot be interpreted deterministically. */
-  | "ambiguous_unit";
+  | "ambiguous_unit"
+  /**
+   * Canonical split-phase / wye system-voltage notation (120/240, 120/208,
+   * 277/480). This is a valid, fully-resolved engineering statement of TWO
+   * nominal voltages — it is NOT a failed parse and must never be collapsed to
+   * a single scalar. A scalar numeric column simply cannot represent it.
+   */
+  | "system_voltage";
 
 export interface ParsedNumeric {
   state: NumericState;
