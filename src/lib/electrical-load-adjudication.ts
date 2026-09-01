@@ -132,11 +132,20 @@ export interface AdjudicationLoadInput {
   /** Values both sides agree on, used to prove/refute a VA basis. */
   agreed?: Partial<Record<"volts" | "amps" | "connected_va", number>>;
   evidence?: SemanticEvidence;
+  /** Verified equipment provenance, when equipment identity is established. */
+  equipment?: EquipmentProvenance;
   /** Free-text open questions carried from prior phases. */
   open_questions?: string[];
 }
 
 /* ---------------------------------------------------------------- outputs */
+
+/** An additive semantic representation proposal — documentation only. */
+export interface ProposedRepresentation {
+  field: string;
+  value: string;
+  source: string;
+}
 
 export interface AdjudicatedFinding {
   stable_id: string;
@@ -147,13 +156,19 @@ export interface AdjudicatedFinding {
   farmops_value: number | null;
   ods_provenance: string;
   farmops_provenance: string;
-  bucket: LoadSemanticBucket;
+  bucket: AdjudicationBucket;
   /** Provenance that would justify a semantic reclassification, when present. */
   evidence: string[];
+  /** Equipment evidence records backing the classification. */
+  equipment_evidence: string[];
   /** Numeric facts that support but never establish a classification. */
   supporting_only: string[];
+  /** Plain-language semantic reading of the two values. */
+  semantic_interpretation: string;
   reason: string;
   recommendation: Recommendation;
+  /** Additive fields proposed for this finding. Nothing is applied. */
+  proposed_representation: ProposedRepresentation[];
   /** What is missing before the finding can leave insufficient provenance. */
   missing_evidence: string[];
 }
@@ -173,19 +188,38 @@ export interface AdjudicatedLoad {
   equipment: string;
   concepts: AdjudicatedConcept[];
   unresolved_questions: string[];
-  buckets: LoadSemanticBucket[];
+  buckets: AdjudicationBucket[];
+  equipment_evidence: string[];
+  discrepancies: EquipmentDiscrepancy[];
+  group_id: string | null;
+}
+
+export interface AdjudicationComparisonGroup extends EquipmentGroup {
+  loads: {
+    stable_id: string;
+    description: string;
+    ods: Partial<Record<"volts" | "amps" | "connected_va", number | null>>;
+    farmops: Partial<Record<"volts" | "amps" | "connected_va", number | null>>;
+    buckets: AdjudicationBucket[];
+  }[];
+  discrepancies: EquipmentDiscrepancy[];
 }
 
 export interface LoadAdjudicationReport {
   version: string;
   generated_at: string;
   findings: AdjudicatedFinding[];
-  counts: Record<LoadSemanticBucket, number>;
+  counts: Record<AdjudicationBucket, number>;
   loads: AdjudicatedLoad[];
+  /** Same-equipment comparison groups (e.g. the three Bryant installations). */
+  groups: AdjudicationComparisonGroup[];
+  /** Evidence discrepancies preserved rather than silently resolved. */
+  discrepancies: (EquipmentDiscrepancy & { stable_ids: string[] })[];
   total_findings: number;
   read_only: true;
   apply_available: false;
 }
+
 
 const UNITS: Record<string, string> = {
   volts: "V",
