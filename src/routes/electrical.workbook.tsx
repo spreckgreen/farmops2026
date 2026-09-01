@@ -17,6 +17,8 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Printer } from "lucide-react";
 
+const MERMAID_URL = "https://esm.sh/mermaid@11.17.2";
+
 const WORKBOOK_DIAGRAMS: DiagramType[] = [
   "whole_system",
   "site",
@@ -92,9 +94,7 @@ function MermaidFigure({
     let cancelled = false;
     (async () => {
       try {
-        const mod = (await import(/* @vite-ignore */ "https://esm.sh/mermaid@11.17.2")) as {
-          default?: unknown;
-        };
+        const mod = (await import(/* @vite-ignore */ MERMAID_URL)) as { default?: unknown };
         const mermaid = (mod.default ?? mod) as {
           initialize: (c: Record<string, unknown>) => void;
           render: (id: string, src: string) => Promise<{ svg: string }>;

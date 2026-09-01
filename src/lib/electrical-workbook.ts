@@ -6,7 +6,8 @@
 import { ENTITIES, ENTITY_KINDS, type EntityField } from "@/lib/electrical-entities";
 import { installStatusLabel, ODS_EXTRAS_FIELD, type ElectricalEntityKind } from "@/lib/electrical";
 
-export type WorkbookRow = Record<string, unknown>;
+export type WorkbookCell = string | number | boolean | null;
+export type WorkbookRow = Record<string, WorkbookCell | undefined>;
 
 export interface WorkbookColumn {
   key: string;
@@ -77,7 +78,7 @@ export function workbookColumns(kind: ElectricalEntityKind): WorkbookColumn[] {
   return columns;
 }
 
-export function formatCell(key: string, value: unknown): string {
+export function formatCell(key: string, value: WorkbookCell | undefined): string {
   if (value === null || value === undefined || value === "") return "—";
   if (typeof value === "boolean") return value ? "Yes" : "No";
   if (key === "install_status") return installStatusLabel(String(value));
