@@ -235,9 +235,7 @@ function TopologyPack() {
       setTimeout(
         () =>
           saveBlob(
-            new Blob([`<?xml version="1.0" encoding="UTF-8"?>\n${f.svg}`], {
-              type: "image/svg+xml",
-            }),
+            new Blob([standaloneSvg(f.svg)], { type: "image/svg+xml" }),
             `bostead-electrical-${name}.svg`,
           ),
         i * 250,
