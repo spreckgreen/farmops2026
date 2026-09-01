@@ -139,6 +139,23 @@ export const previewBreakerPopulation = createServerFn({ method: "POST" })
     const diagnostics = breakerPopulationDiagnostics(rows);
     const generated_at = new Date().toISOString();
 
+    // Coverage denominator is the panel's own position universe, so a physical
+    // breaker the workbook never mentions cannot shrink it away.
+    const scopePanelIds = new Set<string>(Object.values(scope.aliases));
+    for (const o of parsed.observations) if (o.panel_id) scopePanelIds.add(o.panel_id);
+    const coverage = analysePanelCoverage({
+      panels: panelRows
+        .filter((p) => scopePanelIds.has(p.panel_id))
+        .map((p) => ({
+          panel_id: p.panel_id,
+          spaces: p.spaces,
+          breaker_columns: p.breaker_columns,
+          positions_per_column: p.positions_per_column,
+        })),
+      observations: parsed.observations,
+      farmops: farmops.filter((b) => scopePanelIds.has(b.panel_id)),
+    });
+
     return {
       phase: BREAKER_POPULATION_PHASE,
       scope: data.scope,
@@ -150,6 +167,8 @@ export const previewBreakerPopulation = createServerFn({ method: "POST" })
       warnings: parsed.warnings,
       csv: breakerPopulationCsv(rows),
       markdown: breakerPopulationMarkdown(rows, diagnostics, generated_at, scope),
+      coverage,
+      coverage_csv: panelCoverageCsv(coverage),
       wrote_anything: false,
       sor_authority: "canonical_ods",
     };
