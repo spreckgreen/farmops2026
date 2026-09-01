@@ -11,29 +11,21 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CollapsibleSection } from "@/components/electrical/collapsible-section";
-import { BUCKET_LABELS, type LoadSemanticBucket } from "@/lib/electrical-load-semantics";
 import {
   adjudicateLoads,
   adjudicationCsv,
   adjudicationMarkdown,
+  ADJUDICATION_BUCKET_CODES,
+  ADJUDICATION_BUCKET_LABELS,
+  ADJUDICATION_BUCKET_ORDER,
   RECOMMENDATION_LABELS,
 } from "@/lib/electrical-load-adjudication";
 import { buildProductionAdjudicationInput } from "@/lib/electrical-load-adjudication-production";
 import { listAdjudicatedLoads } from "@/lib/load-adjudication.functions";
 
-const BUCKET_ORDER: LoadSemanticBucket[] = [
-  "true_engineering_disagreement",
-  "nominal_vs_nameplate_representation",
-  "current_ocp_semantic_mismatch",
-  "insufficient_provenance",
-];
-
-const BUCKET_CODE: Record<LoadSemanticBucket, string> = {
-  true_engineering_disagreement: "TRUE_ENGINEERING_DISAGREEMENT",
-  nominal_vs_nameplate_representation: "NOMINAL_VS_NAMEPLATE_REPRESENTATION",
-  current_ocp_semantic_mismatch: "CURRENT_OCP_SEMANTIC_MISMATCH",
-  insufficient_provenance: "INSUFFICIENT_PROVENANCE",
-};
+const BUCKET_ORDER = ADJUDICATION_BUCKET_ORDER;
+const BUCKET_CODE = ADJUDICATION_BUCKET_CODES;
+const BUCKET_LABELS = ADJUDICATION_BUCKET_LABELS;
 
 const KIND_LABEL: Record<string, string> = {
   observed: "observed",
@@ -142,6 +134,8 @@ export function LoadAdjudicationReport() {
                 <th className="p-2">Bucket</th>
                 <th className="p-2">ODS provenance</th>
                 <th className="p-2">FarmOps provenance</th>
+                <th className="p-2">Equipment evidence</th>
+                <th className="p-2">Semantic reading</th>
                 <th className="p-2">Evidence</th>
                 <th className="p-2">Reason</th>
                 <th className="p-2">Recommendation</th>
@@ -164,6 +158,31 @@ export function LoadAdjudicationReport() {
                   </td>
                   <td className="p-2 text-muted-foreground">{f.ods_provenance}</td>
                   <td className="p-2 text-muted-foreground">{f.farmops_provenance}</td>
+                  <td className="p-2">
+                    {f.equipment_evidence.length ? (
+                      <ul className="list-disc space-y-1 pl-4">
+                        {f.equipment_evidence.map((e) => (
+                          <li key={e}>{e}</li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <span className="text-muted-foreground">
+                        No equipment identity established
+                      </span>
+                    )}
+                  </td>
+                  <td className="p-2">
+                    <span className="font-medium">{f.semantic_interpretation}</span>
+                    {f.proposed_representation.length ? (
+                      <ul className="mt-1 list-disc space-y-1 pl-4 text-muted-foreground">
+                        {f.proposed_representation.map((r) => (
+                          <li key={r.field}>
+                            <span className="font-mono">{r.field}</span> = {r.value} — {r.source}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </td>
                   <td className="p-2">
                     {f.evidence.length ? (
                       <ul className="list-disc space-y-1 pl-4">
@@ -206,6 +225,92 @@ export function LoadAdjudicationReport() {
           </table>
         </div>
       </CollapsibleSection>
+
+      {report.groups.length ? (
+        <CollapsibleSection
+          title="Same-equipment comparison groups"
+          subtitle="One equipment configuration, several installations. Differences here are installation or record differences, not specification differences."
+          badges={<Badge variant="outline">{report.groups.length}</Badge>}
+        >
+          <div className="space-y-4">
+            {report.groups.map((g) => (
+              <div key={g.id} className="rounded-md border border-border p-3 text-xs">
+                <p className="font-semibold">{g.label}</p>
+                <p className="mt-1 text-muted-foreground">{g.description}</p>
+                <div className="mt-2 overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead className="text-left text-muted-foreground">
+                      <tr>
+                        <th className="p-2">Load</th>
+                        <th className="p-2">ODS V / A / VA</th>
+                        <th className="p-2">FarmOps V / A / VA</th>
+                        <th className="p-2">Buckets</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {g.loads.map((m) => (
+                        <tr key={m.stable_id} className="border-t border-border align-top">
+                          <td className="p-2 font-mono">
+                            {m.stable_id}
+                            <div className="text-muted-foreground">{m.description}</div>
+                          </td>
+                          <td className="p-2 font-mono">
+                            {show(m.ods.volts ?? null)} / {show(m.ods.amps ?? null)} /{" "}
+                            {show(m.ods.connected_va ?? null)}
+                          </td>
+                          <td className="p-2 font-mono">
+                            {show(m.farmops.volts ?? null)} / {show(m.farmops.amps ?? null)} /{" "}
+                            {show(m.farmops.connected_va ?? null)}
+                          </td>
+                          <td className="p-2">
+                            {m.buckets.map((b) => (
+                              <Badge key={b} variant="secondary" className="mr-1">
+                                {BUCKET_LABELS[b]}
+                              </Badge>
+                            ))}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CollapsibleSection>
+      ) : null}
+
+      {report.discrepancies.length ? (
+        <CollapsibleSection
+          title="Preserved evidence discrepancies"
+          subtitle="Conflicting evidence is retained side by side; nothing is silently selected."
+          badges={<Badge variant="destructive">{report.discrepancies.length}</Badge>}
+        >
+          <div className="space-y-3">
+            {report.discrepancies.map((d) => (
+              <div key={d.code} className="rounded-md border border-border p-3 text-xs">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant="outline" className="font-mono">
+                    {d.code}
+                  </Badge>
+                  {d.stable_ids.map((id) => (
+                    <Badge key={id} variant="secondary" className="font-mono">
+                      {id}
+                    </Badge>
+                  ))}
+                </div>
+                <p className="mt-2">{d.detail}</p>
+                <p className="mt-2 font-medium">Resolves with</p>
+                <ul className="list-disc space-y-1 pl-4 text-muted-foreground">
+                  {d.resolves_with.map((r) => (
+                    <li key={r}>{r}</li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </CollapsibleSection>
+      ) : null}
 
       <CollapsibleSection
         title="Load semantic summary"
