@@ -142,6 +142,13 @@ function BreakerRowEditor({
           label: label.trim() || null,
           ocp_amps: amps.trim() === "" ? null : Number(amps),
           notes: notes.trim() || null,
+          // Preserve recorded wiring links / status: this editor only corrects
+          // physical breaker facts, and the server does a full-row update.
+          circuit_group_uuid: row["circuit_group_uuid"]
+            ? String(row["circuit_group_uuid"])
+            : null,
+          load_uuid: row["load_uuid"] ? String(row["load_uuid"]) : null,
+          install_status: row["install_status"] ? String(row["install_status"]) : null,
         },
       }),
     onSuccess: () => {
