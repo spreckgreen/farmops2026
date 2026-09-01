@@ -332,6 +332,32 @@ function BreakerPositions({
             ))}
           </div>
         ) : null}
+        {missing.length ? (
+          <div className="space-y-2 rounded-md border border-border bg-muted/40 p-3">
+            <div className="text-sm font-medium">
+              {missing.length} slot{missing.length === 1 ? "" : "s"} with no record yet
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Slots consumed by a multi-pole breaker are excluded. Click one to prefill the add
+              form below.
+            </p>
+            <div className="flex flex-wrap gap-1">
+              {missing.map((s) => (
+                <Button
+                  key={`${s.side}-${s.position}`}
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setSide(s.side);
+                    setPosition(String(s.position));
+                  }}
+                >
+                  {s.side} {s.position} · breaker {s.breaker}
+                </Button>
+              ))}
+            </div>
+          </div>
+        ) : null}
         {!rows.length ? (
           <p className="text-sm text-muted-foreground">
             No breaker positions recorded yet. Each row below is one physical space.
