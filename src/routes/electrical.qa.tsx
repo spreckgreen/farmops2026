@@ -270,13 +270,12 @@ function QaReport() {
       ) : null}
 
       {grouped.map(([code, findings]) => (
-        <Card key={code}>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">
-              {CODE_LABELS[code] ?? code} <span className="text-muted-foreground">({findings.length})</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-1">
+        <CollapsibleSection
+          key={code}
+          title={CODE_LABELS[code] ?? code}
+          badges={<Badge variant="outline">{findings.length}</Badge>}
+        >
+          <div className="space-y-1">
             {findings.map((f, i) => (
               <div
                 key={`${f.code}-${f.id ?? f.stableId}-${i}`}
@@ -302,9 +301,10 @@ function QaReport() {
                 <span className="text-muted-foreground">{f.message}</span>
               </div>
             ))}
-          </CardContent>
-        </Card>
+          </div>
+        </CollapsibleSection>
       ))}
+
     </div>
   );
 }
