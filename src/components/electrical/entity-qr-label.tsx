@@ -43,7 +43,7 @@ export function EntityQrLabel({
     spec.short ? SHORT_QR_PX : undefined,
   );
   const lines = useMemo(() => labelLines(record), [record]);
-  const compact = spec.id !== "letter-2x5";
+  const compact = spec.id !== "letter-4x2";
 
   if (spec.short) {
     return (

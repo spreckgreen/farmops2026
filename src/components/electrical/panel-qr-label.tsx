@@ -4,7 +4,7 @@
 //
 // Three standard print formats are supported (see LABEL_FORMATS):
 //   letter-4x2   8.5x11" sheet, 4 columns x 2 rows  (8 labels / page)
-//   letter-2x5   8.5x11" sheet, 2 columns x 5 rows  (10 labels / page)
+//   letter-2x5   8.5x11" sheet, 5 columns x 2 rows  (10 labels / page)
 //   label-7676   White 7676 2.99" x 2.99" single label on a label printer
 import { useEffect, useMemo, useState } from "react";
 import QRCode from "qrcode";
@@ -47,12 +47,13 @@ export const LABEL_FORMATS: Record<LabelFormat, LabelFormatSpec> = {
   },
   "letter-2x5": {
     id: "letter-2x5",
-    name: '8.5x11" sheet — 2 x 5 (10 per page)',
+    name: '8.5x11" sheet — 5 x 2 (10 per page)',
     page: { widthIn: 8.5, heightIn: 11 },
-    cols: 2,
-    rows: 5,
-    qrPx: 150,
-    stacked: false,
+    cols: 5,
+    rows: 2,
+    qrPx: 110,
+    // Same stacked treatment as the 4 x 2 sheet: QR above the details.
+    stacked: true,
     perPage: 10,
   },
   "label-7676": {
@@ -167,7 +168,7 @@ export function PanelQrLabel({
     () => panelLabelLines(panel, panel.voltage_designation ?? null),
     [panel],
   );
-  const compact = spec.id !== "letter-2x5";
+  const compact = spec.id !== "letter-4x2";
 
   // Avery 8593 file-folder stock is 2/3" tall: text only, no QR.
   if (spec.short) {
