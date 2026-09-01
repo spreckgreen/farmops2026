@@ -251,7 +251,175 @@ const close = (a: number, b: number) => Math.abs(a - b) <= Math.max(1, Math.abs(
 
 /* ----------------------------------------------------------- classifiers */
 
-function classifyVolts(load: AdjudicationLoadInput, p: AdjudicationValuePair): Omit<AdjudicatedFinding, "stable_id" | "description" | "field" | "unit" | "ods_value" | "farmops_value" | "ods_provenance" | "farmops_provenance"> {
+type Verdict = {
+  bucket: AdjudicationBucket;
+  evidence: string[];
+  supporting_only: string[];
+  reason: string;
+  recommendation: Recommendation;
+  missing_evidence: string[];
+  semantic_interpretation?: string;
+  proposed_representation?: ProposedRepresentation[];
+};
+
+const eqLine = (eq: EquipmentProvenance) =>
+  `${eq.manufacturer} ${eq.model} — ${eq.equipment_class}`;
+
+/**
+ * Equipment-provenance voltage adjudication. Runs before the generic gate and
+ * only when equipment identity is established by evidence records.
+ */
+function classifyVoltsWithEquipment(
+  eq: EquipmentProvenance,
+  p: AdjudicationValuePair,
+): Verdict | null {
+  const s = eq.semantics;
+  const nominal = s.nominal_supply_voltage;
+  if (nominal === null || p.ods === null || p.farmops === null) return null;
+  const other = p.ods === nominal ? p.farmops : p.farmops === nominal ? p.ods : null;
+  if (other === null) return null;
+
+  // 1. Nominal supply vs equipment rated nameplate voltage — both correct.
+  if (s.rated_nameplate_voltage !== null && other === s.rated_nameplate_voltage) {
+    return {
+      bucket: "nominal_vs_nameplate_representation",
+      evidence: equipmentEvidenceLines(eq),
+      supporting_only: [],
+      reason: `Equipment identity is established as ${eqLine(eq)}. ${nominal} V is the canonical engineering / site circuit designation and ${other} V is the manufacturer's rated nameplate designation. Neither is a correction of the other.`,
+      recommendation: "PRESERVE_BOTH_AS_DISTINCT_SEMANTICS",
+      missing_evidence: [],
+      semantic_interpretation: `nominal_supply_voltage = ${nominal} V; rated_nameplate_voltage = ${other} V; phase = ${s.phase ?? "not established"}`,
+      proposed_representation: [
+        {
+          field: "nominal_supply_voltage",
+          value: `${nominal} V`,
+          source: "Canonical engineering designation (unchanged ODS)",
+        },
+        {
+          field: "rated_nameplate_voltage",
+          value: `${other} V`,
+          source: `${eq.manufacturer} ${eq.model} published rating`,
+        },
+        ...(s.phase
+          ? [
+              {
+                field: "phase",
+                value: s.phase,
+                source: `${eq.manufacturer} ${eq.model} published rating`,
+              },
+            ]
+          : []),
+      ],
+    };
+  }
+
+  // 2. The stored value is incompatible with the identified equipment's
+  //    published rating class — the canonical engineering value is supported.
+  const cls = s.rated_equipment_voltage_class;
+  if (cls) {
+    const classValues = cls.split("/").map((x) => Number(x.trim()));
+    const compatible = classValues.some((v) => Math.abs(v - other) <= 12);
+    if (!compatible) {
+      return {
+        bucket: "engineering_value_supported_by_equipment_identity",
+        evidence: equipmentEvidenceLines(eq),
+        supporting_only: [],
+        reason: `The identified equipment (${eqLine(eq)}) has a published supply rating class of ${cls} V, ${s.phase ?? "1"}Ø. The stored ${other} V representation is incompatible with that equipment, so the canonical ${nominal} V engineering value is supported by equipment identity.`,
+        recommendation: "CORRECT_FARMOPS_WITH_SEMANTIC_REPRESENTATION",
+        missing_evidence: [],
+        semantic_interpretation: `nominal_supply_voltage = ${nominal}; rated_equipment_voltage = ${cls} (kept verbatim, never reduced to a scalar)`,
+        proposed_representation: [
+          {
+            field: "nominal_supply_voltage",
+            value: String(nominal),
+            source: "Canonical engineering designation (unchanged ODS)",
+          },
+          {
+            field: "rated_equipment_voltage",
+            value: cls,
+            source: `${eq.manufacturer} ${eq.model} published rating class`,
+          },
+        ],
+      };
+    }
+  }
+  return null;
+}
+
+/**
+ * Amperage is never adjudicated from equipment identity alone. Once identity is
+ * known the finding says what provenance exists and exactly what is still
+ * required, instead of a bare "insufficient provenance".
+ */
+function classifyAmpsWithEquipment(
+  eq: EquipmentProvenance,
+  p: AdjudicationValuePair,
+): Verdict | null {
+  if (!eq.ampacity_verification_pending) return null;
+  return {
+    bucket: "equipment_identified_rating_verification_pending",
+    evidence: equipmentEvidenceLines(eq),
+    supporting_only: eq.ampacity_known,
+    reason: `Equipment identity is established (${eqLine(eq)}), but the model-specific manufacturer electrical table / nameplate has not been established strongly enough to authorise migration. ${n(p.ods)} A and ${n(p.farmops)} A may represent materially different quantities, so neither value wins and no reconciliation is proposed.`,
+    recommendation: "FIELD_OR_DOCUMENT_VERIFICATION_REQUIRED",
+    missing_evidence: eq.ampacity_required,
+    semantic_interpretation:
+      "Current must first be split into equipment_operating_current / equipment_fla, minimum_circuit_ampacity, maximum_overcurrent_protection, installed_ocp_rating and design_circuit_ampacity before either value can be interpreted.",
+    proposed_representation: AMPACITY_SEMANTIC_FIELDS.map((f) => ({
+      field: f.field,
+      value: "not established — verification pending",
+      source: f.why,
+    })),
+  };
+}
+
+/** VA differences attributable to a documented, independently established basis. */
+function classifyVaWithEquipment(
+  eq: EquipmentProvenance,
+  load: AdjudicationLoadInput,
+  p: AdjudicationValuePair,
+): Verdict | null {
+  const basis = eq.va_basis_amps;
+  const volts = load.fields.volts;
+  const s = eq.semantics;
+  if (
+    basis === null ||
+    !volts ||
+    volts.ods === null ||
+    volts.farmops === null ||
+    p.ods === null ||
+    p.farmops === null ||
+    s.nominal_supply_voltage === null
+  ) {
+    return null;
+  }
+  if (!close(volts.ods * basis, p.ods) || !close(volts.farmops * basis, p.farmops)) return null;
+
+  const nominalSide = volts.ods === s.nominal_supply_voltage ? p.ods : p.farmops;
+  const ratedSide = nominalSide === p.ods ? p.farmops : p.ods;
+  return {
+    bucket: "calculation_basis_difference",
+    evidence: equipmentEvidenceLines(eq),
+    supporting_only: [
+      `${volts.ods} V × ${basis} A = ${n(p.ods)} VA and ${volts.farmops} V × ${basis} A = ${n(p.farmops)} VA.`,
+      `Basis current established independently: ${eq.va_basis_source}`,
+    ],
+    reason: `Both figures are correct on their own stated basis: ${nominalSide} VA on the nominal-supply basis and ${ratedSide} VA on the equipment-rated basis, using the independently established ${basis} A basis current. This is a calculation-basis difference, not an engineering disagreement.`,
+    recommendation: "PRESERVE_BOTH_AS_DISTINCT_SEMANTICS",
+    missing_evidence: [],
+    semantic_interpretation: `nominal-supply basis VA = ${nominalSide}; equipment-rated basis VA = ${ratedSide}; basis current = ${basis} A`,
+    proposed_representation: [
+      {
+        field: "connected_va_basis",
+        value: "nominal_supply | equipment_rated",
+        source: `Both VA figures share the ${basis} A basis current; only the voltage basis differs`,
+      },
+    ],
+  };
+}
+
+function classifyVolts(load: AdjudicationLoadInput, p: AdjudicationValuePair): Verdict {
+
   const pair = utilizationPair(p.ods, p.farmops);
   const evidence = evidenceCitations(load.evidence).map((c) => `${c.source}: ${c.detail}`);
   const conceptProven = hasVoltageConceptProvenance(load.evidence);
