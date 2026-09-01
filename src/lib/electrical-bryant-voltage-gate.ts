@@ -160,8 +160,14 @@ export function stillSafeToApplyBryantVoltage(input: {
   equipment: EquipmentProvenance | undefined;
   /** Adjudication bucket for this load's `volts` finding, when available. */
   adjudication_bucket: string | null;
-  /** Canonical ODS voltage the adjudication compared against. */
+  /** Canonical ODS voltage PARSED from the SHA-verified baseline workbook. */
   ods_volts: number | null;
+  /**
+   * Whether the canonical evidence for this row came from the authorized
+   * Phase 4.4a baseline workbook. A correction may never be applied from a
+   * different workbook, or with no workbook attached at all.
+   */
+  baseline: { ok: true } | { ok: false; reason: string };
 }):
   | { ok: true }
   | {
@@ -169,6 +175,9 @@ export function stillSafeToApplyBryantVoltage(input: {
       status: Exclude<BryantVoltageGateStatus, "would_change" | "applied">;
       reason: string;
     } {
+  if (!input.baseline.ok) {
+    return { ok: false, status: "baseline_blocked", reason: input.baseline.reason };
+  }
   if (!BRYANT_VOLTAGE_LOAD_SET.has(input.stable_id)) {
     return {
       ok: false,
