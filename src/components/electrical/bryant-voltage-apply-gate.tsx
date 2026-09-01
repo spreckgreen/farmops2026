@@ -179,6 +179,28 @@ export function BryantVoltageApplyGate({
         </div>
       </div>
 
+      {!baseline ? (
+        <p className="mt-3 rounded-md border border-dashed p-2 text-xs text-muted-foreground">
+          Attach the canonical .ods baseline above. Without SHA-verified canonical evidence this gate
+          will neither preview nor apply.
+        </p>
+      ) : !baseline.authorized ? (
+        <p className="mt-3 rounded-md border border-destructive/50 p-2 text-xs text-destructive">
+          The attached workbook is not the authorized Phase 4.4a baseline. Preview is read-only and
+          apply is refused.
+        </p>
+      ) : null}
+
+      {result ? (
+        <p className="mt-3 break-all text-xs text-muted-foreground">
+          Canonical evidence: <span className="font-mono">{result.baseline.ods_file_name}</span> SHA-256{" "}
+          <span className="font-mono">{result.baseline.ods_sha256}</span>{" "}
+          {result.baseline.authorized
+            ? "— authorized Phase 4.4a baseline."
+            : `— ${result.baseline.reason}`}
+        </p>
+      ) : null}
+
       {summary ? (
         <div className="flex flex-wrap gap-2 pt-3 text-xs">
           <Badge variant="outline">Would change {summary.would_change}</Badge>
