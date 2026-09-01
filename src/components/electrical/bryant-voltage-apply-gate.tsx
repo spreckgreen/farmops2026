@@ -117,21 +117,28 @@ export function BryantVoltageApplyGate({
             services/topology, Boolean reconciliation, FS-084, FS-034, FS-092 and every other load
             are never modified. Each write re-reads the live row by UUID and re-verifies the stable
             ID, the 120 V starting value, the verified Bryant equipment configuration and the live
-            adjudication provenance. Gate <code>{BRYANT_VOLTAGE_GATE_VERSION}</code>.
+            adjudication provenance, and the canonical value parsed from the SHA-verified baseline
+            workbook. Gate <code>{BRYANT_VOLTAGE_GATE_VERSION}</code>.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button
             size="sm"
             variant="outline"
-            disabled={previewMutation.isPending}
+            disabled={!baseline || previewMutation.isPending}
             onClick={() => previewMutation.mutate()}
           >
             {previewMutation.isPending ? "Checking…" : "Preview against live data"}
           </Button>
           <Button
             size="sm"
-            disabled={!result || !confirmed || approved.size === 0 || applyMutation.isPending}
+            disabled={
+              !baseline?.authorized ||
+              !result ||
+              !confirmed ||
+              approved.size === 0 ||
+              applyMutation.isPending
+            }
             onClick={() => applyMutation.mutate()}
           >
             {applyMutation.isPending ? "Applying…" : `Apply ${approved.size} approved`}
