@@ -10,6 +10,11 @@
 //   C — ODS state not representable as a number (TBD, range, approximate, text,
 //       or a unit we refuse to guess at)
 //   D — provenance insufficient (one side is silent and we cannot prove why)
+//   E — representation / schema-semantic gap: the canonical workbook states a
+//       fully resolved engineering value that the FarmOps column cannot hold
+//       (today: split-phase system voltage such as 120/240). Not a bad cell and
+//       not a Category-C unresolved state — the data model must be decided
+//       first. Never corrected, never normalized to a scalar.
 //
 // Only Category A is ever a candidate for automatic correction, and even then a
 // NOT NULL column blocks the correction rather than substituting a number.
@@ -27,9 +32,9 @@ import {
   type ParsedNumeric,
 } from "@/lib/electrical-numeric-semantics";
 
-export const NUMERIC_DIAGNOSTICS_VERSION = "4.4b-numeric-diagnostics-1";
+export const NUMERIC_DIAGNOSTICS_VERSION = "4.4b-numeric-diagnostics-2-system-voltage";
 
-export type NumericCategory = "A" | "B" | "C" | "D";
+export type NumericCategory = "A" | "B" | "C" | "D" | "E";
 
 export type NumericArtifactType =
   /** Blank workbook cell + a NOT NULL DEFAULT 0 column: the 0 is code-created. */
@@ -49,7 +54,8 @@ export type NumericDisposition =
   | "blocked_column_not_nullable"
   | "requires_engineering_disposition"
   | "resolve_in_canonical_ods_first"
-  | "requires_human_review";
+  | "requires_human_review"
+  | "requires_data_model_decision";
 
 export interface NumericFinding {
   domain: string;
@@ -123,7 +129,7 @@ export interface NumericDiagnosticsReport {
   read_only: true;
 }
 
-const EMPTY_COUNTS = (): Record<NumericCategory, number> => ({ A: 0, B: 0, C: 0, D: 0 });
+const EMPTY_COUNTS = (): Record<NumericCategory, number> => ({ A: 0, B: 0, C: 0, D: 0, E: 0 });
 
 function defaultNumber(entry: NumericRegistryEntry): number | null {
   if (entry.db_default === null) return null;
@@ -147,6 +153,23 @@ function classify(
 ): Classified {
   const column = `${entry.table}.${entry.field}`;
   const dbDefault = defaultNumber(entry);
+
+  // E — canonical system-voltage notation (120/240). Checked before C: this is
+  // resolved engineering data, not an unresolved workbook state, and the gap is
+  // in the FarmOps scalar column. Nothing is normalized and nothing is written.
+  if (ods.state === "system_voltage" || fp.state === "system_voltage") {
+    const sys = ods.system_voltage ?? fp.system_voltage ?? null;
+    const decomposition = sys
+      ? `${sys.line_neutral} V line-to-neutral / ${sys.line_line} V line-to-line${sys.phases ? `, ${sys.phases}-phase` : ""}`
+      : "two nominal voltages";
+    return {
+      category: "E",
+      provenance: `${ods.state === "system_voltage" ? "Canonical workbook" : "FarmOps"} states system voltage "${(ods.state === "system_voltage" ? ods : fp).raw}" (${decomposition}). ${column} is a single ${entry.db_type} scalar and cannot represent a split-phase/wye system voltage.`,
+      disposition: "requires_data_model_decision",
+      action:
+        "Representation gap, not a numeric disagreement. Decide the FarmOps system-voltage model first (explicit nominal line-neutral + line-line voltages, or an equivalent structured system-voltage representation). Do not normalize to the line-to-line scalar and do not change the canonical ODS to satisfy a numeric column.",
+    };
+  }
 
   // C — the workbook does not hold a number at all. This is checked before any
   // artifact rule so a TBD is never collapsed into 0 or NULL.
@@ -376,13 +399,14 @@ export function numericDiagnostics(report: ValidationReport): NumericDiagnostics
  */
 export function numericReconciliation(r: NumericDiagnosticsReport) {
   const c = r.counts_by_category;
-  const categorized = c.A + c.B + c.C + c.D;
+  const categorized = c.A + c.B + c.C + c.D + c.E;
   return {
     compared_cells: r.compared_cells,
     agreements: r.agreements,
     categorized,
     balanced: r.agreements + categorized === r.compared_cells,
     category_a: c.A,
+    category_e: c.E,
     plan: r.plan.length,
     blocked: r.blocked.length,
     category_a_balanced: r.plan.length + r.blocked.length === c.A,
@@ -502,7 +526,7 @@ export function numericDiagnosticsMarkdown(r: NumericDiagnosticsReport): string 
     "",
     `- Compared numeric cells: ${recon.compared_cells}`,
     `- Agreements: ${recon.agreements}`,
-    `- Category A ${r.counts_by_category.A} · B ${r.counts_by_category.B} · C ${r.counts_by_category.C} · D ${r.counts_by_category.D}`,
+    `- Category A ${r.counts_by_category.A} · B ${r.counts_by_category.B} · C ${r.counts_by_category.C} · D ${r.counts_by_category.D} · E ${r.counts_by_category.E} (representation / schema-semantic)`,
     `- Balanced: ${recon.balanced ? "yes" : "NO — investigate"} (agreements + categories = compared)`,
     `- Category A = plan ${recon.plan} + blocked ${recon.blocked}: ${recon.category_a_balanced ? "balanced" : "NO — investigate"}`,
     "",
