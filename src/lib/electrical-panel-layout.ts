@@ -373,6 +373,28 @@ export function validatePanelLayout(input: PanelLayoutInput): PanelLayoutFinding
     }
   }
 
+  // One record per consumed multi-pole slot: a 2-pole breaker at Right 19
+  // (38/40) means Right 20 must not carry its own row.
+  const positionsByPanel = new Map<string, Record<string, unknown>[]>();
+  for (const row of input.positions) {
+    const uuid = str(row, "panel_uuid");
+    if (!panelById.has(uuid)) continue;
+    positionsByPanel.set(uuid, [...(positionsByPanel.get(uuid) ?? []), row]);
+  }
+  for (const [uuid, rows] of positionsByPanel) {
+    const pid = panelId(uuid);
+    const panel = panelById.get(uuid)!;
+    for (const dup of multiPoleDuplicates(resolvePanelLayout(panel), rows)) {
+      out.push({
+        code: "breaker_slot_consumed_duplicate",
+        severity: "error",
+        panelId: pid,
+        id: dup.id,
+        message: `${pid}: ${dup.message}`,
+      });
+    }
+  }
+
   // ------------------------------------------------------------- panel exits
   const orderSeen = new Map<string, string[]>();
   for (const row of input.exits) {
