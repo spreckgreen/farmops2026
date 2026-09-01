@@ -1,7 +1,7 @@
 // Phase 4.4b — final load semantic adjudication report (read-only UI).
 // Nine findings, five load summaries, bucket totals, CSV + Markdown export.
 // There is deliberately no Apply control: this view performs no writes.
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Download, ShieldAlert } from "lucide-react";
