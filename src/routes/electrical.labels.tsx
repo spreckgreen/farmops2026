@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/select";
 
 export const Route = createFileRoute("/electrical/labels")({
+  ssr: false,
   beforeLoad: requireAuthenticatedUser,
   component: PanelLabelsPage,
   head: () => ({
