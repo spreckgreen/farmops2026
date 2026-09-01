@@ -998,11 +998,14 @@ export function runParallelComparison(input: ValidationInput): ValidationReport 
           ods_worksheet: worksheet,
           ods_column: odsColumnLabel(kind, field.key),
           ods_value: odsText,
+          ods_row: odsRow.sourceRow ?? null,
           farmops_entity: def.table,
           farmops_field: field.key,
           farmops_value: fpText,
+          farmops_uuid: rec["uuid"] === undefined ? null : String(rec["uuid"] ?? "") || null,
           authority: own,
           rules,
+
         };
 
         // Tri-state semantics: TBD is never equal to blank, false, true or 0,
