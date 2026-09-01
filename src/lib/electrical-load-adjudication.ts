@@ -759,17 +759,19 @@ export function adjudicateLoads(
         farmops_value: p.farmops,
         ods_provenance: p.ods_provenance,
         farmops_provenance: p.farmops_provenance,
+        equipment_evidence: equipmentEvidenceLines(load.equipment),
+        semantic_interpretation: "",
+        proposed_representation: [],
         ...verdict,
+        semantic_interpretation: verdict.semantic_interpretation ?? "Not established.",
+        proposed_representation: verdict.proposed_representation ?? [],
       });
     }
   }
 
-  const counts: Record<LoadSemanticBucket, number> = {
-    true_engineering_disagreement: 0,
-    nominal_vs_nameplate_representation: 0,
-    current_ocp_semantic_mismatch: 0,
-    insufficient_provenance: 0,
-  };
+  const counts = Object.fromEntries(
+    ADJUDICATION_BUCKET_ORDER.map((b) => [b, 0]),
+  ) as Record<AdjudicationBucket, number>;
   for (const f of findings) counts[f.bucket] += 1;
 
   const summary = [...loads]
@@ -788,7 +790,55 @@ export function adjudicateLoads(
       buckets: [
         ...new Set(findings.filter((f) => f.stable_id === load.stable_id).map((f) => f.bucket)),
       ],
+      equipment_evidence: equipmentEvidenceLines(load.equipment),
+      discrepancies: load.equipment?.discrepancies ?? [],
+      group_id: load.equipment?.group_id ?? null,
     }));
+
+  // Same-equipment comparison groups: one configuration, several installations.
+  const groups: AdjudicationComparisonGroup[] = EQUIPMENT_GROUPS.filter((g) =>
+    summary.some((l) => l.group_id === g.id),
+  ).map((g) => {
+    const members = g.members
+      .map((id) => loads.find((l) => l.stable_id === id))
+      .filter((l): l is AdjudicationLoadInput => Boolean(l));
+    return {
+      ...g,
+      loads: members.map((l) => ({
+        stable_id: l.stable_id,
+        description: l.description,
+        ods: {
+          volts: l.fields.volts?.ods ?? l.agreed?.volts ?? null,
+          amps: l.fields.amps?.ods ?? l.agreed?.amps ?? null,
+          connected_va: l.fields.connected_va?.ods ?? l.agreed?.connected_va ?? null,
+        },
+        farmops: {
+          volts: l.fields.volts?.farmops ?? l.agreed?.volts ?? null,
+          amps: l.fields.amps?.farmops ?? l.agreed?.amps ?? null,
+          connected_va: l.fields.connected_va?.farmops ?? l.agreed?.connected_va ?? null,
+        },
+        buckets: summary.find((s) => s.stable_id === l.stable_id)?.buckets ?? [],
+      })),
+      discrepancies: [
+        ...new Map(
+          members.flatMap((l) => (l.equipment?.discrepancies ?? []).map((d) => [d.code, d])),
+        ).values(),
+      ],
+    };
+  });
+
+  // Discrepancies are surfaced, never auto-resolved.
+  const discrepancies = [
+    ...summary
+      .flatMap((l) => l.discrepancies.map((d) => ({ d, id: l.stable_id })))
+      .reduce((m, { d, id }) => {
+        const cur = m.get(d.code) ?? { ...d, stable_ids: [] as string[] };
+        cur.stable_ids.push(id);
+        m.set(d.code, cur);
+        return m;
+      }, new Map<string, EquipmentDiscrepancy & { stable_ids: string[] }>())
+      .values(),
+  ];
 
   return {
     version: LOAD_ADJUDICATION_VERSION,
@@ -796,6 +846,8 @@ export function adjudicateLoads(
     findings,
     counts,
     loads: summary,
+    groups,
+    discrepancies,
     total_findings: findings.length,
     read_only: true,
     apply_available: false,
@@ -823,6 +875,9 @@ export function adjudicationCsv(report: LoadAdjudicationReport): string {
     "evidence",
     "supporting_only",
     "reason",
+    "semantic_interpretation",
+    "equipment_evidence",
+    "proposed_representation",
     "missing_evidence",
     "recommendation",
   ];
@@ -842,6 +897,9 @@ export function adjudicationCsv(report: LoadAdjudicationReport): string {
         f.evidence.join(" | ") || "none",
         f.supporting_only.join(" | "),
         f.reason,
+        f.semantic_interpretation,
+        f.equipment_evidence.join(" | ") || "none",
+        f.proposed_representation.map((r) => `${r.field}=${r.value}`).join(" | ") || "none",
         f.missing_evidence.join(" | "),
         f.recommendation,
       ]
@@ -862,10 +920,9 @@ export function adjudicationMarkdown(report: LoadAdjudicationReport): string {
     "",
     "## Bucket totals",
     "",
-    `- TRUE_ENGINEERING_DISAGREEMENT: ${report.counts.true_engineering_disagreement}`,
-    `- NOMINAL_VS_NAMEPLATE_REPRESENTATION: ${report.counts.nominal_vs_nameplate_representation}`,
-    `- CURRENT_OCP_SEMANTIC_MISMATCH: ${report.counts.current_ocp_semantic_mismatch}`,
-    `- INSUFFICIENT_PROVENANCE: ${report.counts.insufficient_provenance}`,
+    ...ADJUDICATION_BUCKET_ORDER.map(
+      (b) => `- ${ADJUDICATION_BUCKET_CODES[b]}: ${report.counts[b]}`,
+    ),
     `- Total: ${report.total_findings}`,
     "",
     "## Findings",
@@ -880,6 +937,9 @@ export function adjudicationMarkdown(report: LoadAdjudicationReport): string {
       `- FarmOps: ${n(f.farmops_value)} (${f.farmops_provenance})`,
       `- Affirmative evidence: ${f.evidence.length ? f.evidence.join("; ") : "none on file"}`,
       `- Supporting only: ${f.supporting_only.join(" ") || "—"}`,
+      `- Semantic interpretation: ${f.semantic_interpretation}`,
+      `- Equipment evidence: ${f.equipment_evidence.length ? f.equipment_evidence.join("; ") : "none on file"}`,
+      `- Proposed additive representation: ${f.proposed_representation.map((r) => `${r.field} = ${r.value} (${r.source})`).join("; ") || "none"}`,
       `- Reason: ${f.reason}`,
       `- Missing evidence: ${f.missing_evidence.join("; ") || "—"}`,
       `- Recommendation: ${f.recommendation}`,
@@ -896,6 +956,30 @@ export function adjudicationMarkdown(report: LoadAdjudicationReport): string {
       `- Unresolved: ${l.unresolved_questions.length ? l.unresolved_questions.join("; ") : "none"}`,
       "",
     );
+  }
+  if (report.groups.length) {
+    lines.push("## Same-equipment comparison groups", "");
+    for (const g of report.groups) {
+      lines.push(`### ${g.label}`, "", `- ${g.description}`);
+      for (const m of g.loads) {
+        lines.push(
+          `- ${m.stable_id} (${m.description}): ODS ${n(m.ods.volts ?? null)} V / ${n(m.ods.amps ?? null)} A / ${n(m.ods.connected_va ?? null)} VA · FarmOps ${n(m.farmops.volts ?? null)} V / ${n(m.farmops.amps ?? null)} A / ${n(m.farmops.connected_va ?? null)} VA`,
+        );
+      }
+      lines.push("");
+    }
+  }
+  if (report.discrepancies.length) {
+    lines.push("## Preserved evidence discrepancies", "");
+    for (const d of report.discrepancies) {
+      lines.push(
+        `### ${d.code} (${d.stable_ids.join(", ")})`,
+        "",
+        `- ${d.detail}`,
+        `- Resolves with: ${d.resolves_with.join("; ")}`,
+        "",
+      );
+    }
   }
   return lines.join("\n");
 }
