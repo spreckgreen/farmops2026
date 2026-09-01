@@ -49,6 +49,7 @@ export type BryantVoltageGateStatus =
   | "conflict"
   | "not_found"
   | "not_approved"
+  | "baseline_blocked"
   | "failed"
   | "applied";
 
