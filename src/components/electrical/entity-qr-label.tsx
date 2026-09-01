@@ -5,6 +5,7 @@
 import { useMemo } from "react";
 import {
   LABEL_FORMATS,
+  SHORT_QR_PX,
   ShortLabelCell,
   usePanelQrSvg,
   type LabelFormat,
@@ -22,6 +23,8 @@ interface EntityQrLabelProps {
   record: LabelRecord;
   origin: string;
   format?: LabelFormat;
+  /** Include a small in-cell QR on shortened (Avery 8593) labels. */
+  shortQr?: boolean;
   className?: string;
 }
 
@@ -29,11 +32,16 @@ export function EntityQrLabel({
   record,
   origin,
   format = "letter-2x5",
+  shortQr = false,
   className,
 }: EntityQrLabelProps) {
   const spec = LABEL_FORMATS[format];
   const url = useMemo(() => itemQrUrl(origin, record.kind, record.id), [origin, record]);
-  const svg = usePanelQrSvg(url, spec.short ? "letter-4x2" : format);
+  const svg = usePanelQrSvg(
+    url,
+    spec.short ? "letter-4x2" : format,
+    spec.short ? SHORT_QR_PX : undefined,
+  );
   const lines = useMemo(() => labelLines(record), [record]);
   const compact = spec.id !== "letter-2x5";
 
@@ -42,6 +50,8 @@ export function EntityQrLabel({
       <ShortLabelCell
         stableId={record.stable_id}
         detail={shortLabelText(record)}
+        qrSvg={shortQr ? svg : null}
+        showQr={shortQr}
         className={className}
       />
     );

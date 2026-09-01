@@ -176,6 +176,8 @@ function PanelLabelsPage() {
   const [scopeValue, setScopeValue] = useState<string>("");
   const [filter, setFilter] = useState("");
   const [manual, setManual] = useState("");
+  // Shortened stock is tiny, so the in-cell QR is opt-in.
+  const [shortQr, setShortQr] = useState(true);
 
   const kinds: LabelKind[] = useMemo(() => {
     if (selection.startsWith("group:")) {
@@ -381,7 +383,9 @@ function PanelLabelsPage() {
                 {perPage} per page · {pages} page{pages === 1 ? "" : "s"}. Set the printer paper to{" "}
                 {paperNote(format)} and turn off scaling.
                 {LABEL_FORMATS[format].short
-                  ? " Shortened output: stable ID plus one condensed line, no QR — the cell is too small to scan reliably."
+                  ? shortQr
+                    ? " Shortened output: small QR plus the stable ID (wrapped if long) and one condensed line. Print at 100% and test one scan before running the sheet."
+                    : " Shortened output: stable ID plus one condensed line, no QR."
                   : ""}
               </p>
             </div>
@@ -435,6 +439,7 @@ function PanelLabelsPage() {
                         }}
                         origin={origin}
                         format={format}
+                        shortQr={shortQr}
                       />
                     ) : (
                       <EntityQrLabel
@@ -442,6 +447,7 @@ function PanelLabelsPage() {
                         record={record}
                         origin={origin}
                         format={format}
+                        shortQr={shortQr}
                       />
                     ),
                   )}
