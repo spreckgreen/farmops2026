@@ -93,6 +93,13 @@ export interface BreakerPopulationPreview {
   warnings: string[];
   csv: string;
   markdown: string;
+  /**
+   * Panel-position coverage: physical universe → evidence → parsed breakers →
+   * records. Read-only, and never reports the inventory complete just because
+   * every parsed breaker was reconciled.
+   */
+  coverage: PanelCoverageReport;
+  coverage_csv: string;
   /** Always false for Preview. */
   wrote_anything: false;
   sor_authority: "canonical_ods";
