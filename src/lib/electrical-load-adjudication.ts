@@ -34,7 +34,8 @@ import {
   type EquipmentProvenance,
 } from "@/lib/electrical-equipment-provenance";
 
-export const LOAD_ADJUDICATION_VERSION = "4.4b-load-semantic-adjudication-2-equipment-provenance";
+export const LOAD_ADJUDICATION_VERSION =
+  "4.4b-load-semantic-adjudication-3-equipment-proven-ratings";
 
 /** The five loads under adjudication. */
 export const ADJUDICATED_LOAD_IDS = ["FS-034", "FS-082", "FS-083", "FS-084", "FS-092"] as const;
@@ -48,12 +49,20 @@ export type AdjudicationBucket =
   | LoadSemanticBucket
   | "calculation_basis_difference"
   | "engineering_value_supported_by_equipment_identity"
+  | "farmops_value_incompatible_with_verified_equipment"
+  | "consistent_with_manufacturer_mocp"
+  | "amp_semantic_provenance_required"
+  | "farmops_amp_semantic_or_source_requires_review"
   | "equipment_identified_rating_verification_pending";
 
 export const ADJUDICATION_BUCKET_ORDER: AdjudicationBucket[] = [
   "nominal_vs_nameplate_representation",
   "calculation_basis_difference",
   "engineering_value_supported_by_equipment_identity",
+  "consistent_with_manufacturer_mocp",
+  "farmops_value_incompatible_with_verified_equipment",
+  "farmops_amp_semantic_or_source_requires_review",
+  "amp_semantic_provenance_required",
   "equipment_identified_rating_verification_pending",
   "current_ocp_semantic_mismatch",
   "true_engineering_disagreement",
@@ -67,6 +76,12 @@ export const ADJUDICATION_BUCKET_LABELS: Record<AdjudicationBucket, string> = {
     "Engineering value supported by equipment identity",
   equipment_identified_rating_verification_pending:
     "Equipment identified — electrical rating verification pending",
+  farmops_value_incompatible_with_verified_equipment:
+    "FarmOps value incompatible with verified equipment",
+  consistent_with_manufacturer_mocp: "Consistent with manufacturer MOCP",
+  amp_semantic_provenance_required: "Amp semantic provenance required",
+  farmops_amp_semantic_or_source_requires_review:
+    "FarmOps amp semantic or source requires review",
 };
 
 export const ADJUDICATION_BUCKET_CODES: Record<AdjudicationBucket, string> = {
@@ -79,6 +94,12 @@ export const ADJUDICATION_BUCKET_CODES: Record<AdjudicationBucket, string> = {
     "ENGINEERING_VALUE_SUPPORTED_BY_EQUIPMENT_IDENTITY",
   equipment_identified_rating_verification_pending:
     "EQUIPMENT_IDENTIFIED_ELECTRICAL_RATING_VERIFICATION_PENDING",
+  farmops_value_incompatible_with_verified_equipment:
+    "FARMOPS_VALUE_INCOMPATIBLE_WITH_VERIFIED_EQUIPMENT",
+  consistent_with_manufacturer_mocp: "CONSISTENT_WITH_MANUFACTURER_MOCP",
+  amp_semantic_provenance_required: "AMP_SEMANTIC_PROVENANCE_REQUIRED",
+  farmops_amp_semantic_or_source_requires_review:
+    "FARMOPS_AMP_SEMANTIC_OR_SOURCE_REQUIRES_REVIEW",
 };
 
 export type Recommendation =
@@ -322,13 +343,20 @@ function classifyVoltsWithEquipment(
     const classValues = cls.split("/").map((x) => Number(x.trim()));
     const compatible = classValues.some((v) => Math.abs(v - other) <= 12);
     if (!compatible) {
+      const farmopsIsIncompatible = p.farmops === other;
       return {
-        bucket: "engineering_value_supported_by_equipment_identity",
+        bucket: farmopsIsIncompatible
+          ? "farmops_value_incompatible_with_verified_equipment"
+          : "engineering_value_supported_by_equipment_identity",
         evidence: equipmentEvidenceLines(eq),
         supporting_only: [],
         reason: `The identified equipment (${eqLine(eq)}) has a published rated electrical supply of ${cls} V AC, ${s.phase ?? "1"}Ø${s.frequency_hz ? `, ${s.frequency_hz} Hz` : ""}. The stored ${other} V representation is incompatible with that equipment and is therefore not an alternative nameplate representation, so the canonical ${nominal} V engineering value is supported by equipment identity.`,
         recommendation: "CORRECT_FARMOPS_WITH_SEMANTIC_REPRESENTATION",
-        missing_evidence: [],
+        missing_evidence: farmopsIsIncompatible
+          ? [
+              "Correction is recommended but not written in this phase: the FarmOps value must be replaced through an explicit apply gate, not by adjudication.",
+            ]
+          : [],
         semantic_interpretation: `nominal_supply_voltage = ${nominal}; rated_equipment_voltage = ${cls} (kept verbatim, never reduced to a scalar)`,
         proposed_representation: [
           {
@@ -366,6 +394,115 @@ function classifyAmpsWithEquipment(
   eq: EquipmentProvenance,
   p: AdjudicationValuePair,
 ): Verdict | null {
+  const s = eq.semantics;
+  const mocp = s.maximum_overcurrent_protection;
+  const ampacityConcepts: ProposedRepresentation[] = [
+    ...(mocp !== null
+      ? [
+          {
+            field: "maximum_overcurrent_protection",
+            value: `${mocp} A`,
+            source: `${eq.manufacturer} ${eq.model} published electrical rating data`,
+          },
+        ]
+      : []),
+    ...(s.rated_current_amps !== null
+      ? [
+          {
+            field: "rated_current_amps",
+            value: `${s.rated_current_amps} A`,
+            source: `${eq.manufacturer} ${eq.model} published electrical rating data`,
+          },
+        ]
+      : []),
+    ...(s.rated_load_amps !== null
+      ? [
+          {
+            field: "rated_load_amps",
+            value: `${s.rated_load_amps} A`,
+            source: `${eq.manufacturer} ${eq.model} published electrical rating data`,
+          },
+        ]
+      : []),
+    {
+      field: "minimum_circuit_ampacity",
+      value: "not established — must remain NULL",
+      source:
+        "MCA is not stated by the supplied evidence and may not be derived from RCA, RLA, MOCP, capacity or any other value.",
+    },
+    {
+      field: "installed_ocp_rating",
+      value: "not established — field verification required",
+      source: "The breaker actually installed has not been observed.",
+    },
+    {
+      field: "design_circuit_ampacity",
+      value: "not established",
+      source: "No design current is documented for this circuit.",
+    },
+  ];
+
+  if (mocp !== null) {
+    const eqMocp = (v: number | null) => v !== null && Math.abs(v - mocp) < 1e-9;
+    const distinctNote = `Established as distinct quantities: MOCP = ${mocp} A, RCA = ${n(s.rated_current_amps)} A, RLA = ${n(s.rated_load_amps)} A; MCA is not established and remains NULL.`;
+
+    // The canonical value does not match the established MOCP — its original
+    // semantic is unresolved and nothing may be changed.
+    if (!eqMocp(p.ods)) {
+      return {
+        bucket: "amp_semantic_provenance_required",
+        evidence: equipmentEvidenceLines(eq),
+        supporting_only: [distinctNote, ...eq.ampacity_known],
+        reason: `The canonical ${n(p.ods)} A does not equal the manufacturer's established ${mocp} A MOCP for ${eqLine(eq)}, so what the canonical amps column originally represented is unresolved. No value is changed and nothing is inferred from the voltage code, capacity or sibling models.`,
+        recommendation: "FIELD_OR_DOCUMENT_VERIFICATION_REQUIRED",
+        missing_evidence: [
+          `Documentation of what the canonical ${n(p.ods)} A originally represented (design current, earlier equipment selection, installed breaker or field reading).`,
+          ...eq.ampacity_required,
+        ],
+        semantic_interpretation: `maximum_overcurrent_protection = ${mocp} A (manufacturer); canonical ${n(p.ods)} A semantic unresolved; minimum_circuit_ampacity = NULL / not verified`,
+        proposed_representation: ampacityConcepts,
+      };
+    }
+
+    // Canonical value numerically agrees with MOCP. If FarmOps holds a
+    // different non-empty value, that value's semantic/source needs review.
+    const farmopsPurportsOcp = p.farmops !== null && p.farmops !== 0 && !eqMocp(p.farmops);
+    if (farmopsPurportsOcp) {
+      return {
+        bucket: "farmops_amp_semantic_or_source_requires_review",
+        evidence: equipmentEvidenceLines(eq),
+        supporting_only: [
+          `Canonical ${n(p.ods)} A agrees numerically with the manufacturer's ${mocp} A MOCP.`,
+          distinctNote,
+        ],
+        reason: `The FarmOps ${n(p.farmops)} A is incompatible with the manufacturer's established ${mocp} A MOCP if that field purports to represent equipment OCP. It is not silently changed to ${mocp} A: its existing semantic and source must be identified first.`,
+        recommendation: "FIELD_OR_DOCUMENT_VERIFICATION_REQUIRED",
+        missing_evidence: [
+          `Identification of what the FarmOps ${n(p.farmops)} A represents (installed breaker, feeder rating, design current or an import artefact) and where it came from.`,
+          ...eq.ampacity_required,
+        ],
+        semantic_interpretation: `maximum_overcurrent_protection = ${mocp} A (manufacturer); FarmOps ${n(p.farmops)} A semantic/source unidentified; minimum_circuit_ampacity = NULL / not verified`,
+        proposed_representation: ampacityConcepts,
+      };
+    }
+
+    return {
+      bucket: "consistent_with_manufacturer_mocp",
+      evidence: equipmentEvidenceLines(eq),
+      supporting_only: [
+        `Canonical ${n(p.ods)} A equals the manufacturer's established ${mocp} A MOCP for ${eqLine(eq)}.`,
+        distinctNote,
+      ],
+      reason: `The canonical ${n(p.ods)} A agrees numerically with the manufacturer's ${mocp} A MOCP. Numerical agreement is not a claim that the canonical amps column semantically means MOCP — that requires provenance for the column itself — and the empty FarmOps value stays as it is.`,
+      recommendation: "NO_CHANGE",
+      missing_evidence: [
+        "Provenance for the canonical amps column itself before it may be declared to mean MOCP.",
+      ],
+      semantic_interpretation: `maximum_overcurrent_protection = ${mocp} A (manufacturer); canonical amps numerically consistent, semantic not asserted; minimum_circuit_ampacity = NULL / not verified`,
+      proposed_representation: ampacityConcepts,
+    };
+  }
+
   if (!eq.ampacity_verification_pending) return null;
   return {
     bucket: "equipment_identified_rating_verification_pending",
@@ -640,6 +777,12 @@ function equipmentConcepts(eq: EquipmentProvenance): AdjudicatedConcept[] {
       kind: "observed",
       source: src,
     },
+    ...eq.components.map((c) => ({
+      concept: `Equipment component — ${c.role.replace(/_/g, " ")}`,
+      value: `${c.manufacturer} ${c.model}`,
+      kind: (c.model_verified ? "observed" : "inferred_candidate") as ObservationKind,
+      source: `${c.note} ${c.model_verified ? "" : "Model suffix verification required."}`.trim(),
+    })),
     {
       concept: "Nominal supply voltage",
       value: s.nominal_supply_voltage !== null ? `${s.nominal_supply_voltage} V` : "not established",
@@ -662,6 +805,12 @@ function equipmentConcepts(eq: EquipmentProvenance): AdjudicatedConcept[] {
       concept: "Phase",
       value: s.phase ? `${s.phase}Ø` : "not established",
       kind: s.phase ? "observed" : "not_established",
+      source: src,
+    },
+    {
+      concept: "Frequency",
+      value: s.frequency_hz !== null ? `${s.frequency_hz} Hz` : "not established",
+      kind: s.frequency_hz !== null ? "observed" : "not_established",
       source: src,
     },
   ];
