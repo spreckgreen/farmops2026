@@ -11,7 +11,7 @@ import QRCode from "qrcode";
 import { panelLabelLines, panelQrUrl, type PanelLabelSource } from "@/lib/electrical-panel-access";
 import { cn } from "@/lib/utils";
 
-export type LabelFormat = "letter-4x2" | "letter-2x5" | "label-7676";
+export type LabelFormat = "letter-4x2" | "letter-2x5" | "label-7676" | "avery-8593";
 /** @deprecated use LabelFormat */
 export type QrSize = LabelFormat;
 
@@ -27,6 +27,11 @@ export interface LabelFormatSpec {
   /** Stack the QR above the text instead of beside it. */
   stacked: boolean;
   perPage: number;
+  /**
+   * Text-only shortened output: the cell is too small for a scannable QR, so the
+   * label carries the stable ID plus one condensed detail line.
+   */
+  short?: boolean;
 }
 
 export const LABEL_FORMATS: Record<LabelFormat, LabelFormatSpec> = {
@@ -60,13 +65,26 @@ export const LABEL_FORMATS: Record<LabelFormat, LabelFormatSpec> = {
     stacked: true,
     perPage: 1,
   },
+  "avery-8593": {
+    id: "avery-8593",
+    name: 'Avery 8593 — 2/3" x 3-7/16" shortened, 30 per sheet',
+    page: { widthIn: 8.5, heightIn: 11 },
+    cols: 3,
+    rows: 10,
+    qrPx: 0,
+    stacked: false,
+    perPage: 30,
+    short: true,
+  },
 };
 
 export const LABEL_FORMAT_LIST: LabelFormatSpec[] = [
   LABEL_FORMATS["letter-4x2"],
   LABEL_FORMATS["letter-2x5"],
   LABEL_FORMATS["label-7676"],
+  LABEL_FORMATS["avery-8593"],
 ];
+
 
 export function usePanelQrSvg(url: string, format: LabelFormat): string | null {
   const [svg, setSvg] = useState<string | null>(null);
