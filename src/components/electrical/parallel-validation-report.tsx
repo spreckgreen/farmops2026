@@ -399,8 +399,9 @@ export function ParallelValidationReport() {
                   No comparison rows match this filter.
                 </p>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </CollapsibleSection>
+
 
           <BooleanSemanticsPanel report={report} />
 
