@@ -338,6 +338,14 @@ export interface ComparisonRecord {
   /** The workbook states "to be determined" rather than a value. */
   tbd: boolean;
   /**
+   * Provenance for record-level drill-down (Phase 4.4b numeric work): the
+   * 1-based worksheet row the ODS value came from and the FarmOps row UUID.
+   * Optional because record- and column-level findings have no single row.
+   */
+  ods_row?: number | null;
+  farmops_uuid?: string | null;
+
+  /**
    * Phase 4.4a diagnostic for a remaining semantic-loss finding: exactly what
    * the workbook holds, the collision-safe capture key it should have been
    * preserved under, and what the FarmOps record actually holds there.
@@ -990,11 +998,14 @@ export function runParallelComparison(input: ValidationInput): ValidationReport 
           ods_worksheet: worksheet,
           ods_column: odsColumnLabel(kind, field.key),
           ods_value: odsText,
+          ods_row: odsRow.sourceRow ?? null,
           farmops_entity: def.table,
           farmops_field: field.key,
           farmops_value: fpText,
+          farmops_uuid: rec["uuid"] === undefined ? null : String(rec["uuid"] ?? "") || null,
           authority: own,
           rules,
+
         };
 
         // Tri-state semantics: TBD is never equal to blank, false, true or 0,
