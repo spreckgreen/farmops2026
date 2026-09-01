@@ -257,3 +257,31 @@
   .deck-print-root .slide-content { page-break-after: always; break-after: page; }
   @page { size: 1920px 1080px landscape; margin: 0; }
 }
+
+/* ---------- Light-mode legibility for status accent colors ----------
+ * Several screens use Tailwind's 300/400 status shades, which were picked for a
+ * dark canvas and wash out on the light theme. Darken them for light mode only.
+ */
+html:not(.dark) {
+  .text-emerald-400, .text-emerald-300 { color: oklch(0.52 0.13 158); }
+  .text-green-400 { color: oklch(0.52 0.14 150); }
+  .text-amber-400, .text-amber-300 { color: oklch(0.52 0.13 70); }
+  .text-orange-300 { color: oklch(0.53 0.16 45); }
+  .text-red-400, .text-red-300 { color: oklch(0.52 0.19 27); }
+  .text-rose-400, .text-rose-300 { color: oklch(0.52 0.19 12); }
+  .text-sky-400 { color: oklch(0.52 0.13 235); }
+  .text-blue-400, .text-blue-300 { color: oklch(0.50 0.16 260); }
+  .border-amber-300 { border-color: oklch(0.82 0.09 75); }
+  .border-emerald-300 { border-color: oklch(0.80 0.09 158); }
+  .border-red-300 { border-color: oklch(0.82 0.10 25); }
+  .bg-amber-400 { background-color: oklch(0.72 0.15 72); }
+  .bg-emerald-400 { background-color: oklch(0.62 0.14 158); }
+  .bg-orange-400 { background-color: oklch(0.66 0.17 45); }
+  .bg-red-400 { background-color: oklch(0.60 0.19 27); }
+}
+
+/* ---------- Mobile / tablet readability ---------- */
+@media (max-width: 1023px) {
+  /* Wide data tables scroll instead of squeezing text to unreadable widths. */
+  .overflow-x-auto > table, table { font-size: 0.875rem; }
+}
