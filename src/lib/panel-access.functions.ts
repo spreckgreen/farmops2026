@@ -532,15 +532,35 @@ export const extendPanelEditGrant = createServerFn({ method: "POST" })
  */
 export const revokePanelEditGrant = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .inputValidator((d: unknown) =>
+    z
+      .object({ id: z.string().uuid(), note: z.string().trim().max(300).optional() })
+      .parse(d),
+  )
   .handler(async ({ context, data }) => {
     await requireMfaAdmin(context as never);
     const db = await readerClient();
+
+    const { data: current } = await db
+      .from("electrical_panel_edit_requests")
+      .select("*")
+      .eq("id", data.id)
+      .maybeSingle();
+    if (!current) throw new Error("That request no longer exists.");
+    const existing = toRequest(current as Record<string, unknown>);
+    if (existing.status !== "approved") {
+      throw new Error("There is no approved access to terminate on that request.");
+    }
+    if (existing.revoked_at) throw new Error("That access was already terminated.");
+
+    const now = new Date().toISOString();
     const { data: updated, error } = await db
       .from("electrical_panel_edit_requests")
       .update({
-        revoked_at: new Date().toISOString(),
+        revoked_at: now,
         decided_by: context.userId,
+        decided_at: now,
+        ...(data.note?.trim() ? { decision_note: data.note.trim() } : {}),
       })
       .eq("id", data.id)
       .eq("status", "approved")
