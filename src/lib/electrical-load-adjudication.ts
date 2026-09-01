@@ -326,7 +326,7 @@ function classifyVoltsWithEquipment(
         bucket: "engineering_value_supported_by_equipment_identity",
         evidence: equipmentEvidenceLines(eq),
         supporting_only: [],
-        reason: `The identified equipment (${eqLine(eq)}) has a published supply rating class of ${cls} V, ${s.phase ?? "1"}Ø. The stored ${other} V representation is incompatible with that equipment, so the canonical ${nominal} V engineering value is supported by equipment identity.`,
+        reason: `The identified equipment (${eqLine(eq)}) has a published rated electrical supply of ${cls} V AC, ${s.phase ?? "1"}Ø${s.frequency_hz ? `, ${s.frequency_hz} Hz` : ""}. The stored ${other} V representation is incompatible with that equipment and is therefore not an alternative nameplate representation, so the canonical ${nominal} V engineering value is supported by equipment identity.`,
         recommendation: "CORRECT_FARMOPS_WITH_SEMANTIC_REPRESENTATION",
         missing_evidence: [],
         semantic_interpretation: `nominal_supply_voltage = ${nominal}; rated_equipment_voltage = ${cls} (kept verbatim, never reduced to a scalar)`,
@@ -339,8 +339,17 @@ function classifyVoltsWithEquipment(
           {
             field: "rated_equipment_voltage",
             value: cls,
-            source: `${eq.manufacturer} ${eq.model} published rating class`,
+            source: `${eq.manufacturer} ${eq.model} published rated electrical supply${s.phase ? `, ${s.phase}Ø` : ""}${s.frequency_hz ? `, ${s.frequency_hz} Hz` : ""}`,
           },
+          ...(s.frequency_hz
+            ? [
+                {
+                  field: "frequency_hz",
+                  value: String(s.frequency_hz),
+                  source: `${eq.manufacturer} ${eq.model} published rated electrical supply`,
+                },
+              ]
+            : []),
         ],
       };
     }

@@ -184,7 +184,8 @@ const BRYANT_RECORDS = (indoorNote: string): EquipmentEvidenceRecord[] => [
     model: "37MARAQ24AA3",
     source_reference: "Bryant product page — 37MARAQ ductless outdoor heat pump, 24,000 BTUh",
     evidence_type: "published_rating_class",
-    observed_or_published_value: "208/230 V, 1Ø, 24,000 BTUh / 2 ton, R-454B",
+    observed_or_published_value:
+      "Rated electrical supply 208/230 V AC, 1Ø, 60 Hz; 24,000 BTUh / 2 ton, R-454B",
     verified_at: "2026-09-01",
     verification_status: "verified_published",
   },
@@ -233,7 +234,8 @@ const BRYANT_DISCREPANCY: EquipmentDiscrepancy = {
 
 const BRYANT_AMPACITY_KNOWN = [
   "Equipment identity established: Bryant 37MARAQ24AA3 outdoor heat pump with Bryant D5MAHAQ24XA* indoor high-wall unit, 24,000 BTUh / 2 ton single-zone ductless.",
-  "Outdoor electrical rating class established as 208/230 V, 1Ø, R-454B.",
+  "Outdoor rated electrical supply established as 208/230 V AC, 1Ø, 60 Hz (R-454B).",
+  "Voltage, phase and frequency are established by model decoding and product listings; those do not establish MCA, MOCP, installed breaker rating or operating current, and none of those may be inferred from the voltage code, capacity or sibling models in the series.",
   "Supplied material mentions approximately 19 A MCA and 25 A MOCP, but not from the model-specific manufacturer table or nameplate.",
 ];
 
@@ -252,6 +254,7 @@ const bryant = (stable_id: string, indoorNote: string): EquipmentProvenance => (
     nominal_supply_voltage: 240,
     rated_equipment_voltage_class: "208/230",
     phase: "1",
+    frequency_hz: 60,
     extras: [
       { label: "Capacity", value: "24,000 BTUh / 2 ton" },
       { label: "Refrigerant", value: "R-454B" },
