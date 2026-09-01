@@ -16,6 +16,7 @@ import {
   NAMEPLATE_FOR_NOMINAL,
   NOMINAL_SUPPLY_VOLTAGES,
   isStandardOcpRating,
+  BUCKET_LABELS as BASE_BUCKET_LABELS,
   type LoadSemanticBucket,
 } from "@/lib/electrical-load-semantics";
 import {
@@ -24,16 +25,67 @@ import {
   hasVoltageConceptProvenance,
   type SemanticEvidence,
 } from "@/lib/electrical-semantic-evidence";
+import {
+  AMPACITY_SEMANTIC_FIELDS,
+  EQUIPMENT_GROUPS,
+  equipmentEvidenceLines,
+  type EquipmentDiscrepancy,
+  type EquipmentGroup,
+  type EquipmentProvenance,
+} from "@/lib/electrical-equipment-provenance";
 
-export const LOAD_ADJUDICATION_VERSION = "4.4b-load-semantic-adjudication-1";
+export const LOAD_ADJUDICATION_VERSION = "4.4b-load-semantic-adjudication-2-equipment-provenance";
 
 /** The five loads under adjudication. */
 export const ADJUDICATED_LOAD_IDS = ["FS-034", "FS-082", "FS-083", "FS-084", "FS-092"] as const;
+
+/**
+ * Adjudication buckets. The original four are kept verbatim; equipment
+ * provenance adds three outcomes so a finding never has to be flattened into
+ * "insufficient provenance" once its equipment identity is known.
+ */
+export type AdjudicationBucket =
+  | LoadSemanticBucket
+  | "calculation_basis_difference"
+  | "engineering_value_supported_by_equipment_identity"
+  | "equipment_identified_rating_verification_pending";
+
+export const ADJUDICATION_BUCKET_ORDER: AdjudicationBucket[] = [
+  "nominal_vs_nameplate_representation",
+  "calculation_basis_difference",
+  "engineering_value_supported_by_equipment_identity",
+  "equipment_identified_rating_verification_pending",
+  "current_ocp_semantic_mismatch",
+  "true_engineering_disagreement",
+  "insufficient_provenance",
+];
+
+export const ADJUDICATION_BUCKET_LABELS: Record<AdjudicationBucket, string> = {
+  ...BASE_BUCKET_LABELS,
+  calculation_basis_difference: "Calculation-basis difference",
+  engineering_value_supported_by_equipment_identity:
+    "Engineering value supported by equipment identity",
+  equipment_identified_rating_verification_pending:
+    "Equipment identified — electrical rating verification pending",
+};
+
+export const ADJUDICATION_BUCKET_CODES: Record<AdjudicationBucket, string> = {
+  true_engineering_disagreement: "TRUE_ENGINEERING_DISAGREEMENT",
+  nominal_vs_nameplate_representation: "NOMINAL_VS_NAMEPLATE_REPRESENTATION",
+  current_ocp_semantic_mismatch: "CURRENT_OCP_SEMANTIC_MISMATCH",
+  insufficient_provenance: "INSUFFICIENT_PROVENANCE",
+  calculation_basis_difference: "CALCULATION_BASIS_DIFFERENCE",
+  engineering_value_supported_by_equipment_identity:
+    "ENGINEERING_VALUE_SUPPORTED_BY_EQUIPMENT_IDENTITY",
+  equipment_identified_rating_verification_pending:
+    "EQUIPMENT_IDENTIFIED_ELECTRICAL_RATING_VERIFICATION_PENDING",
+};
 
 export type Recommendation =
   | "KEEP_ODS_AND_CORRECT_FARMOPS"
   | "KEEP_FARMOPS_AND_UPDATE_ODS"
   | "PRESERVE_BOTH_AS_DISTINCT_SEMANTICS"
+  | "CORRECT_FARMOPS_WITH_SEMANTIC_REPRESENTATION"
   | "FIELD_OR_DOCUMENT_VERIFICATION_REQUIRED"
   | "NO_CHANGE";
 
@@ -41,9 +93,12 @@ export const RECOMMENDATION_LABELS: Record<Recommendation, string> = {
   KEEP_ODS_AND_CORRECT_FARMOPS: "Keep canonical ODS, correct FarmOps",
   KEEP_FARMOPS_AND_UPDATE_ODS: "Keep FarmOps, update canonical ODS",
   PRESERVE_BOTH_AS_DISTINCT_SEMANTICS: "Preserve both as distinct semantics",
+  CORRECT_FARMOPS_WITH_SEMANTIC_REPRESENTATION:
+    "Correct FarmOps using the additive semantic representation (no scalar collapse)",
   FIELD_OR_DOCUMENT_VERIFICATION_REQUIRED: "Field or document verification required",
   NO_CHANGE: "No change",
 };
+
 
 /* ------------------------------------------------------------- provenance */
 
@@ -79,11 +134,20 @@ export interface AdjudicationLoadInput {
   /** Values both sides agree on, used to prove/refute a VA basis. */
   agreed?: Partial<Record<"volts" | "amps" | "connected_va", number>>;
   evidence?: SemanticEvidence;
+  /** Verified equipment provenance, when equipment identity is established. */
+  equipment?: EquipmentProvenance;
   /** Free-text open questions carried from prior phases. */
   open_questions?: string[];
 }
 
 /* ---------------------------------------------------------------- outputs */
+
+/** An additive semantic representation proposal — documentation only. */
+export interface ProposedRepresentation {
+  field: string;
+  value: string;
+  source: string;
+}
 
 export interface AdjudicatedFinding {
   stable_id: string;
@@ -94,13 +158,19 @@ export interface AdjudicatedFinding {
   farmops_value: number | null;
   ods_provenance: string;
   farmops_provenance: string;
-  bucket: LoadSemanticBucket;
+  bucket: AdjudicationBucket;
   /** Provenance that would justify a semantic reclassification, when present. */
   evidence: string[];
+  /** Equipment evidence records backing the classification. */
+  equipment_evidence: string[];
   /** Numeric facts that support but never establish a classification. */
   supporting_only: string[];
+  /** Plain-language semantic reading of the two values. */
+  semantic_interpretation: string;
   reason: string;
   recommendation: Recommendation;
+  /** Additive fields proposed for this finding. Nothing is applied. */
+  proposed_representation: ProposedRepresentation[];
   /** What is missing before the finding can leave insufficient provenance. */
   missing_evidence: string[];
 }
@@ -120,19 +190,38 @@ export interface AdjudicatedLoad {
   equipment: string;
   concepts: AdjudicatedConcept[];
   unresolved_questions: string[];
-  buckets: LoadSemanticBucket[];
+  buckets: AdjudicationBucket[];
+  equipment_evidence: string[];
+  discrepancies: EquipmentDiscrepancy[];
+  group_id: string | null;
+}
+
+export interface AdjudicationComparisonGroup extends EquipmentGroup {
+  loads: {
+    stable_id: string;
+    description: string;
+    ods: Partial<Record<"volts" | "amps" | "connected_va", number | null>>;
+    farmops: Partial<Record<"volts" | "amps" | "connected_va", number | null>>;
+    buckets: AdjudicationBucket[];
+  }[];
+  discrepancies: EquipmentDiscrepancy[];
 }
 
 export interface LoadAdjudicationReport {
   version: string;
   generated_at: string;
   findings: AdjudicatedFinding[];
-  counts: Record<LoadSemanticBucket, number>;
+  counts: Record<AdjudicationBucket, number>;
   loads: AdjudicatedLoad[];
+  /** Same-equipment comparison groups (e.g. the three Bryant installations). */
+  groups: AdjudicationComparisonGroup[];
+  /** Evidence discrepancies preserved rather than silently resolved. */
+  discrepancies: (EquipmentDiscrepancy & { stable_ids: string[] })[];
   total_findings: number;
   read_only: true;
   apply_available: false;
 }
+
 
 const UNITS: Record<string, string> = {
   volts: "V",
@@ -164,7 +253,178 @@ const close = (a: number, b: number) => Math.abs(a - b) <= Math.max(1, Math.abs(
 
 /* ----------------------------------------------------------- classifiers */
 
-function classifyVolts(load: AdjudicationLoadInput, p: AdjudicationValuePair): Omit<AdjudicatedFinding, "stable_id" | "description" | "field" | "unit" | "ods_value" | "farmops_value" | "ods_provenance" | "farmops_provenance"> {
+type Verdict = {
+  bucket: AdjudicationBucket;
+  evidence: string[];
+  supporting_only: string[];
+  reason: string;
+  recommendation: Recommendation;
+  missing_evidence: string[];
+  semantic_interpretation?: string;
+  proposed_representation?: ProposedRepresentation[];
+};
+
+const eqLine = (eq: EquipmentProvenance) =>
+  `${eq.manufacturer} ${eq.model} — ${eq.equipment_class}`;
+
+/**
+ * Equipment-provenance voltage adjudication. Runs before the generic gate and
+ * only when equipment identity is established by evidence records.
+ */
+function classifyVoltsWithEquipment(
+  eq: EquipmentProvenance,
+  p: AdjudicationValuePair,
+): Verdict | null {
+  const s = eq.semantics;
+  const nominal = s.nominal_supply_voltage;
+  if (nominal === null || p.ods === null || p.farmops === null) return null;
+  const other = p.ods === nominal ? p.farmops : p.farmops === nominal ? p.ods : null;
+  if (other === null) return null;
+
+  // 1. Nominal supply vs equipment rated nameplate voltage — both correct.
+  if (s.rated_nameplate_voltage !== null && other === s.rated_nameplate_voltage) {
+    return {
+      bucket: "nominal_vs_nameplate_representation",
+      evidence: equipmentEvidenceLines(eq),
+      supporting_only: [],
+      reason: `Equipment identity is established as ${eqLine(eq)}. ${nominal} V is the canonical engineering / site circuit designation and ${other} V is the manufacturer's rated nameplate designation. Neither is a correction of the other.`,
+      recommendation: "PRESERVE_BOTH_AS_DISTINCT_SEMANTICS",
+      missing_evidence: [],
+      semantic_interpretation: `nominal_supply_voltage = ${nominal} V; rated_nameplate_voltage = ${other} V; phase = ${s.phase ?? "not established"}`,
+      proposed_representation: [
+        {
+          field: "nominal_supply_voltage",
+          value: `${nominal} V`,
+          source: "Canonical engineering designation (unchanged ODS)",
+        },
+        {
+          field: "rated_nameplate_voltage",
+          value: `${other} V`,
+          source: `${eq.manufacturer} ${eq.model} published rating`,
+        },
+        ...(s.phase
+          ? [
+              {
+                field: "phase",
+                value: s.phase,
+                source: `${eq.manufacturer} ${eq.model} published rating`,
+              },
+            ]
+          : []),
+      ],
+    };
+  }
+
+  // 2. The stored value is incompatible with the identified equipment's
+  //    published rating class — the canonical engineering value is supported.
+  const cls = s.rated_equipment_voltage_class;
+  if (cls) {
+    const classValues = cls.split("/").map((x) => Number(x.trim()));
+    const compatible = classValues.some((v) => Math.abs(v - other) <= 12);
+    if (!compatible) {
+      return {
+        bucket: "engineering_value_supported_by_equipment_identity",
+        evidence: equipmentEvidenceLines(eq),
+        supporting_only: [],
+        reason: `The identified equipment (${eqLine(eq)}) has a published supply rating class of ${cls} V, ${s.phase ?? "1"}Ø. The stored ${other} V representation is incompatible with that equipment, so the canonical ${nominal} V engineering value is supported by equipment identity.`,
+        recommendation: "CORRECT_FARMOPS_WITH_SEMANTIC_REPRESENTATION",
+        missing_evidence: [],
+        semantic_interpretation: `nominal_supply_voltage = ${nominal}; rated_equipment_voltage = ${cls} (kept verbatim, never reduced to a scalar)`,
+        proposed_representation: [
+          {
+            field: "nominal_supply_voltage",
+            value: String(nominal),
+            source: "Canonical engineering designation (unchanged ODS)",
+          },
+          {
+            field: "rated_equipment_voltage",
+            value: cls,
+            source: `${eq.manufacturer} ${eq.model} published rating class`,
+          },
+        ],
+      };
+    }
+  }
+  return null;
+}
+
+/**
+ * Amperage is never adjudicated from equipment identity alone. Once identity is
+ * known the finding says what provenance exists and exactly what is still
+ * required, instead of a bare "insufficient provenance".
+ */
+function classifyAmpsWithEquipment(
+  eq: EquipmentProvenance,
+  p: AdjudicationValuePair,
+): Verdict | null {
+  if (!eq.ampacity_verification_pending) return null;
+  return {
+    bucket: "equipment_identified_rating_verification_pending",
+    evidence: equipmentEvidenceLines(eq),
+    supporting_only: eq.ampacity_known,
+    reason: `Equipment identity is established (${eqLine(eq)}), but the model-specific manufacturer electrical table / nameplate has not been established strongly enough to authorise migration. ${n(p.ods)} A and ${n(p.farmops)} A may represent materially different quantities, so neither value wins and no reconciliation is proposed.`,
+    recommendation: "FIELD_OR_DOCUMENT_VERIFICATION_REQUIRED",
+    missing_evidence: eq.ampacity_required,
+    semantic_interpretation:
+      "Current must first be split into equipment_operating_current / equipment_fla, minimum_circuit_ampacity, maximum_overcurrent_protection, installed_ocp_rating and design_circuit_ampacity before either value can be interpreted.",
+    proposed_representation: AMPACITY_SEMANTIC_FIELDS.map((f) => ({
+      field: f.field,
+      value: "not established — verification pending",
+      source: f.why,
+    })),
+  };
+}
+
+/** VA differences attributable to a documented, independently established basis. */
+function classifyVaWithEquipment(
+  eq: EquipmentProvenance,
+  load: AdjudicationLoadInput,
+  p: AdjudicationValuePair,
+): Verdict | null {
+  const basis = eq.va_basis_amps;
+  const volts = load.fields.volts;
+  const s = eq.semantics;
+  if (
+    basis === null ||
+    !volts ||
+    volts.ods === null ||
+    volts.farmops === null ||
+    p.ods === null ||
+    p.farmops === null ||
+    s.nominal_supply_voltage === null
+  ) {
+    return null;
+  }
+  if (!close(volts.ods * basis, p.ods) || !close(volts.farmops * basis, p.farmops)) return null;
+
+  const nominalSide = volts.ods === s.nominal_supply_voltage ? p.ods : p.farmops;
+  const ratedSide = nominalSide === p.ods ? p.farmops : p.ods;
+  return {
+    bucket: "calculation_basis_difference",
+    evidence: equipmentEvidenceLines(eq),
+    supporting_only: [
+      `${volts.ods} V × ${basis} A = ${n(p.ods)} VA and ${volts.farmops} V × ${basis} A = ${n(p.farmops)} VA.`,
+      `Basis current established independently: ${eq.va_basis_source}`,
+    ],
+    reason: `Both figures are correct on their own stated basis: ${nominalSide} VA on the nominal-supply basis and ${ratedSide} VA on the equipment-rated basis, using the independently established ${basis} A basis current. This is a calculation-basis difference, not an engineering disagreement.`,
+    recommendation: "PRESERVE_BOTH_AS_DISTINCT_SEMANTICS",
+    missing_evidence: [],
+    semantic_interpretation: `nominal-supply basis VA = ${nominalSide}; equipment-rated basis VA = ${ratedSide}; basis current = ${basis} A`,
+    proposed_representation: [
+      {
+        field: "connected_va_basis",
+        value: "nominal_supply | equipment_rated",
+        source: `Both VA figures share the ${basis} A basis current; only the voltage basis differs`,
+      },
+    ],
+  };
+}
+
+function classifyVolts(load: AdjudicationLoadInput, p: AdjudicationValuePair): Verdict {
+  if (load.equipment) {
+    const v = classifyVoltsWithEquipment(load.equipment, p);
+    if (v) return v;
+  }
   const pair = utilizationPair(p.ods, p.farmops);
   const evidence = evidenceCitations(load.evidence).map((c) => `${c.source}: ${c.detail}`);
   const conceptProven = hasVoltageConceptProvenance(load.evidence);
@@ -218,7 +478,11 @@ function classifyVolts(load: AdjudicationLoadInput, p: AdjudicationValuePair): O
   };
 }
 
-function classifyAmps(load: AdjudicationLoadInput, p: AdjudicationValuePair) {
+function classifyAmps(load: AdjudicationLoadInput, p: AdjudicationValuePair): Verdict {
+  if (load.equipment) {
+    const v = classifyAmpsWithEquipment(load.equipment, p);
+    if (v) return v;
+  }
   const evidence = evidenceCitations(load.evidence).map((c) => `${c.source}: ${c.detail}`);
   const ocpProven = hasOcpProvenance(load.evidence);
   const hi = Math.max(p.ods ?? 0, p.farmops ?? 0);
@@ -285,7 +549,15 @@ function classifyAmps(load: AdjudicationLoadInput, p: AdjudicationValuePair) {
   };
 }
 
-function classifyVa(load: AdjudicationLoadInput, field: string, p: AdjudicationValuePair) {
+function classifyVa(
+  load: AdjudicationLoadInput,
+  field: string,
+  p: AdjudicationValuePair,
+): Verdict {
+  if (load.equipment) {
+    const v = classifyVaWithEquipment(load.equipment, load, p);
+    if (v) return v;
+  }
   const evidence = evidenceCitations(load.evidence).map((c) => `${c.source}: ${c.detail}`);
   const volts = load.fields.volts;
   const ampsPair = load.fields.amps;
@@ -349,7 +621,68 @@ function classifyVa(load: AdjudicationLoadInput, field: string, p: AdjudicationV
 
 /* ----------------------------------------------------------- adjudication */
 
+function equipmentConcepts(eq: EquipmentProvenance): AdjudicatedConcept[] {
+  const s = eq.semantics;
+  const src = `${eq.manufacturer} ${eq.model} evidence records`;
+  const out: AdjudicatedConcept[] = [
+    {
+      concept: "Equipment identity",
+      value: `${eq.manufacturer} ${eq.model} — ${eq.equipment_class}`,
+      kind: "observed",
+      source: src,
+    },
+    {
+      concept: "Nominal supply voltage",
+      value: s.nominal_supply_voltage !== null ? `${s.nominal_supply_voltage} V` : "not established",
+      kind: s.nominal_supply_voltage !== null ? "observed" : "not_established",
+      source: "Canonical engineering designation (ODS, unchanged)",
+    },
+    {
+      concept: "Rated / nameplate voltage",
+      value:
+        s.rated_nameplate_voltage !== null
+          ? `${s.rated_nameplate_voltage} V`
+          : (s.rated_equipment_voltage_class ?? "not established"),
+      kind:
+        s.rated_nameplate_voltage !== null || s.rated_equipment_voltage_class
+          ? "observed"
+          : "not_established",
+      source: src,
+    },
+    {
+      concept: "Phase",
+      value: s.phase ? `${s.phase}Ø` : "not established",
+      kind: s.phase ? "observed" : "not_established",
+      source: src,
+    },
+  ];
+  for (const f of AMPACITY_SEMANTIC_FIELDS) {
+    const v = s[f.field as keyof typeof s];
+    const num = typeof v === "number" ? v : null;
+    out.push({
+      concept: f.label,
+      value: num !== null ? `${num} A` : "not established",
+      kind: num !== null ? "observed" : "not_established",
+      source: num !== null ? src : eq.ampacity_required[0] ?? "Verification pending",
+    });
+  }
+  out.push({
+    concept: "Connected VA basis",
+    value:
+      eq.va_basis_amps !== null
+        ? `nominal_supply and equipment_rated, both at ${eq.va_basis_amps} A`
+        : "not established",
+    kind: eq.va_basis_amps !== null ? "observed" : "not_established",
+    source: eq.va_basis_source ?? "No independently established basis current",
+  });
+  for (const x of s.extras) {
+    out.push({ concept: x.label, value: x.value, kind: "observed", source: src });
+  }
+  return out;
+}
+
 function conceptsFor(load: AdjudicationLoadInput): AdjudicatedConcept[] {
+  if (load.equipment) return equipmentConcepts(load.equipment);
   const volts = load.fields.volts;
   const amps = load.fields.amps;
   const va = load.fields.connected_va;
@@ -488,17 +821,17 @@ export function adjudicateLoads(
         farmops_value: p.farmops,
         ods_provenance: p.ods_provenance,
         farmops_provenance: p.farmops_provenance,
+        equipment_evidence: equipmentEvidenceLines(load.equipment),
         ...verdict,
+        semantic_interpretation: verdict.semantic_interpretation ?? "Not established.",
+        proposed_representation: verdict.proposed_representation ?? [],
       });
     }
   }
 
-  const counts: Record<LoadSemanticBucket, number> = {
-    true_engineering_disagreement: 0,
-    nominal_vs_nameplate_representation: 0,
-    current_ocp_semantic_mismatch: 0,
-    insufficient_provenance: 0,
-  };
+  const counts = Object.fromEntries(
+    ADJUDICATION_BUCKET_ORDER.map((b) => [b, 0]),
+  ) as Record<AdjudicationBucket, number>;
   for (const f of findings) counts[f.bucket] += 1;
 
   const summary = [...loads]
@@ -517,7 +850,55 @@ export function adjudicateLoads(
       buckets: [
         ...new Set(findings.filter((f) => f.stable_id === load.stable_id).map((f) => f.bucket)),
       ],
+      equipment_evidence: equipmentEvidenceLines(load.equipment),
+      discrepancies: load.equipment?.discrepancies ?? [],
+      group_id: load.equipment?.group_id ?? null,
     }));
+
+  // Same-equipment comparison groups: one configuration, several installations.
+  const groups: AdjudicationComparisonGroup[] = EQUIPMENT_GROUPS.filter((g) =>
+    summary.some((l) => l.group_id === g.id),
+  ).map((g) => {
+    const members = g.members
+      .map((id) => loads.find((l) => l.stable_id === id))
+      .filter((l): l is AdjudicationLoadInput => Boolean(l));
+    return {
+      ...g,
+      loads: members.map((l) => ({
+        stable_id: l.stable_id,
+        description: l.description,
+        ods: {
+          volts: l.fields.volts?.ods ?? l.agreed?.volts ?? null,
+          amps: l.fields.amps?.ods ?? l.agreed?.amps ?? null,
+          connected_va: l.fields.connected_va?.ods ?? l.agreed?.connected_va ?? null,
+        },
+        farmops: {
+          volts: l.fields.volts?.farmops ?? l.agreed?.volts ?? null,
+          amps: l.fields.amps?.farmops ?? l.agreed?.amps ?? null,
+          connected_va: l.fields.connected_va?.farmops ?? l.agreed?.connected_va ?? null,
+        },
+        buckets: summary.find((s) => s.stable_id === l.stable_id)?.buckets ?? [],
+      })),
+      discrepancies: [
+        ...new Map(
+          members.flatMap((l) => (l.equipment?.discrepancies ?? []).map((d) => [d.code, d])),
+        ).values(),
+      ],
+    };
+  });
+
+  // Discrepancies are surfaced, never auto-resolved.
+  const discrepancies = [
+    ...summary
+      .flatMap((l) => l.discrepancies.map((d) => ({ d, id: l.stable_id })))
+      .reduce((m, { d, id }) => {
+        const cur = m.get(d.code) ?? { ...d, stable_ids: [] as string[] };
+        cur.stable_ids.push(id);
+        m.set(d.code, cur);
+        return m;
+      }, new Map<string, EquipmentDiscrepancy & { stable_ids: string[] }>())
+      .values(),
+  ];
 
   return {
     version: LOAD_ADJUDICATION_VERSION,
@@ -525,6 +906,8 @@ export function adjudicateLoads(
     findings,
     counts,
     loads: summary,
+    groups,
+    discrepancies,
     total_findings: findings.length,
     read_only: true,
     apply_available: false,
@@ -552,6 +935,9 @@ export function adjudicationCsv(report: LoadAdjudicationReport): string {
     "evidence",
     "supporting_only",
     "reason",
+    "semantic_interpretation",
+    "equipment_evidence",
+    "proposed_representation",
     "missing_evidence",
     "recommendation",
   ];
@@ -571,6 +957,9 @@ export function adjudicationCsv(report: LoadAdjudicationReport): string {
         f.evidence.join(" | ") || "none",
         f.supporting_only.join(" | "),
         f.reason,
+        f.semantic_interpretation,
+        f.equipment_evidence.join(" | ") || "none",
+        f.proposed_representation.map((r) => `${r.field}=${r.value}`).join(" | ") || "none",
         f.missing_evidence.join(" | "),
         f.recommendation,
       ]
@@ -591,10 +980,9 @@ export function adjudicationMarkdown(report: LoadAdjudicationReport): string {
     "",
     "## Bucket totals",
     "",
-    `- TRUE_ENGINEERING_DISAGREEMENT: ${report.counts.true_engineering_disagreement}`,
-    `- NOMINAL_VS_NAMEPLATE_REPRESENTATION: ${report.counts.nominal_vs_nameplate_representation}`,
-    `- CURRENT_OCP_SEMANTIC_MISMATCH: ${report.counts.current_ocp_semantic_mismatch}`,
-    `- INSUFFICIENT_PROVENANCE: ${report.counts.insufficient_provenance}`,
+    ...ADJUDICATION_BUCKET_ORDER.map(
+      (b) => `- ${ADJUDICATION_BUCKET_CODES[b]}: ${report.counts[b]}`,
+    ),
     `- Total: ${report.total_findings}`,
     "",
     "## Findings",
@@ -609,6 +997,9 @@ export function adjudicationMarkdown(report: LoadAdjudicationReport): string {
       `- FarmOps: ${n(f.farmops_value)} (${f.farmops_provenance})`,
       `- Affirmative evidence: ${f.evidence.length ? f.evidence.join("; ") : "none on file"}`,
       `- Supporting only: ${f.supporting_only.join(" ") || "—"}`,
+      `- Semantic interpretation: ${f.semantic_interpretation}`,
+      `- Equipment evidence: ${f.equipment_evidence.length ? f.equipment_evidence.join("; ") : "none on file"}`,
+      `- Proposed additive representation: ${f.proposed_representation.map((r) => `${r.field} = ${r.value} (${r.source})`).join("; ") || "none"}`,
       `- Reason: ${f.reason}`,
       `- Missing evidence: ${f.missing_evidence.join("; ") || "—"}`,
       `- Recommendation: ${f.recommendation}`,
@@ -625,6 +1016,30 @@ export function adjudicationMarkdown(report: LoadAdjudicationReport): string {
       `- Unresolved: ${l.unresolved_questions.length ? l.unresolved_questions.join("; ") : "none"}`,
       "",
     );
+  }
+  if (report.groups.length) {
+    lines.push("## Same-equipment comparison groups", "");
+    for (const g of report.groups) {
+      lines.push(`### ${g.label}`, "", `- ${g.description}`);
+      for (const m of g.loads) {
+        lines.push(
+          `- ${m.stable_id} (${m.description}): ODS ${n(m.ods.volts ?? null)} V / ${n(m.ods.amps ?? null)} A / ${n(m.ods.connected_va ?? null)} VA · FarmOps ${n(m.farmops.volts ?? null)} V / ${n(m.farmops.amps ?? null)} A / ${n(m.farmops.connected_va ?? null)} VA`,
+        );
+      }
+      lines.push("");
+    }
+  }
+  if (report.discrepancies.length) {
+    lines.push("## Preserved evidence discrepancies", "");
+    for (const d of report.discrepancies) {
+      lines.push(
+        `### ${d.code} (${d.stable_ids.join(", ")})`,
+        "",
+        `- ${d.detail}`,
+        `- Resolves with: ${d.resolves_with.join("; ")}`,
+        "",
+      );
+    }
   }
   return lines.join("\n");
 }
