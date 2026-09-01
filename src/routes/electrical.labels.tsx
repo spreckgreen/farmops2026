@@ -1,5 +1,8 @@
-// Panel QR labels: print a sheet (or one jumbo label) for every panel, and scan
-// a label with the device camera to open that panel's read-only sheet.
+// Field labels for the whole electrical record: print QR labels for panels,
+// conduits, junction boxes, feeders, branch runs, loads, circuit groups,
+// equipment racks, power assets and powered devices — one type at a time, or a
+// print group covering several types in one job — and scan a label with the
+// device camera to open that record.
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
@@ -15,14 +18,28 @@ import {
   labelPrintCss,
   type LabelFormat,
 } from "@/components/electrical/panel-qr-label";
+import { EntityQrLabel } from "@/components/electrical/entity-qr-label";
 import { requireAuthenticatedUser } from "@/lib/auth-route";
-import { listPanelLabels, type PanelLabel } from "@/lib/panel-access.functions";
+import { listElectricalLabels } from "@/lib/electrical-labels.functions";
+import {
+  LABEL_KINDS,
+  PRINT_GROUPS,
+  filterLabelRecords,
+  locationOptions,
+  panelOptions,
+  sortLabelRecords,
+  type LabelKind,
+  type LabelRecord,
+  type LabelScopeMode,
+} from "@/lib/electrical-labels";
+import { ENTITIES } from "@/lib/electrical-entities";
 import { parsePanelQr } from "@/lib/electrical-panel-access";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -37,17 +54,17 @@ export const Route = createFileRoute("/electrical/labels")({
   component: PanelLabelsPage,
   head: () => ({
     meta: [
-      { title: "Panel QR Labels — Bostead Farms Electrical" },
+      { title: "Electrical QR Labels — Bostead Farms" },
       {
         name: "description",
         content:
-          "Print scannable QR labels for every electrical panel and scan one in the field to open its current read-only panel sheet.",
+          "Print scannable QR labels for panels, conduits, junction boxes, branch runs, loads, racks and powered devices, and scan one in the field to open its record.",
       },
-      { property: "og:title", content: "Panel QR Labels — Bostead Farms Electrical" },
+      { property: "og:title", content: "Electrical QR Labels — Bostead Farms" },
       {
         property: "og:description",
         content:
-          "Large printable panel labels with QR codes that open the live panel record for the electrician.",
+          "Printable label sheets and label-printer stock for every electrical record, with QR codes that open the live record.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -75,13 +92,18 @@ function QrScanner({ onPanel }: { onPanel: (panelId: string) => void }) {
           { fps: 10, qrbox: { width: 240, height: 240 } },
           (decoded: string) => {
             const panelId = parsePanelQr(decoded);
-            if (!panelId) {
-              setError(`That code isn't a panel label: ${decoded.slice(0, 60)}`);
+            const item = decoded.match(/\/electrical\/item\/([a-z_]+)\/([^/?#\s]+)/i);
+            if (!panelId && !item) {
+              setError(`That code isn't an electrical label: ${decoded.slice(0, 60)}`);
               return;
             }
             void scanner.stop().then(() => scanner.clear()).catch(() => undefined);
             setActive(false);
-            onPanel(panelId);
+            if (item) {
+              window.location.assign(`/electrical/item/${item[1]!.toLowerCase()}/${item[2]}`);
+              return;
+            }
+            onPanel(panelId!);
           },
           () => undefined,
         );
@@ -114,7 +136,7 @@ function QrScanner({ onPanel }: { onPanel: (panelId: string) => void }) {
             </>
           ) : (
             <>
-              <Camera className="mr-1 h-4 w-4" /> Scan a panel label
+              <Camera className="mr-1 h-4 w-4" /> Scan a label
             </>
           )}
         </Button>
@@ -125,29 +147,73 @@ function QrScanner({ onPanel }: { onPanel: (panelId: string) => void }) {
   );
 }
 
+function gridClass(format: LabelFormat): string {
+  if (format === "avery-8593") return "panel-label-grid grid gap-2 sm:grid-cols-3";
+  if (format === "letter-4x2") return "panel-label-grid grid gap-3 sm:grid-cols-2 lg:grid-cols-4";
+  if (format === "letter-2x5") return "panel-label-grid grid gap-3 sm:grid-cols-2";
+  return "panel-label-grid grid grid-cols-1 gap-4 sm:max-w-sm";
+}
+
+function paperNote(format: LabelFormat): string {
+  switch (format) {
+    case "label-7676":
+      return '2.99" x 2.99" label stock';
+    case "avery-8593":
+      return 'Avery 8593 file-folder label sheets (8.5" x 11")';
+    default:
+      return '8.5" x 11" letter';
+  }
+}
+
 function PanelLabelsPage() {
   const navigate = useNavigate();
-  const fetchLabels = useServerFn(listPanelLabels);
-  const [filter, setFilter] = useState("");
+  const fetchLabels = useServerFn(listElectricalLabels);
+
+  // Selection: one label type, or a print group covering several types.
+  const [selection, setSelection] = useState<string>("type:panel");
   const [format, setFormat] = useState<LabelFormat>("letter-2x5");
+  const [scopeMode, setScopeMode] = useState<LabelScopeMode>("all");
+  const [scopeValue, setScopeValue] = useState<string>("");
+  const [filter, setFilter] = useState("");
   const [manual, setManual] = useState("");
 
-  const labels = useQuery({ queryKey: ["panel-labels"], queryFn: () => fetchLabels() });
+  const kinds: LabelKind[] = useMemo(() => {
+    if (selection.startsWith("group:")) {
+      const group = PRINT_GROUPS.find((g) => g.id === selection.slice(6));
+      return group ? group.kinds : ["panel"];
+    }
+    return [selection.slice(5) as LabelKind];
+  }, [selection]);
+
+  const labels = useQuery({
+    queryKey: ["electrical-labels", kinds.join("+")],
+    queryFn: () => fetchLabels({ data: { kinds } }),
+  });
+
   const origin = typeof window === "undefined" ? "" : window.location.origin;
+  const all: LabelRecord[] = labels.data ?? [];
+
+  const panels = useMemo(() => panelOptions(all), [all]);
+  const locations = useMemo(() => locationOptions(all), [all]);
+
+  // Records to print, split per kind and ordered panel → walk order → ID.
+  const sections = useMemo(() => {
+    const scoped = filterLabelRecords(all, { mode: scopeMode, value: scopeValue }, filter);
+    return kinds
+      .map((kind) => ({
+        kind,
+        records: sortLabelRecords(scoped.filter((r) => r.kind === kind)),
+      }))
+      .filter((s) => s.records.length > 0 || kinds.length === 1);
+  }, [all, kinds, scopeMode, scopeValue, filter]);
+
+  const total = sections.reduce((n, s) => n + s.records.length, 0);
+  const perPage = LABEL_FORMATS[format].perPage;
+  // Each kind starts a new sheet, so pages are counted per section.
+  const pages = sections.reduce((n, s) => n + Math.ceil(s.records.length / perPage), 0);
 
   const openPanel = (panelId: string) =>
     navigate({ to: "/electrical/panel/$panelId", params: { panelId } });
-
-  const visible = useMemo(() => {
-    const rows: PanelLabel[] = labels.data ?? [];
-    const q = filter.trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter((r) =>
-      [r.panel_id, r.description, r.building, r.grid, r.feeder_source]
-        .filter(Boolean)
-        .some((v) => String(v).toLowerCase().includes(q)),
-    );
-  }, [labels.data, filter]);
 
   return (
     <ElectricalGate>
@@ -155,24 +221,45 @@ function PanelLabelsPage() {
         <Card className="print:hidden">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
-              <QrCode className="h-4 w-4" /> Panel labels
+              <QrCode className="h-4 w-4" /> Electrical labels
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Each QR code opens that panel's current record, read-only. An electrician can request a
-              24-hour edit window from the panel sheet; an administrator approves it.
+              Every label's QR opens that record. Panel labels open the read-only panel sheet, where
+              an electrician can request a temporary edit window; all other labels open the record's
+              detail page. Stable IDs on labels are permanent — printing never changes one.
             </p>
-            <div className="grid gap-3 sm:grid-cols-3">
+
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <div className="space-y-1">
-                <Label htmlFor="label-filter">Filter panels</Label>
-                <Input
-                  id="label-filter"
-                  value={filter}
-                  onChange={(e) => setFilter(e.target.value)}
-                  placeholder="PNL-H1, Farm Shop, grid…"
-                />
+                <Label htmlFor="label-type">Label type or print group</Label>
+                <Select
+                  value={selection}
+                  onValueChange={(v) => {
+                    setSelection(v);
+                    setScopeMode("all");
+                    setScopeValue("");
+                  }}
+                >
+                  <SelectTrigger id="label-type">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {LABEL_KINDS.map((k) => (
+                      <SelectItem key={k} value={`type:${k}`}>
+                        {ENTITIES[k].title}
+                      </SelectItem>
+                    ))}
+                    {PRINT_GROUPS.map((g) => (
+                      <SelectItem key={g.id} value={`group:${g.id}`}>
+                        Group · {g.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
+
               <div className="space-y-1">
                 <Label htmlFor="label-size">Print format</Label>
                 <Select value={format} onValueChange={(v) => setFormat(v as LabelFormat)}>
@@ -187,6 +274,62 @@ function PanelLabelsPage() {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="label-scope">Print scope</Label>
+                <Select
+                  value={scopeMode}
+                  onValueChange={(v) => {
+                    setScopeMode(v as LabelScopeMode);
+                    setScopeValue("");
+                  }}
+                >
+                  <SelectTrigger id="label-scope">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All records</SelectItem>
+                    <SelectItem value="panel">One panel</SelectItem>
+                    <SelectItem value="location">One location</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="scope-value">
+                  {scopeMode === "location" ? "Location" : "Panel"}
+                </Label>
+                <Select
+                  value={scopeValue}
+                  onValueChange={setScopeValue}
+                  disabled={scopeMode === "all"}
+                >
+                  <SelectTrigger id="scope-value">
+                    <SelectValue
+                      placeholder={scopeMode === "all" ? "Not scoped" : "Choose one…"}
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(scopeMode === "location" ? locations : panels).map((v) => (
+                      <SelectItem key={v} value={v}>
+                        {v}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1">
+                <Label htmlFor="label-filter">Filter</Label>
+                <Input
+                  id="label-filter"
+                  value={filter}
+                  onChange={(e) => setFilter(e.target.value)}
+                  placeholder="CON-011, PNL-H1, Farm Shop, grid…"
+                />
               </div>
               <div className="space-y-1">
                 <Label htmlFor="manual-id">Open a panel by ID</Label>
@@ -214,19 +357,32 @@ function PanelLabelsPage() {
                 </form>
               </div>
             </div>
+
             <QrScanner onPanel={(panelId) => void openPanel(panelId)} />
+
+            {scopeMode !== "all" && !scopeValue ? (
+              <p className="text-xs text-muted-foreground">
+                Choose a {scopeMode === "location" ? "location" : "panel"} to narrow the sheet.
+                Records with no {scopeMode === "location" ? "recorded location" : "assigned panel"}{" "}
+                stay printable under “All records”.
+              </p>
+            ) : null}
+
             <div className="flex flex-wrap items-center gap-3">
-              <Button variant="outline" size="sm" onClick={() => window.print()}>
-                <Printer className="mr-1 h-4 w-4" /> Print {visible.length} label
-                {visible.length === 1 ? "" : "s"}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.print()}
+                disabled={!total}
+              >
+                <Printer className="mr-1 h-4 w-4" /> Print {total} label{total === 1 ? "" : "s"}
               </Button>
               <p className="text-xs text-muted-foreground">
-                {LABEL_FORMATS[format].perPage} per page ·{" "}
-                {Math.ceil(visible.length / LABEL_FORMATS[format].perPage)} page
-                {Math.ceil(visible.length / LABEL_FORMATS[format].perPage) === 1 ? "" : "s"}. Set the
-                printer paper to{" "}
-                {format === "label-7676" ? '2.99" x 2.99" label stock' : '8.5" x 11" letter'} and turn
-                off scaling.
+                {perPage} per page · {pages} page{pages === 1 ? "" : "s"}. Set the printer paper to{" "}
+                {paperNote(format)} and turn off scaling.
+                {LABEL_FORMATS[format].short
+                  ? " Shortened output: stable ID plus one condensed line, no QR — the cell is too small to scan reliably."
+                  : ""}
               </p>
             </div>
           </CardContent>
@@ -237,30 +393,66 @@ function PanelLabelsPage() {
         ) : labels.error ? (
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Couldn't load panels</CardTitle>
+              <CardTitle className="text-base">Couldn't load labels</CardTitle>
             </CardHeader>
             <CardContent className="text-sm text-muted-foreground">
               {labels.error instanceof Error ? labels.error.message : "Unknown error."}
             </CardContent>
           </Card>
         ) : (
-          <div
-            className={
-              format === "letter-4x2"
-                ? "panel-label-grid grid gap-3 sm:grid-cols-2 lg:grid-cols-4"
-                : format === "letter-2x5"
-                  ? "panel-label-grid grid gap-3 sm:grid-cols-2"
-                  : "panel-label-grid grid grid-cols-1 gap-4 sm:max-w-sm"
-            }
-          >
+          <div className="space-y-6">
             {/* Page geometry for the selected label stock; only applies when printing. */}
             <style dangerouslySetInnerHTML={{ __html: labelPrintCss(format) }} />
-            {visible.map((panel) => (
-              <PanelQrLabel key={panel.id} panel={panel} origin={origin} format={format} />
+            <style
+              dangerouslySetInnerHTML={{
+                __html:
+                  "@media print { .label-section + .label-section { break-before: page; page-break-before: always; } }",
+              }}
+            />
+            {sections.map((section) => (
+              <section key={section.kind} className="label-section space-y-2">
+                {kinds.length > 1 ? (
+                  <h2 className="flex items-center gap-2 text-sm font-semibold print:hidden">
+                    {ENTITIES[section.kind].title}
+                    <Badge variant="secondary">{section.records.length}</Badge>
+                  </h2>
+                ) : null}
+                <div className={gridClass(format)}>
+                  {section.records.map((record) =>
+                    record.kind === "panel" ? (
+                      <PanelQrLabel
+                        key={record.id}
+                        panel={{
+                          panel_id: record.stable_id,
+                          description: record.values["description"] ?? null,
+                          building: record.values["building"] ?? null,
+                          grid: record.values["grid"] ?? null,
+                          bus_rating_amps: record.values["bus_rating_amps"] ?? null,
+                          voltage: record.values["voltage"] ?? null,
+                          phase: record.values["phase"] ?? null,
+                          spaces: record.values["spaces"] ?? null,
+                          feeder_source: record.values["feeder_source"] ?? null,
+                        }}
+                        origin={origin}
+                        format={format}
+                      />
+                    ) : (
+                      <EntityQrLabel
+                        key={record.id}
+                        record={record}
+                        origin={origin}
+                        format={format}
+                      />
+                    ),
+                  )}
+                </div>
+                {!section.records.length ? (
+                  <p className="text-sm text-muted-foreground">
+                    No {ENTITIES[section.kind].title.toLowerCase()} match this scope.
+                  </p>
+                ) : null}
+              </section>
             ))}
-            {!visible.length ? (
-              <p className="text-sm text-muted-foreground">No panels match that filter.</p>
-            ) : null}
           </div>
         )}
       </div>
