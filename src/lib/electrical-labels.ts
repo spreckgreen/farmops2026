@@ -133,7 +133,8 @@ export const LABEL_FIELDS: Record<LabelKind, LabelFieldSpec[]> = {
 export const PANEL_REF_KEYS: Record<LabelKind, string[]> = {
   panel: ["panel_id"],
   raceway: ["source_endpoint_ref", "dest_endpoint_ref"],
-  jbox: ["source_endpoint_ref"],
+  // A junction box records its parent raceway, not a panel — nothing is inferred.
+  jbox: [],
   branch: ["source_endpoint_ref"],
   load: ["suggested_panel", "circuit_group_panel"],
   circuit_group: ["suggested_panel"],
