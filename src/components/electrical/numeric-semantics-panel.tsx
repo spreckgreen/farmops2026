@@ -15,7 +15,9 @@ import {
   type NumericCategory,
 } from "@/lib/electrical-numeric-diagnostics";
 import { systemVoltagePreviewCsv } from "@/lib/electrical-system-voltage";
+import { SystemVoltageApplyGate } from "@/components/electrical/system-voltage-apply-gate";
 import type { ValidationReport } from "@/lib/electrical-parallel-validation";
+
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
