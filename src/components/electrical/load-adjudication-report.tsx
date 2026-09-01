@@ -53,6 +53,7 @@ export function LoadAdjudicationReport() {
   const fetchLoads = useServerFn(listAdjudicatedLoads);
   const queryClient = useQueryClient();
   const rows = useQuery({ queryKey: ["load-adjudication"], queryFn: () => fetchLoads() });
+  const [attached, setAttached] = useState<AttachedBaseline | null>(null);
 
   // After an apply, re-run load adjudication and the numeric semantics
   // diagnostics against the freshly written values.
