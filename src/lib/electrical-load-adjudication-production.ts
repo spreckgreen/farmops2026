@@ -10,6 +10,7 @@ import type {
   AdjudicationValuePair,
   SemanticEvidence,
 } from "@/lib/electrical-load-adjudication";
+import { equipmentFor } from "@/lib/electrical-equipment-provenance";
 
 export interface CanonicalOdsLoadValues {
   stable_id: string;
@@ -36,7 +37,7 @@ export const CANONICAL_ODS_LOADS: CanonicalOdsLoadValues[] = [
     amps: 30,
     connected_va: 7200,
     open_questions: [
-      "Is 220 V an equipment nameplate value or an older design assumption? No nameplate photo or specification is on file.",
+      "Resolved by equipment provenance: 220 V is the Halo Lifts HL2C-10K rated nameplate voltage; 240 V remains the canonical nominal supply designation.",
     ],
   },
   {
@@ -86,7 +87,7 @@ export const CANONICAL_ODS_LOADS: CanonicalOdsLoadValues[] = [
     amps: 8.8,
     connected_va: 1056,
     open_questions: [
-      "Is 115 V a fan nameplate rating or a transcription of an older schedule? No nameplate or specification is on file.",
+      "Resolved by equipment provenance: 115 V is the Greenheck AER-24-03-0315-VG rated nameplate voltage at 8.8 A FLA; 120 V remains the canonical nominal supply designation.",
     ],
   },
 ];
@@ -182,6 +183,7 @@ export function buildProductionAdjudicationInput(rows: FarmOpsLoadRow[]): Adjudi
       fields,
       agreed,
       evidence: evidenceFromFarmOps(row),
+      equipment: equipmentFor(ods.stable_id),
       open_questions: ods.open_questions,
     };
   });
