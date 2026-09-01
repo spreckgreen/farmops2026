@@ -36,18 +36,49 @@ Category A proposals: importer coercion → `false`; NOT NULL default → `null`
 - `phase-4.4b-boolean-records.csv` — drill-down, one row per stable ID, all categories.
 - `phase-4.4b-category-a-plan.csv` — proposed Category-A correction set only.
 
-## Correction tool
+## Category-A production correction gate
+
+Eligibility is exactly two proven historical implementation artifacts — nothing else:
+
+| Artifact | Canonical ODS | FarmOps | Proof | Correction |
+| --- | --- | --- | --- | --- |
+| `A1_N_COERCED_TRUE` | explicit `N` | `true` | old `Boolean("N") === true` coercion | `true` → `false` |
+| `A2_BLANK_DEFAULTED_FALSE` | blank / not stated | `false` | column was `NOT NULL DEFAULT false` before 4.4b (documented list only) | `false` → `NULL` |
+
+A2 is never generalised to arbitrary Boolean columns.
 
 `previewBooleanCorrection` (`src/lib/electrical-boolean-correction.functions.ts`)
 
-- Accepts only Yes/No columns declared on an electrical entity (`kind: "bool"`, not read-only).
-- Re-reads live rows: reports `would_change`, `already_correct`, `drifted`, `not_found`, `failed`.
-- `drifted` (stored value no longer matches the report) is never written.
-- `confirm: false` is a dry run; `confirm: true` writes exactly one boolean column per row
-  via the row UUID. Stable IDs, relationships, `ods_extras`, installation state, topology,
-  other engineering fields and the ODS are untouched.
+- Re-reads each live row by UUID and the exact Boolean column before proposing anything.
+- Statuses: `would_change`, `already_correct`, `drifted`, `not_found`, `failed`
+  (plus `not_approved` / `applied` during Apply). `drifted` means the live value no
+  longer equals the FarmOps value the finding was based on and is never written.
+- Preview (`confirm: false`) writes nothing and the UI states
+  “Preview only — no production values changed”.
+- Apply requires `confirm: true` **and** an explicit `approved` key list built from
+  previewed `would_change` rows. Immediately before each write it re-reads the row by
+  UUID, verifies the field and current value, re-verifies the A1/A2 rule, then updates
+  exactly one Boolean column. Never a whole-row replacement.
 
-Whether a production backfill is justified is decided per run: if the report
-shows zero Category-A records, no backfill is warranted and the UI says so.
-Regression gate after any correction: rerun parallel validation and confirm
-LOSS = 0, unexplained ODS-only = 0, unexplained findings = 0.
+Summary arithmetic that must hold:
+`would_change + already_correct + drifted + not_found + failed (+ not_approved + applied) = Category A findings`.
+Category D is displayed alongside as *not eligible for automatic correction* and stays untouched,
+as do Categories B/C, non-Boolean fields, IDs, relationships, `ods_extras`, service topology,
+breaker positions, House field observations and the canonical ODS.
+
+## Exports
+
+- `phase-4.4b-boolean-groups.csv` / `phase-4.4b-boolean-records.csv` — diagnostics.
+- `phase-4.4b-category-a-plan.csv` — one row per Category-A finding:
+  entity, stable_id, row_uuid, field, canonical ODS, reconciliation FarmOps, live
+  FarmOps, artifact type, proposed value, status, provenance.
+- `phase-4.4b-category-a-gate.md` — archivable report: summary, artifact definitions,
+  full correction plan, Category-D exclusion, post-Apply gate.
+
+## Post-Apply gate
+
+Phase 4.4b Boolean reconciliation is not complete on “N writes completed”. After an
+explicitly approved Apply, re-run reconciliation against the unchanged canonical ODS and
+review that the corrected Category-A artifacts are gone, no new Boolean disagreements were
+introduced, Category D is untouched, and unrelated reconciliation domains are unchanged.
+
