@@ -183,6 +183,40 @@ export function freeBreakerSlots(
   );
 }
 
+/**
+ * Slots inside the panel's *observed* range that carry no record yet.
+ *
+ * Same as freeBreakerSlots when the panel's own configuration is known. When
+ * `spaces` / `positions_per_column` are still blank (capacity never captured),
+ * the range is inferred from the highest recorded position instead of assuming
+ * a 48-space panel, so gaps like PNL-H1 breakers 29/31 (Left 15/16) and 2/4
+ * (Right 1/2) still surface. Slots consumed by a multi-pole breaker are never
+ * reported — Right 7 stays covered by the 12/14 record.
+ */
+export function unrecordedBreakerSlots(
+  layout: PanelLayout,
+  rows: Record<string, unknown>[],
+): BreakerSlot[] {
+  if (layout.positionsPerColumn > 0) return freeBreakerSlots(layout, rows);
+  let maxPosition = 0;
+  const sides = new Set<BreakerSide>();
+  for (const r of rows) {
+    const p = int(r["position"]);
+    if (p != null) maxPosition = Math.max(maxPosition, p);
+    const side = String(r["side"] ?? "").trim();
+    if (side === "Right") sides.add("Right");
+    else if (side === "Left") sides.add("Left");
+  }
+  if (!maxPosition) return [];
+  const inferred: PanelLayout = {
+    columns: sides.has("Right") ? 2 : 1,
+    positionsPerColumn: maxPosition,
+    totalSpaces: maxPosition * (sides.has("Right") ? 2 : 1),
+    sides: sides.has("Right") ? ["Left", "Right"] : ["Left"],
+  };
+  return freeBreakerSlots(inferred, rows);
+}
+
 /** Next unused physical exit order for a panel (1-based, never reuses a gap end). */
 export function nextExitOrder(rows: Record<string, unknown>[]): number {
   let max = 0;

@@ -30,6 +30,7 @@ import {
   multiPoleDuplicates,
   nextExitOrder,
   resolvePanelLayout,
+  unrecordedBreakerSlots,
 } from "@/lib/electrical-panel-layout";
 import { PANEL_EXIT_SIDES } from "@/lib/electrical";
 
@@ -218,6 +219,10 @@ function BreakerPositions({
 }) {
   const layout = useMemo(() => resolvePanelLayout(panel), [panel]);
   const free = useMemo(() => freeBreakerSlots(layout, rows), [layout, rows]);
+  // Gaps in the panel's observed range: recorded slots stop at the highest
+  // captured position, so 29/31 or Right 2/4 never silently disappear.
+  const missing = useMemo(() => unrecordedBreakerSlots(layout, rows), [layout, rows]);
+
   // Consistency check: one record per physical breaker, so slots consumed by a
   // multi-pole breaker (Right 19 = 38/40 consumes Right 20) must stay empty.
   const consumed = useMemo(() => consumedSlotIndex(layout, rows), [layout, rows]);
@@ -325,6 +330,32 @@ function BreakerPositions({
                 ) : null}
               </div>
             ))}
+          </div>
+        ) : null}
+        {missing.length ? (
+          <div className="space-y-2 rounded-md border border-border bg-muted/40 p-3">
+            <div className="text-sm font-medium">
+              {missing.length} slot{missing.length === 1 ? "" : "s"} with no record yet
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Slots consumed by a multi-pole breaker are excluded. Click one to prefill the add
+              form below.
+            </p>
+            <div className="flex flex-wrap gap-1">
+              {missing.map((s) => (
+                <Button
+                  key={`${s.side}-${s.position}`}
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setSide(s.side);
+                    setPosition(String(s.position));
+                  }}
+                >
+                  {s.side} {s.position} · breaker {s.breaker}
+                </Button>
+              ))}
+            </div>
           </div>
         ) : null}
         {!rows.length ? (
