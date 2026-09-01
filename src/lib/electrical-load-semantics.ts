@@ -699,3 +699,29 @@ export function loadSemanticsMarkdown(review: LoadSemanticReview): string {
   ];
   return lines.join("\n");
 }
+
+/**
+ * The single numeric value both sides hold for a field when they agree (so no
+ * finding was raised). Returns null when the sides differ or nothing parses.
+ */
+export function sharedNumericValue(
+  report: ValidationReport,
+  stableId: string,
+  field: string,
+): number | null {
+  const rec = report.records.find(
+    (r) => r.domain === "load" && r.stable_id === stableId && r.field === field,
+  );
+  const parse = (raw: string) => {
+    const t = (raw ?? "").trim();
+    if (!t) return null;
+    const n = Number(t.replace(/[^0-9.+-]/g, ""));
+    return Number.isFinite(n) ? n : null;
+  };
+  if (!rec) return null;
+  const a = parse(rec.ods_value);
+  const b = parse(rec.farmops_value);
+  if (a === null && b === null) return null;
+  if (a !== null && b !== null && a !== b) return null;
+  return a ?? b;
+}
