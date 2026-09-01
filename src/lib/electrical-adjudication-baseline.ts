@@ -91,7 +91,10 @@ export function openQuestionsFor(stableId: string): string[] {
 export function odsNumber(raw: string | undefined): number | null {
   const s = (raw ?? "").trim();
   if (!s) return null;
-  const n = Number(s.replace(/,/g, "").replace(/[^0-9.\-]/g, ""));
+  const cleaned = s.replace(/,/g, "").replace(/[^0-9.\-]/g, "");
+  // A cell like "TBD" or "n/a" carries no number: it must stay null, never 0.
+  if (!/[0-9]/.test(cleaned)) return null;
+  const n = Number(cleaned);
   return Number.isFinite(n) ? n : null;
 }
 
