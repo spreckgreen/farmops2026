@@ -196,17 +196,20 @@ function PanelSheetPage() {
           </div>
         </div>
 
-        {sheet.isLoading ? (
+        {access.isLoading || (sheet.isLoading && !sheet.error) ? (
           <Skeleton className="h-64 w-full" />
-        ) : sheet.error ? (
+        ) : access.error || sheet.error ? (
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Couldn't load panel {panelId}</CardTitle>
             </CardHeader>
             <CardContent className="text-sm text-muted-foreground">
-              {sheet.error instanceof Error ? sheet.error.message : "Unknown error."}
+              {(access.error ?? sheet.error) instanceof Error
+                ? (access.error ?? sheet.error as Error).message
+                : "Unknown error."}
             </CardContent>
           </Card>
+
         ) : sheet.data && panel ? (
           <>
             <Card>
