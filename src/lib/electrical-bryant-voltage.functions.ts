@@ -1,10 +1,15 @@
 // Phase 4.4b — server functions for the Bryant nominal supply voltage gate.
 //
+// Canonical evidence is never remembered here: the caller supplies the .ods
+// workbook, the server parses and hashes it in memory, and the gate refuses to
+// apply anything unless that hash is the authorized Phase 4.4a baseline SHA.
+//
 // Preview writes nothing. Apply requires confirm: true AND an explicit approved
 // list, and immediately before each write it re-reads the live row by UUID,
 // re-checks the stable ID, re-checks the current scalar voltage, re-resolves the
-// verified equipment configuration and re-runs the live adjudication for that
-// load — then writes ONLY `electrical_loads.volts`.
+// verified equipment configuration, re-checks the parsed canonical value and
+// re-runs the live adjudication for that load — then writes ONLY
+// `electrical_loads.volts`.
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -13,9 +18,18 @@ import { equipmentFor } from "@/lib/electrical-equipment-provenance";
 import { adjudicateLoads } from "@/lib/electrical-load-adjudication";
 import {
   buildProductionAdjudicationInput,
-  CANONICAL_ODS_LOADS,
   type FarmOpsLoadRow,
 } from "@/lib/electrical-load-adjudication-production";
+import {
+  baselineAuthorizesApply,
+  canonicalLoad,
+  PHASE_44A_BASELINE_SHA256,
+  type AdjudicationBaseline,
+} from "@/lib/electrical-adjudication-baseline";
+import {
+  baselineFromUpload,
+  odsBaselineInput,
+} from "@/lib/electrical-adjudication-baseline.functions";
 import {
   BRYANT_FREQUENCY_HZ,
   BRYANT_NOMINAL_SUPPLY_VOLTAGE,
@@ -39,7 +53,7 @@ const TABLE = "electrical_loads";
 const SELECT =
   "id, load_id, description, equipment_model, volts, amps, connected_va, demand_va, source_circuit, circuit_group_ref, source_reference, notes";
 
-const inputSchema = z.object({
+const inputSchema = odsBaselineInput.extend({
   confirm: z.boolean().default(false),
   /** Approved rows as `electrical_loads|<stable_id>|volts`. */
   approved: z.array(z.string()).default([]),
@@ -50,16 +64,21 @@ export interface BryantVoltageGateResult {
   changed: number;
   skipped: number;
   generated_at: string;
+  /** Canonical baseline identity every canonical value came from. */
+  baseline: {
+    ods_file_name: string;
+    ods_sha256: string;
+    expected_sha256: string;
+    authorized: boolean;
+    reason: string | null;
+  };
   rows: BryantVoltageGateRow[];
   summary: BryantVoltageGateSummary;
 }
 
-const odsVoltsFor = (stableId: string) =>
-  CANONICAL_ODS_LOADS.find((o) => o.stable_id === stableId)?.volts ?? null;
-
 /** Live adjudication bucket for one load's `volts` finding, or null. */
-function voltsBucketFor(row: FarmOpsLoadRow): string | null {
-  const report = adjudicateLoads(buildProductionAdjudicationInput([row]));
+function voltsBucketFor(row: FarmOpsLoadRow, baseline: AdjudicationBaseline): string | null {
+  const report = adjudicateLoads(buildProductionAdjudicationInput([row], baseline));
   const finding = report.findings.find(
     (f) => f.stable_id === row.load_id.trim() && f.field === "volts",
   );
@@ -68,13 +87,16 @@ function voltsBucketFor(row: FarmOpsLoadRow): string | null {
 
 async function runGate(
   db: LooseDb,
-  data: z.infer<typeof inputSchema>,
+  baseline: AdjudicationBaseline,
+  data: { confirm: boolean; approved: string[] },
 ): Promise<BryantVoltageGateResult> {
   const approved = new Set(data.approved);
   const rows: BryantVoltageGateRow[] = [];
   const generated_at = new Date().toISOString();
   let changed = 0;
   let skipped = 0;
+
+  const baselineGuardGlobal = baselineAuthorizesApply(baseline);
 
   const { data: found, error } = await db
     .from(TABLE)
@@ -87,6 +109,8 @@ async function runGate(
   }
 
   for (const stable_id of BRYANT_VOLTAGE_LOAD_IDS) {
+    const odsVolts = canonicalLoad(baseline, stable_id)?.volts ?? null;
+    const rowGuard = baselineAuthorizesApply(baseline, { stable_id });
     const base = {
       table: TABLE,
       stable_id,
@@ -95,6 +119,9 @@ async function runGate(
       rated_equipment_voltage: BRYANT_RATED_EQUIPMENT_VOLTAGE_CLASS,
       phase: BRYANT_PHASE,
       frequency_hz: BRYANT_FREQUENCY_HZ,
+      ods_volts: odsVolts,
+      baseline_ods_file: baseline.ods_file_name,
+      baseline_sha256: baseline.ods_sha256,
     };
     const push = (patch: {
       row_uuid?: string | null;
@@ -140,8 +167,9 @@ async function runGate(
       stable_id,
       live_volts: liveVolts,
       equipment: equipmentFor(stable_id),
-      adjudication_bucket: voltsBucketFor(row),
-      ods_volts: odsVoltsFor(stable_id),
+      adjudication_bucket: voltsBucketFor(row, baseline),
+      ods_volts: odsVolts,
+      baseline: rowGuard,
     });
     if (!safe.ok) {
       push({ row_uuid: row.id, live_volts: liveVolts, status: safe.status, detail: safe.reason });
@@ -184,12 +212,14 @@ async function runGate(
     }
     const f = fresh as FarmOpsLoadRow;
     const freshVolts = f.volts === null || f.volts === undefined ? null : Number(f.volts);
+    const freshId = f.load_id.trim();
     const stillOk = stillSafeToApplyBryantVoltage({
-      stable_id: f.load_id.trim(),
+      stable_id: freshId,
       live_volts: freshVolts,
-      equipment: equipmentFor(f.load_id.trim()),
-      adjudication_bucket: voltsBucketFor(f),
-      ods_volts: odsVoltsFor(f.load_id.trim()),
+      equipment: equipmentFor(freshId),
+      adjudication_bucket: voltsBucketFor(f, baseline),
+      ods_volts: canonicalLoad(baseline, freshId)?.volts ?? null,
+      baseline: baselineAuthorizesApply(baseline, { stable_id: freshId }),
     });
     if (!stillOk.ok) {
       push({
@@ -228,17 +258,32 @@ async function runGate(
     changed,
     skipped,
     generated_at,
+    baseline: {
+      ods_file_name: baseline.ods_file_name,
+      ods_sha256: baseline.ods_sha256,
+      expected_sha256: PHASE_44A_BASELINE_SHA256,
+      authorized: baselineGuardGlobal.ok,
+      reason: baselineGuardGlobal.ok ? null : baselineGuardGlobal.reason,
+    },
     rows,
-    summary: summarizeBryantVoltageGate(rows),
+    summary: summarizeBryantVoltageGate(rows, {
+      ods_file_name: baseline.ods_file_name,
+      ods_sha256: baseline.ods_sha256,
+      authorized: baselineGuardGlobal.ok,
+    }),
   };
 }
 
 export const previewBryantVoltageCorrection = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator(() => ({ confirm: false as const, approved: [] as string[] }))
-  .handler(async ({ context }): Promise<BryantVoltageGateResult> => {
+  .inputValidator((d: unknown) => odsBaselineInput.parse(d))
+  .handler(async ({ context, data }): Promise<BryantVoltageGateResult> => {
     await requireAddon(context.supabase, context.userId, "electrical");
-    return runGate(context.supabase as unknown as LooseDb, { confirm: false, approved: [] });
+    const baseline = await baselineFromUpload(data);
+    return runGate(context.supabase as unknown as LooseDb, baseline, {
+      confirm: false,
+      approved: [],
+    });
   });
 
 export const applyBryantVoltageCorrection = createServerFn({ method: "POST" })
@@ -246,5 +291,15 @@ export const applyBryantVoltageCorrection = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => inputSchema.parse({ ...(d as object), confirm: true }))
   .handler(async ({ context, data }): Promise<BryantVoltageGateResult> => {
     await requireAddon(context.supabase, context.userId, "electrical");
-    return runGate(context.supabase as unknown as LooseDb, data);
+    const baseline = await baselineFromUpload(data);
+    const guard = baselineAuthorizesApply(baseline);
+    if (!guard.ok) {
+      // Hard refusal before any row is even read: canonical evidence from a
+      // different workbook may never authorize a production write.
+      throw new Error(guard.reason);
+    }
+    return runGate(context.supabase as unknown as LooseDb, baseline, {
+      confirm: true,
+      approved: data.approved,
+    });
   });
