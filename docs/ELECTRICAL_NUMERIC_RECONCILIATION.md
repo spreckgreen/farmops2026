@@ -93,3 +93,38 @@ diagnostics" card):
 - No reconciliation of derived, field-observed, ordinal or FarmOps-native
   numbers — they are listed as excluded with a reason instead of silently
   dropped.
+
+## 7. Panel voltage — system-voltage representation (Category E)
+
+`120/240` is not a broken cell. It is canonical notation stating **two** nominal
+voltages: 120 V line-to-neutral and 240 V line-to-line (a 3-wire split-phase
+system). `parseNumericCell` returns the dedicated state `system_voltage` with a
+structured decomposition (`line_neutral`, `line_line`, optional `phases`) and
+`value === null`. It is never reduced to the scalar 240, and the canonical ODS is
+never edited to satisfy a numeric column.
+
+### Current FarmOps model (gap)
+
+| Column | Type | Can hold 120/240? |
+| --- | --- | --- |
+| `electrical_panels.voltage` | `numeric` (nullable) | no — one scalar only |
+| `electrical_feeders.voltage` | `numeric` (nullable) | no |
+| `electrical_branch_circuits.voltage` | `numeric` (nullable) | no |
+| `electrical_loads.volts` | `numeric` (nullable) | single utilization voltage — appropriate as-is |
+
+Panel/feeder/branch voltage describes a **system**, so a scalar column is the
+wrong shape. Load `volts` describes one utilization voltage and stays scalar.
+
+### Options recorded for decision (none implemented here)
+
+1. Explicit pair: `nominal_line_neutral_volts` + `nominal_line_line_volts`
+   (+ optional `phases`, `wires`). Queryable, no parsing, matches the notation.
+2. Structured system-voltage reference table (`120/240 1Ø 3W`, `120/208 3Ø 4W`,
+   `277/480 3Ø 4W`) with an FK from panels/feeders/branches.
+3. Text `system_voltage` column preserving canonical notation verbatim, with the
+   scalar retained only for single-voltage systems.
+
+Until one is chosen, these findings are Category **E** —
+`requires_data_model_decision` — reported separately from Category C
+(unresolved workbook state) and from Category B (engineering disagreement).
+Category E is never correctable and this phase still writes nothing.
