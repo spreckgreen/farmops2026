@@ -5,6 +5,7 @@
 // electrical record is modified by running a comparison.
 import { useMemo, useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
+import { setCanonicalWorkbookSession } from "@/lib/electrical-canonical-workbook-session";
 import { useServerFn } from "@tanstack/react-start";
 import { ChevronDown, Download, FileSpreadsheet } from "lucide-react";
 import { CollapsibleSection } from "@/components/electrical/collapsible-section";
@@ -92,10 +93,24 @@ export function ParallelValidationReport() {
   const [search, setSearch] = useState("");
 
   const compare = useMutation({
-    mutationFn: async (file: File) =>
-      run({ data: { file_name: file.name, base64: await readAsBase64(file) } }) as unknown as Promise<ValidationReport>,
-    onSuccess: (r) => {
+    mutationFn: async (file: File) => {
+      const base64 = await readAsBase64(file);
+      const report = (await run({
+        data: { file_name: file.name, base64 },
+      })) as unknown as ValidationReport;
+      return { report, base64 };
+    },
+    onSuccess: ({ report: r, base64 }) => {
       setReport(r);
+      // Publish the exact validated workbook so Load adjudication consumes the
+      // same SHA-bound bytes instead of being called with an empty payload.
+      setCanonicalWorkbookSession({
+        file_name: r.ods.file_name,
+        base64,
+        sha256: r.ods.sha256,
+        parsed_at: r.compared_at,
+        established_by: "parallel_validation",
+      });
       toast.success(
         `Compared ${r.records.length} engineering facts — ${r.summary.LOSS} semantic loss, ${r.summary.CONFLICT} conflict(s).`,
       );
