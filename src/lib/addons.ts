@@ -5,7 +5,7 @@
 // shape a billing webhook would eventually write to, but for now they are
 // granted by an admin.
 
-export const ADDON_KEYS = ["electrical"] as const;
+export const ADDON_KEYS = ["electrical", "electrical_scan"] as const;
 export type AddonKey = (typeof ADDON_KEYS)[number];
 
 export const ENTITLEMENT_STATUSES = ["active", "trialing", "expired", "disabled"] as const;
@@ -53,3 +53,15 @@ export function statusLabel(status: string): string {
 }
 
 export const ADDON_NOT_ENABLED = "This add-on is not enabled for your account.";
+
+/**
+ * Scan-scoped Electrical access. A viewer who reaches the app by scanning a
+ * printed panel QR label is self-provisioned with this add-on so the label is
+ * never a dead end. It unlocks ONLY the panel sheet for a panel they scanned
+ * plus that panel's own local topology — never the farm-wide module. Anything
+ * wider still needs an administrator-approved system-data window.
+ */
+export const SCAN_ADDON: AddonKey = "electrical_scan";
+export const FULL_ELECTRICAL_ADDON: AddonKey = "electrical";
+/** Keys that may read a scanned panel sheet, widest first. */
+export const PANEL_SHEET_ADDONS: AddonKey[] = [FULL_ELECTRICAL_ADDON, SCAN_ADDON];
