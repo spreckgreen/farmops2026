@@ -64,6 +64,9 @@ export function ElectricalNav() {
       <Link to="/electrical/validation" className={item} activeProps={active}>
         Parallel validation
       </Link>
+      <Link to="/electrical/adjudication" className={item} activeProps={active}>
+        Load adjudication
+      </Link>
 
 
       <Link to="/electrical/import" className={item} activeProps={active}>
