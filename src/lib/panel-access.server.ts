@@ -11,6 +11,8 @@ export type NotifyResult = {
 
 interface RequestNotice {
   panelId: string;
+  /** What was asked for: a panel correction window or wider system-data read. */
+  scope?: "panel_edit" | "system_data";
   requesterEmail: string | null;
   reason: string | null;
   requestedAt: string;

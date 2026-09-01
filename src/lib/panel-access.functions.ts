@@ -18,6 +18,7 @@ import {
   grantExpiry,
   isEditUnlocked,
   latestRequest,
+  type PanelAccessScope,
   type PanelAccessState,
   type PanelEditRequest,
 } from "@/lib/electrical-panel-access";
@@ -64,6 +65,7 @@ function toRequest(row: Record<string, unknown>): PanelEditRequest {
     requester_id: String(row["requester_id"]),
     requester_email: (row["requester_email"] as string | null) ?? null,
     reason: (row["reason"] as string | null) ?? null,
+    scope: ((row["scope"] as PanelAccessScope | null) ?? "panel_edit") as PanelAccessScope,
     status: row["status"] as PanelEditRequest["status"],
     decided_by: (row["decided_by"] as string | null) ?? null,
     decided_at: (row["decided_at"] as string | null) ?? null,
@@ -132,6 +134,19 @@ export interface PanelSheetAccess {
   window_hours: number;
 }
 
+/**
+ * Whether this viewer may look past the scanned panel. A scanned label only ever
+ * carries that panel plus its own local topology; anything wider needs an
+ * administrator-approved `system_data` window.
+ */
+export interface SystemDataAccess {
+  state: PanelAccessState;
+  granted: boolean;
+  expires_at: string | null;
+  request: PanelEditRequest | null;
+  window_hours: number;
+}
+
 export interface PanelSheet {
   panel: PanelRow;
   voltage_designation: string | null;
@@ -143,6 +158,8 @@ export interface PanelSheet {
   raceways: PanelRow[];
   branch_runs: PanelRow[];
   access: PanelSheetAccess;
+  /** System-wide read access; false keeps the page scoped to this panel only. */
+  system_access: SystemDataAccess;
   captured_at: string;
 }
 
@@ -198,7 +215,23 @@ export const panelSheet = createServerFn({ method: "GET" })
       .order("created_at", { ascending: false })
       .limit(10);
     if (reqError) throw new Error(reqError.message);
-    const request = latestRequest(((reqRows ?? []) as Record<string, unknown>[]).map(toRequest));
+    const panelRequests = ((reqRows ?? []) as Record<string, unknown>[]).map(toRequest);
+    const request = latestRequest(panelRequests, "panel_edit");
+
+    // A system-data window is not tied to the panel the electrician scanned, so
+    // it is looked up across all of this requester's rows.
+    const { data: sysRows, error: sysError } = await db
+      .from("electrical_panel_edit_requests")
+      .select("*")
+      .eq("requester_id", context.userId)
+      .eq("scope", "system_data")
+      .order("created_at", { ascending: false })
+      .limit(10);
+    if (sysError) throw new Error(sysError.message);
+    const systemRequest = latestRequest(
+      ((sysRows ?? []) as Record<string, unknown>[]).map(toRequest),
+      "system_data",
+    );
 
     return {
       panel: panel as PanelRow,
@@ -218,19 +251,32 @@ export const panelSheet = createServerFn({ method: "GET" })
         request,
         window_hours: GRANT_WINDOW_HOURS,
       },
+      system_access: {
+        state: accessState(systemRequest),
+        granted: isAdmin || isEditUnlocked(systemRequest),
+        expires_at: systemRequest?.expires_at ?? null,
+        request: systemRequest,
+        window_hours: GRANT_WINDOW_HOURS,
+      },
       captured_at: new Date().toISOString(),
     };
   });
 
 /* --------------------------------------------------------------- access flow */
 
-/** Ask an administrator for a 24-hour edit window on one panel. */
+/**
+ * Ask an administrator for a 24-hour window. `panel_edit` unlocks corrections to
+ * the one scanned panel; `system_data` unlocks reading other panels and the
+ * whole-system topology. Both go through the same approval pipeline (in-app
+ * queue + best-effort email + administrator second factor on the decision).
+ */
 export const requestPanelEditAccess = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
     z
       .object({
         panelId: panelIdSchema,
+        scope: z.enum(["panel_edit", "system_data"]).default("panel_edit"),
         reason: z.string().trim().max(500).optional(),
         reviewUrl: z.string().trim().max(300).optional(),
       })
@@ -248,15 +294,21 @@ export const requestPanelEditAccess = createServerFn({ method: "POST" })
     if (panelError) throw new Error(panelError.message);
     if (!panel) throw new Error(`No panel is recorded with the ID ${data.panelId}.`);
 
-    // An open request or a live window is never duplicated.
-    const { data: existingRows } = await db
+    // An open request or a live window is never duplicated. System-data windows
+    // are farm-wide, so they are de-duplicated across panels.
+    let existingQuery = db
       .from("electrical_panel_edit_requests")
       .select("*")
-      .eq("panel_id", data.panelId)
       .eq("requester_id", context.userId)
+      .eq("scope", data.scope);
+    if (data.scope === "panel_edit") existingQuery = existingQuery.eq("panel_id", data.panelId);
+    const { data: existingRows } = await existingQuery
       .order("created_at", { ascending: false })
       .limit(10);
-    const existing = latestRequest(((existingRows ?? []) as Record<string, unknown>[]).map(toRequest));
+    const existing = latestRequest(
+      ((existingRows ?? []) as Record<string, unknown>[]).map(toRequest),
+      data.scope,
+    );
     const state = accessState(existing);
     if (state === "pending" || state === "active") {
       return { request: existing!, state, notified: null as null | string, duplicate: true };
@@ -270,6 +322,7 @@ export const requestPanelEditAccess = createServerFn({ method: "POST" })
         requester_id: context.userId,
         requester_email: email,
         reason: data.reason ?? null,
+        scope: data.scope,
         status: "pending",
       })
       .select("*")
@@ -280,6 +333,7 @@ export const requestPanelEditAccess = createServerFn({ method: "POST" })
     const { notifyAdminsOfPanelRequest } = await import("@/lib/panel-access.server");
     const notice = await notifyAdminsOfPanelRequest({
       panelId: data.panelId,
+      scope: data.scope,
       requesterEmail: email,
       reason: data.reason ?? null,
       requestedAt: request.created_at,
@@ -468,10 +522,14 @@ export const savePanelSheetDetails = createServerFn({ method: "POST" })
         .select("*")
         .eq("panel_id", data.panelId)
         .eq("requester_id", context.userId)
+        .eq("scope", "panel_edit")
         .order("created_at", { ascending: false })
         .limit(10);
       if (reqError) throw new Error(reqError.message);
-      const request = latestRequest(((reqRows ?? []) as Record<string, unknown>[]).map(toRequest));
+      const request = latestRequest(
+        ((reqRows ?? []) as Record<string, unknown>[]).map(toRequest),
+        "panel_edit",
+      );
       if (!isEditUnlocked(request)) {
         throw new Error(
           "Your edit window is not active. Request access and wait for an administrator to approve it.",
