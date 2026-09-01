@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { safeRedirectPath } from "@/lib/auth-route";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,22 +9,35 @@ import { toast } from "sonner";
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
+  validateSearch: (search: Record<string, unknown>) => ({
+    redirect: safeRedirectPath(search.redirect),
+  }),
   head: () => ({ meta: [{ title: "Sign in — Bostead Farms" }] }),
   component: AuthPage,
 });
 
 function AuthPage() {
   const navigate = useNavigate();
+  const { redirect: redirectTo } = Route.useSearch();
   const [mode, setMode] = useState<"signin" | "signup" | "forgot">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // After sign-in (or when already signed in) land on the page the user asked
+  // for — e.g. /electrical/panel/PNL-H1 from a scanned panel label.
+  const goAfterAuth = () => {
+    if (redirectTo) window.location.replace(redirectTo);
+    else void navigate({ to: "/", replace: true });
+  };
+
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
-      if (data.user) navigate({ to: "/", replace: true });
+      if (data.user) goAfterAuth();
     });
-  }, [navigate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [redirectTo]);
+
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
