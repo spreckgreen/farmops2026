@@ -39,12 +39,12 @@ export function AppLayout({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <header className="border-b border-border bg-card/70 backdrop-blur sticky top-0 z-10">
-        <div className="max-w-6xl mx-auto px-3 sm:px-4 min-h-14 py-2 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 lg:flex lg:justify-between lg:gap-4">
-          <div className="flex min-w-0 items-center gap-4 lg:gap-6 order-1">
-            <Link to="/" className="font-bold tracking-tight shrink-0 text-sm sm:text-base">
-              Bostead Farms
-            </Link>
-            <nav className="hidden lg:flex items-center gap-1 text-sm">
+        <div className="max-w-6xl mx-auto px-3 sm:px-4 py-2 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 lg:flex lg:h-14 lg:justify-between lg:gap-4 lg:py-0">
+          <Link to="/" className="order-1 min-w-0 truncate font-bold tracking-tight lg:shrink-0">
+            Bostead Farms
+          </Link>
+          <nav className="order-3 col-span-2 -mx-1 flex items-center gap-1 overflow-x-auto whitespace-nowrap px-1 pb-1 text-sm lg:order-2 lg:col-span-1 lg:mx-0 lg:flex-1 lg:overflow-visible lg:pb-0">
+
 
               <Link to="/food" className={navItem} activeProps={navActive}>
                 Food
