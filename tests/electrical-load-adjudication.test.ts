@@ -12,6 +12,7 @@ import {
   evidenceFromFarmOps,
   type FarmOpsLoadRow,
 } from "@/lib/electrical-load-adjudication-production";
+import { equipmentFor } from "@/lib/electrical-equipment-provenance";
 
 /** Live production values as stored in electrical_loads. */
 const PRODUCTION_ROWS: FarmOpsLoadRow[] = [
@@ -96,23 +97,61 @@ describe("production adjudication", () => {
   it("supports canonical 240 V for the Bryant units and never collapses 208/230", () => {
     for (const id of ["FS-082", "FS-083"]) {
       const f = find(id, "volts");
-      expect(f.bucket).toBe("engineering_value_supported_by_equipment_identity");
+      expect(f.bucket).toBe("farmops_value_incompatible_with_verified_equipment");
       expect(f.recommendation).toBe("CORRECT_FARMOPS_WITH_SEMANTIC_REPRESENTATION");
       const rated = f.proposed_representation.find((p) => p.field === "rated_equipment_voltage")!;
       expect(rated.value).toBe("208/230");
+      const nominal = f.proposed_representation.find((p) => p.field === "nominal_supply_voltage")!;
+      expect(nominal.value).toBe("240");
+      // Recommendation only — nothing is written by adjudication.
+      expect(f.missing_evidence.join(" ")).toMatch(/not written in this phase/);
     }
   });
 
-  it("holds every Bryant amperage as verification pending, not a winner", () => {
+  it("adjudicates the Bryant amperages against the established 25 A MOCP", () => {
+    const fs082 = find("FS-082", "amps");
+    expect(fs082.bucket).toBe("amp_semantic_provenance_required");
+    expect(fs082.reason).toMatch(/does not equal/);
+
+    const fs083 = find("FS-083", "amps");
+    expect(fs083.bucket).toBe("consistent_with_manufacturer_mocp");
+    expect(fs083.recommendation).toBe("NO_CHANGE");
+    expect(fs083.reason).toMatch(/not a claim that the canonical amps column semantically means MOCP/);
+
+    const fs084 = find("FS-084", "amps");
+    expect(fs084.bucket).toBe("farmops_amp_semantic_or_source_requires_review");
+    expect(fs084.reason).toMatch(/not silently changed to 25 A/);
+    expect(fs084.farmops_value).toBe(60);
+  });
+
+  it("keeps MCA unset while RCA, RLA and MOCP stay distinct", () => {
     for (const id of ["FS-082", "FS-083", "FS-084"]) {
-      const f = find(id, "amps");
-      expect(f.bucket).toBe("equipment_identified_rating_verification_pending");
-      expect(f.recommendation).toBe("FIELD_OR_DOCUMENT_VERIFICATION_REQUIRED");
-      expect(f.missing_evidence.join(" ")).toMatch(/MCA and MOCP/);
-      expect(f.proposed_representation.map((p) => p.field)).toContain(
-        "maximum_overcurrent_protection",
-      );
-      expect(f.proposed_representation.every((p) => /not established/.test(p.value))).toBe(true);
+      const rep = find(id, "amps").proposed_representation;
+      const val = (field: string) => rep.find((p) => p.field === field)!.value;
+      expect(val("maximum_overcurrent_protection")).toBe("25 A");
+      expect(val("rated_current_amps")).toBe("1.69 A");
+      expect(val("rated_load_amps")).toBe("4.15 A");
+      expect(val("minimum_circuit_ampacity")).toMatch(/must remain NULL/);
+    }
+    const eq = equipmentFor("FS-082")!;
+    expect(eq.semantics.minimum_circuit_ampacity).toBeNull();
+    expect(eq.semantics.maximum_overcurrent_protection).toBe(25);
+    expect(eq.semantics.rated_current_amps).toBe(1.69);
+    expect(eq.semantics.rated_load_amps).toBe(4.15);
+    expect(eq.semantics.frequency_hz).toBe(60);
+  });
+
+  it("models the mini-split as one load with two equipment components", () => {
+    const eq = equipmentFor("FS-084")!;
+    expect(eq.components.map((c) => c.role)).toEqual(["outdoor_unit", "indoor_unit"]);
+    expect(eq.components[0].model).toBe("37MARAQ24AA3");
+    expect(eq.components[1].model_verified).toBe(false);
+    // All three installations resolve to the same configuration.
+    for (const id of ["FS-082", "FS-083", "FS-084"]) {
+      const e = equipmentFor(id)!;
+      expect(e.model).toBe(eq.model);
+      expect(e.semantics.rated_equipment_voltage_class).toBe("208/230");
+      expect(e.semantics.nominal_supply_voltage).toBe(240);
     }
   });
 
@@ -138,11 +177,15 @@ describe("production adjudication", () => {
 
   it("shows not established rather than manufacturing ampacity concepts", () => {
     const bryant = production().loads.find((x) => x.stable_id === "FS-084")!;
-    for (const label of ["Minimum circuit ampacity (MCA)", "Maximum overcurrent protection (MOCP)"]) {
-      const c = bryant.concepts.find((x) => x.concept === label)!;
-      expect(c.value).toBe("not established");
-      expect(c.kind).toBe("not_established");
+    const concept = (label: string) => bryant.concepts.find((x) => x.concept === label)!;
+    for (const label of ["Minimum circuit ampacity (MCA)", "Installed OCP rating"]) {
+      expect(concept(label).value).toBe("not established");
+      expect(concept(label).kind).toBe("not_established");
     }
+    expect(concept("Maximum overcurrent protection (MOCP)").value).toBe("25 A");
+    expect(concept("Maximum overcurrent protection (MOCP)").kind).toBe("observed");
+    expect(concept("Rated current amps (RCA)").value).toBe("1.69 A");
+    expect(concept("Rated load amps (RLA)").value).toBe("4.15 A");
     const lift = production().loads.find((x) => x.stable_id === "FS-034")!;
     expect(lift.concepts.find((c) => c.concept === "Equipment identity")!.value).toContain(
       "HL2C-10K",

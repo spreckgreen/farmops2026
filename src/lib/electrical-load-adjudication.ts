@@ -777,6 +777,12 @@ function equipmentConcepts(eq: EquipmentProvenance): AdjudicatedConcept[] {
       kind: "observed",
       source: src,
     },
+    ...eq.components.map((c) => ({
+      concept: `Equipment component — ${c.role.replace(/_/g, " ")}`,
+      value: `${c.manufacturer} ${c.model}`,
+      kind: (c.model_verified ? "observed" : "inferred_candidate") as ObservationKind,
+      source: `${c.note} ${c.model_verified ? "" : "Model suffix verification required."}`.trim(),
+    })),
     {
       concept: "Nominal supply voltage",
       value: s.nominal_supply_voltage !== null ? `${s.nominal_supply_voltage} V` : "not established",
@@ -799,6 +805,12 @@ function equipmentConcepts(eq: EquipmentProvenance): AdjudicatedConcept[] {
       concept: "Phase",
       value: s.phase ? `${s.phase}Ø` : "not established",
       kind: s.phase ? "observed" : "not_established",
+      source: src,
+    },
+    {
+      concept: "Frequency",
+      value: s.frequency_hz !== null ? `${s.frequency_hz} Hz` : "not established",
+      kind: s.frequency_hz !== null ? "observed" : "not_established",
       source: src,
     },
   ];
