@@ -116,6 +116,34 @@ export function topologyFilename(generatedAt: string, ext: string): string {
   return `bostead-electrical-topology-${stamp}.${ext}`;
 }
 
+/**
+ * Makes a Mermaid-rendered SVG valid as a standalone file:
+ * - declares the xlink namespace Mermaid uses but never binds (otherwise the
+ *   file fails XML parsing with "unbound prefix" and won't open),
+ * - replaces width="100%" / max-width styling with real pixel dimensions taken
+ *   from the viewBox so viewers don't render a zero-sized or blank canvas.
+ */
+export function standaloneSvg(svg: string): string {
+  const open = svg.match(/<svg\b[^>]*>/);
+  if (!open) return svg;
+  let tag = open[0];
+  const viewBox = tag.match(/viewBox="([\d.\-\s]+)"/)?.[1]?.trim().split(/\s+/) ?? [];
+  const w = Number(viewBox[2]);
+  const h = Number(viewBox[3]);
+
+  if (!/xmlns:xlink=/.test(tag)) {
+    tag = tag.replace(/<svg\b/, '<svg xmlns:xlink="http://www.w3.org/1999/xlink"');
+  }
+  if (Number.isFinite(w) && Number.isFinite(h) && w > 0 && h > 0) {
+    tag = tag
+      .replace(/\swidth="[^"]*"/, "")
+      .replace(/\sheight="[^"]*"/, "")
+      .replace(/\sstyle="[^"]*"/, "")
+      .replace(/<svg\b/, `<svg width="${Math.round(w)}" height="${Math.round(h)}"`);
+  }
+  return `<?xml version="1.0" encoding="UTF-8"?>\n${svg.replace(open[0], tag)}`;
+}
+
 /** Self-contained HTML pack: inline SVGs, no external assets, opens offline. */
 export function topologyHtml(
   generatedAt: string,

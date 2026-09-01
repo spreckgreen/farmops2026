@@ -24,6 +24,7 @@ import {
   topologyFilename,
   topologyHtml,
   topologyNode,
+  standaloneSvg,
   type TopologyTreeNode,
 } from "@/lib/electrical-topology-tree";
 import { FileCode2, FileImage, Printer, Download } from "lucide-react";
@@ -115,7 +116,14 @@ function TopologyFigure({
           initialize: (c: Record<string, unknown>) => void;
           render: (id: string, src: string) => Promise<{ svg: string }>;
         };
-        mermaid.initialize({ startOnLoad: false, theme: "neutral", securityLevel: "loose" });
+        // htmlLabels:false keeps every label as native <text>, so exported SVGs
+        // open correctly outside a browser (foreignObject HTML does not).
+        mermaid.initialize({
+          startOnLoad: false,
+          theme: "neutral",
+          securityLevel: "loose",
+          flowchart: { htmlLabels: false },
+        });
         const out = await mermaid.render(`tp-${node.type}-${Date.now()}`, source);
         if (cancelled) return;
         setSvg(out.svg);
@@ -228,9 +236,7 @@ function TopologyPack() {
       setTimeout(
         () =>
           saveBlob(
-            new Blob([`<?xml version="1.0" encoding="UTF-8"?>\n${f.svg}`], {
-              type: "image/svg+xml",
-            }),
+            new Blob([standaloneSvg(f.svg)], { type: "image/svg+xml" }),
             `bostead-electrical-${name}.svg`,
           ),
         i * 250,
