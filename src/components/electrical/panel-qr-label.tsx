@@ -49,9 +49,9 @@ export const LABEL_FORMATS: Record<LabelFormat, LabelFormatSpec> = {
     id: "letter-2x5",
     name: '8.5x11" sheet — 5 x 2 (10 per page)',
     page: { widthIn: 8.5, heightIn: 11 },
-    cols: 2,
-    rows: 5,
-    qrPx: 150,
+    cols: 5,
+    rows: 2,
+    qrPx: 110,
     // Same stacked treatment as the 4 x 2 sheet: QR above the details.
     stacked: true,
     perPage: 10,
@@ -168,7 +168,7 @@ export function PanelQrLabel({
     () => panelLabelLines(panel, panel.voltage_designation ?? null),
     [panel],
   );
-  const compact = spec.id !== "letter-2x5";
+  const compact = spec.id !== "letter-4x2";
 
   // Avery 8593 file-folder stock is 2/3" tall: text only, no QR.
   if (spec.short) {

@@ -151,7 +151,8 @@ function QrScanner({ onPanel }: { onPanel: (panelId: string) => void }) {
 function gridClass(format: LabelFormat): string {
   if (format === "avery-8593") return "panel-label-grid grid gap-2 sm:grid-cols-3";
   if (format === "letter-4x2") return "panel-label-grid grid gap-3 sm:grid-cols-2 lg:grid-cols-4";
-  if (format === "letter-2x5") return "panel-label-grid grid gap-3 sm:grid-cols-2";
+  if (format === "letter-2x5")
+    return "panel-label-grid grid gap-3 sm:grid-cols-3 lg:grid-cols-5";
   return "panel-label-grid grid grid-cols-1 gap-4 sm:max-w-sm";
 }
 
