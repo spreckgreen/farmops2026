@@ -88,8 +88,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
               )}
 
             </nav>
-          </div>
-          <div className="flex items-center gap-2">
+          <div className="order-2 flex shrink-0 items-center gap-1 sm:gap-2 lg:order-3">
+
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
