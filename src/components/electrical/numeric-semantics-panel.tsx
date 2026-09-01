@@ -24,6 +24,7 @@ const CATEGORY_LABELS: Record<NumericCategory, string> = {
   B: "B — engineering disagreement",
   C: "C — not representable as a number",
   D: "D — provenance insufficient",
+  E: "E — representation / schema-semantic gap (system voltage)",
 };
 
 function download(name: string, body: string, type: string) {
@@ -90,7 +91,7 @@ export function NumericSemanticsPanel({ report }: { report: ValidationReport }) 
         <div className="flex flex-wrap gap-2 text-xs">
           <Badge variant="outline">Compared cells {diag.compared_cells}</Badge>
           <Badge variant="outline">Agreements {diag.agreements}</Badge>
-          {(["A", "B", "C", "D"] as NumericCategory[]).map((c) => (
+          {(["A", "B", "C", "D", "E"] as NumericCategory[]).map((c) => (
             <Badge
               key={c}
               variant={category === c ? "default" : "secondary"}
@@ -108,6 +109,11 @@ export function NumericSemanticsPanel({ report }: { report: ValidationReport }) 
           {recon.balanced && recon.category_a_balanced
             ? `Reconciled: ${recon.agreements} agreements + ${recon.categorized} categorized = ${recon.compared_cells} compared cells; category A = ${recon.plan} correctable + ${recon.blocked} blocked.`
             : "Reconciliation arithmetic does not balance — investigate before acting on this report."}{" "}
+          Canonical system-voltage notation such as 120/240 is reported as
+          category E — a representation gap in the FarmOps scalar column, not a
+          failed numeric parse and not a Category-C unresolved value. It is
+          never normalized to 240 and the canonical ODS is never edited to suit
+          the column.{" "}
           Ownership decides eligibility: only canonical engineering-owned numeric
           fields are compared. Field observations, derived values, structural
           ordinals and FarmOps-native infrastructure are excluded by rule.
