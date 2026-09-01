@@ -338,6 +338,14 @@ export interface ComparisonRecord {
   /** The workbook states "to be determined" rather than a value. */
   tbd: boolean;
   /**
+   * Provenance for record-level drill-down (Phase 4.4b numeric work): the
+   * 1-based worksheet row the ODS value came from and the FarmOps row UUID.
+   * Optional because record- and column-level findings have no single row.
+   */
+  ods_row?: number | null;
+  farmops_uuid?: string | null;
+
+  /**
    * Phase 4.4a diagnostic for a remaining semantic-loss finding: exactly what
    * the workbook holds, the collision-safe capture key it should have been
    * preserved under, and what the FarmOps record actually holds there.
