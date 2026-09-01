@@ -16,6 +16,7 @@ import {
   NAMEPLATE_FOR_NOMINAL,
   NOMINAL_SUPPLY_VOLTAGES,
   isStandardOcpRating,
+  BUCKET_LABELS as BASE_BUCKET_LABELS,
   type LoadSemanticBucket,
 } from "@/lib/electrical-load-semantics";
 import {
@@ -24,16 +25,65 @@ import {
   hasVoltageConceptProvenance,
   type SemanticEvidence,
 } from "@/lib/electrical-semantic-evidence";
+import {
+  equipmentEvidenceLines,
+  type EquipmentDiscrepancy,
+  type EquipmentGroup,
+  type EquipmentProvenance,
+} from "@/lib/electrical-equipment-provenance";
 
-export const LOAD_ADJUDICATION_VERSION = "4.4b-load-semantic-adjudication-1";
+export const LOAD_ADJUDICATION_VERSION = "4.4b-load-semantic-adjudication-2-equipment-provenance";
 
 /** The five loads under adjudication. */
 export const ADJUDICATED_LOAD_IDS = ["FS-034", "FS-082", "FS-083", "FS-084", "FS-092"] as const;
+
+/**
+ * Adjudication buckets. The original four are kept verbatim; equipment
+ * provenance adds three outcomes so a finding never has to be flattened into
+ * "insufficient provenance" once its equipment identity is known.
+ */
+export type AdjudicationBucket =
+  | LoadSemanticBucket
+  | "calculation_basis_difference"
+  | "engineering_value_supported_by_equipment_identity"
+  | "equipment_identified_rating_verification_pending";
+
+export const ADJUDICATION_BUCKET_ORDER: AdjudicationBucket[] = [
+  "nominal_vs_nameplate_representation",
+  "calculation_basis_difference",
+  "engineering_value_supported_by_equipment_identity",
+  "equipment_identified_rating_verification_pending",
+  "current_ocp_semantic_mismatch",
+  "true_engineering_disagreement",
+  "insufficient_provenance",
+];
+
+export const ADJUDICATION_BUCKET_LABELS: Record<AdjudicationBucket, string> = {
+  ...BASE_BUCKET_LABELS,
+  calculation_basis_difference: "Calculation-basis difference",
+  engineering_value_supported_by_equipment_identity:
+    "Engineering value supported by equipment identity",
+  equipment_identified_rating_verification_pending:
+    "Equipment identified — electrical rating verification pending",
+};
+
+export const ADJUDICATION_BUCKET_CODES: Record<AdjudicationBucket, string> = {
+  true_engineering_disagreement: "TRUE_ENGINEERING_DISAGREEMENT",
+  nominal_vs_nameplate_representation: "NOMINAL_VS_NAMEPLATE_REPRESENTATION",
+  current_ocp_semantic_mismatch: "CURRENT_OCP_SEMANTIC_MISMATCH",
+  insufficient_provenance: "INSUFFICIENT_PROVENANCE",
+  calculation_basis_difference: "CALCULATION_BASIS_DIFFERENCE",
+  engineering_value_supported_by_equipment_identity:
+    "ENGINEERING_VALUE_SUPPORTED_BY_EQUIPMENT_IDENTITY",
+  equipment_identified_rating_verification_pending:
+    "EQUIPMENT_IDENTIFIED_ELECTRICAL_RATING_VERIFICATION_PENDING",
+};
 
 export type Recommendation =
   | "KEEP_ODS_AND_CORRECT_FARMOPS"
   | "KEEP_FARMOPS_AND_UPDATE_ODS"
   | "PRESERVE_BOTH_AS_DISTINCT_SEMANTICS"
+  | "CORRECT_FARMOPS_WITH_SEMANTIC_REPRESENTATION"
   | "FIELD_OR_DOCUMENT_VERIFICATION_REQUIRED"
   | "NO_CHANGE";
 
@@ -41,9 +91,12 @@ export const RECOMMENDATION_LABELS: Record<Recommendation, string> = {
   KEEP_ODS_AND_CORRECT_FARMOPS: "Keep canonical ODS, correct FarmOps",
   KEEP_FARMOPS_AND_UPDATE_ODS: "Keep FarmOps, update canonical ODS",
   PRESERVE_BOTH_AS_DISTINCT_SEMANTICS: "Preserve both as distinct semantics",
+  CORRECT_FARMOPS_WITH_SEMANTIC_REPRESENTATION:
+    "Correct FarmOps using the additive semantic representation (no scalar collapse)",
   FIELD_OR_DOCUMENT_VERIFICATION_REQUIRED: "Field or document verification required",
   NO_CHANGE: "No change",
 };
+
 
 /* ------------------------------------------------------------- provenance */
 
