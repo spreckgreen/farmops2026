@@ -487,10 +487,22 @@ function BooleanSemanticsPanel({ report }: { report: ValidationReport }) {
   return (
     <Card>
       <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 pb-2">
-        <CardTitle className="text-base">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <Button
+            size="sm"
+            variant="ghost"
+            aria-expanded={boolOpen}
+            className="h-7 px-1"
+            onClick={() => setBoolOpen((v) => !v)}
+          >
+            <ChevronDown
+              className={`h-4 w-4 transition-transform ${boolOpen ? "" : "-rotate-90"}`}
+            />
+          </Button>
           Yes/No semantics diagnostics ({diag.total_findings})
         </CardTitle>
         <div className="flex flex-wrap gap-2">
+
           <Button
             size="sm"
             variant="outline"
