@@ -24,6 +24,25 @@ export type DefaultSource =
 /** Task 1B disposition category. */
 export type BooleanCategory = "A" | "B" | "C" | "D";
 
+/**
+ * The two — and only two — proven historical implementation artifacts that make
+ * a finding Category A. Anything else is never automatically correctable.
+ *
+ * A1: canonical ODS says "N", FarmOps holds true, because the old importer ran
+ *     Boolean("N") === true. Correction: true → false.
+ * A2: canonical ODS cell is genuinely blank/not stated, FarmOps holds false, and
+ *     the column is one of the documented NOT NULL DEFAULT false columns.
+ *     Correction: false → NULL. Never generalised to other boolean columns.
+ */
+export type BooleanArtifactType = "A1_N_COERCED_TRUE" | "A2_BLANK_DEFAULTED_FALSE";
+
+export const ARTIFACT_LABELS: Record<BooleanArtifactType, string> = {
+  A1_N_COERCED_TRUE: 'A1 — old string→Boolean coercion (Boolean("N") === true): true → false',
+  A2_BLANK_DEFAULTED_FALSE:
+    "A2 — old NOT NULL DEFAULT false column artifact on a blank workbook cell: false → NULL",
+};
+
+
 export interface BooleanDiagnosticRow {
   domain: string;
   field: string;
