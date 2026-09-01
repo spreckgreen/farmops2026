@@ -270,10 +270,13 @@ export interface LoadSemanticReview {
   apply_available: false;
 }
 
+/** The comparison layer labels the load domain "loads"; older reports use "load". */
+const isLoadDomain = (d: string) => d === "load" || d === "loads";
+
 const LOAD_NUMERIC_FIELDS = new Set(["volts", "amps", "connected_va", "demand_va"]);
 
 const isLoadNumeric = (f: NumericFinding) =>
-  f.farmops_entity === "electrical_loads" || f.domain === "load"
+  f.farmops_entity === "electrical_loads" || isLoadDomain(f.domain)
     ? LOAD_NUMERIC_FIELDS.has(f.field)
     : false;
 
@@ -552,7 +555,7 @@ const DETAIL_FIELDS = [
 ];
 
 function recordsForLoad(report: ValidationReport, stableId: string): ComparisonRecord[] {
-  return report.records.filter((r) => r.domain === "load" && r.stable_id === stableId);
+  return report.records.filter((r) => isLoadDomain(r.domain) && r.stable_id === stableId);
 }
 
 /**
@@ -710,7 +713,7 @@ export function sharedNumericValue(
   field: string,
 ): number | null {
   const rec = report.records.find(
-    (r) => r.domain === "load" && r.stable_id === stableId && r.field === field,
+    (r) => isLoadDomain(r.domain) && r.stable_id === stableId && r.field === field,
   );
   const parse = (raw: string) => {
     const t = (raw ?? "").trim();
