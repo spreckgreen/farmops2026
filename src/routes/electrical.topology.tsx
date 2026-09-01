@@ -24,6 +24,7 @@ import {
   topologyFilename,
   topologyHtml,
   topologyNode,
+  standaloneSvg,
   type TopologyTreeNode,
 } from "@/lib/electrical-topology-tree";
 import { FileCode2, FileImage, Printer, Download } from "lucide-react";
