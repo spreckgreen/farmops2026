@@ -246,8 +246,15 @@ export function NumericSemanticsPanel({ report }: { report: ValidationReport }) 
                 </tbody>
               </table>
             </div>
+            <div className="mt-3">
+              <SystemVoltageApplyGate
+                preview={diag.system_voltage_preview}
+                onRevalidate={onRevalidate}
+              />
+            </div>
           </div>
         ) : null}
+
 
 
 
