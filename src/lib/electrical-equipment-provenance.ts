@@ -63,6 +63,16 @@ export const AMPACITY_SEMANTIC_FIELDS = [
     why: "Manufacturer-stated running current of the equipment itself.",
   },
   {
+    field: "rated_current_amps",
+    label: "Rated current amps (RCA)",
+    why: "Manufacturer-stated rated current of the equipment.",
+  },
+  {
+    field: "rated_load_amps",
+    label: "Rated load amps (RLA)",
+    why: "Manufacturer-stated rated load amps of the compressor/motor.",
+  },
+  {
     field: "minimum_circuit_ampacity",
     label: "Minimum circuit ampacity (MCA)",
     why: "Conductor sizing minimum from the manufacturer's electrical table.",
@@ -129,6 +139,8 @@ export interface EquipmentSemantics {
   phase: string | null;
   frequency_hz: number | null;
   equipment_fla: number | null;
+  rated_current_amps: number | null;
+  rated_load_amps: number | null;
   minimum_circuit_ampacity: number | null;
   maximum_overcurrent_protection: number | null;
   installed_ocp_rating: number | null;
@@ -136,8 +148,23 @@ export interface EquipmentSemantics {
   extras: { label: string; value: string }[];
 }
 
+/**
+ * One equipment component of an installed system. A single electrical load may
+ * contain several components (e.g. a mini-split outdoor + indoor unit); a second
+ * electrical load is never created for the additional component.
+ */
+export interface EquipmentComponent {
+  role: "outdoor_unit" | "indoor_unit" | "single_unit";
+  manufacturer: string;
+  model: string;
+  model_verified: boolean;
+  note: string;
+}
+
 export interface EquipmentProvenance {
   stable_id: string;
+  /** LOAD/SYSTEM -> EQUIPMENT COMPONENT(S). One load, one installed system. */
+  components: EquipmentComponent[];
   manufacturer: string;
   model: string;
   equipment_class: string;
@@ -169,6 +196,8 @@ const semantics = (s: Partial<EquipmentSemantics>): EquipmentSemantics => ({
   phase: null,
   frequency_hz: null,
   equipment_fla: null,
+  rated_current_amps: null,
+  rated_load_amps: null,
   minimum_circuit_ampacity: null,
   maximum_overcurrent_protection: null,
   installed_ocp_rating: null,
@@ -186,6 +215,17 @@ const BRYANT_RECORDS = (indoorNote: string): EquipmentEvidenceRecord[] => [
     evidence_type: "published_rating_class",
     observed_or_published_value:
       "Rated electrical supply 208/230 V AC, 1Ø, 60 Hz; 24,000 BTUh / 2 ton, R-454B",
+    verified_at: "2026-09-01",
+    verification_status: "verified_published",
+  },
+  {
+    source_type: "manufacturer_specification",
+    manufacturer: "Bryant",
+    model: "37MARAQ24AA3",
+    source_reference: "Bryant published electrical rating data for 37MARAQ24AA3",
+    evidence_type: "published_specification",
+    observed_or_published_value:
+      "MOCP 25 A; RCA 1.69 A; RLA 4.15 A; MCA not stated by the supplied evidence",
     verified_at: "2026-09-01",
     verification_status: "verified_published",
   },
@@ -236,12 +276,14 @@ const BRYANT_AMPACITY_KNOWN = [
   "Equipment identity established: Bryant 37MARAQ24AA3 outdoor heat pump with Bryant D5MAHAQ24XA* indoor high-wall unit, 24,000 BTUh / 2 ton single-zone ductless.",
   "Outdoor rated electrical supply established as 208/230 V AC, 1Ø, 60 Hz (R-454B).",
   "Voltage, phase and frequency are established by model decoding and product listings; those do not establish MCA, MOCP, installed breaker rating or operating current, and none of those may be inferred from the voltage code, capacity or sibling models in the series.",
-  "Supplied material mentions approximately 19 A MCA and 25 A MOCP, but not from the model-specific manufacturer table or nameplate.",
+  "Manufacturer/equipment evidence establishes maximum_overcurrent_protection (MOCP) = 25 A, rated_current_amps (RCA) = 1.69 A and rated_load_amps (RLA) = 4.15 A as distinct quantities.",
+  "minimum_circuit_ampacity (MCA) is NOT established by the supplied evidence and stays NULL; it must never be derived from RCA, RLA, MOCP, capacity or the voltage code.",
 ];
 
 const BRYANT_AMPACITY_REQUIRED = [
-  "Model-specific manufacturer electrical table or installed nameplate stating MCA and MOCP.",
+  "Model-specific manufacturer electrical table or installed nameplate stating MCA (MOCP is established; MCA is not).",
   "Field observation of the installed OCP rating (breaker) serving this unit.",
+  "Identification of what the existing scalar amps column was originally intended to represent on each installation, before any value is changed.",
   "Distinction of each stored current as equipment_operating_current, equipment_fla, minimum_circuit_ampacity, maximum_overcurrent_protection, installed_ocp_rating or design_circuit_ampacity before any migration.",
 ];
 
@@ -250,11 +292,33 @@ const bryant = (stable_id: string, indoorNote: string): EquipmentProvenance => (
   manufacturer: "Bryant",
   model: "37MARAQ24AA3 + D5MAHAQ24XA* (suffix unverified)",
   equipment_class: "24,000 BTUh / 2 ton single-zone ductless heat pump",
+  components: [
+    {
+      role: "outdoor_unit",
+      manufacturer: "Bryant",
+      model: "37MARAQ24AA3",
+      model_verified: true,
+      note: "Rated supply 208/230 VAC, 1Ø, 60 Hz; MOCP 25 A; RCA 1.69 A; RLA 4.15 A; MCA not established.",
+    },
+    {
+      role: "indoor_unit",
+      manufacturer: "Bryant",
+      model: "D5MAHAQ24XA* (XA3 / XA4 unresolved)",
+      model_verified: false,
+      note: "Indoor high-wall unit of the same installed system — not a separate electrical load.",
+    },
+  ],
   semantics: semantics({
     nominal_supply_voltage: 240,
     rated_equipment_voltage_class: "208/230",
     phase: "1",
     frequency_hz: 60,
+    maximum_overcurrent_protection: 25,
+    rated_current_amps: 1.69,
+    rated_load_amps: 4.15,
+    // MCA deliberately unset: not established by the supplied evidence and it
+    // may not be derived from RCA, RLA, MOCP or capacity.
+    minimum_circuit_ampacity: null,
     extras: [
       { label: "Capacity", value: "24,000 BTUh / 2 ton" },
       { label: "Refrigerant", value: "R-454B" },
@@ -298,6 +362,15 @@ export const EQUIPMENT_PROVENANCE: Record<string, EquipmentProvenance> = {
     manufacturer: "Halo Lifts",
     model: "HL2C-10K",
     equipment_class: "10,000 lb two-post automotive lift",
+    components: [
+      {
+        role: "single_unit",
+        manufacturer: "Halo Lifts",
+        model: "HL2C-10K",
+        model_verified: true,
+        note: "Rated voltage 220 V, 1Ø; 10,000 lb capacity.",
+      },
+    ],
     semantics: semantics({
       nominal_supply_voltage: 240,
       rated_nameplate_voltage: 220,
@@ -364,6 +437,15 @@ export const EQUIPMENT_PROVENANCE: Record<string, EquipmentProvenance> = {
     manufacturer: "Greenheck",
     model: "AER-24-03-0315-VG",
     equipment_class: "Axial emergency purge fan with louvers",
+    components: [
+      {
+        role: "single_unit",
+        manufacturer: "Greenheck",
+        model: "AER-24-03-0315-VG",
+        model_verified: true,
+        note: "3/4 hp, 115 V, 60 Hz, 1Ø, FLA 8.8 A, 1725 RPM, ODP.",
+      },
+    ],
     semantics: semantics({
       nominal_supply_voltage: 120,
       rated_nameplate_voltage: 115,
