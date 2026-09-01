@@ -13,6 +13,8 @@ import { requireAuthenticatedUser } from "@/lib/auth-route";
 import { supabase } from "@/integrations/supabase/client";
 import {
   decidePanelEditRequest,
+  extendPanelEditGrant,
+  MAX_GRANT_HOURS,
   listPanelEditRequests,
   revokePanelEditGrant,
 } from "@/lib/panel-access.functions";
@@ -126,7 +128,17 @@ function PanelAccessAdminPage() {
   const fetchRequests = useServerFn(listPanelEditRequests);
   const decideFn = useServerFn(decidePanelEditRequest);
   const revokeFn = useServerFn(revokePanelEditGrant);
+  const extendFn = useServerFn(extendPanelEditGrant);
   const [note, setNote] = useState<Record<string, string>>({});
+  // Per-row window length in hours. Blank means the 24-hour default.
+  const [hours, setHours] = useState<Record<string, string>>({});
+
+  /** Reads the administrator's typed window length, falling back to 24 hours. */
+  const hoursFor = (id: string): number => {
+    const raw = Number.parseInt((hours[id] ?? "").trim(), 10);
+    if (!Number.isFinite(raw) || raw < 1) return GRANT_WINDOW_HOURS;
+    return Math.min(raw, MAX_GRANT_HOURS);
+  };
   const [needsMfa, setNeedsMfa] = useState(false);
 
   const requests = useQuery({
@@ -143,11 +155,17 @@ function PanelAccessAdminPage() {
 
   const decide = useMutation({
     mutationFn: (vars: { id: string; decision: "approved" | "rejected" }) =>
-      decideFn({ data: { ...vars, note: note[vars.id]?.trim() || undefined } }),
+      decideFn({
+        data: {
+          ...vars,
+          ...(vars.decision === "approved" ? { hours: hoursFor(vars.id) } : {}),
+          note: note[vars.id]?.trim() || undefined,
+        },
+      }),
     onSuccess: (result) => {
       toast.success(
         result.state === "active"
-          ? `Approved — ${GRANT_WINDOW_HOURS}-hour window open for ${result.request.panel_id}.`
+          ? `Approved — ${result.hours}-hour window open for ${result.request.panel_id}.`
           : `Request for ${result.request.panel_id} declined.`,
       );
       void requests.refetch();
@@ -155,10 +173,22 @@ function PanelAccessAdminPage() {
     onError: handleError,
   });
 
-  const revoke = useMutation({
-    mutationFn: (id: string) => revokeFn({ data: { id } }),
+  const extend = useMutation({
+    mutationFn: (id: string) =>
+      extendFn({ data: { id, hours: hoursFor(id), note: note[id]?.trim() || undefined } }),
     onSuccess: (result) => {
-      toast.success(`Access to ${result.request.panel_id} revoked.`);
+      toast.success(
+        `${result.request.panel_id}: access now runs ${result.hours} hours from now.`,
+      );
+      void requests.refetch();
+    },
+    onError: handleError,
+  });
+
+  const revoke = useMutation({
+    mutationFn: (id: string) => revokeFn({ data: { id, note: note[id]?.trim() || undefined } }),
+    onSuccess: (result) => {
+      toast.success(`Access to ${result.request.panel_id} terminated.`);
       void requests.refetch();
     },
     onError: handleError,
@@ -176,8 +206,10 @@ function PanelAccessAdminPage() {
               Panel edit access
             </h1>
             <p className="text-sm text-muted-foreground">
-              Requests raised from scanned panel labels. Approving opens one {GRANT_WINDOW_HOURS}-hour
-              edit window for that person and that panel; it closes on its own.
+              Requests raised from scanned panel labels. Approving opens a window for that person —
+              {" "}{GRANT_WINDOW_HOURS} hours by default, or any length you type up to{" "}
+              {Math.round(MAX_GRANT_HOURS / 24)} days. You can extend a window later or terminate
+              access immediately, even after approval.
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -262,6 +294,17 @@ function PanelAccessAdminPage() {
                                 placeholder="Optional note"
                                 className="h-8 w-40 text-xs"
                               />
+                              <div className="flex items-center gap-1">
+                                <Input
+                                  value={hours[row.id] ?? ""}
+                                  onChange={(e) => setHours({ ...hours, [row.id]: e.target.value })}
+                                  inputMode="numeric"
+                                  placeholder={String(GRANT_WINDOW_HOURS)}
+                                  aria-label="Window length in hours"
+                                  className="h-8 w-16 text-xs"
+                                />
+                                <span className="text-xs text-muted-foreground">hours</span>
+                              </div>
                               <div className="flex gap-1">
                                 <Button
                                   size="sm"
@@ -270,7 +313,8 @@ function PanelAccessAdminPage() {
                                   }
                                   disabled={decide.isPending}
                                 >
-                                  <Check className="mr-1 h-3.5 w-3.5" /> Approve
+                                  <Check className="mr-1 h-3.5 w-3.5" /> Approve{" "}
+                                  {hoursFor(row.id)}h
                                 </Button>
                                 <Button
                                   size="sm"
@@ -284,15 +328,45 @@ function PanelAccessAdminPage() {
                                 </Button>
                               </div>
                             </div>
-                          ) : row.state === "active" ? (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => revoke.mutate(row.id)}
-                              disabled={revoke.isPending}
-                            >
-                              Revoke now
-                            </Button>
+                          ) : row.status === "approved" && !row.revoked_at ? (
+                            <div className="flex flex-col items-end gap-2">
+                              <Input
+                                value={note[row.id] ?? ""}
+                                onChange={(e) => setNote({ ...note, [row.id]: e.target.value })}
+                                placeholder="Optional note"
+                                className="h-8 w-40 text-xs"
+                              />
+                              <div className="flex items-center gap-1">
+                                <Input
+                                  value={hours[row.id] ?? ""}
+                                  onChange={(e) => setHours({ ...hours, [row.id]: e.target.value })}
+                                  inputMode="numeric"
+                                  placeholder={String(GRANT_WINDOW_HOURS)}
+                                  aria-label="New window length in hours"
+                                  className="h-8 w-16 text-xs"
+                                />
+                                <span className="text-xs text-muted-foreground">hours</span>
+                              </div>
+                              <div className="flex gap-1">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => extend.mutate(row.id)}
+                                  disabled={extend.isPending}
+                                >
+                                  <Clock className="mr-1 h-3.5 w-3.5" />
+                                  {row.state === "active" ? "Extend" : "Reopen"} {hoursFor(row.id)}h
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="destructive"
+                                  onClick={() => revoke.mutate(row.id)}
+                                  disabled={revoke.isPending}
+                                >
+                                  <Ban className="mr-1 h-3.5 w-3.5" /> Terminate
+                                </Button>
+                              </div>
+                            </div>
                           ) : (
                             <span className="text-xs text-muted-foreground">
                               {row.decided_at ? new Date(row.decided_at).toLocaleString() : "—"}
