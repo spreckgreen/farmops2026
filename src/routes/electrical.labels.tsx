@@ -8,6 +8,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
+import { Switch } from "@/components/ui/switch";
 import { Camera, CameraOff, Printer, QrCode, Search } from "lucide-react";
 
 import { ElectricalGate } from "@/components/electrical/electrical-gate";
