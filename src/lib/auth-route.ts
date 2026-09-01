@@ -15,7 +15,7 @@ export async function requireAuthenticatedUser(opts?: {
   const { data, error } = await supabase.auth.getUser();
   if (error || !data.user) {
     const target = safeRedirectPath(opts?.location?.href);
-    throw redirect({ to: "/auth", search: target ? { redirect: target } : {} });
+    throw redirect({ to: "/auth", search: { redirect: target } });
   }
   return { user: data.user };
 }

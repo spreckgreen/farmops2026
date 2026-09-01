@@ -9,9 +9,10 @@ import { toast } from "sonner";
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
-  validateSearch: (search: Record<string, unknown>) => ({
-    redirect: safeRedirectPath(search.redirect),
-  }),
+  validateSearch: (search: Record<string, unknown>): { redirect?: string } => {
+    const target = safeRedirectPath(search.redirect);
+    return target ? { redirect: target } : {};
+  },
   head: () => ({ meta: [{ title: "Sign in — Bostead Farms" }] }),
   component: AuthPage,
 });
