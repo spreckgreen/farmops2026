@@ -154,6 +154,22 @@ export function PanelQrLabel({ panel, origin, format = "letter-2x5", className }
   );
   const compact = spec.id !== "letter-2x5";
 
+  // Avery 8593 file-folder stock is 2/3" tall: text only, no QR.
+  if (spec.short) {
+    return (
+      <ShortLabelCell
+        stableId={panel.panel_id}
+        detail={lines
+          .slice(0, 2)
+          .map((l) => l.value)
+          .join(" · ")}
+        className={className}
+      />
+    );
+  }
+
+
+
   return (
     <div
       className={cn(
