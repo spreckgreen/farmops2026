@@ -408,20 +408,16 @@ export function ParallelValidationReport() {
 
           <NumericSemanticsPanel report={report} />
 
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">Normalization rules applied</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ul className="space-y-1 text-xs text-muted-foreground">
-                {NORMALIZATION_RULES.map((r) => (
-                  <li key={r.id}>
-                    <span className="font-mono text-foreground">{r.id}</span> — {r.description}
-                  </li>
-                ))}
-              </ul>
-            </CardContent>
-          </Card>
+          <CollapsibleSection title="Normalization rules applied">
+            <ul className="space-y-1 text-xs text-muted-foreground">
+              {NORMALIZATION_RULES.map((r) => (
+                <li key={r.id}>
+                  <span className="font-mono text-foreground">{r.id}</span> — {r.description}
+                </li>
+              ))}
+            </ul>
+          </CollapsibleSection>
+
         </>
       ) : null}
     </div>
