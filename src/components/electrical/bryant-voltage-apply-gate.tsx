@@ -231,7 +231,8 @@ export function BryantVoltageApplyGate({
                 <tr>
                   <th className="py-1 pr-3">Approve</th>
                   <th className="py-1 pr-3">Stable ID</th>
-                  <th className="py-1 pr-3">Old volts</th>
+                  <th className="py-1 pr-3">ODS parsed volts</th>
+                  <th className="py-1 pr-3">FarmOps live volts</th>
                   <th className="py-1 pr-3">New volts</th>
                   <th className="py-1 pr-3">Preserved equipment rating</th>
                   <th className="py-1 pr-3">Status</th>
