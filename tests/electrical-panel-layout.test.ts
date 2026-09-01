@@ -1,7 +1,9 @@
 import { describe, it, expect } from "vitest";
 import {
+  consumedSlotIndex,
   expectedBreakerNumber,
   freeBreakerSlots,
+  multiPoleDuplicates,
   nextExitOrder,
   panelBreakerSlots,
   resolvePanelLayout,
