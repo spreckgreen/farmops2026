@@ -379,6 +379,46 @@ const RANGE_RE = /\d\s*(?:-|–|—|\.\.|\bto\b|\bthru\b)\s*\d/;
 const APPROX_RE = /(^|\s)(~|≈|±|\+\/-|approx\.?|about|est\.?)/;
 
 /**
+ * `120/240`, `120/240V`, `120/208 VAC 3Ø`, `277/480 v 3 phase` — canonical
+ * notation for a multi-voltage system. The lower number is the line-to-neutral
+ * voltage and the higher the line-to-line voltage.
+ */
+const SYSTEM_VOLTAGE_RE =
+  /^(\d{2,4})\s*\/\s*(\d{2,4})\s*(?:v|vac|vdc|volt|volts)?\s*(1|3)?\s*(?:ø|Ø|ph|phase|-phase|phases|w|wire|-wire)?\s*(?:ø|Ø|ph|phase|wire|w)?\.?$/i;
+
+export interface SystemVoltage {
+  /** Lower nominal voltage — line to neutral (e.g. 120). */
+  line_neutral: number;
+  /** Higher nominal voltage — line to line (e.g. 240). */
+  line_line: number;
+  /** Phase count when the cell states it; null when unstated. */
+  phases: number | null;
+  /** Canonical redisplay, always "L-N/L-L". */
+  canonical: string;
+}
+
+/**
+ * Recognise canonical system-voltage notation. Returns null for anything else.
+ * Never converts, never picks one of the two voltages.
+ */
+export function parseSystemVoltage(raw: unknown): SystemVoltage | null {
+  const text = raw === null || raw === undefined ? "" : String(raw).replace(/\s+/g, " ").trim();
+  const m = text.match(SYSTEM_VOLTAGE_RE);
+  if (!m) return null;
+  const a = Number(m[1]);
+  const b = Number(m[2]);
+  if (!Number.isFinite(a) || !Number.isFinite(b) || a === b) return null;
+  const lineNeutral = Math.min(a, b);
+  const lineLine = Math.max(a, b);
+  return {
+    line_neutral: lineNeutral,
+    line_line: lineLine,
+    phases: m[3] ? Number(m[3]) : null,
+    canonical: `${lineNeutral}/${lineLine}`,
+  };
+}
+
+/**
  * Parse one numeric cell for a field with a declared unit. Explicit zero,
  * explicit value and "not stated" stay distinguishable, and no unit is ever
  * guessed: an unrecognised or foreign unit yields `ambiguous_unit`, and
