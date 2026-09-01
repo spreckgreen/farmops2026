@@ -11,7 +11,7 @@ import QRCode from "qrcode";
 import { panelLabelLines, panelQrUrl, type PanelLabelSource } from "@/lib/electrical-panel-access";
 import { cn } from "@/lib/utils";
 
-export type LabelFormat = "letter-4x2" | "letter-2x5" | "label-7676";
+export type LabelFormat = "letter-4x2" | "letter-2x5" | "label-7676" | "avery-8593";
 /** @deprecated use LabelFormat */
 export type QrSize = LabelFormat;
 
@@ -27,6 +27,11 @@ export interface LabelFormatSpec {
   /** Stack the QR above the text instead of beside it. */
   stacked: boolean;
   perPage: number;
+  /**
+   * Text-only shortened output: the cell is too small for a scannable QR, so the
+   * label carries the stable ID plus one condensed detail line.
+   */
+  short?: boolean;
 }
 
 export const LABEL_FORMATS: Record<LabelFormat, LabelFormatSpec> = {
@@ -60,13 +65,26 @@ export const LABEL_FORMATS: Record<LabelFormat, LabelFormatSpec> = {
     stacked: true,
     perPage: 1,
   },
+  "avery-8593": {
+    id: "avery-8593",
+    name: 'Avery 8593 — 2/3" x 3-7/16" shortened, 30 per sheet',
+    page: { widthIn: 8.5, heightIn: 11 },
+    cols: 3,
+    rows: 10,
+    qrPx: 0,
+    stacked: false,
+    perPage: 30,
+    short: true,
+  },
 };
 
 export const LABEL_FORMAT_LIST: LabelFormatSpec[] = [
   LABEL_FORMATS["letter-4x2"],
   LABEL_FORMATS["letter-2x5"],
   LABEL_FORMATS["label-7676"],
+  LABEL_FORMATS["avery-8593"],
 ];
+
 
 export function usePanelQrSvg(url: string, format: LabelFormat): string | null {
   const [svg, setSvg] = useState<string | null>(null);
@@ -136,6 +154,22 @@ export function PanelQrLabel({ panel, origin, format = "letter-2x5", className }
   );
   const compact = spec.id !== "letter-2x5";
 
+  // Avery 8593 file-folder stock is 2/3" tall: text only, no QR.
+  if (spec.short) {
+    return (
+      <ShortLabelCell
+        stableId={panel.panel_id}
+        detail={lines
+          .slice(0, 2)
+          .map((l) => l.value)
+          .join(" · ")}
+        className={className}
+      />
+    );
+  }
+
+
+
   return (
     <div
       className={cn(
@@ -183,6 +217,37 @@ export function PanelQrLabel({ panel, origin, format = "letter-2x5", className }
           </p>
         )}
       </div>
+    </div>
+  );
+}
+
+/**
+ * One shortened, text-only label cell (Avery 8593 file-folder stock). The stable
+ * ID stays large and monospaced so it is readable on a conduit or box; the
+ * condensed detail line is truncated by the cell, never wrapped off the label.
+ */
+export function ShortLabelCell({
+  stableId,
+  detail,
+  className,
+}: {
+  stableId: string;
+  detail: string;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "panel-label-cell flex flex-col justify-center overflow-hidden break-inside-avoid rounded border border-border bg-card px-2 py-1",
+        className,
+      )}
+    >
+      <p className="truncate font-mono text-[11px] font-bold leading-tight text-foreground">
+        {stableId}
+      </p>
+      {detail ? (
+        <p className="truncate text-[8px] leading-tight text-muted-foreground">{detail}</p>
+      ) : null}
     </div>
   );
 }
