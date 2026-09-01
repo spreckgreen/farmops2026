@@ -31,8 +31,18 @@ import {
   type NumericRegistryEntry,
   type ParsedNumeric,
 } from "@/lib/electrical-numeric-semantics";
+import {
+  SYSTEM_VOLTAGE_COLUMN,
+  isSystemVoltageField,
+  resolveSystemVoltage,
+  sameSystemVoltage,
+  systemVoltageMigrationPreview,
+  type SystemVoltageMigrationPreview,
+  type SystemVoltageRepresentation,
+} from "@/lib/electrical-system-voltage";
 
-export const NUMERIC_DIAGNOSTICS_VERSION = "4.4b-numeric-diagnostics-2-system-voltage";
+export const NUMERIC_DIAGNOSTICS_VERSION = "4.4b-numeric-diagnostics-3-system-voltage-model";
+
 
 export type NumericCategory = "A" | "B" | "C" | "D" | "E";
 
@@ -125,8 +135,15 @@ export interface NumericDiagnosticsReport {
   plan: NumericFinding[];
   /** Category A findings a NOT NULL column prevents correcting. */
   blocked: NumericFinding[];
+  /**
+   * Read-only Category-E migration preview: current scalar representation vs
+   * the proposed system-voltage representation, per affected record. Never
+   * applied by this phase.
+   */
+  system_voltage_preview: SystemVoltageMigrationPreview;
   /** True while no production write path exists for numeric fields. */
   read_only: true;
+
 }
 
 const EMPTY_COUNTS = (): Record<NumericCategory, number> => ({ A: 0, B: 0, C: 0, D: 0, E: 0 });
@@ -150,6 +167,7 @@ function classify(
   entry: NumericRegistryEntry,
   ods: ParsedNumeric,
   fp: ParsedNumeric,
+  representedSystemVoltage: SystemVoltageRepresentation | null = null,
 ): Classified {
   const column = `${entry.table}.${entry.field}`;
   const dbDefault = defaultNumber(entry);
@@ -162,14 +180,32 @@ function classify(
     const decomposition = sys
       ? `${sys.line_neutral} V line-to-neutral / ${sys.line_line} V line-to-line${sys.phases ? `, ${sys.phases}-phase` : ""}`
       : "two nominal voltages";
+    const odsRep = resolveSystemVoltage((ods.state === "system_voltage" ? ods : fp).raw);
+    // The model can now represent this. If FarmOps holds a system-voltage
+    // designation that disagrees with the canonical one, that is an engineering
+    // disagreement — not a representation gap.
+    if (representedSystemVoltage) {
+      return {
+        category: "B",
+        provenance: `Canonical workbook states system voltage "${(ods.state === "system_voltage" ? ods : fp).raw}" (${decomposition}); FarmOps represents ${representedSystemVoltage.designation}. Both sides state a full system designation and they differ.`,
+        disposition: "requires_engineering_disposition",
+        action:
+          "Genuine system-voltage disagreement between two fully represented designations. Record an explicit engineering disposition; nothing is normalized and nothing is written.",
+      };
+    }
     return {
       category: "E",
-      provenance: `${ods.state === "system_voltage" ? "Canonical workbook" : "FarmOps"} states system voltage "${(ods.state === "system_voltage" ? ods : fp).raw}" (${decomposition}). ${column} is a single ${entry.db_type} scalar and cannot represent a split-phase/wye system voltage.`,
+      provenance: `${ods.state === "system_voltage" ? "Canonical workbook" : "FarmOps"} states system voltage "${(ods.state === "system_voltage" ? ods : fp).raw}" (${decomposition}). ${column} is a single ${entry.db_type} scalar and cannot represent a split-phase/wye system voltage.${
+        isSystemVoltageField(entry.table, entry.field)
+          ? ` ${entry.table}.${entry.field} carries system-designation semantics${odsRep ? `; the canonical designation is ${odsRep.designation}` : ""}, so the value belongs in a ${SYSTEM_VOLTAGE_COLUMN} representation rather than the scalar column.`
+          : ""
+      }`,
       disposition: "requires_data_model_decision",
       action:
-        "Representation gap, not a numeric disagreement. Decide the FarmOps system-voltage model first (explicit nominal line-neutral + line-line voltages, or an equivalent structured system-voltage representation). Do not normalize to the line-to-line scalar and do not change the canonical ODS to satisfy a numeric column.",
+        `Representation gap, not a numeric disagreement. The FarmOps system-voltage model represents this designation; populate the ${SYSTEM_VOLTAGE_COLUMN} system-voltage representation (line-to-neutral + line-to-line volts, phase, wires, canonical designation) for this record; see the system-voltage migration preview. Do not normalize to the line-to-line scalar and do not change the canonical ODS to satisfy a numeric column.`,
     };
   }
+
 
   // C — the workbook does not hold a number at all. This is checked before any
   // artifact rule so a TBD is never collapsed into 0 or NULL.
@@ -288,6 +324,17 @@ export function numericDiagnostics(report: ValidationReport): NumericDiagnostics
     return s;
   };
 
+  // System-voltage representations FarmOps actually stores today. Sourced from
+  // the comparison records themselves, so once a `system_voltage` column exists
+  // and is populated, ODS 120/240 <-> FarmOps 120/240 becomes an agreement with
+  // no further code change — and nothing is ever normalized to a scalar.
+  const representedSystemVoltages = new Map<string, SystemVoltageRepresentation>();
+  for (const rec of report.records as ComparisonRecord[]) {
+    if (rec.farmops_field !== SYSTEM_VOLTAGE_COLUMN || !rec.farmops_entity) continue;
+    const rep = resolveSystemVoltage(rec.farmops_value);
+    if (rep) representedSystemVoltages.set(`${rec.farmops_entity}|${rec.stable_id}`, rep);
+  }
+
   for (const rec of report.records as ComparisonRecord[]) {
     const entry = numericRegistryEntry(rec.farmops_entity, rec.farmops_field);
     // Field-level record only: skip record-level and column-level findings.
@@ -301,17 +348,26 @@ export function numericDiagnostics(report: ValidationReport): NumericDiagnostics
     compared += 1;
     summary.compared += 1;
 
-    // Agreement: identical numbers, matching explicit zeros, or both silent.
+    const represented = isSystemVoltageField(entry.table, entry.field)
+      ? representedSystemVoltages.get(`${entry.table}|${rec.stable_id}`) ?? null
+      : null;
+
+    // Agreement: identical numbers, matching explicit zeros, both silent, or —
+    // for a system-designation field — the same represented system voltage on
+    // both sides (120/240 == 120/240, never 120/240 == 240).
     const agreed =
       (isExplicitNumber(ods) && isExplicitNumber(fp) && sameNumeric(ods.value, fp.value)) ||
-      (ods.state === "absent" && fp.state === "absent");
+      (ods.state === "absent" && fp.state === "absent") ||
+      (ods.state === "system_voltage" &&
+        sameSystemVoltage(resolveSystemVoltage(ods.raw), represented));
     if (agreed) {
       agreements += 1;
       summary.agreements += 1;
       continue;
     }
 
-    const c = classify(entry, ods, fp);
+    const c = classify(entry, ods, fp, represented);
+
     const finding: NumericFinding = {
       domain: rec.domain,
       stable_id: rec.stable_id,
@@ -389,7 +445,11 @@ export function numericDiagnostics(report: ValidationReport): NumericDiagnostics
     findings,
     plan: findings.filter((f) => f.disposition === "eligible_for_correction"),
     blocked: findings.filter((f) => f.disposition === "blocked_column_not_nullable"),
+    system_voltage_preview: systemVoltageMigrationPreview(
+      findings.filter((f) => f.category === "E"),
+    ),
     read_only: true,
+
   };
 }
 
@@ -550,7 +610,22 @@ export function numericDiagnosticsMarkdown(r: NumericDiagnosticsReport): string 
       (f) =>
         `| ${f.category} | ${f.domain} | ${f.stable_id} | ${f.farmops_field} | ${f.ods_raw || "(blank)"} | ${f.farmops_raw || "(blank)"} | ${f.delta === null ? "—" : f.delta} | ${f.disposition} |`,
     ),
+    "",
+    "## Category E — system-voltage migration preview (read-only, not applied)",
+    "",
+    `- Model version: \`${r.system_voltage_preview.model_version}\``,
+    `- Proposed column: \`${r.system_voltage_preview.proposed_column}\``,
+    `- Affected records: ${r.system_voltage_preview.affected_stable_ids.join(", ") || "none"}`,
+    "- Applied: **no** — authorization required before any of these records change",
+    "",
+    "| Stable ID | Entity | ODS | Current FarmOps | Proposed designation | L-N | L-L | φ | Wires | Status |",
+    "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+    ...r.system_voltage_preview.rows.map(
+      (p) =>
+        `| ${p.stable_id} | ${p.farmops_entity} | ${p.ods_raw} | ${p.current_representation} | ${p.proposed.designation} | ${p.proposed.line_neutral_volts} | ${p.proposed.line_line_volts} | ${p.proposed.phases ?? "—"} | ${p.proposed.wires ?? "—"} | ${p.status} |`,
+    ),
   ];
+
   return lines.join("\n");
 }
 
