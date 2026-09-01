@@ -99,7 +99,8 @@ export interface PanelLabel {
 export const listPanelLabels = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<PanelLabel[]> => {
-    await requireAnyAddon(context.supabase, context.userId, PANEL_SHEET_ADDONS);
+    // Printing the whole label sheet is farm-wide, so it stays on the full add-on.
+    await requireAddon(context.supabase, context.userId, "electrical");
     const db = await readerClient();
     const { data, error } = await db
       .from("electrical_panels")
