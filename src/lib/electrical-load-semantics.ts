@@ -438,14 +438,18 @@ export function loadVoltageCurrentReview(
       }
 
       // connected_va / demand_va — the difference is only meaningful with a basis.
+      // A current finding only exists when the two sides disagree; when they
+      // agree, read the shared current straight off the comparison records so a
+      // VA basis can still be proven.
+      const agreedAmps = amps === null ? sharedNumericValue(report, f.stable_id, "amps") : null;
       const sharedAmps =
-        amps && amps.ods_value !== null && amps.farmops_value === amps.ods_value
-          ? amps.ods_value
-          : amps === null
-            ? null
+        agreedAmps !== null
+          ? agreedAmps
+          : amps && amps.ods_value !== null && amps.farmops_value === amps.ods_value
+            ? amps.ods_value
             : null;
-      const odsAmps = amps ? amps.ods_value : null;
-      const fpAmps = amps ? amps.farmops_value : null;
+      const odsAmps = amps ? amps.ods_value : agreedAmps;
+      const fpAmps = amps ? amps.farmops_value : agreedAmps;
       const odsVolts = volts ? volts.ods_value : null;
       const fpVolts = volts ? volts.farmops_value : null;
       const currentForVa = sharedAmps;
