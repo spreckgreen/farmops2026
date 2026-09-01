@@ -13,6 +13,7 @@ import {
   type FarmOpsLoadRow,
 } from "@/lib/electrical-load-adjudication-production";
 import { equipmentFor } from "@/lib/electrical-equipment-provenance";
+import { testBaseline } from "./helpers/adjudication-baseline";
 
 /** Live production values as stored in electrical_loads. */
 const PRODUCTION_ROWS: FarmOpsLoadRow[] = [
@@ -48,7 +49,10 @@ function row(
 }
 
 const production = () =>
-  adjudicateLoads(buildProductionAdjudicationInput(PRODUCTION_ROWS), "2026-09-01T18:00:00.000Z");
+  adjudicateLoads(
+    buildProductionAdjudicationInput(PRODUCTION_ROWS, testBaseline()),
+    "2026-09-01T18:00:00.000Z",
+  );
 
 const find = (id: string, field: string) =>
   production().findings.find((f) => f.stable_id === id && f.field === field)!;
@@ -220,7 +224,7 @@ describe("evidence gate without equipment provenance", () => {
   });
 
   it("falls back to insufficient provenance when equipment identity is stripped", () => {
-    const input = buildProductionAdjudicationInput(PRODUCTION_ROWS).map((l) => ({
+    const input = buildProductionAdjudicationInput(PRODUCTION_ROWS, testBaseline()).map((l) => ({
       ...l,
       equipment: undefined,
     }));
@@ -230,7 +234,7 @@ describe("evidence gate without equipment provenance", () => {
   });
 
   it("still classifies OCP mismatch from an affirmative OCP citation alone", () => {
-    const input = buildProductionAdjudicationInput(PRODUCTION_ROWS).map((l) =>
+    const input = buildProductionAdjudicationInput(PRODUCTION_ROWS, testBaseline()).map((l) =>
       l.stable_id === "FS-084"
         ? {
             ...l,
