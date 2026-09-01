@@ -38,9 +38,13 @@ export function ElectricalNav() {
       <Link to="/electrical/diagrams" className={item} activeProps={active}>
         Diagrams
       </Link>
+      <Link to="/electrical/topology" className={item} activeProps={active}>
+        Topology
+      </Link>
       <Link to="/electrical/workbook" className={item} activeProps={active}>
         Workbook
       </Link>
+
 
       <Link to="/electrical/qa" className={item} activeProps={active}>
         QA
