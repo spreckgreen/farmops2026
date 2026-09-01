@@ -516,16 +516,9 @@ function PanelExits({
     [raceways, panelUuid],
   );
 
-  const consumedBy = consumed.get(`${side}#${Number(position)}`);
-
   const add = useMutation({
-    mutationFn: async () => {
-      if (consumedBy) {
-        throw new Error(
-          `${side} ${Number(position)} is consumed by the multi-pole breaker at ${consumedBy.ownerLabel}${consumedBy.ownerBreakers ? ` (${consumedBy.ownerBreakers})` : ""} — that one record already covers this slot.`,
-        );
-      }
-      return save({
+    mutationFn: async () =>
+      save({
         data: {
           panel_uuid: panelUuid,
           exit_order: Number(order),
