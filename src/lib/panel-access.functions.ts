@@ -407,10 +407,13 @@ export const listPanelEditRequests = createServerFn({ method: "GET" })
     return { rows, pending: rows.filter((r) => r.state === "pending").length };
   });
 
+/** Longest window an administrator may hand out in one action: 90 days. */
+export const MAX_GRANT_HOURS = 24 * 90;
+
 /**
  * Approve or decline a request. Requires the administrator role AND a verified
- * second factor on the current session; approval opens exactly one 24-hour
- * window and never extends an existing one silently.
+ * second factor on the current session. Approval opens exactly one window,
+ * `hours` long (default 24), and never extends an existing one silently.
  */
 export const decidePanelEditRequest = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -419,6 +422,8 @@ export const decidePanelEditRequest = createServerFn({ method: "POST" })
       .object({
         id: z.string().uuid(),
         decision: z.enum(["approved", "rejected"]),
+        // The administrator sets the length at approval time; 24 h stays the default.
+        hours: z.number().int().min(1).max(MAX_GRANT_HOURS).optional(),
         note: z.string().trim().max(300).optional(),
       })
       .parse(d),
@@ -445,7 +450,10 @@ export const decidePanelEditRequest = createServerFn({ method: "POST" })
       decided_by: context.userId,
       decided_at: decidedAt,
       decision_note: data.note ?? null,
-      expires_at: data.decision === "approved" ? grantExpiry(decidedAt) : null,
+      expires_at:
+        data.decision === "approved"
+          ? grantExpiry(decidedAt, data.hours ?? GRANT_WINDOW_HOURS)
+          : null,
     };
     const { data: updated, error } = await db
       .from("electrical_panel_edit_requests")
@@ -456,19 +464,104 @@ export const decidePanelEditRequest = createServerFn({ method: "POST" })
       .single();
     if (error) throw new Error(error.message);
     const row = toRequest(updated as Record<string, unknown>);
-    return { request: row, state: accessState(row) };
+    return { request: row, state: accessState(row), hours: data.hours ?? GRANT_WINDOW_HOURS };
   });
 
-/** End a live window early. Same administrator + second-factor requirement. */
-export const revokePanelEditGrant = createServerFn({ method: "POST" })
+/**
+ * Extend (or reopen) an already-approved window for a longer period than the
+ * default 24 hours — the administrator names the number of hours at extension
+ * time. The new window always runs from now, so an expired grant can be
+ * reopened without the requester filing again. A revoked grant is not
+ * extendable: that requires a fresh request.
+ */
+export const extendPanelEditGrant = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        id: z.string().uuid(),
+        hours: z.number().int().min(1).max(MAX_GRANT_HOURS),
+        note: z.string().trim().max(300).optional(),
+      })
+      .parse(d),
+  )
   .handler(async ({ context, data }) => {
     await requireMfaAdmin(context as never);
     const db = await readerClient();
+
+    const { data: current, error: readError } = await db
+      .from("electrical_panel_edit_requests")
+      .select("*")
+      .eq("id", data.id)
+      .maybeSingle();
+    if (readError) throw new Error(readError.message);
+    if (!current) throw new Error("That request no longer exists.");
+    const request = toRequest(current as Record<string, unknown>);
+    if (request.status !== "approved") {
+      throw new Error("Only an approved request can be extended.");
+    }
+    if (request.revoked_at) {
+      throw new Error("That access was terminated. The requester has to ask again.");
+    }
+
+    const from = new Date().toISOString();
     const { data: updated, error } = await db
       .from("electrical_panel_edit_requests")
-      .update({ revoked_at: new Date().toISOString(), decided_by: context.userId })
+      .update({
+        expires_at: grantExpiry(from, data.hours),
+        decided_by: context.userId,
+        decided_at: from,
+        decision_note:
+          data.note?.trim() ||
+          `Extended to ${data.hours} hours by an administrator on ${from.slice(0, 16).replace("T", " ")} UTC.`,
+      })
+      .eq("id", data.id)
+      .eq("status", "approved")
+      .is("revoked_at", null)
+      .select("*")
+      .single();
+    if (error) throw new Error(error.message);
+    const row = toRequest(updated as Record<string, unknown>);
+    return { request: row, state: accessState(row), hours: data.hours };
+  });
+
+/**
+ * Terminate access. Works on any approved grant — live, or one that was
+ * extended — and takes effect immediately: the state becomes `revoked`, which
+ * the panel sheet and every gated write path treat as locked.
+ */
+export const revokePanelEditGrant = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({ id: z.string().uuid(), note: z.string().trim().max(300).optional() })
+      .parse(d),
+  )
+  .handler(async ({ context, data }) => {
+    await requireMfaAdmin(context as never);
+    const db = await readerClient();
+
+    const { data: current } = await db
+      .from("electrical_panel_edit_requests")
+      .select("*")
+      .eq("id", data.id)
+      .maybeSingle();
+    if (!current) throw new Error("That request no longer exists.");
+    const existing = toRequest(current as Record<string, unknown>);
+    if (existing.status !== "approved") {
+      throw new Error("There is no approved access to terminate on that request.");
+    }
+    if (existing.revoked_at) throw new Error("That access was already terminated.");
+
+    const now = new Date().toISOString();
+    const { data: updated, error } = await db
+      .from("electrical_panel_edit_requests")
+      .update({
+        revoked_at: now,
+        decided_by: context.userId,
+        decided_at: now,
+        ...(data.note?.trim() ? { decision_note: data.note.trim() } : {}),
+      })
       .eq("id", data.id)
       .eq("status", "approved")
       .is("revoked_at", null)
