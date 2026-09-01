@@ -276,6 +276,14 @@ function PanelLabelsPage() {
                     ))}
                   </SelectContent>
                 </Select>
+                {LABEL_FORMATS[format].short ? (
+                  <div className="flex items-center gap-2 pt-1">
+                    <Switch id="short-qr" checked={shortQr} onCheckedChange={setShortQr} />
+                    <Label htmlFor="short-qr" className="text-xs font-normal">
+                      Include small QR (opens the item in the app)
+                    </Label>
+                  </div>
+                ) : null}
               </div>
 
               <div className="space-y-1">
