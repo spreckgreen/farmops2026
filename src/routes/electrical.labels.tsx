@@ -129,7 +129,7 @@ function PanelLabelsPage() {
   const navigate = useNavigate();
   const fetchLabels = useServerFn(listPanelLabels);
   const [filter, setFilter] = useState("");
-  const [size, setSize] = useState<QrSize>("sheet");
+  const [format, setFormat] = useState<LabelFormat>("letter-2x5");
   const [manual, setManual] = useState("");
 
   const labels = useQuery({ queryKey: ["panel-labels"], queryFn: () => fetchLabels() });
