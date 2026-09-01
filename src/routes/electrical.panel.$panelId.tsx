@@ -35,6 +35,10 @@ import {
 } from "@/components/ui/table";
 
 export const Route = createFileRoute("/electrical/panel/$panelId")({
+  // The Supabase session lives in browser storage, so the auth check must run
+  // client-side only — an SSR gate never sees the session and bounces the
+  // scanned label back to /auth forever.
+  ssr: false,
   beforeLoad: requireAuthenticatedUser,
   component: PanelSheetPage,
   head: ({ params }) => ({
