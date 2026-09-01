@@ -62,6 +62,9 @@ function AdminIndexPage() {
             <Link to="/admin/users" className="flex items-center gap-2 rounded-md border p-3 hover:bg-accent">
               <Users className="h-4 w-4" /> User management
             </Link>
+            <Link to="/admin/panel-access" className="flex items-center gap-2 rounded-md border p-3 hover:bg-accent">
+              <Users className="h-4 w-4" /> Panel edit access approvals
+            </Link>
             <Link to="/admin/export" className="flex items-center gap-2 rounded-md border p-3 hover:bg-accent">
               <Download className="h-4 w-4" /> Export snapshot
             </Link>

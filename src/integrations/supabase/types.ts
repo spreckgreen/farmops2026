@@ -1584,6 +1584,54 @@ export type Database = {
         }
         Relationships: []
       }
+      electrical_panel_edit_requests: {
+        Row: {
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
+          expires_at: string | null
+          id: string
+          panel_id: string
+          reason: string | null
+          requester_email: string | null
+          requester_id: string
+          revoked_at: string | null
+          status: Database["public"]["Enums"]["approval_status"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          expires_at?: string | null
+          id?: string
+          panel_id: string
+          reason?: string | null
+          requester_email?: string | null
+          requester_id?: string
+          revoked_at?: string | null
+          status?: Database["public"]["Enums"]["approval_status"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          expires_at?: string | null
+          id?: string
+          panel_id?: string
+          reason?: string | null
+          requester_email?: string | null
+          requester_id?: string
+          revoked_at?: string | null
+          status?: Database["public"]["Enums"]["approval_status"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
       electrical_panel_exits: {
         Row: {
           completion_percent: number | null

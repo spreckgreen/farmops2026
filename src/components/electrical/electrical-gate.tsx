@@ -44,6 +44,9 @@ export function ElectricalNav() {
       <Link to="/electrical/workbook" className={item} activeProps={active}>
         Workbook
       </Link>
+      <Link to="/electrical/labels" className={item} activeProps={active}>
+        Labels
+      </Link>
 
 
       <Link to="/electrical/qa" className={item} activeProps={active}>
