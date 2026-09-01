@@ -115,7 +115,14 @@ function TopologyFigure({
           initialize: (c: Record<string, unknown>) => void;
           render: (id: string, src: string) => Promise<{ svg: string }>;
         };
-        mermaid.initialize({ startOnLoad: false, theme: "neutral", securityLevel: "loose" });
+        // htmlLabels:false keeps every label as native <text>, so exported SVGs
+        // open correctly outside a browser (foreignObject HTML does not).
+        mermaid.initialize({
+          startOnLoad: false,
+          theme: "neutral",
+          securityLevel: "loose",
+          flowchart: { htmlLabels: false },
+        });
         const out = await mermaid.render(`tp-${node.type}-${Date.now()}`, source);
         if (cancelled) return;
         setSvg(out.svg);
