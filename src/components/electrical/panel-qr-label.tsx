@@ -148,13 +148,21 @@ interface PanelQrLabelProps {
   panel: PanelLabelSource & { voltage_designation?: string | null };
   origin: string;
   format?: LabelFormat;
+  /** Include a small in-cell QR on shortened (Avery 8593) labels. */
+  shortQr?: boolean;
   className?: string;
 }
 
-export function PanelQrLabel({ panel, origin, format = "letter-2x5", className }: PanelQrLabelProps) {
+export function PanelQrLabel({
+  panel,
+  origin,
+  format = "letter-2x5",
+  shortQr = false,
+  className,
+}: PanelQrLabelProps) {
   const spec = LABEL_FORMATS[format];
   const url = useMemo(() => panelQrUrl(origin, panel.panel_id), [origin, panel.panel_id]);
-  const svg = usePanelQrSvg(url, format);
+  const svg = usePanelQrSvg(url, format, spec.short ? SHORT_QR_PX : undefined);
   const lines = useMemo(
     () => panelLabelLines(panel, panel.voltage_designation ?? null),
     [panel],
@@ -170,6 +178,8 @@ export function PanelQrLabel({ panel, origin, format = "letter-2x5", className }
           .slice(0, 2)
           .map((l) => l.value)
           .join(" · ")}
+        qrSvg={shortQr ? svg : null}
+        showQr={shortQr}
         className={className}
       />
     );
@@ -236,25 +246,61 @@ export function PanelQrLabel({ panel, origin, format = "letter-2x5", className }
 export function ShortLabelCell({
   stableId,
   detail,
+  qrSvg,
+  showQr = false,
   className,
 }: {
   stableId: string;
   detail: string;
+  /** Small QR for the app record; only rendered when showQr is set. */
+  qrSvg?: string | null;
+  showQr?: boolean;
   className?: string;
 }) {
   return (
     <div
       className={cn(
-        "panel-label-cell flex flex-col justify-center overflow-hidden break-inside-avoid rounded border border-border bg-card px-2 py-1",
+        "panel-label-cell flex items-center gap-1.5 overflow-hidden break-inside-avoid rounded border border-border bg-card px-2 py-1",
         className,
       )}
     >
-      <p className="truncate font-mono text-[11px] font-bold leading-tight text-foreground">
-        {stableId}
-      </p>
-      {detail ? (
-        <p className="truncate text-[8px] leading-tight text-muted-foreground">{detail}</p>
+      {showQr ? (
+        qrSvg ? (
+          <div
+            className="shrink-0 [&_svg]:h-full [&_svg]:w-full"
+            style={{ width: SHORT_QR_PX, height: SHORT_QR_PX }}
+            // qrcode renders a self-contained SVG with no scripts or external references.
+            dangerouslySetInnerHTML={{ __html: qrSvg }}
+          />
+        ) : (
+          <div
+            className="shrink-0 animate-pulse rounded bg-muted"
+            style={{ width: SHORT_QR_PX, height: SHORT_QR_PX }}
+          />
+        )
       ) : null}
+      <div className="min-w-0 flex-1">
+        <p
+          className={cn(
+            "font-mono font-bold leading-tight text-foreground",
+            // With the QR taking the left half the ID wraps onto a second line
+            // instead of being cut off mid-identifier.
+            showQr ? "break-all text-[10px] [overflow-wrap:anywhere]" : "truncate text-[11px]",
+          )}
+        >
+          {stableId}
+        </p>
+        {detail ? (
+          <p
+            className={cn(
+              "text-[8px] leading-tight text-muted-foreground",
+              showQr ? "line-clamp-2" : "truncate",
+            )}
+          >
+            {detail}
+          </p>
+        ) : null}
+      </div>
     </div>
   );
 }
