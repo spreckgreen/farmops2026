@@ -19,6 +19,10 @@ import { RacewayPathPopulation } from "@/components/electrical/raceway-path-popu
 import { BreakerPopulationPreview } from "@/components/electrical/breaker-population-preview";
 import { FieldObservationJournal } from "@/components/electrical/field-observation-journal";
 import { HousePanelFieldReconciliation } from "@/components/electrical/house-panel-field-reconciliation";
+import {
+  CollapsibleGroup,
+  CollapsibleSection,
+} from "@/components/electrical/collapsible-section";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
