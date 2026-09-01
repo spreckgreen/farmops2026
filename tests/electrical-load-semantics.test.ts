@@ -96,7 +96,16 @@ describe("Phase 4.4b load semantic reclassification", () => {
           values: { volts: "240", amps: "30", connected_va: "7200" },
         },
       ],
-      [load({ load_id: "FS-034", volts: 220, amps: 30, connected_va: 6600 })],
+      [
+        load({
+          load_id: "FS-034",
+          volts: 220,
+          amps: 30,
+          connected_va: 6600,
+          // Affirmative provenance: without it the pair is only supporting evidence.
+          equipment_model: "Shop lift — nameplate rated voltage 220 V, 30 A",
+        }),
+      ],
     );
     const volts = r.findings.find((f) => f.field === "volts")!;
     expect(volts.original_category).toBe("B");
@@ -113,16 +122,36 @@ describe("Phase 4.4b load semantic reclassification", () => {
     expect(va.proof.join(" ")).toMatch(/240 × 30 = 7200/);
   });
 
-  it("flags a standard OCP rating against equipment current as a semantic mismatch, not a wrong number", () => {
+  it("flags a standard OCP rating against equipment current as a semantic mismatch when provenance says so", () => {
     const r = review(
       [{ stableId: "FS-050", sourceRow: 20, values: { amps: "60" } }],
-      [load({ load_id: "FS-050", amps: 25 })],
+      [load({ load_id: "FS-050", amps: 25, notes: "60 A breaker protects this circuit" })],
     );
     const amps = r.findings.find((f) => f.field === "amps")!;
     expect(amps.bucket).toBe("current_ocp_semantic_mismatch");
     expect(amps.proposed_category).toBe("E");
     expect(amps.basis_proven).toBe(false);
     expect(amps.disposition).toMatch(/separate fields/i);
+  });
+
+  it("does not infer OCP semantics from a standard breaker size alone", () => {
+    const r = review(
+      [{ stableId: "FS-084", sourceRow: 20, values: { amps: "25" } }],
+      [load({ load_id: "FS-084", amps: 60, notes: "TBD" })],
+    );
+    const amps = r.findings.find((f) => f.field === "amps")!;
+    expect(amps.bucket).toBe("insufficient_provenance");
+    expect(amps.proof.join(" ")).toMatch(/supporting evidence only/i);
+  });
+
+  it("does not infer nominal-vs-nameplate from a compatible voltage pair alone", () => {
+    const r = review(
+      [{ stableId: "FS-092", sourceRow: 45, values: { volts: "120", amps: "8.8" } }],
+      [load({ load_id: "FS-092", volts: 115, amps: 8.8, notes: "No" })],
+    );
+    const volts = r.findings.find((f) => f.field === "volts")!;
+    expect(volts.bucket).toBe("insufficient_provenance");
+    expect(volts.basis_proven).toBe(false);
   });
 
   it("keeps 0 A vs a stated current as insufficient provenance and never normalizes it", () => {

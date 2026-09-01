@@ -26,6 +26,12 @@
 // current) which cannot share one numeric field when they can differ.
 import type { NumericDiagnosticsReport, NumericFinding } from "@/lib/electrical-numeric-diagnostics";
 import type { ComparisonRecord, ValidationReport } from "@/lib/electrical-parallel-validation";
+import {
+  hasOcpProvenance,
+  hasVoltageConceptProvenance,
+  meaningfulCitation,
+  type SemanticEvidence,
+} from "@/lib/electrical-semantic-evidence";
 
 export const LOAD_SEMANTICS_VERSION = "4.4b-load-voltage-current-semantics-1";
 
@@ -319,8 +325,19 @@ export function loadVoltageCurrentReview(
     const volts = group.byField.get("volts") ?? null;
     const amps = group.byField.get("amps") ?? null;
 
-    // Voltage basis: nominal supply vs equipment nameplate, when provable.
-    const pair = volts ? nominalNameplatePair(volts.ods_value, volts.farmops_value) : null;
+    // Affirmative provenance for this load. A classic utilization pair or a
+    // standard breaker size is supporting evidence only: without a citation that
+    // *states* the concept, the finding stays insufficient-provenance.
+    const evidence = evidenceForLoad(report, group.stable_id);
+    const conceptProven = hasVoltageConceptProvenance(evidence);
+    const ocpProven = hasOcpProvenance(evidence);
+
+    // Voltage basis: nominal supply vs equipment nameplate, only when documented.
+    const pair =
+      volts && conceptProven
+        ? nominalNameplatePair(volts.ods_value, volts.farmops_value)
+        : null;
+    const mathPair = volts ? nominalNameplatePair(volts.ods_value, volts.farmops_value) : null;
 
     for (const [field, f] of group.byField) {
       const base = {
@@ -353,6 +370,22 @@ export function loadVoltageCurrentReview(
               "Represent both concepts separately (nominal_supply_voltage and rated_nameplate_voltage). Neither value overwrites the other; nothing is written in this phase.",
             provenance: `Canonical ${num(f.ods_value)} V vs FarmOps ${num(f.farmops_value)} V, reclassified B → representation/semantic on the nominal-vs-nameplate table.`,
           });
+        } else if (mathPair) {
+          findings.push({
+            ...base,
+            proposed_category: "D",
+            bucket: "insufficient_provenance",
+            ods_basis: "undocumented",
+            farmops_basis: "undocumented",
+            proof: [
+              `${mathPair.nominal} V / ${mathPair.nameplate} V is mathematically a nominal-vs-nameplate pair — supporting evidence only.`,
+              "No citation states that either value is a nominal supply or an equipment nameplate voltage, so the representation reading is not established.",
+            ],
+            basis_proven: false,
+            disposition:
+              "Obtain a nameplate photo/specification or a design note stating the nominal supply before reclassifying. No writes.",
+            provenance: `Canonical ${num(f.ods_value)} V vs FarmOps ${num(f.farmops_value)} V with no documented voltage concept on either side.`,
+          });
         } else {
           findings.push({
             ...base,
@@ -372,7 +405,11 @@ export function loadVoltageCurrentReview(
         }
         noteBucket(
           f.stable_id,
-          pair ? "nominal_vs_nameplate_representation" : "true_engineering_disagreement",
+          pair
+            ? "nominal_vs_nameplate_representation"
+            : mathPair
+              ? "insufficient_provenance"
+              : "true_engineering_disagreement",
         );
         continue;
       }
@@ -381,7 +418,27 @@ export function loadVoltageCurrentReview(
         const hi = Math.max(f.ods_value ?? 0, f.farmops_value ?? 0);
         const lo = Math.min(f.ods_value ?? 0, f.farmops_value ?? 0);
         const zeroSide = f.ods_value === 0 || f.farmops_value === 0;
-        const ocpLike = !zeroSide && isStandardOcpRating(hi) && hi >= lo * 1.25 && lo > 0;
+        const ladder = !zeroSide && isStandardOcpRating(hi) && hi >= lo * 1.25 && lo > 0;
+        const ocpLike = ladder && ocpProven;
+        if (ladder && !ocpProven) {
+          findings.push({
+            ...base,
+            proposed_category: "D",
+            bucket: "insufficient_provenance",
+            ods_basis: "undocumented",
+            farmops_basis: "undocumented",
+            proof: [
+              `${hi} A is a standard NEC 240.6(A) rating and is ≥ 125 % of ${lo} A — supporting evidence only.`,
+              "No mapped OCP field, equipment specification, canonical note or FarmOps OCP relationship states that the larger value is circuit protection.",
+            ],
+            basis_proven: false,
+            disposition:
+              "Obtain documentation that the larger value is the breaker/OCP rating before treating this as a semantic mismatch. No writes.",
+            provenance: `Canonical ${num(f.ods_value)} A vs FarmOps ${num(f.farmops_value)} A with no OCP provenance on either side.`,
+          });
+          noteBucket(f.stable_id, "insufficient_provenance");
+          continue;
+        }
         if (ocpLike) {
           const odsIsHi = (f.ods_value ?? 0) === hi;
           findings.push({
@@ -553,6 +610,30 @@ const DETAIL_FIELDS = [
   "source_reference",
   "dedicated_shared",
 ];
+
+/**
+ * Affirmative provenance available for a load in the compared records. Only
+ * fields that actually carry a citation count; placeholders such as "TBD",
+ * "No" or "0%" are dropped.
+ */
+export function evidenceForLoad(report: ValidationReport, stableId: string): SemanticEvidence {
+  const records = report.records.filter(
+    (r) => isLoadDomain(r.domain) && r.stable_id === stableId,
+  );
+  const pick = (field: string) => {
+    const r = records.find((x) => x.field === field);
+    return meaningfulCitation(r?.farmops_value) ?? meaningfulCitation(r?.ods_value);
+  };
+  return {
+    // FarmOps loads have no mapped OCP rating column; a circuit reference is a
+    // relationship, not a statement that a number is overcurrent protection.
+    ocp_field: null,
+    equipment_spec: pick("equipment_model"),
+    canonical_notes: pick("notes"),
+    farmops_ocp_relationship: pick("circuit_group_ref"),
+    other_source_evidence: pick("source_reference") ?? pick("source_circuit"),
+  };
+}
 
 function recordsForLoad(report: ValidationReport, stableId: string): ComparisonRecord[] {
   return report.records.filter((r) => isLoadDomain(r.domain) && r.stable_id === stableId);
