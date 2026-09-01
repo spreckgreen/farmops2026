@@ -407,7 +407,7 @@ function PanelSheetPage() {
                     voltage_designation: sheet.data.voltage_designation,
                   }}
                   origin={origin}
-                  size="large"
+                  format="label-7676"
                 />
                 <p className="text-xs text-muted-foreground">
                   <QrCode className="mr-1 inline h-3.5 w-3.5" />
