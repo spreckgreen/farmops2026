@@ -4,7 +4,7 @@
 //
 // Three standard print formats are supported (see LABEL_FORMATS):
 //   letter-4x2   8.5x11" sheet, 4 columns x 2 rows  (8 labels / page)
-//   letter-2x5   8.5x11" sheet, 2 columns x 5 rows  (10 labels / page)
+//   letter-2x5   8.5x11" sheet, 5 columns x 2 rows  (10 labels / page)
 //   label-7676   White 7676 2.99" x 2.99" single label on a label printer
 import { useEffect, useMemo, useState } from "react";
 import QRCode from "qrcode";
