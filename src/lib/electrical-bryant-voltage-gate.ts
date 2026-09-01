@@ -305,6 +305,8 @@ export function bryantVoltageGateMarkdown(
     `- Gate version: \`${summary.gate_version}\``,
     `- Generated: ${opts.generated_at}`,
     `- Authorized loads: ${BRYANT_VOLTAGE_LOAD_IDS.join(", ")}`,
+    `- Canonical baseline: ${summary.baseline_ods_file ?? "none attached"} (SHA-256 ${summary.baseline_sha256 ?? "n/a"}) — ${summary.baseline_authorized ? "authorized Phase 4.4a baseline" : "NOT authorized: no correction may be applied"}`,
+    `- Baseline blocked rows: ${summary.baseline_blocked}`,
     `- Rows: ${rows.length} (would change ${summary.would_change}, already correct ${summary.already_correct}, drifted ${summary.drifted}, conflict ${summary.conflict}, not found ${summary.not_found}, not approved ${summary.not_approved}, failed ${summary.failed}, applied ${summary.applied})`,
     `- Reconciles: ${summary.reconciles ? "yes" : "NO"}`,
     "",
