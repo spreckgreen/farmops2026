@@ -34,7 +34,14 @@ function download(name: string, body: string, type: string) {
   URL.revokeObjectURL(url);
 }
 
-export function BryantVoltageApplyGate({ onRevalidate }: { onRevalidate?: () => void }) {
+export function BryantVoltageApplyGate({
+  baseline,
+  onRevalidate,
+}: {
+  /** SHA-verified canonical workbook; without it nothing may be previewed or applied. */
+  baseline: { file_name: string; base64: string; authorized: boolean } | null;
+  onRevalidate?: () => void;
+}) {
   const runPreview = useServerFn(previewBryantVoltageCorrection);
   const runApply = useServerFn(applyBryantVoltageCorrection);
   const [result, setResult] = useState<BryantVoltageGateResult | null>(null);
@@ -42,7 +49,12 @@ export function BryantVoltageApplyGate({ onRevalidate }: { onRevalidate?: () => 
   const [confirmed, setConfirmed] = useState(false);
 
   const previewMutation = useMutation({
-    mutationFn: async () => runPreview({ data: {} }) as unknown as Promise<BryantVoltageGateResult>,
+    mutationFn: async () => {
+      if (!baseline) throw new Error("Attach the canonical .ods baseline first.");
+      return runPreview({
+        data: { file_name: baseline.file_name, base64: baseline.base64 },
+      }) as unknown as Promise<BryantVoltageGateResult>;
+    },
     onSuccess: (r) => {
       setResult(r);
       setConfirmed(false);
