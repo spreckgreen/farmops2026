@@ -23,8 +23,8 @@ import {
 } from "@/lib/electrical-panel-access";
 import { resolveSystemVoltage } from "@/lib/electrical-system-voltage";
 
-type Scalar = string | number | boolean | null;
-export type PanelRow = { id: string; [key: string]: Scalar | unknown };
+export type Json = string | number | boolean | null | Json[] | { [key: string]: Json };
+export type PanelRow = { id: string } & Record<string, Json>;
 
 const panelIdSchema = z
   .string()
