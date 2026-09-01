@@ -80,7 +80,18 @@ export function ElectricalNav() {
   );
 }
 
-export function ElectricalGate({ children }: { children: ReactNode }) {
+/**
+ * `hideNav` is used by scanned-label pages: an electrician who reached the app
+ * through a panel QR code sees that panel only, so the farm-wide sub-navigation
+ * is withheld until an administrator approves a system-data window.
+ */
+export function ElectricalGate({
+  children,
+  hideNav = false,
+}: {
+  children: ReactNode;
+  hideNav?: boolean;
+}) {
   const addon = useAddon("electrical");
 
   return (
@@ -93,9 +104,9 @@ export function ElectricalGate({ children }: { children: ReactNode }) {
               Electrical infrastructure
             </h1>
             <p className="text-sm text-muted-foreground">
-              Field record of panels, raceways, junction boxes, branch runs, circuits and
-              loads. The engineering spreadsheet stays the release authority — this is the
-              as-installed truth.
+              {hideNav
+                ? "Scanned panel label. This view is scoped to the panel on the label and its own local topology."
+                : "Field record of panels, raceways, junction boxes, branch runs, circuits and loads. The engineering spreadsheet stays the release authority — this is the as-installed truth."}
             </p>
           </div>
           {addon.enabled && addon.status ? (
@@ -128,7 +139,7 @@ export function ElectricalGate({ children }: { children: ReactNode }) {
           </Card>
         ) : addon.enabled ? (
           <>
-            <ElectricalNav />
+            {hideNav ? null : <ElectricalNav />}
             {children}
           </>
         ) : (

@@ -1597,6 +1597,7 @@ export type Database = {
           requester_email: string | null
           requester_id: string
           revoked_at: string | null
+          scope: string
           status: Database["public"]["Enums"]["approval_status"]
           updated_at: string
         }
@@ -1612,6 +1613,7 @@ export type Database = {
           requester_email?: string | null
           requester_id?: string
           revoked_at?: string | null
+          scope?: string
           status?: Database["public"]["Enums"]["approval_status"]
           updated_at?: string
         }
@@ -1627,6 +1629,7 @@ export type Database = {
           requester_email?: string | null
           requester_id?: string
           revoked_at?: string | null
+          scope?: string
           status?: Database["public"]["Enums"]["approval_status"]
           updated_at?: string
         }

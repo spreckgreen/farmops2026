@@ -10,7 +10,11 @@ import { ArrowLeft, Network, Printer, QrCode, Save } from "lucide-react";
 
 import { ElectricalGate } from "@/components/electrical/electrical-gate";
 import { CollapsibleSection } from "@/components/electrical/collapsible-section";
-import { PanelAccessRequest } from "@/components/electrical/panel-access-request";
+import {
+  PanelAccessRequest,
+  SystemDataAccessRequest,
+} from "@/components/electrical/panel-access-request";
+import { PanelLocalTopology } from "@/components/electrical/panel-local-topology";
 import { PanelQrLabel } from "@/components/electrical/panel-qr-label";
 import { requireAuthenticatedUser } from "@/lib/auth-route";
 import {
@@ -121,6 +125,10 @@ function PanelSheetPage() {
   });
 
   const panel = sheet.data?.panel;
+  // A scanned label is scoped: this panel plus its own local topology. Anything
+  // wider (other panels, the farm-wide topology, the module sub-navigation)
+  // stays hidden until an administrator approves a system-data window.
+  const fullAccess = sheet.data?.system_access.granted ?? false;
   const startEditing = () => {
     if (!panel) return;
     const next: Record<string, string> = {};
@@ -142,20 +150,28 @@ function PanelSheetPage() {
   }, [sheet.data]);
 
   return (
-    <ElectricalGate>
+    <ElectricalGate hideNav={!fullAccess}>
       <div className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2 print:hidden">
-          <Button asChild variant="ghost" size="sm">
-            <Link to="/electrical/labels">
-              <ArrowLeft className="mr-1 h-4 w-4" /> Panel labels
-            </Link>
-          </Button>
-          <div className="flex flex-wrap gap-2">
-            <Button asChild variant="outline" size="sm">
-              <Link to="/electrical/topology">
-                <Network className="mr-1 h-4 w-4" /> Panel topology
+          {fullAccess ? (
+            <Button asChild variant="ghost" size="sm">
+              <Link to="/electrical/labels">
+                <ArrowLeft className="mr-1 h-4 w-4" /> Panel labels
               </Link>
             </Button>
+          ) : (
+            <span className="text-xs text-muted-foreground">
+              Scanned label view — {panelId} only
+            </span>
+          )}
+          <div className="flex flex-wrap gap-2">
+            {fullAccess ? (
+              <Button asChild variant="outline" size="sm">
+                <Link to="/electrical/topology">
+                  <Network className="mr-1 h-4 w-4" /> Full system topology
+                </Link>
+              </Button>
+            ) : null}
             <Button variant="outline" size="sm" onClick={() => window.print()}>
               <Printer className="mr-1 h-4 w-4" /> Print sheet
             </Button>
@@ -183,11 +199,18 @@ function PanelSheetPage() {
                     {String(panel["description"] ?? "No description recorded")}
                   </p>
                 </div>
-                <PanelAccessRequest
-                  panelId={panelId}
-                  access={sheet.data.access}
-                  onChanged={() => void sheet.refetch()}
-                />
+                <div className="flex flex-col items-end gap-2">
+                  <PanelAccessRequest
+                    panelId={panelId}
+                    access={sheet.data.access}
+                    onChanged={() => void sheet.refetch()}
+                  />
+                  <SystemDataAccessRequest
+                    panelId={panelId}
+                    access={sheet.data.system_access}
+                    onChanged={() => void sheet.refetch()}
+                  />
+                </div>
               </CardHeader>
               <CardContent className="space-y-4">
                 <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -273,6 +296,27 @@ function PanelSheetPage() {
                 ) : null}
               </Card>
             ) : null}
+
+            <CollapsibleSection
+              title="Local topology for this panel"
+              subtitle="This panel's own feeders, circuits, loads and raceway endpoints"
+            >
+              <PanelLocalTopology
+                panelId={panelId}
+                description={panel["description"] as string | null}
+                busRatingAmps={panel["bus_rating_amps"] as number | null}
+                voltageText={
+                  sheet.data.voltage_designation ??
+                  (panel["voltage"] ? `${panel["voltage"]} V` : null)
+                }
+                feedersIn={sheet.data.feeders_in}
+                feedersOut={sheet.data.feeders_out}
+                raceways={sheet.data.raceways}
+                circuitGroups={sheet.data.circuit_groups}
+                loads={sheet.data.loads}
+                branchRuns={sheet.data.branch_runs}
+              />
+            </CollapsibleSection>
 
             <CollapsibleSection
               title="Breaker positions"
@@ -419,6 +463,9 @@ function PanelSheetPage() {
             <p className="text-xs text-muted-foreground">
               Snapshot read {new Date(sheet.data.captured_at).toLocaleString()}. Read-only unless an
               administrator has approved a temporary edit window.
+              {fullAccess
+                ? ""
+                : " This scan is scoped to this panel and its local topology — use the request button above if you need other panels or the full system data."}
             </p>
           </>
         ) : null}
