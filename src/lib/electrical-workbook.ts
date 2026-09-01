@@ -205,3 +205,21 @@ export function workbookFilename(generatedAt: string, ext: string): string {
   const stamp = generatedAt.replace(/[:.]/g, "").replace(/Z$/, "");
   return `bostead-electrical-workbook-${stamp}.${ext}`;
 }
+
+/**
+ * "Tidy" presentation of the workbook: fewer columns per section and empty
+ * sections dropped, so the printed / exported notebook stays scannable in the
+ * field. Pure — it narrows the view, it never changes a record.
+ */
+export const TIDY_MAX_COLUMNS = 5;
+
+export function tidyWorkbook(workbook: Workbook, maxColumns = TIDY_MAX_COLUMNS): Workbook {
+  const sections = workbook.sections
+    .filter((s) => s.count > 0)
+    .map((s) => ({
+      ...s,
+      columns: s.columns.slice(0, maxColumns),
+      rows: s.rows.map((row) => row.slice(0, maxColumns)),
+    }));
+  return { ...workbook, sections };
+}
