@@ -217,6 +217,7 @@ export function stillSafeToApplyBryantVoltage(input: {
 
 export function summarizeBryantVoltageGate(
   rows: BryantVoltageGateRow[],
+  baseline?: { ods_file_name: string; ods_sha256: string; authorized: boolean },
 ): BryantVoltageGateSummary {
   const count = (s: BryantVoltageGateStatus) => rows.filter((r) => r.status === s).length;
   const summary: BryantVoltageGateSummary = {
@@ -228,10 +229,14 @@ export function summarizeBryantVoltageGate(
     conflict: count("conflict"),
     not_found: count("not_found"),
     not_approved: count("not_approved"),
+    baseline_blocked: count("baseline_blocked"),
     failed: count("failed"),
     applied: count("applied"),
     accounted: 0,
     reconciles: false,
+    baseline_ods_file: baseline?.ods_file_name ?? rows[0]?.baseline_ods_file ?? null,
+    baseline_sha256: baseline?.ods_sha256 ?? rows[0]?.baseline_sha256 ?? null,
+    baseline_authorized: baseline?.authorized ?? false,
   };
   summary.accounted =
     summary.would_change +
@@ -240,6 +245,7 @@ export function summarizeBryantVoltageGate(
     summary.conflict +
     summary.not_found +
     summary.not_approved +
+    summary.baseline_blocked +
     summary.failed +
     summary.applied;
   summary.reconciles = summary.accounted === rows.length;
