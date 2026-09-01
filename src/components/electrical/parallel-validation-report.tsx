@@ -562,7 +562,8 @@ function BooleanSemanticsPanel({ report }: { report: ValidationReport }) {
           ) : null}
         </div>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className={`space-y-3 ${boolOpen ? "" : "hidden"}`}>
+
         <div className="flex flex-wrap gap-2 text-xs">
           <Badge variant="destructive">A implementation artifact: {c.A}</Badge>
           <Badge variant="outline">B engineering disagreement: {c.B}</Badge>
