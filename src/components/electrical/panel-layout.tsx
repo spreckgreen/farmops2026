@@ -219,6 +219,10 @@ function BreakerPositions({
 }) {
   const layout = useMemo(() => resolvePanelLayout(panel), [panel]);
   const free = useMemo(() => freeBreakerSlots(layout, rows), [layout, rows]);
+  // Gaps in the panel's observed range: recorded slots stop at the highest
+  // captured position, so 29/31 or Right 2/4 never silently disappear.
+  const missing = useMemo(() => unrecordedBreakerSlots(layout, rows), [layout, rows]);
+
   // Consistency check: one record per physical breaker, so slots consumed by a
   // multi-pole breaker (Right 19 = 38/40 consumes Right 20) must stay empty.
   const consumed = useMemo(() => consumedSlotIndex(layout, rows), [layout, rows]);
