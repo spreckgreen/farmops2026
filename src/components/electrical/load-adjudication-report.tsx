@@ -22,6 +22,7 @@ import {
 } from "@/lib/electrical-load-adjudication";
 import { buildProductionAdjudicationInput } from "@/lib/electrical-load-adjudication-production";
 import { listAdjudicatedLoads } from "@/lib/load-adjudication.functions";
+import { BryantVoltageApplyGate } from "@/components/electrical/bryant-voltage-apply-gate";
 
 const BUCKET_ORDER = ADJUDICATION_BUCKET_ORDER;
 const BUCKET_CODE = ADJUDICATION_BUCKET_CODES;
