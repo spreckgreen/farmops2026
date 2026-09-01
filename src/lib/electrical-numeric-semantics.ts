@@ -16,7 +16,7 @@ import { ENTITIES, type EntityField } from "@/lib/electrical-entities";
 import { COLLECTION_FOR_KIND } from "@/lib/electrical-snapshot";
 import { FARMOPS_NATIVE_KINDS, type ElectricalEntityKind } from "@/lib/electrical";
 
-export const NUMERIC_REGISTRY_VERSION = "4.4b-numeric-1";
+export const NUMERIC_REGISTRY_VERSION = "4.4b-numeric-2-system-voltage";
 
 /* ------------------------------------------------------------- ownership */
 
@@ -331,6 +331,8 @@ export interface ParsedNumeric {
   rules: string[];
   /** Why the value is not numeric / not interpretable. */
   note: string;
+  /** Structured split-phase decomposition when state === "system_voltage". */
+  system_voltage?: SystemVoltage;
 }
 
 const NULLISH = new Set(["", "n/a", "na", "n.a.", "none", "null", "-", "—", "–"]);
