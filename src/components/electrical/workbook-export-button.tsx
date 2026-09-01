@@ -10,58 +10,12 @@ import {
   type WorkbookSection,
 } from "@/lib/electrical-workbook";
 
-export interface WorkbookDiagramFigure {
-  key: string;
-  title: string;
-  mermaid: string;
-  svg?: string;
-}
-
-/** Rasterize a rendered Mermaid SVG so Word can embed it. */
-async function svgToPng(
-  svg: string,
-): Promise<{ data: Uint8Array; width: number; height: number } | null> {
-  try {
-    const blob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const img = new Image();
-    await new Promise<void>((resolve, reject) => {
-      img.onload = () => resolve();
-      img.onerror = () => reject(new Error("svg load failed"));
-      img.src = url;
-    });
-    const scale = 2;
-    const w = img.naturalWidth || 900;
-    const h = img.naturalHeight || 600;
-    const canvas = document.createElement("canvas");
-    canvas.width = w * scale;
-    canvas.height = h * scale;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return null;
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-    URL.revokeObjectURL(url);
-    const dataUrl = canvas.toDataURL("image/png");
-    const base64 = dataUrl.split(",")[1] ?? "";
-    const bin = atob(base64);
-    const bytes = new Uint8Array(bin.length);
-    for (let i = 0; i < bin.length; i += 1) bytes[i] = bin.charCodeAt(i);
-    // Fit inside the printable width of US Letter with 1" margins.
-    const maxWidth = 624;
-    const ratio = Math.min(1, maxWidth / w);
-    return { data: bytes, width: Math.round(w * ratio), height: Math.round(h * ratio) };
-  } catch {
-    return null;
-  }
-}
-
 export function WorkbookExportButton({
   workbook,
-  diagrams,
+  tidy,
 }: {
   workbook: Workbook;
-  diagrams: WorkbookDiagramFigure[];
+  tidy?: boolean;
 }) {
   const [busy, setBusy] = useState(false);
 
@@ -77,7 +31,6 @@ export function WorkbookExportButton({
         Table,
         TableRow,
         TableCell,
-        ImageRun,
         HeadingLevel,
         AlignmentType,
         BorderStyle,
@@ -179,51 +132,6 @@ export function WorkbookExportButton({
 
       for (const section of workbook.sections) children.push(...sectionBlocks(section));
 
-      if (diagrams.length) {
-        children.push(
-          new Paragraph({
-            heading: HeadingLevel.HEADING_1,
-            children: [new TextRun("Topology diagrams")],
-          }),
-        );
-        for (const diagram of diagrams) {
-          children.push(
-            new Paragraph({
-              heading: HeadingLevel.HEADING_2,
-              children: [new TextRun(diagram.title)],
-            }),
-          );
-          const png = diagram.svg ? await svgToPng(diagram.svg) : null;
-          if (png) {
-            children.push(
-              new Paragraph({
-                children: [
-                  new ImageRun({
-                    type: "png",
-                    data: png.data,
-                    transformation: { width: png.width, height: png.height },
-                    altText: {
-                      title: diagram.title,
-                      description: `${diagram.title} generated from FarmOps electrical records`,
-                      name: diagram.title,
-                    },
-                  }),
-                ],
-              }),
-            );
-          } else {
-            for (const line of diagram.mermaid.split("\n")) {
-              children.push(
-                new Paragraph({
-                  children: [new TextRun({ text: line, font: "Consolas", size: 14 })],
-                }),
-              );
-            }
-          }
-          children.push(new Paragraph({ children: [new TextRun("")] }));
-        }
-      }
-
       const doc = new Document({
         styles: {
           default: { document: { run: { font: "Arial", size: 20 } } },
@@ -279,7 +187,7 @@ export function WorkbookExportButton({
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = workbookFilename(workbook.generated_at, "docx");
+      a.download = workbookFilename(workbook.generated_at, tidy ? "tidy.docx" : "docx");
       a.click();
       URL.revokeObjectURL(url);
       toast.success("Workbook downloaded");
@@ -297,7 +205,7 @@ export function WorkbookExportButton({
       ) : (
         <FileText className="h-4 w-4 mr-1.5" />
       )}
-      Download DOCX
+      {tidy ? "Download tidy DOCX" : "Download DOCX"}
     </Button>
   );
 }
