@@ -64,6 +64,7 @@ import { Route as ElectricalSorRouteImport } from './routes/electrical.sor'
 import { Route as ElectricalServicesRouteImport } from './routes/electrical.services'
 import { Route as ElectricalQaRouteImport } from './routes/electrical.qa'
 import { Route as ElectricalMappingRouteImport } from './routes/electrical.mapping'
+import { Route as ElectricalLabelsRouteImport } from './routes/electrical.labels'
 import { Route as ElectricalImportRouteImport } from './routes/electrical.import'
 import { Route as ElectricalExportRouteImport } from './routes/electrical.export'
 import { Route as ElectricalDiagramsRouteImport } from './routes/electrical.diagrams'
@@ -77,11 +78,13 @@ import { Route as AdminTaskDedupeRouteImport } from './routes/admin.task-dedupe'
 import { Route as AdminSchemaRouteImport } from './routes/admin.schema'
 import { Route as AdminRestoreRouteImport } from './routes/admin.restore'
 import { Route as AdminResetRouteImport } from './routes/admin.reset'
+import { Route as AdminPanelAccessRouteImport } from './routes/admin.panel-access'
 import { Route as AdminExportKeyRouteImport } from './routes/admin.export-key'
 import { Route as AdminExportRouteImport } from './routes/admin.export'
 import { Route as AdminAiSettingsRouteImport } from './routes/admin.ai-settings'
 import { Route as AdminAiEnginesRouteImport } from './routes/admin.ai-engines'
 import { Route as AdminAddonsRouteImport } from './routes/admin.addons'
+import { Route as ElectricalPanelPanelIdRouteImport } from './routes/electrical.panel.$panelId'
 import { Route as ApiPublicReadyRouteImport } from './routes/api/public/ready'
 import { Route as ApiPublicHealthRouteImport } from './routes/api/public/health'
 import { Route as ApiElectricalSnapshotRouteImport } from './routes/api/electrical/snapshot'
@@ -367,6 +370,11 @@ const ElectricalMappingRoute = ElectricalMappingRouteImport.update({
   path: '/electrical/mapping',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ElectricalLabelsRoute = ElectricalLabelsRouteImport.update({
+  id: '/electrical/labels',
+  path: '/electrical/labels',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ElectricalImportRoute = ElectricalImportRouteImport.update({
   id: '/electrical/import',
   path: '/electrical/import',
@@ -432,6 +440,11 @@ const AdminResetRoute = AdminResetRouteImport.update({
   path: '/admin/reset',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminPanelAccessRoute = AdminPanelAccessRouteImport.update({
+  id: '/admin/panel-access',
+  path: '/admin/panel-access',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminExportKeyRoute = AdminExportKeyRouteImport.update({
   id: '/admin/export-key',
   path: '/admin/export-key',
@@ -455,6 +468,11 @@ const AdminAiEnginesRoute = AdminAiEnginesRouteImport.update({
 const AdminAddonsRoute = AdminAddonsRouteImport.update({
   id: '/admin/addons',
   path: '/admin/addons',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ElectricalPanelPanelIdRoute = ElectricalPanelPanelIdRouteImport.update({
+  id: '/electrical/panel/$panelId',
+  path: '/electrical/panel/$panelId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicReadyRoute = ApiPublicReadyRouteImport.update({
@@ -523,6 +541,7 @@ export interface FileRoutesByFullPath {
   '/admin/ai-settings': typeof AdminAiSettingsRoute
   '/admin/export': typeof AdminExportRoute
   '/admin/export-key': typeof AdminExportKeyRoute
+  '/admin/panel-access': typeof AdminPanelAccessRoute
   '/admin/reset': typeof AdminResetRoute
   '/admin/restore': typeof AdminRestoreRoute
   '/admin/schema': typeof AdminSchemaRoute
@@ -536,6 +555,7 @@ export interface FileRoutesByFullPath {
   '/electrical/diagrams': typeof ElectricalDiagramsRoute
   '/electrical/export': typeof ElectricalExportRoute
   '/electrical/import': typeof ElectricalImportRoute
+  '/electrical/labels': typeof ElectricalLabelsRoute
   '/electrical/mapping': typeof ElectricalMappingRoute
   '/electrical/qa': typeof ElectricalQaRoute
   '/electrical/services': typeof ElectricalServicesRoute
@@ -578,6 +598,7 @@ export interface FileRoutesByFullPath {
   '/api/electrical/snapshot': typeof ApiElectricalSnapshotRoute
   '/api/public/health': typeof ApiPublicHealthRouteWithChildren
   '/api/public/ready': typeof ApiPublicReadyRoute
+  '/electrical/panel/$panelId': typeof ElectricalPanelPanelIdRoute
   '/api/public/health/procedures': typeof ApiPublicHealthProceduresRoute
   '/api/public/hooks/rachio-sync': typeof ApiPublicHooksRachioSyncRoute
   '/api/public/hooks/task-health': typeof ApiPublicHooksTaskHealthRoute
@@ -603,6 +624,7 @@ export interface FileRoutesByTo {
   '/admin/ai-settings': typeof AdminAiSettingsRoute
   '/admin/export': typeof AdminExportRoute
   '/admin/export-key': typeof AdminExportKeyRoute
+  '/admin/panel-access': typeof AdminPanelAccessRoute
   '/admin/reset': typeof AdminResetRoute
   '/admin/restore': typeof AdminRestoreRoute
   '/admin/schema': typeof AdminSchemaRoute
@@ -616,6 +638,7 @@ export interface FileRoutesByTo {
   '/electrical/diagrams': typeof ElectricalDiagramsRoute
   '/electrical/export': typeof ElectricalExportRoute
   '/electrical/import': typeof ElectricalImportRoute
+  '/electrical/labels': typeof ElectricalLabelsRoute
   '/electrical/mapping': typeof ElectricalMappingRoute
   '/electrical/qa': typeof ElectricalQaRoute
   '/electrical/services': typeof ElectricalServicesRoute
@@ -658,6 +681,7 @@ export interface FileRoutesByTo {
   '/api/electrical/snapshot': typeof ApiElectricalSnapshotRoute
   '/api/public/health': typeof ApiPublicHealthRouteWithChildren
   '/api/public/ready': typeof ApiPublicReadyRoute
+  '/electrical/panel/$panelId': typeof ElectricalPanelPanelIdRoute
   '/api/public/health/procedures': typeof ApiPublicHealthProceduresRoute
   '/api/public/hooks/rachio-sync': typeof ApiPublicHooksRachioSyncRoute
   '/api/public/hooks/task-health': typeof ApiPublicHooksTaskHealthRoute
@@ -687,6 +711,7 @@ export interface FileRoutesById {
   '/admin/ai-settings': typeof AdminAiSettingsRoute
   '/admin/export': typeof AdminExportRoute
   '/admin/export-key': typeof AdminExportKeyRoute
+  '/admin/panel-access': typeof AdminPanelAccessRoute
   '/admin/reset': typeof AdminResetRoute
   '/admin/restore': typeof AdminRestoreRoute
   '/admin/schema': typeof AdminSchemaRoute
@@ -700,6 +725,7 @@ export interface FileRoutesById {
   '/electrical/diagrams': typeof ElectricalDiagramsRoute
   '/electrical/export': typeof ElectricalExportRoute
   '/electrical/import': typeof ElectricalImportRoute
+  '/electrical/labels': typeof ElectricalLabelsRoute
   '/electrical/mapping': typeof ElectricalMappingRoute
   '/electrical/qa': typeof ElectricalQaRoute
   '/electrical/services': typeof ElectricalServicesRoute
@@ -742,6 +768,7 @@ export interface FileRoutesById {
   '/api/electrical/snapshot': typeof ApiElectricalSnapshotRoute
   '/api/public/health': typeof ApiPublicHealthRouteWithChildren
   '/api/public/ready': typeof ApiPublicReadyRoute
+  '/electrical/panel/$panelId': typeof ElectricalPanelPanelIdRoute
   '/api/public/health/procedures': typeof ApiPublicHealthProceduresRoute
   '/api/public/hooks/rachio-sync': typeof ApiPublicHooksRachioSyncRoute
   '/api/public/hooks/task-health': typeof ApiPublicHooksTaskHealthRoute
@@ -772,6 +799,7 @@ export interface FileRouteTypes {
     | '/admin/ai-settings'
     | '/admin/export'
     | '/admin/export-key'
+    | '/admin/panel-access'
     | '/admin/reset'
     | '/admin/restore'
     | '/admin/schema'
@@ -785,6 +813,7 @@ export interface FileRouteTypes {
     | '/electrical/diagrams'
     | '/electrical/export'
     | '/electrical/import'
+    | '/electrical/labels'
     | '/electrical/mapping'
     | '/electrical/qa'
     | '/electrical/services'
@@ -827,6 +856,7 @@ export interface FileRouteTypes {
     | '/api/electrical/snapshot'
     | '/api/public/health'
     | '/api/public/ready'
+    | '/electrical/panel/$panelId'
     | '/api/public/health/procedures'
     | '/api/public/hooks/rachio-sync'
     | '/api/public/hooks/task-health'
@@ -852,6 +882,7 @@ export interface FileRouteTypes {
     | '/admin/ai-settings'
     | '/admin/export'
     | '/admin/export-key'
+    | '/admin/panel-access'
     | '/admin/reset'
     | '/admin/restore'
     | '/admin/schema'
@@ -865,6 +896,7 @@ export interface FileRouteTypes {
     | '/electrical/diagrams'
     | '/electrical/export'
     | '/electrical/import'
+    | '/electrical/labels'
     | '/electrical/mapping'
     | '/electrical/qa'
     | '/electrical/services'
@@ -907,6 +939,7 @@ export interface FileRouteTypes {
     | '/api/electrical/snapshot'
     | '/api/public/health'
     | '/api/public/ready'
+    | '/electrical/panel/$panelId'
     | '/api/public/health/procedures'
     | '/api/public/hooks/rachio-sync'
     | '/api/public/hooks/task-health'
@@ -935,6 +968,7 @@ export interface FileRouteTypes {
     | '/admin/ai-settings'
     | '/admin/export'
     | '/admin/export-key'
+    | '/admin/panel-access'
     | '/admin/reset'
     | '/admin/restore'
     | '/admin/schema'
@@ -948,6 +982,7 @@ export interface FileRouteTypes {
     | '/electrical/diagrams'
     | '/electrical/export'
     | '/electrical/import'
+    | '/electrical/labels'
     | '/electrical/mapping'
     | '/electrical/qa'
     | '/electrical/services'
@@ -990,6 +1025,7 @@ export interface FileRouteTypes {
     | '/api/electrical/snapshot'
     | '/api/public/health'
     | '/api/public/ready'
+    | '/electrical/panel/$panelId'
     | '/api/public/health/procedures'
     | '/api/public/hooks/rachio-sync'
     | '/api/public/hooks/task-health'
@@ -1019,6 +1055,7 @@ export interface RootRouteChildren {
   AdminAiSettingsRoute: typeof AdminAiSettingsRoute
   AdminExportRoute: typeof AdminExportRoute
   AdminExportKeyRoute: typeof AdminExportKeyRoute
+  AdminPanelAccessRoute: typeof AdminPanelAccessRoute
   AdminResetRoute: typeof AdminResetRoute
   AdminRestoreRoute: typeof AdminRestoreRoute
   AdminSchemaRoute: typeof AdminSchemaRoute
@@ -1032,6 +1069,7 @@ export interface RootRouteChildren {
   ElectricalDiagramsRoute: typeof ElectricalDiagramsRoute
   ElectricalExportRoute: typeof ElectricalExportRoute
   ElectricalImportRoute: typeof ElectricalImportRoute
+  ElectricalLabelsRoute: typeof ElectricalLabelsRoute
   ElectricalMappingRoute: typeof ElectricalMappingRoute
   ElectricalQaRoute: typeof ElectricalQaRoute
   ElectricalServicesRoute: typeof ElectricalServicesRoute
@@ -1053,6 +1091,7 @@ export interface RootRouteChildren {
   ApiElectricalSnapshotRoute: typeof ApiElectricalSnapshotRoute
   ApiPublicHealthRoute: typeof ApiPublicHealthRouteWithChildren
   ApiPublicReadyRoute: typeof ApiPublicReadyRoute
+  ElectricalPanelPanelIdRoute: typeof ElectricalPanelPanelIdRoute
   ApiPublicHooksRachioSyncRoute: typeof ApiPublicHooksRachioSyncRoute
   ApiPublicHooksTaskHealthRoute: typeof ApiPublicHooksTaskHealthRoute
   ApiPublicWebhooksRachioRoute: typeof ApiPublicWebhooksRachioRoute
@@ -1446,6 +1485,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ElectricalMappingRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/electrical/labels': {
+      id: '/electrical/labels'
+      path: '/electrical/labels'
+      fullPath: '/electrical/labels'
+      preLoaderRoute: typeof ElectricalLabelsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/electrical/import': {
       id: '/electrical/import'
       path: '/electrical/import'
@@ -1537,6 +1583,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminResetRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/panel-access': {
+      id: '/admin/panel-access'
+      path: '/admin/panel-access'
+      fullPath: '/admin/panel-access'
+      preLoaderRoute: typeof AdminPanelAccessRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/export-key': {
       id: '/admin/export-key'
       path: '/admin/export-key'
@@ -1570,6 +1623,13 @@ declare module '@tanstack/react-router' {
       path: '/admin/addons'
       fullPath: '/admin/addons'
       preLoaderRoute: typeof AdminAddonsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/electrical/panel/$panelId': {
+      id: '/electrical/panel/$panelId'
+      path: '/electrical/panel/$panelId'
+      fullPath: '/electrical/panel/$panelId'
+      preLoaderRoute: typeof ElectricalPanelPanelIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/ready': {
@@ -1744,6 +1804,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminAiSettingsRoute: AdminAiSettingsRoute,
   AdminExportRoute: AdminExportRoute,
   AdminExportKeyRoute: AdminExportKeyRoute,
+  AdminPanelAccessRoute: AdminPanelAccessRoute,
   AdminResetRoute: AdminResetRoute,
   AdminRestoreRoute: AdminRestoreRoute,
   AdminSchemaRoute: AdminSchemaRoute,
@@ -1757,6 +1818,7 @@ const rootRouteChildren: RootRouteChildren = {
   ElectricalDiagramsRoute: ElectricalDiagramsRoute,
   ElectricalExportRoute: ElectricalExportRoute,
   ElectricalImportRoute: ElectricalImportRoute,
+  ElectricalLabelsRoute: ElectricalLabelsRoute,
   ElectricalMappingRoute: ElectricalMappingRoute,
   ElectricalQaRoute: ElectricalQaRoute,
   ElectricalServicesRoute: ElectricalServicesRoute,
@@ -1778,6 +1840,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiElectricalSnapshotRoute: ApiElectricalSnapshotRoute,
   ApiPublicHealthRoute: ApiPublicHealthRouteWithChildren,
   ApiPublicReadyRoute: ApiPublicReadyRoute,
+  ElectricalPanelPanelIdRoute: ElectricalPanelPanelIdRoute,
   ApiPublicHooksRachioSyncRoute: ApiPublicHooksRachioSyncRoute,
   ApiPublicHooksTaskHealthRoute: ApiPublicHooksTaskHealthRoute,
   ApiPublicWebhooksRachioRoute: ApiPublicWebhooksRachioRoute,
