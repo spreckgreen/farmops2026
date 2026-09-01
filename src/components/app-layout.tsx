@@ -30,8 +30,9 @@ export function AppLayout({ children }: { children: ReactNode }) {
   };
 
   const navItem =
-    "px-3 py-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors";
-  const navActive = { className: "px-3 py-1.5 rounded-md bg-accent text-foreground" };
+    "shrink-0 px-2.5 py-2 rounded-md hover:bg-accent hover:text-accent-foreground text-muted-foreground transition-colors lg:px-3 lg:py-1.5";
+  const navActive = { className: "shrink-0 px-2.5 py-2 rounded-md bg-accent text-accent-foreground lg:px-3 lg:py-1.5" };
+
 
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const adminActive = pathname.startsWith("/admin");
