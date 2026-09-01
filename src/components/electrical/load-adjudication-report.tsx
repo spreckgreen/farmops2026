@@ -47,7 +47,16 @@ function download(name: string, body: string, type: string) {
 
 export function LoadAdjudicationReport() {
   const fetchLoads = useServerFn(listAdjudicatedLoads);
+  const queryClient = useQueryClient();
   const rows = useQuery({ queryKey: ["load-adjudication"], queryFn: () => fetchLoads() });
+
+  // After an apply, re-run load adjudication and the numeric semantics
+  // diagnostics against the freshly written values.
+  const revalidate = () => {
+    void rows.refetch();
+    void queryClient.invalidateQueries({ queryKey: ["electrical-numeric-diagnostics"] });
+    void queryClient.invalidateQueries({ queryKey: ["electrical-validation"] });
+  };
 
   const report = useMemo(
     () => (rows.data ? adjudicateLoads(buildProductionAdjudicationInput(rows.data)) : null),
