@@ -84,6 +84,9 @@ export function ParallelValidationReport() {
   const run = useServerFn(runElectricalParallelValidation);
   const fileRef = useRef<HTMLInputElement>(null);
   const [report, setReport] = useState<ValidationReport | null>(null);
+  // The canonical workbook is never written; keeping the selected file lets the
+  // apply gate re-run diagnostics against the SAME unchanged ODS.
+  const [odsFile, setOdsFile] = useState<File | null>(null);
   const [cls, setCls] = useState<Classification | "all">("all");
   const [domain, setDomain] = useState<string>("all");
   const [search, setSearch] = useState("");
@@ -139,7 +142,10 @@ export function ParallelValidationReport() {
               className="hidden"
               onChange={(e) => {
                 const f = e.target.files?.[0];
-                if (f) compare.mutate(f);
+                if (f) {
+                  setOdsFile(f);
+                  compare.mutate(f);
+                }
                 e.target.value = "";
               }}
             />
@@ -407,7 +413,12 @@ export function ParallelValidationReport() {
 
           <BooleanSemanticsPanel report={report} />
 
-          <NumericSemanticsPanel report={report} />
+          <NumericSemanticsPanel
+            report={report}
+            onRevalidate={() => {
+              if (odsFile) compare.mutate(odsFile);
+            }}
+          />
 
           <CollapsibleSection title="Normalization rules applied">
             <ul className="space-y-1 text-xs text-muted-foreground">

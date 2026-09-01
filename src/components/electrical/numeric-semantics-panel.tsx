@@ -15,7 +15,9 @@ import {
   type NumericCategory,
 } from "@/lib/electrical-numeric-diagnostics";
 import { systemVoltagePreviewCsv } from "@/lib/electrical-system-voltage";
+import { SystemVoltageApplyGate } from "@/components/electrical/system-voltage-apply-gate";
 import type { ValidationReport } from "@/lib/electrical-parallel-validation";
+
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -38,7 +40,14 @@ function download(name: string, body: string, type: string) {
   URL.revokeObjectURL(url);
 }
 
-export function NumericSemanticsPanel({ report }: { report: ValidationReport }) {
+export function NumericSemanticsPanel({
+  report,
+  onRevalidate,
+}: {
+  report: ValidationReport;
+  onRevalidate?: () => void;
+}) {
+
   const diag = useMemo(() => numericDiagnostics(report), [report]);
   const recon = useMemo(() => numericReconciliation(diag), [diag]);
   const [category, setCategory] = useState<NumericCategory | "all">("all");
@@ -246,8 +255,15 @@ export function NumericSemanticsPanel({ report }: { report: ValidationReport }) 
                 </tbody>
               </table>
             </div>
+            <div className="mt-3">
+              <SystemVoltageApplyGate
+                preview={diag.system_voltage_preview}
+                onRevalidate={onRevalidate}
+              />
+            </div>
           </div>
         ) : null}
+
 
 
 

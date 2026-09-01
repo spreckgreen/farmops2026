@@ -190,7 +190,16 @@ export function resolveSystemVoltage(raw: unknown): SystemVoltageRepresentation 
   }
   const text = String(raw).replace(/\s+/g, " ").trim();
   if (!text) return null;
+  // A stored jsonb designation arrives as JSON text through the snapshot export.
+  if (text.startsWith("{")) {
+    try {
+      return resolveSystemVoltage(JSON.parse(text) as unknown);
+    } catch {
+      return null;
+    }
+  }
   const byCode = BY_CODE.get(text.toUpperCase());
+
   if (byCode) return { ...byCode };
   const alias = SYSTEM_VOLTAGE_CATALOG.find((e) => e.aliases.includes(text.toLowerCase()));
   if (alias) return { ...alias };

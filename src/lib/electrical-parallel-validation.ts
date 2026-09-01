@@ -971,6 +971,38 @@ export function runParallelComparison(input: ValidationInput): ValidationReport 
       const rec = fpRows.get(id);
       if (!rec) continue;
 
+      // Phase 4.4b: the system-voltage designation FarmOps stores alongside the
+      // legacy scalar. It is not a numeric column and is never compared as one —
+      // it is emitted so the numeric diagnostics can see that a panel already
+      // represents 120/240 as a full designation instead of the scalar 240.
+      const sysVoltage = rec["system_voltage"];
+      if (sysVoltage !== null && sysVoltage !== undefined && String(sysVoltage).trim() !== "") {
+        push({
+          domain: collection,
+          stable_id: id,
+          field: "system_voltage",
+          label: "System voltage designation",
+          ods_worksheet: worksheet,
+          ods_column: odsColumnLabel(kind, "voltage"),
+          ods_value: display(odsRow.values["voltage"]),
+          ods_row: odsRow.sourceRow ?? null,
+          farmops_entity: def.table,
+          farmops_field: "system_voltage",
+          farmops_value: String(sysVoltage),
+          farmops_uuid: rec["uuid"] === undefined ? null : String(rec["uuid"] ?? "") || null,
+          authority: "engineering_design",
+          classification: "EXPECTED_TRANSFORMATION",
+          rules: ["system_voltage_designation"],
+          root_cause: "system_voltage_representation",
+          disposition: "CORRECT_MAPPING",
+          note:
+            "Panel voltage is a system designation (line-to-neutral + line-to-line volts, phase, wires). " +
+            "The canonical notation is preserved in full rather than reduced to the line-to-line scalar.",
+        });
+      }
+
+
+
       for (const field of def.fields) {
         // Relationship links and the Inventory/Asset link are FarmOps-native and
         // are never compared against the canonical ODS.

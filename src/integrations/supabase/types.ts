@@ -1671,6 +1671,8 @@ export type Database = {
           phase: string | null
           positions_per_column: number | null
           spaces: number | null
+          system_voltage: Json | null
+          system_voltage_applied_at: string | null
           updated_at: string
           user_id: string
           voltage: number | null
@@ -1695,6 +1697,8 @@ export type Database = {
           phase?: string | null
           positions_per_column?: number | null
           spaces?: number | null
+          system_voltage?: Json | null
+          system_voltage_applied_at?: string | null
           updated_at?: string
           user_id: string
           voltage?: number | null
@@ -1719,6 +1723,8 @@ export type Database = {
           phase?: string | null
           positions_per_column?: number | null
           spaces?: number | null
+          system_voltage?: Json | null
+          system_voltage_applied_at?: string | null
           updated_at?: string
           user_id?: string
           voltage?: number | null

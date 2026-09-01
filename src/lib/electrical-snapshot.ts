@@ -249,6 +249,14 @@ function buildEntityRecord(
     updated_at: scalar(row["updated_at"]),
   };
   for (const field of def.fields) record[field.key] = scalar(row[field.key]);
+  // Phase 4.4b: panel system-voltage designation. Not an editable entity field —
+  // it is a semantic representation written only by the apply gate, and it is
+  // exported so reconciliation can read it without touching the scalar voltage.
+  if (kind === "panel") {
+    record["system_voltage"] = scalar(row["system_voltage"]);
+    record["system_voltage_applied_at"] = scalar(row["system_voltage_applied_at"]);
+  }
+
   // Stable-ID counterpart for every FK. An unset FK stays null on both keys:
   // unknown is preferable to a guessed relationship.
   for (const spec of relationsFor(kind)) {
