@@ -47,12 +47,13 @@ export const LABEL_FORMATS: Record<LabelFormat, LabelFormatSpec> = {
   },
   "letter-2x5": {
     id: "letter-2x5",
-    name: '8.5x11" sheet — 2 x 5 (10 per page)',
+    name: '8.5x11" sheet — 5 x 2 (10 per page)',
     page: { widthIn: 8.5, heightIn: 11 },
     cols: 2,
     rows: 5,
     qrPx: 150,
-    stacked: false,
+    // Same stacked treatment as the 4 x 2 sheet: QR above the details.
+    stacked: true,
     perPage: 10,
   },
   "label-7676": {
