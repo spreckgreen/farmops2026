@@ -11,12 +11,28 @@ export const PANEL_ACCESS_MODEL_VERSION = "panel-qr-access-1";
 
 export type PanelAccessStatus = "pending" | "approved" | "rejected";
 
+/**
+ * What a request asks for.
+ * - `panel_edit`   — correct the details of the one scanned panel
+ * - `system_data`  — read beyond that panel: other panels and the whole-system
+ *                    topology. A scanned label alone never grants this.
+ */
+export type PanelAccessScope = "panel_edit" | "system_data";
+
+export const PANEL_ACCESS_SCOPES: PanelAccessScope[] = ["panel_edit", "system_data"];
+
+export const SCOPE_LABELS: Record<PanelAccessScope, string> = {
+  panel_edit: "Correct this panel's details",
+  system_data: "View other panels / full electrical system",
+};
+
 export interface PanelEditRequest {
   id: string;
   panel_id: string;
   requester_id: string;
   requester_email: string | null;
   reason: string | null;
+  scope: PanelAccessScope;
   status: PanelAccessStatus;
   decided_by: string | null;
   decided_at: string | null;
@@ -64,10 +80,16 @@ export function isEditUnlocked(
   return accessState(request, now) === "active";
 }
 
-/** The newest request for a panel wins; older rows stay as history. */
-export function latestRequest(rows: PanelEditRequest[]): PanelEditRequest | null {
+/**
+ * The newest request wins; older rows stay as history. Scopes are independent —
+ * an approved panel correction window never implies system-wide read access.
+ */
+export function latestRequest(
+  rows: PanelEditRequest[],
+  scope: PanelAccessScope = "panel_edit",
+): PanelEditRequest | null {
   let best: PanelEditRequest | null = null;
-  for (const r of rows) {
+  for (const r of rows.filter((r) => r.scope === scope)) {
     if (!best || Date.parse(r.created_at) > Date.parse(best.created_at)) best = r;
   }
   return best;
