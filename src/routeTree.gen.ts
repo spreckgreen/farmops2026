@@ -56,6 +56,7 @@ import { Route as FoodLivestockRouteImport } from './routes/food.livestock'
 import { Route as FoodIrrigationRouteImport } from './routes/food.irrigation'
 import { Route as FoodGardenRouteImport } from './routes/food.garden'
 import { Route as FoodCropsRouteImport } from './routes/food.crops'
+import { Route as ElectricalWorkbookRouteImport } from './routes/electrical.workbook'
 import { Route as ElectricalValidationRouteImport } from './routes/electrical.validation'
 import { Route as ElectricalStandardsRouteImport } from './routes/electrical.standards'
 import { Route as ElectricalSorRouteImport } from './routes/electrical.sor'
@@ -325,6 +326,11 @@ const FoodCropsRoute = FoodCropsRouteImport.update({
   path: '/crops',
   getParentRoute: () => FoodRoute,
 } as any)
+const ElectricalWorkbookRoute = ElectricalWorkbookRouteImport.update({
+  id: '/electrical/workbook',
+  path: '/electrical/workbook',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ElectricalValidationRoute = ElectricalValidationRouteImport.update({
   id: '/electrical/validation',
   path: '/electrical/validation',
@@ -530,6 +536,7 @@ export interface FileRoutesByFullPath {
   '/electrical/sor': typeof ElectricalSorRoute
   '/electrical/standards': typeof ElectricalStandardsRoute
   '/electrical/validation': typeof ElectricalValidationRoute
+  '/electrical/workbook': typeof ElectricalWorkbookRoute
   '/food/crops': typeof FoodCropsRoute
   '/food/garden': typeof FoodGardenRoute
   '/food/irrigation': typeof FoodIrrigationRoute
@@ -608,6 +615,7 @@ export interface FileRoutesByTo {
   '/electrical/sor': typeof ElectricalSorRoute
   '/electrical/standards': typeof ElectricalStandardsRoute
   '/electrical/validation': typeof ElectricalValidationRoute
+  '/electrical/workbook': typeof ElectricalWorkbookRoute
   '/food/crops': typeof FoodCropsRoute
   '/food/garden': typeof FoodGardenRoute
   '/food/irrigation': typeof FoodIrrigationRoute
@@ -690,6 +698,7 @@ export interface FileRoutesById {
   '/electrical/sor': typeof ElectricalSorRoute
   '/electrical/standards': typeof ElectricalStandardsRoute
   '/electrical/validation': typeof ElectricalValidationRoute
+  '/electrical/workbook': typeof ElectricalWorkbookRoute
   '/food/crops': typeof FoodCropsRoute
   '/food/garden': typeof FoodGardenRoute
   '/food/irrigation': typeof FoodIrrigationRoute
@@ -773,6 +782,7 @@ export interface FileRouteTypes {
     | '/electrical/sor'
     | '/electrical/standards'
     | '/electrical/validation'
+    | '/electrical/workbook'
     | '/food/crops'
     | '/food/garden'
     | '/food/irrigation'
@@ -851,6 +861,7 @@ export interface FileRouteTypes {
     | '/electrical/sor'
     | '/electrical/standards'
     | '/electrical/validation'
+    | '/electrical/workbook'
     | '/food/crops'
     | '/food/garden'
     | '/food/irrigation'
@@ -932,6 +943,7 @@ export interface FileRouteTypes {
     | '/electrical/sor'
     | '/electrical/standards'
     | '/electrical/validation'
+    | '/electrical/workbook'
     | '/food/crops'
     | '/food/garden'
     | '/food/irrigation'
@@ -1014,6 +1026,7 @@ export interface RootRouteChildren {
   ElectricalSorRoute: typeof ElectricalSorRoute
   ElectricalStandardsRoute: typeof ElectricalStandardsRoute
   ElectricalValidationRoute: typeof ElectricalValidationRoute
+  ElectricalWorkbookRoute: typeof ElectricalWorkbookRoute
   NotesDateRoute: typeof NotesDateRoute
   SettingsSelfHostRoute: typeof SettingsSelfHostRoute
   SettingsTroubleshootingRoute: typeof SettingsTroubleshootingRoute
@@ -1363,6 +1376,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/food/crops'
       preLoaderRoute: typeof FoodCropsRouteImport
       parentRoute: typeof FoodRoute
+    }
+    '/electrical/workbook': {
+      id: '/electrical/workbook'
+      path: '/electrical/workbook'
+      fullPath: '/electrical/workbook'
+      preLoaderRoute: typeof ElectricalWorkbookRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/electrical/validation': {
       id: '/electrical/validation'
@@ -1723,6 +1743,7 @@ const rootRouteChildren: RootRouteChildren = {
   ElectricalSorRoute: ElectricalSorRoute,
   ElectricalStandardsRoute: ElectricalStandardsRoute,
   ElectricalValidationRoute: ElectricalValidationRoute,
+  ElectricalWorkbookRoute: ElectricalWorkbookRoute,
   NotesDateRoute: NotesDateRoute,
   SettingsSelfHostRoute: SettingsSelfHostRoute,
   SettingsTroubleshootingRoute: SettingsTroubleshootingRoute,
