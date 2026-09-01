@@ -68,6 +68,11 @@ export interface BryantVoltageGateRow {
   frequency_hz: number;
   status: BryantVoltageGateStatus;
   applied_at: string | null;
+  /** Canonical ODS value this row was adjudicated against (parsed, not stored). */
+  ods_volts: number | null;
+  /** Workbook the canonical value came from. */
+  baseline_ods_file: string | null;
+  baseline_sha256: string | null;
   detail?: string;
 }
 
@@ -80,10 +85,15 @@ export interface BryantVoltageGateSummary {
   conflict: number;
   not_found: number;
   not_approved: number;
+  baseline_blocked: number;
   failed: number;
   applied: number;
   accounted: number;
   reconciles: boolean;
+  /** Canonical baseline identity every row above was adjudicated against. */
+  baseline_ods_file: string | null;
+  baseline_sha256: string | null;
+  baseline_authorized: boolean;
 }
 
 export function bryantVoltageGateKey(r: { table: string; stable_id: string }): string {
