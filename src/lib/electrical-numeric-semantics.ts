@@ -483,6 +483,23 @@ export function parseNumericCell(raw: unknown, unit: NumericUnit): ParsedNumeric
     };
   }
 
+  // Canonical split-phase / wye notation on a voltage field: a resolved
+  // engineering statement of two nominal voltages, not a failed parse. It is
+  // never normalized to a scalar (120/240 is NOT 240).
+  if (unit === "volt") {
+    const sys = parseSystemVoltage(text);
+    if (sys) {
+      return {
+        ...base,
+        state: "system_voltage",
+        value: null,
+        normalized: sys.canonical,
+        system_voltage: sys,
+        note: `"${text}" is canonical system-voltage notation: ${sys.line_neutral} V line-to-neutral / ${sys.line_line} V line-to-line${sys.phases ? `, ${sys.phases}-phase` : ""}. It is fully resolved engineering data that a single scalar voltage column cannot represent; it is never reduced to ${sys.line_line}.`,
+      };
+    }
+  }
+
   const rules: string[] = [];
   let work = lower;
   if (work.includes(",")) {
