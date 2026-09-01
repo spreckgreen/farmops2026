@@ -36,6 +36,17 @@ import {
   correctionPlanCsv,
 } from "@/lib/electrical-boolean-diagnostics";
 import { previewBooleanCorrection } from "@/lib/electrical-boolean-correction.functions";
+import {
+  GATE_PLAN_FILENAME,
+  GATE_REPORT_FILENAME,
+  displayBool,
+  displayOds,
+  gateKey,
+  gateMarkdown,
+  gatePlanCsv,
+  summarizeGate,
+  type GateRow,
+} from "@/lib/electrical-boolean-gate";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
