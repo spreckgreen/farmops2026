@@ -30,6 +30,29 @@ export const odsBaselineInput = z.object({
   base64: z.string().min(1).max(30_000_000),
 });
 
+/**
+ * Friendly validation for every baseline-bound server fn.
+ *
+ * A tab still running a pre-baseline bundle posts these calls with no workbook
+ * payload at all (the hashed server-fn ID did not change), so raw Zod noise
+ * about `file_name` / `base64` being `undefined` is what the owner sees. Turn
+ * that into the actual instruction instead.
+ */
+export function parseOdsBaselineInput(d: unknown): z.infer<typeof odsBaselineInput> {
+  const parsed = odsBaselineInput.safeParse(d);
+  if (parsed.success) return parsed.data;
+  const missing = parsed.error.issues.some(
+    (i) => i.code === "invalid_type" && (i.path[0] === "file_name" || i.path[0] === "base64"),
+  );
+  if (missing) {
+    throw new Error(
+      "No canonical .ods workbook was sent with this request. Attach PremoFarmElectrical.ods under “Canonical ODS baseline”, then preview again. If a baseline is already attached, this tab is running an older build — reload the page.",
+    );
+  }
+  throw new Error(parsed.error.issues.map((i) => `${i.path.join(".") || "input"}: ${i.message}`).join("; "));
+}
+
+
 /** Parse + hash the workbook and return the canonical baseline. Read-only. */
 export async function baselineFromUpload(
   data: z.infer<typeof odsBaselineInput>,
