@@ -313,6 +313,7 @@ export function NumericSemanticsPanel({
             </div>
           ) : null}
         </div>
+        <LoadSemanticDetailPanel report={report} diag={diag} />
       </CardContent>
     </Card>
   );
