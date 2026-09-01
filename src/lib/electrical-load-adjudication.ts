@@ -27,6 +27,7 @@ import {
 } from "@/lib/electrical-semantic-evidence";
 import {
   AMPACITY_SEMANTIC_FIELDS,
+  EQUIPMENT_GROUPS,
   equipmentEvidenceLines,
   type EquipmentDiscrepancy,
   type EquipmentGroup,
@@ -620,7 +621,68 @@ function classifyVa(
 
 /* ----------------------------------------------------------- adjudication */
 
+function equipmentConcepts(eq: EquipmentProvenance): AdjudicatedConcept[] {
+  const s = eq.semantics;
+  const src = `${eq.manufacturer} ${eq.model} evidence records`;
+  const out: AdjudicatedConcept[] = [
+    {
+      concept: "Equipment identity",
+      value: `${eq.manufacturer} ${eq.model} — ${eq.equipment_class}`,
+      kind: "observed",
+      source: src,
+    },
+    {
+      concept: "Nominal supply voltage",
+      value: s.nominal_supply_voltage !== null ? `${s.nominal_supply_voltage} V` : "not established",
+      kind: s.nominal_supply_voltage !== null ? "observed" : "not_established",
+      source: "Canonical engineering designation (ODS, unchanged)",
+    },
+    {
+      concept: "Rated / nameplate voltage",
+      value:
+        s.rated_nameplate_voltage !== null
+          ? `${s.rated_nameplate_voltage} V`
+          : (s.rated_equipment_voltage_class ?? "not established"),
+      kind:
+        s.rated_nameplate_voltage !== null || s.rated_equipment_voltage_class
+          ? "observed"
+          : "not_established",
+      source: src,
+    },
+    {
+      concept: "Phase",
+      value: s.phase ? `${s.phase}Ø` : "not established",
+      kind: s.phase ? "observed" : "not_established",
+      source: src,
+    },
+  ];
+  for (const f of AMPACITY_SEMANTIC_FIELDS) {
+    const v = s[f.field as keyof typeof s];
+    const num = typeof v === "number" ? v : null;
+    out.push({
+      concept: f.label,
+      value: num !== null ? `${num} A` : "not established",
+      kind: num !== null ? "observed" : "not_established",
+      source: num !== null ? src : eq.ampacity_required[0] ?? "Verification pending",
+    });
+  }
+  out.push({
+    concept: "Connected VA basis",
+    value:
+      eq.va_basis_amps !== null
+        ? `nominal_supply and equipment_rated, both at ${eq.va_basis_amps} A`
+        : "not established",
+    kind: eq.va_basis_amps !== null ? "observed" : "not_established",
+    source: eq.va_basis_source ?? "No independently established basis current",
+  });
+  for (const x of s.extras) {
+    out.push({ concept: x.label, value: x.value, kind: "observed", source: src });
+  }
+  return out;
+}
+
 function conceptsFor(load: AdjudicationLoadInput): AdjudicatedConcept[] {
+  if (load.equipment) return equipmentConcepts(load.equipment);
   const volts = load.fields.volts;
   const amps = load.fields.amps;
   const va = load.fields.connected_va;
@@ -760,8 +822,6 @@ export function adjudicateLoads(
         ods_provenance: p.ods_provenance,
         farmops_provenance: p.farmops_provenance,
         equipment_evidence: equipmentEvidenceLines(load.equipment),
-        semantic_interpretation: "",
-        proposed_representation: [],
         ...verdict,
         semantic_interpretation: verdict.semantic_interpretation ?? "Not established.",
         proposed_representation: verdict.proposed_representation ?? [],
