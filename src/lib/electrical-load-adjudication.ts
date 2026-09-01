@@ -420,7 +420,10 @@ function classifyVaWithEquipment(
 }
 
 function classifyVolts(load: AdjudicationLoadInput, p: AdjudicationValuePair): Verdict {
-
+  if (load.equipment) {
+    const v = classifyVoltsWithEquipment(load.equipment, p);
+    if (v) return v;
+  }
   const pair = utilizationPair(p.ods, p.farmops);
   const evidence = evidenceCitations(load.evidence).map((c) => `${c.source}: ${c.detail}`);
   const conceptProven = hasVoltageConceptProvenance(load.evidence);
