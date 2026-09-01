@@ -2,7 +2,7 @@
 // Nine findings, five load summaries, bucket totals, CSV + Markdown export.
 // There is deliberately no Apply control: this view performs no writes.
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Download, ShieldAlert } from "lucide-react";
 
@@ -22,6 +22,7 @@ import {
 } from "@/lib/electrical-load-adjudication";
 import { buildProductionAdjudicationInput } from "@/lib/electrical-load-adjudication-production";
 import { listAdjudicatedLoads } from "@/lib/load-adjudication.functions";
+import { BryantVoltageApplyGate } from "@/components/electrical/bryant-voltage-apply-gate";
 
 const BUCKET_ORDER = ADJUDICATION_BUCKET_ORDER;
 const BUCKET_CODE = ADJUDICATION_BUCKET_CODES;
@@ -46,7 +47,16 @@ function download(name: string, body: string, type: string) {
 
 export function LoadAdjudicationReport() {
   const fetchLoads = useServerFn(listAdjudicatedLoads);
+  const queryClient = useQueryClient();
   const rows = useQuery({ queryKey: ["load-adjudication"], queryFn: () => fetchLoads() });
+
+  // After an apply, re-run load adjudication and the numeric semantics
+  // diagnostics against the freshly written values.
+  const revalidate = () => {
+    void rows.refetch();
+    void queryClient.invalidateQueries({ queryKey: ["electrical-numeric-diagnostics"] });
+    void queryClient.invalidateQueries({ queryKey: ["electrical-validation"] });
+  };
 
   const report = useMemo(
     () => (rows.data ? adjudicateLoads(buildProductionAdjudicationInput(rows.data)) : null),
@@ -116,6 +126,14 @@ export function LoadAdjudicationReport() {
           </div>
         </CardContent>
       </Card>
+
+      <CollapsibleSection
+        title="Bryant nominal supply voltage correction (FS-082, FS-083)"
+        subtitle="Preview-first, per-row approved correction of electrical_loads.volts 120 → 240. Nothing else is written; adjudication history is preserved."
+        badges={<Badge variant="secondary">Apply gate</Badge>}
+      >
+        <BryantVoltageApplyGate onRevalidate={revalidate} />
+      </CollapsibleSection>
 
       <CollapsibleSection
         title="Nine findings"
