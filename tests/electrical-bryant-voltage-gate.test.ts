@@ -115,7 +115,8 @@ describe("Phase 4.4b — Bryant nominal supply voltage apply gate", () => {
     const csv = bryantVoltageGateCsv(rows);
     expect(csv.split("\n")).toHaveLength(3);
     expect(csv).toContain("208/230");
-    expect(csv).not.toContain("230,");
+    // The class is never collapsed to a scalar 230 in any cell.
+    expect(csv.split("\n").slice(1).flatMap((l) => l.split(","))).not.toContain("230");
     const md = bryantVoltageGateMarkdown(rows, summary, {
       applied: true,
       generated_at: "2026-09-01T00:00:00.000Z",
