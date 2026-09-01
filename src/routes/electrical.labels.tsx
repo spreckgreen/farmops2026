@@ -215,10 +215,20 @@ function PanelLabelsPage() {
               </div>
             </div>
             <QrScanner onPanel={(panelId) => void openPanel(panelId)} />
-            <Button variant="outline" size="sm" onClick={() => window.print()}>
-              <Printer className="mr-1 h-4 w-4" /> Print {visible.length} label
-              {visible.length === 1 ? "" : "s"}
-            </Button>
+            <div className="flex flex-wrap items-center gap-3">
+              <Button variant="outline" size="sm" onClick={() => window.print()}>
+                <Printer className="mr-1 h-4 w-4" /> Print {visible.length} label
+                {visible.length === 1 ? "" : "s"}
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                {LABEL_FORMATS[format].perPage} per page ·{" "}
+                {Math.ceil(visible.length / LABEL_FORMATS[format].perPage)} page
+                {Math.ceil(visible.length / LABEL_FORMATS[format].perPage) === 1 ? "" : "s"}. Set the
+                printer paper to{" "}
+                {format === "label-7676" ? '2.99" x 2.99" label stock' : '8.5" x 11" letter'} and turn
+                off scaling.
+              </p>
+            </div>
           </CardContent>
         </Card>
 
