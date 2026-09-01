@@ -68,48 +68,49 @@
 }
 
 
-/* Welcoming Pages palette — dark indigo with amber accents. */
+/* Light palette — warm paper with deep amber accents (dark theme lives in .dark). */
 :root {
   --radius: 0.75rem;
-  --background: oklch(0.16 0.018 260);
-  --foreground: oklch(0.96 0.012 85);
-  --card: oklch(0.21 0.018 260);
-  --card-foreground: oklch(0.96 0.012 85);
-  --popover: oklch(0.21 0.018 260);
-  --popover-foreground: oklch(0.96 0.012 85);
-  --primary: oklch(0.78 0.17 65);
-  --primary-foreground: oklch(0.16 0.018 260);
-  --secondary: oklch(0.27 0.015 260);
-  --secondary-foreground: oklch(0.93 0.012 85);
-  --muted: oklch(0.24 0.015 260);
-  --muted-foreground: oklch(0.66 0.01 260);
-  --accent: oklch(0.78 0.17 65);
-  --accent-foreground: oklch(0.16 0.018 260);
-  --destructive: oklch(0.62 0.22 27);
-  --destructive-foreground: oklch(0.98 0.003 250);
-  --border: oklch(0.30 0.015 260);
-  --input: oklch(0.30 0.015 260);
-  --ring: oklch(0.78 0.17 65);
-  --chart-1: oklch(0.78 0.17 65);
-  --chart-2: oklch(0.70 0.15 200);
-  --chart-3: oklch(0.65 0.16 145);
-  --chart-4: oklch(0.72 0.18 30);
-  --chart-5: oklch(0.62 0.20 290);
-  --sidebar: oklch(0.19 0.018 260);
-  --sidebar-foreground: oklch(0.96 0.012 85);
-  --sidebar-primary: oklch(0.78 0.17 65);
-  --sidebar-primary-foreground: oklch(0.16 0.018 260);
-  --sidebar-accent: oklch(0.27 0.015 260);
-  --sidebar-accent-foreground: oklch(0.93 0.012 85);
-  --sidebar-border: oklch(0.30 0.015 260);
-  --rating-1: oklch(0.58 0.20 25);
-  --rating-2: oklch(0.68 0.17 50);
-  --rating-3: oklch(0.80 0.15 90);
-  --rating-4: oklch(0.75 0.15 145);
-  --rating-5: oklch(0.68 0.16 165);
-  --sidebar-ring: oklch(0.78 0.17 65);
+  --background: oklch(0.985 0.008 85);
+  --foreground: oklch(0.22 0.02 260);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.22 0.02 260);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.22 0.02 260);
+  --primary: oklch(0.58 0.14 55);
+  --primary-foreground: oklch(0.99 0.005 85);
+  --secondary: oklch(0.945 0.012 85);
+  --secondary-foreground: oklch(0.28 0.02 260);
+  --muted: oklch(0.955 0.01 85);
+  --muted-foreground: oklch(0.47 0.015 260);
+  --accent: oklch(0.93 0.035 70);
+  --accent-foreground: oklch(0.30 0.05 55);
+  --destructive: oklch(0.55 0.20 27);
+  --destructive-foreground: oklch(0.99 0.003 250);
+  --border: oklch(0.89 0.012 85);
+  --input: oklch(0.89 0.012 85);
+  --ring: oklch(0.58 0.14 55);
+  --chart-1: oklch(0.58 0.14 55);
+  --chart-2: oklch(0.55 0.13 220);
+  --chart-3: oklch(0.52 0.14 150);
+  --chart-4: oklch(0.58 0.17 25);
+  --chart-5: oklch(0.50 0.17 295);
+  --sidebar: oklch(0.97 0.01 85);
+  --sidebar-foreground: oklch(0.22 0.02 260);
+  --sidebar-primary: oklch(0.58 0.14 55);
+  --sidebar-primary-foreground: oklch(0.99 0.005 85);
+  --sidebar-accent: oklch(0.93 0.035 70);
+  --sidebar-accent-foreground: oklch(0.30 0.05 55);
+  --sidebar-border: oklch(0.89 0.012 85);
+  --rating-1: oklch(0.52 0.20 25);
+  --rating-2: oklch(0.58 0.15 50);
+  --rating-3: oklch(0.60 0.13 90);
+  --rating-4: oklch(0.52 0.14 145);
+  --rating-5: oklch(0.50 0.14 165);
+  --sidebar-ring: oklch(0.58 0.14 55);
 
 }
+
 
 .dark {
   --background: oklch(0.16 0.018 260);
@@ -163,24 +164,32 @@
   }
 }
 
-/* Welcoming Pages parity — amber accents on dark */
+/* Amber accents on light paper */
 @layer utilities {
   .text-gradient-amber {
-    background-image: linear-gradient(135deg, oklch(0.78 0.17 65), oklch(0.88 0.15 80));
+    background-image: linear-gradient(135deg, oklch(0.58 0.14 55), oklch(0.66 0.15 75));
     background-clip: text;
     -webkit-background-clip: text;
     color: transparent;
   }
   .shadow-glow {
-    box-shadow: 0 0 60px oklch(0.78 0.17 65 / 0.18);
+    box-shadow: 0 8px 30px oklch(0.58 0.14 55 / 0.12);
   }
   .shadow-glow-strong {
-    box-shadow: 0 0 100px oklch(0.78 0.17 65 / 0.28);
+    box-shadow: 0 14px 50px oklch(0.58 0.14 55 / 0.18);
   }
   .bg-gradient-card {
-    background: linear-gradient(145deg, oklch(0.18 0.01 250) 0%, oklch(0.12 0.01 250) 100%);
+    background: linear-gradient(145deg, oklch(1 0 0) 0%, oklch(0.965 0.012 85) 100%);
   }
 }
+
+.dark .text-gradient-amber {
+  background-image: linear-gradient(135deg, oklch(0.78 0.17 65), oklch(0.88 0.15 80));
+}
+.dark .bg-gradient-card {
+  background: linear-gradient(145deg, oklch(0.18 0.01 250) 0%, oklch(0.12 0.01 250) 100%);
+}
+
 
 /* Print styles for Food Reports */
 @media print {
@@ -247,4 +256,32 @@
 @media print {
   .deck-print-root .slide-content { page-break-after: always; break-after: page; }
   @page { size: 1920px 1080px landscape; margin: 0; }
+}
+
+/* ---------- Light-mode legibility for status accent colors ----------
+ * Several screens use Tailwind's 300/400 status shades, which were picked for a
+ * dark canvas and wash out on the light theme. Darken them for light mode only.
+ */
+html:not(.dark) {
+  .text-emerald-400, .text-emerald-300 { color: oklch(0.52 0.13 158); }
+  .text-green-400 { color: oklch(0.52 0.14 150); }
+  .text-amber-400, .text-amber-300 { color: oklch(0.52 0.13 70); }
+  .text-orange-300 { color: oklch(0.53 0.16 45); }
+  .text-red-400, .text-red-300 { color: oklch(0.52 0.19 27); }
+  .text-rose-400, .text-rose-300 { color: oklch(0.52 0.19 12); }
+  .text-sky-400 { color: oklch(0.52 0.13 235); }
+  .text-blue-400, .text-blue-300 { color: oklch(0.50 0.16 260); }
+  .border-amber-300 { border-color: oklch(0.82 0.09 75); }
+  .border-emerald-300 { border-color: oklch(0.80 0.09 158); }
+  .border-red-300 { border-color: oklch(0.82 0.10 25); }
+  .bg-amber-400 { background-color: oklch(0.72 0.15 72); }
+  .bg-emerald-400 { background-color: oklch(0.62 0.14 158); }
+  .bg-orange-400 { background-color: oklch(0.66 0.17 45); }
+  .bg-red-400 { background-color: oklch(0.60 0.19 27); }
+}
+
+/* ---------- Mobile / tablet readability ---------- */
+@media (max-width: 1023px) {
+  /* Wide data tables scroll instead of squeezing text to unreadable widths. */
+  .overflow-x-auto > table, table { font-size: 0.875rem; }
 }

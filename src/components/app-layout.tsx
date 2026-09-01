@@ -30,21 +30,23 @@ export function AppLayout({ children }: { children: ReactNode }) {
   };
 
   const navItem =
-    "px-3 py-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors";
-  const navActive = { className: "px-3 py-1.5 rounded-md bg-accent text-foreground" };
+    "shrink-0 px-2.5 py-2 rounded-md hover:bg-accent hover:text-accent-foreground text-muted-foreground transition-colors lg:px-3 lg:py-1.5";
+  const navActive = { className: "shrink-0 px-2.5 py-2 rounded-md bg-accent text-accent-foreground lg:px-3 lg:py-1.5" };
+
 
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const adminActive = pathname.startsWith("/admin");
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
-      <header className="border-b border-border bg-card/30 backdrop-blur sticky top-0 z-10">
-        <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-6">
-            <Link to="/" className="font-bold tracking-tight">
-              Bostead Farms
-            </Link>
-            <nav className="flex items-center gap-1 text-sm">
+      <header className="border-b border-border bg-card/70 backdrop-blur sticky top-0 z-10">
+        <div className="max-w-6xl mx-auto px-3 sm:px-4 py-2 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 lg:flex lg:h-14 lg:justify-between lg:gap-4 lg:py-0">
+          <Link to="/" className="order-1 min-w-0 truncate font-bold tracking-tight lg:shrink-0">
+            Bostead Farms
+          </Link>
+          <nav className="order-3 col-span-2 -mx-1 flex items-center gap-1 overflow-x-auto whitespace-nowrap px-1 pb-1 text-sm lg:order-2 lg:col-span-1 lg:mx-0 lg:flex-1 lg:overflow-visible lg:pb-0">
+
+
               <Link to="/food" className={navItem} activeProps={navActive}>
                 Food
               </Link>
@@ -87,8 +89,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
               )}
 
             </nav>
-          </div>
-          <div className="flex items-center gap-2">
+          <div className="order-2 flex shrink-0 items-center gap-1 sm:gap-2 lg:order-3">
+
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
