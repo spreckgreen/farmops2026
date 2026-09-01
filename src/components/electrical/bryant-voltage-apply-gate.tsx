@@ -261,6 +261,7 @@ export function BryantVoltageApplyGate({
                         />
                       </td>
                       <td className="py-1 pr-3 font-mono">{r.stable_id}</td>
+                      <td className="py-1 pr-3 font-mono">{r.ods_volts ?? "not parsed"}</td>
                       <td className="py-1 pr-3">{r.live_volts ?? "not stated"}</td>
                       <td className="py-1 pr-3">{r.proposed_volts}</td>
                       <td className="py-1 pr-3">
