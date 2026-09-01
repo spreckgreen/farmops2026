@@ -355,6 +355,12 @@ export function BreakerPopulationPreview({
           </div>
         )}
 
+        {result?.coverage && (
+          <PanelCoverageDiagnostic report={result.coverage} csv={result.coverage_csv} />
+        )}
+
+
+
         {repreview && (
           <div className="rounded-md border border-dashed p-3 text-sm">
             <div className="font-medium">Post-Apply re-preview required</div>
