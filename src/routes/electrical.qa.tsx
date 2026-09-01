@@ -55,22 +55,40 @@ function QaPage() {
   return (
     <ElectricalGate>
       <div className="space-y-3">
-        <GridAuditReport />
-        <LoadCompareReport />
-        <IdRepairReport />
-        <RefAuditReport />
-        <RacewayPathPopulation />
-        <HousePanelFieldReconciliation scope="house" />
-        <HousePanelFieldReconciliation scope="farm_shop" />
-        <BreakerPopulationPreview scope="house" />
-        <FieldObservationJournal />
-
+        <CollapsibleGroup title="Grid audit" defaultOpen>
+          <GridAuditReport />
+        </CollapsibleGroup>
+        <CollapsibleGroup title="Load comparison">
+          <LoadCompareReport />
+        </CollapsibleGroup>
+        <CollapsibleGroup title="Stable ID repair">
+          <IdRepairReport />
+        </CollapsibleGroup>
+        <CollapsibleGroup title="Reference audit">
+          <RefAuditReport />
+        </CollapsibleGroup>
+        <CollapsibleGroup title="Raceway path population">
+          <RacewayPathPopulation />
+        </CollapsibleGroup>
+        <CollapsibleGroup title="House panel field reconciliation">
+          <HousePanelFieldReconciliation scope="house" />
+        </CollapsibleGroup>
+        <CollapsibleGroup title="Farm shop panel field reconciliation">
+          <HousePanelFieldReconciliation scope="farm_shop" />
+        </CollapsibleGroup>
+        <CollapsibleGroup title="House breaker population preview">
+          <BreakerPopulationPreview scope="house" />
+        </CollapsibleGroup>
+        <CollapsibleGroup title="Field observation journal">
+          <FieldObservationJournal />
+        </CollapsibleGroup>
 
         <QaReport />
       </div>
     </ElectricalGate>
   );
 }
+
 
 
 const CODE_LABELS: Record<string, string> = {
