@@ -3,7 +3,7 @@
 // Adjudication has no stored copy of the canonical values. The owner selects the
 // same .ods Parallel Validation uses; the server parses and hashes it in memory
 // and returns the canonical load rows with their worksheet/row provenance.
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { FileCheck2, ShieldCheck, ShieldX } from "lucide-react";
@@ -13,6 +13,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { buildAdjudicationBaseline } from "@/lib/electrical-adjudication-baseline.functions";
+import { useCanonicalWorkbookSession } from "@/hooks/use-canonical-workbook-session";
+import {
+  clearCanonicalWorkbookSession,
+  setCanonicalWorkbookSession,
+} from "@/lib/electrical-canonical-workbook-session";
 import {
   PHASE_44A_BASELINE_ODS_FILE,
   PHASE_44A_BASELINE_SHA256,
@@ -45,17 +50,25 @@ export function AdjudicationBaselinePicker({
   const build = useServerFn(buildAdjudicationBaseline);
   const input = useRef<HTMLInputElement>(null);
   const [pending, setPending] = useState(false);
+  const { availability } = useCanonicalWorkbookSession();
 
   const mutation = useMutation({
-    mutationFn: async (file: File) => {
-      const base64 = await fileToBase64(file);
+    mutationFn: async (source: { file_name: string; base64: string }) => {
       const baseline = (await build({
-        data: { file_name: file.name, base64 },
+        data: { file_name: source.file_name, base64: source.base64 },
       })) as unknown as AdjudicationBaseline;
-      return { file_name: file.name, base64, baseline } satisfies AttachedBaseline;
+      return { file_name: source.file_name, base64: source.base64, baseline } satisfies AttachedBaseline;
     },
     onSuccess: (b) => {
       onAttach(b);
+      // Keep one shared session across electrical routes.
+      setCanonicalWorkbookSession({
+        file_name: b.file_name,
+        base64: b.base64,
+        sha256: b.baseline.ods_sha256,
+        parsed_at: b.baseline.parsed_at,
+        established_by: "load_adjudication",
+      });
       if (b.baseline.is_phase_44a_baseline) {
         toast.success(
           `Canonical baseline attached: ${b.baseline.loads.length} adjudicated load(s) parsed.`,
@@ -67,6 +80,17 @@ export function AdjudicationBaselinePicker({
     onError: (e: Error) => toast.error(e.message),
     onSettled: () => setPending(false),
   });
+
+  // Adopt the workbook Parallel validation already validated in this tab. No
+  // hard-coded canonical values are ever substituted: without bytes we ask for
+  // a reattach instead.
+  useEffect(() => {
+    if (attached || pending || mutation.isPending) return;
+    if (availability.state !== "available") return;
+    setPending(true);
+    mutation.mutate({ file_name: availability.meta.file_name, base64: availability.base64 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [attached, availability.state, pending]);
 
   const b = attached?.baseline ?? null;
 
@@ -86,6 +110,26 @@ export function AdjudicationBaselinePicker({
           authorized Phase 4.4a baseline{" "}
           <span className="break-all font-mono text-xs">{PHASE_44A_BASELINE_SHA256}</span>.
         </p>
+        {!attached && availability.state === "reattach_required" ? (
+          <div className="space-y-1 rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
+            <p className="font-medium">Canonical ODS baseline unavailable on this page</p>
+            <p>
+              <span className="font-mono">{availability.meta.file_name}</span> was validated in this
+              session (SHA-256 <span className="break-all font-mono">{availability.meta.sha256}</span>
+              {availability.meta.baseline_authorized ? " — AUTHORIZED" : " — not the authorized baseline"}
+              ), but the workbook bytes are not retained across a page reload. Reattach the same file
+              to adjudicate; stored or cached canonical values are never used instead.
+            </p>
+          </div>
+        ) : null}
+        {!attached && availability.state === "available" ? (
+          <div className="rounded-md border p-3 text-xs">
+            Using the Parallel validation baseline{" "}
+            <span className="font-mono">{availability.meta.file_name}</span>{" "}
+            <span className="break-all font-mono">{availability.meta.sha256}</span>{" "}
+            {availability.meta.baseline_authorized ? "— AUTHORIZED." : "— not the authorized baseline."}
+          </div>
+        ) : null}
         <div className="flex flex-wrap items-center gap-2">
           <input
             ref={input}
@@ -97,14 +141,23 @@ export function AdjudicationBaselinePicker({
               e.target.value = "";
               if (!file) return;
               setPending(true);
-              mutation.mutate(file);
+              void fileToBase64(file).then((base64) =>
+                mutation.mutate({ file_name: file.name, base64 }),
+              );
             }}
           />
           <Button size="sm" disabled={pending} onClick={() => input.current?.click()}>
             {pending ? "Parsing…" : attached ? "Replace workbook" : "Attach canonical .ods"}
           </Button>
           {attached ? (
-            <Button size="sm" variant="ghost" onClick={() => onAttach(null)}>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                onAttach(null);
+                clearCanonicalWorkbookSession();
+              }}
+            >
               Detach
             </Button>
           ) : null}
