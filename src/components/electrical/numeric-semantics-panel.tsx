@@ -40,7 +40,14 @@ function download(name: string, body: string, type: string) {
   URL.revokeObjectURL(url);
 }
 
-export function NumericSemanticsPanel({ report }: { report: ValidationReport }) {
+export function NumericSemanticsPanel({
+  report,
+  onRevalidate,
+}: {
+  report: ValidationReport;
+  onRevalidate?: () => void;
+}) {
+
   const diag = useMemo(() => numericDiagnostics(report), [report]);
   const recon = useMemo(() => numericReconciliation(diag), [diag]);
   const [category, setCategory] = useState<NumericCategory | "all">("all");
