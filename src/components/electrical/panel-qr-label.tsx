@@ -1,24 +1,83 @@
 // Printable panel label: one large QR code plus the details an electrician
 // reads at the panel door. The QR encodes the read-only panel sheet URL, e.g.
 // https://bostead.lovable.app/electrical/panel/PNL-H1
+//
+// Three standard print formats are supported (see LABEL_FORMATS):
+//   letter-4x2   8.5x11" sheet, 4 columns x 2 rows  (8 labels / page)
+//   letter-2x5   8.5x11" sheet, 2 columns x 5 rows  (10 labels / page)
+//   label-7676   White 7676 2.99" x 2.99" single label on a label printer
 import { useEffect, useMemo, useState } from "react";
 import QRCode from "qrcode";
 import { panelLabelLines, panelQrUrl, type PanelLabelSource } from "@/lib/electrical-panel-access";
 import { cn } from "@/lib/utils";
 
-export type QrSize = "sheet" | "large" | "jumbo";
+export type LabelFormat = "letter-4x2" | "letter-2x5" | "label-7676";
+/** @deprecated use LabelFormat */
+export type QrSize = LabelFormat;
 
-const PIXELS: Record<QrSize, number> = { sheet: 220, large: 380, jumbo: 560 };
+export interface LabelFormatSpec {
+  id: LabelFormat;
+  name: string;
+  /** Print sheet the browser should target. */
+  page: { widthIn: number; heightIn: number };
+  cols: number;
+  rows: number;
+  /** Rendered QR module box, in CSS pixels at 96dpi. */
+  qrPx: number;
+  /** Stack the QR above the text instead of beside it. */
+  stacked: boolean;
+  perPage: number;
+}
 
-export function usePanelQrSvg(url: string, size: QrSize): string | null {
+export const LABEL_FORMATS: Record<LabelFormat, LabelFormatSpec> = {
+  "letter-4x2": {
+    id: "letter-4x2",
+    name: '8.5x11" sheet — 4 x 2 (8 per page)',
+    page: { widthIn: 8.5, heightIn: 11 },
+    cols: 4,
+    rows: 2,
+    qrPx: 130,
+    stacked: true,
+    perPage: 8,
+  },
+  "letter-2x5": {
+    id: "letter-2x5",
+    name: '8.5x11" sheet — 2 x 5 (10 per page)',
+    page: { widthIn: 8.5, heightIn: 11 },
+    cols: 2,
+    rows: 5,
+    qrPx: 150,
+    stacked: false,
+    perPage: 10,
+  },
+  "label-7676": {
+    id: "label-7676",
+    name: 'White 7676 — 2.99" x 2.99" label printer',
+    page: { widthIn: 2.99, heightIn: 2.99 },
+    cols: 1,
+    rows: 1,
+    qrPx: 170,
+    stacked: true,
+    perPage: 1,
+  },
+};
+
+export const LABEL_FORMAT_LIST: LabelFormatSpec[] = [
+  LABEL_FORMATS["letter-4x2"],
+  LABEL_FORMATS["letter-2x5"],
+  LABEL_FORMATS["label-7676"],
+];
+
+export function usePanelQrSvg(url: string, format: LabelFormat): string | null {
   const [svg, setSvg] = useState<string | null>(null);
+  const px = LABEL_FORMATS[format].qrPx;
   useEffect(() => {
     let live = true;
     QRCode.toString(url, {
       type: "svg",
       errorCorrectionLevel: "M", // survives a dusty label without bloating the modules
       margin: 1,
-      width: PIXELS[size],
+      width: px * 3, // oversample: the SVG scales down cleanly at print dpi
     })
       .then((out) => {
         if (live) setSvg(out);
@@ -29,67 +88,100 @@ export function usePanelQrSvg(url: string, size: QrSize): string | null {
     return () => {
       live = false;
     };
-  }, [url, size]);
+  }, [url, px]);
   return svg;
+}
+
+/**
+ * Print CSS for one format: page size plus a fixed label grid so each printed
+ * label lands on its physical cell. Render once per print view.
+ */
+export function labelPrintCss(format: LabelFormat): string {
+  const spec = LABEL_FORMATS[format];
+  const marginIn = spec.id === "label-7676" ? 0.08 : 0.25;
+  const cellW = (spec.page.widthIn - marginIn * 2) / spec.cols;
+  const cellH = (spec.page.heightIn - marginIn * 2) / spec.rows;
+  return `@media print {
+  @page { size: ${spec.page.widthIn}in ${spec.page.heightIn}in; margin: ${marginIn}in; }
+  .panel-label-grid {
+    display: grid !important;
+    grid-template-columns: repeat(${spec.cols}, ${cellW}in) !important;
+    grid-auto-rows: ${cellH}in !important;
+    gap: 0 !important;
+  }
+  .panel-label-cell {
+    width: ${cellW}in;
+    height: ${cellH}in;
+    overflow: hidden;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}`;
 }
 
 interface PanelQrLabelProps {
   panel: PanelLabelSource & { voltage_designation?: string | null };
   origin: string;
-  size?: QrSize;
+  format?: LabelFormat;
   className?: string;
 }
 
-export function PanelQrLabel({ panel, origin, size = "sheet", className }: PanelQrLabelProps) {
+export function PanelQrLabel({ panel, origin, format = "letter-2x5", className }: PanelQrLabelProps) {
+  const spec = LABEL_FORMATS[format];
   const url = useMemo(() => panelQrUrl(origin, panel.panel_id), [origin, panel.panel_id]);
-  const svg = usePanelQrSvg(url, size);
+  const svg = usePanelQrSvg(url, format);
   const lines = useMemo(
     () => panelLabelLines(panel, panel.voltage_designation ?? null),
     [panel],
   );
+  const compact = spec.id !== "letter-2x5";
 
   return (
     <div
       className={cn(
-        "flex break-inside-avoid gap-4 rounded-lg border border-border bg-card p-4",
-        size === "sheet" ? "flex-row items-start" : "flex-col items-center text-center",
+        "panel-label-cell flex break-inside-avoid gap-3 rounded-lg border border-border bg-card p-3",
+        spec.stacked ? "flex-col items-center text-center" : "flex-row items-start",
         className,
       )}
     >
       {svg ? (
         <div
           className="shrink-0 [&_svg]:h-auto [&_svg]:w-full"
-          style={{ width: PIXELS[size] / (size === "sheet" ? 1.6 : 1) }}
+          style={{ width: spec.qrPx }}
           // qrcode renders a self-contained SVG with no scripts or external references.
           dangerouslySetInnerHTML={{ __html: svg }}
         />
       ) : (
         <div
           className="aspect-square shrink-0 animate-pulse rounded bg-muted"
-          style={{ width: PIXELS[size] / (size === "sheet" ? 1.6 : 1) }}
+          style={{ width: spec.qrPx }}
         />
       )}
       <div className="min-w-0 flex-1">
         <p
           className={cn(
             "font-mono font-bold leading-tight text-foreground",
-            size === "jumbo" ? "text-4xl" : size === "large" ? "text-3xl" : "text-2xl",
+            compact ? "text-lg" : "text-2xl",
           )}
         >
           {panel.panel_id}
         </p>
-        <dl className="mt-2 space-y-0.5 text-left text-xs">
-          {lines.map((line) => (
+        <dl className={cn("mt-1 space-y-0.5 text-left", compact ? "text-[9px]" : "text-xs")}>
+          {(compact ? lines.slice(0, 4) : lines).map((line) => (
             <div key={line.label} className="flex gap-2">
-              <dt className="w-24 shrink-0 text-muted-foreground">{line.label}</dt>
+              <dt className={cn("shrink-0 text-muted-foreground", compact ? "w-16" : "w-24")}>
+                {line.label}
+              </dt>
               <dd className="min-w-0 flex-1 break-words font-medium text-foreground">{line.value}</dd>
             </div>
           ))}
         </dl>
-        <p className="mt-2 break-all font-mono text-[10px] text-muted-foreground">{url}</p>
-        <p className="text-[10px] text-muted-foreground">
-          Scan for the current panel record (read-only). Editing requires administrator approval.
-        </p>
+        <p className="mt-1 break-all font-mono text-[8px] leading-tight text-muted-foreground">{url}</p>
+        {compact ? null : (
+          <p className="text-[10px] text-muted-foreground">
+            Scan for the current panel record (read-only). Editing requires administrator approval.
+          </p>
+        )}
       </div>
     </div>
   );

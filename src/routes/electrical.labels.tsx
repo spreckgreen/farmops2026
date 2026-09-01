@@ -8,7 +8,13 @@ import { toast } from "sonner";
 import { Camera, CameraOff, Printer, QrCode, Search } from "lucide-react";
 
 import { ElectricalGate } from "@/components/electrical/electrical-gate";
-import { PanelQrLabel, type QrSize } from "@/components/electrical/panel-qr-label";
+import {
+  LABEL_FORMATS,
+  LABEL_FORMAT_LIST,
+  PanelQrLabel,
+  labelPrintCss,
+  type LabelFormat,
+} from "@/components/electrical/panel-qr-label";
 import { requireAuthenticatedUser } from "@/lib/auth-route";
 import { listPanelLabels, type PanelLabel } from "@/lib/panel-access.functions";
 import { parsePanelQr } from "@/lib/electrical-panel-access";
@@ -123,7 +129,7 @@ function PanelLabelsPage() {
   const navigate = useNavigate();
   const fetchLabels = useServerFn(listPanelLabels);
   const [filter, setFilter] = useState("");
-  const [size, setSize] = useState<QrSize>("sheet");
+  const [format, setFormat] = useState<LabelFormat>("letter-2x5");
   const [manual, setManual] = useState("");
 
   const labels = useQuery({ queryKey: ["panel-labels"], queryFn: () => fetchLabels() });
@@ -168,15 +174,17 @@ function PanelLabelsPage() {
                 />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="label-size">Label size</Label>
-                <Select value={size} onValueChange={(v) => setSize(v as QrSize)}>
+                <Label htmlFor="label-size">Print format</Label>
+                <Select value={format} onValueChange={(v) => setFormat(v as LabelFormat)}>
                   <SelectTrigger id="label-size">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="sheet">Sheet — many per page</SelectItem>
-                    <SelectItem value="large">Large — 2 per page</SelectItem>
-                    <SelectItem value="jumbo">Jumbo — 1 per page</SelectItem>
+                    {LABEL_FORMAT_LIST.map((f) => (
+                      <SelectItem key={f.id} value={f.id}>
+                        {f.name}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -207,10 +215,20 @@ function PanelLabelsPage() {
               </div>
             </div>
             <QrScanner onPanel={(panelId) => void openPanel(panelId)} />
-            <Button variant="outline" size="sm" onClick={() => window.print()}>
-              <Printer className="mr-1 h-4 w-4" /> Print {visible.length} label
-              {visible.length === 1 ? "" : "s"}
-            </Button>
+            <div className="flex flex-wrap items-center gap-3">
+              <Button variant="outline" size="sm" onClick={() => window.print()}>
+                <Printer className="mr-1 h-4 w-4" /> Print {visible.length} label
+                {visible.length === 1 ? "" : "s"}
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                {LABEL_FORMATS[format].perPage} per page ·{" "}
+                {Math.ceil(visible.length / LABEL_FORMATS[format].perPage)} page
+                {Math.ceil(visible.length / LABEL_FORMATS[format].perPage) === 1 ? "" : "s"}. Set the
+                printer paper to{" "}
+                {format === "label-7676" ? '2.99" x 2.99" label stock' : '8.5" x 11" letter'} and turn
+                off scaling.
+              </p>
+            </div>
           </CardContent>
         </Card>
 
@@ -228,21 +246,17 @@ function PanelLabelsPage() {
         ) : (
           <div
             className={
-              size === "sheet"
-                ? "grid gap-3 sm:grid-cols-2"
-                : size === "large"
-                  ? "grid gap-4 sm:grid-cols-2 print:grid-cols-1"
-                  : "grid gap-6 grid-cols-1"
+              format === "letter-4x2"
+                ? "panel-label-grid grid gap-3 sm:grid-cols-2 lg:grid-cols-4"
+                : format === "letter-2x5"
+                  ? "panel-label-grid grid gap-3 sm:grid-cols-2"
+                  : "panel-label-grid grid grid-cols-1 gap-4 sm:max-w-sm"
             }
           >
+            {/* Page geometry for the selected label stock; only applies when printing. */}
+            <style dangerouslySetInnerHTML={{ __html: labelPrintCss(format) }} />
             {visible.map((panel) => (
-              <PanelQrLabel
-                key={panel.id}
-                panel={panel}
-                origin={origin}
-                size={size}
-                className="print:break-after-auto"
-              />
+              <PanelQrLabel key={panel.id} panel={panel} origin={origin} format={format} />
             ))}
             {!visible.length ? (
               <p className="text-sm text-muted-foreground">No panels match that filter.</p>
