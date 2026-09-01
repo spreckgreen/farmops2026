@@ -45,7 +45,7 @@ export async function notifyAdminsOfPanelRequest(notice: RequestNotice): Promise
 
   if (!from || !apiKey) {
     console.info(
-      `[panel-access] pending request for ${notice.panelId}; ${emails.length} administrator(s) to review in-app (email sender not configured)`,
+      `[panel-access] pending ${notice.scope ?? "panel_edit"} request for ${notice.panelId}; ${emails.length} administrator(s) to review in-app (email sender not configured)`,
     );
     return {
       emailed: false,
@@ -61,9 +61,14 @@ export async function notifyAdminsOfPanelRequest(notice: RequestNotice): Promise
       body: JSON.stringify({
         from,
         to: emails,
-        subject: `Panel edit access requested — ${notice.panelId}`,
+        subject:
+          notice.scope === "system_data"
+            ? `Wider electrical data access requested — scanned at ${notice.panelId}`
+            : `Panel edit access requested — ${notice.panelId}`,
         text: [
-          `${notice.requesterEmail ?? "A signed-in user"} requested 24-hour edit access to panel ${notice.panelId}.`,
+          notice.scope === "system_data"
+            ? `${notice.requesterEmail ?? "A signed-in user"} requested 24-hour read access to other panels and the full electrical system (scanned label: ${notice.panelId}).`
+            : `${notice.requesterEmail ?? "A signed-in user"} requested 24-hour edit access to panel ${notice.panelId}.`,
           notice.reason ? `Reason: ${notice.reason}` : "No reason given.",
           `Requested at ${notice.requestedAt}.`,
           `Approve or decline: ${notice.reviewUrl}`,
