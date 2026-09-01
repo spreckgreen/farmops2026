@@ -88,11 +88,21 @@ export function ElectricalNav() {
 export function ElectricalGate({
   children,
   hideNav = false,
+  allowScanScope = false,
 }: {
   children: ReactNode;
   hideNav?: boolean;
+  /**
+   * Scanned-label pages also accept the scan-scoped add-on, which a viewer is
+   * granted automatically when they follow a panel QR code. It unlocks the
+   * scanned panel only — the sub-navigation stays hidden with `hideNav`.
+   */
+  allowScanScope?: boolean;
 }) {
-  const addon = useAddon("electrical");
+  const full = useAddon("electrical");
+  const scan = useAddon("electrical_scan");
+  const addon = full.enabled || !allowScanScope ? full : scan;
+  const scanOnly = allowScanScope && !full.enabled && scan.enabled;
 
   return (
     <AppLayout>
@@ -109,7 +119,9 @@ export function ElectricalGate({
                 : "Field record of panels, raceways, junction boxes, branch runs, circuits and loads. The engineering spreadsheet stays the release authority — this is the as-installed truth."}
             </p>
           </div>
-          {addon.enabled && addon.status ? (
+          {scanOnly ? (
+            <Badge variant="secondary">Scanned-label access</Badge>
+          ) : addon.enabled && addon.status ? (
             <Badge variant={addon.status === "trialing" ? "secondary" : "outline"}>
               Add-on: {addon.status === "trialing" ? "trial" : "active"}
               {addon.expiresAt ? ` · until ${addon.expiresAt.slice(0, 10)}` : ""}
@@ -154,6 +166,9 @@ export function ElectricalGate({
                 {addon.status ? ` (current status: ${addon.status})` : ""}.
               </p>
               <p>
+                {allowScanScope
+                  ? "Scanned-label access is granted automatically once the panel on the label is recognised — reload this page to retry. "
+                  : ""}
                 An administrator can enable it under{" "}
                 <Link to="/admin/addons" className="underline">
                   Admin → Add-ons
