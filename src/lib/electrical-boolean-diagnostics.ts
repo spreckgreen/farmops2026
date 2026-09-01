@@ -84,7 +84,7 @@ export interface BooleanDiagnosticsReport {
  * Columns that carried a NOT NULL default before Phase 4.4b. A blank workbook
  * cell against one of these is a database artifact, not engineering intent.
  */
-const DEFAULTED_COLUMNS = new Set([
+export const DEFAULTED_COLUMNS = new Set([
   "electrical_loads.critical",
   "electrical_loads.future",
   "electrical_loads.continuous_load",
@@ -349,6 +349,8 @@ export interface BooleanCorrectionPlan {
   /** Only Category A implementation artifacts are eligible. */
   entries: BooleanCorrectionEntry[];
   skipped_categories: Record<Exclude<BooleanCategory, "A">, number>;
+  /** How many proposed corrections come from each proven artifact rule. */
+  artifact_counts: Record<BooleanArtifactType, number>;
   /** Groups that are Category A but cannot be mapped to a writable column. */
   unmappable: string[];
 }
@@ -405,7 +407,18 @@ export function categoryACorrectionPlan(diag: BooleanDiagnosticsReport): Boolean
       a.stable_id.localeCompare(b.stable_id) ||
       a.column.localeCompare(b.column),
   );
-  return { entries, skipped_categories: skipped, unmappable: [...new Set(unmappable)].sort() };
+  const artifact_counts: Record<BooleanArtifactType, number> = {
+    A1_N_COERCED_TRUE: 0,
+    A2_BLANK_DEFAULTED_FALSE: 0,
+  };
+  for (const e of entries) artifact_counts[e.artifact_type] += 1;
+
+  return {
+    entries,
+    skipped_categories: skipped,
+    artifact_counts,
+    unmappable: [...new Set(unmappable)].sort(),
+  };
 }
 
 export function correctionPlanCsv(plan: BooleanCorrectionPlan): string {
