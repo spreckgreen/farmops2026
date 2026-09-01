@@ -30,6 +30,7 @@ import {
   multiPoleDuplicates,
   nextExitOrder,
   resolvePanelLayout,
+  unrecordedBreakerSlots,
 } from "@/lib/electrical-panel-layout";
 import { PANEL_EXIT_SIDES } from "@/lib/electrical";
 
