@@ -168,13 +168,6 @@ export function LoadAdjudicationReport() {
         </CardContent>
       </Card>
 
-      <CollapsibleSection
-        title="Bryant nominal supply voltage correction (FS-082, FS-083)"
-        subtitle="Preview-first, per-row approved correction of electrical_loads.volts 120 → 240. Nothing else is written; adjudication history is preserved."
-        badges={<Badge variant="secondary">Apply gate</Badge>}
-      >
-        <BryantVoltageApplyGate onRevalidate={revalidate} />
-      </CollapsibleSection>
 
       <CollapsibleSection
         title="Nine findings"
