@@ -404,6 +404,8 @@ export function LoadAdjudicationReport() {
           ))}
         </div>
       </CollapsibleSection>
+    </>
+      )}
     </div>
   );
 }
