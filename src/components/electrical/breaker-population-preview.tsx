@@ -17,6 +17,7 @@ import {
   ObservationPhotoCell,
   type ObservationPhoto,
 } from "@/components/electrical/observation-photo-cell";
+import { PanelCoverageDiagnostic } from "@/components/electrical/panel-coverage-diagnostic";
 
 import {
   applyBreakerPopulation,
@@ -354,6 +355,12 @@ export function BreakerPopulationPreview({
             <Badge variant="outline">{d.requires_review} requires review</Badge>
           </div>
         )}
+
+        {result?.coverage && (
+          <PanelCoverageDiagnostic report={result.coverage} csv={result.coverage_csv} />
+        )}
+
+
 
         {repreview && (
           <div className="rounded-md border border-dashed p-3 text-sm">

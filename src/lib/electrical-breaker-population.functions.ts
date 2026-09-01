@@ -27,6 +27,11 @@ import {
   type BreakerPopulationDiagnostics,
   type BreakerPopulationRow,
 } from "@/lib/electrical-breaker-population";
+import {
+  analysePanelCoverage,
+  panelCoverageCsv,
+  type PanelCoverageReport,
+} from "@/lib/electrical-panel-coverage";
 
 type LooseDb = { from: (table: string) => any };
 
@@ -43,10 +48,20 @@ async function odsToSheets(base64: string) {
   return parseOdsContentXml(strFromU8(content));
 }
 
+interface PanelRow {
+  id: string;
+  panel_id: string;
+  spaces: number | null;
+  breaker_columns: number | null;
+  positions_per_column: number | null;
+}
+
 async function readPanels(db: LooseDb) {
-  const { data, error } = await db.from("electrical_panels").select("id, panel_id");
+  const { data, error } = await db
+    .from("electrical_panels")
+    .select("id, panel_id, spaces, breaker_columns, positions_per_column");
   if (error) throw new Error(error.message);
-  return (data ?? []) as { id: string; panel_id: string }[];
+  return (data ?? []) as PanelRow[];
 }
 
 async function readBreakers(db: LooseDb, byUuid: Map<string, string>): Promise<FarmOpsBreaker[]> {
@@ -78,6 +93,13 @@ export interface BreakerPopulationPreview {
   warnings: string[];
   csv: string;
   markdown: string;
+  /**
+   * Panel-position coverage: physical universe → evidence → parsed breakers →
+   * records. Read-only, and never reports the inventory complete just because
+   * every parsed breaker was reconciled.
+   */
+  coverage: PanelCoverageReport;
+  coverage_csv: string;
   /** Always false for Preview. */
   wrote_anything: false;
   sor_authority: "canonical_ods";
@@ -117,6 +139,23 @@ export const previewBreakerPopulation = createServerFn({ method: "POST" })
     const diagnostics = breakerPopulationDiagnostics(rows);
     const generated_at = new Date().toISOString();
 
+    // Coverage denominator is the panel's own position universe, so a physical
+    // breaker the workbook never mentions cannot shrink it away.
+    const scopePanelIds = new Set<string>(Object.values(scope.aliases));
+    for (const o of parsed.observations) if (o.panel_id) scopePanelIds.add(o.panel_id);
+    const coverage = analysePanelCoverage({
+      panels: panelRows
+        .filter((p) => scopePanelIds.has(p.panel_id))
+        .map((p) => ({
+          panel_id: p.panel_id,
+          spaces: p.spaces,
+          breaker_columns: p.breaker_columns,
+          positions_per_column: p.positions_per_column,
+        })),
+      observations: parsed.observations,
+      farmops: farmops.filter((b) => scopePanelIds.has(b.panel_id)),
+    });
+
     return {
       phase: BREAKER_POPULATION_PHASE,
       scope: data.scope,
@@ -128,6 +167,8 @@ export const previewBreakerPopulation = createServerFn({ method: "POST" })
       warnings: parsed.warnings,
       csv: breakerPopulationCsv(rows),
       markdown: breakerPopulationMarkdown(rows, diagnostics, generated_at, scope),
+      coverage,
+      coverage_csv: panelCoverageCsv(coverage),
       wrote_anything: false,
       sor_authority: "canonical_ods",
     };
