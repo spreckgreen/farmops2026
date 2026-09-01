@@ -34,7 +34,14 @@ function download(name: string, body: string, type: string) {
   URL.revokeObjectURL(url);
 }
 
-export function BryantVoltageApplyGate({ onRevalidate }: { onRevalidate?: () => void }) {
+export function BryantVoltageApplyGate({
+  baseline,
+  onRevalidate,
+}: {
+  /** SHA-verified canonical workbook; without it nothing may be previewed or applied. */
+  baseline: { file_name: string; base64: string; authorized: boolean } | null;
+  onRevalidate?: () => void;
+}) {
   const runPreview = useServerFn(previewBryantVoltageCorrection);
   const runApply = useServerFn(applyBryantVoltageCorrection);
   const [result, setResult] = useState<BryantVoltageGateResult | null>(null);
@@ -42,7 +49,12 @@ export function BryantVoltageApplyGate({ onRevalidate }: { onRevalidate?: () => 
   const [confirmed, setConfirmed] = useState(false);
 
   const previewMutation = useMutation({
-    mutationFn: async () => runPreview({ data: {} }) as unknown as Promise<BryantVoltageGateResult>,
+    mutationFn: async () => {
+      if (!baseline) throw new Error("Attach the canonical .ods baseline first.");
+      return runPreview({
+        data: { file_name: baseline.file_name, base64: baseline.base64 },
+      }) as unknown as Promise<BryantVoltageGateResult>;
+    },
     onSuccess: (r) => {
       setResult(r);
       setConfirmed(false);
@@ -59,8 +71,21 @@ export function BryantVoltageApplyGate({ onRevalidate }: { onRevalidate?: () => 
   });
 
   const applyMutation = useMutation({
-    mutationFn: async () =>
-      runApply({ data: { confirm: true, approved: [...approved] } }) as unknown as Promise<BryantVoltageGateResult>,
+    mutationFn: async () => {
+      if (!baseline?.authorized) {
+        throw new Error(
+          "Canonical evidence must come from the authorized Phase 4.4a baseline workbook.",
+        );
+      }
+      return runApply({
+        data: {
+          file_name: baseline.file_name,
+          base64: baseline.base64,
+          confirm: true,
+          approved: [...approved],
+        },
+      }) as unknown as Promise<BryantVoltageGateResult>;
+    },
     onSuccess: (r) => {
       setResult(r);
       setConfirmed(false);
@@ -92,21 +117,28 @@ export function BryantVoltageApplyGate({ onRevalidate }: { onRevalidate?: () => 
             services/topology, Boolean reconciliation, FS-084, FS-034, FS-092 and every other load
             are never modified. Each write re-reads the live row by UUID and re-verifies the stable
             ID, the 120 V starting value, the verified Bryant equipment configuration and the live
-            adjudication provenance. Gate <code>{BRYANT_VOLTAGE_GATE_VERSION}</code>.
+            adjudication provenance, and the canonical value parsed from the SHA-verified baseline
+            workbook. Gate <code>{BRYANT_VOLTAGE_GATE_VERSION}</code>.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button
             size="sm"
             variant="outline"
-            disabled={previewMutation.isPending}
+            disabled={!baseline || previewMutation.isPending}
             onClick={() => previewMutation.mutate()}
           >
             {previewMutation.isPending ? "Checking…" : "Preview against live data"}
           </Button>
           <Button
             size="sm"
-            disabled={!result || !confirmed || approved.size === 0 || applyMutation.isPending}
+            disabled={
+              !baseline?.authorized ||
+              !result ||
+              !confirmed ||
+              approved.size === 0 ||
+              applyMutation.isPending
+            }
             onClick={() => applyMutation.mutate()}
           >
             {applyMutation.isPending ? "Applying…" : `Apply ${approved.size} approved`}
@@ -147,6 +179,28 @@ export function BryantVoltageApplyGate({ onRevalidate }: { onRevalidate?: () => 
         </div>
       </div>
 
+      {!baseline ? (
+        <p className="mt-3 rounded-md border border-dashed p-2 text-xs text-muted-foreground">
+          Attach the canonical .ods baseline above. Without SHA-verified canonical evidence this gate
+          will neither preview nor apply.
+        </p>
+      ) : !baseline.authorized ? (
+        <p className="mt-3 rounded-md border border-destructive/50 p-2 text-xs text-destructive">
+          The attached workbook is not the authorized Phase 4.4a baseline. Preview is read-only and
+          apply is refused.
+        </p>
+      ) : null}
+
+      {result ? (
+        <p className="mt-3 break-all text-xs text-muted-foreground">
+          Canonical evidence: <span className="font-mono">{result.baseline.ods_file_name}</span> SHA-256{" "}
+          <span className="font-mono">{result.baseline.ods_sha256}</span>{" "}
+          {result.baseline.authorized
+            ? "— authorized Phase 4.4a baseline."
+            : `— ${result.baseline.reason}`}
+        </p>
+      ) : null}
+
       {summary ? (
         <div className="flex flex-wrap gap-2 pt-3 text-xs">
           <Badge variant="outline">Would change {summary.would_change}</Badge>
@@ -160,6 +214,9 @@ export function BryantVoltageApplyGate({ onRevalidate }: { onRevalidate?: () => 
           </Badge>
           <Badge variant="secondary">Not found {summary.not_found}</Badge>
           <Badge variant="secondary">Not approved {summary.not_approved}</Badge>
+          <Badge variant={summary.baseline_blocked ? "destructive" : "secondary"}>
+            Baseline blocked {summary.baseline_blocked}
+          </Badge>
           <Badge variant={summary.failed ? "destructive" : "secondary"}>
             Failed {summary.failed}
           </Badge>
@@ -177,7 +234,8 @@ export function BryantVoltageApplyGate({ onRevalidate }: { onRevalidate?: () => 
                 <tr>
                   <th className="py-1 pr-3">Approve</th>
                   <th className="py-1 pr-3">Stable ID</th>
-                  <th className="py-1 pr-3">Old volts</th>
+                  <th className="py-1 pr-3">ODS parsed volts</th>
+                  <th className="py-1 pr-3">FarmOps live volts</th>
                   <th className="py-1 pr-3">New volts</th>
                   <th className="py-1 pr-3">Preserved equipment rating</th>
                   <th className="py-1 pr-3">Status</th>
@@ -206,6 +264,7 @@ export function BryantVoltageApplyGate({ onRevalidate }: { onRevalidate?: () => 
                         />
                       </td>
                       <td className="py-1 pr-3 font-mono">{r.stable_id}</td>
+                      <td className="py-1 pr-3 font-mono">{r.ods_volts ?? "not parsed"}</td>
                       <td className="py-1 pr-3">{r.live_volts ?? "not stated"}</td>
                       <td className="py-1 pr-3">{r.proposed_volts}</td>
                       <td className="py-1 pr-3">

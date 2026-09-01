@@ -49,6 +49,7 @@ export type BryantVoltageGateStatus =
   | "conflict"
   | "not_found"
   | "not_approved"
+  | "baseline_blocked"
   | "failed"
   | "applied";
 
@@ -67,6 +68,11 @@ export interface BryantVoltageGateRow {
   frequency_hz: number;
   status: BryantVoltageGateStatus;
   applied_at: string | null;
+  /** Canonical ODS value this row was adjudicated against (parsed, not stored). */
+  ods_volts: number | null;
+  /** Workbook the canonical value came from. */
+  baseline_ods_file: string | null;
+  baseline_sha256: string | null;
   detail?: string;
 }
 
@@ -79,10 +85,15 @@ export interface BryantVoltageGateSummary {
   conflict: number;
   not_found: number;
   not_approved: number;
+  baseline_blocked: number;
   failed: number;
   applied: number;
   accounted: number;
   reconciles: boolean;
+  /** Canonical baseline identity every row above was adjudicated against. */
+  baseline_ods_file: string | null;
+  baseline_sha256: string | null;
+  baseline_authorized: boolean;
 }
 
 export function bryantVoltageGateKey(r: { table: string; stable_id: string }): string {
@@ -149,8 +160,14 @@ export function stillSafeToApplyBryantVoltage(input: {
   equipment: EquipmentProvenance | undefined;
   /** Adjudication bucket for this load's `volts` finding, when available. */
   adjudication_bucket: string | null;
-  /** Canonical ODS voltage the adjudication compared against. */
+  /** Canonical ODS voltage PARSED from the SHA-verified baseline workbook. */
   ods_volts: number | null;
+  /**
+   * Whether the canonical evidence for this row came from the authorized
+   * Phase 4.4a baseline workbook. A correction may never be applied from a
+   * different workbook, or with no workbook attached at all.
+   */
+  baseline: { ok: true } | { ok: false; reason: string };
 }):
   | { ok: true }
   | {
@@ -158,6 +175,9 @@ export function stillSafeToApplyBryantVoltage(input: {
       status: Exclude<BryantVoltageGateStatus, "would_change" | "applied">;
       reason: string;
     } {
+  if (!input.baseline.ok) {
+    return { ok: false, status: "baseline_blocked", reason: input.baseline.reason };
+  }
   if (!BRYANT_VOLTAGE_LOAD_SET.has(input.stable_id)) {
     return {
       ok: false,
@@ -197,6 +217,7 @@ export function stillSafeToApplyBryantVoltage(input: {
 
 export function summarizeBryantVoltageGate(
   rows: BryantVoltageGateRow[],
+  baseline?: { ods_file_name: string; ods_sha256: string; authorized: boolean },
 ): BryantVoltageGateSummary {
   const count = (s: BryantVoltageGateStatus) => rows.filter((r) => r.status === s).length;
   const summary: BryantVoltageGateSummary = {
@@ -208,10 +229,14 @@ export function summarizeBryantVoltageGate(
     conflict: count("conflict"),
     not_found: count("not_found"),
     not_approved: count("not_approved"),
+    baseline_blocked: count("baseline_blocked"),
     failed: count("failed"),
     applied: count("applied"),
     accounted: 0,
     reconciles: false,
+    baseline_ods_file: baseline?.ods_file_name ?? rows[0]?.baseline_ods_file ?? null,
+    baseline_sha256: baseline?.ods_sha256 ?? rows[0]?.baseline_sha256 ?? null,
+    baseline_authorized: baseline?.authorized ?? false,
   };
   summary.accounted =
     summary.would_change +
@@ -220,6 +245,7 @@ export function summarizeBryantVoltageGate(
     summary.conflict +
     summary.not_found +
     summary.not_approved +
+    summary.baseline_blocked +
     summary.failed +
     summary.applied;
   summary.reconciles = summary.accounted === rows.length;
@@ -236,6 +262,9 @@ export function bryantVoltageGateCsv(rows: BryantVoltageGateRow[]): string {
     "farmops_entity",
     "column",
     "row_uuid",
+    "ods_parsed_volts",
+    "baseline_ods_file",
+    "baseline_sha256",
     "old_volts",
     "new_volts",
     "rated_equipment_voltage",
@@ -250,6 +279,9 @@ export function bryantVoltageGateCsv(rows: BryantVoltageGateRow[]): string {
     r.table,
     r.column,
     r.row_uuid ?? "",
+    r.ods_volts === null ? "" : String(r.ods_volts),
+    r.baseline_ods_file ?? "",
+    r.baseline_sha256 ?? "",
     r.live_volts === null ? "" : String(r.live_volts),
     String(r.proposed_volts),
     r.rated_equipment_voltage,
@@ -273,16 +305,18 @@ export function bryantVoltageGateMarkdown(
     `- Gate version: \`${summary.gate_version}\``,
     `- Generated: ${opts.generated_at}`,
     `- Authorized loads: ${BRYANT_VOLTAGE_LOAD_IDS.join(", ")}`,
+    `- Canonical baseline: ${summary.baseline_ods_file ?? "none attached"} (SHA-256 ${summary.baseline_sha256 ?? "n/a"}) — ${summary.baseline_authorized ? "authorized Phase 4.4a baseline" : "NOT authorized: no correction may be applied"}`,
+    `- Baseline blocked rows: ${summary.baseline_blocked}`,
     `- Rows: ${rows.length} (would change ${summary.would_change}, already correct ${summary.already_correct}, drifted ${summary.drifted}, conflict ${summary.conflict}, not found ${summary.not_found}, not approved ${summary.not_approved}, failed ${summary.failed}, applied ${summary.applied})`,
     `- Reconciles: ${summary.reconciles ? "yes" : "NO"}`,
     "",
     `Exactly one field is written: \`electrical_loads.${BRYANT_VOLTAGE_COLUMN}\` ${BRYANT_CURRENT_VOLTAGE} → ${BRYANT_NOMINAL_SUPPLY_VOLTAGE}. Rated equipment voltage ${BRYANT_RATED_EQUIPMENT_VOLTAGE_CLASS} VAC, ${BRYANT_PHASE}Ø, ${BRYANT_FREQUENCY_HZ} Hz is preserved separately as provenance and never collapsed to a scalar. Amps, connected/demand VA, notes, source references, equipment provenance, ODS capture, IDs and relationships are untouched, as are FS-084, FS-034, FS-092 and every other load.`,
     "",
-    "| Stable ID | Old volts | New volts | Rated equipment voltage | Status | Applied at | Detail |",
-    "| --- | --- | --- | --- | --- | --- | --- |",
+    "| Stable ID | ODS parsed volts | FarmOps live volts | New volts | Rated equipment voltage | Status | Applied at | Detail |",
+    "| --- | --- | --- | --- | --- | --- | --- | --- |",
     ...rows.map(
       (r) =>
-        `| ${r.stable_id} | ${r.live_volts ?? "not stated"} | ${r.proposed_volts} | ${r.rated_equipment_voltage} VAC, ${r.phase}Ø, ${r.frequency_hz} Hz | ${r.status} | ${r.applied_at ?? "—"} | ${r.detail ?? ""} |`,
+        `| ${r.stable_id} | ${r.ods_volts ?? "not parsed"} | ${r.live_volts ?? "not stated"} | ${r.proposed_volts} | ${r.rated_equipment_voltage} VAC, ${r.phase}Ø, ${r.frequency_hz} Hz | ${r.status} | ${r.applied_at ?? "—"} | ${r.detail ?? ""} |`,
     ),
   ].join("\n");
 }

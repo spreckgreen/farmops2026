@@ -1,7 +1,7 @@
 // Phase 4.4b — final load semantic adjudication report (read-only UI).
 // Nine findings, five load summaries, bucket totals, CSV + Markdown export.
 // There is deliberately no Apply control: this view performs no writes.
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Download, ShieldAlert } from "lucide-react";
@@ -23,6 +23,10 @@ import {
 import { buildProductionAdjudicationInput } from "@/lib/electrical-load-adjudication-production";
 import { listAdjudicatedLoads } from "@/lib/load-adjudication.functions";
 import { BryantVoltageApplyGate } from "@/components/electrical/bryant-voltage-apply-gate";
+import {
+  AdjudicationBaselinePicker,
+  type AttachedBaseline,
+} from "@/components/electrical/adjudication-baseline-picker";
 
 const BUCKET_ORDER = ADJUDICATION_BUCKET_ORDER;
 const BUCKET_CODE = ADJUDICATION_BUCKET_CODES;
@@ -49,6 +53,7 @@ export function LoadAdjudicationReport() {
   const fetchLoads = useServerFn(listAdjudicatedLoads);
   const queryClient = useQueryClient();
   const rows = useQuery({ queryKey: ["load-adjudication"], queryFn: () => fetchLoads() });
+  const [attached, setAttached] = useState<AttachedBaseline | null>(null);
 
   // After an apply, re-run load adjudication and the numeric semantics
   // diagnostics against the freshly written values.
@@ -58,13 +63,18 @@ export function LoadAdjudicationReport() {
     void queryClient.invalidateQueries({ queryKey: ["electrical-validation"] });
   };
 
+  // Canonical values are never stored here: they come only from the attached
+  // SHA-verified workbook, so with no baseline there are no canonical findings.
   const report = useMemo(
-    () => (rows.data ? adjudicateLoads(buildProductionAdjudicationInput(rows.data)) : null),
-    [rows.data],
+    () =>
+      rows.data && attached
+        ? adjudicateLoads(buildProductionAdjudicationInput(rows.data, attached.baseline))
+        : null,
+    [rows.data, attached],
   );
 
   if (rows.isLoading) return <Skeleton className="h-72 w-full" />;
-  if (rows.error || !report) {
+  if (rows.error) {
     return (
       <Card>
         <CardHeader>
@@ -77,8 +87,39 @@ export function LoadAdjudicationReport() {
     );
   }
 
+  const gateBaseline = attached
+    ? {
+        file_name: attached.file_name,
+        base64: attached.base64,
+        authorized: attached.baseline.is_phase_44a_baseline,
+      }
+    : null;
+
   return (
     <div className="space-y-4">
+      <AdjudicationBaselinePicker attached={attached} onAttach={setAttached} />
+
+      <CollapsibleSection
+        title="Bryant nominal supply voltage correction (FS-082, FS-083)"
+        subtitle="Preview-first, per-row approved correction of electrical_loads.volts 120 → 240, authorized only by the Phase 4.4a baseline workbook. Nothing else is written; adjudication history is preserved."
+        badges={<Badge variant="secondary">Apply gate</Badge>}
+      >
+        <BryantVoltageApplyGate baseline={gateBaseline} onRevalidate={revalidate} />
+      </CollapsibleSection>
+
+      {!report ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Canonical evidence required</CardTitle>
+          </CardHeader>
+          <CardContent className="text-sm text-muted-foreground">
+            Attach the canonical <code>PremoFarmElectrical.ods</code> above to compute the
+            adjudication. Hard-coded canonical values are never substituted for the SHA-verified
+            workbook.
+          </CardContent>
+        </Card>
+      ) : (
+    <>
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
@@ -127,13 +168,6 @@ export function LoadAdjudicationReport() {
         </CardContent>
       </Card>
 
-      <CollapsibleSection
-        title="Bryant nominal supply voltage correction (FS-082, FS-083)"
-        subtitle="Preview-first, per-row approved correction of electrical_loads.volts 120 → 240. Nothing else is written; adjudication history is preserved."
-        badges={<Badge variant="secondary">Apply gate</Badge>}
-      >
-        <BryantVoltageApplyGate onRevalidate={revalidate} />
-      </CollapsibleSection>
 
       <CollapsibleSection
         title="Nine findings"
@@ -370,6 +404,8 @@ export function LoadAdjudicationReport() {
           ))}
         </div>
       </CollapsibleSection>
+    </>
+      )}
     </div>
   );
 }

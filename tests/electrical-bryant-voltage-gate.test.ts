@@ -19,6 +19,7 @@ const input = (over: Partial<Parameters<typeof stillSafeToApplyBryantVoltage>[0]
   equipment,
   adjudication_bucket: "farmops_value_incompatible_with_verified_equipment" as string | null,
   ods_volts: 240 as number | null,
+  baseline: { ok: true } as { ok: true } | { ok: false; reason: string },
   ...over,
 });
 
@@ -35,6 +36,17 @@ describe("Phase 4.4b — Bryant nominal supply voltage apply gate", () => {
   it("allows the reviewed 120 V rows", () => {
     expect(stillSafeToApplyBryantVoltage(input()).ok).toBe(true);
     expect(stillSafeToApplyBryantVoltage(input({ stable_id: "FS-083" })).ok).toBe(true);
+  });
+
+  it("refuses when canonical evidence is not the authorized baseline workbook", () => {
+    const r = stillSafeToApplyBryantVoltage(
+      input({ baseline: { ok: false, reason: "different workbook SHA-256" } }),
+    );
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.status).toBe("baseline_blocked");
+      expect(r.reason).toMatch(/workbook/i);
+    }
   });
 
   it("reports already_correct once the row is at 240", () => {
