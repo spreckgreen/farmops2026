@@ -86,7 +86,90 @@ export function panelBreakerSlots(layout: PanelLayout): BreakerSlot[] {
   return out;
 }
 
-/** Slots with no breaker-position record yet. */
+/**
+ * A physical slot that a multi-pole breaker occupies beyond its own record.
+ *
+ * Example: `Right 19` recorded with `poles: 2` is breaker 38/40, so `Right 20`
+ * (breaker 40) is consumed by it. One physical breaker is always ONE record on
+ * the lower-numbered slot; the consumed slot must not carry its own row.
+ */
+export interface ConsumedSlot {
+  side: string;
+  position: number;
+  /** Row UUID of the multi-pole breaker that consumes this slot. */
+  ownerId: string | null;
+  /** "Right 19" — the owning record's slot. */
+  ownerLabel: string;
+  /** Breaker numbers the owner spans, e.g. "38/40". */
+  ownerBreakers: string;
+}
+
+function slotKey(side: string, position: number): string {
+  return `${side}#${position}`;
+}
+
+/** Slots consumed by multi-pole breakers, keyed "Side#Position". */
+export function consumedSlotIndex(
+  layout: PanelLayout,
+  rows: Record<string, unknown>[],
+): Map<string, ConsumedSlot> {
+  const out = new Map<string, ConsumedSlot>();
+  for (const row of rows) {
+    const side = String(row["side"] ?? "").trim() || "Left";
+    const position = int(row["position"]);
+    const poles = int(row["poles"]) ?? 1;
+    if (position == null || position < 1 || poles < 2) continue;
+    const breakers: string[] = [];
+    for (let i = 0; i < poles; i++) {
+      const n = expectedBreakerNumber(layout, side, position + i);
+      if (n != null) breakers.push(String(n));
+    }
+    const owner: Omit<ConsumedSlot, "side" | "position"> = {
+      ownerId: row["id"] ? String(row["id"]) : null,
+      ownerLabel: `${side} ${position}`,
+      ownerBreakers: breakers.join("/"),
+    };
+    for (let i = 1; i < poles; i++) {
+      const consumed = position + i;
+      out.set(slotKey(side, consumed), { side, position: consumed, ...owner });
+    }
+  }
+  return out;
+}
+
+export interface MultiPoleDuplicate extends ConsumedSlot {
+  /** Row UUID of the offending duplicate record occupying the consumed slot. */
+  id: string | null;
+  message: string;
+}
+
+/**
+ * Records sitting in a slot already consumed by a multi-pole breaker — the
+ * "duplicate Right 20" case. Reporting only: callers decide whether to delete.
+ */
+export function multiPoleDuplicates(
+  layout: PanelLayout,
+  rows: Record<string, unknown>[],
+): MultiPoleDuplicate[] {
+  const consumed = consumedSlotIndex(layout, rows);
+  const out: MultiPoleDuplicate[] = [];
+  for (const row of rows) {
+    const side = String(row["side"] ?? "").trim() || "Left";
+    const position = int(row["position"]);
+    if (position == null) continue;
+    const hit = consumed.get(slotKey(side, position));
+    const rowId = row["id"] ? String(row["id"]) : null;
+    if (!hit || (hit.ownerId && rowId && hit.ownerId === rowId)) continue;
+    out.push({
+      ...hit,
+      id: rowId,
+      message: `${side} ${position} is already consumed by the ${hit.ownerBreakers ? `${hit.ownerBreakers} ` : ""}multi-pole breaker recorded at ${hit.ownerLabel} — one physical breaker is one record, so this duplicate row should be deleted.`,
+    });
+  }
+  return out;
+}
+
+/** Slots with no breaker-position record yet, excluding multi-pole consumed slots. */
 export function freeBreakerSlots(
   layout: PanelLayout,
   rows: Record<string, unknown>[],
@@ -94,7 +177,10 @@ export function freeBreakerSlots(
   const taken = new Set(
     rows.map((r) => `${String(r["side"] ?? "")}#${int(r["position"]) ?? ""}`),
   );
-  return panelBreakerSlots(layout).filter((s) => !taken.has(`${s.side}#${s.position}`));
+  const consumed = consumedSlotIndex(layout, rows);
+  return panelBreakerSlots(layout).filter(
+    (s) => !taken.has(slotKey(s.side, s.position)) && !consumed.has(slotKey(s.side, s.position)),
+  );
 }
 
 /** Next unused physical exit order for a panel (1-based, never reuses a gap end). */
@@ -116,6 +202,7 @@ export const PANEL_LAYOUT_CODES = [
   "breaker_number_mismatch",
   "breaker_slot_unassigned",
   "breaker_slot_double_assigned",
+  "breaker_slot_consumed_duplicate",
   "panel_exit_order_duplicate",
   "panel_exit_invalid_side",
   "panel_exit_unlinked",
@@ -282,6 +369,28 @@ export function validatePanelLayout(input: PanelLayoutInput): PanelLayoutFinding
         panelId: panelId(uuid!),
         id: null,
         message: `Breaker ${breaker} in ${panelId(uuid!) || "this panel"} is claimed by ${labels.length} records (${labels.join(", ")}).`,
+      });
+    }
+  }
+
+  // One record per consumed multi-pole slot: a 2-pole breaker at Right 19
+  // (38/40) means Right 20 must not carry its own row.
+  const positionsByPanel = new Map<string, Record<string, unknown>[]>();
+  for (const row of input.positions) {
+    const uuid = str(row, "panel_uuid");
+    if (!panelById.has(uuid)) continue;
+    positionsByPanel.set(uuid, [...(positionsByPanel.get(uuid) ?? []), row]);
+  }
+  for (const [uuid, rows] of positionsByPanel) {
+    const pid = panelId(uuid);
+    const panel = panelById.get(uuid)!;
+    for (const dup of multiPoleDuplicates(resolvePanelLayout(panel), rows)) {
+      out.push({
+        code: "breaker_slot_consumed_duplicate",
+        severity: "error",
+        panelId: pid,
+        id: dup.id,
+        message: `${pid}: ${dup.message}`,
       });
     }
   }

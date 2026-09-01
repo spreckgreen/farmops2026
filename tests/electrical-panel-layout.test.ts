@@ -1,7 +1,9 @@
 import { describe, it, expect } from "vitest";
 import {
+  consumedSlotIndex,
   expectedBreakerNumber,
   freeBreakerSlots,
+  multiPoleDuplicates,
   nextExitOrder,
   panelBreakerSlots,
   resolvePanelLayout,
@@ -144,5 +146,29 @@ describe("Phase 4.3 field mapping matrix", () => {
   it("advances the displayed phase without moving authority", () => {
     expect(SOR_PHASE).toBe("4.4");
     expect(SOR_AUTHORITY).toBe("canonical_ods");
+  });
+});
+
+// Consistency: one record per consumed multi-pole slot (Right 19 = 38/40).
+describe("multi-pole consumed slots", () => {
+  const panel = { id: "p1", panel_id: "PNL-H1", spaces: 40, breaker_columns: 2 };
+  const owner = { id: "r1", panel_uuid: "p1", side: "Right", position: 19, poles: 2 };
+
+  it("marks the consumed slot and flags a duplicate row on it", () => {
+    const layout = resolvePanelLayout(panel);
+    const dup = { id: "r2", panel_uuid: "p1", side: "Right", position: 20, poles: 1 };
+    const consumed = consumedSlotIndex(layout, [owner, dup]);
+    expect(consumed.get("Right#20")?.ownerBreakers).toBe("38/40");
+    const dups = multiPoleDuplicates(layout, [owner, dup]);
+    expect(dups.map((d) => d.id)).toEqual(["r2"]);
+    const findings = validatePanelLayout({ panels: [panel], positions: [owner, dup], exits: [] });
+    expect(findings.some((f) => f.code === "breaker_slot_consumed_duplicate")).toBe(true);
+  });
+
+  it("does not flag the owner itself and hides consumed slots from free spaces", () => {
+    const layout = resolvePanelLayout(panel);
+    expect(multiPoleDuplicates(layout, [owner])).toEqual([]);
+    expect(freeBreakerSlots(layout, [owner]).some((s) => s.side === "Right" && s.position === 20))
+      .toBe(false);
   });
 });
