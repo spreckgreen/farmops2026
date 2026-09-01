@@ -6,7 +6,9 @@
 import { useMemo, useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Download, FileSpreadsheet } from "lucide-react";
+import { ChevronDown, Download, FileSpreadsheet } from "lucide-react";
+import { CollapsibleSection } from "@/components/electrical/collapsible-section";
+
 import { toast } from "sonner";
 import { runElectricalParallelValidation } from "@/lib/electrical-parallel-validation.functions";
 import {
@@ -290,11 +292,9 @@ export function ParallelValidationReport() {
 
       {report ? (
         <>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">Differences</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
+          <CollapsibleSection title="Differences" defaultOpen>
+            <div className="space-y-3">
+
               <div className="flex flex-wrap gap-2">
                 <Button
                   size="sm"
@@ -401,27 +401,24 @@ export function ParallelValidationReport() {
                   No comparison rows match this filter.
                 </p>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </CollapsibleSection>
+
 
           <BooleanSemanticsPanel report={report} />
 
           <NumericSemanticsPanel report={report} />
 
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">Normalization rules applied</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ul className="space-y-1 text-xs text-muted-foreground">
-                {NORMALIZATION_RULES.map((r) => (
-                  <li key={r.id}>
-                    <span className="font-mono text-foreground">{r.id}</span> — {r.description}
-                  </li>
-                ))}
-              </ul>
-            </CardContent>
-          </Card>
+          <CollapsibleSection title="Normalization rules applied">
+            <ul className="space-y-1 text-xs text-muted-foreground">
+              {NORMALIZATION_RULES.map((r) => (
+                <li key={r.id}>
+                  <span className="font-mono text-foreground">{r.id}</span> — {r.description}
+                </li>
+              ))}
+            </ul>
+          </CollapsibleSection>
+
         </>
       ) : null}
     </div>
@@ -441,6 +438,8 @@ function BooleanSemanticsPanel({ report }: { report: ValidationReport }) {
   const preview = useServerFn(previewBooleanCorrection);
   const [previewed, setPreviewed] = useState<{ applied: boolean; rows: GateRow[] } | null>(null);
   const [confirmed, setConfirmed] = useState(false);
+  const [boolOpen, setBoolOpen] = useState(true);
+
 
   const entries = useMemo(
     () =>
@@ -492,10 +491,22 @@ function BooleanSemanticsPanel({ report }: { report: ValidationReport }) {
   return (
     <Card>
       <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 pb-2">
-        <CardTitle className="text-base">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <Button
+            size="sm"
+            variant="ghost"
+            aria-expanded={boolOpen}
+            className="h-7 px-1"
+            onClick={() => setBoolOpen((v) => !v)}
+          >
+            <ChevronDown
+              className={`h-4 w-4 transition-transform ${boolOpen ? "" : "-rotate-90"}`}
+            />
+          </Button>
           Yes/No semantics diagnostics ({diag.total_findings})
         </CardTitle>
         <div className="flex flex-wrap gap-2">
+
           <Button
             size="sm"
             variant="outline"
@@ -555,7 +566,8 @@ function BooleanSemanticsPanel({ report }: { report: ValidationReport }) {
           ) : null}
         </div>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className={`space-y-3 ${boolOpen ? "" : "hidden"}`}>
+
         <div className="flex flex-wrap gap-2 text-xs">
           <Badge variant="destructive">A implementation artifact: {c.A}</Badge>
           <Badge variant="outline">B engineering disagreement: {c.B}</Badge>

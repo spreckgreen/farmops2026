@@ -19,6 +19,10 @@ import { RacewayPathPopulation } from "@/components/electrical/raceway-path-popu
 import { BreakerPopulationPreview } from "@/components/electrical/breaker-population-preview";
 import { FieldObservationJournal } from "@/components/electrical/field-observation-journal";
 import { HousePanelFieldReconciliation } from "@/components/electrical/house-panel-field-reconciliation";
+import {
+  CollapsibleGroup,
+  CollapsibleSection,
+} from "@/components/electrical/collapsible-section";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -55,22 +59,40 @@ function QaPage() {
   return (
     <ElectricalGate>
       <div className="space-y-3">
-        <GridAuditReport />
-        <LoadCompareReport />
-        <IdRepairReport />
-        <RefAuditReport />
-        <RacewayPathPopulation />
-        <HousePanelFieldReconciliation scope="house" />
-        <HousePanelFieldReconciliation scope="farm_shop" />
-        <BreakerPopulationPreview scope="house" />
-        <FieldObservationJournal />
-
+        <CollapsibleGroup title="Grid audit" defaultOpen>
+          <GridAuditReport />
+        </CollapsibleGroup>
+        <CollapsibleGroup title="Load comparison">
+          <LoadCompareReport />
+        </CollapsibleGroup>
+        <CollapsibleGroup title="Stable ID repair">
+          <IdRepairReport />
+        </CollapsibleGroup>
+        <CollapsibleGroup title="Reference audit">
+          <RefAuditReport />
+        </CollapsibleGroup>
+        <CollapsibleGroup title="Raceway path population">
+          <RacewayPathPopulation />
+        </CollapsibleGroup>
+        <CollapsibleGroup title="House panel field reconciliation">
+          <HousePanelFieldReconciliation scope="house" />
+        </CollapsibleGroup>
+        <CollapsibleGroup title="Farm shop panel field reconciliation">
+          <HousePanelFieldReconciliation scope="farm_shop" />
+        </CollapsibleGroup>
+        <CollapsibleGroup title="House breaker population preview">
+          <BreakerPopulationPreview scope="house" />
+        </CollapsibleGroup>
+        <CollapsibleGroup title="Field observation journal">
+          <FieldObservationJournal />
+        </CollapsibleGroup>
 
         <QaReport />
       </div>
     </ElectricalGate>
   );
 }
+
 
 
 const CODE_LABELS: Record<string, string> = {
@@ -248,13 +270,12 @@ function QaReport() {
       ) : null}
 
       {grouped.map(([code, findings]) => (
-        <Card key={code}>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">
-              {CODE_LABELS[code] ?? code} <span className="text-muted-foreground">({findings.length})</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-1">
+        <CollapsibleSection
+          key={code}
+          title={CODE_LABELS[code] ?? code}
+          badges={<Badge variant="outline">{findings.length}</Badge>}
+        >
+          <div className="space-y-1">
             {findings.map((f, i) => (
               <div
                 key={`${f.code}-${f.id ?? f.stableId}-${i}`}
@@ -280,9 +301,10 @@ function QaReport() {
                 <span className="text-muted-foreground">{f.message}</span>
               </div>
             ))}
-          </CardContent>
-        </Card>
+          </div>
+        </CollapsibleSection>
       ))}
+
     </div>
   );
 }
