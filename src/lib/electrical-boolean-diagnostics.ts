@@ -24,6 +24,25 @@ export type DefaultSource =
 /** Task 1B disposition category. */
 export type BooleanCategory = "A" | "B" | "C" | "D";
 
+/**
+ * The two — and only two — proven historical implementation artifacts that make
+ * a finding Category A. Anything else is never automatically correctable.
+ *
+ * A1: canonical ODS says "N", FarmOps holds true, because the old importer ran
+ *     Boolean("N") === true. Correction: true → false.
+ * A2: canonical ODS cell is genuinely blank/not stated, FarmOps holds false, and
+ *     the column is one of the documented NOT NULL DEFAULT false columns.
+ *     Correction: false → NULL. Never generalised to other boolean columns.
+ */
+export type BooleanArtifactType = "A1_N_COERCED_TRUE" | "A2_BLANK_DEFAULTED_FALSE";
+
+export const ARTIFACT_LABELS: Record<BooleanArtifactType, string> = {
+  A1_N_COERCED_TRUE: 'A1 — old string→Boolean coercion (Boolean("N") === true): true → false',
+  A2_BLANK_DEFAULTED_FALSE:
+    "A2 — old NOT NULL DEFAULT false column artifact on a blank workbook cell: false → NULL",
+};
+
+
 export interface BooleanDiagnosticRow {
   domain: string;
   field: string;
@@ -41,6 +60,8 @@ export interface BooleanDiagnosticRow {
   /** The pre-4.4b coercion/default behaviour that could have produced it. */
   legacy_behavior: string;
   category: BooleanCategory;
+  /** Set only for Category A; identifies which proven artifact rule applies. */
+  artifact_type: BooleanArtifactType | null;
   /** True only for Category A: our own code demonstrably created the value. */
   implementation_created: boolean;
   /** Value the correction tool would write. undefined = no correction. */
@@ -63,7 +84,7 @@ export interface BooleanDiagnosticsReport {
  * Columns that carried a NOT NULL default before Phase 4.4b. A blank workbook
  * cell against one of these is a database artifact, not engineering intent.
  */
-const DEFAULTED_COLUMNS = new Set([
+export const DEFAULTED_COLUMNS = new Set([
   "electrical_loads.critical",
   "electrical_loads.future",
   "electrical_loads.continuous_load",
@@ -80,6 +101,7 @@ const DEFAULTED_COLUMNS = new Set([
 interface Classified {
   source: DefaultSource;
   category: BooleanCategory;
+  artifact?: BooleanArtifactType;
   provenance: string;
   legacy: string;
   proposed?: boolean | null;
@@ -98,6 +120,7 @@ function classify(rec: ComparisonRecord): Classified {
     return {
       source: "importer_boolean_coercion",
       category: "A",
+      artifact: "A1_N_COERCED_TRUE",
       provenance: 'Importer coercion: Boolean("N") evaluated true.',
       legacy: 'coerceValue used Boolean(raw); any non-empty text — including "N" — became true.',
       proposed: false,
@@ -111,6 +134,7 @@ function classify(rec: ComparisonRecord): Classified {
     return {
       source: "database_column_default",
       category: "A",
+      artifact: "A2_BLANK_DEFAULTED_FALSE",
       provenance: `Database default: ${column} was NOT NULL DEFAULT false before 4.4b.`,
       legacy: "Blank cell inserted nothing; the column default supplied false.",
       proposed: null,
@@ -191,6 +215,7 @@ export function booleanDiagnostics(report: ValidationReport): BooleanDiagnostics
       provenance: c.provenance,
       legacy_behavior: c.legacy,
       category: c.category,
+      artifact_type: c.artifact ?? null,
       implementation_created: c.category === "A",
       proposed_value: c.proposed,
       affected_records: 1,
@@ -282,6 +307,7 @@ export function booleanRecordCsv(report: BooleanDiagnosticsReport): string {
     "ods_value",
     "farmops_value",
     "proposed_value",
+    "artifact_type",
     "provenance",
   ];
   const rows: string[][] = [];
@@ -297,6 +323,7 @@ export function booleanRecordCsv(report: BooleanDiagnosticsReport): string {
         g.ods_value,
         g.farmops_value,
         g.proposed_value === undefined ? "" : String(g.proposed_value),
+        g.artifact_type ?? "",
         g.provenance,
       ]);
     }
@@ -314,6 +341,7 @@ export interface BooleanCorrectionEntry {
   current_value: string;
   ods_value: string;
   proposed_value: boolean | null;
+  artifact_type: BooleanArtifactType;
   evidence: string;
 }
 
@@ -321,6 +349,8 @@ export interface BooleanCorrectionPlan {
   /** Only Category A implementation artifacts are eligible. */
   entries: BooleanCorrectionEntry[];
   skipped_categories: Record<Exclude<BooleanCategory, "A">, number>;
+  /** How many proposed corrections come from each proven artifact rule. */
+  artifact_counts: Record<BooleanArtifactType, number>;
   /** Groups that are Category A but cannot be mapped to a writable column. */
   unmappable: string[];
 }
@@ -352,7 +382,7 @@ export function categoryACorrectionPlan(diag: BooleanDiagnosticsReport): Boolean
     const table = g.farmops_entity ?? "";
     const column = g.farmops_field ?? "";
     const meta = BOOL_COLUMNS.get(table);
-    if (!meta || !meta.columns.has(column) || g.proposed_value === undefined) {
+    if (!meta || !meta.columns.has(column) || g.proposed_value === undefined || !g.artifact_type) {
       unmappable.push(`${g.domain}.${g.field} (${table || "?"}.${column || "?"})`);
       continue;
     }
@@ -365,6 +395,7 @@ export function categoryACorrectionPlan(diag: BooleanDiagnosticsReport): Boolean
         current_value: g.farmops_value,
         ods_value: g.ods_value,
         proposed_value: g.proposed_value,
+        artifact_type: g.artifact_type,
         evidence: `${g.default_source}: ${g.provenance}`,
       });
     }
@@ -376,7 +407,18 @@ export function categoryACorrectionPlan(diag: BooleanDiagnosticsReport): Boolean
       a.stable_id.localeCompare(b.stable_id) ||
       a.column.localeCompare(b.column),
   );
-  return { entries, skipped_categories: skipped, unmappable: [...new Set(unmappable)].sort() };
+  const artifact_counts: Record<BooleanArtifactType, number> = {
+    A1_N_COERCED_TRUE: 0,
+    A2_BLANK_DEFAULTED_FALSE: 0,
+  };
+  for (const e of entries) artifact_counts[e.artifact_type] += 1;
+
+  return {
+    entries,
+    skipped_categories: skipped,
+    artifact_counts,
+    unmappable: [...new Set(unmappable)].sort(),
+  };
 }
 
 export function correctionPlanCsv(plan: BooleanCorrectionPlan): string {
@@ -387,6 +429,7 @@ export function correctionPlanCsv(plan: BooleanCorrectionPlan): string {
     "current_farmops_value",
     "canonical_ods_value",
     "proposed_value",
+    "artifact_type",
     "evidence_root_cause",
   ];
   return csv([
@@ -398,6 +441,7 @@ export function correctionPlanCsv(plan: BooleanCorrectionPlan): string {
       e.current_value,
       e.ods_value,
       e.proposed_value === null ? "(null / not stated)" : String(e.proposed_value),
+      e.artifact_type,
       e.evidence,
     ]),
   ]);
