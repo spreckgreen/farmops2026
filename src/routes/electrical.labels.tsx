@@ -8,6 +8,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
+import { Switch } from "@/components/ui/switch";
 import { Camera, CameraOff, Printer, QrCode, Search } from "lucide-react";
 
 import { ElectricalGate } from "@/components/electrical/electrical-gate";
@@ -176,6 +177,8 @@ function PanelLabelsPage() {
   const [scopeValue, setScopeValue] = useState<string>("");
   const [filter, setFilter] = useState("");
   const [manual, setManual] = useState("");
+  // Shortened stock is tiny, so the in-cell QR is opt-in.
+  const [shortQr, setShortQr] = useState(true);
 
   const kinds: LabelKind[] = useMemo(() => {
     if (selection.startsWith("group:")) {
@@ -274,6 +277,14 @@ function PanelLabelsPage() {
                     ))}
                   </SelectContent>
                 </Select>
+                {LABEL_FORMATS[format].short ? (
+                  <div className="flex items-center gap-2 pt-1">
+                    <Switch id="short-qr" checked={shortQr} onCheckedChange={setShortQr} />
+                    <Label htmlFor="short-qr" className="text-xs font-normal">
+                      Include small QR (opens the item in the app)
+                    </Label>
+                  </div>
+                ) : null}
               </div>
 
               <div className="space-y-1">
@@ -381,7 +392,9 @@ function PanelLabelsPage() {
                 {perPage} per page · {pages} page{pages === 1 ? "" : "s"}. Set the printer paper to{" "}
                 {paperNote(format)} and turn off scaling.
                 {LABEL_FORMATS[format].short
-                  ? " Shortened output: stable ID plus one condensed line, no QR — the cell is too small to scan reliably."
+                  ? shortQr
+                    ? " Shortened output: small QR plus the stable ID (wrapped if long) and one condensed line. Print at 100% and test one scan before running the sheet."
+                    : " Shortened output: stable ID plus one condensed line, no QR."
                   : ""}
               </p>
             </div>
@@ -435,6 +448,7 @@ function PanelLabelsPage() {
                         }}
                         origin={origin}
                         format={format}
+                        shortQr={shortQr}
                       />
                     ) : (
                       <EntityQrLabel
@@ -442,6 +456,7 @@ function PanelLabelsPage() {
                         record={record}
                         origin={origin}
                         format={format}
+                        shortQr={shortQr}
                       />
                     ),
                   )}
