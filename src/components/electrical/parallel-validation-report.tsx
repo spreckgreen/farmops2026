@@ -414,46 +414,66 @@ export function ParallelValidationReport() {
 }
 
 /**
- * Phase 4.4b Task 1B — group the boolean_or_default_semantics conflicts by
- * provenance and classify each as A (implementation artifact), B (engineering
+ * Phase 4.4b — Boolean Category-A production correction gate. Findings are
+ * classified A (proven implementation artifact A1/A2), B (engineering
  * disagreement), C (not representable as boolean) or D (provenance
- * insufficient). Only Category A is offered to the preview-first correction
- * tool; everything else is read-only.
+ * insufficient). Only Category A reaches the gate; the gate revalidates every
+ * proposed correction against live FarmOps state, and Preview writes nothing.
  */
 function BooleanSemanticsPanel({ report }: { report: ValidationReport }) {
   const diag = useMemo(() => booleanDiagnostics(report), [report]);
   const plan = useMemo(() => categoryACorrectionPlan(diag), [diag]);
   const preview = useServerFn(previewBooleanCorrection);
-  const [previewed, setPreviewed] = useState<Awaited<ReturnType<typeof preview>> | null>(null);
+  const [previewed, setPreviewed] = useState<{ applied: boolean; rows: GateRow[] } | null>(null);
+  const [confirmed, setConfirmed] = useState(false);
+
+  const entries = useMemo(
+    () =>
+      plan.entries.map((e) => ({
+        table: e.table,
+        stable_id: e.stable_id,
+        column: e.column,
+        expected_current:
+          e.current_value === "true" ? true : e.current_value === "false" ? false : null,
+        proposed_value: e.proposed_value,
+        artifact_type: e.artifact_type,
+        ods_value: e.ods_value.slice(0, 200),
+        evidence: e.evidence.slice(0, 500),
+      })),
+    [plan],
+  );
+
+  const approvedKeys = useMemo(
+    () =>
+      (previewed?.rows ?? [])
+        .filter((r) => r.status === "would_change")
+        .map((r) => gateKey(r)),
+    [previewed],
+  );
 
   const run = useMutation({
     mutationFn: (confirm: boolean) =>
-      preview({
-        data: {
-          confirm,
-          entries: plan.entries.map((e) => ({
-            table: e.table,
-            stable_id: e.stable_id,
-            column: e.column,
-            expected_current: e.current_value === "true" ? true : e.current_value === "false" ? false : null,
-            proposed_value: e.proposed_value,
-            evidence: e.evidence.slice(0, 500),
-          })),
-        },
-      }),
+      preview({ data: { confirm, entries, approved: confirm ? approvedKeys : [] } }),
     onSuccess: (result) => {
-      setPreviewed(result);
+      setPreviewed({ applied: result.applied, rows: result.rows as GateRow[] });
+      setConfirmed(false);
       toast.success(
         result.applied
-          ? `Applied ${result.changed} Yes/No correction(s).`
-          : `Preview: ${result.changed} record(s) would change, ${result.skipped} skipped.`,
+          ? `Applied ${result.changed} approved Category-A correction(s).`
+          : `Preview only: ${result.changed} would change, ${result.skipped} not eligible to write.`,
       );
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const summary = useMemo(
+    () => summarizeGate({ diag, plan, rows: previewed?.rows ?? [] }),
+    [diag, plan, previewed],
+  );
+
   if (diag.total_findings === 0) return null;
   const c = diag.counts_by_category;
+  const rows = previewed?.rows ?? [];
   return (
     <Card>
       <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 pb-2">
@@ -486,11 +506,36 @@ function BooleanSemanticsPanel({ report }: { report: ValidationReport }) {
               size="sm"
               variant="outline"
               onClick={() =>
-                download("phase-4.4b-category-a-plan.csv", correctionPlanCsv(plan), "text/csv")
+                download(
+                  GATE_PLAN_FILENAME,
+                  rows.length ? gatePlanCsv(rows) : correctionPlanCsv(plan),
+                  "text/csv",
+                )
               }
             >
               <Download className="mr-1 h-4 w-4" />
               Category-A plan
+            </Button>
+          ) : null}
+          {rows.length ? (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() =>
+                download(
+                  GATE_REPORT_FILENAME,
+                  gateMarkdown({
+                    generatedAt: new Date().toISOString(),
+                    summary,
+                    rows,
+                    applied: previewed?.applied ?? false,
+                  }),
+                  "text/markdown",
+                )
+              }
+            >
+              <Download className="mr-1 h-4 w-4" />
+              Gate report (MD)
             </Button>
           ) : null}
         </div>
@@ -500,18 +545,24 @@ function BooleanSemanticsPanel({ report }: { report: ValidationReport }) {
           <Badge variant="destructive">A implementation artifact: {c.A}</Badge>
           <Badge variant="outline">B engineering disagreement: {c.B}</Badge>
           <Badge variant="outline">C not representable as Yes/No: {c.C}</Badge>
-          <Badge variant="outline">D provenance insufficient: {c.D}</Badge>
+          <Badge variant="outline">
+            D provenance insufficient: {c.D} — not eligible for automatic correction
+          </Badge>
         </div>
         <p className="text-sm text-muted-foreground">
-          Only Category A is eligible for automatic correction. Categories B, C and D stay
-          untouched and require human disposition. Corrections are preview-first and change only
-          the affected Yes/No column.
+          Only Category A is eligible, and only under one of two proven artifact rules:{" "}
+          <span className="font-mono">A1_N_COERCED_TRUE</span> (ODS “N”, FarmOps true from{" "}
+          <span className="font-mono">Boolean(&quot;N&quot;) === true</span> → false) and{" "}
+          <span className="font-mono">A2_BLANK_DEFAULTED_FALSE</span> (blank ODS cell, FarmOps false
+          on a documented NOT NULL DEFAULT false column → NULL). Categories B, C and D stay
+          untouched.
         </p>
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead className="text-muted-foreground">
               <tr className="border-b border-border text-left">
                 <th className="px-2 py-1">Cat</th>
+                <th className="px-2 py-1">Artifact</th>
                 <th className="px-2 py-1">Entity</th>
                 <th className="px-2 py-1">Field</th>
                 <th className="px-2 py-1">ODS</th>
@@ -531,6 +582,7 @@ function BooleanSemanticsPanel({ report }: { report: ValidationReport }) {
                   <td className="px-2 py-1">
                     <Badge variant={g.category === "A" ? "destructive" : "outline"}>{g.category}</Badge>
                   </td>
+                  <td className="px-2 py-1 font-mono">{g.artifact_type ?? "—"}</td>
                   <td className="px-2 py-1 font-mono">{g.domain}</td>
                   <td className="px-2 py-1 font-mono">{g.field}</td>
                   <td className="px-2 py-1">
@@ -549,69 +601,155 @@ function BooleanSemanticsPanel({ report }: { report: ValidationReport }) {
         </div>
 
         {plan.entries.length ? (
-          <div className="space-y-2 rounded-md border border-border p-3">
+          <div className="space-y-3 rounded-md border border-border p-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-sm">
-                Category-A correction set: {plan.entries.length} record(s) across{" "}
-                {new Set(plan.entries.map((e) => `${e.table}.${e.column}`)).size} field(s).
+                Category-A correction gate: {plan.entries.length} finding(s) across{" "}
+                {new Set(plan.entries.map((e) => `${e.table}.${e.column}`)).size} field(s). Preview
+                re-reads every live row by UUID before proposing a write.
               </p>
-              <div className="flex gap-2">
-                <Button size="sm" variant="outline" disabled={run.isPending} onClick={() => run.mutate(false)}>
-                  Preview
-                </Button>
-                <Button
-                  size="sm"
-                  disabled={run.isPending || !previewed || previewed.applied || previewed.changed === 0}
-                  onClick={() => run.mutate(true)}
-                >
-                  Apply {previewed && !previewed.applied ? previewed.changed : ""}
-                </Button>
-              </div>
+              <Button size="sm" variant="outline" disabled={run.isPending} onClick={() => run.mutate(false)}>
+                Preview (read-only)
+              </Button>
             </div>
             {plan.unmappable.length ? (
               <p className="text-xs text-muted-foreground">
                 Not correctable automatically (no writable column): {plan.unmappable.join(", ")}
               </p>
             ) : null}
+
             {previewed ? (
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs">
-                  <thead className="text-muted-foreground">
-                    <tr className="border-b border-border text-left">
-                      <th className="px-2 py-1">Stable ID</th>
-                      <th className="px-2 py-1">Field</th>
-                      <th className="px-2 py-1">Current</th>
-                      <th className="px-2 py-1">ODS</th>
-                      <th className="px-2 py-1">Proposed</th>
-                      <th className="px-2 py-1">Status</th>
-                      <th className="px-2 py-1">Evidence</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {previewed.rows.slice(0, 300).map((r, i) => (
-                      <tr key={`${r.table}-${r.stable_id}-${r.column}-${i}`} className="border-b border-border last:border-0 align-top">
-                        <td className="px-2 py-1 font-mono">{r.stable_id}</td>
-                        <td className="px-2 py-1 font-mono">{r.column}</td>
-                        <td className="px-2 py-1 font-mono">{String(r.live_value)}</td>
-                        <td className="px-2 py-1">
-                          {plan.entries.find((e) => e.stable_id === r.stable_id && e.column === r.column)
-                            ?.ods_value || "(blank)"}
-                        </td>
-                        <td className="px-2 py-1 font-mono">
-                          {r.proposed_value === null ? "null (not stated)" : String(r.proposed_value)}
-                        </td>
-                        <td className="px-2 py-1">
-                          <Badge variant={r.status === "failed" || r.status === "drifted" ? "destructive" : "outline"}>
-                            {r.status}
-                          </Badge>
-                        </td>
-                        <td className="px-2 py-1 text-muted-foreground">{r.detail ?? r.evidence}</td>
+              <>
+                <p
+                  className={
+                    previewed.applied
+                      ? "text-sm font-medium text-foreground"
+                      : "text-sm font-medium text-muted-foreground"
+                  }
+                >
+                  {previewed.applied
+                    ? `Applied — ${summary.applied} production value(s) changed.`
+                    : "Preview only — no production values changed"}
+                </p>
+                <div className="flex flex-wrap gap-2 text-xs">
+                  <Badge variant="outline">Category A findings: {summary.category_a_findings}</Badge>
+                  <Badge variant="outline">A1 N→true: {summary.a1_artifacts}</Badge>
+                  <Badge variant="outline">A2 blank→false: {summary.a2_artifacts}</Badge>
+                  <Badge variant="outline">would change: {summary.would_change}</Badge>
+                  <Badge variant="outline">already correct: {summary.already_correct}</Badge>
+                  <Badge variant={summary.drifted ? "destructive" : "outline"}>
+                    drifted: {summary.drifted}
+                  </Badge>
+                  <Badge variant="outline">not found: {summary.not_found}</Badge>
+                  <Badge variant={summary.failed ? "destructive" : "outline"}>
+                    failed: {summary.failed}
+                  </Badge>
+                  {summary.not_approved ? (
+                    <Badge variant="outline">not approved: {summary.not_approved}</Badge>
+                  ) : null}
+                  {summary.applied ? <Badge variant="outline">applied: {summary.applied}</Badge> : null}
+                  <Badge variant="outline">
+                    Category D: {summary.category_d} — not eligible for automatic correction
+                  </Badge>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Arithmetic check: {summary.accounted} accounted ={" "}
+                  {summary.category_a_findings} Category-A findings —{" "}
+                  {summary.reconciles ? "reconciles." : "does NOT reconcile; investigate before Apply."}
+                </p>
+
+                <div className="space-y-2 rounded-md border border-border p-2">
+                  <label className="flex items-start gap-2 text-xs">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5"
+                      checked={confirmed}
+                      disabled={previewed.applied || summary.would_change === 0}
+                      onChange={(e) => setConfirmed(e.target.checked)}
+                    />
+                    <span>
+                      I explicitly approve writing the {summary.would_change} Category-A{" "}
+                      <span className="font-mono">would_change</span> row(s) above. Each write
+                      re-reads the row by UUID and updates exactly one Boolean column; drifted rows
+                      are skipped.
+                    </span>
+                  </label>
+                  <Button
+                    size="sm"
+                    disabled={
+                      run.isPending ||
+                      !confirmed ||
+                      previewed.applied ||
+                      summary.would_change === 0 ||
+                      !summary.reconciles
+                    }
+                    onClick={() => run.mutate(true)}
+                  >
+                    Apply {summary.would_change} approved correction(s)
+                  </Button>
+                  <p className="text-xs text-muted-foreground">
+                    After Apply, re-run this validation against the unchanged canonical workbook and
+                    confirm the corrected artifacts are gone, no new Boolean disagreements appeared,
+                    Category D is unchanged and unrelated domains are unchanged.
+                  </p>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead className="text-muted-foreground">
+                      <tr className="border-b border-border text-left">
+                        <th className="px-2 py-1">Entity</th>
+                        <th className="px-2 py-1">Stable ID</th>
+                        <th className="px-2 py-1">Row UUID</th>
+                        <th className="px-2 py-1">Field</th>
+                        <th className="px-2 py-1">Canonical ODS</th>
+                        <th className="px-2 py-1">Reconciliation FarmOps</th>
+                        <th className="px-2 py-1">Live FarmOps</th>
+                        <th className="px-2 py-1">Artifact</th>
+                        <th className="px-2 py-1">Proposed</th>
+                        <th className="px-2 py-1">Status</th>
+                        <th className="px-2 py-1">Provenance / reason</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : null}
+                    </thead>
+                    <tbody>
+                      {rows.slice(0, 500).map((r, i) => (
+                        <tr
+                          key={`${r.table}-${r.stable_id}-${r.column}-${i}`}
+                          className="border-b border-border last:border-0 align-top"
+                        >
+                          <td className="px-2 py-1 font-mono">{r.table}</td>
+                          <td className="px-2 py-1 font-mono">{r.stable_id}</td>
+                          <td className="px-2 py-1 font-mono">{r.row_uuid ?? "—"}</td>
+                          <td className="px-2 py-1 font-mono">{r.column}</td>
+                          <td className="px-2 py-1">{displayOds(r.ods_value)}</td>
+                          <td className="px-2 py-1">{displayBool(r.reconciliation_value)}</td>
+                          <td className="px-2 py-1">{displayBool(r.live_value)}</td>
+                          <td className="px-2 py-1 font-mono">{r.artifact_type}</td>
+                          <td className="px-2 py-1">{displayBool(r.proposed_value)}</td>
+                          <td className="px-2 py-1">
+                            <Badge
+                              variant={
+                                r.status === "failed" || r.status === "drifted" ? "destructive" : "outline"
+                              }
+                            >
+                              {r.status}
+                            </Badge>
+                          </td>
+                          <td className="px-2 py-1 text-muted-foreground">
+                            {r.detail ?? r.evidence}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Preview only — no production values changed. Run Preview to revalidate every
+                Category-A finding against live FarmOps state.
+              </p>
+            )}
           </div>
         ) : (
           <p className="text-xs text-muted-foreground">
@@ -623,6 +761,7 @@ function BooleanSemanticsPanel({ report }: { report: ValidationReport }) {
     </Card>
   );
 }
+
 
 
 function Row({ label, value }: { label: string; value: string }) {
