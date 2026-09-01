@@ -10,7 +10,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { requireAddon } from "@/lib/addons.server";
+import { ensureScanAddon, requireAddon, requireAnyAddon, hasAddon } from "@/lib/addons.server";
+import { PANEL_SHEET_ADDONS } from "@/lib/addons";
 import { isAdminRole } from "@/lib/admin-role.server";
 import {
   GRANT_WINDOW_HOURS,
@@ -98,6 +99,7 @@ export interface PanelLabel {
 export const listPanelLabels = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<PanelLabel[]> => {
+    // Printing the whole label sheet is farm-wide, so it stays on the full add-on.
     await requireAddon(context.supabase, context.userId, "electrical");
     const db = await readerClient();
     const { data, error } = await db
@@ -171,7 +173,7 @@ export const panelSheet = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ panelId: panelIdSchema }).parse(d))
   .handler(async ({ context, data }): Promise<PanelSheet> => {
-    await requireAddon(context.supabase, context.userId, "electrical");
+    await requireAnyAddon(context.supabase, context.userId, PANEL_SHEET_ADDONS);
     const db = await readerClient();
 
     const { data: panelRow, error } = await db
@@ -283,7 +285,7 @@ export const requestPanelEditAccess = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ context, data }) => {
-    await requireAddon(context.supabase, context.userId, "electrical");
+    await requireAnyAddon(context.supabase, context.userId, PANEL_SHEET_ADDONS);
     const db = await readerClient();
 
     const { data: panel, error: panelError } = await db
@@ -354,7 +356,7 @@ export const requestPanelEditAccess = createServerFn({ method: "POST" })
 export const myPanelEditRequests = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<PanelEditRequest[]> => {
-    await requireAddon(context.supabase, context.userId, "electrical");
+    await requireAnyAddon(context.supabase, context.userId, PANEL_SHEET_ADDONS);
     const { data, error } = await (context.supabase as unknown as { from: (t: string) => any })
       .from("electrical_panel_edit_requests")
       .select("*")
@@ -605,7 +607,7 @@ export const savePanelSheetDetails = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ context, data }) => {
-    await requireAddon(context.supabase, context.userId, "electrical");
+    await requireAnyAddon(context.supabase, context.userId, PANEL_SHEET_ADDONS);
     const db = await readerClient();
 
     const isAdmin = await isAdminRole(context.supabase, context.userId);
@@ -649,4 +651,36 @@ export const savePanelSheetDetails = createServerFn({ method: "POST" })
       .eq("panel_id", data.panelId);
     if (error) throw new Error(error.message);
     return { updated: true, fields: Object.keys(patch) };
+  });
+
+/**
+ * Called by the panel sheet the moment a scanned label lands on it.
+ *
+ * A brand-new account that follows a QR code has no Electrical entitlement, so
+ * the page used to read "module is not enabled" and the label was a dead end.
+ * Here a signed-in viewer is granted the scan-scoped add-on automatically —
+ * which unlocks that panel and its own local topology and nothing else. Holders
+ * of the full `electrical` add-on are left untouched.
+ */
+export const ensurePanelScanAccess = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ panelId: panelIdSchema }).parse(d))
+  .handler(async ({ context, data }): Promise<{ scope: "full" | "scan"; granted: boolean }> => {
+    if (await hasAddon(context.supabase, context.userId, "electrical")) {
+      return { scope: "full", granted: false };
+    }
+
+    // Only a real, recorded panel can bootstrap access.
+    const db = await readerClient();
+    const { data: panel, error } = await db
+      .from("electrical_panels")
+      .select("panel_id")
+      .eq("panel_id", data.panelId)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!panel) throw new Error(`No panel is recorded with the ID ${data.panelId}.`);
+
+    const already = await hasAddon(context.supabase, context.userId, "electrical_scan");
+    if (!already) await ensureScanAddon(context.userId);
+    return { scope: "scan", granted: !already };
   });

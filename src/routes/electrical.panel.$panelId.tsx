@@ -3,7 +3,7 @@
 // possible inside an administrator-approved 24-hour window.
 import { useMemo, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { ArrowLeft, Network, Printer, QrCode, Save } from "lucide-react";
@@ -18,6 +18,7 @@ import { PanelLocalTopology } from "@/components/electrical/panel-local-topology
 import { PanelQrLabel } from "@/components/electrical/panel-qr-label";
 import { requireAuthenticatedUser } from "@/lib/auth-route";
 import {
+  ensurePanelScanAccess,
   panelSheet,
   savePanelSheetDetails,
   PANEL_SHEET_EDITABLE,
@@ -102,13 +103,30 @@ const NUMERIC_FIELDS = new Set(["bus_rating_amps", "voltage", "spaces", "circuit
 
 function PanelSheetPage() {
   const { panelId } = Route.useParams();
+  const queryClient = useQueryClient();
+  const ensureAccess = useServerFn(ensurePanelScanAccess);
   const fetchSheet = useServerFn(panelSheet);
   const saveDetails = useServerFn(savePanelSheetDetails);
   const [draft, setDraft] = useState<Record<string, string> | null>(null);
 
+  // A viewer who just signed up after scanning the label holds no Electrical
+  // entitlement yet. This self-provisions the scan-scoped add-on for the panel
+  // on the label before the sheet is read, so the QR code is never a dead end.
+  const access = useQuery({
+    queryKey: ["panel-scan-access", panelId],
+    queryFn: async () => {
+      const res = await ensureAccess({ data: { panelId } });
+      if (res.granted) await queryClient.invalidateQueries({ queryKey: ["my-addons"] });
+      return res;
+    },
+    retry: false,
+    staleTime: 5 * 60_000,
+  });
+
   const sheet = useQuery({
     queryKey: ["panel-sheet", panelId],
     queryFn: () => fetchSheet({ data: { panelId } }),
+    enabled: access.isSuccess,
   });
 
   const origin = typeof window === "undefined" ? "" : window.location.origin;
@@ -150,7 +168,7 @@ function PanelSheetPage() {
   }, [sheet.data]);
 
   return (
-    <ElectricalGate hideNav={!fullAccess}>
+    <ElectricalGate hideNav={!fullAccess} allowScanScope>
       <div className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2 print:hidden">
           {fullAccess ? (
@@ -178,17 +196,20 @@ function PanelSheetPage() {
           </div>
         </div>
 
-        {sheet.isLoading ? (
+        {access.isLoading || (sheet.isLoading && !sheet.error) ? (
           <Skeleton className="h-64 w-full" />
-        ) : sheet.error ? (
+        ) : access.error || sheet.error ? (
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Couldn't load panel {panelId}</CardTitle>
             </CardHeader>
             <CardContent className="text-sm text-muted-foreground">
-              {sheet.error instanceof Error ? sheet.error.message : "Unknown error."}
+              {(access.error ?? sheet.error) instanceof Error
+                ? (access.error ?? sheet.error as Error).message
+                : "Unknown error."}
             </CardContent>
           </Card>
+
         ) : sheet.data && panel ? (
           <>
             <Card>
