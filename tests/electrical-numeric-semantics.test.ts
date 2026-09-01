@@ -3,6 +3,7 @@ import {
   numericRegistry,
   numericRegistryEntry,
   parseNumericCell,
+  parseSystemVoltage,
   sameNumeric,
   EXCLUDED_NON_ENTITY_NUMERICS,
 } from "@/lib/electrical-numeric-semantics";
@@ -291,5 +292,65 @@ describe("Phase 4.4b numeric diagnostics", () => {
     expect(md).toContain("# Phase 4.4b — Numeric Semantics Diagnostics");
     expect(md).toContain("b".repeat(64));
     expect(md).toContain("no database writes");
+  });
+});
+
+const panel = (over: RawRow = {}): RawRow => ({
+  id: "22222222-2222-2222-2222-222222222222",
+  panel_id: "PNL-H1",
+  description: "House main panel",
+  building: "House",
+  updated_at: "2026-08-01T00:00:00.000Z",
+  ...over,
+});
+
+describe("panel voltage semantics — canonical 120/240 notation", () => {
+  it("decomposes split-phase notation into line-neutral and line-line", () => {
+    expect(parseSystemVoltage("120/240")).toEqual({
+      line_neutral: 120,
+      line_line: 240,
+      phases: null,
+      canonical: "120/240",
+    });
+    expect(parseSystemVoltage("277/480V 3Ø")?.phases).toBe(3);
+    expect(parseSystemVoltage("240")).toBeNull();
+    expect(parseSystemVoltage("120/120")).toBeNull();
+  });
+
+  it("does not treat 120/240 as a failed numeric parse and never scalarizes it", () => {
+    const p = parseNumericCell("120/240 V", "volt");
+    expect(p.state).toBe("system_voltage");
+    expect(p.value).toBeNull();
+    expect(p.system_voltage).toEqual({
+      line_neutral: 120,
+      line_line: 240,
+      phases: null,
+      canonical: "120/240",
+    });
+    expect(p.raw).toBe("120/240 V");
+    expect(p.normalized).not.toBe("240");
+  });
+
+  it("keeps genuine non-numeric voltage text in the non-numeric state", () => {
+    expect(parseNumericCell("TBD", "volt").state).toBe("non_numeric");
+    expect(parseNumericCell("120 to 240", "volt").state).toBe("non_numeric");
+  });
+
+  it("reports panel system voltage as category E, separate from category C", () => {
+    const r = diag(
+      [sheet("Panel_Schedule", "panel", [{ stableId: "PNL-H1", values: { voltage: "120/240" } }])],
+      snapshot({ panel: [panel({ voltage: 240 })] }),
+    );
+    const f = findingFor(r, "PNL-H1", "voltage");
+    expect(f?.category).toBe("E");
+    expect(f?.disposition).toBe("requires_data_model_decision");
+    expect(f?.ods_state).toBe("system_voltage");
+    expect(f?.proposed_value).toBeUndefined();
+    expect(f?.proposed_action).toMatch(/system-voltage model/i);
+    expect(r.counts_by_category.C).toBe(0);
+    expect(r.plan).toHaveLength(0);
+    const recon = numericReconciliation(r);
+    expect(recon.balanced).toBe(true);
+    expect(recon.category_e).toBe(1);
   });
 });

@@ -16,7 +16,7 @@ import { ENTITIES, type EntityField } from "@/lib/electrical-entities";
 import { COLLECTION_FOR_KIND } from "@/lib/electrical-snapshot";
 import { FARMOPS_NATIVE_KINDS, type ElectricalEntityKind } from "@/lib/electrical";
 
-export const NUMERIC_REGISTRY_VERSION = "4.4b-numeric-1";
+export const NUMERIC_REGISTRY_VERSION = "4.4b-numeric-2-system-voltage";
 
 /* ------------------------------------------------------------- ownership */
 
@@ -310,7 +310,14 @@ export type NumericState =
   /** Engineering notation that is not a number (TBD, ?, range, approximate). */
   | "non_numeric"
   /** A number whose unit cannot be interpreted deterministically. */
-  | "ambiguous_unit";
+  | "ambiguous_unit"
+  /**
+   * Canonical split-phase / wye system-voltage notation (120/240, 120/208,
+   * 277/480). This is a valid, fully-resolved engineering statement of TWO
+   * nominal voltages — it is NOT a failed parse and must never be collapsed to
+   * a single scalar. A scalar numeric column simply cannot represent it.
+   */
+  | "system_voltage";
 
 export interface ParsedNumeric {
   state: NumericState;
@@ -324,6 +331,8 @@ export interface ParsedNumeric {
   rules: string[];
   /** Why the value is not numeric / not interpretable. */
   note: string;
+  /** Structured split-phase decomposition when state === "system_voltage". */
+  system_voltage?: SystemVoltage;
 }
 
 const NULLISH = new Set(["", "n/a", "na", "n.a.", "none", "null", "-", "—", "–"]);
@@ -370,6 +379,46 @@ const UNIT_TOKENS: Record<string, { unit: NumericUnit; scale: number }> = {
 
 const RANGE_RE = /\d\s*(?:-|–|—|\.\.|\bto\b|\bthru\b)\s*\d/;
 const APPROX_RE = /(^|\s)(~|≈|±|\+\/-|approx\.?|about|est\.?)/;
+
+/**
+ * `120/240`, `120/240V`, `120/208 VAC 3Ø`, `277/480 v 3 phase` — canonical
+ * notation for a multi-voltage system. The lower number is the line-to-neutral
+ * voltage and the higher the line-to-line voltage.
+ */
+const SYSTEM_VOLTAGE_RE =
+  /^(\d{2,4})\s*\/\s*(\d{2,4})\s*(?:v|vac|vdc|volt|volts)?\s*(1|3)?\s*(?:ø|Ø|ph|phase|-phase|phases|w|wire|-wire)?\s*(?:ø|Ø|ph|phase|wire|w)?\.?$/i;
+
+export interface SystemVoltage {
+  /** Lower nominal voltage — line to neutral (e.g. 120). */
+  line_neutral: number;
+  /** Higher nominal voltage — line to line (e.g. 240). */
+  line_line: number;
+  /** Phase count when the cell states it; null when unstated. */
+  phases: number | null;
+  /** Canonical redisplay, always "L-N/L-L". */
+  canonical: string;
+}
+
+/**
+ * Recognise canonical system-voltage notation. Returns null for anything else.
+ * Never converts, never picks one of the two voltages.
+ */
+export function parseSystemVoltage(raw: unknown): SystemVoltage | null {
+  const text = raw === null || raw === undefined ? "" : String(raw).replace(/\s+/g, " ").trim();
+  const m = text.match(SYSTEM_VOLTAGE_RE);
+  if (!m) return null;
+  const a = Number(m[1]);
+  const b = Number(m[2]);
+  if (!Number.isFinite(a) || !Number.isFinite(b) || a === b) return null;
+  const lineNeutral = Math.min(a, b);
+  const lineLine = Math.max(a, b);
+  return {
+    line_neutral: lineNeutral,
+    line_line: lineLine,
+    phases: m[3] ? Number(m[3]) : null,
+    canonical: `${lineNeutral}/${lineLine}`,
+  };
+}
 
 /**
  * Parse one numeric cell for a field with a declared unit. Explicit zero,
@@ -434,6 +483,23 @@ export function parseNumericCell(raw: unknown, unit: NumericUnit): ParsedNumeric
       normalized: text,
       note: `"${text}" is approximate/tolerance notation, not an exact engineering value.`,
     };
+  }
+
+  // Canonical split-phase / wye notation on a voltage field: a resolved
+  // engineering statement of two nominal voltages, not a failed parse. It is
+  // never normalized to a scalar (120/240 is NOT 240).
+  if (unit === "volt") {
+    const sys = parseSystemVoltage(text);
+    if (sys) {
+      return {
+        ...base,
+        state: "system_voltage",
+        value: null,
+        normalized: sys.canonical,
+        system_voltage: sys,
+        note: `"${text}" is canonical system-voltage notation: ${sys.line_neutral} V line-to-neutral / ${sys.line_line} V line-to-line${sys.phases ? `, ${sys.phases}-phase` : ""}. It is fully resolved engineering data that a single scalar voltage column cannot represent; it is never reduced to ${sys.line_line}.`,
+      };
+    }
   }
 
   const rules: string[] = [];
