@@ -16,6 +16,7 @@ import {
 } from "@/lib/electrical-numeric-diagnostics";
 import { systemVoltagePreviewCsv } from "@/lib/electrical-system-voltage";
 import { SystemVoltageApplyGate } from "@/components/electrical/system-voltage-apply-gate";
+import { LoadSemanticDetailPanel } from "@/components/electrical/load-semantic-detail-panel";
 import type { ValidationReport } from "@/lib/electrical-parallel-validation";
 
 
