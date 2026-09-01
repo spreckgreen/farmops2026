@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { AlertTriangle, Pencil, Plus, Trash2 } from "lucide-react";
 import { EntitySelect } from "@/components/electrical/entity-select";
 import { electricalEntityOptions } from "@/lib/electrical.functions";
 import {
@@ -24,8 +24,10 @@ import {
 } from "@/lib/electrical-panel-layout.functions";
 import {
   BREAKER_SIDES,
+  consumedSlotIndex,
   expectedBreakerNumber,
   freeBreakerSlots,
+  multiPoleDuplicates,
   nextExitOrder,
   resolvePanelLayout,
 } from "@/lib/electrical-panel-layout";
@@ -216,6 +218,14 @@ function BreakerPositions({
 }) {
   const layout = useMemo(() => resolvePanelLayout(panel), [panel]);
   const free = useMemo(() => freeBreakerSlots(layout, rows), [layout, rows]);
+  // Consistency check: one record per physical breaker, so slots consumed by a
+  // multi-pole breaker (Right 19 = 38/40 consumes Right 20) must stay empty.
+  const consumed = useMemo(() => consumedSlotIndex(layout, rows), [layout, rows]);
+  const duplicates = useMemo(() => multiPoleDuplicates(layout, rows), [layout, rows]);
+  const duplicateIds = useMemo(
+    () => new Set(duplicates.map((d) => d.id).filter(Boolean) as string[]),
+    [duplicates],
+  );
   const save = useServerFn(saveBreakerPosition);
   const del = useDelete(onChanged);
   const optionsFn = useServerFn(electricalEntityOptions);
@@ -236,9 +246,16 @@ function BreakerPositions({
 
   const suggestedBreaker = expectedBreakerNumber(layout, side, Number(position));
 
+  const consumedBy = consumed.get(`${side}#${Number(position)}`);
+
   const add = useMutation({
-    mutationFn: async () =>
-      save({
+    mutationFn: async () => {
+      if (consumedBy) {
+        throw new Error(
+          `${side} ${Number(position)} is consumed by the multi-pole breaker at ${consumedBy.ownerLabel}${consumedBy.ownerBreakers ? ` (${consumedBy.ownerBreakers})` : ""} — that one record already covers this slot.`,
+        );
+      }
+      return save({
         data: {
           panel_uuid: String(panel["id"]),
           side,
@@ -250,7 +267,8 @@ function BreakerPositions({
           ocp_amps: amps.trim() === "" ? null : Number(amps),
           notes: notes.trim() || null,
         },
-      }),
+      });
+    },
     onSuccess: () => {
       toast.success(`${side} ${position} recorded.`);
       setGroup("");
@@ -275,6 +293,40 @@ function BreakerPositions({
         </p>
       </CardHeader>
       <CardContent className="space-y-3">
+        {duplicates.length ? (
+          <div className="space-y-2 rounded-md border border-destructive/50 bg-destructive/10 p-3">
+            <div className="flex items-center gap-2 text-sm font-medium text-destructive">
+              <AlertTriangle className="h-4 w-4" />
+              {duplicates.length} duplicate slot record{duplicates.length === 1 ? "" : "s"} on a
+              multi-pole breaker
+            </div>
+            {duplicates.map((d) => (
+              <div
+                key={`${d.side}-${d.position}`}
+                className="flex flex-wrap items-center gap-2 text-sm"
+              >
+                <span className="text-muted-foreground">{d.message}</span>
+                {d.id ? (
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => {
+                      if (
+                        confirm(
+                          `Delete the duplicate ${d.side} ${d.position} row? The ${d.ownerLabel} record keeps covering this slot.`,
+                        )
+                      ) {
+                        del.mutate({ table: "breaker_position", id: d.id! });
+                      }
+                    }}
+                  >
+                    Delete {d.side} {d.position}
+                  </Button>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        ) : null}
         {!rows.length ? (
           <p className="text-sm text-muted-foreground">
             No breaker positions recorded yet. Each row below is one physical space.
@@ -288,6 +340,9 @@ function BreakerPositions({
                     {String(r["side"])} {String(r["position"])}
                   </span>
                   <Badge variant="outline">breaker {String(r["breaker_number"] ?? "—")}</Badge>
+                  {duplicateIds.has(String(r["id"])) ? (
+                    <Badge variant="destructive">duplicate of a multi-pole slot</Badge>
+                  ) : null}
                   <span className="text-muted-foreground">
                     {Number(r["poles"] ?? 1)}-pole ·{" "}
                     {r["ocp_amps"] == null ? "amps unknown" : `${String(r["ocp_amps"])} A`}
@@ -402,7 +457,7 @@ function BreakerPositions({
           <div className="flex items-end">
             <Button
               className="w-full gap-1"
-              disabled={!position || add.isPending}
+              disabled={!position || add.isPending || Boolean(consumedBy)}
               onClick={() => add.mutate()}
             >
               <Plus className="h-4 w-4" />
@@ -461,9 +516,16 @@ function PanelExits({
     [raceways, panelUuid],
   );
 
+  const consumedBy = consumed.get(`${side}#${Number(position)}`);
+
   const add = useMutation({
-    mutationFn: async () =>
-      save({
+    mutationFn: async () => {
+      if (consumedBy) {
+        throw new Error(
+          `${side} ${Number(position)} is consumed by the multi-pole breaker at ${consumedBy.ownerLabel}${consumedBy.ownerBreakers ? ` (${consumedBy.ownerBreakers})` : ""} — that one record already covers this slot.`,
+        );
+      }
+      return save({
         data: {
           panel_uuid: panelUuid,
           exit_order: Number(order),
@@ -492,6 +554,40 @@ function PanelExits({
         </p>
       </CardHeader>
       <CardContent className="space-y-3">
+        {duplicates.length ? (
+          <div className="space-y-2 rounded-md border border-destructive/50 bg-destructive/10 p-3">
+            <div className="flex items-center gap-2 text-sm font-medium text-destructive">
+              <AlertTriangle className="h-4 w-4" />
+              {duplicates.length} duplicate slot record{duplicates.length === 1 ? "" : "s"} on a
+              multi-pole breaker
+            </div>
+            {duplicates.map((d) => (
+              <div
+                key={`${d.side}-${d.position}`}
+                className="flex flex-wrap items-center gap-2 text-sm"
+              >
+                <span className="text-muted-foreground">{d.message}</span>
+                {d.id ? (
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => {
+                      if (
+                        confirm(
+                          `Delete the duplicate ${d.side} ${d.position} row? The ${d.ownerLabel} record keeps covering this slot.`,
+                        )
+                      ) {
+                        del.mutate({ table: "breaker_position", id: d.id! });
+                      }
+                    }}
+                  >
+                    Delete {d.side} {d.position}
+                  </Button>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        ) : null}
         {!rows.length ? (
           <p className="text-sm text-muted-foreground">No physical exits recorded yet.</p>
         ) : (
