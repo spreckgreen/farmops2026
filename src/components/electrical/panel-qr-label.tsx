@@ -86,9 +86,16 @@ export const LABEL_FORMAT_LIST: LabelFormatSpec[] = [
 ];
 
 
-export function usePanelQrSvg(url: string, format: LabelFormat): string | null {
+/** Rendered QR box for the small in-cell code on shortened (Avery 8593) labels. */
+export const SHORT_QR_PX = 52;
+
+export function usePanelQrSvg(
+  url: string,
+  format: LabelFormat,
+  pxOverride?: number,
+): string | null {
   const [svg, setSvg] = useState<string | null>(null);
-  const px = LABEL_FORMATS[format].qrPx;
+  const px = pxOverride ?? LABEL_FORMATS[format].qrPx;
   useEffect(() => {
     let live = true;
     QRCode.toString(url, {
