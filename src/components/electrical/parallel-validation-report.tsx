@@ -290,11 +290,9 @@ export function ParallelValidationReport() {
 
       {report ? (
         <>
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">Differences</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
+          <CollapsibleSection title="Differences" defaultOpen>
+            <div className="space-y-3">
+
               <div className="flex flex-wrap gap-2">
                 <Button
                   size="sm"
