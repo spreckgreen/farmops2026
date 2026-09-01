@@ -436,6 +436,8 @@ function BooleanSemanticsPanel({ report }: { report: ValidationReport }) {
   const preview = useServerFn(previewBooleanCorrection);
   const [previewed, setPreviewed] = useState<{ applied: boolean; rows: GateRow[] } | null>(null);
   const [confirmed, setConfirmed] = useState(false);
+  const [boolOpen, setBoolOpen] = useState(true);
+
 
   const entries = useMemo(
     () =>
