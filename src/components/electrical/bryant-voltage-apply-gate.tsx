@@ -214,6 +214,9 @@ export function BryantVoltageApplyGate({
           </Badge>
           <Badge variant="secondary">Not found {summary.not_found}</Badge>
           <Badge variant="secondary">Not approved {summary.not_approved}</Badge>
+          <Badge variant={summary.baseline_blocked ? "destructive" : "secondary"}>
+            Baseline blocked {summary.baseline_blocked}
+          </Badge>
           <Badge variant={summary.failed ? "destructive" : "secondary"}>
             Failed {summary.failed}
           </Badge>
