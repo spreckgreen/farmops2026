@@ -115,16 +115,55 @@ never edited to satisfy a numeric column.
 Panel/feeder/branch voltage describes a **system**, so a scalar column is the
 wrong shape. Load `volts` describes one utilization voltage and stays scalar.
 
-### Options recorded for decision (none implemented here)
+### Implemented representation (`src/lib/electrical-system-voltage.ts`)
 
-1. Explicit pair: `nominal_line_neutral_volts` + `nominal_line_line_volts`
-   (+ optional `phases`, `wires`). Queryable, no parsing, matches the notation.
-2. Structured system-voltage reference table (`120/240 1Ø 3W`, `120/208 3Ø 4W`,
-   `277/480 3Ø 4W`) with an FK from panels/feeders/branches.
-3. Text `system_voltage` column preserving canonical notation verbatim, with the
-   scalar retained only for single-voltage systems.
+Panel/feeder/circuit-group/branch/service-configuration `voltage` carries
+**system-designation** semantics; `electrical_loads.volts` stays a
+**utilization scalar** and power-asset/device voltages stay nameplate scalars
+(`VOLTAGE_FIELD_SEMANTICS`). A designation preserves every component:
 
-Until one is chosen, these findings are Category **E** —
-`requires_data_model_decision` — reported separately from Category C
-(unresolved workbook state) and from Category B (engineering disagreement).
-Category E is never correctable and this phase still writes nothing.
+| Field | Example |
+| --- | --- |
+| `code` | `SYSV-120/240-1P3W` |
+| `designation` | `120/240 V, 1φ, 3-wire` |
+| `line_neutral_volts` | 120 |
+| `line_line_volts` | 240 |
+| `phases` | 1 |
+| `wires` | 3 |
+
+`resolveSystemVoltage` accepts a catalog code, canonical notation (`120/240`,
+`120/240 V 1ph`) or a structured object, and returns `null` for a bare scalar —
+`240` is never promoted to a system designation and `120/240` is never parsed
+into a float. The catalog covers 120/240 1φ3W, 120/208 3φ4W and 277/480 3φ4W;
+an unlisted L-N/L-L pair still resolves structurally.
+
+This is the shared vocabulary for the existing service **configuration
+revision** abstraction (`electrical_service_configurations.voltage` / `.phase`)
+rather than a second voltage model. It never attaches a designation to a service
+identity: `SVC-HOUSE` / `SVC-FARMSHOP` stay permanent, and voltage remains a
+property of a revision.
+
+### Reconciliation behaviour
+
+`numericDiagnostics` reads the FarmOps designation from the proposed
+`system_voltage` representation on the same record. Then:
+
+- ODS `120/240` ↔ FarmOps system `120/240` → **agreement**.
+- ODS `120/240` ↔ FarmOps system `120/208` → **Category B** (engineering
+  disagreement between two fully represented designations).
+- ODS `120/240` ↔ FarmOps scalar `240` → **Category E**, unchanged.
+
+Category E therefore disappears only when production data actually carries the
+system-voltage representation.
+
+### Migration preview (read-only, not applied)
+
+`systemVoltageMigrationPreview` emits one row per affected record with the
+current representation, the proposed designation and a status
+(`scalar_loses_line_neutral`, `scalar_not_stated`, `scalar_unrelated_value`).
+It is surfaced in the "Numeric semantics diagnostics" card and exported as
+`phase-4.4b-system-voltage-migration-preview.csv`. `applied` is always `false`;
+the seven affected panels — PNL-BLR, PNL-FS-CRIT, PNL-FS-EQ, PNL-FS-NE,
+PNL-FS-NW, PNL-H1, PNL-PH — remain untouched until a migration is explicitly
+authorized. No column has been added yet.
+

@@ -14,7 +14,9 @@ import {
   NUMERIC_ARTIFACT_LABELS,
   type NumericCategory,
 } from "@/lib/electrical-numeric-diagnostics";
+import { systemVoltagePreviewCsv } from "@/lib/electrical-system-voltage";
 import type { ValidationReport } from "@/lib/electrical-parallel-validation";
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -85,7 +87,21 @@ export function NumericSemanticsPanel({ report }: { report: ValidationReport }) 
           >
             <Download className="mr-1 h-3 w-3" /> Report
           </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() =>
+              download(
+                "phase-4.4b-system-voltage-migration-preview.csv",
+                systemVoltagePreviewCsv(diag.system_voltage_preview),
+                "text/csv",
+              )
+            }
+          >
+            <Download className="mr-1 h-3 w-3" /> System-voltage preview CSV
+          </Button>
         </div>
+
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex flex-wrap gap-2 text-xs">
@@ -178,6 +194,62 @@ export function NumericSemanticsPanel({ report }: { report: ValidationReport }) 
             ) : null}
           </div>
         )}
+
+        {diag.system_voltage_preview.rows.length ? (
+          <div className="rounded-md border p-3">
+            <p className="text-sm font-medium">
+              System-voltage migration preview{" "}
+              <span className="text-xs font-normal text-muted-foreground">
+                read-only — nothing is applied
+              </span>
+            </p>
+            <p className="pt-1 text-xs text-muted-foreground">
+              Panel/feeder/branch voltage is a <em>system designation</em> (two nominal
+              voltages plus phase and wire configuration); a load voltage stays a single
+              utilization scalar. Below is each affected record&apos;s current representation next
+              to the proposed <code>{diag.system_voltage_preview.proposed_column}</code>{" "}
+              representation. Applying it requires explicit authorization; Category E stays
+              visible until production data is migrated. Model{" "}
+              <code>{diag.system_voltage_preview.model_version}</code>.
+            </p>
+            <div className="mt-2 overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead className="text-left text-muted-foreground">
+                  <tr>
+                    <th className="py-1 pr-3">Stable ID</th>
+                    <th className="py-1 pr-3">Entity</th>
+                    <th className="py-1 pr-3">ODS</th>
+                    <th className="py-1 pr-3">Current FarmOps</th>
+                    <th className="py-1 pr-3">Proposed designation</th>
+                    <th className="py-1 pr-3">L-N</th>
+                    <th className="py-1 pr-3">L-L</th>
+                    <th className="py-1 pr-3">φ</th>
+                    <th className="py-1 pr-3">Wires</th>
+                    <th className="py-1 pr-3">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {diag.system_voltage_preview.rows.map((p) => (
+                    <tr key={`${p.farmops_entity}-${p.stable_id}-${p.farmops_field}`} className="border-t">
+                      <td className="py-1 pr-3 font-mono">{p.stable_id}</td>
+                      <td className="py-1 pr-3 font-mono">{p.farmops_entity}</td>
+                      <td className="py-1 pr-3">{p.ods_raw}</td>
+                      <td className="py-1 pr-3">{p.current_representation}</td>
+                      <td className="py-1 pr-3">{p.proposed.designation}</td>
+                      <td className="py-1 pr-3">{p.proposed.line_neutral_volts}</td>
+                      <td className="py-1 pr-3">{p.proposed.line_line_volts}</td>
+                      <td className="py-1 pr-3">{p.proposed.phases ?? "—"}</td>
+                      <td className="py-1 pr-3">{p.proposed.wires ?? "—"}</td>
+                      <td className="py-1 pr-3 text-muted-foreground">{p.status}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : null}
+
+
 
         <div>
           <Button size="sm" variant="ghost" onClick={() => setShowRegistry((v) => !v)}>
