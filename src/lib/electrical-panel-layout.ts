@@ -202,6 +202,7 @@ export const PANEL_LAYOUT_CODES = [
   "breaker_number_mismatch",
   "breaker_slot_unassigned",
   "breaker_slot_double_assigned",
+  "breaker_slot_consumed_duplicate",
   "panel_exit_order_duplicate",
   "panel_exit_invalid_side",
   "panel_exit_unlinked",
