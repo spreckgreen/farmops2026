@@ -38,6 +38,17 @@ describe("Phase 4.4b — Bryant nominal supply voltage apply gate", () => {
     expect(stillSafeToApplyBryantVoltage(input({ stable_id: "FS-083" })).ok).toBe(true);
   });
 
+  it("refuses when canonical evidence is not the authorized baseline workbook", () => {
+    const r = stillSafeToApplyBryantVoltage(
+      input({ baseline: { ok: false, reason: "different workbook SHA-256" } }),
+    );
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.status).toBe("baseline_blocked");
+      expect(r.reason).toMatch(/workbook/i);
+    }
+  });
+
   it("reports already_correct once the row is at 240", () => {
     const r = stillSafeToApplyBryantVoltage(input({ live_volts: 240 }));
     expect(r.ok).toBe(false);
