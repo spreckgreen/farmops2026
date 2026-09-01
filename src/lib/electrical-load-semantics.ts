@@ -616,6 +616,7 @@ export function loadSemanticDetail(
     source_reference: text("source_reference", "ods") || text("source_reference", "farmops"),
     notes: byField.get("volts")?.note ?? byField.get("amps")?.note ?? "",
     buckets,
+    values,
     targeted_review: buckets.includes("true_engineering_disagreement"),
   };
 }
