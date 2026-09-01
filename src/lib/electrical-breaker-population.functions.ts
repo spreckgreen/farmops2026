@@ -27,6 +27,11 @@ import {
   type BreakerPopulationDiagnostics,
   type BreakerPopulationRow,
 } from "@/lib/electrical-breaker-population";
+import {
+  analysePanelCoverage,
+  panelCoverageCsv,
+  type PanelCoverageReport,
+} from "@/lib/electrical-panel-coverage";
 
 type LooseDb = { from: (table: string) => any };
 
@@ -43,10 +48,20 @@ async function odsToSheets(base64: string) {
   return parseOdsContentXml(strFromU8(content));
 }
 
+interface PanelRow {
+  id: string;
+  panel_id: string;
+  spaces: number | null;
+  breaker_columns: number | null;
+  positions_per_column: number | null;
+}
+
 async function readPanels(db: LooseDb) {
-  const { data, error } = await db.from("electrical_panels").select("id, panel_id");
+  const { data, error } = await db
+    .from("electrical_panels")
+    .select("id, panel_id, spaces, breaker_columns, positions_per_column");
   if (error) throw new Error(error.message);
-  return (data ?? []) as { id: string; panel_id: string }[];
+  return (data ?? []) as PanelRow[];
 }
 
 async function readBreakers(db: LooseDb, byUuid: Map<string, string>): Promise<FarmOpsBreaker[]> {
