@@ -174,15 +174,17 @@ function PanelLabelsPage() {
                 />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="label-size">Label size</Label>
-                <Select value={size} onValueChange={(v) => setSize(v as QrSize)}>
+                <Label htmlFor="label-size">Print format</Label>
+                <Select value={format} onValueChange={(v) => setFormat(v as LabelFormat)}>
                   <SelectTrigger id="label-size">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="sheet">Sheet — many per page</SelectItem>
-                    <SelectItem value="large">Large — 2 per page</SelectItem>
-                    <SelectItem value="jumbo">Jumbo — 1 per page</SelectItem>
+                    {LABEL_FORMAT_LIST.map((f) => (
+                      <SelectItem key={f.id} value={f.id}>
+                        {f.name}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
