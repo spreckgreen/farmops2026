@@ -19,6 +19,7 @@ const input = (over: Partial<Parameters<typeof stillSafeToApplyBryantVoltage>[0]
   equipment,
   adjudication_bucket: "farmops_value_incompatible_with_verified_equipment" as string | null,
   ods_volts: 240 as number | null,
+  baseline: { ok: true } as { ok: true } | { ok: false; reason: string },
   ...over,
 });
 
