@@ -212,6 +212,7 @@ function PanelAccessAdminPage() {
                     <TableRow>
                       <TableHead>Panel</TableHead>
                       <TableHead>Requester</TableHead>
+                      <TableHead>Asking for</TableHead>
                       <TableHead>Reason</TableHead>
                       <TableHead>State</TableHead>
                       <TableHead>Window</TableHead>
@@ -232,6 +233,19 @@ function PanelAccessAdminPage() {
                           <p className="text-muted-foreground">
                             {new Date(row.created_at).toLocaleString()}
                           </p>
+                        </TableCell>
+                        <TableCell className="text-xs">
+                          <Badge
+                            variant={
+                              (row as { scope?: string }).scope === "system_data"
+                                ? "destructive"
+                                : "outline"
+                            }
+                          >
+                            {(row as { scope?: string }).scope === "system_data"
+                              ? "Other panels / full system"
+                              : "Correct this panel"}
+                          </Badge>
                         </TableCell>
                         <TableCell className="max-w-xs text-xs">{row.reason ?? "—"}</TableCell>
                         <TableCell>
