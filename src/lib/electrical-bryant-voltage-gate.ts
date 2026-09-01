@@ -312,11 +312,11 @@ export function bryantVoltageGateMarkdown(
     "",
     `Exactly one field is written: \`electrical_loads.${BRYANT_VOLTAGE_COLUMN}\` ${BRYANT_CURRENT_VOLTAGE} → ${BRYANT_NOMINAL_SUPPLY_VOLTAGE}. Rated equipment voltage ${BRYANT_RATED_EQUIPMENT_VOLTAGE_CLASS} VAC, ${BRYANT_PHASE}Ø, ${BRYANT_FREQUENCY_HZ} Hz is preserved separately as provenance and never collapsed to a scalar. Amps, connected/demand VA, notes, source references, equipment provenance, ODS capture, IDs and relationships are untouched, as are FS-084, FS-034, FS-092 and every other load.`,
     "",
-    "| Stable ID | Old volts | New volts | Rated equipment voltage | Status | Applied at | Detail |",
-    "| --- | --- | --- | --- | --- | --- | --- |",
+    "| Stable ID | ODS parsed volts | FarmOps live volts | New volts | Rated equipment voltage | Status | Applied at | Detail |",
+    "| --- | --- | --- | --- | --- | --- | --- | --- |",
     ...rows.map(
       (r) =>
-        `| ${r.stable_id} | ${r.live_volts ?? "not stated"} | ${r.proposed_volts} | ${r.rated_equipment_voltage} VAC, ${r.phase}Ø, ${r.frequency_hz} Hz | ${r.status} | ${r.applied_at ?? "—"} | ${r.detail ?? ""} |`,
+        `| ${r.stable_id} | ${r.ods_volts ?? "not parsed"} | ${r.live_volts ?? "not stated"} | ${r.proposed_volts} | ${r.rated_equipment_voltage} VAC, ${r.phase}Ø, ${r.frequency_hz} Hz | ${r.status} | ${r.applied_at ?? "—"} | ${r.detail ?? ""} |`,
     ),
   ].join("\n");
 }
