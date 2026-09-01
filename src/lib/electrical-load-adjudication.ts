@@ -26,6 +26,7 @@ import {
   type SemanticEvidence,
 } from "@/lib/electrical-semantic-evidence";
 import {
+  AMPACITY_SEMANTIC_FIELDS,
   equipmentEvidenceLines,
   type EquipmentDiscrepancy,
   type EquipmentGroup,
@@ -473,7 +474,11 @@ function classifyVolts(load: AdjudicationLoadInput, p: AdjudicationValuePair): V
   };
 }
 
-function classifyAmps(load: AdjudicationLoadInput, p: AdjudicationValuePair) {
+function classifyAmps(load: AdjudicationLoadInput, p: AdjudicationValuePair): Verdict {
+  if (load.equipment) {
+    const v = classifyAmpsWithEquipment(load.equipment, p);
+    if (v) return v;
+  }
   const evidence = evidenceCitations(load.evidence).map((c) => `${c.source}: ${c.detail}`);
   const ocpProven = hasOcpProvenance(load.evidence);
   const hi = Math.max(p.ods ?? 0, p.farmops ?? 0);
@@ -540,7 +545,15 @@ function classifyAmps(load: AdjudicationLoadInput, p: AdjudicationValuePair) {
   };
 }
 
-function classifyVa(load: AdjudicationLoadInput, field: string, p: AdjudicationValuePair) {
+function classifyVa(
+  load: AdjudicationLoadInput,
+  field: string,
+  p: AdjudicationValuePair,
+): Verdict {
+  if (load.equipment) {
+    const v = classifyVaWithEquipment(load.equipment, load, p);
+    if (v) return v;
+  }
   const evidence = evidenceCitations(load.evidence).map((c) => `${c.source}: ${c.detail}`);
   const volts = load.fields.volts;
   const ampsPair = load.fields.amps;
