@@ -547,40 +547,6 @@ function PanelExits({
         </p>
       </CardHeader>
       <CardContent className="space-y-3">
-        {duplicates.length ? (
-          <div className="space-y-2 rounded-md border border-destructive/50 bg-destructive/10 p-3">
-            <div className="flex items-center gap-2 text-sm font-medium text-destructive">
-              <AlertTriangle className="h-4 w-4" />
-              {duplicates.length} duplicate slot record{duplicates.length === 1 ? "" : "s"} on a
-              multi-pole breaker
-            </div>
-            {duplicates.map((d) => (
-              <div
-                key={`${d.side}-${d.position}`}
-                className="flex flex-wrap items-center gap-2 text-sm"
-              >
-                <span className="text-muted-foreground">{d.message}</span>
-                {d.id ? (
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    onClick={() => {
-                      if (
-                        confirm(
-                          `Delete the duplicate ${d.side} ${d.position} row? The ${d.ownerLabel} record keeps covering this slot.`,
-                        )
-                      ) {
-                        del.mutate({ table: "breaker_position", id: d.id! });
-                      }
-                    }}
-                  >
-                    Delete {d.side} {d.position}
-                  </Button>
-                ) : null}
-              </div>
-            ))}
-          </div>
-        ) : null}
         {!rows.length ? (
           <p className="text-sm text-muted-foreground">No physical exits recorded yet.</p>
         ) : (
