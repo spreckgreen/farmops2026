@@ -236,13 +236,9 @@ function PanelAccessAdminPage() {
                         </TableCell>
                         <TableCell className="text-xs">
                           <Badge
-                            variant={
-                              (row as { scope?: string }).scope === "system_data"
-                                ? "destructive"
-                                : "outline"
-                            }
+                            variant={row.scope === "system_data" ? "destructive" : "outline"}
                           >
-                            {(row as { scope?: string }).scope === "system_data"
+                            {row.scope === "system_data"
                               ? "Other panels / full system"
                               : "Correct this panel"}
                           </Badge>
