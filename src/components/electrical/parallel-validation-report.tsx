@@ -6,7 +6,9 @@
 import { useMemo, useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Download, FileSpreadsheet } from "lucide-react";
+import { ChevronDown, Download, FileSpreadsheet } from "lucide-react";
+import { CollapsibleSection } from "@/components/electrical/collapsible-section";
+
 import { toast } from "sonner";
 import { runElectricalParallelValidation } from "@/lib/electrical-parallel-validation.functions";
 import {
