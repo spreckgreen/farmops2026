@@ -246,21 +246,17 @@ function PanelLabelsPage() {
         ) : (
           <div
             className={
-              size === "sheet"
-                ? "grid gap-3 sm:grid-cols-2"
-                : size === "large"
-                  ? "grid gap-4 sm:grid-cols-2 print:grid-cols-1"
-                  : "grid gap-6 grid-cols-1"
+              format === "letter-4x2"
+                ? "panel-label-grid grid gap-3 sm:grid-cols-2 lg:grid-cols-4"
+                : format === "letter-2x5"
+                  ? "panel-label-grid grid gap-3 sm:grid-cols-2"
+                  : "panel-label-grid grid grid-cols-1 gap-4 sm:max-w-sm"
             }
           >
+            {/* Page geometry for the selected label stock; only applies when printing. */}
+            <style dangerouslySetInnerHTML={{ __html: labelPrintCss(format) }} />
             {visible.map((panel) => (
-              <PanelQrLabel
-                key={panel.id}
-                panel={panel}
-                origin={origin}
-                size={size}
-                className="print:break-after-auto"
-              />
+              <PanelQrLabel key={panel.id} panel={panel} origin={origin} format={format} />
             ))}
             {!visible.length ? (
               <p className="text-sm text-muted-foreground">No panels match that filter.</p>
