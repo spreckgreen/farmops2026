@@ -156,14 +156,65 @@ property of a revision.
 Category E therefore disappears only when production data actually carries the
 system-voltage representation.
 
-### Migration preview (read-only, not applied)
+### Migration preview (read-only)
 
 `systemVoltageMigrationPreview` emits one row per affected record with the
 current representation, the proposed designation and a status
 (`scalar_loses_line_neutral`, `scalar_not_stated`, `scalar_unrelated_value`).
 It is surfaced in the "Numeric semantics diagnostics" card and exported as
-`phase-4.4b-system-voltage-migration-preview.csv`. `applied` is always `false`;
-the seven affected panels — PNL-BLR, PNL-FS-CRIT, PNL-FS-EQ, PNL-FS-NE,
-PNL-FS-NW, PNL-H1, PNL-PH — remain untouched until a migration is explicitly
-authorized. No column has been added yet.
+`phase-4.4b-system-voltage-migration-preview.csv`. The preview itself never
+writes and is preserved for audit alongside the apply report.
+
+## 8. Apply gate — `4.4b-system-voltage-apply-gate-1`
+
+`src/lib/electrical-system-voltage-gate.ts` (pure) plus
+`src/lib/electrical-system-voltage.functions.ts` (server) apply the reviewed
+model to **only** these seven panels: PNL-BLR, PNL-FS-CRIT, PNL-FS-EQ,
+PNL-FS-NE, PNL-FS-NW, PNL-H1, PNL-PH.
+
+Schema (additive, non-destructive):
+
+| Column | Type | Purpose |
+| --- | --- | --- |
+| `electrical_panels.system_voltage` | `jsonb` | full designation: `code`, `designation`, `line_neutral_volts`, `line_line_volts`, `phases`, `wires`, `note`, `model_version` |
+| `electrical_panels.system_voltage_applied_at` | `timestamptz` | when the gate wrote it |
+| `electrical_panels.voltage` | `numeric` | **unchanged** — the legacy scalar is preserved so every current consumer keeps working |
+
+Per-row protections, evaluated during preview and again immediately before the
+write (row re-read by UUID):
+
+1. the panel is one of the seven authorized stable IDs;
+2. the live row's stable ID matches;
+3. the live scalar voltage is still the reviewed value (240);
+4. no different system-voltage designation is already stored;
+5. the canonical ODS cell still states `120/240`.
+
+Statuses: `would_change`, `already_correct`, `drifted`, `conflict`,
+`not_found`, `not_approved`, `failed`, `applied`. Drifted and conflicting rows
+are never written. Apply additionally requires `confirm: true` **and** the row's
+explicit approval key `electrical_panels|<PNL-ID>|system_voltage`.
+
+Out of scope and never modified: panel IDs, service identities/revisions,
+feeder/branch topology, breaker positions, loads, the canonical ODS, Boolean
+reconciliation, House field observations and every unrelated numeric field.
+
+### Post-apply validation
+
+A successful apply re-runs the parallel comparison against the same, unchanged
+canonical workbook. The stored designation reaches diagnostics through the
+snapshot (`electrical_panels.system_voltage`) as a `system_voltage` comparison
+record, so ODS `120/240` ↔ FarmOps `120/240` becomes an **agreement**: the seven
+former Category-E findings disappear (E = 0) and no new B/C/D finding is
+introduced, because no numeric column was written.
+
+### Audit outputs
+
+From the apply-gate card:
+
+- `phase-4.4b-system-voltage-preview-report.csv` / `.md` — pre-migration state
+- `phase-4.4b-system-voltage-apply-report.csv` / `.md` —
+  `stable_id | old representation | new system_voltage | status | applied_at`
+- `phase-4.4b-system-voltage-migration-preview.csv` — the original read-only
+  preview, kept for audit
+
 
