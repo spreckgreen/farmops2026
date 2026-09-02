@@ -287,11 +287,10 @@ export function locateOdsLogicalCell(
         rowRepeatOffset,
         columnRepeat,
         columnRepeatOffset: logicalColumn - seenCols - 1,
-        tag: /^<?table:covered/.test(`table:covered`) && c.start >= 0 && /covered/.test(
-          bodyXml.slice(row.contentStart + c.start, row.contentStart + c.start + 30),
-        )
+        tag: row.inner.startsWith("<table:covered-table-cell", c.start)
           ? "table:covered-table-cell"
           : "table:table-cell",
+
         cellStart: innerBase + c.start,
         cellEnd: innerBase + c.end,
         rowStart: body.start + row.start,
