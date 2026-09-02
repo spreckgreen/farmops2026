@@ -61,6 +61,12 @@ import {
   DEMAND_VA_FIELD,
   classifyDemandVaToken,
 } from "@/lib/electrical-demand-va-placeholder";
+import { PHASE_44A_BASELINE_SHA256 } from "@/lib/electrical-adjudication-baseline";
+import {
+  CONNECTED_VA_FIELD,
+  CURRENT_SEMANTICS_UNRESOLVED_LOADS,
+} from "@/lib/electrical-zero-origin-provenance";
+
 
 
 export const NUMERIC_DIAGNOSTICS_VERSION =
@@ -414,7 +420,12 @@ function adjudicationOverlay(
   field: string,
   runSha: string,
   category: NumericCategory,
-  cell: { odsRaw: string; farmopsRaw: string; farmopsState: ParsedNumeric["state"] },
+  cell: {
+    odsRaw: string;
+    farmopsRaw: string;
+    odsState: ParsedNumeric["state"];
+    farmopsState: ParsedNumeric["state"];
+  },
 ): Pick<
   NumericFinding,
   | "adjudicated"
@@ -439,32 +450,66 @@ function adjudicationOverlay(
     cell.farmopsState === "absent" &&
     (cell.farmopsRaw ?? "").trim() === "";
 
+  // Established zero-origin provenance (Phase 4.4b): a FarmOps connected_va zero
+  // against a blank canonical cell was traced to the bulk import/default path and
+  // asserts no load. It is closed as an import/default artifact — the raw category
+  // stays D, the blank ODS cell is never turned into a number and nothing is written.
+  const zeroArtifact =
+    !hit &&
+    category === "D" &&
+    field === CONNECTED_VA_FIELD &&
+    runSha === PHASE_44A_BASELINE_SHA256 &&
+    !CURRENT_SEMANTICS_UNRESOLVED_LOADS.includes(
+      stableId as (typeof CURRENT_SEMANTICS_UNRESOLVED_LOADS)[number],
+    ) &&
+    cell.odsState === "absent" &&
+    cell.farmopsState === "zero";
+
   const disposition: ConvergenceDisposition = hit
     ? hit.disposition
     : placeholderPreserved
       ? "PLACEHOLDER_PRESERVED_AS_NULL"
-      : category === "A"
-        ? "FARMOPS_CORRECTION_REQUIRED"
-        : category === "F"
-          ? "SEMANTIC_REPRESENTATION_DIFFERENCE"
-          : category === "D"
-            ? "PROVENANCE_VERIFICATION_REQUIRED"
-            : "UNADJUDICATED";
+      : zeroArtifact
+        ? "IMPORT_DEFAULT_ZERO_ARTIFACT"
+        : category === "A"
+          ? "FARMOPS_CORRECTION_REQUIRED"
+          : category === "F"
+            ? "SEMANTIC_REPRESENTATION_DIFFERENCE"
+            : category === "D"
+              ? "PROVENANCE_VERIFICATION_REQUIRED"
+              : "UNADJUDICATED";
   return {
-    adjudicated: Boolean(hit) || placeholderPreserved,
-    adjudication_id: hit?.id ?? (placeholderPreserved ? `demand-va-placeholder-${stableId}` : null),
+    adjudicated: Boolean(hit) || placeholderPreserved || zeroArtifact,
+    adjudication_id:
+      hit?.id ??
+      (placeholderPreserved
+        ? `demand-va-placeholder-${stableId}`
+        : zeroArtifact
+          ? `connected-va-zero-artifact-${stableId}`
+          : null),
     adjudication_source:
       hit?.source ??
-      (placeholderPreserved ? "Demand VA placeholder semantic adjudication (Category C)" : null),
+      (placeholderPreserved
+        ? "Demand VA placeholder semantic adjudication (Category C)"
+        : zeroArtifact
+          ? "Category-D resolution-source refinement — connected_va zero-origin provenance (ZERO_DEFAULT_OR_COERCION_ARTIFACT)"
+          : null),
     adjudication_classification:
-      hit?.classification ?? (placeholderPreserved ? "PLACEHOLDER_PRESERVED_AS_NULL" : null),
+      hit?.classification ??
+      (placeholderPreserved
+        ? "PLACEHOLDER_PRESERVED_AS_NULL"
+        : zeroArtifact
+          ? "ZERO_DEFAULT_OR_COERCION_ARTIFACT"
+          : null),
     adjudication_rationale: hit
       ? hit.rationale
       : placeholderPreserved
         ? "The canonical token states that no value has been determined; FarmOps NULL states exactly that. The token is retained as provenance and no numeric value is written."
-        : stale
-          ? "An adjudication exists for this finding but references a different canonical workbook SHA — it is stale and reduces nothing."
-          : null,
+        : zeroArtifact
+          ? "The canonical cell is blank and the FarmOps zero was traced to the bulk creation/import default path, not to an engineering assertion. The zero therefore states no connected load; the blank canonical cell stands and no value is written on either side."
+          : stale
+            ? "An adjudication exists for this finding but references a different canonical workbook SHA — it is stale and reduces nothing."
+            : null,
     stale_adjudication: !hit && stale,
     convergence_disposition: disposition,
     unresolved: UNRESOLVED_DISPOSITIONS.has(disposition),
@@ -475,9 +520,15 @@ function adjudicationOverlay(
             `ODS demand_va source token: ${cell.odsRaw || "(blank)"}`,
             "FarmOps demand_va: NULL — no numeric value determined",
           ]
-        : [],
+        : zeroArtifact
+          ? [
+              "ODS connected_va: (blank) — canonical workbook states nothing",
+              `FarmOps connected_va: ${cell.farmopsRaw || "0"} — import/default artifact, no load asserted`,
+            ]
+          : [],
   };
 }
+
 
 
 export function numericDiagnostics(report: ValidationReport): NumericDiagnosticsReport {
@@ -598,8 +649,10 @@ export function numericDiagnostics(report: ValidationReport): NumericDiagnostics
       ...adjudicationOverlay(rec.stable_id, entry.field, report.ods.sha256, c.category, {
         odsRaw: ods.raw,
         farmopsRaw: fp.raw,
+        odsState: ods.state,
         farmopsState: fp.state,
       }),
+
 
     };
     if (finding.stale_adjudication) {
