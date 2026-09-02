@@ -438,11 +438,12 @@ function PanelDiagramPage() {
 
         {q.data && (
           <>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base">Panels ({panels.length})</CardTitle>
-              </CardHeader>
-              <CardContent className="flex flex-wrap gap-2">
+            <PersistedSection
+              storageKey="panel-diagram.panels"
+              defaultOpen
+              title={`Panels (${panels.length})`}
+            >
+              <div className="flex flex-wrap gap-2">
                 {panels.map((p) => {
                   const plannedTotal = plannedPanel(p).total;
                   return (
@@ -462,8 +463,9 @@ function PanelDiagramPage() {
                     </Button>
                   );
                 })}
-              </CardContent>
-            </Card>
+              </div>
+            </PersistedSection>
+
 
             {panel ? (
               <>
