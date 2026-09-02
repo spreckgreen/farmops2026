@@ -329,7 +329,16 @@ function UserRow({ user, currentUserId }: { user: ManagedUser; currentUserId: st
       </TableCell>
       <TableCell className="align-top">
         <StatusBadge status={user.status} />
-        {user.reviewed_at && (
+        {disabled && (
+          <div className="mt-1 space-y-1">
+            <Badge variant="destructive" className="text-[10px]">Disabled</Badge>
+            <div className="text-[11px] text-muted-foreground">
+              Since {new Date(user.disabled_at!).toLocaleString()}
+              {user.disabled_reason ? ` — ${user.disabled_reason}` : ""}
+            </div>
+          </div>
+        )}
+
           <div className="text-[11px] text-muted-foreground mt-1">
             {new Date(user.reviewed_at).toLocaleString()}
           </div>
