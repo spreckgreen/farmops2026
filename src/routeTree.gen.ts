@@ -83,6 +83,7 @@ import { Route as AdminResetRouteImport } from './routes/admin.reset'
 import { Route as AdminPanelAccessRouteImport } from './routes/admin.panel-access'
 import { Route as AdminExportKeyRouteImport } from './routes/admin.export-key'
 import { Route as AdminExportRouteImport } from './routes/admin.export'
+import { Route as AdminElectricalAuditRouteImport } from './routes/admin.electrical-audit'
 import { Route as AdminAiSettingsRouteImport } from './routes/admin.ai-settings'
 import { Route as AdminAiRuntimeRouteImport } from './routes/admin.ai-runtime'
 import { Route as AdminAiEnginesRouteImport } from './routes/admin.ai-engines'
@@ -468,6 +469,11 @@ const AdminExportRoute = AdminExportRouteImport.update({
   path: '/admin/export',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminElectricalAuditRoute = AdminElectricalAuditRouteImport.update({
+  id: '/admin/electrical-audit',
+  path: '/admin/electrical-audit',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminAiSettingsRoute = AdminAiSettingsRouteImport.update({
   id: '/admin/ai-settings',
   path: '/admin/ai-settings',
@@ -558,6 +564,7 @@ export interface FileRoutesByFullPath {
   '/admin/ai-engines': typeof AdminAiEnginesRoute
   '/admin/ai-runtime': typeof AdminAiRuntimeRoute
   '/admin/ai-settings': typeof AdminAiSettingsRoute
+  '/admin/electrical-audit': typeof AdminElectricalAuditRoute
   '/admin/export': typeof AdminExportRoute
   '/admin/export-key': typeof AdminExportKeyRoute
   '/admin/panel-access': typeof AdminPanelAccessRoute
@@ -644,6 +651,7 @@ export interface FileRoutesByTo {
   '/admin/ai-engines': typeof AdminAiEnginesRoute
   '/admin/ai-runtime': typeof AdminAiRuntimeRoute
   '/admin/ai-settings': typeof AdminAiSettingsRoute
+  '/admin/electrical-audit': typeof AdminElectricalAuditRoute
   '/admin/export': typeof AdminExportRoute
   '/admin/export-key': typeof AdminExportKeyRoute
   '/admin/panel-access': typeof AdminPanelAccessRoute
@@ -734,6 +742,7 @@ export interface FileRoutesById {
   '/admin/ai-engines': typeof AdminAiEnginesRoute
   '/admin/ai-runtime': typeof AdminAiRuntimeRoute
   '/admin/ai-settings': typeof AdminAiSettingsRoute
+  '/admin/electrical-audit': typeof AdminElectricalAuditRoute
   '/admin/export': typeof AdminExportRoute
   '/admin/export-key': typeof AdminExportKeyRoute
   '/admin/panel-access': typeof AdminPanelAccessRoute
@@ -825,6 +834,7 @@ export interface FileRouteTypes {
     | '/admin/ai-engines'
     | '/admin/ai-runtime'
     | '/admin/ai-settings'
+    | '/admin/electrical-audit'
     | '/admin/export'
     | '/admin/export-key'
     | '/admin/panel-access'
@@ -911,6 +921,7 @@ export interface FileRouteTypes {
     | '/admin/ai-engines'
     | '/admin/ai-runtime'
     | '/admin/ai-settings'
+    | '/admin/electrical-audit'
     | '/admin/export'
     | '/admin/export-key'
     | '/admin/panel-access'
@@ -1000,6 +1011,7 @@ export interface FileRouteTypes {
     | '/admin/ai-engines'
     | '/admin/ai-runtime'
     | '/admin/ai-settings'
+    | '/admin/electrical-audit'
     | '/admin/export'
     | '/admin/export-key'
     | '/admin/panel-access'
@@ -1090,6 +1102,7 @@ export interface RootRouteChildren {
   AdminAiEnginesRoute: typeof AdminAiEnginesRoute
   AdminAiRuntimeRoute: typeof AdminAiRuntimeRoute
   AdminAiSettingsRoute: typeof AdminAiSettingsRoute
+  AdminElectricalAuditRoute: typeof AdminElectricalAuditRoute
   AdminExportRoute: typeof AdminExportRoute
   AdminExportKeyRoute: typeof AdminExportKeyRoute
   AdminPanelAccessRoute: typeof AdminPanelAccessRoute
@@ -1657,6 +1670,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminExportRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/electrical-audit': {
+      id: '/admin/electrical-audit'
+      path: '/admin/electrical-audit'
+      fullPath: '/admin/electrical-audit'
+      preLoaderRoute: typeof AdminElectricalAuditRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/ai-settings': {
       id: '/admin/ai-settings'
       path: '/admin/ai-settings'
@@ -1863,6 +1883,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminAiEnginesRoute: AdminAiEnginesRoute,
   AdminAiRuntimeRoute: AdminAiRuntimeRoute,
   AdminAiSettingsRoute: AdminAiSettingsRoute,
+  AdminElectricalAuditRoute: AdminElectricalAuditRoute,
   AdminExportRoute: AdminExportRoute,
   AdminExportKeyRoute: AdminExportKeyRoute,
   AdminPanelAccessRoute: AdminPanelAccessRoute,
