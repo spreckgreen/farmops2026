@@ -17,6 +17,7 @@ import {
   type ElectricalEntityKind,
 } from "@/lib/electrical";
 import { parseBooleanCell } from "@/lib/electrical-boolean";
+import { AMPS_SEMANTICS } from "@/lib/electrical-current-model";
 
 
 import { classifyGrid } from "@/lib/electrical-grid";

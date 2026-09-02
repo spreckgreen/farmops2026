@@ -24,6 +24,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, Pencil, Plus, Trash2 } from "lucide-react";
 import { DeleteDependencyDialog } from "@/components/electrical/delete-dependency-dialog";
 import { PanelLayoutPanels } from "@/components/electrical/panel-layout";
+import { LoadCurrentSemanticsPanel } from "@/components/electrical/load-current-semantics-panel";
 import {
   JboxRacewayTopology,
   RacewayJunctionPoints,
@@ -219,6 +220,13 @@ function Detail({ kind, id }: { kind: ElectricalEntityKind; id: string }) {
 
         </Card>
       </div>
+
+      {kind === "load" ? (
+        <LoadCurrentSemanticsPanel
+          record={record as Record<string, unknown>}
+          stableId={String(record[def.stableIdField] ?? "")}
+        />
+      ) : null}
 
       {kind === "raceway" ? <RacewayJunctionPoints racewayId={id} /> : null}
       {kind === "jbox" ? (
