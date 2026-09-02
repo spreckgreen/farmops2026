@@ -403,30 +403,61 @@ function Assistant() {
                 </div>
               ) : null}
 
-              <Button
-                onClick={startRun}
-                disabled={
-                  working ||
-                  Boolean(offer) ||
-                  (def.input === "photo"
-                    ? !photo
-                    : def.input !== "none" && text.trim().length < 3)
-                }
-              >
-                {working ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    {preflight.isPending ? "Estimating…" : "Running…"}
-                  </>
-                ) : (
-                  "Run scenario"
-                )}
+              {working ? (
+                <div
+                  role="status"
+                  aria-live="polite"
+                  className="flex items-center gap-2 rounded-md border bg-muted/40 p-3 text-sm"
+                >
+                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                  <span>
+                    {preflight.isPending
+                      ? "Sizing the query up…"
+                      : `Query running on ${routing?.model ?? "the AI engine"}…`}
+                  </span>
+                  <span className="ml-auto flex items-center gap-1 font-mono text-xs text-muted-foreground">
+                    <Timer className="h-3.5 w-3.5" />
+                    {(elapsedMs / 1000).toFixed(1)}s
+                  </span>
+                </div>
+              ) : null}
 
-              </Button>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  onClick={() => startRun()}
+                  disabled={
+                    working ||
+                    Boolean(offer) ||
+                    (def.input === "photo"
+                      ? !photo
+                      : def.input !== "none" && text.trim().length < 3)
+                  }
+                >
+                  {working ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      {preflight.isPending ? "Estimating…" : "Running…"}
+                    </>
+                  ) : (
+                    "Run scenario"
+                  )}
+                </Button>
+                {cached ? (
+                  <Button
+                    variant="outline"
+                    onClick={() => startRun({ force: true })}
+                    disabled={working}
+                  >
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    Refresh answer
+                  </Button>
+                ) : null}
+              </div>
             </div>
           ) : null}
         </CardContent>
       </Card>
+
 
       <FeatureRequestCard features={data?.features ?? []} />
 
