@@ -259,6 +259,24 @@ function UserRow({ user, currentUserId }: { user: ManagedUser; currentUserId: st
     onError: (e) => toast.error((e as Error).message),
   });
 
+  const disableMut = useMutation({
+    mutationFn: (vars: { disabled: boolean; reason?: string }) =>
+      disableFn({ data: { userId: user.id, disabled: vars.disabled, reason: vars.reason } }),
+    onSuccess: (_d, vars) => {
+      toast.success(
+        vars.disabled
+          ? `Disabled ${user.email ?? "user"} — roles and approval kept.`
+          : `Re-enabled ${user.email ?? "user"}.`,
+      );
+      setDisableOpen(false);
+      setDisableReason("");
+      invalidate();
+    },
+    onError: (e) => toast.error((e as Error).message),
+  });
+
+
+
   const generateTempPassword = () => {
     // 16-char URL-safe random string
     const bytes = new Uint8Array(12);
