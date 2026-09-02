@@ -198,3 +198,48 @@ describe("panels and output", () => {
     expect(csv).toContain("OWNER REVIEW");
   });
 });
+
+describe("axis coordinate audit", () => {
+  it("exposes every old letter line with its corrected match", async () => {
+    const { auditLetterAxis } = await import("@/lib/electrical-grid-migration");
+    const rows = auditLetterAxis();
+    expect(rows.map((r) => r.old_token)).toEqual(["A", "B", "C", "D", "E", "F", "G"]);
+    const byToken = Object.fromEntries(rows.map((r) => [r.old_token, r]));
+    expect(byToken["A"]).toMatchObject({ old_ft: 0, new_tokens: ["A"], status: "EXACT_LINE_MATCH" });
+    expect(byToken["G"]).toMatchObject({ old_ft: 40, new_tokens: ["F"], status: "EXACT_LINE_MATCH" });
+    expect(byToken["D"].old_ft).toBe(20);
+    expect(byToken["D"].status).toBe("EQUIDISTANT_OWNER_REVIEW");
+    expect(byToken["D"].new_tokens).toEqual(["C", "D"]);
+    expect(byToken["D"].new_ft).toEqual([16, 24]);
+  });
+
+  it("exposes old number lines and half steps, preserving equidistant cases", async () => {
+    const { auditNumberAxis } = await import("@/lib/electrical-grid-migration");
+    const byToken = Object.fromEntries(auditNumberAxis().map((r) => [r.old_token, r]));
+    expect(byToken["1"]).toMatchObject({ old_ft: 0, new_tokens: ["1"] });
+    expect(byToken["6"]).toMatchObject({ old_ft: 60, new_tokens: ["9"] });
+    expect(byToken["2"].old_ft).toBe(12);
+    expect(byToken["2"].status).toBe("EQUIDISTANT_OWNER_REVIEW");
+    expect(byToken["4"].new_tokens).toEqual(["5", "6"]);
+    expect(byToken["2.5"].old_ft).toBe(18);
+    expect(byToken["2.5"].new_tokens).toEqual(["3"]);
+    expect(byToken["2.5"].distance_ft).toBe(2);
+  });
+
+  it("documents the requested derivations, including the 30 ft misreport", async () => {
+    const { coordinateDerivations, axisAuditCsv, auditLetterAxis } = await import(
+      "@/lib/electrical-grid-migration"
+    );
+    const text = coordinateDerivations()
+      .map((d) => `${d.label} ${d.detail}`)
+      .join("\n");
+    expect(text).toContain("18 ft");
+    expect(text).toContain("reporting error");
+    expect(text).toContain("E9");
+    expect(text).toContain("A9");
+    expect(text).toContain("interval C–D");
+    expect(axisAuditCsv(auditLetterAxis()).split("\n")[0]).toBe(
+      "axis,old_token,old_physical_ft,new_token(s),new_physical_ft,distance_error_ft,mapping_status,note",
+    );
+  });
+});
