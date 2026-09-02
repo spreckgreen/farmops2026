@@ -131,8 +131,14 @@ export function side(f: NumericFinding): DSide {
  * is missing*, never a resolution of the finding.
  */
 export function missingProvenance(f: NumericFinding): MissingProvenance {
+  // An adjudicated finding owes no further evidence. Its raw category stays D and
+  // it stays visible here; it simply no longer requests provenance.
+  if (f.adjudicated && CLOSED_DISPOSITIONS.has(f.convergence_disposition)) {
+    return "PROVENANCE_ESTABLISHED_NO_FURTHER_EVIDENCE_REQUIRED";
+  }
   const s = side(f);
   const field = f.farmops_field;
+
 
   if (!f.farmops_entity || !f.ods_worksheet || IDENTITY_FIELD.test(field)) {
     return "IDENTITY_OR_MAPPING_PROVENANCE_REQUIRED";
