@@ -167,9 +167,16 @@ export function CategoryDAnalysisPanel({ diag }: { diag: NumericDiagnosticsRepor
                   <Badge variant="secondary" title={MISSING_PROVENANCE_LABELS[g.missing_provenance]}>
                     {g.missing_provenance}
                   </Badge>
-                  <Badge variant={g.systematic ? "outline" : "destructive"}>
-                    {g.systematic ? "systematic" : "individual review"}
+                  <Badge
+                    variant={g.adjudicated ? "outline" : g.systematic ? "outline" : "destructive"}
+                  >
+                    {g.adjudicated
+                      ? "adjudicated — resolved"
+                      : g.systematic
+                        ? "systematic"
+                        : "individual review"}
                   </Badge>
+
                 </button>
                 {open[g.group_id] ? (
                   <div className="space-y-2 border-t p-3 text-xs">
