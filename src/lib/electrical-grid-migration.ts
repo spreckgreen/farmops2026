@@ -227,7 +227,7 @@ function anchorFor(text: string): DrawingAnchor | null {
   return DRAWING_ANCHORS.find((a) => a.match.test(text)) ?? null;
 }
 
-export function migrateRow(row: MigrationInputRow): GridMigrationRow {
+function baseMigrateRow(row: MigrationInputRow): BaseGridMigrationRow {
   const text = `${row.description} ${row.location ?? ""}`;
   const parsed = parseOldGrid(row.grid);
   const base: GridMigrationRow = {
