@@ -18,7 +18,70 @@ export interface EntitlementRow {
   status: string;
   expires_at: string | null;
   notes?: string | null;
+  /** How many times an administrator has taken this access away. */
+  revoked_count?: number | null;
+  /** Set once the revocation limit is passed: no self re-provisioning until then. */
+  blocked_until?: string | null;
 }
+
+/**
+ * Losing access is recoverable: a disabled or declined user may ask again (or
+ * re-scan a label) and be re-provisioned. Being revoked MORE than this many
+ * times is treated as abuse and locks the account out of self-service access
+ * for a year.
+ */
+export const MAX_REVOCATIONS_BEFORE_BLOCK = 2;
+export const REVOCATION_BLOCK_DAYS = 365;
+
+/**
+ * Shared test account. It is exercised constantly (revoke → disable → re-enable)
+ * so it is exempt from the revocation counter and can never be locked out.
+ */
+export const TEST_ACCOUNT_EMAILS = ["bosteadfarms@gmail.com"];
+
+export function isTestAccountEmail(email: string | null | undefined): boolean {
+  const value = String(email ?? "").trim().toLowerCase();
+  return value.length > 0 && TEST_ACCOUNT_EMAILS.includes(value);
+}
+
+/** True while a revocation lockout is still running. */
+export function isRevocationBlocked(
+  row: Pick<EntitlementRow, "blocked_until"> | null | undefined,
+  now: Date = new Date(),
+): boolean {
+  const until = row?.blocked_until ?? null;
+  if (!until) return false;
+  const at = new Date(until);
+  if (Number.isNaN(at.getTime())) return false;
+  return at.getTime() > now.getTime();
+}
+
+/**
+ * The revocation bookkeeping for one "access taken away" event. Test accounts
+ * never accrue revocations, so they stay unlimited.
+ */
+export function nextRevocationState(
+  row: Pick<EntitlementRow, "revoked_count" | "blocked_until"> | null | undefined,
+  opts: { email?: string | null; now?: Date } = {},
+): { revoked_count: number; blocked_until: string | null } {
+  const now = opts.now ?? new Date();
+  const current = Math.max(0, Number(row?.revoked_count ?? 0) || 0);
+  if (isTestAccountEmail(opts.email)) {
+    return { revoked_count: current, blocked_until: null };
+  }
+  const count = current + 1;
+  if (count <= MAX_REVOCATIONS_BEFORE_BLOCK) {
+    return { revoked_count: count, blocked_until: row?.blocked_until ?? null };
+  }
+  const until = new Date(now.getTime() + REVOCATION_BLOCK_DAYS * 24 * 60 * 60 * 1000);
+  return { revoked_count: count, blocked_until: until.toISOString() };
+}
+
+export function revocationBlockMessage(until: string | null | undefined): string {
+  const label = until ? new Date(until).toLocaleDateString() : "a later date";
+  return `Access to this add-on was revoked more than ${MAX_REVOCATIONS_BEFORE_BLOCK} times, so self-service access is blocked until ${label}. Contact an administrator.`;
+}
+
 
 /**
  * An entitlement grants access only while it is active/trialing and unexpired.
