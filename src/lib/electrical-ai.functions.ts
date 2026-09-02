@@ -226,24 +226,10 @@ export const runElectricalAiScenario = createServerFn({ method: "POST" })
     let contextBlock = "";
 
     if (def.id === "panel_qa" || def.id === "topology_explain") {
-      const { collectSnapshot } = await import("@/lib/electrical-snapshot.functions");
-      const snap = await collectSnapshot(context.supabase);
-      const panels = snap.panels as Record<string, unknown>[];
-      const feeders = snap.feeders as Record<string, unknown>[];
-      const groups = snap.circuit_groups as Record<string, unknown>[];
-      const loads = snap.loads as Record<string, unknown>[];
-      const positions = snap.panel_breaker_positions as Record<string, unknown>[];
-      contextCounts.panels = panels.length;
-      contextCounts.feeders = feeders.length;
-      contextCounts.circuit_groups = groups.length;
-      contextCounts.loads = loads.length;
-      contextCounts.breaker_positions = positions.length;
-      contextBlock =
-        `PANELS:\n${compact(panels, ["stable_id", "name", "location", "building", "system_voltage", "bus_rating_amps", "spaces", "fed_from_panel_ref"], 80)}\n\n` +
-        `FEEDERS:\n${compact(feeders, ["stable_id", "name", "source_ref", "destination_ref", "conductor", "ocp_rating_amps"], 80)}\n\n` +
-        `CIRCUITS:\n${compact(groups, ["stable_id", "name", "panel_ref", "breaker_positions", "ocp_rating_amps", "voltage"], 150)}\n\n` +
-        `LOADS:\n${compact(loads, ["stable_id", "name", "panel_ref", "circuit_ref", "voltage", "connected_va", "amps", "amps_semantic", "location"], 200)}\n\n` +
-        `BREAKER POSITIONS:\n${compact(positions, ["panel_ref", "position", "poles", "ocp_rating_amps", "label", "circuit_ref"], 200)}`;
+      const built = await buildRecordContext(context.supabase, question);
+      Object.assign(contextCounts, built.counts);
+      contextBlock = built.block;
+
       system =
         def.id === "panel_qa"
           ? "You are an electrician's assistant reading a farm's as-installed electrical record. " +
