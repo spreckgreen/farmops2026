@@ -259,20 +259,28 @@ export function auditLoadMasterMapping(input: AuditInput): LoadMappingAudit {
     if (!headerText && populated > 0) unnamedPopulated.push(i + 1);
 
     // Provenance: which physical column's canonical values actually match the
-    // content sitting in this canonical field's FarmOps destination?
+    // content sitting in this canonical field's FarmOps destination? The
+    // column's own position always wins ties, so an incidentally identical
+    // neighbour (two columns both holding "1") is never called a shift.
     let contentSource: number | null = null;
     let bestRatio = 0;
     if (expected) {
       const farmVals = paired.map((r) => comparable(r.db[expected]));
       const comparableRows = farmVals.filter((v) => v !== "").length;
+      const ratioFor = (j: number) => {
+        let hits = 0;
+        for (let k = 0; k < paired.length; k++) {
+          if (farmVals[k] === "") continue;
+          if (farmVals[k] === comparable(cell(paired[k].sourceRow, j))) hits++;
+        }
+        return hits / comparableRows;
+      };
       if (comparableRows > 0) {
+        bestRatio = ratioFor(i);
+        contentSource = i;
         for (let j = 0; j < width; j++) {
-          let hits = 0;
-          for (let k = 0; k < paired.length; k++) {
-            if (farmVals[k] === "") continue;
-            if (farmVals[k] === comparable(cell(paired[k].sourceRow, j))) hits++;
-          }
-          const ratio = hits / comparableRows;
+          if (j === i) continue;
+          const ratio = ratioFor(j);
           if (ratio > bestRatio) {
             bestRatio = ratio;
             contentSource = j;
