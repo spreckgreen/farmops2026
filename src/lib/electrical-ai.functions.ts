@@ -98,23 +98,20 @@ export const listElectricalAiScenarios = createServerFn({ method: "GET" })
     const scope = { access, isAdmin, grants };
     const allowed = electricalAiScenariosFor(scope);
 
-    const { listMyElectricalAiFeatureRequests } = await import(
-      "@/lib/electrical-ai-access.functions"
-    );
-    const requests = await (async () => {
-      const { data: rows, error } = await (context.supabase as unknown as LooseDb)
-        .from("electrical_ai_feature_grants")
-        .select("scenario, status, requested_at, decision_note")
-        .eq("user_id", context.userId);
-      if (error) throw new Error(error.message);
-      return (rows ?? []) as {
-        scenario: string;
-        status: ElectricalAiFeatureState["requestStatus"];
-        requested_at: string | null;
-        decision_note: string | null;
-      }[];
-    })();
-    void listMyElectricalAiFeatureRequests;
+    const { data: requestRows, error: requestErr } = await (
+      context.supabase as unknown as LooseDb
+    )
+      .from("electrical_ai_feature_grants")
+      .select("scenario, status, requested_at, decision_note")
+      .eq("user_id", context.userId);
+    if (requestErr) throw new Error(requestErr.message);
+    const requests = (requestRows ?? []) as {
+      scenario: string;
+      status: ElectricalAiFeatureState["requestStatus"];
+      requested_at: string | null;
+      decision_note: string | null;
+    }[];
+
 
     const features: ElectricalAiFeatureState[] = ELECTRICAL_AI_SCENARIOS.map((def) => {
       const req = requests.find((r) => r.scenario === def.id) ?? null;
