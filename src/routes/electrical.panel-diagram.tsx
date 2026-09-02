@@ -491,6 +491,8 @@ function PanelDiagramPage() {
                 ) : (
                   <PanelDetail panel={panel} />
                 )}
+                <PanelRuleView panelId={panel.id} />
+
               </>
             ) : (
               <Card>
