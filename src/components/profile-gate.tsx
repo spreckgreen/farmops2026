@@ -6,7 +6,8 @@ import type { ReactNode } from "react";
 import { Loader2, Clock, ShieldX, AlertCircle, Ban } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import { useRouter } from "@tanstack/react-router";
+import { useRouter, useRouterState } from "@tanstack/react-router";
+import { electricianPathAllowed, isElectricianScoped } from "@/lib/electrical-access";
 import { useCurrentProfile } from "@/hooks/use-current-profile";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -14,6 +15,7 @@ export function ProfileGate({ children }: { children: ReactNode }) {
   const { data, isLoading, error, refetch } = useCurrentProfile();
   const router = useRouter();
   const qc = useQueryClient();
+  const pathname = useRouterState({ select: (st) => st.location.pathname });
 
   const signOut = async () => {
     await qc.cancelQueries();
@@ -109,6 +111,29 @@ export function ProfileGate({ children }: { children: ReactNode }) {
           mistake, contact a Bostead Farms admin.
         </p>
         <Button variant="ghost" onClick={signOut}>Sign out</Button>
+      </Centered>
+    );
+  }
+
+  // Scope enforcement: the `electrician` role is Electrical-only. Hiding the
+  // navigation is not enough — a bookmarked or typed URL such as `/inventory`
+  // must not render either, so send them back to their own area.
+  if (isElectricianScoped(data.roles, data.isAdmin) && !electricianPathAllowed(pathname)) {
+    return (
+      <Centered>
+        <ShieldX className="h-8 w-8 text-muted-foreground" />
+        <h1 className="text-lg font-semibold">Electrical access only</h1>
+        <p className="text-sm text-muted-foreground max-w-md">
+          Your account is scoped to the Electrical area of Bostead Farms. The rest
+          of the farm app (tasks, inventory, maintenance, admin tools) is not part
+          of this access level.
+        </p>
+        <div className="flex gap-2">
+          <Button onClick={() => router.navigate({ to: "/electrical", replace: true })}>
+            Go to Electrical
+          </Button>
+          <Button variant="ghost" onClick={signOut}>Sign out</Button>
+        </div>
       </Centered>
     );
   }
