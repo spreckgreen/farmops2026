@@ -24,8 +24,10 @@ import {
   diffSheetCells,
   manifestAuthorizesRevision,
   manifestFingerprintSource,
+  inspectRevisionTarget,
   resolveRevisionTargets,
   revisionManifest,
+  revisionTraceRow,
   rewriteOdsNumericCell,
   type CandidateRevisionReport,
 } from "@/lib/electrical-ods-revision";
@@ -166,6 +168,7 @@ export async function generateCandidateRevision(
     candidate_sha256: candidateSha,
     candidate_file_name: candidate.ods_file_name,
     targets,
+    target_traces: traces,
     cell_diff: diffSheetCells(baselineSheets, candidateSheets),
     non_content_archive_entries_changed: nonContentChanged,
     generated_at: generatedAt,
