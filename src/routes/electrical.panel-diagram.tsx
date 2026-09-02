@@ -391,15 +391,35 @@ function PanelDiagramPage() {
               Panel topology
             </h1>
             <p className="text-sm text-muted-foreground">
-              Pick a panel. You get its diagram — feeder → panel → breaker → circuit → load — and a
-              written account of what is proven and what is missing. Nothing is inferred.
+              {mode === "planned"
+                ? "Planned state: the suggested alignment of loads to panels, from building / grid location and suggested panel. Intent, not installed fact."
+                : "Current state: only links a record proves — feeder → panel → breaker → circuit → load. Nothing is inferred."}
             </p>
           </div>
-          <Button variant="outline" size="sm" onClick={() => q.refetch()} disabled={q.isFetching}>
-            <RefreshCw className={`mr-2 h-4 w-4 ${q.isFetching ? "animate-spin" : ""}`} />
-            Refresh
-          </Button>
+          <div className="flex items-center gap-2">
+            <div className="flex rounded-md border border-border p-0.5">
+              <Button
+                variant={mode === "planned" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setMode("planned")}
+              >
+                Planned
+              </Button>
+              <Button
+                variant={mode === "current" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setMode("current")}
+              >
+                Current state
+              </Button>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => q.refetch()} disabled={q.isFetching}>
+              <RefreshCw className={`mr-2 h-4 w-4 ${q.isFetching ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
+          </div>
         </div>
+
 
         {q.isLoading && <Skeleton className="h-64 w-full" />}
         {q.error && (
