@@ -501,13 +501,15 @@ function PanelDiagramPage() {
             )}
 
 
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-base">
+            <PersistedSection
+              storageKey="panel-diagram.load-search"
+              title={
+                <span className="flex items-center gap-2">
                   <Search className="h-4 w-4" /> Find a load and see which panel holds it
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
+                </span>
+              }
+            >
+              <div className="space-y-2">
                 <Input
                   value={loadQuery}
                   onChange={(e) => setLoadQuery(e.target.value)}
@@ -532,11 +534,11 @@ function PanelDiagramPage() {
                     )}
                   </div>
                 ))}
-              </CardContent>
-            </Card>
+              </div>
+            </PersistedSection>
 
-            <Card>
-              <CardContent className="flex flex-wrap items-center gap-4 pt-6 text-sm">
+            <PersistedSection storageKey="panel-diagram.totals" title="System totals">
+              <div className="flex flex-wrap items-center gap-4 text-sm">
                 <span>
                   <strong>{q.data.totals.panels}</strong> panels
                 </span>
@@ -550,8 +552,9 @@ function PanelDiagramPage() {
                 <span className="text-destructive">
                   <strong>{q.data.orphanCircuits.length}</strong> circuits with no panel link
                 </span>
-              </CardContent>
-            </Card>
+              </div>
+            </PersistedSection>
+
           </>
         )}
       </div>
