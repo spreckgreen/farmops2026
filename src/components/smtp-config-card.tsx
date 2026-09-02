@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { AlertTriangle, CheckCircle2, Mail, Plug, Save } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Mail, Plug, Save, Send } from "lucide-react";
 import {
   getSmtpConfig,
   saveSmtpConfig,
