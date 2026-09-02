@@ -339,6 +339,8 @@ export function NumericSemanticsPanel({
 
         <CategoryCAnalysisPanel diag={diag} />
 
+        <DemandVaPlaceholderPanel diag={diag} />
+
 
         <div>
           <Button size="sm" variant="ghost" onClick={() => setShowRegistry((v) => !v)}>
