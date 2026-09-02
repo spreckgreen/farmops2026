@@ -19,6 +19,7 @@ import { systemVoltagePreviewCsv } from "@/lib/electrical-system-voltage";
 import { SystemVoltageApplyGate } from "@/components/electrical/system-voltage-apply-gate";
 import { LoadSemanticDetailPanel } from "@/components/electrical/load-semantic-detail-panel";
 import { RepresentationProposalPanel } from "@/components/electrical/representation-proposal-panel";
+import { CategoryCAnalysisPanel } from "@/components/electrical/category-c-analysis-panel";
 import type { ValidationReport } from "@/lib/electrical-parallel-validation";
 
 
