@@ -16,7 +16,9 @@ import { isAdminRole } from "@/lib/admin-role.server";
 import { electricalAccess } from "@/lib/electrical-access";
 import {
   ELECTRICAL_AI_DENIED,
+  ELECTRICAL_AI_SCENARIOS,
   canRunElectricalAiScenario,
+  isEntitledToElectricalAiScenario,
   electricalAiScenariosFor,
   getElectricalAiScenario,
   isElectricalAiScenarioId,
@@ -36,19 +38,39 @@ export interface ElectricalAiScenarioView {
   model: string | null;
 }
 
+/** Catalogue entry: every scenario, whether the caller may run it, and why. */
+export interface ElectricalAiFeatureState {
+  id: ElectricalAiScenarioId;
+  available: boolean;
+  /** Covered by the caller's own role/add-on, without any admin grant. */
+  entitled: boolean;
+  /** Unlocked by an administrator's approval. */
+  granted: boolean;
+  /** Latest request state, when the caller has ever asked for it. */
+  requestStatus: "pending" | "approved" | "rejected" | "revoked" | null;
+  requestedAt: string | null;
+  decisionNote: string | null;
+  /** May the caller submit (or re-submit) this one for approval? */
+  requestable: boolean;
+}
+
 export interface ElectricalAiScopeReport {
   isAdmin: boolean;
   basis: "admin" | "full" | "field_write" | "read_only" | "scan" | "none";
   scenarios: ElectricalAiScenarioView[];
+  /** All scenarios with their availability/approval state, for the request UI. */
+  features: ElectricalAiFeatureState[];
 }
 
 async function resolveScope(supabase: unknown, userId: string) {
-  const [isAdmin, full, fieldWrite, readOnly, scan] = await Promise.all([
+  const { loadApprovedAiScenarios } = await import("@/lib/electrical-ai-access.functions");
+  const [isAdmin, full, fieldWrite, readOnly, scan, grants] = await Promise.all([
     isAdminRole(supabase, userId),
     hasAddon(supabase, userId, "electrical"),
     hasAddon(supabase, userId, "electrical_fieldwrite"),
     hasAddon(supabase, userId, "electrical_readonly"),
     hasAddon(supabase, userId, "electrical_scan"),
+    loadApprovedAiScenarios(supabase, userId),
   ]);
   const access = electricalAccess({ full, fieldWrite, readOnly, scan });
   const basis: ElectricalAiScopeReport["basis"] = isAdmin
@@ -62,7 +84,7 @@ async function resolveScope(supabase: unknown, userId: string) {
           : scan
             ? "scan"
             : "none";
-  return { isAdmin, access, basis };
+  return { isAdmin, access, basis, grants };
 }
 
 /** Which scenarios the signed-in caller may run, plus their configured routing. */
@@ -73,8 +95,48 @@ export const listElectricalAiScenarios = createServerFn({ method: "GET" })
       context.supabase,
       context.userId,
     );
-    const allowed = electricalAiScenariosFor({ access, isAdmin });
-    if (allowed.length === 0) return { isAdmin, basis, scenarios: [] };
+    const scope = { access, isAdmin, grants };
+    const allowed = electricalAiScenariosFor(scope);
+
+    const { listMyElectricalAiFeatureRequests } = await import(
+      "@/lib/electrical-ai-access.functions"
+    );
+    const requests = await (async () => {
+      const { data: rows, error } = await (context.supabase as unknown as LooseDb)
+        .from("electrical_ai_feature_grants")
+        .select("scenario, status, requested_at, decision_note")
+        .eq("user_id", context.userId);
+      if (error) throw new Error(error.message);
+      return (rows ?? []) as {
+        scenario: string;
+        status: ElectricalAiFeatureState["requestStatus"];
+        requested_at: string | null;
+        decision_note: string | null;
+      }[];
+    })();
+    void listMyElectricalAiFeatureRequests;
+
+    const features: ElectricalAiFeatureState[] = ELECTRICAL_AI_SCENARIOS.map((def) => {
+      const req = requests.find((r) => r.scenario === def.id) ?? null;
+      const entitled = isEntitledToElectricalAiScenario(scope, def);
+      const available = canRunElectricalAiScenario(scope, def);
+      return {
+        id: def.id,
+        available,
+        entitled,
+        granted: !entitled && available,
+        requestStatus: req?.status ?? null,
+        requestedAt: req?.requested_at ?? null,
+        decisionNote: req?.decision_note ?? null,
+        requestable:
+          !available &&
+          access.canView &&
+          !access.scanOnly &&
+          req?.status !== "pending",
+      };
+    });
+
+    if (allowed.length === 0) return { isAdmin, basis, scenarios: [], features };
 
     const { loadRoutingConfig } = await import("@/lib/ai-routing.server");
     const { getAiArea, routeForArea } = await import("@/lib/ai-feature-areas");
@@ -83,6 +145,7 @@ export const listElectricalAiScenarios = createServerFn({ method: "GET" })
     return {
       isAdmin,
       basis,
+      features,
       scenarios: allowed.map((def) => {
         const route = routeForArea(config, def.area);
         return {
@@ -135,8 +198,11 @@ export const runElectricalAiScenario = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => RunInput.parse(d))
   .handler(async ({ data, context }): Promise<ElectricalAiAnswer> => {
     const def = getElectricalAiScenario(data.scenario as ElectricalAiScenarioId);
-    const { isAdmin, access } = await resolveScope(context.supabase, context.userId);
-    if (!canRunElectricalAiScenario({ access, isAdmin }, def)) {
+    const { isAdmin, access, grants } = await resolveScope(
+      context.supabase,
+      context.userId,
+    );
+    if (!canRunElectricalAiScenario({ access, isAdmin, grants }, def)) {
       throw new Error(ELECTRICAL_AI_DENIED);
     }
     const question = (data.text ?? "").trim();
