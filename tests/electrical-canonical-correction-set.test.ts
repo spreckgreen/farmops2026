@@ -79,7 +79,7 @@ describe("Phase 4.4c canonical correction-set manifest", () => {
   });
 
   it("refuses approval when the attached workbook is not the Phase 4.4a baseline", () => {
-    const other = buildCanonicalCorrectionSet(testBaseline({ ods_sha256: "a".repeat(64) }));
+    const other = buildCanonicalCorrectionSet({ ...baseline(), ods_sha256: "a".repeat(64), is_phase_44a_baseline: false });
     expect(other.headline.approved_canonical_correction_candidates).toBe(0);
     expect(other.headline.withheld_unresolved_candidates).toBe(6);
     expect(other.withheld[0].withheld_reason).toContain("not the authorized Phase 4.4a baseline");
