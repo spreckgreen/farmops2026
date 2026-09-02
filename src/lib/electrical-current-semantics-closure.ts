@@ -161,6 +161,36 @@ export interface ClosureExitCriteria {
   why_no_assignment: string;
 }
 
+/**
+ * Bryant manufacturer evidence, preserved as independent quantities.
+ * Nothing here is copied into the legacy amps column and MCA is never derived.
+ */
+export interface BryantIndependentEvidence {
+  applies_to: string[];
+  equipment_model: string;
+  quantities: {
+    quantity: string;
+    field: CurrentSemanticField | null;
+    value: number | null;
+    status: string;
+  }[];
+  preservation_rules: string[];
+}
+
+/** One open CURRENT_SEMANTICS_UNRESOLVED finding, reported individually. */
+export interface CurrentSemanticsUnresolvedFinding {
+  finding_id: string;
+  stable_id: string;
+  system: "canonical_ods" | "farmops";
+  field: string;
+  value: number | null;
+  classification: string;
+  why_open: string;
+  /** Evidence and/or model decision needed to close this finding. */
+  required_to_resolve: string[];
+  excluded_as_evidence: string[];
+}
+
 export interface CurrentSemanticsClosurePlan {
   version: string;
   generated_at: string;
@@ -178,6 +208,8 @@ export interface CurrentSemanticsClosurePlan {
   verdict_rationale: string;
   /** Distinct, mutually exclusive usages observed in the same column. */
   conflicting_usages: string[];
+  bryant_evidence: BryantIndependentEvidence;
+  unresolved_findings: CurrentSemanticsUnresolvedFinding[];
   additive_schema: AdditiveSchemaRecommendation[];
   minimum_additive_schema_summary: string;
   exit_criteria: ClosureExitCriteria[];
