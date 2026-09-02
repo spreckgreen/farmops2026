@@ -306,12 +306,21 @@ export interface ConvergenceReport {
     raw_findings: number;
     adjudicated: number;
     unresolved: number;
+    /** Raw CONFLICT findings, exactly as the immutable comparison counted them. */
+    conflicts_total: number;
+    /** Conflicts carrying an adjudication valid at this workbook SHA. */
+    conflicts_adjudicated: number;
+    /** Conflicts still open — the only conflict measure Phase 4.5 may use. */
+    conflicts_unresolved: number;
     canonical_corrections_pending: number;
     farmops_corrections_pending: number;
     semantic_representation_differences: number;
     current_semantics_unresolved: number;
     provenance_or_field_verification_pending: number;
+    expected_transformations: number;
+    farmops_as_built_additions: number;
   };
+
   by_disposition: Record<ConvergenceDisposition, number>;
   /** Per raw classification: raw / adjudicated / unresolved, kept separate. */
   by_raw_classification: Record<
@@ -424,17 +433,29 @@ export function convergeValidation(
     if (f.unresolved) bucket.unresolved += 1;
   }
 
+  const conflictBucket = by_raw_classification["CONFLICT"] ?? {
+    raw: 0,
+    adjudicated: 0,
+    unresolved: 0,
+  };
+
   const counts = {
     raw_findings: findings.length,
     adjudicated: findings.filter((f) => f.disposition !== "UNADJUDICATED").length,
     unresolved: findings.filter((f) => f.unresolved).length,
+    conflicts_total: conflictBucket.raw,
+    conflicts_adjudicated: conflictBucket.adjudicated,
+    conflicts_unresolved: conflictBucket.unresolved,
     canonical_corrections_pending: by_disposition.CANONICAL_ODS_CORRECTION_REQUIRED,
     farmops_corrections_pending: by_disposition.FARMOPS_CORRECTION_REQUIRED,
     semantic_representation_differences: by_disposition.SEMANTIC_REPRESENTATION_DIFFERENCE,
     current_semantics_unresolved: by_disposition.CURRENT_SEMANTICS_UNRESOLVED,
     provenance_or_field_verification_pending:
       by_disposition.PROVENANCE_VERIFICATION_REQUIRED + by_disposition.FIELD_VERIFICATION_REQUIRED,
+    expected_transformations: by_disposition.EXPECTED_TRANSFORMATION,
+    farmops_as_built_additions: by_disposition.FARMOPS_AS_BUILT_ADDITION,
   };
+
 
   const reasons: string[] = [];
   if (by_disposition.UNADJUDICATED > 0)
@@ -551,11 +572,17 @@ export function convergenceMarkdown(report: ConvergenceReport): string {
     `- Raw findings: ${c.raw_findings}`,
     `- Adjudicated: ${c.adjudicated}`,
     `- Unresolved: ${c.unresolved}`,
+    `- Total conflicts (raw): ${c.conflicts_total}`,
+    `- Adjudicated conflicts: ${c.conflicts_adjudicated}`,
+    `- Unresolved conflicts: ${c.conflicts_unresolved}`,
     `- Canonical ODS corrections pending: ${c.canonical_corrections_pending}`,
     `- FarmOps corrections pending: ${c.farmops_corrections_pending}`,
     `- Semantic representation differences (F): ${c.semantic_representation_differences}`,
     `- Current semantics unresolved: ${c.current_semantics_unresolved}`,
     `- Provenance / field verification pending: ${c.provenance_or_field_verification_pending}`,
+    `- Expected transformations: ${c.expected_transformations}`,
+    `- FarmOps as-built additions: ${c.farmops_as_built_additions}`,
+
     "",
     "## By raw classification",
     "",
