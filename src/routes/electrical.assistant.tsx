@@ -953,9 +953,23 @@ function FeatureRequestCard({
                     </p>
                   ) : null}
                 </div>
+                {granted.includes(def.id) ? (
+                  <div className="ml-auto flex shrink-0 flex-col items-end gap-1">
+                    <Switch
+                      checked={isOn(def.id)}
+                      disabled={masterOff}
+                      onCheckedChange={(c) => onToggle(def.id, c === true)}
+                      aria-label={`Turn ${def.label} ${isOn(def.id) ? "off" : "on"}`}
+                    />
+                    <span className="text-[10px] text-muted-foreground">
+                      {masterOff ? "AI off" : isOn(def.id) ? "On" : "Off"}
+                    </span>
+                  </div>
+                ) : null}
               </div>
             );
           })}
+
         </div>
 
         {anyRequestable ? (
