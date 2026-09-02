@@ -13,16 +13,33 @@ export type PanelAccessStatus = "pending" | "approved" | "rejected";
 
 /**
  * What a request asks for.
- * - `panel_edit`   — correct the details of the one scanned panel
- * - `system_data`  — read beyond that panel: other panels and the whole-system
- *                    topology. A scanned label alone never grants this.
+ * - `panel_edit`     — correct the details of the one scanned panel
+ * - `building_data`  — read every panel in one building (the usual ask from the
+ *                      field: "I need the rest of the shop, not just this panel")
+ * - `site_data`      — read every panel on the site
+ * - `system_data`    — read the whole electrical system, including the farm-wide
+ *                      topology views. A scanned label alone never grants this.
  */
-export type PanelAccessScope = "panel_edit" | "system_data";
+export type PanelAccessScope = "panel_edit" | "building_data" | "site_data" | "system_data";
 
-export const PANEL_ACCESS_SCOPES: PanelAccessScope[] = ["panel_edit", "system_data"];
+export const PANEL_ACCESS_SCOPES: PanelAccessScope[] = [
+  "panel_edit",
+  "building_data",
+  "site_data",
+  "system_data",
+];
+
+/** Scopes that widen what a scanned-label viewer may READ (never edit). */
+export const WIDER_READ_SCOPES: PanelAccessScope[] = [
+  "building_data",
+  "site_data",
+  "system_data",
+];
 
 export const SCOPE_LABELS: Record<PanelAccessScope, string> = {
   panel_edit: "Correct this panel's details",
+  building_data: "View every panel in one building",
+  site_data: "View every panel on the site",
   system_data: "View other panels / full electrical system",
 };
 
@@ -33,6 +50,11 @@ export interface PanelEditRequest {
   requester_email: string | null;
   reason: string | null;
   scope: PanelAccessScope;
+  /**
+   * The named area a wider scope applies to — a building name for
+   * `building_data`, a site name for `site_data`. Null for panel/system scopes.
+   */
+  scope_detail: string | null;
   status: PanelAccessStatus;
   decided_by: string | null;
   decided_at: string | null;
@@ -41,6 +63,7 @@ export interface PanelEditRequest {
   revoked_at: string | null;
   created_at: string;
 }
+
 
 /**
  * What a requester may do right now.
