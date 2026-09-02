@@ -4,7 +4,7 @@
 // canonical PremoFarmElectrical.ods workbook.
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { requireAddon } from "@/lib/addons.server";
+import { requireElectricalAccess } from "@/lib/addons.server";
 import { ENTITY_KINDS } from "@/lib/electrical-entities";
 import { COLLECTION_FOR_KIND } from "@/lib/electrical-snapshot";
 import { collectSnapshot } from "@/lib/electrical-snapshot.functions";
@@ -33,7 +33,7 @@ async function read(db: LooseDb, table: string): Promise<WorkbookRow[]> {
 export const electricalWorkbookData = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<WorkbookData> => {
-    await requireAddon(context.supabase, context.userId, "electrical");
+    await requireElectricalAccess(context.supabase, context.userId, "read");
     const db = context.supabase as unknown as LooseDb;
 
     const snapshot = await collectSnapshot(context.supabase);

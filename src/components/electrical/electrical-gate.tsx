@@ -2,7 +2,7 @@
 // This only controls what is *shown* — every server function re-checks the
 // entitlement, so a hidden page is still an unauthorized page.
 import type { ReactNode } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, useRouterState } from "@tanstack/react-router";
 import { AppLayout } from "@/components/app-layout";
 import { useAddon } from "@/hooks/use-addon";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,9 +10,18 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ENTITIES, ENTITY_KINDS } from "@/lib/electrical-entities";
-import { Zap } from "lucide-react";
+import {
+  RECONCILIATION_DENIED,
+  canOpenSection,
+  electricalAccess,
+  sectionFromPathname,
+  type ElectricalAccess,
+} from "@/lib/electrical-access";
+import { Eye, Zap } from "lucide-react";
 
-export function ElectricalNav() {
+export function ElectricalNav({ access }: { access?: ElectricalAccess }) {
+  const show = (section: Parameters<typeof canOpenSection>[1]) =>
+    !access || canOpenSection(access, section);
   const item =
     "px-2.5 py-1 rounded-md text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors";
   const active = { className: "px-2.5 py-1 rounded-md text-sm bg-accent text-foreground" };
@@ -52,29 +61,41 @@ export function ElectricalNav() {
       <Link to="/electrical/qa" className={item} activeProps={active}>
         QA
       </Link>
-      <Link to="/electrical/mapping" className={item} activeProps={active}>
-        Field mapping
-      </Link>
+      {show("mapping") && (
+  <Link to="/electrical/mapping" className={item} activeProps={active}>
+          Field mapping
+        </Link>
+      )}
       <Link to="/electrical/standards" className={item} activeProps={active}>
         Standards
       </Link>
-      <Link to="/electrical/sor" className={item} activeProps={active}>
-        SOR status
-      </Link>
-      <Link to="/electrical/validation" className={item} activeProps={active}>
-        Parallel validation
-      </Link>
-      <Link to="/electrical/adjudication" className={item} activeProps={active}>
-        Load adjudication
-      </Link>
+      {show("sor") && (
+  <Link to="/electrical/sor" className={item} activeProps={active}>
+          SOR status
+        </Link>
+      )}
+      {show("validation") && (
+  <Link to="/electrical/validation" className={item} activeProps={active}>
+          Parallel validation
+        </Link>
+      )}
+      {show("adjudication") && (
+  <Link to="/electrical/adjudication" className={item} activeProps={active}>
+          Load adjudication
+        </Link>
+      )}
 
 
-      <Link to="/electrical/import" className={item} activeProps={active}>
-        ODS import
-      </Link>
-      <Link to="/electrical/export" className={item} activeProps={active}>
-        Reconciliation export
-      </Link>
+      {show("import") && (
+  <Link to="/electrical/import" className={item} activeProps={active}>
+          ODS import
+        </Link>
+      )}
+      {show("export") && (
+  <Link to="/electrical/export" className={item} activeProps={active}>
+          Reconciliation export
+        </Link>
+      )}
 
     </nav>
   );
@@ -100,9 +121,31 @@ export function ElectricalGate({
   allowScanScope?: boolean;
 }) {
   const full = useAddon("electrical");
+  const readOnly = useAddon("electrical_readonly");
   const scan = useAddon("electrical_scan");
-  const addon = full.enabled || !allowScanScope ? full : scan;
-  const scanOnly = allowScanScope && !full.enabled && scan.enabled;
+  const pathname = useRouterState({ select: (st) => st.location.pathname });
+  const section = sectionFromPathname(pathname);
+  const access = electricalAccess({
+    full: full.enabled,
+    readOnly: readOnly.enabled,
+    scan: allowScanScope && scan.enabled,
+  });
+  // Report the entitlement the user is actually browsing on, so a failed check
+  // is still surfaced rather than silently read as "not entitled".
+  const addon = full.enabled
+    ? full
+    : readOnly.enabled
+      ? readOnly
+      : allowScanScope && scan.enabled
+        ? scan
+        : full.error
+          ? full
+          : readOnly.error
+            ? readOnly
+            : full;
+  const scanOnly = access.scanOnly;
+  const sectionAllowed = canOpenSection(access, section);
+  const anyLoading = full.isLoading || readOnly.isLoading || (allowScanScope && scan.isLoading);
 
   return (
     <AppLayout>
@@ -121,6 +164,11 @@ export function ElectricalGate({
           </div>
           {scanOnly ? (
             <Badge variant="secondary">Scanned-label access</Badge>
+          ) : access.canView && access.readOnly ? (
+            <Badge variant="secondary" className="gap-1">
+              <Eye className="h-3 w-3" />
+              Read-only electrician access
+            </Badge>
           ) : addon.enabled && addon.status ? (
             <Badge variant={addon.status === "trialing" ? "secondary" : "outline"}>
               Add-on: {addon.status === "trialing" ? "trial" : "active"}
@@ -129,7 +177,7 @@ export function ElectricalGate({
           ) : null}
         </header>
 
-        {addon.isLoading ? (
+        {anyLoading ? (
           <div className="space-y-2">
             <Skeleton className="h-8 w-full" />
             <Skeleton className="h-40 w-full" />
@@ -149,10 +197,31 @@ export function ElectricalGate({
               </Button>
             </CardContent>
           </Card>
-        ) : addon.enabled ? (
+        ) : access.canView ? (
           <>
-            {hideNav ? null : <ElectricalNav />}
-            {children}
+            {hideNav ? null : <ElectricalNav access={access} />}
+            {sectionAllowed ? (
+              children
+            ) : (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">
+                    Reconciliation is not part of read-only access
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="text-sm text-muted-foreground space-y-2">
+                  <p>{RECONCILIATION_DENIED}</p>
+                  <p>
+                    Everything else in the module — panels, raceways, junction boxes,
+                    branch runs, circuits, loads, diagrams, topology, the workbook,
+                    labels, QA and standards — stays open to you.
+                  </p>
+                  <Button size="sm" variant="outline" asChild>
+                    <Link to="/electrical">Back to overview</Link>
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
           </>
         ) : (
           <Card>

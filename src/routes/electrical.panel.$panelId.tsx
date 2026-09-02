@@ -149,7 +149,11 @@ function PanelSheetPage() {
   // stays hidden until an administrator approves a system-data window — unless
   // the user already holds the full Electrical add-on, which is system-wide.
   const fullAddon = useAddon("electrical");
-  const fullAccess = fullAddon.enabled || (sheet.data?.system_access.granted ?? false);
+  const readOnlyAddon = useAddon("electrical_readonly");
+  const fullAccess =
+    fullAddon.enabled ||
+    readOnlyAddon.enabled ||
+    (sheet.data?.system_access.granted ?? false);
 
   const startEditing = () => {
     if (!panel) return;

@@ -3,7 +3,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { requireAddon } from "@/lib/addons.server";
+import { requireElectricalAccess } from "@/lib/addons.server";
 import { ENTITIES } from "@/lib/electrical-entities";
 import {
   LABEL_KINDS,
@@ -34,7 +34,7 @@ export const listElectricalLabels = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ kinds: z.array(kindSchema).min(1).max(10) }).parse(d))
   .handler(async ({ context, data }): Promise<LabelRecord[]> => {
-    await requireAddon(context.supabase, context.userId, "electrical");
+    await requireElectricalAccess(context.supabase, context.userId, "read");
     const db = await readerClient();
     const kinds = [...new Set(data.kinds)];
 

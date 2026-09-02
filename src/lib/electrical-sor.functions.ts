@@ -4,7 +4,7 @@
 // touched.
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { requireAddon } from "@/lib/addons.server";
+import { requireElectricalAccess } from "@/lib/addons.server";
 import { collectSnapshot } from "@/lib/electrical-snapshot.functions";
 import { SNAPSHOT_COLLECTIONS } from "@/lib/electrical-snapshot";
 import { buildSorStatus, latestChange, type SorStatus } from "@/lib/electrical-sor";
@@ -12,7 +12,7 @@ import { buildSorStatus, latestChange, type SorStatus } from "@/lib/electrical-s
 export const electricalSorStatus = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<SorStatus> => {
-    await requireAddon(context.supabase, context.userId, "electrical");
+    await requireElectricalAccess(context.supabase, context.userId, "write");
     const snapshot = await collectSnapshot(context.supabase);
     return buildSorStatus({
       counts: snapshot.counts,

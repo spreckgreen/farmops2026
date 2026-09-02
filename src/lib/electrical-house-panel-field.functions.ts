@@ -11,7 +11,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { requireAddon } from "@/lib/addons.server";
+import { requireElectricalAccess } from "@/lib/addons.server";
 import { parseOdsContentXml } from "@/lib/electrical-ods";
 import {
   FIELD_RECONCILIATION_PHASE,
@@ -113,7 +113,7 @@ export const previewHousePanelFieldReconciliation = createServerFn({ method: "PO
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => previewInput.parse(d))
   .handler(async ({ context, data }): Promise<HousePanelPreview> => {
-    await requireAddon(context.supabase, context.userId, "electrical");
+    await requireElectricalAccess(context.supabase, context.userId, "write");
     const db = context.supabase as unknown as LooseDb;
     const scope = FIELD_RECONCILIATION_SCOPES[data.scope];
     const sheets = await odsToSheets(data.base64);
@@ -325,7 +325,7 @@ export const applyHousePanelFieldUpdates = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => applyInput.parse(d))
   .handler(async ({ context, data }): Promise<HousePanelApplyResult> => {
-    await requireAddon(context.supabase, context.userId, "electrical");
+    await requireElectricalAccess(context.supabase, context.userId, "write");
     const db = context.supabase as unknown as LooseDb;
 
     const { data: panels, error: panelErr } = await db.from("electrical_panels").select("id, panel_id");

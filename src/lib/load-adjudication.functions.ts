@@ -2,7 +2,7 @@
 // SELECT only: no updates, no inserts, no apply path.
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { requireAddon } from "@/lib/addons.server";
+import { requireElectricalAccess } from "@/lib/addons.server";
 import {
   ADJUDICATED_LOAD_IDS,
 } from "@/lib/electrical-load-adjudication";
@@ -11,7 +11,7 @@ import type { FarmOpsLoadRow } from "@/lib/electrical-load-adjudication-producti
 export const listAdjudicatedLoads = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<FarmOpsLoadRow[]> => {
-    await requireAddon(context.supabase, context.userId, "electrical");
+    await requireElectricalAccess(context.supabase, context.userId, "write");
     const { data, error } = await context.supabase
       .from("electrical_loads")
       .select(

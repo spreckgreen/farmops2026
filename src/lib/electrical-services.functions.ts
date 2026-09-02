@@ -4,7 +4,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { requireAddon } from "@/lib/addons.server";
+import { requireElectricalAccess } from "@/lib/addons.server";
 import {
   FED_FROM_KINDS,
   INTERTIE_LIFECYCLE_STATES,
@@ -43,7 +43,7 @@ async function rows(db: LooseDb, table: string, order: string): Promise<SRow[]> 
 export const serviceState = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    await requireAddon(context.supabase, context.userId, "electrical");
+    await requireElectricalAccess(context.supabase, context.userId, "read");
     const db = context.supabase as unknown as LooseDb;
     const [services, configs, servicePanels, interties, intertieConfigs, panels] =
       await Promise.all([
@@ -87,7 +87,7 @@ export const saveService = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ context, data }) => {
-    await requireAddon(context.supabase, context.userId, "electrical");
+    await requireElectricalAccess(context.supabase, context.userId, "write");
     const db = context.supabase as unknown as LooseDb;
     const serviceId = data.service_id.trim().toUpperCase();
     const check = checkServiceId(serviceId);
@@ -126,7 +126,7 @@ export const saveServiceConfiguration = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ context, data }) => {
-    await requireAddon(context.supabase, context.userId, "electrical");
+    await requireElectricalAccess(context.supabase, context.userId, "write");
     const db = context.supabase as unknown as LooseDb;
     const { data: service, error: svcError } = await db
       .from(SERVICES)
@@ -161,7 +161,7 @@ export const commissionServiceConfiguration = createServerFn({ method: "POST" })
     z.object({ id: z.string().uuid(), date: nullableDate }).parse(d),
   )
   .handler(async ({ context, data }) => {
-    await requireAddon(context.supabase, context.userId, "electrical");
+    await requireElectricalAccess(context.supabase, context.userId, "write");
     const db = context.supabase as unknown as LooseDb;
     const { data: target, error: tErr } = await db
       .from(CONFIGS)
@@ -198,7 +198,7 @@ export const deleteServiceConfiguration = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ context, data }) => {
-    await requireAddon(context.supabase, context.userId, "electrical");
+    await requireElectricalAccess(context.supabase, context.userId, "write");
     const db = context.supabase as unknown as LooseDb;
     const { data: row, error } = await db
       .from(CONFIGS)
@@ -237,7 +237,7 @@ export const saveServicePanelLink = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ context, data }) => {
-    await requireAddon(context.supabase, context.userId, "electrical");
+    await requireElectricalAccess(context.supabase, context.userId, "write");
     const db = context.supabase as unknown as LooseDb;
     const payload: Record<string, unknown> = { ...data, user_id: context.userId };
     delete payload["id"];
@@ -259,7 +259,7 @@ export const deleteServicePanelLink = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ context, data }) => {
-    await requireAddon(context.supabase, context.userId, "electrical");
+    await requireElectricalAccess(context.supabase, context.userId, "write");
     const db = context.supabase as unknown as LooseDb;
     const { error } = await db.from(SERVICE_PANELS).delete().eq("id", data.id);
     if (error) throw new Error(error.message);
@@ -279,7 +279,7 @@ export const saveIntertie = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ context, data }) => {
-    await requireAddon(context.supabase, context.userId, "electrical");
+    await requireElectricalAccess(context.supabase, context.userId, "write");
     const db = context.supabase as unknown as LooseDb;
     const tieId = data.intertie_id.trim().toUpperCase();
     const check = checkIntertieId(tieId);
@@ -325,7 +325,7 @@ export const saveIntertieConfiguration = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ context, data }) => {
-    await requireAddon(context.supabase, context.userId, "electrical");
+    await requireElectricalAccess(context.supabase, context.userId, "write");
     const db = context.supabase as unknown as LooseDb;
     const payload: Record<string, unknown> = { ...data, user_id: context.userId };
     delete payload["id"];
@@ -349,7 +349,7 @@ export const commissionIntertieConfiguration = createServerFn({ method: "POST" }
     z.object({ id: z.string().uuid(), date: nullableDate }).parse(d),
   )
   .handler(async ({ context, data }) => {
-    await requireAddon(context.supabase, context.userId, "electrical");
+    await requireElectricalAccess(context.supabase, context.userId, "write");
     const db = context.supabase as unknown as LooseDb;
     const { data: target, error: tErr } = await db
       .from(INTERTIE_CONFIGS)

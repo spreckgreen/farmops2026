@@ -21,6 +21,12 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const today = todayDateString();
   const profile = useCurrentProfile();
   const electrical = useAddon("electrical");
+  const electricalReadOnly = useAddon("electrical_readonly");
+  const roles = profile.data?.roles ?? [];
+  // An electrician is scoped to the Electrical area only: the rest of the farm
+  // app (tasks, food, inventory, admin utilities) is not part of their job.
+  const electricianOnly = roles.includes("electrician") && !profile.data?.isAdmin;
+  const showElectrical = electrical.enabled || electricalReadOnly.enabled;
 
   const signOut = async () => {
     await queryClient.cancelQueries();
@@ -47,6 +53,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
           <nav className="order-3 col-span-2 -mx-1 flex items-center gap-1 overflow-x-auto whitespace-nowrap px-1 pb-1 text-sm lg:order-2 lg:col-span-1 lg:mx-0 lg:flex-1 lg:overflow-visible lg:pb-0">
 
 
+              {electricianOnly ? null : (
+                <>
               <Link to="/food" className={navItem} activeProps={navActive}>
                 Food
               </Link>
@@ -82,7 +90,9 @@ export function AppLayout({ children }: { children: ReactNode }) {
               <Link to="/procedures" className={navItem} activeProps={navActive}>
                 Procedures
               </Link>
-              {electrical.enabled && (
+                </>
+              )}
+              {showElectrical && (
                 <Link to="/electrical" className={navItem} activeProps={navActive}>
                   Electrical
                 </Link>
@@ -91,6 +101,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
             </nav>
           <div className="order-2 flex shrink-0 items-center gap-1 sm:gap-2 lg:order-3">
 
+            {electricianOnly ? null : (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -172,6 +183,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 )}
               </DropdownMenuContent>
             </DropdownMenu>
+            )}
             <Button variant="ghost" size="sm" onClick={signOut}>
               Sign out
             </Button>

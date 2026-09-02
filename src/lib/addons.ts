@@ -5,7 +5,7 @@
 // shape a billing webhook would eventually write to, but for now they are
 // granted by an admin.
 
-export const ADDON_KEYS = ["electrical", "electrical_scan"] as const;
+export const ADDON_KEYS = ["electrical", "electrical_scan", "electrical_readonly"] as const;
 export type AddonKey = (typeof ADDON_KEYS)[number];
 
 export const ENTITLEMENT_STATUSES = ["active", "trialing", "expired", "disabled"] as const;
@@ -126,5 +126,21 @@ export const ADDON_NOT_ENABLED = "This add-on is not enabled for your account.";
  */
 export const SCAN_ADDON: AddonKey = "electrical_scan";
 export const FULL_ELECTRICAL_ADDON: AddonKey = "electrical";
+/**
+ * Read-only Electrical access, handed to electricians. It opens the whole
+ * electrician-viewable module for reading but authorises no writes and no
+ * reconciliation tooling (ODS import/export, parallel validation, adjudication,
+ * SOR status, field mapping) — those stay with the full add-on.
+ */
+export const READONLY_ELECTRICAL_ADDON: AddonKey = "electrical_readonly";
+/** Keys that may read farm-wide electrical data, widest first. */
+export const ELECTRICAL_READ_ADDONS: AddonKey[] = [
+  FULL_ELECTRICAL_ADDON,
+  READONLY_ELECTRICAL_ADDON,
+];
 /** Keys that may read a scanned panel sheet, widest first. */
-export const PANEL_SHEET_ADDONS: AddonKey[] = [FULL_ELECTRICAL_ADDON, SCAN_ADDON];
+export const PANEL_SHEET_ADDONS: AddonKey[] = [
+  FULL_ELECTRICAL_ADDON,
+  READONLY_ELECTRICAL_ADDON,
+  SCAN_ADDON,
+];

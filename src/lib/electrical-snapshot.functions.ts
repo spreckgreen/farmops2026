@@ -4,7 +4,7 @@
 // canonical PremoFarmElectrical.ods workbook.
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { requireAddon } from "@/lib/addons.server";
+import { requireElectricalAccess } from "@/lib/addons.server";
 import { ENTITIES, ENTITY_KINDS } from "@/lib/electrical-entities";
 import { runIntegrityChecks } from "@/lib/electrical-integrity";
 import { validatePanelLayout } from "@/lib/electrical-panel-layout";
@@ -94,6 +94,6 @@ export async function collectSnapshot(supabase: unknown): Promise<ElectricalSnap
 export const electricalSnapshot = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<ElectricalSnapshot> => {
-    await requireAddon(context.supabase, context.userId, "electrical");
+    await requireElectricalAccess(context.supabase, context.userId, "write");
     return collectSnapshot(context.supabase);
   });
