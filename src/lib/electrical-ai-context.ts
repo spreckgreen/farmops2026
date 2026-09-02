@@ -633,6 +633,16 @@ export function buildElectricalRecordContext(
         "Any `NOT IN RECORD` hop is currently unknown; it is not an inferred assignment.",
       ].join("\n")
     : null;
+  const loadTraceAnswer = loadRank.matched.length
+    ? [
+        "## Panel trace",
+        "",
+        ...loadRank.matched.slice(0, 10).map((l) => describeLoadTrace(l, pathCtx)),
+        "",
+        "Every `[GAP]` hop is missing from the record — it is not an inferred route.",
+      ].join("\n\n")
+    : null;
+
 
   const block =
     (terms.length
