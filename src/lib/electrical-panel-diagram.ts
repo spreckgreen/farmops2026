@@ -285,6 +285,7 @@ export function buildPanelDiagram(input: PanelDiagramInput): PanelDiagram {
         status: str(panel.install_status).trim(),
         circuits: panelCircuits,
         directLoads,
+        expectedLoads,
         gaps,
         loadCount,
         gapCount,
