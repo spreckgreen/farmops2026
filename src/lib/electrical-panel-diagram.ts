@@ -118,6 +118,8 @@ function toLoad(
     amps: str(load.amps).trim(),
     va: str(load.connected_va).trim(),
     voltage: str(load.voltage_semantic).trim() || str(load.system_voltage).trim(),
+    suggestedPanel: str(load.suggested_panel).trim(),
+    building: str(load.building).trim() || str(load.grid).trim(),
     gaps: loadGaps(load, opts),
   };
 }
