@@ -337,11 +337,15 @@ export function categoryDAnalysis(r: NumericDiagnosticsReport): CategoryDAnalysi
   const counts_by_missing_provenance = EMPTY_PROVENANCE();
   const counts_by_side = EMPTY_SIDES();
   let systematicRows = 0;
+  let systematicRows = 0;
+  let openIndividualRows = 0;
   for (const g of groups) {
     counts_by_missing_provenance[g.missing_provenance] += g.count;
     counts_by_side[g.side] += g.count;
     if (g.systematic) systematicRows += g.count;
+    else openIndividualRows += g.open_count;
   }
+
 
   return {
     analysis_version: CATEGORY_D_ANALYSIS_VERSION,
