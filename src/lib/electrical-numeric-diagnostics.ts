@@ -595,7 +595,12 @@ export function numericDiagnostics(report: ValidationReport): NumericDiagnostics
       proposed_value: c.proposed,
       normalization_rules: [...ods.rules, ...fp.rules].filter((v, i, a) => a.indexOf(v) === i).sort(),
       raw_category: c.category,
-      ...adjudicationOverlay(rec.stable_id, entry.field, report.ods.sha256, c.category),
+      ...adjudicationOverlay(rec.stable_id, entry.field, report.ods.sha256, c.category, {
+        odsRaw: ods.raw,
+        farmopsRaw: fp.raw,
+        farmopsState: fp.state,
+      }),
+
     };
     if (finding.stale_adjudication) {
       for (const a of adjudicationsFor(rec.stable_id, entry.field)) {
