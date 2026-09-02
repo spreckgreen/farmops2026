@@ -24,6 +24,7 @@ import { buildProductionAdjudicationInput } from "@/lib/electrical-load-adjudica
 import { listAdjudicatedLoads } from "@/lib/load-adjudication.functions";
 import { BryantVoltageApplyGate } from "@/components/electrical/bryant-voltage-apply-gate";
 import { CanonicalOdsCorrectionQueue } from "@/components/electrical/canonical-ods-correction-queue";
+import { CanonicalCorrectionSetPanel } from "@/components/electrical/canonical-correction-set-panel";
 import { AmpSemanticsReport } from "@/components/electrical/amp-semantics-report";
 import { Fs084ProvenancePanel } from "@/components/electrical/fs084-provenance-panel";
 import { CurrentSemanticsClosurePanel } from "@/components/electrical/current-semantics-closure-panel";
@@ -112,6 +113,16 @@ export function LoadAdjudicationReport() {
       >
         <BryantVoltageApplyGate baseline={gateBaseline} onRevalidate={revalidate} />
       </CollapsibleSection>
+
+      {attached ? (
+        <CollapsibleSection
+          title="Canonical correction-set manifest (Phase 4.4c)"
+          subtitle="Changes sufficiently proven for the next revision of PremoFarmElectrical.ods, with old raw value, proposed value, evidence, adjudication, confidence and baseline SHA — plus a withheld section for values investigated but not established. Manifest only: the ODS is not edited, the baseline SHA is unchanged, FarmOps is not written and no Phase 4.5 cutover is authorized."
+          badges={<Badge variant="outline">Manifest only</Badge>}
+        >
+          <CanonicalCorrectionSetPanel baseline={attached.baseline} />
+        </CollapsibleSection>
+      ) : null}
 
       {report && attached ? (
         <CollapsibleSection
