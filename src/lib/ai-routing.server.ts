@@ -227,7 +227,14 @@ export async function runAreaAi<T>(
   ai: AreaAi,
   run: (handle: AreaRunHandle) => Promise<T>,
   opts?: { isTruncated?: (value: T) => boolean; meter?: AreaMeterOpts<T> },
-): Promise<{ value: T; escalation: AiEscalation | null; backend: AiBackend; modelId: string }> {
+): Promise<{
+  value: T;
+  escalation: AiEscalation | null;
+  backend: AiBackend;
+  modelId: string;
+  /** What this run was priced at, when the call site asked for metering. */
+  usage: import("./ai-metering.server").RecordedUsage | null;
+}> {
   const canEscalate = ai.backend === "local" && ai.autoFallback && ai.hostedAvailable;
   const startedAt = Date.now();
   const handle: AreaRunHandle = {
@@ -236,13 +243,18 @@ export async function runAreaAi<T>(
     backend: ai.backend,
   };
 
-  const meter = async (value: T, backend: AiBackend, modelId: string, note?: string | null) => {
+  const meter = async (
+    value: T,
+    backend: AiBackend,
+    modelId: string,
+    note?: string | null,
+  ): Promise<import("./ai-metering.server").RecordedUsage | null> => {
     const m = opts?.meter;
-    if (!m) return;
+    if (!m) return null;
     try {
       const { recordAiUsage } = await import("./ai-metering.server");
       const usage = m.tokens?.(value) ?? null;
-      await recordAiUsage(m.client, m.userId, {
+      return await recordAiUsage(m.client, m.userId, {
         area: ai.area,
         backend,
         modelId,
@@ -254,8 +266,10 @@ export async function runAreaAi<T>(
       });
     } catch (err) {
       console.warn("[ai-routing] metering failed:", err);
+      return null;
     }
   };
+
 
   const escalate = async (
     reason: AiEscalation["reason"],
