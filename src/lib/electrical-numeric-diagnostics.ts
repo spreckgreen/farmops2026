@@ -643,8 +643,10 @@ export function numericDiagnostics(report: ValidationReport): NumericDiagnostics
       ...adjudicationOverlay(rec.stable_id, entry.field, report.ods.sha256, c.category, {
         odsRaw: ods.raw,
         farmopsRaw: fp.raw,
+        odsState: ods.state,
         farmopsState: fp.state,
       }),
+
 
     };
     if (finding.stale_adjudication) {
