@@ -230,7 +230,7 @@ function anchorFor(text: string): DrawingAnchor | null {
 function baseMigrateRow(row: MigrationInputRow): BaseGridMigrationRow {
   const text = `${row.description} ${row.location ?? ""}`;
   const parsed = parseOldGrid(row.grid);
-  const base: GridMigrationRow = {
+  const base: BaseGridMigrationRow = {
     kind: row.kind,
     stable_id: row.stable_id,
     description: row.description,
