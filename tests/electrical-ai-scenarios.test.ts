@@ -21,12 +21,13 @@ describe("electrical AI scenario scoping", () => {
     expect(ids({ access, isAdmin: false })).toEqual(["panel_qa", "topology_explain"]);
   });
 
-  it("adds the field-note draft for a field-write electrician", () => {
+  it("adds the field-write drafting scenarios for a field-write electrician", () => {
     const access = electricalAccess({ full: false, readOnly: false, fieldWrite: true });
     expect(ids({ access, isAdmin: false })).toEqual([
       "panel_qa",
       "topology_explain",
       "field_note",
+      "nameplate_extract",
     ]);
   });
 
