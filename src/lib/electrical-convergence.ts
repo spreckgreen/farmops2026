@@ -232,9 +232,21 @@ export const ESTABLISHED_ADJUDICATIONS: EstablishedAdjudication[] = [
     ],
     write_authorized: false,
   },
+  ...PNL_H1_VERIFIED_FIELDS.map((f) => ({
+    id: `pnl-h1-label-verified-${f.field}`,
+    source: "PNL-H1 Category-D field provenance adjudication (owner-supplied manufacturer label photograph)",
+    stable_id: f.stable_id,
+    fields: [f.field],
+    ods_sha256: PHASE_44A_BASELINE_SHA256,
+    classification: "FARMOPS_AS_BUILT_VALUE_VERIFIED",
+    disposition: "FARMOPS_AS_BUILT_VALUE_VERIFIED" as const,
+    category: "D" as const,
+    rationale: `The canonical workbook states nothing for ${f.label}; the installed ${PNL_H1_LABEL_OBSERVATION.manufacturer} ${PNL_H1_LABEL_OBSERVATION.catalog_model} manufacturer label establishes it. This is a FarmOps as-built addition verified by field/manufacturer provenance — not a canonical ODS correction and not an engineering disagreement. The existing FarmOps value ${f.farmops_value} is verified, not corrected, and the ODS is not modified.`,
+    preserved: pnlH1PreservedFacts(f.field),
+    write_authorized: false as const,
+  })),
 ];
 
-/* --------------------------------------------------------------- application */
 
 export interface AdjudicationMatch {
   adjudication: EstablishedAdjudication;
