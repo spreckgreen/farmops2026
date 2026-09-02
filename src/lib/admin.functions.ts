@@ -464,6 +464,38 @@ export const setUserRoles = createServerFn({ method: "POST" })
         );
       if (ins.error) throw new Error(ins.error.message);
     }
+
+    // The `electrician` role is meaningless without an Electrical entitlement:
+    // granting the role alone left the electrician staring at empty tabs. Give
+    // them the read-only add-on automatically unless they already hold a
+    // broader Electrical grant (full or field-write).
+    if (data.roles.includes("electrician")) {
+      const { data: existing } = await supabaseAdmin
+        .from("app_entitlements")
+        .select("addon_key, status")
+        .eq("user_id", data.userId);
+      const rows = (existing ?? []) as Array<{ addon_key: string; status: string }>;
+      const hasBroader = rows.some(
+        (r) =>
+          (r.addon_key === "electrical" || r.addon_key === "electrical_fieldwrite") &&
+          r.status === "active",
+      );
+      if (!hasBroader) {
+        const ent = await supabaseAdmin.from("app_entitlements").upsert(
+          {
+            user_id: data.userId,
+            addon_key: "electrical_readonly",
+            status: "active",
+            expires_at: null,
+            blocked_until: null,
+            granted_by: userId,
+            notes: "Auto-granted with the electrician role: read-only Electrical access.",
+          } as never,
+          { onConflict: "user_id,addon_key" },
+        );
+        if (ent.error) throw new Error(`add-on grant failed: ${ent.error.message}`);
+      }
+    }
     return { ok: true };
   });
 
