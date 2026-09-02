@@ -465,16 +465,10 @@ function Assistant() {
         </CardContent>
       </Card>
 
-
-      <FeatureRequestCard
-        features={data?.features ?? []}
-        granted={granted.map((s) => s.id)}
-        isOn={(id) => featureOn(id)}
-        onToggle={(id, on) => setFeature(electricalAiFeatureKey(id), on)}
-        masterOff={!aiSettings.masterEnabled}
-      />
-
+      {/* The answer sits directly under the query it came from; the feature list
+          is secondary and follows it. */}
       {answer ? (
+
         <Card>
           <CardHeader className="space-y-1">
             <CardTitle className="text-base flex items-center gap-2">
