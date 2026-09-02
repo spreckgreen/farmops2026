@@ -26,6 +26,7 @@ import { BryantVoltageApplyGate } from "@/components/electrical/bryant-voltage-a
 import { CanonicalOdsCorrectionQueue } from "@/components/electrical/canonical-ods-correction-queue";
 import { AmpSemanticsReport } from "@/components/electrical/amp-semantics-report";
 import { Fs084ProvenancePanel } from "@/components/electrical/fs084-provenance-panel";
+import { CurrentSemanticsClosurePanel } from "@/components/electrical/current-semantics-closure-panel";
 import { CurrentSemanticMigrationPlan } from "@/components/electrical/current-semantic-migration-plan";
 import { RepresentationProposalPanel } from "@/components/electrical/representation-proposal-panel";
 import {
@@ -157,6 +158,16 @@ export function LoadAdjudicationReport() {
           badges={<Badge variant="outline">Planning only</Badge>}
         >
           <CurrentSemanticMigrationPlan baseline={attached.baseline} rows={rows.data} />
+        </CollapsibleSection>
+      ) : null}
+
+      {attached && rows.data ? (
+        <CollapsibleSection
+          title="Current-semantics closure plan"
+          subtitle="Whether the canonical unqualified Amps column means one consistent concept or is a semantically overloaded legacy field, scored per candidate meaning across every canonical load row, with the minimum additive target schema and the exit criteria for FS-082 / FS-083 / FS-084. Read-only — no writes, no ODS edit, no numeric corrections."
+          badges={<Badge variant="outline">Read-only</Badge>}
+        >
+          <CurrentSemanticsClosurePanel baseline={attached.baseline} rows={rows.data} />
         </CollapsibleSection>
       ) : null}
 
