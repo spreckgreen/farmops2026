@@ -28,7 +28,14 @@ import {
   type CanonicalCorrectionSet,
 } from "@/lib/electrical-canonical-correction-set";
 import { ENTITIES, importColumns } from "@/lib/electrical-entities";
-import { classifySheet, mapSheet, type Sheet } from "@/lib/electrical-ods";
+import {
+  classifySheet,
+  findOdsTableBody,
+  locateOdsLogicalCell,
+  mapSheet,
+  type Sheet,
+} from "@/lib/electrical-ods";
+
 
 export const CANONICAL_REVISION_VERSION = "4.4d-canonical-ods-revision-1";
 
