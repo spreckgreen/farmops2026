@@ -274,7 +274,13 @@ export async function runAreaAi<T>(
   const escalate = async (
     reason: AiEscalation["reason"],
     detail: string,
-  ): Promise<{ value: T; escalation: AiEscalation; backend: AiBackend; modelId: string }> => {
+  ): Promise<{
+    value: T;
+    escalation: AiEscalation;
+    backend: AiBackend;
+    modelId: string;
+    usage: import("./ai-metering.server").RecordedUsage | null;
+  }> => {
     const hostedProvider = ai.hostedProvider;
     if (!hostedProvider) throw new Error("No cloud AI engine is available for fallback.");
     const hosted: AreaRunHandle = {
@@ -283,7 +289,12 @@ export async function runAreaAi<T>(
       backend: "hosted",
     };
     const value = await run(hosted);
-    await meter(value, "hosted", hosted.modelId, `escalated from ${ai.modelId} (${reason})`);
+    const usage = await meter(
+      value,
+      "hosted",
+      hosted.modelId,
+      `escalated from ${ai.modelId} (${reason})`,
+    );
     return {
       value,
       escalation: {
@@ -296,6 +307,7 @@ export async function runAreaAi<T>(
       },
       backend: "hosted",
       modelId: hosted.modelId,
+      usage,
     };
   };
 
@@ -310,12 +322,13 @@ export async function runAreaAi<T>(
       } catch (err) {
         // Hosted retry failed — keep the local result rather than erroring.
         console.warn("[ai-routing] hosted escalation failed:", err);
-        await meter(value, ai.backend, ai.modelId);
-        return { value, escalation: null, backend: ai.backend, modelId: ai.modelId };
+        const usage = await meter(value, ai.backend, ai.modelId);
+        return { value, escalation: null, backend: ai.backend, modelId: ai.modelId, usage };
       }
     }
-    await meter(value, ai.backend, ai.modelId);
-    return { value, escalation: null, backend: ai.backend, modelId: ai.modelId };
+    const usage = await meter(value, ai.backend, ai.modelId);
+    return { value, escalation: null, backend: ai.backend, modelId: ai.modelId, usage };
+
   } catch (err) {
     if (!canEscalate) throw err;
     const message = err instanceof Error ? err.message : String(err);
