@@ -52,6 +52,8 @@ import {
 } from "@/lib/electrical-boolean-gate";
 
 import { NumericSemanticsPanel } from "@/components/electrical/numeric-semantics-panel";
+import { ConvergenceSummary } from "@/components/electrical/convergence-summary";
+
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
