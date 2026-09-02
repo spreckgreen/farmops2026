@@ -286,6 +286,10 @@ export function categoryDAnalysis(r: NumericDiagnosticsReport): CategoryDAnalysi
         source_rows: [],
         mapping_rule: "",
         systematic: false,
+        adjudicated: false,
+        resolved_count: 0,
+        open_count: 0,
+
         findings: [],
       };
       buckets.set(key, g);
