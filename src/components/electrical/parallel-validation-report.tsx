@@ -52,6 +52,8 @@ import {
 } from "@/lib/electrical-boolean-gate";
 
 import { NumericSemanticsPanel } from "@/components/electrical/numeric-semantics-panel";
+import { ConvergenceSummary } from "@/components/electrical/convergence-summary";
+
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -305,6 +307,9 @@ export function ParallelValidationReport() {
                 conflict and every ODS-only value has to be dispositioned individually — this report
                 does not decide either value for you.
               </p>
+
+              <ConvergenceSummary report={report} />
+
 
             </>
           )}
