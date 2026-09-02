@@ -57,6 +57,11 @@ export interface DiagramPanel {
   circuits: DiagramCircuit[];
   /** Loads pinned to this panel by a breaker position but with no circuit group. */
   directLoads: DiagramLoad[];
+  /**
+   * Loads the record *expects* on this panel (suggested panel text, or same
+   * building/area) but which are not linked to any circuit or breaker here.
+   */
+  expectedLoads: DiagramLoad[];
   gaps: string[];
   loadCount: number;
   gapCount: number;
