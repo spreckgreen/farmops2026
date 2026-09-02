@@ -332,7 +332,7 @@ export function NumericSemanticsPanel({
           </div>
         ) : null}
 
-
+        <CategoryCAnalysisPanel diag={diag} />
 
 
         <div>
