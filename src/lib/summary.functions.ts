@@ -325,7 +325,10 @@ export const generateSummary = createServerFn({ method: "POST" })
             return buildFallbackSummary(entriesForScope, data.mode, scopeProject);
           }
         },
-        { isTruncated: () => !parsed },
+        {
+          isTruncated: () => !parsed,
+          meter: { client: context.supabase, userId: context.userId },
+        },
       );
       if (run.escalation) escalation = run.escalation;
       return run.value;

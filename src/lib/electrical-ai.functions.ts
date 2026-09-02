@@ -314,7 +314,14 @@ export const runElectricalAiScenario = createServerFn({ method: "POST" })
         });
         return text.trim();
       },
-      { isTruncated: (value) => value.length < 20 },
+      {
+        isTruncated: (value) => value.length < 20,
+        meter: {
+          client: context.supabase,
+          userId: context.userId,
+          note: def.id,
+        },
+      },
     );
 
     return {
