@@ -1,0 +1,599 @@
+// Phase 4.4d — controlled canonical ODS revision generation (pure logic).
+//
+// This module generates a CANDIDATE workbook revision from the authorized
+// Phase 4.4a baseline plus the Phase 4.4c approved correction manifest. The
+// rules it enforces are absolute:
+//
+//   * the owner-supplied baseline workbook is never overwritten — generation
+//     always produces a new artifact;
+//   * exactly two source cells may differ (FS-082 Volts, FS-083 Volts);
+//   * no other cell, formula, style, sheet, metadata structure, stable ID,
+//     row ordering or ods_extras content is intentionally altered;
+//   * the four withheld values (FS-082 Amps, FS-083 Amps, FS-084 Amps,
+//     FS-084 Connected VA) must remain semantically identical;
+//   * the candidate is never automatically promoted: it starts life as
+//     PROPOSED_CANONICAL_REVISION and only owner approval retires the previous
+//     baseline (retired/superseded, never deleted).
+//
+// Everything here operates on values parsed from the SHA-verified workbook.
+// No canonical value is ever stored in code.
+import {
+  odsNumber,
+  PHASE_44A_BASELINE_SHA256,
+  type AdjudicationBaseline,
+} from "@/lib/electrical-adjudication-baseline";
+import {
+  buildCanonicalCorrectionSet,
+  type CanonicalCorrectionRow,
+  type CanonicalCorrectionSet,
+} from "@/lib/electrical-canonical-correction-set";
+import { ENTITIES, importColumns } from "@/lib/electrical-entities";
+import { classifySheet, mapSheet, type Sheet } from "@/lib/electrical-ods";
+
+export const CANONICAL_REVISION_VERSION = "4.4d-canonical-ods-revision-1";
+
+export const REVISION_STATUS_PROPOSED = "PROPOSED_CANONICAL_REVISION";
+export const REVISION_STATUS_PROMOTED = "CURRENT_CANONICAL_BASELINE";
+export const REVISION_STATUS_SUPERSEDED = "RETIRED_SUPERSEDED_BASELINE";
+
+/** The only cells this workflow may ever change. */
+export const AUTHORIZED_REVISION_FIELDS = [
+  { stable_id: "FS-082", field: "volts" as const, from: 120, to: 240 },
+  { stable_id: "FS-083", field: "volts" as const, from: 120, to: 240 },
+];
+
+/** Values that must remain byte/semantic-equivalent to the baseline. */
+export const WITHHELD_REVISION_FIELDS = [
+  { stable_id: "FS-082", field: "amps" as const },
+  { stable_id: "FS-083", field: "amps" as const },
+  { stable_id: "FS-084", field: "amps" as const },
+  { stable_id: "FS-084", field: "connected_va" as const },
+];
+
+export interface RevisionCellTarget {
+  stable_id: string;
+  worksheet: string;
+  /** 1-based worksheet row, as the parser numbers rows. */
+  row: number;
+  /** 1-based worksheet column. */
+  column: number;
+  field: "volts";
+  baseline_value: number;
+  candidate_value: number;
+}
+
+export interface RevisionCellDiff {
+  stable_id: string | null;
+  worksheet: string;
+  row: number;
+  column: number;
+  field: string;
+  baseline_value: string;
+  candidate_value: string;
+  authorized: boolean;
+}
+
+export interface CandidateRevisionReport {
+  version: string;
+  generated_at: string;
+  status: typeof REVISION_STATUS_PROPOSED;
+  baseline_file_name: string;
+  baseline_sha256: string;
+  candidate_file_name: string;
+  candidate_sha256: string;
+  manifest_version: string;
+  manifest_sha256: string;
+  changes: RevisionCellDiff[];
+  counts: {
+    authorized_changed_cells: number;
+    unauthorized_changed_cells: number;
+    withheld_values_changed: number;
+    non_content_archive_entries_changed: number;
+  };
+  withheld: Array<{
+    stable_id: string;
+    field: string;
+    baseline_value: number | null;
+    candidate_value: number | null;
+    unchanged: boolean;
+  }>;
+  acceptance: { status: "PASS" | "FAIL"; reasons: string[] };
+  lineage: { superseded_sha256: string; candidate_sha256: string };
+  promotion_required: true;
+  baseline_overwritten: false;
+  farmops_written: false;
+}
+
+export type RevisionGuard = { ok: true } | { ok: false; reason: string };
+
+/* ------------------------------------------------------- manifest guards */
+
+/** The manifest must be the authorized 2-approved / 4-withheld correction set. */
+export function manifestAuthorizesRevision(set: CanonicalCorrectionSet): RevisionGuard {
+  if (set.baseline_sha256 !== PHASE_44A_BASELINE_SHA256 || !set.is_phase_44a_baseline) {
+    return {
+      ok: false,
+      reason: `The attached manifest was produced against workbook SHA-256 ${set.baseline_sha256}, not the authorized baseline ${PHASE_44A_BASELINE_SHA256}. A foreign or stale manifest is rejected.`,
+    };
+  }
+  if (set.approved.length !== AUTHORIZED_REVISION_FIELDS.length) {
+    return {
+      ok: false,
+      reason: `The manifest carries ${set.approved.length} approved corrections; exactly ${AUTHORIZED_REVISION_FIELDS.length} are authorized for generation.`,
+    };
+  }
+  if (set.withheld.length !== WITHHELD_REVISION_FIELDS.length) {
+    return {
+      ok: false,
+      reason: `The manifest carries ${set.withheld.length} withheld values; exactly ${WITHHELD_REVISION_FIELDS.length} are expected. Generation is refused rather than guessing which values are still unresolved.`,
+    };
+  }
+  for (const expected of AUTHORIZED_REVISION_FIELDS) {
+    const row = set.approved.find(
+      (r) => r.stable_id === expected.stable_id && r.field === expected.field,
+    );
+    if (!row) {
+      return {
+        ok: false,
+        reason: `The manifest does not contain the approved ${expected.stable_id} ${expected.field} correction.`,
+      };
+    }
+    if (row.old_raw_value !== expected.from || row.proposed_value !== expected.to) {
+      return {
+        ok: false,
+        reason: `${expected.stable_id} ${expected.field}: the manifest proposes ${row.old_raw_value} → ${row.proposed_value}, but only ${expected.from} → ${expected.to} is authorized.`,
+      };
+    }
+  }
+  for (const w of WITHHELD_REVISION_FIELDS) {
+    if (!set.withheld.some((r) => r.stable_id === w.stable_id && r.field === w.field)) {
+      return {
+        ok: false,
+        reason: `The manifest does not withhold ${w.stable_id} ${w.field}; generation is refused because an unresolved value could otherwise be written.`,
+      };
+    }
+  }
+  return { ok: true };
+}
+
+/** Stable serialization of the manifest, so its hash is reproducible. */
+export function manifestFingerprintSource(set: CanonicalCorrectionSet): string {
+  const line = (r: CanonicalCorrectionRow) =>
+    [r.stable_id, r.worksheet, r.row, r.field, r.old_raw_value, r.proposed_value, r.adjudication].join(
+      "|",
+    );
+  return [
+    set.version,
+    set.baseline_sha256,
+    ...set.approved.map((r) => `approved:${line(r)}`),
+    ...set.withheld.map((r) => `withheld:${line(r)}`),
+  ].join("\n");
+}
+
+/* ------------------------------------------------- cell location + rewrite */
+
+/** Worksheet column (1-based) holding a mapped load field, or null. */
+export function loadFieldColumn(sheet: Sheet, field: string): number | null {
+  if (classifySheet(sheet) !== "load") return null;
+  const mapped = mapSheet(sheet, "load", importColumns("load"), ENTITIES["load"].stableIdField);
+  const idx = mapped.columns.findIndex((c) => c.target === field);
+  return idx < 0 ? null : idx + 1;
+}
+
+/**
+ * Resolve the exact source cells the authorized corrections touch, refusing
+ * anything the SHA-verified workbook does not currently confirm.
+ */
+export function resolveRevisionTargets(
+  baseline: AdjudicationBaseline,
+  sheets: Sheet[],
+): { targets: RevisionCellTarget[]; errors: string[] } {
+  const targets: RevisionCellTarget[] = [];
+  const errors: string[] = [];
+  for (const a of AUTHORIZED_REVISION_FIELDS) {
+    const canonical = baseline.loads.find((l) => l.stable_id === a.stable_id);
+    if (!canonical) {
+      errors.push(`${a.stable_id}: the attached workbook contains no canonical row.`);
+      continue;
+    }
+    if (canonical.volts !== a.from) {
+      errors.push(
+        `${a.stable_id} ${a.field}: the workbook currently records ${canonical.volts ?? "no value"}, not the authorized ${a.from}. Generation is refused — the manifest is stale relative to this workbook.`,
+      );
+      continue;
+    }
+    const sheet = sheets.find((s) => s.name === canonical.worksheet);
+    const column = sheet ? loadFieldColumn(sheet, a.field) : null;
+    if (!sheet || !column) {
+      errors.push(`${a.stable_id} ${a.field}: the ${canonical.worksheet} worksheet column was not located.`);
+      continue;
+    }
+    targets.push({
+      stable_id: a.stable_id,
+      worksheet: canonical.worksheet,
+      row: canonical.row,
+      column,
+      field: a.field,
+      baseline_value: a.from,
+      candidate_value: a.to,
+    });
+  }
+  return { targets, errors };
+}
+
+interface Element {
+  start: number;
+  end: number;
+  attrs: string;
+  inner: string;
+  selfClosing: boolean;
+}
+
+/** Scan non-nesting same-level elements, returning absolute offsets. */
+function scan(xml: string, tag: string, from: number, to: number): Element[] {
+  const out: Element[] = [];
+  const open = new RegExp(`<${tag}\\b([^>]*?)(/?)>`, "g");
+  open.lastIndex = from;
+  let m: RegExpExecArray | null;
+  while ((m = open.exec(xml)) && m.index < to) {
+    if (m[2] === "/") {
+      out.push({ start: m.index, end: open.lastIndex, attrs: m[1], inner: "", selfClosing: true });
+      continue;
+    }
+    const close = xml.indexOf(`</${tag}>`, open.lastIndex);
+    if (close < 0 || close > to) break;
+    const end = close + tag.length + 3;
+    out.push({
+      start: m.index,
+      end,
+      attrs: m[1],
+      inner: xml.slice(open.lastIndex, close),
+      selfClosing: false,
+    });
+    open.lastIndex = end;
+  }
+  return out;
+}
+
+function intAttr(attrs: string, name: string, fallback = 1): number {
+  const m = new RegExp(`${name}="([^"]*)"`).exec(attrs);
+  const n = m ? Number(m[1]) : NaN;
+  return Number.isFinite(n) && n > 0 ? n : fallback;
+}
+
+function tableBody(xml: string, worksheet: string): { start: number; end: number } {
+  const re = /<table:table\b([^>]*)>/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(xml))) {
+    const name = /table:name="([^"]*)"/.exec(m[1])?.[1];
+    if (name !== worksheet) continue;
+    const close = xml.indexOf("</table:table>", re.lastIndex);
+    if (close < 0) break;
+    return { start: re.lastIndex, end: close };
+  }
+  throw new Error(`Worksheet "${worksheet}" was not found in the workbook content.`);
+}
+
+/**
+ * Replace exactly one numeric cell in `content.xml`, preserving the cell's
+ * style, attributes and every other byte of the document. Any structure this
+ * cannot change surgically (repeated rows/columns, formulas, multi-paragraph
+ * cells, non-float cells) is refused instead of rewritten.
+ */
+export function rewriteOdsNumericCell(
+  xml: string,
+  target: { worksheet: string; row: number; column: number; expected: number; next: number },
+): string {
+  const body = tableBody(xml, target.worksheet);
+  const rows = scan(xml, "table:table-row", body.start, body.end);
+  let logicalRow = 0;
+  let rowEl: Element | null = null;
+  for (const r of rows) {
+    const repeat = intAttr(r.attrs, "table:number-rows-repeated");
+    if (target.row <= logicalRow + repeat) {
+      if (repeat > 1) {
+        throw new Error(
+          `Row ${target.row} of ${target.worksheet} is part of a repeated row group; the cell is not rewritten.`,
+        );
+      }
+      rowEl = r;
+      break;
+    }
+    logicalRow += repeat;
+  }
+  if (!rowEl) throw new Error(`Row ${target.row} was not found on ${target.worksheet}.`);
+
+  const cells = [
+    ...scan(xml, "table:table-cell", rowEl.start, rowEl.end),
+    ...scan(xml, "table:covered-table-cell", rowEl.start, rowEl.end),
+  ].sort((a, b) => a.start - b.start);
+
+  let logicalCol = 0;
+  let cellEl: Element | null = null;
+  for (const c of cells) {
+    const repeat = intAttr(c.attrs, "table:number-columns-repeated");
+    if (target.column <= logicalCol + repeat) {
+      if (repeat > 1) {
+        throw new Error(
+          `Column ${target.column} of ${target.worksheet} row ${target.row} is part of a repeated cell group; the cell is not rewritten.`,
+        );
+      }
+      cellEl = c;
+      break;
+    }
+    logicalCol += repeat;
+  }
+  if (!cellEl) {
+    throw new Error(`Column ${target.column} was not found on ${target.worksheet} row ${target.row}.`);
+  }
+  if (/table:formula="/.test(cellEl.attrs)) {
+    throw new Error(
+      `${target.worksheet} row ${target.row} column ${target.column} carries a formula; formulas are never rewritten.`,
+    );
+  }
+  const currentValue = /office:value="([^"]*)"/.exec(cellEl.attrs)?.[1];
+  if (currentValue === undefined) {
+    throw new Error(
+      `${target.worksheet} row ${target.row} column ${target.column} is not a stored numeric cell; it is left untouched.`,
+    );
+  }
+  if (odsNumber(currentValue) !== target.expected) {
+    throw new Error(
+      `${target.worksheet} row ${target.row} column ${target.column} holds ${currentValue}, not the authorized ${target.expected}. Generation is refused.`,
+    );
+  }
+  const paragraphs = cellEl.inner.match(/<text:p\b[^>]*(?:\/>|>[\s\S]*?<\/text:p>)/g) ?? [];
+  if (paragraphs.length > 1) {
+    throw new Error(
+      `${target.worksheet} row ${target.row} column ${target.column} holds multiple paragraphs; it is left untouched.`,
+    );
+  }
+  const nextAttrs = cellEl.attrs.replace(
+    /office:value="[^"]*"/,
+    `office:value="${target.next}"`,
+  );
+  const displayed = String(target.next);
+  const nextInner = paragraphs.length
+    ? cellEl.inner.replace(paragraphs[0], `<text:p>${displayed}</text:p>`)
+    : `<text:p>${displayed}</text:p>`;
+  const tag = cellEl.selfClosing
+    ? `<table:table-cell${nextAttrs}><text:p>${displayed}</text:p></table:table-cell>`
+    : `<table:table-cell${nextAttrs}>${nextInner}</table:table-cell>`;
+  const rebuilt = cellEl.selfClosing
+    ? tag
+    : xml.slice(cellEl.start, cellEl.start) + tag;
+  return xml.slice(0, cellEl.start) + rebuilt + xml.slice(cellEl.end);
+}
+
+/* --------------------------------------------------------------- cell diff */
+
+/** Every cell that differs between two parsed workbooks. */
+export function diffSheetCells(
+  before: Sheet[],
+  after: Sheet[],
+): Array<{ worksheet: string; row: number; column: number; before: string; after: string }> {
+  const out: Array<{ worksheet: string; row: number; column: number; before: string; after: string }> =
+    [];
+  const names = [...new Set([...before.map((s) => s.name), ...after.map((s) => s.name)])];
+  for (const name of names) {
+    const a = before.find((s) => s.name === name);
+    const b = after.find((s) => s.name === name);
+    const rowCount = Math.max(a?.rows.length ?? 0, b?.rows.length ?? 0);
+    for (let r = 0; r < rowCount; r++) {
+      const ra = a?.rows[r] ?? [];
+      const rb = b?.rows[r] ?? [];
+      const colCount = Math.max(ra.length, rb.length);
+      for (let c = 0; c < colCount; c++) {
+        const va = (ra[c] ?? "").trim();
+        const vb = (rb[c] ?? "").trim();
+        if (va !== vb) {
+          out.push({ worksheet: name, row: r + 1, column: c + 1, before: va, after: vb });
+        }
+      }
+    }
+  }
+  return out;
+}
+
+/* ----------------------------------------------------- candidate reporting */
+
+export function candidateFileName(baselineName: string, candidateSha: string): string {
+  const stem = baselineName.replace(/\.ods$/i, "");
+  return `${stem}.candidate-${candidateSha.slice(0, 12)}.ods`;
+}
+
+export function buildCandidateReport(input: {
+  baseline: AdjudicationBaseline;
+  candidate: AdjudicationBaseline;
+  manifest: CanonicalCorrectionSet;
+  manifest_sha256: string;
+  candidate_sha256: string;
+  candidate_file_name: string;
+  targets: RevisionCellTarget[];
+  cell_diff: Array<{ worksheet: string; row: number; column: number; before: string; after: string }>;
+  non_content_archive_entries_changed: number;
+  generated_at?: string;
+}): CandidateRevisionReport {
+  const authorizedAt = new Set(
+    input.targets.map((t) => `${t.worksheet}|${t.row}|${t.column}`),
+  );
+  const changes: RevisionCellDiff[] = input.cell_diff.map((d) => {
+    const key = `${d.worksheet}|${d.row}|${d.column}`;
+    const target = input.targets.find((t) => `${t.worksheet}|${t.row}|${t.column}` === key);
+    const authorized =
+      Boolean(target) &&
+      odsNumber(d.before) === target!.baseline_value &&
+      odsNumber(d.after) === target!.candidate_value;
+    return {
+      stable_id: target?.stable_id ?? null,
+      worksheet: d.worksheet,
+      row: d.row,
+      column: d.column,
+      field: target?.field ?? "(unmapped cell)",
+      baseline_value: d.before || "(blank)",
+      candidate_value: d.after || "(blank)",
+      authorized,
+    };
+  });
+  void authorizedAt;
+
+  const withheld = WITHHELD_REVISION_FIELDS.map((w) => {
+    const b = input.baseline.loads.find((l) => l.stable_id === w.stable_id);
+    const c = input.candidate.loads.find((l) => l.stable_id === w.stable_id);
+    const baseline_value = (b?.[w.field] ?? null) as number | null;
+    const candidate_value = (c?.[w.field] ?? null) as number | null;
+    return {
+      stable_id: w.stable_id,
+      field: w.field,
+      baseline_value,
+      candidate_value,
+      unchanged: baseline_value === candidate_value,
+    };
+  });
+
+  const authorized_changed_cells = changes.filter((c) => c.authorized).length;
+  const unauthorized_changed_cells = changes.length - authorized_changed_cells;
+  const withheld_values_changed = withheld.filter((w) => !w.unchanged).length;
+
+  const reasons: string[] = [];
+  if (authorized_changed_cells !== AUTHORIZED_REVISION_FIELDS.length) {
+    reasons.push(
+      `Authorized changed cells = ${authorized_changed_cells}; acceptance requires ${AUTHORIZED_REVISION_FIELDS.length}.`,
+    );
+  }
+  if (unauthorized_changed_cells !== 0) {
+    reasons.push(`Unauthorized changed cells = ${unauthorized_changed_cells}; acceptance requires 0.`);
+  }
+  if (withheld_values_changed !== 0) {
+    reasons.push(`Withheld values changed = ${withheld_values_changed}; acceptance requires 0.`);
+  }
+  if (input.non_content_archive_entries_changed !== 0) {
+    reasons.push(
+      `Archive entries other than content.xml changed = ${input.non_content_archive_entries_changed}; acceptance requires 0.`,
+    );
+  }
+  if (input.candidate.missing_load_ids.length !== input.baseline.missing_load_ids.length) {
+    reasons.push("The candidate workbook no longer contains the same canonical load rows.");
+  }
+
+  return {
+    version: CANONICAL_REVISION_VERSION,
+    generated_at: input.generated_at ?? new Date().toISOString(),
+    status: REVISION_STATUS_PROPOSED,
+    baseline_file_name: input.baseline.ods_file_name,
+    baseline_sha256: input.baseline.ods_sha256,
+    candidate_file_name: input.candidate_file_name,
+    candidate_sha256: input.candidate_sha256,
+    manifest_version: input.manifest.version,
+    manifest_sha256: input.manifest_sha256,
+    changes: changes.sort(
+      (a, b) => a.worksheet.localeCompare(b.worksheet) || a.row - b.row || a.column - b.column,
+    ),
+    counts: {
+      authorized_changed_cells,
+      unauthorized_changed_cells,
+      withheld_values_changed,
+      non_content_archive_entries_changed: input.non_content_archive_entries_changed,
+    },
+    withheld,
+    acceptance: { status: reasons.length ? "FAIL" : "PASS", reasons },
+    lineage: {
+      superseded_sha256: input.baseline.ods_sha256,
+      candidate_sha256: input.candidate_sha256,
+    },
+    promotion_required: true,
+    baseline_overwritten: false,
+    farmops_written: false,
+  };
+}
+
+/** The Phase 4.4c manifest for a baseline, ready for generation. */
+export function revisionManifest(baseline: AdjudicationBaseline, generatedAt?: string) {
+  return buildCanonicalCorrectionSet(baseline, generatedAt);
+}
+
+/* -------------------------------------------------------------- exports */
+
+const cell = (v: unknown) => {
+  const s = v === null || v === undefined ? "" : String(v);
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+};
+
+export function candidateDiffCsv(report: CandidateRevisionReport): string {
+  const head = [
+    "stable_id",
+    "worksheet",
+    "row",
+    "column",
+    "field",
+    "baseline_value",
+    "candidate_value",
+    "authorized",
+    "baseline_sha256",
+    "candidate_sha256",
+    "manifest_version",
+    "manifest_sha256",
+    "generated_at",
+  ];
+  return [
+    head.join(","),
+    ...report.changes.map((c) =>
+      [
+        c.stable_id,
+        c.worksheet,
+        c.row,
+        c.column,
+        c.field,
+        c.baseline_value,
+        c.candidate_value,
+        c.authorized ? "yes" : "no",
+        report.baseline_sha256,
+        report.candidate_sha256,
+        report.manifest_version,
+        report.manifest_sha256,
+        report.generated_at,
+      ]
+        .map(cell)
+        .join(","),
+    ),
+  ].join("\n");
+}
+
+export function candidateDiffMarkdown(report: CandidateRevisionReport): string {
+  const lines = [
+    "# Phase 4.4d — candidate canonical ODS revision",
+    "",
+    `- Status: ${report.status} (promotion requires separate explicit owner approval)`,
+    `- Baseline: ${report.baseline_file_name} (SHA-256 ${report.baseline_sha256}) — preserved, not overwritten`,
+    `- Candidate: ${report.candidate_file_name} (SHA-256 ${report.candidate_sha256})`,
+    `- Source manifest: ${report.manifest_version} (SHA-256 ${report.manifest_sha256})`,
+    `- Generated: ${report.generated_at}`,
+    `- Lineage on promotion: ${report.lineage.superseded_sha256} → ${report.lineage.candidate_sha256}`,
+    "",
+    `- Authorized changed cells: ${report.counts.authorized_changed_cells}`,
+    `- Unauthorized changed cells: ${report.counts.unauthorized_changed_cells}`,
+    `- Withheld values changed: ${report.counts.withheld_values_changed}`,
+    `- Acceptance: ${report.acceptance.status}`,
+    ...report.acceptance.reasons.map((r) => `  - ${r}`),
+    "",
+    "## Cell diff",
+    "",
+    "| stable_id | worksheet | row | field | baseline | candidate | authorized |",
+    "| --- | --- | --- | --- | --- | --- | --- |",
+    ...report.changes.map(
+      (c) =>
+        `| ${c.stable_id ?? "—"} | ${c.worksheet} | ${c.row} | ${c.field} | ${c.baseline_value} | ${c.candidate_value} | ${c.authorized ? "yes" : "NO"} |`,
+    ),
+    "",
+    "## Withheld values (must remain unchanged)",
+    "",
+    ...report.withheld.map(
+      (w) =>
+        `- ${w.stable_id} ${w.field}: baseline ${w.baseline_value ?? "not stated"} → candidate ${w.candidate_value ?? "not stated"} (${w.unchanged ? "unchanged" : "CHANGED"})`,
+    ),
+    "",
+    "No FarmOps write, no legacy Amp change, no Connected VA change, no service/panel/topology change and no Phase 4.5 cutover is authorized by this candidate.",
+    "",
+  ];
+  return lines.join("\n");
+}
