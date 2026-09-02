@@ -60,3 +60,34 @@ export function formatBillUsd(usd: number): string {
   if (usd < 0.01) return `$${usd.toFixed(4)}`;
   return `$${usd.toFixed(2)}`;
 }
+
+/** Observed usage of one AI feature area, for enable/disable planning. */
+export interface AiAreaUsageRow {
+  area: string;
+  runs: number;
+  meteredRuns: number;
+  localRuns: number;
+  inputTokens: number;
+  outputTokens: number;
+  /** Real cloud spend recorded for this area in the window. */
+  costUsd: number;
+  /** Average cloud cost per metered run (0 when nothing ran on cloud). */
+  avgMeteredCostUsd: number;
+  /** How many distinct people ran it. */
+  users: number;
+  lastRunAt: string | null;
+  models: string[];
+  /** True when at least one run priced from an estimated token count. */
+  anyEstimated: boolean;
+}
+
+export interface AiAreaUsageReport {
+  since: string;
+  days: number;
+  /** True when the caller is an admin and the numbers cover every user. */
+  allUsers: boolean;
+  totalRuns: number;
+  totalMeteredRuns: number;
+  totalCostUsd: number;
+  rows: AiAreaUsageRow[];
+}
