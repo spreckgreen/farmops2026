@@ -17,6 +17,7 @@ import {
 import { systemVoltagePreviewCsv } from "@/lib/electrical-system-voltage";
 import { SystemVoltageApplyGate } from "@/components/electrical/system-voltage-apply-gate";
 import { LoadSemanticDetailPanel } from "@/components/electrical/load-semantic-detail-panel";
+import { RepresentationProposalPanel } from "@/components/electrical/representation-proposal-panel";
 import type { ValidationReport } from "@/lib/electrical-parallel-validation";
 
 
@@ -30,6 +31,7 @@ const CATEGORY_LABELS: Record<NumericCategory, string> = {
   C: "C — not representable as a number",
   D: "D — provenance insufficient",
   E: "E — representation / schema-semantic gap (system voltage)",
+  F: "F — semantic representation difference (nominal vs nameplate voltage, VA calculation basis)",
 };
 
 function download(name: string, body: string, type: string) {
@@ -117,7 +119,7 @@ export function NumericSemanticsPanel({
         <div className="flex flex-wrap gap-2 text-xs">
           <Badge variant="outline">Compared cells {diag.compared_cells}</Badge>
           <Badge variant="outline">Agreements {diag.agreements}</Badge>
-          {(["A", "B", "C", "D", "E"] as NumericCategory[]).map((c) => (
+          {(["A", "B", "C", "D", "E", "F"] as NumericCategory[]).map((c) => (
             <Badge
               key={c}
               variant={category === c ? "default" : "secondary"}
@@ -313,6 +315,17 @@ export function NumericSemanticsPanel({
               </p>
             </div>
           ) : null}
+        </div>
+        <div className="rounded-md border p-3">
+          <p className="text-sm font-medium">
+            FS-034 / FS-092 voltage &amp; VA representation proposal{" "}
+            <span className="text-xs font-normal text-muted-foreground">
+              read-only — nothing is applied
+            </span>
+          </p>
+          <div className="mt-2">
+            <RepresentationProposalPanel />
+          </div>
         </div>
         <LoadSemanticDetailPanel report={report} diag={diag} />
       </CardContent>
