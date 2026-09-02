@@ -283,6 +283,8 @@ export function buildElectricalRecordContext(
   input: ElectricalContextInput,
 ): ElectricalContextResult {
   const terms = questionTerms(input.question);
+  const synonyms = questionSynonyms(terms);
+  const rankTerms = { terms, synonyms };
 
   const panelByUuid = new Map<string, ElectricalRow>();
   for (const p of input.panels) panelByUuid.set(str(p.id), p);
@@ -342,7 +344,7 @@ export function buildElectricalRecordContext(
     ),
   );
 
-  const groupRank = rank(input.circuitGroups, terms, 200);
+  const groupRank = rank(input.circuitGroups, rankTerms, 200);
   const groupLines = groupRank.rows.map((g) =>
     line(
       g,
@@ -367,7 +369,7 @@ export function buildElectricalRecordContext(
     ),
   );
 
-  const loadRank = rank(input.loads, terms, 200);
+  const loadRank = rank(input.loads, rankTerms, 200);
   const loadLines = loadRank.rows.map((l) => {
     const group = groupByUuid.get(str(l.circuit_group_uuid)) ?? null;
     const panel =
@@ -407,7 +409,7 @@ export function buildElectricalRecordContext(
     );
   });
 
-  const posLines = rank(input.positions, terms, 250).rows.map((p) =>
+  const posLines = rank(input.positions, rankTerms, 250).rows.map((p) =>
     line(
       p,
       ["position", "side", "poles", "ocp_amps", "label", "install_status"],
