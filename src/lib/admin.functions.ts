@@ -1058,7 +1058,7 @@ export type CreatedUser = {
   userId: string;
   email: string;
   roles: AppRole[];
-  addon: "electrical" | "electrical_readonly" | null;
+  addon: "electrical" | "electrical_readonly" | "electrical_fieldwrite" | null;
   message: string;
 };
 
@@ -1070,7 +1070,7 @@ export const createUserAccount = createServerFn({ method: "POST" })
       password: string;
       display_name?: string;
       roles?: AppRole[];
-      addon?: "electrical" | "electrical_readonly" | null;
+      addon?: "electrical" | "electrical_readonly" | "electrical_fieldwrite" | null;
     }) => {
       const email = String(d.email ?? "").trim().toLowerCase();
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("A valid email is required");
@@ -1083,7 +1083,12 @@ export const createUserAccount = createServerFn({ method: "POST" })
         }
       }
       const addon = d.addon ?? null;
-      if (addon && addon !== "electrical" && addon !== "electrical_readonly") {
+      if (
+        addon &&
+        addon !== "electrical" &&
+        addon !== "electrical_readonly" &&
+        addon !== "electrical_fieldwrite"
+      ) {
         throw new Error("invalid add-on");
       }
       return {
@@ -1178,7 +1183,9 @@ export const createUserAccount = createServerFn({ method: "POST" })
           notes:
             data.addon === "electrical_readonly"
               ? "Granted at account creation: read-only electrician access."
-              : "Granted at account creation: full Electrical module.",
+              : data.addon === "electrical_fieldwrite"
+                ? "Granted at account creation: audited electrician field-write access."
+                : "Granted at account creation: full Electrical module.",
         } as never,
         { onConflict: "user_id,addon_key" },
       );
@@ -1192,7 +1199,15 @@ export const createUserAccount = createServerFn({ method: "POST" })
       roles: data.roles,
       addon: data.addon,
       message: `${adopted ? "Adopted the existing sign-up for" : "Created"} ${data.email} — password set, email confirmed, profile approved${
-        data.addon ? `, ${data.addon === "electrical" ? "full Electrical" : "read-only Electrical"} add-on granted` : ""
+        data.addon
+          ? `, ${
+              data.addon === "electrical"
+                ? "full Electrical"
+                : data.addon === "electrical_fieldwrite"
+                  ? "audited Electrical field-write"
+                  : "read-only Electrical"
+            } add-on granted`
+          : ""
       }.`,
     };
   });

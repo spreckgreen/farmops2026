@@ -13,7 +13,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { ShieldCheck, ShieldX, ShieldQuestion, RefreshCw, MailCheck, KeyRound, MailOpen, Ban, Play, UserPlus, Zap } from "lucide-react";
+import { ShieldCheck, ShieldX, ShieldQuestion, RefreshCw, MailCheck, KeyRound, MailOpen, Ban, Play, UserPlus, PencilLine, Zap } from "lucide-react";
 
 import { AppLayout } from "@/components/app-layout";
 import { Button } from "@/components/ui/button";
@@ -232,8 +232,8 @@ function UserRow({ user, currentUserId }: { user: ManagedUser; currentUserId: st
     qc.invalidateQueries({ queryKey: ["admin", "entitlements"] });
   };
 
-  // Grants the read-only electrician add-on straight from the user row. Depth of
-  // electrical access lives in the add-on, so this never changes their roles.
+  // Grants an electrician add-on straight from the user row. Depth of electrical
+  // access lives in the add-on, so this never changes their roles.
   const electricalMut = useMutation({
     mutationFn: (addon_key: string) =>
       entitlementFn({
@@ -242,12 +242,17 @@ function UserRow({ user, currentUserId }: { user: ManagedUser; currentUserId: st
           addon_key,
           status: "active" as const,
           expires_at: null,
-          notes: "Granted from user management: read-only electrician access.",
+          notes:
+            addon_key === "electrical_fieldwrite"
+              ? "Granted from user management: audited electrician field-write access."
+              : "Granted from user management: read-only electrician access.",
         },
       }),
-    onSuccess: () => {
+    onSuccess: (_r, addon_key) => {
       toast.success(
-        `${user.email ?? "User"} now has read-only Electrical access. Manage or revoke it under Admin → Add-ons.`,
+        addon_key === "electrical_fieldwrite"
+          ? `${user.email ?? "User"} can now record electrical field work — changes appear under Admin → Electrical change audit.`
+          : `${user.email ?? "User"} now has read-only Electrical access. Manage or revoke it under Admin → Add-ons.`,
       );
       invalidate();
     },
@@ -460,6 +465,16 @@ function UserRow({ user, currentUserId }: { user: ManagedUser; currentUserId: st
           <Button
             size="sm"
             variant="outline"
+            onClick={() => electricalMut.mutate("electrical_fieldwrite")}
+            disabled={electricalMut.isPending}
+            title="Let this user record what they installed on the electrician-viewable screens. Reconciliation tools stay withheld and every change is written to the electrical change audit."
+          >
+            <PencilLine className="h-4 w-4 mr-1" />
+            Electrical field write
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
             onClick={() => setPwOpen(true)}
             title="Set a temporary password. Share it securely — the user should change it after signing in."
           >
@@ -610,7 +625,9 @@ function CreateUserButton() {
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [roles, setRoles] = useState<AppRole[]>(["electrician"]);
-  const [addon, setAddon] = useState<"electrical_readonly" | "electrical" | "none">(
+  const [addon, setAddon] = useState<
+    "electrical_readonly" | "electrical_fieldwrite" | "electrical" | "none"
+  >(
     "electrical_readonly",
   );
 
@@ -734,6 +751,10 @@ function CreateUserButton() {
                 {(
                   [
                     ["electrical_readonly", "Read-only — every electrician screen, no edits, no reconciliation tools"],
+                    [
+                      "electrical_fieldwrite",
+                      "Field write — same screens, may record as-installed work; every change is audited for your review",
+                    ],
                     ["electrical", "Full module — edits plus reconciliation (ODS import/export, validation, adjudication)"],
                     ["none", "None — no Electrical access"],
                   ] as const

@@ -5,6 +5,7 @@
 // read their own entitlement rows, and nobody can grant themselves one.
 import {
   ADDON_NOT_ENABLED,
+  ELECTRICAL_FIELD_WRITE_ADDONS,
   ELECTRICAL_READ_ADDONS,
   FULL_ELECTRICAL_ADDON,
   SCAN_ADDON,
@@ -129,20 +130,29 @@ export async function ensureScanAddon(userId: string): Promise<void> {
 /**
  * Graded Electrical gate.
  *
- * `read`  — the full add-on OR the read-only electrician add-on. Used by every
- *           electrical query so an electrician can see the field record.
- * `write` — the full add-on only. Covers every mutation plus the reconciliation
- *           tooling (ODS import/export, parallel validation, adjudication),
- *           which is never part of read-only electrician access.
+ * `read`        — the full add-on, the field-write add-on, or the read-only
+ *                 electrician add-on. Used by every electrical query.
+ * `field_write` — writes to the as-installed field record (panels, raceways,
+ *                 junction boxes, branch runs, circuits, loads, services,
+ *                 panel layout, labels, field journal). The full add-on OR the
+ *                 field-write electrician add-on. Those writes are audited.
+ * `write`       — reconciliation tooling and system-of-record corrections (ODS
+ *                 import/export, parallel validation, adjudication, apply
+ *                 gates). The full add-on only.
  */
 export async function requireElectricalAccess(
   supabase: unknown,
   userId: string,
-  mode: "read" | "write",
+  mode: "read" | "write" | "field_write",
 ): Promise<void> {
   if (mode === "write") {
     await requireAddon(supabase, userId, FULL_ELECTRICAL_ADDON);
     return;
   }
+  if (mode === "field_write") {
+    await requireAnyAddon(supabase, userId, ELECTRICAL_FIELD_WRITE_ADDONS);
+    return;
+  }
   await requireAnyAddon(supabase, userId, ELECTRICAL_READ_ADDONS);
 }
+

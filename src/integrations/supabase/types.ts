@@ -629,6 +629,63 @@ export type Database = {
           },
         ]
       }
+      electrical_change_audit: {
+        Row: {
+          access_basis: string | null
+          action: string
+          actor_email: string | null
+          changes: Json
+          created_at: string
+          entity_kind: string
+          entity_ref: string | null
+          entity_uuid: string | null
+          id: string
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          section: string
+          summary: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          access_basis?: string | null
+          action: string
+          actor_email?: string | null
+          changes?: Json
+          created_at?: string
+          entity_kind: string
+          entity_ref?: string | null
+          entity_uuid?: string | null
+          id?: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          section: string
+          summary?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          access_basis?: string | null
+          action?: string
+          actor_email?: string | null
+          changes?: Json
+          created_at?: string
+          entity_kind?: string
+          entity_ref?: string | null
+          entity_uuid?: string | null
+          id?: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          section?: string
+          summary?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       electrical_circuit_groups: {
         Row: {
           backup_eligible: boolean | null

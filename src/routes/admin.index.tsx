@@ -19,6 +19,7 @@ import {
   Mail,
 
 
+  ClipboardList,
 } from "lucide-react";
 
 export const Route = createFileRoute("/admin/")({
@@ -66,6 +67,10 @@ function AdminIndexPage() {
             <Link to="/admin/panel-access" className="flex items-center gap-2 rounded-md border p-3 hover:bg-accent">
               <Users className="h-4 w-4" /> Panel edit access approvals
             </Link>
+            <Link to="/admin/electrical-audit" className="flex items-center gap-2 rounded-md border p-3 hover:bg-accent">
+              <ClipboardList className="h-4 w-4" /> Electrical change audit
+            </Link>
+
             <Link to="/admin/export" className="flex items-center gap-2 rounded-md border p-3 hover:bg-accent">
               <Download className="h-4 w-4" /> Export snapshot
             </Link>
