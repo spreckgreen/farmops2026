@@ -101,6 +101,10 @@ function AdminIndexPage() {
             <Link to="/admin/ai-runtime" className="flex items-center gap-2 rounded-md border p-3 hover:bg-accent">
               <Bot className="h-4 w-4" /> AI runtime (endpoint, model, tests)
             </Link>
+            <Link to="/admin/ai-costs" className="flex items-center gap-2 rounded-md border p-3 hover:bg-accent">
+              <Bot className="h-4 w-4" /> AI feature costs &amp; usage
+            </Link>
+
             <Link to="/settings/self-host" className="flex items-center gap-2 rounded-md border p-3 hover:bg-accent">
               <Mail className="h-4 w-4" /> SMTP / outbound email
             </Link>
