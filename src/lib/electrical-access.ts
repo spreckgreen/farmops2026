@@ -68,6 +68,8 @@ export interface ElectricalAccessInput {
   full: boolean;
   /** Read-only `electrical_readonly` entitlement is active. */
   readOnly: boolean;
+  /** Field-write `electrical_fieldwrite` entitlement is active. */
+  fieldWrite?: boolean;
   /** Scan-scoped `electrical_scan` entitlement is active. */
   scan?: boolean;
 }
@@ -77,6 +79,10 @@ export interface ElectricalAccess {
   canView: boolean;
   /** No writes are authorised for this user. */
   readOnly: boolean;
+  /** May write the as-installed field record (audited when not the full add-on). */
+  canWrite: boolean;
+  /** Writes are recorded for administrator review. */
+  auditedWrites: boolean;
   /** Reconciliation tabs are available. */
   canReconcile: boolean;
   /** Only a scanned panel label, no farm-wide access. */
@@ -87,18 +93,21 @@ export interface ElectricalAccess {
 
 export function electricalAccess(input: ElectricalAccessInput): ElectricalAccess {
   const full = input.full === true;
-  const readOnly = !full && input.readOnly === true;
-  const scanOnly = !full && !readOnly && input.scan === true;
+  const fieldWrite = !full && input.fieldWrite === true;
+  const readOnly = !full && !fieldWrite && input.readOnly === true;
+  const scanOnly = !full && !fieldWrite && !readOnly && input.scan === true;
   const sections: ElectricalSection[] = full
     ? [...ELECTRICIAN_VIEWABLE_SECTIONS, ...RECONCILIATION_SECTIONS]
-    : readOnly
+    : fieldWrite || readOnly
       ? [...ELECTRICIAN_VIEWABLE_SECTIONS]
       : scanOnly
         ? ["panel"]
         : [];
   return {
-    canView: full || readOnly || scanOnly,
-    readOnly: !full,
+    canView: full || fieldWrite || readOnly || scanOnly,
+    readOnly: !full && !fieldWrite,
+    canWrite: full || fieldWrite,
+    auditedWrites: fieldWrite,
     canReconcile: full,
     scanOnly,
     sections,
@@ -111,6 +120,7 @@ export function canOpenSection(
 ): boolean {
   return access.sections.includes(section);
 }
+
 
 export const RECONCILIATION_DENIED =
   "Reconciliation tools compare the canonical engineering workbook against FarmOps and are limited to the full Electrical add-on. Your access covers the as-installed field record, read-only.";
