@@ -25,6 +25,7 @@ import {
   testSmtpConnection,
   type SmtpTestResult,
 } from "@/lib/smtp.functions";
+import { sendSmtpTestEmail } from "@/lib/app-email.functions";
 import { defaultPortFor, type SmtpSecurity } from "@/lib/smtp-config";
 
 type FormState = {
@@ -54,6 +55,7 @@ export function SmtpConfigCard() {
   const loadFn = useServerFn(getSmtpConfig);
   const saveFn = useServerFn(saveSmtpConfig);
   const testFn = useServerFn(testSmtpConnection);
+  const sendTestFn = useServerFn(sendSmtpTestEmail);
 
   const state = useQuery({
     queryKey: ["smtp-config"],
@@ -112,6 +114,15 @@ export function SmtpConfigCard() {
       if (r.ok) toast.success(`Relay answered in ${r.latencyMs} ms`);
       else toast.error(`SMTP test failed: ${r.error ?? "unknown error"}`);
     },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const sendTest = useMutation({
+    mutationFn: () => sendTestFn({ data: {} }),
+    onSuccess: (r) =>
+      r.sent
+        ? toast.success(`Test email sent to ${r.to}`)
+        : toast.error(`Could not send: ${r.reason}`),
     onError: (e: Error) => toast.error(e.message),
   });
 
@@ -272,6 +283,15 @@ export function SmtpConfigCard() {
               >
                 <Plug className="h-4 w-4 mr-1" />
                 {runTest.isPending ? "Testing…" : "Test connection"}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => sendTest.mutate()}
+                disabled={sendTest.isPending || !cfg.ready}
+                title="Sends a branded test email to your own address"
+              >
+                <Send className="h-4 w-4 mr-1" />
+                {sendTest.isPending ? "Sending…" : "Send test email"}
               </Button>
             </div>
 
