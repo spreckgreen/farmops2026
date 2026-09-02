@@ -145,6 +145,9 @@ export function nearestNewCol(xFt: number): LineMatch {
 export interface DrawingAnchor {
   match: RegExp;
   newGrid: string;
+  /** Drawn position, feet east of the west wall / south of the north wall. */
+  xFt: number;
+  yFt: number;
   evidence: string;
 }
 
@@ -153,6 +156,8 @@ export const DRAWING_ANCHORS: DrawingAnchor[] = [
     // GD2 spans 3'-10 1/2" to 15'-10 1/2" on the north wall.
     match: /garage\s*door\s*w\b|garage\s*doors?\s*west\b/i,
     newGrid: "A2",
+    xFt: 9.9,
+    yFt: 0,
     evidence:
       "Corrected drawing: GD2 (12'x12' overhead door) spans 3'-10 1/2\" to 15'-10 1/2\" on the north wall; its centreline 9.9 ft east of the west wall is nearest new column 2 (8 ft), on row A (north wall).",
   },
@@ -160,18 +165,24 @@ export const DRAWING_ANCHORS: DrawingAnchor[] = [
     // GD1 spans 24'-1 1/2" to 36'-1 1/2" on the north wall.
     match: /garage\s*doors?\s*e\b|garage\s*doors?\s*east\b/i,
     newGrid: "A5",
+    xFt: 30.1,
+    yFt: 0,
     evidence:
       "Corrected drawing: GD1 (12'x12' overhead door) spans 24'-1 1/2\" to 36'-1 1/2\" on the north wall; its centreline 30.1 ft east of the west wall is nearest new column 5 (32 ft), on row A (north wall).",
   },
   {
     match: /\bne\b[^a-z]*man\s*door|man\s*door[^a-z]*\bne\b/i,
     newGrid: "A8",
+    xFt: 57,
+    yFt: 0,
     evidence:
       "Corrected drawing: MAN DOOR (NE), 3'-0\" wide, sits between 55'-6\" and 58'-6\" on the north wall; its centreline 57 ft east of the west wall is nearest new column 8 (56 ft), on row A.",
   },
   {
     match: /\bsw\b[^a-z]*man\s*door|man\s*door[^a-z]*\bsw\b/i,
     newGrid: "E1",
+    xFt: 0,
+    yFt: 32,
     evidence:
       "Corrected drawing: MAN DOOR (SW) is on the west wall at about 32 ft south of the north wall — new row E (32 ft), column 1 (west wall).",
   },
@@ -212,11 +223,17 @@ export interface MigrationInputRow {
  * Panels named for a building corner. The corrected drawing fixes the corner
  * gridlines; the panel ID is permanent and is not renamed by this migration.
  */
-const PANEL_CORNERS: { suffix: string; newGrid: string; corner: string }[] = [
-  { suffix: "NW", newGrid: "A1", corner: "north-west corner (row A, column 1)" },
-  { suffix: "NE", newGrid: "A9", corner: "north-east corner (row A, column 9)" },
-  { suffix: "SW", newGrid: "F1", corner: "south-west corner (row F, column 1)" },
-  { suffix: "SE", newGrid: "F9", corner: "south-east corner (row F, column 9)" },
+const PANEL_CORNERS: {
+  suffix: string;
+  newGrid: string;
+  corner: string;
+  xFt: number;
+  yFt: number;
+}[] = [
+  { suffix: "NW", newGrid: "A1", corner: "north-west corner (row A, column 1)", xFt: 0, yFt: 0 },
+  { suffix: "NE", newGrid: "A9", corner: "north-east corner (row A, column 9)", xFt: 60, yFt: 0 },
+  { suffix: "SW", newGrid: "F1", corner: "south-west corner (row F, column 1)", xFt: 0, yFt: 40 },
+  { suffix: "SE", newGrid: "F9", corner: "south-east corner (row F, column 9)", xFt: 60, yFt: 40 },
 ];
 
 function ft(n: number): string {
