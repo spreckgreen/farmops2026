@@ -265,20 +265,54 @@ export const listUsers = createServerFn({ method: "GET" })
     // Pull auth confirmation + last-sign-in via admin API so the UI can flag
     // unconfirmed accounts and offer the "Confirm email" action.
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const authByUser = new Map<string, { confirmed: string | null; lastSignIn: string | null }>();
+    const authByUser = new Map<
+      string,
+      { confirmed: string | null; lastSignIn: string | null; email: string | null; created: string }
+    >();
     try {
-      const { data } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 200 });
-      for (const u of data?.users ?? []) {
-        authByUser.set(u.id, {
-          confirmed: u.email_confirmed_at ?? null,
-          lastSignIn: u.last_sign_in_at ?? null,
-        });
+      for (let page = 1; page <= 10; page++) {
+        const { data } = await supabaseAdmin.auth.admin.listUsers({ page, perPage: 200 });
+        const batch = data?.users ?? [];
+        for (const u of batch) {
+          authByUser.set(u.id, {
+            confirmed: u.email_confirmed_at ?? null,
+            lastSignIn: u.last_sign_in_at ?? null,
+            email: u.email ?? null,
+            created: u.created_at ?? new Date().toISOString(),
+          });
+        }
+        if (batch.length < 200) break;
       }
     } catch {
       // Non-fatal — fall back to unknown confirmation state.
     }
 
-    return (profiles.data ?? []).map((p) => {
+    const profileIds = new Set((profiles.data ?? []).map((p) => p.id));
+    // Auth accounts with no profile row (e.g. sign-up whose confirmation email
+    // never arrived) are listed too, otherwise they are invisible here yet still
+    // occupy the email address.
+    const orphans: ManagedUser[] = [];
+    for (const [id, auth] of authByUser) {
+      if (profileIds.has(id)) continue;
+      orphans.push({
+        id,
+        email: auth.email,
+        display_name: null,
+        status: "pending",
+        reviewed_by: null,
+        reviewed_at: null,
+        created_at: auth.created,
+        roles: rolesByUser.get(id) ?? [],
+        email_confirmed_at: auth.confirmed,
+        last_sign_in_at: auth.lastSignIn,
+        disabled_at: null,
+        disabled_by: null,
+        disabled_reason: null,
+        profile_missing: true,
+      });
+    }
+
+    const mapped: ManagedUser[] = (profiles.data ?? []).map((p) => {
       const auth = authByUser.get(p.id);
       return {
         id: p.id,
