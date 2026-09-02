@@ -177,6 +177,10 @@ export interface CategoryCAnalysis {
   compared_at: string;
   raw_c: number;
   groups_count: number;
+  /** Groups that repeat a pattern across more than one finding. */
+  systematic_groups_count: number;
+  /** Groups holding rows that still need individual engineering review. */
+  individual_review_groups_count: number;
   rows_explained_by_systematic_pattern: number;
   rows_requiring_individual_review: number;
   counts_by_cause: Record<CategoryCLikelyCause, number>;
