@@ -233,6 +233,7 @@ function UserRow({ user, currentUserId }: { user: ManagedUser; currentUserId: st
   const [pendingRoles, setPendingRoles] = useState<AppRole[] | null>(null);
   const [pwOpen, setPwOpen] = useState(false);
   const [pwValue, setPwValue] = useState("");
+  const [pendingAddons, setPendingAddons] = useState<AddonKey[] | null>(null);
   const [disableOpen, setDisableOpen] = useState(false);
   const [disableReason, setDisableReason] = useState("");
 
@@ -243,33 +244,6 @@ function UserRow({ user, currentUserId }: { user: ManagedUser; currentUserId: st
     qc.invalidateQueries({ queryKey: ["my-addons"] });
     qc.invalidateQueries({ queryKey: ["admin", "entitlements"] });
   };
-
-  // Grants an electrician add-on straight from the user row. Depth of electrical
-  // access lives in the add-on, so this never changes their roles.
-  const electricalMut = useMutation({
-    mutationFn: (addon_key: string) =>
-      entitlementFn({
-        data: {
-          user_id: user.id,
-          addon_key,
-          status: "active" as const,
-          expires_at: null,
-          notes:
-            addon_key === "electrical_fieldwrite"
-              ? "Granted from user management: audited electrician field-write access."
-              : "Granted from user management: read-only electrician access.",
-        },
-      }),
-    onSuccess: (_r, addon_key) => {
-      toast.success(
-        addon_key === "electrical_fieldwrite"
-          ? `${user.email ?? "User"} can now record electrical field work — changes appear under Admin → Electrical change audit.`
-          : `${user.email ?? "User"} now has read-only Electrical access. Manage or revoke it under Admin → Add-ons.`,
-      );
-      invalidate();
-    },
-    onError: (e) => toast.error((e as Error).message),
-  });
 
   const approveMut = useMutation({
     mutationFn: (status: ApprovalStatus) =>
@@ -282,10 +256,12 @@ function UserRow({ user, currentUserId }: { user: ManagedUser; currentUserId: st
   });
 
   const rolesMut = useMutation({
-    mutationFn: (roles: AppRole[]) => rolesFn({ data: { userId: user.id, roles } }),
+    mutationFn: (vars: { roles: AppRole[]; addons: AddonKey[] }) =>
+      rolesFn({ data: { userId: user.id, roles: vars.roles, addons: vars.addons } }),
     onSuccess: () => {
-      toast.success("Roles updated");
+      toast.success("Roles and access updated — de-selected items were removed.");
       setPendingRoles(null);
+      setPendingAddons(null);
       invalidate();
     },
     onError: (e) => toast.error((e as Error).message),
@@ -341,17 +317,31 @@ function UserRow({ user, currentUserId }: { user: ManagedUser; currentUserId: st
     setPwValue(b64);
   };
 
+  // Only *live* grants count as selected, so a previously revoked row shows as
+  // unchecked and can be handed back by ticking it again.
+  const activeAddons = (user.addons ?? [])
+    .filter((a) => isEntitlementActive(a))
+    .map((a) => a.addon_key as AddonKey);
+
   const effectiveRoles = pendingRoles ?? user.roles;
+  const effectiveAddons = pendingAddons ?? activeAddons;
   const isSelf = user.id === currentUserId;
+  const sameSet = (a: string[], b: string[]) =>
+    a.length === b.length && a.every((x) => b.includes(x));
   const dirty =
-    pendingRoles !== null &&
-    (pendingRoles.length !== user.roles.length ||
-      pendingRoles.some((r) => !user.roles.includes(r)));
+    (pendingRoles !== null && !sameSet(pendingRoles, user.roles)) ||
+    (pendingAddons !== null && !sameSet(pendingAddons, activeAddons));
 
   const toggleRole = (role: AppRole, on: boolean) => {
     const base = pendingRoles ?? user.roles;
     const next = on ? Array.from(new Set([...base, role])) : base.filter((r) => r !== role);
     setPendingRoles(next);
+  };
+
+  const toggleAddon = (key: AddonKey, on: boolean) => {
+    const base = pendingAddons ?? activeAddons;
+    const next = on ? Array.from(new Set([...base, key])) : base.filter((k) => k !== key);
+    setPendingAddons(next);
   };
 
   const unconfirmed = user.email_confirmed_at === null;
@@ -414,6 +404,23 @@ function UserRow({ user, currentUserId }: { user: ManagedUser; currentUserId: st
               <span className="text-xs text-muted-foreground">{ROLE_HINT[role]}</span>
             </label>
           ))}
+
+          <div className="pt-2 mt-1 border-t border-border">
+            <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide mb-1">
+              Electrical access
+            </div>
+            {ADDON_KEYS.map((key) => (
+              <label key={key} className="flex items-center gap-2 text-sm">
+                <Checkbox
+                  checked={effectiveAddons.includes(key)}
+                  onCheckedChange={(c) => toggleAddon(key, c === true)}
+                  disabled={rolesMut.isPending}
+                />
+                <span>{ADDON_LABEL[key]}</span>
+                <span className="text-xs text-muted-foreground">{ADDON_HINT[key]}</span>
+              </label>
+            ))}
+          </div>
         </div>
       </TableCell>
       <TableCell className="align-top text-right space-y-2">
@@ -467,26 +474,6 @@ function UserRow({ user, currentUserId }: { user: ManagedUser; currentUserId: st
           <Button
             size="sm"
             variant="outline"
-            onClick={() => electricalMut.mutate("electrical_readonly")}
-            disabled={electricalMut.isPending}
-            title="Give this user read-only access to the electrician-viewable Electrical screens (no reconciliation tools, no edits)."
-          >
-            <Zap className="h-4 w-4 mr-1" />
-            Electrical read-only
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => electricalMut.mutate("electrical_fieldwrite")}
-            disabled={electricalMut.isPending}
-            title="Let this user record what they installed on the electrician-viewable screens. Reconciliation tools stay withheld and every change is written to the electrical change audit."
-          >
-            <PencilLine className="h-4 w-4 mr-1" />
-            Electrical field write
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
             onClick={() => setPwOpen(true)}
             title="Set a temporary password. Share it securely — the user should change it after signing in."
           >
@@ -524,17 +511,22 @@ function UserRow({ user, currentUserId }: { user: ManagedUser; currentUserId: st
             <Button
               size="sm"
               variant="ghost"
-              onClick={() => setPendingRoles(null)}
+              onClick={() => {
+                setPendingRoles(null);
+                setPendingAddons(null);
+              }}
               disabled={rolesMut.isPending}
             >
               Cancel
             </Button>
             <Button
               size="sm"
-              onClick={() => rolesMut.mutate(pendingRoles!)}
+              onClick={() =>
+                rolesMut.mutate({ roles: effectiveRoles, addons: effectiveAddons })
+              }
               disabled={rolesMut.isPending}
             >
-              Save roles
+              Save roles &amp; access
             </Button>
           </div>
         )}
