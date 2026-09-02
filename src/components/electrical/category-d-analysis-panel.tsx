@@ -130,11 +130,14 @@ export function CategoryDAnalysisPanel({ diag }: { diag: NumericDiagnosticsRepor
 
         <p className="text-xs text-muted-foreground">
           Missing provenance states what evidence is owed before a finding can be adjudicated — it
-          is not a disposition: every row below is still Category D and still unresolved. Exact
-          source values, worksheet/row and stable IDs are preserved, bound to workbook SHA{" "}
-          <code className="break-all">{analysis.ods_sha256}</code>. No schema, normalization, ODS or
-          FarmOps change is made by this analysis.
+          is not a disposition. Rows marked{" "}
+          <code>PROVENANCE_ESTABLISHED_NO_FURTHER_EVIDENCE_REQUIRED</code> already carry a
+          SHA-bound adjudication: they stay Category D in raw/historical reporting and simply owe
+          nothing further. Exact source values, worksheet/row and stable IDs are preserved, bound to
+          workbook SHA <code className="break-all">{analysis.ods_sha256}</code>. No schema,
+          normalization, ODS or FarmOps change is made by this analysis.
         </p>
+
 
         {analysis.raw_d === 0 ? (
           <p className="text-sm text-muted-foreground">No Category-D findings in this run.</p>
