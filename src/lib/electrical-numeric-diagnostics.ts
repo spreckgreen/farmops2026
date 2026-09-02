@@ -581,6 +581,26 @@ export function numericDiagnostics(report: ValidationReport): NumericDiagnostics
 
   const counts = EMPTY_COUNTS();
   for (const f of findings) counts[f.category] += 1;
+  const adjudicatedCounts = EMPTY_COUNTS();
+  const unresolvedCounts = EMPTY_COUNTS();
+  const byDisposition: Partial<Record<ConvergenceDisposition, number>> = {};
+  for (const f of findings) {
+    if (f.adjudicated) adjudicatedCounts[f.category] += 1;
+    if (f.unresolved) unresolvedCounts[f.category] += 1;
+    byDisposition[f.convergence_disposition] =
+      (byDisposition[f.convergence_disposition] ?? 0) + 1;
+  }
+  const dispositionCounts = {
+    adjudicated: findings.filter((f) => f.adjudicated).length,
+    unresolved: findings.filter((f) => f.unresolved).length,
+    canonical_corrections_pending: byDisposition.CANONICAL_ODS_CORRECTION_REQUIRED ?? 0,
+    farmops_corrections_pending: byDisposition.FARMOPS_CORRECTION_REQUIRED ?? 0,
+    semantic_representation_differences: byDisposition.SEMANTIC_REPRESENTATION_DIFFERENCE ?? 0,
+    current_semantics_unresolved: byDisposition.CURRENT_SEMANTICS_UNRESOLVED ?? 0,
+    provenance_or_field_verification_pending:
+      (byDisposition.PROVENANCE_VERIFICATION_REQUIRED ?? 0) +
+      (byDisposition.FIELD_VERIFICATION_REQUIRED ?? 0),
+  };
 
   const notCompared = registry
     .filter((e) => !e.comparable)
