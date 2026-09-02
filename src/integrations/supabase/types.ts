@@ -1654,6 +1654,17 @@ export type Database = {
           location: string | null
           maximum_overcurrent_protection: number | null
           minimum_circuit_ampacity: number | null
+          nameplate_applied_by: string | null
+          nameplate_captured_at: string | null
+          nameplate_fla_rla: string | null
+          nameplate_manufacturer: string | null
+          nameplate_mca: string | null
+          nameplate_mocp: string | null
+          nameplate_model: string | null
+          nameplate_phase: string | null
+          nameplate_serial: string | null
+          nameplate_source: string | null
+          nameplate_volts: string | null
           notes: string | null
           ods_extras: string | null
           phase: string | null
@@ -1704,6 +1715,17 @@ export type Database = {
           location?: string | null
           maximum_overcurrent_protection?: number | null
           minimum_circuit_ampacity?: number | null
+          nameplate_applied_by?: string | null
+          nameplate_captured_at?: string | null
+          nameplate_fla_rla?: string | null
+          nameplate_manufacturer?: string | null
+          nameplate_mca?: string | null
+          nameplate_mocp?: string | null
+          nameplate_model?: string | null
+          nameplate_phase?: string | null
+          nameplate_serial?: string | null
+          nameplate_source?: string | null
+          nameplate_volts?: string | null
           notes?: string | null
           ods_extras?: string | null
           phase?: string | null
@@ -1754,6 +1776,17 @@ export type Database = {
           location?: string | null
           maximum_overcurrent_protection?: number | null
           minimum_circuit_ampacity?: number | null
+          nameplate_applied_by?: string | null
+          nameplate_captured_at?: string | null
+          nameplate_fla_rla?: string | null
+          nameplate_manufacturer?: string | null
+          nameplate_mca?: string | null
+          nameplate_mocp?: string | null
+          nameplate_model?: string | null
+          nameplate_phase?: string | null
+          nameplate_serial?: string | null
+          nameplate_source?: string | null
+          nameplate_volts?: string | null
           notes?: string | null
           ods_extras?: string | null
           phase?: string | null
@@ -1772,6 +1805,68 @@ export type Database = {
             columns: ["circuit_group_uuid"]
             isOneToOne: false
             referencedRelation: "electrical_circuit_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      electrical_nameplate_write_requests: {
+        Row: {
+          applied_at: string | null
+          applied_fields: Json | null
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
+          id: string
+          load_label: string | null
+          load_ref: string | null
+          load_uuid: string
+          proposed: Json
+          request_note: string | null
+          requested_by: string
+          status: Database["public"]["Enums"]["approval_status"]
+          updated_at: string
+        }
+        Insert: {
+          applied_at?: string | null
+          applied_fields?: Json | null
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          id?: string
+          load_label?: string | null
+          load_ref?: string | null
+          load_uuid: string
+          proposed?: Json
+          request_note?: string | null
+          requested_by: string
+          status?: Database["public"]["Enums"]["approval_status"]
+          updated_at?: string
+        }
+        Update: {
+          applied_at?: string | null
+          applied_fields?: Json | null
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          id?: string
+          load_label?: string | null
+          load_ref?: string | null
+          load_uuid?: string
+          proposed?: Json
+          request_note?: string | null
+          requested_by?: string
+          status?: Database["public"]["Enums"]["approval_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "electrical_nameplate_write_requests_load_uuid_fkey"
+            columns: ["load_uuid"]
+            isOneToOne: false
+            referencedRelation: "electrical_loads"
             referencedColumns: ["id"]
           },
         ]

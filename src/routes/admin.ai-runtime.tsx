@@ -10,6 +10,7 @@ import { ModelPickerCard } from "@/components/ai-model-picker-card";
 import { AiFeatureSwitches } from "@/components/ai-feature-switches";
 import { AiRequestQueueCard } from "@/components/ai-request-queue";
 import { AiUsageBillCard } from "@/components/ai-usage-bill";
+import { NameplateWriteQueueCard } from "@/components/electrical/nameplate-write-queue";
 import { AlertTriangle, CheckCircle2, Sparkles } from "lucide-react";
 
 export const Route = createFileRoute("/admin/ai-runtime")({
@@ -147,6 +148,8 @@ function AiRuntimePage() {
             <AiFeatureSwitches />
 
             <AiRequestQueueCard />
+
+            <NameplateWriteQueueCard />
 
             <AiUsageBillCard />
 
