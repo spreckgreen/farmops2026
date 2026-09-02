@@ -13,7 +13,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { ShieldCheck, ShieldX, ShieldQuestion, RefreshCw, MailCheck, KeyRound, MailOpen, Ban, Play, UserPlus } from "lucide-react";
+import { ShieldCheck, ShieldX, ShieldQuestion, RefreshCw, MailCheck, KeyRound, MailOpen, Ban, Play, UserPlus, Sparkles } from "lucide-react";
 
 import { AppLayout } from "@/components/app-layout";
 import { Button } from "@/components/ui/button";
@@ -53,6 +53,15 @@ import {
   type ManagedUser,
 } from "@/lib/admin.functions";
 import { ADDON_KEYS, isEntitlementActive, type AddonKey } from "@/lib/addons";
+import {
+  ELECTRICAL_AI_SCENARIOS,
+  type ElectricalAiScenarioId,
+} from "@/lib/electrical-ai-scenarios";
+import {
+  adminListElectricalAiFeatureGrants,
+  adminSetElectricalAiFeatures,
+  type AdminElectricalAiGrantRow,
+} from "@/lib/electrical-ai-access.functions";
 
 
 
@@ -480,6 +489,7 @@ function UserRow({ user, currentUserId }: { user: ManagedUser; currentUserId: st
             <KeyRound className="h-4 w-4 mr-1" />
             Set password
           </Button>
+          <AiFeaturesButton userId={user.id} email={user.email} />
           {!isSelf &&
             (disabled ? (
               <Button
@@ -800,3 +810,156 @@ function StatusBadge({ status }: { status: ApprovalStatus }) {
   return <Badge variant="secondary">Pending</Badge>;
 }
 
+
+const AI_REQUEST_BADGE: Record<string, string> = {
+  pending: "requested",
+  approved: "approved",
+  rejected: "rejected",
+  revoked: "revoked",
+};
+
+/**
+ * AI feature management for one user — the admin side of the electrician's
+ * request list. Ticked scenarios are approved; un-ticking an approved scenario
+ * revokes it, and un-ticking a pending request turns it down. The row history
+ * is kept either way, so you can see what was asked for and when.
+ */
+function AiFeaturesButton({ userId, email }: { userId: string; email: string | null }) {
+  const qc = useQueryClient();
+  const listFn = useServerFn(adminListElectricalAiFeatureGrants);
+  const saveFn = useServerFn(adminSetElectricalAiFeatures);
+  const [open, setOpen] = useState(false);
+  const [picked, setPicked] = useState<ElectricalAiScenarioId[] | null>(null);
+  const [note, setNote] = useState("");
+
+  const grantsQ = useQuery<AdminElectricalAiGrantRow[]>({
+    queryKey: ["admin", "electrical-ai-grants"],
+    queryFn: () => listFn(),
+  });
+
+  const rows = (grantsQ.data ?? []).filter((r) => r.user_id === userId);
+  const approved = rows
+    .filter((r) => r.status === "approved")
+    .map((r) => r.scenario as ElectricalAiScenarioId);
+  const pendingCount = rows.filter((r) => r.status === "pending").length;
+  const effective = picked ?? approved;
+
+  const saveMut = useMutation({
+    mutationFn: () =>
+      saveFn({
+        data: {
+          userId,
+          approved: effective,
+          note: note.trim() || undefined,
+        },
+      }),
+    onSuccess: () => {
+      toast.success("AI features updated for this user.");
+      setPicked(null);
+      setNote("");
+      setOpen(false);
+      qc.invalidateQueries({ queryKey: ["admin", "electrical-ai-grants"] });
+      qc.invalidateQueries({ queryKey: ["electrical-ai-scenarios"] });
+    },
+    onError: (e) => toast.error((e as Error).message),
+  });
+
+  const toggle = (id: ElectricalAiScenarioId, on: boolean) =>
+    setPicked(on ? [...new Set([...effective, id])] : effective.filter((x) => x !== id));
+
+  return (
+    <>
+      <Button
+        size="sm"
+        variant="outline"
+        onClick={() => setOpen(true)}
+        title="Approve or revoke the Electrical AI scenarios this person may run."
+      >
+        <Sparkles className="h-4 w-4 mr-1" />
+        AI features
+        {pendingCount > 0 && (
+          <Badge variant="destructive" className="ml-1 text-[10px]">
+            {pendingCount}
+          </Badge>
+        )}
+      </Button>
+
+      <Dialog
+        open={open}
+        onOpenChange={(o) => {
+          setOpen(o);
+          if (!o) {
+            setPicked(null);
+            setNote("");
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>AI features</DialogTitle>
+            <DialogDescription>
+              <span className="font-mono">{email ?? userId}</span> — tick the Electrical AI
+              scenarios they may run. This enables the scenario only: it never widens which
+              records they can read, and AI never writes an electrical record.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2">
+            {ELECTRICAL_AI_SCENARIOS.map((def) => {
+              const row = rows.find((r) => r.scenario === def.id) ?? null;
+              return (
+                <label key={def.id} className="flex items-start gap-3 rounded-md border p-3">
+                  <Checkbox
+                    className="mt-0.5"
+                    checked={effective.includes(def.id)}
+                    onCheckedChange={(c) => toggle(def.id, c === true)}
+                    disabled={saveMut.isPending}
+                  />
+                  <div className="min-w-0 space-y-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-sm font-medium">{def.label}</span>
+                      {row && (
+                        <Badge
+                          variant={row.status === "pending" ? "destructive" : "outline"}
+                          className="text-[10px]"
+                        >
+                          {AI_REQUEST_BADGE[row.status]}
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">{def.description}</p>
+                    {row?.request_note && (
+                      <p className="text-xs text-muted-foreground">
+                        Their note: {row.request_note}
+                      </p>
+                    )}
+                  </div>
+                </label>
+              );
+            })}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor={`ai-note-${userId}`}>Decision note (optional)</Label>
+            <Input
+              id={`ai-note-${userId}`}
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="e.g. Approved for the PNL-H1 reconciliation window"
+              maxLength={500}
+            />
+          </div>
+
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={() => saveMut.mutate()} disabled={saveMut.isPending}>
+              {saveMut.isPending ? "Saving…" : "Save AI features"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
