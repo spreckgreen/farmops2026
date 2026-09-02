@@ -39,6 +39,13 @@ export type MyProfile = {
   disabled_reason: string | null;
 };
 
+/** One add-on grant as shown in user management. */
+export type ManagedAddon = {
+  addon_key: string;
+  status: string;
+  expires_at: string | null;
+};
+
 export type ManagedUser = {
   id: string;
   email: string | null;
