@@ -50,6 +50,7 @@ export type AdjudicationBucket =
   | "calculation_basis_difference"
   | "engineering_value_supported_by_equipment_identity"
   | "farmops_value_incompatible_with_verified_equipment"
+  | "canonical_ods_value_incompatible_with_verified_equipment"
   | "consistent_with_manufacturer_mocp"
   | "amp_semantic_provenance_required"
   | "farmops_amp_semantic_or_source_requires_review"
@@ -61,6 +62,7 @@ export const ADJUDICATION_BUCKET_ORDER: AdjudicationBucket[] = [
   "engineering_value_supported_by_equipment_identity",
   "consistent_with_manufacturer_mocp",
   "farmops_value_incompatible_with_verified_equipment",
+  "canonical_ods_value_incompatible_with_verified_equipment",
   "farmops_amp_semantic_or_source_requires_review",
   "amp_semantic_provenance_required",
   "equipment_identified_rating_verification_pending",
@@ -78,6 +80,8 @@ export const ADJUDICATION_BUCKET_LABELS: Record<AdjudicationBucket, string> = {
     "Equipment identified — electrical rating verification pending",
   farmops_value_incompatible_with_verified_equipment:
     "FarmOps value incompatible with verified equipment",
+  canonical_ods_value_incompatible_with_verified_equipment:
+    "Canonical ODS value incompatible with verified equipment",
   consistent_with_manufacturer_mocp: "Consistent with manufacturer MOCP",
   amp_semantic_provenance_required: "Amp semantic provenance required",
   farmops_amp_semantic_or_source_requires_review:
@@ -96,17 +100,29 @@ export const ADJUDICATION_BUCKET_CODES: Record<AdjudicationBucket, string> = {
     "EQUIPMENT_IDENTIFIED_ELECTRICAL_RATING_VERIFICATION_PENDING",
   farmops_value_incompatible_with_verified_equipment:
     "FARMOPS_VALUE_INCOMPATIBLE_WITH_VERIFIED_EQUIPMENT",
+  canonical_ods_value_incompatible_with_verified_equipment:
+    "CANONICAL_ODS_VALUE_INCOMPATIBLE_WITH_VERIFIED_EQUIPMENT",
   consistent_with_manufacturer_mocp: "CONSISTENT_WITH_MANUFACTURER_MOCP",
   amp_semantic_provenance_required: "AMP_SEMANTIC_PROVENANCE_REQUIRED",
   farmops_amp_semantic_or_source_requires_review:
     "FARMOPS_AMP_SEMANTIC_OR_SOURCE_REQUIRES_REVIEW",
 };
 
+/**
+ * Buckets whose corrective action belongs to the canonical workbook, not to
+ * FarmOps. A finding in one of these buckets must never be presented as a
+ * pending FarmOps write, and never authorizes one.
+ */
+export const CANONICAL_ODS_CORRECTION_BUCKETS = new Set<AdjudicationBucket>([
+  "canonical_ods_value_incompatible_with_verified_equipment",
+]);
+
 export type Recommendation =
   | "KEEP_ODS_AND_CORRECT_FARMOPS"
   | "KEEP_FARMOPS_AND_UPDATE_ODS"
   | "PRESERVE_BOTH_AS_DISTINCT_SEMANTICS"
   | "CORRECT_FARMOPS_WITH_SEMANTIC_REPRESENTATION"
+  | "CANONICAL_ODS_CORRECTION_REQUIRED"
   | "FIELD_OR_DOCUMENT_VERIFICATION_REQUIRED"
   | "NO_CHANGE";
 
@@ -116,9 +132,12 @@ export const RECOMMENDATION_LABELS: Record<Recommendation, string> = {
   PRESERVE_BOTH_AS_DISTINCT_SEMANTICS: "Preserve both as distinct semantics",
   CORRECT_FARMOPS_WITH_SEMANTIC_REPRESENTATION:
     "Correct FarmOps using the additive semantic representation (no scalar collapse)",
+  CANONICAL_ODS_CORRECTION_REQUIRED:
+    "Canonical ODS correction required (no FarmOps write; queue for the controlled ODS workflow)",
   FIELD_OR_DOCUMENT_VERIFICATION_REQUIRED: "Field or document verification required",
   NO_CHANGE: "No change",
 };
+
 
 
 /* ------------------------------------------------------------- provenance */
