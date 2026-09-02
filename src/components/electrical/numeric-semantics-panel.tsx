@@ -14,6 +14,7 @@ import {
   NUMERIC_ARTIFACT_LABELS,
   type NumericCategory,
 } from "@/lib/electrical-numeric-diagnostics";
+import { CONVERGENCE_DISPOSITION_LABELS } from "@/lib/electrical-convergence";
 import { systemVoltagePreviewCsv } from "@/lib/electrical-system-voltage";
 import { SystemVoltageApplyGate } from "@/components/electrical/system-voltage-apply-gate";
 import { LoadSemanticDetailPanel } from "@/components/electrical/load-semantic-detail-panel";
@@ -125,13 +126,52 @@ export function NumericSemanticsPanel({
               variant={category === c ? "default" : "secondary"}
               className="cursor-pointer"
               onClick={() => setCategory(category === c ? "all" : c)}
+              title={`Raw ${diag.counts_by_category[c]} · adjudicated ${diag.adjudicated_counts_by_category[c]} · unresolved ${diag.unresolved_counts_by_category[c]}`}
             >
-              {c} {diag.counts_by_category[c]}
+              Raw {c} {diag.counts_by_category[c]} · unresolved{" "}
+              {diag.unresolved_counts_by_category[c]}
             </Badge>
           ))}
           <Badge variant="outline">Correctable {diag.plan.length}</Badge>
           <Badge variant="outline">Blocked (NOT NULL) {diag.blocked.length}</Badge>
         </div>
+
+        <div className="flex flex-wrap gap-2 text-xs">
+          <Badge variant="outline">
+            Canonical corrections pending {diag.disposition_counts.canonical_corrections_pending}
+          </Badge>
+          <Badge variant="outline">
+            Current semantics unresolved {diag.disposition_counts.current_semantics_unresolved}
+          </Badge>
+          <Badge variant="outline">
+            FarmOps corrections pending {diag.disposition_counts.farmops_corrections_pending}
+          </Badge>
+          <Badge variant="outline">
+            Category F representation differences{" "}
+            {diag.disposition_counts.semantic_representation_differences}
+          </Badge>
+          <Badge variant="outline">
+            Verification pending{" "}
+            {diag.disposition_counts.provenance_or_field_verification_pending}
+          </Badge>
+          {diag.stale_adjudications.length ? (
+            <Badge variant="destructive">
+              Stale adjudications {diag.stale_adjudications.length}
+            </Badge>
+          ) : null}
+        </div>
+
+        <div className="rounded-md border p-3 text-xs text-muted-foreground">
+          Raw categories are the immutable historical classification; SHA-bound adjudications are
+          overlaid as a separate disposition measure and never rewrite the raw comparison. The
+          amperage findings are not ordinary engineering disagreements — the canonical{" "}
+          <code>Amps</code> field&apos;s electrical meaning is not yet established. MOCP is never
+          read as load current (numeric equality with 25 A does not establish semantic identity) and
+          MCA is never derived. Verified equipment quantities stay independent:{" "}
+          {diag.verified_bryant_quantities.map((q) => `${q.quantity} = ${q.value}`).join("; ")}. No
+          writes: neither FarmOps nor the canonical ODS is modified.
+        </div>
+
 
         <p className="text-xs text-muted-foreground">
           {recon.balanced && recon.category_a_balanced
@@ -156,21 +196,22 @@ export function NumericSemanticsPanel({
             <table className="w-full text-xs">
               <thead className="text-left text-muted-foreground">
                 <tr>
-                  <th className="py-1 pr-3">Cat</th>
+                  <th className="py-1 pr-3">Raw cat</th>
                   <th className="py-1 pr-3">Entity</th>
                   <th className="py-1 pr-3">Stable ID</th>
                   <th className="py-1 pr-3">Field</th>
                   <th className="py-1 pr-3">ODS</th>
                   <th className="py-1 pr-3">FarmOps</th>
                   <th className="py-1 pr-3">Δ</th>
-                  <th className="py-1 pr-3">Disposition</th>
+                  <th className="py-1 pr-3">Adjudication</th>
+                  <th className="py-1 pr-3">Current disposition</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.slice(0, 300).map((f, i) => (
                   <tr key={`${f.domain}-${f.stable_id}-${f.farmops_field}-${i}`} className="border-t">
                     <td className="py-1 pr-3">
-                      <Badge variant="secondary">{f.category}</Badge>
+                      <Badge variant="secondary">{f.raw_category}</Badge>
                     </td>
                     <td className="py-1 pr-3">{f.domain}</td>
                     <td className="py-1 pr-3 font-mono">{f.stable_id}</td>
@@ -192,13 +233,37 @@ export function NumericSemanticsPanel({
                     </td>
                     <td className="py-1 pr-3">{f.delta === null ? "—" : f.delta}</td>
                     <td className="py-1 pr-3 text-muted-foreground">
-                      {f.artifact_type ? `${NUMERIC_ARTIFACT_LABELS[f.artifact_type]} · ` : ""}
-                      {f.proposed_action}
+                      {f.adjudicated ? (
+                        <>
+                          <span className="font-mono">{f.adjudication_classification}</span>
+                          {f.preserved.length ? (
+                            <ul className="mt-1 list-disc pl-4">
+                              {f.preserved.map((p) => (
+                                <li key={p}>{p}</li>
+                              ))}
+                            </ul>
+                          ) : null}
+                        </>
+                      ) : f.stale_adjudication ? (
+                        "stale — different workbook SHA, reduces nothing"
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+                    <td className="py-1 pr-3 text-muted-foreground">
+                      <Badge variant={f.unresolved ? "destructive" : "outline"}>
+                        {CONVERGENCE_DISPOSITION_LABELS[f.convergence_disposition]}
+                      </Badge>
+                      <div className="mt-1">
+                        {f.artifact_type ? `${NUMERIC_ARTIFACT_LABELS[f.artifact_type]} · ` : ""}
+                        {f.adjudication_rationale ?? f.proposed_action}
+                      </div>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+
             {rows.length > 300 ? (
               <p className="pt-2 text-xs text-muted-foreground">
                 Showing the first 300 of {rows.length} rows — export the CSV for the full set.

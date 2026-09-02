@@ -50,9 +50,36 @@ import {
   type SystemVoltageMigrationPreview,
   type SystemVoltageRepresentation,
 } from "@/lib/electrical-system-voltage";
+import {
+  CONVERGENCE_DISPOSITION_LABELS,
+  UNRESOLVED_DISPOSITIONS,
+  adjudicationsFor,
+  type ConvergenceDisposition,
+  type EstablishedAdjudication,
+} from "@/lib/electrical-convergence";
 
-export const NUMERIC_DIAGNOSTICS_VERSION = "4.4b-numeric-diagnostics-4-representation-semantics";
+export const NUMERIC_DIAGNOSTICS_VERSION =
+  "4.4b-numeric-diagnostics-5-adjudication-disposition-overlay";
 
+/**
+ * Verified Bryant quantities, preserved as independent concepts. These are
+ * displayed alongside the amperage findings so that no reader collapses them:
+ * MOCP is not load current, numeric equality with an ODS cell does not prove
+ * semantic identity, and MCA stays unverified (never derived).
+ */
+export const VERIFIED_BRYANT_QUANTITIES = [
+  { quantity: "rated_equipment_voltage", value: "208/230 VAC", status: "verified" },
+  { quantity: "phase", value: "1", status: "verified" },
+  { quantity: "frequency", value: "60 Hz", status: "verified" },
+  { quantity: "maximum_overcurrent_protection (MOCP)", value: "25 A", status: "verified" },
+  { quantity: "rated_current_amps (RCA)", value: "1.69 A", status: "verified" },
+  { quantity: "rated_load_amps (RLA)", value: "4.15 A", status: "verified" },
+  {
+    quantity: "minimum_circuit_ampacity (MCA)",
+    value: "NULL",
+    status: "unverified — never derived",
+  },
+] as const;
 
 export type NumericCategory = "A" | "B" | "C" | "D" | "E" | "F";
 
@@ -109,6 +136,26 @@ export interface NumericFinding {
   /** What a future apply step would write. `undefined` = nothing proposed. */
   proposed_value?: number | null;
   normalization_rules: string[];
+  /**
+   * Immutable historical/raw classification. Identical to `category` — kept as
+   * an explicit field so the overlay below can never be mistaken for a
+   * re-classification of the raw comparison.
+   */
+  raw_category: NumericCategory;
+  /** True when an adjudication bound to this run's workbook SHA applied. */
+  adjudicated: boolean;
+  adjudication_id: string | null;
+  adjudication_source: string | null;
+  adjudication_classification: string | null;
+  adjudication_rationale: string | null;
+  /** Adjudication naming this finding but bound to a different workbook SHA. */
+  stale_adjudication: boolean;
+  /** Current disposition after the (read-only) adjudication overlay. */
+  convergence_disposition: ConvergenceDisposition;
+  /** True while the disposition leaves the finding open for Phase 4.5. */
+  unresolved: boolean;
+  /** Both source values / verified quantities, preserved and never merged. */
+  preserved: string[];
 }
 
 export interface NumericFieldSummary {
@@ -138,7 +185,26 @@ export interface NumericDiagnosticsReport {
   compared_cells: number;
   agreements: number;
   total_findings: number;
+  /** Raw / historical category counts — never reduced by adjudication. */
   counts_by_category: Record<NumericCategory, number>;
+  /** Per category: findings carrying a SHA-bound adjudication. */
+  adjudicated_counts_by_category: Record<NumericCategory, number>;
+  /** Per category: findings still open after the disposition overlay. */
+  unresolved_counts_by_category: Record<NumericCategory, number>;
+  /** Disposition roll-up used by the dashboard and Phase 4.5 convergence. */
+  disposition_counts: {
+    adjudicated: number;
+    unresolved: number;
+    canonical_corrections_pending: number;
+    farmops_corrections_pending: number;
+    semantic_representation_differences: number;
+    current_semantics_unresolved: number;
+    provenance_or_field_verification_pending: number;
+  };
+  by_disposition: Partial<Record<ConvergenceDisposition, number>>;
+  /** Adjudications naming a finding but bound to a different workbook SHA. */
+  stale_adjudications: EstablishedAdjudication[];
+  verified_bryant_quantities: typeof VERIFIED_BRYANT_QUANTITIES;
   counts_by_ods_state: Record<string, number>;
   by_field: NumericFieldSummary[];
   findings: NumericFinding[];
@@ -327,9 +393,61 @@ function classify(
  * Classify every numeric comparison in a validation report. Pure: the input
  * report is never mutated and no I/O happens here.
  */
+/**
+ * Read-only disposition overlay. The raw category is preserved verbatim; an
+ * adjudication may only apply when it is bound to the same canonical ODS SHA as
+ * the current run. Nothing here authorizes a write.
+ */
+function adjudicationOverlay(
+  stableId: string,
+  field: string,
+  runSha: string,
+  category: NumericCategory,
+): Pick<
+  NumericFinding,
+  | "adjudicated"
+  | "adjudication_id"
+  | "adjudication_source"
+  | "adjudication_classification"
+  | "adjudication_rationale"
+  | "stale_adjudication"
+  | "convergence_disposition"
+  | "unresolved"
+  | "preserved"
+> {
+  const candidates = adjudicationsFor(stableId, field);
+  const hit = candidates.find((a) => a.ods_sha256 === runSha) ?? null;
+  const stale = candidates.some((a) => a.ods_sha256 !== runSha);
+  const disposition: ConvergenceDisposition = hit
+    ? hit.disposition
+    : category === "A"
+      ? "FARMOPS_CORRECTION_REQUIRED"
+      : category === "F"
+        ? "SEMANTIC_REPRESENTATION_DIFFERENCE"
+        : category === "D"
+          ? "PROVENANCE_VERIFICATION_REQUIRED"
+          : "UNADJUDICATED";
+  return {
+    adjudicated: Boolean(hit),
+    adjudication_id: hit?.id ?? null,
+    adjudication_source: hit?.source ?? null,
+    adjudication_classification: hit?.classification ?? null,
+    adjudication_rationale: hit
+      ? hit.rationale
+      : stale
+        ? "An adjudication exists for this finding but references a different canonical workbook SHA — it is stale and reduces nothing."
+        : null,
+    stale_adjudication: !hit && stale,
+    convergence_disposition: disposition,
+    unresolved: UNRESOLVED_DISPOSITIONS.has(disposition),
+    preserved: hit ? hit.preserved : [],
+  };
+}
+
 export function numericDiagnostics(report: ValidationReport): NumericDiagnosticsReport {
   const registry = numericRegistry();
   const findings: NumericFinding[] = [];
+  const stale: EstablishedAdjudication[] = [];
   const byField = new Map<string, NumericFieldSummary>();
   const odsStates: Record<string, number> = {};
   let compared = 0;
@@ -440,7 +558,14 @@ export function numericDiagnostics(report: ValidationReport): NumericDiagnostics
       proposed_action: c.action,
       proposed_value: c.proposed,
       normalization_rules: [...ods.rules, ...fp.rules].filter((v, i, a) => a.indexOf(v) === i).sort(),
+      raw_category: c.category,
+      ...adjudicationOverlay(rec.stable_id, entry.field, report.ods.sha256, c.category),
     };
+    if (finding.stale_adjudication) {
+      for (const a of adjudicationsFor(rec.stable_id, entry.field)) {
+        if (a.ods_sha256 !== report.ods.sha256 && !stale.some((s) => s.id === a.id)) stale.push(a);
+      }
+    }
     findings.push(finding);
     summary.findings += 1;
     summary.counts_by_category[c.category] += 1;
@@ -456,6 +581,26 @@ export function numericDiagnostics(report: ValidationReport): NumericDiagnostics
 
   const counts = EMPTY_COUNTS();
   for (const f of findings) counts[f.category] += 1;
+  const adjudicatedCounts = EMPTY_COUNTS();
+  const unresolvedCounts = EMPTY_COUNTS();
+  const byDisposition: Partial<Record<ConvergenceDisposition, number>> = {};
+  for (const f of findings) {
+    if (f.adjudicated) adjudicatedCounts[f.category] += 1;
+    if (f.unresolved) unresolvedCounts[f.category] += 1;
+    byDisposition[f.convergence_disposition] =
+      (byDisposition[f.convergence_disposition] ?? 0) + 1;
+  }
+  const dispositionCounts = {
+    adjudicated: findings.filter((f) => f.adjudicated).length,
+    unresolved: findings.filter((f) => f.unresolved).length,
+    canonical_corrections_pending: byDisposition.CANONICAL_ODS_CORRECTION_REQUIRED ?? 0,
+    farmops_corrections_pending: byDisposition.FARMOPS_CORRECTION_REQUIRED ?? 0,
+    semantic_representation_differences: byDisposition.SEMANTIC_REPRESENTATION_DIFFERENCE ?? 0,
+    current_semantics_unresolved: byDisposition.CURRENT_SEMANTICS_UNRESOLVED ?? 0,
+    provenance_or_field_verification_pending:
+      (byDisposition.PROVENANCE_VERIFICATION_REQUIRED ?? 0) +
+      (byDisposition.FIELD_VERIFICATION_REQUIRED ?? 0),
+  };
 
   const notCompared = registry
     .filter((e) => !e.comparable)
@@ -474,6 +619,12 @@ export function numericDiagnostics(report: ValidationReport): NumericDiagnostics
     agreements,
     total_findings: findings.length,
     counts_by_category: counts,
+    adjudicated_counts_by_category: adjudicatedCounts,
+    unresolved_counts_by_category: unresolvedCounts,
+    disposition_counts: dispositionCounts,
+    by_disposition: byDisposition,
+    stale_adjudications: stale,
+    verified_bryant_quantities: VERIFIED_BRYANT_QUANTITIES,
     counts_by_ods_state: Object.fromEntries(
       Object.keys(odsStates)
         .sort()
@@ -562,6 +713,13 @@ export function numericRegistryCsv(r: NumericDiagnosticsReport): string {
 
 export function numericFindingsCsv(r: NumericDiagnosticsReport): string {
   const head = [
+    "raw_category",
+    "adjudication_id",
+    "adjudication_classification",
+    "current_disposition",
+    "unresolved",
+    "stale_adjudication",
+    "preserved",
     "category",
     "artifact_type",
     "entity_type",
@@ -587,6 +745,13 @@ export function numericFindingsCsv(r: NumericDiagnosticsReport): string {
   return csv([
     head,
     ...r.findings.map((f) => [
+      f.raw_category,
+      f.adjudication_id ?? "",
+      f.adjudication_classification ?? "",
+      f.convergence_disposition,
+      String(f.unresolved),
+      String(f.stale_adjudication),
+      f.preserved.join(" | "),
       f.category,
       f.artifact_type ?? "",
       f.domain,
@@ -631,6 +796,29 @@ export function numericDiagnosticsMarkdown(r: NumericDiagnosticsReport): string 
     `- Balanced: ${recon.balanced ? "yes" : "NO — investigate"} (agreements + categories = compared)`,
     `- Category A = plan ${recon.plan} + blocked ${recon.blocked}: ${recon.category_a_balanced ? "balanced" : "NO — investigate"}`,
     "",
+    "## Adjudication disposition overlay (read-only)",
+    "",
+    "Raw categories are historical and unchanged. Adjudications apply only when bound to this run's canonical ODS SHA.",
+    "",
+    ...(["A", "B", "C", "D", "E", "F"] as NumericCategory[]).map(
+      (c) =>
+        `- Category ${c}: raw ${r.counts_by_category[c]} · adjudicated ${r.adjudicated_counts_by_category[c]} · unresolved ${r.unresolved_counts_by_category[c]}`,
+    ),
+    `- Canonical corrections pending: ${r.disposition_counts.canonical_corrections_pending}`,
+    `- Current semantics unresolved: ${r.disposition_counts.current_semantics_unresolved}`,
+    `- FarmOps corrections pending: ${r.disposition_counts.farmops_corrections_pending}`,
+    `- Semantic representation differences (Category F): ${r.disposition_counts.semantic_representation_differences}`,
+    `- Provenance / field verification pending: ${r.disposition_counts.provenance_or_field_verification_pending}`,
+    `- Stale adjudications (other workbook SHA, reduce nothing): ${r.stale_adjudications.length}`,
+    "",
+    "### Verified equipment quantities preserved independently",
+    "",
+    "| Quantity | Value | Status |",
+    "| --- | --- | --- |",
+    ...r.verified_bryant_quantities.map((q) => `| ${q.quantity} | ${q.value} | ${q.status} |`),
+    "",
+    "MOCP is never read as load current, numeric equality with a canonical cell never establishes semantic identity, and MCA is never derived.",
+    "",
     "## Numeric fields not compared",
     "",
     "| Table | Field | Ownership | Reason |",
@@ -645,11 +833,11 @@ export function numericDiagnosticsMarkdown(r: NumericDiagnosticsReport): string 
     "",
     "## Findings",
     "",
-    "| Cat | Entity | Stable ID | Field | ODS | FarmOps | Δ | Disposition |",
-    "| --- | --- | --- | --- | --- | --- | --- | --- |",
+    "| Raw cat | Entity | Stable ID | Field | ODS | FarmOps | Δ | Adjudication | Current disposition | Unresolved |",
+    "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
     ...r.findings.map(
       (f) =>
-        `| ${f.category} | ${f.domain} | ${f.stable_id} | ${f.farmops_field} | ${f.ods_raw || "(blank)"} | ${f.farmops_raw || "(blank)"} | ${f.delta === null ? "—" : f.delta} | ${f.disposition} |`,
+        `| ${f.raw_category} | ${f.domain} | ${f.stable_id} | ${f.farmops_field} | ${f.ods_raw || "(blank)"} | ${f.farmops_raw || "(blank)"} | ${f.delta === null ? "—" : f.delta} | ${f.adjudication_classification ?? "—"} | ${CONVERGENCE_DISPOSITION_LABELS[f.convergence_disposition]} | ${f.unresolved ? "yes" : "no"} |`,
     ),
     "",
     "## Category E — system-voltage migration preview (read-only, not applied)",
