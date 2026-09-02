@@ -46,7 +46,13 @@ function cellText(cellXml: string): string {
 interface ScannedElement {
   attrs: string;
   inner: string;
+  /** Offset of `<tag` within the scanned string. */
   start: number;
+  /** Offset just past the element's closing `>`. */
+  end: number;
+  /** Offset of the first byte of `inner` (== end for self-closing tags). */
+  contentStart: number;
+  selfClosing: boolean;
 }
 
 /**
@@ -54,6 +60,11 @@ interface ScannedElement {
  * one regex: a single pattern with a `/>|>` alternation backtracks on
  * self-closing tags and swallows the following sibling, which is exactly how
  * empty ODS cells used to shift every later column to the left.
+ *
+ * Phase 4.4d: this is the single addressing authority. The candidate-revision
+ * writer resolves its XML target through this same scanner so a logical
+ * (row, column) can never mean two different cells in the parser and the
+ * writer.
  */
 function scanElements(xml: string, tag: string): ScannedElement[] {
   const out: ScannedElement[] = [];
@@ -63,7 +74,14 @@ function scanElements(xml: string, tag: string): ScannedElement[] {
   while ((m = open.exec(xml))) {
     const start = m.index;
     if (m[2] === "/") {
-      out.push({ attrs: m[1], inner: "", start });
+      out.push({
+        attrs: m[1],
+        inner: "",
+        start,
+        end: open.lastIndex,
+        contentStart: open.lastIndex,
+        selfClosing: true,
+      });
       continue;
     }
     // Walk forward honouring nesting of the same tag.
@@ -84,7 +102,14 @@ function scanElements(xml: string, tag: string): ScannedElement[] {
       depth--;
       cursor = nextClose + closeTag.length;
       if (depth === 0) {
-        out.push({ attrs: m[1], inner: xml.slice(contentStart, nextClose), start });
+        out.push({
+          attrs: m[1],
+          inner: xml.slice(contentStart, nextClose),
+          start,
+          end: cursor,
+          contentStart,
+          selfClosing: false,
+        });
         open.lastIndex = cursor;
       }
     }
@@ -92,6 +117,43 @@ function scanElements(xml: string, tag: string): ScannedElement[] {
   }
   return out;
 }
+
+const ANNOTATION_RE = /<office:annotation\b[\s\S]*?<\/office:annotation>/g;
+
+/** Byte ranges of cell annotations; their contents are never cell values. */
+function annotationRanges(xml: string): Array<[number, number]> {
+  const out: Array<[number, number]> = [];
+  ANNOTATION_RE.lastIndex = 0;
+  let m: RegExpExecArray | null;
+  while ((m = ANNOTATION_RE.exec(xml))) out.push([m.index, m.index + m[0].length]);
+  return out;
+}
+
+const insideAny = (ranges: Array<[number, number]>, at: number) =>
+  ranges.some(([a, b]) => at > a && at < b);
+
+/** The cell elements of one row, in logical column order, annotations excluded. */
+function rowCellElements(rowInner: string): ScannedElement[] {
+  const ranges = annotationRanges(rowInner);
+  return [
+    ...scanElements(rowInner, "table:table-cell"),
+    ...scanElements(rowInner, "table:covered-table-cell"),
+  ]
+    .filter((c) => !insideAny(ranges, c.start))
+    .sort((a, b) => a.start - b.start);
+}
+
+/** Exactly the value `parseOdsContentXml` stores for a cell element. */
+function cellValueOf(el: ScannedElement): string {
+  const clean = el.inner.replace(ANNOTATION_RE, "");
+  return clean ? cellText(clean) : (attr(el.attrs, "office:value") ?? "");
+}
+
+const repeatOf = (attrs: string, name: string): number => {
+  const n = Number(attr(attrs, name) ?? "1");
+  return Math.min(Number.isFinite(n) && n > 0 ? n : 1, 1000);
+};
+
 
 /** Parse the `content.xml` of an .ods file into sheets of string cells. */
 export function parseOdsContentXml(xml: string): Sheet[] {
