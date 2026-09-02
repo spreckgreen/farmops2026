@@ -100,6 +100,9 @@ function Assistant() {
     null,
   );
   const [answer, setAnswer] = useState<ElectricalAiAnswer | null>(null);
+  // Pre-flight estimate: shown when the self-hosted model probably cannot answer
+  // this question, so the user can decide whether to pay for a cloud run.
+  const [offer, setOffer] = useState<ElectricalAiEstimate | null>(null);
 
   const allowed = useMemo(() => {
     const ids = new Set((data?.scenarios ?? []).map((s) => s.id));
@@ -114,18 +117,46 @@ function Assistant() {
   const routing = (data?.scenarios ?? []).find((s) => s.id === selected) ?? null;
 
   const mutation = useMutation({
-    mutationFn: () =>
+    mutationFn: (opts?: { useCloud?: boolean }) =>
       run({
         data: {
           scenario: def!.id,
           text: def!.input === "none" ? undefined : text,
           ...(def!.input === "photo" && photo ? { image: photo.dataUrl } : {}),
+          ...(opts?.useCloud ? { useCloud: true } : {}),
         },
       }),
-    onSuccess: (res) => setAnswer(res as ElectricalAiAnswer),
+    onSuccess: (res) => {
+      setAnswer(res as ElectricalAiAnswer);
+      setOffer(null);
+    },
     onError: (e: unknown) =>
       toast.error(e instanceof Error ? e.message : "The AI scenario could not run"),
   });
+
+  const estimate = useServerFn(estimateElectricalAiRun);
+  const preflight = useMutation({
+    mutationFn: () =>
+      estimate({
+        data: { scenario: def!.id, text: def!.input === "none" ? undefined : text },
+      }),
+    onSuccess: (res) => {
+      const est = res as ElectricalAiEstimate;
+      if (est.recommendCloud) setOffer(est);
+      else mutation.mutate(undefined);
+    },
+    // Estimating is a convenience — if it fails, just run the scenario.
+    onError: () => mutation.mutate(undefined),
+  });
+
+  const startRun = () => {
+    setOffer(null);
+    // Photo scenarios have no record context to size up.
+    if (def?.input === "photo") mutation.mutate(undefined);
+    else preflight.mutate();
+  };
+  const working = mutation.isPending || preflight.isPending;
+
 
   if (isLoading) {
     return (
