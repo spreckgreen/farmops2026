@@ -50,6 +50,7 @@ export type AiAreaId =
   | "electrical.qa_triage"
   | "electrical.audit_summary"
   | "electrical.field_note"
+  | "electrical.nameplate_extract"
   | "diagnostics";
 
 export interface AiAreaDef {
@@ -248,6 +249,16 @@ export const AI_FEATURE_AREAS: readonly AiAreaDef[] = [
     load: "light",
     recommended: "local",
     minContext: 4096,
+  },
+  {
+    id: "electrical.nameplate_extract",
+    label: "Nameplate photo extraction",
+    group: "Electrical",
+    description:
+      "Reads an equipment nameplate photo (voltage, phase, FLA/MCA, HP, MOCP, model, serial) into a draft you confirm. Needs a vision-capable model, e.g. google/gemini-3.6-flash.",
+    load: "medium",
+    recommended: "hosted",
+    minContext: 8192,
   },
   {
     id: "diagnostics",

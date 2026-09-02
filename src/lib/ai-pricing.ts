@@ -85,6 +85,8 @@ const TOKEN_PROFILES: Record<AiAreaId, TokenProfile> = {
   "electrical.qa_triage": { inputTokens: 16_000, outputTokens: 1_500 },
   "electrical.audit_summary": { inputTokens: 7_000, outputTokens: 1_000 },
   "electrical.field_note": { inputTokens: 600, outputTokens: 300 },
+  // A 1024px nameplate photo bills as image tokens; ~1.2k covers one plate.
+  "electrical.nameplate_extract": { inputTokens: 1_600, outputTokens: 500 },
   diagnostics: { inputTokens: 800, outputTokens: 250 },
 };
 
@@ -108,6 +110,7 @@ const AREA_HOSTED_MODEL: Record<AiAreaId, string> = {
   "electrical.qa_triage": "google/gemini-3.6-flash",
   "electrical.audit_summary": "google/gemini-3.6-flash",
   "electrical.field_note": "google/gemini-3.6-flash",
+  "electrical.nameplate_extract": "google/gemini-3.6-flash",
   "maintenance.schedule": "google/gemini-3.6-flash",
   "maintenance.symptom": "google/gemini-3.6-flash",
   "maintenance.forecast": "google/gemini-3.6-flash",

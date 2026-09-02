@@ -25,6 +25,13 @@ import {
   type ElectricalAiScenarioId,
 } from "@/lib/electrical-ai-scenarios";
 import type { AiEscalation } from "@/lib/ai-feature-areas";
+import {
+  NAMEPLATE_SYSTEM_PROMPT,
+  inspectNameplateDataUrl,
+  nameplateFields,
+  parseNameplateDraft,
+  type NameplateField,
+} from "@/lib/electrical-nameplate";
 
 type LooseDb = { from: (table: string) => any };
 
@@ -166,6 +173,8 @@ export interface ElectricalAiAnswer {
   answer: string;
   /** Records actually put in front of the model, so the answer is auditable. */
   contextCounts: Record<string, number>;
+  /** Nameplate scenario only: the transcribed draft fields for confirmation. */
+  nameplate?: NameplateField[];
   latencyMs: number;
   escalation: AiEscalation | null;
 }
@@ -173,6 +182,8 @@ export interface ElectricalAiAnswer {
 const RunInput = z.object({
   scenario: z.string().refine(isElectricalAiScenarioId, "Unknown scenario"),
   text: z.string().trim().max(2000).optional(),
+  /** Photo scenarios only: a base64 image data URL, e.g. "data:image/jpeg;base64,…". */
+  image: z.string().max(9_000_000).optional(),
 });
 
 function compact(rows: Record<string, unknown>[], fields: string[], cap: number): string {
@@ -203,7 +214,9 @@ export const runElectricalAiScenario = createServerFn({ method: "POST" })
       throw new Error(ELECTRICAL_AI_DENIED);
     }
     const question = (data.text ?? "").trim();
-    if (def.input !== "none" && question.length < 3) {
+    if (def.input === "photo") {
+      if (!data.image) throw new Error("Attach a nameplate photo first.");
+    } else if (def.input !== "none" && question.length < 3) {
       throw new Error(`Enter a ${def.inputLabel.toLowerCase()} first.`);
     }
 
@@ -283,6 +296,10 @@ export const runElectricalAiScenario = createServerFn({ method: "POST" })
         "group by actor, and call out safety-relevant edits first (voltage, ampacity, OCP/breaker rating, poles, " +
         "conductor, panel bus rating, grounding). Flag anything that looks like a typo or an unsupported value. " +
         "End with a short list of entries that most need a human to verify against the field.";
+    } else if (def.id === "nameplate_extract") {
+      // Nothing from the record goes in: the plate in the photo is the only
+      // source, so the model cannot "helpfully" copy a stored value.
+      system = NAMEPLATE_SYSTEM_PROMPT;
     } else {
       // field_note — no record context at all; it only tidies the observation.
       system =
@@ -293,7 +310,11 @@ export const runElectricalAiScenario = createServerFn({ method: "POST" })
     }
 
     const prompt =
-      (def.input === "none" ? "" : `${def.inputLabel.toUpperCase()}:\n${question}\n\n`) +
+      (def.input === "none" || def.input === "photo"
+        ? question
+          ? `CONTEXT FROM THE ELECTRICIAN (may be wrong; the plate wins):\n${question}\n\n`
+          : ""
+        : `${def.inputLabel.toUpperCase()}:\n${question}\n\n`) +
       (contextBlock ? `RECORDS:\n${contextBlock}` : "");
 
     const { resolveAreaAi, runAreaAi } = await import("@/lib/ai-routing.server");
@@ -303,6 +324,13 @@ export const runElectricalAiScenario = createServerFn({ method: "POST" })
     });
     const { generateText } = await import("ai");
 
+    // Validated before the call so a 12 MB HEIC fails free instead of billing.
+    const photo = def.input === "photo" && data.image ? data.image.trim() : null;
+    if (photo) {
+      const info = inspectNameplateDataUrl(photo);
+      contextCounts.photo_kb = Math.round(info.bytes / 1024);
+    }
+
     const started = Date.now();
     const run = await runAreaAi(
       ai,
@@ -310,12 +338,32 @@ export const runElectricalAiScenario = createServerFn({ method: "POST" })
         const { text } = await generateText({
           model: handle.provider(handle.modelId),
           system,
-          prompt: prompt || "(no input)",
+          ...(photo
+            ? {
+                messages: [
+                  {
+                    role: "user" as const,
+                    content: [
+                      {
+                        type: "text" as const,
+                        text:
+                          prompt +
+                          "Transcribe this nameplate. Reply with the JSON object only.",
+                      },
+                      { type: "image" as const, image: photo },
+                    ],
+                  },
+                ],
+              }
+            : { prompt: prompt || "(no input)" }),
         });
         return text.trim();
       },
       {
-        isTruncated: (value) => value.length < 20,
+        isTruncated: (value) =>
+          def.input === "photo"
+            ? parseNameplateDraft(value) === null
+            : value.length < 20,
         meter: {
           client: context.supabase,
           userId: context.userId,
@@ -333,6 +381,9 @@ export const runElectricalAiScenario = createServerFn({ method: "POST" })
       backend: run.backend,
       answer: run.value,
       contextCounts,
+      ...(def.input === "photo"
+        ? { nameplate: nameplateFields(parseNameplateDraft(run.value)) }
+        : {}),
       latencyMs: Date.now() - started,
       escalation: run.escalation,
     };

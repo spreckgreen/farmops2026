@@ -26,7 +26,11 @@ import {
   runElectricalAiScenario,
   type ElectricalAiAnswer,
 } from "@/lib/electrical-ai.functions";
-import { Cpu, Loader2, Sparkles } from "lucide-react";
+import { Camera, Cpu, Loader2, Sparkles, X } from "lucide-react";
+import {
+  NAMEPLATE_IMAGE_TYPES,
+  NAMEPLATE_MAX_BYTES,
+} from "@/lib/electrical-nameplate";
 
 export const Route = createFileRoute("/electrical/assistant")({
   component: AssistantPage,
@@ -79,6 +83,10 @@ function Assistant() {
 
   const [selected, setSelected] = useState<ElectricalAiScenarioId | null>(null);
   const [text, setText] = useState("");
+  // Nameplate photo, held as a data URL so the server sees exactly what you saw.
+  const [photo, setPhoto] = useState<{ dataUrl: string; name: string; kb: number } | null>(
+    null,
+  );
   const [answer, setAnswer] = useState<ElectricalAiAnswer | null>(null);
 
   const allowed = useMemo(() => {
@@ -95,7 +103,13 @@ function Assistant() {
 
   const mutation = useMutation({
     mutationFn: () =>
-      run({ data: { scenario: def!.id, text: def!.input === "none" ? undefined : text } }),
+      run({
+        data: {
+          scenario: def!.id,
+          text: def!.input === "none" ? undefined : text,
+          ...(def!.input === "photo" && photo ? { image: photo.dataUrl } : {}),
+        },
+      }),
     onSuccess: (res) => setAnswer(res as ElectricalAiAnswer),
     onError: (e: unknown) =>
       toast.error(e instanceof Error ? e.message : "The AI scenario could not run"),
@@ -152,6 +166,7 @@ function Assistant() {
                   onClick={() => {
                     setSelected(s.id);
                     setText("");
+                    setPhoto(null);
                     setAnswer(null);
                   }}
                   className={
@@ -182,7 +197,30 @@ function Assistant() {
                 ) : null}
               </div>
 
-              {def.input === "none" ? (
+              {def.input === "photo" ? (
+                <div className="space-y-2">
+                  <PhotoPicker photo={photo} onChange={setPhoto} />
+                  <div className="space-y-1.5">
+                    <Label htmlFor="electrical-ai-input">
+                      Which equipment is this? (optional)
+                    </Label>
+                    <Input
+                      id="electrical-ai-input"
+                      value={text}
+                      onChange={(e) => setText(e.target.value)}
+                      placeholder={def.placeholder}
+                      maxLength={200}
+                    />
+                  </div>
+                  {routing?.backend === "local" ? (
+                    <p className="text-xs text-amber-700">
+                      This feature is routed to the self-hosted engine. Photo reading
+                      needs a vision model there (e.g. llava or a qwen2-vl build) —
+                      otherwise route it to a cloud engine in Admin → AI runtime.
+                    </p>
+                  ) : null}
+                </div>
+              ) : def.input === "none" ? (
                 <p className="text-sm text-muted-foreground">
                   No input needed — this scenario reads the current records.
                 </p>
@@ -202,7 +240,12 @@ function Assistant() {
 
               <Button
                 onClick={() => mutation.mutate()}
-                disabled={mutation.isPending || (def.input !== "none" && text.trim().length < 3)}
+                disabled={
+                  mutation.isPending ||
+                  (def.input === "photo"
+                    ? !photo
+                    : def.input !== "none" && text.trim().length < 3)
+                }
               >
                 {mutation.isPending ? (
                   <>
@@ -237,11 +280,178 @@ function Assistant() {
               <p className="text-xs text-amber-700">{answer.escalation.detail}</p>
             ) : null}
           </CardHeader>
-          <CardContent>
-            <pre className="whitespace-pre-wrap break-words text-sm">{answer.answer}</pre>
+          <CardContent className="space-y-3">
+            {answer.nameplate ? (
+              <NameplateDraftTable answer={answer} />
+            ) : (
+              <pre className="whitespace-pre-wrap break-words text-sm">{answer.answer}</pre>
+            )}
           </CardContent>
         </Card>
       ) : null}
+    </div>
+  );
+}
+
+/**
+ * Camera / file picker for a nameplate photo. The file is downscaled to 1600px
+ * before upload: a 4 MB phone photo becomes roughly 400 KB, which is far cheaper
+ * per AI call and still resolves plate stamping.
+ */
+function PhotoPicker({
+  photo,
+  onChange,
+}: {
+  photo: { dataUrl: string; name: string; kb: number } | null;
+  onChange: (value: { dataUrl: string; name: string; kb: number } | null) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+
+  const load = async (file: File) => {
+    if (!(NAMEPLATE_IMAGE_TYPES as readonly string[]).includes(file.type)) {
+      toast.error("Use a JPEG, PNG or WebP photo. iPhone HEIC must be converted first.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const dataUrl = await downscaleToDataUrl(file);
+      const kb = Math.round((dataUrl.length * 3) / 4 / 1024);
+      if (kb * 1024 > NAMEPLATE_MAX_BYTES) {
+        toast.error("That photo is too large even after downscaling.");
+        return;
+      }
+      onChange({ dataUrl, name: file.name, kb });
+    } catch {
+      toast.error("That image could not be read.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="space-y-2">
+      <Label htmlFor="nameplate-photo">Nameplate photo</Label>
+      <Input
+        id="nameplate-photo"
+        type="file"
+        accept={NAMEPLATE_IMAGE_TYPES.join(",")}
+        capture="environment"
+        disabled={busy}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) void load(file);
+        }}
+      />
+      <p className="text-xs text-muted-foreground">
+        Fill the frame with the plate, straight on, no flash glare. Everything read
+        back is a draft you confirm — nothing is written to the electrical record.
+      </p>
+      {busy ? (
+        <p className="text-xs text-muted-foreground">
+          <Loader2 className="mr-1 inline h-3 w-3 animate-spin" />
+          Preparing photo…
+        </p>
+      ) : null}
+      {photo ? (
+        <div className="flex items-start gap-3 rounded-md border p-2">
+          <img
+            src={photo.dataUrl}
+            alt={`Nameplate photo ${photo.name}`}
+            className="h-24 w-24 rounded object-cover"
+          />
+          <div className="min-w-0 text-xs text-muted-foreground">
+            <div className="flex items-center gap-1 text-foreground">
+              <Camera className="h-3.5 w-3.5" />
+              <span className="truncate">{photo.name}</span>
+            </div>
+            <div>{photo.kb} KB after downscaling</div>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="mt-1 h-7 px-2"
+              onClick={() => onChange(null)}
+            >
+              <X className="mr-1 h-3.5 w-3.5" />
+              Remove
+            </Button>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/** Re-encode to JPEG at max 1600px on the long edge. */
+async function downscaleToDataUrl(file: File): Promise<string> {
+  const bitmap = await createImageBitmap(file);
+  const max = 1600;
+  const scale = Math.min(1, max / Math.max(bitmap.width, bitmap.height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(bitmap.width * scale);
+  canvas.height = Math.round(bitmap.height * scale);
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("no canvas context");
+  ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  bitmap.close();
+  return canvas.toDataURL("image/jpeg", 0.85);
+}
+
+/** Transcribed plate values, with blanks kept visible so gaps are obvious. */
+function NameplateDraftTable({ answer }: { answer: ElectricalAiAnswer }) {
+  const fields = answer.nameplate ?? [];
+  const read = fields.filter((f) => f.id !== "notes" && f.value);
+  const notes = fields.find((f) => f.id === "notes")?.value ?? null;
+
+  const copy = () => {
+    const text = read.map((f) => `${f.label}: ${f.value}`).join("\n");
+    void navigator.clipboard.writeText(text);
+    toast.success("Draft values copied.");
+  };
+
+  if (fields.length === 0 || read.length === 0) {
+    return (
+      <div className="space-y-2">
+        <p className="text-sm text-amber-700">
+          Nothing legible came back. Re-shoot the plate closer and straight on, or read
+          the raw reply below.
+        </p>
+        <pre className="whitespace-pre-wrap break-words text-xs">{answer.answer}</pre>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="grid gap-2 sm:grid-cols-2">
+        {fields
+          .filter((f) => f.id !== "notes")
+          .map((f) => (
+            <div key={f.id} className="rounded-md border p-2">
+              <div className="text-xs text-muted-foreground">{f.label}</div>
+              <div className={f.value ? "text-sm font-medium" : "text-sm text-muted-foreground"}>
+                {f.value ?? "not legible"}
+              </div>
+              {!f.value ? <div className="text-[11px] text-muted-foreground">{f.hint}</div> : null}
+            </div>
+          ))}
+      </div>
+      {notes ? (
+        <p className="text-xs text-amber-700">Model note: {notes}</p>
+      ) : null}
+      <div className="flex flex-wrap items-center gap-2">
+        <Button size="sm" variant="outline" onClick={copy}>
+          Copy draft values
+        </Button>
+        <Button asChild size="sm" variant="outline">
+          <Link to="/electrical/$kind" params={{ kind: "loads" }}>
+            Open loads to enter them
+          </Link>
+        </Button>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Draft only. Nameplate ratings are recorded by hand as nameplate provenance —
+        semantic (as-installed) values stay separate and are never overwritten by AI.
+      </p>
     </div>
   );
 }
