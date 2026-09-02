@@ -302,6 +302,8 @@ function UserRow({ user, currentUserId }: { user: ManagedUser; currentUserId: st
   };
 
   const unconfirmed = user.email_confirmed_at === null;
+  const disabled = user.disabled_at !== null;
+
 
   return (
     <TableRow>
