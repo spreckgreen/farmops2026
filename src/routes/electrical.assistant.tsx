@@ -29,7 +29,7 @@ import {
   type ElectricalAiAnswer,
 } from "@/lib/electrical-ai.functions";
 
-import { Camera, Cpu, Loader2, Sparkles, X } from "lucide-react";
+import { Camera, CloudLightning, Cpu, Loader2, Sparkles, X } from "lucide-react";
 import {
   NAMEPLATE_IMAGE_TYPES,
   NAMEPLATE_MAX_BYTES,
@@ -211,6 +211,7 @@ function Assistant() {
                     setText("");
                     setPhoto(null);
                     setAnswer(null);
+                    setOffer(null);
                   }}
                   className={
                     "rounded-md border p-3 text-left transition-colors " +
