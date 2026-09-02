@@ -480,6 +480,8 @@ export function buildCandidateReport(input: {
   candidate_sha256: string;
   candidate_file_name: string;
   targets: RevisionCellTarget[];
+  target_traces?: RevisionTargetTrace[];
+
   cell_diff: Array<{ worksheet: string; row: number; column: number; before: string; after: string }>;
   non_content_archive_entries_changed: number;
   generated_at?: string;
