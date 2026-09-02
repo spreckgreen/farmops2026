@@ -277,13 +277,22 @@ function PanelAccessAdminPage() {
                         </TableCell>
                         <TableCell className="text-xs">
                           <Badge
-                            variant={row.scope === "system_data" ? "destructive" : "outline"}
+                            variant={
+                              row.scope === "system_data" || row.scope === "site_data"
+                                ? "destructive"
+                                : "outline"
+                            }
                           >
                             {row.scope === "system_data"
                               ? "Other panels / full system"
-                              : "Correct this panel"}
+                              : row.scope === "site_data"
+                                ? "Whole site"
+                                : row.scope === "building_data"
+                                  ? `Building: ${row.scope_detail ?? "unnamed"}`
+                                  : "Correct this panel"}
                           </Badge>
                         </TableCell>
+
                         <TableCell className="max-w-xs text-xs">{row.reason ?? "—"}</TableCell>
                         <TableCell>
                           <Badge variant={STATE_BADGE[row.state] ?? "outline"}>{row.state}</Badge>
