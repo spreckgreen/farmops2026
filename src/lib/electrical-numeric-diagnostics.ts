@@ -619,6 +619,12 @@ export function numericDiagnostics(report: ValidationReport): NumericDiagnostics
     agreements,
     total_findings: findings.length,
     counts_by_category: counts,
+    adjudicated_counts_by_category: adjudicatedCounts,
+    unresolved_counts_by_category: unresolvedCounts,
+    disposition_counts: dispositionCounts,
+    by_disposition: byDisposition,
+    stale_adjudications: stale,
+    verified_bryant_quantities: VERIFIED_BRYANT_QUANTITIES,
     counts_by_ods_state: Object.fromEntries(
       Object.keys(odsStates)
         .sort()
