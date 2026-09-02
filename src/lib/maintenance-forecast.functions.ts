@@ -243,7 +243,17 @@ export const getMaintenanceForecastNarrative = createServerFn({ method: "POST" }
     const run = await runAreaAi(
       ai,
       ({ provider, modelId }) => generateText({ model: provider(modelId), system, prompt }),
-      { isTruncated: (r) => !r.text.trim() || r.finishReason === "length" },
+      {
+        isTruncated: (r) => !r.text.trim() || r.finishReason === "length",
+        meter: {
+          client: context.supabase,
+          userId: context.userId,
+          tokens: (r) => ({
+            input: Number(r.usage?.inputTokens ?? 0),
+            output: Number(r.usage?.outputTokens ?? 0),
+          }),
+        },
+      },
     );
     const result = run.value;
     const modelId = run.modelId;

@@ -95,6 +95,33 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_feature_toggles: {
+        Row: {
+          area: string
+          created_at: string
+          enabled: boolean
+          note: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          area: string
+          created_at?: string
+          enabled?: boolean
+          note?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          area?: string
+          created_at?: string
+          enabled?: boolean
+          note?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       ai_job_idempotency: {
         Row: {
           created_at: string
@@ -127,6 +154,60 @@ export type Database = {
           status?: string
           surface?: string
           updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      ai_usage_events: {
+        Row: {
+          area: string
+          area_label: string | null
+          backend: string
+          cost_usd: number
+          created_at: string
+          engine_id: string | null
+          estimated: boolean
+          id: string
+          input_tokens: number
+          latency_ms: number | null
+          metered: boolean
+          model: string | null
+          note: string | null
+          output_tokens: number
+          user_id: string
+        }
+        Insert: {
+          area: string
+          area_label?: string | null
+          backend: string
+          cost_usd?: number
+          created_at?: string
+          engine_id?: string | null
+          estimated?: boolean
+          id?: string
+          input_tokens?: number
+          latency_ms?: number | null
+          metered?: boolean
+          model?: string | null
+          note?: string | null
+          output_tokens?: number
+          user_id: string
+        }
+        Update: {
+          area?: string
+          area_label?: string | null
+          backend?: string
+          cost_usd?: number
+          created_at?: string
+          engine_id?: string | null
+          estimated?: boolean
+          id?: string
+          input_tokens?: number
+          latency_ms?: number | null
+          metered?: boolean
+          model?: string | null
+          note?: string | null
+          output_tokens?: number
           user_id?: string
         }
         Relationships: []
