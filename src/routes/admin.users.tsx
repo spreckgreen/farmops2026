@@ -419,7 +419,32 @@ function UserRow({ user, currentUserId }: { user: ManagedUser; currentUserId: st
             <KeyRound className="h-4 w-4 mr-1" />
             Set password
           </Button>
+          {!isSelf &&
+            (disabled ? (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => disableMut.mutate({ disabled: false })}
+                disabled={disableMut.isPending}
+                title="Re-enable this account. Approval and roles were never removed."
+              >
+                <Play className="h-4 w-4 mr-1" />
+                Enable
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setDisableOpen(true)}
+                disabled={disableMut.isPending}
+                title="Temporarily block sign-in without rejecting the account or revoking add-ons."
+              >
+                <Ban className="h-4 w-4 mr-1" />
+                Disable
+              </Button>
+            ))}
         </div>
+
         {dirty && (
           <div className="flex justify-end gap-2">
             <Button
