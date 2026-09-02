@@ -46,7 +46,13 @@ function cellText(cellXml: string): string {
 interface ScannedElement {
   attrs: string;
   inner: string;
+  /** Offset of `<tag` within the scanned string. */
   start: number;
+  /** Offset just past the element's closing `>`. */
+  end: number;
+  /** Offset of the first byte of `inner` (== end for self-closing tags). */
+  contentStart: number;
+  selfClosing: boolean;
 }
 
 /**
@@ -54,6 +60,11 @@ interface ScannedElement {
  * one regex: a single pattern with a `/>|>` alternation backtracks on
  * self-closing tags and swallows the following sibling, which is exactly how
  * empty ODS cells used to shift every later column to the left.
+ *
+ * Phase 4.4d: this is the single addressing authority. The candidate-revision
+ * writer resolves its XML target through this same scanner so a logical
+ * (row, column) can never mean two different cells in the parser and the
+ * writer.
  */
 function scanElements(xml: string, tag: string): ScannedElement[] {
   const out: ScannedElement[] = [];
@@ -63,7 +74,14 @@ function scanElements(xml: string, tag: string): ScannedElement[] {
   while ((m = open.exec(xml))) {
     const start = m.index;
     if (m[2] === "/") {
-      out.push({ attrs: m[1], inner: "", start });
+      out.push({
+        attrs: m[1],
+        inner: "",
+        start,
+        end: open.lastIndex,
+        contentStart: open.lastIndex,
+        selfClosing: true,
+      });
       continue;
     }
     // Walk forward honouring nesting of the same tag.
@@ -84,7 +102,14 @@ function scanElements(xml: string, tag: string): ScannedElement[] {
       depth--;
       cursor = nextClose + closeTag.length;
       if (depth === 0) {
-        out.push({ attrs: m[1], inner: xml.slice(contentStart, nextClose), start });
+        out.push({
+          attrs: m[1],
+          inner: xml.slice(contentStart, nextClose),
+          start,
+          end: cursor,
+          contentStart,
+          selfClosing: false,
+        });
         open.lastIndex = cursor;
       }
     }
@@ -92,6 +117,43 @@ function scanElements(xml: string, tag: string): ScannedElement[] {
   }
   return out;
 }
+
+const ANNOTATION_RE = /<office:annotation\b[\s\S]*?<\/office:annotation>/g;
+
+/** Byte ranges of cell annotations; their contents are never cell values. */
+function annotationRanges(xml: string): Array<[number, number]> {
+  const out: Array<[number, number]> = [];
+  ANNOTATION_RE.lastIndex = 0;
+  let m: RegExpExecArray | null;
+  while ((m = ANNOTATION_RE.exec(xml))) out.push([m.index, m.index + m[0].length]);
+  return out;
+}
+
+const insideAny = (ranges: Array<[number, number]>, at: number) =>
+  ranges.some(([a, b]) => at > a && at < b);
+
+/** The cell elements of one row, in logical column order, annotations excluded. */
+function rowCellElements(rowInner: string): ScannedElement[] {
+  const ranges = annotationRanges(rowInner);
+  return [
+    ...scanElements(rowInner, "table:table-cell"),
+    ...scanElements(rowInner, "table:covered-table-cell"),
+  ]
+    .filter((c) => !insideAny(ranges, c.start))
+    .sort((a, b) => a.start - b.start);
+}
+
+/** Exactly the value `parseOdsContentXml` stores for a cell element. */
+function cellValueOf(el: ScannedElement): string {
+  const clean = el.inner.replace(ANNOTATION_RE, "");
+  return clean ? cellText(clean) : (attr(el.attrs, "office:value") ?? "");
+}
+
+const repeatOf = (attrs: string, name: string): number => {
+  const n = Number(attr(attrs, name) ?? "1");
+  return Math.min(Number.isFinite(n) && n > 0 ? n : 1, 1000);
+};
+
 
 /** Parse the `content.xml` of an .ods file into sheets of string cells. */
 export function parseOdsContentXml(xml: string): Sheet[] {
@@ -104,26 +166,14 @@ export function parseOdsContentXml(xml: string): Sheet[] {
     const rows: string[][] = [];
 
     for (const { attrs: rowAttrs, inner: rowBody } of scanElements(body, "table:table-row")) {
-      const rowRepeat = Math.min(Number(attr(rowAttrs, "table:number-rows-repeated") ?? "1") || 1, 1000);
+      const rowRepeat = repeatOf(rowAttrs, "table:number-rows-repeated");
       const cells: string[] = [];
 
       // Cell annotations (comments) also contain <text:p>; they are not cell
       // values and must never become one.
-      const cleanBody = rowBody.replace(
-        /<office:annotation\b[\s\S]*?<\/office:annotation>/g,
-        "",
-      );
-      for (const cell of [
-        ...scanElements(cleanBody, "table:table-cell"),
-        ...scanElements(cleanBody, "table:covered-table-cell"),
-      ].sort((a, b) => a.start - b.start)) {
-        const repeat = Math.min(
-          Number(attr(cell.attrs, "table:number-columns-repeated") ?? "1") || 1,
-          1000,
-        );
-        const value = cell.inner
-          ? cellText(cell.inner)
-          : (attr(cell.attrs, "office:value") ?? "");
+      for (const cell of rowCellElements(rowBody)) {
+        const repeat = repeatOf(cell.attrs, "table:number-columns-repeated");
+        const value = cellValueOf(cell);
         for (let i = 0; i < repeat; i++) cells.push(value);
       }
 
@@ -131,11 +181,135 @@ export function parseOdsContentXml(xml: string): Sheet[] {
       for (let i = 0; i < rowRepeat; i++) rows.push([...cells]);
     }
 
+
     while (rows.length && rows[rows.length - 1].every((c) => c === "")) rows.pop();
     sheets.push({ name, rows });
   }
   return sheets;
 }
+
+/* ------------------------------------------- shared logical cell addressing */
+
+/**
+ * One physically located cell, addressed with exactly the semantics
+ * `parseOdsContentXml` uses: repeated rows and repeated columns expanded,
+ * covered cells counted, annotation contents excluded.
+ */
+export interface OdsLocatedCell {
+  worksheet: string;
+  /** 1-based logical row/column as the parser numbers them. */
+  logicalRow: number;
+  logicalColumn: number;
+  /** 0-based index of the `<table:table-row>` element inside the table. */
+  physicalRowIndex: number;
+  /** 0-based index of the cell element inside that row. */
+  physicalCellIndex: number;
+  rowRepeat: number;
+  /** Offset of the logical row inside a `table:number-rows-repeated` group. */
+  rowRepeatOffset: number;
+  columnRepeat: number;
+  /** Offset of the logical column inside a `table:number-columns-repeated` group. */
+  columnRepeatOffset: number;
+  tag: "table:table-cell" | "table:covered-table-cell";
+  /** Absolute offsets into the content.xml string. */
+  cellStart: number;
+  cellEnd: number;
+  rowStart: number;
+  rowEnd: number;
+  attrs: string;
+  inner: string;
+  selfClosing: boolean;
+  valueType: string | null;
+  officeValue: string | null;
+  /** Concatenated `<text:p>` display text of the cell. */
+  displayText: string;
+  /** Exactly the string `parseOdsContentXml` stores for this cell. */
+  parsedValue: string;
+}
+
+/** Absolute offsets of one worksheet's body, matching the parser's table scan. */
+export function findOdsTableBody(
+  xml: string,
+  worksheet: string,
+): { start: number; end: number } | null {
+  const tableRe = /<table:table\b([^>]*)>([\s\S]*?)<\/table:table>/g;
+  let t: RegExpExecArray | null;
+  while ((t = tableRe.exec(xml))) {
+    if ((attr(t[1], "table:name") ?? "") !== worksheet) continue;
+    const bodyStart = t.index + t[0].indexOf(">", 0) + 1;
+    return { start: bodyStart, end: bodyStart + t[2].length };
+  }
+  return null;
+}
+
+/**
+ * Resolve a logical (row, column) address to the physical XML cell the parser
+ * read it from. Returns null when the address does not exist, so callers can
+ * fail closed instead of guessing.
+ */
+export function locateOdsLogicalCell(
+  xml: string,
+  worksheet: string,
+  logicalRow: number,
+  logicalColumn: number,
+): OdsLocatedCell | null {
+  const body = findOdsTableBody(xml, worksheet);
+  if (!body || logicalRow < 1 || logicalColumn < 1) return null;
+  const bodyXml = xml.slice(body.start, body.end);
+  const rows = scanElements(bodyXml, "table:table-row");
+
+  let seenRows = 0;
+  for (let ri = 0; ri < rows.length; ri++) {
+    const row = rows[ri];
+    const rowRepeat = repeatOf(row.attrs, "table:number-rows-repeated");
+    if (logicalRow > seenRows + rowRepeat) {
+      seenRows += rowRepeat;
+      continue;
+    }
+    const rowRepeatOffset = logicalRow - seenRows - 1;
+    const cells = rowCellElements(row.inner);
+    let seenCols = 0;
+    for (let ci = 0; ci < cells.length; ci++) {
+      const c = cells[ci];
+      const columnRepeat = repeatOf(c.attrs, "table:number-columns-repeated");
+      if (logicalColumn > seenCols + columnRepeat) {
+        seenCols += columnRepeat;
+        continue;
+      }
+      const innerBase = body.start + row.contentStart;
+      return {
+        worksheet,
+        logicalRow,
+        logicalColumn,
+        physicalRowIndex: ri,
+        physicalCellIndex: ci,
+        rowRepeat,
+        rowRepeatOffset,
+        columnRepeat,
+        columnRepeatOffset: logicalColumn - seenCols - 1,
+        tag: row.inner.startsWith("<table:covered-table-cell", c.start)
+          ? "table:covered-table-cell"
+          : "table:table-cell",
+
+        cellStart: innerBase + c.start,
+        cellEnd: innerBase + c.end,
+        rowStart: body.start + row.start,
+        rowEnd: body.start + row.end,
+        attrs: c.attrs,
+        inner: c.inner,
+        selfClosing: c.selfClosing,
+        valueType: attr(c.attrs, "office:value-type"),
+        officeValue: attr(c.attrs, "office:value"),
+        displayText: cellText(c.inner.replace(ANNOTATION_RE, "")),
+        parsedValue: cellValueOf(c),
+      };
+    }
+    return null;
+  }
+  return null;
+}
+
+
 
 // ------------------------------------------------------------ classification
 

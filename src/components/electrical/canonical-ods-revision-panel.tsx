@@ -288,6 +288,60 @@ export function CanonicalOdsRevisionPanel({
             </table>
           </div>
 
+          {report.target_traces.length ? (
+            <div>
+              <p className="text-xs font-medium">
+                Pre-mutation target assertions (parser addressing)
+              </p>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead className="text-left text-muted-foreground">
+                    <tr>
+                      <th className="py-1 pr-3">Stable ID</th>
+                      <th className="py-1 pr-3">Logical row</th>
+                      <th className="py-1 pr-3">Logical col / field</th>
+                      <th className="py-1 pr-3">XML row</th>
+                      <th className="py-1 pr-3">XML cell idx</th>
+                      <th className="py-1 pr-3">Col-repeat offset</th>
+                      <th className="py-1 pr-3">Value type</th>
+                      <th className="py-1 pr-3">office:value</th>
+                      <th className="py-1 pr-3">Display</th>
+                      <th className="py-1 pr-3">Assertion</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {report.target_traces.map((t) => (
+                      <tr key={`${t.worksheet}|${t.logical_row}|${t.logical_column}`} className="border-t">
+                        <td className="py-1 pr-3 font-mono">{t.stable_id ?? "—"}</td>
+                        <td className="py-1 pr-3">{t.logical_row}</td>
+                        <td className="py-1 pr-3">
+                          {t.logical_column} / <span className="font-mono">{t.field ?? "—"}</span>
+                        </td>
+                        <td className="py-1 pr-3">{t.physical_xml_row ?? "—"}</td>
+                        <td className="py-1 pr-3">{t.physical_xml_cell_index ?? "—"}</td>
+                        <td className="py-1 pr-3">
+                          {t.repeated_column_offset ?? "—"} of {t.column_repeat ?? "—"}
+                        </td>
+                        <td className="py-1 pr-3 font-mono">{t.value_type ?? "—"}</td>
+                        <td className="py-1 pr-3 font-mono">{t.office_value ?? "—"}</td>
+                        <td className="py-1 pr-3 font-mono">{t.display_text ?? "—"}</td>
+                        <td className="py-1 pr-3">
+                          <Badge variant={t.assertion === "PASS" ? "secondary" : "destructive"}>
+                            {t.assertion}
+                          </Badge>
+                          {t.reason ? (
+                            <span className="block text-muted-foreground">{t.reason}</span>
+                          ) : null}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : null}
+
+
           <div>
             <p className="text-xs font-medium">Withheld values (must remain unchanged)</p>
             <ul className="pt-1 text-xs text-muted-foreground">
