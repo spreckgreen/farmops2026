@@ -32,8 +32,11 @@ export type MissingProvenance =
 
 
 export const MISSING_PROVENANCE_LABELS: Record<MissingProvenance, string> = {
+  PROVENANCE_ESTABLISHED_NO_FURTHER_EVIDENCE_REQUIRED:
+    "Provenance has been established and the finding is adjudicated; nothing further is owed. The raw Category-D finding is retained for historical reporting.",
   SOURCE_DOCUMENT_REQUIRED:
     "The canonical workbook states nothing for this quantity; a design document, panel schedule or drawing must establish it.",
+
   EQUIPMENT_NAMEPLATE_REQUIRED:
     "The quantity is an equipment rating; only the nameplate (or its datasheet) can establish it.",
   FARMOPS_ZERO_ORIGIN_PROVENANCE_REQUIRED:
