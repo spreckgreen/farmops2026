@@ -122,3 +122,31 @@ describe("buildCloudOffer", () => {
     expect(o.reason).toContain("8,192");
   });
 });
+
+describe("load-first answer set", () => {
+  const built = buildElectricalRecordContext({
+    panels,
+    feeders: [],
+    circuitGroups: groups,
+    loads,
+    positions,
+    question:
+      "Which panels and their associated path (if full path is unknown explain what you know today) are the mini-splits planned too",
+  });
+
+  it("matches only the mini-split loads, not every planned row", () => {
+    expect(built.matchedLoadIds.sort()).toEqual(["FS-082", "FS-083"]);
+    expect(built.matchedLoadIds).not.toContain("FS-090");
+  });
+
+  it("leads with the load answer set and marks unknown hops", () => {
+    const answerIdx = built.block.indexOf("LOAD ANSWER SET");
+    expect(answerIdx).toBeGreaterThanOrEqual(0);
+    expect(answerIdx).toBeLessThan(built.block.indexOf("PANELS ("));
+    expect(built.block).toContain("NOT IN RECORD");
+  });
+
+  it("does not expand equipment synonyms into unrelated groups", () => {
+    expect(built.block).not.toContain("welder");
+  });
+});
