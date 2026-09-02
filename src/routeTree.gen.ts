@@ -57,6 +57,7 @@ import { Route as FoodIrrigationRouteImport } from './routes/food.irrigation'
 import { Route as FoodGardenRouteImport } from './routes/food.garden'
 import { Route as FoodCropsRouteImport } from './routes/food.crops'
 import { Route as ElectricalWorkbookRouteImport } from './routes/electrical.workbook'
+import { Route as ElectricalWiringRouteImport } from './routes/electrical.wiring'
 import { Route as ElectricalValidationRouteImport } from './routes/electrical.validation'
 import { Route as ElectricalTopologyRouteImport } from './routes/electrical.topology'
 import { Route as ElectricalStandardsRouteImport } from './routes/electrical.standards'
@@ -343,6 +344,11 @@ const ElectricalWorkbookRoute = ElectricalWorkbookRouteImport.update({
   path: '/electrical/workbook',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ElectricalWiringRoute = ElectricalWiringRouteImport.update({
+  id: '/electrical/wiring',
+  path: '/electrical/wiring',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ElectricalValidationRoute = ElectricalValidationRouteImport.update({
   id: '/electrical/validation',
   path: '/electrical/validation',
@@ -619,6 +625,7 @@ export interface FileRoutesByFullPath {
   '/electrical/standards': typeof ElectricalStandardsRoute
   '/electrical/topology': typeof ElectricalTopologyRoute
   '/electrical/validation': typeof ElectricalValidationRoute
+  '/electrical/wiring': typeof ElectricalWiringRoute
   '/electrical/workbook': typeof ElectricalWorkbookRoute
   '/food/crops': typeof FoodCropsRoute
   '/food/garden': typeof FoodGardenRoute
@@ -710,6 +717,7 @@ export interface FileRoutesByTo {
   '/electrical/standards': typeof ElectricalStandardsRoute
   '/electrical/topology': typeof ElectricalTopologyRoute
   '/electrical/validation': typeof ElectricalValidationRoute
+  '/electrical/wiring': typeof ElectricalWiringRoute
   '/electrical/workbook': typeof ElectricalWorkbookRoute
   '/food/crops': typeof FoodCropsRoute
   '/food/garden': typeof FoodGardenRoute
@@ -805,6 +813,7 @@ export interface FileRoutesById {
   '/electrical/standards': typeof ElectricalStandardsRoute
   '/electrical/topology': typeof ElectricalTopologyRoute
   '/electrical/validation': typeof ElectricalValidationRoute
+  '/electrical/wiring': typeof ElectricalWiringRoute
   '/electrical/workbook': typeof ElectricalWorkbookRoute
   '/food/crops': typeof FoodCropsRoute
   '/food/garden': typeof FoodGardenRoute
@@ -901,6 +910,7 @@ export interface FileRouteTypes {
     | '/electrical/standards'
     | '/electrical/topology'
     | '/electrical/validation'
+    | '/electrical/wiring'
     | '/electrical/workbook'
     | '/food/crops'
     | '/food/garden'
@@ -992,6 +1002,7 @@ export interface FileRouteTypes {
     | '/electrical/standards'
     | '/electrical/topology'
     | '/electrical/validation'
+    | '/electrical/wiring'
     | '/electrical/workbook'
     | '/food/crops'
     | '/food/garden'
@@ -1086,6 +1097,7 @@ export interface FileRouteTypes {
     | '/electrical/standards'
     | '/electrical/topology'
     | '/electrical/validation'
+    | '/electrical/wiring'
     | '/electrical/workbook'
     | '/food/crops'
     | '/food/garden'
@@ -1181,6 +1193,7 @@ export interface RootRouteChildren {
   ElectricalStandardsRoute: typeof ElectricalStandardsRoute
   ElectricalTopologyRoute: typeof ElectricalTopologyRoute
   ElectricalValidationRoute: typeof ElectricalValidationRoute
+  ElectricalWiringRoute: typeof ElectricalWiringRoute
   ElectricalWorkbookRoute: typeof ElectricalWorkbookRoute
   NotesDateRoute: typeof NotesDateRoute
   SettingsSelfHostRoute: typeof SettingsSelfHostRoute
@@ -1538,6 +1551,13 @@ declare module '@tanstack/react-router' {
       path: '/electrical/workbook'
       fullPath: '/electrical/workbook'
       preLoaderRoute: typeof ElectricalWorkbookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/electrical/wiring': {
+      id: '/electrical/wiring'
+      path: '/electrical/wiring'
+      fullPath: '/electrical/wiring'
+      preLoaderRoute: typeof ElectricalWiringRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/electrical/validation': {
@@ -1994,6 +2014,7 @@ const rootRouteChildren: RootRouteChildren = {
   ElectricalStandardsRoute: ElectricalStandardsRoute,
   ElectricalTopologyRoute: ElectricalTopologyRoute,
   ElectricalValidationRoute: ElectricalValidationRoute,
+  ElectricalWiringRoute: ElectricalWiringRoute,
   ElectricalWorkbookRoute: ElectricalWorkbookRoute,
   NotesDateRoute: NotesDateRoute,
   SettingsSelfHostRoute: SettingsSelfHostRoute,
