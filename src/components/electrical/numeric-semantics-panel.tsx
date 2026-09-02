@@ -195,21 +195,22 @@ export function NumericSemanticsPanel({
             <table className="w-full text-xs">
               <thead className="text-left text-muted-foreground">
                 <tr>
-                  <th className="py-1 pr-3">Cat</th>
+                  <th className="py-1 pr-3">Raw cat</th>
                   <th className="py-1 pr-3">Entity</th>
                   <th className="py-1 pr-3">Stable ID</th>
                   <th className="py-1 pr-3">Field</th>
                   <th className="py-1 pr-3">ODS</th>
                   <th className="py-1 pr-3">FarmOps</th>
                   <th className="py-1 pr-3">Δ</th>
-                  <th className="py-1 pr-3">Disposition</th>
+                  <th className="py-1 pr-3">Adjudication</th>
+                  <th className="py-1 pr-3">Current disposition</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.slice(0, 300).map((f, i) => (
                   <tr key={`${f.domain}-${f.stable_id}-${f.farmops_field}-${i}`} className="border-t">
                     <td className="py-1 pr-3">
-                      <Badge variant="secondary">{f.category}</Badge>
+                      <Badge variant="secondary">{f.raw_category}</Badge>
                     </td>
                     <td className="py-1 pr-3">{f.domain}</td>
                     <td className="py-1 pr-3 font-mono">{f.stable_id}</td>
@@ -231,13 +232,37 @@ export function NumericSemanticsPanel({
                     </td>
                     <td className="py-1 pr-3">{f.delta === null ? "—" : f.delta}</td>
                     <td className="py-1 pr-3 text-muted-foreground">
-                      {f.artifact_type ? `${NUMERIC_ARTIFACT_LABELS[f.artifact_type]} · ` : ""}
-                      {f.proposed_action}
+                      {f.adjudicated ? (
+                        <>
+                          <span className="font-mono">{f.adjudication_classification}</span>
+                          {f.preserved.length ? (
+                            <ul className="mt-1 list-disc pl-4">
+                              {f.preserved.map((p) => (
+                                <li key={p}>{p}</li>
+                              ))}
+                            </ul>
+                          ) : null}
+                        </>
+                      ) : f.stale_adjudication ? (
+                        "stale — different workbook SHA, reduces nothing"
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+                    <td className="py-1 pr-3 text-muted-foreground">
+                      <Badge variant={f.unresolved ? "destructive" : "outline"}>
+                        {CONVERGENCE_DISPOSITION_LABELS[f.convergence_disposition]}
+                      </Badge>
+                      <div className="mt-1">
+                        {f.artifact_type ? `${NUMERIC_ARTIFACT_LABELS[f.artifact_type]} · ` : ""}
+                        {f.adjudication_rationale ?? f.proposed_action}
+                      </div>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+
             {rows.length > 300 ? (
               <p className="pt-2 text-xs text-muted-foreground">
                 Showing the first 300 of {rows.length} rows — export the CSV for the full set.
