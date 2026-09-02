@@ -17,6 +17,7 @@ import {
   type ElectricalEntityKind,
 } from "@/lib/electrical";
 import { parseBooleanCell } from "@/lib/electrical-boolean";
+import { AMPS_SEMANTICS } from "@/lib/electrical-current-model";
 
 
 import { classifyGrid } from "@/lib/electrical-grid";
@@ -455,7 +456,50 @@ export const ENTITIES: Record<ElectricalEntityKind, EntityDef> = {
         hint: 'Canonical D/S column. Tri-state text: "Dedicated", "Shared" or "TBD" — never coerced to yes/no.',
       },
 
-      { key: "amps", label: "Amps", kind: "number", engineering: true },
+      {
+        key: "amps",
+        label: "Amps (legacy)",
+        kind: "number",
+        engineering: true,
+        hint: "Legacy overloaded scalar. Semantically unresolved unless amps_semantic + provenance are set. Never rewritten or backfilled.",
+      },
+      // Phase 4.4b — additive current semantic model. All nullable; nothing is
+      // backfilled from the legacy amps column.
+      {
+        key: "amps_semantic",
+        label: "Legacy amps meaning",
+        kind: "select",
+        options: AMPS_SEMANTICS,
+        engineering: true,
+        hint: "Only set when provenance independently establishes what the legacy amps value means. Numeric equality is not provenance.",
+      },
+      {
+        key: "amps_semantic_provenance",
+        label: "Legacy amps provenance",
+        kind: "textarea",
+        engineering: true,
+      },
+      { key: "connected_load_current", label: "Connected load current (A)", kind: "number", engineering: true },
+      { key: "equipment_fla", label: "Equipment FLA (A)", kind: "number", engineering: true },
+      { key: "rated_current_amps", label: "Rated current / RCA (A)", kind: "number", engineering: true },
+      { key: "rated_load_amps", label: "Rated load amps / RLA (A)", kind: "number", engineering: true },
+      {
+        key: "minimum_circuit_ampacity",
+        label: "Minimum circuit ampacity (A)",
+        kind: "number",
+        engineering: true,
+        hint: "Nameplate MCA only — never derived.",
+      },
+      {
+        key: "maximum_overcurrent_protection",
+        label: "Maximum overcurrent protection (A)",
+        kind: "number",
+        engineering: true,
+        hint: "Nameplate MOCP only — never inferred from the installed breaker.",
+      },
+      { key: "installed_ocp_rating", label: "Installed OCP rating (A)", kind: "number", engineering: true },
+      { key: "design_circuit_ampacity", label: "Design circuit ampacity (A)", kind: "number", engineering: true },
+
       { key: "volts", label: "Volts", kind: "number", engineering: true },
       { key: "connected_va", label: "Connected VA", kind: "number", engineering: true },
       { key: "demand_basis", label: "Demand basis", kind: "text", engineering: true },
