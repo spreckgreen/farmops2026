@@ -356,6 +356,9 @@ function UserRow({ user, currentUserId }: { user: ManagedUser; currentUserId: st
           ) : (
             <Badge variant="outline" className="text-[10px]">Email confirmed</Badge>
           )}
+          {user.profile_missing && (
+            <Badge variant="destructive" className="text-[10px]">No profile — sign-up never completed</Badge>
+          )}
         </div>
         {user.last_sign_in_at && (
           <div className="text-[11px] text-muted-foreground mt-1">
