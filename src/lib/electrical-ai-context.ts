@@ -76,6 +76,14 @@ const SYNONYM_GROUPS: readonly { triggers: string[]; terms: string[] }[] = [
   { triggers: ["fan", "vent", "exhaust"], terms: ["fan", "vent", "exhaust", "blower"] },
 ];
 
+function stem(word: string): string {
+  const w = word.toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (w.length > 4 && w.endsWith("es")) return w.slice(0, -2);
+  if (w.length > 3 && w.endsWith("s")) return w.slice(0, -1);
+  return w;
+}
+
+
 /** Content words from the question, stemmed; stopwords and short words dropped. */
 export function questionTerms(question: string | undefined): string[] {
   if (!question) return [];
