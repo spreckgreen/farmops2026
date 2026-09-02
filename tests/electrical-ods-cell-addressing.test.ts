@@ -44,7 +44,7 @@ function contentXml(): string {
 
   const filler = row(
     [cellText("FS-000"), cellText("filler"), empties(12), cellText("0"), cellText("0")].join(""),
-    ' table:number-rows-repeated="117"',
+    ' table:number-rows-repeated="118"',
   );
 
   // FS-082: Volts stored as a text cell, preceded by a repeated empty group, a
