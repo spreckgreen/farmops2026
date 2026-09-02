@@ -91,7 +91,7 @@ async function resolveScope(supabase: unknown, userId: string) {
 export const listElectricalAiScenarios = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<ElectricalAiScopeReport> => {
-    const { isAdmin, access, basis } = await resolveScope(
+    const { isAdmin, access, basis, grants } = await resolveScope(
       context.supabase,
       context.userId,
     );
