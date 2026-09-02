@@ -52,7 +52,7 @@ import {
   createUserAccount,
   type ManagedUser,
 } from "@/lib/admin.functions";
-import { setEntitlement } from "@/lib/addons.functions";
+import { ADDON_KEYS, isEntitlementActive, type AddonKey } from "@/lib/addons";
 
 
 
@@ -64,6 +64,20 @@ export const Route = createFileRoute("/admin/users")({
 });
 
 const ALL_ROLES: AppRole[] = ["viewer", "editor", "admin", "electrician"];
+
+const ADDON_LABEL: Record<AddonKey, string> = {
+  electrical: "Electrical (full)",
+  electrical_fieldwrite: "Electrical field write",
+  electrical_readonly: "Electrical read-only",
+  electrical_scan: "Scanned panel only",
+};
+
+const ADDON_HINT: Record<AddonKey, string> = {
+  electrical: "(whole module + reconciliation tools)",
+  electrical_fieldwrite: "(audited as-built writes)",
+  electrical_readonly: "(electrician-viewable screens, read-only)",
+  electrical_scan: "(only panels they scanned)",
+};
 
 const ROLE_HINT: Record<AppRole, string> = {
   viewer: "(read-only)",
@@ -222,8 +236,6 @@ function UserRow({ user, currentUserId }: { user: ManagedUser; currentUserId: st
   const [disableOpen, setDisableOpen] = useState(false);
   const [disableReason, setDisableReason] = useState("");
 
-
-  const entitlementFn = useServerFn(setEntitlement);
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ["admin", "users"] });
