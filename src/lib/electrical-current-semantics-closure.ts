@@ -858,8 +858,8 @@ export function closureMarkdown(plan: CurrentSemanticsClosurePlan): string {
     "",
     "## Candidate meanings",
     "",
-    "| Semantic candidate | Supporting rows | Contradictory rows | Confidence | Migration impact |",
-    "| --- | --- | --- | --- | --- |",
+    "| Semantic candidate | Supporting rows | Contradictory rows | Indeterminate rows | Representative stable IDs | Confidence | Migration impact |",
+    "| --- | --- | --- | --- | --- | --- | --- |",
   ];
   for (const c of plan.candidates) {
     lines.push(
@@ -867,8 +867,37 @@ export function closureMarkdown(plan: CurrentSemanticsClosurePlan): string {
         c.supporting_rows.length ? c.supporting_rows.join(", ") : "none"
       } — ${c.supporting_basis} | ${
         c.contradictory_rows.length ? c.contradictory_rows.join(", ") : "none"
-      } — ${c.contradictory_basis} | ${CONFIDENCE_LABELS[c.confidence]} | ${c.migration_impact} |`,
+      } — ${c.contradictory_basis} | ${c.indeterminate_rows.length} — ${
+        c.indeterminate_basis
+      } | ${c.representative_stable_ids.join(", ") || "none"} | ${
+        CONFIDENCE_LABELS[c.confidence]
+      } | ${c.migration_impact} |`,
     );
+  }
+  lines.push("", "## Bryant evidence preserved independently", "");
+  lines.push(`- Applies to: ${plan.bryant_evidence.applies_to.join(", ")}`);
+  lines.push(`- Equipment: ${plan.bryant_evidence.equipment_model}`);
+  for (const q of plan.bryant_evidence.quantities)
+    lines.push(
+      `- ${q.quantity} = ${q.value === null ? "NULL / unverified" : `${q.value} A`} → \`${
+        q.field ?? "none"
+      }\`: ${q.status}`,
+    );
+  for (const r of plan.bryant_evidence.preservation_rules) lines.push(`- Rule: ${r}`);
+
+  lines.push("", "## Current semantics unresolved findings (individual)", "");
+  for (const f of plan.unresolved_findings) {
+    lines.push(
+      `### ${f.finding_id} — ${f.stable_id} (${f.system === "canonical_ods" ? "canonical ODS" : "FarmOps"})`,
+      "",
+      `- Field: ${f.field}`,
+      `- Value: ${f.value === null ? "blank" : f.value}`,
+      `- Classification: \`${f.classification}\``,
+      `- Why open: ${f.why_open}`,
+    );
+    for (const r of f.required_to_resolve) lines.push(`- Required to resolve: ${r}`);
+    for (const x of f.excluded_as_evidence) lines.push(`- Excluded as evidence: ${x}`);
+    lines.push("");
   }
   lines.push(
     "",
