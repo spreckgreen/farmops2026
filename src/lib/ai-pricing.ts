@@ -80,6 +80,11 @@ const TOKEN_PROFILES: Record<AiAreaId, TokenProfile> = {
   "maintenance.forecast": { inputTokens: 1_800, outputTokens: 350 },
   "food.preservation": { inputTokens: 2_200, outputTokens: 700 },
   "food.prices": { inputTokens: 1_200, outputTokens: 500 },
+  "electrical.panel_qa": { inputTokens: 9_000, outputTokens: 700 },
+  "electrical.topology_explain": { inputTokens: 9_000, outputTokens: 900 },
+  "electrical.qa_triage": { inputTokens: 16_000, outputTokens: 1_500 },
+  "electrical.audit_summary": { inputTokens: 7_000, outputTokens: 1_000 },
+  "electrical.field_note": { inputTokens: 600, outputTokens: 300 },
   diagnostics: { inputTokens: 800, outputTokens: 250 },
 };
 
@@ -98,6 +103,11 @@ const AREA_HOSTED_MODEL: Record<AiAreaId, string> = {
   consultant: "google/gemini-3.6-flash",
   procedures: "google/gemini-3-flash-preview",
   kb_ingest: "openai/gpt-5.6-sol",
+  "electrical.panel_qa": "google/gemini-3.6-flash",
+  "electrical.topology_explain": "google/gemini-3.6-flash",
+  "electrical.qa_triage": "google/gemini-3.6-flash",
+  "electrical.audit_summary": "google/gemini-3.6-flash",
+  "electrical.field_note": "google/gemini-3.6-flash",
   "maintenance.schedule": "google/gemini-3.6-flash",
   "maintenance.symptom": "google/gemini-3.6-flash",
   "maintenance.forecast": "google/gemini-3.6-flash",
