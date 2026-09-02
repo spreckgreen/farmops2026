@@ -139,14 +139,31 @@ export const FULL_ELECTRICAL_ADDON: AddonKey = "electrical";
  * SOR status, field mapping) — those stay with the full add-on.
  */
 export const READONLY_ELECTRICAL_ADDON: AddonKey = "electrical_readonly";
+/**
+ * Field-write Electrical access. Same breadth as the read-only electrician
+ * grant, but the electrician may also record what they installed: panels,
+ * raceways, junction boxes, branch runs, circuits, loads, services, panel
+ * layout and labels. Reconciliation tooling is still withheld, and every
+ * change made under this grant is written to `electrical_change_audit` so an
+ * administrator can review it afterwards.
+ */
+export const FIELDWRITE_ELECTRICAL_ADDON: AddonKey = "electrical_fieldwrite";
 /** Keys that may read farm-wide electrical data, widest first. */
 export const ELECTRICAL_READ_ADDONS: AddonKey[] = [
   FULL_ELECTRICAL_ADDON,
+  FIELDWRITE_ELECTRICAL_ADDON,
   READONLY_ELECTRICAL_ADDON,
+];
+/** Keys that may write the as-installed field record, widest first. */
+export const ELECTRICAL_FIELD_WRITE_ADDONS: AddonKey[] = [
+  FULL_ELECTRICAL_ADDON,
+  FIELDWRITE_ELECTRICAL_ADDON,
 ];
 /** Keys that may read a scanned panel sheet, widest first. */
 export const PANEL_SHEET_ADDONS: AddonKey[] = [
   FULL_ELECTRICAL_ADDON,
+  FIELDWRITE_ELECTRICAL_ADDON,
   READONLY_ELECTRICAL_ADDON,
   SCAN_ADDON,
 ];
+
