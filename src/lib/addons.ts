@@ -5,7 +5,13 @@
 // shape a billing webhook would eventually write to, but for now they are
 // granted by an admin.
 
-export const ADDON_KEYS = ["electrical", "electrical_scan", "electrical_readonly"] as const;
+export const ADDON_KEYS = [
+  "electrical",
+  "electrical_scan",
+  "electrical_readonly",
+  "electrical_fieldwrite",
+] as const;
+
 export type AddonKey = (typeof ADDON_KEYS)[number];
 
 export const ENTITLEMENT_STATUSES = ["active", "trialing", "expired", "disabled"] as const;
