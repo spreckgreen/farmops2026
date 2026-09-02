@@ -25,6 +25,7 @@ import { listAdjudicatedLoads } from "@/lib/load-adjudication.functions";
 import { BryantVoltageApplyGate } from "@/components/electrical/bryant-voltage-apply-gate";
 import { CanonicalOdsCorrectionQueue } from "@/components/electrical/canonical-ods-correction-queue";
 import { AmpSemanticsReport } from "@/components/electrical/amp-semantics-report";
+import { CurrentSemanticMigrationPlan } from "@/components/electrical/current-semantic-migration-plan";
 import {
   AdjudicationBaselinePicker,
   type AttachedBaseline,
