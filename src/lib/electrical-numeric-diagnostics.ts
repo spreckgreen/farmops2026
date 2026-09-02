@@ -185,7 +185,26 @@ export interface NumericDiagnosticsReport {
   compared_cells: number;
   agreements: number;
   total_findings: number;
+  /** Raw / historical category counts — never reduced by adjudication. */
   counts_by_category: Record<NumericCategory, number>;
+  /** Per category: findings carrying a SHA-bound adjudication. */
+  adjudicated_counts_by_category: Record<NumericCategory, number>;
+  /** Per category: findings still open after the disposition overlay. */
+  unresolved_counts_by_category: Record<NumericCategory, number>;
+  /** Disposition roll-up used by the dashboard and Phase 4.5 convergence. */
+  disposition_counts: {
+    adjudicated: number;
+    unresolved: number;
+    canonical_corrections_pending: number;
+    farmops_corrections_pending: number;
+    semantic_representation_differences: number;
+    current_semantics_unresolved: number;
+    provenance_or_field_verification_pending: number;
+  };
+  by_disposition: Partial<Record<ConvergenceDisposition, number>>;
+  /** Adjudications naming a finding but bound to a different workbook SHA. */
+  stale_adjudications: EstablishedAdjudication[];
+  verified_bryant_quantities: typeof VERIFIED_BRYANT_QUANTITIES;
   counts_by_ods_state: Record<string, number>;
   by_field: NumericFieldSummary[];
   findings: NumericFinding[];
