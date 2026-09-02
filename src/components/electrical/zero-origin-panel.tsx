@@ -180,6 +180,8 @@ export function ZeroOriginPanel({ diag }: { diag: NumericDiagnosticsReport }) {
           </div>
         )}
 
+        <ConnectedVaZeroGate onRevalidate={onRevalidate} />
+
         <div>
           <h4 className="mb-1 font-medium">Kept separate</h4>
           <ul className="space-y-1 text-muted-foreground">
