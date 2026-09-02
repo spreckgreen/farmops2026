@@ -131,14 +131,32 @@ function Assistant() {
   // Pre-flight estimate: shown when the self-hosted model probably cannot answer
   // this question, so the user can decide whether to pay for a cloud run.
   const [offer, setOffer] = useState<ElectricalAiEstimate | null>(null);
+  // Replayed 24h cache entry backing the shown answer (null = fresh run).
+  const [cached, setCached] = useState<CachedElectricalAnswer | null>(null);
+  // Live "running" clock so a 150s local run visibly progresses.
+  const [startedAt, setStartedAt] = useState<number | null>(null);
+  const [elapsedMs, setElapsedMs] = useState(0);
 
-  const allowed = useMemo(() => {
+  const { state: aiSettings, setFeature } = useAiSettings();
+  const featureOn = (id: string) =>
+    aiSettings.masterEnabled &&
+    aiSettings.features[electricalAiFeatureKey(id)] !== false;
+
+  const granted = useMemo(() => {
     const ids = new Set((data?.scenarios ?? []).map((s) => s.id));
     return ELECTRICAL_AI_SCENARIOS.filter((s) => ids.has(s.id));
   }, [data?.scenarios]);
+  const allowed = useMemo(
+    () => granted.filter((s) => featureOn(s.id)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [granted, aiSettings],
+  );
 
   useEffect(() => {
-    if (!selected && allowed.length > 0) setSelected(allowed[0]!.id);
+    if (allowed.length === 0) return;
+    if (!selected || !allowed.some((s) => s.id === selected)) {
+      setSelected(allowed[0]!.id);
+    }
   }, [allowed, selected]);
 
   const def = allowed.find((s) => s.id === selected) ?? null;
@@ -154,12 +172,20 @@ function Assistant() {
           ...(opts?.useCloud ? { useCloud: true } : {}),
         },
       }),
+    onMutate: () => {
+      setStartedAt(Date.now());
+      setElapsedMs(0);
+    },
     onSuccess: (res) => {
-      setAnswer(res as ElectricalAiAnswer);
+      const fresh = res as ElectricalAiAnswer;
+      setAnswer(fresh);
       setOffer(null);
+      setCached(null);
+      if (def && def.input !== "photo") writeCachedAnswer(def.id, text, fresh);
     },
     onError: (e: unknown) =>
       toast.error(e instanceof Error ? e.message : "The AI scenario could not run"),
+    onSettled: () => setStartedAt(null),
   });
 
   const estimate = useServerFn(estimateElectricalAiRun);
@@ -168,6 +194,10 @@ function Assistant() {
       estimate({
         data: { scenario: def!.id, text: def!.input === "none" ? undefined : text },
       }),
+    onMutate: () => {
+      setStartedAt(Date.now());
+      setElapsedMs(0);
+    },
     onSuccess: (res) => {
       const est = res as ElectricalAiEstimate;
       if (est.recommendCloud) setOffer(est);
@@ -177,13 +207,37 @@ function Assistant() {
     onError: () => mutation.mutate(undefined),
   });
 
-  const startRun = () => {
-    setOffer(null);
-    // Photo scenarios have no record context to size up.
-    if (def?.input === "photo") mutation.mutate(undefined);
-    else preflight.mutate();
-  };
   const working = mutation.isPending || preflight.isPending;
+
+  // Tick the elapsed clock while a query is in flight.
+  useEffect(() => {
+    if (!working || startedAt === null) return;
+    const id = window.setInterval(() => setElapsedMs(Date.now() - startedAt), 250);
+    return () => window.clearInterval(id);
+  }, [working, startedAt]);
+
+  const startRun = (opts?: { force?: boolean }) => {
+    setOffer(null);
+    // Photo scenarios have no record context to size up and are never cached.
+    if (def?.input === "photo") {
+      mutation.mutate(undefined);
+      return;
+    }
+    if (!def) return;
+    if (opts?.force) {
+      dropCachedAnswer(def.id, text);
+    } else {
+      const hit = readCachedAnswer(def.id, text);
+      if (hit) {
+        setCached(hit);
+        setAnswer(hit.answer);
+        return;
+      }
+    }
+    setCached(null);
+    preflight.mutate();
+  };
+
 
 
   if (isLoading) {
