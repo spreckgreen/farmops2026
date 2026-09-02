@@ -777,5 +777,9 @@ export const ensurePanelScanAccess = createServerFn({ method: "POST" })
 
     const already = await hasAddon(context.supabase, context.userId, "electrical_scan");
     if (!already) await ensureScanAddon(context.userId);
+    // Bind the grant to THIS panel: the scan-scoped add-on alone opens nothing,
+    // only the panels recorded here (plus approved wider windows).
+    await recordScannedPanel(db, context.userId, data.panelId);
     return { scope: "scan", granted: !already };
+
   });
