@@ -109,8 +109,14 @@ export function BryantVoltageApplyGate({
             </span>
           </p>
           <p className="pt-1 text-xs text-muted-foreground">
-            Corrects <code>electrical_loads.volts</code> from 120 to 240 on exactly two verified
-            Bryant mini-split loads ({BRYANT_VOLTAGE_LOAD_IDS.join(", ")}). Rated equipment voltage
+            Adjudicates <code>electrical_loads.volts</code> on exactly two verified Bryant
+            mini-split loads ({BRYANT_VOLTAGE_LOAD_IDS.join(", ")}). Where FarmOps already holds the
+            verified nominal supply of 240 V and the canonical workbook states an incompatible
+            value, the row is classified{" "}
+            <code>CANONICAL_ODS_VALUE_INCOMPATIBLE_WITH_VERIFIED_EQUIPMENT</code> with disposition{" "}
+            <code>CANONICAL_ODS_CORRECTION_REQUIRED</code>: no FarmOps write is proposed or
+            performed, the ODS is not edited here, and the item is routed to the read-only canonical
+            ODS correction queue for the controlled ODS workflow. Rated equipment voltage
             208/230 VAC, 1Ø, 60 Hz is preserved separately as provenance and is never collapsed to a
             scalar 230. Amps, connected/demand VA, notes, source references, equipment provenance,
             ODS capture, stable IDs, relationships, MCA/MOCP values, breaker data,
@@ -206,6 +212,9 @@ export function BryantVoltageApplyGate({
           <Badge variant="outline">Would change {summary.would_change}</Badge>
           <Badge variant="outline">Applied {summary.applied}</Badge>
           <Badge variant="outline">Already correct {summary.already_correct}</Badge>
+          <Badge variant="outline">
+            Canonical ODS correction required {summary.canonical_ods_correction_required}
+          </Badge>
           <Badge variant={summary.drifted ? "destructive" : "secondary"}>
             Drifted {summary.drifted}
           </Badge>
@@ -236,7 +245,7 @@ export function BryantVoltageApplyGate({
                   <th className="py-1 pr-3">Stable ID</th>
                   <th className="py-1 pr-3">ODS parsed volts</th>
                   <th className="py-1 pr-3">FarmOps live volts</th>
-                  <th className="py-1 pr-3">New volts</th>
+                  <th className="py-1 pr-3">Proposed FarmOps volts</th>
                   <th className="py-1 pr-3">Preserved equipment rating</th>
                   <th className="py-1 pr-3">Status</th>
                   <th className="py-1 pr-3">Applied at</th>
@@ -266,7 +275,11 @@ export function BryantVoltageApplyGate({
                       <td className="py-1 pr-3 font-mono">{r.stable_id}</td>
                       <td className="py-1 pr-3 font-mono">{r.ods_volts ?? "not parsed"}</td>
                       <td className="py-1 pr-3">{r.live_volts ?? "not stated"}</td>
-                      <td className="py-1 pr-3">{r.proposed_volts}</td>
+                      <td className="py-1 pr-3">
+                        {r.status === "canonical_ods_correction_required"
+                          ? "none — no FarmOps write"
+                          : r.proposed_volts}
+                      </td>
                       <td className="py-1 pr-3">
                         {r.rated_equipment_voltage} VAC, {r.phase}Ø, {r.frequency_hz} Hz
                       </td>
@@ -299,7 +312,8 @@ export function BryantVoltageApplyGate({
               <span>
                 I confirm the approved rows above should be written: only{" "}
                 <code>electrical_loads.volts</code> changes from 120 to 240, and the original
-                finding and adjudication history is preserved.
+                finding and adjudication history is preserved. Rows classified as canonical ODS
+                corrections are never included.
               </span>
             </label>
           ) : null}

@@ -45,6 +45,13 @@ export const NON_BLOCKING_DISCREPANCY_CODES = new Set<string>([
 export type BryantVoltageGateStatus =
   | "would_change"
   | "already_correct"
+  /**
+   * FarmOps already holds the supported nominal supply voltage while the
+   * canonical workbook holds the incompatible value. There is NO FarmOps write
+   * to perform: the correction belongs to the canonical workbook and is routed
+   * to the read-only canonical ODS correction queue.
+   */
+  | "canonical_ods_correction_required"
   | "drifted"
   | "conflict"
   | "not_found"
@@ -81,6 +88,7 @@ export interface BryantVoltageGateSummary {
   authorized_loads: number;
   would_change: number;
   already_correct: number;
+  canonical_ods_correction_required: number;
   drifted: number;
   conflict: number;
   not_found: number;
@@ -225,6 +233,7 @@ export function summarizeBryantVoltageGate(
     authorized_loads: BRYANT_VOLTAGE_LOAD_IDS.length,
     would_change: count("would_change"),
     already_correct: count("already_correct"),
+    canonical_ods_correction_required: count("canonical_ods_correction_required"),
     drifted: count("drifted"),
     conflict: count("conflict"),
     not_found: count("not_found"),
@@ -241,6 +250,7 @@ export function summarizeBryantVoltageGate(
   summary.accounted =
     summary.would_change +
     summary.already_correct +
+    summary.canonical_ods_correction_required +
     summary.drifted +
     summary.conflict +
     summary.not_found +
@@ -307,7 +317,8 @@ export function bryantVoltageGateMarkdown(
     `- Authorized loads: ${BRYANT_VOLTAGE_LOAD_IDS.join(", ")}`,
     `- Canonical baseline: ${summary.baseline_ods_file ?? "none attached"} (SHA-256 ${summary.baseline_sha256 ?? "n/a"}) — ${summary.baseline_authorized ? "authorized Phase 4.4a baseline" : "NOT authorized: no correction may be applied"}`,
     `- Baseline blocked rows: ${summary.baseline_blocked}`,
-    `- Rows: ${rows.length} (would change ${summary.would_change}, already correct ${summary.already_correct}, drifted ${summary.drifted}, conflict ${summary.conflict}, not found ${summary.not_found}, not approved ${summary.not_approved}, failed ${summary.failed}, applied ${summary.applied})`,
+    `- Canonical ODS correction required (no FarmOps write): ${summary.canonical_ods_correction_required}`,
+    `- Rows: ${rows.length} (would change ${summary.would_change}, already correct ${summary.already_correct}, canonical ODS correction required ${summary.canonical_ods_correction_required}, drifted ${summary.drifted}, conflict ${summary.conflict}, not found ${summary.not_found}, not approved ${summary.not_approved}, failed ${summary.failed}, applied ${summary.applied})`,
     `- Reconciles: ${summary.reconciles ? "yes" : "NO"}`,
     "",
     `Exactly one field is written: \`electrical_loads.${BRYANT_VOLTAGE_COLUMN}\` ${BRYANT_CURRENT_VOLTAGE} → ${BRYANT_NOMINAL_SUPPLY_VOLTAGE}. Rated equipment voltage ${BRYANT_RATED_EQUIPMENT_VOLTAGE_CLASS} VAC, ${BRYANT_PHASE}Ø, ${BRYANT_FREQUENCY_HZ} Hz is preserved separately as provenance and never collapsed to a scalar. Amps, connected/demand VA, notes, source references, equipment provenance, ODS capture, IDs and relationships are untouched, as are FS-084, FS-034, FS-092 and every other load.`,

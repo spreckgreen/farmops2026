@@ -50,6 +50,7 @@ export type AdjudicationBucket =
   | "calculation_basis_difference"
   | "engineering_value_supported_by_equipment_identity"
   | "farmops_value_incompatible_with_verified_equipment"
+  | "canonical_ods_value_incompatible_with_verified_equipment"
   | "consistent_with_manufacturer_mocp"
   | "amp_semantic_provenance_required"
   | "farmops_amp_semantic_or_source_requires_review"
@@ -61,6 +62,7 @@ export const ADJUDICATION_BUCKET_ORDER: AdjudicationBucket[] = [
   "engineering_value_supported_by_equipment_identity",
   "consistent_with_manufacturer_mocp",
   "farmops_value_incompatible_with_verified_equipment",
+  "canonical_ods_value_incompatible_with_verified_equipment",
   "farmops_amp_semantic_or_source_requires_review",
   "amp_semantic_provenance_required",
   "equipment_identified_rating_verification_pending",
@@ -78,6 +80,8 @@ export const ADJUDICATION_BUCKET_LABELS: Record<AdjudicationBucket, string> = {
     "Equipment identified — electrical rating verification pending",
   farmops_value_incompatible_with_verified_equipment:
     "FarmOps value incompatible with verified equipment",
+  canonical_ods_value_incompatible_with_verified_equipment:
+    "Canonical ODS value incompatible with verified equipment",
   consistent_with_manufacturer_mocp: "Consistent with manufacturer MOCP",
   amp_semantic_provenance_required: "Amp semantic provenance required",
   farmops_amp_semantic_or_source_requires_review:
@@ -96,17 +100,29 @@ export const ADJUDICATION_BUCKET_CODES: Record<AdjudicationBucket, string> = {
     "EQUIPMENT_IDENTIFIED_ELECTRICAL_RATING_VERIFICATION_PENDING",
   farmops_value_incompatible_with_verified_equipment:
     "FARMOPS_VALUE_INCOMPATIBLE_WITH_VERIFIED_EQUIPMENT",
+  canonical_ods_value_incompatible_with_verified_equipment:
+    "CANONICAL_ODS_VALUE_INCOMPATIBLE_WITH_VERIFIED_EQUIPMENT",
   consistent_with_manufacturer_mocp: "CONSISTENT_WITH_MANUFACTURER_MOCP",
   amp_semantic_provenance_required: "AMP_SEMANTIC_PROVENANCE_REQUIRED",
   farmops_amp_semantic_or_source_requires_review:
     "FARMOPS_AMP_SEMANTIC_OR_SOURCE_REQUIRES_REVIEW",
 };
 
+/**
+ * Buckets whose corrective action belongs to the canonical workbook, not to
+ * FarmOps. A finding in one of these buckets must never be presented as a
+ * pending FarmOps write, and never authorizes one.
+ */
+export const CANONICAL_ODS_CORRECTION_BUCKETS = new Set<AdjudicationBucket>([
+  "canonical_ods_value_incompatible_with_verified_equipment",
+]);
+
 export type Recommendation =
   | "KEEP_ODS_AND_CORRECT_FARMOPS"
   | "KEEP_FARMOPS_AND_UPDATE_ODS"
   | "PRESERVE_BOTH_AS_DISTINCT_SEMANTICS"
   | "CORRECT_FARMOPS_WITH_SEMANTIC_REPRESENTATION"
+  | "CANONICAL_ODS_CORRECTION_REQUIRED"
   | "FIELD_OR_DOCUMENT_VERIFICATION_REQUIRED"
   | "NO_CHANGE";
 
@@ -116,9 +132,12 @@ export const RECOMMENDATION_LABELS: Record<Recommendation, string> = {
   PRESERVE_BOTH_AS_DISTINCT_SEMANTICS: "Preserve both as distinct semantics",
   CORRECT_FARMOPS_WITH_SEMANTIC_REPRESENTATION:
     "Correct FarmOps using the additive semantic representation (no scalar collapse)",
+  CANONICAL_ODS_CORRECTION_REQUIRED:
+    "Canonical ODS correction required (no FarmOps write; queue for the controlled ODS workflow)",
   FIELD_OR_DOCUMENT_VERIFICATION_REQUIRED: "Field or document verification required",
   NO_CHANGE: "No change",
 };
+
 
 
 /* ------------------------------------------------------------- provenance */
@@ -336,27 +355,81 @@ function classifyVoltsWithEquipment(
     };
   }
 
-  // 2. The stored value is incompatible with the identified equipment's
-  //    published rating class — the canonical engineering value is supported.
+  // 2. One side's value is incompatible with the identified equipment's
+  //    published rating class. Which side is incompatible decides whose record
+  //    is wrong: FarmOps as-built, or the canonical workbook itself.
   const cls = s.rated_equipment_voltage_class;
   if (cls) {
     const classValues = cls.split("/").map((x) => Number(x.trim()));
     const compatible = classValues.some((v) => Math.abs(v - other) <= 12);
     if (!compatible) {
       const farmopsIsIncompatible = p.farmops === other;
+      const ratingProvenance = `${eq.manufacturer} ${eq.model} published rated electrical supply${s.phase ? `, ${s.phase}Ø` : ""}${s.frequency_hz ? `, ${s.frequency_hz} Hz` : ""}`;
+      const preserved = [
+        {
+          field: "rated_equipment_voltage",
+          value: cls,
+          source: ratingProvenance,
+        },
+        ...(s.frequency_hz
+          ? [
+              {
+                field: "frequency_hz",
+                value: String(s.frequency_hz),
+                source: `${eq.manufacturer} ${eq.model} published rated electrical supply`,
+              },
+            ]
+          : []),
+      ];
+
+      // 2b. The canonical workbook holds the incompatible value while the
+      //     FarmOps as-built value matches the verified nominal supply. The
+      //     correction belongs to the canonical ODS, NOT to FarmOps: there is
+      //     no FarmOps write to perform, now or later, from this finding.
+      if (!farmopsIsIncompatible) {
+        return {
+          bucket: "canonical_ods_value_incompatible_with_verified_equipment",
+          evidence: equipmentEvidenceLines(eq),
+          supporting_only: [],
+          reason: `The identified equipment (${eqLine(eq)}) has a published rated electrical supply of ${cls} V AC, ${s.phase ?? "1"}Ø${s.frequency_hz ? `, ${s.frequency_hz} Hz` : ""}. The canonical workbook's ${other} V value is incompatible with that equipment, while the FarmOps as-built ${nominal} V value is the supported nominal site supply. The canonical source is therefore the record in error; FarmOps requires no change.`,
+          recommendation: "CANONICAL_ODS_CORRECTION_REQUIRED",
+          missing_evidence: [
+            "An approved engineering disposition applied to the canonical workbook through the controlled ODS workflow. This adjudication neither edits the ODS nor writes FarmOps.",
+          ],
+          semantic_interpretation: `ods_observed_voltage = ${other} V (preserved as the historical canonical record); farmops_as_built_voltage = ${nominal} V; rated_equipment_voltage = ${cls} (kept verbatim, never reduced to a scalar); canonical_nominal_correction_candidate = ${nominal} V`,
+          proposed_representation: [
+            {
+              field: "ods_observed_voltage",
+              value: `${other} V`,
+              source: "Canonical workbook value as parsed (never overwritten here)",
+            },
+            {
+              field: "farmops_as_built_voltage",
+              value: `${nominal} V`,
+              source: "FarmOps engineering as-built value (already correct — no write)",
+            },
+            ...preserved,
+            {
+              field: "canonical_nominal_correction_candidate",
+              value: `${nominal} V`,
+              source:
+                "Proposed canonical nominal supply voltage for the controlled ODS correction workflow",
+            },
+          ],
+        };
+      }
+
+      // 2a. FarmOps holds the incompatible value — the canonical engineering
+      //     value is supported and FarmOps is corrected through an apply gate.
       return {
-        bucket: farmopsIsIncompatible
-          ? "farmops_value_incompatible_with_verified_equipment"
-          : "engineering_value_supported_by_equipment_identity",
+        bucket: "farmops_value_incompatible_with_verified_equipment",
         evidence: equipmentEvidenceLines(eq),
         supporting_only: [],
         reason: `The identified equipment (${eqLine(eq)}) has a published rated electrical supply of ${cls} V AC, ${s.phase ?? "1"}Ø${s.frequency_hz ? `, ${s.frequency_hz} Hz` : ""}. The stored ${other} V representation is incompatible with that equipment and is therefore not an alternative nameplate representation, so the canonical ${nominal} V engineering value is supported by equipment identity.`,
         recommendation: "CORRECT_FARMOPS_WITH_SEMANTIC_REPRESENTATION",
-        missing_evidence: farmopsIsIncompatible
-          ? [
-              "Correction is recommended but not written in this phase: the FarmOps value must be replaced through an explicit apply gate, not by adjudication.",
-            ]
-          : [],
+        missing_evidence: [
+          "Correction is recommended but not written in this phase: the FarmOps value must be replaced through an explicit apply gate, not by adjudication.",
+        ],
         semantic_interpretation: `nominal_supply_voltage = ${nominal}; rated_equipment_voltage = ${cls} (kept verbatim, never reduced to a scalar)`,
         proposed_representation: [
           {
@@ -364,24 +437,12 @@ function classifyVoltsWithEquipment(
             value: String(nominal),
             source: "Canonical engineering designation (unchanged ODS)",
           },
-          {
-            field: "rated_equipment_voltage",
-            value: cls,
-            source: `${eq.manufacturer} ${eq.model} published rated electrical supply${s.phase ? `, ${s.phase}Ø` : ""}${s.frequency_hz ? `, ${s.frequency_hz} Hz` : ""}`,
-          },
-          ...(s.frequency_hz
-            ? [
-                {
-                  field: "frequency_hz",
-                  value: String(s.frequency_hz),
-                  source: `${eq.manufacturer} ${eq.model} published rated electrical supply`,
-                },
-              ]
-            : []),
+          ...preserved,
         ],
       };
     }
   }
+
   return null;
 }
 
