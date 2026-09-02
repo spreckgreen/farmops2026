@@ -57,6 +57,11 @@ import {
   type ConvergenceDisposition,
   type EstablishedAdjudication,
 } from "@/lib/electrical-convergence";
+import {
+  DEMAND_VA_FIELD,
+  classifyDemandVaToken,
+} from "@/lib/electrical-demand-va-placeholder";
+
 
 export const NUMERIC_DIAGNOSTICS_VERSION =
   "4.4b-numeric-diagnostics-5-adjudication-disposition-overlay";
