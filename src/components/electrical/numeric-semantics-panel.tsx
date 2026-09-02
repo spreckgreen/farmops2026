@@ -333,6 +333,8 @@ export function NumericSemanticsPanel({
           </div>
         ) : null}
 
+        <ConvergenceAccountingPanel diag={diag} />
+
         <CategoryCAnalysisPanel diag={diag} />
 
 
