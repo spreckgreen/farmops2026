@@ -136,7 +136,7 @@ describe("Phase 4.4d canonical ODS revision generation", () => {
         expected: 120,
         next: 240,
       }),
-    ).toThrow(/holds 240, not the authorized 120/);
+    ).toThrow(/parses as 240, not the authorized 120/);
   });
 
   it("accepts only the 2-approved / 4-withheld manifest bound to the baseline SHA", () => {
