@@ -14,6 +14,7 @@ import {
   NUMERIC_ARTIFACT_LABELS,
   type NumericCategory,
 } from "@/lib/electrical-numeric-diagnostics";
+import { CONVERGENCE_DISPOSITION_LABELS } from "@/lib/electrical-convergence";
 import { systemVoltagePreviewCsv } from "@/lib/electrical-system-voltage";
 import { SystemVoltageApplyGate } from "@/components/electrical/system-voltage-apply-gate";
 import { LoadSemanticDetailPanel } from "@/components/electrical/load-semantic-detail-panel";
