@@ -57,6 +57,11 @@ import {
   type ConvergenceDisposition,
   type EstablishedAdjudication,
 } from "@/lib/electrical-convergence";
+import {
+  DEMAND_VA_FIELD,
+  classifyDemandVaToken,
+} from "@/lib/electrical-demand-va-placeholder";
+
 
 export const NUMERIC_DIAGNOSTICS_VERSION =
   "4.4b-numeric-diagnostics-5-adjudication-disposition-overlay";
@@ -397,12 +402,19 @@ function classify(
  * Read-only disposition overlay. The raw category is preserved verbatim; an
  * adjudication may only apply when it is bound to the same canonical ODS SHA as
  * the current run. Nothing here authorizes a write.
+ *
+ * Category C carries one established, SHA-bound semantic adjudication: the
+ * `demand_va` placeholder group. A source token meaning "not yet determined"
+ * against a FarmOps NULL is dispositioned PLACEHOLDER_PRESERVED_AS_NULL — the
+ * numeric state is preserved and the exact token stays as provenance. No number
+ * is ever written and the raw category stays C.
  */
 function adjudicationOverlay(
   stableId: string,
   field: string,
   runSha: string,
   category: NumericCategory,
+  cell: { odsRaw: string; farmopsRaw: string; farmopsState: ParsedNumeric["state"] },
 ): Pick<
   NumericFinding,
   | "adjudicated"
@@ -418,31 +430,55 @@ function adjudicationOverlay(
   const candidates = adjudicationsFor(stableId, field);
   const hit = candidates.find((a) => a.ods_sha256 === runSha) ?? null;
   const stale = candidates.some((a) => a.ods_sha256 !== runSha);
+
+  const placeholderPreserved =
+    !hit &&
+    category === "C" &&
+    field === DEMAND_VA_FIELD &&
+    classifyDemandVaToken(cell.odsRaw) === "UNKNOWN_NOT_YET_DETERMINED" &&
+    cell.farmopsState === "absent" &&
+    (cell.farmopsRaw ?? "").trim() === "";
+
   const disposition: ConvergenceDisposition = hit
     ? hit.disposition
-    : category === "A"
-      ? "FARMOPS_CORRECTION_REQUIRED"
-      : category === "F"
-        ? "SEMANTIC_REPRESENTATION_DIFFERENCE"
-        : category === "D"
-          ? "PROVENANCE_VERIFICATION_REQUIRED"
-          : "UNADJUDICATED";
+    : placeholderPreserved
+      ? "PLACEHOLDER_PRESERVED_AS_NULL"
+      : category === "A"
+        ? "FARMOPS_CORRECTION_REQUIRED"
+        : category === "F"
+          ? "SEMANTIC_REPRESENTATION_DIFFERENCE"
+          : category === "D"
+            ? "PROVENANCE_VERIFICATION_REQUIRED"
+            : "UNADJUDICATED";
   return {
-    adjudicated: Boolean(hit),
-    adjudication_id: hit?.id ?? null,
-    adjudication_source: hit?.source ?? null,
-    adjudication_classification: hit?.classification ?? null,
+    adjudicated: Boolean(hit) || placeholderPreserved,
+    adjudication_id: hit?.id ?? (placeholderPreserved ? `demand-va-placeholder-${stableId}` : null),
+    adjudication_source:
+      hit?.source ??
+      (placeholderPreserved ? "Demand VA placeholder semantic adjudication (Category C)" : null),
+    adjudication_classification:
+      hit?.classification ?? (placeholderPreserved ? "PLACEHOLDER_PRESERVED_AS_NULL" : null),
     adjudication_rationale: hit
       ? hit.rationale
-      : stale
-        ? "An adjudication exists for this finding but references a different canonical workbook SHA — it is stale and reduces nothing."
-        : null,
+      : placeholderPreserved
+        ? "The canonical token states that no value has been determined; FarmOps NULL states exactly that. The token is retained as provenance and no numeric value is written."
+        : stale
+          ? "An adjudication exists for this finding but references a different canonical workbook SHA — it is stale and reduces nothing."
+          : null,
     stale_adjudication: !hit && stale,
     convergence_disposition: disposition,
     unresolved: UNRESOLVED_DISPOSITIONS.has(disposition),
-    preserved: hit ? hit.preserved : [],
+    preserved: hit
+      ? hit.preserved
+      : placeholderPreserved
+        ? [
+            `ODS demand_va source token: ${cell.odsRaw || "(blank)"}`,
+            "FarmOps demand_va: NULL — no numeric value determined",
+          ]
+        : [],
   };
 }
+
 
 export function numericDiagnostics(report: ValidationReport): NumericDiagnosticsReport {
   const registry = numericRegistry();
@@ -559,7 +595,12 @@ export function numericDiagnostics(report: ValidationReport): NumericDiagnostics
       proposed_value: c.proposed,
       normalization_rules: [...ods.rules, ...fp.rules].filter((v, i, a) => a.indexOf(v) === i).sort(),
       raw_category: c.category,
-      ...adjudicationOverlay(rec.stable_id, entry.field, report.ods.sha256, c.category),
+      ...adjudicationOverlay(rec.stable_id, entry.field, report.ods.sha256, c.category, {
+        odsRaw: ods.raw,
+        farmopsRaw: fp.raw,
+        farmopsState: fp.state,
+      }),
+
     };
     if (finding.stale_adjudication) {
       for (const a of adjudicationsFor(rec.stable_id, entry.field)) {

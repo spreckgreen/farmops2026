@@ -39,6 +39,7 @@ export const CONVERGENCE_DISPOSITIONS = [
   "FIELD_VERIFICATION_REQUIRED",
   "EXPECTED_TRANSFORMATION",
   "FARMOPS_AS_BUILT_ADDITION",
+  "PLACEHOLDER_PRESERVED_AS_NULL",
   "RESOLVED_NO_WRITE_REQUIRED",
 ] as const;
 export type ConvergenceDisposition = (typeof CONVERGENCE_DISPOSITIONS)[number];
@@ -53,6 +54,8 @@ export const CONVERGENCE_DISPOSITION_LABELS: Record<ConvergenceDisposition, stri
   FIELD_VERIFICATION_REQUIRED: "Field verification required",
   EXPECTED_TRANSFORMATION: "Expected transformation",
   FARMOPS_AS_BUILT_ADDITION: "FarmOps as-built addition",
+  PLACEHOLDER_PRESERVED_AS_NULL:
+    "Placeholder preserved as NULL (Category C — source token retained as provenance, no number written)",
   RESOLVED_NO_WRITE_REQUIRED: "Resolved — no write required",
 };
 
@@ -69,8 +72,10 @@ export const CLOSED_DISPOSITIONS = new Set<ConvergenceDisposition>([
   "SEMANTIC_REPRESENTATION_DIFFERENCE",
   "EXPECTED_TRANSFORMATION",
   "FARMOPS_AS_BUILT_ADDITION",
+  "PLACEHOLDER_PRESERVED_AS_NULL",
   "RESOLVED_NO_WRITE_REQUIRED",
 ]);
+
 
 /* ------------------------------------------- established adjudication registry */
 
