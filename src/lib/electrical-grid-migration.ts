@@ -591,3 +591,367 @@ export function coordinateDerivations(): CoordinateDerivation[] {
     },
   ];
 }
+
+/* ============================================================================
+ * Physical-location model (preview only)
+ * ----------------------------------------------------------------------------
+ * The frozen transformation dictionaries above are NOT modified here. This
+ * layer only reinterprets their output: the physical coordinate pair is the
+ * authoritative migrated location and the grid reference is its human-readable
+ * representation. Equidistant coordinates are preserved as intervals and are
+ * never snapped. Nothing here writes, and no location is invented.
+ * ========================================================================= */
+
+export type GridPrecision = "EXACT" | "NEAREST" | "INTERVAL" | "NON_FIXED" | "UNRESOLVED";
+
+export interface GridMigrationRow extends BaseGridMigrationRow {
+  /** Legacy Grid value, preserved verbatim for audit history. */
+  legacy_grid: string;
+  /** Feet east of the west wall. */
+  location_x_ft: number | null;
+  /** Feet south of the north wall. */
+  location_y_ft: number | null;
+  /** Derived display reference; may be an interval such as C-D2-3. */
+  grid_reference: string | null;
+  grid_reference_precision: GridPrecision;
+  grid_migration_provenance: string;
+  x_error_ft: number | null;
+  y_error_ft: number | null;
+  review_required: boolean;
+  /** Independent evidence used to resolve or confirm the position. */
+  supporting_evidence: string[];
+}
+
+/** Locations that are deliberately not fixed to the envelope. */
+const NON_FIXED_RE = /\bmobile\b|\bportable\b|\bcart\b(?!\s*ridge)/i;
+
+/** Non-location artifacts: never resolved without independent evidence. */
+const ARTIFACT_RE = /^(\?+|n\/?a|none|tbd|unknown|null|-+|\.|0+(?:\.0+)?\s*%)$/i;
+
+interface AxisEvidenceRule {
+  match: RegExp;
+  axis: "x" | "y";
+  ft: number;
+  label: string;
+  note: string;
+}
+
+/**
+ * Independent physical-location evidence available inside FarmOps itself:
+ * wall designations recorded in Location/description text. A rule may only
+ * resolve an axis that the coordinate transform left equidistant.
+ */
+const AXIS_EVIDENCE: AxisEvidenceRule[] = [
+  {
+    match: /east\s*wall/i,
+    axis: "x",
+    ft: 60,
+    label: "9",
+    note: "Location/description states East Wall — the corrected drawing puts the east wall on column 9 (60 ft), which fixes the west→east axis.",
+  },
+  {
+    match: /west\s*wall/i,
+    axis: "x",
+    ft: 0,
+    label: "1",
+    note: "Location/description states West Wall — the corrected drawing puts the west wall on column 1 (0 ft), which fixes the west→east axis.",
+  },
+  {
+    match: /north\s*wall/i,
+    axis: "y",
+    ft: 0,
+    label: "A",
+    note: "Location/description states North Wall — the corrected drawing puts the north wall on row A (0 ft), which fixes the north→south axis.",
+  },
+  {
+    match: /south\s*wall/i,
+    axis: "y",
+    ft: 40,
+    label: "F",
+    note: "Location/description states South Wall — the corrected drawing puts the south wall on row F (40 ft), which fixes the north→south axis.",
+  },
+];
+
+function round1(n: number): number {
+  return Math.round(n * 10) / 10;
+}
+
+function intervalLabel(m: LineMatch): string {
+  if (!m.tie || !m.runnerUp) return m.label;
+  const [lo, hi] = [m, m.runnerUp].sort((a, b) => a.ft - b.ft);
+  return `${lo.label}-${hi.label}`;
+}
+
+function unresolved(
+  base: BaseGridMigrationRow,
+  legacy: string,
+  provenance: string,
+): GridMigrationRow {
+  return {
+    ...base,
+    legacy_grid: legacy,
+    location_x_ft: null,
+    location_y_ft: null,
+    grid_reference: null,
+    grid_reference_precision: "UNRESOLVED",
+    grid_migration_provenance: provenance,
+    x_error_ft: null,
+    y_error_ft: null,
+    review_required: true,
+    supporting_evidence: [],
+  };
+}
+
+function enrich(input: MigrationInputRow, base: BaseGridMigrationRow): GridMigrationRow {
+  const legacy = (input.grid ?? "").trim();
+  const text = `${input.description} ${input.location ?? ""} ${input.area ?? ""}`;
+  const parsed = parseOldGrid(legacy);
+
+  // 1. Non-fixed equipment keeps no coordinate pair and no fixed grid cell.
+  if (NON_FIXED_RE.test(legacy) || NON_FIXED_RE.test(text)) {
+    return {
+      ...base,
+      legacy_grid: legacy,
+      location_x_ft: null,
+      location_y_ft: null,
+      grid_reference: null,
+      grid_reference_precision: "NON_FIXED",
+      grid_migration_provenance:
+        "NON_FIXED: the record describes mobile/portable equipment, so no X/Y coordinate and no fixed grid cell are proposed.",
+      x_error_ft: null,
+      y_error_ft: null,
+      review_required: false,
+      supporting_evidence: [],
+      proposed_new_grid: null,
+      confidence: "HIGH",
+      review_reason: null,
+    };
+  }
+
+  // 2. Panels: corner designation only, and only until the field confirms.
+  if (input.kind === "panel") {
+    const corner = PANEL_CORNERS.find((c) => input.stable_id.toUpperCase().endsWith(`-${c.suffix}`));
+    if (!corner) {
+      return unresolved(
+        base,
+        legacy,
+        `NO_LOCATION_EVIDENCE: ${input.stable_id} carries no corner designation and no Grid value, so no location is proposed. Mounting location must come from the field.`,
+      );
+    }
+    return {
+      ...base,
+      legacy_grid: legacy,
+      location_x_ft: corner.xFt,
+      location_y_ft: corner.yFt,
+      grid_reference: corner.newGrid,
+      grid_reference_precision: "EXACT",
+      grid_migration_provenance: `PANEL_CORNER_DESIGNATION + CORRECTED_DRAWING; FIELD_CONFIRMATION_REQUIRED — proposed ${corner.newGrid} (${corner.corner}) from the panel ID's ${corner.suffix} corner. Not authoritative until the mounted enclosure location is confirmed.`,
+      x_error_ft: 0,
+      y_error_ft: 0,
+      review_required: true,
+      supporting_evidence: [
+        `Corrected drawing: the ${corner.corner} of the 40' x 60' envelope is ${corner.newGrid}.`,
+      ],
+    };
+  }
+
+  // 3. Features drawn on the corrected drawing itself.
+  const anchor = anchorFor(text);
+  if (anchor && !MAN_DOOR_RE.test(text)) {
+    const rowM = nearestNewRow(anchor.yFt);
+    const colM = nearestNewCol(anchor.xFt);
+    const precision: GridPrecision =
+      rowM.tie || colM.tie ? "INTERVAL" : rowM.distanceFt === 0 && colM.distanceFt === 0 ? "EXACT" : "NEAREST";
+    return {
+      ...base,
+      legacy_grid: legacy,
+      location_x_ft: round1(anchor.xFt),
+      location_y_ft: round1(anchor.yFt),
+      grid_reference: `${intervalLabel(rowM)}${intervalLabel(colM)}`,
+      grid_reference_precision: precision,
+      grid_migration_provenance: `CORRECTED_DRAWING_ANCHOR: position taken from the drawn dimension, not from the old label. ${anchor.evidence}`,
+      x_error_ft: round1(colM.distanceFt),
+      y_error_ft: round1(rowM.distanceFt),
+      review_required: precision === "INTERVAL",
+      supporting_evidence: [anchor.evidence],
+    };
+  }
+
+  // 4. Ambiguous drawn features (a man door with no corner named).
+  if (MAN_DOOR_RE.test(text) && !anchor) {
+    return unresolved(
+      base,
+      legacy,
+      `AMBIGUOUS_DRAWN_FEATURE: the corrected drawing carries two man doors (${MAN_DOOR_CANDIDATES}) and this record names neither. Owner/field decision required.`,
+    );
+  }
+
+  // 5. Non-location artifacts and uninterpretable cells stay unresolved.
+  if (parsed.uninterpretable || ARTIFACT_RE.test(legacy)) {
+    return unresolved(
+      base,
+      legacy,
+      `NON_LOCATION_ARTIFACT: Grid cell reads "${legacy || "(blank)"}", which carries no physical location. Left unresolved; independent physical-location evidence is required.`,
+    );
+  }
+
+  const y0 = oldLetterToFeet(parsed.letter!);
+  const x0 = oldNumberToFeet(parsed.number!);
+  if (y0 === null || x0 === null) {
+    return unresolved(
+      base,
+      legacy,
+      `OUT_OF_RANGE: "${legacy}" falls outside the previous drawing's A–G / 1–6 extent, so no coordinate can be derived.`,
+    );
+  }
+
+  // 6. Frozen transform, then evidence applied only to an equidistant axis.
+  const rowM = nearestNewRow(y0);
+  const colM = nearestNewCol(x0);
+  let xFt = x0;
+  let yFt = y0;
+  let colLabel = intervalLabel(colM);
+  let rowLabel = intervalLabel(rowM);
+  let colTie = colM.tie;
+  let rowTie = rowM.tie;
+  let xErr = colM.distanceFt;
+  let yErr = rowM.distanceFt;
+  const evidence: string[] = [];
+
+  for (const rule of AXIS_EVIDENCE) {
+    if (!rule.match.test(text)) continue;
+    if (rule.axis === "x" && colTie) {
+      xFt = rule.ft;
+      xErr = 0;
+      colLabel = rule.label;
+      colTie = false;
+      evidence.push(rule.note);
+    } else if (rule.axis === "y" && rowTie) {
+      yFt = rule.ft;
+      yErr = 0;
+      rowLabel = rule.label;
+      rowTie = false;
+      evidence.push(rule.note);
+    } else if (
+      (rule.axis === "x" && colLabel === rule.label) ||
+      (rule.axis === "y" && rowLabel === rule.label)
+    ) {
+      evidence.push(`${rule.note} This agrees with the transformed coordinate.`);
+    }
+  }
+
+  const stillTied = rowTie || colTie;
+  const precision: GridPrecision = stillTied
+    ? "INTERVAL"
+    : xErr === 0 && yErr === 0
+      ? "EXACT"
+      : "NEAREST";
+  const reference = `${rowLabel}${colLabel}`;
+
+  // Confidence may only improve when independent evidence removed a tie.
+  let confidence = base.confidence;
+  let proposed = base.proposed_new_grid;
+  let reviewReason = base.review_reason;
+  if (!stillTied && (rowM.tie || colM.tie) && evidence.length) {
+    proposed = reference;
+    confidence = Math.max(xErr, yErr) <= 2 ? "HIGH" : "MEDIUM";
+    reviewReason = null;
+  }
+
+  return {
+    ...base,
+    proposed_new_grid: proposed,
+    confidence,
+    review_reason: reviewReason,
+    legacy_grid: legacy,
+    location_x_ft: round1(xFt),
+    location_y_ft: round1(yFt),
+    grid_reference: reference,
+    grid_reference_precision: precision,
+    grid_migration_provenance: [
+      `OLD_GRID_TRANSFORM (frozen dictionaries): ${parsed.letter}${parsed.number} = ${round1(x0)} ft E of the west wall, ${round1(y0)} ft S of the north wall.`,
+      stillTied
+        ? `Equidistant on ${rowTie && colTie ? "both axes" : rowTie ? "the north→south axis" : "the west→east axis"} — preserved as the interval ${reference}; no snap applied.`
+        : `Resolved to ${reference}.`,
+      evidence.length ? `INDEPENDENT_EVIDENCE: ${evidence.length} corroborating record(s).` : "",
+      "Legacy Grid value preserved separately for audit history.",
+    ]
+      .filter(Boolean)
+      .join(" "),
+    x_error_ft: round1(xErr),
+    y_error_ft: round1(yErr),
+    review_required: stillTied,
+    supporting_evidence: evidence,
+  };
+}
+
+/** Full preview row: frozen transform plus the physical-location model. */
+export function migrateRow(row: MigrationInputRow): GridMigrationRow {
+  return enrich(row, baseMigrateRow(row));
+}
+
+export interface PrecisionSummary {
+  exact: number;
+  nearest: number;
+  interval: number;
+  non_fixed: number;
+  unresolved: number;
+  /** Rows still needing an actual owner/field decision. */
+  decisions_required: number;
+  field_confirmation_required: number;
+  evidence_resolved: number;
+}
+
+export function summarizePrecision(rows: GridMigrationRow[]): PrecisionSummary {
+  const by = (p: GridPrecision) => rows.filter((r) => r.grid_reference_precision === p).length;
+  return {
+    exact: by("EXACT"),
+    nearest: by("NEAREST"),
+    interval: by("INTERVAL"),
+    non_fixed: by("NON_FIXED"),
+    unresolved: by("UNRESOLVED"),
+    decisions_required: rows.filter((r) => r.review_required).length,
+    field_confirmation_required: rows.filter((r) =>
+      r.grid_migration_provenance.includes("FIELD_CONFIRMATION_REQUIRED"),
+    ).length,
+    evidence_resolved: rows.filter((r) => r.supporting_evidence.length > 0).length,
+  };
+}
+
+export function locationCsv(rows: GridMigrationRow[]): string {
+  const head = [
+    "stable_id",
+    "description",
+    "old_grid",
+    "x_ft",
+    "y_ft",
+    "proposed_grid",
+    "precision",
+    "x_error_ft",
+    "y_error_ft",
+    "confidence",
+    "review_required",
+    "provenance",
+    "supporting_evidence",
+  ];
+  const body = rows.map((r) =>
+    [
+      r.stable_id,
+      r.description,
+      r.legacy_grid || r.old_grid,
+      r.location_x_ft ?? "",
+      r.location_y_ft ?? "",
+      r.grid_reference ?? "UNRESOLVED",
+      r.grid_reference_precision,
+      r.x_error_ft ?? "",
+      r.y_error_ft ?? "",
+      r.confidence,
+      r.review_required ? "YES" : "NO",
+      r.grid_migration_provenance,
+      r.supporting_evidence.join(" | "),
+    ]
+      .map((v) => cell(String(v)))
+      .join(","),
+  );
+  return [head.join(","), ...body].join("\n");
+}
