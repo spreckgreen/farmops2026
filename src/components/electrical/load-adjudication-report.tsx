@@ -25,6 +25,7 @@ import { listAdjudicatedLoads } from "@/lib/load-adjudication.functions";
 import { BryantVoltageApplyGate } from "@/components/electrical/bryant-voltage-apply-gate";
 import { CanonicalOdsCorrectionQueue } from "@/components/electrical/canonical-ods-correction-queue";
 import { AmpSemanticsReport } from "@/components/electrical/amp-semantics-report";
+import { Fs084ProvenancePanel } from "@/components/electrical/fs084-provenance-panel";
 import { CurrentSemanticMigrationPlan } from "@/components/electrical/current-semantic-migration-plan";
 import { RepresentationProposalPanel } from "@/components/electrical/representation-proposal-panel";
 import {
@@ -128,6 +129,16 @@ export function LoadAdjudicationReport() {
           badges={<Badge variant="outline">Read-only</Badge>}
         >
           <AmpSemanticsReport baseline={attached.baseline} rows={rows.data} />
+        </CollapsibleSection>
+      ) : null}
+
+      {attached ? (
+        <CollapsibleSection
+          title="FS-084 60 A provenance adjudication"
+          subtitle="Where the canonical Amps = 60 came from, traced through the cell and its formula state, worksheet row, comment/note/source-reference columns, circuit and breaker references, other workbook sheets, import history, the FS-082/FS-083 relationship and attached documents — with the derived 14,400 VA excluded as evidence. FarmOps amps is traced independently. Read-only — no ODS edit, no FarmOps write, MOCP is never read as a load current and MCA is never inferred."
+          badges={<Badge variant="outline">Read-only</Badge>}
+        >
+          <Fs084ProvenancePanel baseline={attached.baseline} />
         </CollapsibleSection>
       ) : null}
 
