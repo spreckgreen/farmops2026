@@ -52,6 +52,13 @@ export type ManagedUser = {
   disabled_at: string | null;
   disabled_by: string | null;
   disabled_reason: string | null;
+  /**
+   * True when the account exists in auth but has no `profiles` row yet — e.g.
+   * a sign-up that never confirmed its email (branded SMTP down) or whose
+   * profile insert failed. These used to be invisible in this screen while
+   * still blocking "add user" with "already registered".
+   */
+  profile_missing?: boolean;
 };
 
 
@@ -258,20 +265,54 @@ export const listUsers = createServerFn({ method: "GET" })
     // Pull auth confirmation + last-sign-in via admin API so the UI can flag
     // unconfirmed accounts and offer the "Confirm email" action.
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const authByUser = new Map<string, { confirmed: string | null; lastSignIn: string | null }>();
+    const authByUser = new Map<
+      string,
+      { confirmed: string | null; lastSignIn: string | null; email: string | null; created: string }
+    >();
     try {
-      const { data } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 200 });
-      for (const u of data?.users ?? []) {
-        authByUser.set(u.id, {
-          confirmed: u.email_confirmed_at ?? null,
-          lastSignIn: u.last_sign_in_at ?? null,
-        });
+      for (let page = 1; page <= 10; page++) {
+        const { data } = await supabaseAdmin.auth.admin.listUsers({ page, perPage: 200 });
+        const batch = data?.users ?? [];
+        for (const u of batch) {
+          authByUser.set(u.id, {
+            confirmed: u.email_confirmed_at ?? null,
+            lastSignIn: u.last_sign_in_at ?? null,
+            email: u.email ?? null,
+            created: u.created_at ?? new Date().toISOString(),
+          });
+        }
+        if (batch.length < 200) break;
       }
     } catch {
       // Non-fatal — fall back to unknown confirmation state.
     }
 
-    return (profiles.data ?? []).map((p) => {
+    const profileIds = new Set((profiles.data ?? []).map((p) => p.id));
+    // Auth accounts with no profile row (e.g. sign-up whose confirmation email
+    // never arrived) are listed too, otherwise they are invisible here yet still
+    // occupy the email address.
+    const orphans: ManagedUser[] = [];
+    for (const [id, auth] of authByUser) {
+      if (profileIds.has(id)) continue;
+      orphans.push({
+        id,
+        email: auth.email,
+        display_name: null,
+        status: "pending",
+        reviewed_by: null,
+        reviewed_at: null,
+        created_at: auth.created,
+        roles: rolesByUser.get(id) ?? [],
+        email_confirmed_at: auth.confirmed,
+        last_sign_in_at: auth.lastSignIn,
+        disabled_at: null,
+        disabled_by: null,
+        disabled_reason: null,
+        profile_missing: true,
+      });
+    }
+
+    const mapped: ManagedUser[] = (profiles.data ?? []).map((p) => {
       const auth = authByUser.get(p.id);
       return {
         id: p.id,
@@ -287,8 +328,11 @@ export const listUsers = createServerFn({ method: "GET" })
         disabled_at: p.disabled_at ?? null,
         disabled_by: p.disabled_by ?? null,
         disabled_reason: p.disabled_reason ?? null,
+        profile_missing: false,
       };
     });
+
+    return [...mapped, ...orphans].sort((a, b) => b.created_at.localeCompare(a.created_at));
   });
 
 /**
@@ -344,14 +388,19 @@ export const setApprovalStatus = createServerFn({ method: "POST" })
     await requireAdmin(supabase, userId);
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const upd = await supabaseAdmin
-      .from("profiles")
-      .update({
+    // Upsert, not update: accounts whose profile row was never created (sign-up
+    // that never confirmed) must still be approvable from this screen.
+    const authUser = await supabaseAdmin.auth.admin.getUserById(data.userId);
+    const upd = await supabaseAdmin.from("profiles").upsert(
+      {
+        id: data.userId,
+        email: authUser.data?.user?.email ?? null,
         status: data.status,
         reviewed_by: userId,
         reviewed_at: new Date().toISOString(),
-      })
-      .eq("id", data.userId);
+      } as never,
+      { onConflict: "id" },
+    );
     if (upd.error) throw new Error(upd.error.message);
 
     // On first approval, give the user the viewer role if they have none.
@@ -1053,10 +1102,37 @@ export const createUserAccount = createServerFn({ method: "POST" })
       email_confirm: true,
       user_metadata: data.display_name ? { display_name: data.display_name } : undefined,
     });
+
+    let newId: string;
+    let adopted = false;
     if (created.error || !created.data?.user) {
-      throw new Error(created.error?.message ?? "Could not create the account");
+      const msg = created.error?.message ?? "";
+      // "already registered" here almost always means a self sign-up that never
+      // completed (confirmation email undeliverable). Adopt that account instead
+      // of dead-ending: reset its password, confirm the email, and finish setup.
+      if (!/already|exist|registered|duplicate/i.test(msg)) {
+        throw new Error(msg || "Could not create the account");
+      }
+      let existingId: string | null = null;
+      for (let page = 1; page <= 10 && !existingId; page++) {
+        const { data: list } = await supabaseAdmin.auth.admin.listUsers({ page, perPage: 200 });
+        const batch = list?.users ?? [];
+        existingId =
+          batch.find((u) => (u.email ?? "").toLowerCase() === data.email)?.id ?? null;
+        if (batch.length < 200) break;
+      }
+      if (!existingId) throw new Error(msg || "Could not create the account");
+      const upd = await supabaseAdmin.auth.admin.updateUserById(existingId, {
+        password: data.password,
+        email_confirm: true,
+        ...(data.display_name ? { user_metadata: { display_name: data.display_name } } : {}),
+      });
+      if (upd.error) throw new Error(`Existing account could not be updated: ${upd.error.message}`);
+      newId = existingId;
+      adopted = true;
+    } else {
+      newId = created.data.user.id;
     }
-    const newId = created.data.user.id;
     const now = new Date().toISOString();
 
     // Profile: pre-approved, so the new user never sits behind the approval gate.
@@ -1110,7 +1186,7 @@ export const createUserAccount = createServerFn({ method: "POST" })
       email: data.email,
       roles: data.roles,
       addon: data.addon,
-      message: `Created ${data.email} — email pre-confirmed, profile approved${
+      message: `${adopted ? "Adopted the existing sign-up for" : "Created"} ${data.email} — password set, email confirmed, profile approved${
         data.addon ? `, ${data.addon === "electrical" ? "full Electrical" : "read-only Electrical"} add-on granted` : ""
       }.`,
     };
