@@ -241,44 +241,18 @@ function PanelDetail({ panel }: { panel: DiagramPanel }) {
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <CheckCircle2 className="h-4 w-4 text-primary" /> What the record proves
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm text-foreground">
-            {reading.known.map((k) => (
-              <p key={k}>{k}</p>
-            ))}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <AlertTriangle className="h-4 w-4 text-destructive" /> What is missing
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ul className="space-y-2 text-sm">
-              {reading.missing.map((m) => (
-                <li key={m} className="text-muted-foreground">
-                  {m}
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
-      </div>
+      <TopologyToggle
+        storageKey="panel-diagram.current.mermaid"
+        source={mermaid}
+        downloadName={`${panel.id}-topology`}
+        caption="Solid lines are links a record proves. Dashed lines and dashed boxes are unproven — expected, not recorded."
+      />
 
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">
-            Circuits on {panel.id} ({panel.circuits.length})
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
+      <PersistedSection
+        storageKey="panel-diagram.current.circuits"
+        title={`Circuits on ${panel.id} (${panel.circuits.length})`}
+      >
+        <div className="space-y-2">
           {panel.circuits.map((c) => (
             <CircuitBlock key={c.uuid || c.id} circuit={c} />
           ))}
@@ -287,32 +261,32 @@ function PanelDetail({ panel }: { panel: DiagramPanel }) {
               No circuit group is linked to this panel yet.
             </p>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </PersistedSection>
 
       {panel.directLoads.length > 0 && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">
-              On a breaker here, but in no circuit group ({panel.directLoads.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-1.5">
+        <PersistedSection
+          storageKey="panel-diagram.current.direct-loads"
+          title={`On a breaker here, but in no circuit group (${panel.directLoads.length})`}
+        >
+          <div className="space-y-1.5">
             {panel.directLoads.map((l) => (
               <LoadRow key={l.uuid || l.id} load={l} />
             ))}
-          </CardContent>
-        </Card>
+          </div>
+        </PersistedSection>
       )}
 
       {panel.expectedLoads.length > 0 && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base text-destructive">
+        <PersistedSection
+          storageKey="panel-diagram.current.expected-loads"
+          title={
+            <span className="text-destructive">
               Expected on {panel.id} but unaccounted ({panel.expectedLoads.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-1.5">
+            </span>
+          }
+        >
+          <div className="space-y-1.5">
             <p className="text-xs text-muted-foreground">
               These loads point at this panel (or its building) in the record but carry no circuit
               or breaker link, so they are not accounted for against it.
@@ -328,18 +302,46 @@ function PanelDetail({ panel }: { panel: DiagramPanel }) {
                 }
               />
             ))}
-          </CardContent>
-        </Card>
+          </div>
+        </PersistedSection>
       )}
 
-      <TopologyToggle
-        source={mermaid}
-        downloadName={`${panel.id}-topology`}
-        caption="Solid lines are links a record proves. Dashed lines and dashed boxes are unproven — expected, not recorded."
-      />
+      <div className="grid gap-4 md:grid-cols-2">
+        <PersistedSection
+          storageKey="panel-diagram.current.known"
+          title={
+            <span className="flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 text-primary" /> What the record proves
+            </span>
+          }
+        >
+          <div className="space-y-2 text-sm text-foreground">
+            {reading.known.map((k) => (
+              <p key={k}>{k}</p>
+            ))}
+          </div>
+        </PersistedSection>
+        <PersistedSection
+          storageKey="panel-diagram.current.missing"
+          title={
+            <span className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-destructive" /> What is missing
+            </span>
+          }
+        >
+          <ul className="space-y-2 text-sm">
+            {reading.missing.map((m) => (
+              <li key={m} className="text-muted-foreground">
+                {m}
+              </li>
+            ))}
+          </ul>
+        </PersistedSection>
+      </div>
     </div>
   );
 }
+
 
 
 function PanelDiagramPage() {
