@@ -24,6 +24,13 @@ export type MyProfile = {
   roles: AppRole[];
   canEdit: boolean;
   isAdmin: boolean;
+  /**
+   * Administrative suspension — deliberately separate from approval status and
+   * from add-on revocation. A disabled account keeps its approval and roles but
+   * cannot use the app until an administrator re-enables it.
+   */
+  disabled_at: string | null;
+  disabled_reason: string | null;
 };
 
 export type ManagedUser = {
@@ -37,7 +44,11 @@ export type ManagedUser = {
   roles: AppRole[];
   email_confirmed_at: string | null;
   last_sign_in_at: string | null;
+  disabled_at: string | null;
+  disabled_by: string | null;
+  disabled_reason: string | null;
 };
+
 
 
 // ---- Helpers -------------------------------------------------------------
