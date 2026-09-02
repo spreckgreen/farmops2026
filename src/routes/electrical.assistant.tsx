@@ -541,6 +541,16 @@ function Assistant() {
         </Card>
       ) : null}
 
+      <FeatureRequestCard
+        features={data?.features ?? []}
+        granted={granted.map((s) => s.id)}
+        isOn={(id) => featureOn(id)}
+        onToggle={(id, on) => setFeature(electricalAiFeatureKey(id), on)}
+        masterOff={!aiSettings.masterEnabled}
+      />
+
+
+
     </div>
   );
 }
