@@ -1645,13 +1645,19 @@ export type Database = {
           equipment_model: string | null
           future: boolean | null
           grid: string | null
+          grid_migration_provenance: string | null
+          grid_reference: string | null
+          grid_reference_precision: string | null
           id: string
           install_status: string
           installed_ocp_rating: number | null
           label_status: string
+          legacy_grid: string | null
           load_id: string
           load_shed_group: string | null
           location: string | null
+          location_x_ft: number | null
+          location_y_ft: number | null
           maximum_overcurrent_protection: number | null
           minimum_circuit_ampacity: number | null
           nameplate_applied_by: string | null
@@ -1706,13 +1712,19 @@ export type Database = {
           equipment_model?: string | null
           future?: boolean | null
           grid?: string | null
+          grid_migration_provenance?: string | null
+          grid_reference?: string | null
+          grid_reference_precision?: string | null
           id?: string
           install_status?: string
           installed_ocp_rating?: number | null
           label_status?: string
+          legacy_grid?: string | null
           load_id: string
           load_shed_group?: string | null
           location?: string | null
+          location_x_ft?: number | null
+          location_y_ft?: number | null
           maximum_overcurrent_protection?: number | null
           minimum_circuit_ampacity?: number | null
           nameplate_applied_by?: string | null
@@ -1767,13 +1779,19 @@ export type Database = {
           equipment_model?: string | null
           future?: boolean | null
           grid?: string | null
+          grid_migration_provenance?: string | null
+          grid_reference?: string | null
+          grid_reference_precision?: string | null
           id?: string
           install_status?: string
           installed_ocp_rating?: number | null
           label_status?: string
+          legacy_grid?: string | null
           load_id?: string
           load_shed_group?: string | null
           location?: string | null
+          location_x_ft?: number | null
+          location_y_ft?: number | null
           maximum_overcurrent_protection?: number | null
           minimum_circuit_ampacity?: number | null
           nameplate_applied_by?: string | null
@@ -2033,9 +2051,15 @@ export type Database = {
           description: string | null
           feeder_source: string | null
           grid: string | null
+          grid_migration_provenance: string | null
+          grid_reference: string | null
+          grid_reference_precision: string | null
           id: string
           install_status: string
           label_status: string
+          legacy_grid: string | null
+          location_x_ft: number | null
+          location_y_ft: number | null
           notes: string | null
           ods_extras: string | null
           panel_id: string
@@ -2059,9 +2083,15 @@ export type Database = {
           description?: string | null
           feeder_source?: string | null
           grid?: string | null
+          grid_migration_provenance?: string | null
+          grid_reference?: string | null
+          grid_reference_precision?: string | null
           id?: string
           install_status?: string
           label_status?: string
+          legacy_grid?: string | null
+          location_x_ft?: number | null
+          location_y_ft?: number | null
           notes?: string | null
           ods_extras?: string | null
           panel_id: string
@@ -2085,9 +2115,15 @@ export type Database = {
           description?: string | null
           feeder_source?: string | null
           grid?: string | null
+          grid_migration_provenance?: string | null
+          grid_reference?: string | null
+          grid_reference_precision?: string | null
           id?: string
           install_status?: string
           label_status?: string
+          legacy_grid?: string | null
+          location_x_ft?: number | null
+          location_y_ft?: number | null
           notes?: string | null
           ods_extras?: string | null
           panel_id?: string
