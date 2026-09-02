@@ -21,11 +21,14 @@ import {
 } from "@/lib/electrical-ai-scenarios";
 import { requestElectricalAiFeatures } from "@/lib/electrical-ai-access.functions";
 import {
+  estimateElectricalAiRun,
   listElectricalAiScenarios,
+  type ElectricalAiEstimate,
   type ElectricalAiFeatureState,
   runElectricalAiScenario,
   type ElectricalAiAnswer,
 } from "@/lib/electrical-ai.functions";
+
 import { Camera, Cpu, Loader2, Sparkles, X } from "lucide-react";
 import {
   NAMEPLATE_IMAGE_TYPES,
