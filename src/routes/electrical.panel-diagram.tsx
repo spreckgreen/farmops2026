@@ -24,16 +24,16 @@ import {
   type DiagramLoad,
   type DiagramPanel,
 } from "@/lib/electrical-panel-diagram";
+import { PersistedSection } from "@/components/electrical/persisted-section";
 import {
   AlertTriangle,
   CheckCircle2,
-  ChevronDown,
-  ChevronUp,
   Network,
   RefreshCw,
   Search,
   Zap,
 } from "lucide-react";
+
 
 
 export const Route = createFileRoute("/electrical/panel-diagram")({
