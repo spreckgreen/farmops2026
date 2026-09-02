@@ -25,7 +25,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const roles = profile.data?.roles ?? [];
   // An electrician is scoped to the Electrical area only: the rest of the farm
   // app (tasks, food, inventory, admin utilities) is not part of their job.
-  const electricianOnly = roles.includes("electrician") && !profile.data?.isAdmin;
+  const electricianOnly = isElectricianScoped(roles, profile.data?.isAdmin);
   const showElectrical = electrical.enabled || electricalReadOnly.enabled;
 
   const signOut = async () => {
