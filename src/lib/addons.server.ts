@@ -5,6 +5,7 @@
 // read their own entitlement rows, and nobody can grant themselves one.
 import {
   ADDON_NOT_ENABLED,
+  ELECTRICAL_FIELD_WRITE_ADDONS,
   ELECTRICAL_READ_ADDONS,
   FULL_ELECTRICAL_ADDON,
   SCAN_ADDON,
