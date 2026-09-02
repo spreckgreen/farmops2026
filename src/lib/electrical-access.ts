@@ -37,6 +37,7 @@ export type ElectricalSection =
  * reads the as-installed record, they do not adjudicate the system of record.
  */
 export const RECONCILIATION_SECTIONS: ElectricalSection[] = [
+  "qa",
   "mapping",
   "sor",
   "validation",
