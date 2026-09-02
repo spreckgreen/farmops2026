@@ -713,6 +713,13 @@ export function numericRegistryCsv(r: NumericDiagnosticsReport): string {
 
 export function numericFindingsCsv(r: NumericDiagnosticsReport): string {
   const head = [
+    "raw_category",
+    "adjudication_id",
+    "adjudication_classification",
+    "current_disposition",
+    "unresolved",
+    "stale_adjudication",
+    "preserved",
     "category",
     "artifact_type",
     "entity_type",
