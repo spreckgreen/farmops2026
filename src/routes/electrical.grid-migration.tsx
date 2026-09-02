@@ -20,9 +20,14 @@ import {
   type GridMigrationPayload,
 } from "@/lib/electrical-grid-migration.functions";
 import {
+  auditLetterAxis,
+  auditNumberAxis,
+  axisAuditCsv,
+  coordinateDerivations,
   migrationCsv,
   NEW_COLS,
   NEW_ROWS,
+  type AxisAuditEntry,
   type GridConfidence,
 } from "@/lib/electrical-grid-migration";
 
