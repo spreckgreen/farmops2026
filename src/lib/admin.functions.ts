@@ -1186,7 +1186,7 @@ export const createUserAccount = createServerFn({ method: "POST" })
       email: data.email,
       roles: data.roles,
       addon: data.addon,
-      message: `Created ${data.email} — email pre-confirmed, profile approved${
+      message: `${adopted ? "Adopted the existing sign-up for" : "Created"} ${data.email} — password set, email confirmed, profile approved${
         data.addon ? `, ${data.addon === "electrical" ? "full Electrical" : "read-only Electrical"} add-on granted` : ""
       }.`,
     };
