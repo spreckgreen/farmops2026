@@ -25,6 +25,8 @@ import {
   type DiagramPanel,
 } from "@/lib/electrical-panel-diagram";
 import { PersistedSection } from "@/components/electrical/persisted-section";
+import { PanelRuleView } from "@/components/electrical/panel-rule-view";
+
 import {
   AlertTriangle,
   CheckCircle2,
@@ -491,6 +493,8 @@ function PanelDiagramPage() {
                 ) : (
                   <PanelDetail panel={panel} />
                 )}
+                <PanelRuleView panelId={panel.id} />
+
               </>
             ) : (
               <Card>
