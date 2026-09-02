@@ -121,3 +121,53 @@ describe("current-semantics closure plan", () => {
     expect(p.rows_with_stated_concept).toBe(1);
   });
 });
+
+describe("legacy Amps semantic closure — Phase 4.4b", () => {
+  const plan = planCurrentSemanticsClosure({ baseline, rows });
+
+  it("reports indeterminate rows and representative IDs per candidate", () => {
+    for (const c of plan.candidates) {
+      const total =
+        c.supporting_rows.length + c.contradictory_rows.length + c.indeterminate_rows.length;
+      expect(total).toBe(plan.rows_with_amps);
+      expect(c.representative_stable_ids.length).toBeLessThanOrEqual(4);
+    }
+  });
+
+  it("preserves the Bryant evidence as independent quantities with MCA null", () => {
+    const q = Object.fromEntries(
+      plan.bryant_evidence.quantities.map((x) => [x.field ?? "none", x.value]),
+    );
+    expect(q["maximum_overcurrent_protection"]).toBe(25);
+    expect(q["rated_current_amps"]).toBe(1.69);
+    expect(q["rated_load_amps"]).toBe(4.15);
+    expect(q["minimum_circuit_ampacity"]).toBeNull();
+  });
+
+  it("reports the four unresolved current-semantics findings individually", () => {
+    expect(plan.unresolved_findings).toHaveLength(4);
+    const ods84 = plan.unresolved_findings.find(
+      (f) => f.stable_id === "FS-084" && f.system === "canonical_ods",
+    )!;
+    expect(ods84.value).toBe(60);
+    expect(ods84.classification).toBe("LEGACY_VALUE_SOURCE_UNKNOWN");
+    const fops84 = plan.unresolved_findings.find(
+      (f) => f.stable_id === "FS-084" && f.system === "farmops",
+    )!;
+    expect(fops84.value).toBe(25);
+    expect(fops84.classification).toBe("NUMERIC_VALUE_WITH_UNRESOLVED_SEMANTICS");
+    for (const f of plan.unresolved_findings)
+      expect(f.excluded_as_evidence.join(" ")).toMatch(/14,400 VA/);
+  });
+
+  it("stays read-only and exports the new columns", () => {
+    expect(plan.read_only).toBe(true);
+    expect(plan.farmops_write_authorized).toBe(false);
+    expect(plan.ods_edit_authorized).toBe(false);
+    expect(closureCsv(plan)).toContain("indeterminate_rows");
+    const md = closureMarkdown(plan);
+    expect(md).toContain("Bryant evidence preserved independently");
+    expect(md).toContain("CSU-04");
+    expect(CLOSURE_FIXTURE_IDS.length).toBe(3);
+  });
+});
