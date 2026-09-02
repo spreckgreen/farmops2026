@@ -128,14 +128,19 @@ export function isElectricalAiScenarioId(
 export interface ElectricalAiScope {
   access: ElectricalAccess;
   isAdmin: boolean;
+  /**
+   * Scenarios an administrator has explicitly approved for this person, on top
+   * of what their add-on already entitles them to. Approval never widens data
+   * access — every scenario still reads only what the caller may read.
+   */
+  grants?: readonly ElectricalAiScenarioId[];
 }
 
-/** Can this caller run one scenario? */
-export function canRunElectricalAiScenario(
+/** Does the caller's own add-on/role entitle them to a scenario, ignoring grants? */
+export function isEntitledToElectricalAiScenario(
   scope: ElectricalAiScope,
   def: ElectricalAiScenarioDef,
 ): boolean {
-  // Administrators get every scenario.
   if (scope.isAdmin) return true;
   // A scanned-label viewer never gets the assistant: their window is one panel.
   if (!scope.access.canView || scope.access.scanOnly) return false;
@@ -150,6 +155,29 @@ export function canRunElectricalAiScenario(
       return false;
   }
 }
+
+/** Can this caller run one scenario (own entitlement, or an approved grant)? */
+export function canRunElectricalAiScenario(
+  scope: ElectricalAiScope,
+  def: ElectricalAiScenarioDef,
+): boolean {
+  if (isEntitledToElectricalAiScenario(scope, def)) return true;
+  // An admin-approved grant unlocks a scenario for an electrician who can read
+  // the electrical record but whose add-on alone would not cover it.
+  if (!scope.access.canView || scope.access.scanOnly) return false;
+  return (scope.grants ?? []).includes(def.id);
+}
+
+/** Scenarios the caller may ask an administrator to enable for them. */
+export function requestableElectricalAiScenarios(
+  scope: ElectricalAiScope,
+): ElectricalAiScenarioDef[] {
+  if (!scope.access.canView || scope.access.scanOnly) return [];
+  return ELECTRICAL_AI_SCENARIOS.filter(
+    (def) => !canRunElectricalAiScenario(scope, def),
+  );
+}
+
 
 /** Scenarios this caller may see, in declaration order. */
 export function electricalAiScenariosFor(
