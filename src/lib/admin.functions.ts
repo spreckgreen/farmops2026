@@ -55,6 +55,8 @@ export type ManagedUser = {
   reviewed_at: string | null;
   created_at: string;
   roles: AppRole[];
+  /** Every add-on row this user has, whatever its status. */
+  addons: ManagedAddon[];
   email_confirmed_at: string | null;
   last_sign_in_at: string | null;
   disabled_at: string | null;
