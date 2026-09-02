@@ -13,6 +13,7 @@ import { todayDateString } from "@/lib/slug";
 import { ProfileGate } from "@/components/profile-gate";
 import { useCurrentProfile } from "@/hooks/use-current-profile";
 import { useAddon } from "@/hooks/use-addon";
+import { isElectricianScoped } from "@/lib/electrical-access";
 import { ShieldCheck, ChevronDown, Users, Trash2, Download, Upload, KeyRound, RefreshCw, Server, AlertTriangle, PackagePlus } from "lucide-react";
 
 export function AppLayout({ children }: { children: ReactNode }) {
