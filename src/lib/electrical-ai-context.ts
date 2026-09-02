@@ -375,11 +375,57 @@ export function buildElectricalRecordContext(
 
   const matchedLoadIds = loadRank.matched.map((l) => str(l.load_id)).filter(Boolean);
 
+  // Answer set: the matched loads, in full, each with its resolved chain. This is
+  // what a load question ("which panel are the mini-splits on") is answered from,
+  // so it goes FIRST and is never truncated away by the bulk sections.
+  const positionsByLoadUuid = new Map<string, ElectricalRow>();
+  for (const pos of input.positions) {
+    const lu = str(pos.load_uuid);
+    if (lu && !positionsByLoadUuid.has(lu)) positionsByLoadUuid.set(lu, pos);
+  }
+  const pathCtx: LoadPathContext = {
+    panels: input.panels,
+    feeders: input.feeders,
+    groupByUuid,
+    panelByUuid,
+    panelByLoadUuid,
+    positionsByLoadUuid,
+  };
+  const answerSet = loadRank.matched.slice(0, 25).map((l) => {
+    const head = line(l, [
+      "load_id",
+      "description",
+      "equipment_model",
+      "area",
+      "grid",
+      "location",
+      "count",
+      "volts",
+      "amps",
+      "rated_current_amps",
+      "rated_load_amps",
+      "minimum_circuit_ampacity",
+      "maximum_overcurrent_protection",
+      "installed_ocp_rating",
+      "dedicated",
+      "future",
+      "critical",
+      "install_status",
+      "notes",
+    ]);
+    return `${head}\n  ${describeLoadPath(l, pathCtx)}`;
+  });
+
   const block =
     (terms.length
-      ? `QUESTION KEYWORDS: ${terms.join(", ")}\n` +
+      ? `QUESTION KEYWORDS (expanded with equipment synonyms): ${terms.join(", ")}\n` +
         `LOADS MATCHING THOSE KEYWORDS (${matchedLoadIds.length}): ${
           matchedLoadIds.slice(0, 40).join(", ") || "none"
+        }\n\n` +
+        `LOAD ANSWER SET — answer the question from THESE rows and their path lines. ` +
+        `"NOT IN RECORD" means the record does not say yet; report that as unknown, ` +
+        `never guess a panel or circuit:\n${
+          answerSet.join("\n") || "(no load matched the question keywords)"
         }\n\n`
       : "") +
     `PANELS (${input.panels.length}) — panel_id is the stable PNL-* id:\n${panelLines.join("\n")}\n\n` +
@@ -387,6 +433,7 @@ export function buildElectricalRecordContext(
     `CIRCUITS (${input.circuitGroups.length}, showing ${groupLines.length}) — panel= is the panel this circuit lives in:\n${groupLines.join("\n")}\n\n` +
     `LOADS (${input.loads.length}, showing ${loadLines.length}) — panel=/circuit= are resolved from the record:\n${loadLines.join("\n")}\n\n` +
     `BREAKER POSITIONS (${input.positions.length}, showing ${posLines.length}):\n${posLines.join("\n")}`;
+
 
   return {
     block,
