@@ -1114,7 +1114,9 @@ export const createUserAccount = createServerFn({ method: "POST" })
           throw new Error(`invalid role: ${r}`);
         }
       }
-      const addon = d.addon ?? null;
+      // An electrician with no add-on can see nothing, so default the grant.
+      const addon =
+        d.addon ?? (roles.includes("electrician") ? "electrical_readonly" : null);
       if (
         addon &&
         addon !== "electrical" &&
