@@ -395,6 +395,10 @@ function evaluateCandidate(
   const uniq = (a: string[]) => Array.from(new Set(a));
   const supporting_rows = uniq(supporting);
   const contradictory_rows = uniq(contradictory).filter((id) => !supporting_rows.includes(id));
+  const populated = rows.filter((r) => r.ods_amps !== null).map((r) => r.stable_id);
+  const indeterminate_rows = populated.filter(
+    (id) => !supporting_rows.includes(id) && !contradictory_rows.includes(id),
+  );
 
   let confidence: SemanticConfidence;
   if (supporting_rows.length && !contradictory_rows.length) confidence = "established";
@@ -420,6 +424,16 @@ function evaluateCandidate(
       supportNotes.join(" ") || "No source states this concept for any row in the population.",
     contradictory_rows,
     contradictory_basis: contraNotes.join(" ") || "No row positively rules this reading out.",
+    indeterminate_rows,
+    indeterminate_basis: indeterminate_rows.length
+      ? `${indeterminate_rows.length} populated row(s) carry no evidence either way: no stated concept, no conflicting arithmetic, and no published equipment current to compare against.`
+      : "No populated row is left indeterminate for this reading.",
+    representative_stable_ids: (supporting_rows.length
+      ? supporting_rows
+      : contradictory_rows.length
+        ? contradictory_rows
+        : indeterminate_rows
+    ).slice(0, 4),
     coincident_rows: uniq(coincident),
     confidence,
     migration_impact,
