@@ -3,7 +3,13 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
-import { ENTITLEMENT_STATUSES, isEntitlementActive } from "@/lib/addons";
+import {
+  ENTITLEMENT_STATUSES,
+  isEntitlementActive,
+  isRevocationBlocked,
+  isTestAccountEmail,
+  nextRevocationState,
+} from "@/lib/addons";
 
 export interface AddonCatalogEntry {
   key: string;
@@ -30,6 +36,9 @@ export interface AdminEntitlement {
   expires_at: string | null;
   notes: string | null;
   enabled: boolean;
+  revoked_count: number;
+  blocked_until: string | null;
+  blocked: boolean;
 }
 
 /** Add-ons available to the signed-in user, with their own entitlement state. */
@@ -75,7 +84,7 @@ export const listEntitlements = createServerFn({ method: "GET" })
       context.supabase.from("app_addons").select("key, name, description, active").order("sort_order"),
       context.supabase
         .from("app_entitlements")
-        .select("id, user_id, addon_key, status, expires_at, notes"),
+        .select("id, user_id, addon_key, status, expires_at, notes, revoked_count, blocked_until"),
       context.supabase.from("profiles").select("id, email, display_name").order("email"),
     ]);
     if (addons.error) throw new Error(addons.error.message);
@@ -95,6 +104,8 @@ export const listEntitlements = createServerFn({ method: "GET" })
         status: string;
         expires_at: string | null;
         notes: string | null;
+        revoked_count: number | null;
+        blocked_until: string | null;
       }[]
     ).map((e) => {
       const p = people.find((x) => x.id === e.user_id) ?? null;
@@ -103,6 +114,9 @@ export const listEntitlements = createServerFn({ method: "GET" })
         email: p?.email ?? null,
         display_name: p?.display_name ?? null,
         enabled: isEntitlementActive(e),
+        revoked_count: Number(e.revoked_count ?? 0),
+        blocked_until: e.blocked_until,
+        blocked: isRevocationBlocked(e),
       };
     });
 
