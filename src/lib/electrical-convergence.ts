@@ -24,6 +24,11 @@ import {
   type ValidationReport,
 } from "@/lib/electrical-parallel-validation";
 import { PHASE_44A_BASELINE_SHA256 } from "@/lib/electrical-adjudication-baseline";
+import {
+  PNL_H1_LABEL_OBSERVATION,
+  PNL_H1_VERIFIED_FIELDS,
+  pnlH1PreservedFacts,
+} from "@/lib/electrical-pnl-h1-field-provenance";
 
 export const CONVERGENCE_VERSION = "4.4b-parallel-validation-convergence-1";
 
