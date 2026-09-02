@@ -143,21 +143,48 @@ function line(row: ElectricalRow, keys: string[], extra: (string | null)[] = [])
   return [...keys.map((k) => field(row, k)), ...extra].filter(Boolean).join(" | ");
 }
 
-/** Rows whose text matches the question first, then everything else, up to cap. */
-function rank(rows: ElectricalRow[], terms: string[], cap: number) {
+/** Text fields that actually identify a row — numbers and uuids only add noise. */
+const IDENTITY_FIELDS = [
+  "load_id", "description", "equipment_model", "area", "grid", "location", "notes",
+  "source_circuit", "circuit_group_ref", "suggested_panel", "panel_id", "building",
+  "circuit_group_id", "label", "feeder_id", "backup_panel",
+];
+
+export interface RankTerms {
+  /** Words the user typed — strong evidence. */
+  terms: string[];
+  /** Equipment synonyms — weak evidence on their own. */
+  synonyms?: string[];
+}
+
+/**
+ * Rows whose identity text matches the question first, then everything else.
+ * `matched` needs real evidence: one typed word, or two synonyms — otherwise a
+ * question about mini-splits "matches" all 138 loads and the answer says nothing.
+ */
+function rank(rows: ElectricalRow[], input: RankTerms, cap: number) {
+  const { terms, synonyms = [] } = input;
   if (terms.length === 0) return { rows: rows.slice(0, cap), matched: [] as ElectricalRow[] };
   const scored = rows.map((row) => {
-    const hay = Object.values(row).map(str).join(" ").toLowerCase();
+    const hay = IDENTITY_FIELDS.map((k) => str(row[k]))
+      .join(" ")
+      .toLowerCase();
     const words = new Set(hay.split(/[^a-z0-9]+/).map(stem));
     let score = 0;
     for (const t of terms) {
-      if (words.has(t)) score += 2;
-      else if (t.length >= 4 && hay.includes(t)) score += 1;
+      if (words.has(t)) score += 3;
+      else if (t.length >= 5 && hay.includes(t)) score += 2;
+    }
+    for (const t of synonyms) {
+      if (words.has(t)) score += 1;
     }
     return { row, score };
   });
-  const matched = scored.filter((s) => s.score > 0).sort((a, b) => b.score - a.score);
-  const rest = scored.filter((s) => s.score === 0);
+  const matched = scored.filter((s) => s.score >= 2).sort((a, b) => b.score - a.score);
+  const rest = scored
+    .filter((s) => !matched.includes(s))
+    .sort((a, b) => b.score - a.score);
+
   return {
     rows: [...matched, ...rest].slice(0, cap).map((s) => s.row),
     matched: matched.map((s) => s.row),
