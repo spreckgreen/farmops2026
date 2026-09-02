@@ -356,13 +356,10 @@ export function rewriteOdsNumericCell(
   const nextInner = paragraphs.length
     ? cellEl.inner.replace(paragraphs[0], `<text:p>${displayed}</text:p>`)
     : `<text:p>${displayed}</text:p>`;
-  const tag = cellEl.selfClosing
-    ? `<table:table-cell${nextAttrs}><text:p>${displayed}</text:p></table:table-cell>`
-    : `<table:table-cell${nextAttrs}>${nextInner}</table:table-cell>`;
-  const rebuilt = cellEl.selfClosing
-    ? tag
-    : xml.slice(cellEl.start, cellEl.start) + tag;
+  const tagName = /^<([a-zA-Z:.-]+)/.exec(xml.slice(cellEl.start, cellEl.start + 48))![1];
+  const rebuilt = `<${tagName}${nextAttrs}>${nextInner}</${tagName}>`;
   return xml.slice(0, cellEl.start) + rebuilt + xml.slice(cellEl.end);
+
 }
 
 /* --------------------------------------------------------------- cell diff */
