@@ -7,6 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { AiFeatureRouting } from "@/components/ai-feature-routing";
 import { AiWorkflowTests } from "@/components/ai-workflow-tests";
 import { ModelPickerCard } from "@/components/ai-model-picker-card";
+import { AiFeatureSwitches } from "@/components/ai-feature-switches";
+import { AiRequestQueueCard } from "@/components/ai-request-queue";
+import { AiUsageBillCard } from "@/components/ai-usage-bill";
 import { AlertTriangle, CheckCircle2, Sparkles } from "lucide-react";
 
 export const Route = createFileRoute("/admin/ai-runtime")({
@@ -140,6 +143,12 @@ function AiRuntimePage() {
             </Card>
 
             {cfg.aiProvider !== "none" && <ModelPickerCard />}
+
+            <AiFeatureSwitches />
+
+            <AiRequestQueueCard />
+
+            <AiUsageBillCard />
 
             <AiFeatureRouting />
 
