@@ -44,12 +44,14 @@ import {
   confirmUserEmail,
   listUsers,
   setApprovalStatus,
+  setUserDisabled,
   setUserPassword,
   setUserRoles,
   type AppRole,
   type ApprovalStatus,
   type ManagedUser,
 } from "@/lib/admin.functions";
+
 
 
 export const Route = createFileRoute("/admin/users")({
