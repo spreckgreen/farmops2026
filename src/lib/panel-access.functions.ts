@@ -67,6 +67,7 @@ function toRequest(row: Record<string, unknown>): PanelEditRequest {
     requester_email: (row["requester_email"] as string | null) ?? null,
     reason: (row["reason"] as string | null) ?? null,
     scope: ((row["scope"] as PanelAccessScope | null) ?? "panel_edit") as PanelAccessScope,
+    scope_detail: (row["scope_detail"] as string | null) ?? null,
     status: row["status"] as PanelEditRequest["status"],
     decided_by: (row["decided_by"] as string | null) ?? null,
     decided_at: (row["decided_at"] as string | null) ?? null,
@@ -76,6 +77,37 @@ function toRequest(row: Record<string, unknown>): PanelEditRequest {
     created_at: String(row["created_at"]),
   };
 }
+
+/* ------------------------------------------------- scanned-panel bookkeeping */
+
+/**
+ * The panels this user actually reached by scanning a printed label. A
+ * scan-provisioned viewer may only open these; nothing else in the electrical
+ * record is readable to them without an administrator-approved wider window.
+ */
+async function scannedPanelIds(db: { from: (t: string) => any }, userId: string): Promise<string[]> {
+  const { data, error } = await db
+    .from("electrical_scan_grants")
+    .select("panel_id")
+    .eq("user_id", userId);
+  if (error) throw new Error(error.message);
+  return ((data ?? []) as { panel_id: string }[]).map((r) => String(r.panel_id).toUpperCase());
+}
+
+/** Remember that this user scanned this panel (idempotent). */
+async function recordScannedPanel(
+  db: { from: (t: string) => any },
+  userId: string,
+  panelId: string,
+): Promise<void> {
+  await db
+    .from("electrical_scan_grants")
+    .upsert(
+      { user_id: userId, panel_id: panelId },
+      { onConflict: "user_id,panel_id", ignoreDuplicates: true },
+    );
+}
+
 
 /* ------------------------------------------------------------ label printing */
 
