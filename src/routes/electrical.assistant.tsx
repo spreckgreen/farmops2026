@@ -14,12 +14,23 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { useAiSettings } from "@/hooks/use-ai-settings";
 import {
   ELECTRICAL_AI_SCENARIOS,
   type ElectricalAiScenarioId,
 } from "@/lib/electrical-ai-scenarios";
 import { requestElectricalAiFeatures } from "@/lib/electrical-ai-access.functions";
+import {
+  cacheAgeLabel,
+  cacheExpiryLabel,
+  dropCachedAnswer,
+  readCachedAnswer,
+  runCostLabel,
+  writeCachedAnswer,
+  type CachedElectricalAnswer,
+} from "@/lib/electrical-ai-cache";
 import {
   estimateElectricalAiRun,
   listElectricalAiScenarios,
@@ -29,7 +40,18 @@ import {
   type ElectricalAiAnswer,
 } from "@/lib/electrical-ai.functions";
 
-import { Camera, CloudLightning, Cpu, Loader2, Sparkles, X } from "lucide-react";
+import {
+  Camera,
+  CloudLightning,
+  Cpu,
+  DollarSign,
+  History,
+  Loader2,
+  RefreshCw,
+  Sparkles,
+  Timer,
+  X,
+} from "lucide-react";
 import {
   NAMEPLATE_IMAGE_TYPES,
   NAMEPLATE_MAX_BYTES,
@@ -43,6 +65,12 @@ import {
   myNameplateWriteRequests,
   submitNameplateWriteRequest,
 } from "@/lib/electrical-nameplate-write.functions";
+
+/** Per-user on/off key for one electrical AI scenario (defaults to on). */
+export function electricalAiFeatureKey(id: string) {
+  return `electrical.${id}`;
+}
+
 
 export const Route = createFileRoute("/electrical/assistant")({
   component: AssistantPage,
