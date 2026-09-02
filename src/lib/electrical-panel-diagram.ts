@@ -22,6 +22,9 @@ export interface DiagramLoad {
   amps: string;
   va: string;
   voltage: string;
+  /** Panel the record says this load is *planned* for (text only, not a link). */
+  suggestedPanel: string;
+  building: string;
   /** Gaps on this load's own supply path. */
   gaps: string[];
 }
@@ -54,6 +57,11 @@ export interface DiagramPanel {
   circuits: DiagramCircuit[];
   /** Loads pinned to this panel by a breaker position but with no circuit group. */
   directLoads: DiagramLoad[];
+  /**
+   * Loads the record *expects* on this panel (suggested panel text, or same
+   * building/area) but which are not linked to any circuit or breaker here.
+   */
+  expectedLoads: DiagramLoad[];
   gaps: string[];
   loadCount: number;
   gapCount: number;
@@ -110,6 +118,8 @@ function toLoad(
     amps: str(load.amps).trim(),
     va: str(load.connected_va).trim(),
     voltage: str(load.voltage_semantic).trim() || str(load.system_voltage).trim(),
+    suggestedPanel: str(load.suggested_panel).trim(),
+    building: str(load.building).trim() || str(load.grid).trim(),
     gaps: loadGaps(load, opts),
   };
 }
@@ -233,10 +243,26 @@ export function buildPanelDiagram(input: PanelDiagramInput): PanelDiagram {
         toLoad(l, { hasCircuit: false, hasBreaker: true, hasPanel: true }),
       );
       const feeder = feederFor(panel);
+      const panelStableId = str(panel.panel_id).trim();
+      const panelBuilding = str(panel.building).trim() || str(panel.grid).trim();
+      const expectedLoads = unassigned.filter((l) => {
+        if (l.suggestedPanel && panelStableId) {
+          return l.suggestedPanel.toUpperCase().includes(panelStableId.toUpperCase());
+        }
+        if (!l.suggestedPanel && panelBuilding) {
+          return `${l.building} ${l.area}`.toUpperCase().includes(panelBuilding.toUpperCase());
+        }
+        return false;
+      });
       const gaps: string[] = [];
       if (!feeder.known) gaps.push("feeder source not resolved (dest_panel_uuid / feeder_source)");
       if (panelCircuits.length === 0) gaps.push("no circuit groups linked to this panel");
       if (!str(panel.bus_rating_amps).trim()) gaps.push("no bus rating recorded");
+      if (expectedLoads.length > 0) {
+        gaps.push(
+          `${expectedLoads.length} load(s) are expected on this panel but are not linked to any circuit or breaker here`,
+        );
+      }
       const loadCount =
         panelCircuits.reduce((n, c) => n + c.loads.length, 0) + directLoads.length;
       const gapCount =
@@ -259,6 +285,7 @@ export function buildPanelDiagram(input: PanelDiagramInput): PanelDiagram {
         status: str(panel.install_status).trim(),
         circuits: panelCircuits,
         directLoads,
+        expectedLoads,
         gaps,
         loadCount,
         gapCount,
@@ -323,4 +350,170 @@ export function filterPanelDiagram(diagram: PanelDiagram, query: string): PanelD
     unassignedLoads: diagram.unassignedLoads.filter(loadHit),
     orphanCircuits: diagram.orphanCircuits.filter(circuitHit),
   };
+}
+
+// ---------------------------------------------------------------------------
+// Single-panel figure + plain-language reading of what the record does prove.
+// ---------------------------------------------------------------------------
+
+const key = (prefix: string, value: string): string =>
+  `${prefix}_${(value || "unknown").replace(/[^A-Za-z0-9]/g, "_")}`;
+
+const label = (value: string): string => value.replace(/["<>|]/g, " ").trim();
+
+/** Mermaid flowchart for one panel: feeder → panel → breaker/circuit → load. */
+export function panelMermaid(panel: DiagramPanel): string {
+  const lines: string[] = ["flowchart LR"];
+  const panelNode = key("PNL", panel.id);
+  const panelText = [
+    panel.id,
+    panel.description,
+    panel.busRatingAmps ? `${panel.busRatingAmps} A bus` : "",
+    panel.voltage ? `${panel.voltage} V` : "",
+  ]
+    .filter(Boolean)
+    .map(label)
+    .join("\\n");
+  const src = key("SRC", panel.feeder);
+  lines.push(`  ${src}["${label(panel.feeder)}"]`);
+  lines.push(`  ${panelNode}["${panelText}"]`);
+  lines.push(`  ${src} --${panel.feederKnown ? ">" : ".->"} ${panelNode}`);
+  lines.push(`  style ${panelNode} stroke-width:3px`);
+  if (!panel.feederKnown) lines.push(`  style ${src} stroke-dasharray: 4 3`);
+
+  panel.circuits.forEach((c, ci) => {
+    const cNode = key(`CG${ci}`, c.id);
+    const cText = [
+      c.id,
+      c.breaker === NOT_IN_RECORD ? "breaker NOT IN RECORD" : `breaker ${c.breaker}`,
+      c.description,
+      c.ratingAmps ? `${c.ratingAmps} A` : "",
+    ]
+      .filter(Boolean)
+      .map(label)
+      .join("\\n");
+    lines.push(`  ${cNode}("${cText}")`);
+    lines.push(`  ${panelNode} --> ${cNode}`);
+    if (c.loads.length === 0) {
+      const empty = key(`CGX${ci}`, c.id);
+      lines.push(`  ${empty}["no loads linked"]`);
+      lines.push(`  ${cNode} -.-> ${empty}`);
+      lines.push(`  style ${empty} stroke-dasharray: 4 3`);
+    }
+    c.loads.forEach((l, li) => {
+      const lNode = key(`LD${ci}_${li}`, l.id);
+      const lText = [l.id, l.description, l.amps ? `${l.amps} A` : ""]
+        .filter(Boolean)
+        .map(label)
+        .join("\\n");
+      lines.push(`  ${lNode}["${lText}"]`);
+      lines.push(`  ${cNode} --> ${lNode}`);
+    });
+  });
+
+  panel.directLoads.forEach((l, i) => {
+    const lNode = key(`DL${i}`, l.id);
+    lines.push(`  ${lNode}["${[l.id, l.description].filter(Boolean).map(label).join("\\n")}"]`);
+    lines.push(`  ${panelNode} -->|"breaker only, no circuit"| ${lNode}`);
+  });
+
+  panel.expectedLoads.forEach((l, i) => {
+    const lNode = key(`EX${i}`, l.id);
+    lines.push(
+      `  ${lNode}["${[l.id, l.description, "expected here"].filter(Boolean).map(label).join("\\n")}"]`,
+    );
+    lines.push(`  ${panelNode} -.->|"not linked in record"| ${lNode}`);
+    lines.push(`  style ${lNode} stroke-dasharray: 4 3`);
+  });
+
+  if (panel.circuits.length === 0 && panel.directLoads.length === 0 && panel.expectedLoads.length === 0) {
+    lines.push(`  NOTHING["nothing linked to this panel yet"]`);
+    lines.push(`  ${panelNode} -.-> NOTHING`);
+  }
+  return lines.join("\n");
+}
+
+export interface PanelReading {
+  /** What the record proves today, in sentences. */
+  known: string[];
+  /** What is missing, and which field would close it. */
+  missing: string[];
+}
+
+/** Plain-language reading of a single panel's topology and its gaps. */
+export function panelReading(panel: DiagramPanel): PanelReading {
+  const known: string[] = [];
+  const missing: string[] = [];
+  const loadsOnCircuits = panel.circuits.reduce((n, c) => n + c.loads.length, 0);
+
+  known.push(
+    `${panel.id}${panel.description ? ` (${panel.description})` : ""} is recorded${
+      panel.building ? ` in ${panel.building}` : ""
+    }${panel.busRatingAmps ? ` with a ${panel.busRatingAmps} A bus` : ""}${
+      panel.voltage ? ` at ${panel.voltage} V` : ""
+    }.`,
+  );
+  known.push(
+    panel.feederKnown
+      ? `It is fed by ${panel.feeder}, so the upstream path is traceable.`
+      : `Its supply is ${panel.feeder} — the upstream path stops here.`,
+  );
+  known.push(
+    `${panel.circuits.length} circuit group(s) are linked to it, carrying ${loadsOnCircuits} load(s); ${panel.directLoads.length} more load(s) sit on a breaker position with no circuit group.`,
+  );
+
+  if (!panel.feederKnown) {
+    missing.push(
+      "Upstream feeder: no feeder row points at this panel (electrical_feeders.dest_panel_uuid), so nothing proves where it gets power.",
+    );
+  }
+  if (panel.circuits.length === 0) {
+    missing.push(
+      "Circuits: no circuit group carries this panel's uuid (electrical_circuit_groups.panel_uuid).",
+    );
+  }
+  if (!panel.busRatingAmps) missing.push("Bus rating: electrical_panels.bus_rating_amps is empty.");
+
+  const noBreaker = panel.circuits.filter((c) => c.breaker === NOT_IN_RECORD);
+  if (noBreaker.length) {
+    missing.push(
+      `Breaker positions: ${noBreaker.map((c) => c.id).join(", ")} have no breaker recorded (electrical_breaker_positions row or breaker_number).`,
+    );
+  }
+  const emptyCircuits = panel.circuits.filter((c) => c.loads.length === 0);
+  if (emptyCircuits.length) {
+    missing.push(
+      `Empty circuits: ${emptyCircuits.map((c) => c.id).join(", ")} have no load linked (electrical_loads.circuit_group_uuid).`,
+    );
+  }
+  if (panel.directLoads.length) {
+    missing.push(
+      `Breaker-only loads: ${panel.directLoads.map((l) => l.id).join(", ")} are on a breaker in this panel but belong to no circuit group.`,
+    );
+  }
+  if (panel.expectedLoads.length) {
+    missing.push(
+      `Loads expected but unaccounted: ${panel.expectedLoads
+        .map((l) => `${l.id}${l.suggestedPanel ? ` (suggested_panel = ${l.suggestedPanel})` : " (same building/area)"}`)
+        .join(", ")} — set circuit_group_uuid or add a breaker position to account for them here.`,
+    );
+  }
+  const noRating = panel.circuits.filter((c) => !c.ratingAmps);
+  if (noRating.length) {
+    missing.push(
+      `Circuit ratings: ${noRating.map((c) => c.id).join(", ")} have no circuit_rating_amps.`,
+    );
+  }
+  const noAmps = [...panel.circuits.flatMap((c) => c.loads), ...panel.directLoads].filter(
+    (l) => !l.amps && !l.va,
+  );
+  if (noAmps.length) {
+    missing.push(
+      `Load sizing: ${noAmps.map((l) => l.id).join(", ")} have neither amps nor connected_va, so panel loading cannot be totalled.`,
+    );
+  }
+  if (missing.length === 0) {
+    missing.push("Nothing is missing: every link on this panel is proven by a record.");
+  }
+  return { known, missing };
 }
