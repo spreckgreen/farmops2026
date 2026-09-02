@@ -306,12 +306,21 @@ export interface ConvergenceReport {
     raw_findings: number;
     adjudicated: number;
     unresolved: number;
+    /** Raw CONFLICT findings, exactly as the immutable comparison counted them. */
+    conflicts_total: number;
+    /** Conflicts carrying an adjudication valid at this workbook SHA. */
+    conflicts_adjudicated: number;
+    /** Conflicts still open — the only conflict measure Phase 4.5 may use. */
+    conflicts_unresolved: number;
     canonical_corrections_pending: number;
     farmops_corrections_pending: number;
     semantic_representation_differences: number;
     current_semantics_unresolved: number;
     provenance_or_field_verification_pending: number;
+    expected_transformations: number;
+    farmops_as_built_additions: number;
   };
+
   by_disposition: Record<ConvergenceDisposition, number>;
   /** Per raw classification: raw / adjudicated / unresolved, kept separate. */
   by_raw_classification: Record<
