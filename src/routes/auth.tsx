@@ -6,6 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { useServerFn } from "@tanstack/react-start";
+import {
+  registerWithBrandedEmail,
+  sendBrandedPasswordReset,
+} from "@/lib/app-email.functions";
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
@@ -24,6 +29,8 @@ function AuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const brandedSignup = useServerFn(registerWithBrandedEmail);
+  const brandedReset = useServerFn(sendBrandedPasswordReset);
 
   // After sign-in (or when already signed in) land on the page the user asked
   // for — e.g. /electrical/panel/PNL-H1 from a scanned panel label.
