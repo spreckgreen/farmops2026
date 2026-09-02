@@ -103,6 +103,11 @@ export function ElectricalNav({ access }: { access?: ElectricalAccess }) {
           ODS import
         </Link>
       )}
+      {show("nameplate_scan") && (
+        <Link to="/electrical/nameplate-scan" className={item} activeProps={active}>
+          Nameplate scan
+        </Link>
+      )}
       {show("export") && (
   <Link to="/electrical/export" className={item} activeProps={active}>
           Reconciliation export

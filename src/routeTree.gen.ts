@@ -63,6 +63,7 @@ import { Route as ElectricalStandardsRouteImport } from './routes/electrical.sta
 import { Route as ElectricalSorRouteImport } from './routes/electrical.sor'
 import { Route as ElectricalServicesRouteImport } from './routes/electrical.services'
 import { Route as ElectricalQaRouteImport } from './routes/electrical.qa'
+import { Route as ElectricalNameplateScanRouteImport } from './routes/electrical.nameplate-scan'
 import { Route as ElectricalMappingRouteImport } from './routes/electrical.mapping'
 import { Route as ElectricalLabelsRouteImport } from './routes/electrical.labels'
 import { Route as ElectricalImportRouteImport } from './routes/electrical.import'
@@ -370,6 +371,11 @@ const ElectricalQaRoute = ElectricalQaRouteImport.update({
   path: '/electrical/qa',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ElectricalNameplateScanRoute = ElectricalNameplateScanRouteImport.update({
+  id: '/electrical/nameplate-scan',
+  path: '/electrical/nameplate-scan',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ElectricalMappingRoute = ElectricalMappingRouteImport.update({
   id: '/electrical/mapping',
   path: '/electrical/mapping',
@@ -592,6 +598,7 @@ export interface FileRoutesByFullPath {
   '/electrical/import': typeof ElectricalImportRoute
   '/electrical/labels': typeof ElectricalLabelsRoute
   '/electrical/mapping': typeof ElectricalMappingRoute
+  '/electrical/nameplate-scan': typeof ElectricalNameplateScanRoute
   '/electrical/qa': typeof ElectricalQaRoute
   '/electrical/services': typeof ElectricalServicesRoute
   '/electrical/sor': typeof ElectricalSorRoute
@@ -680,6 +687,7 @@ export interface FileRoutesByTo {
   '/electrical/import': typeof ElectricalImportRoute
   '/electrical/labels': typeof ElectricalLabelsRoute
   '/electrical/mapping': typeof ElectricalMappingRoute
+  '/electrical/nameplate-scan': typeof ElectricalNameplateScanRoute
   '/electrical/qa': typeof ElectricalQaRoute
   '/electrical/services': typeof ElectricalServicesRoute
   '/electrical/sor': typeof ElectricalSorRoute
@@ -772,6 +780,7 @@ export interface FileRoutesById {
   '/electrical/import': typeof ElectricalImportRoute
   '/electrical/labels': typeof ElectricalLabelsRoute
   '/electrical/mapping': typeof ElectricalMappingRoute
+  '/electrical/nameplate-scan': typeof ElectricalNameplateScanRoute
   '/electrical/qa': typeof ElectricalQaRoute
   '/electrical/services': typeof ElectricalServicesRoute
   '/electrical/sor': typeof ElectricalSorRoute
@@ -865,6 +874,7 @@ export interface FileRouteTypes {
     | '/electrical/import'
     | '/electrical/labels'
     | '/electrical/mapping'
+    | '/electrical/nameplate-scan'
     | '/electrical/qa'
     | '/electrical/services'
     | '/electrical/sor'
@@ -953,6 +963,7 @@ export interface FileRouteTypes {
     | '/electrical/import'
     | '/electrical/labels'
     | '/electrical/mapping'
+    | '/electrical/nameplate-scan'
     | '/electrical/qa'
     | '/electrical/services'
     | '/electrical/sor'
@@ -1044,6 +1055,7 @@ export interface FileRouteTypes {
     | '/electrical/import'
     | '/electrical/labels'
     | '/electrical/mapping'
+    | '/electrical/nameplate-scan'
     | '/electrical/qa'
     | '/electrical/services'
     | '/electrical/sor'
@@ -1136,6 +1148,7 @@ export interface RootRouteChildren {
   ElectricalImportRoute: typeof ElectricalImportRoute
   ElectricalLabelsRoute: typeof ElectricalLabelsRoute
   ElectricalMappingRoute: typeof ElectricalMappingRoute
+  ElectricalNameplateScanRoute: typeof ElectricalNameplateScanRoute
   ElectricalQaRoute: typeof ElectricalQaRoute
   ElectricalServicesRoute: typeof ElectricalServicesRoute
   ElectricalSorRoute: typeof ElectricalSorRoute
@@ -1543,6 +1556,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ElectricalQaRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/electrical/nameplate-scan': {
+      id: '/electrical/nameplate-scan'
+      path: '/electrical/nameplate-scan'
+      fullPath: '/electrical/nameplate-scan'
+      preLoaderRoute: typeof ElectricalNameplateScanRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/electrical/mapping': {
       id: '/electrical/mapping'
       path: '/electrical/mapping'
@@ -1925,6 +1945,7 @@ const rootRouteChildren: RootRouteChildren = {
   ElectricalImportRoute: ElectricalImportRoute,
   ElectricalLabelsRoute: ElectricalLabelsRoute,
   ElectricalMappingRoute: ElectricalMappingRoute,
+  ElectricalNameplateScanRoute: ElectricalNameplateScanRoute,
   ElectricalQaRoute: ElectricalQaRoute,
   ElectricalServicesRoute: ElectricalServicesRoute,
   ElectricalSorRoute: ElectricalSorRoute,
