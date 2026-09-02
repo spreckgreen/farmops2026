@@ -1020,6 +1020,7 @@ function FeatureRequestCard({
           </div>
         ) : null}
       </CardContent>
+      ) : null}
     </Card>
   );
 }
