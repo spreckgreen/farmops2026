@@ -42,7 +42,7 @@ export async function notifyAdminsOfPanelRequest(notice: RequestNotice): Promise
 
   const { sendBrandedEmail } = await import("@/lib/smtp-mailer.server");
   const { panelAccessRequestEmail } = await import("@/lib/email-branding");
-  const base = (process.env["APP_BASE_URL"] ?? "").replace(/\/$/, "");
+  const base = (process.env["APP_BASE_URL"] ?? "https://bostead.lovable.app").replace(/\/$/, "");
   const reviewUrl = /^https?:\/\//i.test(notice.reviewUrl)
     ? notice.reviewUrl
     : `${base}${notice.reviewUrl}`;
@@ -82,7 +82,7 @@ export async function notifyRequesterOfDecision(input: {
   }
   const { sendBrandedEmail } = await import("@/lib/smtp-mailer.server");
   const { panelAccessDecisionEmail } = await import("@/lib/email-branding");
-  const base = (process.env["APP_BASE_URL"] ?? "").replace(/\/$/, "");
+  const base = (process.env["APP_BASE_URL"] ?? "https://bostead.lovable.app").replace(/\/$/, "");
   const outcome = await sendBrandedEmail(
     input.requesterEmail,
     panelAccessDecisionEmail({

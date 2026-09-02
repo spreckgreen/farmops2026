@@ -28,7 +28,7 @@ function throttled(key: string): boolean {
 }
 
 function safeRedirect(raw: string | undefined, fallbackPath: string): string {
-  const site = (process.env["APP_BASE_URL"] ?? "").replace(/\/$/, "");
+  const site = (process.env["APP_BASE_URL"] ?? "https://bostead.lovable.app").replace(/\/$/, "");
   if (raw && /^https?:\/\//i.test(raw)) return raw;
   return `${site}${fallbackPath}`;
 }
