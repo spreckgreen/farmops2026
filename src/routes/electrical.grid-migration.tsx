@@ -24,11 +24,13 @@ import {
   auditNumberAxis,
   axisAuditCsv,
   coordinateDerivations,
+  locationCsv,
   migrationCsv,
   NEW_COLS,
   NEW_ROWS,
   type AxisAuditEntry,
   type GridConfidence,
+  type GridPrecision,
 } from "@/lib/electrical-grid-migration";
 
 export const Route = createFileRoute("/electrical/grid-migration")({
@@ -60,6 +62,14 @@ const CONF_VARIANT: Record<GridConfidence, "default" | "secondary" | "destructiv
   REVIEW: "destructive",
 };
 
+const PRECISION_VARIANT: Record<GridPrecision, "default" | "secondary" | "destructive" | "outline"> = {
+  EXACT: "default",
+  NEAREST: "secondary",
+  INTERVAL: "destructive",
+  NON_FIXED: "outline",
+  UNRESOLVED: "destructive",
+};
+
 function download(name: string, body: string) {
   const url = URL.createObjectURL(new Blob([body], { type: "text/csv" }));
   const a = document.createElement("a");
@@ -86,7 +96,7 @@ function GridMigrationPage() {
       (r) =>
         (!only || r.confidence === only) &&
         (!needle ||
-          `${r.stable_id} ${r.description} ${r.old_grid} ${r.proposed_new_grid ?? ""}`
+          `${r.stable_id} ${r.description} ${r.old_grid} ${r.grid_reference ?? ""} ${r.grid_reference_precision}`
             .toLowerCase()
             .includes(needle)),
     );
@@ -131,6 +141,18 @@ function GridMigrationPage() {
                   <Download className="h-4 w-4" /> Migration CSV
                 </Button>
               ) : null}
+              {query.data ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1"
+                  onClick={() =>
+                    download("farm-shop-physical-location.csv", locationCsv(query.data.rows))
+                  }
+                >
+                  <Download className="h-4 w-4" /> Physical-location CSV
+                </Button>
+              ) : null}
               {(["HIGH", "MEDIUM", "REVIEW"] as GridConfidence[]).map((c) => (
                 <Button
                   key={c}
@@ -157,6 +179,30 @@ function GridMigrationPage() {
                   {query.data.summary.anchored} placed directly from a drawn feature on the corrected
                   drawing
                 </p>
+                <div className="flex flex-wrap gap-2">
+                  {(
+                    [
+                      ["EXACT", query.data.precision.exact],
+                      ["NEAREST", query.data.precision.nearest],
+                      ["INTERVAL", query.data.precision.interval],
+                      ["NON_FIXED", query.data.precision.non_fixed],
+                      ["UNRESOLVED", query.data.precision.unresolved],
+                    ] as [string, number][]
+                  ).map(([label, n]) => (
+                    <Badge key={label} variant="outline" className="font-mono">
+                      {label} · {n}
+                    </Badge>
+                  ))}
+                  <Badge variant="destructive" className="font-mono">
+                    OWNER/FIELD DECISION · {query.data.precision.decisions_required}
+                  </Badge>
+                  <Badge variant="secondary" className="font-mono">
+                    FIELD CONFIRMATION · {query.data.precision.field_confirmation_required}
+                  </Badge>
+                  <Badge variant="secondary" className="font-mono">
+                    EVIDENCE RESOLVED · {query.data.precision.evidence_resolved}
+                  </Badge>
+                </div>
                 <Input
                   placeholder="Filter by stable ID, description, old or proposed grid…"
                   value={filter}
@@ -232,10 +278,15 @@ function GridMigrationPage() {
                       <th className="p-2">Stable ID</th>
                       <th className="p-2">Description</th>
                       <th className="p-2">Old grid</th>
-                      <th className="p-2">Old physical position</th>
-                      <th className="p-2">Proposed new grid</th>
+                      <th className="p-2">x ft (E of W wall)</th>
+                      <th className="p-2">y ft (S of N wall)</th>
+                      <th className="p-2">Proposed grid</th>
+                      <th className="p-2">Precision</th>
+                      <th className="p-2">x err</th>
+                      <th className="p-2">y err</th>
                       <th className="p-2">Confidence</th>
-                      <th className="p-2">Mapping basis</th>
+                      <th className="p-2">Review</th>
+                      <th className="p-2">Provenance / evidence</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -243,18 +294,38 @@ function GridMigrationPage() {
                       <tr key={`${r.kind}-${r.stable_id}`} className="border-t border-border align-top">
                         <td className="p-2 font-mono text-xs">{r.stable_id}</td>
                         <td className="p-2">{r.description || "—"}</td>
-                        <td className="p-2 font-mono text-xs">{r.old_grid}</td>
-                        <td className="p-2 text-xs">{r.old_physical_position}</td>
+                        <td className="p-2 font-mono text-xs">{r.legacy_grid || r.old_grid}</td>
+                        <td className="p-2 font-mono text-xs">{r.location_x_ft ?? "—"}</td>
+                        <td className="p-2 font-mono text-xs">{r.location_y_ft ?? "—"}</td>
                         <td className="p-2 font-mono">
-                          {r.proposed_new_grid ?? (
-                            <span className="text-destructive">OWNER REVIEW</span>
+                          {r.grid_reference ?? (
+                            <span className="text-destructive">UNRESOLVED</span>
                           )}
                         </td>
                         <td className="p-2">
+                          <Badge variant={PRECISION_VARIANT[r.grid_reference_precision]}>
+                            {r.grid_reference_precision}
+                          </Badge>
+                        </td>
+                        <td className="p-2 font-mono text-xs">{r.x_error_ft ?? "—"}</td>
+                        <td className="p-2 font-mono text-xs">{r.y_error_ft ?? "—"}</td>
+                        <td className="p-2">
                           <Badge variant={CONF_VARIANT[r.confidence]}>{r.confidence}</Badge>
                         </td>
+                        <td className="p-2 text-xs">
+                          {r.review_required ? (
+                            <span className="font-medium text-destructive">YES</span>
+                          ) : (
+                            "no"
+                          )}
+                        </td>
                         <td className="p-2 text-xs text-muted-foreground">
-                          {r.mapping_basis}
+                          {r.grid_migration_provenance}
+                          {r.supporting_evidence.map((e) => (
+                            <span key={e} className="mt-1 block">
+                              {e}
+                            </span>
+                          ))}
                           {r.review_reason ? (
                             <span className="mt-1 block font-medium text-foreground">
                               {r.review_reason}
@@ -265,6 +336,44 @@ function GridMigrationPage() {
                     ))}
                   </tbody>
                 </table>
+              </div>
+            </PersistedSection>
+
+            <PersistedSection
+              storageKey="grid-migration-proposed-fields"
+              title="Proposed nullable location fields (proposal only — nothing is created)"
+            >
+              <div className="space-y-2 p-2 text-sm text-muted-foreground">
+                <p>
+                  Physical position is the authoritative migrated location; the grid reference is its
+                  human-readable representation. For Farm Shop loads and panels the proposal is:
+                </p>
+                <ul className="list-disc space-y-1 pl-5">
+                  <li>
+                    <span className="font-mono text-foreground">location_x_ft</span> — feet east of
+                    the west wall (nullable)
+                  </li>
+                  <li>
+                    <span className="font-mono text-foreground">location_y_ft</span> — feet south of
+                    the north wall (nullable)
+                  </li>
+                  <li>
+                    <span className="font-mono text-foreground">grid_reference</span> — derived
+                    display reference, interval notation allowed (nullable)
+                  </li>
+                  <li>
+                    <span className="font-mono text-foreground">grid_reference_precision</span> —
+                    EXACT | NEAREST | INTERVAL | NON_FIXED (UNRESOLVED left null in record terms)
+                  </li>
+                  <li>
+                    <span className="font-mono text-foreground">grid_migration_provenance</span> —
+                    how the position was established
+                  </li>
+                </ul>
+                <p>
+                  The existing <span className="font-mono text-foreground">grid</span> value is
+                  preserved separately as legacy audit history and is not overwritten by this model.
+                </p>
               </div>
             </PersistedSection>
 
