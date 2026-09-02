@@ -26,7 +26,30 @@ const farmops: FarmOpsLoadRow[] = [
   } as unknown as FarmOpsLoadRow,
 ];
 
-const plan = () => planCurrentSemanticMigration({ baseline: testBaseline(), rows: farmops });
+// Canonical ODS values as parsed from the SHA-bound Phase 4.4a baseline for the
+// three Bryant fixtures.
+const loads = [
+  ["FS-082", "Mini Split SE", 82, 120, 0, 0],
+  ["FS-083", "Mini Split E", 83, 120, 0, 0],
+  ["FS-084", "Mini Split W", 84, 240, 60, 14400],
+] as const;
+
+const plan = () =>
+  planCurrentSemanticMigration({
+    baseline: testBaseline({
+      loads: loads.map(([stable_id, description, row, volts, amps, connected_va]) => ({
+        stable_id,
+        description,
+        worksheet: "Loads",
+        row,
+        volts,
+        amps,
+        connected_va,
+        open_questions: [],
+      })),
+    }),
+    rows: farmops,
+  });
 
 describe("current semantic migration planning", () => {
   it("defines the eight target current concepts", () => {
