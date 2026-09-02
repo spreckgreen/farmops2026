@@ -393,9 +393,61 @@ function classify(
  * Classify every numeric comparison in a validation report. Pure: the input
  * report is never mutated and no I/O happens here.
  */
+/**
+ * Read-only disposition overlay. The raw category is preserved verbatim; an
+ * adjudication may only apply when it is bound to the same canonical ODS SHA as
+ * the current run. Nothing here authorizes a write.
+ */
+function adjudicationOverlay(
+  stableId: string,
+  field: string,
+  runSha: string,
+  category: NumericCategory,
+): Pick<
+  NumericFinding,
+  | "adjudicated"
+  | "adjudication_id"
+  | "adjudication_source"
+  | "adjudication_classification"
+  | "adjudication_rationale"
+  | "stale_adjudication"
+  | "convergence_disposition"
+  | "unresolved"
+  | "preserved"
+> {
+  const candidates = adjudicationsFor(stableId, field);
+  const hit = candidates.find((a) => a.ods_sha256 === runSha) ?? null;
+  const stale = candidates.some((a) => a.ods_sha256 !== runSha);
+  const disposition: ConvergenceDisposition = hit
+    ? hit.disposition
+    : category === "A"
+      ? "FARMOPS_CORRECTION_REQUIRED"
+      : category === "F"
+        ? "SEMANTIC_REPRESENTATION_DIFFERENCE"
+        : category === "D"
+          ? "PROVENANCE_VERIFICATION_REQUIRED"
+          : "UNADJUDICATED";
+  return {
+    adjudicated: Boolean(hit),
+    adjudication_id: hit?.id ?? null,
+    adjudication_source: hit?.source ?? null,
+    adjudication_classification: hit?.classification ?? null,
+    adjudication_rationale: hit
+      ? hit.rationale
+      : stale
+        ? "An adjudication exists for this finding but references a different canonical workbook SHA — it is stale and reduces nothing."
+        : null,
+    stale_adjudication: !hit && stale,
+    convergence_disposition: disposition,
+    unresolved: UNRESOLVED_DISPOSITIONS.has(disposition),
+    preserved: hit ? hit.preserved : [],
+  };
+}
+
 export function numericDiagnostics(report: ValidationReport): NumericDiagnosticsReport {
   const registry = numericRegistry();
   const findings: NumericFinding[] = [];
+  const stale: EstablishedAdjudication[] = [];
   const byField = new Map<string, NumericFieldSummary>();
   const odsStates: Record<string, number> = {};
   let compared = 0;
