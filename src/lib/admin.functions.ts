@@ -388,14 +388,19 @@ export const setApprovalStatus = createServerFn({ method: "POST" })
     await requireAdmin(supabase, userId);
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const upd = await supabaseAdmin
-      .from("profiles")
-      .update({
+    // Upsert, not update: accounts whose profile row was never created (sign-up
+    // that never confirmed) must still be approvable from this screen.
+    const authUser = await supabaseAdmin.auth.admin.getUserById(data.userId);
+    const upd = await supabaseAdmin.from("profiles").upsert(
+      {
+        id: data.userId,
+        email: authUser.data?.user?.email ?? null,
         status: data.status,
         reviewed_by: userId,
         reviewed_at: new Date().toISOString(),
-      })
-      .eq("id", data.userId);
+      } as never,
+      { onConflict: "id" },
+    );
     if (upd.error) throw new Error(upd.error.message);
 
     // On first approval, give the user the viewer role if they have none.
