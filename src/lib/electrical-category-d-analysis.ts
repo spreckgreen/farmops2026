@@ -33,6 +33,8 @@ export const MISSING_PROVENANCE_LABELS: Record<MissingProvenance, string> = {
     "The canonical workbook states nothing for this quantity; a design document, panel schedule or drawing must establish it.",
   EQUIPMENT_NAMEPLATE_REQUIRED:
     "The quantity is an equipment rating; only the nameplate (or its datasheet) can establish it.",
+  FARMOPS_ZERO_ORIGIN_PROVENANCE_REQUIRED:
+    "FarmOps holds a zero against a blank canonical cell; the origin of that zero must be established before any field or nameplate verification is requested.",
   FIELD_VERIFICATION_REQUIRED:
     "The quantity describes the physical installation; only an as-installed field observation can establish it.",
   ODS_SEMANTIC_CONTEXT_REQUIRED:
@@ -49,6 +51,8 @@ export const RESOLUTION_SOURCE_LABELS: Record<MissingProvenance, string> = {
   SOURCE_DOCUMENT_REQUIRED:
     "Canonical ODS / original design documentation (panel schedule, load calc, drawing set)",
   EQUIPMENT_NAMEPLATE_REQUIRED: "Equipment nameplate photograph or manufacturer datasheet",
+  FARMOPS_ZERO_ORIGIN_PROVENANCE_REQUIRED:
+    "FarmOps creation/import/entry provenance for the recorded zero (see the zero-origin refinement)",
   FIELD_VERIFICATION_REQUIRED: "Field observation / as-installed verification by the electrician",
   ODS_SEMANTIC_CONTEXT_REQUIRED: "Canonical ODS author — field meaning and units",
   FARMOPS_PROVENANCE_REQUIRED: "FarmOps import history and entry audit for this record",
@@ -125,6 +129,11 @@ export function missingProvenance(f: NumericFinding): MissingProvenance {
     return "IDENTITY_OR_MAPPING_PROVENANCE_REQUIRED";
   }
   if (s === "NEITHER_INTERPRETABLE") return "ODS_SEMANTIC_CONTEXT_REQUIRED";
+  // A FarmOps zero against a blank canonical cell is a provenance question about
+  // the zero itself, not yet a nameplate/field verification request.
+  if (s === "FARMOPS_ONLY" && f.farmops_state === "zero" && f.ods_state === "absent") {
+    return "FARMOPS_ZERO_ORIGIN_PROVENANCE_REQUIRED";
+  }
   if (FIELD_FIELDS.has(field)) return "FIELD_VERIFICATION_REQUIRED";
   if (s === "FARMOPS_ONLY") {
     return NAMEPLATE_FIELDS.has(field)
@@ -195,6 +204,7 @@ const EMPTY_PROVENANCE = (): Record<MissingProvenance, number> => ({
   ODS_SEMANTIC_CONTEXT_REQUIRED: 0,
   FARMOPS_PROVENANCE_REQUIRED: 0,
   IDENTITY_OR_MAPPING_PROVENANCE_REQUIRED: 0,
+  FARMOPS_ZERO_ORIGIN_PROVENANCE_REQUIRED: 0,
   OTHER_PROVENANCE_REQUIRED: 0,
 });
 
