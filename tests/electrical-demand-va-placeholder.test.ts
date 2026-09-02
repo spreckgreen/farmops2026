@@ -82,8 +82,8 @@ describe("Phase 4.4b demand VA placeholder semantic adjudication", () => {
   });
 
   it("preserves the exact source token per group", () => {
-    const a = report({ "FS-201": "TBD", "FS-202": "tbd", "FS-203": "N/A" });
-    expect(a.tokens.map((t) => t.token).sort()).toEqual(["N/A", "TBD", "tbd"]);
+    const a = report({ "FS-201": "TBD", "FS-202": "tbd", "FS-203": "VERIFY" });
+    expect(a.tokens.map((t) => t.token).sort()).toEqual(["TBD", "VERIFY", "tbd"]);
     expect(a.distinct_source_tokens).toBe(3);
   });
 
@@ -91,15 +91,15 @@ describe("Phase 4.4b demand VA placeholder semantic adjudication", () => {
     const a = report({
       "FS-201": "TBD",
       "FS-202": "TBD",
-      "FS-203": "N/A",
-      "FS-204": "VERIFY",
+      "FS-203": "VERIFY",
+      "FS-204": "verify field",
       "FS-205": "per panel schedule",
     });
     const byToken = new Map(a.tokens.map((t) => [t.token, t]));
     expect(byToken.get("TBD")?.adjudication).toBe("PLACEHOLDER_PRESERVED_AS_NULL");
     expect(byToken.get("TBD")?.resolved_for_phase_4_5).toBe(true);
-    expect(byToken.get("N/A")?.adjudication).toBe("SEMANTIC_NOT_EQUIVALENT_TO_NULL");
     expect(byToken.get("VERIFY")?.adjudication).toBe("SEMANTIC_NOT_EQUIVALENT_TO_NULL");
+    expect(byToken.get("verify field")?.adjudication).toBe("SEMANTIC_NOT_EQUIVALENT_TO_NULL");
     expect(byToken.get("per panel schedule")?.resolved_for_phase_4_5).toBe(false);
     expect(a.placeholder_preserved_as_null).toBe(2);
     expect(a.still_unresolved_c).toBe(a.raw_c - 2);
@@ -107,7 +107,7 @@ describe("Phase 4.4b demand VA placeholder semantic adjudication", () => {
   });
 
   it("keeps raw Category-C findings and the SHA binding immutable", () => {
-    const a = report({ "FS-201": "TBD", "FS-202": "N/A" });
+    const a = report({ "FS-201": "TBD", "FS-202": "VERIFY" });
     expect(a.ods_sha256).toBe(SHA);
     expect(a.tokens.every((t) => t.findings.every((f) => f.raw_category === "C"))).toBe(true);
     expect(a.read_only).toBe(true);
@@ -122,7 +122,7 @@ describe("Phase 4.4b demand VA placeholder semantic adjudication", () => {
   });
 
   it("exports token and markdown reports", () => {
-    const a = report({ "FS-201": "TBD", "FS-202": "N/A" });
+    const a = report({ "FS-201": "TBD", "FS-202": "VERIFY" });
     expect(demandVaTokensCsv(a)).toContain("PLACEHOLDER_PRESERVED_AS_NULL");
     const md = demandVaPlaceholderMarkdown(a);
     expect(md).toContain("Placeholder-preserved-as-NULL");
