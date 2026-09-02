@@ -3,7 +3,7 @@
 // see an explanation. Admins/editors/viewers fall through to children.
 
 import type { ReactNode } from "react";
-import { Loader2, Clock, ShieldX, AlertCircle } from "lucide-react";
+import { Loader2, Clock, ShieldX, AlertCircle, Ban } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useRouter } from "@tanstack/react-router";
