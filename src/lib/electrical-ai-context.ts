@@ -144,6 +144,94 @@ function rank(rows: ElectricalRow[], terms: string[], cap: number) {
   };
 }
 
+/**
+ * Panels that could plausibly serve a load whose circuit is not assigned yet.
+ * A planned load like FS-082 "Mini Split SE" (area "Farm Shop", grid G5.5) has no
+ * circuit_group_uuid, so the honest answer is "no panel assigned; the Farm Shop
+ * panels are PNL-FS1 / PNL-FS2" instead of silence.
+ */
+export function candidatePanelsForLoad(
+  load: ElectricalRow,
+  panels: ElectricalRow[],
+): string[] {
+  const needles = ["area", "grid", "location", "backup_panel"]
+    .map((k) => str(load[k]).trim().toLowerCase())
+    .filter((v) => v.length >= 3 && v !== "tbd");
+  if (needles.length === 0) return [];
+  const hits: string[] = [];
+  for (const p of panels) {
+    const hay = ["panel_id", "description", "building", "area", "grid", "location"]
+      .map((k) => str(p[k]).toLowerCase())
+      .join(" ");
+    if (needles.some((n) => hay.includes(n))) hits.push(str(p.panel_id));
+  }
+  return [...new Set(hits.filter(Boolean))].slice(0, 6);
+}
+
+export interface LoadPathContext {
+  panels: ElectricalRow[];
+  feeders: ElectricalRow[];
+  groupByUuid: Map<string, ElectricalRow>;
+  panelByUuid: Map<string, ElectricalRow>;
+  panelByLoadUuid: Map<string, string>;
+  positionsByLoadUuid: Map<string, ElectricalRow>;
+}
+
+/**
+ * One explicit chain per load: circuit → breaker → panel → feeder → source.
+ * Every hop is either a stable ID or the literal string NOT IN RECORD, so the
+ * model can say what is known today and where the chain stops.
+ */
+export function describeLoadPath(load: ElectricalRow, ctx: LoadPathContext): string {
+  const group = ctx.groupByUuid.get(str(load.circuit_group_uuid)) ?? null;
+  const position = ctx.positionsByLoadUuid.get(str(load.id)) ?? null;
+  const panelRow =
+    (group ? ctx.panelByUuid.get(str(group.panel_uuid)) : null) ??
+    (position ? ctx.panelByUuid.get(str(position.panel_uuid)) : null) ??
+    null;
+
+  const circuit = group
+    ? str(group.circuit_group_id)
+    : str(load.circuit_group_ref).trim() || str(load.source_circuit).trim() || "NOT IN RECORD";
+  const breaker = position
+    ? `${str(position.side)}${str(position.position)} (${str(position.ocp_amps)}A)`
+    : group && str(group.breaker_number).trim()
+      ? str(group.breaker_number)
+      : "NOT IN RECORD";
+  const panel = panelRow
+    ? str(panelRow.panel_id)
+    : ctx.panelByLoadUuid.get(str(load.id)) ??
+      (str(load.suggested_panel).trim() ? `${str(load.suggested_panel)} (suggested only)` : "NOT IN RECORD");
+
+  const feeder = panelRow
+    ? (() => {
+        const f = ctx.feeders.find((x) => str(x.dest_panel_uuid) === str(panelRow.id));
+        if (f) {
+          const src =
+            ctx.panelByUuid.get(str(f.source_panel_uuid)) ?? null;
+          return `${str(f.feeder_id)} from ${
+            src ? str(src.panel_id) : str(f.source_endpoint_ref).trim() || "NOT IN RECORD"
+          }`;
+        }
+        return str(panelRow.feeder_source).trim() || "NOT IN RECORD";
+      })()
+    : "NOT IN RECORD";
+
+  const candidates = panelRow ? [] : candidatePanelsForLoad(load, ctx.panels);
+
+  return [
+    `path: circuit=${circuit} -> breaker=${breaker} -> panel=${panel} -> feeder=${feeder}`,
+    candidates.length
+      ? `panels serving this area today: ${candidates.join(", ")} (not an assignment)`
+      : null,
+    str(load.backup_panel).trim() ? `backup_panel=${str(load.backup_panel)}` : null,
+  ]
+    .filter(Boolean)
+    .join(" | ");
+}
+
+
+
 export function buildElectricalRecordContext(
   input: ElectricalContextInput,
 ): ElectricalContextResult {
