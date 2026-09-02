@@ -247,6 +247,7 @@ export const ESTABLISHED_ADJUDICATIONS: EstablishedAdjudication[] = [
   })),
 ];
 
+/* --------------------------------------------------------------- application */
 
 export interface AdjudicationMatch {
   adjudication: EstablishedAdjudication;
