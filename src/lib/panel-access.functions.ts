@@ -16,13 +16,16 @@ import { isAdminRole } from "@/lib/admin-role.server";
 import {
   GRANT_WINDOW_HOURS,
   accessState,
+  canReadPanel,
   grantExpiry,
   isEditUnlocked,
   latestRequest,
+  latestWiderRequest,
   type PanelAccessScope,
   type PanelAccessState,
   type PanelEditRequest,
 } from "@/lib/electrical-panel-access";
+
 import { resolveSystemVoltage } from "@/lib/electrical-system-voltage";
 
 export type Json = string | number | boolean | null | Json[] | { [key: string]: Json };
@@ -67,6 +70,7 @@ function toRequest(row: Record<string, unknown>): PanelEditRequest {
     requester_email: (row["requester_email"] as string | null) ?? null,
     reason: (row["reason"] as string | null) ?? null,
     scope: ((row["scope"] as PanelAccessScope | null) ?? "panel_edit") as PanelAccessScope,
+    scope_detail: (row["scope_detail"] as string | null) ?? null,
     status: row["status"] as PanelEditRequest["status"],
     decided_by: (row["decided_by"] as string | null) ?? null,
     decided_at: (row["decided_at"] as string | null) ?? null,
@@ -76,6 +80,37 @@ function toRequest(row: Record<string, unknown>): PanelEditRequest {
     created_at: String(row["created_at"]),
   };
 }
+
+/* ------------------------------------------------- scanned-panel bookkeeping */
+
+/**
+ * The panels this user actually reached by scanning a printed label. A
+ * scan-provisioned viewer may only open these; nothing else in the electrical
+ * record is readable to them without an administrator-approved wider window.
+ */
+async function scannedPanelIds(db: { from: (t: string) => any }, userId: string): Promise<string[]> {
+  const { data, error } = await db
+    .from("electrical_scan_grants")
+    .select("panel_id")
+    .eq("user_id", userId);
+  if (error) throw new Error(error.message);
+  return ((data ?? []) as { panel_id: string }[]).map((r) => String(r.panel_id).toUpperCase());
+}
+
+/** Remember that this user scanned this panel (idempotent). */
+async function recordScannedPanel(
+  db: { from: (t: string) => any },
+  userId: string,
+  panelId: string,
+): Promise<void> {
+  await db
+    .from("electrical_scan_grants")
+    .upsert(
+      { user_id: userId, panel_id: panelId },
+      { onConflict: "user_id,panel_id", ignoreDuplicates: true },
+    );
+}
+
 
 /* ------------------------------------------------------------ label printing */
 
@@ -137,9 +172,9 @@ export interface PanelSheetAccess {
 }
 
 /**
- * Whether this viewer may look past the scanned panel. A scanned label only ever
- * carries that panel plus its own local topology; anything wider needs an
- * administrator-approved `system_data` window.
+ * Whether this viewer may look past the panel(s) they scanned. A scanned label
+ * only ever carries that panel plus its own local topology; anything wider needs
+ * an administrator-approved building / site / system window.
  */
 export interface SystemDataAccess {
   state: PanelAccessState;
@@ -147,6 +182,12 @@ export interface SystemDataAccess {
   expires_at: string | null;
   request: PanelEditRequest | null;
   window_hours: number;
+  /** The scope of the newest wider request, so the UI can name what is live. */
+  scope: PanelAccessScope | null;
+  /** The named building / site the live window covers, when scoped that way. */
+  scope_detail: string | null;
+  /** True when this window is farm-wide (site or system), not one building. */
+  covers_whole_system: boolean;
 }
 
 export interface PanelSheet {
@@ -160,8 +201,10 @@ export interface PanelSheet {
   raceways: PanelRow[];
   branch_runs: PanelRow[];
   access: PanelSheetAccess;
-  /** System-wide read access; false keeps the page scoped to this panel only. */
+  /** Wider read access; false keeps the page scoped to scanned panels only. */
   system_access: SystemDataAccess;
+  /** Panels this viewer reached by scanning a printed label. */
+  scanned_panels: string[];
   captured_at: string;
 }
 
@@ -186,6 +229,42 @@ export const panelSheet = createServerFn({ method: "GET" })
     const panel = panelRow as Record<string, unknown>;
     const panelUuid = String(panel["id"]);
 
+    const isAdmin = await isAdminRole(context.supabase, context.userId);
+    const fullAddon = await hasAddon(context.supabase, context.userId, "electrical");
+
+    // Every request row for this caller: the panel-edit window for THIS panel and
+    // any wider read window they hold, whatever panel it was raised from.
+    const { data: allRows, error: allError } = await db
+      .from("electrical_panel_edit_requests")
+      .select("*")
+      .eq("requester_id", context.userId)
+      .order("created_at", { ascending: false })
+      .limit(100);
+    if (allError) throw new Error(allError.message);
+    const myRequests = ((allRows ?? []) as Record<string, unknown>[]).map(toRequest);
+    const request = latestRequest(
+      myRequests.filter((r) => r.panel_id === data.panelId),
+      "panel_edit",
+    );
+    const widerRequest = latestWiderRequest(myRequests);
+
+    // Scope enforcement: a scan-provisioned viewer sees only the panels they
+    // physically scanned, plus whatever an approved wider window covers.
+    const scanned = fullAddon || isAdmin ? [] : await scannedPanelIds(db, context.userId);
+    const allowed = canReadPanel({
+      fullAddon,
+      isAdmin,
+      scannedPanelIds: scanned,
+      panelId: data.panelId,
+      panel: { building: (panel["building"] as string | null) ?? null },
+      widerRequest,
+    });
+    if (!allowed) {
+      throw new Error(
+        `Your access is limited to the panel label you scanned. Panel ${data.panelId} is outside that scope — request building or site access from the panel you scanned.`,
+      );
+    }
+
     const rows = async (table: string, build: (q: any) => any): Promise<PanelRow[]> => {
       const { data: out, error: e } = await build(db.from(table).select("*"));
       if (e) throw new Error(e.message);
@@ -208,33 +287,7 @@ export const panelSheet = createServerFn({ method: "GET" })
       ? await rows("electrical_loads", (q) => q.in("circuit_group_uuid", groupIds).order("load_id"))
       : [];
 
-    const isAdmin = await isAdminRole(context.supabase, context.userId);
-    const { data: reqRows, error: reqError } = await db
-      .from("electrical_panel_edit_requests")
-      .select("*")
-      .eq("panel_id", data.panelId)
-      .eq("requester_id", context.userId)
-      .order("created_at", { ascending: false })
-      .limit(10);
-    if (reqError) throw new Error(reqError.message);
-    const panelRequests = ((reqRows ?? []) as Record<string, unknown>[]).map(toRequest);
-    const request = latestRequest(panelRequests, "panel_edit");
-
-    // A system-data window is not tied to the panel the electrician scanned, so
-    // it is looked up across all of this requester's rows.
-    const { data: sysRows, error: sysError } = await db
-      .from("electrical_panel_edit_requests")
-      .select("*")
-      .eq("requester_id", context.userId)
-      .eq("scope", "system_data")
-      .order("created_at", { ascending: false })
-      .limit(10);
-    if (sysError) throw new Error(sysError.message);
-    const systemRequest = latestRequest(
-      ((sysRows ?? []) as Record<string, unknown>[]).map(toRequest),
-      "system_data",
-    );
-
+    const widerLive = isAdmin || isEditUnlocked(widerRequest);
     return {
       panel: panel as PanelRow,
       voltage_designation: resolveSystemVoltage(panel["system_voltage"])?.designation ?? null,
@@ -254,23 +307,34 @@ export const panelSheet = createServerFn({ method: "GET" })
         window_hours: GRANT_WINDOW_HOURS,
       },
       system_access: {
-        state: accessState(systemRequest),
-        granted: isAdmin || isEditUnlocked(systemRequest),
-        expires_at: systemRequest?.expires_at ?? null,
-        request: systemRequest,
+        state: accessState(widerRequest),
+        granted: widerLive,
+        expires_at: widerRequest?.expires_at ?? null,
+        request: widerRequest,
         window_hours: GRANT_WINDOW_HOURS,
+        scope: widerRequest?.scope ?? null,
+        scope_detail: widerRequest?.scope_detail ?? null,
+        covers_whole_system:
+          isAdmin ||
+          (widerLive &&
+            (widerRequest?.scope === "system_data" || widerRequest?.scope === "site_data")),
       },
+      scanned_panels: scanned,
       captured_at: new Date().toISOString(),
     };
   });
 
+
 /* --------------------------------------------------------------- access flow */
 
 /**
- * Ask an administrator for a 24-hour window. `panel_edit` unlocks corrections to
- * the one scanned panel; `system_data` unlocks reading other panels and the
- * whole-system topology. Both go through the same approval pipeline (in-app
- * queue + best-effort email + administrator second factor on the decision).
+ * Ask an administrator for a 24-hour window.
+ *  * `panel_edit`    — corrections to the one scanned panel
+ *  * `building_data` — read every panel in the named building
+ *  * `site_data`     — read every panel on the named site
+ *  * `system_data`   — read the whole electrical system and its topology views
+ * All go through the same approval pipeline (in-app queue + best-effort email +
+ * administrator second factor on the decision).
  */
 export const requestPanelEditAccess = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -278,9 +342,17 @@ export const requestPanelEditAccess = createServerFn({ method: "POST" })
     z
       .object({
         panelId: panelIdSchema,
-        scope: z.enum(["panel_edit", "system_data"]).default("panel_edit"),
+        scope: z
+          .enum(["panel_edit", "building_data", "site_data", "system_data"])
+          .default("panel_edit"),
+        /** Building or site the wider scope applies to. Required for `building_data`. */
+        scopeDetail: z.string().trim().max(120).optional(),
         reason: z.string().trim().max(500).optional(),
         reviewUrl: z.string().trim().max(300).optional(),
+      })
+      .refine((v) => v.scope !== "building_data" || (v.scopeDetail ?? "").length > 0, {
+        message: "Name the building you need access to.",
+        path: ["scopeDetail"],
       })
       .parse(d),
   )
@@ -296,14 +368,17 @@ export const requestPanelEditAccess = createServerFn({ method: "POST" })
     if (panelError) throw new Error(panelError.message);
     if (!panel) throw new Error(`No panel is recorded with the ID ${data.panelId}.`);
 
-    // An open request or a live window is never duplicated. System-data windows
-    // are farm-wide, so they are de-duplicated across panels.
+    // An open request or a live window is never duplicated. Wider windows are not
+    // tied to one panel, so they are de-duplicated across panels.
     let existingQuery = db
       .from("electrical_panel_edit_requests")
       .select("*")
       .eq("requester_id", context.userId)
       .eq("scope", data.scope);
     if (data.scope === "panel_edit") existingQuery = existingQuery.eq("panel_id", data.panelId);
+    if (data.scope === "building_data" && data.scopeDetail) {
+      existingQuery = existingQuery.eq("scope_detail", data.scopeDetail);
+    }
     const { data: existingRows } = await existingQuery
       .order("created_at", { ascending: false })
       .limit(10);
@@ -325,6 +400,7 @@ export const requestPanelEditAccess = createServerFn({ method: "POST" })
         requester_email: email,
         reason: data.reason ?? null,
         scope: data.scope,
+        scope_detail: data.scopeDetail ?? null,
         status: "pending",
       })
       .select("*")
@@ -336,11 +412,13 @@ export const requestPanelEditAccess = createServerFn({ method: "POST" })
     const notice = await notifyAdminsOfPanelRequest({
       panelId: data.panelId,
       scope: data.scope,
+      scopeDetail: data.scopeDetail ?? null,
       requesterEmail: email,
       reason: data.reason ?? null,
       requestedAt: request.created_at,
       reviewUrl: data.reviewUrl ?? "/admin/panel-access",
     });
+
 
     return {
       request,
@@ -699,5 +777,9 @@ export const ensurePanelScanAccess = createServerFn({ method: "POST" })
 
     const already = await hasAddon(context.supabase, context.userId, "electrical_scan");
     if (!already) await ensureScanAddon(context.userId);
+    // Bind the grant to THIS panel: the scan-scoped add-on alone opens nothing,
+    // only the panels recorded here (plus approved wider windows).
+    await recordScannedPanel(db, context.userId, data.panelId);
     return { scope: "scan", granted: !already };
+
   });

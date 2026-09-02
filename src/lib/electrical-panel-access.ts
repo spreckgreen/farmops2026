@@ -13,16 +13,33 @@ export type PanelAccessStatus = "pending" | "approved" | "rejected";
 
 /**
  * What a request asks for.
- * - `panel_edit`   — correct the details of the one scanned panel
- * - `system_data`  — read beyond that panel: other panels and the whole-system
- *                    topology. A scanned label alone never grants this.
+ * - `panel_edit`     — correct the details of the one scanned panel
+ * - `building_data`  — read every panel in one building (the usual ask from the
+ *                      field: "I need the rest of the shop, not just this panel")
+ * - `site_data`      — read every panel on the site
+ * - `system_data`    — read the whole electrical system, including the farm-wide
+ *                      topology views. A scanned label alone never grants this.
  */
-export type PanelAccessScope = "panel_edit" | "system_data";
+export type PanelAccessScope = "panel_edit" | "building_data" | "site_data" | "system_data";
 
-export const PANEL_ACCESS_SCOPES: PanelAccessScope[] = ["panel_edit", "system_data"];
+export const PANEL_ACCESS_SCOPES: PanelAccessScope[] = [
+  "panel_edit",
+  "building_data",
+  "site_data",
+  "system_data",
+];
+
+/** Scopes that widen what a scanned-label viewer may READ (never edit). */
+export const WIDER_READ_SCOPES: PanelAccessScope[] = [
+  "building_data",
+  "site_data",
+  "system_data",
+];
 
 export const SCOPE_LABELS: Record<PanelAccessScope, string> = {
   panel_edit: "Correct this panel's details",
+  building_data: "View every panel in one building",
+  site_data: "View every panel on the site",
   system_data: "View other panels / full electrical system",
 };
 
@@ -33,6 +50,11 @@ export interface PanelEditRequest {
   requester_email: string | null;
   reason: string | null;
   scope: PanelAccessScope;
+  /**
+   * The named area a wider scope applies to — a building name for
+   * `building_data`, a site name for `site_data`. Null for panel/system scopes.
+   */
+  scope_detail: string | null;
   status: PanelAccessStatus;
   decided_by: string | null;
   decided_at: string | null;
@@ -41,6 +63,7 @@ export interface PanelEditRequest {
   revoked_at: string | null;
   created_at: string;
 }
+
 
 /**
  * What a requester may do right now.
@@ -94,6 +117,66 @@ export function latestRequest(
   }
   return best;
 }
+
+/** The newest wider-read request of any scope (building / site / system). */
+export function latestWiderRequest(
+  rows: PanelEditRequest[],
+  now: Date = new Date(),
+): PanelEditRequest | null {
+  const wider = rows.filter((r) => WIDER_READ_SCOPES.includes(r.scope));
+  // Prefer a live window over newer-but-closed history, so an active building
+  // grant is never hidden by a later declined site request.
+  const live = wider.filter((r) => accessState(r, now) === "active");
+  const pool = live.length ? live : wider;
+  let best: PanelEditRequest | null = null;
+  for (const r of pool) {
+    if (!best || Date.parse(r.created_at) > Date.parse(best.created_at)) best = r;
+  }
+  return best;
+}
+
+function sameArea(a: string | null | undefined, b: string | null | undefined): boolean {
+  const x = String(a ?? "").trim().toLowerCase();
+  const y = String(b ?? "").trim().toLowerCase();
+  return x.length > 0 && x === y;
+}
+
+/**
+ * Does an approved wider-read window cover this panel? `system_data` and
+ * `site_data` cover everything recorded; `building_data` only covers panels
+ * whose building matches the approved area. Fails closed.
+ */
+export function widerScopeCoversPanel(
+  request: PanelEditRequest | null | undefined,
+  panel: { building?: string | null } | null | undefined,
+  now: Date = new Date(),
+): boolean {
+  if (!request || accessState(request, now) !== "active") return false;
+  if (request.scope === "system_data" || request.scope === "site_data") return true;
+  if (request.scope === "building_data") return sameArea(request.scope_detail, panel?.building);
+  return false;
+}
+
+/**
+ * May this viewer open the panel sheet at all? A scanned-label viewer is bound
+ * to the panels they physically scanned, plus anything an approved wider window
+ * covers. Administrators and full-add-on holders bypass this entirely.
+ */
+export function canReadPanel(input: {
+  fullAddon: boolean;
+  isAdmin: boolean;
+  scannedPanelIds: string[];
+  panelId: string;
+  panel?: { building?: string | null } | null;
+  widerRequest?: PanelEditRequest | null;
+  now?: Date;
+}): boolean {
+  if (input.fullAddon || input.isAdmin) return true;
+  const wanted = input.panelId.trim().toUpperCase();
+  if (input.scannedPanelIds.some((id) => id.trim().toUpperCase() === wanted)) return true;
+  return widerScopeCoversPanel(input.widerRequest, input.panel ?? null, input.now);
+}
+
 
 /** "23h 41m left" / "expired" — plain field-readable remaining time. */
 export function remainingLabel(expiresAt: string | null, now: Date = new Date()): string {

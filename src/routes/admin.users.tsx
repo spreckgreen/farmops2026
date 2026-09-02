@@ -13,7 +13,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { ShieldCheck, ShieldX, ShieldQuestion, RefreshCw, MailCheck, KeyRound, MailOpen } from "lucide-react";
+import { ShieldCheck, ShieldX, ShieldQuestion, RefreshCw, MailCheck, KeyRound, MailOpen, Ban, Play } from "lucide-react";
 
 import { AppLayout } from "@/components/app-layout";
 import { Button } from "@/components/ui/button";
@@ -44,12 +44,14 @@ import {
   confirmUserEmail,
   listUsers,
   setApprovalStatus,
+  setUserDisabled,
   setUserPassword,
   setUserRoles,
   type AppRole,
   type ApprovalStatus,
   type ManagedUser,
 } from "@/lib/admin.functions";
+
 
 
 export const Route = createFileRoute("/admin/users")({
@@ -203,9 +205,13 @@ function UserRow({ user, currentUserId }: { user: ManagedUser; currentUserId: st
   const rolesFn = useServerFn(setUserRoles);
   const confirmFn = useServerFn(confirmUserEmail);
   const passwordFn = useServerFn(setUserPassword);
+  const disableFn = useServerFn(setUserDisabled);
   const [pendingRoles, setPendingRoles] = useState<AppRole[] | null>(null);
   const [pwOpen, setPwOpen] = useState(false);
   const [pwValue, setPwValue] = useState("");
+  const [disableOpen, setDisableOpen] = useState(false);
+  const [disableReason, setDisableReason] = useState("");
+
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ["admin", "users"] });
@@ -253,6 +259,24 @@ function UserRow({ user, currentUserId }: { user: ManagedUser; currentUserId: st
     onError: (e) => toast.error((e as Error).message),
   });
 
+  const disableMut = useMutation({
+    mutationFn: (vars: { disabled: boolean; reason?: string }) =>
+      disableFn({ data: { userId: user.id, disabled: vars.disabled, reason: vars.reason } }),
+    onSuccess: (_d, vars) => {
+      toast.success(
+        vars.disabled
+          ? `Disabled ${user.email ?? "user"} — roles and approval kept.`
+          : `Re-enabled ${user.email ?? "user"}.`,
+      );
+      setDisableOpen(false);
+      setDisableReason("");
+      invalidate();
+    },
+    onError: (e) => toast.error((e as Error).message),
+  });
+
+
+
   const generateTempPassword = () => {
     // 16-char URL-safe random string
     const bytes = new Uint8Array(12);
@@ -278,6 +302,8 @@ function UserRow({ user, currentUserId }: { user: ManagedUser; currentUserId: st
   };
 
   const unconfirmed = user.email_confirmed_at === null;
+  const disabled = user.disabled_at !== null;
+
 
   return (
     <TableRow>
@@ -303,11 +329,21 @@ function UserRow({ user, currentUserId }: { user: ManagedUser; currentUserId: st
       </TableCell>
       <TableCell className="align-top">
         <StatusBadge status={user.status} />
+        {disabled && (
+          <div className="mt-1 space-y-1">
+            <Badge variant="destructive" className="text-[10px]">Disabled</Badge>
+            <div className="text-[11px] text-muted-foreground">
+              Since {new Date(user.disabled_at!).toLocaleString()}
+              {user.disabled_reason ? ` — ${user.disabled_reason}` : ""}
+            </div>
+          </div>
+        )}
         {user.reviewed_at && (
           <div className="text-[11px] text-muted-foreground mt-1">
             {new Date(user.reviewed_at).toLocaleString()}
           </div>
         )}
+
       </TableCell>
       <TableCell className="align-top">
         <div className="flex flex-col gap-1.5">
@@ -383,7 +419,32 @@ function UserRow({ user, currentUserId }: { user: ManagedUser; currentUserId: st
             <KeyRound className="h-4 w-4 mr-1" />
             Set password
           </Button>
+          {!isSelf &&
+            (disabled ? (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => disableMut.mutate({ disabled: false })}
+                disabled={disableMut.isPending}
+                title="Re-enable this account. Approval and roles were never removed."
+              >
+                <Play className="h-4 w-4 mr-1" />
+                Enable
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setDisableOpen(true)}
+                disabled={disableMut.isPending}
+                title="Temporarily block sign-in without rejecting the account or revoking add-ons."
+              >
+                <Ban className="h-4 w-4 mr-1" />
+                Disable
+              </Button>
+            ))}
         </div>
+
         {dirty && (
           <div className="flex justify-end gap-2">
             <Button
@@ -445,6 +506,46 @@ function UserRow({ user, currentUserId }: { user: ManagedUser; currentUserId: st
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog
+        open={disableOpen}
+        onOpenChange={(o) => { setDisableOpen(o); if (!o) setDisableReason(""); }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Disable account</DialogTitle>
+            <DialogDescription>
+              <span className="font-mono">{user.email ?? user.id}</span> keeps their
+              approval, roles and data — they simply can't use the app until you
+              enable them again. This is separate from rejecting a sign-up and from
+              revoking an add-on, and carries no revocation strike.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="disable-reason">Reason (shown to the user, optional)</Label>
+            <Input
+              id="disable-reason"
+              value={disableReason}
+              onChange={(e) => setDisableReason(e.target.value)}
+              placeholder="e.g. Contractor off site until spring"
+              maxLength={300}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setDisableOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => disableMut.mutate({ disabled: true, reason: disableReason })}
+              disabled={disableMut.isPending}
+            >
+              {disableMut.isPending ? "Disabling…" : "Disable account"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </TableRow>
   );
 }

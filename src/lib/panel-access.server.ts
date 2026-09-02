@@ -11,13 +11,16 @@ export type NotifyResult = {
 
 interface RequestNotice {
   panelId: string;
-  /** What was asked for: a panel correction window or wider system-data read. */
-  scope?: "panel_edit" | "system_data";
+  /** What was asked for: a panel correction window or a wider read scope. */
+  scope?: "panel_edit" | "building_data" | "site_data" | "system_data";
+  /** Building / site name the wider scope applies to. */
+  scopeDetail?: string | null;
   requesterEmail: string | null;
   reason: string | null;
   requestedAt: string;
   reviewUrl: string;
 }
+
 
 /**
  * Email every administrator about a pending request. Returns why it did or did
@@ -52,7 +55,9 @@ export async function notifyAdminsOfPanelRequest(notice: RequestNotice): Promise
     panelAccessRequestEmail({
       panelId: notice.panelId,
       scope: notice.scope ?? "panel_edit",
+      scopeDetail: notice.scopeDetail ?? null,
       requesterEmail: notice.requesterEmail,
+
       reason: notice.reason,
       requestedAt: notice.requestedAt,
       reviewUrl,
@@ -72,7 +77,8 @@ export async function notifyAdminsOfPanelRequest(notice: RequestNotice): Promise
 export async function notifyRequesterOfDecision(input: {
   requesterEmail: string | null;
   panelId: string;
-  scope: "panel_edit" | "system_data";
+  scope: "panel_edit" | "building_data" | "site_data" | "system_data";
+  scopeDetail?: string | null;
   status: "approved" | "declined" | "revoked";
   expiresAt: string | null;
   note: string | null;
@@ -88,6 +94,7 @@ export async function notifyRequesterOfDecision(input: {
     panelAccessDecisionEmail({
       panelId: input.panelId,
       scope: input.scope,
+      scopeDetail: input.scopeDetail ?? null,
       status: input.status,
       expiresAt: input.expiresAt,
       note: input.note,
@@ -96,6 +103,7 @@ export async function notifyRequesterOfDecision(input: {
   );
   return { emailed: outcome.sent, recipients: 1, reason: outcome.reason };
 }
+
 
 /** Look up requester emails for the admin queue without exposing other claims. */
 export async function requesterEmails(userIds: string[]): Promise<Record<string, string>> {

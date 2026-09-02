@@ -131,9 +131,19 @@ export function passwordResetEmail(link: string): BrandedEmail {
 
 /* ---------------------------------------------------- panel access requests */
 
+export type PanelEmailScope = "panel_edit" | "building_data" | "site_data" | "system_data";
+
+function scopeText(scope: PanelEmailScope, panelId: string, detail?: string | null): string {
+  if (scope === "building_data") return `every panel in ${detail ?? "one building"}`;
+  if (scope === "site_data") return `every panel on ${detail ?? "the site"}`;
+  if (scope === "system_data") return "system data (other panels + topology)";
+  return `panel ${panelId}`;
+}
+
 export interface PanelRequestEmailInput {
   panelId: string;
-  scope: "panel_edit" | "system_data";
+  scope: PanelEmailScope;
+  scopeDetail?: string | null;
   requesterEmail: string | null;
   reason: string | null;
   requestedAt: string;
@@ -142,18 +152,19 @@ export interface PanelRequestEmailInput {
 }
 
 export function panelAccessRequestEmail(input: PanelRequestEmailInput): BrandedEmail {
-  const wide = input.scope === "system_data";
+  const wide = input.scope !== "panel_edit";
   const who = input.requesterEmail ?? "A signed-in user";
+  const label = scopeText(input.scope, input.panelId, input.scopeDetail);
   const layoutInput: LayoutInput = {
     heading: wide
       ? "Wider electrical data access requested"
       : `Panel edit access requested — ${input.panelId}`,
     intro: wide
-      ? `${who} asked for a ${input.windowHours}-hour window to read other panels and the full electrical system after scanning the label at ${input.panelId}.`
+      ? `${who} asked for a ${input.windowHours}-hour window to read ${label} after scanning the label at ${input.panelId}.`
       : `${who} asked for a ${input.windowHours}-hour window to correct panel ${input.panelId}.`,
     details: [
       ["Scanned panel", input.panelId],
-      ["Scope", wide ? "System data (read other panels + topology)" : "Panel edit (this panel only)"],
+      ["Scope", wide ? `Read ${label}` : "Panel edit (this panel only)"],
       ["Requester", input.requesterEmail ?? "unknown"],
       ["Reason", input.reason ?? "none given"],
       ["Requested", input.requestedAt],
@@ -174,7 +185,8 @@ export function panelAccessRequestEmail(input: PanelRequestEmailInput): BrandedE
 
 export interface PanelDecisionEmailInput {
   panelId: string;
-  scope: "panel_edit" | "system_data";
+  scope: PanelEmailScope;
+  scopeDetail?: string | null;
   status: "approved" | "declined" | "revoked";
   expiresAt: string | null;
   note: string | null;
@@ -182,8 +194,8 @@ export interface PanelDecisionEmailInput {
 }
 
 export function panelAccessDecisionEmail(input: PanelDecisionEmailInput): BrandedEmail {
-  const scopeLabel =
-    input.scope === "system_data" ? "system data (other panels + topology)" : `panel ${input.panelId}`;
+  const scopeLabel = scopeText(input.scope, input.panelId, input.scopeDetail);
+
   const heading =
     input.status === "approved"
       ? "Your access request was approved"
