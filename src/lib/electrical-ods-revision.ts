@@ -221,146 +221,209 @@ export function resolveRevisionTargets(
   return { targets, errors };
 }
 
-interface Element {
-  start: number;
-  end: number;
-  attrs: string;
-  inner: string;
-  selfClosing: boolean;
+/* ------------------------------ pre-mutation target assertion (Phase 4.4d) */
+
+/** One authorized target, traced through the parser's own addressing. */
+export interface RevisionTargetTrace {
+  stable_id: string;
+  field: string;
+  worksheet: string;
+  logical_row: number;
+  logical_column: number;
+  physical_xml_row: number | null;
+  physical_xml_cell_index: number | null;
+  row_repeat: number | null;
+  repeated_row_offset: number | null;
+  column_repeat: number | null;
+  repeated_column_offset: number | null;
+  value_type: string;
+  office_value: string;
+  display_text: string;
+  parsed_value: string;
+  expected_value: number;
+  next_value: number;
+  /** How the cell will be rewritten once the assertion passes. */
+  rewrite_mode: "office_value_and_text" | "string_value_and_text" | "none";
+  assertion: "PASS" | "FAIL";
+  reason: string | null;
 }
 
-/** Scan non-nesting same-level elements, returning absolute offsets. */
-function scan(xml: string, tag: string, from: number, to: number): Element[] {
-  const out: Element[] = [];
-  const open = new RegExp(`<${tag}\\b([^>]*?)(/?)>`, "g");
-  open.lastIndex = from;
-  let m: RegExpExecArray | null;
-  while ((m = open.exec(xml)) && m.index < to) {
-    if (m[2] === "/") {
-      out.push({ start: m.index, end: open.lastIndex, attrs: m[1], inner: "", selfClosing: true });
-      continue;
-    }
-    const close = xml.indexOf(`</${tag}>`, open.lastIndex);
-    if (close < 0 || close > to) break;
-    const end = close + tag.length + 3;
-    out.push({
-      start: m.index,
-      end,
-      attrs: m[1],
-      inner: xml.slice(open.lastIndex, close),
-      selfClosing: false,
-    });
-    open.lastIndex = end;
-  }
-  return out;
-}
-
-function intAttr(attrs: string, name: string, fallback = 1): number {
-  const m = new RegExp(`${name}="([^"]*)"`).exec(attrs);
-  const n = m ? Number(m[1]) : NaN;
-  return Number.isFinite(n) && n > 0 ? n : fallback;
-}
-
-function tableBody(xml: string, worksheet: string): { start: number; end: number } {
-  const re = /<table:table\b([^>]*)>/g;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(xml))) {
-    const name = /table:name="([^"]*)"/.exec(m[1])?.[1];
-    if (name !== worksheet) continue;
-    const close = xml.indexOf("</table:table>", re.lastIndex);
-    if (close < 0) break;
-    return { start: re.lastIndex, end: close };
-  }
-  throw new Error(`Worksheet "${worksheet}" was not found in the workbook content.`);
-}
+const NUMERIC_VALUE_TYPES = new Set(["float", "currency", "percentage"]);
 
 /**
- * Replace exactly one numeric cell in `content.xml`, preserving the cell's
- * style, attributes and every other byte of the document. Any structure this
- * cannot change surgically (repeated rows/columns, formulas, multi-paragraph
- * cells, non-float cells) is refused instead of rewritten.
+ * Trace an authorized target through `locateOdsLogicalCell` — the exact same
+ * addressing the SHA-bound canonical parser used — and decide whether the XML
+ * cell is provably the parser-resolved canonical cell. Nothing is mutated here.
  */
-export function rewriteOdsNumericCell(
+export function inspectRevisionTarget(
   xml: string,
-  target: { worksheet: string; row: number; column: number; expected: number; next: number },
-): string {
-  const body = tableBody(xml, target.worksheet);
-  const rows = scan(xml, "table:table-row", body.start, body.end);
-  let logicalRow = 0;
-  let rowEl: Element | null = null;
-  for (const r of rows) {
-    const repeat = intAttr(r.attrs, "table:number-rows-repeated");
-    if (target.row <= logicalRow + repeat) {
-      if (repeat > 1) {
-        throw new Error(
-          `Row ${target.row} of ${target.worksheet} is part of a repeated row group; the cell is not rewritten.`,
-        );
-      }
-      rowEl = r;
-      break;
-    }
-    logicalRow += repeat;
-  }
-  if (!rowEl) throw new Error(`Row ${target.row} was not found on ${target.worksheet}.`);
+  target: { stable_id?: string; worksheet: string; row: number; column: number; expected: number; next: number; field?: string },
+): RevisionTargetTrace {
+  const base: RevisionTargetTrace = {
+    stable_id: target.stable_id ?? "(unnamed)",
+    field: target.field ?? "volts",
+    worksheet: target.worksheet,
+    logical_row: target.row,
+    logical_column: target.column,
+    physical_xml_row: null,
+    physical_xml_cell_index: null,
+    row_repeat: null,
+    repeated_row_offset: null,
+    column_repeat: null,
+    repeated_column_offset: null,
+    value_type: "(none)",
+    office_value: "(none)",
+    display_text: "",
+    parsed_value: "",
+    expected_value: target.expected,
+    next_value: target.next,
+    rewrite_mode: "none",
+    assertion: "FAIL",
+    reason: null,
+  };
 
-  const cells = [
-    ...scan(xml, "table:table-cell", rowEl.start, rowEl.end),
-    ...scan(xml, "table:covered-table-cell", rowEl.start, rowEl.end),
-  ].sort((a, b) => a.start - b.start);
+  if (!findOdsTableBody(xml, target.worksheet)) {
+    return { ...base, reason: `Worksheet "${target.worksheet}" was not found in the workbook content.` };
+  }
+  const cell = locateOdsLogicalCell(xml, target.worksheet, target.row, target.column);
+  if (!cell) {
+    return {
+      ...base,
+      reason: `${target.worksheet} logical row ${target.row} column ${target.column} does not exist in content.xml under the canonical parser's addressing.`,
+    };
+  }
 
-  let logicalCol = 0;
-  let cellEl: Element | null = null;
-  for (const c of cells) {
-    const repeat = intAttr(c.attrs, "table:number-columns-repeated");
-    if (target.column <= logicalCol + repeat) {
-      if (repeat > 1) {
-        throw new Error(
-          `Column ${target.column} of ${target.worksheet} row ${target.row} is part of a repeated cell group; the cell is not rewritten.`,
-        );
-      }
-      cellEl = c;
-      break;
-    }
-    logicalCol += repeat;
-  }
-  if (!cellEl) {
-    throw new Error(`Column ${target.column} was not found on ${target.worksheet} row ${target.row}.`);
-  }
-  if (/table:formula="/.test(cellEl.attrs)) {
-    throw new Error(
+  const trace: RevisionTargetTrace = {
+    ...base,
+    physical_xml_row: cell.physicalRowIndex,
+    physical_xml_cell_index: cell.physicalCellIndex,
+    row_repeat: cell.rowRepeat,
+    repeated_row_offset: cell.rowRepeatOffset,
+    column_repeat: cell.columnRepeat,
+    repeated_column_offset: cell.columnRepeatOffset,
+    value_type: cell.valueType ?? "(none)",
+    office_value: cell.officeValue ?? "(none)",
+    display_text: cell.displayText,
+    parsed_value: cell.parsedValue,
+  };
+
+  const fail = (reason: string) => ({ ...trace, assertion: "FAIL" as const, reason });
+
+  if (/table:formula="/.test(cell.attrs)) {
+    return fail(
       `${target.worksheet} row ${target.row} column ${target.column} carries a formula; formulas are never rewritten.`,
     );
   }
-  const currentValue = /office:value="([^"]*)"/.exec(cellEl.attrs)?.[1];
-  if (currentValue === undefined) {
-    throw new Error(
-      `${target.worksheet} row ${target.row} column ${target.column} is not a stored numeric cell; it is left untouched.`,
+  if (cell.rowRepeat > 1) {
+    return fail(
+      `Row ${target.row} of ${target.worksheet} is part of a repeated row group (table:number-rows-repeated=${cell.rowRepeat}); the cell is not rewritten.`,
     );
   }
-  if (odsNumber(currentValue) !== target.expected) {
-    throw new Error(
-      `${target.worksheet} row ${target.row} column ${target.column} holds ${currentValue}, not the authorized ${target.expected}. Generation is refused.`,
-    );
-  }
-  const paragraphs = cellEl.inner.match(/<text:p\b[^>]*(?:\/>|>[\s\S]*?<\/text:p>)/g) ?? [];
+  const paragraphs = cell.inner.match(/<text:p\b[^>]*(?:\/>|>[\s\S]*?<\/text:p>)/g) ?? [];
   if (paragraphs.length > 1) {
-    throw new Error(
+    return fail(
       `${target.worksheet} row ${target.row} column ${target.column} holds multiple paragraphs; it is left untouched.`,
     );
   }
-  const nextAttrs = cellEl.attrs.replace(
-    /office:value="[^"]*"/,
-    `office:value="${target.next}"`,
-  );
-  const displayed = String(target.next);
-  const nextInner = paragraphs.length
-    ? cellEl.inner.replace(paragraphs[0]!, `<text:p>${displayed}</text:p>`)
-    : `<text:p>${displayed}</text:p>`;
-  const tagName = /^<([a-zA-Z:.-]+)/.exec(xml.slice(cellEl.start, cellEl.start + 48))![1];
-  const rebuilt = `<${tagName}${nextAttrs}>${nextInner}</${tagName}>`;
-  return xml.slice(0, cellEl.start) + rebuilt + xml.slice(cellEl.end);
+  // The assertion that matters: the value the canonical parser read at this
+  // logical address must be exactly the authorized baseline value.
+  if (odsNumber(cell.parsedValue) !== target.expected) {
+    return fail(
+      `${target.worksheet} row ${target.row} column ${target.column} parses as ${cell.parsedValue || "(blank)"}, not the authorized ${target.expected}. Generation is refused.`,
+    );
+  }
 
+  const type = cell.valueType ?? "";
+  if (NUMERIC_VALUE_TYPES.has(type)) {
+    if (cell.officeValue === null) {
+      return fail(
+        `${target.worksheet} row ${target.row} column ${target.column} is typed ${type} but stores no office:value; it is left untouched.`,
+      );
+    }
+    if (odsNumber(cell.officeValue) !== target.expected) {
+      return fail(
+        `${target.worksheet} row ${target.row} column ${target.column} stores office:value ${cell.officeValue}, not the authorized ${target.expected}. Generation is refused.`,
+      );
+    }
+    return { ...trace, rewrite_mode: "office_value_and_text", assertion: "PASS", reason: null };
+  }
+  if (type === "" || type === "string") {
+    // The workbook stores this Volts cell as text. The canonical value is still
+    // proven equal to the authorized baseline, so the cell's own typing is
+    // preserved rather than normalised into a float.
+    return { ...trace, rewrite_mode: "string_value_and_text", assertion: "PASS", reason: null };
+  }
+  return fail(
+    `${target.worksheet} row ${target.row} column ${target.column} has office:value-type="${type}", which this workflow never rewrites.`,
+  );
 }
+
+/** Row for the debug table the phase requires. */
+export function revisionTraceRow(t: RevisionTargetTrace): string[] {
+  return [
+    t.stable_id,
+    String(t.logical_row),
+    `${t.logical_column} (${t.field})`,
+    t.physical_xml_row === null ? "—" : String(t.physical_xml_row),
+    t.physical_xml_cell_index === null ? "—" : String(t.physical_xml_cell_index),
+    t.repeated_column_offset === null
+      ? "—"
+      : `${t.repeated_column_offset}/${t.column_repeat ?? 1}`,
+    t.value_type,
+    t.office_value,
+    t.display_text || "(blank)",
+  ];
+}
+
+/**
+ * Replace exactly one cell in `content.xml` at the address the canonical parser
+ * resolved, preserving the cell's style, typing, attributes and every other
+ * byte of the document. Anything this cannot prove or change surgically is
+ * refused instead of rewritten.
+ */
+export function rewriteOdsNumericCell(
+  xml: string,
+  target: { worksheet: string; row: number; column: number; expected: number; next: number; stable_id?: string; field?: string },
+): string {
+  const trace = inspectRevisionTarget(xml, target);
+  if (trace.assertion !== "PASS") throw new Error(trace.reason ?? "The revision target could not be proven.");
+  const cell = locateOdsLogicalCell(xml, target.worksheet, target.row, target.column)!;
+
+  const displayed = String(target.next);
+  let nextAttrs = cell.attrs;
+  if (trace.rewrite_mode === "office_value_and_text") {
+    nextAttrs = nextAttrs.replace(/office:value="[^"]*"/, `office:value="${target.next}"`);
+  } else if (/office:string-value="/.test(nextAttrs)) {
+    nextAttrs = nextAttrs.replace(/office:string-value="[^"]*"/, `office:string-value="${displayed}"`);
+  }
+  // A repeated-column group is split so only the one logical column changes;
+  // its siblings keep their original bytes and their original position.
+  const repeat = cell.columnRepeat;
+  const offset = cell.columnRepeatOffset;
+  const withRepeat = (attrs: string, count: number) => {
+    const stripped = attrs.replace(/\s*table:number-columns-repeated="[^"]*"/, "");
+    return count > 1 ? `${stripped} table:number-columns-repeated="${count}"` : stripped;
+  };
+  const original = (count: number) =>
+    cell.selfClosing
+      ? `<${cell.tag}${withRepeat(cell.attrs, count)}/>`
+      : `<${cell.tag}${withRepeat(cell.attrs, count)}>${cell.inner}</${cell.tag}>`;
+
+  const paragraphs = cell.inner.match(/<text:p\b[^>]*(?:\/>|>[\s\S]*?<\/text:p>)/g) ?? [];
+  const nextInner = paragraphs.length
+    ? cell.inner.replace(paragraphs[0]!, `<text:p>${displayed}</text:p>`)
+    : `<text:p>${displayed}</text:p>`;
+  const rebuilt = `<${cell.tag}${withRepeat(nextAttrs, 1)}>${nextInner}</${cell.tag}>`;
+
+  const pieces = [
+    offset > 0 ? original(offset) : "",
+    rebuilt,
+    repeat - offset - 1 > 0 ? original(repeat - offset - 1) : "",
+  ].join("");
+
+  return xml.slice(0, cell.cellStart) + pieces + xml.slice(cell.cellEnd);
+}
+
 
 /* --------------------------------------------------------------- cell diff */
 
