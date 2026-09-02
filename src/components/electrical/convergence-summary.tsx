@@ -90,28 +90,61 @@ export function ConvergenceSummary({ report }: { report: ValidationReport }) {
           gains a disposition, not a match.
         </p>
 
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          {[
+            { label: "Total conflicts (raw)", value: c.conflicts_total, alert: false },
+            { label: "Adjudicated conflicts", value: c.conflicts_adjudicated, alert: false },
+            { label: "Unresolved conflicts", value: c.conflicts_unresolved, alert: true },
+            {
+              label: "Canonical corrections pending",
+              value: c.canonical_corrections_pending,
+              alert: false,
+            },
+            {
+              label: "FarmOps corrections pending",
+              value: c.farmops_corrections_pending,
+              alert: false,
+            },
+            {
+              label: "Semantic representation differences (F)",
+              value: c.semantic_representation_differences,
+              alert: false,
+            },
+            {
+              label: "Engineering / field verification pending",
+              value: c.provenance_or_field_verification_pending,
+              alert: true,
+            },
+            {
+              label: "Current semantics unresolved",
+              value: c.current_semantics_unresolved,
+              alert: true,
+            },
+          ].map((tile) => (
+            <div
+              key={tile.label}
+              className={`rounded-md border p-3 ${
+                tile.alert && tile.value > 0 ? "border-destructive/50 bg-destructive/5" : "bg-muted/30"
+              }`}
+            >
+              <div className="text-xl font-semibold tabular-nums">{tile.value}</div>
+              <div className="text-xs text-muted-foreground">{tile.label}</div>
+            </div>
+          ))}
+        </div>
+
         <div className="flex flex-wrap gap-2">
           <Badge variant="outline">Raw findings: {c.raw_findings}</Badge>
           <Badge variant="outline">Adjudicated: {c.adjudicated}</Badge>
           <Badge variant={c.unresolved ? "destructive" : "outline"}>
-            Unresolved: {c.unresolved}
+            Unresolved (all classes): {c.unresolved}
           </Badge>
+          <Badge variant="outline">Expected transformations: {c.expected_transformations}</Badge>
           <Badge variant="outline">
-            Canonical ODS corrections pending: {c.canonical_corrections_pending}
-          </Badge>
-          <Badge variant="outline">
-            FarmOps corrections pending: {c.farmops_corrections_pending}
-          </Badge>
-          <Badge variant="outline">
-            Semantic representation differences (F): {c.semantic_representation_differences}
-          </Badge>
-          <Badge variant={c.current_semantics_unresolved ? "destructive" : "outline"}>
-            Current semantics unresolved: {c.current_semantics_unresolved}
-          </Badge>
-          <Badge variant="outline">
-            Provenance / field verification pending: {c.provenance_or_field_verification_pending}
+            FarmOps as-built additions: {c.farmops_as_built_additions}
           </Badge>
         </div>
+
 
         <div className="overflow-x-auto">
           <table className="text-xs">
