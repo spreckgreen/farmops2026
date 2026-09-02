@@ -36,26 +36,71 @@ const STOPWORDS = new Set([
   "panel", "panels", "circuit", "circuits", "breaker", "breakers", "load", "loads",
   "please", "list", "show", "tell", "about", "on", "in", "of", "to", "a", "an", "my",
   "all", "any", "there", "have", "has", "it", "its", "power", "powered",
+  "explain", "know", "known", "today", "associated", "full", "unknown", "path",
+  "route", "routed", "too", "also", "you", "your", "their", "they", "can", "will",
 ]);
 
-function stem(word: string): string {
-  const w = word.toLowerCase().replace(/[^a-z0-9]/g, "");
-  if (w.length > 4 && w.endsWith("es")) return w.slice(0, -2);
-  if (w.length > 3 && w.endsWith("s")) return w.slice(0, -1);
-  return w;
-}
+/**
+ * Equipment vocabulary. Field questions rarely use the word the record uses:
+ * "mini-splits" must find rows described as "Mini Split SE", and a question about
+ * the "ductless heat pumps" or "condensers" has to reach the same three rows.
+ * Any trigger stem in the question pulls in every sibling term.
+ */
+const SYNONYM_GROUPS: readonly { triggers: string[]; terms: string[] }[] = [
+  {
+    triggers: ["mini", "minisplit", "split", "ductless", "heatpump", "hvac", "condenser"],
+    terms: [
+      "mini", "split", "minisplit", "ductless", "condenser", "handler", "hvac",
+      "heatpump", "cassette", "ashp", "compressor",
+    ],
+  },
+  { triggers: ["pump", "well"], terms: ["pump", "well", "booster", "sump"] },
+  {
+    triggers: ["heater", "boiler", "furnace"],
+    terms: ["heater", "heat", "boiler", "furnace", "element", "tankle"],
+  },
+  {
+    triggers: ["freezer", "fridge", "refrigerator", "cooler"],
+    terms: ["freezer", "fridge", "refrigerator", "cooler", "chest", "walkin"],
+  },
+  { triggers: ["ev", "evse", "charger"], terms: ["ev", "evse", "charger", "charging"] },
+  {
+    triggers: ["light", "lighting", "fixture"],
+    terms: ["light", "lighting", "fixture", "lamp", "highbay"],
+  },
+  {
+    triggers: ["outlet", "receptacle", "plug", "gfci"],
+    terms: ["outlet", "receptacle", "plug", "gfci", "duplex"],
+  },
+  { triggers: ["welder", "compressor"], terms: ["welder", "compressor", "air"] },
+  { triggers: ["fan", "vent", "exhaust"], terms: ["fan", "vent", "exhaust", "blower"] },
+];
 
 /** Content words from the question, stemmed; stopwords and short words dropped. */
 export function questionTerms(question: string | undefined): string[] {
   if (!question) return [];
   const out = new Set<string>();
-  for (const raw of question.split(/\s+/)) {
-    const w = raw.toLowerCase().replace(/[^a-z0-9-]/g, "");
-    if (w.length < 3 || STOPWORDS.has(w)) continue;
-    out.add(stem(w));
+  const push = (word: string) => {
+    const w = word.toLowerCase().replace(/[^a-z0-9]/g, "");
+    if (w.length < 2 || STOPWORDS.has(w)) return;
+    const s = stem(w);
+    if (s.length < 2 || STOPWORDS.has(s)) return;
+    out.add(s);
+  };
+  for (const raw of question.toLowerCase().split(/[^a-z0-9-]+/)) {
+    if (!raw) continue;
+    // "mini-split" has to match "minisplit", "mini" and "split" in the record.
+    push(raw.replace(/-/g, ""));
+    for (const part of raw.split("-")) push(part);
   }
-  return [...out];
+  for (const group of SYNONYM_GROUPS) {
+    if (group.triggers.some((t) => out.has(stem(t)))) {
+      for (const t of group.terms) out.add(stem(t));
+    }
+  }
+  return [...out].filter((t) => t.length >= 3);
 }
+
 
 function str(v: unknown): string {
   if (v == null) return "";
