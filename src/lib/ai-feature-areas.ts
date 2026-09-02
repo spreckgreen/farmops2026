@@ -46,7 +46,9 @@ export type AiAreaId =
   | "food.preservation"
   | "food.prices"
   | "electrical.panel_qa"
+  | "electrical.load_trace"
   | "electrical.topology_explain"
+
   | "electrical.qa_triage"
   | "electrical.audit_summary"
   | "electrical.field_note"
