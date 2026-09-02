@@ -184,6 +184,11 @@ const RunInput = z.object({
   text: z.string().trim().max(2000).optional(),
   /** Photo scenarios only: a base64 image data URL, e.g. "data:image/jpeg;base64,…". */
   image: z.string().max(9_000_000).optional(),
+  /**
+   * The user accepted the estimated cloud cost for this one question, so run it
+   * on the configured cloud engine even though the area routes to self-hosted.
+   */
+  useCloud: z.boolean().optional(),
 });
 
 function compact(rows: Record<string, unknown>[], fields: string[], cap: number): string {
@@ -200,6 +205,22 @@ function compact(rows: Record<string, unknown>[], fields: string[], cap: number)
     )
     .join("\n");
 }
+
+/** Shared by the estimate and the run so both measure the same prompt. */
+async function buildRecordContext(supabase: unknown, question: string) {
+  const { collectSnapshot } = await import("@/lib/electrical-snapshot.functions");
+  const { buildElectricalRecordContext } = await import("@/lib/electrical-ai-context");
+  const snap = await collectSnapshot(supabase as never);
+  return buildElectricalRecordContext({
+    panels: snap.panels as Record<string, unknown>[],
+    feeders: snap.feeders as Record<string, unknown>[],
+    circuitGroups: snap.circuit_groups as Record<string, unknown>[],
+    loads: snap.loads as Record<string, unknown>[],
+    positions: snap.panel_breaker_positions as Record<string, unknown>[],
+    question,
+  });
+}
+
 
 export const runElectricalAiScenario = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
