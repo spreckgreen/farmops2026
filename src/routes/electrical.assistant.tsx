@@ -31,6 +31,15 @@ import {
   NAMEPLATE_IMAGE_TYPES,
   NAMEPLATE_MAX_BYTES,
 } from "@/lib/electrical-nameplate";
+import {
+  NAMEPLATE_WRITE_FIELDS,
+  NAMEPLATE_WRITE_GATE_NOTE,
+} from "@/lib/electrical-nameplate-write";
+import {
+  listNameplateTargets,
+  myNameplateWriteRequests,
+  submitNameplateWriteRequest,
+} from "@/lib/electrical-nameplate-write.functions";
 
 export const Route = createFileRoute("/electrical/assistant")({
   component: AssistantPage,
