@@ -180,7 +180,30 @@ export function CategoryDAnalysisPanel({ diag }: { diag: NumericDiagnosticsRepor
                 </button>
                 {open[g.group_id] ? (
                   <div className="space-y-2 border-t p-3 text-xs">
+                    {g.adjudicated ? (
+                      <div className="rounded-md border border-dashed p-2">
+                        <p className="font-medium">
+                          Adjudicated — {g.findings[0]?.adjudication_classification ?? "resolved"}
+                        </p>
+                        {g.findings[0]?.adjudication_source ? (
+                          <p className="text-muted-foreground">
+                            Source: {g.findings[0].adjudication_source}
+                          </p>
+                        ) : null}
+                        {g.findings[0]?.adjudication_rationale ? (
+                          <p className="mt-1">{g.findings[0].adjudication_rationale}</p>
+                        ) : null}
+                        {g.findings[0]?.preserved.length ? (
+                          <ul className="mt-1 list-disc pl-4 text-muted-foreground">
+                            {g.findings[0].preserved.map((p) => (
+                              <li key={p}>{p}</li>
+                            ))}
+                          </ul>
+                        ) : null}
+                      </div>
+                    ) : null}
                     <dl className="grid gap-1 sm:grid-cols-2">
+
                       <div>
                         <dt className="text-muted-foreground">ODS representation</dt>
                         <dd>{g.ods_representation}</dd>
