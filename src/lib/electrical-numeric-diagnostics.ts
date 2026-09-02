@@ -10,6 +10,11 @@
 //   C — ODS state not representable as a number (TBD, range, approximate, text,
 //       or a unit we refuse to guess at)
 //   D — provenance insufficient (one side is silent and we cannot prove why)
+//   F — semantic representation difference: both sides state a correct value of
+//       *different* concepts (nominal supply voltage vs equipment nameplate
+//       voltage) or the same value on a different calculation basis (VA computed
+//       from nominal supply vs nameplate voltage). Both source values are
+//       preserved; neither is a correction to the other. Never written.
 //   E — representation / schema-semantic gap: the canonical workbook states a
 //       fully resolved engineering value that the FarmOps column cannot hold
 //       (today: split-phase system voltage such as 120/240). Not a bad cell and
@@ -32,6 +37,11 @@ import {
   type ParsedNumeric,
 } from "@/lib/electrical-numeric-semantics";
 import {
+  representationPairFor,
+  REPRESENTATION_CONCEPT_LABELS,
+  type RepresentationPair,
+} from "@/lib/electrical-representation-proposal";
+import {
   SYSTEM_VOLTAGE_COLUMN,
   isSystemVoltageField,
   resolveSystemVoltage,
@@ -41,10 +51,10 @@ import {
   type SystemVoltageRepresentation,
 } from "@/lib/electrical-system-voltage";
 
-export const NUMERIC_DIAGNOSTICS_VERSION = "4.4b-numeric-diagnostics-3-system-voltage-model";
+export const NUMERIC_DIAGNOSTICS_VERSION = "4.4b-numeric-diagnostics-4-representation-semantics";
 
 
-export type NumericCategory = "A" | "B" | "C" | "D" | "E";
+export type NumericCategory = "A" | "B" | "C" | "D" | "E" | "F";
 
 export type NumericArtifactType =
   /** Blank workbook cell + a NOT NULL DEFAULT 0 column: the 0 is code-created. */
@@ -65,7 +75,8 @@ export type NumericDisposition =
   | "requires_engineering_disposition"
   | "resolve_in_canonical_ods_first"
   | "requires_human_review"
-  | "requires_data_model_decision";
+  | "requires_data_model_decision"
+  | "represent_both_concepts";
 
 export interface NumericFinding {
   domain: string;
@@ -146,7 +157,14 @@ export interface NumericDiagnosticsReport {
 
 }
 
-const EMPTY_COUNTS = (): Record<NumericCategory, number> => ({ A: 0, B: 0, C: 0, D: 0, E: 0 });
+const EMPTY_COUNTS = (): Record<NumericCategory, number> => ({
+  A: 0,
+  B: 0,
+  C: 0,
+  D: 0,
+  E: 0,
+  F: 0,
+});
 
 function defaultNumber(entry: NumericRegistryEntry): number | null {
   if (entry.db_default === null) return null;
@@ -168,6 +186,7 @@ function classify(
   ods: ParsedNumeric,
   fp: ParsedNumeric,
   representedSystemVoltage: SystemVoltageRepresentation | null = null,
+  representationPair: RepresentationPair | null = null,
 ): Classified {
   const column = `${entry.table}.${entry.field}`;
   const dbDefault = defaultNumber(entry);
@@ -246,6 +265,19 @@ function classify(
       disposition: "eligible_for_correction",
       action: `Clear the default-created ${entry.db_default} so the field reads "not stated" (NULL).`,
       proposed: null,
+    };
+  }
+
+  // F — a known semantic representation difference: two different concepts, or
+  // the same current on two different calculation bases. Checked before B so it
+  // stops being reported as an engineering disagreement. Both source values are
+  // preserved and nothing is written.
+  if (representationPair && isExplicitNumber(ods) && isExplicitNumber(fp)) {
+    return {
+      category: "F",
+      provenance: `${representationPair.explanation} Canonical concept: ${representationPair.canonical_concept} (${REPRESENTATION_CONCEPT_LABELS[representationPair.canonical_concept]}); FarmOps value expresses ${representationPair.farmops_concept}.`,
+      disposition: "represent_both_concepts",
+      action: `Semantic representation difference, not a numeric correction. ${representationPair.proposed_representation} Both source values are preserved; ${column} is not overwritten and the canonical ODS is not modified.`,
     };
   }
 
@@ -366,7 +398,15 @@ export function numericDiagnostics(report: ValidationReport): NumericDiagnostics
       continue;
     }
 
-    const c = classify(entry, ods, fp, represented);
+    const representationPair = representationPairFor({
+      stable_id: rec.stable_id,
+      farmops_entity: rec.farmops_entity,
+      farmops_field: entry.field,
+      ods_value: ods.value,
+      farmops_value: fp.value,
+    });
+
+    const c = classify(entry, ods, fp, represented, representationPair);
 
     const finding: NumericFinding = {
       domain: rec.domain,
@@ -459,7 +499,7 @@ export function numericDiagnostics(report: ValidationReport): NumericDiagnostics
  */
 export function numericReconciliation(r: NumericDiagnosticsReport) {
   const c = r.counts_by_category;
-  const categorized = c.A + c.B + c.C + c.D + c.E;
+  const categorized = c.A + c.B + c.C + c.D + c.E + c.F;
   return {
     compared_cells: r.compared_cells,
     agreements: r.agreements,
@@ -467,6 +507,7 @@ export function numericReconciliation(r: NumericDiagnosticsReport) {
     balanced: r.agreements + categorized === r.compared_cells,
     category_a: c.A,
     category_e: c.E,
+    category_f: c.F,
     plan: r.plan.length,
     blocked: r.blocked.length,
     category_a_balanced: r.plan.length + r.blocked.length === c.A,
