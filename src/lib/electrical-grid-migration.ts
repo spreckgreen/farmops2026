@@ -431,3 +431,146 @@ export function migrationCsv(rows: GridMigrationRow[]): string {
   );
   return [head.join(","), ...body].join("\n");
 }
+
+/* ------------------------------------------------- axis coordinate audit */
+//
+// Preview-only disclosure of the two coordinate dictionaries the engine uses.
+// Nothing here proposes a write; it exists so the old→new transform can be
+// checked line by line before any apply gate is contemplated.
+
+export type AxisMappingStatus =
+  | "EXACT_LINE_MATCH"
+  | "NEAREST_LINE_WITHIN_TOLERANCE"
+  | "EQUIDISTANT_OWNER_REVIEW"
+  | "OUT_OF_RANGE";
+
+export interface AxisAuditEntry {
+  axis: "north_south_letters" | "west_east_numbers";
+  old_token: string;
+  old_ft: number;
+  /** One line when determinate; both bracketing lines when equidistant. */
+  new_tokens: string[];
+  new_ft: number[];
+  /** Distance to the chosen line, or to each bracketing line when equidistant. */
+  distance_ft: number;
+  status: AxisMappingStatus;
+  note: string;
+}
+
+function axisEntry(
+  axis: AxisAuditEntry["axis"],
+  token: string,
+  positionFt: number,
+  match: LineMatch,
+): AxisAuditEntry {
+  const unit = axis === "north_south_letters" ? "S of the north wall" : "E of the west wall";
+  if (match.tie && match.runnerUp) {
+    const [lo, hi] = [match, match.runnerUp].sort((a, b) => a.ft - b.ft);
+    return {
+      axis,
+      old_token: token,
+      old_ft: positionFt,
+      new_tokens: [lo.label, hi.label],
+      new_ft: [lo.ft, hi.ft],
+      distance_ft: Math.round(match.distanceFt * 100) / 100,
+      status: "EQUIDISTANT_OWNER_REVIEW",
+      note: `${ft(positionFt)} ${unit} sits between corrected lines ${lo.label} (${ft(lo.ft)}) and ${hi.label} (${ft(hi.ft)}) with no nearer line. Preserved as the interval ${lo.label}–${hi.label}; no single line is assigned.`,
+    };
+  }
+  const exact = match.distanceFt === 0;
+  return {
+    axis,
+    old_token: token,
+    old_ft: positionFt,
+    new_tokens: [match.label],
+    new_ft: [match.ft],
+    distance_ft: Math.round(match.distanceFt * 100) / 100,
+    status: exact ? "EXACT_LINE_MATCH" : "NEAREST_LINE_WITHIN_TOLERANCE",
+    note: exact
+      ? `${ft(positionFt)} ${unit} lands exactly on corrected line ${match.label}.`
+      : `${ft(positionFt)} ${unit} is ${ft(match.distanceFt)} from corrected line ${match.label} (${ft(match.ft)})${match.runnerUp ? `, versus ${ft(match.runnerUp.distanceFt)} from ${match.runnerUp.label} (${ft(match.runnerUp.ft)})` : ""}.`,
+  };
+}
+
+/** Every old letter line A–G, decoded to feet and matched to the corrected rows. */
+export function auditLetterAxis(): AxisAuditEntry[] {
+  return OLD_ROW_LETTERS.map((letter) => {
+    const y = oldLetterToFeet(letter)!;
+    return axisEntry("north_south_letters", letter, y, nearestNewRow(y));
+  });
+}
+
+/** Every old number line 1–6 plus every half step, decoded and matched. */
+export function auditNumberAxis(): AxisAuditEntry[] {
+  const tokens: number[] = [];
+  for (let n = 1; n <= 6; n += 0.5) tokens.push(n);
+  return tokens.map((n) => {
+    const x = oldNumberToFeet(n)!;
+    return axisEntry("west_east_numbers", String(n), x, nearestNewCol(x));
+  });
+}
+
+export function axisAuditCsv(entries: AxisAuditEntry[]): string {
+  const head = [
+    "axis",
+    "old_token",
+    "old_physical_ft",
+    "new_token(s)",
+    "new_physical_ft",
+    "distance_error_ft",
+    "mapping_status",
+    "note",
+  ];
+  const body = entries.map((e) =>
+    [
+      e.axis,
+      e.old_token,
+      String(e.old_ft),
+      e.new_tokens.join(" | "),
+      e.new_ft.join(" | "),
+      String(e.distance_ft),
+      e.status,
+      e.note,
+    ]
+      .map(cell)
+      .join(","),
+  );
+  return [head.join(","), ...body].join("\n");
+}
+
+export interface CoordinateDerivation {
+  label: string;
+  detail: string;
+}
+
+/** Worked derivations for the specific cases raised in the coordinate audit. */
+export function coordinateDerivations(): CoordinateDerivation[] {
+  const d = (n: number) => ft(oldNumberToFeet(n)!);
+  const l = (s: string) => ft(oldLetterToFeet(s)!);
+  return [
+    {
+      label: "C2.5 → C3 (and a correction to an earlier report of 30 ft)",
+      detail: `Old number 2.5 is the midpoint of old lines 2 (${d(2)}) and 3 (${d(3)}), i.e. ${d(2.5)} east of the west wall — NOT 30 ft; the earlier "30 ft" figure was a reporting error, the engine has always computed ${d(2.5)}. ${d(2.5)} is ${ft(nearestNewCol(oldNumberToFeet(2.5)!).distanceFt)} from corrected column 3 (16 ft) and 6 ft from column 2 (8 ft), so column 3 is the nearest line and not a tie. Old letter C = ${l("C")} south, which is ${ft(nearestNewRow(oldLetterToFeet("C")!).distanceFt)} from corrected row C (16 ft). Result C3.`,
+    },
+    {
+      label: "F6 → E9",
+      detail: `Old letter F = ${l("F")} south of the north wall (A–G evenly over the 40 ft depth), which is ${ft(nearestNewRow(oldLetterToFeet("F")!).distanceFt)} from corrected row E (32 ft) and 6.7 ft from row F (40 ft) — row E. Old number 6 = ${d(6)}, the east wall, which is corrected column 9 (60 ft) exactly. Result E9: the physical point moved, so the old label F6 is not carried through.`,
+    },
+    {
+      label: "A6 → A9",
+      detail: `Old letter A = ${l("A")} (north wall) = corrected row A exactly. Old number 6 = ${d(6)} (east wall) = corrected column 9 exactly. The north-east corner stays the north-east corner; only the column label changes because the corrected drawing carries 9 column lines instead of 6.`,
+    },
+    {
+      label: "old letter D",
+      detail: `Old D = ${l("D")} south of the north wall, exactly equidistant from corrected rows C (16 ft) and D (24 ft) — 4 ft each way. No single row is assigned; the position is preserved as the interval C–D and flagged OWNER REVIEW.`,
+    },
+    {
+      label: "old number 2",
+      detail: `Old 2 = ${d(2)} east of the west wall, exactly equidistant from corrected columns 2 (8 ft) and 3 (16 ft) — 4 ft each way. Preserved as the interval 2–3, OWNER REVIEW.`,
+    },
+    {
+      label: "old number 4",
+      detail: `Old 4 = ${d(4)} east of the west wall, exactly equidistant from corrected columns 5 (32 ft) and 6 (40 ft) — 4 ft each way. Preserved as the interval 5–6, OWNER REVIEW.`,
+    },
+  ];
+}
