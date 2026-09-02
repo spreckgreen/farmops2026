@@ -118,6 +118,66 @@ export function latestRequest(
   return best;
 }
 
+/** The newest wider-read request of any scope (building / site / system). */
+export function latestWiderRequest(
+  rows: PanelEditRequest[],
+  now: Date = new Date(),
+): PanelEditRequest | null {
+  const wider = rows.filter((r) => WIDER_READ_SCOPES.includes(r.scope));
+  // Prefer a live window over newer-but-closed history, so an active building
+  // grant is never hidden by a later declined site request.
+  const live = wider.filter((r) => accessState(r, now) === "active");
+  const pool = live.length ? live : wider;
+  let best: PanelEditRequest | null = null;
+  for (const r of pool) {
+    if (!best || Date.parse(r.created_at) > Date.parse(best.created_at)) best = r;
+  }
+  return best;
+}
+
+function sameArea(a: string | null | undefined, b: string | null | undefined): boolean {
+  const x = String(a ?? "").trim().toLowerCase();
+  const y = String(b ?? "").trim().toLowerCase();
+  return x.length > 0 && x === y;
+}
+
+/**
+ * Does an approved wider-read window cover this panel? `system_data` and
+ * `site_data` cover everything recorded; `building_data` only covers panels
+ * whose building matches the approved area. Fails closed.
+ */
+export function widerScopeCoversPanel(
+  request: PanelEditRequest | null | undefined,
+  panel: { building?: string | null } | null | undefined,
+  now: Date = new Date(),
+): boolean {
+  if (!request || accessState(request, now) !== "active") return false;
+  if (request.scope === "system_data" || request.scope === "site_data") return true;
+  if (request.scope === "building_data") return sameArea(request.scope_detail, panel?.building);
+  return false;
+}
+
+/**
+ * May this viewer open the panel sheet at all? A scanned-label viewer is bound
+ * to the panels they physically scanned, plus anything an approved wider window
+ * covers. Administrators and full-add-on holders bypass this entirely.
+ */
+export function canReadPanel(input: {
+  fullAddon: boolean;
+  isAdmin: boolean;
+  scannedPanelIds: string[];
+  panelId: string;
+  panel?: { building?: string | null } | null;
+  widerRequest?: PanelEditRequest | null;
+  now?: Date;
+}): boolean {
+  if (input.fullAddon || input.isAdmin) return true;
+  const wanted = input.panelId.trim().toUpperCase();
+  if (input.scannedPanelIds.some((id) => id.trim().toUpperCase() === wanted)) return true;
+  return widerScopeCoversPanel(input.widerRequest, input.panel ?? null, input.now);
+}
+
+
 /** "23h 41m left" / "expired" — plain field-readable remaining time. */
 export function remainingLabel(expiresAt: string | null, now: Date = new Date()): string {
   const exp = expiresAt ? Date.parse(expiresAt) : NaN;
