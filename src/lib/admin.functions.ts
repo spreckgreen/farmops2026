@@ -628,6 +628,7 @@ export const resetApplicationData = createServerFn({ method: "POST" })
 // partially overwrite the database.
 
 import {
+import { isElectricianScoped } from "@/lib/electrical-access";
   computeIntegrity,
   normalizeIntegrityEnvelope,
   verifyIntegrity,
