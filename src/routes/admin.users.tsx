@@ -460,6 +460,16 @@ function UserRow({ user, currentUserId }: { user: ManagedUser; currentUserId: st
           <Button
             size="sm"
             variant="outline"
+            onClick={() => electricalMut.mutate("electrical_fieldwrite")}
+            disabled={electricalMut.isPending}
+            title="Let this user record what they installed on the electrician-viewable screens. Reconciliation tools stay withheld and every change is written to the electrical change audit."
+          >
+            <PencilLine className="h-4 w-4 mr-1" />
+            Electrical field write
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
             onClick={() => setPwOpen(true)}
             title="Set a temporary password. Share it securely — the user should change it after signing in."
           >
@@ -610,7 +620,9 @@ function CreateUserButton() {
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [roles, setRoles] = useState<AppRole[]>(["electrician"]);
-  const [addon, setAddon] = useState<"electrical_readonly" | "electrical" | "none">(
+  const [addon, setAddon] = useState<
+    "electrical_readonly" | "electrical_fieldwrite" | "electrical" | "none"
+  >(
     "electrical_readonly",
   );
 
@@ -734,6 +746,10 @@ function CreateUserButton() {
                 {(
                   [
                     ["electrical_readonly", "Read-only — every electrician screen, no edits, no reconciliation tools"],
+                    [
+                      "electrical_fieldwrite",
+                      "Field write — same screens, may record as-installed work; every change is audited for your review",
+                    ],
                     ["electrical", "Full module — edits plus reconciliation (ODS import/export, validation, adjudication)"],
                     ["none", "None — no Electrical access"],
                   ] as const
