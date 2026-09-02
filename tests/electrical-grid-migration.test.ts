@@ -243,3 +243,85 @@ describe("axis coordinate audit", () => {
     );
   });
 });
+
+describe("physical-location model", () => {
+  const row = (over: Partial<Parameters<typeof migrateRow>[0]>) =>
+    migrateRow({
+      kind: "load",
+      stable_id: "FS-001",
+      description: "Receptacle",
+      grid: "A1",
+      ...over,
+    });
+
+  it("exact intersections report EXACT with zero error", () => {
+    const r = row({ grid: "A1" });
+    expect(r.location_x_ft).toBe(0);
+    expect(r.location_y_ft).toBe(0);
+    expect(r.grid_reference).toBe("A1");
+    expect(r.grid_reference_precision).toBe("EXACT");
+    expect(r.review_required).toBe(false);
+  });
+
+  it("nearest match reports NEAREST with residual error", () => {
+    const r = row({ grid: "C2.5" });
+    expect(r.grid_reference).toBe("C3");
+    expect(r.grid_reference_precision).toBe("NEAREST");
+    expect(r.x_error_ft).toBe(2);
+  });
+
+  it("preserves a single-axis interval without snapping", () => {
+    const r = row({ grid: "D1" });
+    expect(r.grid_reference).toBe("C-D1");
+    expect(r.grid_reference_precision).toBe("INTERVAL");
+    expect(r.review_required).toBe(true);
+  });
+
+  it("preserves both intervals when both axes are equidistant", () => {
+    const r = row({ grid: "D2" });
+    expect(r.grid_reference).toBe("C-D2-3");
+    expect(r.grid_reference_precision).toBe("INTERVAL");
+  });
+
+  it("resolves an interval axis from independent wall evidence", () => {
+    const r = row({ grid: "D4", description: "Receptacle East Wall" });
+    expect(r.grid_reference).toBe("C-D9");
+    expect(r.supporting_evidence.length).toBeGreaterThan(0);
+  });
+
+  it("keeps MOBILE non-fixed with no coordinates", () => {
+    const r = row({ grid: "MOBILE", description: "Mobile welder" });
+    expect(r.grid_reference_precision).toBe("NON_FIXED");
+    expect(r.location_x_ft).toBeNull();
+    expect(r.grid_reference).toBeNull();
+  });
+
+  it("leaves non-location artifacts unresolved", () => {
+    for (const g of ["?", "??", "NA", "0.00%"]) {
+      const r = row({ grid: g });
+      expect(r.grid_reference_precision).toBe("UNRESOLVED");
+      expect(r.grid_reference).toBeNull();
+    }
+  });
+
+  it("proposes corner panels but retains field confirmation", () => {
+    const nw = migrateRow({ kind: "panel", stable_id: "PNL-FS-NW", description: "NW panel", grid: "" });
+    const ne = migrateRow({ kind: "panel", stable_id: "PNL-FS-NE", description: "NE panel", grid: "" });
+    expect([nw.grid_reference, ne.grid_reference]).toEqual(["A1", "A9"]);
+    expect(nw.grid_migration_provenance).toContain("FIELD_CONFIRMATION_REQUIRED");
+    expect(nw.review_required).toBe(true);
+  });
+
+  it("invents nothing for PNL-FS-CRIT or PNL-FS-EQ", () => {
+    for (const id of ["PNL-FS-CRIT", "PNL-FS-EQ"]) {
+      const r = migrateRow({ kind: "panel", stable_id: id, description: id, grid: "" });
+      expect(r.grid_reference).toBeNull();
+      expect(r.location_x_ft).toBeNull();
+      expect(r.grid_reference_precision).toBe("UNRESOLVED");
+    }
+  });
+
+  it("preserves the legacy grid value for audit history", () => {
+    expect(row({ grid: "D2" }).legacy_grid).toBe("D2");
+  });
+});
