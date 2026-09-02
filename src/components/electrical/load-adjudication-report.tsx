@@ -25,6 +25,8 @@ import { listAdjudicatedLoads } from "@/lib/load-adjudication.functions";
 import { BryantVoltageApplyGate } from "@/components/electrical/bryant-voltage-apply-gate";
 import { CanonicalOdsCorrectionQueue } from "@/components/electrical/canonical-ods-correction-queue";
 import { CanonicalCorrectionSetPanel } from "@/components/electrical/canonical-correction-set-panel";
+import { CanonicalOdsRevisionPanel } from "@/components/electrical/canonical-ods-revision-panel";
+
 import { AmpSemanticsReport } from "@/components/electrical/amp-semantics-report";
 import { Fs084ProvenancePanel } from "@/components/electrical/fs084-provenance-panel";
 import { CurrentSemanticsClosurePanel } from "@/components/electrical/current-semantics-closure-panel";
@@ -123,6 +125,22 @@ export function LoadAdjudicationReport() {
           <CanonicalCorrectionSetPanel baseline={attached.baseline} />
         </CollapsibleSection>
       ) : null}
+
+      {attached ? (
+        <CollapsibleSection
+          title="Controlled canonical ODS revision generation (Phase 4.4d)"
+          subtitle="Generate a candidate workbook from the authorized baseline plus the approved manifest, review the candidate SHA and 2-cell diff, run the full Phase 4.4 validation against the candidate, then promote only by explicit owner approval. The baseline artifact is preserved, FarmOps is never written and no Phase 4.5 cutover is authorized."
+          badges={<Badge variant="secondary">Candidate revision</Badge>}
+        >
+          <CanonicalOdsRevisionPanel
+            baseline={attached.baseline}
+            baselineFileName={attached.file_name}
+            baselineBase64={attached.base64}
+            farmopsLoads={rows.data}
+          />
+        </CollapsibleSection>
+      ) : null}
+
 
       {report && attached ? (
         <CollapsibleSection
