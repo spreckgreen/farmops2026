@@ -64,7 +64,8 @@ export const auditLoadMasterFieldMapping = createServerFn({ method: "POST" })
       sheet: loadSheet,
       headerRow: mapped.headerRow,
       importerColumns: mapped.columns,
-      odsRows: mapped.rows.map((r) => ({ sourceRow: r.sourceRow, stableId: r.stableId })),
+      // mapSheet reports 1-based worksheet rows; the audit indexes sheet.rows.
+      odsRows: mapped.rows.map((r) => ({ sourceRow: r.sourceRow - 1, stableId: r.stableId })),
       dbRows: (rows ?? []) as Record<string, unknown>[],
     });
 
