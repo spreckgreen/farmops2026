@@ -25,6 +25,8 @@ import { listAdjudicatedLoads } from "@/lib/load-adjudication.functions";
 import { BryantVoltageApplyGate } from "@/components/electrical/bryant-voltage-apply-gate";
 import { CanonicalOdsCorrectionQueue } from "@/components/electrical/canonical-ods-correction-queue";
 import { CanonicalCorrectionSetPanel } from "@/components/electrical/canonical-correction-set-panel";
+import { CanonicalOdsRevisionPanel } from "@/components/electrical/canonical-ods-revision-panel";
+
 import { AmpSemanticsReport } from "@/components/electrical/amp-semantics-report";
 import { Fs084ProvenancePanel } from "@/components/electrical/fs084-provenance-panel";
 import { CurrentSemanticsClosurePanel } from "@/components/electrical/current-semantics-closure-panel";
