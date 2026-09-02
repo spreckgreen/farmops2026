@@ -234,9 +234,12 @@ function PanelSheetPage() {
                     <SystemDataAccessRequest
                       panelId={panelId}
                       access={sheet.data.system_access}
+                      building={(panel["building"] as string | null) ?? null}
+                      site={(panel["site"] as string | null) ?? null}
                       onChanged={() => void sheet.refetch()}
                     />
                   )}
+
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
