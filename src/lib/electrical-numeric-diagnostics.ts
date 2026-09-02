@@ -50,9 +50,36 @@ import {
   type SystemVoltageMigrationPreview,
   type SystemVoltageRepresentation,
 } from "@/lib/electrical-system-voltage";
+import {
+  CONVERGENCE_DISPOSITION_LABELS,
+  UNRESOLVED_DISPOSITIONS,
+  adjudicationsFor,
+  type ConvergenceDisposition,
+  type EstablishedAdjudication,
+} from "@/lib/electrical-convergence";
 
-export const NUMERIC_DIAGNOSTICS_VERSION = "4.4b-numeric-diagnostics-4-representation-semantics";
+export const NUMERIC_DIAGNOSTICS_VERSION =
+  "4.4b-numeric-diagnostics-5-adjudication-disposition-overlay";
 
+/**
+ * Verified Bryant quantities, preserved as independent concepts. These are
+ * displayed alongside the amperage findings so that no reader collapses them:
+ * MOCP is not load current, numeric equality with an ODS cell does not prove
+ * semantic identity, and MCA stays unverified (never derived).
+ */
+export const VERIFIED_BRYANT_QUANTITIES = [
+  { quantity: "rated_equipment_voltage", value: "208/230 VAC", status: "verified" },
+  { quantity: "phase", value: "1", status: "verified" },
+  { quantity: "frequency", value: "60 Hz", status: "verified" },
+  { quantity: "maximum_overcurrent_protection (MOCP)", value: "25 A", status: "verified" },
+  { quantity: "rated_current_amps (RCA)", value: "1.69 A", status: "verified" },
+  { quantity: "rated_load_amps (RLA)", value: "4.15 A", status: "verified" },
+  {
+    quantity: "minimum_circuit_ampacity (MCA)",
+    value: "NULL",
+    status: "unverified — never derived",
+  },
+] as const;
 
 export type NumericCategory = "A" | "B" | "C" | "D" | "E" | "F";
 
