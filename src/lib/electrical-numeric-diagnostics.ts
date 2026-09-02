@@ -506,7 +506,14 @@ export function numericDiagnostics(report: ValidationReport): NumericDiagnostics
       proposed_action: c.action,
       proposed_value: c.proposed,
       normalization_rules: [...ods.rules, ...fp.rules].filter((v, i, a) => a.indexOf(v) === i).sort(),
+      raw_category: c.category,
+      ...adjudicationOverlay(rec.stable_id, entry.field, report.ods.sha256, c.category),
     };
+    if (finding.stale_adjudication) {
+      for (const a of adjudicationsFor(rec.stable_id, entry.field)) {
+        if (a.ods_sha256 !== report.ods.sha256 && !stale.some((s) => s.id === a.id)) stale.push(a);
+      }
+    }
     findings.push(finding);
     summary.findings += 1;
     summary.counts_by_category[c.category] += 1;
