@@ -213,7 +213,18 @@ export const AI_FEATURE_AREAS: readonly AiAreaDef[] = [
     minContext: 8192,
   },
   {
+    id: "electrical.load_trace",
+    label: "Panel trace for a load",
+    group: "Electrical",
+    description:
+      "Traces one load from service through feeder, panel, breaker and circuit, marking every hop the record does not contain.",
+    load: "medium",
+    recommended: "local",
+    minContext: 8192,
+  },
+  {
     id: "electrical.topology_explain",
+
     label: "Topology explanation",
     group: "Electrical",
     description:
