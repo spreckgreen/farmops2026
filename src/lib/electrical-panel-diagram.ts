@@ -22,6 +22,9 @@ export interface DiagramLoad {
   amps: string;
   va: string;
   voltage: string;
+  /** Panel the record says this load is *planned* for (text only, not a link). */
+  suggestedPanel: string;
+  building: string;
   /** Gaps on this load's own supply path. */
   gaps: string[];
 }
