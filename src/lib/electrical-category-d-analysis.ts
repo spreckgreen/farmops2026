@@ -397,6 +397,9 @@ export function categoryDGroupsCsv(a: CategoryDAnalysis): string {
     "source_rows",
     "mapping_rule",
     "systematic",
+    "resolved_count",
+    "open_count",
+
   ];
   return csv([
     head,
