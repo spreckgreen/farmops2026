@@ -914,13 +914,28 @@ function FeatureRequestCard({
   return (
     <Card>
       <CardHeader className="space-y-1">
-        <CardTitle className="text-base">AI features available to you</CardTitle>
-        <p className="text-sm text-muted-foreground">
-          Everything the Electrical pane can do with AI. Tick what you need and submit it
-          for administrator approval — approval enables the scenario only, never extra
-          data access.
-        </p>
+        <button
+          type="button"
+          aria-expanded={featuresOpen}
+          onClick={() => setFeaturesOpen((v) => !v)}
+          className="flex w-full items-center gap-2 text-left"
+        >
+          <ChevronDown
+            className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${
+              featuresOpen ? "" : "-rotate-90"
+            }`}
+          />
+          <CardTitle className="text-base">AI features available to you</CardTitle>
+        </button>
+        {featuresOpen ? (
+          <p className="text-sm text-muted-foreground">
+            Everything the Electrical pane can do with AI. Tick what you need and submit it
+            for administrator approval — approval enables the scenario only, never extra
+            data access.
+          </p>
+        ) : null}
       </CardHeader>
+      {featuresOpen ? (
       <CardContent className="space-y-3">
         <div className="space-y-2">
           {ELECTRICAL_AI_SCENARIOS.map((def) => {
