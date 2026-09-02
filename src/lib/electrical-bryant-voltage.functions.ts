@@ -159,6 +159,20 @@ async function runGate(
     }
     const liveVolts = row.volts === null || row.volts === undefined ? null : Number(row.volts);
     if (liveVolts === BRYANT_NOMINAL_SUPPLY_VOLTAGE) {
+      // FarmOps already holds the supported nominal supply voltage. If the
+      // canonical workbook disagrees, the record in error is the WORKBOOK, not
+      // FarmOps: classify it as a canonical-source correction and never present
+      // it as a pending FarmOps write.
+      if (odsVolts !== null && odsVolts !== BRYANT_NOMINAL_SUPPLY_VOLTAGE) {
+        push({
+          row_uuid: row.id,
+          live_volts: liveVolts,
+          status: "canonical_ods_correction_required",
+          detail: `CANONICAL_ODS_VALUE_INCOMPATIBLE_WITH_VERIFIED_EQUIPMENT — canonical workbook states ${odsVolts} V, FarmOps as-built is ${liveVolts} V and the verified equipment is rated ${BRYANT_RATED_EQUIPMENT_VOLTAGE_CLASS} VAC, ${BRYANT_PHASE}Ø, ${BRYANT_FREQUENCY_HZ} Hz. Disposition CANONICAL_ODS_CORRECTION_REQUIRED (candidate ${BRYANT_NOMINAL_SUPPLY_VOLTAGE} V). No FarmOps write is performed and the ODS is not edited here.`,
+        });
+        skipped++;
+        continue;
+      }
       push({ row_uuid: row.id, live_volts: liveVolts, status: "already_correct" });
       skipped++;
       continue;
