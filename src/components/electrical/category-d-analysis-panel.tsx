@@ -96,6 +96,12 @@ export function CategoryDAnalysisPanel({ diag }: { diag: NumericDiagnosticsRepor
         <div className="flex flex-wrap gap-2 text-xs">
           <Badge variant="outline">Raw D = {analysis.raw_d}</Badge>
           <Badge variant="outline">
+            Resolved by adjudication = {analysis.rows_resolved_by_adjudication}
+          </Badge>
+          <Badge variant={analysis.rows_open ? "secondary" : "outline"}>
+            Open for Phase 4.5 = {analysis.rows_open}
+          </Badge>
+          <Badge variant="outline">
             Systematic groups = {analysis.systematic_groups_count}
           </Badge>
           <Badge variant="outline">
@@ -106,6 +112,7 @@ export function CategoryDAnalysisPanel({ diag }: { diag: NumericDiagnosticsRepor
           </Badge>
           <Badge variant="secondary">Total groups {analysis.groups_count}</Badge>
         </div>
+
 
         <div className="flex flex-wrap gap-2 text-xs">
           {kinds.map((c) => (
