@@ -42,6 +42,7 @@ import {
 
 import {
   Camera,
+  ChevronDown,
   CloudLightning,
   Cpu,
   DollarSign,
