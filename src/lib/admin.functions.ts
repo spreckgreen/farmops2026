@@ -276,6 +276,24 @@ export const listUsers = createServerFn({ method: "GET" })
       rolesByUser.set(r.user_id, arr);
     }
 
+    // Add-on grants are part of "what this user can do", so the same screen
+    // that edits roles has to show (and be able to take away) them too.
+    const ents = await supabase
+      .from("app_entitlements")
+      .select("user_id, addon_key, status, expires_at");
+    if (ents.error) throw new Error(ents.error.message);
+    const addonsByUser = new Map<string, ManagedAddon[]>();
+    for (const e of (ents.data ?? []) as Array<{
+      user_id: string;
+      addon_key: string;
+      status: string;
+      expires_at: string | null;
+    }>) {
+      const arr = addonsByUser.get(e.user_id) ?? [];
+      arr.push({ addon_key: e.addon_key, status: e.status, expires_at: e.expires_at ?? null });
+      addonsByUser.set(e.user_id, arr);
+    }
+
     // Pull auth confirmation + last-sign-in via admin API so the UI can flag
     // unconfirmed accounts and offer the "Confirm email" action.
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
