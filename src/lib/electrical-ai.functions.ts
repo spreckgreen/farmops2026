@@ -184,6 +184,11 @@ const RunInput = z.object({
   text: z.string().trim().max(2000).optional(),
   /** Photo scenarios only: a base64 image data URL, e.g. "data:image/jpeg;base64,…". */
   image: z.string().max(9_000_000).optional(),
+  /**
+   * The user accepted the estimated cloud cost for this one question, so run it
+   * on the configured cloud engine even though the area routes to self-hosted.
+   */
+  useCloud: z.boolean().optional(),
 });
 
 function compact(rows: Record<string, unknown>[], fields: string[], cap: number): string {
@@ -200,6 +205,22 @@ function compact(rows: Record<string, unknown>[], fields: string[], cap: number)
     )
     .join("\n");
 }
+
+/** Shared by the estimate and the run so both measure the same prompt. */
+async function buildRecordContext(supabase: unknown, question: string) {
+  const { collectSnapshot } = await import("@/lib/electrical-snapshot.functions");
+  const { buildElectricalRecordContext } = await import("@/lib/electrical-ai-context");
+  const snap = await collectSnapshot(supabase as never);
+  return buildElectricalRecordContext({
+    panels: snap.panels as Record<string, unknown>[],
+    feeders: snap.feeders as Record<string, unknown>[],
+    circuitGroups: snap.circuit_groups as Record<string, unknown>[],
+    loads: snap.loads as Record<string, unknown>[],
+    positions: snap.panel_breaker_positions as Record<string, unknown>[],
+    question,
+  });
+}
+
 
 export const runElectricalAiScenario = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -226,33 +247,26 @@ export const runElectricalAiScenario = createServerFn({ method: "POST" })
     let contextBlock = "";
 
     if (def.id === "panel_qa" || def.id === "topology_explain") {
-      const { collectSnapshot } = await import("@/lib/electrical-snapshot.functions");
-      const snap = await collectSnapshot(context.supabase);
-      const panels = snap.panels as Record<string, unknown>[];
-      const feeders = snap.feeders as Record<string, unknown>[];
-      const groups = snap.circuit_groups as Record<string, unknown>[];
-      const loads = snap.loads as Record<string, unknown>[];
-      const positions = snap.panel_breaker_positions as Record<string, unknown>[];
-      contextCounts.panels = panels.length;
-      contextCounts.feeders = feeders.length;
-      contextCounts.circuit_groups = groups.length;
-      contextCounts.loads = loads.length;
-      contextCounts.breaker_positions = positions.length;
-      contextBlock =
-        `PANELS:\n${compact(panels, ["stable_id", "name", "location", "building", "system_voltage", "bus_rating_amps", "spaces", "fed_from_panel_ref"], 80)}\n\n` +
-        `FEEDERS:\n${compact(feeders, ["stable_id", "name", "source_ref", "destination_ref", "conductor", "ocp_rating_amps"], 80)}\n\n` +
-        `CIRCUITS:\n${compact(groups, ["stable_id", "name", "panel_ref", "breaker_positions", "ocp_rating_amps", "voltage"], 150)}\n\n` +
-        `LOADS:\n${compact(loads, ["stable_id", "name", "panel_ref", "circuit_ref", "voltage", "connected_va", "amps", "amps_semantic", "location"], 200)}\n\n` +
-        `BREAKER POSITIONS:\n${compact(positions, ["panel_ref", "position", "poles", "ocp_rating_amps", "label", "circuit_ref"], 200)}`;
+      const built = await buildRecordContext(context.supabase, question);
+      Object.assign(contextCounts, built.counts);
+      contextBlock = built.block;
+
       system =
         def.id === "panel_qa"
           ? "You are an electrician's assistant reading a farm's as-installed electrical record. " +
-            "Answer strictly from the supplied records. Cite stable IDs (PNL-*, CON-*, FS-*, BR-*) for every claim. " +
-            "If the record does not contain the answer, say exactly what is missing — never estimate, never infer a rating, " +
-            "and never suggest a value that is not in the data. You never change records; this is an answer only."
+            "The RECORDS block is one line per row; each field is written as key=value. On a LOADS line, " +
+            "`panel=` and `circuit=` are already resolved from the record — use them directly to say which " +
+            "panel something is on, and quote its load_id and description. When the question names equipment " +
+            "(e.g. 'mini splits'), answer with a row-per-match list: load_id, description, panel, circuit, " +
+            "volts/amps as recorded — then note any match whose panel reads UNASSIGNED IN RECORD. " +
+            "Answer strictly from the supplied records and cite stable IDs (PNL-*, CON-*, FS-*, BR-*) for every claim. " +
+            "Never describe the shape of the data or list possible questions; answer the question that was asked. " +
+            "If the record does not contain the answer, say exactly which rows or fields are missing — never estimate, " +
+            "never infer a rating, and never suggest a value that is not in the data. Read-only: you change nothing."
           : "You are an electrician's assistant. Describe the power path from service to load in plain language, " +
             "step by step, citing the stable ID at each hop (service → feeder → panel → circuit → load). " +
             "Use only the supplied records; state plainly where the chain breaks or a reference is missing. Read-only.";
+
     } else if (def.id === "qa_triage") {
       const { collectSnapshot } = await import("@/lib/electrical-snapshot.functions");
       const snap = await collectSnapshot(context.supabase);
@@ -318,11 +332,29 @@ export const runElectricalAiScenario = createServerFn({ method: "POST" })
       (contextBlock ? `RECORDS:\n${contextBlock}` : "");
 
     const { resolveAreaAi, runAreaAi } = await import("@/lib/ai-routing.server");
-    const ai = await resolveAreaAi(def.area, {
+    const resolved = await resolveAreaAi(def.area, {
       hostedDefaultModel: "google/gemini-3.6-flash",
       client: context.supabase,
     });
+    // The user accepted the estimated cloud cost for this question: run it on
+    // the configured cloud engine instead of the self-hosted one. Metering still
+    // records it as a hosted run, so it shows up on the AI bill.
+    let ai = resolved;
+    if (data.useCloud && resolved.backend === "local") {
+      if (!resolved.hostedProvider) {
+        throw new Error(
+          "No cloud AI engine is configured, so this question cannot be escalated. Configure one in Admin → AI engines.",
+        );
+      }
+      ai = {
+        ...resolved,
+        backend: "hosted",
+        provider: resolved.hostedProvider,
+        modelId: resolved.hostedModelId,
+      };
+    }
     const { generateText } = await import("ai");
+
 
     // Validated before the call so a 12 MB HEIC fails free instead of billing.
     const photo = def.input === "photo" && data.image ? data.image.trim() : null;
@@ -386,5 +418,88 @@ export const runElectricalAiScenario = createServerFn({ method: "POST" })
         : {}),
       latencyMs: Date.now() - started,
       escalation: run.escalation,
+    };
+  });
+
+/**
+ * Pre-flight estimate for one question: how much record it has to send, whether
+ * the self-hosted model is likely to cope, and what a cloud run would cost.
+ * The UI shows this before spending two minutes of local GPU on a non-answer.
+ */
+export interface ElectricalAiEstimate {
+  scenario: ElectricalAiScenarioId;
+  area: string;
+  areaLabel: string;
+  backend: string;
+  engineLabel: string;
+  localModel: string | null;
+  hostedModel: string | null;
+  hostedAvailable: boolean;
+  contextTokens: number;
+  /** Loads whose text matched the question — reassures that data was found. */
+  matchedLoadIds: string[];
+  recommendCloud: boolean;
+  reason: string;
+  costLabel: string;
+  costUsd: number | null;
+}
+
+const EstimateInput = z.object({
+  scenario: z.string().refine(isElectricalAiScenarioId, "Unknown scenario"),
+  text: z.string().trim().max(2000).optional(),
+});
+
+export const estimateElectricalAiRun = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => EstimateInput.parse(d))
+  .handler(async ({ data, context }): Promise<ElectricalAiEstimate> => {
+    const def = getElectricalAiScenario(data.scenario as ElectricalAiScenarioId);
+    const { isAdmin, access, grants } = await resolveScope(
+      context.supabase,
+      context.userId,
+    );
+    if (!canRunElectricalAiScenario({ access, isAdmin, grants }, def)) {
+      throw new Error(ELECTRICAL_AI_DENIED);
+    }
+
+    const question = (data.text ?? "").trim();
+    let contextTokens = 0;
+    let matchedLoadIds: string[] = [];
+    if (def.id === "panel_qa" || def.id === "topology_explain") {
+      const built = await buildRecordContext(context.supabase, question);
+      contextTokens = built.approxTokens;
+      matchedLoadIds = built.matchedLoadIds;
+    }
+
+    const { resolveAreaAi } = await import("@/lib/ai-routing.server");
+    const { buildCloudOffer } = await import("@/lib/ai-escalation-offer");
+    const ai = await resolveAreaAi(def.area, {
+      hostedDefaultModel: "google/gemini-3.6-flash",
+      client: context.supabase,
+    });
+    const offer = buildCloudOffer({
+      area: def.area,
+      backend: ai.backend,
+      localModel: ai.backend === "local" ? ai.modelId : null,
+      hostedModel: ai.hostedModelId,
+      hostedAvailable: Boolean(ai.hostedProvider),
+      contextTokens,
+    });
+
+    return {
+      scenario: def.id,
+      area: def.area,
+      areaLabel: ai.areaLabel,
+      backend: ai.backend,
+      engineLabel: ai.engineLabel,
+      localModel: offer.localModel,
+      hostedModel: offer.hostedModel,
+      hostedAvailable: Boolean(ai.hostedProvider),
+      contextTokens,
+      matchedLoadIds: matchedLoadIds.slice(0, 40),
+      recommendCloud: offer.recommended,
+      reason: offer.reason,
+      costLabel: offer.costLabel,
+      costUsd: offer.cost?.usd ?? null,
     };
   });
