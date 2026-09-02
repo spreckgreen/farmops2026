@@ -110,6 +110,11 @@ export interface CandidateEvaluation {
   /** Rows where evidence positively rules this reading out. */
   contradictory_rows: string[];
   contradictory_basis: string;
+  /** Populated rows whose evidence neither supports nor rules out this reading. */
+  indeterminate_rows: string[];
+  indeterminate_basis: string;
+  /** A short, stable sample of IDs for reporting. */
+  representative_stable_ids: string[];
   /** Rows merely numerically consistent — never counted as support. */
   coincident_rows: string[];
   confidence: SemanticConfidence;
