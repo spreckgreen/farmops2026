@@ -295,6 +295,8 @@ export function categoryCAnalysis(r: NumericDiagnosticsReport): CategoryCAnalysi
     compared_at: r.compared_at,
     raw_c: cFindings.length,
     groups_count: groups.length,
+    systematic_groups_count: groups.filter((g) => g.systematic).length,
+    individual_review_groups_count: groups.filter((g) => !g.systematic).length,
     rows_explained_by_systematic_pattern: systematicRows,
     rows_requiring_individual_review: cFindings.length - systematicRows,
     counts_by_cause,
