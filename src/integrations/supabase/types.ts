@@ -4216,11 +4216,6 @@ export type Database = {
     }
     Functions: {
       electrical_allowed: { Args: { _domain: string }; Returns: string[] }
-      has_electrical_field_write: {
-        Args: { _user_id: string }
-        Returns: boolean
-      }
-      has_electrical_read: { Args: { _user_id: string }; Returns: boolean }
       restore_table_diagnostics: { Args: { _table: string }; Returns: Json }
     }
     Enums: {
