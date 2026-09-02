@@ -166,32 +166,21 @@ export function parseOdsContentXml(xml: string): Sheet[] {
     const rows: string[][] = [];
 
     for (const { attrs: rowAttrs, inner: rowBody } of scanElements(body, "table:table-row")) {
-      const rowRepeat = Math.min(Number(attr(rowAttrs, "table:number-rows-repeated") ?? "1") || 1, 1000);
+      const rowRepeat = repeatOf(rowAttrs, "table:number-rows-repeated");
       const cells: string[] = [];
 
       // Cell annotations (comments) also contain <text:p>; they are not cell
       // values and must never become one.
-      const cleanBody = rowBody.replace(
-        /<office:annotation\b[\s\S]*?<\/office:annotation>/g,
-        "",
-      );
-      for (const cell of [
-        ...scanElements(cleanBody, "table:table-cell"),
-        ...scanElements(cleanBody, "table:covered-table-cell"),
-      ].sort((a, b) => a.start - b.start)) {
-        const repeat = Math.min(
-          Number(attr(cell.attrs, "table:number-columns-repeated") ?? "1") || 1,
-          1000,
-        );
-        const value = cell.inner
-          ? cellText(cell.inner)
-          : (attr(cell.attrs, "office:value") ?? "");
+      for (const cell of rowCellElements(rowBody)) {
+        const repeat = repeatOf(cell.attrs, "table:number-columns-repeated");
+        const value = cellValueOf(cell);
         for (let i = 0; i < repeat; i++) cells.push(value);
       }
 
       while (cells.length && cells[cells.length - 1] === "") cells.pop();
       for (let i = 0; i < rowRepeat; i++) rows.push([...cells]);
     }
+
 
     while (rows.length && rows[rows.length - 1].every((c) => c === "")) rows.pop();
     sheets.push({ name, rows });
