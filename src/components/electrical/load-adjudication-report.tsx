@@ -23,6 +23,7 @@ import {
 import { buildProductionAdjudicationInput } from "@/lib/electrical-load-adjudication-production";
 import { listAdjudicatedLoads } from "@/lib/load-adjudication.functions";
 import { BryantVoltageApplyGate } from "@/components/electrical/bryant-voltage-apply-gate";
+import { CanonicalOdsCorrectionQueue } from "@/components/electrical/canonical-ods-correction-queue";
 import {
   AdjudicationBaselinePicker,
   type AttachedBaseline,
@@ -101,11 +102,21 @@ export function LoadAdjudicationReport() {
 
       <CollapsibleSection
         title="Bryant nominal supply voltage correction (FS-082, FS-083)"
-        subtitle="Preview-first, per-row approved correction of electrical_loads.volts 120 → 240, authorized only by the Phase 4.4a baseline workbook. Nothing else is written; adjudication history is preserved."
+        subtitle="Preview-first gate over electrical_loads.volts, authorized only by the Phase 4.4a baseline workbook. Rows whose FarmOps value already matches the verified nominal supply while the canonical workbook disagrees are classified CANONICAL_ODS_VALUE_INCOMPATIBLE_WITH_VERIFIED_EQUIPMENT and carry no FarmOps write."
         badges={<Badge variant="secondary">Apply gate</Badge>}
       >
         <BryantVoltageApplyGate baseline={gateBaseline} onRevalidate={revalidate} />
       </CollapsibleSection>
+
+      {report && attached ? (
+        <CollapsibleSection
+          title="Canonical ODS correction queue"
+          subtitle="Findings where the canonical workbook is the record in error and the FarmOps engineering value is supported. Read-only export for the controlled ODS workflow — no FarmOps write, no ODS edit."
+          badges={<Badge variant="outline">Read-only</Badge>}
+        >
+          <CanonicalOdsCorrectionQueue report={report} baseline={attached.baseline} />
+        </CollapsibleSection>
+      ) : null}
 
       {!report ? (
         <Card>
