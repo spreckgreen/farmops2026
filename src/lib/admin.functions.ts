@@ -12,6 +12,7 @@
 
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { isElectricianScoped } from "@/lib/electrical-access";
 
 /**
  * `electrician` is a scoped role, not a rank: it grants no app-wide editing and
