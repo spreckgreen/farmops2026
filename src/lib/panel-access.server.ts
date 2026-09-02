@@ -11,13 +11,16 @@ export type NotifyResult = {
 
 interface RequestNotice {
   panelId: string;
-  /** What was asked for: a panel correction window or wider system-data read. */
-  scope?: "panel_edit" | "system_data";
+  /** What was asked for: a panel correction window or a wider read scope. */
+  scope?: "panel_edit" | "building_data" | "site_data" | "system_data";
+  /** Building / site name the wider scope applies to. */
+  scopeDetail?: string | null;
   requesterEmail: string | null;
   reason: string | null;
   requestedAt: string;
   reviewUrl: string;
 }
+
 
 /**
  * Email every administrator about a pending request. Returns why it did or did
