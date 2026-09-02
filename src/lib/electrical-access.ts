@@ -54,7 +54,6 @@ export const ELECTRICIAN_VIEWABLE_SECTIONS: ElectricalSection[] = [
   "topology",
   "workbook",
   "labels",
-  "qa",
   "standards",
   "panel",
 ];
