@@ -10,7 +10,9 @@
 // Photo scenarios are never cached — the image is the question.
 import type { ElectricalAiAnswer } from "@/lib/electrical-ai.functions";
 
-const STORAGE_KEY = "farmops.electrical-ai-cache.v1";
+// Bump whenever record matching / grounding semantics change. This prevents an
+// answer produced by an older matcher from surviving after the code is fixed.
+const STORAGE_KEY = "farmops.electrical-ai-cache.v2";
 export const ELECTRICAL_AI_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const MAX_ENTRIES = 25;
 

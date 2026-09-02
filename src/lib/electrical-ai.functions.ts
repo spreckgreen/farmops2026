@@ -232,6 +232,11 @@ async function buildRecordContext(supabase: unknown, question: string) {
   });
 }
 
+function containsEveryStableId(answer: string, stableIds: string[]): boolean {
+  const normalized = answer.toUpperCase();
+  return stableIds.every((id) => normalized.includes(id.toUpperCase()));
+}
+
 
 export const runElectricalAiScenario = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -256,11 +261,15 @@ export const runElectricalAiScenario = createServerFn({ method: "POST" })
     const contextCounts: Record<string, number> = {};
     let system = "";
     let contextBlock = "";
+    let groundedLoadAnswer: string | null = null;
+    let matchedLoadIds: string[] = [];
 
     if (def.id === "panel_qa" || def.id === "topology_explain") {
       const built = await buildRecordContext(context.supabase, question);
       Object.assign(contextCounts, built.counts);
       contextBlock = built.block;
+      groundedLoadAnswer = built.groundedLoadAnswer;
+      matchedLoadIds = built.matchedLoadIds;
 
       const loadFirstRules =
         "Most questions here are one of three kinds: (a) a LOAD question ('which panel are the " +
@@ -430,6 +439,14 @@ export const runElectricalAiScenario = createServerFn({ method: "POST" })
       },
     );
 
+    // Small local models can ignore even a focused answer set and summarize the
+    // surrounding panel inventory instead. Never return that non-answer: if the
+    // matcher found loads, every matched stable ID must appear in the response.
+    const answer =
+      groundedLoadAnswer && !containsEveryStableId(run.value, matchedLoadIds)
+        ? groundedLoadAnswer
+        : run.value;
+
     return {
       scenario: def.id,
       area: def.area,
@@ -437,7 +454,7 @@ export const runElectricalAiScenario = createServerFn({ method: "POST" })
       engineLabel: ai.engineLabel,
       model: run.modelId,
       backend: run.backend,
-      answer: run.value,
+      answer,
       contextCounts,
       ...(def.input === "photo"
         ? { nameplate: nameplateFields(parseNameplateDraft(run.value)) }
