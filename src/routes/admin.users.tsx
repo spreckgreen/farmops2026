@@ -506,6 +506,46 @@ function UserRow({ user, currentUserId }: { user: ManagedUser; currentUserId: st
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog
+        open={disableOpen}
+        onOpenChange={(o) => { setDisableOpen(o); if (!o) setDisableReason(""); }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Disable account</DialogTitle>
+            <DialogDescription>
+              <span className="font-mono">{user.email ?? user.id}</span> keeps their
+              approval, roles and data — they simply can't use the app until you
+              enable them again. This is separate from rejecting a sign-up and from
+              revoking an add-on, and carries no revocation strike.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="disable-reason">Reason (shown to the user, optional)</Label>
+            <Input
+              id="disable-reason"
+              value={disableReason}
+              onChange={(e) => setDisableReason(e.target.value)}
+              placeholder="e.g. Contractor off site until spring"
+              maxLength={300}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setDisableOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => disableMut.mutate({ disabled: true, reason: disableReason })}
+              disabled={disableMut.isPending}
+            >
+              {disableMut.isPending ? "Disabling…" : "Disable account"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </TableRow>
   );
 }
