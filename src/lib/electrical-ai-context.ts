@@ -38,41 +38,44 @@ const STOPWORDS = new Set([
   "all", "any", "there", "have", "has", "it", "its", "power", "powered",
   "explain", "know", "known", "today", "associated", "full", "unknown", "path",
   "route", "routed", "too", "also", "you", "your", "their", "they", "can", "will",
+  // Status words appear on nearly every row, so they can never select equipment.
+  "planned", "plan", "installed", "install", "existing", "future", "proposed",
+  "complete", "completed", "tbd", "yes", "no", "none",
 ]);
 
 /**
  * Equipment vocabulary. Field questions rarely use the word the record uses:
- * "mini-splits" must find rows described as "Mini Split SE", and a question about
- * the "ductless heat pumps" or "condensers" has to reach the same three rows.
- * Any trigger stem in the question pulls in every sibling term.
+ * "mini-splits" must find rows described as "Mini Split SE", and asking about the
+ * "ductless heat pumps" has to reach those same three rows. Synonyms are weaker
+ * evidence than the words actually typed, so they are scored lower (see `rank`)
+ * and are expanded from the typed words only — never from other synonyms, which
+ * is how "mini-split" used to drag in every welder and fan on the farm.
  */
 const SYNONYM_GROUPS: readonly { triggers: string[]; terms: string[] }[] = [
   {
-    triggers: ["mini", "minisplit", "split", "ductless", "heatpump", "hvac", "condenser"],
-    terms: [
-      "mini", "split", "minisplit", "ductless", "condenser", "handler", "hvac",
-      "heatpump", "cassette", "ashp", "compressor",
-    ],
+    triggers: ["mini", "minisplit", "split", "ductless", "heatpump", "condenser", "hvac"],
+    terms: ["mini", "split", "minisplit", "ductless", "condenser", "cassette", "ashp", "hvac"],
   },
-  { triggers: ["pump", "well"], terms: ["pump", "well", "booster", "sump"] },
+  { triggers: ["pump", "well"], terms: ["pump", "well", "booster"] },
   {
     triggers: ["heater", "boiler", "furnace"],
-    terms: ["heater", "heat", "boiler", "furnace", "element", "tankle"],
+    terms: ["heater", "heat", "boiler", "furnace", "element"],
   },
   {
     triggers: ["freezer", "fridge", "refrigerator", "cooler"],
-    terms: ["freezer", "fridge", "refrigerator", "cooler", "chest", "walkin"],
+    terms: ["freezer", "fridge", "refrigerator", "cooler", "walkin"],
   },
-  { triggers: ["ev", "evse", "charger"], terms: ["ev", "evse", "charger", "charging"] },
+  { triggers: ["evse", "charger"], terms: ["evse", "charger", "charging"] },
   {
     triggers: ["light", "lighting", "fixture"],
-    terms: ["light", "lighting", "fixture", "lamp", "highbay"],
+    terms: ["light", "lighting", "fixture", "lamp", "highbay", "led"],
   },
   {
     triggers: ["outlet", "receptacle", "plug", "gfci"],
-    terms: ["outlet", "receptacle", "plug", "gfci", "duplex"],
+    terms: ["outlet", "receptacle", "plug", "gfci", "duplex", "gang"],
   },
-  { triggers: ["welder", "compressor"], terms: ["welder", "compressor", "air"] },
+  { triggers: ["welder"], terms: ["welder", "welding"] },
+  { triggers: ["compressor"], terms: ["compressor"] },
   { triggers: ["fan", "vent", "exhaust"], terms: ["fan", "vent", "exhaust", "blower"] },
 ];
 
@@ -83,16 +86,15 @@ function stem(word: string): string {
   return w;
 }
 
-
-/** Content words from the question, stemmed; stopwords and short words dropped. */
+/** Content words actually typed in the question, stemmed; stopwords dropped. */
 export function questionTerms(question: string | undefined): string[] {
   if (!question) return [];
   const out = new Set<string>();
   const push = (word: string) => {
     const w = word.toLowerCase().replace(/[^a-z0-9]/g, "");
-    if (w.length < 2 || STOPWORDS.has(w)) return;
+    if (STOPWORDS.has(w)) return;
     const s = stem(w);
-    if (s.length < 2 || STOPWORDS.has(s)) return;
+    if (s.length < 3 || STOPWORDS.has(s)) return;
     out.add(s);
   };
   for (const raw of question.toLowerCase().split(/[^a-z0-9-]+/)) {
@@ -101,13 +103,23 @@ export function questionTerms(question: string | undefined): string[] {
     push(raw.replace(/-/g, ""));
     for (const part of raw.split("-")) push(part);
   }
+  return [...out];
+}
+
+/** Equipment synonyms triggered by the typed words (never by other synonyms). */
+export function questionSynonyms(terms: string[]): string[] {
+  const base = new Set(terms);
+  const out = new Set<string>();
   for (const group of SYNONYM_GROUPS) {
-    if (group.triggers.some((t) => out.has(stem(t)))) {
-      for (const t of group.terms) out.add(stem(t));
+    if (!group.triggers.some((t) => base.has(stem(t)))) continue;
+    for (const t of group.terms) {
+      const s = stem(t);
+      if (s.length >= 3 && !base.has(s)) out.add(s);
     }
   }
-  return [...out].filter((t) => t.length >= 3);
+  return [...out];
 }
+
 
 
 function str(v: unknown): string {
