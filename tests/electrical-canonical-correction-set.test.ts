@@ -5,10 +5,34 @@ import {
   canonicalCorrectionSetMarkdown,
 } from "@/lib/electrical-canonical-correction-set";
 import { PHASE_44A_BASELINE_SHA256 } from "@/lib/electrical-adjudication-baseline";
+import { openQuestionsFor } from "@/lib/electrical-adjudication-baseline";
 import { testBaseline } from "./helpers/adjudication-baseline";
 
+// Canonical rows as the SHA-verified workbook records them for this manifest:
+// FS-082/083 Volts = 120 with Amps = 0, FS-084 Amps = 60 with 14,400 VA.
+const LOADS = [
+  ["FS-082", "Mini Split SE", 82, 120, 0, null],
+  ["FS-083", "Mini Split E", 83, 120, 0, null],
+  ["FS-084", "Mini Split W", 84, 240, 60, 14400],
+] as const;
+
+const baseline = () =>
+  testBaseline({
+    loads: LOADS.map(([stable_id, description, row, volts, amps, connected_va]) => ({
+      stable_id,
+      description,
+      worksheet: "Loads",
+      row,
+      volts,
+      amps,
+      connected_va,
+      open_questions: openQuestionsFor(stable_id),
+    })),
+  });
+
 describe("Phase 4.4c canonical correction-set manifest", () => {
-  const set = buildCanonicalCorrectionSet(testBaseline(), "2026-09-02T06:00:00.000Z");
+  const set = buildCanonicalCorrectionSet(baseline(), "2026-09-02T06:00:00.000Z");
+
 
   it("headlines 2 approved / 4 withheld / baseline unmodified", () => {
     expect(set.headline).toEqual({
