@@ -102,6 +102,8 @@ export function CurrentSemanticsClosurePanel({
                   <th className="p-2">Semantic candidate</th>
                   <th className="p-2">Supporting rows</th>
                   <th className="p-2">Contradictory rows</th>
+                  <th className="p-2">Indeterminate rows</th>
+                  <th className="p-2">Representative stable IDs</th>
                   <th className="p-2">Confidence</th>
                   <th className="p-2">Migration impact</th>
                 </tr>
@@ -126,6 +128,13 @@ export function CurrentSemanticsClosurePanel({
                       {c.contradictory_rows.length ? c.contradictory_rows.join(", ") : "none"}
                       <p className="text-muted-foreground">{c.contradictory_basis}</p>
                     </td>
+                    <td className="p-2">
+                      {c.indeterminate_rows.length}
+                      <p className="text-muted-foreground">{c.indeterminate_basis}</p>
+                    </td>
+                    <td className="p-2 font-mono">
+                      {c.representative_stable_ids.join(", ") || "none"}
+                    </td>
                     <td className="p-2">{CONFIDENCE_LABELS[c.confidence]}</td>
                     <td className="p-2 text-muted-foreground">{c.migration_impact}</td>
                   </tr>
@@ -133,6 +142,65 @@ export function CurrentSemanticsClosurePanel({
               </tbody>
             </table>
           </div>
+
+          <div className="rounded-md border p-3">
+            <p className="font-medium">Bryant evidence preserved independently</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {plan.bryant_evidence.equipment_model} · applies to{" "}
+              {plan.bryant_evidence.applies_to.join(", ")}
+            </p>
+            <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
+              {plan.bryant_evidence.quantities.map((q) => (
+                <li key={q.quantity}>
+                  <span className="font-mono text-foreground">
+                    {q.quantity} = {q.value === null ? "NULL / unverified" : `${q.value} A`}
+                  </span>{" "}
+                  → <span className="font-mono">{q.field ?? "none"}</span> — {q.status}
+                </li>
+              ))}
+            </ul>
+            <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-muted-foreground">
+              {plan.bryant_evidence.preservation_rules.map((r) => (
+                <li key={r}>{r}</li>
+              ))}
+            </ul>
+          </div>
+
+          <div className="rounded-md border p-3">
+            <p className="font-medium">
+              Current semantics unresolved findings ({plan.unresolved_findings.length})
+            </p>
+            <div className="mt-2 space-y-3">
+              {plan.unresolved_findings.map((f) => (
+                <div key={f.finding_id} className="rounded-md bg-muted/40 p-3">
+                  <p className="font-mono text-sm">
+                    {f.finding_id} · {f.stable_id} ·{" "}
+                    {f.system === "canonical_ods" ? "canonical ODS" : "FarmOps"}
+                  </p>
+                  <p className="text-xs">
+                    <span className="font-mono">{f.field}</span> = {f.value === null ? "blank" : f.value}{" "}
+                    <Badge variant="secondary" className="ml-1 font-mono">
+                      {f.classification}
+                    </Badge>
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">{f.why_open}</p>
+                  <p className="mt-1 text-xs font-medium">Required to resolve</p>
+                  <ul className="list-disc space-y-1 pl-5 text-xs text-muted-foreground">
+                    {f.required_to_resolve.map((r) => (
+                      <li key={r}>{r}</li>
+                    ))}
+                  </ul>
+                  <p className="mt-1 text-xs font-medium">Excluded as evidence</p>
+                  <ul className="list-disc space-y-1 pl-5 text-xs text-muted-foreground">
+                    {f.excluded_as_evidence.map((x) => (
+                      <li key={x}>{x}</li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          </div>
+
 
           <div className="rounded-md border p-3">
             <p className="font-medium">Minimum additive target schema</p>
