@@ -261,7 +261,13 @@ function Assistant() {
             and submit them — an administrator approves them in Admin → Users.
           </CardContent>
         </Card>
-        <FeatureRequestCard features={data?.features ?? []} />
+        <FeatureRequestCard
+          features={data?.features ?? []}
+          granted={granted.map((s) => s.id)}
+          isOn={(id) => featureOn(id)}
+          onToggle={(id, on) => setFeature(electricalAiFeatureKey(id), on)}
+          masterOff={!aiSettings.masterEnabled}
+        />
       </div>
     );
   }
