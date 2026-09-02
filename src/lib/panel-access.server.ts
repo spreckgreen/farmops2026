@@ -77,7 +77,8 @@ export async function notifyAdminsOfPanelRequest(notice: RequestNotice): Promise
 export async function notifyRequesterOfDecision(input: {
   requesterEmail: string | null;
   panelId: string;
-  scope: "panel_edit" | "system_data";
+  scope: "panel_edit" | "building_data" | "site_data" | "system_data";
+  scopeDetail?: string | null;
   status: "approved" | "declined" | "revoked";
   expiresAt: string | null;
   note: string | null;
@@ -93,6 +94,7 @@ export async function notifyRequesterOfDecision(input: {
     panelAccessDecisionEmail({
       panelId: input.panelId,
       scope: input.scope,
+      scopeDetail: input.scopeDetail ?? null,
       status: input.status,
       expiresAt: input.expiresAt,
       note: input.note,
@@ -101,6 +103,7 @@ export async function notifyRequesterOfDecision(input: {
   );
   return { emailed: outcome.sent, recipients: 1, reason: outcome.reason };
 }
+
 
 /** Look up requester emails for the admin queue without exposing other claims. */
 export async function requesterEmails(userIds: string[]): Promise<Record<string, string>> {
