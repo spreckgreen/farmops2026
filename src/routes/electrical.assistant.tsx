@@ -3,13 +3,15 @@
 // their add-on covers. Model/engine choice is configured in Admin → AI runtime.
 import { useEffect, useMemo, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { ElectricalGate } from "@/components/electrical/electrical-gate";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
@@ -17,8 +19,10 @@ import {
   ELECTRICAL_AI_SCENARIOS,
   type ElectricalAiScenarioId,
 } from "@/lib/electrical-ai-scenarios";
+import { requestElectricalAiFeatures } from "@/lib/electrical-ai-access.functions";
 import {
   listElectricalAiScenarios,
+  type ElectricalAiFeatureState,
   runElectricalAiScenario,
   type ElectricalAiAnswer,
 } from "@/lib/electrical-ai.functions";
@@ -108,15 +112,18 @@ function Assistant() {
 
   if (allowed.length === 0) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">No AI scenarios for your access</CardTitle>
-        </CardHeader>
-        <CardContent className="text-sm text-muted-foreground">
-          Your electrical access does not cover any AI scenario yet. An administrator can
-          widen it in Admin → Users.
-        </CardContent>
-      </Card>
+      <div className="space-y-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">No AI scenarios enabled yet</CardTitle>
+          </CardHeader>
+          <CardContent className="text-sm text-muted-foreground">
+            Nothing is enabled for your access yet. Tick the AI features you need below
+            and submit them — an administrator approves them in Admin → Users.
+          </CardContent>
+        </Card>
+        <FeatureRequestCard features={data?.features ?? []} />
+      </div>
     );
   }
 
@@ -211,6 +218,8 @@ function Assistant() {
         </CardContent>
       </Card>
 
+      <FeatureRequestCard features={data?.features ?? []} />
+
       {answer ? (
         <Card>
           <CardHeader className="space-y-1">
@@ -234,5 +243,125 @@ function Assistant() {
         </Card>
       ) : null}
     </div>
+  );
+}
+
+const REQUEST_STATUS_LABEL: Record<string, string> = {
+  pending: "Awaiting admin approval",
+  approved: "Approved",
+  rejected: "Not approved",
+  revoked: "Access removed",
+};
+
+/**
+ * The electrician's own view of the AI feature catalogue: everything on offer,
+ * what is already enabled, and a request basket for the rest. Approval is an
+ * admin decision — ticking here only submits the ask.
+ */
+function FeatureRequestCard({ features }: { features: ElectricalAiFeatureState[] }) {
+  const qc = useQueryClient();
+  const submit = useServerFn(requestElectricalAiFeatures);
+  const [picked, setPicked] = useState<ElectricalAiScenarioId[]>([]);
+  const [note, setNote] = useState("");
+
+  const mutation = useMutation({
+    mutationFn: () => submit({ data: { scenarios: picked, note: note.trim() || undefined } }),
+    onSuccess: () => {
+      toast.success("Sent for admin approval.");
+      setPicked([]);
+      setNote("");
+      qc.invalidateQueries({ queryKey: ["electrical-ai-scenarios"] });
+    },
+    onError: (e: unknown) =>
+      toast.error(e instanceof Error ? e.message : "Could not submit the request"),
+  });
+
+  if (features.length === 0) return null;
+  const anyRequestable = features.some((f) => f.requestable);
+
+  const toggle = (id: ElectricalAiScenarioId, on: boolean) =>
+    setPicked((prev) => (on ? [...new Set([...prev, id])] : prev.filter((x) => x !== id)));
+
+  return (
+    <Card>
+      <CardHeader className="space-y-1">
+        <CardTitle className="text-base">AI features available to you</CardTitle>
+        <p className="text-sm text-muted-foreground">
+          Everything the Electrical pane can do with AI. Tick what you need and submit it
+          for administrator approval — approval enables the scenario only, never extra
+          data access.
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="space-y-2">
+          {ELECTRICAL_AI_SCENARIOS.map((def) => {
+            const state = features.find((f) => f.id === def.id);
+            if (!state) return null;
+            return (
+              <div key={def.id} className="flex items-start gap-3 rounded-md border p-3">
+                <Checkbox
+                  className="mt-0.5"
+                  checked={picked.includes(def.id)}
+                  disabled={!state.requestable || mutation.isPending}
+                  onCheckedChange={(c) => toggle(def.id, c === true)}
+                  aria-label={`Request ${def.label}`}
+                />
+                <div className="min-w-0 space-y-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm font-medium">{def.label}</span>
+                    {state.available ? (
+                      <Badge variant="secondary">
+                        {state.granted ? "Enabled by admin" : "Enabled"}
+                      </Badge>
+                    ) : state.requestStatus ? (
+                      <Badge
+                        variant={state.requestStatus === "pending" ? "outline" : "destructive"}
+                      >
+                        {REQUEST_STATUS_LABEL[state.requestStatus]}
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline">Not enabled</Badge>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground">{def.description}</p>
+                  {state.decisionNote ? (
+                    <p className="text-xs text-muted-foreground">
+                      Admin note: {state.decisionNote}
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {anyRequestable ? (
+          <div className="space-y-2">
+            <Label htmlFor="ai-request-note">Why you need it (optional)</Label>
+            <Input
+              id="ai-request-note"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Reconciling PNL-H1 field notes this week"
+              maxLength={500}
+            />
+            <Button
+              variant="outline"
+              onClick={() => mutation.mutate()}
+              disabled={picked.length === 0 || mutation.isPending}
+            >
+              {mutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Submitting…
+                </>
+              ) : (
+                `Request approval${picked.length ? ` (${picked.length})` : ""}`
+              )}
+            </Button>
+          </div>
+        ) : null}
+      </CardContent>
+    </Card>
   );
 }
