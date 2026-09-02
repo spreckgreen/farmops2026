@@ -18,7 +18,10 @@ const base: PanelEditRequest = {
   requester_id: "u1",
   requester_email: "sparky@example.com",
   reason: "breaker 29 mislabelled",
+  scope: "panel_edit",
+  scope_detail: null,
   status: "pending",
+
   decided_by: null,
   decided_at: null,
   decision_note: null,
