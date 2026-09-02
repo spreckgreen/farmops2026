@@ -68,6 +68,7 @@ import { Route as ElectricalLabelsRouteImport } from './routes/electrical.labels
 import { Route as ElectricalImportRouteImport } from './routes/electrical.import'
 import { Route as ElectricalExportRouteImport } from './routes/electrical.export'
 import { Route as ElectricalDiagramsRouteImport } from './routes/electrical.diagrams'
+import { Route as ElectricalChangesRouteImport } from './routes/electrical.changes'
 import { Route as ElectricalAdjudicationRouteImport } from './routes/electrical.adjudication'
 import { Route as ElectricalKindRouteImport } from './routes/electrical.$kind'
 import { Route as AdminVaultSecretsRouteImport } from './routes/admin.vault-secrets'
@@ -392,6 +393,11 @@ const ElectricalDiagramsRoute = ElectricalDiagramsRouteImport.update({
   path: '/electrical/diagrams',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ElectricalChangesRoute = ElectricalChangesRouteImport.update({
+  id: '/electrical/changes',
+  path: '/electrical/changes',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ElectricalAdjudicationRoute = ElectricalAdjudicationRouteImport.update({
   id: '/electrical/adjudication',
   path: '/electrical/adjudication',
@@ -566,6 +572,7 @@ export interface FileRoutesByFullPath {
   '/admin/vault-secrets': typeof AdminVaultSecretsRoute
   '/electrical/$kind': typeof ElectricalKindRoute
   '/electrical/adjudication': typeof ElectricalAdjudicationRoute
+  '/electrical/changes': typeof ElectricalChangesRoute
   '/electrical/diagrams': typeof ElectricalDiagramsRoute
   '/electrical/export': typeof ElectricalExportRoute
   '/electrical/import': typeof ElectricalImportRoute
@@ -651,6 +658,7 @@ export interface FileRoutesByTo {
   '/admin/vault-secrets': typeof AdminVaultSecretsRoute
   '/electrical/$kind': typeof ElectricalKindRoute
   '/electrical/adjudication': typeof ElectricalAdjudicationRoute
+  '/electrical/changes': typeof ElectricalChangesRoute
   '/electrical/diagrams': typeof ElectricalDiagramsRoute
   '/electrical/export': typeof ElectricalExportRoute
   '/electrical/import': typeof ElectricalImportRoute
@@ -740,6 +748,7 @@ export interface FileRoutesById {
   '/admin/vault-secrets': typeof AdminVaultSecretsRoute
   '/electrical/$kind': typeof ElectricalKindRoute
   '/electrical/adjudication': typeof ElectricalAdjudicationRoute
+  '/electrical/changes': typeof ElectricalChangesRoute
   '/electrical/diagrams': typeof ElectricalDiagramsRoute
   '/electrical/export': typeof ElectricalExportRoute
   '/electrical/import': typeof ElectricalImportRoute
@@ -830,6 +839,7 @@ export interface FileRouteTypes {
     | '/admin/vault-secrets'
     | '/electrical/$kind'
     | '/electrical/adjudication'
+    | '/electrical/changes'
     | '/electrical/diagrams'
     | '/electrical/export'
     | '/electrical/import'
@@ -915,6 +925,7 @@ export interface FileRouteTypes {
     | '/admin/vault-secrets'
     | '/electrical/$kind'
     | '/electrical/adjudication'
+    | '/electrical/changes'
     | '/electrical/diagrams'
     | '/electrical/export'
     | '/electrical/import'
@@ -1003,6 +1014,7 @@ export interface FileRouteTypes {
     | '/admin/vault-secrets'
     | '/electrical/$kind'
     | '/electrical/adjudication'
+    | '/electrical/changes'
     | '/electrical/diagrams'
     | '/electrical/export'
     | '/electrical/import'
@@ -1092,6 +1104,7 @@ export interface RootRouteChildren {
   AdminVaultSecretsRoute: typeof AdminVaultSecretsRoute
   ElectricalKindRoute: typeof ElectricalKindRoute
   ElectricalAdjudicationRoute: typeof ElectricalAdjudicationRoute
+  ElectricalChangesRoute: typeof ElectricalChangesRoute
   ElectricalDiagramsRoute: typeof ElectricalDiagramsRoute
   ElectricalExportRoute: typeof ElectricalExportRoute
   ElectricalImportRoute: typeof ElectricalImportRoute
@@ -1539,6 +1552,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ElectricalDiagramsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/electrical/changes': {
+      id: '/electrical/changes'
+      path: '/electrical/changes'
+      fullPath: '/electrical/changes'
+      preLoaderRoute: typeof ElectricalChangesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/electrical/adjudication': {
       id: '/electrical/adjudication'
       path: '/electrical/adjudication'
@@ -1857,6 +1877,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminVaultSecretsRoute: AdminVaultSecretsRoute,
   ElectricalKindRoute: ElectricalKindRoute,
   ElectricalAdjudicationRoute: ElectricalAdjudicationRoute,
+  ElectricalChangesRoute: ElectricalChangesRoute,
   ElectricalDiagramsRoute: ElectricalDiagramsRoute,
   ElectricalExportRoute: ElectricalExportRoute,
   ElectricalImportRoute: ElectricalImportRoute,
