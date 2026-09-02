@@ -43,11 +43,11 @@ describe("electrical AI 24h answer cache", () => {
   it("expires entries older than 24 hours", () => {
     writeCachedAnswer("panel_qa", "q", answer);
     const raw = JSON.parse(
-      window.localStorage.getItem("farmops.electrical-ai-cache.v1")!,
+      window.localStorage.getItem("farmops.electrical-ai-cache.v2")!,
     );
     raw[0].cachedAt = Date.now() - ELECTRICAL_AI_CACHE_TTL_MS - 1000;
     window.localStorage.setItem(
-      "farmops.electrical-ai-cache.v1",
+      "farmops.electrical-ai-cache.v2",
       JSON.stringify(raw),
     );
     expect(readCachedAnswer("panel_qa", "q")).toBeNull();
