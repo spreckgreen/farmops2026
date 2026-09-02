@@ -10,6 +10,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { Download, Grid3x3, RefreshCw } from "lucide-react";
 
 import { ElectricalGate } from "@/components/electrical/electrical-gate";
+import { GridApplyGate } from "@/components/electrical/grid-apply-gate";
 import { PersistedSection } from "@/components/electrical/persisted-section";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
