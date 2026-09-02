@@ -49,13 +49,13 @@ export const fetchFs084Provenance = createServerFn({ method: "GET" })
     // Field-level audit entries touching amps.
     const { data: audit } = await supabase
       .from("electrical_change_audit")
-      .select("record_id, field_name, entity_table")
-      .in("record_id", uuids);
+      .select("entity_uuid, changes, section")
+      .in("entity_uuid", uuids);
 
     // Breaker positions referencing these loads.
     const { data: breakers } = await supabase
       .from("electrical_breaker_positions")
-      .select("load_uuid, label, ocp_amps, poles, breaker_amps")
+      .select("load_uuid, label, ocp_amps, poles")
       .in("load_uuid", uuids);
 
     // Branch runs referencing these loads.
@@ -74,18 +74,18 @@ export const fetchFs084Provenance = createServerFn({ method: "GET" })
       const r = raw as Record<string, unknown>;
       const uuid = String(r["id"] ?? "");
       const created = (r["created_at"] as string | null) ?? null;
-      const ampsAudit = (audit ?? []).filter(
-        (a) =>
-          (a as { record_id: string }).record_id === uuid &&
-          String((a as { field_name: string | null }).field_name ?? "")
-            .toLowerCase()
-            .includes("amp"),
-      ).length;
+      const ampsAudit = (audit ?? []).filter((a) => {
+        const row = a as { entity_uuid: string | null; changes: unknown; section: string | null };
+        if (row.entity_uuid !== uuid) return false;
+        const changed = row.changes && typeof row.changes === "object" ? row.changes : {};
+        const keys = Object.keys(changed as Record<string, unknown>).map((k) => k.toLowerCase());
+        return keys.some((k) => k.includes("amp"));
+      }).length;
       const breakerLinks = (breakers ?? [])
         .filter((b) => (b as { load_uuid: string | null }).load_uuid === uuid)
         .map((b) => {
           const row = b as Record<string, unknown>;
-          const ocp = row["ocp_amps"] ?? row["breaker_amps"];
+          const ocp = row["ocp_amps"];
           return {
             label: (row["label"] as string | null) ?? null,
             ocp_amps: typeof ocp === "number" ? ocp : null,
@@ -116,9 +116,9 @@ export const fetchFs084Provenance = createServerFn({ method: "GET" })
         notes: strOrNull("notes"),
         source_reference: strOrNull("source_reference"),
         source_circuit: strOrNull("source_circuit"),
-        circuit_group_ref: strOrNull("circuit_group_ref") ?? strOrNull("group_id"),
-        equipment_model: strOrNull("equipment_model") ?? strOrNull("model"),
-        ods_extras: strOrNull("ods_extras") ?? strOrNull("extra_fields"),
+        circuit_group_ref: strOrNull("circuit_group_ref"),
+        equipment_model: strOrNull("equipment_model"),
+        ods_extras: strOrNull("ods_extras"),
         created_at: created,
         updated_at: strOrNull("updated_at"),
         creation_batch_size: batchCounts.get(batchKey(created)) ?? (created ? 1 : 0),
