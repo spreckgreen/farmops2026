@@ -420,3 +420,86 @@ export const runElectricalAiScenario = createServerFn({ method: "POST" })
       escalation: run.escalation,
     };
   });
+
+/**
+ * Pre-flight estimate for one question: how much record it has to send, whether
+ * the self-hosted model is likely to cope, and what a cloud run would cost.
+ * The UI shows this before spending two minutes of local GPU on a non-answer.
+ */
+export interface ElectricalAiEstimate {
+  scenario: ElectricalAiScenarioId;
+  area: string;
+  areaLabel: string;
+  backend: string;
+  engineLabel: string;
+  localModel: string | null;
+  hostedModel: string | null;
+  hostedAvailable: boolean;
+  contextTokens: number;
+  /** Loads whose text matched the question — reassures that data was found. */
+  matchedLoadIds: string[];
+  recommendCloud: boolean;
+  reason: string;
+  costLabel: string;
+  costUsd: number | null;
+}
+
+const EstimateInput = z.object({
+  scenario: z.string().refine(isElectricalAiScenarioId, "Unknown scenario"),
+  text: z.string().trim().max(2000).optional(),
+});
+
+export const estimateElectricalAiRun = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => EstimateInput.parse(d))
+  .handler(async ({ data, context }): Promise<ElectricalAiEstimate> => {
+    const def = getElectricalAiScenario(data.scenario as ElectricalAiScenarioId);
+    const { isAdmin, access, grants } = await resolveScope(
+      context.supabase,
+      context.userId,
+    );
+    if (!canRunElectricalAiScenario({ access, isAdmin, grants }, def)) {
+      throw new Error(ELECTRICAL_AI_DENIED);
+    }
+
+    const question = (data.text ?? "").trim();
+    let contextTokens = 0;
+    let matchedLoadIds: string[] = [];
+    if (def.id === "panel_qa" || def.id === "topology_explain") {
+      const built = await buildRecordContext(context.supabase, question);
+      contextTokens = built.approxTokens;
+      matchedLoadIds = built.matchedLoadIds;
+    }
+
+    const { resolveAreaAi } = await import("@/lib/ai-routing.server");
+    const { buildCloudOffer } = await import("@/lib/ai-escalation-offer");
+    const ai = await resolveAreaAi(def.area, {
+      hostedDefaultModel: "google/gemini-3.6-flash",
+      client: context.supabase,
+    });
+    const offer = buildCloudOffer({
+      area: def.area,
+      backend: ai.backend,
+      localModel: ai.backend === "local" ? ai.modelId : null,
+      hostedModel: ai.hostedModelId,
+      hostedAvailable: Boolean(ai.hostedProvider),
+      contextTokens,
+    });
+
+    return {
+      scenario: def.id,
+      area: def.area,
+      areaLabel: ai.areaLabel,
+      backend: ai.backend,
+      engineLabel: ai.engineLabel,
+      localModel: offer.localModel,
+      hostedModel: offer.hostedModel,
+      hostedAvailable: Boolean(ai.hostedProvider),
+      contextTokens,
+      matchedLoadIds: matchedLoadIds.slice(0, 40),
+      recommendCloud: offer.recommended,
+      reason: offer.reason,
+      costLabel: offer.costLabel,
+      costUsd: offer.cost?.usd ?? null,
+    };
+  });
