@@ -346,6 +346,8 @@ function PanelDiagramPage() {
   });
   const [selected, setSelected] = useState<string>("");
   const [loadQuery, setLoadQuery] = useState("");
+  const [mode, setMode] = useState<ViewMode>("planned");
+
 
   const panels = q.data?.panels ?? [];
   useEffect(() => {
