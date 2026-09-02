@@ -17,11 +17,24 @@ import {
   NOT_IN_RECORD,
   panelMermaid,
   panelReading,
+  plannedMermaid,
+  plannedPanel,
+  plannedReading,
   type DiagramCircuit,
   type DiagramLoad,
   type DiagramPanel,
 } from "@/lib/electrical-panel-diagram";
-import { AlertTriangle, CheckCircle2, RefreshCw, Search, Zap } from "lucide-react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  Network,
+  RefreshCw,
+  Search,
+  Zap,
+} from "lucide-react";
+
 
 export const Route = createFileRoute("/electrical/panel-diagram")({
   ssr: false,
