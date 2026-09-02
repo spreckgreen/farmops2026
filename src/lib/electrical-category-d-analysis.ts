@@ -14,11 +14,13 @@ import type {
   NumericDiagnosticsReport,
   NumericFinding,
 } from "@/lib/electrical-numeric-diagnostics";
+import { CLOSED_DISPOSITIONS } from "@/lib/electrical-convergence";
 
-export const CATEGORY_D_ANALYSIS_VERSION = "4.4b-category-d-provenance-analysis-1";
+export const CATEGORY_D_ANALYSIS_VERSION = "4.4b-category-d-provenance-analysis-2";
 
 /** What is missing before the group could be adjudicated at all. */
 export type MissingProvenance =
+  | "PROVENANCE_ESTABLISHED_NO_FURTHER_EVIDENCE_REQUIRED"
   | "SOURCE_DOCUMENT_REQUIRED"
   | "EQUIPMENT_NAMEPLATE_REQUIRED"
   | "FARMOPS_ZERO_ORIGIN_PROVENANCE_REQUIRED"
@@ -27,6 +29,7 @@ export type MissingProvenance =
   | "FARMOPS_PROVENANCE_REQUIRED"
   | "IDENTITY_OR_MAPPING_PROVENANCE_REQUIRED"
   | "OTHER_PROVENANCE_REQUIRED";
+
 
 export const MISSING_PROVENANCE_LABELS: Record<MissingProvenance, string> = {
   SOURCE_DOCUMENT_REQUIRED:
