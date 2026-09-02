@@ -39,16 +39,18 @@ export const listConnectedVaProvenance = createServerFn({ method: "GET" })
     const audits = new Map<string, number>();
     const { data: auditRows } = await context.supabase
       .from("electrical_change_audit")
-      .select("record_id, stable_id, changed_fields")
+      .select("entity_uuid, entity_ref, changes")
       .eq("entity_kind", "load");
     for (const a of (auditRows ?? []) as {
-      record_id: string | null;
-      stable_id: string | null;
-      changed_fields: unknown;
+      entity_uuid: string | null;
+      entity_ref: string | null;
+      changes: unknown;
     }[]) {
-      const fields = a.changed_fields as Record<string, unknown> | null;
-      if (!fields || !("connected_va" in fields)) continue;
-      const key = a.stable_id ?? a.record_id ?? "";
+      const changes = Array.isArray(a.changes)
+        ? (a.changes as { field?: string }[])
+        : [];
+      if (!changes.some((c) => c.field === "connected_va")) continue;
+      const key = a.entity_ref ?? a.entity_uuid ?? "";
       if (key) audits.set(key, (audits.get(key) ?? 0) + 1);
     }
 
