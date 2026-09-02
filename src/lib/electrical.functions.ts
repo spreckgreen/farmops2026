@@ -8,6 +8,7 @@ import {
   servicePanelDomainFindings,
 } from "@/lib/electrical-service-topology";
 import { requireElectricalAccess } from "@/lib/addons.server";
+import { recordElectricalChange } from "@/lib/electrical-audit.server";
 import {
   ENTITIES,
   ENTITY_KINDS,
@@ -118,7 +119,7 @@ export const saveElectrical = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ context, data }) => {
-    await requireElectricalAccess(context.supabase, context.userId, "write");
+    await requireElectricalAccess(context.supabase, context.userId, "field_write");
     const def = ENTITIES[data.kind];
     const allowed = new Set(writableColumns(data.kind));
     const db = context.supabase as unknown as LooseDb;
@@ -225,6 +226,16 @@ export const saveElectrical = createServerFn({ method: "POST" })
     if (data.id) {
       const { error } = await db.from(def.table).update(patch).eq("id", data.id);
       if (error) throw new Error(error.message);
+      await recordElectricalChange(context.supabase, context.userId, {
+        section: "entities",
+        entityKind: data.kind,
+        action: "update",
+        entityUuid: data.id,
+        entityRef: stableId || String(existing[def.stableIdField] ?? "") || null,
+        summary: `Edited ${def.singular} ${stableId || String(existing[def.stableIdField] ?? "")}`,
+        before: existing,
+        patch,
+      });
       return { ok: true, id: data.id };
     }
     const { data: inserted, error } = await db
@@ -233,7 +244,17 @@ export const saveElectrical = createServerFn({ method: "POST" })
       .select("id")
       .single();
     if (error) throw new Error(error.message);
-    return { ok: true, id: (inserted as { id: string }).id };
+    const newId = (inserted as { id: string }).id;
+    await recordElectricalChange(context.supabase, context.userId, {
+      section: "entities",
+      entityKind: data.kind,
+      action: "create",
+      entityUuid: newId,
+      entityRef: stableId || null,
+      summary: `Created ${def.singular} ${stableId}`,
+      patch,
+    });
+    return { ok: true, id: newId };
   });
 
 
@@ -414,8 +435,13 @@ export const deleteElectrical = createServerFn({ method: "POST" })
     z.object({ kind: kindSchema, id: z.string().uuid() }).parse(d),
   )
   .handler(async ({ context, data }) => {
-    await requireElectricalAccess(context.supabase, context.userId, "write");
-    const { error } = await (context.supabase as unknown as LooseDb)
+    await requireElectricalAccess(context.supabase, context.userId, "field_write");
+    const def = ENTITIES[data.kind];
+    const db = context.supabase as unknown as LooseDb;
+    // Read the row first: once it is gone the audit entry could not say what
+    // was removed, which is the whole point of the review trail.
+    const { data: doomed } = await db.from(def.table).select("*").eq("id", data.id).maybeSingle();
+    const { error } = await db
       .from(ENTITIES[data.kind].table)
       .delete()
       .eq("id", data.id);
@@ -429,6 +455,19 @@ export const deleteElectrical = createServerFn({ method: "POST" })
       }
       throw new Error(error.message);
     }
+    const removed = (doomed ?? {}) as Record<string, unknown>;
+    await recordElectricalChange(context.supabase, context.userId, {
+      section: "entities",
+      entityKind: data.kind,
+      action: "delete",
+      entityUuid: data.id,
+      entityRef: String(removed[def.stableIdField] ?? "") || null,
+      summary: `Deleted ${def.singular} ${String(removed[def.stableIdField] ?? "")}`.trim(),
+      changes: Object.keys(removed)
+        .sort()
+        .filter((c) => removed[c] != null && removed[c] !== "")
+        .map((c) => ({ column: c, before: String(removed[c]), after: null })),
+    });
     return { ok: true };
   });
 
@@ -493,7 +532,7 @@ export const saveWaypoint = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ context, data }) => {
-    await requireElectricalAccess(context.supabase, context.userId, "write");
+    await requireElectricalAccess(context.supabase, context.userId, "field_write");
     const db = context.supabase as unknown as LooseDb;
     const row = {
       raceway_id: data.raceway_id,
@@ -503,13 +542,34 @@ export const saveWaypoint = createServerFn({ method: "POST" })
       notes: data.notes?.trim() || null,
     };
     if (data.id) {
+      const { data: before } = await db
+        .from("electrical_raceway_waypoints")
+        .select("*")
+        .eq("id", data.id)
+        .maybeSingle();
       const { error } = await db.from("electrical_raceway_waypoints").update(row).eq("id", data.id);
       if (error) throw new Error(error.message);
+      await recordElectricalChange(context.supabase, context.userId, {
+        section: "entities",
+        entityKind: "raceway_waypoint",
+        action: "update",
+        entityUuid: data.id,
+        summary: `Edited raceway waypoint ${data.sequence}`,
+        before: (before ?? {}) as Record<string, unknown>,
+        patch: row,
+      });
     } else {
       const { error } = await db
         .from("electrical_raceway_waypoints")
         .insert({ ...row, user_id: context.userId });
       if (error) throw new Error(error.message);
+      await recordElectricalChange(context.supabase, context.userId, {
+        section: "entities",
+        entityKind: "raceway_waypoint",
+        action: "create",
+        summary: `Added raceway waypoint ${data.sequence}`,
+        patch: row,
+      });
     }
     return { ok: true };
   });
@@ -518,12 +578,19 @@ export const deleteWaypoint = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ context, data }) => {
-    await requireElectricalAccess(context.supabase, context.userId, "write");
+    await requireElectricalAccess(context.supabase, context.userId, "field_write");
     const { error } = await (context.supabase as unknown as LooseDb)
       .from("electrical_raceway_waypoints")
       .delete()
       .eq("id", data.id);
     if (error) throw new Error(error.message);
+    await recordElectricalChange(context.supabase, context.userId, {
+      section: "entities",
+      entityKind: "raceway_waypoint",
+      action: "delete",
+      entityUuid: data.id,
+      summary: "Deleted a raceway waypoint",
+    });
     return { ok: true };
   });
 
