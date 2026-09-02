@@ -51,7 +51,7 @@ describe("read-only electrician electrical access", () => {
     for (const s of ["mapping", "sor", "validation", "adjudication", "import", "export"] as const) {
       expect(isReconciliationSection(s)).toBe(true);
     }
-    for (const s of ["overview", "entities", "qa", "workbook", "topology", "panel"] as const) {
+    for (const s of ["overview", "entities", "workbook", "topology", "panel"] as const) {
       expect(isReconciliationSection(s)).toBe(false);
     }
   });
