@@ -214,16 +214,47 @@ export interface AreaRunHandle {
  * `isTruncated` lets a call site escalate on a soft failure — a truncated
  * answer, or a summary that came back empty — not just a thrown error.
  */
+export interface AreaMeterOpts<T> {
+  /** Supabase client the usage row is written with (RLS: own rows only). */
+  client?: unknown;
+  userId?: string | null;
+  /** Actual token counts, when the call site can read them from the SDK. */
+  tokens?: (value: T) => { input: number; output: number } | null | undefined;
+  note?: string | null;
+}
+
 export async function runAreaAi<T>(
   ai: AreaAi,
   run: (handle: AreaRunHandle) => Promise<T>,
-  opts?: { isTruncated?: (value: T) => boolean },
+  opts?: { isTruncated?: (value: T) => boolean; meter?: AreaMeterOpts<T> },
 ): Promise<{ value: T; escalation: AiEscalation | null; backend: AiBackend; modelId: string }> {
   const canEscalate = ai.backend === "local" && ai.autoFallback && ai.hostedAvailable;
+  const startedAt = Date.now();
   const handle: AreaRunHandle = {
     provider: ai.provider,
     modelId: ai.modelId,
     backend: ai.backend,
+  };
+
+  const meter = async (value: T, backend: AiBackend, modelId: string, note?: string | null) => {
+    const m = opts?.meter;
+    if (!m) return;
+    try {
+      const { recordAiUsage } = await import("./ai-metering.server");
+      const usage = m.tokens?.(value) ?? null;
+      await recordAiUsage(m.client, m.userId, {
+        area: ai.area,
+        backend,
+        modelId,
+        engineId: backend === "hosted" ? null : ai.engineId,
+        inputTokens: usage?.input ?? null,
+        outputTokens: usage?.output ?? null,
+        latencyMs: Date.now() - startedAt,
+        note: note ?? m.note ?? null,
+      });
+    } catch (err) {
+      console.warn("[ai-routing] metering failed:", err);
+    }
   };
 
   const escalate = async (
@@ -238,6 +269,7 @@ export async function runAreaAi<T>(
       backend: "hosted",
     };
     const value = await run(hosted);
+    await meter(value, "hosted", hosted.modelId, `escalated from ${ai.modelId} (${reason})`);
     return {
       value,
       escalation: {
@@ -264,9 +296,11 @@ export async function runAreaAi<T>(
       } catch (err) {
         // Hosted retry failed — keep the local result rather than erroring.
         console.warn("[ai-routing] hosted escalation failed:", err);
+        await meter(value, ai.backend, ai.modelId);
         return { value, escalation: null, backend: ai.backend, modelId: ai.modelId };
       }
     }
+    await meter(value, ai.backend, ai.modelId);
     return { value, escalation: null, backend: ai.backend, modelId: ai.modelId };
   } catch (err) {
     if (!canEscalate) throw err;
@@ -277,6 +311,7 @@ export async function runAreaAi<T>(
     );
   }
 }
+
 
 /**
  * Escalation handle for call sites that make several AI calls (structured
