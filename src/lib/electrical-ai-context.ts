@@ -28,6 +28,9 @@ export interface ElectricalContextResult {
   matchedLoadIds: string[];
   /** Deterministic record answer used when a small local model ignores its rows. */
   groundedLoadAnswer: string | null;
+  /** Deterministic hop-by-hop trace (service → feeder → panel → breaker → circuit → load). */
+  loadTraceAnswer: string | null;
+
   /** Rough prompt size, for the cloud-cost estimate. */
   approxTokens: number;
 }
@@ -284,9 +287,155 @@ export function describeLoadPath(load: ElectricalRow, ctx: LoadPathContext): str
     .join(" | ");
 }
 
+/** One hop of a load's supply path, with an explicit known/gap verdict. */
+export interface LoadTraceHop {
+  hop: "service / source" | "feeder" | "panel" | "breaker" | "circuit" | "load";
+  value: string;
+  known: boolean;
+  /** Field that must be filled to close this hop, when it is a gap. */
+  missingField?: string;
+}
+
+/**
+ * Deterministic supply trace for one load, source-side first. Every hop is
+ * either a stable ID from the record or an explicit gap naming the field that
+ * would close it — nothing is inferred.
+ */
+export function traceLoadHops(load: ElectricalRow, ctx: LoadPathContext): LoadTraceHop[] {
+  const group = ctx.groupByUuid.get(str(load.circuit_group_uuid)) ?? null;
+  const position = ctx.positionsByLoadUuid.get(str(load.id)) ?? null;
+  const panelRow =
+    (group ? ctx.panelByUuid.get(str(group.panel_uuid)) : null) ??
+    (position ? ctx.panelByUuid.get(str(position.panel_uuid)) : null) ??
+    null;
+
+  const feederRow = panelRow
+    ? (ctx.feeders.find((x) => str(x.dest_panel_uuid) === str(panelRow.id)) ?? null)
+    : null;
+  const sourcePanel = feederRow
+    ? (ctx.panelByUuid.get(str(feederRow.source_panel_uuid)) ?? null)
+    : null;
+
+  const source = sourcePanel
+    ? str(sourcePanel.panel_id)
+    : str(feederRow?.source_endpoint_ref ?? "").trim() ||
+      str(panelRow?.feeder_source ?? "").trim();
+
+  const hops: LoadTraceHop[] = [
+    source
+      ? { hop: "service / source", value: source, known: true }
+      : {
+          hop: "service / source",
+          value: "NOT IN RECORD",
+          known: false,
+          missingField: "electrical_feeders.source_panel_uuid / source_endpoint_ref",
+        },
+    feederRow
+      ? {
+          hop: "feeder",
+          value: `${str(feederRow.feeder_id)}${
+            str(feederRow.conductor_size).trim() ? ` (${str(feederRow.conductor_size)})` : ""
+          }`,
+          known: true,
+        }
+      : {
+          hop: "feeder",
+          value: "NOT IN RECORD",
+          known: false,
+          missingField: "electrical_feeders.dest_panel_uuid",
+        },
+    panelRow
+      ? { hop: "panel", value: str(panelRow.panel_id), known: true }
+      : {
+          hop: "panel",
+          value: str(load.suggested_panel).trim()
+            ? `${str(load.suggested_panel)} (suggested only, not an assignment)`
+            : (ctx.panelByLoadUuid.get(str(load.id)) ?? "NOT IN RECORD"),
+          known: false,
+          missingField: "electrical_circuit_groups.panel_uuid (via the load's circuit)",
+        },
+    position
+      ? {
+          hop: "breaker",
+          value: `${str(position.side)}${str(position.position)}${
+            str(position.ocp_amps).trim() ? ` — ${str(position.ocp_amps)}A` : ""
+          }${str(position.poles).trim() ? `, ${str(position.poles)}P` : ""}`,
+          known: true,
+        }
+      : group && str(group.breaker_number).trim()
+        ? { hop: "breaker", value: str(group.breaker_number), known: true }
+        : {
+            hop: "breaker",
+            value: "NOT IN RECORD",
+            known: false,
+            missingField: "electrical_breaker_positions row for this load",
+          },
+    group
+      ? {
+          hop: "circuit",
+          value: `${str(group.circuit_group_id)}${
+            str(group.description).trim() ? ` — ${str(group.description)}` : ""
+          }`,
+          known: true,
+        }
+      : {
+          hop: "circuit",
+          value:
+            str(load.circuit_group_ref).trim() ||
+            str(load.source_circuit).trim() ||
+            "NOT IN RECORD",
+          known: false,
+          missingField: "electrical_loads.circuit_group_uuid",
+        },
+    {
+      hop: "load",
+      value: `${str(load.load_id)}${
+        str(load.description).trim() ? ` — ${str(load.description)}` : ""
+      }`,
+      known: true,
+    },
+  ];
+  return hops;
+}
+
+/** Markdown trace for one load: source-side down to the load, gaps marked. */
+export function describeLoadTrace(load: ElectricalRow, ctx: LoadPathContext): string {
+  const hops = traceLoadHops(load, ctx);
+  const gaps = hops.filter((h) => !h.known);
+  const area = str(load.area).trim() || str(load.location).trim() || "area not recorded";
+  const lines = hops.map((h, i) => {
+    const indent = "  ".repeat(i);
+    const mark = h.known ? "OK" : "GAP";
+    return `${indent}${i === 0 ? "" : "└─ "}[${mark}] ${h.hop}: ${h.value}${
+      h.known || !h.missingField ? "" : `  ← fill ${h.missingField}`
+    }`;
+  });
+  return [
+    `### ${str(load.load_id)} — ${str(load.description).trim() || "Unnamed load"} (${area})`,
+    "",
+    "```text",
+    ...lines,
+    "```",
+    gaps.length
+      ? `Path is **incomplete**: ${gaps.length} gap${gaps.length === 1 ? "" : "s"} (${gaps
+          .map((g) => g.hop)
+          .join(", ")}). Nothing above is inferred.`
+      : "Path is **complete** from source to load in the record.",
+    candidatePanelsForLoad(load, ctx.panels).length && gaps.some((g) => g.hop === "panel")
+      ? `Panels serving this area today (candidates only, not an assignment): ${candidatePanelsForLoad(
+          load,
+          ctx.panels,
+        ).join(", ")}`
+      : null,
+    str(load.backup_panel).trim() ? `Recorded backup panel: ${str(load.backup_panel)}` : null,
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
 
 
 export function buildElectricalRecordContext(
+
   input: ElectricalContextInput,
 ): ElectricalContextResult {
   const terms = questionTerms(input.question);
@@ -484,6 +633,16 @@ export function buildElectricalRecordContext(
         "Any `NOT IN RECORD` hop is currently unknown; it is not an inferred assignment.",
       ].join("\n")
     : null;
+  const loadTraceAnswer = loadRank.matched.length
+    ? [
+        "## Panel trace",
+        "",
+        ...loadRank.matched.slice(0, 10).map((l) => describeLoadTrace(l, pathCtx)),
+        "",
+        "Every `[GAP]` hop is missing from the record — it is not an inferred route.",
+      ].join("\n\n")
+    : null;
+
 
   const block =
     (terms.length
@@ -516,6 +675,8 @@ export function buildElectricalRecordContext(
     },
     matchedLoadIds,
     groundedLoadAnswer,
+    loadTraceAnswer,
+
     approxTokens: Math.ceil(block.length / 4),
   };
 }

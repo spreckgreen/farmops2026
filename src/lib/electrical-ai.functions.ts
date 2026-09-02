@@ -263,13 +263,21 @@ export const runElectricalAiScenario = createServerFn({ method: "POST" })
     let contextBlock = "";
     let groundedLoadAnswer: string | null = null;
     let matchedLoadIds: string[] = [];
+    let loadTraceAnswer: string | null = null;
 
-    if (def.id === "panel_qa" || def.id === "topology_explain") {
+    if (def.id === "panel_qa" || def.id === "topology_explain" || def.id === "load_trace") {
       const built = await buildRecordContext(context.supabase, question);
       Object.assign(contextCounts, built.counts);
       contextBlock = built.block;
       groundedLoadAnswer = built.groundedLoadAnswer;
       matchedLoadIds = built.matchedLoadIds;
+      if (def.id === "load_trace") {
+        loadTraceAnswer = built.loadTraceAnswer;
+        contextBlock =
+          (built.loadTraceAnswer
+            ? `DETERMINISTIC TRACE (authoritative — do not contradict it):\n${built.loadTraceAnswer}\n\n`
+            : "") + contextBlock;
+      }
 
       const loadFirstRules =
         "Most questions here are one of three kinds: (a) a LOAD question ('which panel are the " +
@@ -296,10 +304,20 @@ export const runElectricalAiScenario = createServerFn({ method: "POST" })
             " Cite stable IDs (PNL-*, CON-*, FS-*, BR-*, EMT-*) for every claim. " +
             "Never describe the shape of the data, never list possible questions, never add generic " +
             "labelling recommendations the user did not ask for. Read-only: you change nothing."
-          : "You are an electrician's assistant. Describe the power path from service to load in plain language, " +
-            "step by step, citing the stable ID at each hop (service → feeder → panel → breaker → circuit → load). " +
-            loadFirstRules +
-            " Use only the supplied records; state plainly where the chain breaks or a reference is missing. Read-only.";
+          : def.id === "load_trace"
+            ? "You annotate a deterministic electrical trace. The DETERMINISTIC TRACE block already contains " +
+              "the correct hop chain for each matched load (service/source → feeder → panel → breaker → circuit → load). " +
+              "Never restate a hop differently, never fill a [GAP] hop with a guess. For each traced load add: " +
+              "what is proven by the record today, which named field closes each gap, and the practical field " +
+              "step to confirm it. " +
+              loadFirstRules +
+              " Read-only: you change nothing."
+            : "You are an electrician's assistant. Describe the power path from service to load in plain language, " +
+              "step by step, citing the stable ID at each hop (service → feeder → panel → breaker → circuit → load). " +
+              loadFirstRules +
+              " Use only the supplied records; state plainly where the chain breaks or a reference is missing. Read-only.";
+
+
 
 
     } else if (def.id === "qa_triage") {
@@ -442,10 +460,18 @@ export const runElectricalAiScenario = createServerFn({ method: "POST" })
     // Small local models can ignore even a focused answer set and summarize the
     // surrounding panel inventory instead. Never return that non-answer: if the
     // matcher found loads, every matched stable ID must appear in the response.
-    const answer =
+    const narration =
       groundedLoadAnswer && !containsEveryStableId(run.value, matchedLoadIds)
         ? groundedLoadAnswer
         : run.value;
+    // The trace itself is record-derived, so it is always shown; the model only
+    // annotates it underneath.
+    const answer = loadTraceAnswer
+      ? `${loadTraceAnswer}\n\n---\n\n## Notes\n\n${narration}`
+      : loadTraceAnswer === null && def.id === "load_trace"
+        ? `No load row matched that description, so there is no path to trace. Searched terms are listed in the record context.\n\n${narration}`
+        : narration;
+
 
     return {
       scenario: def.id,
