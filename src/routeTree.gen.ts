@@ -72,6 +72,7 @@ import { Route as ElectricalMappingRouteImport } from './routes/electrical.mappi
 import { Route as ElectricalLabelsRouteImport } from './routes/electrical.labels'
 import { Route as ElectricalInstallProgressRouteImport } from './routes/electrical.install-progress'
 import { Route as ElectricalImportRouteImport } from './routes/electrical.import'
+import { Route as ElectricalGridMigrationRouteImport } from './routes/electrical.grid-migration'
 import { Route as ElectricalExportRouteImport } from './routes/electrical.export'
 import { Route as ElectricalDiagramsRouteImport } from './routes/electrical.diagrams'
 import { Route as ElectricalCriticalLoadsRouteImport } from './routes/electrical.critical-loads'
@@ -425,6 +426,11 @@ const ElectricalImportRoute = ElectricalImportRouteImport.update({
   path: '/electrical/import',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ElectricalGridMigrationRoute = ElectricalGridMigrationRouteImport.update({
+  id: '/electrical/grid-migration',
+  path: '/electrical/grid-migration',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ElectricalExportRoute = ElectricalExportRouteImport.update({
   id: '/electrical/export',
   path: '/electrical/export',
@@ -647,6 +653,7 @@ export interface FileRoutesByFullPath {
   '/electrical/critical-loads': typeof ElectricalCriticalLoadsRoute
   '/electrical/diagrams': typeof ElectricalDiagramsRoute
   '/electrical/export': typeof ElectricalExportRoute
+  '/electrical/grid-migration': typeof ElectricalGridMigrationRoute
   '/electrical/import': typeof ElectricalImportRoute
   '/electrical/install-progress': typeof ElectricalInstallProgressRoute
   '/electrical/labels': typeof ElectricalLabelsRoute
@@ -744,6 +751,7 @@ export interface FileRoutesByTo {
   '/electrical/critical-loads': typeof ElectricalCriticalLoadsRoute
   '/electrical/diagrams': typeof ElectricalDiagramsRoute
   '/electrical/export': typeof ElectricalExportRoute
+  '/electrical/grid-migration': typeof ElectricalGridMigrationRoute
   '/electrical/import': typeof ElectricalImportRoute
   '/electrical/install-progress': typeof ElectricalInstallProgressRoute
   '/electrical/labels': typeof ElectricalLabelsRoute
@@ -845,6 +853,7 @@ export interface FileRoutesById {
   '/electrical/critical-loads': typeof ElectricalCriticalLoadsRoute
   '/electrical/diagrams': typeof ElectricalDiagramsRoute
   '/electrical/export': typeof ElectricalExportRoute
+  '/electrical/grid-migration': typeof ElectricalGridMigrationRoute
   '/electrical/import': typeof ElectricalImportRoute
   '/electrical/install-progress': typeof ElectricalInstallProgressRoute
   '/electrical/labels': typeof ElectricalLabelsRoute
@@ -947,6 +956,7 @@ export interface FileRouteTypes {
     | '/electrical/critical-loads'
     | '/electrical/diagrams'
     | '/electrical/export'
+    | '/electrical/grid-migration'
     | '/electrical/import'
     | '/electrical/install-progress'
     | '/electrical/labels'
@@ -1044,6 +1054,7 @@ export interface FileRouteTypes {
     | '/electrical/critical-loads'
     | '/electrical/diagrams'
     | '/electrical/export'
+    | '/electrical/grid-migration'
     | '/electrical/import'
     | '/electrical/install-progress'
     | '/electrical/labels'
@@ -1144,6 +1155,7 @@ export interface FileRouteTypes {
     | '/electrical/critical-loads'
     | '/electrical/diagrams'
     | '/electrical/export'
+    | '/electrical/grid-migration'
     | '/electrical/import'
     | '/electrical/install-progress'
     | '/electrical/labels'
@@ -1245,6 +1257,7 @@ export interface RootRouteChildren {
   ElectricalCriticalLoadsRoute: typeof ElectricalCriticalLoadsRoute
   ElectricalDiagramsRoute: typeof ElectricalDiagramsRoute
   ElectricalExportRoute: typeof ElectricalExportRoute
+  ElectricalGridMigrationRoute: typeof ElectricalGridMigrationRoute
   ElectricalImportRoute: typeof ElectricalImportRoute
   ElectricalInstallProgressRoute: typeof ElectricalInstallProgressRoute
   ElectricalLabelsRoute: typeof ElectricalLabelsRoute
@@ -1724,6 +1737,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ElectricalImportRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/electrical/grid-migration': {
+      id: '/electrical/grid-migration'
+      path: '/electrical/grid-migration'
+      fullPath: '/electrical/grid-migration'
+      preLoaderRoute: typeof ElectricalGridMigrationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/electrical/export': {
       id: '/electrical/export'
       path: '/electrical/export'
@@ -2106,6 +2126,7 @@ const rootRouteChildren: RootRouteChildren = {
   ElectricalCriticalLoadsRoute: ElectricalCriticalLoadsRoute,
   ElectricalDiagramsRoute: ElectricalDiagramsRoute,
   ElectricalExportRoute: ElectricalExportRoute,
+  ElectricalGridMigrationRoute: ElectricalGridMigrationRoute,
   ElectricalImportRoute: ElectricalImportRoute,
   ElectricalInstallProgressRoute: ElectricalInstallProgressRoute,
   ElectricalLabelsRoute: ElectricalLabelsRoute,
