@@ -128,7 +128,7 @@ describe("Load_Master field comparison", () => {
     const report = compareLoads([{ stableId: "FS-097", values: { amps: "60" } }], db);
     const csv = loadCompareCsv(report);
     expect(csv.split("\n")[0]).toContain("load_id,field,label");
-    expect(csv).toMatch(/FS-097,amps,Amps,engineering,60,50,mismatch/);
+    expect(csv).toMatch(/FS-097,amps,Amps \(legacy\),engineering,60,50,mismatch/);
     expect(csv).toMatch(/PH-028,,,,,,missing_in_ods/);
     const md = loadCompareMarkdown(report);
     expect(md).toContain("# Load_Master field-by-field comparison");
