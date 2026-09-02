@@ -117,7 +117,7 @@ function toLoad(
     status: str(load.install_status).trim(),
     amps: str(load.amps).trim(),
     va: str(load.connected_va).trim(),
-    voltage: str(load.voltage_semantic).trim() || str(load.system_voltage).trim(),
+    voltage: voltageText(load.voltage_semantic) || voltageText(load.system_voltage),
     suggestedPanel: str(load.suggested_panel).trim(),
     building: str(load.building).trim() || str(load.grid).trim(),
     gaps: loadGaps(load, opts),
@@ -128,9 +128,60 @@ function toLoad(
  * Fold the electrical records into a panel-first tree. Nothing is inferred:
  * a link exists only when the record carries the uuid that proves it.
  */
-export function buildPanelDiagram(input: PanelDiagramInput): PanelDiagram {
+/**
+ * Snapshot records expose `uuid` / `stable_id` while raw table rows expose
+ * `id` / `<entity>_id`. Accept either shape so the diagram reads the same
+ * whether it is fed the reconciliation snapshot or a direct table read.
+ */
+function normalizeRows(rows: DiagramRow[], stableKey: string): DiagramRow[] {
+  return rows.map((row) => {
+    const id = str(row.id).trim() || str(row.uuid).trim();
+    const stable = str(row[stableKey]).trim() || str(row.stable_id).trim();
+    return { ...row, id, [stableKey]: stable };
+  });
+}
+
+/**
+ * Panel/circuit voltage may be a JSON designation object (Phase 4.4b system
+ * voltage model) rather than a scalar. Render the human designation only.
+ */
+function voltageText(value: unknown): string {
+  if (value == null) return "";
+  if (typeof value === "number") return String(value);
+  let v: unknown = value;
+  if (typeof v === "string") {
+    const t = v.trim();
+    if (!t) return "";
+    if (!t.startsWith("{")) return t;
+    try {
+      v = JSON.parse(t);
+    } catch {
+      return t;
+    }
+  }
+  if (typeof v === "object") {
+    const o = v as Record<string, unknown>;
+    const label = str(o.designation).trim() || str(o.code).trim();
+    if (label) return label;
+    const ll = str(o.line_line_volts).trim();
+    const ln = str(o.line_neutral_volts).trim();
+    if (ln && ll) return `${ln}/${ll} V`;
+    return ll || ln || "";
+  }
+  return str(v).trim();
+}
+
+export function buildPanelDiagram(rawInput: PanelDiagramInput): PanelDiagram {
+  const input: PanelDiagramInput = {
+    panels: normalizeRows(rawInput.panels, "panel_id"),
+    feeders: normalizeRows(rawInput.feeders, "feeder_id"),
+    circuitGroups: normalizeRows(rawInput.circuitGroups, "circuit_group_id"),
+    loads: normalizeRows(rawInput.loads, "load_id"),
+    positions: normalizeRows(rawInput.positions, "position"),
+  };
   const panelByUuid = new Map<string, DiagramRow>();
   for (const p of input.panels) panelByUuid.set(str(p.id), p);
+
 
   const positionsByLoad = new Map<string, DiagramRow>();
   const positionsByCircuit = new Map<string, DiagramRow>();
@@ -197,7 +248,7 @@ export function buildPanelDiagram(input: PanelDiagramInput): PanelDiagram {
       description: str(group.description).trim(),
       breaker,
       ratingAmps: str(group.circuit_rating_amps).trim(),
-      voltage: str(group.voltage).trim(),
+      voltage: voltageText(group.voltage),
       status: str(group.install_status).trim(),
       loads,
       gaps,
@@ -277,7 +328,7 @@ export function buildPanelDiagram(input: PanelDiagramInput): PanelDiagram {
         uuid: str(panel.id),
         description: str(panel.description).trim(),
         building: str(panel.building).trim() || str(panel.grid).trim(),
-        voltage: str(panel.system_voltage).trim() || str(panel.voltage).trim(),
+        voltage: voltageText(panel.system_voltage) || voltageText(panel.voltage),
         busRatingAmps: str(panel.bus_rating_amps).trim(),
         feeder: feeder.label,
         feederKnown: feeder.known,
