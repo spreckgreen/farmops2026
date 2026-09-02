@@ -355,27 +355,81 @@ function classifyVoltsWithEquipment(
     };
   }
 
-  // 2. The stored value is incompatible with the identified equipment's
-  //    published rating class — the canonical engineering value is supported.
+  // 2. One side's value is incompatible with the identified equipment's
+  //    published rating class. Which side is incompatible decides whose record
+  //    is wrong: FarmOps as-built, or the canonical workbook itself.
   const cls = s.rated_equipment_voltage_class;
   if (cls) {
     const classValues = cls.split("/").map((x) => Number(x.trim()));
     const compatible = classValues.some((v) => Math.abs(v - other) <= 12);
     if (!compatible) {
       const farmopsIsIncompatible = p.farmops === other;
+      const ratingProvenance = `${eq.manufacturer} ${eq.model} published rated electrical supply${s.phase ? `, ${s.phase}Ø` : ""}${s.frequency_hz ? `, ${s.frequency_hz} Hz` : ""}`;
+      const preserved = [
+        {
+          field: "rated_equipment_voltage",
+          value: cls,
+          source: ratingProvenance,
+        },
+        ...(s.frequency_hz
+          ? [
+              {
+                field: "frequency_hz",
+                value: String(s.frequency_hz),
+                source: `${eq.manufacturer} ${eq.model} published rated electrical supply`,
+              },
+            ]
+          : []),
+      ];
+
+      // 2b. The canonical workbook holds the incompatible value while the
+      //     FarmOps as-built value matches the verified nominal supply. The
+      //     correction belongs to the canonical ODS, NOT to FarmOps: there is
+      //     no FarmOps write to perform, now or later, from this finding.
+      if (!farmopsIsIncompatible) {
+        return {
+          bucket: "canonical_ods_value_incompatible_with_verified_equipment",
+          evidence: equipmentEvidenceLines(eq),
+          supporting_only: [],
+          reason: `The identified equipment (${eqLine(eq)}) has a published rated electrical supply of ${cls} V AC, ${s.phase ?? "1"}Ø${s.frequency_hz ? `, ${s.frequency_hz} Hz` : ""}. The canonical workbook's ${other} V value is incompatible with that equipment, while the FarmOps as-built ${nominal} V value is the supported nominal site supply. The canonical source is therefore the record in error; FarmOps requires no change.`,
+          recommendation: "CANONICAL_ODS_CORRECTION_REQUIRED",
+          missing_evidence: [
+            "An approved engineering disposition applied to the canonical workbook through the controlled ODS workflow. This adjudication neither edits the ODS nor writes FarmOps.",
+          ],
+          semantic_interpretation: `ods_observed_voltage = ${other} V (preserved as the historical canonical record); farmops_as_built_voltage = ${nominal} V; rated_equipment_voltage = ${cls} (kept verbatim, never reduced to a scalar); canonical_nominal_correction_candidate = ${nominal} V`,
+          proposed_representation: [
+            {
+              field: "ods_observed_voltage",
+              value: `${other} V`,
+              source: "Canonical workbook value as parsed (never overwritten here)",
+            },
+            {
+              field: "farmops_as_built_voltage",
+              value: `${nominal} V`,
+              source: "FarmOps engineering as-built value (already correct — no write)",
+            },
+            ...preserved,
+            {
+              field: "canonical_nominal_correction_candidate",
+              value: `${nominal} V`,
+              source:
+                "Proposed canonical nominal supply voltage for the controlled ODS correction workflow",
+            },
+          ],
+        };
+      }
+
+      // 2a. FarmOps holds the incompatible value — the canonical engineering
+      //     value is supported and FarmOps is corrected through an apply gate.
       return {
-        bucket: farmopsIsIncompatible
-          ? "farmops_value_incompatible_with_verified_equipment"
-          : "engineering_value_supported_by_equipment_identity",
+        bucket: "farmops_value_incompatible_with_verified_equipment",
         evidence: equipmentEvidenceLines(eq),
         supporting_only: [],
         reason: `The identified equipment (${eqLine(eq)}) has a published rated electrical supply of ${cls} V AC, ${s.phase ?? "1"}Ø${s.frequency_hz ? `, ${s.frequency_hz} Hz` : ""}. The stored ${other} V representation is incompatible with that equipment and is therefore not an alternative nameplate representation, so the canonical ${nominal} V engineering value is supported by equipment identity.`,
         recommendation: "CORRECT_FARMOPS_WITH_SEMANTIC_REPRESENTATION",
-        missing_evidence: farmopsIsIncompatible
-          ? [
-              "Correction is recommended but not written in this phase: the FarmOps value must be replaced through an explicit apply gate, not by adjudication.",
-            ]
-          : [],
+        missing_evidence: [
+          "Correction is recommended but not written in this phase: the FarmOps value must be replaced through an explicit apply gate, not by adjudication.",
+        ],
         semantic_interpretation: `nominal_supply_voltage = ${nominal}; rated_equipment_voltage = ${cls} (kept verbatim, never reduced to a scalar)`,
         proposed_representation: [
           {
@@ -383,24 +437,12 @@ function classifyVoltsWithEquipment(
             value: String(nominal),
             source: "Canonical engineering designation (unchanged ODS)",
           },
-          {
-            field: "rated_equipment_voltage",
-            value: cls,
-            source: `${eq.manufacturer} ${eq.model} published rated electrical supply${s.phase ? `, ${s.phase}Ø` : ""}${s.frequency_hz ? `, ${s.frequency_hz} Hz` : ""}`,
-          },
-          ...(s.frequency_hz
-            ? [
-                {
-                  field: "frequency_hz",
-                  value: String(s.frequency_hz),
-                  source: `${eq.manufacturer} ${eq.model} published rated electrical supply`,
-                },
-              ]
-            : []),
+          ...preserved,
         ],
       };
     }
   }
+
   return null;
 }
 
