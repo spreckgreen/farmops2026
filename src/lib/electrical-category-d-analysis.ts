@@ -424,6 +424,9 @@ export function categoryDGroupsCsv(a: CategoryDAnalysis): string {
       g.source_rows.join(" | "),
       g.mapping_rule,
       String(g.systematic),
+      String(g.resolved_count),
+      String(g.open_count),
+
     ]),
   ]);
 }
