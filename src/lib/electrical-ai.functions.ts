@@ -332,11 +332,29 @@ export const runElectricalAiScenario = createServerFn({ method: "POST" })
       (contextBlock ? `RECORDS:\n${contextBlock}` : "");
 
     const { resolveAreaAi, runAreaAi } = await import("@/lib/ai-routing.server");
-    const ai = await resolveAreaAi(def.area, {
+    const resolved = await resolveAreaAi(def.area, {
       hostedDefaultModel: "google/gemini-3.6-flash",
       client: context.supabase,
     });
+    // The user accepted the estimated cloud cost for this question: run it on
+    // the configured cloud engine instead of the self-hosted one. Metering still
+    // records it as a hosted run, so it shows up on the AI bill.
+    let ai = resolved;
+    if (data.useCloud && resolved.backend === "local") {
+      if (!resolved.hostedProvider) {
+        throw new Error(
+          "No cloud AI engine is configured, so this question cannot be escalated. Configure one in Admin → AI engines.",
+        );
+      }
+      ai = {
+        ...resolved,
+        backend: "hosted",
+        provider: resolved.hostedProvider,
+        modelId: resolved.hostedModelId,
+      };
+    }
     const { generateText } = await import("ai");
+
 
     // Validated before the call so a 12 MB HEIC fails free instead of billing.
     const photo = def.input === "photo" && data.image ? data.image.trim() : null;
