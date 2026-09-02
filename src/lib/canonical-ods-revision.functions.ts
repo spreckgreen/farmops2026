@@ -93,10 +93,38 @@ export async function generateCandidateRevision(
     );
   }
 
-  // 4. Rewrite exactly those two cells. Everything else stays byte-identical.
+  // 4. Pre-mutation assertion: each authorized target must resolve, through the
+  //    canonical parser's own addressing, to a cell whose parsed value is the
+  //    authorized baseline value. Fail closed with the full trace otherwise.
+  const traces = targets.map((t) =>
+    inspectRevisionTarget(baselineXml, {
+      stable_id: t.stable_id,
+      field: t.field,
+      worksheet: t.worksheet,
+      row: t.row,
+      column: t.column,
+      expected: t.baseline_value,
+      next: t.candidate_value,
+    }),
+  );
+  const failed = traces.filter((t) => t.assertion !== "PASS");
+  if (failed.length) {
+    const table = traces
+      .map((t) => `${revisionTraceRow(t).join(" | ")} | ${t.assertion}${t.reason ? ` — ${t.reason}` : ""}`)
+      .join("\n");
+    throw new Error(
+      `Pre-mutation target assertion failed for ${failed.length} of ${traces.length} authorized cells. No cell was rewritten.\n` +
+        "stable_id | logical row | logical column/field | physical XML row | physical XML cell index | repeated-column offset | value-type | office:value | display text | assertion\n" +
+        table,
+    );
+  }
+
+  // 5. Rewrite exactly those two cells. Everything else stays byte-identical.
   let candidateXml = baselineXml;
   for (const t of targets) {
     candidateXml = rewriteOdsNumericCell(candidateXml, {
+      stable_id: t.stable_id,
+      field: t.field,
       worksheet: t.worksheet,
       row: t.row,
       column: t.column,
@@ -104,6 +132,7 @@ export async function generateCandidateRevision(
       next: t.candidate_value,
     });
   }
+
 
   // 5. Repackage as a NEW artifact, mimetype stored first and uncompressed.
   const zipInput: Record<string, [Uint8Array, { level: 0 | 6 }]> = {};
