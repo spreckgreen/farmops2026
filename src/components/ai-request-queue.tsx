@@ -20,13 +20,13 @@ import {
   ELECTRICAL_AI_SCENARIOS,
   type ElectricalAiScenarioId,
 } from "@/lib/electrical-ai-scenarios";
-import { listAdminUsers } from "@/lib/admin.functions";
+import { listUsers } from "@/lib/admin.functions";
 
 export function AiRequestQueueCard() {
   const qc = useQueryClient();
   const listFn = useServerFn(adminListElectricalAiFeatureGrants);
   const saveFn = useServerFn(adminSetElectricalAiFeatures);
-  const usersFn = useServerFn(listAdminUsers);
+  const usersFn = useServerFn(listUsers);
   const [busy, setBusy] = useState<string | null>(null);
 
   const grantsQ = useQuery<AdminElectricalAiGrantRow[]>({
