@@ -13,7 +13,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { ShieldCheck, ShieldX, ShieldQuestion, RefreshCw, MailCheck, KeyRound, MailOpen, Ban, Play } from "lucide-react";
+import { ShieldCheck, ShieldX, ShieldQuestion, RefreshCw, MailCheck, KeyRound, MailOpen, Ban, Play, UserPlus, Zap } from "lucide-react";
 
 import { AppLayout } from "@/components/app-layout";
 import { Button } from "@/components/ui/button";
@@ -49,8 +49,10 @@ import {
   setUserRoles,
   type AppRole,
   type ApprovalStatus,
+  createUserAccount,
   type ManagedUser,
 } from "@/lib/admin.functions";
+import { setEntitlement } from "@/lib/addons.functions";
 
 
 
@@ -61,7 +63,14 @@ export const Route = createFileRoute("/admin/users")({
   component: UsersPage,
 });
 
-const ALL_ROLES: AppRole[] = ["viewer", "editor", "admin"];
+const ALL_ROLES: AppRole[] = ["viewer", "editor", "admin", "electrician"];
+
+const ROLE_HINT: Record<AppRole, string> = {
+  viewer: "(read-only)",
+  editor: "(can change app data)",
+  admin: "(users + settings)",
+  electrician: "(Electrical tab only)",
+};
 
 function UsersPage() {
   const profile = useCurrentProfile();
@@ -125,6 +134,7 @@ function UsersPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <CreateUserButton />
             <CsvToolbar
               filename="users.csv"
               columns={[
@@ -213,10 +223,36 @@ function UserRow({ user, currentUserId }: { user: ManagedUser; currentUserId: st
   const [disableReason, setDisableReason] = useState("");
 
 
+  const entitlementFn = useServerFn(setEntitlement);
+
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ["admin", "users"] });
     qc.invalidateQueries({ queryKey: ["my-profile"] });
+    qc.invalidateQueries({ queryKey: ["my-addons"] });
+    qc.invalidateQueries({ queryKey: ["admin", "entitlements"] });
   };
+
+  // Grants the read-only electrician add-on straight from the user row. Depth of
+  // electrical access lives in the add-on, so this never changes their roles.
+  const electricalMut = useMutation({
+    mutationFn: (addon_key: string) =>
+      entitlementFn({
+        data: {
+          user_id: user.id,
+          addon_key,
+          status: "active" as const,
+          expires_at: null,
+          notes: "Granted from user management: read-only electrician access.",
+        },
+      }),
+    onSuccess: () => {
+      toast.success(
+        `${user.email ?? "User"} now has read-only Electrical access. Manage or revoke it under Admin → Add-ons.`,
+      );
+      invalidate();
+    },
+    onError: (e) => toast.error((e as Error).message),
+  });
 
   const approveMut = useMutation({
     mutationFn: (status: ApprovalStatus) =>
@@ -355,9 +391,7 @@ function UserRow({ user, currentUserId }: { user: ManagedUser; currentUserId: st
                 disabled={rolesMut.isPending || (isSelf && role === "admin")}
               />
               <span className="capitalize">{role}</span>
-              {role === "viewer" && (
-                <span className="text-xs text-muted-foreground">(read-only)</span>
-              )}
+              <span className="text-xs text-muted-foreground">{ROLE_HINT[role]}</span>
             </label>
           ))}
         </div>
@@ -410,6 +444,16 @@ function UserRow({ user, currentUserId }: { user: ManagedUser; currentUserId: st
               Confirm email
             </Button>
           )}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => electricalMut.mutate("electrical_readonly")}
+            disabled={electricalMut.isPending}
+            title="Give this user read-only access to the electrician-viewable Electrical screens (no reconciliation tools, no edits)."
+          >
+            <Zap className="h-4 w-4 mr-1" />
+            Electrical read-only
+          </Button>
           <Button
             size="sm"
             variant="outline"
@@ -547,6 +591,178 @@ function UserRow({ user, currentUserId }: { user: ManagedUser; currentUserId: st
       </Dialog>
 
     </TableRow>
+  );
+}
+
+/**
+ * Admin-created account. Self sign-up plus approval is the normal path; this
+ * bypasses it entirely for someone who should just be able to sign in — the
+ * email is pre-confirmed and the profile lands approved.
+ */
+function CreateUserButton() {
+  const qc = useQueryClient();
+  const createFn = useServerFn(createUserAccount);
+  const [open, setOpen] = useState(false);
+  const [email, setEmail] = useState("");
+  const [name, setName] = useState("");
+  const [password, setPassword] = useState("");
+  const [roles, setRoles] = useState<AppRole[]>(["electrician"]);
+  const [addon, setAddon] = useState<"electrical_readonly" | "electrical" | "none">(
+    "electrical_readonly",
+  );
+
+  const reset = () => {
+    setEmail("");
+    setName("");
+    setPassword("");
+    setRoles(["electrician"]);
+    setAddon("electrical_readonly");
+  };
+
+  const generate = () => {
+    const bytes = new Uint8Array(12);
+    crypto.getRandomValues(bytes);
+    setPassword(
+      btoa(String.fromCharCode(...bytes))
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+        .replace(/=+$/, ""),
+    );
+  };
+
+  const createMut = useMutation({
+    mutationFn: () =>
+      createFn({
+        data: {
+          email,
+          password,
+          display_name: name,
+          roles,
+          addon: addon === "none" ? null : addon,
+        },
+      }),
+    onSuccess: (r) => {
+      toast.success(r.message);
+      setOpen(false);
+      reset();
+      qc.invalidateQueries({ queryKey: ["admin", "users"] });
+      qc.invalidateQueries({ queryKey: ["admin", "entitlements"] });
+    },
+    onError: (e) => toast.error((e as Error).message),
+  });
+
+  const toggle = (role: AppRole, on: boolean) =>
+    setRoles((prev) =>
+      on ? Array.from(new Set([...prev, role])) : prev.filter((r) => r !== role),
+    );
+
+  return (
+    <>
+      <Button size="sm" onClick={() => setOpen(true)}>
+        <UserPlus className="h-4 w-4 mr-2" />
+        Add user
+      </Button>
+      <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add a user directly</DialogTitle>
+            <DialogDescription>
+              Creates the account without waiting for self sign-up: the email is
+              pre-confirmed and the profile is approved, so they can sign in with the
+              password below straight away. Share it securely and ask them to change it.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="new-email">Email</Label>
+              <Input
+                id="new-email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="electrician@example.com"
+                autoComplete="off"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="new-name">Display name (optional)</Label>
+              <Input
+                id="new-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Dale — site electrician"
+                maxLength={120}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="new-pw">Temporary password (min 8 chars)</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="new-pw"
+                  type="text"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="off"
+                  spellCheck={false}
+                />
+                <Button type="button" variant="outline" onClick={generate}>
+                  Generate
+                </Button>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Roles</Label>
+              <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+                {ALL_ROLES.map((role) => (
+                  <label key={role} className="flex items-center gap-2 text-sm">
+                    <Checkbox
+                      checked={roles.includes(role)}
+                      onCheckedChange={(c) => toggle(role, c === true)}
+                    />
+                    <span className="capitalize">{role}</span>
+                    <span className="text-xs text-muted-foreground">{ROLE_HINT[role]}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Electrical access</Label>
+              <div className="flex flex-col gap-1.5 text-sm">
+                {(
+                  [
+                    ["electrical_readonly", "Read-only — every electrician screen, no edits, no reconciliation tools"],
+                    ["electrical", "Full module — edits plus reconciliation (ODS import/export, validation, adjudication)"],
+                    ["none", "None — no Electrical access"],
+                  ] as const
+                ).map(([value, label]) => (
+                  <label key={value} className="flex items-start gap-2">
+                    <input
+                      type="radio"
+                      name="new-user-electrical"
+                      className="mt-1"
+                      checked={addon === value}
+                      onChange={() => setAddon(value)}
+                    />
+                    <span>{label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => createMut.mutate()}
+              disabled={createMut.isPending || password.length < 8 || !email.includes("@")}
+            >
+              {createMut.isPending ? "Creating…" : "Create user"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 

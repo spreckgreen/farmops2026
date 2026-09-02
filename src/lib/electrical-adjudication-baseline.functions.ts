@@ -6,7 +6,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { requireAddon } from "@/lib/addons.server";
+import { requireElectricalAccess } from "@/lib/addons.server";
 import { parseOdsContentXml } from "@/lib/electrical-ods";
 import {
   makeAdjudicationBaseline,
@@ -77,6 +77,6 @@ export const buildAdjudicationBaseline = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => parseOdsBaselineInput(d))
   .handler(async ({ context, data }): Promise<AdjudicationBaseline> => {
-    await requireAddon(context.supabase, context.userId, "electrical");
+    await requireElectricalAccess(context.supabase, context.userId, "write");
     return baselineFromUpload(data);
   });

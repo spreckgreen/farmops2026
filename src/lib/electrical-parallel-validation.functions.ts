@@ -6,7 +6,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { requireAddon } from "@/lib/addons.server";
+import { requireElectricalAccess } from "@/lib/addons.server";
 import { ENTITIES, importColumns } from "@/lib/electrical-entities";
 import {
   classifySheet,
@@ -39,7 +39,7 @@ export const runElectricalParallelValidation = createServerFn({ method: "POST" }
       .parse(d),
   )
   .handler(async ({ context, data }): Promise<ValidationReport> => {
-    await requireAddon(context.supabase, context.userId, "electrical");
+    await requireElectricalAccess(context.supabase, context.userId, "write");
 
     const { unzipSync, strFromU8 } = await import("fflate");
     const binary = atob(data.base64);

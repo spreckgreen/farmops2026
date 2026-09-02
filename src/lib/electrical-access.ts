@@ -1,0 +1,147 @@
+// Who may see which Electrical screens.
+//
+// Two independent ideas meet here:
+//
+//  * The **add-on** decides the depth of access. `electrical` is the full
+//    module (read + write + reconciliation tooling); `electrical_readonly` is
+//    the electrician grant — the whole field record, read-only, with the
+//    reconciliation tools withheld.
+//  * The **electrician role** decides the breadth of the app. A user holding it
+//    only ever sees the Electrical tab; the rest of the farm app is not theirs.
+//
+// This module is pure so both the navigation and the page gate agree, and so
+// the rules can be unit-tested. The server-side gate in `addons.server` is what
+// actually protects the data.
+
+export type ElectricalSection =
+  | "overview"
+  | "entities"
+  | "services"
+  | "diagrams"
+  | "topology"
+  | "workbook"
+  | "labels"
+  | "qa"
+  | "standards"
+  | "panel"
+  | "mapping"
+  | "sor"
+  | "validation"
+  | "adjudication"
+  | "import"
+  | "export";
+
+/**
+ * Reconciliation areas: they compare the canonical engineering workbook against
+ * FarmOps and drive corrections. They stay with the full add-on — an electrician
+ * reads the as-installed record, they do not adjudicate the system of record.
+ */
+export const RECONCILIATION_SECTIONS: ElectricalSection[] = [
+  "mapping",
+  "sor",
+  "validation",
+  "adjudication",
+  "import",
+  "export",
+];
+
+/** Sections an electrician (read-only add-on) may open. */
+export const ELECTRICIAN_VIEWABLE_SECTIONS: ElectricalSection[] = [
+  "overview",
+  "entities",
+  "services",
+  "diagrams",
+  "topology",
+  "workbook",
+  "labels",
+  "qa",
+  "standards",
+  "panel",
+];
+
+export function isReconciliationSection(section: ElectricalSection): boolean {
+  return RECONCILIATION_SECTIONS.includes(section);
+}
+
+export interface ElectricalAccessInput {
+  /** Full `electrical` entitlement is active. */
+  full: boolean;
+  /** Read-only `electrical_readonly` entitlement is active. */
+  readOnly: boolean;
+  /** Scan-scoped `electrical_scan` entitlement is active. */
+  scan?: boolean;
+}
+
+export interface ElectricalAccess {
+  /** Any electrical access at all. */
+  canView: boolean;
+  /** No writes are authorised for this user. */
+  readOnly: boolean;
+  /** Reconciliation tabs are available. */
+  canReconcile: boolean;
+  /** Only a scanned panel label, no farm-wide access. */
+  scanOnly: boolean;
+  /** Which sections to render / link to. */
+  sections: ElectricalSection[];
+}
+
+export function electricalAccess(input: ElectricalAccessInput): ElectricalAccess {
+  const full = input.full === true;
+  const readOnly = !full && input.readOnly === true;
+  const scanOnly = !full && !readOnly && input.scan === true;
+  const sections: ElectricalSection[] = full
+    ? [...ELECTRICIAN_VIEWABLE_SECTIONS, ...RECONCILIATION_SECTIONS]
+    : readOnly
+      ? [...ELECTRICIAN_VIEWABLE_SECTIONS]
+      : scanOnly
+        ? ["panel"]
+        : [];
+  return {
+    canView: full || readOnly || scanOnly,
+    readOnly: !full,
+    canReconcile: full,
+    scanOnly,
+    sections,
+  };
+}
+
+export function canOpenSection(
+  access: ElectricalAccess,
+  section: ElectricalSection,
+): boolean {
+  return access.sections.includes(section);
+}
+
+export const RECONCILIATION_DENIED =
+  "Reconciliation tools compare the canonical engineering workbook against FarmOps and are limited to the full Electrical add-on. Your access covers the as-installed field record, read-only.";
+
+/**
+ * Which section a URL belongs to, so the gate can judge a page without every
+ * route having to declare itself.
+ */
+export function sectionFromPathname(pathname: string): ElectricalSection {
+  const rest = pathname.replace(/^\/electrical\/?/, "").replace(/\/+$/, "");
+  if (!rest) return "overview";
+  const head = rest.split("/")[0];
+  switch (head) {
+    case "services":
+    case "diagrams":
+    case "topology":
+    case "workbook":
+    case "labels":
+    case "qa":
+    case "standards":
+    case "mapping":
+    case "sor":
+    case "validation":
+    case "adjudication":
+    case "import":
+    case "export":
+      return head;
+    case "panel":
+      return "panel";
+    default:
+      // /electrical/$kind and /electrical/item/$kind/$id
+      return "entities";
+  }
+}

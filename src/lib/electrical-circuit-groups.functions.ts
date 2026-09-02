@@ -4,7 +4,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { requireAddon } from "@/lib/addons.server";
+import { requireElectricalAccess } from "@/lib/addons.server";
 import {
   deriveCircuitGroups,
   type DerivationPlan,
@@ -38,7 +38,7 @@ async function loadPlan(db: LooseDb, userId: string): Promise<DerivationPlan> {
 export const previewCircuitGroupDerivation = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<DerivationPlan> => {
-    await requireAddon(context.supabase, context.userId, "electrical");
+    await requireElectricalAccess(context.supabase, context.userId, "read");
     return loadPlan(context.supabase as unknown as LooseDb, context.userId);
   });
 
@@ -57,7 +57,7 @@ export const applyCircuitGroupDerivation = createServerFn({ method: "POST" })
     z.object({ groupIds: z.array(z.string().trim().min(1)).max(500).optional() }).parse(d ?? {}),
   )
   .handler(async ({ context, data }): Promise<DerivationResult> => {
-    await requireAddon(context.supabase, context.userId, "electrical");
+    await requireElectricalAccess(context.supabase, context.userId, "write");
     const db = context.supabase as unknown as LooseDb;
     const plan = await loadPlan(db, context.userId);
     const selected = data.groupIds?.length ? new Set(data.groupIds) : null;

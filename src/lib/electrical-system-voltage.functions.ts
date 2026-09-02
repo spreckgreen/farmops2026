@@ -9,7 +9,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { requireAddon } from "@/lib/addons.server";
+import { requireElectricalAccess } from "@/lib/addons.server";
 import { resolveSystemVoltage } from "@/lib/electrical-system-voltage";
 import {
   AUTHORIZED_PANEL_SET,
@@ -273,7 +273,7 @@ export const previewSystemVoltageMigration = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => inputSchema.parse({ ...(d as object), confirm: false }))
   .handler(async ({ context, data }): Promise<SystemVoltageGateResult> => {
-    await requireAddon(context.supabase, context.userId, "electrical");
+    await requireElectricalAccess(context.supabase, context.userId, "write");
     return runGate(context.supabase as unknown as LooseDb, { ...data, confirm: false });
   });
 
@@ -281,6 +281,6 @@ export const applySystemVoltageMigration = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => inputSchema.parse(d))
   .handler(async ({ context, data }): Promise<SystemVoltageGateResult> => {
-    await requireAddon(context.supabase, context.userId, "electrical");
+    await requireElectricalAccess(context.supabase, context.userId, "write");
     return runGate(context.supabase as unknown as LooseDb, data);
   });

@@ -5,6 +5,8 @@
 // read their own entitlement rows, and nobody can grant themselves one.
 import {
   ADDON_NOT_ENABLED,
+  ELECTRICAL_READ_ADDONS,
+  FULL_ELECTRICAL_ADDON,
   SCAN_ADDON,
   isEntitlementActive,
   isRevocationBlocked,
@@ -122,4 +124,25 @@ export async function ensureScanAddon(userId: string): Promise<void> {
   if (!roles || (roles as unknown[]).length === 0) {
     await db.from("user_roles").insert({ user_id: userId, role: "viewer" });
   }
+}
+
+/**
+ * Graded Electrical gate.
+ *
+ * `read`  — the full add-on OR the read-only electrician add-on. Used by every
+ *           electrical query so an electrician can see the field record.
+ * `write` — the full add-on only. Covers every mutation plus the reconciliation
+ *           tooling (ODS import/export, parallel validation, adjudication),
+ *           which is never part of read-only electrician access.
+ */
+export async function requireElectricalAccess(
+  supabase: unknown,
+  userId: string,
+  mode: "read" | "write",
+): Promise<void> {
+  if (mode === "write") {
+    await requireAddon(supabase, userId, FULL_ELECTRICAL_ADDON);
+    return;
+  }
+  await requireAnyAddon(supabase, userId, ELECTRICAL_READ_ADDONS);
 }

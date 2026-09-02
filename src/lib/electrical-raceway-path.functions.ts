@@ -6,7 +6,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { requireAddon } from "@/lib/addons.server";
+import { requireElectricalAccess } from "@/lib/addons.server";
 import {
   buildRacewaysByPath,
   orderedJunctionPoints,
@@ -102,7 +102,7 @@ export const previewRacewayPathPopulation = createServerFn({ method: "POST" })
       .parse(d ?? {}),
   )
   .handler(async ({ context, data }): Promise<PathPopulationResult> => {
-    await requireAddon(context.supabase, context.userId, "electrical");
+    await requireElectricalAccess(context.supabase, context.userId, "write");
     const db = context.supabase as unknown as { from: (t: string) => any };
     const readAll = async (table: string) => {
       const pageSize = 500;
@@ -241,7 +241,7 @@ export const listRacewayJunctionPoints = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ raceway_id: z.string().uuid() }).parse(d))
   .handler(async ({ context, data }) => {
-    await requireAddon(context.supabase, context.userId, "electrical");
+    await requireElectricalAccess(context.supabase, context.userId, "read");
     const db = context.supabase as unknown as { from: (t: string) => any };
     const { data: rows, error } = await db
       .from("electrical_junction_boxes")

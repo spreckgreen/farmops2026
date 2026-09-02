@@ -5,7 +5,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { requireAddon } from "@/lib/addons.server";
+import { requireElectricalAccess } from "@/lib/addons.server";
 import { buildGridAudit, classifyGrid, type GridAudit } from "@/lib/electrical-grid";
 
 type LooseDb = { from: (table: string) => any };
@@ -29,7 +29,7 @@ export const electricalGridAudit = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => AuditInput.parse(d ?? {}))
   .handler(async ({ context, data }): Promise<GridAuditPayload> => {
-    await requireAddon(context.supabase, context.userId, "electrical");
+    await requireElectricalAccess(context.supabase, context.userId, "write");
     const db = context.supabase as unknown as LooseDb;
     const { data: rows, error } = await db.from("electrical_loads").select("load_id, grid");
     if (error) throw new Error(error.message);
@@ -56,7 +56,7 @@ export const applyGridCorrections = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => ApplyInput.parse(d))
   .handler(async ({ context, data }) => {
-    await requireAddon(context.supabase, context.userId, "electrical");
+    await requireElectricalAccess(context.supabase, context.userId, "write");
     const db = context.supabase as unknown as LooseDb;
     let updated = 0;
     const errors: { load_id: string; message: string }[] = [];

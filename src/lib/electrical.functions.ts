@@ -7,7 +7,7 @@ import {
   resolveServiceTopology,
   servicePanelDomainFindings,
 } from "@/lib/electrical-service-topology";
-import { requireAddon } from "@/lib/addons.server";
+import { requireElectricalAccess } from "@/lib/addons.server";
 import {
   ENTITIES,
   ENTITY_KINDS,
@@ -84,7 +84,7 @@ export const listElectrical = createServerFn({ method: "GET" })
       .parse(d),
   )
   .handler(async ({ context, data }): Promise<ElectricalRow[]> => {
-    await requireAddon(context.supabase, context.userId, "electrical");
+    await requireElectricalAccess(context.supabase, context.userId, "read");
     const def = ENTITIES[data.kind];
     let q = (context.supabase as unknown as LooseDb)
       .from(def.table)
@@ -118,7 +118,7 @@ export const saveElectrical = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ context, data }) => {
-    await requireAddon(context.supabase, context.userId, "electrical");
+    await requireElectricalAccess(context.supabase, context.userId, "write");
     const def = ENTITIES[data.kind];
     const allowed = new Set(writableColumns(data.kind));
     const db = context.supabase as unknown as LooseDb;
@@ -247,7 +247,7 @@ export const electricalDependents = createServerFn({ method: "GET" })
     z.object({ kind: kindSchema, id: z.string().uuid() }).parse(d),
   )
   .handler(async ({ context, data }): Promise<DependencyReport> => {
-    await requireAddon(context.supabase, context.userId, "electrical");
+    await requireElectricalAccess(context.supabase, context.userId, "read");
     const db = context.supabase as unknown as LooseDb;
     const groups: DependentGroup[] = [];
 
@@ -329,7 +329,7 @@ export const resolveElectricalReference = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ context, data }) => {
-    await requireAddon(context.supabase, context.userId, "electrical");
+    await requireElectricalAccess(context.supabase, context.userId, "write");
     const db = context.supabase as unknown as LooseDb;
     const def = ENTITIES[data.kind];
 
@@ -414,7 +414,7 @@ export const deleteElectrical = createServerFn({ method: "POST" })
     z.object({ kind: kindSchema, id: z.string().uuid() }).parse(d),
   )
   .handler(async ({ context, data }) => {
-    await requireAddon(context.supabase, context.userId, "electrical");
+    await requireElectricalAccess(context.supabase, context.userId, "write");
     const { error } = await (context.supabase as unknown as LooseDb)
       .from(ENTITIES[data.kind].table)
       .delete()
@@ -444,7 +444,7 @@ export const suggestStableId = createServerFn({ method: "GET" })
     z.object({ kind: kindSchema, parentId: z.string().trim().max(40).optional() }).parse(d),
   )
   .handler(async ({ context, data }) => {
-    await requireAddon(context.supabase, context.userId, "electrical");
+    await requireElectricalAccess(context.supabase, context.userId, "read");
     const def = ENTITIES[data.kind];
     const { data: rows, error } = await (context.supabase as unknown as LooseDb)
       .from(def.table)
@@ -468,7 +468,7 @@ export const listWaypoints = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ raceway_id: z.string().uuid() }).parse(d))
   .handler(async ({ context, data }) => {
-    await requireAddon(context.supabase, context.userId, "electrical");
+    await requireElectricalAccess(context.supabase, context.userId, "read");
     const { data: rows, error } = await (context.supabase as unknown as LooseDb)
       .from("electrical_raceway_waypoints")
       .select("*")
@@ -493,7 +493,7 @@ export const saveWaypoint = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ context, data }) => {
-    await requireAddon(context.supabase, context.userId, "electrical");
+    await requireElectricalAccess(context.supabase, context.userId, "write");
     const db = context.supabase as unknown as LooseDb;
     const row = {
       raceway_id: data.raceway_id,
@@ -518,7 +518,7 @@ export const deleteWaypoint = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ context, data }) => {
-    await requireAddon(context.supabase, context.userId, "electrical");
+    await requireElectricalAccess(context.supabase, context.userId, "write");
     const { error } = await (context.supabase as unknown as LooseDb)
       .from("electrical_raceway_waypoints")
       .delete()
@@ -530,7 +530,7 @@ export const deleteWaypoint = createServerFn({ method: "POST" })
 export const naming_standards = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    await requireAddon(context.supabase, context.userId, "electrical");
+    await requireElectricalAccess(context.supabase, context.userId, "read");
     const { data, error } = await (context.supabase as unknown as LooseDb)
       .from("electrical_naming_standards")
       .select("*")
@@ -560,7 +560,7 @@ export interface ElectricalOverview {
 export const electricalOverview = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<ElectricalOverview> => {
-    await requireAddon(context.supabase, context.userId, "electrical");
+    await requireElectricalAccess(context.supabase, context.userId, "read");
     const db = context.supabase as unknown as LooseDb;
 
     const [panels, groups, loads, raceways, jboxes, branches] = await Promise.all(
@@ -673,7 +673,7 @@ export const electricalTopology = createServerFn({ method: "GET" })
     z.object({ kind: kindSchema, id: z.string().uuid() }).parse(d),
   )
   .handler(async ({ context, data }) => {
-    await requireAddon(context.supabase, context.userId, "electrical");
+    await requireElectricalAccess(context.supabase, context.userId, "read");
     const db = context.supabase as unknown as LooseDb;
     const def = ENTITIES[data.kind];
 
@@ -721,7 +721,7 @@ export const electricalEntityOptions = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ kinds: z.array(kindSchema).min(1).max(6) }).parse(d))
   .handler(async ({ context, data }): Promise<Record<string, EntityOption[]>> => {
-    await requireAddon(context.supabase, context.userId, "electrical");
+    await requireElectricalAccess(context.supabase, context.userId, "read");
     const db = context.supabase as unknown as LooseDb;
     const out: Record<string, EntityOption[]> = {};
     for (const kind of [...new Set(data.kinds)]) {
@@ -747,7 +747,7 @@ export const suggestPanelExitOrder = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ panel_uuid: z.string().uuid() }).parse(d))
   .handler(async ({ context, data }) => {
-    await requireAddon(context.supabase, context.userId, "electrical");
+    await requireElectricalAccess(context.supabase, context.userId, "read");
     const { data: rows, error } = await (context.supabase as unknown as LooseDb)
       .from("electrical_raceways")
       .select("exit_order")
@@ -774,7 +774,7 @@ export interface IntegrityReport {
 export const electricalIntegrityReport = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<IntegrityReport> => {
-    await requireAddon(context.supabase, context.userId, "electrical");
+    await requireElectricalAccess(context.supabase, context.userId, "read");
     const db = context.supabase as unknown as LooseDb;
     const kinds: ElectricalEntityKind[] = [
       "panel",
@@ -855,7 +855,7 @@ export const normalizeLegacyStatuses = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ apply: z.boolean().default(false) }).parse(d ?? {}))
   .handler(async ({ context, data }) => {
-    await requireAddon(context.supabase, context.userId, "electrical");
+    await requireElectricalAccess(context.supabase, context.userId, "write");
     const db = context.supabase as unknown as LooseDb;
     // Dry run by default: engineering-owned values are never rewritten without
     // the operator seeing the exact before/after first.
@@ -913,7 +913,7 @@ export const repairEncodedTopology = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ apply: z.boolean().default(false) }).parse(d ?? {}))
   .handler(async ({ context, data }) => {
-    await requireAddon(context.supabase, context.userId, "electrical");
+    await requireElectricalAccess(context.supabase, context.userId, "write");
     const db = context.supabase as unknown as LooseDb;
     const load = async (table: string) => {
       const { data: rows, error } = await db.from(table).select("*");

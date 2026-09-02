@@ -2,7 +2,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
-import { requireAddon } from "@/lib/addons.server";
+import { requireElectricalAccess } from "@/lib/addons.server";
 import { ENTITIES, coerceValue, importColumns } from "@/lib/electrical-entities";
 import {
   checkStableId,
@@ -56,7 +56,7 @@ export const previewOdsImport = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ context, data }): Promise<ImportPlan> => {
-    await requireAddon(context.supabase, context.userId, "electrical");
+    await requireElectricalAccess(context.supabase, context.userId, "write");
     const db = context.supabase as unknown as LooseDb;
     const sheets = await odsToSheets(data.base64);
 
@@ -109,7 +109,7 @@ export const applyOdsImport = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => ApplyInput.parse(d))
   .handler(async ({ context, data }) => {
-    await requireAddon(context.supabase, context.userId, "electrical");
+    await requireElectricalAccess(context.supabase, context.userId, "write");
     const db = context.supabase as unknown as LooseDb;
     let created = 0;
     let updated = 0;
@@ -230,7 +230,7 @@ export const previewOdsPreservation = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ context, data }): Promise<PreservationPlan> => {
-    await requireAddon(context.supabase, context.userId, "electrical");
+    await requireElectricalAccess(context.supabase, context.userId, "write");
     const db = context.supabase as unknown as LooseDb;
     const sheets = await odsToSheets(data.base64);
     const proposals: PreservationProposal[] = [];
@@ -314,7 +314,7 @@ export const applyOdsPreservation = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ context, data }) => {
-    await requireAddon(context.supabase, context.userId, "electrical");
+    await requireElectricalAccess(context.supabase, context.userId, "write");
     const db = context.supabase as unknown as LooseDb;
     let updated = 0;
     const errors: { stable_id: string; message: string }[] = [];

@@ -4,7 +4,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
-import { requireAddon } from "@/lib/addons.server";
+import { requireElectricalAccess } from "@/lib/addons.server";
 import { ENTITIES } from "@/lib/electrical-entities";
 import type { ElectricalEntityKind } from "@/lib/electrical";
 import {
@@ -50,7 +50,7 @@ export const generateElectricalDiagram = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => filterSchema.parse(d))
   .handler(async ({ context, data }): Promise<DiagramPayload> => {
-    await requireAddon(context.supabase, context.userId, "electrical");
+    await requireElectricalAccess(context.supabase, context.userId, "read");
     const db = context.supabase as unknown as LooseDb;
 
     const kinds: ElectricalEntityKind[] = [

@@ -3,7 +3,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { requireAddon } from "@/lib/addons.server";
+import { requireElectricalAccess } from "@/lib/addons.server";
 import { PANEL_EXIT_SIDES, INSTALL_STATUSES } from "@/lib/electrical";
 import {
   BREAKER_SIDES,
@@ -25,7 +25,7 @@ export const panelLayout = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ panel_uuid: z.string().uuid() }).parse(d))
   .handler(async ({ context, data }) => {
-    await requireAddon(context.supabase, context.userId, "electrical");
+    await requireElectricalAccess(context.supabase, context.userId, "read");
     const db = context.supabase as unknown as LooseDb;
     const [panel, positions, exits, raceways] = await Promise.all([
       db.from("electrical_panels").select("*").eq("id", data.panel_uuid).maybeSingle(),
@@ -80,7 +80,7 @@ export const saveBreakerPosition = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ context, data }) => {
-    await requireAddon(context.supabase, context.userId, "electrical");
+    await requireElectricalAccess(context.supabase, context.userId, "write");
     const db = context.supabase as unknown as LooseDb;
     const { id, ...values } = data;
     const row = {
@@ -126,7 +126,7 @@ export const savePanelExit = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ context, data }) => {
-    await requireAddon(context.supabase, context.userId, "electrical");
+    await requireElectricalAccess(context.supabase, context.userId, "write");
     const db = context.supabase as unknown as LooseDb;
     const { id, ...values } = data;
     const row = {
@@ -156,7 +156,7 @@ export const deletePanelLayoutRow = createServerFn({ method: "POST" })
     z.object({ table: z.enum(["breaker_position", "panel_exit"]), id: z.string().uuid() }).parse(d),
   )
   .handler(async ({ context, data }) => {
-    await requireAddon(context.supabase, context.userId, "electrical");
+    await requireElectricalAccess(context.supabase, context.userId, "write");
     const table = data.table === "breaker_position" ? BREAKER_TABLE : EXIT_TABLE;
     const { error } = await (context.supabase as unknown as LooseDb)
       .from(table)

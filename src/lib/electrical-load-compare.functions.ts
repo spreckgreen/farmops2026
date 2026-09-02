@@ -4,7 +4,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { requireAddon } from "@/lib/addons.server";
+import { requireElectricalAccess } from "@/lib/addons.server";
 import { ENTITIES, importColumns } from "@/lib/electrical-entities";
 import { classifySheet, mapSheet, parseOdsContentXml } from "@/lib/electrical-ods";
 import {
@@ -32,7 +32,7 @@ export const compareLoadMaster = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ context, data }): Promise<LoadComparePayload> => {
-    await requireAddon(context.supabase, context.userId, "electrical");
+    await requireElectricalAccess(context.supabase, context.userId, "write");
 
     const { unzipSync, strFromU8 } = await import("fflate");
     const binary = atob(data.base64);
@@ -89,7 +89,7 @@ export const applyLoadCompletionCorrections = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ context, data }) => {
-    await requireAddon(context.supabase, context.userId, "electrical");
+    await requireElectricalAccess(context.supabase, context.userId, "write");
     const db = context.supabase as unknown as LooseDb;
     let updated = 0;
     const errors: { load_id: string; message: string }[] = [];

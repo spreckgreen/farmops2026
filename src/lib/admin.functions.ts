@@ -13,7 +13,12 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
-export type AppRole = "viewer" | "editor" | "admin";
+/**
+ * `electrician` is a scoped role, not a rank: it grants no app-wide editing and
+ * limits the user to the Electrical area. Depth of electrical access still comes
+ * from the add-on (`electrical_readonly` for read-only electricians).
+ */
+export type AppRole = "viewer" | "editor" | "admin" | "electrician";
 export type ApprovalStatus = "pending" | "approved" | "rejected";
 
 export type MyProfile = {
@@ -370,7 +375,7 @@ export const setUserRoles = createServerFn({ method: "POST" })
     if (!d.userId) throw new Error("userId required");
     if (!Array.isArray(d.roles)) throw new Error("roles must be an array");
     for (const r of d.roles) {
-      if (!["viewer", "editor", "admin"].includes(r)) {
+      if (!["viewer", "editor", "admin", "electrician"].includes(r)) {
         throw new Error(`invalid role: ${r}`);
       }
     }
@@ -985,3 +990,128 @@ export const importApplicationData = createServerFn({ method: "POST" })
 
 
 
+
+// ---- Admin-created accounts (bypassing self sign-up) --------------------
+//
+// Normally a person signs themselves up and waits for approval. An admin can
+// instead create the account outright: the email is pre-confirmed, the profile
+// lands `approved`, roles are set immediately, and an Electrical add-on can be
+// granted in the same step. Useful for an electrician who should simply be able
+// to sign in and read the field record.
+
+export type CreatedUser = {
+  ok: boolean;
+  userId: string;
+  email: string;
+  roles: AppRole[];
+  addon: "electrical" | "electrical_readonly" | null;
+  message: string;
+};
+
+export const createUserAccount = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    (d: {
+      email: string;
+      password: string;
+      display_name?: string;
+      roles?: AppRole[];
+      addon?: "electrical" | "electrical_readonly" | null;
+    }) => {
+      const email = String(d.email ?? "").trim().toLowerCase();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("A valid email is required");
+      const password = String(d.password ?? "");
+      if (password.length < 8) throw new Error("Password must be at least 8 characters");
+      const roles = Array.isArray(d.roles) && d.roles.length ? d.roles : (["viewer"] as AppRole[]);
+      for (const r of roles) {
+        if (!["viewer", "editor", "admin", "electrician"].includes(r)) {
+          throw new Error(`invalid role: ${r}`);
+        }
+      }
+      const addon = d.addon ?? null;
+      if (addon && addon !== "electrical" && addon !== "electrical_readonly") {
+        throw new Error("invalid add-on");
+      }
+      return {
+        email,
+        password,
+        display_name: String(d.display_name ?? "").trim().slice(0, 120),
+        roles: [...new Set(roles)] as AppRole[],
+        addon,
+      };
+    },
+  )
+  .handler(async ({ data, context }): Promise<CreatedUser> => {
+    const { supabase, userId } = context;
+    await requireAdmin(supabase, userId);
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const created = await supabaseAdmin.auth.admin.createUser({
+      email: data.email,
+      password: data.password,
+      email_confirm: true,
+      user_metadata: data.display_name ? { display_name: data.display_name } : undefined,
+    });
+    if (created.error || !created.data?.user) {
+      throw new Error(created.error?.message ?? "Could not create the account");
+    }
+    const newId = created.data.user.id;
+    const now = new Date().toISOString();
+
+    // Profile: pre-approved, so the new user never sits behind the approval gate.
+    const prof = await supabaseAdmin.from("profiles").upsert(
+      {
+        id: newId,
+        email: data.email,
+        display_name: data.display_name || null,
+        status: "approved",
+        reviewed_by: userId,
+        reviewed_at: now,
+        disabled_at: null,
+        disabled_by: null,
+        disabled_reason: null,
+      } as never,
+      { onConflict: "id" },
+    );
+    if (prof.error) throw new Error(`profile setup failed: ${prof.error.message}`);
+
+    for (const role of data.roles) {
+      const ins = await supabaseAdmin
+        .from("user_roles")
+        .upsert({ user_id: newId, role, granted_by: userId } as never, {
+          onConflict: "user_id,role",
+        });
+      if (ins.error) throw new Error(`role grant failed: ${ins.error.message}`);
+    }
+
+    if (data.addon) {
+      const ent = await supabaseAdmin.from("app_entitlements").upsert(
+        {
+          user_id: newId,
+          addon_key: data.addon,
+          status: "active",
+          expires_at: null,
+          blocked_until: null,
+          granted_by: userId,
+          notes:
+            data.addon === "electrical_readonly"
+              ? "Granted at account creation: read-only electrician access."
+              : "Granted at account creation: full Electrical module.",
+        } as never,
+        { onConflict: "user_id,addon_key" },
+      );
+      if (ent.error) throw new Error(`add-on grant failed: ${ent.error.message}`);
+    }
+
+    return {
+      ok: true,
+      userId: newId,
+      email: data.email,
+      roles: data.roles,
+      addon: data.addon,
+      message: `Created ${data.email} — email pre-confirmed, profile approved${
+        data.addon ? `, ${data.addon === "electrical" ? "full Electrical" : "read-only Electrical"} add-on granted` : ""
+      }.`,
+    };
+  });

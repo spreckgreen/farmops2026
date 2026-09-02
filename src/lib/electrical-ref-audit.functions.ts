@@ -3,7 +3,7 @@
 // writes, so running the audit can never change or reconstruct a record.
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { requireAddon } from "@/lib/addons.server";
+import { requireElectricalAccess } from "@/lib/addons.server";
 import { ENTITIES } from "@/lib/electrical-entities";
 import { buildRefAudit, type RefAuditReport } from "@/lib/electrical-ref-audit";
 import type { ElectricalEntityKind } from "@/lib/electrical";
@@ -18,7 +18,7 @@ export interface RefAuditPayload extends RefAuditReport {
 export const electricalRefAudit = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<RefAuditPayload> => {
-    await requireAddon(context.supabase, context.userId, "electrical");
+    await requireElectricalAccess(context.supabase, context.userId, "read");
     const db = context.supabase as unknown as LooseDb;
     const kinds: ElectricalEntityKind[] = [
       "panel",

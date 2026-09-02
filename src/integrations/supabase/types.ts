@@ -4162,7 +4162,7 @@ export type Database = {
       restore_table_diagnostics: { Args: { _table: string }; Returns: Json }
     }
     Enums: {
-      app_role: "viewer" | "editor" | "admin"
+      app_role: "viewer" | "editor" | "admin" | "electrician"
       approval_status: "pending" | "approved" | "rejected"
       entry_type:
         | "status"
@@ -4308,7 +4308,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["viewer", "editor", "admin"],
+      app_role: ["viewer", "editor", "admin", "electrician"],
       approval_status: ["pending", "approved", "rejected"],
       entry_type: [
         "status",

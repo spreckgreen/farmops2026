@@ -13,7 +13,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { requireAddon } from "@/lib/addons.server";
+import { requireElectricalAccess } from "@/lib/addons.server";
 import { equipmentFor } from "@/lib/electrical-equipment-provenance";
 import { adjudicateLoads } from "@/lib/electrical-load-adjudication";
 import {
@@ -293,7 +293,7 @@ export const previewBryantVoltageCorrection = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => parseOdsBaselineInput(d))
   .handler(async ({ context, data }): Promise<BryantVoltageGateResult> => {
-    await requireAddon(context.supabase, context.userId, "electrical");
+    await requireElectricalAccess(context.supabase, context.userId, "write");
     const baseline = await baselineFromUpload(data);
     return runGate(context.supabase as unknown as LooseDb, baseline, {
       confirm: false,
@@ -308,7 +308,7 @@ export const applyBryantVoltageCorrection = createServerFn({ method: "POST" })
     return inputSchema.parse({ ...(d as object), confirm: true });
   })
   .handler(async ({ context, data }): Promise<BryantVoltageGateResult> => {
-    await requireAddon(context.supabase, context.userId, "electrical");
+    await requireElectricalAccess(context.supabase, context.userId, "write");
     const baseline = await baselineFromUpload(data);
     const guard = baselineAuthorizesApply(baseline);
     if (!guard.ok) {

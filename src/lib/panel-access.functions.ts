@@ -10,7 +10,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { ensureScanAddon, requireAddon, requireAnyAddon, hasAddon } from "@/lib/addons.server";
+import { ensureScanAddon, requireElectricalAccess, requireAnyAddon, hasAddon } from "@/lib/addons.server";
 import { PANEL_SHEET_ADDONS } from "@/lib/addons";
 import { isAdminRole } from "@/lib/admin-role.server";
 import {
@@ -135,7 +135,7 @@ export const listPanelLabels = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<PanelLabel[]> => {
     // Printing the whole label sheet is farm-wide, so it stays on the full add-on.
-    await requireAddon(context.supabase, context.userId, "electrical");
+    await requireElectricalAccess(context.supabase, context.userId, "read");
     const db = await readerClient();
     const { data, error } = await db
       .from("electrical_panels")
