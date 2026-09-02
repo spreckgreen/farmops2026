@@ -1,33 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useServerFn } from "@tanstack/react-start";
 import { AppLayout } from "@/components/app-layout";
 import { requireAuthenticatedUser } from "@/lib/auth-route";
 import { useSelfHostConfig } from "@/hooks/use-self-host-config";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { toast } from "sonner";
-import {
-  getAiModelPickerState,
-  setAiModel,
-  pullAiModel,
-} from "@/lib/ai-models.functions";
-import {
-  ModelSuitabilityBadge,
-  ModelSuitabilityPanel,
-} from "@/components/model-suitability";
-import { AiWorkflowTests } from "@/components/ai-workflow-tests";
-import { AiFeatureRouting } from "@/components/ai-feature-routing";
+import { SmtpConfigCard } from "@/components/smtp-config-card";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -36,10 +14,6 @@ import {
   Sparkles,
   Webhook,
   ExternalLink,
-  RefreshCw,
-  Download,
-  Save,
-  Zap,
 } from "lucide-react";
 
 
