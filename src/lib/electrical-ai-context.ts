@@ -675,6 +675,8 @@ export function buildElectricalRecordContext(
     },
     matchedLoadIds,
     groundedLoadAnswer,
+    loadTraceAnswer,
+
     approxTokens: Math.ceil(block.length / 4),
   };
 }
