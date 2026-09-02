@@ -24,16 +24,16 @@ import {
   type DiagramLoad,
   type DiagramPanel,
 } from "@/lib/electrical-panel-diagram";
+import { PersistedSection } from "@/components/electrical/persisted-section";
 import {
   AlertTriangle,
   CheckCircle2,
-  ChevronDown,
-  ChevronUp,
   Network,
   RefreshCw,
   Search,
   Zap,
 } from "lucide-react";
+
 
 
 export const Route = createFileRoute("/electrical/panel-diagram")({
@@ -115,43 +115,32 @@ function CircuitBlock({ circuit }: { circuit: DiagramCircuit }) {
 type ViewMode = "planned" | "current";
 
 function TopologyToggle({
+  storageKey,
   source,
   downloadName,
   caption,
 }: {
+  storageKey: string;
   source: string;
   downloadName: string;
   caption: string;
 }) {
-  const [open, setOpen] = useState(false);
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <button
-          type="button"
-          onClick={() => setOpen((v) => !v)}
-          aria-expanded={open}
-          className="flex w-full items-center justify-between gap-2 text-left"
-        >
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Network className="h-4 w-4" /> Mermaid topology diagram
-          </CardTitle>
-          {open ? (
-            <ChevronUp className="h-4 w-4 text-muted-foreground" />
-          ) : (
-            <ChevronDown className="h-4 w-4 text-muted-foreground" />
-          )}
-        </button>
-      </CardHeader>
-      {open && (
-        <CardContent>
-          <MermaidFigure source={source} downloadName={downloadName} />
-          <p className="mt-2 text-xs text-muted-foreground">{caption}</p>
-        </CardContent>
-      )}
-    </Card>
+    <PersistedSection
+      storageKey={storageKey}
+      defaultOpen
+      title={
+        <span className="flex items-center gap-2">
+          <Network className="h-4 w-4" /> Mermaid topology diagram
+        </span>
+      }
+    >
+      <MermaidFigure source={source} downloadName={downloadName} />
+      <p className="mt-2 text-xs text-muted-foreground">{caption}</p>
+    </PersistedSection>
   );
 }
+
 
 function PlannedDetail({ panel }: { panel: DiagramPanel }) {
   const plan = useMemo(() => plannedPanel(panel), [panel]);
@@ -160,44 +149,18 @@ function PlannedDetail({ panel }: { panel: DiagramPanel }) {
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <CheckCircle2 className="h-4 w-4 text-primary" /> What the plan says
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm text-foreground">
-            {reading.known.map((k) => (
-              <p key={k}>{k}</p>
-            ))}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <AlertTriangle className="h-4 w-4 text-destructive" /> What the plan cannot answer
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ul className="space-y-2 text-sm">
-              {reading.missing.map((m) => (
-                <li key={m} className="text-muted-foreground">
-                  {m}
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
-      </div>
+      <TopologyToggle
+        storageKey="panel-diagram.planned.mermaid"
+        source={mermaid}
+        downloadName={`${panel.id}-planned-topology`}
+        caption="Dashed lines and dashed boxes are planned alignment. Solid lines mark loads the record already links."
+      />
 
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">
-            Planned loads on {panel.id} ({plan.total})
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
+      <PersistedSection
+        storageKey="panel-diagram.planned.loads"
+        title={`Planned loads on ${panel.id} (${plan.total})`}
+      >
+        <div className="space-y-3">
           <p className="text-xs text-muted-foreground">
             Grouped by building / grid location. These are suggested alignments — nothing here
             claims an installed circuit or breaker.
@@ -232,17 +195,45 @@ function PlannedDetail({ panel }: { panel: DiagramPanel }) {
               No load is planned for this panel yet.
             </p>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </PersistedSection>
 
-      <TopologyToggle
-        source={mermaid}
-        downloadName={`${panel.id}-planned-topology`}
-        caption="Dashed lines and dashed boxes are planned alignment. Solid lines mark loads the record already links."
-      />
+      <div className="grid gap-4 md:grid-cols-2">
+        <PersistedSection
+          storageKey="panel-diagram.planned.known"
+          title={
+            <span className="flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 text-primary" /> What the plan says
+            </span>
+          }
+        >
+          <div className="space-y-2 text-sm text-foreground">
+            {reading.known.map((k) => (
+              <p key={k}>{k}</p>
+            ))}
+          </div>
+        </PersistedSection>
+        <PersistedSection
+          storageKey="panel-diagram.planned.missing"
+          title={
+            <span className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-destructive" /> What the plan cannot answer
+            </span>
+          }
+        >
+          <ul className="space-y-2 text-sm">
+            {reading.missing.map((m) => (
+              <li key={m} className="text-muted-foreground">
+                {m}
+              </li>
+            ))}
+          </ul>
+        </PersistedSection>
+      </div>
     </div>
   );
 }
+
 
 function PanelDetail({ panel }: { panel: DiagramPanel }) {
   const reading = useMemo(() => panelReading(panel), [panel]);
@@ -250,44 +241,18 @@ function PanelDetail({ panel }: { panel: DiagramPanel }) {
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <CheckCircle2 className="h-4 w-4 text-primary" /> What the record proves
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm text-foreground">
-            {reading.known.map((k) => (
-              <p key={k}>{k}</p>
-            ))}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <AlertTriangle className="h-4 w-4 text-destructive" /> What is missing
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ul className="space-y-2 text-sm">
-              {reading.missing.map((m) => (
-                <li key={m} className="text-muted-foreground">
-                  {m}
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
-      </div>
+      <TopologyToggle
+        storageKey="panel-diagram.current.mermaid"
+        source={mermaid}
+        downloadName={`${panel.id}-topology`}
+        caption="Solid lines are links a record proves. Dashed lines and dashed boxes are unproven — expected, not recorded."
+      />
 
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">
-            Circuits on {panel.id} ({panel.circuits.length})
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
+      <PersistedSection
+        storageKey="panel-diagram.current.circuits"
+        title={`Circuits on ${panel.id} (${panel.circuits.length})`}
+      >
+        <div className="space-y-2">
           {panel.circuits.map((c) => (
             <CircuitBlock key={c.uuid || c.id} circuit={c} />
           ))}
@@ -296,32 +261,32 @@ function PanelDetail({ panel }: { panel: DiagramPanel }) {
               No circuit group is linked to this panel yet.
             </p>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </PersistedSection>
 
       {panel.directLoads.length > 0 && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">
-              On a breaker here, but in no circuit group ({panel.directLoads.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-1.5">
+        <PersistedSection
+          storageKey="panel-diagram.current.direct-loads"
+          title={`On a breaker here, but in no circuit group (${panel.directLoads.length})`}
+        >
+          <div className="space-y-1.5">
             {panel.directLoads.map((l) => (
               <LoadRow key={l.uuid || l.id} load={l} />
             ))}
-          </CardContent>
-        </Card>
+          </div>
+        </PersistedSection>
       )}
 
       {panel.expectedLoads.length > 0 && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base text-destructive">
+        <PersistedSection
+          storageKey="panel-diagram.current.expected-loads"
+          title={
+            <span className="text-destructive">
               Expected on {panel.id} but unaccounted ({panel.expectedLoads.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-1.5">
+            </span>
+          }
+        >
+          <div className="space-y-1.5">
             <p className="text-xs text-muted-foreground">
               These loads point at this panel (or its building) in the record but carry no circuit
               or breaker link, so they are not accounted for against it.
@@ -337,18 +302,46 @@ function PanelDetail({ panel }: { panel: DiagramPanel }) {
                 }
               />
             ))}
-          </CardContent>
-        </Card>
+          </div>
+        </PersistedSection>
       )}
 
-      <TopologyToggle
-        source={mermaid}
-        downloadName={`${panel.id}-topology`}
-        caption="Solid lines are links a record proves. Dashed lines and dashed boxes are unproven — expected, not recorded."
-      />
+      <div className="grid gap-4 md:grid-cols-2">
+        <PersistedSection
+          storageKey="panel-diagram.current.known"
+          title={
+            <span className="flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 text-primary" /> What the record proves
+            </span>
+          }
+        >
+          <div className="space-y-2 text-sm text-foreground">
+            {reading.known.map((k) => (
+              <p key={k}>{k}</p>
+            ))}
+          </div>
+        </PersistedSection>
+        <PersistedSection
+          storageKey="panel-diagram.current.missing"
+          title={
+            <span className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-destructive" /> What is missing
+            </span>
+          }
+        >
+          <ul className="space-y-2 text-sm">
+            {reading.missing.map((m) => (
+              <li key={m} className="text-muted-foreground">
+                {m}
+              </li>
+            ))}
+          </ul>
+        </PersistedSection>
+      </div>
     </div>
   );
 }
+
 
 
 function PanelDiagramPage() {
@@ -445,11 +438,12 @@ function PanelDiagramPage() {
 
         {q.data && (
           <>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base">Panels ({panels.length})</CardTitle>
-              </CardHeader>
-              <CardContent className="flex flex-wrap gap-2">
+            <PersistedSection
+              storageKey="panel-diagram.panels"
+              defaultOpen
+              title={`Panels (${panels.length})`}
+            >
+              <div className="flex flex-wrap gap-2">
                 {panels.map((p) => {
                   const plannedTotal = plannedPanel(p).total;
                   return (
@@ -469,8 +463,9 @@ function PanelDiagramPage() {
                     </Button>
                   );
                 })}
-              </CardContent>
-            </Card>
+              </div>
+            </PersistedSection>
+
 
             {panel ? (
               <>
@@ -506,13 +501,15 @@ function PanelDiagramPage() {
             )}
 
 
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-base">
+            <PersistedSection
+              storageKey="panel-diagram.load-search"
+              title={
+                <span className="flex items-center gap-2">
                   <Search className="h-4 w-4" /> Find a load and see which panel holds it
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
+                </span>
+              }
+            >
+              <div className="space-y-2">
                 <Input
                   value={loadQuery}
                   onChange={(e) => setLoadQuery(e.target.value)}
@@ -537,11 +534,11 @@ function PanelDiagramPage() {
                     )}
                   </div>
                 ))}
-              </CardContent>
-            </Card>
+              </div>
+            </PersistedSection>
 
-            <Card>
-              <CardContent className="flex flex-wrap items-center gap-4 pt-6 text-sm">
+            <PersistedSection storageKey="panel-diagram.totals" title="System totals">
+              <div className="flex flex-wrap items-center gap-4 text-sm">
                 <span>
                   <strong>{q.data.totals.panels}</strong> panels
                 </span>
@@ -555,8 +552,9 @@ function PanelDiagramPage() {
                 <span className="text-destructive">
                   <strong>{q.data.orphanCircuits.length}</strong> circuits with no panel link
                 </span>
-              </CardContent>
-            </Card>
+              </div>
+            </PersistedSection>
+
           </>
         )}
       </div>
