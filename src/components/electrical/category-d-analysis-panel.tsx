@@ -113,6 +113,36 @@ export function CategoryDAnalysisPanel({ diag }: { diag: NumericDiagnosticsRepor
           <Badge variant="secondary">Total groups {analysis.groups_count}</Badge>
         </div>
 
+        <div className="rounded-md border p-3 text-xs">
+          <p className="font-medium">
+            Focused Category-D acceptance — 14 raw / 13 resolved / 1 open (FS-084):{" "}
+            <Badge
+              variant={
+                analysis.raw_d === 14 &&
+                analysis.rows_resolved_by_adjudication === 13 &&
+                analysis.rows_open === 1
+                  ? "default"
+                  : "destructive"
+              }
+            >
+              {analysis.raw_d === 14 &&
+              analysis.rows_resolved_by_adjudication === 13 &&
+              analysis.rows_open === 1
+                ? "PASS"
+                : "NOT MET"}
+            </Badge>
+          </p>
+          <p className="mt-1 text-muted-foreground">
+            Scored on Category-D findings only — unrelated global reconciliation findings do not
+            affect this result. Expected composition: 11 import/default connected_va zero artifacts
+            (Category-C class, no load asserted), 2 PNL-H1 source-verified panel attributes, and
+            FS-084 left open (ODS 14,400 VA / FarmOps blank — evidence required; the value is not
+            inferred or imported).
+          </p>
+        </div>
+
+
+
 
         <div className="flex flex-wrap gap-2 text-xs">
           {kinds.map((c) => (
