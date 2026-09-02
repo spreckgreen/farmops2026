@@ -338,11 +338,12 @@ function UserRow({ user, currentUserId }: { user: ManagedUser; currentUserId: st
             </div>
           </div>
         )}
-
+        {user.reviewed_at && (
           <div className="text-[11px] text-muted-foreground mt-1">
             {new Date(user.reviewed_at).toLocaleString()}
           </div>
         )}
+
       </TableCell>
       <TableCell className="align-top">
         <div className="flex flex-col gap-1.5">
