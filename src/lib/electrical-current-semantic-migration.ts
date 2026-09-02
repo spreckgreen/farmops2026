@@ -17,7 +17,7 @@
 import {
   baselineLabel,
   type AdjudicationBaseline,
-  type CanonicalLoadRow,
+  type CanonicalOdsLoadValues,
 } from "@/lib/electrical-adjudication-baseline";
 import { equipmentFor } from "@/lib/electrical-equipment-provenance";
 import {
@@ -330,7 +330,7 @@ function coincidencesFor(
 }
 
 function evidenceFor(input: {
-  ods: CanonicalLoadRow;
+  ods: CanonicalOdsLoadValues;
   fp: FarmOpsLoadRow | undefined;
   label: string;
   stated: string | null;
