@@ -24,6 +24,11 @@ import {
   type ValidationReport,
 } from "@/lib/electrical-parallel-validation";
 import { PHASE_44A_BASELINE_SHA256 } from "@/lib/electrical-adjudication-baseline";
+import {
+  PNL_H1_LABEL_OBSERVATION,
+  PNL_H1_VERIFIED_FIELDS,
+  pnlH1PreservedFacts,
+} from "@/lib/electrical-pnl-h1-field-provenance";
 
 export const CONVERGENCE_VERSION = "4.4b-parallel-validation-convergence-1";
 
@@ -39,6 +44,7 @@ export const CONVERGENCE_DISPOSITIONS = [
   "FIELD_VERIFICATION_REQUIRED",
   "EXPECTED_TRANSFORMATION",
   "FARMOPS_AS_BUILT_ADDITION",
+  "FARMOPS_AS_BUILT_VALUE_VERIFIED",
   "PLACEHOLDER_PRESERVED_AS_NULL",
   "RESOLVED_NO_WRITE_REQUIRED",
 ] as const;
@@ -54,6 +60,8 @@ export const CONVERGENCE_DISPOSITION_LABELS: Record<ConvergenceDisposition, stri
   FIELD_VERIFICATION_REQUIRED: "Field verification required",
   EXPECTED_TRANSFORMATION: "Expected transformation",
   FARMOPS_AS_BUILT_ADDITION: "FarmOps as-built addition",
+  FARMOPS_AS_BUILT_VALUE_VERIFIED:
+    "FarmOps as-built value verified (field/manufacturer provenance — value confirmed, not corrected, ODS untouched)",
   PLACEHOLDER_PRESERVED_AS_NULL:
     "Placeholder preserved as NULL (Category C — source token retained as provenance, no number written)",
   RESOLVED_NO_WRITE_REQUIRED: "Resolved — no write required",
@@ -72,9 +80,11 @@ export const CLOSED_DISPOSITIONS = new Set<ConvergenceDisposition>([
   "SEMANTIC_REPRESENTATION_DIFFERENCE",
   "EXPECTED_TRANSFORMATION",
   "FARMOPS_AS_BUILT_ADDITION",
+  "FARMOPS_AS_BUILT_VALUE_VERIFIED",
   "PLACEHOLDER_PRESERVED_AS_NULL",
   "RESOLVED_NO_WRITE_REQUIRED",
 ]);
+
 
 
 /* ------------------------------------------- established adjudication registry */
@@ -227,6 +237,19 @@ export const ESTABLISHED_ADJUDICATIONS: EstablishedAdjudication[] = [
     ],
     write_authorized: false,
   },
+  ...PNL_H1_VERIFIED_FIELDS.map((f) => ({
+    id: `pnl-h1-label-verified-${f.field}`,
+    source: "PNL-H1 Category-D field provenance adjudication (owner-supplied manufacturer label photograph)",
+    stable_id: f.stable_id,
+    fields: [f.field],
+    ods_sha256: PHASE_44A_BASELINE_SHA256,
+    classification: "FARMOPS_AS_BUILT_VALUE_VERIFIED",
+    disposition: "FARMOPS_AS_BUILT_VALUE_VERIFIED" as const,
+    category: "D" as const,
+    rationale: `The canonical workbook states nothing for ${f.label}; the installed ${PNL_H1_LABEL_OBSERVATION.manufacturer} ${PNL_H1_LABEL_OBSERVATION.catalog_model} manufacturer label establishes it. This is a FarmOps as-built addition verified by field/manufacturer provenance — not a canonical ODS correction and not an engineering disagreement. The existing FarmOps value ${f.farmops_value} is verified, not corrected, and the ODS is not modified.`,
+    preserved: pnlH1PreservedFacts(f.field),
+    write_authorized: false as const,
+  })),
 ];
 
 /* --------------------------------------------------------------- application */

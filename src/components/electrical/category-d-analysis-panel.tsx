@@ -96,6 +96,12 @@ export function CategoryDAnalysisPanel({ diag }: { diag: NumericDiagnosticsRepor
         <div className="flex flex-wrap gap-2 text-xs">
           <Badge variant="outline">Raw D = {analysis.raw_d}</Badge>
           <Badge variant="outline">
+            Resolved by adjudication = {analysis.rows_resolved_by_adjudication}
+          </Badge>
+          <Badge variant={analysis.rows_open ? "secondary" : "outline"}>
+            Open for Phase 4.5 = {analysis.rows_open}
+          </Badge>
+          <Badge variant="outline">
             Systematic groups = {analysis.systematic_groups_count}
           </Badge>
           <Badge variant="outline">
@@ -106,6 +112,7 @@ export function CategoryDAnalysisPanel({ diag }: { diag: NumericDiagnosticsRepor
           </Badge>
           <Badge variant="secondary">Total groups {analysis.groups_count}</Badge>
         </div>
+
 
         <div className="flex flex-wrap gap-2 text-xs">
           {kinds.map((c) => (
@@ -123,11 +130,14 @@ export function CategoryDAnalysisPanel({ diag }: { diag: NumericDiagnosticsRepor
 
         <p className="text-xs text-muted-foreground">
           Missing provenance states what evidence is owed before a finding can be adjudicated — it
-          is not a disposition: every row below is still Category D and still unresolved. Exact
-          source values, worksheet/row and stable IDs are preserved, bound to workbook SHA{" "}
-          <code className="break-all">{analysis.ods_sha256}</code>. No schema, normalization, ODS or
-          FarmOps change is made by this analysis.
+          is not a disposition. Rows marked{" "}
+          <code>PROVENANCE_ESTABLISHED_NO_FURTHER_EVIDENCE_REQUIRED</code> already carry a
+          SHA-bound adjudication: they stay Category D in raw/historical reporting and simply owe
+          nothing further. Exact source values, worksheet/row and stable IDs are preserved, bound to
+          workbook SHA <code className="break-all">{analysis.ods_sha256}</code>. No schema,
+          normalization, ODS or FarmOps change is made by this analysis.
         </p>
+
 
         {analysis.raw_d === 0 ? (
           <p className="text-sm text-muted-foreground">No Category-D findings in this run.</p>
@@ -157,13 +167,43 @@ export function CategoryDAnalysisPanel({ diag }: { diag: NumericDiagnosticsRepor
                   <Badge variant="secondary" title={MISSING_PROVENANCE_LABELS[g.missing_provenance]}>
                     {g.missing_provenance}
                   </Badge>
-                  <Badge variant={g.systematic ? "outline" : "destructive"}>
-                    {g.systematic ? "systematic" : "individual review"}
+                  <Badge
+                    variant={g.adjudicated ? "outline" : g.systematic ? "outline" : "destructive"}
+                  >
+                    {g.adjudicated
+                      ? "adjudicated — resolved"
+                      : g.systematic
+                        ? "systematic"
+                        : "individual review"}
                   </Badge>
+
                 </button>
                 {open[g.group_id] ? (
                   <div className="space-y-2 border-t p-3 text-xs">
+                    {g.adjudicated ? (
+                      <div className="rounded-md border border-dashed p-2">
+                        <p className="font-medium">
+                          Adjudicated — {g.findings[0]?.adjudication_classification ?? "resolved"}
+                        </p>
+                        {g.findings[0]?.adjudication_source ? (
+                          <p className="text-muted-foreground">
+                            Source: {g.findings[0].adjudication_source}
+                          </p>
+                        ) : null}
+                        {g.findings[0]?.adjudication_rationale ? (
+                          <p className="mt-1">{g.findings[0].adjudication_rationale}</p>
+                        ) : null}
+                        {g.findings[0]?.preserved.length ? (
+                          <ul className="mt-1 list-disc pl-4 text-muted-foreground">
+                            {g.findings[0].preserved.map((p) => (
+                              <li key={p}>{p}</li>
+                            ))}
+                          </ul>
+                        ) : null}
+                      </div>
+                    ) : null}
                     <dl className="grid gap-1 sm:grid-cols-2">
+
                       <div>
                         <dt className="text-muted-foreground">ODS representation</dt>
                         <dd>{g.ods_representation}</dd>

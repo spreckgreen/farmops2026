@@ -14,11 +14,13 @@ import type {
   NumericDiagnosticsReport,
   NumericFinding,
 } from "@/lib/electrical-numeric-diagnostics";
+import { CLOSED_DISPOSITIONS } from "@/lib/electrical-convergence";
 
-export const CATEGORY_D_ANALYSIS_VERSION = "4.4b-category-d-provenance-analysis-1";
+export const CATEGORY_D_ANALYSIS_VERSION = "4.4b-category-d-provenance-analysis-2";
 
 /** What is missing before the group could be adjudicated at all. */
 export type MissingProvenance =
+  | "PROVENANCE_ESTABLISHED_NO_FURTHER_EVIDENCE_REQUIRED"
   | "SOURCE_DOCUMENT_REQUIRED"
   | "EQUIPMENT_NAMEPLATE_REQUIRED"
   | "FARMOPS_ZERO_ORIGIN_PROVENANCE_REQUIRED"
@@ -28,9 +30,13 @@ export type MissingProvenance =
   | "IDENTITY_OR_MAPPING_PROVENANCE_REQUIRED"
   | "OTHER_PROVENANCE_REQUIRED";
 
+
 export const MISSING_PROVENANCE_LABELS: Record<MissingProvenance, string> = {
+  PROVENANCE_ESTABLISHED_NO_FURTHER_EVIDENCE_REQUIRED:
+    "Provenance has been established and the finding is adjudicated; nothing further is owed. The raw Category-D finding is retained for historical reporting.",
   SOURCE_DOCUMENT_REQUIRED:
     "The canonical workbook states nothing for this quantity; a design document, panel schedule or drawing must establish it.",
+
   EQUIPMENT_NAMEPLATE_REQUIRED:
     "The quantity is an equipment rating; only the nameplate (or its datasheet) can establish it.",
   FARMOPS_ZERO_ORIGIN_PROVENANCE_REQUIRED:
@@ -48,6 +54,9 @@ export const MISSING_PROVENANCE_LABELS: Record<MissingProvenance, string> = {
 };
 
 export const RESOLUTION_SOURCE_LABELS: Record<MissingProvenance, string> = {
+  PROVENANCE_ESTABLISHED_NO_FURTHER_EVIDENCE_REQUIRED:
+    "Already established — see the recorded adjudication provenance on each finding",
+
   SOURCE_DOCUMENT_REQUIRED:
     "Canonical ODS / original design documentation (panel schedule, load calc, drawing set)",
   EQUIPMENT_NAMEPLATE_REQUIRED: "Equipment nameplate photograph or manufacturer datasheet",
@@ -122,8 +131,14 @@ export function side(f: NumericFinding): DSide {
  * is missing*, never a resolution of the finding.
  */
 export function missingProvenance(f: NumericFinding): MissingProvenance {
+  // An adjudicated finding owes no further evidence. Its raw category stays D and
+  // it stays visible here; it simply no longer requests provenance.
+  if (f.adjudicated && CLOSED_DISPOSITIONS.has(f.convergence_disposition)) {
+    return "PROVENANCE_ESTABLISHED_NO_FURTHER_EVIDENCE_REQUIRED";
+  }
   const s = side(f);
   const field = f.farmops_field;
+
 
   if (!f.farmops_entity || !f.ods_worksheet || IDENTITY_FIELD.test(field)) {
     return "IDENTITY_OR_MAPPING_PROVENANCE_REQUIRED";
@@ -174,6 +189,12 @@ export interface CategoryDGroup {
   mapping_rule: string;
   /** True when the deficiency repeats across more than one finding. */
   systematic: boolean;
+  /** True when every finding in the group carries a closed adjudication. */
+  adjudicated: boolean;
+  /** Rows whose disposition is closed (no further evidence owed). */
+  resolved_count: number;
+  /** Rows still open for Phase 4.5. */
+  open_count: number;
   /** Identity of every underlying finding — preserved, never mutated. */
   findings: NumericFinding[];
 }
@@ -184,11 +205,16 @@ export interface CategoryDAnalysis {
   ods_sha256: string;
   compared_at: string;
   raw_d: number;
+  /** Raw D rows now closed by an established adjudication (still reported here). */
+  rows_resolved_by_adjudication: number;
+  /** Raw D rows still open for Phase 4.5. */
+  rows_open: number;
   groups_count: number;
   systematic_groups_count: number;
   individual_review_groups_count: number;
   rows_explained_by_systematic_pattern: number;
   rows_requiring_individual_review: number;
+
   counts_by_missing_provenance: Record<MissingProvenance, number>;
   counts_by_side: Record<DSide, number>;
   groups: CategoryDGroup[];
@@ -198,7 +224,9 @@ export interface CategoryDAnalysis {
 }
 
 const EMPTY_PROVENANCE = (): Record<MissingProvenance, number> => ({
+  PROVENANCE_ESTABLISHED_NO_FURTHER_EVIDENCE_REQUIRED: 0,
   SOURCE_DOCUMENT_REQUIRED: 0,
+
   EQUIPMENT_NAMEPLATE_REQUIRED: 0,
   FIELD_VERIFICATION_REQUIRED: 0,
   ODS_SEMANTIC_CONTEXT_REQUIRED: 0,
@@ -226,6 +254,9 @@ function deficiency(f: NumericFinding, s: DSide, unit: string): string {
       return `Neither side holds an interpretable ${unit} value (ODS: ${f.ods_state}, FarmOps: ${f.farmops_state}); nothing can be adjudicated until the cell's meaning is established.`;
   }
 }
+const isResolved = (f: NumericFinding) =>
+  f.adjudicated && CLOSED_DISPOSITIONS.has(f.convergence_disposition);
+
 
 export function categoryDAnalysis(r: NumericDiagnosticsReport): CategoryDAnalysis {
   const dFindings = r.findings.filter((f) => f.raw_category === "D");
@@ -258,6 +289,10 @@ export function categoryDAnalysis(r: NumericDiagnosticsReport): CategoryDAnalysi
         source_rows: [],
         mapping_rule: "",
         systematic: false,
+        adjudicated: false,
+        resolved_count: 0,
+        open_count: 0,
+
         findings: [],
       };
       buckets.set(key, g);
@@ -284,6 +319,10 @@ export function categoryDAnalysis(r: NumericDiagnosticsReport): CategoryDAnalysi
         g.farmops_entity ?? "(unmapped entity)"
       }.${g.field}${columns.length ? ` (column${columns.length > 1 ? "s" : ""}: ${columns.join(", ")})` : ""}`,
       systematic: g.count > 1 && g.missing_provenance !== "OTHER_PROVENANCE_REQUIRED",
+      adjudicated: sorted.every((f) => isResolved(f)),
+      resolved_count: sorted.filter((f) => isResolved(f)).length,
+      open_count: sorted.filter((f) => !isResolved(f)).length,
+
     };
   });
 
@@ -298,10 +337,12 @@ export function categoryDAnalysis(r: NumericDiagnosticsReport): CategoryDAnalysi
   const counts_by_missing_provenance = EMPTY_PROVENANCE();
   const counts_by_side = EMPTY_SIDES();
   let systematicRows = 0;
+  let openIndividualRows = 0;
   for (const g of groups) {
     counts_by_missing_provenance[g.missing_provenance] += g.count;
     counts_by_side[g.side] += g.count;
     if (g.systematic) systematicRows += g.count;
+    else openIndividualRows += g.open_count;
   }
 
   return {
@@ -310,11 +351,14 @@ export function categoryDAnalysis(r: NumericDiagnosticsReport): CategoryDAnalysi
     ods_sha256: r.ods_sha256,
     compared_at: r.compared_at,
     raw_d: dFindings.length,
+    rows_resolved_by_adjudication: dFindings.filter((f) => isResolved(f)).length,
+    rows_open: dFindings.filter((f) => !isResolved(f)).length,
     groups_count: groups.length,
     systematic_groups_count: groups.filter((g) => g.systematic).length,
-    individual_review_groups_count: groups.filter((g) => !g.systematic).length,
+    individual_review_groups_count: groups.filter((g) => !g.systematic && !g.adjudicated).length,
     rows_explained_by_systematic_pattern: systematicRows,
-    rows_requiring_individual_review: dFindings.length - systematicRows,
+    rows_requiring_individual_review: openIndividualRows,
+
     counts_by_missing_provenance,
     counts_by_side,
     groups,
@@ -353,6 +397,9 @@ export function categoryDGroupsCsv(a: CategoryDAnalysis): string {
     "source_rows",
     "mapping_rule",
     "systematic",
+    "resolved_count",
+    "open_count",
+
   ];
   return csv([
     head,
@@ -377,6 +424,9 @@ export function categoryDGroupsCsv(a: CategoryDAnalysis): string {
       g.source_rows.join(" | "),
       g.mapping_rule,
       String(g.systematic),
+      String(g.resolved_count),
+      String(g.open_count),
+
     ]),
   ]);
 }
@@ -440,7 +490,10 @@ export function categoryDAnalysisMarkdown(a: CategoryDAnalysis): string {
     "",
     "## Totals",
     "",
-    `- Raw D = ${a.raw_d}`,
+    `- Raw D = ${a.raw_d} (retained verbatim for historical reporting)`,
+    `- Resolved by established adjudication = ${a.rows_resolved_by_adjudication}`,
+    `- Open for Phase 4.5 = ${a.rows_open}`,
+
     `- Systematic groups = ${a.systematic_groups_count} (of ${a.groups_count} total groups)`,
     `- Explained by systematic groups = ${a.rows_explained_by_systematic_pattern}`,
     `- Requiring individual review = ${a.rows_requiring_individual_review} across ${a.individual_review_groups_count} group(s)`,
