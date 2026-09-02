@@ -168,14 +168,18 @@ export const saveServiceConfiguration = createServerFn({ method: "POST" })
     };
     delete payload["id"];
     // A revision only becomes current through the explicit commission step.
+    const revision = data.revision_label ?? "";
     if (data.id) {
       const { error } = await db.from(CONFIGS).update(payload).eq("id", data.id);
       if (error) throw new Error(error.message);
+      await auditService(context, "service_configuration", "update", data.id, `Edited service revision ${revision}`.trim(), payload);
       return { id: data.id };
     }
     const { data: inserted, error } = await db.from(CONFIGS).insert(payload).select("id").single();
     if (error) throw new Error(error.message);
-    return { id: String((inserted as Row)["id"]) };
+    const cfgId = String((inserted as Row)["id"]);
+    await auditService(context, "service_configuration", "create", cfgId, `Added service revision ${revision}`.trim(), payload);
+    return { id: cfgId };
   });
 
 /**
@@ -431,5 +435,13 @@ export const commissionIntertieConfiguration = createServerFn({ method: "POST" }
       const { error: uErr } = await db.from(INTERTIE_CONFIGS).update(own.patch).eq("id", data.id);
       if (uErr) throw new Error(uErr.message);
     }
+    await auditService(
+      context,
+      "intertie_configuration",
+      "update",
+      data.id,
+      "Commissioned an intertie configuration revision",
+      { commissioned_date: data.date ?? null },
+    );
     return { patches: patches as unknown as SPatch[] };
   });
