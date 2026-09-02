@@ -62,6 +62,8 @@ import {
   adminSetElectricalAiFeatures,
   type AdminElectricalAiGrantRow,
 } from "@/lib/electrical-ai-access.functions";
+import { useAiUsageBill } from "@/components/ai-usage-bill";
+import { formatBillUsd } from "@/lib/ai-usage";
 
 
 
@@ -489,6 +491,7 @@ function UserRow({ user, currentUserId }: { user: ManagedUser; currentUserId: st
             <KeyRound className="h-4 w-4 mr-1" />
             Set password
           </Button>
+          <AiBillBadge userId={user.id} />
           <AiFeaturesButton userId={user.id} email={user.email} />
           {!isSelf &&
             (disabled ? (
@@ -824,6 +827,30 @@ const AI_REQUEST_BADGE: Record<string, string> = {
  * revokes it, and un-ticking a pending request turns it down. The row history
  * is kept either way, so you can see what was asked for and when.
  */
+/**
+ * Running 30-day AI bill for this user — metered cloud runs only, so a user who
+ * stays on the self-hosted engine shows "$0.00 (0 cloud)".
+ */
+function AiBillBadge({ userId }: { userId: string }) {
+  const q = useAiUsageBill(30);
+  const row = q.data?.rows.find((r) => r.userId === userId);
+  const cost = row?.costUsd ?? 0;
+  return (
+    <Badge
+      variant={cost > 0 ? "secondary" : "outline"}
+      className="self-center"
+      title={
+        row
+          ? `${row.runs} AI runs in 30 days, ${row.meteredRuns} on cloud AI. Top feature: ${row.byArea[0]?.label ?? "—"}.`
+          : "No AI runs recorded in the last 30 days."
+      }
+    >
+      AI 30d: {formatBillUsd(cost)}
+      {row ? ` · ${row.meteredRuns} cloud` : ""}
+    </Badge>
+  );
+}
+
 function AiFeaturesButton({ userId, email }: { userId: string; email: string | null }) {
   const qc = useQueryClient();
   const listFn = useServerFn(adminListElectricalAiFeatureGrants);
