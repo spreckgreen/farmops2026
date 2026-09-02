@@ -4,6 +4,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { requireElectricalAccess } from "@/lib/addons.server";
+import { recordElectricalChange } from "@/lib/electrical-audit.server";
 import { PANEL_EXIT_SIDES, INSTALL_STATUSES } from "@/lib/electrical";
 import {
   BREAKER_SIDES,
@@ -80,7 +81,7 @@ export const saveBreakerPosition = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ context, data }) => {
-    await requireElectricalAccess(context.supabase, context.userId, "write");
+    await requireElectricalAccess(context.supabase, context.userId, "field_write");
     const db = context.supabase as unknown as LooseDb;
     const { id, ...values } = data;
     const row = {
@@ -93,6 +94,9 @@ export const saveBreakerPosition = createServerFn({ method: "POST" })
       notes: values.notes || null,
       install_status: values.install_status ?? null,
     };
+    const before = id
+      ? ((await db.from(BREAKER_TABLE).select("*").eq("id", id).maybeSingle()).data ?? {})
+      : {};
     const res = id
       ? await db.from(BREAKER_TABLE).update(row).eq("id", id)
       : await db.from(BREAKER_TABLE).insert({ ...row, user_id: context.userId });
@@ -102,6 +106,18 @@ export const saveBreakerPosition = createServerFn({ method: "POST" })
         : res.error.message;
       throw new Error(message);
     }
+    await recordElectricalChange(context.supabase, context.userId, {
+      section: "panel",
+      entityKind: "breaker_position",
+      action: id ? "update" : "create",
+      entityUuid: id ?? null,
+      entityRef: `${row.side} ${row.position}`,
+      summary: `${id ? "Edited" : "Added"} breaker slot ${row.side} ${row.position}${
+        row.label ? ` — ${row.label}` : ""
+      }`,
+      before: before as Record<string, unknown>,
+      patch: row,
+    });
     return { ok: true };
   });
 
@@ -126,7 +142,7 @@ export const savePanelExit = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ context, data }) => {
-    await requireElectricalAccess(context.supabase, context.userId, "write");
+    await requireElectricalAccess(context.supabase, context.userId, "field_write");
     const db = context.supabase as unknown as LooseDb;
     const { id, ...values } = data;
     const row = {
@@ -138,6 +154,9 @@ export const savePanelExit = createServerFn({ method: "POST" })
       install_status: values.install_status ?? null,
       notes: values.notes || null,
     };
+    const before = id
+      ? ((await db.from(EXIT_TABLE).select("*").eq("id", id).maybeSingle()).data ?? {})
+      : {};
     const res = id
       ? await db.from(EXIT_TABLE).update(row).eq("id", id)
       : await db.from(EXIT_TABLE).insert({ ...row, user_id: context.userId });
@@ -147,6 +166,16 @@ export const savePanelExit = createServerFn({ method: "POST" })
         : res.error.message;
       throw new Error(message);
     }
+    await recordElectricalChange(context.supabase, context.userId, {
+      section: "panel",
+      entityKind: "panel_exit",
+      action: id ? "update" : "create",
+      entityUuid: id ?? null,
+      entityRef: `exit ${row.exit_order}`,
+      summary: `${id ? "Edited" : "Added"} panel exit ${row.exit_order}`,
+      before: before as Record<string, unknown>,
+      patch: row,
+    });
     return { ok: true };
   });
 
@@ -156,12 +185,26 @@ export const deletePanelLayoutRow = createServerFn({ method: "POST" })
     z.object({ table: z.enum(["breaker_position", "panel_exit"]), id: z.string().uuid() }).parse(d),
   )
   .handler(async ({ context, data }) => {
-    await requireElectricalAccess(context.supabase, context.userId, "write");
+    await requireElectricalAccess(context.supabase, context.userId, "field_write");
     const table = data.table === "breaker_position" ? BREAKER_TABLE : EXIT_TABLE;
-    const { error } = await (context.supabase as unknown as LooseDb)
-      .from(table)
-      .delete()
-      .eq("id", data.id);
+    const db = context.supabase as unknown as LooseDb;
+    const { data: doomed } = await db.from(table).select("*").eq("id", data.id).maybeSingle();
+    const { error } = await db.from(table).delete().eq("id", data.id);
     if (error) throw new Error(error.message);
+    const removed = (doomed ?? {}) as Record<string, unknown>;
+    await recordElectricalChange(context.supabase, context.userId, {
+      section: "panel",
+      entityKind: data.table,
+      action: "delete",
+      entityUuid: data.id,
+      summary:
+        data.table === "breaker_position"
+          ? `Deleted breaker slot ${String(removed["side"] ?? "")} ${String(removed["position"] ?? "")}`
+          : `Deleted panel exit ${String(removed["exit_order"] ?? "")}`,
+      changes: Object.keys(removed)
+        .sort()
+        .filter((c) => removed[c] != null && removed[c] !== "")
+        .map((c) => ({ column: c, before: String(removed[c]), after: null })),
+    });
     return { ok: true };
   });
