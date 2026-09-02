@@ -104,7 +104,10 @@ export interface CandidateRevisionReport {
     candidate_value: number | null;
     unchanged: boolean;
   }>;
+  /** Pre-mutation trace of both authorized targets, for debugging. */
+  target_traces: RevisionTargetTrace[];
   acceptance: { status: "PASS" | "FAIL"; reasons: string[] };
+
   lineage: { superseded_sha256: string; candidate_sha256: string };
   promotion_required: true;
   baseline_overwritten: false;
