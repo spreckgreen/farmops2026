@@ -108,7 +108,9 @@ describe("Phase 4.4b load semantic reclassification", () => {
       ],
     );
     const volts = r.findings.find((f) => f.field === "volts")!;
-    expect(volts.original_category).toBe("B");
+    // FS-034 240 V vs 220 V is now reported as Category F — the numeric
+    // diagnostics already reclassify it as a semantic representation difference.
+    expect(volts.original_category).toBe("F");
     expect(volts.bucket).toBe("nominal_vs_nameplate_representation");
     expect(volts.proposed_category).toBe("E");
     expect(volts.basis_proven).toBe(true);
