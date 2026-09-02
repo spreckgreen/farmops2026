@@ -891,6 +891,7 @@ function FeatureRequestCard({
   const qc = useQueryClient();
   const submit = useServerFn(requestElectricalAiFeatures);
   const [picked, setPicked] = useState<ElectricalAiScenarioId[]>([]);
+  const [featuresOpen, setFeaturesOpen] = useState(false);
   const [note, setNote] = useState("");
 
   const mutation = useMutation({
