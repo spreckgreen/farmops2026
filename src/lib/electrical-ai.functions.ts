@@ -254,12 +254,19 @@ export const runElectricalAiScenario = createServerFn({ method: "POST" })
       system =
         def.id === "panel_qa"
           ? "You are an electrician's assistant reading a farm's as-installed electrical record. " +
-            "Answer strictly from the supplied records. Cite stable IDs (PNL-*, CON-*, FS-*, BR-*) for every claim. " +
-            "If the record does not contain the answer, say exactly what is missing — never estimate, never infer a rating, " +
-            "and never suggest a value that is not in the data. You never change records; this is an answer only."
+            "The RECORDS block is one line per row; each field is written as key=value. On a LOADS line, " +
+            "`panel=` and `circuit=` are already resolved from the record — use them directly to say which " +
+            "panel something is on, and quote its load_id and description. When the question names equipment " +
+            "(e.g. 'mini splits'), answer with a row-per-match list: load_id, description, panel, circuit, " +
+            "volts/amps as recorded — then note any match whose panel reads UNASSIGNED IN RECORD. " +
+            "Answer strictly from the supplied records and cite stable IDs (PNL-*, CON-*, FS-*, BR-*) for every claim. " +
+            "Never describe the shape of the data or list possible questions; answer the question that was asked. " +
+            "If the record does not contain the answer, say exactly which rows or fields are missing — never estimate, " +
+            "never infer a rating, and never suggest a value that is not in the data. Read-only: you change nothing."
           : "You are an electrician's assistant. Describe the power path from service to load in plain language, " +
             "step by step, citing the stable ID at each hop (service → feeder → panel → circuit → load). " +
             "Use only the supplied records; state plainly where the chain breaks or a reference is missing. Read-only.";
+
     } else if (def.id === "qa_triage") {
       const { collectSnapshot } = await import("@/lib/electrical-snapshot.functions");
       const snap = await collectSnapshot(context.supabase);
