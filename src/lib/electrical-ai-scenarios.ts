@@ -18,7 +18,8 @@ export type ElectricalAiScenarioId =
   | "topology_explain"
   | "qa_triage"
   | "audit_summary"
-  | "field_note";
+  | "field_note"
+  | "nameplate_extract";
 
 /**
  * What a scenario needs:
@@ -39,7 +40,8 @@ export interface ElectricalAiScenarioDef {
   section: ElectricalSection;
   requires: ElectricalAiRequirement;
   /** Does the scenario take a free-text question / note from the user? */
-  input: "question" | "note" | "none";
+  /** "photo" scenarios take an uploaded image instead of typed text. */
+  input: "question" | "note" | "photo" | "none";
   inputLabel: string;
   placeholder: string;
 }
@@ -81,6 +83,18 @@ export const ELECTRICAL_AI_SCENARIOS: readonly ElectricalAiScenarioDef[] = [
     inputLabel: "Field observation",
     placeholder:
       "h1 slot 14 is a 20a single pole, feeds the well pump receptacle, label was wrong",
+  },
+  {
+    id: "nameplate_extract",
+    label: "Nameplate photo → draft equipment data",
+    description:
+      "Photograph an equipment nameplate and get its ratings read out as draft fields (voltage, phase, FLA/MCA, HP, MOCP, model, serial) with anything illegible called out. Draft only — it writes no record.",
+    area: "electrical.nameplate_extract",
+    section: "changes",
+    requires: "field_write",
+    input: "photo",
+    inputLabel: "Nameplate photo",
+    placeholder: "Optional: which load or panel this plate belongs to, e.g. FS-082 mini split",
   },
   {
     id: "qa_triage",
