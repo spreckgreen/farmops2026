@@ -99,32 +99,144 @@ function CircuitBlock({ circuit }: { circuit: DiagramCircuit }) {
   );
 }
 
+type ViewMode = "planned" | "current";
+
+function TopologyToggle({
+  source,
+  downloadName,
+  caption,
+}: {
+  source: string;
+  downloadName: string;
+  caption: string;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          className="flex w-full items-center justify-between gap-2 text-left"
+        >
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Network className="h-4 w-4" /> Mermaid topology diagram
+          </CardTitle>
+          {open ? (
+            <ChevronUp className="h-4 w-4 text-muted-foreground" />
+          ) : (
+            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+          )}
+        </button>
+      </CardHeader>
+      {open && (
+        <CardContent>
+          <MermaidFigure source={source} downloadName={downloadName} />
+          <p className="mt-2 text-xs text-muted-foreground">{caption}</p>
+        </CardContent>
+      )}
+    </Card>
+  );
+}
+
+function PlannedDetail({ panel }: { panel: DiagramPanel }) {
+  const plan = useMemo(() => plannedPanel(panel), [panel]);
+  const reading = useMemo(() => plannedReading(panel), [panel]);
+  const mermaid = useMemo(() => plannedMermaid(panel), [panel]);
+
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <CheckCircle2 className="h-4 w-4 text-primary" /> What the plan says
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm text-foreground">
+            {reading.known.map((k) => (
+              <p key={k}>{k}</p>
+            ))}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <AlertTriangle className="h-4 w-4 text-destructive" /> What the plan cannot answer
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ul className="space-y-2 text-sm">
+              {reading.missing.map((m) => (
+                <li key={m} className="text-muted-foreground">
+                  {m}
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">
+            Planned loads on {panel.id} ({plan.total})
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-xs text-muted-foreground">
+            Grouped by building / grid location. These are suggested alignments — nothing here
+            claims an installed circuit or breaker.
+          </p>
+          {plan.groups.map((g) => (
+            <div key={g.where} className="rounded-md border border-border bg-muted/30 p-2.5">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-sm font-medium text-foreground">{g.where}</span>
+                <Badge variant="outline">
+                  {g.loads.length} load{g.loads.length === 1 ? "" : "s"}
+                </Badge>
+              </div>
+              <div className="mt-2 space-y-1.5 border-l border-border pl-3">
+                {g.loads.map((e) => (
+                  <LoadRow
+                    key={e.load.uuid || e.load.id}
+                    load={e.load}
+                    note={
+                      e.basis === "suggested_panel"
+                        ? `planned here by suggested_panel = ${e.load.suggestedPanel}`
+                        : e.basis === "building_area"
+                          ? "planned here by shared building / grid location only"
+                          : "already linked in the record (installed path exists)"
+                    }
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
+          {plan.groups.length === 0 && (
+            <p className="text-sm text-muted-foreground">
+              No load is planned for this panel yet.
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      <TopologyToggle
+        source={mermaid}
+        downloadName={`${panel.id}-planned-topology`}
+        caption="Dashed lines and dashed boxes are planned alignment. Solid lines mark loads the record already links."
+      />
+    </div>
+  );
+}
+
 function PanelDetail({ panel }: { panel: DiagramPanel }) {
   const reading = useMemo(() => panelReading(panel), [panel]);
   const mermaid = useMemo(() => panelMermaid(panel), [panel]);
 
   return (
     <div className="space-y-4">
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="flex flex-wrap items-center gap-2 text-base">
-            <span className="font-mono">{panel.id}</span>
-            {panel.description && <span>— {panel.description}</span>}
-            {panel.building && <Badge variant="outline">{panel.building}</Badge>}
-            {panel.voltage && <Badge variant="outline">{panel.voltage} V</Badge>}
-            {panel.busRatingAmps && <Badge variant="outline">{panel.busRatingAmps} A bus</Badge>}
-            {panel.status && <Badge variant="secondary">{panel.status}</Badge>}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <MermaidFigure source={mermaid} downloadName={`${panel.id}-topology`} />
-          <p className="mt-2 text-xs text-muted-foreground">
-            Solid lines are links a record proves. Dashed lines and dashed boxes are unproven —
-            expected, not recorded.
-          </p>
-        </CardContent>
-      </Card>
-
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader className="pb-2">
@@ -215,9 +327,16 @@ function PanelDetail({ panel }: { panel: DiagramPanel }) {
           </CardContent>
         </Card>
       )}
+
+      <TopologyToggle
+        source={mermaid}
+        downloadName={`${panel.id}-topology`}
+        caption="Solid lines are links a record proves. Dashed lines and dashed boxes are unproven — expected, not recorded."
+      />
     </div>
   );
 }
+
 
 function PanelDiagramPage() {
   const fetcher = useServerFn(loadPanelDiagram);
