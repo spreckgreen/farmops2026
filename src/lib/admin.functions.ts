@@ -52,6 +52,13 @@ export type ManagedUser = {
   disabled_at: string | null;
   disabled_by: string | null;
   disabled_reason: string | null;
+  /**
+   * True when the account exists in auth but has no `profiles` row yet — e.g.
+   * a sign-up that never confirmed its email (branded SMTP down) or whose
+   * profile insert failed. These used to be invisible in this screen while
+   * still blocking "add user" with "already registered".
+   */
+  profile_missing?: boolean;
 };
 
 
