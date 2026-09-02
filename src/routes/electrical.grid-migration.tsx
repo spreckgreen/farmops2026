@@ -302,3 +302,51 @@ function GridMigrationPage() {
     </ElectricalGate>
   );
 }
+
+const AXIS_STATUS_VARIANT: Record<AxisAuditEntry["status"], "default" | "secondary" | "destructive"> =
+  {
+    EXACT_LINE_MATCH: "default",
+    NEAREST_LINE_WITHIN_TOLERANCE: "secondary",
+    EQUIDISTANT_OWNER_REVIEW: "destructive",
+    OUT_OF_RANGE: "destructive",
+  };
+
+function AxisTable({ caption, entries }: { caption: string; entries: AxisAuditEntry[] }) {
+  return (
+    <div className="overflow-x-auto">
+      <p className="pb-1 text-sm font-medium">{caption}</p>
+      <table className="w-full text-sm">
+        <thead className="bg-muted/50 text-left">
+          <tr>
+            <th className="p-2">Old token</th>
+            <th className="p-2">Interpreted physical feet</th>
+            <th className="p-2">New token(s)</th>
+            <th className="p-2">New physical feet</th>
+            <th className="p-2">Distance / error</th>
+            <th className="p-2">Mapping status</th>
+            <th className="p-2">Derivation</th>
+          </tr>
+        </thead>
+        <tbody>
+          {entries.map((e) => (
+            <tr key={`${e.axis}-${e.old_token}`} className="border-t border-border align-top">
+              <td className="p-2 font-mono text-xs">{e.old_token}</td>
+              <td className="p-2 font-mono text-xs">{e.old_ft}′</td>
+              <td className="p-2 font-mono text-xs">
+                {e.status === "EQUIDISTANT_OWNER_REVIEW"
+                  ? `${e.new_tokens.join("–")} (interval)`
+                  : e.new_tokens.join(", ")}
+              </td>
+              <td className="p-2 font-mono text-xs">{e.new_ft.map((f) => `${f}′`).join(" / ")}</td>
+              <td className="p-2 font-mono text-xs">{e.distance_ft}′</td>
+              <td className="p-2">
+                <Badge variant={AXIS_STATUS_VARIANT[e.status]}>{e.status}</Badge>
+              </td>
+              <td className="p-2 text-xs text-muted-foreground">{e.note}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
