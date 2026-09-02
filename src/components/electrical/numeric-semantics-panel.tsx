@@ -20,6 +20,7 @@ import { SystemVoltageApplyGate } from "@/components/electrical/system-voltage-a
 import { LoadSemanticDetailPanel } from "@/components/electrical/load-semantic-detail-panel";
 import { RepresentationProposalPanel } from "@/components/electrical/representation-proposal-panel";
 import { CategoryCAnalysisPanel } from "@/components/electrical/category-c-analysis-panel";
+import { DemandVaPlaceholderPanel } from "@/components/electrical/demand-va-placeholder-panel";
 import { ConvergenceAccountingPanel } from "@/components/electrical/convergence-accounting-panel";
 import type { ValidationReport } from "@/lib/electrical-parallel-validation";
 
