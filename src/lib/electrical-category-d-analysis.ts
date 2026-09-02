@@ -316,6 +316,10 @@ export function categoryDAnalysis(r: NumericDiagnosticsReport): CategoryDAnalysi
         g.farmops_entity ?? "(unmapped entity)"
       }.${g.field}${columns.length ? ` (column${columns.length > 1 ? "s" : ""}: ${columns.join(", ")})` : ""}`,
       systematic: g.count > 1 && g.missing_provenance !== "OTHER_PROVENANCE_REQUIRED",
+      adjudicated: sorted.every((f) => isResolved(f)),
+      resolved_count: sorted.filter((f) => isResolved(f)).length,
+      open_count: sorted.filter((f) => !isResolved(f)).length,
+
     };
   });
 
