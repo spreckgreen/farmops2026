@@ -74,10 +74,11 @@ export const getMyProfile = createServerFn({ method: "GET" })
     const { supabase, userId, claims } = context;
     const email = (claims as { email?: string }).email ?? null;
 
+    const cols = "id, email, display_name, status, disabled_at, disabled_reason";
     // Ensure a profile row exists for this user. New sign-ups land pending.
     const existing = await supabase
       .from("profiles")
-      .select("id, email, display_name, status")
+      .select(cols)
       .eq("id", userId)
       .maybeSingle();
     if (existing.error) throw new Error(existing.error.message);
@@ -87,7 +88,7 @@ export const getMyProfile = createServerFn({ method: "GET" })
       const inserted = await supabase
         .from("profiles")
         .insert({ id: userId, email, status: "pending" })
-        .select("id, email, display_name, status")
+        .select(cols)
         .single();
       if (inserted.error) throw new Error(inserted.error.message);
       profile = inserted.data;
@@ -112,7 +113,10 @@ export const getMyProfile = createServerFn({ method: "GET" })
       roles,
       canEdit: roles.includes("editor") || roles.includes("admin"),
       isAdmin: roles.includes("admin"),
+      disabled_at: profile.disabled_at ?? null,
+      disabled_reason: profile.disabled_reason ?? null,
     };
+
   });
 
 // ---- One-click self re-seed (bootstrap / recovery) ----------------------
