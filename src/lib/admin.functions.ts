@@ -13,6 +13,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { isElectricianScoped } from "@/lib/electrical-access";
+import { ADDON_KEYS, type AddonKey } from "@/lib/addons";
 
 /**
  * `electrician` is a scoped role, not a rank: it grants no app-wide editing and
@@ -454,12 +455,18 @@ export const setApprovalStatus = createServerFn({ method: "POST" })
 
 export const setUserRoles = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { userId: string; roles: AppRole[] }) => {
+  .inputValidator((d: { userId: string; roles: AppRole[]; addons?: AddonKey[] }) => {
     if (!d.userId) throw new Error("userId required");
     if (!Array.isArray(d.roles)) throw new Error("roles must be an array");
     for (const r of d.roles) {
       if (!["viewer", "editor", "admin", "electrician"].includes(r)) {
         throw new Error(`invalid role: ${r}`);
+      }
+    }
+    if (d.addons !== undefined) {
+      if (!Array.isArray(d.addons)) throw new Error("addons must be an array");
+      for (const a of d.addons) {
+        if (!ADDON_KEYS.includes(a)) throw new Error(`invalid add-on: ${a}`);
       }
     }
     return d;
@@ -494,36 +501,75 @@ export const setUserRoles = createServerFn({ method: "POST" })
       if (ins.error) throw new Error(ins.error.message);
     }
 
+    const { data: existingRows } = await supabaseAdmin
+      .from("app_entitlements")
+      .select("addon_key, status")
+      .eq("user_id", data.userId);
+    const rows = (existingRows ?? []) as Array<{ addon_key: string; status: string }>;
+    const activeKeys = new Set(
+      rows.filter((r) => r.status === "active" || r.status === "trialing").map((r) => r.addon_key),
+    );
+
+    const grant = async (key: AddonKey, notes: string) => {
+      const ent = await supabaseAdmin.from("app_entitlements").upsert(
+        {
+          user_id: data.userId,
+          addon_key: key,
+          status: "active",
+          expires_at: null,
+          blocked_until: null,
+          granted_by: userId,
+          notes,
+        } as never,
+        { onConflict: "user_id,addon_key" },
+      );
+      if (ent.error) throw new Error(`add-on grant failed: ${ent.error.message}`);
+    };
+
+    const revoke = async (key: AddonKey, notes: string) => {
+      const ent = await supabaseAdmin
+        .from("app_entitlements")
+        .update({ status: "disabled", notes, granted_by: userId } as never)
+        .eq("user_id", data.userId)
+        .eq("addon_key", key);
+      if (ent.error) throw new Error(`add-on revoke failed: ${ent.error.message}`);
+    };
+
+    if (data.addons) {
+      // The submitted list is authoritative: anything the administrator
+      // de-selected is switched off, not silently kept. Rows are disabled
+      // rather than deleted so revocation history survives.
+      const wanted = new Set(data.addons);
+      for (const key of wanted) {
+        if (!activeKeys.has(key)) await grant(key, "Granted by an administrator in user management.");
+      }
+      for (const key of activeKeys) {
+        if (!wanted.has(key as AddonKey)) {
+          await revoke(key as AddonKey, "Removed by an administrator in user management.");
+        }
+      }
+      return { ok: true };
+    }
+
     // The `electrician` role is meaningless without an Electrical entitlement:
     // granting the role alone left the electrician staring at empty tabs. Give
     // them the read-only add-on automatically unless they already hold a
     // broader Electrical grant (full or field-write).
     if (data.roles.includes("electrician")) {
-      const { data: existing } = await supabaseAdmin
-        .from("app_entitlements")
-        .select("addon_key, status")
-        .eq("user_id", data.userId);
-      const rows = (existing ?? []) as Array<{ addon_key: string; status: string }>;
-      const hasBroader = rows.some(
-        (r) =>
-          (r.addon_key === "electrical" || r.addon_key === "electrical_fieldwrite") &&
-          r.status === "active",
-      );
+      const hasBroader = activeKeys.has("electrical") || activeKeys.has("electrical_fieldwrite");
       if (!hasBroader) {
-        const ent = await supabaseAdmin.from("app_entitlements").upsert(
-          {
-            user_id: data.userId,
-            addon_key: "electrical_readonly",
-            status: "active",
-            expires_at: null,
-            blocked_until: null,
-            granted_by: userId,
-            notes: "Auto-granted with the electrician role: read-only Electrical access.",
-          } as never,
-          { onConflict: "user_id,addon_key" },
+        await grant(
+          "electrical_readonly",
+          "Auto-granted with the electrician role: read-only Electrical access.",
         );
-        if (ent.error) throw new Error(`add-on grant failed: ${ent.error.message}`);
       }
+    } else if (activeKeys.has("electrical_readonly")) {
+      // Taking the electrician role away must also take away the access that
+      // came with it, otherwise the de-selection has no effect at login.
+      await revoke(
+        "electrical_readonly",
+        "Removed with the electrician role in user management.",
+      );
     }
     return { ok: true };
   });
