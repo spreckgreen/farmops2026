@@ -92,14 +92,17 @@ export function CategoryCAnalysisPanel({ diag }: { diag: NumericDiagnosticsRepor
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex flex-wrap gap-2 text-xs">
-          <Badge variant="outline">Raw C {analysis.raw_c}</Badge>
-          <Badge variant="outline">Groups {analysis.groups_count}</Badge>
+          <Badge variant="outline">Raw C = {analysis.raw_c}</Badge>
           <Badge variant="outline">
-            Systematic rows {analysis.rows_explained_by_systematic_pattern}
+            Systematic groups = {analysis.systematic_groups_count}
+          </Badge>
+          <Badge variant="outline">
+            Explained by systematic groups = {analysis.rows_explained_by_systematic_pattern}
           </Badge>
           <Badge variant={analysis.rows_requiring_individual_review ? "destructive" : "outline"}>
-            Individual review {analysis.rows_requiring_individual_review}
+            Requiring individual review = {analysis.rows_requiring_individual_review}
           </Badge>
+          <Badge variant="secondary">Total groups {analysis.groups_count}</Badge>
         </div>
 
         <div className="flex flex-wrap gap-2 text-xs">
