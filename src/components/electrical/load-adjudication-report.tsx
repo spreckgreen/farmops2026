@@ -114,6 +114,16 @@ export function LoadAdjudicationReport() {
         <BryantVoltageApplyGate baseline={gateBaseline} onRevalidate={revalidate} />
       </CollapsibleSection>
 
+      {attached ? (
+        <CollapsibleSection
+          title="Canonical correction-set manifest (Phase 4.4c)"
+          subtitle="Changes sufficiently proven for the next revision of PremoFarmElectrical.ods, with old raw value, proposed value, evidence, adjudication, confidence and baseline SHA — plus a withheld section for values investigated but not established. Manifest only: the ODS is not edited, the baseline SHA is unchanged, FarmOps is not written and no Phase 4.5 cutover is authorized."
+          badges={<Badge variant="outline">Manifest only</Badge>}
+        >
+          <CanonicalCorrectionSetPanel baseline={attached.baseline} />
+        </CollapsibleSection>
+      ) : null}
+
       {report && attached ? (
         <CollapsibleSection
           title="Canonical ODS correction queue"
