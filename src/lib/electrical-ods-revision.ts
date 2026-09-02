@@ -659,7 +659,14 @@ export function candidateDiffMarkdown(report: CandidateRevisionReport): string {
         `| ${c.stable_id ?? "—"} | ${c.worksheet} | ${c.row} | ${c.field} | ${c.baseline_value} | ${c.candidate_value} | ${c.authorized ? "yes" : "NO"} |`,
     ),
     "",
+    "## Pre-mutation target assertions",
+    "",
+    "| stable_id | logical row | logical column/field | physical XML row | physical XML cell index | repeated-column offset | value-type | office:value | display text |",
+    "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+    ...report.target_traces.map((t) => `| ${revisionTraceRow(t).join(" | ")} |`),
+    "",
     "## Withheld values (must remain unchanged)",
+
     "",
     ...report.withheld.map(
       (w) =>
