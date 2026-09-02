@@ -126,6 +126,22 @@ export function LoadAdjudicationReport() {
         </CollapsibleSection>
       ) : null}
 
+      {attached ? (
+        <CollapsibleSection
+          title="Controlled canonical ODS revision generation (Phase 4.4d)"
+          subtitle="Generate a candidate workbook from the authorized baseline plus the approved manifest, review the candidate SHA and 2-cell diff, run the full Phase 4.4 validation against the candidate, then promote only by explicit owner approval. The baseline artifact is preserved, FarmOps is never written and no Phase 4.5 cutover is authorized."
+          badges={<Badge variant="secondary">Candidate revision</Badge>}
+        >
+          <CanonicalOdsRevisionPanel
+            baseline={attached.baseline}
+            baselineFileName={attached.file_name}
+            baselineBase64={attached.base64}
+            farmopsLoads={rows.data}
+          />
+        </CollapsibleSection>
+      ) : null}
+
+
       {report && attached ? (
         <CollapsibleSection
           title="Canonical ODS correction queue"
