@@ -131,6 +131,16 @@ export function LoadAdjudicationReport() {
         </CollapsibleSection>
       ) : null}
 
+      {attached ? (
+        <CollapsibleSection
+          title="FS-084 60 A provenance adjudication"
+          subtitle="Where the canonical Amps = 60 came from, traced through the cell and its formula state, worksheet row, comment/note/source-reference columns, circuit and breaker references, other workbook sheets, import history, the FS-082/FS-083 relationship and attached documents — with the derived 14,400 VA excluded as evidence. FarmOps amps is traced independently. Read-only — no ODS edit, no FarmOps write, MOCP is never read as a load current and MCA is never inferred."
+          badges={<Badge variant="outline">Read-only</Badge>}
+        >
+          <Fs084ProvenancePanel baseline={attached.baseline} />
+        </CollapsibleSection>
+      ) : null}
+
       <CollapsibleSection
         title="FS-034 / FS-092 voltage and VA semantic representation"
         subtitle="Nominal supply voltage and equipment nameplate voltage preserved together, with connected_va carrying an explicit calculation basis. These stop being Category-B engineering disagreements. Read-only — no FarmOps write, no ODS edit."
