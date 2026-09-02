@@ -1604,6 +1604,7 @@ export type Database = {
           requester_id: string
           revoked_at: string | null
           scope: string
+          scope_detail: string | null
           status: Database["public"]["Enums"]["approval_status"]
           updated_at: string
         }
@@ -1620,6 +1621,7 @@ export type Database = {
           requester_id?: string
           revoked_at?: string | null
           scope?: string
+          scope_detail?: string | null
           status?: Database["public"]["Enums"]["approval_status"]
           updated_at?: string
         }
@@ -1636,6 +1638,7 @@ export type Database = {
           requester_id?: string
           revoked_at?: string | null
           scope?: string
+          scope_detail?: string | null
           status?: Database["public"]["Enums"]["approval_status"]
           updated_at?: string
         }
@@ -2233,6 +2236,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      electrical_scan_grants: {
+        Row: {
+          created_at: string
+          first_scanned_at: string
+          id: string
+          panel_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          first_scanned_at?: string
+          id?: string
+          panel_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          first_scanned_at?: string
+          id?: string
+          panel_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       electrical_service_configurations: {
         Row: {
@@ -3372,6 +3402,9 @@ export type Database = {
       profiles: {
         Row: {
           created_at: string
+          disabled_at: string | null
+          disabled_by: string | null
+          disabled_reason: string | null
           display_name: string | null
           email: string | null
           id: string
@@ -3382,6 +3415,9 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          disabled_at?: string | null
+          disabled_by?: string | null
+          disabled_reason?: string | null
           display_name?: string | null
           email?: string | null
           id: string
@@ -3392,6 +3428,9 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          disabled_at?: string | null
+          disabled_by?: string | null
+          disabled_reason?: string | null
           display_name?: string | null
           email?: string | null
           id?: string
