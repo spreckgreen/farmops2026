@@ -460,10 +460,18 @@ export const runElectricalAiScenario = createServerFn({ method: "POST" })
     // Small local models can ignore even a focused answer set and summarize the
     // surrounding panel inventory instead. Never return that non-answer: if the
     // matcher found loads, every matched stable ID must appear in the response.
-    const answer =
+    const narration =
       groundedLoadAnswer && !containsEveryStableId(run.value, matchedLoadIds)
         ? groundedLoadAnswer
         : run.value;
+    // The trace itself is record-derived, so it is always shown; the model only
+    // annotates it underneath.
+    const answer = loadTraceAnswer
+      ? `${loadTraceAnswer}\n\n---\n\n## Notes\n\n${narration}`
+      : loadTraceAnswer === null && def.id === "load_trace"
+        ? `No load row matched that description, so there is no path to trace. Searched terms are listed in the record context.\n\n${narration}`
+        : narration;
+
 
     return {
       scenario: def.id,
