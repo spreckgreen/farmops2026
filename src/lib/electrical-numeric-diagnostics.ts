@@ -745,6 +745,13 @@ export function numericFindingsCsv(r: NumericDiagnosticsReport): string {
   return csv([
     head,
     ...r.findings.map((f) => [
+      f.raw_category,
+      f.adjudication_id ?? "",
+      f.adjudication_classification ?? "",
+      f.convergence_disposition,
+      String(f.unresolved),
+      String(f.stale_adjudication),
+      f.preserved.join(" | "),
       f.category,
       f.artifact_type ?? "",
       f.domain,
