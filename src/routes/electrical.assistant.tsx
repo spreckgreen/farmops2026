@@ -868,7 +868,20 @@ const REQUEST_STATUS_LABEL: Record<string, string> = {
  * what is already enabled, and a request basket for the rest. Approval is an
  * admin decision — ticking here only submits the ask.
  */
-function FeatureRequestCard({ features }: { features: ElectricalAiFeatureState[] }) {
+function FeatureRequestCard({
+  features,
+  granted,
+  isOn,
+  onToggle,
+  masterOff,
+}: {
+  features: ElectricalAiFeatureState[];
+  /** Scenario ids you already have access to — these get an on/off switch. */
+  granted: string[];
+  isOn: (id: string) => boolean;
+  onToggle: (id: string, on: boolean) => void;
+  masterOff: boolean;
+}) {
   const qc = useQueryClient();
   const submit = useServerFn(requestElectricalAiFeatures);
   const [picked, setPicked] = useState<ElectricalAiScenarioId[]>([]);
