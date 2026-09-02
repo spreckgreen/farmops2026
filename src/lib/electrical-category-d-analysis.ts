@@ -490,7 +490,10 @@ export function categoryDAnalysisMarkdown(a: CategoryDAnalysis): string {
     "",
     "## Totals",
     "",
-    `- Raw D = ${a.raw_d}`,
+    `- Raw D = ${a.raw_d} (retained verbatim for historical reporting)`,
+    `- Resolved by established adjudication = ${a.rows_resolved_by_adjudication}`,
+    `- Open for Phase 4.5 = ${a.rows_open}`,
+
     `- Systematic groups = ${a.systematic_groups_count} (of ${a.groups_count} total groups)`,
     `- Explained by systematic groups = ${a.rows_explained_by_systematic_pattern}`,
     `- Requiring individual review = ${a.rows_requiring_individual_review} across ${a.individual_review_groups_count} group(s)`,
