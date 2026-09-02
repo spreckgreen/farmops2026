@@ -234,7 +234,9 @@ export const listUsers = createServerFn({ method: "GET" })
 
     const profiles = await supabase
       .from("profiles")
-      .select("id, email, display_name, status, reviewed_by, reviewed_at, created_at")
+      .select(
+        "id, email, display_name, status, reviewed_by, reviewed_at, created_at, disabled_at, disabled_by, disabled_reason",
+      )
       .order("created_at", { ascending: false });
     if (profiles.error) throw new Error(profiles.error.message);
 
@@ -277,9 +279,50 @@ export const listUsers = createServerFn({ method: "GET" })
         roles: rolesByUser.get(p.id) ?? [],
         email_confirmed_at: auth?.confirmed ?? null,
         last_sign_in_at: auth?.lastSignIn ?? null,
+        disabled_at: p.disabled_at ?? null,
+        disabled_by: p.disabled_by ?? null,
+        disabled_reason: p.disabled_reason ?? null,
       };
     });
   });
+
+/**
+ * Administratively disable or re-enable an account. This is *not* the same as
+ * rejecting a sign-up and not the same as revoking an add-on: approval and roles
+ * are preserved, the account simply cannot use the app while disabled, and it
+ * can be re-enabled any number of times.
+ */
+export const setUserDisabled = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { userId: string; disabled: boolean; reason?: string }) => {
+    if (!d.userId) throw new Error("userId required");
+    if (typeof d.disabled !== "boolean") throw new Error("disabled must be a boolean");
+    return { userId: d.userId, disabled: d.disabled, reason: (d.reason ?? "").trim().slice(0, 300) };
+  })
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await requireAdmin(supabase, userId);
+    if (data.disabled && data.userId === userId) {
+      throw new Error("You cannot disable your own account.");
+    }
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const upd = await supabaseAdmin
+      .from("profiles")
+      .update(
+        data.disabled
+          ? {
+              disabled_at: new Date().toISOString(),
+              disabled_by: userId,
+              disabled_reason: data.reason || null,
+            }
+          : { disabled_at: null, disabled_by: null, disabled_reason: null },
+      )
+      .eq("id", data.userId);
+    if (upd.error) throw new Error(upd.error.message);
+    return { ok: true, disabled: data.disabled };
+  });
+
 
 
 export const setApprovalStatus = createServerFn({ method: "POST" })
