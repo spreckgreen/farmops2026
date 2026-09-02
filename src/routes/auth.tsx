@@ -47,18 +47,29 @@ function AuthPage() {
     setLoading(true);
     try {
       if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: { emailRedirectTo: window.location.origin },
+        // Branded confirmation email when the farm's SMTP relay is enabled;
+        // otherwise fall back to the platform's default auth email.
+        const branded = await brandedSignup({
+          data: { email, password, redirectTo: window.location.origin },
         });
-        if (error) throw error;
-        toast.success("Check your email to confirm — or sign in if confirmation is disabled.");
+        if (branded.handled) {
+          toast.success(branded.message);
+        } else {
+          const { error } = await supabase.auth.signUp({
+            email,
+            password,
+            options: { emailRedirectTo: window.location.origin },
+          });
+          if (error) throw error;
+          toast.success("Check your email to confirm — or sign in if confirmation is disabled.");
+        }
       } else if (mode === "forgot") {
-        const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: `${window.location.origin}/reset-password`,
-        });
-        if (error) throw error;
+        const redirectTo = `${window.location.origin}/reset-password`;
+        const branded = await brandedReset({ data: { email, redirectTo } });
+        if (!branded.handled) {
+          const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+          if (error) throw error;
+        }
         toast.success("If that email exists, a reset link is on its way.");
         setMode("signin");
       } else {
