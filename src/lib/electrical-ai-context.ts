@@ -26,6 +26,8 @@ export interface ElectricalContextResult {
   counts: Record<string, number>;
   /** Loads whose text matched the question — surfaced in the UI for audit. */
   matchedLoadIds: string[];
+  /** Deterministic record answer used when a small local model ignores its rows. */
+  groundedLoadAnswer: string | null;
   /** Rough prompt size, for the cloud-cost estimate. */
   approxTokens: number;
 }
@@ -469,6 +471,19 @@ export function buildElectricalRecordContext(
     ]);
     return `${head}\n  ${describeLoadPath(l, pathCtx)}`;
   });
+  const groundedLoadAnswer = loadRank.matched.length
+    ? [
+        "## Matching loads in the electrical record",
+        "",
+        ...loadRank.matched.slice(0, 15).map((l) => {
+          const description = str(l.description).trim() || "Unnamed load";
+          const area = str(l.area).trim() || str(l.location).trim() || "area not recorded";
+          return `- **${str(l.load_id)} — ${description}** (${area})\n  - ${describeLoadPath(l, pathCtx)}`;
+        }),
+        "",
+        "Any `NOT IN RECORD` hop is currently unknown; it is not an inferred assignment.",
+      ].join("\n")
+    : null;
 
   const block =
     (terms.length
@@ -500,6 +515,7 @@ export function buildElectricalRecordContext(
       ...(terms.length ? { keyword_matched_loads: matchedLoadIds.length } : {}),
     },
     matchedLoadIds,
+    groundedLoadAnswer,
     approxTokens: Math.ceil(block.length / 4),
   };
 }

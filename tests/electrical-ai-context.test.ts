@@ -144,6 +144,9 @@ describe("load-first answer set", () => {
     expect(answerIdx).toBeGreaterThanOrEqual(0);
     expect(answerIdx).toBeLessThan(built.block.indexOf("PANELS ("));
     expect(built.block).toContain("NOT IN RECORD");
+    expect(built.groundedLoadAnswer).toContain("**FS-082 — Mini split condenser (east)**");
+    expect(built.groundedLoadAnswer).toContain("**FS-083 — Mini Splits — greenhouse**");
+    expect(built.groundedLoadAnswer).toContain("path: circuit=");
   });
 
   it("does not expand equipment synonyms into unrelated groups", () => {
