@@ -54,6 +54,9 @@ export const MISSING_PROVENANCE_LABELS: Record<MissingProvenance, string> = {
 };
 
 export const RESOLUTION_SOURCE_LABELS: Record<MissingProvenance, string> = {
+  PROVENANCE_ESTABLISHED_NO_FURTHER_EVIDENCE_REQUIRED:
+    "Already established — see the recorded adjudication provenance on each finding",
+
   SOURCE_DOCUMENT_REQUIRED:
     "Canonical ODS / original design documentation (panel schedule, load calc, drawing set)",
   EQUIPMENT_NAMEPLATE_REQUIRED: "Equipment nameplate photograph or manufacturer datasheet",
