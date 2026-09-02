@@ -167,6 +167,57 @@ function GridMigrationPage() {
           </CardContent>
         </Card>
 
+        <PersistedSection
+          storageKey="grid-migration-axis-audit"
+          title="Coordinate audit — old/new axis dictionaries (no writes)"
+          defaultOpen
+        >
+          <div className="space-y-4 p-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1"
+                onClick={() =>
+                  download(
+                    "farm-shop-grid-axis-audit.csv",
+                    axisAuditCsv([...auditLetterAxis(), ...auditNumberAxis()]),
+                  )
+                }
+              >
+                <Download className="h-4 w-4" /> Axis audit CSV
+              </Button>
+              <span className="text-xs text-muted-foreground">
+                Corrected authority: rows A=0′ B=8′ C=16′ D=24′ E=32′ F=40′ (N→S); columns 1=0′ 2=8′
+                3=16′ 4=24′ 5=32′ 6=40′ 7=48′ 8=56′ 9=60′ (W→E).
+              </span>
+            </div>
+            <AxisTable
+              caption="North → south letter axis (old A–G evenly over the 40 ft depth)"
+              entries={auditLetterAxis()}
+            />
+            <AxisTable
+              caption="West → east numeric axis (old 1–6 evenly over the 60 ft length, half steps interpolated)"
+              entries={auditNumberAxis()}
+            />
+          </div>
+        </PersistedSection>
+
+        <PersistedSection
+          storageKey="grid-migration-derivations"
+          title="Physical-coordinate derivations for the cases raised"
+          defaultOpen
+        >
+          <div className="space-y-3 p-2 text-sm">
+            {coordinateDerivations().map((d) => (
+              <div key={d.label}>
+                <p className="font-medium">{d.label}</p>
+                <p className="text-muted-foreground">{d.detail}</p>
+              </div>
+            ))}
+          </div>
+        </PersistedSection>
+
         {query.data ? (
           <>
             <PersistedSection
