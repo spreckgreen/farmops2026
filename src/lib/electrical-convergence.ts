@@ -46,6 +46,7 @@ export const CONVERGENCE_DISPOSITIONS = [
   "FARMOPS_AS_BUILT_ADDITION",
   "FARMOPS_AS_BUILT_VALUE_VERIFIED",
   "PLACEHOLDER_PRESERVED_AS_NULL",
+  "IMPORT_DEFAULT_ZERO_ARTIFACT",
   "RESOLVED_NO_WRITE_REQUIRED",
 ] as const;
 export type ConvergenceDisposition = (typeof CONVERGENCE_DISPOSITIONS)[number];
@@ -64,6 +65,8 @@ export const CONVERGENCE_DISPOSITION_LABELS: Record<ConvergenceDisposition, stri
     "FarmOps as-built value verified (field/manufacturer provenance — value confirmed, not corrected, ODS untouched)",
   PLACEHOLDER_PRESERVED_AS_NULL:
     "Placeholder preserved as NULL (Category C — source token retained as provenance, no number written)",
+  IMPORT_DEFAULT_ZERO_ARTIFACT:
+    "Import/default zero artifact (Category C class — the FarmOps zero asserts no load; blank canonical cell preserved, no value written)",
   RESOLVED_NO_WRITE_REQUIRED: "Resolved — no write required",
 };
 
@@ -82,8 +85,10 @@ export const CLOSED_DISPOSITIONS = new Set<ConvergenceDisposition>([
   "FARMOPS_AS_BUILT_ADDITION",
   "FARMOPS_AS_BUILT_VALUE_VERIFIED",
   "PLACEHOLDER_PRESERVED_AS_NULL",
+  "IMPORT_DEFAULT_ZERO_ARTIFACT",
   "RESOLVED_NO_WRITE_REQUIRED",
 ]);
+
 
 
 
