@@ -437,26 +437,53 @@ function PanelDiagramPage() {
                 <CardTitle className="text-base">Panels ({panels.length})</CardTitle>
               </CardHeader>
               <CardContent className="flex flex-wrap gap-2">
-                {panels.map((p) => (
-                  <Button
-                    key={p.uuid || p.id}
-                    variant={p.id === selected ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setSelected(p.id)}
-                    className="font-mono"
-                  >
-                    {p.id}
-                    <span className="ml-2 font-sans text-xs opacity-80">
-                      {p.loadCount} loads
-                      {p.gapCount > 0 ? ` · ${p.gapCount} gaps` : ""}
-                    </span>
-                  </Button>
-                ))}
+                {panels.map((p) => {
+                  const plannedTotal = plannedPanel(p).total;
+                  return (
+                    <Button
+                      key={p.uuid || p.id}
+                      variant={p.id === selected ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setSelected(p.id)}
+                      className="font-mono"
+                    >
+                      {p.id}
+                      <span className="ml-2 font-sans text-xs opacity-80">
+                        {mode === "planned"
+                          ? `${plannedTotal} planned`
+                          : `${p.loadCount} loads${p.gapCount > 0 ? ` · ${p.gapCount} gaps` : ""}`}
+                      </span>
+                    </Button>
+                  );
+                })}
               </CardContent>
             </Card>
 
             {panel ? (
-              <PanelDetail panel={panel} />
+              <>
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="flex flex-wrap items-center gap-2 text-base">
+                      <span className="font-mono">{panel.id}</span>
+                      {panel.description && <span>— {panel.description}</span>}
+                      <Badge variant={mode === "planned" ? "secondary" : "default"}>
+                        {mode === "planned" ? "planned state" : "current state"}
+                      </Badge>
+                      {panel.building && <Badge variant="outline">{panel.building}</Badge>}
+                      {panel.voltage && <Badge variant="outline">{panel.voltage} V</Badge>}
+                      {panel.busRatingAmps && (
+                        <Badge variant="outline">{panel.busRatingAmps} A bus</Badge>
+                      )}
+                      {panel.status && <Badge variant="secondary">{panel.status}</Badge>}
+                    </CardTitle>
+                  </CardHeader>
+                </Card>
+                {mode === "planned" ? (
+                  <PlannedDetail panel={panel} />
+                ) : (
+                  <PanelDetail panel={panel} />
+                )}
+              </>
             ) : (
               <Card>
                 <CardContent className="pt-6 text-sm text-muted-foreground">
@@ -464,6 +491,7 @@ function PanelDiagramPage() {
                 </CardContent>
               </Card>
             )}
+
 
             <Card>
               <CardHeader className="pb-2">
