@@ -164,33 +164,39 @@ export type Database = {
       app_entitlements: {
         Row: {
           addon_key: string
+          blocked_until: string | null
           created_at: string
           expires_at: string | null
           granted_by: string | null
           id: string
           notes: string | null
+          revoked_count: number
           status: string
           updated_at: string
           user_id: string
         }
         Insert: {
           addon_key: string
+          blocked_until?: string | null
           created_at?: string
           expires_at?: string | null
           granted_by?: string | null
           id?: string
           notes?: string | null
+          revoked_count?: number
           status?: string
           updated_at?: string
           user_id: string
         }
         Update: {
           addon_key?: string
+          blocked_until?: string | null
           created_at?: string
           expires_at?: string | null
           granted_by?: string | null
           id?: string
           notes?: string | null
+          revoked_count?: number
           status?: string
           updated_at?: string
           user_id?: string

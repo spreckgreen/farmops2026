@@ -3,7 +3,15 @@
 //
 // Uses the caller's own user-scoped Supabase client (RLS applies): a user can
 // read their own entitlement rows, and nobody can grant themselves one.
-import { ADDON_NOT_ENABLED, SCAN_ADDON, isEntitlementActive, type AddonKey } from "@/lib/addons";
+import {
+  ADDON_NOT_ENABLED,
+  SCAN_ADDON,
+  isEntitlementActive,
+  isRevocationBlocked,
+  isTestAccountEmail,
+  revocationBlockMessage,
+  type AddonKey,
+} from "@/lib/addons";
 
 type GateClient = {
   from: (table: string) => {
@@ -75,12 +83,34 @@ export async function ensureScanAddon(userId: string): Promise<void> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const db = supabaseAdmin as unknown as { from: (t: string) => any };
 
+  const [{ data: profile }, { data: existing }] = await Promise.all([
+    db.from("profiles").select("email").eq("id", userId).maybeSingle(),
+    db
+      .from("app_entitlements")
+      .select("status, revoked_count, blocked_until")
+      .eq("user_id", userId)
+      .eq("addon_key", SCAN_ADDON)
+      .maybeSingle(),
+  ]);
+  const email = (profile as { email?: string | null } | null)?.email ?? null;
+  const row = existing as
+    | { status: string; revoked_count: number | null; blocked_until: string | null }
+    | null;
+
+  // A revoked or disabled viewer may try again — losing access once is not a
+  // permanent ban. Only a lockout earned by repeated revocations blocks the
+  // re-grant, and the shared test account is exempt from lockouts entirely.
+  if (row && isRevocationBlocked(row) && !isTestAccountEmail(email)) {
+    throw new Error(revocationBlockMessage(row.blocked_until));
+  }
+
   await db.from("app_entitlements").upsert(
     {
       user_id: userId,
       addon_key: SCAN_ADDON,
       status: "active",
       expires_at: null,
+      blocked_until: null,
       notes: "Auto-granted on panel QR scan. Scoped to scanned panels only.",
     },
     { onConflict: "user_id,addon_key" },
