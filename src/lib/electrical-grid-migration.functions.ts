@@ -9,7 +9,9 @@ import { requireElectricalAccess } from "@/lib/addons.server";
 import {
   migrateAll,
   summarizeMigration,
+  summarizePrecision,
   type GridMigrationRow,
+  type PrecisionSummary,
   type MigrationInputRow,
   type MigrationSummary,
 } from "@/lib/electrical-grid-migration";
@@ -20,6 +22,7 @@ export interface GridMigrationPayload {
   generated_at: string;
   rows: GridMigrationRow[];
   summary: MigrationSummary;
+  precision: PrecisionSummary;
   population: { farm_shop_loads_with_grid: number; farm_shop_panels: number };
 }
 
@@ -74,6 +77,7 @@ export const previewFarmShopGridMigration = createServerFn({ method: "GET" })
       generated_at: new Date().toISOString(),
       rows,
       summary: summarizeMigration(rows),
+      precision: summarizePrecision(rows),
       population: { farm_shop_loads_with_grid: loads.length, farm_shop_panels: panels.length },
     };
   });
