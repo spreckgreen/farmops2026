@@ -349,6 +349,9 @@ export function categoryDAnalysis(r: NumericDiagnosticsReport): CategoryDAnalysi
     ods_sha256: r.ods_sha256,
     compared_at: r.compared_at,
     raw_d: dFindings.length,
+    rows_resolved_by_adjudication: dFindings.filter((f) => isResolved(f)).length,
+    rows_open: dFindings.filter((f) => !isResolved(f)).length,
+
     groups_count: groups.length,
     systematic_groups_count: groups.filter((g) => g.systematic).length,
     individual_review_groups_count: groups.filter((g) => !g.systematic).length,
