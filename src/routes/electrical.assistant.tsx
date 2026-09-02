@@ -14,12 +14,23 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { useAiSettings } from "@/hooks/use-ai-settings";
 import {
   ELECTRICAL_AI_SCENARIOS,
   type ElectricalAiScenarioId,
 } from "@/lib/electrical-ai-scenarios";
 import { requestElectricalAiFeatures } from "@/lib/electrical-ai-access.functions";
+import {
+  cacheAgeLabel,
+  cacheExpiryLabel,
+  dropCachedAnswer,
+  readCachedAnswer,
+  runCostLabel,
+  writeCachedAnswer,
+  type CachedElectricalAnswer,
+} from "@/lib/electrical-ai-cache";
 import {
   estimateElectricalAiRun,
   listElectricalAiScenarios,
@@ -29,7 +40,18 @@ import {
   type ElectricalAiAnswer,
 } from "@/lib/electrical-ai.functions";
 
-import { Camera, CloudLightning, Cpu, Loader2, Sparkles, X } from "lucide-react";
+import {
+  Camera,
+  CloudLightning,
+  Cpu,
+  DollarSign,
+  History,
+  Loader2,
+  RefreshCw,
+  Sparkles,
+  Timer,
+  X,
+} from "lucide-react";
 import {
   NAMEPLATE_IMAGE_TYPES,
   NAMEPLATE_MAX_BYTES,
@@ -43,6 +65,12 @@ import {
   myNameplateWriteRequests,
   submitNameplateWriteRequest,
 } from "@/lib/electrical-nameplate-write.functions";
+
+/** Per-user on/off key for one electrical AI scenario (defaults to on). */
+export function electricalAiFeatureKey(id: string) {
+  return `electrical.${id}`;
+}
+
 
 export const Route = createFileRoute("/electrical/assistant")({
   component: AssistantPage,
@@ -103,14 +131,32 @@ function Assistant() {
   // Pre-flight estimate: shown when the self-hosted model probably cannot answer
   // this question, so the user can decide whether to pay for a cloud run.
   const [offer, setOffer] = useState<ElectricalAiEstimate | null>(null);
+  // Replayed 24h cache entry backing the shown answer (null = fresh run).
+  const [cached, setCached] = useState<CachedElectricalAnswer | null>(null);
+  // Live "running" clock so a 150s local run visibly progresses.
+  const [startedAt, setStartedAt] = useState<number | null>(null);
+  const [elapsedMs, setElapsedMs] = useState(0);
 
-  const allowed = useMemo(() => {
+  const { state: aiSettings, setFeature } = useAiSettings();
+  const featureOn = (id: string) =>
+    aiSettings.masterEnabled &&
+    aiSettings.features[electricalAiFeatureKey(id)] !== false;
+
+  const granted = useMemo(() => {
     const ids = new Set((data?.scenarios ?? []).map((s) => s.id));
     return ELECTRICAL_AI_SCENARIOS.filter((s) => ids.has(s.id));
   }, [data?.scenarios]);
+  const allowed = useMemo(
+    () => granted.filter((s) => featureOn(s.id)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [granted, aiSettings],
+  );
 
   useEffect(() => {
-    if (!selected && allowed.length > 0) setSelected(allowed[0]!.id);
+    if (allowed.length === 0) return;
+    if (!selected || !allowed.some((s) => s.id === selected)) {
+      setSelected(allowed[0]!.id);
+    }
   }, [allowed, selected]);
 
   const def = allowed.find((s) => s.id === selected) ?? null;
@@ -126,12 +172,20 @@ function Assistant() {
           ...(opts?.useCloud ? { useCloud: true } : {}),
         },
       }),
+    onMutate: () => {
+      setStartedAt(Date.now());
+      setElapsedMs(0);
+    },
     onSuccess: (res) => {
-      setAnswer(res as ElectricalAiAnswer);
+      const fresh = res as ElectricalAiAnswer;
+      setAnswer(fresh);
       setOffer(null);
+      setCached(null);
+      if (def && def.input !== "photo") writeCachedAnswer(def.id, text, fresh);
     },
     onError: (e: unknown) =>
       toast.error(e instanceof Error ? e.message : "The AI scenario could not run"),
+    onSettled: () => setStartedAt(null),
   });
 
   const estimate = useServerFn(estimateElectricalAiRun);
@@ -140,6 +194,10 @@ function Assistant() {
       estimate({
         data: { scenario: def!.id, text: def!.input === "none" ? undefined : text },
       }),
+    onMutate: () => {
+      setStartedAt(Date.now());
+      setElapsedMs(0);
+    },
     onSuccess: (res) => {
       const est = res as ElectricalAiEstimate;
       if (est.recommendCloud) setOffer(est);
@@ -149,13 +207,37 @@ function Assistant() {
     onError: () => mutation.mutate(undefined),
   });
 
-  const startRun = () => {
-    setOffer(null);
-    // Photo scenarios have no record context to size up.
-    if (def?.input === "photo") mutation.mutate(undefined);
-    else preflight.mutate();
-  };
   const working = mutation.isPending || preflight.isPending;
+
+  // Tick the elapsed clock while a query is in flight.
+  useEffect(() => {
+    if (!working || startedAt === null) return;
+    const id = window.setInterval(() => setElapsedMs(Date.now() - startedAt), 250);
+    return () => window.clearInterval(id);
+  }, [working, startedAt]);
+
+  const startRun = (opts?: { force?: boolean }) => {
+    setOffer(null);
+    // Photo scenarios have no record context to size up and are never cached.
+    if (def?.input === "photo") {
+      mutation.mutate(undefined);
+      return;
+    }
+    if (!def) return;
+    if (opts?.force) {
+      dropCachedAnswer(def.id, text);
+    } else {
+      const hit = readCachedAnswer(def.id, text);
+      if (hit) {
+        setCached(hit);
+        setAnswer(hit.answer);
+        return;
+      }
+    }
+    setCached(null);
+    preflight.mutate();
+  };
+
 
 
   if (isLoading) {
@@ -179,7 +261,13 @@ function Assistant() {
             and submit them — an administrator approves them in Admin → Users.
           </CardContent>
         </Card>
-        <FeatureRequestCard features={data?.features ?? []} />
+        <FeatureRequestCard
+          features={data?.features ?? []}
+          granted={granted.map((s) => s.id)}
+          isOn={(id) => featureOn(id)}
+          onToggle={(id, on) => setFeature(electricalAiFeatureKey(id), on)}
+          masterOff={!aiSettings.masterEnabled}
+        />
       </div>
     );
   }
@@ -321,40 +409,95 @@ function Assistant() {
                 </div>
               ) : null}
 
-              <Button
-                onClick={startRun}
-                disabled={
-                  working ||
-                  Boolean(offer) ||
-                  (def.input === "photo"
-                    ? !photo
-                    : def.input !== "none" && text.trim().length < 3)
-                }
-              >
-                {working ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    {preflight.isPending ? "Estimating…" : "Running…"}
-                  </>
-                ) : (
-                  "Run scenario"
-                )}
+              {working ? (
+                <div
+                  role="status"
+                  aria-live="polite"
+                  className="flex items-center gap-2 rounded-md border bg-muted/40 p-3 text-sm"
+                >
+                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                  <span>
+                    {preflight.isPending
+                      ? "Sizing the query up…"
+                      : `Query running on ${routing?.model ?? "the AI engine"}…`}
+                  </span>
+                  <span className="ml-auto flex items-center gap-1 font-mono text-xs text-muted-foreground">
+                    <Timer className="h-3.5 w-3.5" />
+                    {(elapsedMs / 1000).toFixed(1)}s
+                  </span>
+                </div>
+              ) : null}
 
-              </Button>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  onClick={() => startRun()}
+                  disabled={
+                    working ||
+                    Boolean(offer) ||
+                    (def.input === "photo"
+                      ? !photo
+                      : def.input !== "none" && text.trim().length < 3)
+                  }
+                >
+                  {working ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      {preflight.isPending ? "Estimating…" : "Running…"}
+                    </>
+                  ) : (
+                    "Run scenario"
+                  )}
+                </Button>
+                {cached ? (
+                  <Button
+                    variant="outline"
+                    onClick={() => startRun({ force: true })}
+                    disabled={working}
+                  >
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    Refresh answer
+                  </Button>
+                ) : null}
+              </div>
             </div>
           ) : null}
         </CardContent>
       </Card>
 
-      <FeatureRequestCard features={data?.features ?? []} />
+
+      <FeatureRequestCard
+        features={data?.features ?? []}
+        granted={granted.map((s) => s.id)}
+        isOn={(id) => featureOn(id)}
+        onToggle={(id, on) => setFeature(electricalAiFeatureKey(id), on)}
+        masterOff={!aiSettings.masterEnabled}
+      />
 
       {answer ? (
         <Card>
           <CardHeader className="space-y-1">
-            <CardTitle className="text-base">Answer</CardTitle>
+            <CardTitle className="text-base flex items-center gap-2">
+              Answer
+              {cached ? (
+                <Badge variant="outline" className="gap-1">
+                  <History className="h-3 w-3" />
+                  Cached
+                </Badge>
+              ) : null}
+            </CardTitle>
             <p className="text-xs text-muted-foreground">
               {answer.engineLabel} · {answer.model} · {answer.backend} ·{" "}
-              {(answer.latencyMs / 1000).toFixed(1)}s
+              <span className="font-medium">
+                {(answer.latencyMs / 1000).toFixed(1)}s
+              </span>{" "}
+              ·{" "}
+              <span className="inline-flex items-center gap-0.5 font-medium">
+                <DollarSign className="h-3 w-3" />
+                {runCostLabel(answer.cost, answer.backend).replace(/^\$/, "")}
+              </span>
+              {answer.cost && answer.cost.metered
+                ? ` · ${answer.cost.inputTokens.toLocaleString()} in / ${answer.cost.outputTokens.toLocaleString()} out tokens`
+                : ""}
               {Object.keys(answer.contextCounts).length > 0
                 ? ` · records read: ${Object.entries(answer.contextCounts)
                     .map(([k, v]) => `${k}=${v}`)
@@ -366,6 +509,34 @@ function Assistant() {
             ) : null}
           </CardHeader>
           <CardContent className="space-y-3">
+            {cached ? (
+              <div className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/40 p-3 text-xs">
+                <History className="h-3.5 w-3.5" />
+                <span>
+                  You asked this before — showing the saved answer from{" "}
+                  {cacheAgeLabel(cached.cachedAt)} ({cacheExpiryLabel(cached.cachedAt)}).
+                  Should it be refreshed?
+                </span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="ml-auto h-7"
+                  disabled={working}
+                  onClick={() => startRun({ force: true })}
+                >
+                  <RefreshCw className="mr-1 h-3.5 w-3.5" />
+                  Re-run now
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7"
+                  onClick={() => setCached(null)}
+                >
+                  Keep cached
+                </Button>
+              </div>
+            ) : null}
             {answer.nameplate ? (
               <NameplateDraftTable answer={answer} />
             ) : (
@@ -374,6 +545,7 @@ function Assistant() {
           </CardContent>
         </Card>
       ) : null}
+
     </div>
   );
 }
@@ -702,7 +874,20 @@ const REQUEST_STATUS_LABEL: Record<string, string> = {
  * what is already enabled, and a request basket for the rest. Approval is an
  * admin decision — ticking here only submits the ask.
  */
-function FeatureRequestCard({ features }: { features: ElectricalAiFeatureState[] }) {
+function FeatureRequestCard({
+  features,
+  granted,
+  isOn,
+  onToggle,
+  masterOff,
+}: {
+  features: ElectricalAiFeatureState[];
+  /** Scenario ids you already have access to — these get an on/off switch. */
+  granted: string[];
+  isOn: (id: string) => boolean;
+  onToggle: (id: string, on: boolean) => void;
+  masterOff: boolean;
+}) {
   const qc = useQueryClient();
   const submit = useServerFn(requestElectricalAiFeatures);
   const [picked, setPicked] = useState<ElectricalAiScenarioId[]>([]);
@@ -774,9 +959,23 @@ function FeatureRequestCard({ features }: { features: ElectricalAiFeatureState[]
                     </p>
                   ) : null}
                 </div>
+                {granted.includes(def.id) ? (
+                  <div className="ml-auto flex shrink-0 flex-col items-end gap-1">
+                    <Switch
+                      checked={isOn(def.id)}
+                      disabled={masterOff}
+                      onCheckedChange={(c) => onToggle(def.id, c === true)}
+                      aria-label={`Turn ${def.label} ${isOn(def.id) ? "off" : "on"}`}
+                    />
+                    <span className="text-[10px] text-muted-foreground">
+                      {masterOff ? "AI off" : isOn(def.id) ? "On" : "Off"}
+                    </span>
+                  </div>
+                ) : null}
               </div>
             );
           })}
+
         </div>
 
         {anyRequestable ? (

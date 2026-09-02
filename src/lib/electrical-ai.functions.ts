@@ -176,8 +176,19 @@ export interface ElectricalAiAnswer {
   /** Nameplate scenario only: the transcribed draft fields for confirmation. */
   nameplate?: NameplateField[];
   latencyMs: number;
+  /** Epoch ms the answer was produced — drives the 24h answer cache in the UI. */
+  finishedAt: number;
+  /** What this run cost: 0 on the self-hosted engine, priced tokens on cloud. */
+  cost: {
+    metered: boolean;
+    usd: number;
+    estimated: boolean;
+    inputTokens: number;
+    outputTokens: number;
+  } | null;
   escalation: AiEscalation | null;
 }
+
 
 const RunInput = z.object({
   scenario: z.string().refine(isElectricalAiScenarioId, "Unknown scenario"),
@@ -417,6 +428,16 @@ export const runElectricalAiScenario = createServerFn({ method: "POST" })
         ? { nameplate: nameplateFields(parseNameplateDraft(run.value)) }
         : {}),
       latencyMs: Date.now() - started,
+      finishedAt: Date.now(),
+      cost: run.usage
+        ? {
+            metered: run.usage.metered,
+            usd: run.usage.costUsd,
+            estimated: run.usage.estimated,
+            inputTokens: run.usage.inputTokens,
+            outputTokens: run.usage.outputTokens,
+          }
+        : null,
       escalation: run.escalation,
     };
   });
