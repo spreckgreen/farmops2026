@@ -354,7 +354,7 @@ export function rewriteOdsNumericCell(
   );
   const displayed = String(target.next);
   const nextInner = paragraphs.length
-    ? cellEl.inner.replace(paragraphs[0], `<text:p>${displayed}</text:p>`)
+    ? cellEl.inner.replace(paragraphs[0]!, `<text:p>${displayed}</text:p>`)
     : `<text:p>${displayed}</text:p>`;
   const tagName = /^<([a-zA-Z:.-]+)/.exec(xml.slice(cellEl.start, cellEl.start + 48))![1];
   const rebuilt = `<${tagName}${nextAttrs}>${nextInner}</${tagName}>`;

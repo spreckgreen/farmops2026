@@ -119,7 +119,7 @@ export function candidateRevisionChecks(input: RevisionValidationInput): Revisio
     for (const c of CLASSIFICATIONS as readonly Classification[]) {
       const before = bv.summary[c] ?? 0;
       const after = cv.summary[c] ?? 0;
-      if (c === "MATCH" || c === "SEMANTIC_MATCH") continue;
+      if (c === "MATCH" || c === "EXPECTED_TRANSFORMATION") continue;
       if (after > before) worse.push(`${c} ${before} → ${after}`);
     }
     for (const [cat, before] of Object.entries(bv.farmops_only_by_category)) {

@@ -47,11 +47,11 @@ function download(name: string, body: BlobPart, type: string) {
   URL.revokeObjectURL(url);
 }
 
-function base64ToBlobPart(base64: string): Uint8Array {
+function base64ToBlobPart(base64: string): ArrayBuffer {
   const binary = atob(base64);
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  return bytes;
+  return bytes.buffer as ArrayBuffer;
 }
 
 const ICON: Record<RevisionCheck["status"], typeof CheckCircle2> = {
