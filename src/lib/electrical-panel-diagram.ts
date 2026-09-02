@@ -243,10 +243,26 @@ export function buildPanelDiagram(input: PanelDiagramInput): PanelDiagram {
         toLoad(l, { hasCircuit: false, hasBreaker: true, hasPanel: true }),
       );
       const feeder = feederFor(panel);
+      const panelStableId = str(panel.panel_id).trim();
+      const panelBuilding = str(panel.building).trim() || str(panel.grid).trim();
+      const expectedLoads = unassigned.filter((l) => {
+        if (l.suggestedPanel && panelStableId) {
+          return l.suggestedPanel.toUpperCase().includes(panelStableId.toUpperCase());
+        }
+        if (!l.suggestedPanel && panelBuilding) {
+          return `${l.building} ${l.area}`.toUpperCase().includes(panelBuilding.toUpperCase());
+        }
+        return false;
+      });
       const gaps: string[] = [];
       if (!feeder.known) gaps.push("feeder source not resolved (dest_panel_uuid / feeder_source)");
       if (panelCircuits.length === 0) gaps.push("no circuit groups linked to this panel");
       if (!str(panel.bus_rating_amps).trim()) gaps.push("no bus rating recorded");
+      if (expectedLoads.length > 0) {
+        gaps.push(
+          `${expectedLoads.length} load(s) are expected on this panel but are not linked to any circuit or breaker here`,
+        );
+      }
       const loadCount =
         panelCircuits.reduce((n, c) => n + c.loads.length, 0) + directLoads.length;
       const gapCount =
