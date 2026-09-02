@@ -31,7 +31,8 @@ export type ElectricalSection =
   | "validation"
   | "adjudication"
   | "import"
-  | "export";
+  | "export"
+  | "nameplate_scan";
 
 /**
  * Reconciliation areas: they compare the canonical engineering workbook against
@@ -46,6 +47,8 @@ export const RECONCILIATION_SECTIONS: ElectricalSection[] = [
   "adjudication",
   "import",
   "export",
+  // Administrator large-load nameplate coverage scan (server also checks role).
+  "nameplate_scan",
 ];
 
 /** Sections an electrician (read-only add-on) may open. */
@@ -156,6 +159,7 @@ export function sectionFromPathname(pathname: string): ElectricalSection {
     case "adjudication":
     case "import":
     case "export":
+    case "nameplate_scan":
       return head;
     case "panel":
       return "panel";
