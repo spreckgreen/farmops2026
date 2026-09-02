@@ -186,7 +186,7 @@ describe("panels and output", () => {
   it("summarizes and exports the requested columns", () => {
     const rows = migrateAll([
       { kind: "load", stable_id: "FS-011", description: "Hub", grid: "A6" },
-      { kind: "load", stable_id: "FS-048", description: "Plugs", grid: "A3" },
+      { kind: "load", stable_id: "FS-073", description: "Plugs", grid: "B2" },
     ]);
     const s = summarizeMigration(rows);
     expect(s.rows).toBe(2);
