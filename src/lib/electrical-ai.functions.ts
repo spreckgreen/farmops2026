@@ -428,6 +428,16 @@ export const runElectricalAiScenario = createServerFn({ method: "POST" })
         ? { nameplate: nameplateFields(parseNameplateDraft(run.value)) }
         : {}),
       latencyMs: Date.now() - started,
+      finishedAt: Date.now(),
+      cost: run.usage
+        ? {
+            metered: run.usage.metered,
+            usd: run.usage.costUsd,
+            estimated: run.usage.estimated,
+            inputTokens: run.usage.inputTokens,
+            outputTokens: run.usage.outputTokens,
+          }
+        : null,
       escalation: run.escalation,
     };
   });
