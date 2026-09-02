@@ -55,7 +55,9 @@ export async function notifyAdminsOfPanelRequest(notice: RequestNotice): Promise
     panelAccessRequestEmail({
       panelId: notice.panelId,
       scope: notice.scope ?? "panel_edit",
+      scopeDetail: notice.scopeDetail ?? null,
       requesterEmail: notice.requesterEmail,
+
       reason: notice.reason,
       requestedAt: notice.requestedAt,
       reviewUrl,
