@@ -349,7 +349,7 @@ export async function describeAreaRouting(
   }
 
   try {
-    const ai = await resolveAreaAi(area, opts);
+    const ai = await resolveAreaAi(area, { ...opts, skipEnabledCheck: true });
     return {
       area,
       areaLabel: ai.areaLabel,
