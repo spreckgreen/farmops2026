@@ -169,9 +169,9 @@ export interface PanelSheetAccess {
 }
 
 /**
- * Whether this viewer may look past the scanned panel. A scanned label only ever
- * carries that panel plus its own local topology; anything wider needs an
- * administrator-approved `system_data` window.
+ * Whether this viewer may look past the panel(s) they scanned. A scanned label
+ * only ever carries that panel plus its own local topology; anything wider needs
+ * an administrator-approved building / site / system window.
  */
 export interface SystemDataAccess {
   state: PanelAccessState;
@@ -179,6 +179,12 @@ export interface SystemDataAccess {
   expires_at: string | null;
   request: PanelEditRequest | null;
   window_hours: number;
+  /** The scope of the newest wider request, so the UI can name what is live. */
+  scope: PanelAccessScope | null;
+  /** The named building / site the live window covers, when scoped that way. */
+  scope_detail: string | null;
+  /** True when this window is farm-wide (site or system), not one building. */
+  covers_whole_system: boolean;
 }
 
 export interface PanelSheet {
@@ -192,8 +198,10 @@ export interface PanelSheet {
   raceways: PanelRow[];
   branch_runs: PanelRow[];
   access: PanelSheetAccess;
-  /** System-wide read access; false keeps the page scoped to this panel only. */
+  /** Wider read access; false keeps the page scoped to scanned panels only. */
   system_access: SystemDataAccess;
+  /** Panels this viewer reached by scanning a printed label. */
+  scanned_panels: string[];
   captured_at: string;
 }
 
@@ -218,6 +226,42 @@ export const panelSheet = createServerFn({ method: "GET" })
     const panel = panelRow as Record<string, unknown>;
     const panelUuid = String(panel["id"]);
 
+    const isAdmin = await isAdminRole(context.supabase, context.userId);
+    const fullAddon = await hasAddon(context.supabase, context.userId, "electrical");
+
+    // Every request row for this caller: the panel-edit window for THIS panel and
+    // any wider read window they hold, whatever panel it was raised from.
+    const { data: allRows, error: allError } = await db
+      .from("electrical_panel_edit_requests")
+      .select("*")
+      .eq("requester_id", context.userId)
+      .order("created_at", { ascending: false })
+      .limit(100);
+    if (allError) throw new Error(allError.message);
+    const myRequests = ((allRows ?? []) as Record<string, unknown>[]).map(toRequest);
+    const request = latestRequest(
+      myRequests.filter((r) => r.panel_id === data.panelId),
+      "panel_edit",
+    );
+    const widerRequest = latestWiderRequest(myRequests);
+
+    // Scope enforcement: a scan-provisioned viewer sees only the panels they
+    // physically scanned, plus whatever an approved wider window covers.
+    const scanned = fullAddon || isAdmin ? [] : await scannedPanelIds(db, context.userId);
+    const allowed = canReadPanel({
+      fullAddon,
+      isAdmin,
+      scannedPanelIds: scanned,
+      panelId: data.panelId,
+      panel: { building: (panel["building"] as string | null) ?? null },
+      widerRequest,
+    });
+    if (!allowed) {
+      throw new Error(
+        `Your access is limited to the panel label you scanned. Panel ${data.panelId} is outside that scope — request building or site access from the panel you scanned.`,
+      );
+    }
+
     const rows = async (table: string, build: (q: any) => any): Promise<PanelRow[]> => {
       const { data: out, error: e } = await build(db.from(table).select("*"));
       if (e) throw new Error(e.message);
@@ -240,33 +284,7 @@ export const panelSheet = createServerFn({ method: "GET" })
       ? await rows("electrical_loads", (q) => q.in("circuit_group_uuid", groupIds).order("load_id"))
       : [];
 
-    const isAdmin = await isAdminRole(context.supabase, context.userId);
-    const { data: reqRows, error: reqError } = await db
-      .from("electrical_panel_edit_requests")
-      .select("*")
-      .eq("panel_id", data.panelId)
-      .eq("requester_id", context.userId)
-      .order("created_at", { ascending: false })
-      .limit(10);
-    if (reqError) throw new Error(reqError.message);
-    const panelRequests = ((reqRows ?? []) as Record<string, unknown>[]).map(toRequest);
-    const request = latestRequest(panelRequests, "panel_edit");
-
-    // A system-data window is not tied to the panel the electrician scanned, so
-    // it is looked up across all of this requester's rows.
-    const { data: sysRows, error: sysError } = await db
-      .from("electrical_panel_edit_requests")
-      .select("*")
-      .eq("requester_id", context.userId)
-      .eq("scope", "system_data")
-      .order("created_at", { ascending: false })
-      .limit(10);
-    if (sysError) throw new Error(sysError.message);
-    const systemRequest = latestRequest(
-      ((sysRows ?? []) as Record<string, unknown>[]).map(toRequest),
-      "system_data",
-    );
-
+    const widerLive = isAdmin || isEditUnlocked(widerRequest);
     return {
       panel: panel as PanelRow,
       voltage_designation: resolveSystemVoltage(panel["system_voltage"])?.designation ?? null,
@@ -286,15 +304,23 @@ export const panelSheet = createServerFn({ method: "GET" })
         window_hours: GRANT_WINDOW_HOURS,
       },
       system_access: {
-        state: accessState(systemRequest),
-        granted: isAdmin || isEditUnlocked(systemRequest),
-        expires_at: systemRequest?.expires_at ?? null,
-        request: systemRequest,
+        state: accessState(widerRequest),
+        granted: widerLive,
+        expires_at: widerRequest?.expires_at ?? null,
+        request: widerRequest,
         window_hours: GRANT_WINDOW_HOURS,
+        scope: widerRequest?.scope ?? null,
+        scope_detail: widerRequest?.scope_detail ?? null,
+        covers_whole_system:
+          isAdmin ||
+          (widerLive &&
+            (widerRequest?.scope === "system_data" || widerRequest?.scope === "site_data")),
       },
+      scanned_panels: scanned,
       captured_at: new Date().toISOString(),
     };
   });
+
 
 /* --------------------------------------------------------------- access flow */
 
