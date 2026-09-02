@@ -254,6 +254,9 @@ function deficiency(f: NumericFinding, s: DSide, unit: string): string {
       return `Neither side holds an interpretable ${unit} value (ODS: ${f.ods_state}, FarmOps: ${f.farmops_state}); nothing can be adjudicated until the cell's meaning is established.`;
   }
 }
+const isResolved = (f: NumericFinding) =>
+  f.adjudicated && CLOSED_DISPOSITIONS.has(f.convergence_disposition);
+
 
 export function categoryDAnalysis(r: NumericDiagnosticsReport): CategoryDAnalysis {
   const dFindings = r.findings.filter((f) => f.raw_category === "D");
