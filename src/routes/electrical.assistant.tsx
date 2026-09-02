@@ -911,6 +911,7 @@ function FeatureRequestCard({
   const toggle = (id: ElectricalAiScenarioId, on: boolean) =>
     setPicked((prev) => (on ? [...new Set([...prev, id])] : prev.filter((x) => x !== id)));
 
+
   return (
     <Card>
       <CardHeader className="space-y-1">
