@@ -651,6 +651,116 @@ export function planCurrentSemanticsClosure(input: {
     };
   });
 
+  const fs084 = signatures.find((r) => r.stable_id === "FS-084");
+  const bryant_evidence: BryantIndependentEvidence = {
+    applies_to: ["FS-082", "FS-083", "FS-084"],
+    equipment_model: "Bryant 37MARAQ24AA3 outdoor unit / D5MAHAQ24XA* indoor high-wall unit",
+    quantities: [
+      {
+        quantity: "MOCP (maximum overcurrent protection)",
+        field: "maximum_overcurrent_protection",
+        value: 25,
+        status:
+          "Published by the manufacturer. A protective-device limit only — never read as a load current and never copied into the legacy Amps column.",
+      },
+      {
+        quantity: "RCA (rated current amps)",
+        field: "rated_current_amps",
+        value: 1.69,
+        status:
+          "Published by the manufacturer for the indoor unit. Preserved as its own quantity; not summed, scaled or substituted for a load current.",
+      },
+      {
+        quantity: "RLA (rated load amps)",
+        field: "rated_load_amps",
+        value: 4.15,
+        status:
+          "Published by the manufacturer for the outdoor unit. Preserved as its own quantity; not treated as the circuit's connected load current.",
+      },
+      {
+        quantity: "MCA (minimum circuit ampacity)",
+        field: "minimum_circuit_ampacity",
+        value: null,
+        status:
+          "NULL / unverified — not stated by the supplied evidence and explicitly never derived from MOCP, RCA or RLA.",
+      },
+    ],
+    preservation_rules: [
+      "These four are distinct engineering quantities for the same equipment; equality with any canonical Amps value is coincidence, not provenance.",
+      "None of them is written into electrical_loads.amps, and none is used to close a CURRENT_SEMANTICS_UNRESOLVED finding on its own.",
+      "MCA stays NULL until a published manufacturer value is supplied; no arithmetic substitute is accepted.",
+    ],
+  };
+
+  const sharedFs084Exclusions = [
+    "The derived 14,400 VA figure — it restates the same number and is not independent evidence.",
+    "Numeric coincidence with the published Bryant MOCP of 25 A.",
+    "Any inferred or calculated MCA.",
+  ];
+
+  const unresolved_findings: CurrentSemanticsUnresolvedFinding[] = [
+    {
+      finding_id: "CSU-01",
+      stable_id: "FS-082",
+      system: "canonical_ods",
+      field: "loads.amps",
+      value: signatures.find((r) => r.stable_id === "FS-082")?.ods_amps ?? null,
+      classification: "ZERO_AMPS_NOT_ESTABLISHED_AS_ZERO_LOAD",
+      why_open:
+        "The canonical entry cannot be read as any of the eight concepts for an installed, operating mini-split, and no source states a verified zero-load condition.",
+      required_to_resolve: [
+        "A dated, attributable source stating either a verified zero-load / de-energized condition for this load, or that the canonical entry is an unsupported placeholder.",
+        "Model decision: the additive current model exists so that any real quantity for this load lands in its own authority field instead of the unqualified column.",
+      ],
+      excluded_as_evidence: sharedFs084Exclusions,
+    },
+    {
+      finding_id: "CSU-02",
+      stable_id: "FS-083",
+      system: "canonical_ods",
+      field: "loads.amps",
+      value: signatures.find((r) => r.stable_id === "FS-083")?.ods_amps ?? null,
+      classification: "ZERO_AMPS_NOT_ESTABLISHED_AS_ZERO_LOAD",
+      why_open:
+        "Same condition as FS-082 — the canonical entry has no provenance establishing it as a real current for operating equipment.",
+      required_to_resolve: [
+        "A dated, attributable source stating a verified zero-load condition or confirming the entry is an unsupported placeholder.",
+        "Model decision: additive semantic + provenance columns in place before any value is recorded for this row.",
+      ],
+      excluded_as_evidence: sharedFs084Exclusions,
+    },
+    {
+      finding_id: "CSU-03",
+      stable_id: "FS-084",
+      system: "canonical_ods",
+      field: "loads.amps = 60 A",
+      value: fs084?.ods_amps ?? 60,
+      classification: "LEGACY_VALUE_SOURCE_UNKNOWN",
+      why_open:
+        "The canonical 60 A is a static cell with no formula, note or source reference; no evidence establishes which concept it asserts or where it came from.",
+      required_to_resolve: [
+        "A canonical source (revision history, design document, or attributable author statement) establishing the origin and intended concept of 60 A — or an adjudication that it is an unsupported legacy entry.",
+        "Model decision: which of the eight concepts the canonical Amps column asserts for this worksheet, recorded in amps_semantic with a citation.",
+      ],
+      excluded_as_evidence: sharedFs084Exclusions,
+    },
+    {
+      finding_id: "CSU-04",
+      stable_id: "FS-084",
+      system: "farmops",
+      field: "loads.amps = 25 A",
+      value: fs084?.farmops_amps ?? 25,
+      classification: "NUMERIC_VALUE_WITH_UNRESOLVED_SEMANTICS",
+      why_open:
+        "The FarmOps 25 A carries no provenance stating whether it is a load current, the published MOCP or an installed breaker rating; it merely coincides with the Bryant MOCP.",
+      required_to_resolve: [
+        "Provenance stating what the 25 A is. If it is a protective-device rating, the installed breaker must be field-observed and recorded as installed_ocp_rating, never as a load current.",
+        "Model decision: connected_load_current and installed_ocp_rating exist as separate additive fields so the value can be placed without overloading amps.",
+      ],
+      excluded_as_evidence: sharedFs084Exclusions,
+    },
+  ];
+
   return {
     version: CURRENT_CLOSURE_VERSION,
     generated_at: input.generatedAt ?? new Date().toISOString(),
@@ -666,6 +776,8 @@ export function planCurrentSemanticsClosure(input: {
     verdict,
     verdict_rationale,
     conflicting_usages,
+    bryant_evidence,
+    unresolved_findings,
     additive_schema,
     minimum_additive_schema_summary,
     exit_criteria,
