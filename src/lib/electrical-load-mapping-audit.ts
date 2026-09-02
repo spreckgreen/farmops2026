@@ -425,14 +425,13 @@ export function auditLoadMasterMapping(input: AuditInput): LoadMappingAudit {
   });
 
   const full: Record<MappingStatus, number> = {
-    EXACT_MAPPING: 0,
-    SHIFTED_COLUMN_MAPPING: 0,
-    DUPLICATE_HEADER_AMBIGUITY: 0,
-    UNMAPPED_CANONICAL_FIELD: 0,
-    WRONG_DESTINATION_FIELD: 0,
-    NORMALIZATION_ONLY: 0,
-    REQUIRES_REVIEW: 0,
-    ...(counts as Record<MappingStatus, number>),
+    EXACT_MAPPING: counts["EXACT_MAPPING"] ?? 0,
+    SHIFTED_COLUMN_MAPPING: counts["SHIFTED_COLUMN_MAPPING"] ?? 0,
+    DUPLICATE_HEADER_AMBIGUITY: counts["DUPLICATE_HEADER_AMBIGUITY"] ?? 0,
+    UNMAPPED_CANONICAL_FIELD: counts["UNMAPPED_CANONICAL_FIELD"] ?? 0,
+    WRONG_DESTINATION_FIELD: counts["WRONG_DESTINATION_FIELD"] ?? 0,
+    NORMALIZATION_ONLY: counts["NORMALIZATION_ONLY"] ?? 0,
+    REQUIRES_REVIEW: counts["REQUIRES_REVIEW"] ?? 0,
   };
 
   return {
