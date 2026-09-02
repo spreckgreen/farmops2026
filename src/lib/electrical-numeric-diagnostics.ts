@@ -136,6 +136,26 @@ export interface NumericFinding {
   /** What a future apply step would write. `undefined` = nothing proposed. */
   proposed_value?: number | null;
   normalization_rules: string[];
+  /**
+   * Immutable historical/raw classification. Identical to `category` — kept as
+   * an explicit field so the overlay below can never be mistaken for a
+   * re-classification of the raw comparison.
+   */
+  raw_category: NumericCategory;
+  /** True when an adjudication bound to this run's workbook SHA applied. */
+  adjudicated: boolean;
+  adjudication_id: string | null;
+  adjudication_source: string | null;
+  adjudication_classification: string | null;
+  adjudication_rationale: string | null;
+  /** Adjudication naming this finding but bound to a different workbook SHA. */
+  stale_adjudication: boolean;
+  /** Current disposition after the (read-only) adjudication overlay. */
+  convergence_disposition: ConvergenceDisposition;
+  /** True while the disposition leaves the finding open for Phase 4.5. */
+  unresolved: boolean;
+  /** Both source values / verified quantities, preserved and never merged. */
+  preserved: string[];
 }
 
 export interface NumericFieldSummary {
