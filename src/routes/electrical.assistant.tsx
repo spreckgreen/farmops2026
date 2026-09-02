@@ -448,13 +448,162 @@ function NameplateDraftTable({ answer }: { answer: ElectricalAiAnswer }) {
           </Link>
         </Button>
       </div>
+
+      <NameplateWriteRequestForm fields={fields} />
+
       <p className="text-xs text-muted-foreground">
-        Draft only. Nameplate ratings are recorded by hand as nameplate provenance —
-        semantic (as-installed) values stay separate and are never overwritten by AI.
+        {NAMEPLATE_WRITE_GATE_NOTE}
       </p>
     </div>
   );
 }
+
+/**
+ * Ask an administrator to write the plate reading onto one equipment row.
+ * Manufacturer, model, serial, voltage, phase, FLA/RLA, MCA and MOCP are the
+ * writable fields; they land on the nameplate columns only after approval.
+ */
+function NameplateWriteRequestForm({ fields }: { fields: { id: string; label: string; value: string | null }[] }) {
+  const targets = useServerFn(listNameplateTargets);
+  const submit = useServerFn(submitNameplateWriteRequest);
+  const mine = useServerFn(myNameplateWriteRequests);
+  const queryClient = useQueryClient();
+
+  const [search, setSearch] = useState("");
+  const [loadUuid, setLoadUuid] = useState("");
+  const [note, setNote] = useState("");
+  const [skipped, setSkipped] = useState<Record<string, boolean>>({});
+
+  const writable = useMemo(
+    () =>
+      NAMEPLATE_WRITE_FIELDS.map((def) => ({
+        ...def,
+        value: fields.find((f) => f.id === def.id)?.value ?? null,
+      })).filter((f) => f.value),
+    [fields],
+  );
+
+  const { data: options } = useQuery({
+    queryKey: ["nameplate-targets", search],
+    queryFn: () => targets({ data: search.trim() ? { search: search.trim() } : {} }),
+  });
+
+  const { data: requests } = useQuery({
+    queryKey: ["nameplate-write-requests", "mine"],
+    queryFn: () => mine({}),
+  });
+
+  const proposed = useMemo(() => {
+    const out: Record<string, string> = {};
+    for (const f of writable) if (!skipped[f.id] && f.value) out[f.id] = f.value;
+    return out;
+  }, [writable, skipped]);
+
+  const mutation = useMutation({
+    mutationFn: () =>
+      submit({
+        data: {
+          loadUuid,
+          proposed,
+          ...(note.trim() ? { note: note.trim() } : {}),
+        },
+      }),
+    onSuccess: () => {
+      toast.success("Sent to an administrator for approval. Nothing is written yet.");
+      setNote("");
+      void queryClient.invalidateQueries({ queryKey: ["nameplate-write-requests"] });
+    },
+    onError: (e: unknown) =>
+      toast.error(e instanceof Error ? e.message : "That request could not be submitted"),
+  });
+
+  if (writable.length === 0) return null;
+
+  return (
+    <div className="space-y-3 rounded-md border p-3">
+      <div className="text-sm font-medium">Request a write to the equipment record</div>
+
+      <div className="space-y-1">
+        {writable.map((f) => (
+          <label
+            key={f.id}
+            htmlFor={`np-write-${f.id}`}
+            className="flex items-center gap-2 text-sm"
+          >
+            <Checkbox
+              id={`np-write-${f.id}`}
+              checked={!skipped[f.id]}
+              onCheckedChange={(v) => setSkipped((p) => ({ ...p, [f.id]: v !== true }))}
+            />
+            <span>
+              <span className="font-medium">{f.label}</span>{" "}
+              <span className="text-muted-foreground">{f.value}</span>
+            </span>
+          </label>
+        ))}
+      </div>
+
+      <div className="space-y-1">
+        <Label htmlFor="np-target-search">Equipment row</Label>
+        <Input
+          id="np-target-search"
+          value={search}
+          placeholder="Filter by load ID, description or location"
+          onChange={(e) => setSearch(e.target.value)}
+        />
+        <select
+          className="h-9 w-full rounded-md border bg-background px-2 text-sm"
+          value={loadUuid}
+          onChange={(e) => setLoadUuid(e.target.value)}
+          aria-label="Equipment row to update"
+        >
+          <option value="">Select an equipment row…</option>
+          {(options ?? []).map((o) => (
+            <option key={o.id} value={o.id}>
+              {o.load_id} — {o.description ?? "no description"}
+              {o.location ? ` (${o.location})` : ""}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <Input
+        value={note}
+        maxLength={500}
+        placeholder="Note for the approver (optional)"
+        onChange={(e) => setNote(e.target.value)}
+      />
+
+      <Button
+        size="sm"
+        disabled={!loadUuid || Object.keys(proposed).length === 0 || mutation.isPending}
+        onClick={() => mutation.mutate()}
+      >
+        {mutation.isPending ? (
+          <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+        ) : null}
+        Send for admin approval
+      </Button>
+
+      {(requests?.length ?? 0) > 0 ? (
+        <div className="space-y-1 text-xs text-muted-foreground">
+          <div className="font-medium text-foreground">Your recent requests</div>
+          {requests!.slice(0, 5).map((r) => (
+            <div key={r.id}>
+              {r.load_ref ?? "load"} · {Object.keys(r.proposed).length} fields ·{" "}
+              {r.status === "pending"
+                ? "awaiting admin approval"
+                : r.status === "approved"
+                  ? `applied ${Object.keys(r.applied_fields ?? {}).length} fields`
+                  : "declined"}
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 
 const REQUEST_STATUS_LABEL: Record<string, string> = {
   pending: "Awaiting admin approval",
