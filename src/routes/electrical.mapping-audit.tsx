@@ -270,7 +270,7 @@ function MappingAuditPage() {
 
         {audit ? (
           <>
-            <PersistedSection id="mapping-audit-required" title="Required field verdicts" defaultOpen>
+            <PersistedSection storageKey="mapping-audit-required" title="Required field verdicts" defaultOpen>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-muted/50 text-left">
@@ -296,7 +296,7 @@ function MappingAuditPage() {
             </PersistedSection>
 
             <PersistedSection
-              id="mapping-audit-columns"
+              storageKey="mapping-audit-columns"
               title={`Physical column mapping (${columns.length})`}
               defaultOpen
             >
@@ -339,7 +339,7 @@ function MappingAuditPage() {
             </PersistedSection>
 
             <PersistedSection
-              id="mapping-audit-preview"
+              storageKey="mapping-audit-preview"
               title={`Row-level correction preview (${preview.length}) — nothing is written`}
             >
               <div className="overflow-x-auto">
@@ -375,7 +375,7 @@ function MappingAuditPage() {
             </PersistedSection>
 
             <PersistedSection
-              id="mapping-audit-structure"
+              storageKey="mapping-audit-structure"
               title="Duplicate headers and unnamed populated columns"
             >
               <div className="space-y-1 p-2 text-sm text-muted-foreground">
