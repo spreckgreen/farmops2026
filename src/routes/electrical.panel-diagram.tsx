@@ -149,44 +149,18 @@ function PlannedDetail({ panel }: { panel: DiagramPanel }) {
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <CheckCircle2 className="h-4 w-4 text-primary" /> What the plan says
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm text-foreground">
-            {reading.known.map((k) => (
-              <p key={k}>{k}</p>
-            ))}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <AlertTriangle className="h-4 w-4 text-destructive" /> What the plan cannot answer
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ul className="space-y-2 text-sm">
-              {reading.missing.map((m) => (
-                <li key={m} className="text-muted-foreground">
-                  {m}
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
-      </div>
+      <TopologyToggle
+        storageKey="panel-diagram.planned.mermaid"
+        source={mermaid}
+        downloadName={`${panel.id}-planned-topology`}
+        caption="Dashed lines and dashed boxes are planned alignment. Solid lines mark loads the record already links."
+      />
 
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">
-            Planned loads on {panel.id} ({plan.total})
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
+      <PersistedSection
+        storageKey="panel-diagram.planned.loads"
+        title={`Planned loads on ${panel.id} (${plan.total})`}
+      >
+        <div className="space-y-3">
           <p className="text-xs text-muted-foreground">
             Grouped by building / grid location. These are suggested alignments — nothing here
             claims an installed circuit or breaker.
@@ -221,17 +195,45 @@ function PlannedDetail({ panel }: { panel: DiagramPanel }) {
               No load is planned for this panel yet.
             </p>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </PersistedSection>
 
-      <TopologyToggle
-        source={mermaid}
-        downloadName={`${panel.id}-planned-topology`}
-        caption="Dashed lines and dashed boxes are planned alignment. Solid lines mark loads the record already links."
-      />
+      <div className="grid gap-4 md:grid-cols-2">
+        <PersistedSection
+          storageKey="panel-diagram.planned.known"
+          title={
+            <span className="flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 text-primary" /> What the plan says
+            </span>
+          }
+        >
+          <div className="space-y-2 text-sm text-foreground">
+            {reading.known.map((k) => (
+              <p key={k}>{k}</p>
+            ))}
+          </div>
+        </PersistedSection>
+        <PersistedSection
+          storageKey="panel-diagram.planned.missing"
+          title={
+            <span className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-destructive" /> What the plan cannot answer
+            </span>
+          }
+        >
+          <ul className="space-y-2 text-sm">
+            {reading.missing.map((m) => (
+              <li key={m} className="text-muted-foreground">
+                {m}
+              </li>
+            ))}
+          </ul>
+        </PersistedSection>
+      </div>
     </div>
   );
 }
+
 
 function PanelDetail({ panel }: { panel: DiagramPanel }) {
   const reading = useMemo(() => panelReading(panel), [panel]);
