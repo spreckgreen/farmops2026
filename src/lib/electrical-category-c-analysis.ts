@@ -420,7 +420,9 @@ export function categoryCAnalysisMarkdown(a: CategoryCAnalysis): string {
     "## Totals",
     "",
     `- Raw C = ${a.raw_c}`,
+    `- Groups = ${a.groups_count}`,
     `- Systematic groups = ${a.systematic_groups_count} (of ${a.groups_count} total groups)`,
+
     `- Findings explained by systematic groups = ${a.rows_explained_by_systematic_pattern}`,
     `- Findings requiring individual review = ${a.rows_requiring_individual_review} across ${a.individual_review_groups_count} group(s)`,
     "",
