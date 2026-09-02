@@ -328,10 +328,13 @@ export const panelSheet = createServerFn({ method: "GET" })
 /* --------------------------------------------------------------- access flow */
 
 /**
- * Ask an administrator for a 24-hour window. `panel_edit` unlocks corrections to
- * the one scanned panel; `system_data` unlocks reading other panels and the
- * whole-system topology. Both go through the same approval pipeline (in-app
- * queue + best-effort email + administrator second factor on the decision).
+ * Ask an administrator for a 24-hour window.
+ *  * `panel_edit`    — corrections to the one scanned panel
+ *  * `building_data` — read every panel in the named building
+ *  * `site_data`     — read every panel on the named site
+ *  * `system_data`   — read the whole electrical system and its topology views
+ * All go through the same approval pipeline (in-app queue + best-effort email +
+ * administrator second factor on the decision).
  */
 export const requestPanelEditAccess = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -339,9 +342,17 @@ export const requestPanelEditAccess = createServerFn({ method: "POST" })
     z
       .object({
         panelId: panelIdSchema,
-        scope: z.enum(["panel_edit", "system_data"]).default("panel_edit"),
+        scope: z
+          .enum(["panel_edit", "building_data", "site_data", "system_data"])
+          .default("panel_edit"),
+        /** Building or site the wider scope applies to. Required for `building_data`. */
+        scopeDetail: z.string().trim().max(120).optional(),
         reason: z.string().trim().max(500).optional(),
         reviewUrl: z.string().trim().max(300).optional(),
+      })
+      .refine((v) => v.scope !== "building_data" || (v.scopeDetail ?? "").length > 0, {
+        message: "Name the building you need access to.",
+        path: ["scopeDetail"],
       })
       .parse(d),
   )
@@ -357,14 +368,17 @@ export const requestPanelEditAccess = createServerFn({ method: "POST" })
     if (panelError) throw new Error(panelError.message);
     if (!panel) throw new Error(`No panel is recorded with the ID ${data.panelId}.`);
 
-    // An open request or a live window is never duplicated. System-data windows
-    // are farm-wide, so they are de-duplicated across panels.
+    // An open request or a live window is never duplicated. Wider windows are not
+    // tied to one panel, so they are de-duplicated across panels.
     let existingQuery = db
       .from("electrical_panel_edit_requests")
       .select("*")
       .eq("requester_id", context.userId)
       .eq("scope", data.scope);
     if (data.scope === "panel_edit") existingQuery = existingQuery.eq("panel_id", data.panelId);
+    if (data.scope === "building_data" && data.scopeDetail) {
+      existingQuery = existingQuery.eq("scope_detail", data.scopeDetail);
+    }
     const { data: existingRows } = await existingQuery
       .order("created_at", { ascending: false })
       .limit(10);
@@ -386,6 +400,7 @@ export const requestPanelEditAccess = createServerFn({ method: "POST" })
         requester_email: email,
         reason: data.reason ?? null,
         scope: data.scope,
+        scope_detail: data.scopeDetail ?? null,
         status: "pending",
       })
       .select("*")
@@ -397,11 +412,13 @@ export const requestPanelEditAccess = createServerFn({ method: "POST" })
     const notice = await notifyAdminsOfPanelRequest({
       panelId: data.panelId,
       scope: data.scope,
+      scopeDetail: data.scopeDetail ?? null,
       requesterEmail: email,
       reason: data.reason ?? null,
       requestedAt: request.created_at,
       reviewUrl: data.reviewUrl ?? "/admin/panel-access",
     });
+
 
     return {
       request,
