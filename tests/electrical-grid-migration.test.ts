@@ -90,15 +90,29 @@ describe("physical remapping, not label remapping", () => {
   it("flags genuinely ambiguous positions instead of rounding them", () => {
     const r = migrateRow({
       kind: "load",
+      stable_id: "FS-073",
+      description: "Outside plugs 2 double gang per wall GFCI",
+      grid: "B2",
+      location: "P1S3; P2s3 (2 evenly spaced per wall)",
+    });
+    // Old number 2 = 12 ft east, exactly between corrected columns 2 (8 ft) and 3 (16 ft).
+    expect(r.proposed_new_grid).toBeNull();
+    expect(r.confidence).toBe("REVIEW");
+    expect(r.review_reason).toContain("midway");
+  });
+
+  it("keeps an odd-numbered old line that lands exactly on a corrected column", () => {
+    const r = migrateRow({
+      kind: "load",
       stable_id: "FS-048",
       description: "Double Gang plugs every 12' in Garage bays area",
       grid: "A3",
       location: "TBD",
     });
-    expect(r.proposed_new_grid).toBeNull();
-    expect(r.confidence).toBe("REVIEW");
-    expect(r.review_reason).toContain("midway");
+    expect(r.proposed_new_grid).toBe("A4");
+    expect(r.confidence).toBe("HIGH");
   });
+
 
   it("refuses to invent a position from a junk grid cell", () => {
     for (const grid of ["?", "??", "0.00%"]) {
