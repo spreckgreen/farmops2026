@@ -1495,6 +1495,10 @@ export type Database = {
       electrical_loads: {
         Row: {
           amps: number | null
+          amps_semantic:
+            | Database["public"]["Enums"]["electrical_amps_semantic"]
+            | null
+          amps_semantic_provenance: string | null
           area: string | null
           backup_eligible: boolean | null
           backup_panel: string | null
@@ -1502,6 +1506,7 @@ export type Database = {
           circuit_group_ref: string | null
           circuit_group_uuid: string | null
           completion_percent: number
+          connected_load_current: number | null
           connected_va: number | null
           continuous_load: boolean | null
           count: number
@@ -1512,18 +1517,25 @@ export type Database = {
           demand_basis: string | null
           demand_va: number | null
           description: string | null
+          design_circuit_ampacity: number | null
+          equipment_fla: number | null
           equipment_model: string | null
           future: boolean | null
           grid: string | null
           id: string
           install_status: string
+          installed_ocp_rating: number | null
           label_status: string
           load_id: string
           load_shed_group: string | null
           location: string | null
+          maximum_overcurrent_protection: number | null
+          minimum_circuit_ampacity: number | null
           notes: string | null
           ods_extras: string | null
           phase: string | null
+          rated_current_amps: number | null
+          rated_load_amps: number | null
           source_circuit: string | null
           source_reference: string | null
           suggested_panel: string | null
@@ -1533,6 +1545,10 @@ export type Database = {
         }
         Insert: {
           amps?: number | null
+          amps_semantic?:
+            | Database["public"]["Enums"]["electrical_amps_semantic"]
+            | null
+          amps_semantic_provenance?: string | null
           area?: string | null
           backup_eligible?: boolean | null
           backup_panel?: string | null
@@ -1540,6 +1556,7 @@ export type Database = {
           circuit_group_ref?: string | null
           circuit_group_uuid?: string | null
           completion_percent?: number
+          connected_load_current?: number | null
           connected_va?: number | null
           continuous_load?: boolean | null
           count?: number
@@ -1550,18 +1567,25 @@ export type Database = {
           demand_basis?: string | null
           demand_va?: number | null
           description?: string | null
+          design_circuit_ampacity?: number | null
+          equipment_fla?: number | null
           equipment_model?: string | null
           future?: boolean | null
           grid?: string | null
           id?: string
           install_status?: string
+          installed_ocp_rating?: number | null
           label_status?: string
           load_id: string
           load_shed_group?: string | null
           location?: string | null
+          maximum_overcurrent_protection?: number | null
+          minimum_circuit_ampacity?: number | null
           notes?: string | null
           ods_extras?: string | null
           phase?: string | null
+          rated_current_amps?: number | null
+          rated_load_amps?: number | null
           source_circuit?: string | null
           source_reference?: string | null
           suggested_panel?: string | null
@@ -1571,6 +1595,10 @@ export type Database = {
         }
         Update: {
           amps?: number | null
+          amps_semantic?:
+            | Database["public"]["Enums"]["electrical_amps_semantic"]
+            | null
+          amps_semantic_provenance?: string | null
           area?: string | null
           backup_eligible?: boolean | null
           backup_panel?: string | null
@@ -1578,6 +1606,7 @@ export type Database = {
           circuit_group_ref?: string | null
           circuit_group_uuid?: string | null
           completion_percent?: number
+          connected_load_current?: number | null
           connected_va?: number | null
           continuous_load?: boolean | null
           count?: number
@@ -1588,18 +1617,25 @@ export type Database = {
           demand_basis?: string | null
           demand_va?: number | null
           description?: string | null
+          design_circuit_ampacity?: number | null
+          equipment_fla?: number | null
           equipment_model?: string | null
           future?: boolean | null
           grid?: string | null
           id?: string
           install_status?: string
+          installed_ocp_rating?: number | null
           label_status?: string
           load_id?: string
           load_shed_group?: string | null
           location?: string | null
+          maximum_overcurrent_protection?: number | null
+          minimum_circuit_ampacity?: number | null
           notes?: string | null
           ods_extras?: string | null
           phase?: string | null
+          rated_current_amps?: number | null
+          rated_load_amps?: number | null
           source_circuit?: string | null
           source_reference?: string | null
           suggested_panel?: string | null
@@ -4221,6 +4257,15 @@ export type Database = {
     Enums: {
       app_role: "viewer" | "editor" | "admin" | "electrician"
       approval_status: "pending" | "approved" | "rejected"
+      electrical_amps_semantic:
+        | "CONNECTED_LOAD_CURRENT"
+        | "EQUIPMENT_FLA"
+        | "RATED_CURRENT"
+        | "RLA"
+        | "MCA"
+        | "MOCP"
+        | "INSTALLED_OCP_RATING"
+        | "DESIGN_CIRCUIT_AMPACITY"
       entry_type:
         | "status"
         | "blocker"
@@ -4367,6 +4412,16 @@ export const Constants = {
     Enums: {
       app_role: ["viewer", "editor", "admin", "electrician"],
       approval_status: ["pending", "approved", "rejected"],
+      electrical_amps_semantic: [
+        "CONNECTED_LOAD_CURRENT",
+        "EQUIPMENT_FLA",
+        "RATED_CURRENT",
+        "RLA",
+        "MCA",
+        "MOCP",
+        "INSTALLED_OCP_RATING",
+        "DESIGN_CIRCUIT_AMPACITY",
+      ],
       entry_type: [
         "status",
         "blocker",
