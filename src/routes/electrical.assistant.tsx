@@ -443,7 +443,9 @@ function NameplateDraftTable({ answer }: { answer: ElectricalAiAnswer }) {
           Copy draft values
         </Button>
         <Button asChild size="sm" variant="outline">
-          <Link to="/electrical/loads">Open loads to enter them</Link>
+          <Link to="/electrical/$kind" params={{ kind: "loads" }}>
+            Open loads to enter them
+          </Link>
         </Button>
       </div>
       <p className="text-xs text-muted-foreground">
