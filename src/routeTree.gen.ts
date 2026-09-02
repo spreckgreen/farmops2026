@@ -71,6 +71,7 @@ import { Route as ElectricalLabelsRouteImport } from './routes/electrical.labels
 import { Route as ElectricalImportRouteImport } from './routes/electrical.import'
 import { Route as ElectricalExportRouteImport } from './routes/electrical.export'
 import { Route as ElectricalDiagramsRouteImport } from './routes/electrical.diagrams'
+import { Route as ElectricalCriticalLoadsRouteImport } from './routes/electrical.critical-loads'
 import { Route as ElectricalChangesRouteImport } from './routes/electrical.changes'
 import { Route as ElectricalAssistantRouteImport } from './routes/electrical.assistant'
 import { Route as ElectricalAdjudicationRouteImport } from './routes/electrical.adjudication'
@@ -415,6 +416,11 @@ const ElectricalDiagramsRoute = ElectricalDiagramsRouteImport.update({
   path: '/electrical/diagrams',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ElectricalCriticalLoadsRoute = ElectricalCriticalLoadsRouteImport.update({
+  id: '/electrical/critical-loads',
+  path: '/electrical/critical-loads',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ElectricalChangesRoute = ElectricalChangesRouteImport.update({
   id: '/electrical/changes',
   path: '/electrical/changes',
@@ -619,6 +625,7 @@ export interface FileRoutesByFullPath {
   '/electrical/adjudication': typeof ElectricalAdjudicationRoute
   '/electrical/assistant': typeof ElectricalAssistantRoute
   '/electrical/changes': typeof ElectricalChangesRoute
+  '/electrical/critical-loads': typeof ElectricalCriticalLoadsRoute
   '/electrical/diagrams': typeof ElectricalDiagramsRoute
   '/electrical/export': typeof ElectricalExportRoute
   '/electrical/import': typeof ElectricalImportRoute
@@ -712,6 +719,7 @@ export interface FileRoutesByTo {
   '/electrical/adjudication': typeof ElectricalAdjudicationRoute
   '/electrical/assistant': typeof ElectricalAssistantRoute
   '/electrical/changes': typeof ElectricalChangesRoute
+  '/electrical/critical-loads': typeof ElectricalCriticalLoadsRoute
   '/electrical/diagrams': typeof ElectricalDiagramsRoute
   '/electrical/export': typeof ElectricalExportRoute
   '/electrical/import': typeof ElectricalImportRoute
@@ -809,6 +817,7 @@ export interface FileRoutesById {
   '/electrical/adjudication': typeof ElectricalAdjudicationRoute
   '/electrical/assistant': typeof ElectricalAssistantRoute
   '/electrical/changes': typeof ElectricalChangesRoute
+  '/electrical/critical-loads': typeof ElectricalCriticalLoadsRoute
   '/electrical/diagrams': typeof ElectricalDiagramsRoute
   '/electrical/export': typeof ElectricalExportRoute
   '/electrical/import': typeof ElectricalImportRoute
@@ -907,6 +916,7 @@ export interface FileRouteTypes {
     | '/electrical/adjudication'
     | '/electrical/assistant'
     | '/electrical/changes'
+    | '/electrical/critical-loads'
     | '/electrical/diagrams'
     | '/electrical/export'
     | '/electrical/import'
@@ -1000,6 +1010,7 @@ export interface FileRouteTypes {
     | '/electrical/adjudication'
     | '/electrical/assistant'
     | '/electrical/changes'
+    | '/electrical/critical-loads'
     | '/electrical/diagrams'
     | '/electrical/export'
     | '/electrical/import'
@@ -1096,6 +1107,7 @@ export interface FileRouteTypes {
     | '/electrical/adjudication'
     | '/electrical/assistant'
     | '/electrical/changes'
+    | '/electrical/critical-loads'
     | '/electrical/diagrams'
     | '/electrical/export'
     | '/electrical/import'
@@ -1193,6 +1205,7 @@ export interface RootRouteChildren {
   ElectricalAdjudicationRoute: typeof ElectricalAdjudicationRoute
   ElectricalAssistantRoute: typeof ElectricalAssistantRoute
   ElectricalChangesRoute: typeof ElectricalChangesRoute
+  ElectricalCriticalLoadsRoute: typeof ElectricalCriticalLoadsRoute
   ElectricalDiagramsRoute: typeof ElectricalDiagramsRoute
   ElectricalExportRoute: typeof ElectricalExportRoute
   ElectricalImportRoute: typeof ElectricalImportRoute
@@ -1664,6 +1677,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ElectricalDiagramsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/electrical/critical-loads': {
+      id: '/electrical/critical-loads'
+      path: '/electrical/critical-loads'
+      fullPath: '/electrical/critical-loads'
+      preLoaderRoute: typeof ElectricalCriticalLoadsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/electrical/changes': {
       id: '/electrical/changes'
       path: '/electrical/changes'
@@ -2022,6 +2042,7 @@ const rootRouteChildren: RootRouteChildren = {
   ElectricalAdjudicationRoute: ElectricalAdjudicationRoute,
   ElectricalAssistantRoute: ElectricalAssistantRoute,
   ElectricalChangesRoute: ElectricalChangesRoute,
+  ElectricalCriticalLoadsRoute: ElectricalCriticalLoadsRoute,
   ElectricalDiagramsRoute: ElectricalDiagramsRoute,
   ElectricalExportRoute: ElectricalExportRoute,
   ElectricalImportRoute: ElectricalImportRoute,

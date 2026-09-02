@@ -56,6 +56,9 @@ export function ElectricalNav({ access }: { access?: ElectricalAccess }) {
       <Link to="/electrical/wiring" className={item} activeProps={active}>
         Wiring
       </Link>
+      <Link to="/electrical/critical-loads" className={item} activeProps={active}>
+        Critical loads
+      </Link>
       <Link to="/electrical/workbook" className={item} activeProps={active}>
         Workbook
       </Link>
