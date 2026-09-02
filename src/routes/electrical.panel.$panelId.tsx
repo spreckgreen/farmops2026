@@ -16,6 +16,7 @@ import {
 } from "@/components/electrical/panel-access-request";
 import { PanelLocalTopology } from "@/components/electrical/panel-local-topology";
 import { PanelQrLabel } from "@/components/electrical/panel-qr-label";
+import { useAddon } from "@/hooks/use-addon";
 import { requireAuthenticatedUser } from "@/lib/auth-route";
 import {
   ensurePanelScanAccess,
@@ -145,8 +146,11 @@ function PanelSheetPage() {
   const panel = sheet.data?.panel;
   // A scanned label is scoped: this panel plus its own local topology. Anything
   // wider (other panels, the farm-wide topology, the module sub-navigation)
-  // stays hidden until an administrator approves a system-data window.
-  const fullAccess = sheet.data?.system_access.granted ?? false;
+  // stays hidden until an administrator approves a system-data window — unless
+  // the user already holds the full Electrical add-on, which is system-wide.
+  const fullAddon = useAddon("electrical");
+  const fullAccess = fullAddon.enabled || (sheet.data?.system_access.granted ?? false);
+
   const startEditing = () => {
     if (!panel) return;
     const next: Record<string, string> = {};
@@ -226,11 +230,13 @@ function PanelSheetPage() {
                     access={sheet.data.access}
                     onChanged={() => void sheet.refetch()}
                   />
-                  <SystemDataAccessRequest
-                    panelId={panelId}
-                    access={sheet.data.system_access}
-                    onChanged={() => void sheet.refetch()}
-                  />
+                  {fullAccess ? null : (
+                    <SystemDataAccessRequest
+                      panelId={panelId}
+                      access={sheet.data.system_access}
+                      onChanged={() => void sheet.refetch()}
+                    />
+                  )}
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
