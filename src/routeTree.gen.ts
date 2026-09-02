@@ -89,6 +89,7 @@ import { Route as AdminElectricalAuditRouteImport } from './routes/admin.electri
 import { Route as AdminAiSettingsRouteImport } from './routes/admin.ai-settings'
 import { Route as AdminAiRuntimeRouteImport } from './routes/admin.ai-runtime'
 import { Route as AdminAiEnginesRouteImport } from './routes/admin.ai-engines'
+import { Route as AdminAiCostsRouteImport } from './routes/admin.ai-costs'
 import { Route as AdminAddonsRouteImport } from './routes/admin.addons'
 import { Route as ElectricalPanelPanelIdRouteImport } from './routes/electrical.panel.$panelId'
 import { Route as ApiPublicReadyRouteImport } from './routes/api/public/ready'
@@ -501,6 +502,11 @@ const AdminAiEnginesRoute = AdminAiEnginesRouteImport.update({
   path: '/admin/ai-engines',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminAiCostsRoute = AdminAiCostsRouteImport.update({
+  id: '/admin/ai-costs',
+  path: '/admin/ai-costs',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminAddonsRoute = AdminAddonsRouteImport.update({
   id: '/admin/addons',
   path: '/admin/addons',
@@ -573,6 +579,7 @@ export interface FileRoutesByFullPath {
   '/sync': typeof SyncRoute
   '/vault': typeof VaultRoute
   '/admin/addons': typeof AdminAddonsRoute
+  '/admin/ai-costs': typeof AdminAiCostsRoute
   '/admin/ai-engines': typeof AdminAiEnginesRoute
   '/admin/ai-runtime': typeof AdminAiRuntimeRoute
   '/admin/ai-settings': typeof AdminAiSettingsRoute
@@ -662,6 +669,7 @@ export interface FileRoutesByTo {
   '/sync': typeof SyncRoute
   '/vault': typeof VaultRoute
   '/admin/addons': typeof AdminAddonsRoute
+  '/admin/ai-costs': typeof AdminAiCostsRoute
   '/admin/ai-engines': typeof AdminAiEnginesRoute
   '/admin/ai-runtime': typeof AdminAiRuntimeRoute
   '/admin/ai-settings': typeof AdminAiSettingsRoute
@@ -755,6 +763,7 @@ export interface FileRoutesById {
   '/sync': typeof SyncRoute
   '/vault': typeof VaultRoute
   '/admin/addons': typeof AdminAddonsRoute
+  '/admin/ai-costs': typeof AdminAiCostsRoute
   '/admin/ai-engines': typeof AdminAiEnginesRoute
   '/admin/ai-runtime': typeof AdminAiRuntimeRoute
   '/admin/ai-settings': typeof AdminAiSettingsRoute
@@ -849,6 +858,7 @@ export interface FileRouteTypes {
     | '/sync'
     | '/vault'
     | '/admin/addons'
+    | '/admin/ai-costs'
     | '/admin/ai-engines'
     | '/admin/ai-runtime'
     | '/admin/ai-settings'
@@ -938,6 +948,7 @@ export interface FileRouteTypes {
     | '/sync'
     | '/vault'
     | '/admin/addons'
+    | '/admin/ai-costs'
     | '/admin/ai-engines'
     | '/admin/ai-runtime'
     | '/admin/ai-settings'
@@ -1030,6 +1041,7 @@ export interface FileRouteTypes {
     | '/sync'
     | '/vault'
     | '/admin/addons'
+    | '/admin/ai-costs'
     | '/admin/ai-engines'
     | '/admin/ai-runtime'
     | '/admin/ai-settings'
@@ -1123,6 +1135,7 @@ export interface RootRouteChildren {
   SyncRoute: typeof SyncRoute
   VaultRoute: typeof VaultRoute
   AdminAddonsRoute: typeof AdminAddonsRoute
+  AdminAiCostsRoute: typeof AdminAiCostsRoute
   AdminAiEnginesRoute: typeof AdminAiEnginesRoute
   AdminAiRuntimeRoute: typeof AdminAiRuntimeRoute
   AdminAiSettingsRoute: typeof AdminAiSettingsRoute
@@ -1738,6 +1751,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminAiEnginesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/ai-costs': {
+      id: '/admin/ai-costs'
+      path: '/admin/ai-costs'
+      fullPath: '/admin/ai-costs'
+      preLoaderRoute: typeof AdminAiCostsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/addons': {
       id: '/admin/addons'
       path: '/admin/addons'
@@ -1920,6 +1940,7 @@ const rootRouteChildren: RootRouteChildren = {
   SyncRoute: SyncRoute,
   VaultRoute: VaultRoute,
   AdminAddonsRoute: AdminAddonsRoute,
+  AdminAiCostsRoute: AdminAiCostsRoute,
   AdminAiEnginesRoute: AdminAiEnginesRoute,
   AdminAiRuntimeRoute: AdminAiRuntimeRoute,
   AdminAiSettingsRoute: AdminAiSettingsRoute,

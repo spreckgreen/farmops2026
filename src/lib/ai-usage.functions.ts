@@ -9,6 +9,8 @@ import {
   type AiAreaId,
 } from "@/lib/ai-feature-areas";
 import type {
+  AiAreaUsageReport,
+  AiAreaUsageRow,
   AiFeatureToggle,
   AiUsageBill,
   AiUsageBillRow,
@@ -181,5 +183,108 @@ export const getAiUsageBill = createServerFn({ method: "GET" })
       totalMeteredRuns: billRows.reduce((n, r) => n + r.meteredRuns, 0),
       totalCostUsd: Number(billRows.reduce((n, r) => n + r.costUsd, 0).toFixed(6)),
       rows: billRows,
+    };
+  });
+
+/**
+ * Per-feature usage and cloud spend over a window. Admins see every user's
+ * runs; anyone else sees only their own (RLS enforces that either way).
+ */
+export const getAiAreaUsage = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => WindowInput.parse(d ?? {}))
+  .handler(async ({ data, context }): Promise<AiAreaUsageReport> => {
+    const { isAdminRole } = await import("@/lib/admin-role.server");
+    const allUsers = await isAdminRole(context.supabase, context.userId);
+    const since = new Date(Date.now() - data.days * 86_400_000).toISOString();
+    const { AI_USAGE_TABLE } = await import("./ai-metering.server");
+    const db = context.supabase as unknown as LooseDb;
+    let query = db
+      .from(AI_USAGE_TABLE)
+      .select(
+        "user_id, area, backend, metered, estimated, model, cost_usd, input_tokens, output_tokens, created_at",
+      )
+      .gte("created_at", since)
+      .order("created_at", { ascending: false })
+      .limit(20_000);
+    if (!allUsers) query = query.eq("user_id", context.userId);
+    const { data: rows, error } = await query;
+    if (error) throw new Error(error.message);
+
+    const events = (rows ?? []) as Array<{
+      user_id: string;
+      area: string;
+      backend: string;
+      metered: boolean;
+      estimated: boolean;
+      model: string | null;
+      cost_usd: number | string;
+      input_tokens: number;
+      output_tokens: number;
+      created_at: string;
+    }>;
+
+    const acc = new Map<
+      string,
+      AiAreaUsageRow & { userIds: Set<string>; modelSet: Set<string>; meteredCost: number }
+    >();
+    for (const e of events) {
+      let row = acc.get(e.area);
+      if (!row) {
+        row = {
+          area: e.area,
+          runs: 0,
+          meteredRuns: 0,
+          localRuns: 0,
+          inputTokens: 0,
+          outputTokens: 0,
+          costUsd: 0,
+          avgMeteredCostUsd: 0,
+          users: 0,
+          lastRunAt: null,
+          models: [],
+          anyEstimated: false,
+          userIds: new Set<string>(),
+          modelSet: new Set<string>(),
+          meteredCost: 0,
+        };
+        acc.set(e.area, row);
+      }
+      const cost = Number(e.cost_usd) || 0;
+      row.runs += 1;
+      if (e.metered) {
+        row.meteredRuns += 1;
+        row.meteredCost += cost;
+      } else {
+        row.localRuns += 1;
+      }
+      row.costUsd += cost;
+      row.inputTokens += e.input_tokens ?? 0;
+      row.outputTokens += e.output_tokens ?? 0;
+      if (e.estimated) row.anyEstimated = true;
+      row.userIds.add(e.user_id);
+      if (e.model) row.modelSet.add(e.model);
+      if (!row.lastRunAt || e.created_at > row.lastRunAt) row.lastRunAt = e.created_at;
+    }
+
+    const areaRows: AiAreaUsageRow[] = Array.from(acc.values())
+      .map(({ userIds, modelSet, meteredCost, ...row }) => ({
+        ...row,
+        costUsd: Number(row.costUsd.toFixed(6)),
+        avgMeteredCostUsd:
+          row.meteredRuns > 0 ? Number((meteredCost / row.meteredRuns).toFixed(6)) : 0,
+        users: userIds.size,
+        models: Array.from(modelSet).sort(),
+      }))
+      .sort((a, b) => b.costUsd - a.costUsd || b.runs - a.runs);
+
+    return {
+      since,
+      days: data.days,
+      allUsers,
+      totalRuns: areaRows.reduce((n, r) => n + r.runs, 0),
+      totalMeteredRuns: areaRows.reduce((n, r) => n + r.meteredRuns, 0),
+      totalCostUsd: Number(areaRows.reduce((n, r) => n + r.costUsd, 0).toFixed(6)),
+      rows: areaRows,
     };
   });

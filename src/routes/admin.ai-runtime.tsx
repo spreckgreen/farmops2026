@@ -152,6 +152,14 @@ function AiRuntimePage() {
             <NameplateWriteQueueCard />
 
             <AiUsageBillCard />
+            <p className="text-sm text-muted-foreground">
+              Cost and usage per feature, for enable/disable planning:{" "}
+              <Link to="/admin/ai-costs" className="underline underline-offset-2">
+                AI feature costs
+              </Link>
+              .
+            </p>
+
 
             <AiFeatureRouting />
 
