@@ -281,23 +281,64 @@ function Assistant() {
                 </div>
               )}
 
+              {offer ? (
+                <div className="space-y-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm dark:bg-amber-950/30">
+                  <div className="flex items-center gap-2 font-medium text-amber-900 dark:text-amber-200">
+                    <CloudLightning className="h-4 w-4" />
+                    This question may be too big for the self-hosted model
+                  </div>
+                  <p className="text-xs text-amber-900/90 dark:text-amber-100/90">
+                    {offer.reason}
+                  </p>
+                  <p className="text-xs text-amber-900/90 dark:text-amber-100/90">
+                    Records to send: ≈{offer.contextTokens.toLocaleString()} tokens
+                    {offer.matchedLoadIds.length > 0
+                      ? ` · matching loads: ${offer.matchedLoadIds.slice(0, 8).join(", ")}${
+                          offer.matchedLoadIds.length > 8 ? "…" : ""
+                        }`
+                      : ""}
+                  </p>
+                  <p className="text-xs font-medium text-amber-900 dark:text-amber-100">
+                    Cloud run on {offer.hostedModel ?? "the configured cloud model"}:{" "}
+                    {offer.costLabel} (billed to your AI usage)
+                  </p>
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    <Button size="sm" onClick={() => mutation.mutate({ useCloud: true })}>
+                      Run on cloud AI
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => mutation.mutate(undefined)}
+                    >
+                      Run self-hosted anyway (free)
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => setOffer(null)}>
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
+
               <Button
-                onClick={() => mutation.mutate()}
+                onClick={startRun}
                 disabled={
-                  mutation.isPending ||
+                  working ||
+                  Boolean(offer) ||
                   (def.input === "photo"
                     ? !photo
                     : def.input !== "none" && text.trim().length < 3)
                 }
               >
-                {mutation.isPending ? (
+                {working ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Running…
+                    {preflight.isPending ? "Estimating…" : "Running…"}
                   </>
                 ) : (
                   "Run scenario"
                 )}
+
               </Button>
             </div>
           ) : null}
