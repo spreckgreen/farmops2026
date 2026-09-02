@@ -1102,10 +1102,37 @@ export const createUserAccount = createServerFn({ method: "POST" })
       email_confirm: true,
       user_metadata: data.display_name ? { display_name: data.display_name } : undefined,
     });
+
+    let newId: string;
+    let adopted = false;
     if (created.error || !created.data?.user) {
-      throw new Error(created.error?.message ?? "Could not create the account");
+      const msg = created.error?.message ?? "";
+      // "already registered" here almost always means a self sign-up that never
+      // completed (confirmation email undeliverable). Adopt that account instead
+      // of dead-ending: reset its password, confirm the email, and finish setup.
+      if (!/already|exist|registered|duplicate/i.test(msg)) {
+        throw new Error(msg || "Could not create the account");
+      }
+      let existingId: string | null = null;
+      for (let page = 1; page <= 10 && !existingId; page++) {
+        const { data: list } = await supabaseAdmin.auth.admin.listUsers({ page, perPage: 200 });
+        const batch = list?.users ?? [];
+        existingId =
+          batch.find((u) => (u.email ?? "").toLowerCase() === data.email)?.id ?? null;
+        if (batch.length < 200) break;
+      }
+      if (!existingId) throw new Error(msg || "Could not create the account");
+      const upd = await supabaseAdmin.auth.admin.updateUserById(existingId, {
+        password: data.password,
+        email_confirm: true,
+        ...(data.display_name ? { user_metadata: { display_name: data.display_name } } : {}),
+      });
+      if (upd.error) throw new Error(`Existing account could not be updated: ${upd.error.message}`);
+      newId = existingId;
+      adopted = true;
+    } else {
+      newId = created.data.user.id;
     }
-    const newId = created.data.user.id;
     const now = new Date().toISOString();
 
     // Profile: pre-approved, so the new user never sits behind the approval gate.
