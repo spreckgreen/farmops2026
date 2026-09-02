@@ -28,6 +28,9 @@ export interface ElectricalContextResult {
   matchedLoadIds: string[];
   /** Deterministic record answer used when a small local model ignores its rows. */
   groundedLoadAnswer: string | null;
+  /** Deterministic hop-by-hop trace (service → feeder → panel → breaker → circuit → load). */
+  loadTraceAnswer: string | null;
+
   /** Rough prompt size, for the cloud-cost estimate. */
   approxTokens: number;
 }
