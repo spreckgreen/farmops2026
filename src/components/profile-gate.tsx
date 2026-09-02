@@ -2,7 +2,7 @@
 // loaded and approved. Pending users see a waiting screen; rejected users
 // see an explanation. Admins/editors/viewers fall through to children.
 
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { Loader2, Clock, ShieldX, AlertCircle, Ban } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,6 +16,21 @@ export function ProfileGate({ children }: { children: ReactNode }) {
   const router = useRouter();
   const qc = useQueryClient();
   const pathname = useRouterState({ select: (st) => st.location.pathname });
+
+  // Electrical is the landing tab for an electrician-scoped account: signing in
+  // drops them on `/` (today's note), which is not theirs, so move them across
+  // without making them click through a denial screen.
+  const misplacedElectrician =
+    data?.status === "approved" &&
+    isElectricianScoped(data.roles, data.isAdmin) &&
+    !electricianPathAllowed(pathname);
+
+  useEffect(() => {
+    if (misplacedElectrician) {
+      void router.navigate({ to: "/electrical", replace: true });
+    }
+  }, [misplacedElectrician, router]);
+
 
   const signOut = async () => {
     await qc.cancelQueries();
