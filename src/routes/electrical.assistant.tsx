@@ -459,15 +459,39 @@ function Assistant() {
       </Card>
 
 
-      <FeatureRequestCard features={data?.features ?? []} />
+      <FeatureRequestCard
+        features={data?.features ?? []}
+        granted={granted.map((s) => s.id)}
+        isOn={(id) => featureOn(id)}
+        onToggle={(id, on) => setFeature(electricalAiFeatureKey(id), on)}
+        masterOff={!aiSettings.masterEnabled}
+      />
 
       {answer ? (
         <Card>
           <CardHeader className="space-y-1">
-            <CardTitle className="text-base">Answer</CardTitle>
+            <CardTitle className="text-base flex items-center gap-2">
+              Answer
+              {cached ? (
+                <Badge variant="outline" className="gap-1">
+                  <History className="h-3 w-3" />
+                  Cached
+                </Badge>
+              ) : null}
+            </CardTitle>
             <p className="text-xs text-muted-foreground">
               {answer.engineLabel} · {answer.model} · {answer.backend} ·{" "}
-              {(answer.latencyMs / 1000).toFixed(1)}s
+              <span className="font-medium">
+                {(answer.latencyMs / 1000).toFixed(1)}s
+              </span>{" "}
+              ·{" "}
+              <span className="inline-flex items-center gap-0.5 font-medium">
+                <DollarSign className="h-3 w-3" />
+                {runCostLabel(answer.cost, answer.backend).replace(/^\$/, "")}
+              </span>
+              {answer.cost && answer.cost.metered
+                ? ` · ${answer.cost.inputTokens.toLocaleString()} in / ${answer.cost.outputTokens.toLocaleString()} out tokens`
+                : ""}
               {Object.keys(answer.contextCounts).length > 0
                 ? ` · records read: ${Object.entries(answer.contextCounts)
                     .map(([k, v]) => `${k}=${v}`)
@@ -479,6 +503,34 @@ function Assistant() {
             ) : null}
           </CardHeader>
           <CardContent className="space-y-3">
+            {cached ? (
+              <div className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/40 p-3 text-xs">
+                <History className="h-3.5 w-3.5" />
+                <span>
+                  You asked this before — showing the saved answer from{" "}
+                  {cacheAgeLabel(cached.cachedAt)} ({cacheExpiryLabel(cached.cachedAt)}).
+                  Should it be refreshed?
+                </span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="ml-auto h-7"
+                  disabled={working}
+                  onClick={() => startRun({ force: true })}
+                >
+                  <RefreshCw className="mr-1 h-3.5 w-3.5" />
+                  Re-run now
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7"
+                  onClick={() => setCached(null)}
+                >
+                  Keep cached
+                </Button>
+              </div>
+            ) : null}
             {answer.nameplate ? (
               <NameplateDraftTable answer={answer} />
             ) : (
@@ -487,6 +539,7 @@ function Assistant() {
           </CardContent>
         </Card>
       ) : null}
+
     </div>
   );
 }
