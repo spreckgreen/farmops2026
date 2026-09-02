@@ -68,6 +68,7 @@ import { Route as ElectricalPanelDiagramRouteImport } from './routes/electrical.
 import { Route as ElectricalNameplateScanRouteImport } from './routes/electrical.nameplate-scan'
 import { Route as ElectricalMappingRouteImport } from './routes/electrical.mapping'
 import { Route as ElectricalLabelsRouteImport } from './routes/electrical.labels'
+import { Route as ElectricalInstallProgressRouteImport } from './routes/electrical.install-progress'
 import { Route as ElectricalImportRouteImport } from './routes/electrical.import'
 import { Route as ElectricalExportRouteImport } from './routes/electrical.export'
 import { Route as ElectricalDiagramsRouteImport } from './routes/electrical.diagrams'
@@ -401,6 +402,12 @@ const ElectricalLabelsRoute = ElectricalLabelsRouteImport.update({
   path: '/electrical/labels',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ElectricalInstallProgressRoute =
+  ElectricalInstallProgressRouteImport.update({
+    id: '/electrical/install-progress',
+    path: '/electrical/install-progress',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ElectricalImportRoute = ElectricalImportRouteImport.update({
   id: '/electrical/import',
   path: '/electrical/import',
@@ -629,6 +636,7 @@ export interface FileRoutesByFullPath {
   '/electrical/diagrams': typeof ElectricalDiagramsRoute
   '/electrical/export': typeof ElectricalExportRoute
   '/electrical/import': typeof ElectricalImportRoute
+  '/electrical/install-progress': typeof ElectricalInstallProgressRoute
   '/electrical/labels': typeof ElectricalLabelsRoute
   '/electrical/mapping': typeof ElectricalMappingRoute
   '/electrical/nameplate-scan': typeof ElectricalNameplateScanRoute
@@ -723,6 +731,7 @@ export interface FileRoutesByTo {
   '/electrical/diagrams': typeof ElectricalDiagramsRoute
   '/electrical/export': typeof ElectricalExportRoute
   '/electrical/import': typeof ElectricalImportRoute
+  '/electrical/install-progress': typeof ElectricalInstallProgressRoute
   '/electrical/labels': typeof ElectricalLabelsRoute
   '/electrical/mapping': typeof ElectricalMappingRoute
   '/electrical/nameplate-scan': typeof ElectricalNameplateScanRoute
@@ -821,6 +830,7 @@ export interface FileRoutesById {
   '/electrical/diagrams': typeof ElectricalDiagramsRoute
   '/electrical/export': typeof ElectricalExportRoute
   '/electrical/import': typeof ElectricalImportRoute
+  '/electrical/install-progress': typeof ElectricalInstallProgressRoute
   '/electrical/labels': typeof ElectricalLabelsRoute
   '/electrical/mapping': typeof ElectricalMappingRoute
   '/electrical/nameplate-scan': typeof ElectricalNameplateScanRoute
@@ -920,6 +930,7 @@ export interface FileRouteTypes {
     | '/electrical/diagrams'
     | '/electrical/export'
     | '/electrical/import'
+    | '/electrical/install-progress'
     | '/electrical/labels'
     | '/electrical/mapping'
     | '/electrical/nameplate-scan'
@@ -1014,6 +1025,7 @@ export interface FileRouteTypes {
     | '/electrical/diagrams'
     | '/electrical/export'
     | '/electrical/import'
+    | '/electrical/install-progress'
     | '/electrical/labels'
     | '/electrical/mapping'
     | '/electrical/nameplate-scan'
@@ -1111,6 +1123,7 @@ export interface FileRouteTypes {
     | '/electrical/diagrams'
     | '/electrical/export'
     | '/electrical/import'
+    | '/electrical/install-progress'
     | '/electrical/labels'
     | '/electrical/mapping'
     | '/electrical/nameplate-scan'
@@ -1209,6 +1222,7 @@ export interface RootRouteChildren {
   ElectricalDiagramsRoute: typeof ElectricalDiagramsRoute
   ElectricalExportRoute: typeof ElectricalExportRoute
   ElectricalImportRoute: typeof ElectricalImportRoute
+  ElectricalInstallProgressRoute: typeof ElectricalInstallProgressRoute
   ElectricalLabelsRoute: typeof ElectricalLabelsRoute
   ElectricalMappingRoute: typeof ElectricalMappingRoute
   ElectricalNameplateScanRoute: typeof ElectricalNameplateScanRoute
@@ -1656,6 +1670,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ElectricalLabelsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/electrical/install-progress': {
+      id: '/electrical/install-progress'
+      path: '/electrical/install-progress'
+      fullPath: '/electrical/install-progress'
+      preLoaderRoute: typeof ElectricalInstallProgressRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/electrical/import': {
       id: '/electrical/import'
       path: '/electrical/import'
@@ -2046,6 +2067,7 @@ const rootRouteChildren: RootRouteChildren = {
   ElectricalDiagramsRoute: ElectricalDiagramsRoute,
   ElectricalExportRoute: ElectricalExportRoute,
   ElectricalImportRoute: ElectricalImportRoute,
+  ElectricalInstallProgressRoute: ElectricalInstallProgressRoute,
   ElectricalLabelsRoute: ElectricalLabelsRoute,
   ElectricalMappingRoute: ElectricalMappingRoute,
   ElectricalNameplateScanRoute: ElectricalNameplateScanRoute,
