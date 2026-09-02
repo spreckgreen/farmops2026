@@ -9,7 +9,7 @@ import {
   revokeEntitlement,
   setEntitlement,
 } from "@/lib/addons.functions";
-import { ENTITLEMENT_STATUSES, statusLabel } from "@/lib/addons";
+import { ENTITLEMENT_STATUSES, MAX_REVOCATIONS_BEFORE_BLOCK, statusLabel } from "@/lib/addons";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -81,8 +81,15 @@ function AddonsPage() {
 
   const remove = useMutation({
     mutationFn: async (id: string) => revoke({ data: { id } }),
-    onSuccess: () => {
-      toast.success("Entitlement removed");
+    onSuccess: (res) => {
+      const r = res as { revoked_count?: number; blocked_until?: string | null; test_account?: boolean };
+      toast.success(
+        r.blocked_until
+          ? `Access revoked (${r.revoked_count} times) — self-service access is blocked until ${new Date(r.blocked_until).toLocaleDateString()}.`
+          : r.test_account
+            ? "Access revoked. Test account — revocations are not counted."
+            : `Access revoked (${r.revoked_count ?? 1} of ${MAX_REVOCATIONS_BEFORE_BLOCK} allowed). The user can be re-enabled or ask again.`,
+      );
       invalidate();
     },
     onError: (e: Error) => toast.error(e.message),
@@ -96,7 +103,9 @@ function AddonsPage() {
           <p className="text-sm text-muted-foreground">
             Optional modules are gated by entitlement records, so access can be granted,
             trialled, expired or disabled per user without touching code. Server functions
-            fail closed when no active entitlement exists.
+            fail closed when no active entitlement exists. A disabled user can be re-enabled
+            or self-provision again; more than {MAX_REVOCATIONS_BEFORE_BLOCK} revocations lock
+            the account out of self-service access for a year.
           </p>
         </header>
 
@@ -208,6 +217,7 @@ function AddonsPage() {
                           <th className="px-3 py-2 font-medium">Status</th>
                           <th className="px-3 py-2 font-medium">Expires</th>
                           <th className="px-3 py-2 font-medium">Access</th>
+                          <th className="px-3 py-2 font-medium">Revocations</th>
                           <th className="px-3 py-2 font-medium">Notes</th>
                           <th className="px-3 py-2" />
                         </tr>
@@ -224,13 +234,26 @@ function AddonsPage() {
                                 {e.enabled ? "enabled" : "blocked"}
                               </Badge>
                             </td>
+                            <td className="px-3 py-2">
+                              {e.revoked_count}
+                              {e.blocked ? (
+                                <span className="block text-xs text-destructive">
+                                  locked out until {e.blocked_until?.slice(0, 10)}
+                                </span>
+                              ) : null}
+                            </td>
                             <td className="px-3 py-2 text-muted-foreground">{e.notes ?? "—"}</td>
                             <td className="px-3 py-2 text-right">
                               <Button
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => {
-                                  if (confirm("Remove this entitlement?")) remove.mutate(e.id);
+                                  if (
+                                    confirm(
+                                      "Revoke this access? The user keeps a disabled record and may ask again, unless this passes the revocation limit.",
+                                    )
+                                  )
+                                    remove.mutate(e.id);
                                 }}
                               >
                                 <Trash2 className="h-4 w-4 text-destructive" />
