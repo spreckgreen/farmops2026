@@ -214,7 +214,7 @@ export interface LoadSemanticFinding {
   ods_value: number | null;
   farmops_value: number | null;
   delta: number | null;
-  original_category: "A" | "B" | "C" | "D" | "E";
+  original_category: "A" | "B" | "C" | "D" | "E" | "F";
   /** "E" = representation/semantic; "B" stays a real disagreement. */
   proposed_category: "B" | "D" | "E";
   bucket: LoadSemanticBucket;
@@ -294,7 +294,11 @@ interface LoadGroup {
 function groupLoadFindings(diag: NumericDiagnosticsReport): LoadGroup[] {
   const groups = new Map<string, LoadGroup>();
   for (const f of diag.findings) {
-    if (!isLoadNumeric(f) || f.category !== "B") continue;
+    // Category F is the numeric diagnostics' *already reclassified* semantic
+    // representation difference (nominal vs nameplate voltage, VA calculation
+    // basis). It is reviewed here alongside B so the drill-down keeps showing
+    // the evidence behind the reclassification.
+    if (!isLoadNumeric(f) || (f.category !== "B" && f.category !== "F")) continue;
     const g = groups.get(f.stable_id) ?? { stable_id: f.stable_id, byField: new Map() };
     g.byField.set(f.field, f);
     groups.set(f.stable_id, g);
