@@ -74,11 +74,18 @@ export async function resolveAreaAi(
   opts: {
     hostedDefaultModel: string;
     client?: SupabaseClient<Database>;
+    /** Skip the admin on/off switch (read-only routing previews). */
+    skipEnabledCheck?: boolean;
   },
 ): Promise<AreaAi> {
   const def = getAiArea(area);
+  if (!opts.skipEnabledCheck) {
+    const { assertAreaEnabled } = await import("./ai-feature-toggles.server");
+    await assertAreaEnabled(area, def.label, opts.client);
+  }
   const config = await loadRoutingConfig(opts.client);
   const route = routeForArea(config, area);
+
 
   const { loadEnginesConfig, resolveEngine, buildEngineProvider } = await import(
     "./ai-engines.server"
