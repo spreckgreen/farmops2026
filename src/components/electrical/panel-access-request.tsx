@@ -145,29 +145,46 @@ export function PanelAccessRequest({
 }
 
 /**
- * Second, separate request: read beyond the scanned panel (other panels and the
- * whole-system topology). Same approval pipeline — in-app queue, notification to
- * administrators, administrator second factor on the decision, 24-hour window.
+ * Second, separate request: read beyond the scanned panel. The field ask is
+ * usually building-level ("the rest of the shop"), sometimes site-level, and
+ * rarely the whole system — so the viewer names the scope they need. Same
+ * approval pipeline: in-app queue, administrator notification, administrator
+ * second factor on the decision, 24-hour window.
  */
 export function SystemDataAccessRequest({
   panelId,
   access,
+  building,
+  site,
   onChanged,
 }: {
   panelId: string;
   access: SystemDataAccess;
+  /** Building recorded on the scanned panel — prefills a building request. */
+  building?: string | null;
+  /** Site recorded for this installation, when known. */
+  site?: string | null;
   onChanged: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
+  const [scope, setScope] = useState<"building_data" | "site_data" | "system_data">(
+    building ? "building_data" : "site_data",
+  );
+  const [detail, setDetail] = useState(building ?? "");
   const submit = useServerFn(requestPanelEditAccess);
+
+  const needsDetail = scope === "building_data";
+  const scopeDetail =
+    scope === "building_data" ? detail.trim() : scope === "site_data" ? (site ?? "").trim() : "";
 
   const mutation = useMutation({
     mutationFn: () =>
       submit({
         data: {
           panelId,
-          scope: "system_data" as const,
+          scope,
+          scopeDetail: scopeDetail || undefined,
           reason: reason.trim() || undefined,
           reviewUrl:
             typeof window === "undefined"
@@ -180,7 +197,7 @@ export function SystemDataAccessRequest({
       setReason("");
       toast.success(
         result.duplicate
-          ? "You already have an open request for wider electrical data."
+          ? "You already have an open request for that scope."
           : "Request sent for approval.",
         { description: result.notified ?? undefined },
       );
@@ -191,10 +208,16 @@ export function SystemDataAccessRequest({
   });
 
   if (access.granted) {
+    const label =
+      access.scope === "building_data"
+        ? `Building access${access.scope_detail ? `: ${access.scope_detail}` : ""}`
+        : access.scope === "site_data"
+          ? "Site-wide access"
+          : "Full electrical access";
     return (
       <div className="flex flex-wrap items-center gap-2">
         <Badge className="gap-1">
-          <Globe className="h-3.5 w-3.5" /> Full electrical access
+          <Globe className="h-3.5 w-3.5" /> {label}
         </Badge>
         {access.expires_at ? (
           <span className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -218,16 +241,17 @@ export function SystemDataAccessRequest({
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
             <Button size="sm" variant="outline">
-              Request other panels / system data
+              Request wider access
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Request wider electrical access</DialogTitle>
               <DialogDescription>
-                This label only opens {panelId} and its local topology. An administrator can grant
-                you a {access.window_hours}-hour window to read other panels and the full system
-                topology. The window closes on its own.
+                This label only opens {panelId} and its local topology. Tell an
+                administrator how much you need — a building, the whole site, or the
+                full system — and they can grant a {access.window_hours}-hour window.
+                It closes on its own.
               </DialogDescription>
             </DialogHeader>
             {access.state === "rejected" && access.request?.decision_note ? (
@@ -237,17 +261,58 @@ export function SystemDataAccessRequest({
                 </AlertDescription>
               </Alert>
             ) : null}
-            <Textarea
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              placeholder="Why is deeper information needed? e.g. tracing the feeder back through PNL-FS-CRIT to size a new subpanel"
-              rows={3}
-            />
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label>Scope needed</Label>
+                <RadioGroup
+                  value={scope}
+                  onValueChange={(v) => setScope(v as typeof scope)}
+                  className="gap-2"
+                >
+                  <label className="flex items-start gap-2 text-sm">
+                    <RadioGroupItem value="building_data" className="mt-0.5" />
+                    <span>
+                      One building — every panel in it
+                      {building ? ` (this panel is in ${building})` : ""}
+                    </span>
+                  </label>
+                  <label className="flex items-start gap-2 text-sm">
+                    <RadioGroupItem value="site_data" className="mt-0.5" />
+                    <span>The whole site — every panel recorded</span>
+                  </label>
+                  <label className="flex items-start gap-2 text-sm">
+                    <RadioGroupItem value="system_data" className="mt-0.5" />
+                    <span>Full electrical system, including farm-wide topology views</span>
+                  </label>
+                </RadioGroup>
+              </div>
+              {needsDetail ? (
+                <div className="space-y-1.5">
+                  <Label htmlFor="scope-detail">Building</Label>
+                  <Input
+                    id="scope-detail"
+                    value={detail}
+                    onChange={(e) => setDetail(e.target.value)}
+                    placeholder="e.g. Shop"
+                    maxLength={120}
+                  />
+                </div>
+              ) : null}
+              <Textarea
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder="Why is deeper information needed? e.g. tracing the feeder back through PNL-FS-CRIT to size a new subpanel"
+                rows={3}
+              />
+            </div>
             <DialogFooter>
               <Button variant="ghost" onClick={() => setOpen(false)}>
                 Cancel
               </Button>
-              <Button onClick={() => mutation.mutate()} disabled={mutation.isPending}>
+              <Button
+                onClick={() => mutation.mutate()}
+                disabled={mutation.isPending || (needsDetail && detail.trim().length === 0)}
+              >
                 {mutation.isPending ? "Sending…" : "Send request"}
               </Button>
             </DialogFooter>
@@ -257,3 +322,4 @@ export function SystemDataAccessRequest({
     </div>
   );
 }
+
