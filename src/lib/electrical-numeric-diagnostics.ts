@@ -61,6 +61,12 @@ import {
   DEMAND_VA_FIELD,
   classifyDemandVaToken,
 } from "@/lib/electrical-demand-va-placeholder";
+import { PHASE_44A_BASELINE_SHA256 } from "@/lib/electrical-adjudication-baseline";
+import {
+  CONNECTED_VA_FIELD,
+  CURRENT_SEMANTICS_UNRESOLVED_LOADS,
+} from "@/lib/electrical-zero-origin-provenance";
+
 
 
 export const NUMERIC_DIAGNOSTICS_VERSION =
