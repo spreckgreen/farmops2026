@@ -306,6 +306,9 @@ export function ParallelValidationReport() {
                 does not decide either value for you.
               </p>
 
+              <ConvergenceSummary report={report} />
+
+
             </>
           )}
         </CardContent>
