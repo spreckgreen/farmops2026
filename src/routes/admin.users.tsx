@@ -205,9 +205,13 @@ function UserRow({ user, currentUserId }: { user: ManagedUser; currentUserId: st
   const rolesFn = useServerFn(setUserRoles);
   const confirmFn = useServerFn(confirmUserEmail);
   const passwordFn = useServerFn(setUserPassword);
+  const disableFn = useServerFn(setUserDisabled);
   const [pendingRoles, setPendingRoles] = useState<AppRole[] | null>(null);
   const [pwOpen, setPwOpen] = useState(false);
   const [pwValue, setPwValue] = useState("");
+  const [disableOpen, setDisableOpen] = useState(false);
+  const [disableReason, setDisableReason] = useState("");
+
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ["admin", "users"] });
