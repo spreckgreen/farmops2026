@@ -26,6 +26,7 @@ import { BryantVoltageApplyGate } from "@/components/electrical/bryant-voltage-a
 import { CanonicalOdsCorrectionQueue } from "@/components/electrical/canonical-ods-correction-queue";
 import { AmpSemanticsReport } from "@/components/electrical/amp-semantics-report";
 import { CurrentSemanticMigrationPlan } from "@/components/electrical/current-semantic-migration-plan";
+import { RepresentationProposalPanel } from "@/components/electrical/representation-proposal-panel";
 import {
   AdjudicationBaselinePicker,
   type AttachedBaseline,
@@ -129,6 +130,14 @@ export function LoadAdjudicationReport() {
           <AmpSemanticsReport baseline={attached.baseline} rows={rows.data} />
         </CollapsibleSection>
       ) : null}
+
+      <CollapsibleSection
+        title="FS-034 / FS-092 voltage and VA semantic representation"
+        subtitle="Nominal supply voltage and equipment nameplate voltage preserved together, with connected_va carrying an explicit calculation basis. These stop being Category-B engineering disagreements. Read-only — no FarmOps write, no ODS edit."
+        badges={<Badge variant="outline">Read-only</Badge>}
+      >
+        <RepresentationProposalPanel />
+      </CollapsibleSection>
 
       {attached && rows.data ? (
         <CollapsibleSection
