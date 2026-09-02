@@ -58,9 +58,11 @@ export function ElectricalNav({ access }: { access?: ElectricalAccess }) {
       </Link>
 
 
-      <Link to="/electrical/qa" className={item} activeProps={active}>
-        QA
-      </Link>
+      {show("qa") && (
+        <Link to="/electrical/qa" className={item} activeProps={active}>
+          QA
+        </Link>
+      )}
       {show("mapping") && (
   <Link to="/electrical/mapping" className={item} activeProps={active}>
           Field mapping

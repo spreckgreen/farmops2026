@@ -37,6 +37,7 @@ export type ElectricalSection =
  * reads the as-installed record, they do not adjudicate the system of record.
  */
 export const RECONCILIATION_SECTIONS: ElectricalSection[] = [
+  "qa",
   "mapping",
   "sor",
   "validation",
@@ -54,7 +55,6 @@ export const ELECTRICIAN_VIEWABLE_SECTIONS: ElectricalSection[] = [
   "topology",
   "workbook",
   "labels",
-  "qa",
   "standards",
   "panel",
 ];
@@ -144,4 +144,26 @@ export function sectionFromPathname(pathname: string): ElectricalSection {
       // /electrical/$kind and /electrical/item/$kind/$id
       return "entities";
   }
+}
+
+/**
+ * True when this account is scoped to the Electrical tab only. Holding the
+ * `electrician` role is a scope, not a rank: it never widens with extra base
+ * roles such as `viewer` or `editor` — only an administrator (`admin` role or
+ * `isAdmin`) browses the whole farm app.
+ */
+export function isElectricianScoped(roles: readonly string[] | undefined, isAdmin?: boolean): boolean {
+  if (isAdmin === true) return false;
+  const list = roles ?? [];
+  if (list.includes("admin")) return false;
+  return list.includes("electrician");
+}
+
+/** Paths an Electrical-scoped account may open outside `/electrical`. */
+const ELECTRICIAN_ALLOWED_PREFIXES = ["/electrical", "/auth", "/profile"];
+
+export function electricianPathAllowed(pathname: string): boolean {
+  return ELECTRICIAN_ALLOWED_PREFIXES.some(
+    (p) => pathname === p || pathname.startsWith(`${p}/`),
+  );
 }

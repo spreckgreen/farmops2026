@@ -12,6 +12,7 @@
 
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { isElectricianScoped } from "@/lib/electrical-access";
 
 /**
  * `electrician` is a scoped role, not a rank: it grants no app-wide editing and
@@ -123,7 +124,11 @@ export const getMyProfile = createServerFn({ method: "GET" })
       display_name: profile.display_name,
       status: profile.status as ApprovalStatus,
       roles,
-      canEdit: roles.includes("editor") || roles.includes("admin"),
+      // An electrician is scoped to the Electrical area: extra base roles do not
+      // hand them farm-wide editing.
+      canEdit:
+        !isElectricianScoped(roles, roles.includes("admin")) &&
+        (roles.includes("editor") || roles.includes("admin")),
       isAdmin: roles.includes("admin"),
       disabled_at: profile.disabled_at ?? null,
       disabled_reason: profile.disabled_reason ?? null,
