@@ -25,6 +25,7 @@ import { listAdjudicatedLoads } from "@/lib/load-adjudication.functions";
 import { BryantVoltageApplyGate } from "@/components/electrical/bryant-voltage-apply-gate";
 import { CanonicalOdsCorrectionQueue } from "@/components/electrical/canonical-ods-correction-queue";
 import { AmpSemanticsReport } from "@/components/electrical/amp-semantics-report";
+import { CurrentSemanticMigrationPlan } from "@/components/electrical/current-semantic-migration-plan";
 import {
   AdjudicationBaselinePicker,
   type AttachedBaseline,
@@ -126,6 +127,16 @@ export function LoadAdjudicationReport() {
           badges={<Badge variant="outline">Read-only</Badge>}
         >
           <AmpSemanticsReport baseline={attached.baseline} rows={rows.data} />
+        </CollapsibleSection>
+      ) : null}
+
+      {attached && rows.data ? (
+        <CollapsibleSection
+          title="Canonical electrical-current semantic migration plan"
+          subtitle="Target semantic schema for the ambiguous Amps column (connected load current, RCA, RLA, FLA, MCA, MOCP, installed OCP, design ampacity), with per-record semantic, evidence, confidence, dependent VA arithmetic, target fields and blockers. Planning only — no ODS rewrite, no FarmOps write, no service/topology/panel/breaker change."
+          badges={<Badge variant="outline">Planning only</Badge>}
+        >
+          <CurrentSemanticMigrationPlan baseline={attached.baseline} rows={rows.data} />
         </CollapsibleSection>
       ) : null}
 
