@@ -185,7 +185,7 @@ const MAN_DOOR_CANDIDATES = "A8 (MAN DOOR NE) or E1 (MAN DOOR SW)";
 
 export type GridConfidence = "HIGH" | "MEDIUM" | "REVIEW";
 
-export interface GridMigrationRow {
+export interface BaseGridMigrationRow {
   kind: "load" | "panel";
   stable_id: string;
   description: string;
