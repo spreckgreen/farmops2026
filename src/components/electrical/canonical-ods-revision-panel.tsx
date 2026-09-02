@@ -317,10 +317,10 @@ export function CanonicalOdsRevisionPanel({
                         <td className="py-1 pr-3">
                           {t.logical_column} / <span className="font-mono">{t.field ?? "—"}</span>
                         </td>
-                        <td className="py-1 pr-3">{t.physical_row_index ?? "—"}</td>
-                        <td className="py-1 pr-3">{t.physical_cell_index ?? "—"}</td>
+                        <td className="py-1 pr-3">{t.physical_xml_row ?? "—"}</td>
+                        <td className="py-1 pr-3">{t.physical_xml_cell_index ?? "—"}</td>
                         <td className="py-1 pr-3">
-                          {t.column_repeat_offset ?? "—"} of {t.column_repeat ?? "—"}
+                          {t.repeated_column_offset ?? "—"} of {t.column_repeat ?? "—"}
                         </td>
                         <td className="py-1 pr-3 font-mono">{t.value_type ?? "—"}</td>
                         <td className="py-1 pr-3 font-mono">{t.office_value ?? "—"}</td>
