@@ -328,8 +328,11 @@ export const listUsers = createServerFn({ method: "GET" })
         disabled_at: p.disabled_at ?? null,
         disabled_by: p.disabled_by ?? null,
         disabled_reason: p.disabled_reason ?? null,
+        profile_missing: false,
       };
     });
+
+    return [...mapped, ...orphans].sort((a, b) => b.created_at.localeCompare(a.created_at));
   });
 
 /**
