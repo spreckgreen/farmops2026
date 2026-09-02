@@ -262,21 +262,36 @@ export const runElectricalAiScenario = createServerFn({ method: "POST" })
       Object.assign(contextCounts, built.counts);
       contextBlock = built.block;
 
+      const loadFirstRules =
+        "Most questions here are one of three kinds: (a) a LOAD question ('which panel are the " +
+        "mini-splits on', 'what feeds the freezer'), (b) a PANEL/topology question, or (c) a TRACE " +
+        "question for a load type. Decide which kind was asked and answer THAT. " +
+        "For a load question, the LOAD ANSWER SET block is your answer source: give one bullet per " +
+        "matched load — load_id, description, area, then panel, circuit and breaker taken from its " +
+        "`path:` line, then the recorded electrical values. Never answer a load question with a " +
+        "summary of panel or breaker inventory. " +
+        "Equipment naming varies ('Mini Split SE' = mini-split = ductless head = condenser); treat the " +
+        "matched rows as the equipment the user meant, and say so if you think a match is wrong. " +
+        "Where a path hop reads NOT IN RECORD, say plainly what is known today (for example: three " +
+        "planned mini-split loads FS-082/083/084 in the Farm Shop, no circuit or panel assigned yet, " +
+        "panels serving that area listed as candidates only) and name the field that must be filled to " +
+        "close the path. Never invent an assignment, rating or route. " +
+        "If the answer set is empty, say which equipment term you searched for and that no load row " +
+        "matches it — do not fall back to describing other records.";
+
       system =
         def.id === "panel_qa"
-          ? "You are an electrician's assistant reading a farm's as-installed electrical record. " +
-            "The RECORDS block is one line per row; each field is written as key=value. On a LOADS line, " +
-            "`panel=` and `circuit=` are already resolved from the record — use them directly to say which " +
-            "panel something is on, and quote its load_id and description. When the question names equipment " +
-            "(e.g. 'mini splits'), answer with a row-per-match list: load_id, description, panel, circuit, " +
-            "volts/amps as recorded — then note any match whose panel reads UNASSIGNED IN RECORD. " +
-            "Answer strictly from the supplied records and cite stable IDs (PNL-*, CON-*, FS-*, BR-*) for every claim. " +
-            "Never describe the shape of the data or list possible questions; answer the question that was asked. " +
-            "If the record does not contain the answer, say exactly which rows or fields are missing — never estimate, " +
-            "never infer a rating, and never suggest a value that is not in the data. Read-only: you change nothing."
+          ? "You are an electrician's assistant reading a farm's as-installed and planned electrical record. " +
+            "The RECORDS block is one line per row; each field is written as key=value. " +
+            loadFirstRules +
+            " Cite stable IDs (PNL-*, CON-*, FS-*, BR-*, EMT-*) for every claim. " +
+            "Never describe the shape of the data, never list possible questions, never add generic " +
+            "labelling recommendations the user did not ask for. Read-only: you change nothing."
           : "You are an electrician's assistant. Describe the power path from service to load in plain language, " +
-            "step by step, citing the stable ID at each hop (service → feeder → panel → circuit → load). " +
-            "Use only the supplied records; state plainly where the chain breaks or a reference is missing. Read-only.";
+            "step by step, citing the stable ID at each hop (service → feeder → panel → breaker → circuit → load). " +
+            loadFirstRules +
+            " Use only the supplied records; state plainly where the chain breaks or a reference is missing. Read-only.";
+
 
     } else if (def.id === "qa_triage") {
       const { collectSnapshot } = await import("@/lib/electrical-snapshot.functions");

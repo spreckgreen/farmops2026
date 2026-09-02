@@ -36,7 +36,48 @@ const STOPWORDS = new Set([
   "panel", "panels", "circuit", "circuits", "breaker", "breakers", "load", "loads",
   "please", "list", "show", "tell", "about", "on", "in", "of", "to", "a", "an", "my",
   "all", "any", "there", "have", "has", "it", "its", "power", "powered",
+  "explain", "know", "known", "today", "associated", "full", "unknown", "path",
+  "route", "routed", "too", "also", "you", "your", "their", "they", "can", "will",
+  // Status words appear on nearly every row, so they can never select equipment.
+  "planned", "plan", "installed", "install", "existing", "future", "proposed",
+  "complete", "completed", "tbd", "yes", "no", "none",
 ]);
+
+/**
+ * Equipment vocabulary. Field questions rarely use the word the record uses:
+ * "mini-splits" must find rows described as "Mini Split SE", and asking about the
+ * "ductless heat pumps" has to reach those same three rows. Synonyms are weaker
+ * evidence than the words actually typed, so they are scored lower (see `rank`)
+ * and are expanded from the typed words only — never from other synonyms, which
+ * is how "mini-split" used to drag in every welder and fan on the farm.
+ */
+const SYNONYM_GROUPS: readonly { triggers: string[]; terms: string[] }[] = [
+  {
+    triggers: ["mini", "minisplit", "split", "ductless", "heatpump", "condenser", "hvac"],
+    terms: ["mini", "split", "minisplit", "ductless", "condenser", "cassette", "ashp", "hvac"],
+  },
+  { triggers: ["pump", "well"], terms: ["pump", "well", "booster"] },
+  {
+    triggers: ["heater", "boiler", "furnace"],
+    terms: ["heater", "heat", "boiler", "furnace", "element"],
+  },
+  {
+    triggers: ["freezer", "fridge", "refrigerator", "cooler"],
+    terms: ["freezer", "fridge", "refrigerator", "cooler", "walkin"],
+  },
+  { triggers: ["evse", "charger"], terms: ["evse", "charger", "charging"] },
+  {
+    triggers: ["light", "lighting", "fixture"],
+    terms: ["light", "lighting", "fixture", "lamp", "highbay", "led"],
+  },
+  {
+    triggers: ["outlet", "receptacle", "plug", "gfci"],
+    terms: ["outlet", "receptacle", "plug", "gfci", "duplex", "gang"],
+  },
+  { triggers: ["welder"], terms: ["welder", "welding"] },
+  { triggers: ["compressor"], terms: ["compressor"] },
+  { triggers: ["fan", "vent", "exhaust"], terms: ["fan", "vent", "exhaust", "blower"] },
+];
 
 function stem(word: string): string {
   const w = word.toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -45,17 +86,41 @@ function stem(word: string): string {
   return w;
 }
 
-/** Content words from the question, stemmed; stopwords and short words dropped. */
+/** Content words actually typed in the question, stemmed; stopwords dropped. */
 export function questionTerms(question: string | undefined): string[] {
   if (!question) return [];
   const out = new Set<string>();
-  for (const raw of question.split(/\s+/)) {
-    const w = raw.toLowerCase().replace(/[^a-z0-9-]/g, "");
-    if (w.length < 3 || STOPWORDS.has(w)) continue;
-    out.add(stem(w));
+  const push = (word: string) => {
+    const w = word.toLowerCase().replace(/[^a-z0-9]/g, "");
+    if (STOPWORDS.has(w)) return;
+    const s = stem(w);
+    if (s.length < 3 || STOPWORDS.has(s)) return;
+    out.add(s);
+  };
+  for (const raw of question.toLowerCase().split(/[^a-z0-9-]+/)) {
+    if (!raw) continue;
+    // "mini-split" has to match "minisplit", "mini" and "split" in the record.
+    push(raw.replace(/-/g, ""));
+    for (const part of raw.split("-")) push(part);
   }
   return [...out];
 }
+
+/** Equipment synonyms triggered by the typed words (never by other synonyms). */
+export function questionSynonyms(terms: string[]): string[] {
+  const base = new Set(terms);
+  const out = new Set<string>();
+  for (const group of SYNONYM_GROUPS) {
+    if (!group.triggers.some((t) => base.has(stem(t)))) continue;
+    for (const t of group.terms) {
+      const s = stem(t);
+      if (s.length >= 3 && !base.has(s)) out.add(s);
+    }
+  }
+  return [...out];
+}
+
+
 
 function str(v: unknown): string {
   if (v == null) return "";
@@ -78,31 +143,153 @@ function line(row: ElectricalRow, keys: string[], extra: (string | null)[] = [])
   return [...keys.map((k) => field(row, k)), ...extra].filter(Boolean).join(" | ");
 }
 
-/** Rows whose text matches the question first, then everything else, up to cap. */
-function rank(rows: ElectricalRow[], terms: string[], cap: number) {
+/** Text fields that actually identify a row — numbers and uuids only add noise. */
+const IDENTITY_FIELDS = [
+  "load_id", "description", "equipment_model", "area", "grid", "location", "notes",
+  "source_circuit", "circuit_group_ref", "suggested_panel", "panel_id", "building",
+  "circuit_group_id", "label", "feeder_id", "backup_panel",
+];
+
+export interface RankTerms {
+  /** Words the user typed — strong evidence. */
+  terms: string[];
+  /** Equipment synonyms — weak evidence on their own. */
+  synonyms?: string[];
+}
+
+/**
+ * Rows whose identity text matches the question first, then everything else.
+ * `matched` needs real evidence: one typed word, or two synonyms — otherwise a
+ * question about mini-splits "matches" all 138 loads and the answer says nothing.
+ */
+function rank(rows: ElectricalRow[], input: RankTerms, cap: number) {
+  const { terms, synonyms = [] } = input;
   if (terms.length === 0) return { rows: rows.slice(0, cap), matched: [] as ElectricalRow[] };
   const scored = rows.map((row) => {
-    const hay = Object.values(row).map(str).join(" ").toLowerCase();
+    const hay = IDENTITY_FIELDS.map((k) => str(row[k]))
+      .join(" ")
+      .toLowerCase();
     const words = new Set(hay.split(/[^a-z0-9]+/).map(stem));
     let score = 0;
     for (const t of terms) {
-      if (words.has(t)) score += 2;
-      else if (t.length >= 4 && hay.includes(t)) score += 1;
+      if (words.has(t)) score += 3;
+      else if (t.length >= 5 && hay.includes(t)) score += 2;
+    }
+    for (const t of synonyms) {
+      if (words.has(t)) score += 1;
     }
     return { row, score };
   });
-  const matched = scored.filter((s) => s.score > 0).sort((a, b) => b.score - a.score);
-  const rest = scored.filter((s) => s.score === 0);
+  const candidates = scored.filter((s) => s.score >= 2).sort((a, b) => b.score - a.score);
+  // Keep only the rows close to the best match, so a broad question does not
+  // return the whole table as "matched".
+  const top = candidates[0]?.score ?? 0;
+  const floor = Math.max(2, top - 2);
+  const matched = candidates.filter((s) => s.score >= floor);
+  const rest = scored
+    .filter((s) => !matched.includes(s))
+    .sort((a, b) => b.score - a.score);
+
   return {
     rows: [...matched, ...rest].slice(0, cap).map((s) => s.row),
     matched: matched.map((s) => s.row),
   };
 }
 
+/**
+ * Panels that could plausibly serve a load whose circuit is not assigned yet.
+ * A planned load like FS-082 "Mini Split SE" (area "Farm Shop", grid G5.5) has no
+ * circuit_group_uuid, so the honest answer is "no panel assigned; the Farm Shop
+ * panels are PNL-FS1 / PNL-FS2" instead of silence.
+ */
+export function candidatePanelsForLoad(
+  load: ElectricalRow,
+  panels: ElectricalRow[],
+): string[] {
+  const needles = ["area", "grid", "location", "backup_panel"]
+    .map((k) => str(load[k]).trim().toLowerCase())
+    .filter((v) => v.length >= 3 && v !== "tbd");
+  if (needles.length === 0) return [];
+  const hits: string[] = [];
+  for (const p of panels) {
+    const hay = ["panel_id", "description", "building", "area", "grid", "location"]
+      .map((k) => str(p[k]).toLowerCase())
+      .join(" ");
+    if (needles.some((n) => hay.includes(n))) hits.push(str(p.panel_id));
+  }
+  return [...new Set(hits.filter(Boolean))].slice(0, 6);
+}
+
+export interface LoadPathContext {
+  panels: ElectricalRow[];
+  feeders: ElectricalRow[];
+  groupByUuid: Map<string, ElectricalRow>;
+  panelByUuid: Map<string, ElectricalRow>;
+  panelByLoadUuid: Map<string, string>;
+  positionsByLoadUuid: Map<string, ElectricalRow>;
+}
+
+/**
+ * One explicit chain per load: circuit → breaker → panel → feeder → source.
+ * Every hop is either a stable ID or the literal string NOT IN RECORD, so the
+ * model can say what is known today and where the chain stops.
+ */
+export function describeLoadPath(load: ElectricalRow, ctx: LoadPathContext): string {
+  const group = ctx.groupByUuid.get(str(load.circuit_group_uuid)) ?? null;
+  const position = ctx.positionsByLoadUuid.get(str(load.id)) ?? null;
+  const panelRow =
+    (group ? ctx.panelByUuid.get(str(group.panel_uuid)) : null) ??
+    (position ? ctx.panelByUuid.get(str(position.panel_uuid)) : null) ??
+    null;
+
+  const circuit = group
+    ? str(group.circuit_group_id)
+    : str(load.circuit_group_ref).trim() || str(load.source_circuit).trim() || "NOT IN RECORD";
+  const breaker = position
+    ? `${str(position.side)}${str(position.position)} (${str(position.ocp_amps)}A)`
+    : group && str(group.breaker_number).trim()
+      ? str(group.breaker_number)
+      : "NOT IN RECORD";
+  const panel = panelRow
+    ? str(panelRow.panel_id)
+    : ctx.panelByLoadUuid.get(str(load.id)) ??
+      (str(load.suggested_panel).trim() ? `${str(load.suggested_panel)} (suggested only)` : "NOT IN RECORD");
+
+  const feeder = panelRow
+    ? (() => {
+        const f = ctx.feeders.find((x) => str(x.dest_panel_uuid) === str(panelRow.id));
+        if (f) {
+          const src =
+            ctx.panelByUuid.get(str(f.source_panel_uuid)) ?? null;
+          return `${str(f.feeder_id)} from ${
+            src ? str(src.panel_id) : str(f.source_endpoint_ref).trim() || "NOT IN RECORD"
+          }`;
+        }
+        return str(panelRow.feeder_source).trim() || "NOT IN RECORD";
+      })()
+    : "NOT IN RECORD";
+
+  const candidates = panelRow ? [] : candidatePanelsForLoad(load, ctx.panels);
+
+  return [
+    `path: circuit=${circuit} -> breaker=${breaker} -> panel=${panel} -> feeder=${feeder}`,
+    candidates.length
+      ? `panels serving this area today: ${candidates.join(", ")} (not an assignment)`
+      : null,
+    str(load.backup_panel).trim() ? `backup_panel=${str(load.backup_panel)}` : null,
+  ]
+    .filter(Boolean)
+    .join(" | ");
+}
+
+
+
 export function buildElectricalRecordContext(
   input: ElectricalContextInput,
 ): ElectricalContextResult {
   const terms = questionTerms(input.question);
+  const synonyms = questionSynonyms(terms);
+  const rankTerms = { terms, synonyms };
 
   const panelByUuid = new Map<string, ElectricalRow>();
   for (const p of input.panels) panelByUuid.set(str(p.id), p);
@@ -162,7 +349,7 @@ export function buildElectricalRecordContext(
     ),
   );
 
-  const groupRank = rank(input.circuitGroups, terms, 200);
+  const groupRank = rank(input.circuitGroups, rankTerms, 200);
   const groupLines = groupRank.rows.map((g) =>
     line(
       g,
@@ -187,7 +374,7 @@ export function buildElectricalRecordContext(
     ),
   );
 
-  const loadRank = rank(input.loads, terms, 200);
+  const loadRank = rank(input.loads, rankTerms, 200);
   const loadLines = loadRank.rows.map((l) => {
     const group = groupByUuid.get(str(l.circuit_group_uuid)) ?? null;
     const panel =
@@ -227,7 +414,7 @@ export function buildElectricalRecordContext(
     );
   });
 
-  const posLines = rank(input.positions, terms, 250).rows.map((p) =>
+  const posLines = rank(input.positions, rankTerms, 250).rows.map((p) =>
     line(
       p,
       ["position", "side", "poles", "ocp_amps", "label", "install_status"],
@@ -242,11 +429,57 @@ export function buildElectricalRecordContext(
 
   const matchedLoadIds = loadRank.matched.map((l) => str(l.load_id)).filter(Boolean);
 
+  // Answer set: the matched loads, in full, each with its resolved chain. This is
+  // what a load question ("which panel are the mini-splits on") is answered from,
+  // so it goes FIRST and is never truncated away by the bulk sections.
+  const positionsByLoadUuid = new Map<string, ElectricalRow>();
+  for (const pos of input.positions) {
+    const lu = str(pos.load_uuid);
+    if (lu && !positionsByLoadUuid.has(lu)) positionsByLoadUuid.set(lu, pos);
+  }
+  const pathCtx: LoadPathContext = {
+    panels: input.panels,
+    feeders: input.feeders,
+    groupByUuid,
+    panelByUuid,
+    panelByLoadUuid,
+    positionsByLoadUuid,
+  };
+  const answerSet = loadRank.matched.slice(0, 15).map((l) => {
+    const head = line(l, [
+      "load_id",
+      "description",
+      "equipment_model",
+      "area",
+      "grid",
+      "location",
+      "count",
+      "volts",
+      "amps",
+      "rated_current_amps",
+      "rated_load_amps",
+      "minimum_circuit_ampacity",
+      "maximum_overcurrent_protection",
+      "installed_ocp_rating",
+      "dedicated",
+      "future",
+      "critical",
+      "install_status",
+      "notes",
+    ]);
+    return `${head}\n  ${describeLoadPath(l, pathCtx)}`;
+  });
+
   const block =
     (terms.length
-      ? `QUESTION KEYWORDS: ${terms.join(", ")}\n` +
+      ? `QUESTION KEYWORDS: ${terms.join(", ")}${synonyms.length ? ` (equipment synonyms also searched: ${synonyms.join(", ")})` : ""}\n` +
         `LOADS MATCHING THOSE KEYWORDS (${matchedLoadIds.length}): ${
-          matchedLoadIds.slice(0, 40).join(", ") || "none"
+          matchedLoadIds.slice(0, 25).join(", ") || "none"
+        }\n\n` +
+        `LOAD ANSWER SET — answer the question from THESE rows and their path lines. ` +
+        `"NOT IN RECORD" means the record does not say yet; report that as unknown, ` +
+        `never guess a panel or circuit:\n${
+          answerSet.join("\n") || "(no load matched the question keywords)"
         }\n\n`
       : "") +
     `PANELS (${input.panels.length}) — panel_id is the stable PNL-* id:\n${panelLines.join("\n")}\n\n` +
@@ -254,6 +487,7 @@ export function buildElectricalRecordContext(
     `CIRCUITS (${input.circuitGroups.length}, showing ${groupLines.length}) — panel= is the panel this circuit lives in:\n${groupLines.join("\n")}\n\n` +
     `LOADS (${input.loads.length}, showing ${loadLines.length}) — panel=/circuit= are resolved from the record:\n${loadLines.join("\n")}\n\n` +
     `BREAKER POSITIONS (${input.positions.length}, showing ${posLines.length}):\n${posLines.join("\n")}`;
+
 
   return {
     block,
