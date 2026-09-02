@@ -24,6 +24,7 @@ export type ElectricalSection =
   | "qa"
   | "standards"
   | "panel"
+  | "assistant"
   | "changes"
   | "mapping"
   | "sor"
@@ -58,6 +59,9 @@ export const ELECTRICIAN_VIEWABLE_SECTIONS: ElectricalSection[] = [
   "labels",
   "standards",
   "panel",
+  // AI assistance is read-only and scenario-scoped: an electrician gets the
+  // scenarios their own access already covers.
+  "assistant",
   // Their own audited change history: an electrician can always see what they
   // recorded, even though the farm-wide review list is admin-only.
   "changes",
@@ -144,6 +148,7 @@ export function sectionFromPathname(pathname: string): ElectricalSection {
     case "workbook":
     case "labels":
     case "qa":
+    case "assistant":
     case "standards":
     case "mapping":
     case "sor":

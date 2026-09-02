@@ -56,6 +56,11 @@ export function ElectricalNav({ access }: { access?: ElectricalAccess }) {
       <Link to="/electrical/labels" className={item} activeProps={active}>
         Labels
       </Link>
+      {show("assistant") && (
+        <Link to="/electrical/assistant" className={item} activeProps={active}>
+          AI assist
+        </Link>
+      )}
 
 
       {show("qa") && (
