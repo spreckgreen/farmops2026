@@ -115,43 +115,32 @@ function CircuitBlock({ circuit }: { circuit: DiagramCircuit }) {
 type ViewMode = "planned" | "current";
 
 function TopologyToggle({
+  storageKey,
   source,
   downloadName,
   caption,
 }: {
+  storageKey: string;
   source: string;
   downloadName: string;
   caption: string;
 }) {
-  const [open, setOpen] = useState(false);
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <button
-          type="button"
-          onClick={() => setOpen((v) => !v)}
-          aria-expanded={open}
-          className="flex w-full items-center justify-between gap-2 text-left"
-        >
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Network className="h-4 w-4" /> Mermaid topology diagram
-          </CardTitle>
-          {open ? (
-            <ChevronUp className="h-4 w-4 text-muted-foreground" />
-          ) : (
-            <ChevronDown className="h-4 w-4 text-muted-foreground" />
-          )}
-        </button>
-      </CardHeader>
-      {open && (
-        <CardContent>
-          <MermaidFigure source={source} downloadName={downloadName} />
-          <p className="mt-2 text-xs text-muted-foreground">{caption}</p>
-        </CardContent>
-      )}
-    </Card>
+    <PersistedSection
+      storageKey={storageKey}
+      defaultOpen
+      title={
+        <span className="flex items-center gap-2">
+          <Network className="h-4 w-4" /> Mermaid topology diagram
+        </span>
+      }
+    >
+      <MermaidFigure source={source} downloadName={downloadName} />
+      <p className="mt-2 text-xs text-muted-foreground">{caption}</p>
+    </PersistedSection>
   );
 }
+
 
 function PlannedDetail({ panel }: { panel: DiagramPanel }) {
   const plan = useMemo(() => plannedPanel(panel), [panel]);
