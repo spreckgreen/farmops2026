@@ -188,6 +188,130 @@ export function parseOdsContentXml(xml: string): Sheet[] {
   return sheets;
 }
 
+/* ------------------------------------------- shared logical cell addressing */
+
+/**
+ * One physically located cell, addressed with exactly the semantics
+ * `parseOdsContentXml` uses: repeated rows and repeated columns expanded,
+ * covered cells counted, annotation contents excluded.
+ */
+export interface OdsLocatedCell {
+  worksheet: string;
+  /** 1-based logical row/column as the parser numbers them. */
+  logicalRow: number;
+  logicalColumn: number;
+  /** 0-based index of the `<table:table-row>` element inside the table. */
+  physicalRowIndex: number;
+  /** 0-based index of the cell element inside that row. */
+  physicalCellIndex: number;
+  rowRepeat: number;
+  /** Offset of the logical row inside a `table:number-rows-repeated` group. */
+  rowRepeatOffset: number;
+  columnRepeat: number;
+  /** Offset of the logical column inside a `table:number-columns-repeated` group. */
+  columnRepeatOffset: number;
+  tag: "table:table-cell" | "table:covered-table-cell";
+  /** Absolute offsets into the content.xml string. */
+  cellStart: number;
+  cellEnd: number;
+  rowStart: number;
+  rowEnd: number;
+  attrs: string;
+  inner: string;
+  selfClosing: boolean;
+  valueType: string | null;
+  officeValue: string | null;
+  /** Concatenated `<text:p>` display text of the cell. */
+  displayText: string;
+  /** Exactly the string `parseOdsContentXml` stores for this cell. */
+  parsedValue: string;
+}
+
+/** Absolute offsets of one worksheet's body, matching the parser's table scan. */
+export function findOdsTableBody(
+  xml: string,
+  worksheet: string,
+): { start: number; end: number } | null {
+  const tableRe = /<table:table\b([^>]*)>([\s\S]*?)<\/table:table>/g;
+  let t: RegExpExecArray | null;
+  while ((t = tableRe.exec(xml))) {
+    if ((attr(t[1], "table:name") ?? "") !== worksheet) continue;
+    const bodyStart = t.index + t[0].indexOf(">", 0) + 1;
+    return { start: bodyStart, end: bodyStart + t[2].length };
+  }
+  return null;
+}
+
+/**
+ * Resolve a logical (row, column) address to the physical XML cell the parser
+ * read it from. Returns null when the address does not exist, so callers can
+ * fail closed instead of guessing.
+ */
+export function locateOdsLogicalCell(
+  xml: string,
+  worksheet: string,
+  logicalRow: number,
+  logicalColumn: number,
+): OdsLocatedCell | null {
+  const body = findOdsTableBody(xml, worksheet);
+  if (!body || logicalRow < 1 || logicalColumn < 1) return null;
+  const bodyXml = xml.slice(body.start, body.end);
+  const rows = scanElements(bodyXml, "table:table-row");
+
+  let seenRows = 0;
+  for (let ri = 0; ri < rows.length; ri++) {
+    const row = rows[ri];
+    const rowRepeat = repeatOf(row.attrs, "table:number-rows-repeated");
+    if (logicalRow > seenRows + rowRepeat) {
+      seenRows += rowRepeat;
+      continue;
+    }
+    const rowRepeatOffset = logicalRow - seenRows - 1;
+    const cells = rowCellElements(row.inner);
+    let seenCols = 0;
+    for (let ci = 0; ci < cells.length; ci++) {
+      const c = cells[ci];
+      const columnRepeat = repeatOf(c.attrs, "table:number-columns-repeated");
+      if (logicalColumn > seenCols + columnRepeat) {
+        seenCols += columnRepeat;
+        continue;
+      }
+      const innerBase = body.start + row.contentStart;
+      return {
+        worksheet,
+        logicalRow,
+        logicalColumn,
+        physicalRowIndex: ri,
+        physicalCellIndex: ci,
+        rowRepeat,
+        rowRepeatOffset,
+        columnRepeat,
+        columnRepeatOffset: logicalColumn - seenCols - 1,
+        tag: /^<?table:covered/.test(`table:covered`) && c.start >= 0 && /covered/.test(
+          bodyXml.slice(row.contentStart + c.start, row.contentStart + c.start + 30),
+        )
+          ? "table:covered-table-cell"
+          : "table:table-cell",
+        cellStart: innerBase + c.start,
+        cellEnd: innerBase + c.end,
+        rowStart: body.start + row.start,
+        rowEnd: body.start + row.end,
+        attrs: c.attrs,
+        inner: c.inner,
+        selfClosing: c.selfClosing,
+        valueType: attr(c.attrs, "office:value-type"),
+        officeValue: attr(c.attrs, "office:value"),
+        displayText: cellText(c.inner.replace(ANNOTATION_RE, "")),
+        parsedValue: cellValueOf(c),
+      };
+    }
+    return null;
+  }
+  return null;
+}
+
+
+
 // ------------------------------------------------------------ classification
 
 const HEADER_HINTS: Record<ElectricalEntityKind, string[]> = {
