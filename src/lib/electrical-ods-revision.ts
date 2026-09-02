@@ -568,7 +568,9 @@ export function buildCandidateReport(input: {
       non_content_archive_entries_changed: input.non_content_archive_entries_changed,
     },
     withheld,
+    target_traces: input.target_traces ?? [],
     acceptance: { status: reasons.length ? "FAIL" : "PASS", reasons },
+
     lineage: {
       superseded_sha256: input.baseline.ods_sha256,
       candidate_sha256: input.candidate_sha256,
