@@ -25,9 +25,6 @@ interface RequestNotice {
  * email went out.
  */
 export async function notifyAdminsOfPanelRequest(notice: RequestNotice): Promise<NotifyResult> {
-  const from = process.env["PANEL_ACCESS_EMAIL_FROM"] ?? process.env["EMAIL_FROM"] ?? "";
-  const apiKey = process.env["LOVABLE_API_KEY"] ?? "";
-
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data: roleRows, error } = await supabaseAdmin
     .from("user_roles")
@@ -43,49 +40,61 @@ export async function notifyAdminsOfPanelRequest(notice: RequestNotice): Promise
     if (email) emails.push(email);
   }
 
-  if (!from || !apiKey) {
-    console.info(
-      `[panel-access] pending ${notice.scope ?? "panel_edit"} request for ${notice.panelId}; ${emails.length} administrator(s) to review in-app (email sender not configured)`,
-    );
-    return {
-      emailed: false,
-      recipients: emails.length,
-      reason: "email_sender_not_configured",
-    };
-  }
+  const { sendBrandedEmail } = await import("@/lib/smtp-mailer.server");
+  const { panelAccessRequestEmail } = await import("@/lib/email-branding");
+  const base = (process.env["APP_BASE_URL"] ?? "https://bostead.lovable.app").replace(/\/$/, "");
+  const reviewUrl = /^https?:\/\//i.test(notice.reviewUrl)
+    ? notice.reviewUrl
+    : `${base}${notice.reviewUrl}`;
 
-  try {
-    const res = await fetch("https://api.lovable.dev/email/send", {
-      method: "POST",
-      headers: { "content-type": "application/json", authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        from,
-        to: emails,
-        subject:
-          notice.scope === "system_data"
-            ? `Wider electrical data access requested — scanned at ${notice.panelId}`
-            : `Panel edit access requested — ${notice.panelId}`,
-        text: [
-          notice.scope === "system_data"
-            ? `${notice.requesterEmail ?? "A signed-in user"} requested 24-hour read access to other panels and the full electrical system (scanned label: ${notice.panelId}).`
-            : `${notice.requesterEmail ?? "A signed-in user"} requested 24-hour edit access to panel ${notice.panelId}.`,
-          notice.reason ? `Reason: ${notice.reason}` : "No reason given.",
-          `Requested at ${notice.requestedAt}.`,
-          `Approve or decline: ${notice.reviewUrl}`,
-        ].join("\n\n"),
-      }),
-    });
-    if (!res.ok) {
-      return { emailed: false, recipients: emails.length, reason: `email_failed_${res.status}` };
-    }
-    return { emailed: true, recipients: emails.length, reason: "sent" };
-  } catch (e) {
-    return {
-      emailed: false,
-      recipients: emails.length,
-      reason: e instanceof Error ? e.message : "email_failed",
-    };
+  const outcome = await sendBrandedEmail(
+    emails,
+    panelAccessRequestEmail({
+      panelId: notice.panelId,
+      scope: notice.scope ?? "panel_edit",
+      requesterEmail: notice.requesterEmail,
+      reason: notice.reason,
+      requestedAt: notice.requestedAt,
+      reviewUrl,
+      windowHours: 24,
+    }),
+  );
+
+  if (!outcome.sent) {
+    console.info(
+      `[panel-access] pending ${notice.scope ?? "panel_edit"} request for ${notice.panelId}; ${emails.length} administrator(s) to review in-app (${outcome.reason})`,
+    );
   }
+  return { emailed: outcome.sent, recipients: emails.length, reason: outcome.reason };
+}
+
+/** Tell a requester what an administrator decided. Best-effort, never throws. */
+export async function notifyRequesterOfDecision(input: {
+  requesterEmail: string | null;
+  panelId: string;
+  scope: "panel_edit" | "system_data";
+  status: "approved" | "declined" | "revoked";
+  expiresAt: string | null;
+  note: string | null;
+}): Promise<NotifyResult> {
+  if (!input.requesterEmail) {
+    return { emailed: false, recipients: 0, reason: "no_requester_email" };
+  }
+  const { sendBrandedEmail } = await import("@/lib/smtp-mailer.server");
+  const { panelAccessDecisionEmail } = await import("@/lib/email-branding");
+  const base = (process.env["APP_BASE_URL"] ?? "https://bostead.lovable.app").replace(/\/$/, "");
+  const outcome = await sendBrandedEmail(
+    input.requesterEmail,
+    panelAccessDecisionEmail({
+      panelId: input.panelId,
+      scope: input.scope,
+      status: input.status,
+      expiresAt: input.expiresAt,
+      note: input.note,
+      panelUrl: `${base}/electrical/panel/${input.panelId}`,
+    }),
+  );
+  return { emailed: outcome.sent, recipients: 1, reason: outcome.reason };
 }
 
 /** Look up requester emails for the admin queue without exposing other claims. */

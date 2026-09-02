@@ -466,7 +466,24 @@ export const decidePanelEditRequest = createServerFn({ method: "POST" })
       .single();
     if (error) throw new Error(error.message);
     const row = toRequest(updated as Record<string, unknown>);
-    return { request: row, state: accessState(row), hours: data.hours ?? GRANT_WINDOW_HOURS };
+
+    // Branded decision email is best-effort: the in-app queue stays truthful.
+    const { notifyRequesterOfDecision } = await import("@/lib/panel-access.server");
+    const notice = await notifyRequesterOfDecision({
+      requesterEmail: row.requester_email,
+      panelId: row.panel_id,
+      scope: row.scope,
+      status: data.decision === "approved" ? "approved" : "declined",
+      expiresAt: row.expires_at,
+      note: row.decision_note,
+    });
+
+    return {
+      request: row,
+      state: accessState(row),
+      hours: data.hours ?? GRANT_WINDOW_HOURS,
+      notified: notice.emailed,
+    };
   });
 
 /**
