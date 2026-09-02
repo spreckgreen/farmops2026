@@ -118,6 +118,17 @@ export function LoadAdjudicationReport() {
         </CollapsibleSection>
       ) : null}
 
+      {attached && rows.data ? (
+        <CollapsibleSection
+          title="Bryant amperage semantic adjudication (FS-082, FS-083, FS-084)"
+          subtitle="What the canonical Amps column actually means, and whether Connected VA is Volts × Amps. MOCP is never used as a load current, MCA is never derived, and 0 A is not read as a verified zero load. Read-only — no FarmOps write, no ODS edit."
+          badges={<Badge variant="outline">Read-only</Badge>}
+        >
+          <AmpSemanticsReport baseline={attached.baseline} rows={rows.data} />
+        </CollapsibleSection>
+      ) : null}
+
+
       {!report ? (
         <Card>
           <CardHeader>
