@@ -82,10 +82,10 @@ export function equipmentRatingLabel(stable_id: string): string {
 }
 
 function correctionCandidate(stable_id: string, farmops: number | null): number | null {
-  const nominal = equipmentFor(stable_id)?.semantics.nominal_supply_voltage ?? null;
-  // The candidate is only stated when verified provenance and the FarmOps
-  // as-built value agree; otherwise it stays unestablished.
-  return nominal !== null && nominal === farmops ? nominal : nominal;
+  // Taken from verified equipment provenance only. It is never derived from the
+  // FarmOps value, which is reported independently.
+  void farmops;
+  return equipmentFor(stable_id)?.semantics.nominal_supply_voltage ?? null;
 }
 
 export function buildCanonicalOdsCorrectionQueue(
