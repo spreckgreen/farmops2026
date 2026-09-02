@@ -419,6 +419,48 @@ export type Database = {
         }
         Relationships: []
       }
+      electrical_ai_feature_grants: {
+        Row: {
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
+          id: string
+          request_note: string | null
+          requested_at: string
+          scenario: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          id?: string
+          request_note?: string | null
+          requested_at?: string
+          scenario: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
+          id?: string
+          request_note?: string | null
+          requested_at?: string
+          scenario?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       electrical_branch_runs: {
         Row: {
           branch_id: string
