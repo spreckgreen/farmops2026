@@ -16,13 +16,16 @@ import { isAdminRole } from "@/lib/admin-role.server";
 import {
   GRANT_WINDOW_HOURS,
   accessState,
+  canReadPanel,
   grantExpiry,
   isEditUnlocked,
   latestRequest,
+  latestWiderRequest,
   type PanelAccessScope,
   type PanelAccessState,
   type PanelEditRequest,
 } from "@/lib/electrical-panel-access";
+
 import { resolveSystemVoltage } from "@/lib/electrical-system-voltage";
 
 export type Json = string | number | boolean | null | Json[] | { [key: string]: Json };
