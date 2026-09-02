@@ -83,6 +83,7 @@ import { Route as AdminPanelAccessRouteImport } from './routes/admin.panel-acces
 import { Route as AdminExportKeyRouteImport } from './routes/admin.export-key'
 import { Route as AdminExportRouteImport } from './routes/admin.export'
 import { Route as AdminAiSettingsRouteImport } from './routes/admin.ai-settings'
+import { Route as AdminAiRuntimeRouteImport } from './routes/admin.ai-runtime'
 import { Route as AdminAiEnginesRouteImport } from './routes/admin.ai-engines'
 import { Route as AdminAddonsRouteImport } from './routes/admin.addons'
 import { Route as ElectricalPanelPanelIdRouteImport } from './routes/electrical.panel.$panelId'
@@ -466,6 +467,11 @@ const AdminAiSettingsRoute = AdminAiSettingsRouteImport.update({
   path: '/admin/ai-settings',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminAiRuntimeRoute = AdminAiRuntimeRouteImport.update({
+  id: '/admin/ai-runtime',
+  path: '/admin/ai-runtime',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminAiEnginesRoute = AdminAiEnginesRouteImport.update({
   id: '/admin/ai-engines',
   path: '/admin/ai-engines',
@@ -544,6 +550,7 @@ export interface FileRoutesByFullPath {
   '/vault': typeof VaultRoute
   '/admin/addons': typeof AdminAddonsRoute
   '/admin/ai-engines': typeof AdminAiEnginesRoute
+  '/admin/ai-runtime': typeof AdminAiRuntimeRoute
   '/admin/ai-settings': typeof AdminAiSettingsRoute
   '/admin/export': typeof AdminExportRoute
   '/admin/export-key': typeof AdminExportKeyRoute
@@ -628,6 +635,7 @@ export interface FileRoutesByTo {
   '/vault': typeof VaultRoute
   '/admin/addons': typeof AdminAddonsRoute
   '/admin/ai-engines': typeof AdminAiEnginesRoute
+  '/admin/ai-runtime': typeof AdminAiRuntimeRoute
   '/admin/ai-settings': typeof AdminAiSettingsRoute
   '/admin/export': typeof AdminExportRoute
   '/admin/export-key': typeof AdminExportKeyRoute
@@ -716,6 +724,7 @@ export interface FileRoutesById {
   '/vault': typeof VaultRoute
   '/admin/addons': typeof AdminAddonsRoute
   '/admin/ai-engines': typeof AdminAiEnginesRoute
+  '/admin/ai-runtime': typeof AdminAiRuntimeRoute
   '/admin/ai-settings': typeof AdminAiSettingsRoute
   '/admin/export': typeof AdminExportRoute
   '/admin/export-key': typeof AdminExportKeyRoute
@@ -805,6 +814,7 @@ export interface FileRouteTypes {
     | '/vault'
     | '/admin/addons'
     | '/admin/ai-engines'
+    | '/admin/ai-runtime'
     | '/admin/ai-settings'
     | '/admin/export'
     | '/admin/export-key'
@@ -889,6 +899,7 @@ export interface FileRouteTypes {
     | '/vault'
     | '/admin/addons'
     | '/admin/ai-engines'
+    | '/admin/ai-runtime'
     | '/admin/ai-settings'
     | '/admin/export'
     | '/admin/export-key'
@@ -976,6 +987,7 @@ export interface FileRouteTypes {
     | '/vault'
     | '/admin/addons'
     | '/admin/ai-engines'
+    | '/admin/ai-runtime'
     | '/admin/ai-settings'
     | '/admin/export'
     | '/admin/export-key'
@@ -1064,6 +1076,7 @@ export interface RootRouteChildren {
   VaultRoute: typeof VaultRoute
   AdminAddonsRoute: typeof AdminAddonsRoute
   AdminAiEnginesRoute: typeof AdminAiEnginesRoute
+  AdminAiRuntimeRoute: typeof AdminAiRuntimeRoute
   AdminAiSettingsRoute: typeof AdminAiSettingsRoute
   AdminExportRoute: typeof AdminExportRoute
   AdminExportKeyRoute: typeof AdminExportKeyRoute
@@ -1631,6 +1644,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminAiSettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/ai-runtime': {
+      id: '/admin/ai-runtime'
+      path: '/admin/ai-runtime'
+      fullPath: '/admin/ai-runtime'
+      preLoaderRoute: typeof AdminAiRuntimeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/ai-engines': {
       id: '/admin/ai-engines'
       path: '/admin/ai-engines'
@@ -1821,6 +1841,7 @@ const rootRouteChildren: RootRouteChildren = {
   VaultRoute: VaultRoute,
   AdminAddonsRoute: AdminAddonsRoute,
   AdminAiEnginesRoute: AdminAiEnginesRoute,
+  AdminAiRuntimeRoute: AdminAiRuntimeRoute,
   AdminAiSettingsRoute: AdminAiSettingsRoute,
   AdminExportRoute: AdminExportRoute,
   AdminExportKeyRoute: AdminExportKeyRoute,
