@@ -345,7 +345,7 @@ export function NumericSemanticsPanel({
 
         <CategoryDAnalysisPanel diag={diag} />
 
-        <ZeroOriginPanel diag={diag} />
+        <ZeroOriginPanel diag={diag} onRevalidate={onRevalidate} />
 
 
         <div>

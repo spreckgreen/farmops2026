@@ -23,6 +23,7 @@ import type { NumericDiagnosticsReport } from "@/lib/electrical-numeric-diagnost
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { ConnectedVaZeroGate } from "@/components/electrical/connected-va-zero-gate";
 
 function download(name: string, body: string, type: string) {
   const url = URL.createObjectURL(new Blob([body], { type }));
@@ -33,7 +34,13 @@ function download(name: string, body: string, type: string) {
   URL.revokeObjectURL(url);
 }
 
-export function ZeroOriginPanel({ diag }: { diag: NumericDiagnosticsReport }) {
+export function ZeroOriginPanel({
+  diag,
+  onRevalidate,
+}: {
+  diag: NumericDiagnosticsReport;
+  onRevalidate?: () => void;
+}) {
   const fetchProvenance = useServerFn(listConnectedVaProvenance);
   const { data, isLoading, error } = useQuery({
     queryKey: ["connected-va-provenance"],
@@ -179,6 +186,8 @@ export function ZeroOriginPanel({ diag }: { diag: NumericDiagnosticsReport }) {
             </table>
           </div>
         )}
+
+        <ConnectedVaZeroGate onRevalidate={onRevalidate} />
 
         <div>
           <h4 className="mb-1 font-medium">Kept separate</h4>
