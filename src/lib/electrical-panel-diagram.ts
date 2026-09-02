@@ -568,3 +568,187 @@ export function panelReading(panel: DiagramPanel): PanelReading {
   }
   return { known, missing };
 }
+
+// ---------------------------------------------------------------------------
+// Planned view: the intended alignment of loads to panels.
+//
+// There is no as-installed data for most loads today — what exists is an
+// understanding of which building / grid location a load lives in and, for some
+// rows, a suggested panel. The planned view states that intent explicitly and
+// never presents it as installed fact.
+// ---------------------------------------------------------------------------
+
+export type PlannedBasis = "suggested_panel" | "building_area" | "linked_record";
+
+export interface PlannedLoad {
+  load: DiagramLoad;
+  basis: PlannedBasis;
+  /** Where in the plan this load sits: grid/building/area text, or "—". */
+  where: string;
+}
+
+export interface PlannedGroup {
+  /** Building / grid / area label the loads share. */
+  where: string;
+  loads: PlannedLoad[];
+}
+
+export interface PlannedPanel {
+  panelId: string;
+  building: string;
+  groups: PlannedGroup[];
+  total: number;
+  /** Counts by how the load was aligned to this panel. */
+  bySuggestedPanel: number;
+  byBuildingArea: number;
+  byLinkedRecord: number;
+}
+
+const plannedWhere = (l: DiagramLoad): string =>
+  l.building.trim() || l.area.trim() || "unstated location";
+
+/** Group everything planned for one panel by its building / grid location. */
+export function plannedPanel(panel: DiagramPanel): PlannedPanel {
+  const entries: PlannedLoad[] = [];
+  const seen = new Set<string>();
+  const push = (load: DiagramLoad, basis: PlannedBasis) => {
+    const dedupe = load.uuid || load.id;
+    if (seen.has(dedupe)) return;
+    seen.add(dedupe);
+    entries.push({ load, basis, where: plannedWhere(load) });
+  };
+
+  for (const l of panel.expectedLoads) {
+    push(l, l.suggestedPanel ? "suggested_panel" : "building_area");
+  }
+  for (const c of panel.circuits) for (const l of c.loads) push(l, "linked_record");
+  for (const l of panel.directLoads) push(l, "linked_record");
+
+  const byWhere = new Map<string, PlannedLoad[]>();
+  for (const e of entries) {
+    byWhere.set(e.where, [...(byWhere.get(e.where) ?? []), e]);
+  }
+  const groups: PlannedGroup[] = Array.from(byWhere.entries())
+    .map(([where, loads]) => ({
+      where,
+      loads: loads.sort((a, b) =>
+        a.load.id.localeCompare(b.load.id, undefined, { numeric: true }),
+      ),
+    }))
+    .sort((a, b) => a.where.localeCompare(b.where));
+
+  return {
+    panelId: panel.id,
+    building: panel.building,
+    groups,
+    total: entries.length,
+    bySuggestedPanel: entries.filter((e) => e.basis === "suggested_panel").length,
+    byBuildingArea: entries.filter((e) => e.basis === "building_area").length,
+    byLinkedRecord: entries.filter((e) => e.basis === "linked_record").length,
+  };
+}
+
+/**
+ * Mermaid for the planned alignment: panel → location group → load. Every edge
+ * is dashed unless the record already links the load, because the alignment is
+ * intent, not installation.
+ */
+export function plannedMermaid(panel: DiagramPanel): string {
+  const plan = plannedPanel(panel);
+  const lines: string[] = ["flowchart LR"];
+  const panelNode = key("PPNL", panel.id);
+  const panelText = [panel.id, panel.description, panel.building ? `in ${panel.building}` : ""]
+    .filter(Boolean)
+    .map(label)
+    .join("\\n");
+  lines.push(`  ${panelNode}["${panelText}"]`);
+  lines.push(`  style ${panelNode} stroke-width:3px`);
+
+  if (plan.groups.length === 0) {
+    lines.push(`  PNONE["no loads planned for this panel yet"]`);
+    lines.push(`  ${panelNode} -.-> PNONE`);
+    lines.push(`  style PNONE stroke-dasharray: 4 3`);
+    return lines.join("\n");
+  }
+
+  plan.groups.forEach((g, gi) => {
+    const gNode = key(`PGRP${gi}`, g.where);
+    lines.push(`  ${gNode}("${label(g.where)}\\n${g.loads.length} planned load(s)")`);
+    lines.push(`  ${panelNode} -.-> ${gNode}`);
+    lines.push(`  style ${gNode} stroke-dasharray: 4 3`);
+    g.loads.forEach((e, li) => {
+      const lNode = key(`PLD${gi}_${li}`, e.load.id);
+      const lText = [
+        e.load.id,
+        e.load.description,
+        e.load.amps ? `${e.load.amps} A` : e.load.va ? `${e.load.va} VA` : "no rating",
+      ]
+        .filter(Boolean)
+        .map(label)
+        .join("\\n");
+      lines.push(`  ${lNode}["${lText}"]`);
+      if (e.basis === "linked_record") {
+        lines.push(`  ${gNode} -->|"already linked"| ${lNode}`);
+      } else {
+        const why = e.basis === "suggested_panel" ? "suggested panel" : "same building/area";
+        lines.push(`  ${gNode} -.->|"${why}"| ${lNode}`);
+        lines.push(`  style ${lNode} stroke-dasharray: 4 3`);
+      }
+    });
+  });
+  return lines.join("\n");
+}
+
+/** Plain-language reading of the planned alignment for one panel. */
+export function plannedReading(panel: DiagramPanel): PanelReading {
+  const plan = plannedPanel(panel);
+  const known: string[] = [];
+  const missing: string[] = [];
+
+  known.push(
+    `Planned view: ${plan.total} load(s) are expected to land on ${panel.id}${
+      panel.building ? ` (${panel.building})` : ""
+    }. This is intended alignment, not installed fact.`,
+  );
+  known.push(
+    `${plan.bySuggestedPanel} come from a suggested panel on the load row, ${plan.byBuildingArea} from sharing this panel's building or grid location, and ${plan.byLinkedRecord} are already linked in the record.`,
+  );
+  if (plan.groups.length) {
+    known.push(
+      `Grid locations in the plan: ${plan.groups
+        .map((g) => `${g.where} (${g.loads.length})`)
+        .join(", ")}.`,
+    );
+  }
+
+  if (plan.total === 0) {
+    missing.push(
+      `Nothing is planned for ${panel.id}: no load names this panel and none share its building or grid location.`,
+    );
+  }
+  if (plan.byLinkedRecord === 0 && plan.total > 0) {
+    missing.push(
+      "No load on this panel has an installed path yet — every alignment here is planned only (no circuit_group_uuid, no breaker position).",
+    );
+  }
+  const unstated = plan.groups.find((g) => g.where === "unstated location");
+  if (unstated) {
+    missing.push(
+      `Grid location missing: ${unstated.loads
+        .map((e) => e.load.id)
+        .join(", ")} carry no building/grid, so their placement in the plan is a guess from the suggested panel alone.`,
+    );
+  }
+  const unsized = plan.groups
+    .flatMap((g) => g.loads)
+    .filter((e) => !e.load.amps && !e.load.va);
+  if (unsized.length) {
+    missing.push(
+      `Load sizing: ${unsized.map((e) => e.load.id).join(", ")} have neither amps nor connected_va, so planned panel loading cannot be totalled.`,
+    );
+  }
+  if (missing.length === 0) {
+    missing.push("Every planned load has a location and a rating; only the install path is open.");
+  }
+  return { known, missing };
+}
