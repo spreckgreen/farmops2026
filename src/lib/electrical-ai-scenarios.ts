@@ -15,11 +15,13 @@ import type { ElectricalAccess, ElectricalSection } from "./electrical-access";
 
 export type ElectricalAiScenarioId =
   | "panel_qa"
+  | "load_trace"
   | "topology_explain"
   | "qa_triage"
   | "audit_summary"
   | "field_note"
   | "nameplate_extract";
+
 
 /**
  * What a scenario needs:
