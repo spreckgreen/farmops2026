@@ -62,7 +62,20 @@ export const ELECTRICAL_AI_SCENARIOS: readonly ElectricalAiScenarioDef[] = [
     placeholder: "What feeds PNL-H1, and which breaker serves the mini split?",
   },
   {
+    id: "load_trace",
+    label: "Panel trace for a load",
+    description:
+      "Name a load and get its full supply path — service/source → feeder → panel → breaker → circuit → load — with every missing hop marked as a gap and the field that would close it. Read-only.",
+    area: "electrical.load_trace",
+    section: "topology",
+    requires: "read",
+    input: "question",
+    inputLabel: "Load to trace",
+    placeholder: "Trace the Farm Shop mini splits (FS-082/083/084)",
+  },
+  {
     id: "topology_explain",
+
     label: "Topology explanation",
     description:
       "Plain-language walk of the power path from the service through feeders and panels to a load.",
