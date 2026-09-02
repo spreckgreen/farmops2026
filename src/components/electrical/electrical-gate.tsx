@@ -17,7 +17,7 @@ import {
   sectionFromPathname,
   type ElectricalAccess,
 } from "@/lib/electrical-access";
-import { Eye, Zap } from "lucide-react";
+import { Eye, PencilLine, Zap } from "lucide-react";
 
 export function ElectricalNav({ access }: { access?: ElectricalAccess }) {
   const show = (section: Parameters<typeof canOpenSection>[1]) =>
@@ -71,6 +71,11 @@ export function ElectricalNav({ access }: { access?: ElectricalAccess }) {
       <Link to="/electrical/standards" className={item} activeProps={active}>
         Standards
       </Link>
+      {show("changes") && (
+        <Link to="/electrical/changes" className={item} activeProps={active}>
+          Change log
+        </Link>
+      )}
       {show("sor") && (
   <Link to="/electrical/sor" className={item} activeProps={active}>
           SOR status
@@ -124,11 +129,13 @@ export function ElectricalGate({
 }) {
   const full = useAddon("electrical");
   const readOnly = useAddon("electrical_readonly");
+  const fieldWrite = useAddon("electrical_fieldwrite");
   const scan = useAddon("electrical_scan");
   const pathname = useRouterState({ select: (st) => st.location.pathname });
   const section = sectionFromPathname(pathname);
   const access = electricalAccess({
     full: full.enabled,
+    fieldWrite: fieldWrite.enabled,
     readOnly: readOnly.enabled,
     scan: allowScanScope && scan.enabled,
   });
@@ -136,7 +143,9 @@ export function ElectricalGate({
   // is still surfaced rather than silently read as "not entitled".
   const addon = full.enabled
     ? full
-    : readOnly.enabled
+    : fieldWrite.enabled
+      ? fieldWrite
+      : readOnly.enabled
       ? readOnly
       : allowScanScope && scan.enabled
         ? scan
@@ -147,7 +156,11 @@ export function ElectricalGate({
             : full;
   const scanOnly = access.scanOnly;
   const sectionAllowed = canOpenSection(access, section);
-  const anyLoading = full.isLoading || readOnly.isLoading || (allowScanScope && scan.isLoading);
+  const anyLoading =
+    full.isLoading ||
+    readOnly.isLoading ||
+    fieldWrite.isLoading ||
+    (allowScanScope && scan.isLoading);
 
   return (
     <AppLayout>
@@ -166,6 +179,11 @@ export function ElectricalGate({
           </div>
           {scanOnly ? (
             <Badge variant="secondary">Scanned-label access</Badge>
+          ) : access.auditedWrites ? (
+            <Badge variant="secondary" className="gap-1">
+              <PencilLine className="h-3 w-3" />
+              Field write · changes are audited
+            </Badge>
           ) : access.canView && access.readOnly ? (
             <Badge variant="secondary" className="gap-1">
               <Eye className="h-3 w-3" />

@@ -24,6 +24,7 @@ export type ElectricalSection =
   | "qa"
   | "standards"
   | "panel"
+  | "changes"
   | "mapping"
   | "sor"
   | "validation"
@@ -57,6 +58,9 @@ export const ELECTRICIAN_VIEWABLE_SECTIONS: ElectricalSection[] = [
   "labels",
   "standards",
   "panel",
+  // Their own audited change history: an electrician can always see what they
+  // recorded, even though the farm-wide review list is admin-only.
+  "changes",
 ];
 
 export function isReconciliationSection(section: ElectricalSection): boolean {
@@ -150,6 +154,8 @@ export function sectionFromPathname(pathname: string): ElectricalSection {
       return head;
     case "panel":
       return "panel";
+    case "changes":
+      return "changes";
     default:
       // /electrical/$kind and /electrical/item/$kind/$id
       return "entities";
