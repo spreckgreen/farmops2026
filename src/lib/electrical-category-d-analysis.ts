@@ -189,6 +189,12 @@ export interface CategoryDGroup {
   mapping_rule: string;
   /** True when the deficiency repeats across more than one finding. */
   systematic: boolean;
+  /** True when every finding in the group carries a closed adjudication. */
+  adjudicated: boolean;
+  /** Rows whose disposition is closed (no further evidence owed). */
+  resolved_count: number;
+  /** Rows still open for Phase 4.5. */
+  open_count: number;
   /** Identity of every underlying finding — preserved, never mutated. */
   findings: NumericFinding[];
 }
@@ -199,11 +205,16 @@ export interface CategoryDAnalysis {
   ods_sha256: string;
   compared_at: string;
   raw_d: number;
+  /** Raw D rows now closed by an established adjudication (still reported here). */
+  rows_resolved_by_adjudication: number;
+  /** Raw D rows still open for Phase 4.5. */
+  rows_open: number;
   groups_count: number;
   systematic_groups_count: number;
   individual_review_groups_count: number;
   rows_explained_by_systematic_pattern: number;
   rows_requiring_individual_review: number;
+
   counts_by_missing_provenance: Record<MissingProvenance, number>;
   counts_by_side: Record<DSide, number>;
   groups: CategoryDGroup[];
