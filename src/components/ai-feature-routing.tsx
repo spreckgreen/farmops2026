@@ -32,6 +32,7 @@ const GROUP_ORDER: AiAreaDef["group"][] = [
   "Knowledge",
   "Service schedule",
   "Food preservation",
+  "Electrical",
   "Diagnostics",
 ];
 

@@ -45,12 +45,23 @@ export type AiAreaId =
   | "maintenance.forecast"
   | "food.preservation"
   | "food.prices"
+  | "electrical.panel_qa"
+  | "electrical.topology_explain"
+  | "electrical.qa_triage"
+  | "electrical.audit_summary"
+  | "electrical.field_note"
   | "diagnostics";
 
 export interface AiAreaDef {
   id: AiAreaId;
   label: string;
-  group: "Summaries" | "Service schedule" | "Food preservation" | "Knowledge" | "Diagnostics";
+  group:
+    | "Summaries"
+    | "Service schedule"
+    | "Food preservation"
+    | "Knowledge"
+    | "Electrical"
+    | "Diagnostics";
   /** What the call does, in the user's terms. */
   description: string;
   /** Rough context/output weight — drives the "heavy" warning in the UI. */
@@ -184,6 +195,56 @@ export const AI_FEATURE_AREAS: readonly AiAreaDef[] = [
     label: "Food price reference",
     group: "Food preservation",
     description: "Estimates Southern Ohio retail $/lb for plan foods.",
+    load: "light",
+    recommended: "local",
+    minContext: 4096,
+  },
+  {
+    id: "electrical.panel_qa",
+    label: "Panel & circuit Q&A",
+    group: "Electrical",
+    description:
+      "Answers field questions (\"what feeds PNL-H1?\") from the as-installed panel, feeder, breaker and load record. Read-only.",
+    load: "medium",
+    recommended: "local",
+    minContext: 8192,
+  },
+  {
+    id: "electrical.topology_explain",
+    label: "Topology explanation",
+    group: "Electrical",
+    description:
+      "Turns a service/topology snapshot into a plain-language description of how power reaches a load.",
+    load: "medium",
+    recommended: "local",
+    minContext: 8192,
+  },
+  {
+    id: "electrical.qa_triage",
+    label: "QA / validation finding triage",
+    group: "Electrical",
+    description:
+      "Groups reconciliation and QA findings into systematic patterns. Suggestions only — adjudication stays rule-based.",
+    load: "heavy",
+    recommended: "hosted",
+    minContext: 16384,
+  },
+  {
+    id: "electrical.audit_summary",
+    label: "Electrician change-audit review",
+    group: "Electrical",
+    description:
+      "Summarises audited electrician field writes for administrator review, flagging safety-relevant fields.",
+    load: "medium",
+    recommended: "hosted",
+    minContext: 8192,
+  },
+  {
+    id: "electrical.field_note",
+    label: "Field note → draft change summary",
+    group: "Electrical",
+    description:
+      "Turns a spoken or typed field observation into a tidy draft note. Never writes an electrical record.",
     load: "light",
     recommended: "local",
     minContext: 4096,
