@@ -60,6 +60,28 @@ export function ProfileGate({ children }: { children: ReactNode }) {
 
   if (!data) return null;
 
+  // Administrative suspension outranks approval status: a disabled account keeps
+  // its approval and roles but cannot use the app until re-enabled.
+  if (data.disabled_at) {
+    return (
+      <Centered>
+        <Ban className="h-8 w-8 text-destructive" />
+        <h1 className="text-lg font-semibold">Account disabled</h1>
+        <p className="text-sm text-muted-foreground max-w-md">
+          An administrator has temporarily disabled this account
+          {data.disabled_reason ? `: ${data.disabled_reason}` : "."} Your data is
+          untouched — an administrator can re-enable it at any time.
+        </p>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => refetch()}>Check again</Button>
+          <Button variant="ghost" onClick={signOut}>Sign out</Button>
+        </div>
+      </Centered>
+    );
+  }
+
+
+
   if (data.status === "pending") {
     return (
       <Centered>
