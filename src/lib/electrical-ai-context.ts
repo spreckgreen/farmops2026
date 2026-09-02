@@ -180,7 +180,12 @@ function rank(rows: ElectricalRow[], input: RankTerms, cap: number) {
     }
     return { row, score };
   });
-  const matched = scored.filter((s) => s.score >= 2).sort((a, b) => b.score - a.score);
+  const candidates = scored.filter((s) => s.score >= 2).sort((a, b) => b.score - a.score);
+  // Keep only the rows close to the best match, so a broad question does not
+  // return the whole table as "matched".
+  const top = candidates[0]?.score ?? 0;
+  const floor = Math.max(2, top - 2);
+  const matched = candidates.filter((s) => s.score >= floor);
   const rest = scored
     .filter((s) => !matched.includes(s))
     .sort((a, b) => b.score - a.score);
@@ -440,7 +445,7 @@ export function buildElectricalRecordContext(
     panelByLoadUuid,
     positionsByLoadUuid,
   };
-  const answerSet = loadRank.matched.slice(0, 25).map((l) => {
+  const answerSet = loadRank.matched.slice(0, 15).map((l) => {
     const head = line(l, [
       "load_id",
       "description",
@@ -467,9 +472,9 @@ export function buildElectricalRecordContext(
 
   const block =
     (terms.length
-      ? `QUESTION KEYWORDS (expanded with equipment synonyms): ${terms.join(", ")}\n` +
+      ? `QUESTION KEYWORDS: ${terms.join(", ")}${synonyms.length ? ` (equipment synonyms also searched: ${synonyms.join(", ")})` : ""}\n` +
         `LOADS MATCHING THOSE KEYWORDS (${matchedLoadIds.length}): ${
-          matchedLoadIds.slice(0, 40).join(", ") || "none"
+          matchedLoadIds.slice(0, 25).join(", ") || "none"
         }\n\n` +
         `LOAD ANSWER SET — answer the question from THESE rows and their path lines. ` +
         `"NOT IN RECORD" means the record does not say yet; report that as unknown, ` +
