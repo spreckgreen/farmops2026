@@ -12,11 +12,15 @@ import { cn } from "@/lib/utils";
 
 const PREFIX = "farmops.collapsible.";
 
-/** Stable storage key: explicit key wins, otherwise a plain-text title. */
+/**
+ * Stable storage key: explicit key wins, otherwise a plain-text title with all
+ * numbers normalised, so a title like "Panels (12)" keeps the same key when the
+ * count changes to 13. Non-text titles simply do not persist.
+ */
 function keyOf(storageKey: string | undefined, title: ReactNode): string | null {
   if (storageKey) return PREFIX + storageKey;
-  if (typeof title === "string" && title.trim()) return PREFIX + title.trim().toLowerCase();
-  return null;
+  if (typeof title !== "string" || !title.trim()) return null;
+  return PREFIX + title.toLowerCase().replace(/\d+/g, "#").replace(/\s+/g, " ").trim();
 }
 
 export function useCollapsibleState(
