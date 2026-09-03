@@ -128,9 +128,6 @@ export function semanticForHeader(observed: string): SemanticDefinition | undefi
 const sheetWidth = (sheet: Sheet, headerRow: number): number =>
   Math.max((sheet.rows[headerRow] ?? []).length, ...sheet.rows.map((r) => r.length), 0);
 
-const columnPopulated = (sheet: Sheet, headerRow: number, index0: number): boolean =>
-  sheet.rows.some((r, idx) => idx !== headerRow && String(r[index0] ?? "").trim() !== "");
-
 /**
  * Materialise Contract v3 from the authorized workbook's own header row.
  *
@@ -270,7 +267,6 @@ export function alignContractRegistry(sheet: Sheet, headerRow: number): Alignmen
     const v2 = v2ByColumn.get(pc);
     const col = v3ByColumn.get(pc);
     const observed = String(header[pc - 1] ?? "").trim();
-    const populated = pc <= width ? (columnPopulated(sheet, headerRow, pc - 1) ? 1 : 0) : 0;
     const populated_cells =
       pc <= width
         ? sheet.rows.filter((r, idx) => idx !== headerRow && String(r[pc - 1] ?? "").trim() !== "")
@@ -329,7 +325,6 @@ export function alignContractRegistry(sheet: Sheet, headerRow: number): Alignmen
       disposition,
       note,
     });
-    void populated;
   }
 
   // A v2 semantic whose declared position no longer carries it, but which v3 did
