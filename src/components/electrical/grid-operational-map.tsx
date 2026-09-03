@@ -24,6 +24,7 @@ import {
 } from "@/lib/electrical-grid-operational";
 import { AXIS_COLS, AXIS_ROWS } from "@/lib/electrical-grid-map";
 import planImage from "@/assets/farm-shop-grid-plan.png";
+import { CollapsibleGroup } from "@/components/electrical/collapsible-section";
 import { cn } from "@/lib/utils";
 
 /** Plan envelope inside the drawing, measured from the grid corner markers. */
