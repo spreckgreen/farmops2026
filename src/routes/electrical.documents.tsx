@@ -497,6 +497,16 @@ function DocumentsWorkspace() {
         </div>
       ) : null}
 
+      <LabelVersionHistory
+        entries={history.filter((e) => e.docType === "avery-labels")}
+        onClear={() => {
+          clearDocVersionHistory("avery-labels");
+          setHistory(docVersionHistory());
+        }}
+      />
+
+
+
       {models ? (
         <Card>
           <CardHeader>
