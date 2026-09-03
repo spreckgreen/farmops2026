@@ -599,7 +599,7 @@ export function contractCsv(binding: ContractBinding): string {
   return lines.join("\n");
 }
 
-export function simulationCsv(sim: ContractSimulation): string {
+export function simulationCsv(sim: Pick<ContractSimulation, "fields">): string {
   const lines = [
     "field,physical_column,import_action,source_populated,representable,would_import,normalization_only,schema_blocked,unresolved,semantic_loss,note",
   ];
