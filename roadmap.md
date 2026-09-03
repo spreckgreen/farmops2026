@@ -11,3 +11,9 @@
 ## Grid map legacy-coordinate regression
 - [x] Plot unmigrated load/panel `grid` values through the frozen legacy A–G / 1–6 transformation
 - [x] Prefer recorded X/Y, then corrected `grid_reference`, without changing underlying records
+
+## Self-hosted Docker build memory reliability
+- [x] Enforce the Node heap cap in the Vite child process
+- [x] Preserve native bundler/host memory when automatically sizing the heap
+- [x] Release completed Vite environments between client, SSR, and Nitro phases
+- [x] Report child and cgroup memory in build heartbeats

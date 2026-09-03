@@ -82,10 +82,9 @@ RUN chmod +x /app/scripts/docker-preflight.sh 2>/dev/null || true && \
 # Build a Node-compatible server bundle instead of the default Cloudflare Worker.
 # vite.config.ts forwards NITRO_PRESET into the nitro plugin's `preset` option.
 ENV NITRO_PRESET=node-server
-# Node heap cap. Default 2560 MB fits a 4 GB host (leaves ~1.4 GB for the
-# kernel + bun + rollup native overhead). On 8 GB+ hosts pass
-# --build-arg NODE_HEAP_MB=6144 to speed transforms.
-# Default is 1536 MB to fit a 4 GB host with no swap. Raise on larger hosts.
+# Node heap cap. This controls V8 old-space only; Rollup/esbuild and Docker use
+# additional native memory. refresh.sh chooses a conservative host-aware value
+# (about 3 GB on an 8 GB host). The default fits a 4 GB host without swap.
 ARG NODE_HEAP_MB=1536
 ENV NODE_OPTIONS=--max-old-space-size=${NODE_HEAP_MB}
 ENV ROLLUP_NO_NATIVE=1
@@ -113,7 +112,7 @@ RUN --mount=type=cache,target=/app/node_modules/.vite,sharing=locked \
     echo "=== [builder] Stall guard: BUILD_STALL_SECS=600, hard cap BUILD_MAX_SECS=2700" && \
     echo "=== [builder] Started at $(date +%H:%M:%S)" && \
     echo "=============================================" && \
-    install-log.sh build bun run build:ci && \
+    install-log.sh build bun run build:ci || exit $?; \
     grep -RFl -- "$VITE_SUPABASE_URL" /app/dist/client >/dev/null || { \
       echo "ERROR: requested VITE_SUPABASE_URL was not embedded in the client bundle" >&2; \
       exit 1; \

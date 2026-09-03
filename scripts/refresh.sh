@@ -230,17 +230,23 @@ elif [ -z "$ENV_FILE" ]; then
 fi
 
 # --- 2. Build ---------------------------------------------------------------
-# Size the builder's Node heap from real host memory. Too low -> the Nitro pass
-# is SIGKILLed by the OOM killer; too high -> the host swaps/dies. Rule of thumb:
-# MemAvailable minus a 1.5 GB reserve for kernel + docker + running containers,
-# clamped to 1536..4096 MB. Override by exporting NODE_HEAP_MB before running.
+# Size the builder's Node heap from real host memory. V8 old-space is only part
+# of peak usage: Rollup/esbuild buffers, generated chunks, and Docker overhead
+# live outside that cap. Keep the automatic heap at the lower of 38% of total
+# RAM or MemAvailable minus a 2.5 GB native/host reserve, clamped to
+# 1536..3072 MB. Override explicitly with NODE_HEAP_MB when the host has swap or
+# substantially more headroom.
 if [ -z "${NODE_HEAP_MB:-}" ]; then
+  total_mb=$(awk '/MemTotal/{printf "%d", $2/1024}' /proc/meminfo 2>/dev/null || echo 0)
   avail_mb=$(awk '/MemAvailable/{printf "%d", $2/1024}' /proc/meminfo 2>/dev/null || echo 0)
-  heap=$(( avail_mb - 1536 ))
+  by_total=$(( total_mb * 38 / 100 ))
+  by_available=$(( avail_mb - 2560 ))
+  heap="$by_total"
+  [ "$by_available" -lt "$heap" ] && heap="$by_available"
   [ "$heap" -lt 1536 ] && heap=1536
-  [ "$heap" -gt 4096 ] && heap=4096
+  [ "$heap" -gt 3072 ] && heap=3072
   NODE_HEAP_MB="$heap"
-  log "Host MemAvailable=${avail_mb}MB -> NODE_HEAP_MB=${NODE_HEAP_MB}"
+  log "Host memory total=${total_mb}MB available=${avail_mb}MB -> NODE_HEAP_MB=${NODE_HEAP_MB} (native reserve preserved)"
 fi
 export NODE_HEAP_MB
 log "Building app image (BuildKit cache will short-circuit unchanged layers)"
