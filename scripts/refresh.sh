@@ -282,7 +282,8 @@ trap cleanup_build_swap EXIT
 trap 'cleanup_build_swap; exit 130' INT TERM
 
 swap_total_mb=$(awk '/SwapTotal/{printf "%d", $2/1024}' /proc/meminfo 2>/dev/null || echo 0)
-if [ "${total_mb:-0}" -lt 12288 ] && [ "$swap_total_mb" -lt 1024 ] && command -v mkswap >/dev/null 2>&1 && { [ "$(id -u)" -eq 0 ] || [ "${#ROOT_CMD[@]}" -gt 0 ]; }; then
+swap_dir_available_mb=$(df -Pm "$(dirname "$BUILD_SWAP_FILE")" 2>/dev/null | awk 'NR==2{print $4}' || echo 0)
+if [ "${total_mb:-0}" -lt 12288 ] && [ "$swap_total_mb" -lt 1024 ] && [ "$swap_dir_available_mb" -ge 5120 ] && command -v mkswap >/dev/null 2>&1 && { [ "$(id -u)" -eq 0 ] || [ "${#ROOT_CMD[@]}" -gt 0 ]; }; then
   log "Low-memory host has ${swap_total_mb}MB swap; preparing a 4096MB build-only safety net"
   if "${ROOT_CMD[@]}" rm -f "$BUILD_SWAP_FILE" 2>/dev/null \
     && { "${ROOT_CMD[@]}" fallocate -l 4G "$BUILD_SWAP_FILE" 2>/dev/null \
@@ -297,7 +298,7 @@ if [ "${total_mb:-0}" -lt 12288 ] && [ "$swap_total_mb" -lt 1024 ] && command -v
     "${ROOT_CMD[@]}" rm -f "$BUILD_SWAP_FILE" 2>/dev/null || true
   fi
 elif [ "${total_mb:-0}" -lt 12288 ] && [ "$swap_total_mb" -lt 1024 ]; then
-  err "Warning: no passwordless root access for temporary swap; continuing with constrained Rolldown workers"
+  err "Warning: temporary swap unavailable (needs passwordless root and 5120MB free); continuing with constrained Rolldown workers"
 fi
 
 log "Build limits: heap=${NODE_HEAP_MB}MB rolldown-workers=${ROLLDOWN_WORKER_THREADS} blocking-workers=${ROLLDOWN_MAX_BLOCKING_THREADS} rayon=${RAYON_NUM_THREADS}"

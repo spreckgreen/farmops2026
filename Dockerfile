@@ -93,6 +93,9 @@ ARG RAYON_NUM_THREADS=2
 ENV ROLLDOWN_WORKER_THREADS=${ROLLDOWN_WORKER_THREADS}
 ENV ROLLDOWN_MAX_BLOCKING_THREADS=${ROLLDOWN_MAX_BLOCKING_THREADS}
 ENV RAYON_NUM_THREADS=${RAYON_NUM_THREADS}
+# Limit glibc allocator arenas so native bundler buffers are returned/reused
+# instead of being retained across Nitro's sequential build environments.
+ENV MALLOC_ARENA_MAX=2
 ENV VITE_CJS_IGNORE_WARNING=true
 # Low-memory build path: vite.config.ts disables sourcemaps, gzip-size
 # reporting, and rollup cache when this is set. Always on inside Docker.
