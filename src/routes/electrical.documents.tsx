@@ -684,3 +684,80 @@ function VerifyResultView({
     </div>
   );
 }
+
+/**
+ * Printed Avery sheet history: every label sheet generated on this browser,
+ * with the FarmOps version it came from. Each printed cell also carries the same
+ * version code, so a sheet on a panel door can be traced back to this list.
+ */
+function LabelVersionHistory({
+  entries,
+  onClear,
+}: {
+  entries: DocVersionHistoryEntry[];
+  onClear: () => void;
+}) {
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between gap-3">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <History className="size-4" />
+          Avery label sheet version history
+        </CardTitle>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={!entries.length}
+            onClick={() => {
+              const url = URL.createObjectURL(
+                new Blob([historyCsv(entries)], { type: "text/csv" }),
+              );
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = "avery-label-version-history.csv";
+              a.click();
+              URL.revokeObjectURL(url);
+            }}
+          >
+            <FileDown className="mr-2 size-4" />
+            Export CSV
+          </Button>
+          <Button variant="ghost" size="sm" disabled={!entries.length} onClick={onClear}>
+            Clear
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {entries.length === 0 ? (
+          <p className="text-muted-foreground text-sm">
+            No label sheets printed from this browser yet. Each generated sheet is recorded here with
+            its version code, the snapshot it was built from and whether it came from the live
+            snapshot or a captured bundle.
+          </p>
+        ) : (
+          <ul className="divide-border divide-y text-sm">
+            {entries.map((e) => (
+              <li key={e.id} className="flex flex-wrap items-baseline gap-x-3 gap-y-1 py-2">
+                <span className="font-mono text-xs">{e.versionCode}</span>
+                <Badge variant="outline" className="text-[10px]">
+                  {e.sourceKind === "live" ? "live snapshot" : `captured ${e.sourceLabel}`}
+                </Badge>
+                <span className="text-muted-foreground text-xs">
+                  data {e.generatedAt} · schema {e.schemaVersion} · API {e.apiVersion}
+                </span>
+                <span className="text-muted-foreground text-xs">
+                  {e.counts["labels"] ?? 0} labels · {e.scope}
+                </span>
+                <span className="text-muted-foreground text-xs">
+                  printed {new Date(e.printedAt).toLocaleString()} by {e.printedBy}
+                </span>
+                <span className="text-muted-foreground w-full text-xs break-all">{e.fileName}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
