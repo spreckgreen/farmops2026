@@ -46,16 +46,20 @@ export function EntityQrLabel({
   const compact = spec.id !== "letter-4x2";
 
   if (spec.short) {
+    const right = shortRightLines(record);
     return (
       <ShortLabelCell
         stableId={record.stable_id}
         detail={shortLabelText(record)}
         qrSvg={shortQr ? svg : null}
         showQr={shortQr}
+        rightTop={right.top}
+        rightBottom={right.bottom}
         className={className}
       />
     );
   }
+
 
   return (
     <div
