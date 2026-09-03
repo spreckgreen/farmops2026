@@ -338,8 +338,9 @@ async function evaluateRelationship(
 
 export async function handleRelationshipPreview(
   caller: ApiCaller,
-  proposals: RelationshipProposal[],
+  rawProposals: unknown[],
 ): Promise<Response> {
+  const proposals = rawProposals as RelationshipProposal[];
   const results: RelationshipOutcome[] = [];
   for (const p of proposals) results.push(await evaluateRelationship(caller, p));
   return apiJson({
@@ -354,8 +355,9 @@ export async function handleRelationshipPreview(
 
 export async function handleRelationshipApply(
   caller: ApiCaller,
-  proposals: RelationshipProposal[],
+  rawProposals: unknown[],
 ): Promise<Response> {
+  const proposals = rawProposals as RelationshipProposal[];
   const db = caller.supabase as LooseDb;
   const results: RelationshipOutcome[] = [];
   for (const p of proposals) {
@@ -474,8 +476,9 @@ async function evaluateObservation(
 
 export async function handleObservationPreview(
   caller: ApiCaller,
-  observations: ObservationProposal[],
+  rawObservations: unknown[],
 ): Promise<Response> {
+  const observations = rawObservations as ObservationProposal[];
   const observedAt = new Date().toISOString();
   const results: ObservationOutcome[] = [];
   for (const o of observations) results.push(await evaluateObservation(caller, o, observedAt));
@@ -492,8 +495,9 @@ export async function handleObservationPreview(
 
 export async function handleObservationApply(
   caller: ApiCaller,
-  observations: ObservationProposal[],
+  rawObservations: unknown[],
 ): Promise<Response> {
+  const observations = rawObservations as ObservationProposal[];
   const db = caller.supabase as LooseDb;
   const observedAt = new Date().toISOString();
   const results: ObservationOutcome[] = [];
@@ -547,10 +551,10 @@ export async function handleObservationApply(
 
 /* ----------------------------------------------------------------- parsing */
 
-export async function readJsonArray<T>(
+export async function readJsonArray(
   request: Request,
   key: string,
-): Promise<{ items: T[] } | Response> {
+): Promise<{ items: unknown[] } | Response> {
   let body: unknown;
   try {
     body = await request.json();
@@ -562,5 +566,5 @@ export async function readJsonArray<T>(
     return apiError(`Body must contain a non-empty "${key}" array.`, 400);
   }
   if (raw.length > 200) return apiError(`At most 200 ${key} per request.`, 400);
-  return { items: raw as T[] };
+  return { items: raw };
 }
