@@ -180,6 +180,18 @@ export interface LabelRecord {
   values: Record<string, string>;
 }
 
+/**
+ * Extra columns the shortened (Avery 8593) label prints in its right-hand
+ * column: the grid location on line 1 and the volt/amp + circuit class on
+ * line 2. Only loads carry a documented dedicated/shared class.
+ */
+export const SHORT_RIGHT_KEYS: Partial<Record<LabelKind, string[]>> = {
+  load: ["volts", "amps", "dedicated_shared"],
+  circuit_group: ["voltage", "circuit_rating_amps"],
+  panel: ["voltage"],
+  branch: ["voltage", "circuit_rating_amps"],
+};
+
 /** Every column the server must read for one kind. */
 export function labelColumns(kind: LabelKind): string[] {
   const def = ENTITIES[kind];
@@ -189,9 +201,32 @@ export function labelColumns(kind: LabelKind): string[] {
   for (const k of LOCATION_KEYS[kind]) keys.add(k);
   const grid = GRID_KEYS[kind];
   if (grid) keys.add(grid);
+  for (const k of SHORT_RIGHT_KEYS[kind] ?? []) keys.add(k);
   if (kind === "load" || kind === "device") keys.add("circuit_group_uuid");
   return [...keys];
 }
+
+/**
+ * Right-hand column of a shortened label: line 1 is the grid location, line 2
+ * is the volt/amp rating followed by the recorded circuit class ("D" or "S").
+ * Nothing is inferred — a blank record field prints blank.
+ */
+export function shortRightLines(record: LabelRecord): { top: string; bottom: string } {
+  const [voltKey, ampKey, classKey] = SHORT_RIGHT_KEYS[record.kind] ?? [];
+  const val = (key?: string) => (key ? (record.values[key] ?? "").trim() : "");
+  const volts = val(voltKey);
+  const amps = val(ampKey);
+  const cls = val(classKey).toUpperCase().startsWith("D")
+    ? "D"
+    : val(classKey).toUpperCase().startsWith("S")
+      ? "S"
+      : "";
+  const bottom = [volts ? `${volts}V` : "", amps ? `${amps}A` : "", cls]
+    .filter(Boolean)
+    .join(" ");
+  return { top: gridOf(record), bottom };
+}
+
 
 const PANEL_ID_LIKE = /^PNL[-_]/i;
 
