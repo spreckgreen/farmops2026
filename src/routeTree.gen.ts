@@ -115,6 +115,7 @@ import { Route as ApiPublicHooksRachioSyncRouteImport } from './routes/api/publi
 import { Route as ApiPublicHealthProceduresRouteImport } from './routes/api/public/health.procedures'
 import { Route as ApiElectricalV1OpenapiDotjsonRouteImport } from './routes/api/electrical/v1/openapi[.]json'
 import { Route as ApiElectricalV1SplatRouteImport } from './routes/api/electrical/v1/$'
+import { Route as ApiElectricalV1RelationshipsPreviewRouteImport } from './routes/api/electrical/v1/relationships.preview'
 
 const VaultRoute = VaultRouteImport.update({
   id: '/vault',
@@ -655,6 +656,12 @@ const ApiElectricalV1SplatRoute = ApiElectricalV1SplatRouteImport.update({
   path: '/api/electrical/v1/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiElectricalV1RelationshipsPreviewRoute =
+  ApiElectricalV1RelationshipsPreviewRouteImport.update({
+    id: '/api/electrical/v1/relationships/preview',
+    path: '/api/electrical/v1/relationships/preview',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -763,6 +770,7 @@ export interface FileRoutesByFullPath {
   '/api/public/hooks/task-health': typeof ApiPublicHooksTaskHealthRoute
   '/api/public/webhooks/rachio': typeof ApiPublicWebhooksRachioRoute
   '/electrical/item/$kind/$id': typeof ElectricalItemKindIdRoute
+  '/api/electrical/v1/relationships/preview': typeof ApiElectricalV1RelationshipsPreviewRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -868,6 +876,7 @@ export interface FileRoutesByTo {
   '/api/public/hooks/task-health': typeof ApiPublicHooksTaskHealthRoute
   '/api/public/webhooks/rachio': typeof ApiPublicWebhooksRachioRoute
   '/electrical/item/$kind/$id': typeof ElectricalItemKindIdRoute
+  '/api/electrical/v1/relationships/preview': typeof ApiElectricalV1RelationshipsPreviewRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -977,6 +986,7 @@ export interface FileRoutesById {
   '/api/public/hooks/task-health': typeof ApiPublicHooksTaskHealthRoute
   '/api/public/webhooks/rachio': typeof ApiPublicWebhooksRachioRoute
   '/electrical/item/$kind/$id': typeof ElectricalItemKindIdRoute
+  '/api/electrical/v1/relationships/preview': typeof ApiElectricalV1RelationshipsPreviewRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -1087,6 +1097,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/task-health'
     | '/api/public/webhooks/rachio'
     | '/electrical/item/$kind/$id'
+    | '/api/electrical/v1/relationships/preview'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -1192,6 +1203,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/task-health'
     | '/api/public/webhooks/rachio'
     | '/electrical/item/$kind/$id'
+    | '/api/electrical/v1/relationships/preview'
   id:
     | '__root__'
     | '/'
@@ -1300,6 +1312,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/task-health'
     | '/api/public/webhooks/rachio'
     | '/electrical/item/$kind/$id'
+    | '/api/electrical/v1/relationships/preview'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -1387,6 +1400,7 @@ export interface RootRouteChildren {
   ApiPublicHooksTaskHealthRoute: typeof ApiPublicHooksTaskHealthRoute
   ApiPublicWebhooksRachioRoute: typeof ApiPublicWebhooksRachioRoute
   ElectricalItemKindIdRoute: typeof ElectricalItemKindIdRoute
+  ApiElectricalV1RelationshipsPreviewRoute: typeof ApiElectricalV1RelationshipsPreviewRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -2133,6 +2147,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiElectricalV1SplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/electrical/v1/relationships/preview': {
+      id: '/api/electrical/v1/relationships/preview'
+      path: '/api/electrical/v1/relationships/preview'
+      fullPath: '/api/electrical/v1/relationships/preview'
+      preLoaderRoute: typeof ApiElectricalV1RelationshipsPreviewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -2312,6 +2333,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicHooksTaskHealthRoute: ApiPublicHooksTaskHealthRoute,
   ApiPublicWebhooksRachioRoute: ApiPublicWebhooksRachioRoute,
   ElectricalItemKindIdRoute: ElectricalItemKindIdRoute,
+  ApiElectricalV1RelationshipsPreviewRoute:
+    ApiElectricalV1RelationshipsPreviewRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
