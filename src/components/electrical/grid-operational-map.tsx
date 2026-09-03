@@ -159,72 +159,73 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
               ))}
             </div>
 
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="mr-1 text-xs text-muted-foreground">Type:</span>
-              {(Object.keys(ASSET_KIND_LABEL) as AssetKind[]).map((k) => (
-                <Chip
-                  key={k}
-                  active={kinds.has(k)}
-                  onClick={() => toggle(kinds, setKinds, k)}
-                >
-                  {ASSET_KIND_LABEL[k]} ({assets.filter((a) => a.kind === k).length})
-                </Chip>
-              ))}
-            </div>
+            {/* Secondary filters stay folded away so the plan itself is what
+                the reader sees first. */}
+            <CollapsibleGroup
+              title={`Filters — type, precision, install, verification (${filtered.length} of ${assets.length} shown)`}
+              storageKey="grid-map.filters"
+            >
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="mr-1 text-xs text-muted-foreground">Type:</span>
+                {(Object.keys(ASSET_KIND_LABEL) as AssetKind[]).map((k) => (
+                  <Chip key={k} active={kinds.has(k)} onClick={() => toggle(kinds, setKinds, k)}>
+                    {ASSET_KIND_LABEL[k]} ({assets.filter((a) => a.kind === k).length})
+                  </Chip>
+                ))}
+              </div>
 
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="mr-1 text-xs text-muted-foreground">Precision:</span>
-              {PRECISION_ORDER.map((p) => (
-                <button
-                  key={p}
-                  type="button"
-                  onClick={() => toggle(precisions, setPrecisions, p)}
-                  className={cn(
-                    "flex items-center gap-1.5 rounded px-1.5 py-0.5 text-xs transition-opacity",
-                    precisions.has(p) ? "opacity-100" : "opacity-40",
-                  )}
-                >
-                  <span className={cn("h-2.5 w-2.5 rounded-full", PRECISION_META[p].swatch)} />
-                  {PRECISION_META[p].label} ({q.data!.summary.precision[p]})
-                </button>
-              ))}
-            </div>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="mr-1 text-xs text-muted-foreground">Precision:</span>
+                {PRECISION_ORDER.map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => toggle(precisions, setPrecisions, p)}
+                    className={cn(
+                      "flex items-center gap-1.5 rounded px-1.5 py-0.5 text-xs transition-opacity",
+                      precisions.has(p) ? "opacity-100" : "opacity-40",
+                    )}
+                  >
+                    <span className={cn("h-2.5 w-2.5 rounded-full", PRECISION_META[p].swatch)} />
+                    {PRECISION_META[p].label} ({q.data!.summary.precision[p]})
+                  </button>
+                ))}
+              </div>
 
-            <div className="flex flex-wrap items-center gap-3 text-xs">
-              <label className="flex items-center gap-1">
-                Install status
-                <select
-                  className="rounded border border-border bg-background px-1 py-0.5"
-                  value={install}
-                  onChange={(e) => setInstall(e.target.value)}
-                >
-                  <option value="ALL">All</option>
-                  {installStatuses.map((v) => (
-                    <option key={v} value={v}>
-                      {v}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="flex items-center gap-1">
-                Field verification
-                <select
-                  className="rounded border border-border bg-background px-1 py-0.5"
-                  value={verify}
-                  onChange={(e) => setVerify(e.target.value as "ALL" | VerificationStatus)}
-                >
-                  <option value="ALL">All</option>
-                  {(Object.keys(VERIFICATION_LABEL) as VerificationStatus[]).map((v) => (
-                    <option key={v} value={v}>
-                      {VERIFICATION_LABEL[v]}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <span className="text-muted-foreground">
-                {plotted.length} plotted · {unplotted.length} not plotted
-              </span>
-            </div>
+              <div className="flex flex-wrap items-center gap-3 text-xs">
+                <label className="flex items-center gap-1">
+                  Install status
+                  <select
+                    className="rounded border border-border bg-background px-1 py-0.5"
+                    value={install}
+                    onChange={(e) => setInstall(e.target.value)}
+                  >
+                    <option value="ALL">All</option>
+                    {installStatuses.map((v) => (
+                      <option key={v} value={v}>
+                        {v}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="flex items-center gap-1">
+                  Field verification
+                  <select
+                    className="rounded border border-border bg-background px-1 py-0.5"
+                    value={verify}
+                    onChange={(e) => setVerify(e.target.value as "ALL" | VerificationStatus)}
+                  >
+                    <option value="ALL">All</option>
+                    {(Object.keys(VERIFICATION_LABEL) as VerificationStatus[]).map((v) => (
+                      <option key={v} value={v}>
+                        {VERIFICATION_LABEL[v]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            </CollapsibleGroup>
+
 
             <div
               className={cn(
