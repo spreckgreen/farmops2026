@@ -94,6 +94,28 @@ function usePrintMode(): [PrintMode, (next: PrintMode) => void] {
   return [mode, apply];
 }
 
+/** Remembered on/off layer choice, so the map opens the way it was left. */
+function usePersistedFlag(key: string): [boolean, (next: boolean) => void] {
+  const [on, setOn] = useState(false);
+  useEffect(() => {
+    try {
+      setOn(window.localStorage.getItem(key) === "1");
+    } catch {
+      // Storage unavailable; keep the default.
+    }
+  }, [key]);
+  const apply = (next: boolean) => {
+    setOn(next);
+    try {
+      window.localStorage.setItem(key, next ? "1" : "0");
+    } catch {
+      // Persistence is a convenience only.
+    }
+  };
+  return [on, apply];
+}
+
+
 export function GridOperationalMap({ large = false }: { large?: boolean }) {
   const fetcher = useServerFn(electricalGridOperational);
   const q = useQuery({ queryKey: ["electrical", "grid-operational"], queryFn: () => fetcher() });
