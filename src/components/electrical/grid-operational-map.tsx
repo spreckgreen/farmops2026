@@ -129,6 +129,10 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
   const [verify, setVerify] = useState<"ALL" | VerificationStatus>("ALL");
   const [selected, setSelected] = useState<string | null>(null);
   const [showLeds, setShowLeds] = useState(false);
+  const [showDesignVsField, setShowDesignVsField] = usePersistedFlag(
+    "farmops.grid-map.design-vs-field",
+  );
+
   const [printMode, setPrintMode] = usePrintMode();
   const [saving, setSaving] = useState(false);
   // Stamped at the moment a sheet is produced, so the header time is the
