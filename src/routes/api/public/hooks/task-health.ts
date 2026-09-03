@@ -28,17 +28,15 @@ export const Route = createFileRoute("/api/public/hooks/task-health")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        // Cron sends the project anon key; self-hosted stacks expose the same
-        // value as SUPABASE_PUBLISHABLE_KEY, so accept either.
-        const anon =
-          process.env.SUPABASE_ANON_KEY ||
-          process.env.SUPABASE_PUBLISHABLE_KEY ||
-          import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
-          "";
+        // Authenticated with a private, server-only shared secret — never the
+        // project anon/publishable key, which ships in the browser bundle and
+        // would let any visitor trigger bulk task merges. Fail closed when the
+        // secret is not configured.
+        const secret = process.env.TASK_HEALTH_CRON_SECRET ?? "";
         const provided =
-          request.headers.get("apikey") ??
+          request.headers.get("x-task-health-cron-secret") ??
           (request.headers.get("authorization") ?? "").replace(/^Bearer /, "");
-        if (!secretOk(provided, anon)) {
+        if (!secretOk(provided, secret)) {
           return new Response("Unauthorized", { status: 401 });
         }
 
