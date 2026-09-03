@@ -865,9 +865,13 @@ function AiFeaturesButton({ userId, email }: { userId: string; email: string | n
   });
 
   const rows = (grantsQ.data ?? []).filter((r) => r.user_id === userId);
-  const approved = rows
-    .filter((r) => r.status === "approved")
-    .map((r) => r.scenario as ElectricalAiScenarioId);
+  // A scenario counts as "on" when it is approved, or when no decision was ever
+  // recorded (their add-on entitlement still applies). Unticking writes an
+  // explicit revoke, which overrides entitlement in the user's AI features tab.
+  const approved = ELECTRICAL_AI_SCENARIOS.filter((def) => {
+    const row = rows.find((r) => r.scenario === def.id);
+    return !row || row.status === "approved";
+  }).map((def) => def.id);
   const pendingCount = rows.filter((r) => r.status === "pending").length;
   const effective = picked ?? approved;
 
