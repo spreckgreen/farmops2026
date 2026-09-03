@@ -259,11 +259,11 @@ export async function authorizeApiRequest(
     }
     principal = resolved.principal;
     userId = resolved.ownerUserId;
-    // A service principal has no user session; reads run through the server
-    // client on behalf of the principal's owner. Only read scopes are ever
-    // granted while Phase 2/3 remain unactivated.
+    // A service principal has no user session, so RLS cannot scope its reads.
+    // Every query it issues is forced to the principal owner's own rows, which
+    // reproduces the ownership boundary RLS gives a user access token.
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    supabase = supabaseAdmin;
+    supabase = ownerScopedDb(supabaseAdmin, resolved.ownerUserId);
   } else {
     const client = createClient(url, key, {
       global: { headers: { Authorization: `Bearer ${token}` } },
