@@ -36,18 +36,19 @@ import {
   unresolvedCellCsv,
   unresolvedCellDetail,
 } from "@/lib/electrical-load-loss-closure";
+import { alignmentCsv } from "@/lib/electrical-load-contract-v3";
 
 export const Route = createFileRoute("/electrical/import-contract")({
   component: ImportContractPage,
   head: () => ({
     meta: [
-      { title: "Load_Master Import Contract v2 — Bostead Farms" },
+      { title: "Load_Master Import Contract v3 — Bostead Farms" },
       {
         name: "description",
         content:
-          "Read-only Load_Master Import Contract v2: all 41 physical columns defined by position and exact header, with a lossless re-import simulation and canonical business-rule reconciliation.",
+          "Read-only Load_Master Import Contract v3: every physical column bound by position, exact observed header and canonical semantic identity from the SHA-authorized workbook, with registry alignment audit and lossless re-import simulation.",
       },
-      { property: "og:title", content: "Load_Master Import Contract v2 — Bostead Farms" },
+      { property: "og:title", content: "Load_Master Import Contract v3 — Bostead Farms" },
       {
         property: "og:description",
         content:
@@ -102,7 +103,7 @@ function ImportContractPage() {
     onSuccess: (payload) => {
       setResult(payload);
       toast.success(
-        `Contract v2 simulated over ${payload.row_count} row(s) — semantic loss ${payload.totals.semantic_loss}.`,
+        `${payload.contract_version} simulated over ${payload.row_count} row(s) — semantic loss ${payload.totals.semantic_loss}.`,
       );
     },
     onError: (e: Error) => toast.error(e.message),
@@ -128,7 +129,15 @@ function ImportContractPage() {
 
   // Read-only closure plan over the columns that do not bind at their physical position.
   const closure = useMemo(
-    () => (result ? buildLossClosure(result.binding, result.fields, result.row_count) : null),
+    () =>
+      result
+        ? buildLossClosure(
+            result.binding,
+            result.fields,
+            result.row_count,
+            result.contract_version,
+          )
+        : null,
     [result],
   );
 
@@ -143,14 +152,17 @@ function ImportContractPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-base">
-              <FileSpreadsheet className="h-4 w-4" /> Load_Master Import Contract v2 (read only)
+              <FileSpreadsheet className="h-4 w-4" /> Load_Master Import Contract v3 (read only)
             </CardTitle>
             <p className="text-sm text-muted-foreground">
-              Every one of the {CONTRACT_COLUMN_COUNT} physical columns of{" "}
-              <span className="font-mono">{CANONICAL_ODS_PATH}</span> is resolved by physical column
-              number plus exact header text — never by header text alone and never from FarmOps
-              contents. A column whose observed header does not bind is reported UNRESOLVED rather
-              than slid onto a neighbour. Nothing on this page writes a FarmOps record.
+              Contract v3 is materialised from the SHA-authorized{" "}
+              <span className="font-mono">{CANONICAL_ODS_PATH}</span> header row itself: every
+              physical column binds by position plus its exact observed header plus a registered
+              canonical semantic identity. Contract v2's fixed {CONTRACT_COLUMN_COUNT}-column
+              positional registry is retained unmodified for audit history and reported in the
+              alignment audit below. A populated column whose observed header matches no registered
+              canonical semantic stays UNRESOLVED rather than being slid onto a neighbour. Nothing
+              on this page writes a FarmOps record, a schema migration or a re-import.
             </p>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
@@ -225,7 +237,7 @@ function ImportContractPage() {
                   }
                 >
                   {result.accepted
-                    ? "Acceptance met: semantic loss = 0. Every populated canonical cell is representable under Contract v2, either in a typed FarmOps destination or preserved verbatim under its source identity."
+                    ? `Acceptance met: semantic loss = 0. Every populated canonical cell is representable under ${result.contract_version}, either in a typed FarmOps destination or preserved verbatim under its source identity.`
                     : `Acceptance NOT met: semantic loss = ${result.totals.semantic_loss}. Repair stays blocked until every populated canonical cell is representable.`}
                 </p>
                 <p
@@ -246,7 +258,7 @@ function ImportContractPage() {
                     className="gap-1"
                     onClick={() =>
                       download(
-                        "load-master-import-contract-v2.csv",
+                        `load-master-import-contract-${result.contract_version}.csv`,
                         contractCsv(result.binding),
                         "text/csv",
                       )
@@ -274,9 +286,106 @@ function ImportContractPage() {
           </CardContent>
         </Card>
 
+        {result ? (
+          <PersistedSection
+            storageKey="import-contract-alignment"
+            title={`Contract registry alignment audit — ${result.alignment.from_version} → ${result.alignment.to_version}`}
+            defaultOpen
+          >
+            <div className="space-y-2">
+              <p className="text-xs text-muted-foreground">
+                Physical column by physical column: the header Contract v2 expected, the header the
+                authorized workbook actually carries, the semantic identity the prior positional
+                registry assigned, and the disposition v3 applies. A rebound column is a registry
+                mismatch, not semantic loss — a known canonical field is never demoted to a
+                structured extra just because v2 expected a different header at that position.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {Object.entries(result.alignment.totals)
+                  .filter(([, n]) => n > 0)
+                  .map(([k, n]) => (
+                    <Badge key={k} variant={k === "ALIGNED" ? "default" : "outline"}>
+                      {k}: {n}
+                    </Badge>
+                  ))}
+                <Badge variant="secondary">
+                  mismatched positions: {result.alignment.mismatched_positions}
+                </Badge>
+                <Badge
+                  variant={
+                    result.alignment.unknown_populated_columns ? "destructive" : "outline"
+                  }
+                >
+                  genuinely unknown populated columns:{" "}
+                  {result.alignment.unknown_populated_columns}
+                </Badge>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1"
+                onClick={() =>
+                  download(
+                    "load-master-contract-registry-alignment.csv",
+                    alignmentCsv(result.alignment),
+                    "text/csv",
+                  )
+                }
+              >
+                <Download className="h-4 w-4" /> Alignment audit CSV
+              </Button>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead className="text-left text-muted-foreground">
+                    <tr>
+                      <th className="p-1">#</th>
+                      <th className="p-1">v2 expected header</th>
+                      <th className="p-1">observed header</th>
+                      <th className="p-1">prior semantic identity</th>
+                      <th className="p-1">v3 semantic identity</th>
+                      <th className="p-1">populated</th>
+                      <th className="p-1">disposition</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {result.alignment.rows.map((r) => (
+                      <tr key={r.physical_column} className="border-t border-border/60 align-top">
+                        <td className="p-1 font-mono">{r.physical_column}</td>
+                        <td className="p-1 font-mono">{r.v2_expected_header}</td>
+                        <td className="p-1 font-mono">{r.observed_header}</td>
+                        <td className="p-1 font-mono">{r.prior_semantic_identity}</td>
+                        <td className="p-1 font-mono">{r.v3_semantic_identity}</td>
+                        <td className="p-1">{r.populated_cells}</td>
+                        <td className="p-1">
+                          <Badge
+                            variant={
+                              r.disposition === "ALIGNED"
+                                ? "default"
+                                : r.disposition === "UNKNOWN_HEADER_OWNER_REVIEW"
+                                  ? "destructive"
+                                  : "outline"
+                            }
+                          >
+                            {r.disposition}
+                          </Badge>
+                          <p className="mt-1 text-muted-foreground">{r.note}</p>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </PersistedSection>
+        ) : null}
+
         <PersistedSection
           storageKey="import-contract-columns"
-          title={`Contract — ${CONTRACT_COLUMN_COUNT} physical columns`}
+          title={
+            result
+              ? `${result.contract_version} — ${result.binding.expected_column_count} physical columns`
+              : `Contract v2 registry (retained for audit) — ${CONTRACT_COLUMN_COUNT} physical columns`
+          }
           defaultOpen
         >
           <div className="space-y-2">
@@ -624,7 +733,7 @@ function ImportContractPage() {
                   {result.binding.extra_populated_columns.map((c) => (
                     <li key={c.physical_column} className="font-mono">
                       column {c.physical_column}: {c.observed_header || "(unnamed, populated)"} —
-                      UNRESOLVED, outside Contract v2
+                      UNRESOLVED, outside the contract registry
                     </li>
                   ))}
                 </ul>
