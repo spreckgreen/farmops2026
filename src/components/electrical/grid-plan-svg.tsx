@@ -128,7 +128,7 @@ export function GridPlanSvg({
         default:
       }
     },
-    [moveFocus, onSelect],
+    [moveFocus, onSelect, selectedId],
   );
 
   return (
@@ -181,7 +181,11 @@ export function GridPlanSvg({
                   tabIndex: 0,
                   "aria-label": label,
                   "aria-pressed": selected,
-                  onClick: () => onSelect?.(a.stableId),
+                  onClick: () => {
+                    // Clicking re-pins the helper text to this marker.
+                    setDismissed(null);
+                    onSelect?.(a.stableId);
+                  },
                   onKeyDown: (e: React.KeyboardEvent<SVGGElement>) => onMarkerKeyDown(e, a.stableId),
                   onFocus: () => {
                     setFocusedId(a.stableId);
