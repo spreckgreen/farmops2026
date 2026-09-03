@@ -97,6 +97,7 @@ export function GridPlanSvg({
         case " ":
         case "Spacebar":
           e.preventDefault();
+          setDismissed(null);
           onSelect?.(stableId);
           setHovered(stableId);
           return;
