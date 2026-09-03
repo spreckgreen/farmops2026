@@ -400,8 +400,82 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
         )}
       </CardContent>
     </Card>
+
+    {/* Dedicated print region: the same plotted records, rendered without
+        controls. Data quality only follows when that method is chosen. */}
+    {q.data ? (
+      <div className="grid-map-print-region text-black">
+        <h1 className="text-lg font-semibold">
+          Farm Shop grid map — current install locations
+        </h1>
+        <p className="text-xs">
+          Printed {new Date().toLocaleString()} · panel filter:{" "}
+          {panel === "ALL" ? "all panels" : panel} · {plotted.length} of {filtered.length} record(s)
+          plotted · {unplotted.length} not mapped
+          {q.data.gaps.length ? ` · ${q.data.gaps.length} record gap(s)` : ""}
+        </p>
+        <div className="relative mt-2 w-full border border-black">
+          <img src={planImage} alt="Farm Shop grid plan" className="block h-auto w-full" />
+          {plotted.map((a) => {
+            const left = PLAN.left + ((a.xPct ?? 0) / 100) * (PLAN.right - PLAN.left);
+            const top = PLAN.top + ((a.yPct ?? 0) / 100) * (PLAN.bottom - PLAN.top);
+            return (
+              <span
+                key={`print-${a.kind}-${a.stableId}`}
+                className={cn(
+                  "absolute block h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2",
+                  PRECISION_META[a.precision].dot,
+                  a.kind === "panel" ? "rounded-sm" : "rounded-full",
+                )}
+                style={{ left: `${left}%`, top: `${top}%` }}
+              />
+            );
+          })}
+        </div>
+        <p className="mt-1 text-[11px]">
+          {plotted.length} of {filtered.length} record(s) plotted · {unplotted.length} not mapped (no
+          permanent location in the record)
+          {q.data.gaps.length ? ` · ${q.data.gaps.length} record gap(s)` : ""}
+        </p>
+
+        <div className="grid-map-print-dq mt-4 space-y-2">
+          <h2 className="text-base font-semibold">Data quality</h2>
+          <p className="text-[11px]">
+            Rows A–F run north→south at {AXIS_ROWS.map((r) => r.yFt).join("/")} ft; columns 1–9 run
+            west→east at {AXIS_COLS.map((c) => c.xFt).join("/")} ft. Interval dots mark a preserved
+            span, not a final install point. Mobile and unresolved records are never snapped onto the
+            drawing.
+          </p>
+          <p className="text-[11px] font-medium">
+            {unplotted.length} not mapped · {discrepancies} imprecise · {q.data.gaps.length} record
+            gap(s)
+          </p>
+          {unplotted.length ? (
+            <ul className="text-[11px]">
+              {unplotted.map((a) => (
+                <li key={`print-dq-${a.kind}-${a.stableId}`}>
+                  <span className="font-mono">{a.stableId}</span> —{" "}
+                  {PRECISION_META[a.precision].label}
+                  {a.precisionBasis ? ` — ${a.precisionBasis}` : ""}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {q.data.gaps.length ? (
+            <div className="text-[11px]">
+              <p className="font-medium">Record gaps</p>
+              {q.data.gaps.map((g, i) => (
+                <p key={i}>{g}</p>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      </div>
+    ) : null}
+    </>
   );
 }
+
 
 export function AssetDetail({ asset }: { asset: OperationalAsset }) {
   const rows: [string, string][] = [
