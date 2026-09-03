@@ -6,6 +6,7 @@ import {
   itemQrUrl,
   labelColumns,
   labelLines,
+  labelWalkGroups,
   locationKeyOf,
   panelKeyOf,
   panelOptions,
@@ -127,5 +128,24 @@ describe("print formats and groups", () => {
 
   it("every print group only names printable kinds", () => {
     for (const g of PRINT_GROUPS) for (const k of g.kinds) expect(LABEL_KINDS).toContain(k);
+  });
+});
+
+describe("Avery 8593 walk order", () => {
+  it("groups by location then panel, and walks grid then load name", () => {
+    const records = [
+      load("FS-002", { area: "Farm Shop", suggested_panel: "PNL-FS-EQ", grid: "B6", description: "Zebra" }),
+      load("FS-001", { area: "Farm Shop", suggested_panel: "PNL-FS-EQ", grid: "A6", description: "Anvil" }),
+      load("FS-003", { area: "Farm Shop", suggested_panel: "PNL-FS-EQ", grid: "A6", description: "Bench" }),
+      load("FS-004", { area: "Farm Shop", suggested_panel: "PNL-BLR", grid: "G6", description: "Boiler" }),
+      load("H-001", { area: "House", suggested_panel: "PNL-H1", grid: "", description: "Fridge" }),
+    ];
+    const groups = labelWalkGroups(records);
+    expect(groups.map((g) => [g.location, g.panel])).toEqual([
+      ["Farm Shop", "PNL-BLR"],
+      ["Farm Shop", "PNL-FS-EQ"],
+      ["House", "PNL-H1"],
+    ]);
+    expect(groups[1]!.records.map((r) => r.stable_id)).toEqual(["FS-001", "FS-003", "FS-002"]);
   });
 });
