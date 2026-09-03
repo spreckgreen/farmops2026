@@ -172,6 +172,8 @@ export function PanelQrLabel({
 
   // Avery 8593 file-folder stock is 2/3" tall: text only, no QR.
   if (spec.short) {
+    const volts = String(panel.voltage ?? "").trim();
+    const busAmps = String(panel.bus_rating_amps ?? "").trim();
     return (
       <ShortLabelCell
         stableId={panel.panel_id}
@@ -181,10 +183,15 @@ export function PanelQrLabel({
           .join(" · ")}
         qrSvg={shortQr ? svg : null}
         showQr={shortQr}
+        rightTop={String(panel.grid ?? "").trim()}
+        rightBottom={[volts ? `${volts}V` : "", busAmps ? `${busAmps}A` : ""]
+          .filter(Boolean)
+          .join(" ")}
         className={className}
       />
     );
   }
+
 
 
 
