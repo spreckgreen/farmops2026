@@ -95,6 +95,18 @@ function DocumentsWorkspace() {
   const [busy, setBusy] = useState<DocType | null>(null);
   const [lastStamps, setLastStamps] = useState<Partial<Record<DocType, VersionStamp>>>({});
   const [pasted, setPasted] = useState("");
+  // A loaded capture replaces the live snapshot as the source of truth for
+  // every document on this screen, so a reprint reproduces the original version.
+  const [captured, setCaptured] = useState<{
+    file: VersionedBundleFile;
+    fileName: string;
+    integrity: BundleIntegrity;
+  } | null>(null);
+  const [history, setHistory] = useState<DocVersionHistoryEntry[]>([]);
+
+  useEffect(() => {
+    setHistory(docVersionHistory());
+  }, []);
 
   const query = useQuery({
     queryKey: ["electrical-document-bundle"],
@@ -102,7 +114,13 @@ function DocumentsWorkspace() {
     staleTime: 60_000,
   });
 
-  const bundle = query.data?.bundle ?? null;
+  const live = query.data ?? null;
+  const bundle = captured ? captured.file.bundle : (live?.bundle ?? null);
+  const apiVersion = captured ? captured.file.api_version : (live?.apiVersion ?? "");
+  const generatedBy = live?.generatedBy ?? "";
+  const source = captured
+    ? ({ kind: "captured-bundle", label: captured.file.bundle_version_code } as const)
+    : ({ kind: "live", label: "live snapshot" } as const);
 
   const buildings = useMemo(() => (bundle ? buildingOptions(bundle) : []), [bundle]);
   const panels = useMemo(
@@ -120,17 +138,17 @@ function DocumentsWorkspace() {
   }, [bundle, scope, labelKinds]);
 
   async function stampFor(docType: DocType, counts: Record<string, number>, records: unknown) {
-    const data = query.data!;
+    if (!bundle) throw new Error("No bundle loaded.");
     return buildVersionStamp(
       {
         docType,
-        apiVersion: data.apiVersion,
-        schemaVersion: data.bundle.schema_version,
-        generatedAt: data.bundle.generated_at,
+        apiVersion,
+        schemaVersion: bundle.schema_version,
+        generatedAt: bundle.generated_at,
         counts,
-        qaErrors: data.bundle.qa.errors,
-        qaWarnings: data.bundle.qa.warnings,
-        generatedBy: data.generatedBy,
+        qaErrors: bundle.qa.errors,
+        qaWarnings: bundle.qa.warnings,
+        generatedBy: generatedBy || captured?.file.captured_by || "unknown",
         printedAt: new Date().toISOString(),
         scope: scopeLabel(scope),
       },
@@ -138,8 +156,54 @@ function DocumentsWorkspace() {
     );
   }
 
+  /** Save the current live snapshot as a versioned bundle file for later reprints. */
+  async function captureBundle() {
+    if (!live) return;
+    try {
+      const file = await buildVersionedBundleFile(live.bundle, {
+        apiVersion: live.apiVersion,
+        capturedBy: live.generatedBy,
+      });
+      const name = versionedBundleFileName(file);
+      const url = URL.createObjectURL(
+        new Blob([JSON.stringify(file, null, 2)], { type: "application/json" }),
+      );
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = name;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("Bundle version captured", { description: name });
+    } catch (err) {
+      toast.error("Could not capture the bundle", {
+        description: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
+  async function loadCapturedBundle(fileInput: File) {
+    try {
+      const text = await fileInput.text();
+      const parsed = parseVersionedBundleFile(text);
+      const { status } = await verifyVersionedBundleFile(parsed);
+      setCaptured({ file: parsed, fileName: fileInput.name, integrity: status });
+      setScope(DEFAULT_SCOPE);
+      if (status === "digest-mismatch") {
+        toast.warning("Bundle loaded, digest does not match", {
+          description: "The capture was altered after it was written. Documents will say so.",
+        });
+      } else {
+        toast.success("Versioned bundle loaded", { description: parsed.bundle_version_code });
+      }
+    } catch (err) {
+      toast.error("Could not read that bundle", {
+        description: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
   async function generate(docType: DocType) {
-    if (!models || !query.data) return;
+    if (!models || !bundle) return;
     setBusy(docType);
     try {
       const pdf = await import("@/lib/electrical-pdf");
@@ -169,6 +233,8 @@ function DocumentsWorkspace() {
       }
       const name = pdf.savePdf(doc, stamp);
       setLastStamps((prev) => ({ ...prev, [docType]: stamp }));
+      recordDocVersion(stamp, source, name);
+      setHistory(docVersionHistory());
       toast.success(`${DOC_TYPE_LABEL[docType]} generated`, { description: name });
     } catch (err) {
       toast.error("Could not generate the document", {
@@ -178,6 +244,7 @@ function DocumentsWorkspace() {
       setBusy(null);
     }
   }
+
 
   const toggleKind = (kind: LabelKind) =>
     setLabelKinds((prev) =>
