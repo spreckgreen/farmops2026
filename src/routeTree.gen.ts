@@ -9,197 +9,127 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as VaultRouteImport } from './routes/vault'
-import { Route as SyncRouteImport } from './routes/sync'
-import { Route as ServiceSchedulingRouteImport } from './routes/service-scheduling'
-import { Route as ResetPasswordRouteImport } from './routes/reset-password'
-import { Route as ReportsRouteImport } from './routes/reports'
-import { Route as ReadyRouteImport } from './routes/ready'
-import { Route as PromoRouteImport } from './routes/promo'
-import { Route as ProjectsRouteImport } from './routes/projects'
-import { Route as ProceduresRouteImport } from './routes/procedures'
-import { Route as MaintenanceRouteImport } from './routes/maintenance'
-import { Route as InventoryRouteImport } from './routes/inventory'
-import { Route as HealthRouteImport } from './routes/health'
-import { Route as FoodRouteImport } from './routes/food'
-import { Route as DeckRouteImport } from './routes/deck'
-import { Route as DashboardRouteImport } from './routes/dashboard'
-import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as TasksIndexRouteImport } from './routes/tasks.index'
-import { Route as ProceduresIndexRouteImport } from './routes/procedures.index'
-import { Route as MaintenanceIndexRouteImport } from './routes/maintenance.index'
-import { Route as FoodIndexRouteImport } from './routes/food.index'
-import { Route as ElectricalIndexRouteImport } from './routes/electrical.index'
+import { Route as AuthRouteImport } from './routes/auth'
+import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as DeckRouteImport } from './routes/deck'
+import { Route as FoodRouteImport } from './routes/food'
+import { Route as HealthRouteImport } from './routes/health'
+import { Route as InventoryRouteImport } from './routes/inventory'
+import { Route as MaintenanceRouteImport } from './routes/maintenance'
+import { Route as ProceduresRouteImport } from './routes/procedures'
+import { Route as ProjectsRouteImport } from './routes/projects'
+import { Route as PromoRouteImport } from './routes/promo'
+import { Route as ReadyRouteImport } from './routes/ready'
+import { Route as ReportsRouteImport } from './routes/reports'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
+import { Route as ServiceSchedulingRouteImport } from './routes/service-scheduling'
+import { Route as SyncRouteImport } from './routes/sync'
+import { Route as VaultRouteImport } from './routes/vault'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
-import { Route as TasksScheduledRouteImport } from './routes/tasks.scheduled'
-import { Route as TasksRefsRouteImport } from './routes/tasks.refs'
-import { Route as TasksBacklogRouteImport } from './routes/tasks.backlog'
-import { Route as TasksSlugRouteImport } from './routes/tasks.$slug'
-import { Route as SettingsTroubleshootingRouteImport } from './routes/settings.troubleshooting'
-import { Route as SettingsSelfHostRouteImport } from './routes/settings.self-host'
-import { Route as ProceduresIngestRouteImport } from './routes/procedures.ingest'
-import { Route as NotesDateRouteImport } from './routes/notes.$date'
-import { Route as MaintenanceImportManualRouteImport } from './routes/maintenance.import-manual'
-import { Route as MaintenanceGenerateScheduleRouteImport } from './routes/maintenance.generate-schedule'
-import { Route as MaintenanceForecastRouteImport } from './routes/maintenance.forecast'
-import { Route as MaintenanceDiagnoseRouteImport } from './routes/maintenance.diagnose'
-import { Route as HealthSchemaRouteImport } from './routes/health.schema'
-import { Route as FoodStorageRouteImport } from './routes/food.storage'
-import { Route as FoodSeasonsRouteImport } from './routes/food.seasons'
-import { Route as FoodReportsRouteImport } from './routes/food.reports'
-import { Route as FoodProcessingRouteImport } from './routes/food.processing'
-import { Route as FoodPricesRouteImport } from './routes/food.prices'
-import { Route as FoodPreserveRouteImport } from './routes/food.preserve'
-import { Route as FoodPlanRouteImport } from './routes/food.plan'
-import { Route as FoodOrchardRouteImport } from './routes/food.orchard'
-import { Route as FoodLivestockRouteImport } from './routes/food.livestock'
-import { Route as FoodIrrigationRouteImport } from './routes/food.irrigation'
-import { Route as FoodGardenRouteImport } from './routes/food.garden'
-import { Route as FoodCropsRouteImport } from './routes/food.crops'
-import { Route as ElectricalWorkbookRouteImport } from './routes/electrical.workbook'
-import { Route as ElectricalWiringRouteImport } from './routes/electrical.wiring'
-import { Route as ElectricalValidationRouteImport } from './routes/electrical.validation'
-import { Route as ElectricalTopologyRouteImport } from './routes/electrical.topology'
-import { Route as ElectricalStandardsRouteImport } from './routes/electrical.standards'
-import { Route as ElectricalSorRouteImport } from './routes/electrical.sor'
-import { Route as ElectricalServicesRouteImport } from './routes/electrical.services'
-import { Route as ElectricalReconciliationRouteImport } from './routes/electrical.reconciliation'
-import { Route as ElectricalQaRouteImport } from './routes/electrical.qa'
-import { Route as ElectricalPanelDiagramRouteImport } from './routes/electrical.panel-diagram'
-import { Route as ElectricalNameplateScanRouteImport } from './routes/electrical.nameplate-scan'
-import { Route as ElectricalMappingRepairRouteImport } from './routes/electrical.mapping-repair'
-import { Route as ElectricalMappingAuditRouteImport } from './routes/electrical.mapping-audit'
-import { Route as ElectricalMappingRouteImport } from './routes/electrical.mapping'
-import { Route as ElectricalLabelsRouteImport } from './routes/electrical.labels'
-import { Route as ElectricalInstallProgressRouteImport } from './routes/electrical.install-progress'
-import { Route as ElectricalImportContractRouteImport } from './routes/electrical.import-contract'
-import { Route as ElectricalImportRouteImport } from './routes/electrical.import'
-import { Route as ElectricalGridRecoveryRouteImport } from './routes/electrical.grid-recovery'
-import { Route as ElectricalGridMigrationRouteImport } from './routes/electrical.grid-migration'
-import { Route as ElectricalGridMapRouteImport } from './routes/electrical.grid-map'
-import { Route as ElectricalGridDataQualityRouteImport } from './routes/electrical.grid-data-quality'
-import { Route as ElectricalExportRouteImport } from './routes/electrical.export'
-import { Route as ElectricalDocumentsRouteImport } from './routes/electrical.documents'
-import { Route as ElectricalDiagramsRouteImport } from './routes/electrical.diagrams'
-import { Route as ElectricalCriticalLoadsRouteImport } from './routes/electrical.critical-loads'
-import { Route as ElectricalChangesRouteImport } from './routes/electrical.changes'
-import { Route as ElectricalAssistantRouteImport } from './routes/electrical.assistant'
-import { Route as ElectricalApiDocsRouteImport } from './routes/electrical.api-docs'
-import { Route as ElectricalAdjudicationRouteImport } from './routes/electrical.adjudication'
-import { Route as ElectricalKindRouteImport } from './routes/electrical.$kind'
-import { Route as DocsProductArchitectureRouteImport } from './routes/docs.product-architecture'
-import { Route as ApiOpenapiDotjsonRouteImport } from './routes/api/openapi[.]json'
-import { Route as AdminVaultSecretsRouteImport } from './routes/admin.vault-secrets'
-import { Route as AdminVaultRotationRouteImport } from './routes/admin.vault-rotation'
-import { Route as AdminVaultBackupRouteImport } from './routes/admin.vault-backup'
-import { Route as AdminUsersRouteImport } from './routes/admin.users'
-import { Route as AdminTaskHealthRouteImport } from './routes/admin.task-health'
-import { Route as AdminTaskDedupeRouteImport } from './routes/admin.task-dedupe'
-import { Route as AdminSchemaRouteImport } from './routes/admin.schema'
-import { Route as AdminRestoreRouteImport } from './routes/admin.restore'
-import { Route as AdminResetRouteImport } from './routes/admin.reset'
-import { Route as AdminPanelAccessRouteImport } from './routes/admin.panel-access'
-import { Route as AdminExportKeyRouteImport } from './routes/admin.export-key'
-import { Route as AdminExportRouteImport } from './routes/admin.export'
-import { Route as AdminElectricalAuditRouteImport } from './routes/admin.electrical-audit'
-import { Route as AdminAiSettingsRouteImport } from './routes/admin.ai-settings'
-import { Route as AdminAiRuntimeRouteImport } from './routes/admin.ai-runtime'
-import { Route as AdminAiEnginesRouteImport } from './routes/admin.ai-engines'
-import { Route as AdminAiCostsRouteImport } from './routes/admin.ai-costs'
-import { Route as AdminAiRouteImport } from './routes/admin.ai'
 import { Route as AdminAddonsRouteImport } from './routes/admin.addons'
-import { Route as ElectricalPanelPanelIdRouteImport } from './routes/electrical.panel.$panelId'
-import { Route as ApiPublicReadyRouteImport } from './routes/api/public/ready'
-import { Route as ApiPublicHealthRouteImport } from './routes/api/public/health'
+import { Route as AdminAiRouteImport } from './routes/admin.ai'
+import { Route as AdminAiCostsRouteImport } from './routes/admin.ai-costs'
+import { Route as AdminAiEnginesRouteImport } from './routes/admin.ai-engines'
+import { Route as AdminAiRuntimeRouteImport } from './routes/admin.ai-runtime'
+import { Route as AdminAiSettingsRouteImport } from './routes/admin.ai-settings'
+import { Route as AdminElectricalAuditRouteImport } from './routes/admin.electrical-audit'
+import { Route as AdminExportRouteImport } from './routes/admin.export'
+import { Route as AdminExportKeyRouteImport } from './routes/admin.export-key'
+import { Route as AdminPanelAccessRouteImport } from './routes/admin.panel-access'
+import { Route as AdminResetRouteImport } from './routes/admin.reset'
+import { Route as AdminRestoreRouteImport } from './routes/admin.restore'
+import { Route as AdminSchemaRouteImport } from './routes/admin.schema'
+import { Route as AdminTaskDedupeRouteImport } from './routes/admin.task-dedupe'
+import { Route as AdminTaskHealthRouteImport } from './routes/admin.task-health'
+import { Route as AdminUsersRouteImport } from './routes/admin.users'
+import { Route as AdminVaultBackupRouteImport } from './routes/admin.vault-backup'
+import { Route as AdminVaultRotationRouteImport } from './routes/admin.vault-rotation'
+import { Route as AdminVaultSecretsRouteImport } from './routes/admin.vault-secrets'
+import { Route as ApiOpenapiDotjsonRouteImport } from './routes/api/openapi[.]json'
+import { Route as DocsProductArchitectureRouteImport } from './routes/docs.product-architecture'
+import { Route as ElectricalIndexRouteImport } from './routes/electrical.index'
+import { Route as ElectricalKindRouteImport } from './routes/electrical.$kind'
+import { Route as ElectricalAdjudicationRouteImport } from './routes/electrical.adjudication'
+import { Route as ElectricalApiDocsRouteImport } from './routes/electrical.api-docs'
+import { Route as ElectricalAssistantRouteImport } from './routes/electrical.assistant'
+import { Route as ElectricalChangesRouteImport } from './routes/electrical.changes'
+import { Route as ElectricalCriticalLoadsRouteImport } from './routes/electrical.critical-loads'
+import { Route as ElectricalDiagramsRouteImport } from './routes/electrical.diagrams'
+import { Route as ElectricalDocumentsRouteImport } from './routes/electrical.documents'
+import { Route as ElectricalExportRouteImport } from './routes/electrical.export'
+import { Route as ElectricalGridDataQualityRouteImport } from './routes/electrical.grid-data-quality'
+import { Route as ElectricalGridMapRouteImport } from './routes/electrical.grid-map'
+import { Route as ElectricalGridMigrationRouteImport } from './routes/electrical.grid-migration'
+import { Route as ElectricalGridRecoveryRouteImport } from './routes/electrical.grid-recovery'
+import { Route as ElectricalImportRouteImport } from './routes/electrical.import'
+import { Route as ElectricalImportContractRouteImport } from './routes/electrical.import-contract'
+import { Route as ElectricalInstallProgressRouteImport } from './routes/electrical.install-progress'
+import { Route as ElectricalLabelsRouteImport } from './routes/electrical.labels'
+import { Route as ElectricalMappingRouteImport } from './routes/electrical.mapping'
+import { Route as ElectricalMappingAuditRouteImport } from './routes/electrical.mapping-audit'
+import { Route as ElectricalMappingRepairRouteImport } from './routes/electrical.mapping-repair'
+import { Route as ElectricalNameplateScanRouteImport } from './routes/electrical.nameplate-scan'
+import { Route as ElectricalPanelDiagramRouteImport } from './routes/electrical.panel-diagram'
+import { Route as ElectricalQaRouteImport } from './routes/electrical.qa'
+import { Route as ElectricalReconciliationRouteImport } from './routes/electrical.reconciliation'
+import { Route as ElectricalServicesRouteImport } from './routes/electrical.services'
+import { Route as ElectricalSorRouteImport } from './routes/electrical.sor'
+import { Route as ElectricalStandardsRouteImport } from './routes/electrical.standards'
+import { Route as ElectricalTopologyRouteImport } from './routes/electrical.topology'
+import { Route as ElectricalValidationRouteImport } from './routes/electrical.validation'
+import { Route as ElectricalWiringRouteImport } from './routes/electrical.wiring'
+import { Route as ElectricalWorkbookRouteImport } from './routes/electrical.workbook'
+import { Route as FoodIndexRouteImport } from './routes/food.index'
+import { Route as FoodCropsRouteImport } from './routes/food.crops'
+import { Route as FoodGardenRouteImport } from './routes/food.garden'
+import { Route as FoodIrrigationRouteImport } from './routes/food.irrigation'
+import { Route as FoodLivestockRouteImport } from './routes/food.livestock'
+import { Route as FoodOrchardRouteImport } from './routes/food.orchard'
+import { Route as FoodPlanRouteImport } from './routes/food.plan'
+import { Route as FoodPreserveRouteImport } from './routes/food.preserve'
+import { Route as FoodPricesRouteImport } from './routes/food.prices'
+import { Route as FoodProcessingRouteImport } from './routes/food.processing'
+import { Route as FoodReportsRouteImport } from './routes/food.reports'
+import { Route as FoodSeasonsRouteImport } from './routes/food.seasons'
+import { Route as FoodStorageRouteImport } from './routes/food.storage'
+import { Route as HealthSchemaRouteImport } from './routes/health.schema'
+import { Route as MaintenanceIndexRouteImport } from './routes/maintenance.index'
+import { Route as MaintenanceDiagnoseRouteImport } from './routes/maintenance.diagnose'
+import { Route as MaintenanceForecastRouteImport } from './routes/maintenance.forecast'
+import { Route as MaintenanceGenerateScheduleRouteImport } from './routes/maintenance.generate-schedule'
+import { Route as MaintenanceImportManualRouteImport } from './routes/maintenance.import-manual'
+import { Route as NotesDateRouteImport } from './routes/notes.$date'
+import { Route as ProceduresIndexRouteImport } from './routes/procedures.index'
+import { Route as ProceduresIngestRouteImport } from './routes/procedures.ingest'
+import { Route as SettingsSelfHostRouteImport } from './routes/settings.self-host'
+import { Route as SettingsTroubleshootingRouteImport } from './routes/settings.troubleshooting'
+import { Route as TasksIndexRouteImport } from './routes/tasks.index'
+import { Route as TasksSlugRouteImport } from './routes/tasks.$slug'
+import { Route as TasksBacklogRouteImport } from './routes/tasks.backlog'
+import { Route as TasksRefsRouteImport } from './routes/tasks.refs'
+import { Route as TasksScheduledRouteImport } from './routes/tasks.scheduled'
 import { Route as ApiElectricalSnapshotRouteImport } from './routes/api/electrical/snapshot'
-import { Route as ApiV1ElectricalIndexRouteImport } from './routes/api/v1/electrical/index'
-import { Route as ElectricalItemKindIdRouteImport } from './routes/electrical.item.$kind.$id'
-import { Route as ApiV1ElectricalSplatRouteImport } from './routes/api/v1/electrical/$'
-import { Route as ApiPublicWebhooksRachioRouteImport } from './routes/api/public/webhooks/rachio'
-import { Route as ApiPublicHooksTaskHealthRouteImport } from './routes/api/public/hooks/task-health'
-import { Route as ApiPublicHooksRachioSyncRouteImport } from './routes/api/public/hooks/rachio-sync'
-import { Route as ApiPublicHealthProceduresRouteImport } from './routes/api/public/health.procedures'
-import { Route as ApiElectricalV1OpenapiDotjsonRouteImport } from './routes/api/electrical/v1/openapi[.]json'
+import { Route as ApiPublicHealthRouteImport } from './routes/api/public/health'
+import { Route as ApiPublicReadyRouteImport } from './routes/api/public/ready'
+import { Route as ElectricalPanelPanelIdRouteImport } from './routes/electrical.panel.$panelId'
 import { Route as ApiElectricalV1SplatRouteImport } from './routes/api/electrical/v1/$'
-import { Route as ApiElectricalV1RelationshipsPreviewRouteImport } from './routes/api/electrical/v1/relationships.preview'
-import { Route as ApiElectricalV1RelationshipsApplyRouteImport } from './routes/api/electrical/v1/relationships.apply'
-import { Route as ApiElectricalV1FieldObservationsPreviewRouteImport } from './routes/api/electrical/v1/field-observations.preview'
+import { Route as ApiElectricalV1OpenapiDotjsonRouteImport } from './routes/api/electrical/v1/openapi[.]json'
+import { Route as ApiPublicHealthProceduresRouteImport } from './routes/api/public/health.procedures'
+import { Route as ApiPublicHooksRachioSyncRouteImport } from './routes/api/public/hooks/rachio-sync'
+import { Route as ApiPublicHooksTaskHealthRouteImport } from './routes/api/public/hooks/task-health'
+import { Route as ApiPublicWebhooksRachioRouteImport } from './routes/api/public/webhooks/rachio'
+import { Route as ApiV1ElectricalIndexRouteImport } from './routes/api/v1/electrical/index'
+import { Route as ApiV1ElectricalSplatRouteImport } from './routes/api/v1/electrical/$'
+import { Route as ElectricalItemKindIdRouteImport } from './routes/electrical.item.$kind.$id'
 import { Route as ApiElectricalV1FieldObservationsApplyRouteImport } from './routes/api/electrical/v1/field-observations.apply'
+import { Route as ApiElectricalV1FieldObservationsPreviewRouteImport } from './routes/api/electrical/v1/field-observations.preview'
+import { Route as ApiElectricalV1RelationshipsApplyRouteImport } from './routes/api/electrical/v1/relationships.apply'
+import { Route as ApiElectricalV1RelationshipsPreviewRouteImport } from './routes/api/electrical/v1/relationships.preview'
 
-const VaultRoute = VaultRouteImport.update({
-  id: '/vault',
-  path: '/vault',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SyncRoute = SyncRouteImport.update({
-  id: '/sync',
-  path: '/sync',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ServiceSchedulingRoute = ServiceSchedulingRouteImport.update({
-  id: '/service-scheduling',
-  path: '/service-scheduling',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ResetPasswordRoute = ResetPasswordRouteImport.update({
-  id: '/reset-password',
-  path: '/reset-password',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ReportsRoute = ReportsRouteImport.update({
-  id: '/reports',
-  path: '/reports',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ReadyRoute = ReadyRouteImport.update({
-  id: '/ready',
-  path: '/ready',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PromoRoute = PromoRouteImport.update({
-  id: '/promo',
-  path: '/promo',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ProjectsRoute = ProjectsRouteImport.update({
-  id: '/projects',
-  path: '/projects',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ProceduresRoute = ProceduresRouteImport.update({
-  id: '/procedures',
-  path: '/procedures',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const MaintenanceRoute = MaintenanceRouteImport.update({
-  id: '/maintenance',
-  path: '/maintenance',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const InventoryRoute = InventoryRouteImport.update({
-  id: '/inventory',
-  path: '/inventory',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const HealthRoute = HealthRouteImport.update({
-  id: '/health',
-  path: '/health',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const FoodRoute = FoodRouteImport.update({
-  id: '/food',
-  path: '/food',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DeckRoute = DeckRouteImport.update({
-  id: '/deck',
-  path: '/deck',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DashboardRoute = DashboardRouteImport.update({
-  id: '/dashboard',
-  path: '/dashboard',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRoute = AuthRouteImport.update({
@@ -207,34 +137,79 @@ const AuthRoute = AuthRouteImport.update({
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const DashboardRoute = DashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
-const TasksIndexRoute = TasksIndexRouteImport.update({
-  id: '/tasks/',
-  path: '/tasks/',
+const DeckRoute = DeckRouteImport.update({
+  id: '/deck',
+  path: '/deck',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ProceduresIndexRoute = ProceduresIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => ProceduresRoute,
+const FoodRoute = FoodRouteImport.update({
+  id: '/food',
+  path: '/food',
+  getParentRoute: () => rootRouteImport,
 } as any)
-const MaintenanceIndexRoute = MaintenanceIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => MaintenanceRoute,
+const HealthRoute = HealthRouteImport.update({
+  id: '/health',
+  path: '/health',
+  getParentRoute: () => rootRouteImport,
 } as any)
-const FoodIndexRoute = FoodIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => FoodRoute,
+const InventoryRoute = InventoryRouteImport.update({
+  id: '/inventory',
+  path: '/inventory',
+  getParentRoute: () => rootRouteImport,
 } as any)
-const ElectricalIndexRoute = ElectricalIndexRouteImport.update({
-  id: '/electrical/',
-  path: '/electrical/',
+const MaintenanceRoute = MaintenanceRouteImport.update({
+  id: '/maintenance',
+  path: '/maintenance',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProceduresRoute = ProceduresRouteImport.update({
+  id: '/procedures',
+  path: '/procedures',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProjectsRoute = ProjectsRouteImport.update({
+  id: '/projects',
+  path: '/projects',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PromoRoute = PromoRouteImport.update({
+  id: '/promo',
+  path: '/promo',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReadyRoute = ReadyRouteImport.update({
+  id: '/ready',
+  path: '/ready',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReportsRoute = ReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ServiceSchedulingRoute = ServiceSchedulingRouteImport.update({
+  id: '/service-scheduling',
+  path: '/service-scheduling',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SyncRoute = SyncRouteImport.update({
+  id: '/sync',
+  path: '/sync',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const VaultRoute = VaultRouteImport.update({
+  id: '/vault',
+  path: '/vault',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminIndexRoute = AdminIndexRouteImport.update({
@@ -242,238 +217,159 @@ const AdminIndexRoute = AdminIndexRouteImport.update({
   path: '/admin/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const TasksScheduledRoute = TasksScheduledRouteImport.update({
-  id: '/tasks/scheduled',
-  path: '/tasks/scheduled',
+const AdminAddonsRoute = AdminAddonsRouteImport.update({
+  id: '/admin/addons',
+  path: '/admin/addons',
   getParentRoute: () => rootRouteImport,
 } as any)
-const TasksRefsRoute = TasksRefsRouteImport.update({
-  id: '/tasks/refs',
-  path: '/tasks/refs',
+const AdminAiRoute = AdminAiRouteImport.update({
+  id: '/admin/ai',
+  path: '/admin/ai',
   getParentRoute: () => rootRouteImport,
 } as any)
-const TasksBacklogRoute = TasksBacklogRouteImport.update({
-  id: '/tasks/backlog',
-  path: '/tasks/backlog',
+const AdminAiCostsRoute = AdminAiCostsRouteImport.update({
+  id: '/admin/ai-costs',
+  path: '/admin/ai-costs',
   getParentRoute: () => rootRouteImport,
 } as any)
-const TasksSlugRoute = TasksSlugRouteImport.update({
-  id: '/tasks/$slug',
-  path: '/tasks/$slug',
+const AdminAiEnginesRoute = AdminAiEnginesRouteImport.update({
+  id: '/admin/ai-engines',
+  path: '/admin/ai-engines',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SettingsTroubleshootingRoute = SettingsTroubleshootingRouteImport.update({
-  id: '/settings/troubleshooting',
-  path: '/settings/troubleshooting',
+const AdminAiRuntimeRoute = AdminAiRuntimeRouteImport.update({
+  id: '/admin/ai-runtime',
+  path: '/admin/ai-runtime',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SettingsSelfHostRoute = SettingsSelfHostRouteImport.update({
-  id: '/settings/self-host',
-  path: '/settings/self-host',
+const AdminAiSettingsRoute = AdminAiSettingsRouteImport.update({
+  id: '/admin/ai-settings',
+  path: '/admin/ai-settings',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ProceduresIngestRoute = ProceduresIngestRouteImport.update({
-  id: '/ingest',
-  path: '/ingest',
-  getParentRoute: () => ProceduresRoute,
-} as any)
-const NotesDateRoute = NotesDateRouteImport.update({
-  id: '/notes/$date',
-  path: '/notes/$date',
+const AdminElectricalAuditRoute = AdminElectricalAuditRouteImport.update({
+  id: '/admin/electrical-audit',
+  path: '/admin/electrical-audit',
   getParentRoute: () => rootRouteImport,
 } as any)
-const MaintenanceImportManualRoute = MaintenanceImportManualRouteImport.update({
-  id: '/import-manual',
-  path: '/import-manual',
-  getParentRoute: () => MaintenanceRoute,
-} as any)
-const MaintenanceGenerateScheduleRoute =
-  MaintenanceGenerateScheduleRouteImport.update({
-    id: '/generate-schedule',
-    path: '/generate-schedule',
-    getParentRoute: () => MaintenanceRoute,
-  } as any)
-const MaintenanceForecastRoute = MaintenanceForecastRouteImport.update({
-  id: '/forecast',
-  path: '/forecast',
-  getParentRoute: () => MaintenanceRoute,
-} as any)
-const MaintenanceDiagnoseRoute = MaintenanceDiagnoseRouteImport.update({
-  id: '/diagnose',
-  path: '/diagnose',
-  getParentRoute: () => MaintenanceRoute,
-} as any)
-const HealthSchemaRoute = HealthSchemaRouteImport.update({
-  id: '/schema',
-  path: '/schema',
-  getParentRoute: () => HealthRoute,
-} as any)
-const FoodStorageRoute = FoodStorageRouteImport.update({
-  id: '/storage',
-  path: '/storage',
-  getParentRoute: () => FoodRoute,
-} as any)
-const FoodSeasonsRoute = FoodSeasonsRouteImport.update({
-  id: '/seasons',
-  path: '/seasons',
-  getParentRoute: () => FoodRoute,
-} as any)
-const FoodReportsRoute = FoodReportsRouteImport.update({
-  id: '/reports',
-  path: '/reports',
-  getParentRoute: () => FoodRoute,
-} as any)
-const FoodProcessingRoute = FoodProcessingRouteImport.update({
-  id: '/processing',
-  path: '/processing',
-  getParentRoute: () => FoodRoute,
-} as any)
-const FoodPricesRoute = FoodPricesRouteImport.update({
-  id: '/prices',
-  path: '/prices',
-  getParentRoute: () => FoodRoute,
-} as any)
-const FoodPreserveRoute = FoodPreserveRouteImport.update({
-  id: '/preserve',
-  path: '/preserve',
-  getParentRoute: () => FoodRoute,
-} as any)
-const FoodPlanRoute = FoodPlanRouteImport.update({
-  id: '/plan',
-  path: '/plan',
-  getParentRoute: () => FoodRoute,
-} as any)
-const FoodOrchardRoute = FoodOrchardRouteImport.update({
-  id: '/orchard',
-  path: '/orchard',
-  getParentRoute: () => FoodRoute,
-} as any)
-const FoodLivestockRoute = FoodLivestockRouteImport.update({
-  id: '/livestock',
-  path: '/livestock',
-  getParentRoute: () => FoodRoute,
-} as any)
-const FoodIrrigationRoute = FoodIrrigationRouteImport.update({
-  id: '/irrigation',
-  path: '/irrigation',
-  getParentRoute: () => FoodRoute,
-} as any)
-const FoodGardenRoute = FoodGardenRouteImport.update({
-  id: '/garden',
-  path: '/garden',
-  getParentRoute: () => FoodRoute,
-} as any)
-const FoodCropsRoute = FoodCropsRouteImport.update({
-  id: '/crops',
-  path: '/crops',
-  getParentRoute: () => FoodRoute,
-} as any)
-const ElectricalWorkbookRoute = ElectricalWorkbookRouteImport.update({
-  id: '/electrical/workbook',
-  path: '/electrical/workbook',
+const AdminExportRoute = AdminExportRouteImport.update({
+  id: '/admin/export',
+  path: '/admin/export',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ElectricalWiringRoute = ElectricalWiringRouteImport.update({
-  id: '/electrical/wiring',
-  path: '/electrical/wiring',
+const AdminExportKeyRoute = AdminExportKeyRouteImport.update({
+  id: '/admin/export-key',
+  path: '/admin/export-key',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ElectricalValidationRoute = ElectricalValidationRouteImport.update({
-  id: '/electrical/validation',
-  path: '/electrical/validation',
+const AdminPanelAccessRoute = AdminPanelAccessRouteImport.update({
+  id: '/admin/panel-access',
+  path: '/admin/panel-access',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ElectricalTopologyRoute = ElectricalTopologyRouteImport.update({
-  id: '/electrical/topology',
-  path: '/electrical/topology',
+const AdminResetRoute = AdminResetRouteImport.update({
+  id: '/admin/reset',
+  path: '/admin/reset',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ElectricalStandardsRoute = ElectricalStandardsRouteImport.update({
-  id: '/electrical/standards',
-  path: '/electrical/standards',
+const AdminRestoreRoute = AdminRestoreRouteImport.update({
+  id: '/admin/restore',
+  path: '/admin/restore',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ElectricalSorRoute = ElectricalSorRouteImport.update({
-  id: '/electrical/sor',
-  path: '/electrical/sor',
+const AdminSchemaRoute = AdminSchemaRouteImport.update({
+  id: '/admin/schema',
+  path: '/admin/schema',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ElectricalServicesRoute = ElectricalServicesRouteImport.update({
-  id: '/electrical/services',
-  path: '/electrical/services',
+const AdminTaskDedupeRoute = AdminTaskDedupeRouteImport.update({
+  id: '/admin/task-dedupe',
+  path: '/admin/task-dedupe',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ElectricalReconciliationRoute =
-  ElectricalReconciliationRouteImport.update({
-    id: '/electrical/reconciliation',
-    path: '/electrical/reconciliation',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const ElectricalQaRoute = ElectricalQaRouteImport.update({
-  id: '/electrical/qa',
-  path: '/electrical/qa',
+const AdminTaskHealthRoute = AdminTaskHealthRouteImport.update({
+  id: '/admin/task-health',
+  path: '/admin/task-health',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ElectricalPanelDiagramRoute = ElectricalPanelDiagramRouteImport.update({
-  id: '/electrical/panel-diagram',
-  path: '/electrical/panel-diagram',
+const AdminUsersRoute = AdminUsersRouteImport.update({
+  id: '/admin/users',
+  path: '/admin/users',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ElectricalNameplateScanRoute = ElectricalNameplateScanRouteImport.update({
-  id: '/electrical/nameplate-scan',
-  path: '/electrical/nameplate-scan',
+const AdminVaultBackupRoute = AdminVaultBackupRouteImport.update({
+  id: '/admin/vault-backup',
+  path: '/admin/vault-backup',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ElectricalMappingRepairRoute = ElectricalMappingRepairRouteImport.update({
-  id: '/electrical/mapping-repair',
-  path: '/electrical/mapping-repair',
+const AdminVaultRotationRoute = AdminVaultRotationRouteImport.update({
+  id: '/admin/vault-rotation',
+  path: '/admin/vault-rotation',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ElectricalMappingAuditRoute = ElectricalMappingAuditRouteImport.update({
-  id: '/electrical/mapping-audit',
-  path: '/electrical/mapping-audit',
+const AdminVaultSecretsRoute = AdminVaultSecretsRouteImport.update({
+  id: '/admin/vault-secrets',
+  path: '/admin/vault-secrets',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ElectricalMappingRoute = ElectricalMappingRouteImport.update({
-  id: '/electrical/mapping',
-  path: '/electrical/mapping',
+const ApiOpenapiDotjsonRoute = ApiOpenapiDotjsonRouteImport.update({
+  id: '/api/openapi.json',
+  path: '/api/openapi.json',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ElectricalLabelsRoute = ElectricalLabelsRouteImport.update({
-  id: '/electrical/labels',
-  path: '/electrical/labels',
+const DocsProductArchitectureRoute = DocsProductArchitectureRouteImport.update({
+  id: '/docs/product-architecture',
+  path: '/docs/product-architecture',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ElectricalInstallProgressRoute =
-  ElectricalInstallProgressRouteImport.update({
-    id: '/electrical/install-progress',
-    path: '/electrical/install-progress',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const ElectricalImportContractRoute =
-  ElectricalImportContractRouteImport.update({
-    id: '/electrical/import-contract',
-    path: '/electrical/import-contract',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const ElectricalImportRoute = ElectricalImportRouteImport.update({
-  id: '/electrical/import',
-  path: '/electrical/import',
+const ElectricalIndexRoute = ElectricalIndexRouteImport.update({
+  id: '/electrical/',
+  path: '/electrical/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ElectricalGridRecoveryRoute = ElectricalGridRecoveryRouteImport.update({
-  id: '/electrical/grid-recovery',
-  path: '/electrical/grid-recovery',
+const ElectricalKindRoute = ElectricalKindRouteImport.update({
+  id: '/electrical/$kind',
+  path: '/electrical/$kind',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ElectricalGridMigrationRoute = ElectricalGridMigrationRouteImport.update({
-  id: '/electrical/grid-migration',
-  path: '/electrical/grid-migration',
+const ElectricalAdjudicationRoute = ElectricalAdjudicationRouteImport.update({
+  id: '/electrical/adjudication',
+  path: '/electrical/adjudication',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ElectricalGridMapRoute = ElectricalGridMapRouteImport.update({
-  id: '/electrical/grid-map',
-  path: '/electrical/grid-map',
+const ElectricalApiDocsRoute = ElectricalApiDocsRouteImport.update({
+  id: '/electrical/api-docs',
+  path: '/electrical/api-docs',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ElectricalAssistantRoute = ElectricalAssistantRouteImport.update({
+  id: '/electrical/assistant',
+  path: '/electrical/assistant',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ElectricalChangesRoute = ElectricalChangesRouteImport.update({
+  id: '/electrical/changes',
+  path: '/electrical/changes',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ElectricalCriticalLoadsRoute = ElectricalCriticalLoadsRouteImport.update({
+  id: '/electrical/critical-loads',
+  path: '/electrical/critical-loads',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ElectricalDiagramsRoute = ElectricalDiagramsRouteImport.update({
+  id: '/electrical/diagrams',
+  path: '/electrical/diagrams',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ElectricalDocumentsRoute = ElectricalDocumentsRouteImport.update({
+  id: '/electrical/documents',
+  path: '/electrical/documents',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ElectricalExportRoute = ElectricalExportRouteImport.update({
+  id: '/electrical/export',
+  path: '/electrical/export',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ElectricalGridDataQualityRoute =
@@ -482,169 +378,258 @@ const ElectricalGridDataQualityRoute =
     path: '/electrical/grid-data-quality',
     getParentRoute: () => rootRouteImport,
   } as any)
-const ElectricalExportRoute = ElectricalExportRouteImport.update({
-  id: '/electrical/export',
-  path: '/electrical/export',
+const ElectricalGridMapRoute = ElectricalGridMapRouteImport.update({
+  id: '/electrical/grid-map',
+  path: '/electrical/grid-map',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ElectricalDocumentsRoute = ElectricalDocumentsRouteImport.update({
-  id: '/electrical/documents',
-  path: '/electrical/documents',
+const ElectricalGridMigrationRoute = ElectricalGridMigrationRouteImport.update({
+  id: '/electrical/grid-migration',
+  path: '/electrical/grid-migration',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ElectricalDiagramsRoute = ElectricalDiagramsRouteImport.update({
-  id: '/electrical/diagrams',
-  path: '/electrical/diagrams',
+const ElectricalGridRecoveryRoute = ElectricalGridRecoveryRouteImport.update({
+  id: '/electrical/grid-recovery',
+  path: '/electrical/grid-recovery',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ElectricalCriticalLoadsRoute = ElectricalCriticalLoadsRouteImport.update({
-  id: '/electrical/critical-loads',
-  path: '/electrical/critical-loads',
+const ElectricalImportRoute = ElectricalImportRouteImport.update({
+  id: '/electrical/import',
+  path: '/electrical/import',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ElectricalChangesRoute = ElectricalChangesRouteImport.update({
-  id: '/electrical/changes',
-  path: '/electrical/changes',
+const ElectricalImportContractRoute =
+  ElectricalImportContractRouteImport.update({
+    id: '/electrical/import-contract',
+    path: '/electrical/import-contract',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ElectricalInstallProgressRoute =
+  ElectricalInstallProgressRouteImport.update({
+    id: '/electrical/install-progress',
+    path: '/electrical/install-progress',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ElectricalLabelsRoute = ElectricalLabelsRouteImport.update({
+  id: '/electrical/labels',
+  path: '/electrical/labels',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ElectricalAssistantRoute = ElectricalAssistantRouteImport.update({
-  id: '/electrical/assistant',
-  path: '/electrical/assistant',
+const ElectricalMappingRoute = ElectricalMappingRouteImport.update({
+  id: '/electrical/mapping',
+  path: '/electrical/mapping',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ElectricalApiDocsRoute = ElectricalApiDocsRouteImport.update({
-  id: '/electrical/api-docs',
-  path: '/electrical/api-docs',
+const ElectricalMappingAuditRoute = ElectricalMappingAuditRouteImport.update({
+  id: '/electrical/mapping-audit',
+  path: '/electrical/mapping-audit',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ElectricalAdjudicationRoute = ElectricalAdjudicationRouteImport.update({
-  id: '/electrical/adjudication',
-  path: '/electrical/adjudication',
+const ElectricalMappingRepairRoute = ElectricalMappingRepairRouteImport.update({
+  id: '/electrical/mapping-repair',
+  path: '/electrical/mapping-repair',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ElectricalKindRoute = ElectricalKindRouteImport.update({
-  id: '/electrical/$kind',
-  path: '/electrical/$kind',
+const ElectricalNameplateScanRoute = ElectricalNameplateScanRouteImport.update({
+  id: '/electrical/nameplate-scan',
+  path: '/electrical/nameplate-scan',
   getParentRoute: () => rootRouteImport,
 } as any)
-const DocsProductArchitectureRoute = DocsProductArchitectureRouteImport.update({
-  id: '/docs/product-architecture',
-  path: '/docs/product-architecture',
+const ElectricalPanelDiagramRoute = ElectricalPanelDiagramRouteImport.update({
+  id: '/electrical/panel-diagram',
+  path: '/electrical/panel-diagram',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiOpenapiDotjsonRoute = ApiOpenapiDotjsonRouteImport.update({
-  id: '/api/openapi.json',
-  path: '/api/openapi.json',
+const ElectricalQaRoute = ElectricalQaRouteImport.update({
+  id: '/electrical/qa',
+  path: '/electrical/qa',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AdminVaultSecretsRoute = AdminVaultSecretsRouteImport.update({
-  id: '/admin/vault-secrets',
-  path: '/admin/vault-secrets',
+const ElectricalReconciliationRoute =
+  ElectricalReconciliationRouteImport.update({
+    id: '/electrical/reconciliation',
+    path: '/electrical/reconciliation',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ElectricalServicesRoute = ElectricalServicesRouteImport.update({
+  id: '/electrical/services',
+  path: '/electrical/services',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AdminVaultRotationRoute = AdminVaultRotationRouteImport.update({
-  id: '/admin/vault-rotation',
-  path: '/admin/vault-rotation',
+const ElectricalSorRoute = ElectricalSorRouteImport.update({
+  id: '/electrical/sor',
+  path: '/electrical/sor',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AdminVaultBackupRoute = AdminVaultBackupRouteImport.update({
-  id: '/admin/vault-backup',
-  path: '/admin/vault-backup',
+const ElectricalStandardsRoute = ElectricalStandardsRouteImport.update({
+  id: '/electrical/standards',
+  path: '/electrical/standards',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AdminUsersRoute = AdminUsersRouteImport.update({
-  id: '/admin/users',
-  path: '/admin/users',
+const ElectricalTopologyRoute = ElectricalTopologyRouteImport.update({
+  id: '/electrical/topology',
+  path: '/electrical/topology',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AdminTaskHealthRoute = AdminTaskHealthRouteImport.update({
-  id: '/admin/task-health',
-  path: '/admin/task-health',
+const ElectricalValidationRoute = ElectricalValidationRouteImport.update({
+  id: '/electrical/validation',
+  path: '/electrical/validation',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AdminTaskDedupeRoute = AdminTaskDedupeRouteImport.update({
-  id: '/admin/task-dedupe',
-  path: '/admin/task-dedupe',
+const ElectricalWiringRoute = ElectricalWiringRouteImport.update({
+  id: '/electrical/wiring',
+  path: '/electrical/wiring',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AdminSchemaRoute = AdminSchemaRouteImport.update({
-  id: '/admin/schema',
-  path: '/admin/schema',
+const ElectricalWorkbookRoute = ElectricalWorkbookRouteImport.update({
+  id: '/electrical/workbook',
+  path: '/electrical/workbook',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AdminRestoreRoute = AdminRestoreRouteImport.update({
-  id: '/admin/restore',
-  path: '/admin/restore',
+const FoodIndexRoute = FoodIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => FoodRoute,
+} as any)
+const FoodCropsRoute = FoodCropsRouteImport.update({
+  id: '/crops',
+  path: '/crops',
+  getParentRoute: () => FoodRoute,
+} as any)
+const FoodGardenRoute = FoodGardenRouteImport.update({
+  id: '/garden',
+  path: '/garden',
+  getParentRoute: () => FoodRoute,
+} as any)
+const FoodIrrigationRoute = FoodIrrigationRouteImport.update({
+  id: '/irrigation',
+  path: '/irrigation',
+  getParentRoute: () => FoodRoute,
+} as any)
+const FoodLivestockRoute = FoodLivestockRouteImport.update({
+  id: '/livestock',
+  path: '/livestock',
+  getParentRoute: () => FoodRoute,
+} as any)
+const FoodOrchardRoute = FoodOrchardRouteImport.update({
+  id: '/orchard',
+  path: '/orchard',
+  getParentRoute: () => FoodRoute,
+} as any)
+const FoodPlanRoute = FoodPlanRouteImport.update({
+  id: '/plan',
+  path: '/plan',
+  getParentRoute: () => FoodRoute,
+} as any)
+const FoodPreserveRoute = FoodPreserveRouteImport.update({
+  id: '/preserve',
+  path: '/preserve',
+  getParentRoute: () => FoodRoute,
+} as any)
+const FoodPricesRoute = FoodPricesRouteImport.update({
+  id: '/prices',
+  path: '/prices',
+  getParentRoute: () => FoodRoute,
+} as any)
+const FoodProcessingRoute = FoodProcessingRouteImport.update({
+  id: '/processing',
+  path: '/processing',
+  getParentRoute: () => FoodRoute,
+} as any)
+const FoodReportsRoute = FoodReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
+  getParentRoute: () => FoodRoute,
+} as any)
+const FoodSeasonsRoute = FoodSeasonsRouteImport.update({
+  id: '/seasons',
+  path: '/seasons',
+  getParentRoute: () => FoodRoute,
+} as any)
+const FoodStorageRoute = FoodStorageRouteImport.update({
+  id: '/storage',
+  path: '/storage',
+  getParentRoute: () => FoodRoute,
+} as any)
+const HealthSchemaRoute = HealthSchemaRouteImport.update({
+  id: '/schema',
+  path: '/schema',
+  getParentRoute: () => HealthRoute,
+} as any)
+const MaintenanceIndexRoute = MaintenanceIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => MaintenanceRoute,
+} as any)
+const MaintenanceDiagnoseRoute = MaintenanceDiagnoseRouteImport.update({
+  id: '/diagnose',
+  path: '/diagnose',
+  getParentRoute: () => MaintenanceRoute,
+} as any)
+const MaintenanceForecastRoute = MaintenanceForecastRouteImport.update({
+  id: '/forecast',
+  path: '/forecast',
+  getParentRoute: () => MaintenanceRoute,
+} as any)
+const MaintenanceGenerateScheduleRoute =
+  MaintenanceGenerateScheduleRouteImport.update({
+    id: '/generate-schedule',
+    path: '/generate-schedule',
+    getParentRoute: () => MaintenanceRoute,
+  } as any)
+const MaintenanceImportManualRoute = MaintenanceImportManualRouteImport.update({
+  id: '/import-manual',
+  path: '/import-manual',
+  getParentRoute: () => MaintenanceRoute,
+} as any)
+const NotesDateRoute = NotesDateRouteImport.update({
+  id: '/notes/$date',
+  path: '/notes/$date',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AdminResetRoute = AdminResetRouteImport.update({
-  id: '/admin/reset',
-  path: '/admin/reset',
+const ProceduresIndexRoute = ProceduresIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => ProceduresRoute,
+} as any)
+const ProceduresIngestRoute = ProceduresIngestRouteImport.update({
+  id: '/ingest',
+  path: '/ingest',
+  getParentRoute: () => ProceduresRoute,
+} as any)
+const SettingsSelfHostRoute = SettingsSelfHostRouteImport.update({
+  id: '/settings/self-host',
+  path: '/settings/self-host',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AdminPanelAccessRoute = AdminPanelAccessRouteImport.update({
-  id: '/admin/panel-access',
-  path: '/admin/panel-access',
+const SettingsTroubleshootingRoute = SettingsTroubleshootingRouteImport.update({
+  id: '/settings/troubleshooting',
+  path: '/settings/troubleshooting',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AdminExportKeyRoute = AdminExportKeyRouteImport.update({
-  id: '/admin/export-key',
-  path: '/admin/export-key',
+const TasksIndexRoute = TasksIndexRouteImport.update({
+  id: '/tasks/',
+  path: '/tasks/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AdminExportRoute = AdminExportRouteImport.update({
-  id: '/admin/export',
-  path: '/admin/export',
+const TasksSlugRoute = TasksSlugRouteImport.update({
+  id: '/tasks/$slug',
+  path: '/tasks/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AdminElectricalAuditRoute = AdminElectricalAuditRouteImport.update({
-  id: '/admin/electrical-audit',
-  path: '/admin/electrical-audit',
+const TasksBacklogRoute = TasksBacklogRouteImport.update({
+  id: '/tasks/backlog',
+  path: '/tasks/backlog',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AdminAiSettingsRoute = AdminAiSettingsRouteImport.update({
-  id: '/admin/ai-settings',
-  path: '/admin/ai-settings',
+const TasksRefsRoute = TasksRefsRouteImport.update({
+  id: '/tasks/refs',
+  path: '/tasks/refs',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AdminAiRuntimeRoute = AdminAiRuntimeRouteImport.update({
-  id: '/admin/ai-runtime',
-  path: '/admin/ai-runtime',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AdminAiEnginesRoute = AdminAiEnginesRouteImport.update({
-  id: '/admin/ai-engines',
-  path: '/admin/ai-engines',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AdminAiCostsRoute = AdminAiCostsRouteImport.update({
-  id: '/admin/ai-costs',
-  path: '/admin/ai-costs',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AdminAiRoute = AdminAiRouteImport.update({
-  id: '/admin/ai',
-  path: '/admin/ai',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AdminAddonsRoute = AdminAddonsRouteImport.update({
-  id: '/admin/addons',
-  path: '/admin/addons',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ElectricalPanelPanelIdRoute = ElectricalPanelPanelIdRouteImport.update({
-  id: '/electrical/panel/$panelId',
-  path: '/electrical/panel/$panelId',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiPublicReadyRoute = ApiPublicReadyRouteImport.update({
-  id: '/api/public/ready',
-  path: '/api/public/ready',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiPublicHealthRoute = ApiPublicHealthRouteImport.update({
-  id: '/api/public/health',
-  path: '/api/public/health',
+const TasksScheduledRoute = TasksScheduledRouteImport.update({
+  id: '/tasks/scheduled',
+  path: '/tasks/scheduled',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiElectricalSnapshotRoute = ApiElectricalSnapshotRouteImport.update({
@@ -652,36 +637,30 @@ const ApiElectricalSnapshotRoute = ApiElectricalSnapshotRouteImport.update({
   path: '/api/electrical/snapshot',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiV1ElectricalIndexRoute = ApiV1ElectricalIndexRouteImport.update({
-  id: '/api/v1/electrical/',
-  path: '/api/v1/electrical/',
+const ApiPublicHealthRoute = ApiPublicHealthRouteImport.update({
+  id: '/api/public/health',
+  path: '/api/public/health',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ElectricalItemKindIdRoute = ElectricalItemKindIdRouteImport.update({
-  id: '/electrical/item/$kind/$id',
-  path: '/electrical/item/$kind/$id',
+const ApiPublicReadyRoute = ApiPublicReadyRouteImport.update({
+  id: '/api/public/ready',
+  path: '/api/public/ready',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiV1ElectricalSplatRoute = ApiV1ElectricalSplatRouteImport.update({
-  id: '/api/v1/electrical/$',
-  path: '/api/v1/electrical/$',
+const ElectricalPanelPanelIdRoute = ElectricalPanelPanelIdRouteImport.update({
+  id: '/electrical/panel/$panelId',
+  path: '/electrical/panel/$panelId',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiPublicWebhooksRachioRoute = ApiPublicWebhooksRachioRouteImport.update({
-  id: '/api/public/webhooks/rachio',
-  path: '/api/public/webhooks/rachio',
+const ApiElectricalV1SplatRoute = ApiElectricalV1SplatRouteImport.update({
+  id: '/api/electrical/v1/$',
+  path: '/api/electrical/v1/$',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiPublicHooksTaskHealthRoute =
-  ApiPublicHooksTaskHealthRouteImport.update({
-    id: '/api/public/hooks/task-health',
-    path: '/api/public/hooks/task-health',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const ApiPublicHooksRachioSyncRoute =
-  ApiPublicHooksRachioSyncRouteImport.update({
-    id: '/api/public/hooks/rachio-sync',
-    path: '/api/public/hooks/rachio-sync',
+const ApiElectricalV1OpenapiDotjsonRoute =
+  ApiElectricalV1OpenapiDotjsonRouteImport.update({
+    id: '/api/electrical/v1/openapi.json',
+    path: '/api/electrical/v1/openapi.json',
     getParentRoute: () => rootRouteImport,
   } as any)
 const ApiPublicHealthProceduresRoute =
@@ -690,27 +669,42 @@ const ApiPublicHealthProceduresRoute =
     path: '/procedures',
     getParentRoute: () => ApiPublicHealthRoute,
   } as any)
-const ApiElectricalV1OpenapiDotjsonRoute =
-  ApiElectricalV1OpenapiDotjsonRouteImport.update({
-    id: '/api/electrical/v1/openapi.json',
-    path: '/api/electrical/v1/openapi.json',
+const ApiPublicHooksRachioSyncRoute =
+  ApiPublicHooksRachioSyncRouteImport.update({
+    id: '/api/public/hooks/rachio-sync',
+    path: '/api/public/hooks/rachio-sync',
     getParentRoute: () => rootRouteImport,
   } as any)
-const ApiElectricalV1SplatRoute = ApiElectricalV1SplatRouteImport.update({
-  id: '/api/electrical/v1/$',
-  path: '/api/electrical/v1/$',
+const ApiPublicHooksTaskHealthRoute =
+  ApiPublicHooksTaskHealthRouteImport.update({
+    id: '/api/public/hooks/task-health',
+    path: '/api/public/hooks/task-health',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicWebhooksRachioRoute = ApiPublicWebhooksRachioRouteImport.update({
+  id: '/api/public/webhooks/rachio',
+  path: '/api/public/webhooks/rachio',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiElectricalV1RelationshipsPreviewRoute =
-  ApiElectricalV1RelationshipsPreviewRouteImport.update({
-    id: '/api/electrical/v1/relationships/preview',
-    path: '/api/electrical/v1/relationships/preview',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const ApiElectricalV1RelationshipsApplyRoute =
-  ApiElectricalV1RelationshipsApplyRouteImport.update({
-    id: '/api/electrical/v1/relationships/apply',
-    path: '/api/electrical/v1/relationships/apply',
+const ApiV1ElectricalIndexRoute = ApiV1ElectricalIndexRouteImport.update({
+  id: '/api/v1/electrical/',
+  path: '/api/v1/electrical/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiV1ElectricalSplatRoute = ApiV1ElectricalSplatRouteImport.update({
+  id: '/api/v1/electrical/$',
+  path: '/api/v1/electrical/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ElectricalItemKindIdRoute = ElectricalItemKindIdRouteImport.update({
+  id: '/electrical/item/$kind/$id',
+  path: '/electrical/item/$kind/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiElectricalV1FieldObservationsApplyRoute =
+  ApiElectricalV1FieldObservationsApplyRouteImport.update({
+    id: '/api/electrical/v1/field-observations/apply',
+    path: '/api/electrical/v1/field-observations/apply',
     getParentRoute: () => rootRouteImport,
   } as any)
 const ApiElectricalV1FieldObservationsPreviewRoute =
@@ -719,10 +713,16 @@ const ApiElectricalV1FieldObservationsPreviewRoute =
     path: '/api/electrical/v1/field-observations/preview',
     getParentRoute: () => rootRouteImport,
   } as any)
-const ApiElectricalV1FieldObservationsApplyRoute =
-  ApiElectricalV1FieldObservationsApplyRouteImport.update({
-    id: '/api/electrical/v1/field-observations/apply',
-    path: '/api/electrical/v1/field-observations/apply',
+const ApiElectricalV1RelationshipsApplyRoute =
+  ApiElectricalV1RelationshipsApplyRouteImport.update({
+    id: '/api/electrical/v1/relationships/apply',
+    path: '/api/electrical/v1/relationships/apply',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiElectricalV1RelationshipsPreviewRoute =
+  ApiElectricalV1RelationshipsPreviewRouteImport.update({
+    id: '/api/electrical/v1/relationships/preview',
+    path: '/api/electrical/v1/relationships/preview',
     getParentRoute: () => rootRouteImport,
   } as any)
 
@@ -1538,109 +1538,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/vault': {
-      id: '/vault'
-      path: '/vault'
-      fullPath: '/vault'
-      preLoaderRoute: typeof VaultRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/sync': {
-      id: '/sync'
-      path: '/sync'
-      fullPath: '/sync'
-      preLoaderRoute: typeof SyncRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/service-scheduling': {
-      id: '/service-scheduling'
-      path: '/service-scheduling'
-      fullPath: '/service-scheduling'
-      preLoaderRoute: typeof ServiceSchedulingRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/reset-password': {
-      id: '/reset-password'
-      path: '/reset-password'
-      fullPath: '/reset-password'
-      preLoaderRoute: typeof ResetPasswordRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/reports': {
-      id: '/reports'
-      path: '/reports'
-      fullPath: '/reports'
-      preLoaderRoute: typeof ReportsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/ready': {
-      id: '/ready'
-      path: '/ready'
-      fullPath: '/ready'
-      preLoaderRoute: typeof ReadyRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/promo': {
-      id: '/promo'
-      path: '/promo'
-      fullPath: '/promo'
-      preLoaderRoute: typeof PromoRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/projects': {
-      id: '/projects'
-      path: '/projects'
-      fullPath: '/projects'
-      preLoaderRoute: typeof ProjectsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/procedures': {
-      id: '/procedures'
-      path: '/procedures'
-      fullPath: '/procedures'
-      preLoaderRoute: typeof ProceduresRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/maintenance': {
-      id: '/maintenance'
-      path: '/maintenance'
-      fullPath: '/maintenance'
-      preLoaderRoute: typeof MaintenanceRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/inventory': {
-      id: '/inventory'
-      path: '/inventory'
-      fullPath: '/inventory'
-      preLoaderRoute: typeof InventoryRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/health': {
-      id: '/health'
-      path: '/health'
-      fullPath: '/health'
-      preLoaderRoute: typeof HealthRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/food': {
-      id: '/food'
-      path: '/food'
-      fullPath: '/food'
-      preLoaderRoute: typeof FoodRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/deck': {
-      id: '/deck'
-      path: '/deck'
-      fullPath: '/deck'
-      preLoaderRoute: typeof DeckRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/dashboard': {
-      id: '/dashboard'
-      path: '/dashboard'
-      fullPath: '/dashboard'
-      preLoaderRoute: typeof DashboardRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth': {
@@ -1650,46 +1552,109 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/dashboard': {
+      id: '/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof DashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/tasks/': {
-      id: '/tasks/'
-      path: '/tasks'
-      fullPath: '/tasks/'
-      preLoaderRoute: typeof TasksIndexRouteImport
+    '/deck': {
+      id: '/deck'
+      path: '/deck'
+      fullPath: '/deck'
+      preLoaderRoute: typeof DeckRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/procedures/': {
-      id: '/procedures/'
-      path: '/'
-      fullPath: '/procedures/'
-      preLoaderRoute: typeof ProceduresIndexRouteImport
-      parentRoute: typeof ProceduresRoute
+    '/food': {
+      id: '/food'
+      path: '/food'
+      fullPath: '/food'
+      preLoaderRoute: typeof FoodRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/maintenance/': {
-      id: '/maintenance/'
-      path: '/'
-      fullPath: '/maintenance/'
-      preLoaderRoute: typeof MaintenanceIndexRouteImport
-      parentRoute: typeof MaintenanceRoute
+    '/health': {
+      id: '/health'
+      path: '/health'
+      fullPath: '/health'
+      preLoaderRoute: typeof HealthRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/food/': {
-      id: '/food/'
-      path: '/'
-      fullPath: '/food/'
-      preLoaderRoute: typeof FoodIndexRouteImport
-      parentRoute: typeof FoodRoute
+    '/inventory': {
+      id: '/inventory'
+      path: '/inventory'
+      fullPath: '/inventory'
+      preLoaderRoute: typeof InventoryRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/electrical/': {
-      id: '/electrical/'
-      path: '/electrical'
-      fullPath: '/electrical/'
-      preLoaderRoute: typeof ElectricalIndexRouteImport
+    '/maintenance': {
+      id: '/maintenance'
+      path: '/maintenance'
+      fullPath: '/maintenance'
+      preLoaderRoute: typeof MaintenanceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/procedures': {
+      id: '/procedures'
+      path: '/procedures'
+      fullPath: '/procedures'
+      preLoaderRoute: typeof ProceduresRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/projects': {
+      id: '/projects'
+      path: '/projects'
+      fullPath: '/projects'
+      preLoaderRoute: typeof ProjectsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/promo': {
+      id: '/promo'
+      path: '/promo'
+      fullPath: '/promo'
+      preLoaderRoute: typeof PromoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ready': {
+      id: '/ready'
+      path: '/ready'
+      fullPath: '/ready'
+      preLoaderRoute: typeof ReadyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reports': {
+      id: '/reports'
+      path: '/reports'
+      fullPath: '/reports'
+      preLoaderRoute: typeof ReportsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/service-scheduling': {
+      id: '/service-scheduling'
+      path: '/service-scheduling'
+      fullPath: '/service-scheduling'
+      preLoaderRoute: typeof ServiceSchedulingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sync': {
+      id: '/sync'
+      path: '/sync'
+      fullPath: '/sync'
+      preLoaderRoute: typeof SyncRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/vault': {
+      id: '/vault'
+      path: '/vault'
+      fullPath: '/vault'
+      preLoaderRoute: typeof VaultRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/': {
@@ -1699,529 +1664,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/tasks/scheduled': {
-      id: '/tasks/scheduled'
-      path: '/tasks/scheduled'
-      fullPath: '/tasks/scheduled'
-      preLoaderRoute: typeof TasksScheduledRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/tasks/refs': {
-      id: '/tasks/refs'
-      path: '/tasks/refs'
-      fullPath: '/tasks/refs'
-      preLoaderRoute: typeof TasksRefsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/tasks/backlog': {
-      id: '/tasks/backlog'
-      path: '/tasks/backlog'
-      fullPath: '/tasks/backlog'
-      preLoaderRoute: typeof TasksBacklogRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/tasks/$slug': {
-      id: '/tasks/$slug'
-      path: '/tasks/$slug'
-      fullPath: '/tasks/$slug'
-      preLoaderRoute: typeof TasksSlugRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/settings/troubleshooting': {
-      id: '/settings/troubleshooting'
-      path: '/settings/troubleshooting'
-      fullPath: '/settings/troubleshooting'
-      preLoaderRoute: typeof SettingsTroubleshootingRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/settings/self-host': {
-      id: '/settings/self-host'
-      path: '/settings/self-host'
-      fullPath: '/settings/self-host'
-      preLoaderRoute: typeof SettingsSelfHostRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/procedures/ingest': {
-      id: '/procedures/ingest'
-      path: '/ingest'
-      fullPath: '/procedures/ingest'
-      preLoaderRoute: typeof ProceduresIngestRouteImport
-      parentRoute: typeof ProceduresRoute
-    }
-    '/notes/$date': {
-      id: '/notes/$date'
-      path: '/notes/$date'
-      fullPath: '/notes/$date'
-      preLoaderRoute: typeof NotesDateRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/maintenance/import-manual': {
-      id: '/maintenance/import-manual'
-      path: '/import-manual'
-      fullPath: '/maintenance/import-manual'
-      preLoaderRoute: typeof MaintenanceImportManualRouteImport
-      parentRoute: typeof MaintenanceRoute
-    }
-    '/maintenance/generate-schedule': {
-      id: '/maintenance/generate-schedule'
-      path: '/generate-schedule'
-      fullPath: '/maintenance/generate-schedule'
-      preLoaderRoute: typeof MaintenanceGenerateScheduleRouteImport
-      parentRoute: typeof MaintenanceRoute
-    }
-    '/maintenance/forecast': {
-      id: '/maintenance/forecast'
-      path: '/forecast'
-      fullPath: '/maintenance/forecast'
-      preLoaderRoute: typeof MaintenanceForecastRouteImport
-      parentRoute: typeof MaintenanceRoute
-    }
-    '/maintenance/diagnose': {
-      id: '/maintenance/diagnose'
-      path: '/diagnose'
-      fullPath: '/maintenance/diagnose'
-      preLoaderRoute: typeof MaintenanceDiagnoseRouteImport
-      parentRoute: typeof MaintenanceRoute
-    }
-    '/health/schema': {
-      id: '/health/schema'
-      path: '/schema'
-      fullPath: '/health/schema'
-      preLoaderRoute: typeof HealthSchemaRouteImport
-      parentRoute: typeof HealthRoute
-    }
-    '/food/storage': {
-      id: '/food/storage'
-      path: '/storage'
-      fullPath: '/food/storage'
-      preLoaderRoute: typeof FoodStorageRouteImport
-      parentRoute: typeof FoodRoute
-    }
-    '/food/seasons': {
-      id: '/food/seasons'
-      path: '/seasons'
-      fullPath: '/food/seasons'
-      preLoaderRoute: typeof FoodSeasonsRouteImport
-      parentRoute: typeof FoodRoute
-    }
-    '/food/reports': {
-      id: '/food/reports'
-      path: '/reports'
-      fullPath: '/food/reports'
-      preLoaderRoute: typeof FoodReportsRouteImport
-      parentRoute: typeof FoodRoute
-    }
-    '/food/processing': {
-      id: '/food/processing'
-      path: '/processing'
-      fullPath: '/food/processing'
-      preLoaderRoute: typeof FoodProcessingRouteImport
-      parentRoute: typeof FoodRoute
-    }
-    '/food/prices': {
-      id: '/food/prices'
-      path: '/prices'
-      fullPath: '/food/prices'
-      preLoaderRoute: typeof FoodPricesRouteImport
-      parentRoute: typeof FoodRoute
-    }
-    '/food/preserve': {
-      id: '/food/preserve'
-      path: '/preserve'
-      fullPath: '/food/preserve'
-      preLoaderRoute: typeof FoodPreserveRouteImport
-      parentRoute: typeof FoodRoute
-    }
-    '/food/plan': {
-      id: '/food/plan'
-      path: '/plan'
-      fullPath: '/food/plan'
-      preLoaderRoute: typeof FoodPlanRouteImport
-      parentRoute: typeof FoodRoute
-    }
-    '/food/orchard': {
-      id: '/food/orchard'
-      path: '/orchard'
-      fullPath: '/food/orchard'
-      preLoaderRoute: typeof FoodOrchardRouteImport
-      parentRoute: typeof FoodRoute
-    }
-    '/food/livestock': {
-      id: '/food/livestock'
-      path: '/livestock'
-      fullPath: '/food/livestock'
-      preLoaderRoute: typeof FoodLivestockRouteImport
-      parentRoute: typeof FoodRoute
-    }
-    '/food/irrigation': {
-      id: '/food/irrigation'
-      path: '/irrigation'
-      fullPath: '/food/irrigation'
-      preLoaderRoute: typeof FoodIrrigationRouteImport
-      parentRoute: typeof FoodRoute
-    }
-    '/food/garden': {
-      id: '/food/garden'
-      path: '/garden'
-      fullPath: '/food/garden'
-      preLoaderRoute: typeof FoodGardenRouteImport
-      parentRoute: typeof FoodRoute
-    }
-    '/food/crops': {
-      id: '/food/crops'
-      path: '/crops'
-      fullPath: '/food/crops'
-      preLoaderRoute: typeof FoodCropsRouteImport
-      parentRoute: typeof FoodRoute
-    }
-    '/electrical/workbook': {
-      id: '/electrical/workbook'
-      path: '/electrical/workbook'
-      fullPath: '/electrical/workbook'
-      preLoaderRoute: typeof ElectricalWorkbookRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/electrical/wiring': {
-      id: '/electrical/wiring'
-      path: '/electrical/wiring'
-      fullPath: '/electrical/wiring'
-      preLoaderRoute: typeof ElectricalWiringRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/electrical/validation': {
-      id: '/electrical/validation'
-      path: '/electrical/validation'
-      fullPath: '/electrical/validation'
-      preLoaderRoute: typeof ElectricalValidationRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/electrical/topology': {
-      id: '/electrical/topology'
-      path: '/electrical/topology'
-      fullPath: '/electrical/topology'
-      preLoaderRoute: typeof ElectricalTopologyRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/electrical/standards': {
-      id: '/electrical/standards'
-      path: '/electrical/standards'
-      fullPath: '/electrical/standards'
-      preLoaderRoute: typeof ElectricalStandardsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/electrical/sor': {
-      id: '/electrical/sor'
-      path: '/electrical/sor'
-      fullPath: '/electrical/sor'
-      preLoaderRoute: typeof ElectricalSorRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/electrical/services': {
-      id: '/electrical/services'
-      path: '/electrical/services'
-      fullPath: '/electrical/services'
-      preLoaderRoute: typeof ElectricalServicesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/electrical/reconciliation': {
-      id: '/electrical/reconciliation'
-      path: '/electrical/reconciliation'
-      fullPath: '/electrical/reconciliation'
-      preLoaderRoute: typeof ElectricalReconciliationRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/electrical/qa': {
-      id: '/electrical/qa'
-      path: '/electrical/qa'
-      fullPath: '/electrical/qa'
-      preLoaderRoute: typeof ElectricalQaRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/electrical/panel-diagram': {
-      id: '/electrical/panel-diagram'
-      path: '/electrical/panel-diagram'
-      fullPath: '/electrical/panel-diagram'
-      preLoaderRoute: typeof ElectricalPanelDiagramRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/electrical/nameplate-scan': {
-      id: '/electrical/nameplate-scan'
-      path: '/electrical/nameplate-scan'
-      fullPath: '/electrical/nameplate-scan'
-      preLoaderRoute: typeof ElectricalNameplateScanRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/electrical/mapping-repair': {
-      id: '/electrical/mapping-repair'
-      path: '/electrical/mapping-repair'
-      fullPath: '/electrical/mapping-repair'
-      preLoaderRoute: typeof ElectricalMappingRepairRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/electrical/mapping-audit': {
-      id: '/electrical/mapping-audit'
-      path: '/electrical/mapping-audit'
-      fullPath: '/electrical/mapping-audit'
-      preLoaderRoute: typeof ElectricalMappingAuditRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/electrical/mapping': {
-      id: '/electrical/mapping'
-      path: '/electrical/mapping'
-      fullPath: '/electrical/mapping'
-      preLoaderRoute: typeof ElectricalMappingRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/electrical/labels': {
-      id: '/electrical/labels'
-      path: '/electrical/labels'
-      fullPath: '/electrical/labels'
-      preLoaderRoute: typeof ElectricalLabelsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/electrical/install-progress': {
-      id: '/electrical/install-progress'
-      path: '/electrical/install-progress'
-      fullPath: '/electrical/install-progress'
-      preLoaderRoute: typeof ElectricalInstallProgressRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/electrical/import-contract': {
-      id: '/electrical/import-contract'
-      path: '/electrical/import-contract'
-      fullPath: '/electrical/import-contract'
-      preLoaderRoute: typeof ElectricalImportContractRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/electrical/import': {
-      id: '/electrical/import'
-      path: '/electrical/import'
-      fullPath: '/electrical/import'
-      preLoaderRoute: typeof ElectricalImportRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/electrical/grid-recovery': {
-      id: '/electrical/grid-recovery'
-      path: '/electrical/grid-recovery'
-      fullPath: '/electrical/grid-recovery'
-      preLoaderRoute: typeof ElectricalGridRecoveryRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/electrical/grid-migration': {
-      id: '/electrical/grid-migration'
-      path: '/electrical/grid-migration'
-      fullPath: '/electrical/grid-migration'
-      preLoaderRoute: typeof ElectricalGridMigrationRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/electrical/grid-map': {
-      id: '/electrical/grid-map'
-      path: '/electrical/grid-map'
-      fullPath: '/electrical/grid-map'
-      preLoaderRoute: typeof ElectricalGridMapRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/electrical/grid-data-quality': {
-      id: '/electrical/grid-data-quality'
-      path: '/electrical/grid-data-quality'
-      fullPath: '/electrical/grid-data-quality'
-      preLoaderRoute: typeof ElectricalGridDataQualityRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/electrical/export': {
-      id: '/electrical/export'
-      path: '/electrical/export'
-      fullPath: '/electrical/export'
-      preLoaderRoute: typeof ElectricalExportRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/electrical/documents': {
-      id: '/electrical/documents'
-      path: '/electrical/documents'
-      fullPath: '/electrical/documents'
-      preLoaderRoute: typeof ElectricalDocumentsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/electrical/diagrams': {
-      id: '/electrical/diagrams'
-      path: '/electrical/diagrams'
-      fullPath: '/electrical/diagrams'
-      preLoaderRoute: typeof ElectricalDiagramsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/electrical/critical-loads': {
-      id: '/electrical/critical-loads'
-      path: '/electrical/critical-loads'
-      fullPath: '/electrical/critical-loads'
-      preLoaderRoute: typeof ElectricalCriticalLoadsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/electrical/changes': {
-      id: '/electrical/changes'
-      path: '/electrical/changes'
-      fullPath: '/electrical/changes'
-      preLoaderRoute: typeof ElectricalChangesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/electrical/assistant': {
-      id: '/electrical/assistant'
-      path: '/electrical/assistant'
-      fullPath: '/electrical/assistant'
-      preLoaderRoute: typeof ElectricalAssistantRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/electrical/api-docs': {
-      id: '/electrical/api-docs'
-      path: '/electrical/api-docs'
-      fullPath: '/electrical/api-docs'
-      preLoaderRoute: typeof ElectricalApiDocsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/electrical/adjudication': {
-      id: '/electrical/adjudication'
-      path: '/electrical/adjudication'
-      fullPath: '/electrical/adjudication'
-      preLoaderRoute: typeof ElectricalAdjudicationRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/electrical/$kind': {
-      id: '/electrical/$kind'
-      path: '/electrical/$kind'
-      fullPath: '/electrical/$kind'
-      preLoaderRoute: typeof ElectricalKindRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/docs/product-architecture': {
-      id: '/docs/product-architecture'
-      path: '/docs/product-architecture'
-      fullPath: '/docs/product-architecture'
-      preLoaderRoute: typeof DocsProductArchitectureRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/openapi.json': {
-      id: '/api/openapi.json'
-      path: '/api/openapi.json'
-      fullPath: '/api/openapi.json'
-      preLoaderRoute: typeof ApiOpenapiDotjsonRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin/vault-secrets': {
-      id: '/admin/vault-secrets'
-      path: '/admin/vault-secrets'
-      fullPath: '/admin/vault-secrets'
-      preLoaderRoute: typeof AdminVaultSecretsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin/vault-rotation': {
-      id: '/admin/vault-rotation'
-      path: '/admin/vault-rotation'
-      fullPath: '/admin/vault-rotation'
-      preLoaderRoute: typeof AdminVaultRotationRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin/vault-backup': {
-      id: '/admin/vault-backup'
-      path: '/admin/vault-backup'
-      fullPath: '/admin/vault-backup'
-      preLoaderRoute: typeof AdminVaultBackupRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin/users': {
-      id: '/admin/users'
-      path: '/admin/users'
-      fullPath: '/admin/users'
-      preLoaderRoute: typeof AdminUsersRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin/task-health': {
-      id: '/admin/task-health'
-      path: '/admin/task-health'
-      fullPath: '/admin/task-health'
-      preLoaderRoute: typeof AdminTaskHealthRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin/task-dedupe': {
-      id: '/admin/task-dedupe'
-      path: '/admin/task-dedupe'
-      fullPath: '/admin/task-dedupe'
-      preLoaderRoute: typeof AdminTaskDedupeRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin/schema': {
-      id: '/admin/schema'
-      path: '/admin/schema'
-      fullPath: '/admin/schema'
-      preLoaderRoute: typeof AdminSchemaRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin/restore': {
-      id: '/admin/restore'
-      path: '/admin/restore'
-      fullPath: '/admin/restore'
-      preLoaderRoute: typeof AdminRestoreRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin/reset': {
-      id: '/admin/reset'
-      path: '/admin/reset'
-      fullPath: '/admin/reset'
-      preLoaderRoute: typeof AdminResetRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin/panel-access': {
-      id: '/admin/panel-access'
-      path: '/admin/panel-access'
-      fullPath: '/admin/panel-access'
-      preLoaderRoute: typeof AdminPanelAccessRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin/export-key': {
-      id: '/admin/export-key'
-      path: '/admin/export-key'
-      fullPath: '/admin/export-key'
-      preLoaderRoute: typeof AdminExportKeyRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin/export': {
-      id: '/admin/export'
-      path: '/admin/export'
-      fullPath: '/admin/export'
-      preLoaderRoute: typeof AdminExportRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin/electrical-audit': {
-      id: '/admin/electrical-audit'
-      path: '/admin/electrical-audit'
-      fullPath: '/admin/electrical-audit'
-      preLoaderRoute: typeof AdminElectricalAuditRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin/ai-settings': {
-      id: '/admin/ai-settings'
-      path: '/admin/ai-settings'
-      fullPath: '/admin/ai-settings'
-      preLoaderRoute: typeof AdminAiSettingsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin/ai-runtime': {
-      id: '/admin/ai-runtime'
-      path: '/admin/ai-runtime'
-      fullPath: '/admin/ai-runtime'
-      preLoaderRoute: typeof AdminAiRuntimeRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin/ai-engines': {
-      id: '/admin/ai-engines'
-      path: '/admin/ai-engines'
-      fullPath: '/admin/ai-engines'
-      preLoaderRoute: typeof AdminAiEnginesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin/ai-costs': {
-      id: '/admin/ai-costs'
-      path: '/admin/ai-costs'
-      fullPath: '/admin/ai-costs'
-      preLoaderRoute: typeof AdminAiCostsRouteImport
+    '/admin/addons': {
+      id: '/admin/addons'
+      path: '/admin/addons'
+      fullPath: '/admin/addons'
+      preLoaderRoute: typeof AdminAddonsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/ai': {
@@ -2231,32 +1678,564 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminAiRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/admin/addons': {
-      id: '/admin/addons'
-      path: '/admin/addons'
-      fullPath: '/admin/addons'
-      preLoaderRoute: typeof AdminAddonsRouteImport
+    '/admin/ai-costs': {
+      id: '/admin/ai-costs'
+      path: '/admin/ai-costs'
+      fullPath: '/admin/ai-costs'
+      preLoaderRoute: typeof AdminAiCostsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/electrical/panel/$panelId': {
-      id: '/electrical/panel/$panelId'
-      path: '/electrical/panel/$panelId'
-      fullPath: '/electrical/panel/$panelId'
-      preLoaderRoute: typeof ElectricalPanelPanelIdRouteImport
+    '/admin/ai-engines': {
+      id: '/admin/ai-engines'
+      path: '/admin/ai-engines'
+      fullPath: '/admin/ai-engines'
+      preLoaderRoute: typeof AdminAiEnginesRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/ready': {
-      id: '/api/public/ready'
-      path: '/api/public/ready'
-      fullPath: '/api/public/ready'
-      preLoaderRoute: typeof ApiPublicReadyRouteImport
+    '/admin/ai-runtime': {
+      id: '/admin/ai-runtime'
+      path: '/admin/ai-runtime'
+      fullPath: '/admin/ai-runtime'
+      preLoaderRoute: typeof AdminAiRuntimeRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/health': {
-      id: '/api/public/health'
-      path: '/api/public/health'
-      fullPath: '/api/public/health'
-      preLoaderRoute: typeof ApiPublicHealthRouteImport
+    '/admin/ai-settings': {
+      id: '/admin/ai-settings'
+      path: '/admin/ai-settings'
+      fullPath: '/admin/ai-settings'
+      preLoaderRoute: typeof AdminAiSettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/electrical-audit': {
+      id: '/admin/electrical-audit'
+      path: '/admin/electrical-audit'
+      fullPath: '/admin/electrical-audit'
+      preLoaderRoute: typeof AdminElectricalAuditRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/export': {
+      id: '/admin/export'
+      path: '/admin/export'
+      fullPath: '/admin/export'
+      preLoaderRoute: typeof AdminExportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/export-key': {
+      id: '/admin/export-key'
+      path: '/admin/export-key'
+      fullPath: '/admin/export-key'
+      preLoaderRoute: typeof AdminExportKeyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/panel-access': {
+      id: '/admin/panel-access'
+      path: '/admin/panel-access'
+      fullPath: '/admin/panel-access'
+      preLoaderRoute: typeof AdminPanelAccessRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/reset': {
+      id: '/admin/reset'
+      path: '/admin/reset'
+      fullPath: '/admin/reset'
+      preLoaderRoute: typeof AdminResetRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/restore': {
+      id: '/admin/restore'
+      path: '/admin/restore'
+      fullPath: '/admin/restore'
+      preLoaderRoute: typeof AdminRestoreRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/schema': {
+      id: '/admin/schema'
+      path: '/admin/schema'
+      fullPath: '/admin/schema'
+      preLoaderRoute: typeof AdminSchemaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/task-dedupe': {
+      id: '/admin/task-dedupe'
+      path: '/admin/task-dedupe'
+      fullPath: '/admin/task-dedupe'
+      preLoaderRoute: typeof AdminTaskDedupeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/task-health': {
+      id: '/admin/task-health'
+      path: '/admin/task-health'
+      fullPath: '/admin/task-health'
+      preLoaderRoute: typeof AdminTaskHealthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/users': {
+      id: '/admin/users'
+      path: '/admin/users'
+      fullPath: '/admin/users'
+      preLoaderRoute: typeof AdminUsersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/vault-backup': {
+      id: '/admin/vault-backup'
+      path: '/admin/vault-backup'
+      fullPath: '/admin/vault-backup'
+      preLoaderRoute: typeof AdminVaultBackupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/vault-rotation': {
+      id: '/admin/vault-rotation'
+      path: '/admin/vault-rotation'
+      fullPath: '/admin/vault-rotation'
+      preLoaderRoute: typeof AdminVaultRotationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/vault-secrets': {
+      id: '/admin/vault-secrets'
+      path: '/admin/vault-secrets'
+      fullPath: '/admin/vault-secrets'
+      preLoaderRoute: typeof AdminVaultSecretsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/openapi.json': {
+      id: '/api/openapi.json'
+      path: '/api/openapi.json'
+      fullPath: '/api/openapi.json'
+      preLoaderRoute: typeof ApiOpenapiDotjsonRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/docs/product-architecture': {
+      id: '/docs/product-architecture'
+      path: '/docs/product-architecture'
+      fullPath: '/docs/product-architecture'
+      preLoaderRoute: typeof DocsProductArchitectureRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/electrical/': {
+      id: '/electrical/'
+      path: '/electrical'
+      fullPath: '/electrical/'
+      preLoaderRoute: typeof ElectricalIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/electrical/$kind': {
+      id: '/electrical/$kind'
+      path: '/electrical/$kind'
+      fullPath: '/electrical/$kind'
+      preLoaderRoute: typeof ElectricalKindRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/electrical/adjudication': {
+      id: '/electrical/adjudication'
+      path: '/electrical/adjudication'
+      fullPath: '/electrical/adjudication'
+      preLoaderRoute: typeof ElectricalAdjudicationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/electrical/api-docs': {
+      id: '/electrical/api-docs'
+      path: '/electrical/api-docs'
+      fullPath: '/electrical/api-docs'
+      preLoaderRoute: typeof ElectricalApiDocsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/electrical/assistant': {
+      id: '/electrical/assistant'
+      path: '/electrical/assistant'
+      fullPath: '/electrical/assistant'
+      preLoaderRoute: typeof ElectricalAssistantRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/electrical/changes': {
+      id: '/electrical/changes'
+      path: '/electrical/changes'
+      fullPath: '/electrical/changes'
+      preLoaderRoute: typeof ElectricalChangesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/electrical/critical-loads': {
+      id: '/electrical/critical-loads'
+      path: '/electrical/critical-loads'
+      fullPath: '/electrical/critical-loads'
+      preLoaderRoute: typeof ElectricalCriticalLoadsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/electrical/diagrams': {
+      id: '/electrical/diagrams'
+      path: '/electrical/diagrams'
+      fullPath: '/electrical/diagrams'
+      preLoaderRoute: typeof ElectricalDiagramsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/electrical/documents': {
+      id: '/electrical/documents'
+      path: '/electrical/documents'
+      fullPath: '/electrical/documents'
+      preLoaderRoute: typeof ElectricalDocumentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/electrical/export': {
+      id: '/electrical/export'
+      path: '/electrical/export'
+      fullPath: '/electrical/export'
+      preLoaderRoute: typeof ElectricalExportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/electrical/grid-data-quality': {
+      id: '/electrical/grid-data-quality'
+      path: '/electrical/grid-data-quality'
+      fullPath: '/electrical/grid-data-quality'
+      preLoaderRoute: typeof ElectricalGridDataQualityRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/electrical/grid-map': {
+      id: '/electrical/grid-map'
+      path: '/electrical/grid-map'
+      fullPath: '/electrical/grid-map'
+      preLoaderRoute: typeof ElectricalGridMapRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/electrical/grid-migration': {
+      id: '/electrical/grid-migration'
+      path: '/electrical/grid-migration'
+      fullPath: '/electrical/grid-migration'
+      preLoaderRoute: typeof ElectricalGridMigrationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/electrical/grid-recovery': {
+      id: '/electrical/grid-recovery'
+      path: '/electrical/grid-recovery'
+      fullPath: '/electrical/grid-recovery'
+      preLoaderRoute: typeof ElectricalGridRecoveryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/electrical/import': {
+      id: '/electrical/import'
+      path: '/electrical/import'
+      fullPath: '/electrical/import'
+      preLoaderRoute: typeof ElectricalImportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/electrical/import-contract': {
+      id: '/electrical/import-contract'
+      path: '/electrical/import-contract'
+      fullPath: '/electrical/import-contract'
+      preLoaderRoute: typeof ElectricalImportContractRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/electrical/install-progress': {
+      id: '/electrical/install-progress'
+      path: '/electrical/install-progress'
+      fullPath: '/electrical/install-progress'
+      preLoaderRoute: typeof ElectricalInstallProgressRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/electrical/labels': {
+      id: '/electrical/labels'
+      path: '/electrical/labels'
+      fullPath: '/electrical/labels'
+      preLoaderRoute: typeof ElectricalLabelsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/electrical/mapping': {
+      id: '/electrical/mapping'
+      path: '/electrical/mapping'
+      fullPath: '/electrical/mapping'
+      preLoaderRoute: typeof ElectricalMappingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/electrical/mapping-audit': {
+      id: '/electrical/mapping-audit'
+      path: '/electrical/mapping-audit'
+      fullPath: '/electrical/mapping-audit'
+      preLoaderRoute: typeof ElectricalMappingAuditRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/electrical/mapping-repair': {
+      id: '/electrical/mapping-repair'
+      path: '/electrical/mapping-repair'
+      fullPath: '/electrical/mapping-repair'
+      preLoaderRoute: typeof ElectricalMappingRepairRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/electrical/nameplate-scan': {
+      id: '/electrical/nameplate-scan'
+      path: '/electrical/nameplate-scan'
+      fullPath: '/electrical/nameplate-scan'
+      preLoaderRoute: typeof ElectricalNameplateScanRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/electrical/panel-diagram': {
+      id: '/electrical/panel-diagram'
+      path: '/electrical/panel-diagram'
+      fullPath: '/electrical/panel-diagram'
+      preLoaderRoute: typeof ElectricalPanelDiagramRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/electrical/qa': {
+      id: '/electrical/qa'
+      path: '/electrical/qa'
+      fullPath: '/electrical/qa'
+      preLoaderRoute: typeof ElectricalQaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/electrical/reconciliation': {
+      id: '/electrical/reconciliation'
+      path: '/electrical/reconciliation'
+      fullPath: '/electrical/reconciliation'
+      preLoaderRoute: typeof ElectricalReconciliationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/electrical/services': {
+      id: '/electrical/services'
+      path: '/electrical/services'
+      fullPath: '/electrical/services'
+      preLoaderRoute: typeof ElectricalServicesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/electrical/sor': {
+      id: '/electrical/sor'
+      path: '/electrical/sor'
+      fullPath: '/electrical/sor'
+      preLoaderRoute: typeof ElectricalSorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/electrical/standards': {
+      id: '/electrical/standards'
+      path: '/electrical/standards'
+      fullPath: '/electrical/standards'
+      preLoaderRoute: typeof ElectricalStandardsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/electrical/topology': {
+      id: '/electrical/topology'
+      path: '/electrical/topology'
+      fullPath: '/electrical/topology'
+      preLoaderRoute: typeof ElectricalTopologyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/electrical/validation': {
+      id: '/electrical/validation'
+      path: '/electrical/validation'
+      fullPath: '/electrical/validation'
+      preLoaderRoute: typeof ElectricalValidationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/electrical/wiring': {
+      id: '/electrical/wiring'
+      path: '/electrical/wiring'
+      fullPath: '/electrical/wiring'
+      preLoaderRoute: typeof ElectricalWiringRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/electrical/workbook': {
+      id: '/electrical/workbook'
+      path: '/electrical/workbook'
+      fullPath: '/electrical/workbook'
+      preLoaderRoute: typeof ElectricalWorkbookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/food/': {
+      id: '/food/'
+      path: '/'
+      fullPath: '/food/'
+      preLoaderRoute: typeof FoodIndexRouteImport
+      parentRoute: typeof FoodRoute
+    }
+    '/food/crops': {
+      id: '/food/crops'
+      path: '/crops'
+      fullPath: '/food/crops'
+      preLoaderRoute: typeof FoodCropsRouteImport
+      parentRoute: typeof FoodRoute
+    }
+    '/food/garden': {
+      id: '/food/garden'
+      path: '/garden'
+      fullPath: '/food/garden'
+      preLoaderRoute: typeof FoodGardenRouteImport
+      parentRoute: typeof FoodRoute
+    }
+    '/food/irrigation': {
+      id: '/food/irrigation'
+      path: '/irrigation'
+      fullPath: '/food/irrigation'
+      preLoaderRoute: typeof FoodIrrigationRouteImport
+      parentRoute: typeof FoodRoute
+    }
+    '/food/livestock': {
+      id: '/food/livestock'
+      path: '/livestock'
+      fullPath: '/food/livestock'
+      preLoaderRoute: typeof FoodLivestockRouteImport
+      parentRoute: typeof FoodRoute
+    }
+    '/food/orchard': {
+      id: '/food/orchard'
+      path: '/orchard'
+      fullPath: '/food/orchard'
+      preLoaderRoute: typeof FoodOrchardRouteImport
+      parentRoute: typeof FoodRoute
+    }
+    '/food/plan': {
+      id: '/food/plan'
+      path: '/plan'
+      fullPath: '/food/plan'
+      preLoaderRoute: typeof FoodPlanRouteImport
+      parentRoute: typeof FoodRoute
+    }
+    '/food/preserve': {
+      id: '/food/preserve'
+      path: '/preserve'
+      fullPath: '/food/preserve'
+      preLoaderRoute: typeof FoodPreserveRouteImport
+      parentRoute: typeof FoodRoute
+    }
+    '/food/prices': {
+      id: '/food/prices'
+      path: '/prices'
+      fullPath: '/food/prices'
+      preLoaderRoute: typeof FoodPricesRouteImport
+      parentRoute: typeof FoodRoute
+    }
+    '/food/processing': {
+      id: '/food/processing'
+      path: '/processing'
+      fullPath: '/food/processing'
+      preLoaderRoute: typeof FoodProcessingRouteImport
+      parentRoute: typeof FoodRoute
+    }
+    '/food/reports': {
+      id: '/food/reports'
+      path: '/reports'
+      fullPath: '/food/reports'
+      preLoaderRoute: typeof FoodReportsRouteImport
+      parentRoute: typeof FoodRoute
+    }
+    '/food/seasons': {
+      id: '/food/seasons'
+      path: '/seasons'
+      fullPath: '/food/seasons'
+      preLoaderRoute: typeof FoodSeasonsRouteImport
+      parentRoute: typeof FoodRoute
+    }
+    '/food/storage': {
+      id: '/food/storage'
+      path: '/storage'
+      fullPath: '/food/storage'
+      preLoaderRoute: typeof FoodStorageRouteImport
+      parentRoute: typeof FoodRoute
+    }
+    '/health/schema': {
+      id: '/health/schema'
+      path: '/schema'
+      fullPath: '/health/schema'
+      preLoaderRoute: typeof HealthSchemaRouteImport
+      parentRoute: typeof HealthRoute
+    }
+    '/maintenance/': {
+      id: '/maintenance/'
+      path: '/'
+      fullPath: '/maintenance/'
+      preLoaderRoute: typeof MaintenanceIndexRouteImport
+      parentRoute: typeof MaintenanceRoute
+    }
+    '/maintenance/diagnose': {
+      id: '/maintenance/diagnose'
+      path: '/diagnose'
+      fullPath: '/maintenance/diagnose'
+      preLoaderRoute: typeof MaintenanceDiagnoseRouteImport
+      parentRoute: typeof MaintenanceRoute
+    }
+    '/maintenance/forecast': {
+      id: '/maintenance/forecast'
+      path: '/forecast'
+      fullPath: '/maintenance/forecast'
+      preLoaderRoute: typeof MaintenanceForecastRouteImport
+      parentRoute: typeof MaintenanceRoute
+    }
+    '/maintenance/generate-schedule': {
+      id: '/maintenance/generate-schedule'
+      path: '/generate-schedule'
+      fullPath: '/maintenance/generate-schedule'
+      preLoaderRoute: typeof MaintenanceGenerateScheduleRouteImport
+      parentRoute: typeof MaintenanceRoute
+    }
+    '/maintenance/import-manual': {
+      id: '/maintenance/import-manual'
+      path: '/import-manual'
+      fullPath: '/maintenance/import-manual'
+      preLoaderRoute: typeof MaintenanceImportManualRouteImport
+      parentRoute: typeof MaintenanceRoute
+    }
+    '/notes/$date': {
+      id: '/notes/$date'
+      path: '/notes/$date'
+      fullPath: '/notes/$date'
+      preLoaderRoute: typeof NotesDateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/procedures/': {
+      id: '/procedures/'
+      path: '/'
+      fullPath: '/procedures/'
+      preLoaderRoute: typeof ProceduresIndexRouteImport
+      parentRoute: typeof ProceduresRoute
+    }
+    '/procedures/ingest': {
+      id: '/procedures/ingest'
+      path: '/ingest'
+      fullPath: '/procedures/ingest'
+      preLoaderRoute: typeof ProceduresIngestRouteImport
+      parentRoute: typeof ProceduresRoute
+    }
+    '/settings/self-host': {
+      id: '/settings/self-host'
+      path: '/settings/self-host'
+      fullPath: '/settings/self-host'
+      preLoaderRoute: typeof SettingsSelfHostRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings/troubleshooting': {
+      id: '/settings/troubleshooting'
+      path: '/settings/troubleshooting'
+      fullPath: '/settings/troubleshooting'
+      preLoaderRoute: typeof SettingsTroubleshootingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tasks/': {
+      id: '/tasks/'
+      path: '/tasks'
+      fullPath: '/tasks/'
+      preLoaderRoute: typeof TasksIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tasks/$slug': {
+      id: '/tasks/$slug'
+      path: '/tasks/$slug'
+      fullPath: '/tasks/$slug'
+      preLoaderRoute: typeof TasksSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tasks/backlog': {
+      id: '/tasks/backlog'
+      path: '/tasks/backlog'
+      fullPath: '/tasks/backlog'
+      preLoaderRoute: typeof TasksBacklogRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tasks/refs': {
+      id: '/tasks/refs'
+      path: '/tasks/refs'
+      fullPath: '/tasks/refs'
+      preLoaderRoute: typeof TasksRefsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tasks/scheduled': {
+      id: '/tasks/scheduled'
+      path: '/tasks/scheduled'
+      fullPath: '/tasks/scheduled'
+      preLoaderRoute: typeof TasksScheduledRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/electrical/snapshot': {
@@ -2266,60 +2245,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiElectricalSnapshotRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/v1/electrical/': {
-      id: '/api/v1/electrical/'
-      path: '/api/v1/electrical'
-      fullPath: '/api/v1/electrical/'
-      preLoaderRoute: typeof ApiV1ElectricalIndexRouteImport
+    '/api/public/health': {
+      id: '/api/public/health'
+      path: '/api/public/health'
+      fullPath: '/api/public/health'
+      preLoaderRoute: typeof ApiPublicHealthRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/electrical/item/$kind/$id': {
-      id: '/electrical/item/$kind/$id'
-      path: '/electrical/item/$kind/$id'
-      fullPath: '/electrical/item/$kind/$id'
-      preLoaderRoute: typeof ElectricalItemKindIdRouteImport
+    '/api/public/ready': {
+      id: '/api/public/ready'
+      path: '/api/public/ready'
+      fullPath: '/api/public/ready'
+      preLoaderRoute: typeof ApiPublicReadyRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/v1/electrical/$': {
-      id: '/api/v1/electrical/$'
-      path: '/api/v1/electrical/$'
-      fullPath: '/api/v1/electrical/$'
-      preLoaderRoute: typeof ApiV1ElectricalSplatRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/webhooks/rachio': {
-      id: '/api/public/webhooks/rachio'
-      path: '/api/public/webhooks/rachio'
-      fullPath: '/api/public/webhooks/rachio'
-      preLoaderRoute: typeof ApiPublicWebhooksRachioRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/hooks/task-health': {
-      id: '/api/public/hooks/task-health'
-      path: '/api/public/hooks/task-health'
-      fullPath: '/api/public/hooks/task-health'
-      preLoaderRoute: typeof ApiPublicHooksTaskHealthRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/hooks/rachio-sync': {
-      id: '/api/public/hooks/rachio-sync'
-      path: '/api/public/hooks/rachio-sync'
-      fullPath: '/api/public/hooks/rachio-sync'
-      preLoaderRoute: typeof ApiPublicHooksRachioSyncRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/health/procedures': {
-      id: '/api/public/health/procedures'
-      path: '/procedures'
-      fullPath: '/api/public/health/procedures'
-      preLoaderRoute: typeof ApiPublicHealthProceduresRouteImport
-      parentRoute: typeof ApiPublicHealthRoute
-    }
-    '/api/electrical/v1/openapi.json': {
-      id: '/api/electrical/v1/openapi.json'
-      path: '/api/electrical/v1/openapi.json'
-      fullPath: '/api/electrical/v1/openapi.json'
-      preLoaderRoute: typeof ApiElectricalV1OpenapiDotjsonRouteImport
+    '/electrical/panel/$panelId': {
+      id: '/electrical/panel/$panelId'
+      path: '/electrical/panel/$panelId'
+      fullPath: '/electrical/panel/$panelId'
+      preLoaderRoute: typeof ElectricalPanelPanelIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/electrical/v1/$': {
@@ -2329,18 +2273,67 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiElectricalV1SplatRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/electrical/v1/relationships/preview': {
-      id: '/api/electrical/v1/relationships/preview'
-      path: '/api/electrical/v1/relationships/preview'
-      fullPath: '/api/electrical/v1/relationships/preview'
-      preLoaderRoute: typeof ApiElectricalV1RelationshipsPreviewRouteImport
+    '/api/electrical/v1/openapi.json': {
+      id: '/api/electrical/v1/openapi.json'
+      path: '/api/electrical/v1/openapi.json'
+      fullPath: '/api/electrical/v1/openapi.json'
+      preLoaderRoute: typeof ApiElectricalV1OpenapiDotjsonRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/electrical/v1/relationships/apply': {
-      id: '/api/electrical/v1/relationships/apply'
-      path: '/api/electrical/v1/relationships/apply'
-      fullPath: '/api/electrical/v1/relationships/apply'
-      preLoaderRoute: typeof ApiElectricalV1RelationshipsApplyRouteImport
+    '/api/public/health/procedures': {
+      id: '/api/public/health/procedures'
+      path: '/procedures'
+      fullPath: '/api/public/health/procedures'
+      preLoaderRoute: typeof ApiPublicHealthProceduresRouteImport
+      parentRoute: typeof ApiPublicHealthRoute
+    }
+    '/api/public/hooks/rachio-sync': {
+      id: '/api/public/hooks/rachio-sync'
+      path: '/api/public/hooks/rachio-sync'
+      fullPath: '/api/public/hooks/rachio-sync'
+      preLoaderRoute: typeof ApiPublicHooksRachioSyncRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/hooks/task-health': {
+      id: '/api/public/hooks/task-health'
+      path: '/api/public/hooks/task-health'
+      fullPath: '/api/public/hooks/task-health'
+      preLoaderRoute: typeof ApiPublicHooksTaskHealthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/webhooks/rachio': {
+      id: '/api/public/webhooks/rachio'
+      path: '/api/public/webhooks/rachio'
+      fullPath: '/api/public/webhooks/rachio'
+      preLoaderRoute: typeof ApiPublicWebhooksRachioRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/electrical/': {
+      id: '/api/v1/electrical/'
+      path: '/api/v1/electrical'
+      fullPath: '/api/v1/electrical/'
+      preLoaderRoute: typeof ApiV1ElectricalIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/electrical/$': {
+      id: '/api/v1/electrical/$'
+      path: '/api/v1/electrical/$'
+      fullPath: '/api/v1/electrical/$'
+      preLoaderRoute: typeof ApiV1ElectricalSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/electrical/item/$kind/$id': {
+      id: '/electrical/item/$kind/$id'
+      path: '/electrical/item/$kind/$id'
+      fullPath: '/electrical/item/$kind/$id'
+      preLoaderRoute: typeof ElectricalItemKindIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/electrical/v1/field-observations/apply': {
+      id: '/api/electrical/v1/field-observations/apply'
+      path: '/api/electrical/v1/field-observations/apply'
+      fullPath: '/api/electrical/v1/field-observations/apply'
+      preLoaderRoute: typeof ApiElectricalV1FieldObservationsApplyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/electrical/v1/field-observations/preview': {
@@ -2350,11 +2343,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiElectricalV1FieldObservationsPreviewRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/electrical/v1/field-observations/apply': {
-      id: '/api/electrical/v1/field-observations/apply'
-      path: '/api/electrical/v1/field-observations/apply'
-      fullPath: '/api/electrical/v1/field-observations/apply'
-      preLoaderRoute: typeof ApiElectricalV1FieldObservationsApplyRouteImport
+    '/api/electrical/v1/relationships/apply': {
+      id: '/api/electrical/v1/relationships/apply'
+      path: '/api/electrical/v1/relationships/apply'
+      fullPath: '/api/electrical/v1/relationships/apply'
+      preLoaderRoute: typeof ApiElectricalV1RelationshipsApplyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/electrical/v1/relationships/preview': {
+      id: '/api/electrical/v1/relationships/preview'
+      path: '/api/electrical/v1/relationships/preview'
+      fullPath: '/api/electrical/v1/relationships/preview'
+      preLoaderRoute: typeof ApiElectricalV1RelationshipsPreviewRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
