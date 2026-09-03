@@ -375,6 +375,136 @@ function ImportContractPage() {
             </PersistedSection>
 
             <PersistedSection
+              storageKey="import-contract-closure"
+              title={`Semantic-loss closure plan — ${closure!.unbound_column_count} unbound physical columns`}
+              defaultOpen
+            >
+              <div className="space-y-3">
+                <p className="text-xs text-muted-foreground">
+                  A populated canonical cell counts as lossless only when its exact value, source
+                  worksheet, physical column, observed header and row all stay recoverable from
+                  FarmOps. Structured extras satisfy that, so a dedicated column is proposed only
+                  where the field drives engineering or business logic and must be queryable.
+                  Critical-load rules are untouched. Nothing here writes a record or a migration.
+                </p>
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+                  {[
+                    ["semantic loss before", closure!.totals.semantic_loss_before],
+                    ["removed by first-class fields", closure!.totals.removed_by_first_class],
+                    [
+                      "removed by structured preservation",
+                      closure!.totals.removed_by_structured_preservation,
+                    ],
+                    ["zero semantic content", closure!.totals.removed_with_zero_semantic_content],
+                    ["remaining unresolved", closure!.totals.remaining_unresolved],
+                  ].map(([label, value]) => (
+                    <div key={String(label)} className="rounded-md border border-border p-2">
+                      <p className="text-xs text-muted-foreground">{label}</p>
+                      <p className="font-mono text-lg">{value}</p>
+                    </div>
+                  ))}
+                </div>
+                <p
+                  className={
+                    closure!.closes
+                      ? "rounded-md border border-border bg-muted/40 p-2 text-sm"
+                      : "rounded-md border border-destructive/40 bg-destructive/10 p-2 text-sm font-medium"
+                  }
+                >
+                  {closure!.closes
+                    ? "Every populated cell in the unbound columns has a lossless preservation route, so semantic loss reaches 0 once the proposals below are adopted."
+                    : `${closure!.totals.remaining_unresolved} cell(s) remain UNRESOLVED and need owner review before loss can close.`}
+                </p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1"
+                  onClick={() =>
+                    download(
+                      "load-master-semantic-loss-closure.csv",
+                      closureCsv(closure!),
+                      "text/csv",
+                    )
+                  }
+                >
+                  <Download className="h-4 w-4" /> Closure CSV
+                </Button>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead className="text-left text-muted-foreground">
+                      <tr>
+                        <th className="p-1">#</th>
+                        <th className="p-1">exact_header</th>
+                        <th className="p-1">observed</th>
+                        <th className="p-1">populated</th>
+                        <th className="p-1">canonical_semantic</th>
+                        <th className="p-1">authority</th>
+                        <th className="p-1">current action</th>
+                        <th className="p-1">preservation method</th>
+                        <th className="p-1">schema?</th>
+                        <th className="p-1">loss cells</th>
+                        <th className="p-1">preserved at</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {closure!.rows.map((r) => (
+                        <tr key={r.physical_column} className="border-t border-border/60 align-top">
+                          <td className="p-1 font-mono">{r.physical_column}</td>
+                          <td className="p-1 font-mono">{r.exact_header}</td>
+                          <td className="p-1 font-mono">{r.observed_header || "(blank)"}</td>
+                          <td className="p-1">{r.populated_cells}</td>
+                          <td className="p-1 font-mono">{r.canonical_semantic}</td>
+                          <td className="p-1">{r.authority}</td>
+                          <td className="p-1">{r.current_import_action}</td>
+                          <td className="p-1">
+                            <Badge
+                              variant={
+                                r.preservation_method === "UNRESOLVED" ? "destructive" : "outline"
+                              }
+                            >
+                              {r.preservation_method}
+                            </Badge>
+                            <p className="mt-1 text-muted-foreground">{r.note}</p>
+                          </td>
+                          <td className="p-1">{r.schema_required ? "YES" : "NO"}</td>
+                          <td className="p-1">{r.semantic_loss_cells}</td>
+                          <td className="p-1 font-mono">{r.preserved_at}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-medium">
+                    Proposed schema extensions ({closure!.schema_proposals.length})
+                  </p>
+                  <table className="w-full text-xs">
+                    <thead className="text-left text-muted-foreground">
+                      <tr>
+                        <th className="p-1">proposed column</th>
+                        <th className="p-1">data type</th>
+                        <th className="p-1">allowed states</th>
+                        <th className="p-1">tri-state</th>
+                        <th className="p-1">rationale</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {closure!.schema_proposals.map((p) => (
+                        <tr key={p.column} className="border-t border-border/60 align-top">
+                          <td className="p-1 font-mono">{p.column}</td>
+                          <td className="p-1">{p.data_type}</td>
+                          <td className="p-1">{p.allowed_states.join(" | ")}</td>
+                          <td className="p-1">{p.tri_state ? "YES" : "NO"}</td>
+                          <td className="p-1 max-w-[28rem] text-muted-foreground">{p.rationale}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </PersistedSection>
+
+            <PersistedSection
               storageKey="import-contract-rules"
               title="Critical-load rule reconciliation (simulated vs canonical)"
             >
