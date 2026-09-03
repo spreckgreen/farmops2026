@@ -92,6 +92,7 @@ function navGroups(): NavGroup[] {
         { label: "Workbook", to: "/electrical/workbook" },
         { label: "ODS import", to: "/electrical/import", section: "import" },
         { label: "Import contract", to: "/electrical/import-contract" },
+        { label: "Contract v3 reconciliation", to: "/electrical/reconciliation" },
         { label: "Mapping audit", to: "/electrical/mapping-audit" },
         { label: "Mapping repair", to: "/electrical/mapping-repair" },
         { label: "Grid migration", to: "/electrical/grid-migration" },
