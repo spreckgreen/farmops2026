@@ -198,9 +198,25 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
       `Install status: ${install === "ALL" ? "all" : install}`,
       `Field verification: ${verify === "ALL" ? "all" : VERIFICATION_LABEL[verify]}`,
       `Overhead lighting layer: ${showLeds ? "proposed 2 x 5 LED layout shown" : "hidden"}`,
+      `Design vs field overlay: ${
+        showDesignVsField
+          ? `shown — ${designField.counts.MISMATCH} mismatch(es) beyond ${DESIGN_FIELD_TOLERANCE_FT} ft`
+          : "hidden"
+      }`,
     ],
-    [panelLabel, kinds, precisions, install, verify, allKinds, showLeds],
+    [
+      panelLabel,
+      kinds,
+      precisions,
+      install,
+      verify,
+      allKinds,
+      showLeds,
+      showDesignVsField,
+      designField,
+    ],
   );
+
 
   const discrepancies = q.data
     ? q.data.summary.precision.UNRESOLVED + q.data.summary.precision.INTERVAL
