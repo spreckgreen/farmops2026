@@ -17,133 +17,167 @@ import {
   sectionFromPathname,
   type ElectricalAccess,
 } from "@/lib/electrical-access";
-import { Eye, PencilLine, Zap } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
+import { ChevronDown, Eye, PencilLine, Zap } from "lucide-react";
+
+/**
+ * Sub-navigation is grouped by what the page is *for* — records, diagrams,
+ * field work, QA/review, data migration — so a long flat strip of 25+ links
+ * stays readable. Group menus only list the entries the access gate allows,
+ * and a group is hidden entirely when nothing inside it is visible.
+ */
+type NavEntry = {
+  label: string;
+  to: string;
+  params?: Record<string, string>;
+  section?: Parameters<typeof canOpenSection>[1];
+};
+
+type NavGroup = { label: string; entries: NavEntry[] };
+
+function navGroups(): NavGroup[] {
+  return [
+    {
+      label: "Records",
+      entries: [
+        ...ENTITY_KINDS.map((kind) => ({
+          label: ENTITIES[kind].title,
+          to: "/electrical/$kind",
+          params: { kind },
+        })),
+        { label: "Services", to: "/electrical/services" },
+      ],
+    },
+    {
+      label: "Diagrams & maps",
+      entries: [
+        { label: "Diagrams", to: "/electrical/diagrams" },
+        { label: "Topology", to: "/electrical/topology" },
+        { label: "Panel diagram", to: "/electrical/panel-diagram" },
+        { label: "Wiring", to: "/electrical/wiring" },
+        { label: "Grid map", to: "/electrical/grid-map" },
+        { label: "Critical loads", to: "/electrical/critical-loads" },
+      ],
+    },
+    {
+      label: "Field work",
+      entries: [
+        { label: "Install progress", to: "/electrical/install-progress" },
+        { label: "Labels", to: "/electrical/labels" },
+        { label: "Field mapping", to: "/electrical/mapping", section: "mapping" },
+        { label: "Nameplate scan", to: "/electrical/nameplate-scan", section: "nameplate_scan" },
+      ],
+    },
+    {
+      label: "QA & review",
+      entries: [
+        { label: "QA checks", to: "/electrical/qa", section: "qa" },
+        { label: "Parallel validation", to: "/electrical/validation", section: "validation" },
+        { label: "Load adjudication", to: "/electrical/adjudication", section: "adjudication" },
+        { label: "SOR status", to: "/electrical/sor", section: "sor" },
+        { label: "Change log", to: "/electrical/changes", section: "changes" },
+        { label: "Standards", to: "/electrical/standards" },
+      ],
+    },
+    {
+      label: "Data & migration",
+      entries: [
+        { label: "Workbook", to: "/electrical/workbook" },
+        { label: "ODS import", to: "/electrical/import", section: "import" },
+        { label: "Import contract", to: "/electrical/import-contract" },
+        { label: "Mapping audit", to: "/electrical/mapping-audit" },
+        { label: "Mapping repair", to: "/electrical/mapping-repair" },
+        { label: "Grid migration", to: "/electrical/grid-migration" },
+        { label: "Reconciliation export", to: "/electrical/export", section: "export" },
+      ],
+    },
+  ];
+}
 
 export function ElectricalNav({ access }: { access?: ElectricalAccess }) {
-  const show = (section: Parameters<typeof canOpenSection>[1]) =>
-    !access || canOpenSection(access, section);
+  const pathname = useRouterState({ select: (st) => st.location.pathname });
+  const show = (section?: Parameters<typeof canOpenSection>[1]) =>
+    !section || !access || canOpenSection(access, section);
   const item =
     "px-2.5 py-1 rounded-md text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-colors";
   const active = { className: "px-2.5 py-1 rounded-md text-sm bg-accent text-foreground" };
+  const groups = navGroups()
+    .map((g) => ({ ...g, entries: g.entries.filter((e) => show(e.section)) }))
+    .filter((g) => g.entries.length > 0);
+
   return (
     <nav className="flex flex-wrap items-center gap-1 border-b border-border pb-2">
       <Link to="/electrical" className={item} activeProps={active} activeOptions={{ exact: true }}>
         Overview
       </Link>
-      {ENTITY_KINDS.map((kind) => (
-        <Link
-          key={kind}
-          to="/electrical/$kind"
-          params={{ kind }}
-          className={item}
-          activeProps={active}
-        >
-          {ENTITIES[kind].title}
-        </Link>
-      ))}
-      <Link to="/electrical/services" className={item} activeProps={active}>
-        Services
-      </Link>
-      <Link to="/electrical/diagrams" className={item} activeProps={active}>
-        Diagrams
-      </Link>
-      <Link to="/electrical/topology" className={item} activeProps={active}>
-        Topology
-      </Link>
-      <Link to="/electrical/panel-diagram" className={item} activeProps={active}>
-        Panel diagram
-      </Link>
-      <Link to="/electrical/wiring" className={item} activeProps={active}>
-        Wiring
-      </Link>
-      <Link to="/electrical/install-progress" className={item} activeProps={active}>
-        Install progress
-      </Link>
 
-      <Link to="/electrical/critical-loads" className={item} activeProps={active}>
-        Critical loads
-      </Link>
-      <Link to="/electrical/import-contract" className={item} activeProps={active}>
-        Import contract
-      </Link>
-      <Link to="/electrical/mapping-audit" className={item} activeProps={active}>
-        Mapping audit
-      </Link>
-      <Link to="/electrical/mapping-repair" className={item} activeProps={active}>
-        Mapping repair
-      </Link>
-      <Link to="/electrical/grid-migration" className={item} activeProps={active}>
-        Grid migration
-      </Link>
+      {groups.map((group) => {
+        // A group reads as active when the open page lives inside it. Entity
+        // pages share one route pattern, so match on the resolved path.
+        const groupActive = group.entries.some((e) => {
+          const path = e.params ? `/electrical/${e.params.kind}` : e.to;
+          return pathname === path || pathname.startsWith(`${path}/`);
+        });
+        return (
+          <DropdownMenu key={group.label}>
+            <DropdownMenuTrigger
+              className={cn(
+                "flex items-center gap-1 px-2.5 py-1 rounded-md text-sm transition-colors outline-none",
+                groupActive
+                  ? "bg-accent text-foreground"
+                  : "text-muted-foreground hover:bg-accent hover:text-foreground",
+              )}
+            >
+              {group.label}
+              <ChevronDown className="h-3.5 w-3.5" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-56">
+              <DropdownMenuLabel className="text-xs text-muted-foreground">
+                {group.label}
+              </DropdownMenuLabel>
+              {group.entries.map((entry) => (
+                <DropdownMenuItem key={entry.label} asChild>
+                  {entry.params ? (
+                    <Link
+                      to={entry.to}
+                      params={entry.params}
+                      className="cursor-pointer"
+                      activeProps={{ className: "bg-accent" }}
+                    >
+                      {entry.label}
+                    </Link>
+                  ) : (
+                    <Link
+                      to={entry.to}
+                      className="cursor-pointer"
+                      activeProps={{ className: "bg-accent" }}
+                    >
+                      {entry.label}
+                    </Link>
+                  )}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        );
+      })}
 
-
-      <Link to="/electrical/workbook" className={item} activeProps={active}>
-        Workbook
-      </Link>
-      <Link to="/electrical/labels" className={item} activeProps={active}>
-        Labels
-      </Link>
       {show("assistant") && (
         <Link to="/electrical/assistant" className={item} activeProps={active}>
           AI assist
         </Link>
       )}
-
-
-      {show("qa") && (
-        <Link to="/electrical/qa" className={item} activeProps={active}>
-          QA
-        </Link>
-      )}
-      {show("mapping") && (
-  <Link to="/electrical/mapping" className={item} activeProps={active}>
-          Field mapping
-        </Link>
-      )}
-      <Link to="/electrical/standards" className={item} activeProps={active}>
-        Standards
-      </Link>
-      {show("changes") && (
-        <Link to="/electrical/changes" className={item} activeProps={active}>
-          Change log
-        </Link>
-      )}
-      {show("sor") && (
-  <Link to="/electrical/sor" className={item} activeProps={active}>
-          SOR status
-        </Link>
-      )}
-      {show("validation") && (
-  <Link to="/electrical/validation" className={item} activeProps={active}>
-          Parallel validation
-        </Link>
-      )}
-      {show("adjudication") && (
-  <Link to="/electrical/adjudication" className={item} activeProps={active}>
-          Load adjudication
-        </Link>
-      )}
-
-
-      {show("import") && (
-  <Link to="/electrical/import" className={item} activeProps={active}>
-          ODS import
-        </Link>
-      )}
-      {show("nameplate_scan") && (
-        <Link to="/electrical/nameplate-scan" className={item} activeProps={active}>
-          Nameplate scan
-        </Link>
-      )}
-      {show("export") && (
-  <Link to="/electrical/export" className={item} activeProps={active}>
-          Reconciliation export
-        </Link>
-      )}
-
     </nav>
   );
 }
+
 
 /**
  * `hideNav` is used by scanned-label pages: an electrician who reached the app
