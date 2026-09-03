@@ -177,6 +177,9 @@ function DocumentsWorkspace() {
         generatedBy: generatedBy || captured?.file.captured_by || "unknown",
         printedAt: new Date().toISOString(),
         scope: scopeLabel(scope),
+        bundleSource: captured
+          ? `captured bundle ${captured.file.bundle_version_code} (${captured.fileName}, digest ${captured.integrity})`
+          : "live snapshot",
       },
       records,
     );

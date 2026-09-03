@@ -54,6 +54,8 @@ export interface VersionStampInput {
   canonicalBinding?: string | null;
   /** Free-form scope description, e.g. "Farm Shop / PNL-FS-NW". */
   scope?: string;
+  /** Where the bundle came from: the live snapshot or a captured bundle version. */
+  bundleSource?: string;
 }
 
 export interface VersionStamp extends VersionStampInput {
@@ -161,6 +163,9 @@ export async function buildVersionStamp(
       .join(", ")})`,
     `QA: ${input.qaErrors} errors, ${input.qaWarnings} warnings — reported, never enforced`,
   ];
+  if (input.bundleSource) {
+    lines.push(`Bundle source: ${input.bundleSource}`);
+  }
   if (input.canonicalSha) {
     lines.push(`Canonical workbook SHA: ${input.canonicalSha}`);
   }
