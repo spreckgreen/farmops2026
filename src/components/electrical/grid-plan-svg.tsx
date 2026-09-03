@@ -417,8 +417,14 @@ const HINT_GAP_FT = 1;
  * Pure and exported so the placement is testable without a browser.
  */
 export function hintCardBox(anchorXFt: number, anchorYFt: number, lines: string[]) {
+  const maxLines = Math.max(
+    1,
+    Math.floor((PLAN_BUILDING.height - HINT_MARGIN_FT * 2 - HINT_PAD_FT * 2) / HINT_LINE_FT),
+  );
+  const shown = lines.slice(0, maxLines);
+  lines = shown;
   const longest = Math.max(...lines.map((l) => l.length));
-  const maxWidth = PLAN_BUILDING.width - HINT_MARGIN_FT * 2;
+  const maxWidth = Math.min(26, PLAN_BUILDING.width - HINT_MARGIN_FT * 2);
   const width = Math.min(
     maxWidth,
     Math.max(
@@ -426,10 +432,7 @@ export function hintCardBox(anchorXFt: number, anchorYFt: number, lines: string[
       longest * HINT_FONT_FT * 0.52 + HINT_PAD_FT * 2,
     ),
   );
-  const height = Math.min(
-    PLAN_BUILDING.height - HINT_MARGIN_FT * 2,
-    lines.length * HINT_LINE_FT + HINT_PAD_FT * 2,
-  );
+  const height = lines.length * HINT_LINE_FT + HINT_PAD_FT * 2;
 
   const clamp = (v: number, lo: number, hi: number) =>
     hi < lo ? lo : Math.min(Math.max(v, lo), hi);
@@ -452,7 +455,7 @@ export function hintCardBox(anchorXFt: number, anchorYFt: number, lines: string[
     PLAN_BUILDING.height - height - HINT_MARGIN_FT,
   );
 
-  return { x, y, width, height };
+  return { x, y, width, height, lines: shown };
 }
 
 /** Hover/focus helper text, drawn inside the same viewBox so it scales with the
@@ -464,7 +467,7 @@ function HoverHint({ asset }: { asset: OperationalAsset }) {
   const fontSize = HINT_FONT_FT;
   const pad = HINT_PAD_FT;
   const lineH = HINT_LINE_FT;
-  const { x, y: top, width, height } = hintCardBox(at.x, at.y, lines);
+  const { x, y: top, width, height, lines: shown } = hintCardBox(at.x, at.y, lines);
 
   return (
     <g pointerEvents="none" data-hint-card="true">
@@ -480,7 +483,7 @@ function HoverHint({ asset }: { asset: OperationalAsset }) {
         strokeOpacity={0.5}
         strokeWidth={0.08}
       />
-      {lines.map((line, i) => (
+      {shown.map((line, i) => (
         <text
           key={line + i}
           x={x + pad}
