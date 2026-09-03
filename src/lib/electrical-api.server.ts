@@ -214,6 +214,38 @@ async function loadServicePrincipal(token: string): Promise<
 }
 
 /**
+ * Owner-scoped wrapper around the service-role client.
+ *
+ * A `farmops_sk_*` service principal authenticates without a Supabase session,
+ * so RLS cannot scope its statements. This wrapper re-imposes the same
+ * ownership boundary: every select/update/delete is filtered to the principal
+ * owner's `user_id`, and every insert is stamped with it, so a key can never
+ * read or touch another household's electrical records.
+ */
+export function ownerScopedDb(admin: unknown, ownerUserId: string) {
+  const db = admin as unknown as LooseDb;
+  const stamp = (values: unknown) =>
+    Array.isArray(values)
+      ? values.map((v) => ({ ...(v as Record<string, unknown>), user_id: ownerUserId }))
+      : { ...(values as Record<string, unknown>), user_id: ownerUserId };
+  return {
+    from(table: string) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const b = (db as any).from(table);
+      return {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        select: (...args: any[]) => b.select(...args).eq("user_id", ownerUserId),
+        insert: (values: unknown) => b.insert(stamp(values)),
+        upsert: (values: unknown, opts?: unknown) => b.upsert(stamp(values), opts),
+        update: (values: unknown) => b.update(values).eq("user_id", ownerUserId),
+        delete: () => b.delete().eq("user_id", ownerUserId),
+      };
+    },
+  };
+}
+
+
+/**
  * Authenticate the caller, resolve its granted scopes, enforce the endpoint's
  * required scope and consume its rate-limit budget. Returns a Response on
  * failure. Two credential types:
@@ -259,11 +291,11 @@ export async function authorizeApiRequest(
     }
     principal = resolved.principal;
     userId = resolved.ownerUserId;
-    // A service principal has no user session; reads run through the server
-    // client on behalf of the principal's owner. Only read scopes are ever
-    // granted while Phase 2/3 remain unactivated.
+    // A service principal has no user session, so RLS cannot scope its reads.
+    // Every query it issues is forced to the principal owner's own rows, which
+    // reproduces the ownership boundary RLS gives a user access token.
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    supabase = supabaseAdmin;
+    supabase = ownerScopedDb(supabaseAdmin, resolved.ownerUserId);
   } else {
     const client = createClient(url, key, {
       global: { headers: { Authorization: `Bearer ${token}` } },
