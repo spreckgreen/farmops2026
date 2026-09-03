@@ -215,8 +215,20 @@ function PanelLabelsPage() {
 
   const total = sections.reduce((n, s) => n + s.records.length, 0);
   const perPage = LABEL_FORMATS[format].perPage;
-  // Each kind starts a new sheet, so pages are counted per section.
-  const pages = sections.reduce((n, s) => n + Math.ceil(s.records.length / perPage), 0);
+  // Each kind starts a new sheet; shortened stock also breaks at every location
+  // and panel change, so those blocks are counted separately.
+  const pages = sections.reduce(
+    (n, s) =>
+      n +
+      (LABEL_FORMATS[format].short
+        ? labelWalkGroups(s.records).reduce(
+            (m, g) => m + Math.ceil(g.records.length / perPage),
+            0,
+          )
+        : Math.ceil(s.records.length / perPage)),
+    0,
+  );
+
 
   const openPanel = (panelId: string) =>
     navigate({ to: "/electrical/panel/$panelId", params: { panelId } });
