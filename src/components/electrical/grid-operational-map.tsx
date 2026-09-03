@@ -1,7 +1,7 @@
 // Operational Farm Shop grid map: plots current FarmOps install locations on the
 // corrected 40' x 60' drawing. Presentation only — it plots what
 // electricalGridOperational supplies and never invents a location.
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
