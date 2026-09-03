@@ -83,6 +83,7 @@ import { Route as ElectricalDiagramsRouteImport } from './routes/electrical.diag
 import { Route as ElectricalCriticalLoadsRouteImport } from './routes/electrical.critical-loads'
 import { Route as ElectricalChangesRouteImport } from './routes/electrical.changes'
 import { Route as ElectricalAssistantRouteImport } from './routes/electrical.assistant'
+import { Route as ElectricalApiDocsRouteImport } from './routes/electrical.api-docs'
 import { Route as ElectricalAdjudicationRouteImport } from './routes/electrical.adjudication'
 import { Route as ElectricalKindRouteImport } from './routes/electrical.$kind'
 import { Route as AdminVaultSecretsRouteImport } from './routes/admin.vault-secrets'
@@ -113,6 +114,12 @@ import { Route as ApiPublicWebhooksRachioRouteImport } from './routes/api/public
 import { Route as ApiPublicHooksTaskHealthRouteImport } from './routes/api/public/hooks/task-health'
 import { Route as ApiPublicHooksRachioSyncRouteImport } from './routes/api/public/hooks/rachio-sync'
 import { Route as ApiPublicHealthProceduresRouteImport } from './routes/api/public/health.procedures'
+import { Route as ApiElectricalV1OpenapiDotjsonRouteImport } from './routes/api/electrical/v1/openapi[.]json'
+import { Route as ApiElectricalV1SplatRouteImport } from './routes/api/electrical/v1/$'
+import { Route as ApiElectricalV1RelationshipsPreviewRouteImport } from './routes/api/electrical/v1/relationships.preview'
+import { Route as ApiElectricalV1RelationshipsApplyRouteImport } from './routes/api/electrical/v1/relationships.apply'
+import { Route as ApiElectricalV1FieldObservationsPreviewRouteImport } from './routes/api/electrical/v1/field-observations.preview'
+import { Route as ApiElectricalV1FieldObservationsApplyRouteImport } from './routes/api/electrical/v1/field-observations.apply'
 
 const VaultRoute = VaultRouteImport.update({
   id: '/vault',
@@ -489,6 +496,11 @@ const ElectricalAssistantRoute = ElectricalAssistantRouteImport.update({
   path: '/electrical/assistant',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ElectricalApiDocsRoute = ElectricalApiDocsRouteImport.update({
+  id: '/electrical/api-docs',
+  path: '/electrical/api-docs',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ElectricalAdjudicationRoute = ElectricalAdjudicationRouteImport.update({
   id: '/electrical/adjudication',
   path: '/electrical/adjudication',
@@ -642,6 +654,41 @@ const ApiPublicHealthProceduresRoute =
     path: '/procedures',
     getParentRoute: () => ApiPublicHealthRoute,
   } as any)
+const ApiElectricalV1OpenapiDotjsonRoute =
+  ApiElectricalV1OpenapiDotjsonRouteImport.update({
+    id: '/api/electrical/v1/openapi.json',
+    path: '/api/electrical/v1/openapi.json',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiElectricalV1SplatRoute = ApiElectricalV1SplatRouteImport.update({
+  id: '/api/electrical/v1/$',
+  path: '/api/electrical/v1/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiElectricalV1RelationshipsPreviewRoute =
+  ApiElectricalV1RelationshipsPreviewRouteImport.update({
+    id: '/api/electrical/v1/relationships/preview',
+    path: '/api/electrical/v1/relationships/preview',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiElectricalV1RelationshipsApplyRoute =
+  ApiElectricalV1RelationshipsApplyRouteImport.update({
+    id: '/api/electrical/v1/relationships/apply',
+    path: '/api/electrical/v1/relationships/apply',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiElectricalV1FieldObservationsPreviewRoute =
+  ApiElectricalV1FieldObservationsPreviewRouteImport.update({
+    id: '/api/electrical/v1/field-observations/preview',
+    path: '/api/electrical/v1/field-observations/preview',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiElectricalV1FieldObservationsApplyRoute =
+  ApiElectricalV1FieldObservationsApplyRouteImport.update({
+    id: '/api/electrical/v1/field-observations/apply',
+    path: '/api/electrical/v1/field-observations/apply',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -681,6 +728,7 @@ export interface FileRoutesByFullPath {
   '/admin/vault-secrets': typeof AdminVaultSecretsRoute
   '/electrical/$kind': typeof ElectricalKindRoute
   '/electrical/adjudication': typeof ElectricalAdjudicationRoute
+  '/electrical/api-docs': typeof ElectricalApiDocsRoute
   '/electrical/assistant': typeof ElectricalAssistantRoute
   '/electrical/changes': typeof ElectricalChangesRoute
   '/electrical/critical-loads': typeof ElectricalCriticalLoadsRoute
@@ -743,11 +791,17 @@ export interface FileRoutesByFullPath {
   '/api/public/health': typeof ApiPublicHealthRouteWithChildren
   '/api/public/ready': typeof ApiPublicReadyRoute
   '/electrical/panel/$panelId': typeof ElectricalPanelPanelIdRoute
+  '/api/electrical/v1/$': typeof ApiElectricalV1SplatRoute
+  '/api/electrical/v1/openapi.json': typeof ApiElectricalV1OpenapiDotjsonRoute
   '/api/public/health/procedures': typeof ApiPublicHealthProceduresRoute
   '/api/public/hooks/rachio-sync': typeof ApiPublicHooksRachioSyncRoute
   '/api/public/hooks/task-health': typeof ApiPublicHooksTaskHealthRoute
   '/api/public/webhooks/rachio': typeof ApiPublicWebhooksRachioRoute
   '/electrical/item/$kind/$id': typeof ElectricalItemKindIdRoute
+  '/api/electrical/v1/field-observations/apply': typeof ApiElectricalV1FieldObservationsApplyRoute
+  '/api/electrical/v1/field-observations/preview': typeof ApiElectricalV1FieldObservationsPreviewRoute
+  '/api/electrical/v1/relationships/apply': typeof ApiElectricalV1RelationshipsApplyRoute
+  '/api/electrical/v1/relationships/preview': typeof ApiElectricalV1RelationshipsPreviewRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -784,6 +838,7 @@ export interface FileRoutesByTo {
   '/admin/vault-secrets': typeof AdminVaultSecretsRoute
   '/electrical/$kind': typeof ElectricalKindRoute
   '/electrical/adjudication': typeof ElectricalAdjudicationRoute
+  '/electrical/api-docs': typeof ElectricalApiDocsRoute
   '/electrical/assistant': typeof ElectricalAssistantRoute
   '/electrical/changes': typeof ElectricalChangesRoute
   '/electrical/critical-loads': typeof ElectricalCriticalLoadsRoute
@@ -846,11 +901,17 @@ export interface FileRoutesByTo {
   '/api/public/health': typeof ApiPublicHealthRouteWithChildren
   '/api/public/ready': typeof ApiPublicReadyRoute
   '/electrical/panel/$panelId': typeof ElectricalPanelPanelIdRoute
+  '/api/electrical/v1/$': typeof ApiElectricalV1SplatRoute
+  '/api/electrical/v1/openapi.json': typeof ApiElectricalV1OpenapiDotjsonRoute
   '/api/public/health/procedures': typeof ApiPublicHealthProceduresRoute
   '/api/public/hooks/rachio-sync': typeof ApiPublicHooksRachioSyncRoute
   '/api/public/hooks/task-health': typeof ApiPublicHooksTaskHealthRoute
   '/api/public/webhooks/rachio': typeof ApiPublicWebhooksRachioRoute
   '/electrical/item/$kind/$id': typeof ElectricalItemKindIdRoute
+  '/api/electrical/v1/field-observations/apply': typeof ApiElectricalV1FieldObservationsApplyRoute
+  '/api/electrical/v1/field-observations/preview': typeof ApiElectricalV1FieldObservationsPreviewRoute
+  '/api/electrical/v1/relationships/apply': typeof ApiElectricalV1RelationshipsApplyRoute
+  '/api/electrical/v1/relationships/preview': typeof ApiElectricalV1RelationshipsPreviewRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -891,6 +952,7 @@ export interface FileRoutesById {
   '/admin/vault-secrets': typeof AdminVaultSecretsRoute
   '/electrical/$kind': typeof ElectricalKindRoute
   '/electrical/adjudication': typeof ElectricalAdjudicationRoute
+  '/electrical/api-docs': typeof ElectricalApiDocsRoute
   '/electrical/assistant': typeof ElectricalAssistantRoute
   '/electrical/changes': typeof ElectricalChangesRoute
   '/electrical/critical-loads': typeof ElectricalCriticalLoadsRoute
@@ -953,11 +1015,17 @@ export interface FileRoutesById {
   '/api/public/health': typeof ApiPublicHealthRouteWithChildren
   '/api/public/ready': typeof ApiPublicReadyRoute
   '/electrical/panel/$panelId': typeof ElectricalPanelPanelIdRoute
+  '/api/electrical/v1/$': typeof ApiElectricalV1SplatRoute
+  '/api/electrical/v1/openapi.json': typeof ApiElectricalV1OpenapiDotjsonRoute
   '/api/public/health/procedures': typeof ApiPublicHealthProceduresRoute
   '/api/public/hooks/rachio-sync': typeof ApiPublicHooksRachioSyncRoute
   '/api/public/hooks/task-health': typeof ApiPublicHooksTaskHealthRoute
   '/api/public/webhooks/rachio': typeof ApiPublicWebhooksRachioRoute
   '/electrical/item/$kind/$id': typeof ElectricalItemKindIdRoute
+  '/api/electrical/v1/field-observations/apply': typeof ApiElectricalV1FieldObservationsApplyRoute
+  '/api/electrical/v1/field-observations/preview': typeof ApiElectricalV1FieldObservationsPreviewRoute
+  '/api/electrical/v1/relationships/apply': typeof ApiElectricalV1RelationshipsApplyRoute
+  '/api/electrical/v1/relationships/preview': typeof ApiElectricalV1RelationshipsPreviewRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -999,6 +1067,7 @@ export interface FileRouteTypes {
     | '/admin/vault-secrets'
     | '/electrical/$kind'
     | '/electrical/adjudication'
+    | '/electrical/api-docs'
     | '/electrical/assistant'
     | '/electrical/changes'
     | '/electrical/critical-loads'
@@ -1061,11 +1130,17 @@ export interface FileRouteTypes {
     | '/api/public/health'
     | '/api/public/ready'
     | '/electrical/panel/$panelId'
+    | '/api/electrical/v1/$'
+    | '/api/electrical/v1/openapi.json'
     | '/api/public/health/procedures'
     | '/api/public/hooks/rachio-sync'
     | '/api/public/hooks/task-health'
     | '/api/public/webhooks/rachio'
     | '/electrical/item/$kind/$id'
+    | '/api/electrical/v1/field-observations/apply'
+    | '/api/electrical/v1/field-observations/preview'
+    | '/api/electrical/v1/relationships/apply'
+    | '/api/electrical/v1/relationships/preview'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -1102,6 +1177,7 @@ export interface FileRouteTypes {
     | '/admin/vault-secrets'
     | '/electrical/$kind'
     | '/electrical/adjudication'
+    | '/electrical/api-docs'
     | '/electrical/assistant'
     | '/electrical/changes'
     | '/electrical/critical-loads'
@@ -1164,11 +1240,17 @@ export interface FileRouteTypes {
     | '/api/public/health'
     | '/api/public/ready'
     | '/electrical/panel/$panelId'
+    | '/api/electrical/v1/$'
+    | '/api/electrical/v1/openapi.json'
     | '/api/public/health/procedures'
     | '/api/public/hooks/rachio-sync'
     | '/api/public/hooks/task-health'
     | '/api/public/webhooks/rachio'
     | '/electrical/item/$kind/$id'
+    | '/api/electrical/v1/field-observations/apply'
+    | '/api/electrical/v1/field-observations/preview'
+    | '/api/electrical/v1/relationships/apply'
+    | '/api/electrical/v1/relationships/preview'
   id:
     | '__root__'
     | '/'
@@ -1208,6 +1290,7 @@ export interface FileRouteTypes {
     | '/admin/vault-secrets'
     | '/electrical/$kind'
     | '/electrical/adjudication'
+    | '/electrical/api-docs'
     | '/electrical/assistant'
     | '/electrical/changes'
     | '/electrical/critical-loads'
@@ -1270,11 +1353,17 @@ export interface FileRouteTypes {
     | '/api/public/health'
     | '/api/public/ready'
     | '/electrical/panel/$panelId'
+    | '/api/electrical/v1/$'
+    | '/api/electrical/v1/openapi.json'
     | '/api/public/health/procedures'
     | '/api/public/hooks/rachio-sync'
     | '/api/public/hooks/task-health'
     | '/api/public/webhooks/rachio'
     | '/electrical/item/$kind/$id'
+    | '/api/electrical/v1/field-observations/apply'
+    | '/api/electrical/v1/field-observations/preview'
+    | '/api/electrical/v1/relationships/apply'
+    | '/api/electrical/v1/relationships/preview'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -1315,6 +1404,7 @@ export interface RootRouteChildren {
   AdminVaultSecretsRoute: typeof AdminVaultSecretsRoute
   ElectricalKindRoute: typeof ElectricalKindRoute
   ElectricalAdjudicationRoute: typeof ElectricalAdjudicationRoute
+  ElectricalApiDocsRoute: typeof ElectricalApiDocsRoute
   ElectricalAssistantRoute: typeof ElectricalAssistantRoute
   ElectricalChangesRoute: typeof ElectricalChangesRoute
   ElectricalCriticalLoadsRoute: typeof ElectricalCriticalLoadsRoute
@@ -1356,10 +1446,16 @@ export interface RootRouteChildren {
   ApiPublicHealthRoute: typeof ApiPublicHealthRouteWithChildren
   ApiPublicReadyRoute: typeof ApiPublicReadyRoute
   ElectricalPanelPanelIdRoute: typeof ElectricalPanelPanelIdRoute
+  ApiElectricalV1SplatRoute: typeof ApiElectricalV1SplatRoute
+  ApiElectricalV1OpenapiDotjsonRoute: typeof ApiElectricalV1OpenapiDotjsonRoute
   ApiPublicHooksRachioSyncRoute: typeof ApiPublicHooksRachioSyncRoute
   ApiPublicHooksTaskHealthRoute: typeof ApiPublicHooksTaskHealthRoute
   ApiPublicWebhooksRachioRoute: typeof ApiPublicWebhooksRachioRoute
   ElectricalItemKindIdRoute: typeof ElectricalItemKindIdRoute
+  ApiElectricalV1FieldObservationsApplyRoute: typeof ApiElectricalV1FieldObservationsApplyRoute
+  ApiElectricalV1FieldObservationsPreviewRoute: typeof ApiElectricalV1FieldObservationsPreviewRoute
+  ApiElectricalV1RelationshipsApplyRoute: typeof ApiElectricalV1RelationshipsApplyRoute
+  ApiElectricalV1RelationshipsPreviewRoute: typeof ApiElectricalV1RelationshipsPreviewRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -1882,6 +1978,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ElectricalAssistantRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/electrical/api-docs': {
+      id: '/electrical/api-docs'
+      path: '/electrical/api-docs'
+      fullPath: '/electrical/api-docs'
+      preLoaderRoute: typeof ElectricalApiDocsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/electrical/adjudication': {
       id: '/electrical/adjudication'
       path: '/electrical/adjudication'
@@ -2092,6 +2195,48 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHealthProceduresRouteImport
       parentRoute: typeof ApiPublicHealthRoute
     }
+    '/api/electrical/v1/openapi.json': {
+      id: '/api/electrical/v1/openapi.json'
+      path: '/api/electrical/v1/openapi.json'
+      fullPath: '/api/electrical/v1/openapi.json'
+      preLoaderRoute: typeof ApiElectricalV1OpenapiDotjsonRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/electrical/v1/$': {
+      id: '/api/electrical/v1/$'
+      path: '/api/electrical/v1/$'
+      fullPath: '/api/electrical/v1/$'
+      preLoaderRoute: typeof ApiElectricalV1SplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/electrical/v1/relationships/preview': {
+      id: '/api/electrical/v1/relationships/preview'
+      path: '/api/electrical/v1/relationships/preview'
+      fullPath: '/api/electrical/v1/relationships/preview'
+      preLoaderRoute: typeof ApiElectricalV1RelationshipsPreviewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/electrical/v1/relationships/apply': {
+      id: '/api/electrical/v1/relationships/apply'
+      path: '/api/electrical/v1/relationships/apply'
+      fullPath: '/api/electrical/v1/relationships/apply'
+      preLoaderRoute: typeof ApiElectricalV1RelationshipsApplyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/electrical/v1/field-observations/preview': {
+      id: '/api/electrical/v1/field-observations/preview'
+      path: '/api/electrical/v1/field-observations/preview'
+      fullPath: '/api/electrical/v1/field-observations/preview'
+      preLoaderRoute: typeof ApiElectricalV1FieldObservationsPreviewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/electrical/v1/field-observations/apply': {
+      id: '/api/electrical/v1/field-observations/apply'
+      path: '/api/electrical/v1/field-observations/apply'
+      fullPath: '/api/electrical/v1/field-observations/apply'
+      preLoaderRoute: typeof ApiElectricalV1FieldObservationsApplyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -2224,6 +2369,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminVaultSecretsRoute: AdminVaultSecretsRoute,
   ElectricalKindRoute: ElectricalKindRoute,
   ElectricalAdjudicationRoute: ElectricalAdjudicationRoute,
+  ElectricalApiDocsRoute: ElectricalApiDocsRoute,
   ElectricalAssistantRoute: ElectricalAssistantRoute,
   ElectricalChangesRoute: ElectricalChangesRoute,
   ElectricalCriticalLoadsRoute: ElectricalCriticalLoadsRoute,
@@ -2265,10 +2411,20 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicHealthRoute: ApiPublicHealthRouteWithChildren,
   ApiPublicReadyRoute: ApiPublicReadyRoute,
   ElectricalPanelPanelIdRoute: ElectricalPanelPanelIdRoute,
+  ApiElectricalV1SplatRoute: ApiElectricalV1SplatRoute,
+  ApiElectricalV1OpenapiDotjsonRoute: ApiElectricalV1OpenapiDotjsonRoute,
   ApiPublicHooksRachioSyncRoute: ApiPublicHooksRachioSyncRoute,
   ApiPublicHooksTaskHealthRoute: ApiPublicHooksTaskHealthRoute,
   ApiPublicWebhooksRachioRoute: ApiPublicWebhooksRachioRoute,
   ElectricalItemKindIdRoute: ElectricalItemKindIdRoute,
+  ApiElectricalV1FieldObservationsApplyRoute:
+    ApiElectricalV1FieldObservationsApplyRoute,
+  ApiElectricalV1FieldObservationsPreviewRoute:
+    ApiElectricalV1FieldObservationsPreviewRoute,
+  ApiElectricalV1RelationshipsApplyRoute:
+    ApiElectricalV1RelationshipsApplyRoute,
+  ApiElectricalV1RelationshipsPreviewRoute:
+    ApiElectricalV1RelationshipsPreviewRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -96,6 +96,10 @@ function navGroups(): NavGroup[] {
         { label: "Reconciliation export", to: "/electrical/export", section: "export" },
       ],
     },
+    {
+      label: "Integration",
+      entries: [{ label: "API & docs", to: "/electrical/api-docs" }],
+    },
   ];
 }
 
