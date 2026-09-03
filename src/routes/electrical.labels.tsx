@@ -424,44 +424,56 @@ function PanelLabelsPage() {
               }}
             />
             {sections.map((section) => (
-              <section key={section.kind} className="label-section space-y-2">
+              <section key={section.kind} className="space-y-2">
                 {kinds.length > 1 ? (
                   <h2 className="flex items-center gap-2 text-sm font-semibold print:hidden">
                     {ENTITIES[section.kind].title}
                     <Badge variant="secondary">{section.records.length}</Badge>
                   </h2>
                 ) : null}
-                <div className={gridClass(format)}>
-                  {section.records.map((record) =>
-                    record.kind === "panel" ? (
-                      <PanelQrLabel
-                        key={record.id}
-                        panel={{
-                          panel_id: record.stable_id,
-                          description: record.values["description"] ?? null,
-                          building: record.values["building"] ?? null,
-                          grid: record.values["grid"] ?? null,
-                          bus_rating_amps: record.values["bus_rating_amps"] ?? null,
-                          voltage: record.values["voltage"] ?? null,
-                          phase: record.values["phase"] ?? null,
-                          spaces: record.values["spaces"] ?? null,
-                          feeder_source: record.values["feeder_source"] ?? null,
-                        }}
-                        origin={origin}
-                        format={format}
-                        shortQr={shortQr}
-                      />
-                    ) : (
-                      <EntityQrLabel
-                        key={record.id}
-                        record={record}
-                        origin={origin}
-                        format={format}
-                        shortQr={shortQr}
-                      />
-                    ),
-                  )}
-                </div>
+                {(LABEL_FORMATS[format].short
+                  ? labelWalkGroups(section.records)
+                  : [{ key: section.kind, location: "", panel: "", records: section.records }]
+                ).map((group) => (
+                  <div key={group.key} className="label-section space-y-1">
+                    {LABEL_FORMATS[format].short && (group.location || group.panel) ? (
+                      <h3 className="text-xs font-semibold text-muted-foreground">
+                        {[group.location || "No location", group.panel || "No panel"].join(" · ")}
+                      </h3>
+                    ) : null}
+                    <div className={gridClass(format)}>
+                      {group.records.map((record) =>
+                        record.kind === "panel" ? (
+                          <PanelQrLabel
+                            key={record.id}
+                            panel={{
+                              panel_id: record.stable_id,
+                              description: record.values["description"] ?? null,
+                              building: record.values["building"] ?? null,
+                              grid: record.values["grid"] ?? null,
+                              bus_rating_amps: record.values["bus_rating_amps"] ?? null,
+                              voltage: record.values["voltage"] ?? null,
+                              phase: record.values["phase"] ?? null,
+                              spaces: record.values["spaces"] ?? null,
+                              feeder_source: record.values["feeder_source"] ?? null,
+                            }}
+                            origin={origin}
+                            format={format}
+                            shortQr={shortQr}
+                          />
+                        ) : (
+                          <EntityQrLabel
+                            key={record.id}
+                            record={record}
+                            origin={origin}
+                            format={format}
+                            shortQr={shortQr}
+                          />
+                        ),
+                      )}
+                    </div>
+                  </div>
+                ))}
                 {!section.records.length ? (
                   <p className="text-sm text-muted-foreground">
                     No {ENTITIES[section.kind].title.toLowerCase()} match this scope.
@@ -469,6 +481,7 @@ function PanelLabelsPage() {
                 ) : null}
               </section>
             ))}
+
           </div>
         )}
       </div>
