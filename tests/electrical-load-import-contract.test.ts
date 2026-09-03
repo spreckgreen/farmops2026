@@ -23,7 +23,7 @@ function sheet(): Sheet {
   return {
     name: "Load_Master",
     rows: [
-      header,
+      [...header],
       row({ 1: "FS-001", 2: "Shop lights A", 5: "S", 9: "CG-FS-01", 11: "PNL-FS-NW", 13: "20", 16: "600", 17: "0.6", 19: "Y", 24: "Critical", 28: "Y", 29: "600", 30: "1Ph" }),
       row({ 1: "FS-002", 2: "Shop lights B", 5: "S", 9: "CG-FS-01", 11: "PNL-FS-NW", 16: "400", 19: "N", 24: "Nice to Have", 26: "SOFT", 27: "TBD", 29: "TBD", 30: "TBD" }),
       row({ 1: "FS-082", 2: "Mini split", 5: "D", 11: "PNL-FS-EQ", 14: "240", 15: "15", 16: "3600", 18: "Circuit Capacity Only", 19: "Y", 24: "Critical", 39: "50%" }),
@@ -80,7 +80,9 @@ describe("Load_Master Import Contract v2 — shape", () => {
 
   it("treats columns 34-41 as installation/as-built fields", () => {
     for (let n = 34; n <= 41; n++) {
-      expect(LOAD_MASTER_CONTRACT_V2[n - 1].import_action).toBe("AS_BUILT_FIELD");
+      const c = LOAD_MASTER_CONTRACT_V2[n - 1];
+      expect(c.import_action).toBe("AS_BUILT_FIELD");
+      expect(c.authority === "field_observation" || c.authority === "generated").toBe(true);
     }
   });
 
@@ -174,13 +176,5 @@ describe("re-import simulation", () => {
     const sim = simulateContractReimport({ sheet: sheet(), headerRow: 0, odsRows: rows() });
     expect(contractCsv(sim.binding).split("\n")).toHaveLength(42);
     expect(simulationCsv(sim).split("\n")).toHaveLength(42);
-  });
-});
-
-describe("debug", () => {
-  it("dump", () => {
-    const sim = simulateContractReimport({ sheet: sheet(), headerRow: 0, odsRows: rows() });
-    console.log(sim.fields.filter((f) => f.semantic_loss).map((f) => [f.field, f.import_action, f.semantic_loss]));
-    console.log(sim.simulated_rules, sim.canonical_rules);
   });
 });
