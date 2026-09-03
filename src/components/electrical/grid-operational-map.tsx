@@ -32,7 +32,14 @@ import {
   PROPOSED_OVERHEAD_LED_LEGEND,
 } from "@/lib/electrical-grid-plan-geometry";
 import { CollapsibleGroup } from "@/components/electrical/collapsible-section";
+import {
+  DESIGN_FIELD_HEX,
+  DESIGN_FIELD_STATUS_LABEL,
+  DESIGN_FIELD_TOLERANCE_FT,
+  designFieldOverlay,
+} from "@/lib/electrical-grid-design-vs-field";
 import { cn } from "@/lib/utils";
+
 
 function Chip({
   active,
