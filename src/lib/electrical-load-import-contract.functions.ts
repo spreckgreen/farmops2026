@@ -17,7 +17,8 @@ import {
   type ContractSimulation,
 } from "@/lib/electrical-load-import-contract";
 
-export interface ImportContractPayload extends ContractSimulation {
+/** `rows` (the projected records) stay server-side: the payload is a report. */
+export interface ImportContractPayload extends Omit<ContractSimulation, "rows"> {
   file_name: string;
   ods_sha256: string;
   sha_authorized: boolean;
@@ -62,8 +63,9 @@ export const loadMasterImportContract = createServerFn({ method: "POST" })
       odsRows: mapped.rows.map((r) => ({ sourceRow: r.sourceRow - 1, stableId: r.stableId })),
     });
 
+    const { rows: _projected, ...report } = simulation;
     return {
-      ...simulation,
+      ...report,
       file_name: data.file_name,
       ods_sha256,
       sha_authorized: ods_sha256.toLowerCase() === PHASE_44A_BASELINE_SHA256,

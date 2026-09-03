@@ -18,7 +18,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { CANONICAL_ODS_PATH } from "@/lib/electrical-sor";
-import { setCanonicalWorkbookSession } from "@/lib/electrical-canonical-workbook-session";
 import { useCanonicalWorkbookSession } from "@/hooks/use-canonical-workbook-session";
 import {
   loadMasterImportContract,
@@ -92,14 +91,10 @@ function ImportContractPage() {
   const { availability } = useCanonicalWorkbookSession();
 
   const mutation = useMutation({
-    mutationFn: (vars: { file_name: string; base64: string }) => run({ data: vars }),
-    onSuccess: (payload, vars) => {
+    mutationFn: (vars: { file_name: string; base64: string }): Promise<ImportContractPayload> =>
+      run({ data: vars }) as Promise<ImportContractPayload>,
+    onSuccess: (payload) => {
       setResult(payload);
-      setCanonicalWorkbookSession({
-        file_name: vars.file_name,
-        sha256: payload.ods_sha256,
-        base64: vars.base64,
-      });
       toast.success(
         `Contract v2 simulated over ${payload.row_count} row(s) — semantic loss ${payload.totals.semantic_loss}.`,
       );
