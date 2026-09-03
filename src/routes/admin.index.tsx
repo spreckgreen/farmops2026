@@ -20,6 +20,7 @@ import {
 
 
   ClipboardList,
+  Grid3x3,
 } from "lucide-react";
 
 export const Route = createFileRoute("/admin/")({
