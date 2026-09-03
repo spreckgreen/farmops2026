@@ -17,6 +17,9 @@ export const Route = createFileRoute("/api/electrical/v1/openapi.json")({
           headers: {
             "content-type": "application/json; charset=utf-8",
             "cache-control": "public, max-age=300",
+            // Deprecated location: the published specification is /api/openapi.json.
+            deprecation: "true",
+            link: '</api/openapi.json>; rel="successor-version"',
           },
         });
       },

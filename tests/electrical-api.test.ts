@@ -18,7 +18,7 @@ import { SNAPSHOT_COLLECTIONS } from "@/lib/electrical-snapshot";
 describe("electrical API contract", () => {
   it("is versioned under a stable base path", () => {
     expect(ELECTRICAL_API_VERSION).toBe("v1");
-    expect(ELECTRICAL_API_BASE).toBe("/api/electrical/v1");
+    expect(ELECTRICAL_API_BASE).toBe("/api/v1/electrical");
   });
 
   it("exposes exactly the snapshot collections as resources", () => {
