@@ -159,16 +159,14 @@ function ApiDocs() {
               <thead className="text-muted-foreground">
                 <tr>
                   <th className="py-1 pr-3">Error code</th>
-                  <th className="py-1 pr-3">HTTP</th>
-                  <th className="py-1">Meaning</th>
+                  <th className="py-1">HTTP</th>
                 </tr>
               </thead>
               <tbody>
                 {(Object.keys(API_ERROR_CODES) as ApiErrorCode[]).map((code) => (
                   <tr key={code} className="border-t border-border">
                     <td className="py-1 pr-3 font-mono">{code}</td>
-                    <td className="py-1 pr-3">{API_ERROR_CODES[code].status}</td>
-                    <td className="py-1">{API_ERROR_CODES[code].meaning}</td>
+                    <td className="py-1">{API_ERROR_CODES[code]}</td>
                   </tr>
                 ))}
               </tbody>
@@ -177,7 +175,7 @@ function ApiDocs() {
           <div className="text-xs text-muted-foreground">
             Rate limits per principal:{" "}
             {API_RATE_LIMITS.map(
-              (r) => `${r.bucket} ${r.limit}/${r.window_seconds}s`,
+              (r) => `${r.bucket} ${r.requests}/${r.window_seconds}s`,
             ).join(" · ")}
             .
           </div>
@@ -190,13 +188,15 @@ function ApiDocs() {
         </CardHeader>
         <CardContent className="space-y-2 text-sm">
           {KNOWN_UNRELIABLE_FIELDS.map((f) => (
-            <div key={`${f.collection}.${f.field}`}>
+            <div key={f.field}>
               <div className="font-mono text-xs">
-                {f.collection}.{f.field}
+                {f.field} — {f.collections.join(", ")}
               </div>
-              <div className="text-muted-foreground">{f.warning}</div>
+              <div className="text-muted-foreground">{f.reason}</div>
+              <div className="text-xs text-muted-foreground">{f.guidance}</div>
             </div>
           ))}
+
           <p className="text-xs text-muted-foreground">
             These are surfaced as <code>warnings[]</code> on every snapshot response, so a
             generator can annotate rather than silently publish them.
