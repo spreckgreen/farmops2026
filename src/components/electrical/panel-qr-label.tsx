@@ -249,6 +249,8 @@ export function ShortLabelCell({
   detail,
   qrSvg,
   showQr = false,
+  rightTop,
+  rightBottom,
   className,
 }: {
   stableId: string;
@@ -256,8 +258,13 @@ export function ShortLabelCell({
   /** Small QR for the app record; only rendered when showQr is set. */
   qrSvg?: string | null;
   showQr?: boolean;
+  /** Far-right first line: grid location. */
+  rightTop?: string;
+  /** Far-right second line: volt/amp plus circuit class ("D" or "S"). */
+  rightBottom?: string;
   className?: string;
 }) {
+  const hasRight = Boolean(rightTop || rightBottom);
   return (
     <div
       className={cn(
@@ -302,6 +309,15 @@ export function ShortLabelCell({
           </p>
         ) : null}
       </div>
+      {hasRight ? (
+        <div className="shrink-0 pl-1 text-right">
+          <p className="font-mono text-[10px] font-bold leading-tight text-foreground">
+            {rightTop}
+          </p>
+          <p className="font-mono text-[8px] leading-tight text-muted-foreground">{rightBottom}</p>
+        </div>
+      ) : null}
     </div>
   );
 }
+
