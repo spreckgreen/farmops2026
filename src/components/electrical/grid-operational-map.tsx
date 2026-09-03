@@ -24,6 +24,7 @@ import {
 } from "@/lib/electrical-grid-operational";
 import { AXIS_COLS, AXIS_ROWS } from "@/lib/electrical-grid-map";
 import planImage from "@/assets/farm-shop-grid-plan.png";
+import { CollapsibleGroup } from "@/components/electrical/collapsible-section";
 import { cn } from "@/lib/utils";
 
 /** Plan envelope inside the drawing, measured from the grid corner markers. */
@@ -159,72 +160,73 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
               ))}
             </div>
 
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="mr-1 text-xs text-muted-foreground">Type:</span>
-              {(Object.keys(ASSET_KIND_LABEL) as AssetKind[]).map((k) => (
-                <Chip
-                  key={k}
-                  active={kinds.has(k)}
-                  onClick={() => toggle(kinds, setKinds, k)}
-                >
-                  {ASSET_KIND_LABEL[k]} ({assets.filter((a) => a.kind === k).length})
-                </Chip>
-              ))}
-            </div>
+            {/* Secondary filters stay folded away so the plan itself is what
+                the reader sees first. */}
+            <CollapsibleGroup
+              title={`Filters — type, precision, install, verification (${filtered.length} of ${assets.length} shown)`}
+              storageKey="grid-map.filters"
+            >
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="mr-1 text-xs text-muted-foreground">Type:</span>
+                {(Object.keys(ASSET_KIND_LABEL) as AssetKind[]).map((k) => (
+                  <Chip key={k} active={kinds.has(k)} onClick={() => toggle(kinds, setKinds, k)}>
+                    {ASSET_KIND_LABEL[k]} ({assets.filter((a) => a.kind === k).length})
+                  </Chip>
+                ))}
+              </div>
 
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="mr-1 text-xs text-muted-foreground">Precision:</span>
-              {PRECISION_ORDER.map((p) => (
-                <button
-                  key={p}
-                  type="button"
-                  onClick={() => toggle(precisions, setPrecisions, p)}
-                  className={cn(
-                    "flex items-center gap-1.5 rounded px-1.5 py-0.5 text-xs transition-opacity",
-                    precisions.has(p) ? "opacity-100" : "opacity-40",
-                  )}
-                >
-                  <span className={cn("h-2.5 w-2.5 rounded-full", PRECISION_META[p].swatch)} />
-                  {PRECISION_META[p].label} ({q.data!.summary.precision[p]})
-                </button>
-              ))}
-            </div>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="mr-1 text-xs text-muted-foreground">Precision:</span>
+                {PRECISION_ORDER.map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => toggle(precisions, setPrecisions, p)}
+                    className={cn(
+                      "flex items-center gap-1.5 rounded px-1.5 py-0.5 text-xs transition-opacity",
+                      precisions.has(p) ? "opacity-100" : "opacity-40",
+                    )}
+                  >
+                    <span className={cn("h-2.5 w-2.5 rounded-full", PRECISION_META[p].swatch)} />
+                    {PRECISION_META[p].label} ({q.data!.summary.precision[p]})
+                  </button>
+                ))}
+              </div>
 
-            <div className="flex flex-wrap items-center gap-3 text-xs">
-              <label className="flex items-center gap-1">
-                Install status
-                <select
-                  className="rounded border border-border bg-background px-1 py-0.5"
-                  value={install}
-                  onChange={(e) => setInstall(e.target.value)}
-                >
-                  <option value="ALL">All</option>
-                  {installStatuses.map((v) => (
-                    <option key={v} value={v}>
-                      {v}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="flex items-center gap-1">
-                Field verification
-                <select
-                  className="rounded border border-border bg-background px-1 py-0.5"
-                  value={verify}
-                  onChange={(e) => setVerify(e.target.value as "ALL" | VerificationStatus)}
-                >
-                  <option value="ALL">All</option>
-                  {(Object.keys(VERIFICATION_LABEL) as VerificationStatus[]).map((v) => (
-                    <option key={v} value={v}>
-                      {VERIFICATION_LABEL[v]}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <span className="text-muted-foreground">
-                {plotted.length} plotted · {unplotted.length} not plotted
-              </span>
-            </div>
+              <div className="flex flex-wrap items-center gap-3 text-xs">
+                <label className="flex items-center gap-1">
+                  Install status
+                  <select
+                    className="rounded border border-border bg-background px-1 py-0.5"
+                    value={install}
+                    onChange={(e) => setInstall(e.target.value)}
+                  >
+                    <option value="ALL">All</option>
+                    {installStatuses.map((v) => (
+                      <option key={v} value={v}>
+                        {v}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="flex items-center gap-1">
+                  Field verification
+                  <select
+                    className="rounded border border-border bg-background px-1 py-0.5"
+                    value={verify}
+                    onChange={(e) => setVerify(e.target.value as "ALL" | VerificationStatus)}
+                  >
+                    <option value="ALL">All</option>
+                    {(Object.keys(VERIFICATION_LABEL) as VerificationStatus[]).map((v) => (
+                      <option key={v} value={v}>
+                        {VERIFICATION_LABEL[v]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            </CollapsibleGroup>
+
 
             <div
               className={cn(
@@ -266,47 +268,64 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
               })}
             </div>
 
+            {/* Stamp under the plan: the counts a reader needs at a glance,
+                without the data-quality detail crowding the drawing. */}
             <p className="text-xs text-muted-foreground">
-              Rows A–F run north→south at {AXIS_ROWS.map((r) => r.yFt).join("/")} ft; columns 1–9
-              run west→east at {AXIS_COLS.map((c) => c.xFt).join("/")} ft. Interval dots mark a
-              preserved span, not a final install point. Mobile and unresolved records are never
-              snapped onto the drawing.
+              {plotted.length} of {filtered.length} record(s) plotted ·{" "}
+              <span className="font-medium text-foreground">
+                {unplotted.length} not mapped (no permanent location in the record)
+              </span>
+              {q.data!.gaps.length ? ` · ${q.data!.gaps.length} record gap(s)` : ""} — detail in Data
+              quality below.
             </p>
 
             {chosen ? <AssetDetail asset={chosen} /> : null}
 
-            {unplotted.length ? (
-              <div className="space-y-1">
-                <p className="text-xs font-medium">
-                  {unplotted.length} record(s) not plotted — no permanent location in the record
-                </p>
-                <div className="flex flex-wrap gap-1">
-                  {unplotted.map((a) => (
-                    <Badge
-                      key={`${a.kind}-${a.stableId}`}
-                      variant="outline"
-                      className="cursor-pointer text-[11px]"
-                      title={a.precisionBasis}
-                      onClick={() => setSelected(a.stableId)}
-                    >
-                      <span className="mr-1 font-mono">{a.stableId}</span>
-                      {PRECISION_META[a.precision].label}
-                    </Badge>
+            <CollapsibleGroup
+              title={`Data quality — ${unplotted.length} not mapped, ${discrepancies} imprecise, ${q.data!.gaps.length} record gap(s)`}
+              storageKey="grid-map.data-quality"
+            >
+              <p className="text-xs text-muted-foreground">
+                Rows A–F run north→south at {AXIS_ROWS.map((r) => r.yFt).join("/")} ft; columns 1–9
+                run west→east at {AXIS_COLS.map((c) => c.xFt).join("/")} ft. Interval dots mark a
+                preserved span, not a final install point. Mobile and unresolved records are never
+                snapped onto the drawing.
+              </p>
+
+              {unplotted.length ? (
+                <div className="space-y-1">
+                  <p className="text-xs font-medium">
+                    {unplotted.length} record(s) not plotted — no permanent location in the record
+                  </p>
+                  <div className="flex flex-wrap gap-1">
+                    {unplotted.map((a) => (
+                      <Badge
+                        key={`${a.kind}-${a.stableId}`}
+                        variant="outline"
+                        className="cursor-pointer text-[11px]"
+                        title={a.precisionBasis}
+                        onClick={() => setSelected(a.stableId)}
+                      >
+                        <span className="mr-1 font-mono">{a.stableId}</span>
+                        {PRECISION_META[a.precision].label}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              {q.data!.gaps.length ? (
+                <div className="space-y-1 rounded-md border border-border bg-muted/40 p-2">
+                  <p className="text-xs font-medium">Record gaps</p>
+                  {q.data!.gaps.map((g, i) => (
+                    <p key={i} className="text-xs text-muted-foreground">
+                      {g}
+                    </p>
                   ))}
                 </div>
-              </div>
-            ) : null}
+              ) : null}
+            </CollapsibleGroup>
 
-            {q.data!.gaps.length ? (
-              <div className="space-y-1 rounded-md border border-border bg-muted/40 p-2">
-                <p className="text-xs font-medium">Record gaps</p>
-                {q.data!.gaps.map((g, i) => (
-                  <p key={i} className="text-xs text-muted-foreground">
-                    {g}
-                  </p>
-                ))}
-              </div>
-            ) : null}
           </>
         )}
       </CardContent>
