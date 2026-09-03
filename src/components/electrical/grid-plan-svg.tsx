@@ -48,10 +48,15 @@ export function GridPlanSvg({
   markerScale?: number;
   className?: string;
 }) {
-  // Hover helper text: which marker the pointer (or keyboard focus) is on.
+  // Helper text follows, in order: the marker under the pointer/keyboard focus,
+  // then the selected marker — so after a click the same helper stays visible
+  // once the mouse moves away. Escape dismisses the pinned (selected) one.
   const [hovered, setHovered] = useState<string | null>(null);
   const [focusedId, setFocusedId] = useState<string | null>(null);
-  const hint = interactive ? (plotted.find((a) => a.stableId === hovered) ?? null) : null;
+  const [dismissed, setDismissed] = useState<string | null>(null);
+  const pinned = selectedId && selectedId !== dismissed ? selectedId : null;
+  const hintId = hovered ?? pinned;
+  const hint = interactive ? (plotted.find((a) => a.stableId === hintId) ?? null) : null;
 
   // Keyboard order: north-to-south, then west-to-east, so arrow keys walk the
   // plan the same way a reader scans it.
@@ -92,6 +97,7 @@ export function GridPlanSvg({
         case " ":
         case "Spacebar":
           e.preventDefault();
+          setDismissed(null);
           onSelect?.(stableId);
           setHovered(stableId);
           return;
@@ -114,13 +120,15 @@ export function GridPlanSvg({
           moveFocus(stableId, "last");
           return;
         case "Escape":
-          // Dismiss the helper text but keep focus where it is.
+          // Dismiss the helper text — including the pinned selection — but keep
+          // focus where it is.
           setHovered(null);
+          setDismissed(selectedId ?? null);
           return;
         default:
       }
     },
-    [moveFocus, onSelect],
+    [moveFocus, onSelect, selectedId],
   );
 
   return (
@@ -173,7 +181,11 @@ export function GridPlanSvg({
                   tabIndex: 0,
                   "aria-label": label,
                   "aria-pressed": selected,
-                  onClick: () => onSelect?.(a.stableId),
+                  onClick: () => {
+                    // Clicking re-pins the helper text to this marker.
+                    setDismissed(null);
+                    onSelect?.(a.stableId);
+                  },
                   onKeyDown: (e: React.KeyboardEvent<SVGGElement>) => onMarkerKeyDown(e, a.stableId),
                   onFocus: () => {
                     setFocusedId(a.stableId);
