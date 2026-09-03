@@ -267,47 +267,64 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
               })}
             </div>
 
+            {/* Stamp under the plan: the counts a reader needs at a glance,
+                without the data-quality detail crowding the drawing. */}
             <p className="text-xs text-muted-foreground">
-              Rows A–F run north→south at {AXIS_ROWS.map((r) => r.yFt).join("/")} ft; columns 1–9
-              run west→east at {AXIS_COLS.map((c) => c.xFt).join("/")} ft. Interval dots mark a
-              preserved span, not a final install point. Mobile and unresolved records are never
-              snapped onto the drawing.
+              {plotted.length} of {filtered.length} record(s) plotted ·{" "}
+              <span className="font-medium text-foreground">
+                {unplotted.length} not mapped (no permanent location in the record)
+              </span>
+              {q.data!.gaps.length ? ` · ${q.data!.gaps.length} record gap(s)` : ""} — detail in Data
+              quality below.
             </p>
 
             {chosen ? <AssetDetail asset={chosen} /> : null}
 
-            {unplotted.length ? (
-              <div className="space-y-1">
-                <p className="text-xs font-medium">
-                  {unplotted.length} record(s) not plotted — no permanent location in the record
-                </p>
-                <div className="flex flex-wrap gap-1">
-                  {unplotted.map((a) => (
-                    <Badge
-                      key={`${a.kind}-${a.stableId}`}
-                      variant="outline"
-                      className="cursor-pointer text-[11px]"
-                      title={a.precisionBasis}
-                      onClick={() => setSelected(a.stableId)}
-                    >
-                      <span className="mr-1 font-mono">{a.stableId}</span>
-                      {PRECISION_META[a.precision].label}
-                    </Badge>
+            <CollapsibleGroup
+              title={`Data quality — ${unplotted.length} not mapped, ${discrepancies} imprecise, ${q.data!.gaps.length} record gap(s)`}
+              storageKey="grid-map.data-quality"
+            >
+              <p className="text-xs text-muted-foreground">
+                Rows A–F run north→south at {AXIS_ROWS.map((r) => r.yFt).join("/")} ft; columns 1–9
+                run west→east at {AXIS_COLS.map((c) => c.xFt).join("/")} ft. Interval dots mark a
+                preserved span, not a final install point. Mobile and unresolved records are never
+                snapped onto the drawing.
+              </p>
+
+              {unplotted.length ? (
+                <div className="space-y-1">
+                  <p className="text-xs font-medium">
+                    {unplotted.length} record(s) not plotted — no permanent location in the record
+                  </p>
+                  <div className="flex flex-wrap gap-1">
+                    {unplotted.map((a) => (
+                      <Badge
+                        key={`${a.kind}-${a.stableId}`}
+                        variant="outline"
+                        className="cursor-pointer text-[11px]"
+                        title={a.precisionBasis}
+                        onClick={() => setSelected(a.stableId)}
+                      >
+                        <span className="mr-1 font-mono">{a.stableId}</span>
+                        {PRECISION_META[a.precision].label}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              {q.data!.gaps.length ? (
+                <div className="space-y-1 rounded-md border border-border bg-muted/40 p-2">
+                  <p className="text-xs font-medium">Record gaps</p>
+                  {q.data!.gaps.map((g, i) => (
+                    <p key={i} className="text-xs text-muted-foreground">
+                      {g}
+                    </p>
                   ))}
                 </div>
-              </div>
-            ) : null}
+              ) : null}
+            </CollapsibleGroup>
 
-            {q.data!.gaps.length ? (
-              <div className="space-y-1 rounded-md border border-border bg-muted/40 p-2">
-                <p className="text-xs font-medium">Record gaps</p>
-                {q.data!.gaps.map((g, i) => (
-                  <p key={i} className="text-xs text-muted-foreground">
-                    {g}
-                  </p>
-                ))}
-              </div>
-            ) : null}
           </>
         )}
       </CardContent>
