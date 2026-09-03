@@ -48,6 +48,9 @@ export function GridPlanSvg({
   markerScale?: number;
   className?: string;
 }) {
+  // Hover helper text: which marker the pointer (or keyboard focus) is on.
+  const [hovered, setHovered] = useState<string | null>(null);
+  const hint = interactive ? (plotted.find((a) => a.stableId === hovered) ?? null) : null;
   return (
     <svg
       viewBox={PLAN_VIEW_BOX}
