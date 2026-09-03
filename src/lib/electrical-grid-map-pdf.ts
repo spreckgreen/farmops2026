@@ -9,6 +9,7 @@ import {
   type OperationalAsset,
 } from "@/lib/electrical-grid-operational";
 import { AXIS_COLS, AXIS_ROWS } from "@/lib/electrical-grid-map";
+import { feetToPlanFraction } from "@/lib/electrical-grid-plan-geometry";
 
 /** Dot colours, matched to the Tailwind swatches used on screen. */
 const PRECISION_RGB: Record<LocationPrecision, [number, number, number]> = {
@@ -20,9 +21,8 @@ const PRECISION_RGB: Record<LocationPrecision, [number, number, number]> = {
   UNRESOLVED: [113, 113, 122], // muted foreground
 };
 
-/** Plan envelope inside the drawing, measured from the grid corner markers.
- * Identical to the screen overlay so a printed dot lands where the screen dot is. */
-const PLAN_PCT = { left: 12.91, right: 86.4, top: 19.52, bottom: 75.97 };
+// Envelope anchors come from the shared plan geometry, so a printed dot lands
+// exactly where the on-screen SVG marker sits.
 
 const MARGIN = 36;
 
@@ -125,16 +125,12 @@ export function renderGridMapPdf(input: GridMapPdfInput): jsPDF {
   doc.setLineWidth(0.6);
   doc.rect(x0, y0, planW, planH);
 
-  // Dot placement uses the same plan envelope percentages as the screen overlay.
-  const envL = x0 + (PLAN_PCT.left / 100) * planW;
-  const envR = x0 + (PLAN_PCT.right / 100) * planW;
-  const envT = y0 + (PLAN_PCT.top / 100) * planH;
-  const envB = y0 + (PLAN_PCT.bottom / 100) * planH;
-
+  // Dot placement uses the one documented feet → plan transform.
   for (const a of input.plotted) {
-    if (a.xPct == null || a.yPct == null) continue;
-    const cx = envL + (a.xPct / 100) * (envR - envL);
-    const cy = envT + (a.yPct / 100) * (envB - envT);
+    if (a.plottedXFt == null || a.plottedYFt == null) continue;
+    const { fx, fy } = feetToPlanFraction(a.plottedXFt, a.plottedYFt);
+    const cx = x0 + fx * planW;
+    const cy = y0 + fy * planH;
     const [r, g, b] = PRECISION_RGB[a.precision];
     doc.setFillColor(r, g, b);
     doc.setDrawColor(255);

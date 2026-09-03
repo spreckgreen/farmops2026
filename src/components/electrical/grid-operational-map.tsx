@@ -14,6 +14,8 @@ import { toast } from "sonner";
 import { electricalGridOperational } from "@/lib/electrical-grid-operational.functions";
 import {
   ASSET_KIND_LABEL,
+  PLACEMENT_SOURCE_LABEL,
+  PLACEMENT_SOURCE_ORDER,
   PRECISION_META,
   PRECISION_ORDER,
   VERIFICATION_LABEL,
@@ -25,11 +27,9 @@ import {
 } from "@/lib/electrical-grid-operational";
 import { AXIS_COLS, AXIS_ROWS } from "@/lib/electrical-grid-map";
 import planImage from "@/assets/farm-shop-grid-plan.png";
+import { GridPlanSvg } from "@/components/electrical/grid-plan-svg";
 import { CollapsibleGroup } from "@/components/electrical/collapsible-section";
 import { cn } from "@/lib/utils";
-
-/** Plan envelope inside the drawing, measured from the grid corner markers. */
-const PLAN = { left: 12.91, right: 86.4, top: 19.52, bottom: 75.97 };
 
 function Chip({
   active,
@@ -124,6 +124,7 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
   );
 
   const plotted = filtered.filter((a) => a.xPct != null);
+  const disagreeing = filtered.filter((a) => a.placementDisagreement);
   const unplotted = filtered.filter((a) => a.xPct == null);
   const chosen = filtered.find((a) => a.stableId === selected) ?? null;
 
@@ -386,44 +387,16 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
             </CollapsibleGroup>
 
 
-            <div
-              className={cn(
-                "relative w-full overflow-hidden rounded-md border border-border bg-white",
-                large ? "max-h-[75vh]" : "",
-              )}
-            >
-              <img
-                src={planImage}
-                alt="Overhead grid plan of the 40 by 60 foot Farm Shop with lettered rows A to F north to south and numbered columns 1 to 9 west to east, showing the north wall openings and the north-east and south-west man doors"
-                className="block h-auto w-full select-none"
-                draggable={false}
+            {/* Plan and markers share one SVG viewBox in the drawing's own
+                coordinate space, so zoom, window size and DPR cannot move a
+                marker relative to the plan. */}
+            <div className="w-full rounded-md border border-border bg-white">
+              <GridPlanSvg
+                plotted={plotted}
+                selectedId={selected}
+                onSelect={setSelected}
+                markerScale={large ? 1 : 0.8}
               />
-              {plotted.map((a) => {
-                const left = PLAN.left + ((a.xPct ?? 0) / 100) * (PLAN.right - PLAN.left);
-                const top = PLAN.top + ((a.yPct ?? 0) / 100) * (PLAN.bottom - PLAN.top);
-                return (
-                  <button
-                    key={`${a.kind}-${a.stableId}`}
-                    type="button"
-                    className="absolute -translate-x-1/2 -translate-y-1/2 focus:outline-none"
-                    style={{ left: `${left}%`, top: `${top}%` }}
-                    onClick={() => setSelected(a.stableId)}
-                    onFocus={() => setSelected(a.stableId)}
-                    aria-label={`${a.stableId} ${a.description ?? ""}`}
-                  >
-                    <span
-                      className={cn(
-                        "block ring-2 ring-white/90 shadow",
-                        PRECISION_META[a.precision].dot,
-                        a.kind === "panel" ? "rounded-sm" : "rounded-full",
-                        a.spanned ? "opacity-70 ring-dashed" : "",
-                        large ? "h-3.5 w-3.5" : "h-2.5 w-2.5",
-                        selected === a.stableId && "scale-150",
-                      )}
-                    />
-                  </button>
-                );
-              })}
             </div>
 
             {/* Stamp under the plan: the counts a reader needs at a glance,
@@ -440,7 +413,7 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
             {chosen ? <AssetDetail asset={chosen} /> : null}
 
             <CollapsibleGroup
-              title={`Data quality — ${unplotted.length} not mapped, ${discrepancies} imprecise, ${q.data!.gaps.length} record gap(s)`}
+              title={`Data quality — ${unplotted.length} not mapped, ${discrepancies} imprecise, ${disagreeing.length} placement conflict(s), ${q.data!.gaps.length} record gap(s)`}
               storageKey="grid-map.data-quality"
             >
               <p className="text-xs text-muted-foreground">
@@ -472,6 +445,33 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
                 </div>
               ) : null}
 
+              {disagreeing.length ? (
+                <div className="space-y-1 rounded-md border border-destructive/40 bg-destructive/5 p-2">
+                  <p className="text-xs font-medium">
+                    {disagreeing.length} record(s) with disagreeing placement sources — nothing was
+                    overwritten
+                  </p>
+                  {disagreeing.map((a) => (
+                    <p
+                      key={`dq-${a.kind}-${a.stableId}`}
+                      className="cursor-pointer text-[11px] text-muted-foreground"
+                      onClick={() => setSelected(a.stableId)}
+                    >
+                      <span className="font-mono">{a.stableId}</span> — {a.placementDisagreement}
+                    </p>
+                  ))}
+                </div>
+              ) : null}
+
+              <div className="space-y-1 rounded-md border border-border p-2">
+                <p className="text-xs font-medium">Records by placement source</p>
+                {PLACEMENT_SOURCE_ORDER.filter((k) => q.data!.summary.placementSources[k]).map((k) => (
+                  <p key={k} className="text-[11px] text-muted-foreground">
+                    {PLACEMENT_SOURCE_LABEL[k]}: {q.data!.summary.placementSources[k]}
+                  </p>
+                ))}
+              </div>
+
               {q.data!.gaps.length ? (
                 <div className="space-y-1 rounded-md border border-border bg-muted/40 p-2">
                   <p className="text-xs font-medium">Record gaps</p>
@@ -502,23 +502,8 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
           {q.data.gaps.length ? ` · ${q.data.gaps.length} record gap(s)` : ""}
         </p>
         <p className="text-[11px]">Filters — {filterSummary.join(" · ")}</p>
-        <div className="relative mt-2 w-full border border-black">
-          <img src={planImage} alt="Farm Shop grid plan" className="block h-auto w-full" />
-          {plotted.map((a) => {
-            const left = PLAN.left + ((a.xPct ?? 0) / 100) * (PLAN.right - PLAN.left);
-            const top = PLAN.top + ((a.yPct ?? 0) / 100) * (PLAN.bottom - PLAN.top);
-            return (
-              <span
-                key={`print-${a.kind}-${a.stableId}`}
-                className={cn(
-                  "absolute block h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2",
-                  PRECISION_META[a.precision].dot,
-                  a.kind === "panel" ? "rounded-sm" : "rounded-full",
-                )}
-                style={{ left: `${left}%`, top: `${top}%` }}
-              />
-            );
-          })}
+        <div className="mt-2 w-full border border-black">
+          <GridPlanSvg plotted={plotted} interactive={false} markerScale={0.8} />
         </div>
         <p className="mt-1 text-[11px]">
           {plotted.length} of {filtered.length} record(s) plotted · {unplotted.length} not mapped (no
@@ -535,9 +520,24 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
             drawing.
           </p>
           <p className="text-[11px] font-medium">
-            {unplotted.length} not mapped · {discrepancies} imprecise · {q.data.gaps.length} record
-            gap(s)
+            {unplotted.length} not mapped · {discrepancies} imprecise · {disagreeing.length}{" "}
+            placement conflict(s) · {q.data.gaps.length} record gap(s)
           </p>
+          <p className="text-[11px]">
+            Placement sources —{" "}
+            {PLACEMENT_SOURCE_ORDER.filter((k) => q.data!.summary.placementSources[k])
+              .map((k) => `${PLACEMENT_SOURCE_LABEL[k]}: ${q.data!.summary.placementSources[k]}`)
+              .join(" · ")}
+          </p>
+          {disagreeing.length ? (
+            <ul className="text-[11px]">
+              {disagreeing.map((a) => (
+                <li key={`print-conflict-${a.kind}-${a.stableId}`}>
+                  <span className="font-mono">{a.stableId}</span> — {a.placementDisagreement}
+                </li>
+              ))}
+            </ul>
+          ) : null}
           {unplotted.length ? (
             <ul className="text-[11px]">
               {unplotted.map((a) => (
@@ -579,6 +579,7 @@ export function AssetDetail({ asset }: { asset: OperationalAsset }) {
         : "NOT IN RECORD",
     ],
     ["Location precision", PRECISION_META[asset.precision].label],
+    ["Placement source", PLACEMENT_SOURCE_LABEL[asset.locationSource]],
     ["Install status", asset.installStatus ?? "NOT IN RECORD"],
     ["Field verification", VERIFICATION_LABEL[verificationOf(asset.verification)]],
     ["Evidence / source", asset.locationEvidence ?? asset.precisionBasis],
@@ -598,6 +599,26 @@ export function AssetDetail({ asset }: { asset: OperationalAsset }) {
         ))}
       </div>
       <p className="mt-2 text-[11px] text-muted-foreground">{asset.precisionBasis}</p>
+      {asset.placementCandidates.length > 1 ? (
+        <div className="mt-2 text-[11px]">
+          <p className="font-medium">Placement sources evaluated</p>
+          {asset.placementCandidates.map((c) => (
+            <p
+              key={c.source}
+              className={
+                c.source === asset.locationSource ? "text-foreground" : "text-muted-foreground"
+              }
+            >
+              {c.source === asset.locationSource ? "Selected — " : "Not used — "}
+              {PLACEMENT_SOURCE_LABEL[c.source]}: {c.xFt} ft E / {c.yFt} ft S ({c.precision}) —{" "}
+              {c.basis}
+            </p>
+          ))}
+        </div>
+      ) : null}
+      {asset.placementDisagreement ? (
+        <p className="mt-1 text-[11px] text-destructive">{asset.placementDisagreement}</p>
+      ) : null}
       {asset.panelBasis ? (
         <p className="text-[11px] text-muted-foreground">{asset.panelBasis}</p>
       ) : null}

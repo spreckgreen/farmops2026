@@ -13,6 +13,8 @@ import { recordElectricalChange } from "@/lib/electrical-audit.server";
 import {
   buildOperationalAssets,
   summarizeOperational,
+  PLACEMENT_SOURCE_LABEL,
+  PLACEMENT_SOURCE_ORDER,
   VERIFICATION_STATUSES,
   type AssetKind,
   type OperationalAsset,
@@ -246,11 +248,26 @@ export const electricalGridOperational = createServerFn({ method: "GET" })
         `${summary.precision.INTERVAL} record(s) keep an interval location — the dot marks the span, not a final install point.`,
       );
     }
-    if (!built.some((a) => a.locationSource === "RECORDED_XY")) {
+    if (!summary.placementSources.VERIFIED_FIELD_OBSERVATION_XY) {
       gaps.push(
-        "No Farm Shop record carries a surveyed X/Y yet, so every plotted position comes from its grid reference.",
+        "No Farm Shop record carries a verified field-observation X/Y yet, so every plotted position comes from its accepted grid assignment.",
       );
     }
+    if (summary.placementSources.PROVISIONAL_RECORDED_XY) {
+      gaps.push(
+        `${summary.placementSources.PROVISIONAL_RECORDED_XY} record(s) are plotted from provisional, unverified X/Y because the record carries no accepted grid assignment. They need field verification before the coordinates are treated as installed.`,
+      );
+    }
+    if (summary.placementDisagreements) {
+      gaps.push(
+        `${summary.placementDisagreements} record(s) have disagreeing placement sources (recorded X/Y vs accepted grid vs canonical/recovery-derived). Nothing was overwritten; each is listed with every available value and the source that was selected.`,
+      );
+    }
+    gaps.push(
+      `Placement source counts: ${PLACEMENT_SOURCE_ORDER.filter((k) => summary.placementSources[k])
+        .map((k) => `${PLACEMENT_SOURCE_LABEL[k]} ${summary.placementSources[k]}`)
+        .join(" · ")}.`,
+    );
 
     return {
       generated_at: new Date().toISOString(),

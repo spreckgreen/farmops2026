@@ -239,6 +239,45 @@ export interface OperationalInput {
   circuitClassBasis: string | null;
 }
 
+/** Where a plotted position came from, in precedence order. */
+export type PlacementSource =
+  | "VERIFIED_FIELD_OBSERVATION_XY"
+  | "DERIVED_FROM_GRID_REFERENCE"
+  | "DERIVED_FROM_CURRENT_GRID"
+  | "DERIVED_FROM_LEGACY_GRID"
+  | "PROVISIONAL_RECORDED_XY"
+  | "NOT_PLOTTED";
+
+export const PLACEMENT_SOURCE_LABEL: Record<PlacementSource, string> = {
+  VERIFIED_FIELD_OBSERVATION_XY: "Verified field observation X/Y",
+  DERIVED_FROM_GRID_REFERENCE: "Accepted corrected grid reference",
+  DERIVED_FROM_CURRENT_GRID: "Accepted current FarmOps grid",
+  DERIVED_FROM_LEGACY_GRID: "Canonical / recovery-derived legacy grid",
+  PROVISIONAL_RECORDED_XY: "Provisional recorded X/Y (unverified)",
+  NOT_PLOTTED: "Not plotted",
+};
+
+export const PLACEMENT_SOURCE_ORDER: PlacementSource[] = [
+  "VERIFIED_FIELD_OBSERVATION_XY",
+  "DERIVED_FROM_GRID_REFERENCE",
+  "DERIVED_FROM_CURRENT_GRID",
+  "DERIVED_FROM_LEGACY_GRID",
+  "PROVISIONAL_RECORDED_XY",
+  "NOT_PLOTTED",
+];
+
+/** One candidate position the record could support, evaluated but not chosen. */
+export interface PlacementCandidate {
+  source: PlacementSource;
+  xFt: number;
+  yFt: number;
+  precision: LocationPrecision;
+  spanned: boolean;
+  basis: string;
+  /** True when this candidate is an accepted (not provisional) statement. */
+  accepted: boolean;
+}
+
 export interface OperationalAsset extends Omit<OperationalInput, "storedPrecision"> {
   precision: LocationPrecision;
   precisionBasis: string;
@@ -249,14 +288,16 @@ export interface OperationalAsset extends Omit<OperationalInput, "storedPrecisio
   plottedYFt: number | null;
   /** True when the plotted point represents a span rather than a point. */
   spanned: boolean;
-  locationSource:
-    | "RECORDED_XY"
-    | "DERIVED_FROM_GRID_REFERENCE"
-    | "DERIVED_FROM_LEGACY_GRID"
-    | "DERIVED_FROM_CURRENT_GRID"
-    | "NOT_PLOTTED";
+  locationSource: PlacementSource;
+  /** Every position the record could support, including the rejected ones. */
+  placementCandidates: PlacementCandidate[];
+  /** Set when candidates disagree; a Data Quality finding, never silently resolved. */
+  placementDisagreement: string | null;
   stackIndex: number;
   stackSize: number;
+  /** Display-only separation for co-located markers. The anchor stays true. */
+  fanDxFt: number;
+  fanDyFt: number;
 }
 
 const num = (v: unknown): number | null =>
@@ -267,18 +308,154 @@ function precisionFromStored(raw: string | null): LocationPrecision | null {
   return (PRECISION_ORDER as string[]).includes(v) ? (v as LocationPrecision) : null;
 }
 
-/** Classifies one record without ever inventing a location. */
+/** Verifications that make a recorded X/Y an approved field observation. */
+const VERIFIED_OBSERVATION: VerificationStatus[] = [
+  "VERIFIED_AS_INSTALLED",
+  "UPDATED_FROM_FIELD_OBSERVATION",
+];
+
+/** Install statuses that mean the record is not the current installed location. */
+const NOT_CURRENT_INSTALL = new Set([
+  "planned",
+  "proposed",
+  "design",
+  "not_installed",
+  "not_yet_installed",
+  "removed",
+  "abandoned",
+]);
+
+/** True when the record states an X/Y that is verified and currently installed. */
+function isCurrentVerifiedObservation(row: OperationalInput): boolean {
+  const v = verificationOf(row.verification);
+  if (!VERIFIED_OBSERVATION.includes(v)) return false;
+  return !NOT_CURRENT_INSTALL.has((row.installStatus ?? "").trim().toLowerCase());
+}
+
+/**
+ * Builds every position the record could support, in precedence order. Nothing
+ * is invented: a candidate exists only when the record states its inputs.
+ */
+export function placementCandidatesFor(row: OperationalInput): PlacementCandidate[] {
+  const out: PlacementCandidate[] = [];
+  const stored = precisionFromStored(row.storedPrecision);
+  const usableStored = stored && stored !== "UNRESOLVED" && stored !== "NON_FIXED" ? stored : null;
+  const x = num(row.xFt);
+  const y = num(row.yFt);
+  const correctedReference = parseNewGrid(row.gridReference ?? "");
+  const currentGrid = parseNewGrid(row.grid ?? "");
+
+  // 1. Exact X/Y, but only from an approved/verified field observation that is
+  //    marked as the current installed location.
+  if (x != null && y != null && isCurrentVerifiedObservation(row)) {
+    out.push({
+      source: "VERIFIED_FIELD_OBSERVATION_XY",
+      xFt: x,
+      yFt: y,
+      precision: usableStored ?? "EXACT",
+      spanned: usableStored === "INTERVAL",
+      basis: `Verified field observation: recorded ${x} ft E, ${y} ft S, verification ${VERIFICATION_LABEL[verificationOf(row.verification)]}${
+        row.verifiedAt ? ` on ${row.verifiedAt}` : ""
+      }.`,
+      accepted: true,
+    });
+  }
+
+  // 2. The accepted current FarmOps corrected grid reference. grid_reference is
+  //    always a corrected A–F / 1–9 reference, never read through the old drawing.
+  if (correctedReference.ok) {
+    const feet = newGridFeet(correctedReference);
+    if (feet) {
+      out.push({
+        source: "DERIVED_FROM_GRID_REFERENCE",
+        xFt: feet.xFt,
+        yFt: feet.yFt,
+        precision: correctedReference.interval ? "INTERVAL" : (usableStored ?? "GRIDLINE"),
+        spanned: feet.span,
+        basis: correctedReference.interval
+          ? `Accepted corrected interval reference ${row.gridReference} — the record does not name a single point, so the span is preserved.`
+          : `Accepted corrected grid reference ${row.gridReference}.`,
+        accepted: true,
+      });
+    }
+  }
+
+  // 3. Infrastructure tables were introduced with corrected-grid semantics, so a
+  //    corrected-looking `grid` on those kinds is an accepted current reference.
+  if (currentGrid.ok && row.kind !== "load" && row.kind !== "panel") {
+    const feet = newGridFeet(currentGrid);
+    if (feet) {
+      out.push({
+        source: "DERIVED_FROM_CURRENT_GRID",
+        xFt: feet.xFt,
+        yFt: feet.yFt,
+        precision: currentGrid.interval ? "INTERVAL" : "GRIDLINE",
+        spanned: feet.span,
+        basis: currentGrid.interval
+          ? `Interval reference ${row.grid} — the record does not name a single point, so the span is preserved.`
+          : `Corrected-grid reference ${row.grid}.`,
+        accepted: true,
+      });
+    }
+  }
+
+  // 4. Canonical / recovery-derived placement: load and panel `grid` values stay
+  //    in the previous A–G / 1–6 system until an accepted corrected reference
+  //    exists, so they are decoded through the frozen legacy transformation.
+  if (row.kind === "load" || row.kind === "panel") {
+    const legacy = parseOldGrid(row.grid ?? row.legacyGrid ?? "");
+    if (!legacy.uninterpretable && legacy.letter != null && legacy.number != null) {
+      const xFt = oldNumberToFeet(legacy.number);
+      const yFt = oldLetterToFeet(legacy.letter);
+      if (xFt != null && yFt != null) {
+        out.push({
+          source: "DERIVED_FROM_LEGACY_GRID",
+          xFt,
+          yFt,
+          precision: usableStored === "EXACT" ? "EXACT" : "NEAREST",
+          spanned: false,
+          basis: `Canonical / recovery-derived: legacy grid ${row.grid ?? row.legacyGrid} decoded through the frozen previous A–G / 1–6 drawing.`,
+          accepted: true,
+        });
+      }
+    }
+  }
+
+  // 5. Recorded X/Y that is legacy, provisional or unverified. Never allowed to
+  //    outrank an accepted grid assignment merely because the columns are filled.
+  if (x != null && y != null && !isCurrentVerifiedObservation(row)) {
+    out.push({
+      source: "PROVISIONAL_RECORDED_XY",
+      xFt: x,
+      yFt: y,
+      precision: usableStored && usableStored !== "EXACT" ? usableStored : "NEAREST",
+      spanned: usableStored === "INTERVAL",
+      basis: `Provisional recorded X/Y (${x} ft E, ${y} ft S): field verification is ${VERIFICATION_LABEL[verificationOf(row.verification)]}, so it is not treated as an approved installed position.`,
+      accepted: false,
+    });
+  }
+
+  return out;
+}
+
+const DISAGREE_TOLERANCE_FT = 0.5;
+
+/**
+ * Resolves one record to a single auditable placement. Precedence is explicit,
+ * candidates that disagree are reported instead of being silently chosen, and no
+ * position is ever fabricated.
+ */
 export function classifyLocation(row: OperationalInput): {
   precision: LocationPrecision;
   basis: string;
   xFt: number | null;
   yFt: number | null;
   spanned: boolean;
-  source: OperationalAsset["locationSource"];
+  source: PlacementSource;
+  candidates: PlacementCandidate[];
+  disagreement: string | null;
 } {
   const stored = precisionFromStored(row.storedPrecision);
-  const x = num(row.xFt);
-  const y = num(row.yFt);
   const verification = verificationOf(row.verification);
   const correctedReference = parseNewGrid(row.gridReference ?? "");
   const currentGrid = parseNewGrid(row.grid ?? "");
@@ -291,112 +468,68 @@ export function classifyLocation(row: OperationalInput): {
   ) {
     return {
       precision: "NON_FIXED",
-      basis: "Mobile / non-fixed equipment: no fixed install point is recorded, by design.",
+      basis: "Mobile / non-fixed equipment: no permanent installed location is implied, by design.",
       xFt: null,
       yFt: null,
       spanned: false,
       source: "NOT_PLOTTED",
+      candidates: [],
+      disagreement: null,
     };
   }
 
-  if (x != null && y != null) {
-    const precision = stored && stored !== "UNRESOLVED" ? stored : "EXACT";
+  const candidates = placementCandidatesFor(row);
+  const chosen = candidates[0];
+
+  if (!chosen) {
     return {
-      precision,
-      basis:
-        stored != null
-          ? `Recorded physical position (${x} ft E, ${y} ft S), precision ${stored} in the record.`
-          : `Recorded physical position (${x} ft E, ${y} ft S).`,
-      xFt: x,
-      yFt: y,
-      spanned: precision === "INTERVAL",
-      source: "RECORDED_XY",
+      precision: "UNRESOLVED",
+      basis: currentGrid.artifact
+        ? `Grid value "${row.grid}" is a non-location artifact, so no position can be stated.`
+        : row.grid
+          ? `Grid value "${row.grid}" is not a usable reference and no accepted physical X/Y is recorded.`
+          : "No grid reference and no accepted physical X/Y in the record.",
+      xFt: null,
+      yFt: null,
+      spanned: false,
+      source: "NOT_PLOTTED",
+      candidates,
+      disagreement: null,
     };
   }
 
-  // The migrated physical representation is authoritative when it exists.
-  // grid_reference is explicitly a corrected A–F / 1–9 reference; unlike the
-  // historical `grid` column it is never interpreted through the old drawing.
-  if (correctedReference.ok) {
-    const feet = newGridFeet(correctedReference);
-    if (feet) {
-      const precision: LocationPrecision = correctedReference.interval
-        ? "INTERVAL"
-        : stored === "NEAREST"
-          ? "NEAREST"
-          : row.kind === "load" || row.kind === "panel"
-            ? (stored ?? "GRIDLINE")
-            : "GRIDLINE";
-      return {
-        precision,
-        basis: correctedReference.interval
-          ? `Corrected interval reference ${row.gridReference} — the record does not name a single point, so the span is preserved.`
-          : `Corrected grid reference ${row.gridReference}; no surveyed X/Y is recorded.`,
-        xFt: feet.xFt,
-        yFt: feet.yFt,
-        spanned: feet.span,
-        source: "DERIVED_FROM_GRID_REFERENCE",
-      };
-    }
-  }
-
-  // Load_Master/FarmOps load and panel `grid` values remain in the previous
-  // A–G / 1–6 coordinate system until an approved physical-location migration
-  // writes X/Y + grid_reference. Plot that legacy source through the frozen
-  // transformation instead of silently treating (for example) old A6 as new
-  // A6, which moves the point 20 feet west.
-  if (row.kind === "load" || row.kind === "panel") {
-    const legacy = parseOldGrid(row.grid ?? row.legacyGrid ?? "");
-    if (!legacy.uninterpretable && legacy.letter != null && legacy.number != null) {
-      const xFt = oldNumberToFeet(legacy.number);
-      const yFt = oldLetterToFeet(legacy.letter);
-      if (xFt != null && yFt != null) {
-        return {
-          precision: stored === "EXACT" ? "EXACT" : "NEAREST",
-          basis: `Legacy grid ${row.grid ?? row.legacyGrid} transformed through the frozen previous A–G / 1–6 drawing; no migrated physical X/Y is recorded.`,
-          xFt,
-          yFt,
-          spanned: false,
-          source: "DERIVED_FROM_LEGACY_GRID",
-        };
-      }
-    }
-  }
-
-  // New infrastructure tables were introduced with corrected-grid semantics,
-  // so their grid-only values can be placed directly on the corrected drawing.
-  if (currentGrid.ok) {
-    const feet = newGridFeet(currentGrid);
-    if (feet) {
-      return {
-        precision: currentGrid.interval ? "INTERVAL" : "GRIDLINE",
-        basis: currentGrid.interval
-          ? `Interval reference ${row.grid} — the record does not name a single point, so the span is preserved.`
-          : `Corrected-grid reference ${row.grid}; no surveyed X/Y is recorded.`,
-        xFt: feet.xFt,
-        yFt: feet.yFt,
-        spanned: feet.span,
-        source: "DERIVED_FROM_CURRENT_GRID",
-      };
-    }
-  }
+  const conflicting = candidates.filter(
+    (c) =>
+      c !== chosen &&
+      (Math.abs(c.xFt - chosen.xFt) > DISAGREE_TOLERANCE_FT ||
+        Math.abs(c.yFt - chosen.yFt) > DISAGREE_TOLERANCE_FT),
+  );
+  const disagreement = conflicting.length
+    ? `Placement sources disagree. Selected ${PLACEMENT_SOURCE_LABEL[chosen.source]} at ${chosen.xFt} ft E / ${chosen.yFt} ft S. Also available: ${conflicting
+        .map(
+          (c) => `${PLACEMENT_SOURCE_LABEL[c.source]} at ${c.xFt} ft E / ${c.yFt} ft S`,
+        )
+        .join("; ")}. No value was overwritten — owner review required.`
+    : null;
 
   return {
-    precision: "UNRESOLVED",
-    basis: currentGrid.artifact
-      ? `Grid value "${row.grid}" is a non-location artifact, so no position can be stated.`
-      : row.grid
-        ? `Grid value "${row.grid}" is not a corrected-grid reference and no physical X/Y is recorded.`
-        : "No grid reference and no physical X/Y in the record.",
-    xFt: null,
-    yFt: null,
-    spanned: false,
-    source: "NOT_PLOTTED",
+    precision: chosen.precision,
+    basis: chosen.basis,
+    xFt: chosen.xFt,
+    yFt: chosen.yFt,
+    spanned: chosen.spanned,
+    source: chosen.source,
+    candidates,
+    disagreement,
   };
 }
 
-/** Fans co-located dots apart so each stays hoverable. Display only. */
-function fan(assets: OperationalAsset[]): OperationalAsset[] {
+/**
+ * Marks co-located records so the map can separate them visually. The true
+ * anchor (plottedXFt/plottedYFt, xPct/yPct) is never moved: only a display-only
+ * offset is recorded, and the map draws a leader line back to the real anchor.
+ */
+function cluster(assets: OperationalAsset[]): OperationalAsset[] {
   const groups = new Map<string, OperationalAsset[]>();
   for (const a of assets) {
     if (a.plottedXFt == null) continue;
@@ -409,10 +542,10 @@ function fan(assets: OperationalAsset[]): OperationalAsset[] {
     list.forEach((a, i) => {
       a.stackIndex = i;
       a.stackSize = list.length;
-      if (list.length > 1 && a.xPct != null && a.yPct != null) {
+      if (list.length > 1) {
         const angle = (i / list.length) * Math.PI * 2;
-        a.xPct = Math.min(100, Math.max(0, a.xPct + Math.cos(angle) * 1.4));
-        a.yPct = Math.min(100, Math.max(0, a.yPct + Math.sin(angle) * 2.0));
+        a.fanDxFt = Math.cos(angle) * 1.1;
+        a.fanDyFt = Math.sin(angle) * 1.1;
       }
     });
   }
@@ -433,13 +566,18 @@ export function buildOperationalAssets(rows: OperationalInput[]): OperationalAss
       yPct: plottable ? ((place.yFt as number) / SHOP_DEPTH_FT) * 100 : null,
       spanned: place.spanned,
       locationSource: plottable ? place.source : "NOT_PLOTTED",
+      placementCandidates: place.candidates,
+      placementDisagreement: place.disagreement,
       stackIndex: 0,
       stackSize: 1,
+      fanDxFt: 0,
+      fanDyFt: 0,
     };
     return asset;
   });
-  return fan(assets);
+  return cluster(assets);
 }
+
 
 /* ---------------------------------------------------------------- summaries */
 
@@ -450,6 +588,10 @@ export interface OperationalSummary {
   precision: Record<LocationPrecision, number>;
   verification: Record<VerificationStatus, number>;
   kinds: Record<string, number>;
+  /** Count of records by the placement source actually used. */
+  placementSources: Record<PlacementSource, number>;
+  /** Records whose placement sources disagree and need owner review. */
+  placementDisagreements: number;
 }
 
 export function summarizeOperational(assets: OperationalAsset[]): OperationalSummary {
@@ -461,11 +603,17 @@ export function summarizeOperational(assets: OperationalAsset[]): OperationalSum
     VerificationStatus,
     number
   >;
+  const placementSources = Object.fromEntries(
+    PLACEMENT_SOURCE_ORDER.map((p) => [p, 0]),
+  ) as Record<PlacementSource, number>;
   const kinds: Record<string, number> = {};
   let plotted = 0;
+  let placementDisagreements = 0;
   for (const a of assets) {
     precision[a.precision] += 1;
     verification[verificationOf(a.verification)] += 1;
+    placementSources[a.locationSource] += 1;
+    if (a.placementDisagreement) placementDisagreements += 1;
     kinds[a.kind] = (kinds[a.kind] ?? 0) + 1;
     if (a.xPct != null) plotted += 1;
   }
@@ -476,8 +624,11 @@ export function summarizeOperational(assets: OperationalAsset[]): OperationalSum
     precision,
     verification,
     kinds,
+    placementSources,
+    placementDisagreements,
   };
 }
+
 
 /** Walkaround queue groups, in the order the field verification tab shows them. */
 export type QueueGroup =
@@ -554,6 +705,8 @@ export function operationalCsv(assets: OperationalAsset[]): string {
     "updated_at",
     "panel",
     "precision_basis",
+    "placement_source",
+    "placement_disagreement",
   ];
   const lines = assets.map((a) =>
     [
@@ -573,6 +726,8 @@ export function operationalCsv(assets: OperationalAsset[]): string {
       a.updatedAt ?? "",
       a.panel ?? "",
       a.precisionBasis,
+      PLACEMENT_SOURCE_LABEL[a.locationSource],
+      a.placementDisagreement ?? "",
     ]
       .map(csvEscape)
       .join(","),
