@@ -7,3 +7,7 @@
 ## Document generation (PDF) from the Electrical API
 - [ ] /electrical/documents screen calling /api/electrical/v1: Farm Shop electrical sheet, Avery labels, grid map as PDFs
 - [ ] Embedded version stamp on every generated document/file so users can verify which version of the truth they are reading
+
+## Grid map legacy-coordinate regression
+- [x] Plot unmigrated load/panel `grid` values through the frozen legacy A–G / 1–6 transformation
+- [x] Prefer recorded X/Y, then corrected `grid_reference`, without changing underlying records

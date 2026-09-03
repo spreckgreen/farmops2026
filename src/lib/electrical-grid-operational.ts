@@ -6,7 +6,15 @@
 // coordinate, and never derives an engineering value. The corrected 40' x 60'
 // A–F / 1–9 geometry is imported from the frozen migration dictionaries and is
 // not redefined here.
-import { NEW_COLS, NEW_ROWS, SHOP_DEPTH_FT, SHOP_WIDTH_FT } from "@/lib/electrical-grid-migration";
+import {
+  NEW_COLS,
+  NEW_ROWS,
+  SHOP_DEPTH_FT,
+  SHOP_WIDTH_FT,
+  oldLetterToFeet,
+  oldNumberToFeet,
+  parseOldGrid,
+} from "@/lib/electrical-grid-migration";
 
 export const OPERATIONAL_MODEL_VERSION = "farm-shop-operational-location-1";
 
@@ -243,6 +251,8 @@ export interface OperationalAsset extends Omit<OperationalInput, "storedPrecisio
   spanned: boolean;
   locationSource:
     | "RECORDED_XY"
+    | "DERIVED_FROM_GRID_REFERENCE"
+    | "DERIVED_FROM_LEGACY_GRID"
     | "DERIVED_FROM_CURRENT_GRID"
     | "NOT_PLOTTED";
   stackIndex: number;
@@ -270,9 +280,15 @@ export function classifyLocation(row: OperationalInput): {
   const x = num(row.xFt);
   const y = num(row.yFt);
   const verification = verificationOf(row.verification);
-  const parsed = parseNewGrid(row.grid ?? "");
+  const correctedReference = parseNewGrid(row.gridReference ?? "");
+  const currentGrid = parseNewGrid(row.grid ?? "");
 
-  if (verification === "INTENTIONALLY_MOBILE" || parsed.mobile || stored === "NON_FIXED") {
+  if (
+    verification === "INTENTIONALLY_MOBILE" ||
+    currentGrid.mobile ||
+    correctedReference.mobile ||
+    stored === "NON_FIXED"
+  ) {
     return {
       precision: "NON_FIXED",
       basis: "Mobile / non-fixed equipment: no fixed install point is recorded, by design.",
@@ -298,10 +314,13 @@ export function classifyLocation(row: OperationalInput): {
     };
   }
 
-  if (parsed.ok) {
-    const feet = newGridFeet(parsed);
+  // The migrated physical representation is authoritative when it exists.
+  // grid_reference is explicitly a corrected A–F / 1–9 reference; unlike the
+  // historical `grid` column it is never interpreted through the old drawing.
+  if (correctedReference.ok) {
+    const feet = newGridFeet(correctedReference);
     if (feet) {
-      const precision: LocationPrecision = parsed.interval
+      const precision: LocationPrecision = correctedReference.interval
         ? "INTERVAL"
         : stored === "NEAREST"
           ? "NEAREST"
@@ -310,9 +329,50 @@ export function classifyLocation(row: OperationalInput): {
             : "GRIDLINE";
       return {
         precision,
-        basis: parsed.interval
-          ? `Interval reference ${row.grid} — the record does not name a single cell, so the span is preserved.`
-          : `Corrected-grid reference ${row.grid} on the gridline intersection; no surveyed X/Y is recorded.`,
+        basis: correctedReference.interval
+          ? `Corrected interval reference ${row.gridReference} — the record does not name a single point, so the span is preserved.`
+          : `Corrected grid reference ${row.gridReference}; no surveyed X/Y is recorded.`,
+        xFt: feet.xFt,
+        yFt: feet.yFt,
+        spanned: feet.span,
+        source: "DERIVED_FROM_GRID_REFERENCE",
+      };
+    }
+  }
+
+  // Load_Master/FarmOps load and panel `grid` values remain in the previous
+  // A–G / 1–6 coordinate system until an approved physical-location migration
+  // writes X/Y + grid_reference. Plot that legacy source through the frozen
+  // transformation instead of silently treating (for example) old A6 as new
+  // A6, which moves the point 20 feet west.
+  if (row.kind === "load" || row.kind === "panel") {
+    const legacy = parseOldGrid(row.grid ?? row.legacyGrid ?? "");
+    if (!legacy.uninterpretable && legacy.letter != null && legacy.number != null) {
+      const xFt = oldNumberToFeet(legacy.number);
+      const yFt = oldLetterToFeet(legacy.letter);
+      if (xFt != null && yFt != null) {
+        return {
+          precision: stored === "EXACT" ? "EXACT" : "NEAREST",
+          basis: `Legacy grid ${row.grid ?? row.legacyGrid} transformed through the frozen previous A–G / 1–6 drawing; no migrated physical X/Y is recorded.`,
+          xFt,
+          yFt,
+          spanned: false,
+          source: "DERIVED_FROM_LEGACY_GRID",
+        };
+      }
+    }
+  }
+
+  // New infrastructure tables were introduced with corrected-grid semantics,
+  // so their grid-only values can be placed directly on the corrected drawing.
+  if (currentGrid.ok) {
+    const feet = newGridFeet(currentGrid);
+    if (feet) {
+      return {
+        precision: currentGrid.interval ? "INTERVAL" : "GRIDLINE",
+        basis: currentGrid.interval
+          ? `Interval reference ${row.grid} — the record does not name a single point, so the span is preserved.`
+          : `Corrected-grid reference ${row.grid}; no surveyed X/Y is recorded.`,
         xFt: feet.xFt,
         yFt: feet.yFt,
         spanned: feet.span,
@@ -323,7 +383,7 @@ export function classifyLocation(row: OperationalInput): {
 
   return {
     precision: "UNRESOLVED",
-    basis: parsed.artifact
+    basis: currentGrid.artifact
       ? `Grid value "${row.grid}" is a non-location artifact, so no position can be stated.`
       : row.grid
         ? `Grid value "${row.grid}" is not a corrected-grid reference and no physical X/Y is recorded.`

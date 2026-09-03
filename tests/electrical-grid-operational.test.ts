@@ -72,7 +72,7 @@ describe("operational classification", () => {
 
   it("keeps intervals as intervals and prefers recorded X/Y", () => {
     const [interval, recorded] = buildOperationalAssets([
-      row({ stableId: "FS-200", grid: "C-D2-3" }),
+      row({ stableId: "FS-200", grid: "C3", gridReference: "C-D2-3" }),
       row({ stableId: "FS-201", grid: "B4", xFt: 21, yFt: 9, storedPrecision: "NEAREST" }),
     ]);
     expect(interval!.precision).toBe("INTERVAL");
@@ -80,6 +80,34 @@ describe("operational classification", () => {
     expect(recorded!.precision).toBe("NEAREST");
     expect(recorded!.locationSource).toBe("RECORDED_XY");
     expect(recorded!.plottedXFt).toBe(21);
+  });
+
+  it("does not reinterpret legacy load coordinates as corrected-grid coordinates", () => {
+    const [eastWall, southEast] = buildOperationalAssets([
+      row({ stableId: "FS-202", grid: "A6" }),
+      row({ stableId: "FS-203", grid: "G6" }),
+    ]);
+    expect(eastWall).toMatchObject({
+      plottedXFt: 60,
+      plottedYFt: 0,
+      locationSource: "DERIVED_FROM_LEGACY_GRID",
+    });
+    expect(southEast).toMatchObject({
+      plottedXFt: 60,
+      plottedYFt: 40,
+      locationSource: "DERIVED_FROM_LEGACY_GRID",
+    });
+  });
+
+  it("prefers a corrected grid_reference over the legacy grid column", () => {
+    const [asset] = buildOperationalAssets([
+      row({ stableId: "FS-204", grid: "A6", gridReference: "A8" }),
+    ]);
+    expect(asset).toMatchObject({
+      plottedXFt: 56,
+      plottedYFt: 0,
+      locationSource: "DERIVED_FROM_GRID_REFERENCE",
+    });
   });
 
   it("classification counts reconcile to the record total", () => {
