@@ -390,7 +390,15 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
             {/* Plan and markers share one SVG viewBox in the drawing's own
                 coordinate space, so zoom, window size and DPR cannot move a
                 marker relative to the plan. */}
-            <div className="w-full rounded-md border border-border bg-white">
+            {/* The plan keeps its true aspect ratio and is capped to the visible
+                viewport height, so increasing or decreasing browser zoom shrinks
+                or grows the whole drawing instead of overflowing the screen. */}
+            <div
+              className="mx-auto w-full rounded-md border border-border bg-white"
+              style={{
+                maxWidth: `max(28rem, calc((100vh - ${large ? "20rem" : "26rem"}) * ${(1448 / 1086).toFixed(4)}))`,
+              }}
+            >
               <GridPlanSvg
                 plotted={plotted}
                 selectedId={selected}

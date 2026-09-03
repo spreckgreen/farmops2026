@@ -5,9 +5,16 @@
 // window size, device pixel ratio and responsive layout cannot move a marker
 // relative to the plan. Positions come only from feetToPlanPx — never from
 // viewport measurements, page coordinates or separately measured elements.
+import { useState } from "react";
 import { feetToPlanPx, PLAN_IMAGE, PLAN_VIEW_BOX } from "@/lib/electrical-grid-plan-geometry";
 import { AXIS_COLS, AXIS_ROWS } from "@/lib/electrical-grid-map";
-import type { LocationPrecision, OperationalAsset } from "@/lib/electrical-grid-operational";
+import {
+  PRECISION_META,
+  VERIFICATION_LABEL,
+  verificationOf,
+  type LocationPrecision,
+  type OperationalAsset,
+} from "@/lib/electrical-grid-operational";
 import planImage from "@/assets/farm-shop-grid-plan.png";
 
 /** Marker colours, matched to the on-screen swatches and the PDF export. */
@@ -41,6 +48,9 @@ export function GridPlanSvg({
   markerScale?: number;
   className?: string;
 }) {
+  // Hover helper text: which marker the pointer (or keyboard focus) is on.
+  const [hovered, setHovered] = useState<string | null>(null);
+  const hint = interactive ? (plotted.find((a) => a.stableId === hovered) ?? null) : null;
   return (
     <svg
       viewBox={PLAN_VIEW_BOX}
@@ -77,7 +87,13 @@ export function GridPlanSvg({
                   tabIndex: 0,
                   "aria-label": label,
                   onClick: () => onSelect?.(a.stableId),
-                  onFocus: () => onSelect?.(a.stableId),
+                  onFocus: () => {
+                    setHovered(a.stableId);
+                    onSelect?.(a.stableId);
+                  },
+                  onBlur: () => setHovered((h) => (h === a.stableId ? null : h)),
+                  onMouseEnter: () => setHovered(a.stableId),
+                  onMouseLeave: () => setHovered((h) => (h === a.stableId ? null : h)),
                   style: { cursor: "pointer" },
                 }
               : {})}
@@ -137,11 +153,67 @@ export function GridPlanSvg({
             ) : (
               <circle cx={shown.x} cy={shown.y} r={r} fill={fill} stroke="#ffffff" strokeWidth={2} />
             )}
-            {interactive ? <title>{`${label} — ${a.precision}`}</title> : null}
+            {/* Helper text is drawn in-SVG (HoverHint); aria-label carries it for AT. */}
           </g>
         );
       })}
+      {hint ? <HoverHint asset={hint} /> : null}
     </svg>
+  );
+}
+
+/** Hover/focus helper text, drawn inside the same viewBox so it scales with the
+ * plan and never drifts at a different browser zoom. */
+function HoverHint({ asset }: { asset: OperationalAsset }) {
+  if (asset.plottedXFt == null || asset.plottedYFt == null) return null;
+  const at = feetToPlanPx(asset.plottedXFt + asset.fanDxFt, asset.plottedYFt + asset.fanDyFt);
+  const lines = [
+    asset.stableId,
+    asset.description ?? "No description in record",
+    `${PRECISION_META[asset.precision].label} · ${asset.plottedXFt} ft E, ${asset.plottedYFt} ft S`,
+    `Panel: ${asset.panel ?? "NOT IN RECORD"} · Install: ${asset.installStatus ?? "NOT IN RECORD"}`,
+    `Verification: ${VERIFICATION_LABEL[verificationOf(asset.verification)]}`,
+    ...(asset.spanned ? ["Interval — a preserved span, not a final point"] : []),
+    ...(asset.placementDisagreement ? ["Placement conflict — see Data quality"] : []),
+  ];
+  const fontSize = 22;
+  const pad = 12;
+  const lineH = fontSize * 1.35;
+  const width = Math.min(
+    620,
+    Math.max(240, Math.max(...lines.map((l) => l.length)) * fontSize * 0.55 + pad * 2),
+  );
+  const height = lines.length * lineH + pad * 2;
+  // Flip the card so it stays inside the drawing near the edges.
+  const x = Math.min(Math.max(8, at.x + 18), PLAN_IMAGE.width - width - 8);
+  const y = at.y + 18 + height > PLAN_IMAGE.height ? at.y - height - 18 : at.y + 18;
+  return (
+    <g pointerEvents="none">
+      <rect
+        x={x}
+        y={Math.max(8, y)}
+        width={width}
+        height={height}
+        rx={8}
+        fill="#0f172a"
+        fillOpacity={0.92}
+        stroke="#ffffff"
+        strokeOpacity={0.5}
+      />
+      {lines.map((line, i) => (
+        <text
+          key={line + i}
+          x={x + pad}
+          y={Math.max(8, y) + pad + fontSize + i * lineH - 4}
+          fill="#ffffff"
+          fontSize={i === 0 ? fontSize + 2 : fontSize}
+          fontWeight={i === 0 ? 700 : 400}
+          fontFamily="ui-sans-serif, system-ui, sans-serif"
+        >
+          {line}
+        </text>
+      ))}
+    </g>
   );
 }
 
