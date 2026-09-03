@@ -59,6 +59,7 @@ export function GridPlanSvg({
   interactive = true,
   markerScale = 1,
   showProposedLeds = false,
+  designOverlay,
   className,
 }: {
   plotted: OperationalAsset[];
@@ -68,8 +69,11 @@ export function GridPlanSvg({
   markerScale?: number;
   /** Draw the proposed 2 x 5 overhead LED design layer. */
   showProposedLeds?: boolean;
+  /** Approved-design vs field-observation overlay; mismatches are highlighted. */
+  designOverlay?: DesignFieldPair[];
   className?: string;
 }) {
+
   // Helper text follows, in order: the marker under the pointer/keyboard focus,
   // then the selected marker — so after a click the same helper stays visible
   // once the mouse moves away. Escape dismisses the pinned (selected) one.
