@@ -93,7 +93,6 @@ ARG RAYON_NUM_THREADS=2
 ENV ROLLDOWN_WORKER_THREADS=${ROLLDOWN_WORKER_THREADS}
 ENV ROLLDOWN_MAX_BLOCKING_THREADS=${ROLLDOWN_MAX_BLOCKING_THREADS}
 ENV RAYON_NUM_THREADS=${RAYON_NUM_THREADS}
-ENV ROLLUP_NO_NATIVE=1
 ENV VITE_CJS_IGNORE_WARNING=true
 # Low-memory build path: vite.config.ts disables sourcemaps, gzip-size
 # reporting, and rollup cache when this is set. Always on inside Docker.

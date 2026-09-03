@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Html5Qrcode } from "html5-qrcode";
+import type { Html5Qrcode } from "html5-qrcode";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScanLine } from "lucide-react";
 
@@ -26,6 +26,9 @@ const BarcodeScanner = ({ open, onOpenChange, onScan }: BarcodeScannerProps) => 
     const startScanner = async () => {
       try {
         setError(null);
+        // Camera scanning is browser-only. Loading it on demand keeps the
+        // ZXing/camera graph out of the Nitro server build.
+        const { Html5Qrcode } = await import("html5-qrcode");
         const scanner = new Html5Qrcode(containerId);
         scannerRef.current = scanner;
         await scanner.start(
