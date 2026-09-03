@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Maximize2, Map as MapIcon, ShieldAlert } from "lucide-react";
+import { Maximize2, Map as MapIcon, Printer, ShieldAlert } from "lucide-react";
 import { electricalGridOperational } from "@/lib/electrical-grid-operational.functions";
 import {
   ASSET_KIND_LABEL,
