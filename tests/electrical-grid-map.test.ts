@@ -6,7 +6,7 @@ import {
   placeLoad,
   summarizeGridMap,
   type GridMapLoadInput,
-} from "./electrical-grid-map";
+} from "@/lib/electrical-grid-map";
 
 const base: GridMapLoadInput = {
   load_id: "FS-001",
