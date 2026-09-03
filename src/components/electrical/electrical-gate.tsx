@@ -17,7 +17,15 @@ import {
   sectionFromPathname,
   type ElectricalAccess,
 } from "@/lib/electrical-access";
-import { Eye, PencilLine, Zap } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
+import { ChevronDown, Eye, PencilLine, Zap } from "lucide-react";
 
 /**
  * Sub-navigation is grouped by what the page is *for* — records, diagrams,
