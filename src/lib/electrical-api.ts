@@ -12,10 +12,10 @@
 //     observations (an append-only field journal row);
 //   * no system-of-record administration, no canonical ODS write-back, and no
 //     general-purpose table/column mutation.
-import { ENTITIES } from "@/lib/electrical-entities";
+import { ENTITIES, ENTITY_KINDS } from "@/lib/electrical-entities";
 import { RELATIONS, relationsFor, type RelationSpec } from "@/lib/electrical-relations";
 import { SNAPSHOT_COLLECTIONS, type SnapshotCollection } from "@/lib/electrical-snapshot";
-import { ENTITY_KINDS, type ElectricalEntityKind } from "@/lib/electrical";
+import type { ElectricalEntityKind } from "@/lib/electrical";
 
 export const ELECTRICAL_API_VERSION = "v1";
 /** Bumped when the wire shape changes in a breaking way. */
