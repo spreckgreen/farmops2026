@@ -157,7 +157,63 @@ export function GridPlanSvg({
           </g>
         );
       })}
+      {hint ? <HoverHint asset={hint} /> : null}
     </svg>
+  );
+}
+
+/** Hover/focus helper text, drawn inside the same viewBox so it scales with the
+ * plan and never drifts at a different browser zoom. */
+function HoverHint({ asset }: { asset: OperationalAsset }) {
+  if (asset.plottedXFt == null || asset.plottedYFt == null) return null;
+  const at = feetToPlanPx(asset.plottedXFt + asset.fanDxFt, asset.plottedYFt + asset.fanDyFt);
+  const lines = [
+    asset.stableId,
+    asset.description ?? "No description in record",
+    `${PRECISION_META[asset.precision].label} · ${asset.plottedXFt} ft E, ${asset.plottedYFt} ft S`,
+    `Panel: ${asset.panel ?? "NOT IN RECORD"} · Install: ${asset.installStatus ?? "NOT IN RECORD"}`,
+    `Verification: ${VERIFICATION_LABEL[verificationOf(asset.verification)]}`,
+    ...(asset.spanned ? ["Interval — a preserved span, not a final point"] : []),
+    ...(asset.placementDisagreement ? ["Placement conflict — see Data quality"] : []),
+  ];
+  const fontSize = 22;
+  const pad = 12;
+  const lineH = fontSize * 1.35;
+  const width = Math.min(
+    620,
+    Math.max(240, Math.max(...lines.map((l) => l.length)) * fontSize * 0.55 + pad * 2),
+  );
+  const height = lines.length * lineH + pad * 2;
+  // Flip the card so it stays inside the drawing near the edges.
+  const x = Math.min(Math.max(8, at.x + 18), PLAN_IMAGE.width - width - 8);
+  const y = at.y + 18 + height > PLAN_IMAGE.height ? at.y - height - 18 : at.y + 18;
+  return (
+    <g pointerEvents="none">
+      <rect
+        x={x}
+        y={Math.max(8, y)}
+        width={width}
+        height={height}
+        rx={8}
+        fill="#0f172a"
+        fillOpacity={0.92}
+        stroke="#ffffff"
+        strokeOpacity={0.5}
+      />
+      {lines.map((line, i) => (
+        <text
+          key={line + i}
+          x={x + pad}
+          y={Math.max(8, y) + pad + fontSize + i * lineH - 4}
+          fill="#ffffff"
+          fontSize={i === 0 ? fontSize + 2 : fontSize}
+          fontWeight={i === 0 ? 700 : 400}
+          fontFamily="ui-sans-serif, system-ui, sans-serif"
+        >
+          {line}
+        </text>
+      ))}
+    </g>
   );
 }
 
