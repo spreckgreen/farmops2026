@@ -358,6 +358,7 @@ function fanOffset(index: number, size: number): { dx: number; dy: number } {
 }
 
 const clampPct = (v: number): number => Math.min(99.2, Math.max(0.8, v));
+const clampBase = (v: number): number => Math.min(96, Math.max(4, v));
 
 export interface GridMapSummary {
   counts: Record<CircuitClass, number>;
