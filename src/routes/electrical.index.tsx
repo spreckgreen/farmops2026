@@ -77,6 +77,8 @@ function Overview() {
         ))}
       </div>
 
+      <GridMapPanel />
+
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base">Install progress</CardTitle>
