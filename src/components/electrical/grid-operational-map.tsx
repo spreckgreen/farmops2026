@@ -148,7 +148,9 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
   };
 
   return (
+    <>
     <Card className="grid-map-screen-only">
+
 
       <CardHeader className="pb-2 flex-row items-center justify-between gap-2">
         <CardTitle className="text-base flex items-center gap-2">
