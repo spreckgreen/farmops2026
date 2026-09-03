@@ -63,6 +63,9 @@ export function ElectricalNav({ access }: { access?: ElectricalAccess }) {
       <Link to="/electrical/critical-loads" className={item} activeProps={active}>
         Critical loads
       </Link>
+      <Link to="/electrical/import-contract" className={item} activeProps={active}>
+        Import contract
+      </Link>
       <Link to="/electrical/mapping-audit" className={item} activeProps={active}>
         Mapping audit
       </Link>
