@@ -9,6 +9,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { isAdminRole, requireAdminRole } from "@/lib/admin-role.server";
 import {
+  ELECTRICAL_AI_SCENARIOS,
   isElectricalAiScenarioId,
   type ElectricalAiScenarioId,
 } from "@/lib/electrical-ai-scenarios";
@@ -46,6 +47,26 @@ export async function loadApprovedAiScenarios(
     .select("scenario, status")
     .eq("user_id", userId)
     .eq("status", "approved");
+  if (error) throw new Error(error.message);
+  return ((data ?? []) as { scenario: string }[])
+    .map((r) => r.scenario)
+    .filter(isElectricalAiScenarioId);
+}
+
+/**
+ * Scenarios an admin explicitly switched off for this user (revoked/rejected).
+ * These override add-on entitlement, so unticking in Admin → Users really
+ * removes the scenario from the user's AI features tab.
+ */
+export async function loadDeniedAiScenarios(
+  supabase: unknown,
+  userId: string,
+): Promise<ElectricalAiScenarioId[]> {
+  const { data, error } = await (supabase as LooseDb)
+    .from(AI_GRANT_TABLE)
+    .select("scenario, status")
+    .eq("user_id", userId)
+    .in("status", ["revoked", "rejected"]);
   if (error) throw new Error(error.message);
   return ((data ?? []) as { scenario: string }[])
     .map((r) => r.scenario)
@@ -183,6 +204,25 @@ export const adminSetElectricalAiFeatures = createServerFn({ method: "POST" })
         status: next,
         request_note: row.request_note,
         requested_at: row.requested_at,
+        decided_by: context.userId,
+        decided_at: now,
+        decision_note: data.note ?? null,
+      });
+    }
+
+    // Scenarios with no row at all that the admin left unticked must be written
+    // as an explicit `revoked` decision — otherwise an add-on entitlement would
+    // keep the scenario visible in the user's AI features tab.
+    for (const def of ELECTRICAL_AI_SCENARIOS) {
+      if (approved.has(def.id)) continue;
+      if (rows.some((r) => r.scenario === def.id)) continue;
+      cleared.push(def.id);
+      upserts.push({
+        user_id: data.userId,
+        scenario: def.id,
+        status: rejected.has(def.id) ? "rejected" : "revoked",
+        request_note: null,
+        requested_at: now,
         decided_by: context.userId,
         decided_at: now,
         decision_note: data.note ?? null,

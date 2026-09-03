@@ -70,14 +70,17 @@ export interface ElectricalAiScopeReport {
 }
 
 async function resolveScope(supabase: unknown, userId: string) {
-  const { loadApprovedAiScenarios } = await import("@/lib/electrical-ai-access.functions");
-  const [isAdmin, full, fieldWrite, readOnly, scan, grants] = await Promise.all([
+  const { loadApprovedAiScenarios, loadDeniedAiScenarios } = await import(
+    "@/lib/electrical-ai-access.functions"
+  );
+  const [isAdmin, full, fieldWrite, readOnly, scan, grants, denied] = await Promise.all([
     isAdminRole(supabase, userId),
     hasAddon(supabase, userId, "electrical"),
     hasAddon(supabase, userId, "electrical_fieldwrite"),
     hasAddon(supabase, userId, "electrical_readonly"),
     hasAddon(supabase, userId, "electrical_scan"),
     loadApprovedAiScenarios(supabase, userId),
+    loadDeniedAiScenarios(supabase, userId),
   ]);
   const access = electricalAccess({ full, fieldWrite, readOnly, scan });
   const basis: ElectricalAiScopeReport["basis"] = isAdmin
@@ -91,18 +94,18 @@ async function resolveScope(supabase: unknown, userId: string) {
           : scan
             ? "scan"
             : "none";
-  return { isAdmin, access, basis, grants };
+  return { isAdmin, access, basis, grants, denied };
 }
 
 /** Which scenarios the signed-in caller may run, plus their configured routing. */
 export const listElectricalAiScenarios = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<ElectricalAiScopeReport> => {
-    const { isAdmin, access, basis, grants } = await resolveScope(
+    const { isAdmin, access, basis, grants, denied } = await resolveScope(
       context.supabase,
       context.userId,
     );
-    const scope = { access, isAdmin, grants };
+    const scope = { access, isAdmin, grants, denied };
     const allowed = electricalAiScenariosFor(scope);
 
     const { data: requestRows, error: requestErr } = await (
@@ -243,11 +246,11 @@ export const runElectricalAiScenario = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => RunInput.parse(d))
   .handler(async ({ data, context }): Promise<ElectricalAiAnswer> => {
     const def = getElectricalAiScenario(data.scenario as ElectricalAiScenarioId);
-    const { isAdmin, access, grants } = await resolveScope(
+    const { isAdmin, access, grants, denied } = await resolveScope(
       context.supabase,
       context.userId,
     );
-    if (!canRunElectricalAiScenario({ access, isAdmin, grants }, def)) {
+    if (!canRunElectricalAiScenario({ access, isAdmin, grants, denied }, def)) {
       throw new Error(ELECTRICAL_AI_DENIED);
     }
     const question = (data.text ?? "").trim();
@@ -533,11 +536,11 @@ export const estimateElectricalAiRun = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => EstimateInput.parse(d))
   .handler(async ({ data, context }): Promise<ElectricalAiEstimate> => {
     const def = getElectricalAiScenario(data.scenario as ElectricalAiScenarioId);
-    const { isAdmin, access, grants } = await resolveScope(
+    const { isAdmin, access, grants, denied } = await resolveScope(
       context.supabase,
       context.userId,
     );
-    if (!canRunElectricalAiScenario({ access, isAdmin, grants }, def)) {
+    if (!canRunElectricalAiScenario({ access, isAdmin, grants, denied }, def)) {
       throw new Error(ELECTRICAL_AI_DENIED);
     }
 

@@ -865,9 +865,13 @@ function AiFeaturesButton({ userId, email }: { userId: string; email: string | n
   });
 
   const rows = (grantsQ.data ?? []).filter((r) => r.user_id === userId);
-  const approved = rows
-    .filter((r) => r.status === "approved")
-    .map((r) => r.scenario as ElectricalAiScenarioId);
+  // A scenario counts as "on" when it is approved, or when no decision was ever
+  // recorded (their add-on entitlement still applies). Unticking writes an
+  // explicit revoke, which overrides entitlement in the user's AI features tab.
+  const approved = ELECTRICAL_AI_SCENARIOS.filter((def) => {
+    const row = rows.find((r) => r.scenario === def.id);
+    return !row || row.status === "approved";
+  }).map((def) => def.id);
   const pendingCount = rows.filter((r) => r.status === "pending").length;
   const effective = picked ?? approved;
 
@@ -926,8 +930,9 @@ function AiFeaturesButton({ userId, email }: { userId: string; email: string | n
             <DialogTitle>AI features</DialogTitle>
             <DialogDescription>
               <span className="font-mono">{email ?? userId}</span> — tick the Electrical AI
-              scenarios they may run. This enables the scenario only: it never widens which
-              records they can read, and AI never writes an electrical record.
+              scenarios they may run. Unticking a scenario switches it off for them even when
+              their add-on would otherwise allow it. This enables the scenario only: it never
+              widens which records they can read, and AI never writes an electrical record.
             </DialogDescription>
           </DialogHeader>
 

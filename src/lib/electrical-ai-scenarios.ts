@@ -163,6 +163,12 @@ export interface ElectricalAiScope {
    * access — every scenario still reads only what the caller may read.
    */
   grants?: readonly ElectricalAiScenarioId[];
+  /**
+   * Scenarios an administrator explicitly turned off (revoked/rejected) for this
+   * person. A denial WINS over add-on entitlement, so unticking a scenario in
+   * Admin → Users → AI features really removes it from the user's AI tab.
+   */
+  denied?: readonly ElectricalAiScenarioId[];
 }
 
 /** Does the caller's own add-on/role entitle them to a scenario, ignoring grants? */
@@ -185,17 +191,29 @@ export function isEntitledToElectricalAiScenario(
   }
 }
 
+/** Has an administrator explicitly switched this scenario off for the caller? */
+export function isDeniedElectricalAiScenario(
+  scope: ElectricalAiScope,
+  def: ElectricalAiScenarioDef,
+): boolean {
+  if (scope.isAdmin) return false;
+  return (scope.denied ?? []).includes(def.id);
+}
+
 /** Can this caller run one scenario (own entitlement, or an approved grant)? */
 export function canRunElectricalAiScenario(
   scope: ElectricalAiScope,
   def: ElectricalAiScenarioDef,
 ): boolean {
+  // An explicit admin decision to switch the scenario off overrides entitlement.
+  if (isDeniedElectricalAiScenario(scope, def)) return false;
   if (isEntitledToElectricalAiScenario(scope, def)) return true;
   // An admin-approved grant unlocks a scenario for an electrician who can read
   // the electrical record but whose add-on alone would not cover it.
   if (!scope.access.canView || scope.access.scanOnly) return false;
   return (scope.grants ?? []).includes(def.id);
 }
+
 
 /** Scenarios the caller may ask an administrator to enable for them. */
 export function requestableElectricalAiScenarios(

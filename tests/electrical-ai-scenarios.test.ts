@@ -18,13 +18,18 @@ describe("electrical AI scenario scoping", () => {
 
   it("limits a read-only electrician to read scenarios", () => {
     const access = electricalAccess({ full: false, readOnly: true });
-    expect(ids({ access, isAdmin: false })).toEqual(["panel_qa", "topology_explain"]);
+    expect(ids({ access, isAdmin: false })).toEqual([
+      "panel_qa",
+      "load_trace",
+      "topology_explain",
+    ]);
   });
 
   it("adds the field-write drafting scenarios for a field-write electrician", () => {
     const access = electricalAccess({ full: false, readOnly: false, fieldWrite: true });
     expect(ids({ access, isAdmin: false })).toEqual([
       "panel_qa",
+      "load_trace",
       "topology_explain",
       "field_note",
       "nameplate_extract",
@@ -36,6 +41,21 @@ describe("electrical AI scenario scoping", () => {
     const list = ids({ access, isAdmin: false });
     expect(list).toContain("qa_triage");
     expect(list).not.toContain("audit_summary");
+  });
+
+  it("lets an admin denial override add-on entitlement", () => {
+    const access = electricalAccess({ full: false, readOnly: true });
+    expect(ids({ access, isAdmin: false, denied: ["panel_qa"] })).toEqual([
+      "load_trace",
+      "topology_explain",
+    ]);
+  });
+
+  it("keeps an administrator's own scenarios even with denial rows", () => {
+    const access = electricalAccess({ full: false, readOnly: false });
+    expect(ids({ access, isAdmin: true, denied: ["panel_qa"] })).toEqual(
+      ELECTRICAL_AI_SCENARIOS.map((s) => s.id),
+    );
   });
 
   it("withholds the assistant from scanned-label access", () => {
