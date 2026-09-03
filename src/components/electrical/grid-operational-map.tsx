@@ -396,7 +396,15 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
                 >
                   Overhead lighting — proposed (10)
                 </Chip>
+                <Chip
+                  active={showDesignVsField}
+                  onClick={() => setShowDesignVsField(!showDesignVsField)}
+                  title={`Overlay approved design X/Y against the latest verified field observation. Separations over ${DESIGN_FIELD_TOLERANCE_FT} ft are highlighted; nothing is changed.`}
+                >
+                  Design vs field ({designField.counts.MISMATCH} mismatch)
+                </Chip>
               </div>
+
 
               <div className="flex flex-wrap items-center gap-1.5">
                 <span className="mr-1 text-xs text-muted-foreground">Precision:</span>
