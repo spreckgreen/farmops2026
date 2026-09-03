@@ -26,6 +26,31 @@ A single screen with:
 
 "Generate all three" produces the three files in one action.
 
+## Embedded version stamp on every generated file
+
+Every document and export this screen produces carries the same version block, so a printed sheet on a shop wall can be checked against what the system holds today.
+
+The stamp records:
+
+- document type and document format version (e.g. `farm-shop-sheet v1.0`)
+- API version and snapshot schema version
+- snapshot `generated_at` timestamp (UTC and local)
+- a short content digest of the exact records rendered, so two files with the same digest are provably the same truth
+- canonical workbook SHA and Contract v3 binding version where the document depends on canonical values
+- record counts, QA error/warning counts, and the "records only, gaps printed as NOT IN RECORD" statement
+- who generated it and when
+
+Where it appears:
+
+- Printed footer on every page of every PDF: `type vX.Y · schema · generated_at · digest · page n of m`.
+- PDF document metadata (title, subject, keywords) so the version survives even if a page footer is cropped.
+- On the Avery sheet, a compact version code on the first sheet only — never inside a cut label, so no label loses printable area.
+- Grid map: the block sits in the drawing margin outside the 40′ × 60′ building outline.
+- CSV/JSON exports get the same fields as leading comment/metadata rows.
+- The screen shows the current stamp before you generate, and a "verify a printed document" box: paste or scan a digest/version code and it reports current, superseded, or unknown.
+
+Digests are computed from the rendered record set, not from PDF bytes, so a reprint of unchanged data verifies as the same version.
+
 ## Boundaries kept
 
 - Read-only. The page calls only the GET endpoints; no relationship or field-observation write path is touched.
@@ -33,12 +58,16 @@ A single screen with:
 - Stable IDs, existing grid values, classifications and the frozen shop geometry are untouched.
 - Gated by the existing electrical entitlement and access checks, same as the other electrical pages.
 
+
+
 ## Technical notes
 
 - Add `jspdf` for PDF generation (client-side, so nothing runs in the Worker runtime and no server timeouts apply). The grid map is drawn with jsPDF vector primitives plus the existing `farm-shop-grid-plan.png`; labels and schedules are drawn as text/table primitives — no HTML-to-canvas rasterization, so text stays crisp and selectable.
 - New `src/lib/electrical-documents.ts`: pure functions that turn a bundle payload plus scope into document models (`sheetModel`, `labelModel`, `gridMapModel`) — unit-testable with no PDF or DOM dependency.
 - New `src/lib/electrical-pdf.ts`: jsPDF renderers consuming those models.
+- New `src/lib/electrical-doc-version.ts`: builds the version stamp and the content digest (stable-key ordered serialization → SHA-256, truncated to a readable code such as `FS-SHEET-1.0-9F3A21C7`). Pure and unit-tested; the same input always yields the same code.
 - Bundle fetch goes through a small authenticated server function that forwards the caller's session to the API handler, so the browser never needs to hold a raw bearer token.
 - Reuses without modification: `electrical-labels.ts` (walk groups, label lines, QR URLs), `electrical-grid-map.ts` (`classifyCircuit`, `placeLoad`, `AXIS_ROWS`/`AXIS_COLS`, `SHOP_WIDTH_FT`/`SHOP_DEPTH_FT`), `electrical-grid-operational.ts` (precision and verification classification).
-- Tests in `tests/electrical-documents.test.ts`: section/record counts match the bundle counts, `NOT IN RECORD` is emitted rather than a blank or guessed value, label walk order and page-break grouping are preserved, unresolved/mobile assets are excluded from plotted points and present in the unplotted table, and classification counts reconcile to the total.
-- Generated PDFs are visually QA'd page by page before the work is reported complete.
+- Tests in `tests/electrical-documents.test.ts`: section/record counts match the bundle counts, `NOT IN RECORD` is emitted rather than a blank or guessed value, label walk order and page-break grouping are preserved, unresolved/mobile assets are excluded from plotted points and present in the unplotted table, classification counts reconcile to the total, the digest is stable across reprints of identical data, and it changes when any rendered value changes.
+- Generated PDFs are visually QA'd page by page — including the footer version block on every page — before the work is reported complete.
+
