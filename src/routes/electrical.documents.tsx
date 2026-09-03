@@ -292,27 +292,87 @@ function DocumentsWorkspace() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-3">
           <CardTitle className="text-base">Source</CardTitle>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => query.refetch()}
-            disabled={query.isFetching}
-          >
-            <RefreshCw className={query.isFetching ? "mr-2 size-4 animate-spin" : "mr-2 size-4"} />
-            Re-read API
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="outline" size="sm" onClick={captureBundle} disabled={!live}>
+              <Archive className="mr-2 size-4" />
+              Capture bundle version
+            </Button>
+            <Button variant="outline" size="sm" asChild>
+              <label className="cursor-pointer">
+                <Upload className="mr-2 size-4" />
+                Load versioned bundle
+                <input
+                  type="file"
+                  accept="application/json,.json"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    e.target.value = "";
+                    if (f) void loadCapturedBundle(f);
+                  }}
+                />
+              </label>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => query.refetch()}
+              disabled={query.isFetching}
+            >
+              <RefreshCw className={query.isFetching ? "mr-2 size-4 animate-spin" : "mr-2 size-4"} />
+              Re-read API
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          {query.isLoading ? (
+          {captured ? (
+            <div className="border-border bg-muted/40 space-y-1 rounded-md border p-3 text-xs">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant="secondary" className="font-mono text-[10px]">
+                  {captured.file.bundle_version_code}
+                </Badge>
+                <Badge
+                  variant={captured.integrity === "verified" ? "outline" : "destructive"}
+                  className="text-[10px]"
+                >
+                  {captured.integrity === "verified"
+                    ? "digest verified"
+                    : captured.integrity === "digest-mismatch"
+                      ? "digest MISMATCH — capture altered"
+                      : "no digest in capture"}
+                </Badge>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-2 text-xs"
+                  onClick={() => {
+                    setCaptured(null);
+                    setScope(DEFAULT_SCOPE);
+                  }}
+                >
+                  Return to live snapshot
+                </Button>
+              </div>
+              <p className="text-muted-foreground break-all">
+                Printing from captured bundle <span className="font-mono">{captured.fileName}</span>{" "}
+                — snapshot {captured.file.generated_at}, captured {captured.file.captured_at || "—"}{" "}
+                by {captured.file.captured_by || "—"}. Documents stamp this snapshot version, not the
+                live one.
+              </p>
+            </div>
+          ) : null}
+
+          {query.isLoading && !captured ? (
             <Skeleton className="h-24 w-full" />
-          ) : query.error ? (
+          ) : query.error && !captured ? (
             <p className="text-destructive text-sm">
               {query.error instanceof Error ? query.error.message : "Could not read the API bundle."}
             </p>
           ) : bundle ? (
             <>
               <dl className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
-                <Field label="API version" value={query.data!.apiVersion} />
+                <Field label="Bundle source" value={captured ? "Captured version" : "Live snapshot"} />
+                <Field label="API version" value={apiVersion || "unknown"} />
                 <Field label="Snapshot schema" value={bundle.schema_version} />
                 <Field label="Snapshot generated" value={bundle.generated_at} />
                 <Field
@@ -322,6 +382,7 @@ function DocumentsWorkspace() {
               </dl>
 
               <Separator />
+
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
