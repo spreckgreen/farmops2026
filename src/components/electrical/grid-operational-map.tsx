@@ -32,7 +32,14 @@ import {
   PROPOSED_OVERHEAD_LED_LEGEND,
 } from "@/lib/electrical-grid-plan-geometry";
 import { CollapsibleGroup } from "@/components/electrical/collapsible-section";
+import {
+  DESIGN_FIELD_HEX,
+  DESIGN_FIELD_STATUS_LABEL,
+  DESIGN_FIELD_TOLERANCE_FT,
+  designFieldOverlay,
+} from "@/lib/electrical-grid-design-vs-field";
 import { cn } from "@/lib/utils";
+
 
 function Chip({
   active,
@@ -87,6 +94,28 @@ function usePrintMode(): [PrintMode, (next: PrintMode) => void] {
   return [mode, apply];
 }
 
+/** Remembered on/off layer choice, so the map opens the way it was left. */
+function usePersistedFlag(key: string): [boolean, (next: boolean) => void] {
+  const [on, setOn] = useState(false);
+  useEffect(() => {
+    try {
+      setOn(window.localStorage.getItem(key) === "1");
+    } catch {
+      // Storage unavailable; keep the default.
+    }
+  }, [key]);
+  const apply = (next: boolean) => {
+    setOn(next);
+    try {
+      window.localStorage.setItem(key, next ? "1" : "0");
+    } catch {
+      // Persistence is a convenience only.
+    }
+  };
+  return [on, apply];
+}
+
+
 export function GridOperationalMap({ large = false }: { large?: boolean }) {
   const fetcher = useServerFn(electricalGridOperational);
   const q = useQuery({ queryKey: ["electrical", "grid-operational"], queryFn: () => fetcher() });
@@ -100,6 +129,10 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
   const [verify, setVerify] = useState<"ALL" | VerificationStatus>("ALL");
   const [selected, setSelected] = useState<string | null>(null);
   const [showLeds, setShowLeds] = useState(false);
+  const [showDesignVsField, setShowDesignVsField] = usePersistedFlag(
+    "farmops.grid-map.design-vs-field",
+  );
+
   const [printMode, setPrintMode] = usePrintMode();
   const [saving, setSaving] = useState(false);
   // Stamped at the moment a sheet is produced, so the header time is the
@@ -132,6 +165,10 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
   const unplotted = filtered.filter((a) => a.xPct == null);
   const chosen = filtered.find((a) => a.stableId === selected) ?? null;
 
+  // Design vs field: derived from positions the records already state.
+  const designField = useMemo(() => designFieldOverlay(filtered), [filtered]);
+
+
   const allKinds = (Object.keys(ASSET_KIND_LABEL) as AssetKind[]).length;
   const panelLabel = panel === "ALL" ? "all panels" : panel;
 
@@ -161,9 +198,25 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
       `Install status: ${install === "ALL" ? "all" : install}`,
       `Field verification: ${verify === "ALL" ? "all" : VERIFICATION_LABEL[verify]}`,
       `Overhead lighting layer: ${showLeds ? "proposed 2 x 5 LED layout shown" : "hidden"}`,
+      `Design vs field overlay: ${
+        showDesignVsField
+          ? `shown — ${designField.counts.MISMATCH} mismatch(es) beyond ${DESIGN_FIELD_TOLERANCE_FT} ft`
+          : "hidden"
+      }`,
     ],
-    [panelLabel, kinds, precisions, install, verify, allKinds, showLeds],
+    [
+      panelLabel,
+      kinds,
+      precisions,
+      install,
+      verify,
+      allKinds,
+      showLeds,
+      showDesignVsField,
+      designField,
+    ],
   );
+
 
   const discrepancies = q.data
     ? q.data.summary.precision.UNRESOLVED + q.data.summary.precision.INTERVAL
@@ -343,7 +396,15 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
                 >
                   Overhead lighting — proposed (10)
                 </Chip>
+                <Chip
+                  active={showDesignVsField}
+                  onClick={() => setShowDesignVsField(!showDesignVsField)}
+                  title={`Overlay approved design X/Y against the latest verified field observation. Separations over ${DESIGN_FIELD_TOLERANCE_FT} ft are highlighted; nothing is changed.`}
+                >
+                  Design vs field ({designField.counts.MISMATCH} mismatch)
+                </Chip>
               </div>
+
 
               <div className="flex flex-wrap items-center gap-1.5">
                 <span className="mr-1 text-xs text-muted-foreground">Precision:</span>
@@ -416,6 +477,7 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
                 onSelect={setSelected}
                 markerScale={large ? 1 : 0.8}
                 showProposedLeds={showLeds}
+                {...(showDesignVsField ? { designOverlay: designField.pairs } : {})}
               />
             </div>
 
@@ -439,6 +501,63 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
                 {PROPOSED_OVERHEAD_LED_LEGEND} — design/proposed centres, not field verified.
               </p>
             ) : null}
+            {showDesignVsField ? (
+              <CollapsibleGroup
+                title={`Design vs field — ${designField.counts.MISMATCH} mismatch, ${designField.counts.MATCH} confirmed, ${designField.counts.DESIGN_ONLY} design only, ${designField.counts.FIELD_ONLY} field only`}
+                storageKey="grid-map.design-vs-field"
+              >
+                <p className="text-xs text-muted-foreground">
+                  Dashed squares are approved design centres, crosses are verified field
+                  observations, and a leader line joins the two. A separation over{" "}
+                  {DESIGN_FIELD_TOLERANCE_FT} ft is highlighted in red on the plan and listed here
+                  for disposition — no record, grid reference or engineering value is changed by this
+                  view.
+                </p>
+                <div className="flex flex-wrap gap-3 text-xs">
+                  {(
+                    Object.keys(DESIGN_FIELD_STATUS_LABEL) as (keyof typeof DESIGN_FIELD_HEX)[]
+                  ).map((s) => (
+                    <span key={s} className="flex items-center gap-1.5">
+                      <span
+                        aria-hidden
+                        className="inline-block h-2.5 w-2.5 rounded-sm border-2"
+                        style={{ borderColor: DESIGN_FIELD_HEX[s] }}
+                      />
+                      {DESIGN_FIELD_STATUS_LABEL[s]} ({designField.counts[s]})
+                    </span>
+                  ))}
+                </div>
+                {designField.pairs.length ? (
+                  <ul className="space-y-1 text-xs">
+                    {designField.pairs.map((p) => (
+                      <li key={p.stableId} className="flex flex-wrap items-center gap-1.5">
+                        <button
+                          type="button"
+                          className="font-mono underline decoration-dotted"
+                          onClick={() => setSelected(p.stableId)}
+                        >
+                          {p.stableId}
+                        </button>
+                        <Badge
+                          variant={p.status === "MISMATCH" ? "destructive" : "secondary"}
+                          className="text-[10px]"
+                        >
+                          {DESIGN_FIELD_STATUS_LABEL[p.status]}
+                          {p.deltaFt != null ? ` · ${p.deltaFt} ft` : ""}
+                        </Badge>
+                        <span className="text-muted-foreground">{p.basis}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    No record in this filter states an approved design position or a verified field
+                    observation.
+                  </p>
+                )}
+              </CollapsibleGroup>
+            ) : null}
+
 
             {chosen ? <AssetDetail asset={chosen} /> : null}
 
