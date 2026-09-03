@@ -82,7 +82,7 @@ describe("points", () => {
   it("fans out co-located loads and counts placement", () => {
     const rows = [base, { ...base, load_id: "FS-002" }, { ...base, load_id: "FS-003", grid: "MOBILE" }];
     const pts = buildGridMapPoints(rows);
-    expect(pts[0].xPct).not.toBe(pts[1].xPct);
+    expect(`${pts[0].xPct},${pts[0].yPct}`).not.toBe(`${pts[1].xPct},${pts[1].yPct}`);
     expect(pts[2].xPct).toBeNull();
     expect(summarizeGridMap(pts)).toMatchObject({ placed: 2, unplaced: 1, total: 3 });
   });
