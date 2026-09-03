@@ -242,6 +242,7 @@ export interface OperationalInput {
 /** Where a plotted position came from, in precedence order. */
 export type PlacementSource =
   | "VERIFIED_FIELD_OBSERVATION_XY"
+  | "APPROVED_DESIGN_XY"
   | "DERIVED_FROM_GRID_REFERENCE"
   | "DERIVED_FROM_CURRENT_GRID"
   | "DERIVED_FROM_LEGACY_GRID"
@@ -250,6 +251,7 @@ export type PlacementSource =
 
 export const PLACEMENT_SOURCE_LABEL: Record<PlacementSource, string> = {
   VERIFIED_FIELD_OBSERVATION_XY: "Verified field observation X/Y",
+  APPROVED_DESIGN_XY: "Approved design X/Y (not yet field verified)",
   DERIVED_FROM_GRID_REFERENCE: "Accepted corrected grid reference",
   DERIVED_FROM_CURRENT_GRID: "Accepted current FarmOps grid",
   DERIVED_FROM_LEGACY_GRID: "Canonical / recovery-derived legacy grid",
@@ -259,12 +261,14 @@ export const PLACEMENT_SOURCE_LABEL: Record<PlacementSource, string> = {
 
 export const PLACEMENT_SOURCE_ORDER: PlacementSource[] = [
   "VERIFIED_FIELD_OBSERVATION_XY",
+  "APPROVED_DESIGN_XY",
   "DERIVED_FROM_GRID_REFERENCE",
   "DERIVED_FROM_CURRENT_GRID",
   "DERIVED_FROM_LEGACY_GRID",
   "PROVISIONAL_RECORDED_XY",
   "NOT_PLOTTED",
 ];
+
 
 /** One candidate position the record could support, evaluated but not chosen. */
 export interface PlacementCandidate {
