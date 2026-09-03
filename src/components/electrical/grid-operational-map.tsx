@@ -167,6 +167,31 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
               </Badge>
             </Link>
           </Button>
+          <div className="flex items-center rounded border border-border">
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 rounded-none px-2 text-xs"
+              onClick={() => print(printMode)}
+              title={
+                printMode === "solo"
+                  ? "Print the grid map only (remembered choice)"
+                  : "Print the grid map with the data quality summary (remembered choice)"
+              }
+            >
+              <Printer className="mr-1 h-3.5 w-3.5" />
+              Print {printMode === "solo" ? "map" : "map + DQ"}
+            </Button>
+            <select
+              className="h-7 border-l border-border bg-background px-1 text-xs"
+              value={printMode}
+              onChange={(e) => setPrintMode(e.target.value as PrintMode)}
+              aria-label="Print method"
+            >
+              <option value="solo">Map only</option>
+              <option value="with-dq">Map + data quality</option>
+            </select>
+          </div>
           {large ? null : (
             <Button asChild size="sm" variant="outline" className="h-7 px-2 text-xs">
               <Link to="/electrical/grid-map">
@@ -175,6 +200,7 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
               </Link>
             </Button>
           )}
+
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
