@@ -287,8 +287,8 @@ const verifySchema = z.object({
 
 export interface VerificationWriteResult {
   stable_id: string;
-  written: Record<string, unknown>;
-  previous: Record<string, unknown>;
+  written: Record<string, string | null>;
+  previous: Record<string, string | null>;
 }
 
 export const saveGridFieldVerification = createServerFn({ method: "POST" })
@@ -348,8 +348,10 @@ export const saveGridFieldVerification = createServerFn({ method: "POST" })
       .eq("id", s(before["id"]));
     if (upErr) throw new Error(upErr.message);
 
-    const previous: Record<string, unknown> = {};
-    for (const key of Object.keys(patch)) previous[key] = before[key] ?? null;
+    const previous: Record<string, string | null> = {};
+    for (const key of Object.keys(patch)) {
+      previous[key] = before[key] == null ? null : String(before[key]);
+    }
 
     await recordElectricalChange(context.supabase, context.userId, {
       section: "grid_field_verification",
@@ -360,10 +362,14 @@ export const saveGridFieldVerification = createServerFn({ method: "POST" })
       summary: `Farm Shop install location verification for ${data.stable_id}: ${data.field_verification_status}. Evidence: ${data.location_evidence}. Design location preserved separately; canonical ODS untouched.`,
       changes: Object.keys(patch).map((column) => ({
         column,
-        before: previous[column] == null ? null : String(previous[column]),
+        before: previous[column] ?? null,
         after: patch[column] == null ? null : String(patch[column]),
       })),
     });
 
-    return { stable_id: data.stable_id, written: patch, previous };
+    const written: Record<string, string | null> = {};
+    for (const key of Object.keys(patch)) {
+      written[key] = patch[key] == null ? null : String(patch[key]);
+    }
+    return { stable_id: data.stable_id, written, previous };
   });
