@@ -106,6 +106,15 @@ function AdminIndexPage() {
             <Link to="/admin/task-health" className="flex items-center gap-2 rounded-md border p-3 hover:bg-accent">
               <Activity className="h-4 w-4" /> Task health monitor
             </Link>
+            <Link
+              to="/electrical/grid-data-quality"
+              search={{ tab: "status" }}
+              className="flex items-center gap-2 rounded-md border p-3 hover:bg-accent"
+            >
+              <Grid3x3 className="h-4 w-4" /> Data quality — electrical grid
+            </Link>
+
+
 
 
             <Link to="/settings/self-host" className="flex items-center gap-2 rounded-md border p-3 hover:bg-accent sm:col-span-2">
