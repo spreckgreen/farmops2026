@@ -144,24 +144,22 @@ export function PromoSlideView({
           {slide.items.map((a) => (
             <div
               key={a.name}
-              className="flex items-center gap-8 rounded-2xl border border-border bg-card px-8 py-5"
+              className="flex items-center gap-8 rounded-2xl border border-border bg-card px-8 py-4"
             >
-              <div className="w-[440px] shrink-0">
-                <p className="slide-body font-semibold leading-tight">{a.name}</p>
-                <div className="mt-2 flex gap-3">
-                  <span
-                    className={`slide-chrome rounded-full px-5 py-2 border ${
-                      a.tier === "free"
-                        ? "border-primary/40 bg-primary/10 text-primary"
-                        : "border-border bg-background text-muted-foreground"
-                    }`}
-                  >
-                    {a.tier === "free" ? "Free forever" : "Paid add-on"}
-                  </span>
-                  <span className="slide-chrome rounded-full border border-border bg-background px-5 py-2 text-muted-foreground">
-                    {a.status}
-                  </span>
-                </div>
+              <div className="w-[560px] shrink-0 flex items-center gap-4">
+                <p className="slide-caption font-semibold leading-tight">{a.name}</p>
+                <span
+                  className={`slide-chrome rounded-full px-4 py-1.5 border ${
+                    a.tier === "free"
+                      ? "border-primary/40 bg-primary/10 text-primary"
+                      : "border-border bg-background text-muted-foreground"
+                  }`}
+                >
+                  {a.tier === "free" ? "Free forever" : "Paid"}
+                </span>
+                <span className="slide-chrome rounded-full border border-border bg-background px-4 py-1.5 text-muted-foreground">
+                  {a.status}
+                </span>
               </div>
               <p className="slide-caption text-muted-foreground leading-snug">{a.summary}</p>
             </div>
