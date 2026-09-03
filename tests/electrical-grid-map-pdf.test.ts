@@ -40,6 +40,7 @@ describe("grid map pdf", () => {
       unplotted: [asset({ stableId: "FS-099", precision: "NON_FIXED" as const, xPct: null, yPct: null })],
       gaps: ["gap one"],
       panelLabel: "all panels",
+      filterSummary: ["Panel: all panels", "Type: all types", "Install status: all"],
       filteredCount: 3,
       impreciseCount: 1,
       planDataUrl: png,
