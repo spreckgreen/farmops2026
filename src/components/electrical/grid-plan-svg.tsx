@@ -21,6 +21,12 @@ import {
   type LocationPrecision,
   type OperationalAsset,
 } from "@/lib/electrical-grid-operational";
+import {
+  DESIGN_FIELD_HEX,
+  DESIGN_FIELD_STATUS_LABEL,
+  type DesignFieldPair,
+} from "@/lib/electrical-grid-design-vs-field";
+
 
 /** Marker colours, matched to the on-screen swatches and the PDF export. */
 export const PRECISION_HEX: Record<LocationPrecision, string> = {
@@ -209,6 +215,8 @@ export function GridPlanSvg({
       ) : null}
       <PlanDrawing />
       {showProposedLeds ? <ProposedLedLayer /> : null}
+      {designOverlay?.length ? <DesignFieldLayer pairs={designOverlay} /> : null}
+
       {items.map(({ asset: a, dxFt, dyFt, badge }) => {
         const anchor = feetToPlan(a.plottedXFt as number, a.plottedYFt as number);
         const shown = feetToPlan((a.plottedXFt as number) + dxFt, (a.plottedYFt as number) + dyFt);
