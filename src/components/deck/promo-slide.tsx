@@ -137,18 +137,18 @@ export function PromoSlideView({
 
   if (slide.kind === "addons") {
     return (
-      <div className="slide-content bg-background text-foreground flex flex-col px-24 pt-20">
-        <p className="slide-kicker text-primary mb-5">{slide.kicker}</p>
-        <h2 className="slide-title font-semibold mb-10">{slide.title}</h2>
-        <div className="space-y-5">
+      <div className="slide-content bg-background text-foreground flex flex-col px-24 pt-14">
+        <p className="slide-kicker text-primary mb-4">{slide.kicker}</p>
+        <h2 className="slide-title font-semibold mb-8">{slide.title}</h2>
+        <div className="space-y-4">
           {slide.items.map((a) => (
             <div
               key={a.name}
-              className="flex items-start gap-8 rounded-2xl border border-border bg-card px-8 py-6"
+              className="flex items-center gap-8 rounded-2xl border border-border bg-card px-8 py-5"
             >
               <div className="w-[440px] shrink-0">
                 <p className="slide-body font-semibold leading-tight">{a.name}</p>
-                <div className="mt-3 flex gap-3">
+                <div className="mt-2 flex gap-3">
                   <span
                     className={`slide-chrome rounded-full px-5 py-2 border ${
                       a.tier === "free"
@@ -167,7 +167,7 @@ export function PromoSlideView({
             </div>
           ))}
         </div>
-        <p className="slide-body text-primary mt-auto mb-28 max-w-[1500px]">{slide.note}</p>
+        <p className="slide-caption text-primary mt-auto mb-24 max-w-[1500px]">{slide.note}</p>
         <Chrome index={index} total={total} />
       </div>
     );
