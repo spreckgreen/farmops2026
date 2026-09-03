@@ -525,9 +525,9 @@ export function classifyLocation(row: OperationalInput): {
 }
 
 /**
- * Marks co-located records so the map can separate them visually. The true
- * anchor (plottedXFt/plottedYFt, xPct/yPct) is never moved: only a display-only
- * offset is recorded, and the map draws a leader line back to the real anchor.
+ * Marks co-located records so the map can report a cluster. The true anchor
+ * (plottedXFt/plottedYFt, xPct/yPct) is never moved and no default offset is
+ * applied; the map expands a cluster only when one of its records is selected.
  */
 function cluster(assets: OperationalAsset[]): OperationalAsset[] {
   const groups = new Map<string, OperationalAsset[]>();
@@ -542,11 +542,11 @@ function cluster(assets: OperationalAsset[]): OperationalAsset[] {
     list.forEach((a, i) => {
       a.stackIndex = i;
       a.stackSize = list.length;
-      if (list.length > 1) {
-        const angle = (i / list.length) * Math.PI * 2;
-        a.fanDxFt = Math.cos(angle) * 1.1;
-        a.fanDyFt = Math.sin(angle) * 1.1;
-      }
+      // No default displacement: co-located records keep their exact anchor and
+      // the map collapses them into a cluster badge, spidering apart only when
+      // one of them is selected. Separation is a view concern, never data.
+      a.fanDxFt = 0;
+      a.fanDyFt = 0;
     });
   }
   return assets;

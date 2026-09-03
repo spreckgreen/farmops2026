@@ -1,12 +1,18 @@
-// One coordinate system for the Farm Shop plan and every marker.
+// One coordinate system for the Farm Shop plan and every marker: physical feet.
 //
-// The drawing and all markers live in a single SVG with a fixed viewBox in the
-// drawing's own pixel space, so the whole thing scales as one unit: browser zoom,
-// window size, device pixel ratio and responsive layout cannot move a marker
-// relative to the plan. Positions come only from feetToPlanPx — never from
-// viewport measurements, page coordinates or separately measured elements.
+// The SVG viewBox IS the building (0 0 60 40), so one drawing unit is one foot.
+// The walls, gridlines, openings, markers and the proposed overhead-light layer
+// are all drawn from their feet dimensions — there is no raster drawing, no
+// pixel anchor and no non-uniform scaling, so browser zoom, window size and
+// device pixel ratio cannot move a marker relative to the plan.
 import { useCallback, useMemo, useRef, useState } from "react";
-import { feetToPlanPx, PLAN_IMAGE, PLAN_VIEW_BOX } from "@/lib/electrical-grid-plan-geometry";
+import {
+  PLAN_BUILDING,
+  PLAN_OPENINGS,
+  PLAN_VIEW_BOX,
+  PROPOSED_OVERHEAD_LEDS,
+  feetToPlan,
+} from "@/lib/electrical-grid-plan-geometry";
 import { AXIS_COLS, AXIS_ROWS } from "@/lib/electrical-grid-map";
 import {
   PRECISION_META,
@@ -15,7 +21,6 @@ import {
   type LocationPrecision,
   type OperationalAsset,
 } from "@/lib/electrical-grid-operational";
-import planImage from "@/assets/farm-shop-grid-plan.png";
 
 /** Marker colours, matched to the on-screen swatches and the PDF export. */
 export const PRECISION_HEX: Record<LocationPrecision, string> = {
@@ -27,11 +32,25 @@ export const PRECISION_HEX: Record<LocationPrecision, string> = {
   UNRESOLVED: "#71717a",
 };
 
+export const PROPOSED_LED_HEX = "#f59e0b";
+
 export const PLAN_ALT =
-  "Overhead grid plan of the 40 by 60 foot Farm Shop with lettered rows A to F north to south and numbered columns 1 to 9 west to east, showing the north wall openings and the north-east and south-west man doors";
+  "Scale plan of the 60 by 40 foot Farm Shop drawn in feet, with lettered rows A to F north to south and numbered columns 1 to 9 west to east, the GD2 and GD1 overhead doors and the north-east and south-west man doors";
 
 /** Interval markers keep a visible span so they are never read as a point. */
 const INTERVAL_SPAN_FT = 4;
+
+/** Marker sizes in feet, so they scale with the plan. */
+const R_FT = 0.62;
+const R_SELECTED_FT = 0.9;
+
+type RenderItem = {
+  asset: OperationalAsset;
+  dxFt: number;
+  dyFt: number;
+  /** Number of co-located records this marker stands for while collapsed. */
+  badge: number;
+};
 
 export function GridPlanSvg({
   plotted,
@@ -39,6 +58,7 @@ export function GridPlanSvg({
   onSelect,
   interactive = true,
   markerScale = 1,
+  showProposedLeds = false,
   className,
 }: {
   plotted: OperationalAsset[];
@@ -46,6 +66,8 @@ export function GridPlanSvg({
   onSelect?: (stableId: string) => void;
   interactive?: boolean;
   markerScale?: number;
+  /** Draw the proposed 2 x 5 overhead LED design layer. */
+  showProposedLeds?: boolean;
   className?: string;
 }) {
   // Helper text follows, in order: the marker under the pointer/keyboard focus,
@@ -58,18 +80,54 @@ export function GridPlanSvg({
   const hintId = hovered ?? pinned;
   const hint = interactive ? (plotted.find((a) => a.stableId === hintId) ?? null) : null;
 
-  // Keyboard order: north-to-south, then west-to-east, so arrow keys walk the
-  // plan the same way a reader scans it.
+  // Co-located records collapse into one exact-anchor marker with a cluster
+  // badge. They only spider apart when one of them is selected, so nothing is
+  // displaced from its true physical position by default.
+  const items = useMemo<RenderItem[]>(() => {
+    const groups = new Map<string, OperationalAsset[]>();
+    for (const a of plotted) {
+      if (a.plottedXFt == null || a.plottedYFt == null) continue;
+      const key = `${a.plottedXFt}|${a.plottedYFt}`;
+      const list = groups.get(key) ?? [];
+      list.push(a);
+      groups.set(key, list);
+    }
+    const out: RenderItem[] = [];
+    for (const list of groups.values()) {
+      if (list.length === 1) {
+        out.push({ asset: list[0]!, dxFt: 0, dyFt: 0, badge: 1 });
+        continue;
+      }
+      const expanded = list.some((a) => a.stableId === selectedId);
+      if (!expanded) {
+        out.push({ asset: list[0]!, dxFt: 0, dyFt: 0, badge: list.length });
+        continue;
+      }
+      list.forEach((a, i) => {
+        const angle = (i / list.length) * Math.PI * 2;
+        out.push({
+          asset: a,
+          dxFt: Math.cos(angle) * 1.6,
+          dyFt: Math.sin(angle) * 1.6,
+          badge: 1,
+        });
+      });
+    }
+    return out;
+  }, [plotted, selectedId]);
+
+  // Keyboard order: north-to-south, then west-to-east.
   const order = useMemo(
     () =>
-      plotted
-        .filter((a) => a.plottedXFt != null && a.plottedYFt != null)
+      items
         .slice()
         .sort(
-          (a, b) => (a.plottedYFt ?? 0) - (b.plottedYFt ?? 0) || (a.plottedXFt ?? 0) - (b.plottedXFt ?? 0),
+          (a, b) =>
+            (a.asset.plottedYFt ?? 0) - (b.asset.plottedYFt ?? 0) ||
+            (a.asset.plottedXFt ?? 0) - (b.asset.plottedXFt ?? 0),
         )
-        .map((a) => a.stableId),
-    [plotted],
+        .map((i) => i.asset.stableId),
+    [items],
   );
   const nodes = useRef(new Map<string, SVGGElement | null>());
 
@@ -120,8 +178,6 @@ export function GridPlanSvg({
           moveFocus(stableId, "last");
           return;
         case "Escape":
-          // Dismiss the helper text — including the pinned selection — but keep
-          // focus where it is.
           setHovered(null);
           setDismissed(selectedId ?? null);
           return;
@@ -135,12 +191,11 @@ export function GridPlanSvg({
     <svg
       viewBox={PLAN_VIEW_BOX}
       className={className ?? "block h-auto w-full select-none"}
-      // Interactive maps must expose their markers, so the plan is a labelled
-      // group; the static (print/PDF) render stays a single image.
       role={interactive ? "group" : "img"}
       aria-label={interactive ? `${PLAN_ALT}. ${order.length} markers.` : PLAN_ALT}
       aria-describedby={interactive ? "grid-plan-keyboard-help" : undefined}
       preserveAspectRatio="xMidYMid meet"
+      data-plan-units="feet"
     >
       {interactive ? (
         <desc id="grid-plan-keyboard-help">
@@ -148,26 +203,19 @@ export function GridPlanSvg({
           Space to open the full record, and Escape to dismiss the helper text.
         </desc>
       ) : null}
-      <image
-        href={planImage}
-        x={0}
-        y={0}
-        width={PLAN_IMAGE.width}
-        height={PLAN_IMAGE.height}
-        preserveAspectRatio="none"
-      />
-      {/* Envelope drawn from the same transform, so any drift is visible. */}
-      <PlanEnvelope />
-      {plotted.map((a) => {
-        if (a.plottedXFt == null || a.plottedYFt == null) return null;
-        const anchor = feetToPlanPx(a.plottedXFt, a.plottedYFt);
-        const shown = feetToPlanPx(a.plottedXFt + a.fanDxFt, a.plottedYFt + a.fanDyFt);
-        const offset = a.fanDxFt !== 0 || a.fanDyFt !== 0;
+      <PlanDrawing />
+      {showProposedLeds ? <ProposedLedLayer /> : null}
+      {items.map(({ asset: a, dxFt, dyFt, badge }) => {
+        const anchor = feetToPlan(a.plottedXFt as number, a.plottedYFt as number);
+        const shown = feetToPlan((a.plottedXFt as number) + dxFt, (a.plottedYFt as number) + dyFt);
+        const offset = dxFt !== 0 || dyFt !== 0;
         const selected = selectedId === a.stableId;
-        const r = (selected ? 13 : 9) * markerScale;
+        const r = (selected ? R_SELECTED_FT : R_FT) * markerScale;
         const fill = PRECISION_HEX[a.precision];
-        // Screen readers get the same facts the sighted hover card shows.
-        const label = hintLines(a).join(". ");
+        const label =
+          badge > 1
+            ? `${badge} records at ${a.plottedXFt} ft east, ${a.plottedYFt} ft south. ${hintLines(a).join(". ")}`
+            : hintLines(a).join(". ");
         const focused = focusedId === a.stableId;
         return (
           <g
@@ -182,7 +230,6 @@ export function GridPlanSvg({
                   "aria-label": label,
                   "aria-pressed": selected,
                   onClick: () => {
-                    // Clicking re-pins the helper text to this marker.
                     setDismissed(null);
                     onSelect?.(a.stableId);
                   },
@@ -204,29 +251,29 @@ export function GridPlanSvg({
             data-x-ft={a.plottedXFt}
             data-y-ft={a.plottedYFt}
             data-precision={a.precision}
+            data-cluster-size={badge}
           >
             {focused ? (
-              // Visible focus ring, drawn in plan space so it scales with the map.
-              <circle
-                cx={shown.x}
-                cy={shown.y}
-                r={r + 7}
-                fill="none"
-                stroke="#111827"
-                strokeWidth={5}
-                pointerEvents="none"
-              />
-            ) : null}
-            {focused ? (
-              <circle
-                cx={shown.x}
-                cy={shown.y}
-                r={r + 7}
-                fill="none"
-                stroke="#facc15"
-                strokeWidth={3}
-                pointerEvents="none"
-              />
+              <>
+                <circle
+                  cx={shown.x}
+                  cy={shown.y}
+                  r={r + 0.5}
+                  fill="none"
+                  stroke="#111827"
+                  strokeWidth={0.34}
+                  pointerEvents="none"
+                />
+                <circle
+                  cx={shown.x}
+                  cy={shown.y}
+                  r={r + 0.5}
+                  fill="none"
+                  stroke="#facc15"
+                  strokeWidth={0.2}
+                  pointerEvents="none"
+                />
+              </>
             ) : null}
             {offset ? (
               <>
@@ -236,22 +283,21 @@ export function GridPlanSvg({
                   x2={shown.x}
                   y2={shown.y}
                   stroke={fill}
-                  strokeWidth={2}
+                  strokeWidth={0.14}
                 />
-                <circle cx={anchor.x} cy={anchor.y} r={2.5} fill={fill} />
+                <circle data-anchor-dot cx={anchor.x} cy={anchor.y} r={0.18} fill={fill} />
               </>
             ) : null}
             {a.spanned ? (
-              // An interval is drawn as a segment, never as an exact point.
               <>
                 <line
-                  x1={feetToPlanPx(a.plottedXFt - INTERVAL_SPAN_FT, a.plottedYFt).x}
+                  x1={feetToPlan((a.plottedXFt as number) - INTERVAL_SPAN_FT, 0).x}
                   y1={shown.y}
-                  x2={feetToPlanPx(a.plottedXFt + INTERVAL_SPAN_FT, a.plottedYFt).x}
+                  x2={feetToPlan((a.plottedXFt as number) + INTERVAL_SPAN_FT, 0).x}
                   y2={shown.y}
                   stroke={fill}
-                  strokeWidth={4 * markerScale}
-                  strokeDasharray="6 4"
+                  strokeWidth={0.28 * markerScale}
+                  strokeDasharray="0.5 0.3"
                   opacity={0.85}
                 />
                 <circle
@@ -261,8 +307,8 @@ export function GridPlanSvg({
                   fill={fill}
                   fillOpacity={0.55}
                   stroke="#ffffff"
-                  strokeWidth={2}
-                  strokeDasharray="4 3"
+                  strokeWidth={0.14}
+                  strokeDasharray="0.3 0.22"
                 />
               </>
             ) : a.kind === "panel" ? (
@@ -271,19 +317,67 @@ export function GridPlanSvg({
                 y={shown.y - r}
                 width={r * 2}
                 height={r * 2}
-                rx={2}
+                rx={0.15}
                 fill={fill}
                 stroke="#ffffff"
-                strokeWidth={2}
+                strokeWidth={0.14}
               />
             ) : (
-              <circle cx={shown.x} cy={shown.y} r={r} fill={fill} stroke="#ffffff" strokeWidth={2} />
+              <circle
+                cx={shown.x}
+                cy={shown.y}
+                r={r}
+                fill={fill}
+                stroke="#ffffff"
+                strokeWidth={0.14}
+              />
             )}
-            {/* Helper text is drawn in-SVG (HoverHint); aria-label carries it for AT. */}
+            {badge > 1 ? (
+              // Cluster badge: the marker stays on the exact anchor and reports
+              // how many records share it. Selecting it spiders the group.
+              <>
+                <circle
+                  cx={shown.x + r * 0.95}
+                  cy={shown.y - r * 0.95}
+                  r={r * 0.85}
+                  fill="#111827"
+                  stroke="#ffffff"
+                  strokeWidth={0.1}
+                />
+                <text
+                  x={shown.x + r * 0.95}
+                  y={shown.y - r * 0.95 + r * 0.3}
+                  textAnchor="middle"
+                  fontSize={r * 0.95}
+                  fill="#ffffff"
+                  fontFamily="ui-sans-serif, system-ui, sans-serif"
+                  pointerEvents="none"
+                >
+                  {badge}
+                </text>
+              </>
+            ) : null}
           </g>
         );
       })}
       {hint ? <HoverHint asset={hint} /> : null}
+    </svg>
+  );
+}
+
+/** The bare plan (walls, gridlines, openings) in feet — for overlays that place
+ * their own markers as percentages of the building envelope. */
+export function GridPlanBackdrop({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox={PLAN_VIEW_BOX}
+      className={className ?? "block h-auto w-full"}
+      role="img"
+      aria-label={PLAN_ALT}
+      preserveAspectRatio="xMidYMid meet"
+      data-plan-units="feet"
+    >
+      <PlanDrawing />
     </svg>
   );
 }
@@ -307,39 +401,41 @@ export function hintLines(asset: OperationalAsset): string[] {
  * plan and never drifts at a different browser zoom. */
 function HoverHint({ asset }: { asset: OperationalAsset }) {
   if (asset.plottedXFt == null || asset.plottedYFt == null) return null;
-  const at = feetToPlanPx(asset.plottedXFt + asset.fanDxFt, asset.plottedYFt + asset.fanDyFt);
+  const at = feetToPlan(asset.plottedXFt, asset.plottedYFt);
   const lines = hintLines(asset);
-  const fontSize = 22;
-  const pad = 12;
+  const fontSize = 0.85; // feet
+  const pad = 0.5;
   const lineH = fontSize * 1.35;
   const width = Math.min(
-    620,
-    Math.max(240, Math.max(...lines.map((l) => l.length)) * fontSize * 0.55 + pad * 2),
+    26,
+    Math.max(11, Math.max(...lines.map((l) => l.length)) * fontSize * 0.52 + pad * 2),
   );
   const height = lines.length * lineH + pad * 2;
-  // Flip the card so it stays inside the drawing near the edges.
-  const x = Math.min(Math.max(8, at.x + 18), PLAN_IMAGE.width - width - 8);
-  const y = at.y + 18 + height > PLAN_IMAGE.height ? at.y - height - 18 : at.y + 18;
+  // Flip the card so it stays inside the building near the edges.
+  const x = Math.min(Math.max(0.3, at.x + 1), PLAN_BUILDING.width - width - 0.3);
+  const y = at.y + 1 + height > PLAN_BUILDING.height ? at.y - height - 1 : at.y + 1;
+  const top = Math.max(0.3, y);
   return (
-    <g pointerEvents="none">
+    <g pointerEvents="none" data-hint-card="true">
       <rect
         x={x}
-        y={Math.max(8, y)}
+        y={top}
         width={width}
         height={height}
-        rx={8}
+        rx={0.35}
         fill="#0f172a"
         fillOpacity={0.92}
         stroke="#ffffff"
         strokeOpacity={0.5}
+        strokeWidth={0.08}
       />
       {lines.map((line, i) => (
         <text
           key={line + i}
           x={x + pad}
-          y={Math.max(8, y) + pad + fontSize + i * lineH - 4}
+          y={top + pad + fontSize + i * lineH - 0.15}
           fill="#ffffff"
-          fontSize={i === 0 ? fontSize + 2 : fontSize}
+          fontSize={i === 0 ? fontSize * 1.08 : fontSize}
           fontWeight={i === 0 ? 700 : 400}
           fontFamily="ui-sans-serif, system-ui, sans-serif"
         >
@@ -350,37 +446,169 @@ function HoverHint({ asset }: { asset: OperationalAsset }) {
   );
 }
 
-/** Accepted 60 ft x 40 ft envelope and gridline ticks, from the same transform. */
-function PlanEnvelope() {
-  const nw = feetToPlanPx(0, 0);
-  const se = feetToPlanPx(60, 40);
+/**
+ * The plan itself: walls, the frozen gridlines and the drawn wall openings, all
+ * from physical feet. Nothing here is traced from an image.
+ */
+function PlanDrawing() {
   return (
     <g pointerEvents="none">
       <rect
-        x={nw.x}
-        y={nw.y}
-        width={se.x - nw.x}
-        height={se.y - nw.y}
-        fill="none"
-        stroke="#2563eb"
-        strokeOpacity={0.25}
-        strokeWidth={2}
+        x={0}
+        y={0}
+        width={PLAN_BUILDING.width}
+        height={PLAN_BUILDING.height}
+        fill="#ffffff"
       />
-      {AXIS_COLS.map((c) =>
-        AXIS_ROWS.map((row) => {
-          const p = feetToPlanPx(c.xFt, row.yFt);
-          return (
-            <circle
-              key={`${c.label}-${row.label}`}
-              cx={p.x}
-              cy={p.y}
-              r={1.5}
-              fill="#2563eb"
-              fillOpacity={0.3}
+      {/* Gridlines: exact feet from the frozen axis definition. */}
+      {AXIS_COLS.map((c) => (
+        <line
+          key={`col-${c.label}`}
+          data-grid-col={c.label}
+          data-x-ft={c.xFt}
+          x1={c.xFt}
+          y1={0}
+          x2={c.xFt}
+          y2={PLAN_BUILDING.height}
+          stroke="#94a3b8"
+          strokeWidth={0.06}
+        />
+      ))}
+      {AXIS_ROWS.map((r) => (
+        <line
+          key={`row-${r.label}`}
+          data-grid-row={r.label}
+          data-y-ft={r.yFt}
+          x1={0}
+          y1={r.yFt}
+          x2={PLAN_BUILDING.width}
+          y2={r.yFt}
+          stroke="#94a3b8"
+          strokeWidth={0.06}
+        />
+      ))}
+      {/* Grid labels, inset so they stay inside the building area. */}
+      {AXIS_COLS.map((c) => (
+        <text
+          key={`col-label-${c.label}`}
+          x={Math.min(Math.max(c.xFt, 0.6), PLAN_BUILDING.width - 0.4)}
+          y={1.3}
+          fontSize={0.9}
+          fill="#64748b"
+          textAnchor="middle"
+          fontFamily="ui-sans-serif, system-ui, sans-serif"
+        >
+          {c.label}
+        </text>
+      ))}
+      {AXIS_ROWS.map((r) => (
+        <text
+          key={`row-label-${r.label}`}
+          x={0.5}
+          y={Math.min(Math.max(r.yFt + 0.3, 1), PLAN_BUILDING.height - 0.3)}
+          fontSize={0.9}
+          fill="#64748b"
+          fontFamily="ui-sans-serif, system-ui, sans-serif"
+        >
+          {r.label}
+        </text>
+      ))}
+      {/* Walls. */}
+      <rect
+        x={0}
+        y={0}
+        width={PLAN_BUILDING.width}
+        height={PLAN_BUILDING.height}
+        fill="none"
+        stroke="#0f172a"
+        strokeWidth={0.4}
+      />
+      {/* Openings, drawn over the wall from their feet spans. */}
+      {PLAN_OPENINGS.map((o) => {
+        const isNorth = o.wall === "north";
+        const stroke = o.kind === "overhead_door" ? "#2563eb" : "#0ea5e9";
+        return (
+          <g key={o.id} data-opening={o.id} data-start-ft={o.startFt} data-end-ft={o.endFt}>
+            <line
+              x1={isNorth ? o.startFt : 0}
+              y1={isNorth ? 0 : o.startFt}
+              x2={isNorth ? o.endFt : 0}
+              y2={isNorth ? 0 : o.endFt}
+              stroke="#ffffff"
+              strokeWidth={0.5}
             />
-          );
-        }),
-      )}
+            <line
+              x1={isNorth ? o.startFt : 0}
+              y1={isNorth ? 0 : o.startFt}
+              x2={isNorth ? o.endFt : 0}
+              y2={isNorth ? 0 : o.endFt}
+              stroke={stroke}
+              strokeWidth={0.26}
+            />
+            <text
+              x={isNorth ? (o.startFt + o.endFt) / 2 : 0.6}
+              y={isNorth ? 2.6 : (o.startFt + o.endFt) / 2}
+              fontSize={0.8}
+              fill={stroke}
+              textAnchor={isNorth ? "middle" : "start"}
+              fontFamily="ui-sans-serif, system-ui, sans-serif"
+            >
+              {o.id}
+            </text>
+          </g>
+        );
+      })}
+    </g>
+  );
+}
+
+/** Proposed 2 x 5 overhead LED layer — design geometry, not field verified. */
+function ProposedLedLayer() {
+  return (
+    <g pointerEvents="none" data-layer="proposed-overhead-led">
+      {PROPOSED_OVERHEAD_LEDS.map((f) => (
+        <g
+          key={`led-${f.planOrder}`}
+          data-proposed-led={f.planOrder}
+          data-x-ft={f.xFt}
+          data-y-ft={f.yFt}
+        >
+          {/* Light symbol: a glowing centre with radiating rays. */}
+          {[0, 45, 90, 135, 180, 225, 270, 315].map((deg) => {
+            const rad = (deg * Math.PI) / 180;
+            return (
+              <line
+                key={deg}
+                x1={f.xFt + Math.cos(rad) * 0.75}
+                y1={f.yFt + Math.sin(rad) * 0.75}
+                x2={f.xFt + Math.cos(rad) * 1.3}
+                y2={f.yFt + Math.sin(rad) * 1.3}
+                stroke={PROPOSED_LED_HEX}
+                strokeWidth={0.12}
+              />
+            );
+          })}
+          <circle
+            cx={f.xFt}
+            cy={f.yFt}
+            r={0.7}
+            fill="#fef3c7"
+            stroke={PROPOSED_LED_HEX}
+            strokeWidth={0.16}
+            strokeDasharray="0.35 0.2"
+          />
+          <text
+            x={f.xFt}
+            y={f.yFt + 0.3}
+            fontSize={0.75}
+            textAnchor="middle"
+            fill="#92400e"
+            fontFamily="ui-sans-serif, system-ui, sans-serif"
+          >
+            {f.planOrder}
+          </text>
+        </g>
+      ))}
     </g>
   );
 }

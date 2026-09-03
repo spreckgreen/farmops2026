@@ -30,7 +30,7 @@ import {
 } from "@/lib/electrical-grid-recovery";
 import { AXIS_COLS, AXIS_ROWS } from "@/lib/electrical-grid-map";
 import { PLAN_BUILDING_FRACTION } from "@/lib/electrical-grid-plan-geometry";
-import planImage from "@/assets/farm-shop-grid-plan.png";
+import { GridPlanBackdrop } from "@/components/electrical/grid-plan-svg";
 import { cn } from "@/lib/utils";
 
 /** Plan envelope inside the drawing, measured from the grid corner markers. */
@@ -75,11 +75,7 @@ function RecoveryMap({
   return (
     <div className="space-y-2">
       <div className={cn("relative w-full", large ? "max-w-none" : "max-w-3xl")}>
-        <img
-          src={planImage}
-          alt="Corrected Farm Shop 40 by 60 foot overhead grid plan, rows A to F north to south and columns 1 to 9 west to east"
-          className="w-full h-auto rounded-md border"
-        />
+        <GridPlanBackdrop className="block h-auto w-full rounded-md border bg-white" />
         <div
           className="absolute"
           style={{
