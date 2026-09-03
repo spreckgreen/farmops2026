@@ -5,9 +5,16 @@
 // window size, device pixel ratio and responsive layout cannot move a marker
 // relative to the plan. Positions come only from feetToPlanPx — never from
 // viewport measurements, page coordinates or separately measured elements.
+import { useState } from "react";
 import { feetToPlanPx, PLAN_IMAGE, PLAN_VIEW_BOX } from "@/lib/electrical-grid-plan-geometry";
 import { AXIS_COLS, AXIS_ROWS } from "@/lib/electrical-grid-map";
-import type { LocationPrecision, OperationalAsset } from "@/lib/electrical-grid-operational";
+import {
+  PRECISION_META,
+  VERIFICATION_LABEL,
+  verificationOf,
+  type LocationPrecision,
+  type OperationalAsset,
+} from "@/lib/electrical-grid-operational";
 import planImage from "@/assets/farm-shop-grid-plan.png";
 
 /** Marker colours, matched to the on-screen swatches and the PDF export. */
