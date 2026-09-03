@@ -93,7 +93,6 @@ log(`heap cap=${HEAP_CAP ?? "(node default)"}MB host=${HOST ? `${HOST.totalMB}MB
 // wrapper-rss stays tiny because the memory is in the child). Node honours the
 // cap and fails with a clean heap error instead of taking the host down.
 import { existsSync } from "node:fs";
-import { fileURLToPath } from "node:url";
 import path from "node:path";
 
 const viteBin = ["node_modules/vite/bin/vite.js", "../node_modules/vite/bin/vite.js"]
@@ -112,7 +111,6 @@ const child = spawn(spawnCmd, spawnArgs, {
   stdio: ["ignore", "pipe", "pipe"],
   env: { ...process.env, FORCE_COLOR: "0" },
 });
-void fileURLToPath;
 
 
 
