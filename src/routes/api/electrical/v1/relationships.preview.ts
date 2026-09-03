@@ -1,8 +1,8 @@
 /**
- * POST /api/electrical/v1/relationships/preview — read-only.
+ * POST /api/electrical/v1/relationships/preview — Phase 3, NOT ACTIVATED.
  *
- * Shows, per proposal, the current and proposed value of the allow-listed FK
- * column and its derived mirror columns. Writes nothing.
+ * Read-only in intent, but it belongs to an unaccepted phase, so it is gated with
+ * the apply surface rather than shipped half-specified.
  */
 import { createFileRoute } from "@tanstack/react-router";
 
@@ -10,12 +10,25 @@ export const Route = createFileRoute("/api/electrical/v1/relationships/preview")
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const { authorizeApiRequest, handleRelationshipPreview, readJsonArray } = await import(
-          "@/lib/electrical-api.server"
+        const {
+          requireActivatedSurface,
+          ELECTRICAL_WRITE_PATHS,
+          authorizeApiRequest,
+          handleRelationshipPreview,
+          readJsonArray,
+        } = await import("@/lib/electrical-api.server");
+        const gate = requireActivatedSurface(
+          request,
+          "POST",
+          ELECTRICAL_WRITE_PATHS.relationshipsPreview,
         );
-        const caller = await authorizeApiRequest(request, "read");
+        if (gate) return gate;
+        const caller = await authorizeApiRequest(request, "field_write", {
+          scope: "electrical:relationships:write",
+          bucket: "write",
+        });
         if (caller instanceof Response) return caller;
-        const parsed = await readJsonArray(request, "proposals");
+        const parsed = await readJsonArray(request, "proposals", caller);
         if (parsed instanceof Response) return parsed;
         return handleRelationshipPreview(caller, parsed.items);
       },
