@@ -209,6 +209,25 @@ export const adminSetElectricalAiFeatures = createServerFn({ method: "POST" })
       });
     }
 
+    // Scenarios with no row at all that the admin left unticked must be written
+    // as an explicit `revoked` decision — otherwise an add-on entitlement would
+    // keep the scenario visible in the user's AI features tab.
+    for (const def of ELECTRICAL_AI_SCENARIOS) {
+      if (approved.has(def.id)) continue;
+      if (rows.some((r) => r.scenario === def.id)) continue;
+      cleared.push(def.id);
+      upserts.push({
+        user_id: data.userId,
+        scenario: def.id,
+        status: rejected.has(def.id) ? "rejected" : "revoked",
+        request_note: null,
+        requested_at: now,
+        decided_by: context.userId,
+        decided_at: now,
+        decision_note: data.note ?? null,
+      });
+    }
+
     if (upserts.length > 0) {
       const { error } = await db
         .from(AI_GRANT_TABLE)
