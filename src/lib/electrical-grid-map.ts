@@ -357,8 +357,9 @@ function fanOffset(index: number, size: number): { dx: number; dy: number } {
   return { dx: Math.cos(angle) * radius, dy: Math.sin(angle) * radius };
 }
 
-const clampPct = (v: number): number => Math.min(99.2, Math.max(0.8, v));
-const clampBase = (v: number): number => Math.min(96, Math.max(4, v));
+// Dots are centred on their coordinate, so wall-line positions stay exact.
+const clampPct = (v: number): number => Math.min(100, Math.max(0, v));
+const clampBase = clampPct;
 
 export interface GridMapSummary {
   counts: Record<CircuitClass, number>;
