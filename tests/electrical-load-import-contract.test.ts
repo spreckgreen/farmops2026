@@ -32,8 +32,6 @@ function sheet(): Sheet {
   };
 }
 
-const odsRows = [1, 2, 3, 4].map((i) => ({ sourceRow: i, stableId: header && `` ? "" : "" }));
-
 const rows = () =>
   [1, 2, 3, 4].map((i) => ({ sourceRow: i, stableId: sheet().rows[i][0] }));
 
