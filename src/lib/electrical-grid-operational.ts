@@ -242,6 +242,7 @@ export interface OperationalInput {
 /** Where a plotted position came from, in precedence order. */
 export type PlacementSource =
   | "VERIFIED_FIELD_OBSERVATION_XY"
+  | "APPROVED_DESIGN_XY"
   | "DERIVED_FROM_GRID_REFERENCE"
   | "DERIVED_FROM_CURRENT_GRID"
   | "DERIVED_FROM_LEGACY_GRID"
@@ -250,6 +251,7 @@ export type PlacementSource =
 
 export const PLACEMENT_SOURCE_LABEL: Record<PlacementSource, string> = {
   VERIFIED_FIELD_OBSERVATION_XY: "Verified field observation X/Y",
+  APPROVED_DESIGN_XY: "Approved design X/Y (not yet field verified)",
   DERIVED_FROM_GRID_REFERENCE: "Accepted corrected grid reference",
   DERIVED_FROM_CURRENT_GRID: "Accepted current FarmOps grid",
   DERIVED_FROM_LEGACY_GRID: "Canonical / recovery-derived legacy grid",
@@ -259,12 +261,14 @@ export const PLACEMENT_SOURCE_LABEL: Record<PlacementSource, string> = {
 
 export const PLACEMENT_SOURCE_ORDER: PlacementSource[] = [
   "VERIFIED_FIELD_OBSERVATION_XY",
+  "APPROVED_DESIGN_XY",
   "DERIVED_FROM_GRID_REFERENCE",
   "DERIVED_FROM_CURRENT_GRID",
   "DERIVED_FROM_LEGACY_GRID",
   "PROVISIONAL_RECORDED_XY",
   "NOT_PLOTTED",
 ];
+
 
 /** One candidate position the record could support, evaluated but not chosen. */
 export interface PlacementCandidate {
@@ -360,6 +364,31 @@ export function placementCandidatesFor(row: OperationalInput): PlacementCandidat
       accepted: true,
     });
   }
+
+  // 1b. Approved design X/Y. The design coordinates are the authoritative
+  //     statement of the intended position; any grid label on the record is a
+  //     human-readable lookup of that position, never the position itself. This
+  //     is design intent only — it never claims the fixture is installed, and a
+  //     verified field observation still outranks it.
+  {
+    const dx = num(row.designXFt);
+    const dy = num(row.designYFt);
+    if (dx != null && dy != null) {
+      out.push({
+        source: "APPROVED_DESIGN_XY",
+        xFt: dx,
+        yFt: dy,
+        precision: "EXACT",
+        spanned: false,
+        basis: `Approved design position: ${dx} ft E, ${dy} ft S${
+          row.designGrid ? ` (design grid ${row.designGrid}, lookup only)` : ""
+        }. Design intent — not a field observation.`,
+        accepted: true,
+      });
+    }
+  }
+
+
 
   // 2. The accepted current FarmOps corrected grid reference. grid_reference is
   //    always a corrected A–F / 1–9 reference, never read through the old drawing.

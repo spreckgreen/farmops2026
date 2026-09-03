@@ -283,3 +283,52 @@ describe("placement precedence", () => {
     ).toBe(summary.total);
   });
 });
+
+describe("approved design X/Y placement", () => {
+  const base = {
+    kind: "load" as const,
+    stableId: "FS-057",
+    description: "Overhead LED",
+    grid: "F5.5",
+    designGrid: "B3",
+    legacyGrid: null,
+    gridReference: null,
+    storedPrecision: null,
+    xFt: null,
+    yFt: null,
+    designXFt: 18,
+    designYFt: 10,
+    installStatus: "planned",
+    verification: null,
+    verificationNotes: null,
+    locationEvidence: null,
+    verifiedAt: null,
+    updatedAt: null,
+    location: "Farm Shop",
+    panel: null,
+    panelBasis: null,
+    circuitClass: null,
+    circuitClassBasis: null,
+  };
+
+  it("plots the approved design coordinates and treats the grid as a lookup", () => {
+    const place = classifyLocation(base);
+    expect(place.source).toBe("APPROVED_DESIGN_XY");
+    expect(place.xFt).toBe(18);
+    expect(place.yFt).toBe(10);
+    expect(place.precision).toBe("EXACT");
+    expect(place.disagreement).toContain("owner review");
+  });
+
+  it("keeps a verified field observation ahead of the design position", () => {
+    const place = classifyLocation({
+      ...base,
+      xFt: 20,
+      yFt: 12,
+      installStatus: "complete",
+      verification: "VERIFIED_AS_INSTALLED",
+    });
+    expect(place.source).toBe("VERIFIED_FIELD_OBSERVATION_XY");
+    expect(place.xFt).toBe(20);
+  });
+});
