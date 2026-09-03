@@ -16,13 +16,13 @@ function sheet(): Sheet {
   header[24] = "Generator Start Class";
   header[25] = "Generator Start Amps";
   header[32] = "Circuit Group ID";
-  header[33] = "Existing Panel";
-  header[35] = "Installation Status";
-  header[36] = "Conduit / Flex Run Complete";
-  header[37] = "Device Side Connected";
-  header[38] = "Panel Side Connected";
-  header[39] = "Fixture / Device Installed";
-  header[40] = "Installation Notes";
+  header[34] = "Existing Panel";
+  header[35] = "Conduit / Flex Run Complete";
+  header[36] = "Device Side Connected";
+  header[37] = "Panel Side Connected";
+  header[38] = "Fixture / Device Installed";
+  header[39] = "Installation Notes";
+  header[40] = "Installation Status";
 
   const row = (id: string) => {
     const r = Array.from({ length: 41 }, () => "");
@@ -32,13 +32,13 @@ function sheet(): Sheet {
     r[24] = "Across the line";
     r[25] = "TBD";
     r[32] = "CG-FS-01";
-    r[33] = "PNL-FS-NW";
-    r[35] = "Planned";
-    r[36] = "Y";
-    r[37] = "N";
-    r[38] = "TBD";
-    r[39] = "Y";
-    r[40] = "pulled 12/2 to north wall";
+    r[34] = "PNL-FS-NW";
+    r[35] = "Y";
+    r[36] = "N";
+    r[37] = "TBD";
+    r[38] = "Y";
+    r[39] = "pulled 12/2 to north wall";
+    r[40] = "Planned";
     r[10] = "Col11 value"; // populated, unbound, unknown semantics
     return r;
   };
