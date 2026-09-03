@@ -11,11 +11,11 @@ import { buildLossClosure, closureCsv } from "@/lib/electrical-load-loss-closure
 function sheet(): Sheet {
   const header = Array.from({ length: 41 }, (_, i) => `Col${i + 1}`);
   header[0] = "Load ID";
-  header[12] = "Circuit Rating Amps";
-  header[16] = "Connected kVA";
-  header[25] = "Generator Start Class";
-  header[26] = "Generator Start Amps";
-  header[31] = "Circuit Group ID";
+  header[13] = "Circuit Rating Amps";
+  header[17] = "Connected kVA";
+  header[24] = "Generator Start Class";
+  header[25] = "Generator Start Amps";
+  header[32] = "Circuit Group ID";
   header[33] = "Existing Panel";
   header[35] = "Installation Status";
   header[36] = "Conduit / Flex Run Complete";
@@ -27,11 +27,11 @@ function sheet(): Sheet {
   const row = (id: string) => {
     const r = Array.from({ length: 41 }, () => "");
     r[0] = id;
-    r[12] = "20";
-    r[16] = "0.6";
-    r[25] = "Across the line";
-    r[26] = "TBD";
-    r[31] = "CG-FS-01";
+    r[13] = "20";
+    r[17] = "0.6";
+    r[24] = "Across the line";
+    r[25] = "TBD";
+    r[32] = "CG-FS-01";
     r[33] = "PNL-FS-NW";
     r[35] = "Planned";
     r[36] = "Y";
@@ -94,7 +94,7 @@ describe("Load_Master semantic-loss closure", () => {
     expect(kva?.preservation_method).toBe("DERIVED_REPRESENTATION");
     expect(kva?.schema_required).toBe(false);
     const legacy = closure.rows.find(
-      (r) => r.physical_column === 32 && r.observed_header === "Circuit Group ID",
+      (r) => r.physical_column === 33 && r.observed_header === "Circuit Group ID",
     );
     expect(legacy?.preservation_method).toBe("LEGACY_FIELD");
     expect(legacy?.schema_required).toBe(false);
