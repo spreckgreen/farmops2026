@@ -120,8 +120,10 @@ export function GridPlanSvg({
           moveFocus(stableId, "last");
           return;
         case "Escape":
-          // Dismiss the helper text but keep focus where it is.
+          // Dismiss the helper text — including the pinned selection — but keep
+          // focus where it is.
           setHovered(null);
+          setDismissed(selectedId ?? null);
           return;
         default:
       }
