@@ -3,7 +3,7 @@
 import { describe, expect, it } from "vitest";
 import { fireEvent, render } from "@testing-library/react";
 import React from "react";
-import { GridPlanSvg } from "@/components/electrical/grid-plan-svg";
+import { GridPlanSvg, hintCardBox } from "@/components/electrical/grid-plan-svg";
 import {
   buildOperationalAssets,
   type OperationalInput,
@@ -301,13 +301,8 @@ describe("helper card never overflows the plan", () => {
     expect(inside(b)).toBe(true);
   });
 
-  it("keeps the rendered card within the viewBox for an east-wall marker", () => {
-    const { container } = render(
-      <GridPlanSvg
-        plotted={[asset({ stableId: "FS-E9", plottedXFt: 59, plottedYFt: 39 })]}
-        selectedId="FS-E9"
-      />,
-    );
+  it("keeps the rendered card within the viewBox for the south-east corner marker", () => {
+    const { container } = render(<GridPlanSvg plotted={corners} selectedId="FS-F9" />);
     const rect = container.querySelector("g[data-hint-card] rect")!;
     const x = Number(rect.getAttribute("x"));
     const y = Number(rect.getAttribute("y"));
