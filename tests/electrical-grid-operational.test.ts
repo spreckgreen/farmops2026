@@ -123,7 +123,8 @@ describe("operational classification", () => {
     expect(s.total).toBe(5);
     expect(sum).toBe(s.total);
     expect(s.plotted + s.unplotted).toBe(s.total);
-    expect(s.precision.GRIDLINE).toBe(2);
+    expect(s.precision.GRIDLINE).toBe(1);
+    expect(s.precision.NEAREST).toBe(1);
   });
 
   it("groups the walkaround queue and flags post-install changes", () => {
