@@ -14,7 +14,12 @@
 // engineering/business logic and therefore must be queryable.
 //
 // Nothing here writes a FarmOps record or emits a schema migration.
-import type { BoundColumn, ContractBinding, FieldSimulation } from "./electrical-load-import-contract";
+import type {
+  BoundColumn,
+  ContractBinding,
+  FieldSimulation,
+  UnresolvedCell,
+} from "./electrical-load-import-contract";
 
 export const LOSS_CLOSURE_VERSION = "load_master.contract.v2.loss-closure.v1";
 
@@ -71,6 +76,8 @@ export interface ClosureReport {
     removed_by_structured_preservation: number;
     removed_with_zero_semantic_content: number;
     remaining_unresolved: number;
+    /** Loss cells removed, split by the exact preservation method. */
+    by_method: Record<PreservationMethod, number>;
   };
   closes: boolean;
 }
@@ -351,6 +358,19 @@ export function buildLossClosure(
       (r) => r.preservation_method === "INTENTIONALLY_IGNORED_WITH_ZERO_SEMANTIC_CONTENT",
     ),
     remaining_unresolved: sumWhere((r) => r.preservation_method === "UNRESOLVED"),
+    by_method: {
+      FIRST_CLASS_FIELD: sumWhere((r) => r.preservation_method === "FIRST_CLASS_FIELD"),
+      AS_BUILT_FIRST_CLASS_FIELD: sumWhere(
+        (r) => r.preservation_method === "AS_BUILT_FIRST_CLASS_FIELD",
+      ),
+      STRUCTURED_ODS_EXTRA: sumWhere((r) => r.preservation_method === "STRUCTURED_ODS_EXTRA"),
+      LEGACY_FIELD: sumWhere((r) => r.preservation_method === "LEGACY_FIELD"),
+      DERIVED_REPRESENTATION: sumWhere((r) => r.preservation_method === "DERIVED_REPRESENTATION"),
+      INTENTIONALLY_IGNORED_WITH_ZERO_SEMANTIC_CONTENT: sumWhere(
+        (r) => r.preservation_method === "INTENTIONALLY_IGNORED_WITH_ZERO_SEMANTIC_CONTENT",
+      ),
+      UNRESOLVED: sumWhere((r) => r.preservation_method === "UNRESOLVED"),
+    },
   };
 
   const seen = new Set<string>();
@@ -398,6 +418,58 @@ export function closureCsv(report: ClosureReport): string {
         String(r.semantic_loss_cells),
         r.preserved_at,
         r.note,
+      ]
+        .map(csvCell)
+        .join(","),
+    );
+  }
+  return lines.join("\n");
+}
+
+/* ------------------------------------------- remaining unresolved cell detail */
+
+export interface UnresolvedCellDetail extends UnresolvedCell {
+  /** What the owner must decide before this cell can be called lossless. */
+  proposed_owner_disposition: string;
+}
+
+/**
+ * Cell-level detail for the cells that are still UNRESOLVED after closure —
+ * i.e. cells in unbound columns whose preservation method could not be
+ * established from the workbook alone. Read-only; no disposition is applied.
+ */
+export function unresolvedCellDetail(
+  report: ClosureReport,
+  cells: UnresolvedCell[],
+): UnresolvedCellDetail[] {
+  const unresolvedColumns = new Set(
+    report.rows.filter((r) => r.preservation_method === "UNRESOLVED").map((r) => r.physical_column),
+  );
+  return cells
+    .filter((c) => unresolvedColumns.has(c.physical_column))
+    .map((c) => ({
+      ...c,
+      proposed_owner_disposition: c.observed_header.trim()
+        ? `Confirm the engineering meaning of header "${c.observed_header}" at physical column ${c.physical_column}, then bind it as a first-class field or accept STRUCTURED_ODS_EXTRA preservation.`
+        : `Unnamed physical column ${c.physical_column}. Owner must state the field identity (or declare the column abandoned) before any preservation claim; until then the value stays semantic loss.`,
+    }));
+}
+
+export function unresolvedCellCsv(details: UnresolvedCellDetail[]): string {
+  const lines = [
+    "physical_column,observed_header,expected_header,row,stable_id,raw_value,surrounding_headers,proposed_owner_disposition",
+  ];
+  for (const d of details) {
+    lines.push(
+      [
+        String(d.physical_column),
+        d.observed_header || "(blank)",
+        d.expected_header,
+        String(d.row),
+        d.stable_id,
+        d.raw_value,
+        d.surrounding_headers,
+        d.proposed_owner_disposition,
       ]
         .map(csvCell)
         .join(","),

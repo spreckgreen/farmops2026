@@ -30,7 +30,12 @@ import {
   simulationCsv,
   type ImportAction,
 } from "@/lib/electrical-load-import-contract";
-import { buildLossClosure, closureCsv } from "@/lib/electrical-load-loss-closure";
+import {
+  buildLossClosure,
+  closureCsv,
+  unresolvedCellCsv,
+  unresolvedCellDetail,
+} from "@/lib/electrical-load-loss-closure";
 
 export const Route = createFileRoute("/electrical/import-contract")({
   component: ImportContractPage,
@@ -125,6 +130,11 @@ function ImportContractPage() {
   const closure = useMemo(
     () => (result ? buildLossClosure(result.binding, result.fields, result.row_count) : null),
     [result],
+  );
+
+  const unresolvedCells = useMemo(
+    () => (result && closure ? unresolvedCellDetail(closure, result.unresolved_cells ?? []) : []),
+    [result, closure],
   );
 
   return (
@@ -394,15 +404,24 @@ function ImportContractPage() {
                   where the field drives engineering or business logic and must be queryable.
                   Critical-load rules are untouched. Nothing here writes a record or a migration.
                 </p>
-                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                   {[
-                    ["semantic loss before", closure!.totals.semantic_loss_before],
-                    ["removed by first-class fields", closure!.totals.removed_by_first_class],
+                    ["loss before", closure!.totals.semantic_loss_before],
+                    ["removed by FIRST_CLASS_FIELD", closure!.totals.by_method.FIRST_CLASS_FIELD],
                     [
-                      "removed by structured preservation",
-                      closure!.totals.removed_by_structured_preservation,
+                      "removed by AS_BUILT_FIRST_CLASS_FIELD",
+                      closure!.totals.by_method.AS_BUILT_FIRST_CLASS_FIELD,
                     ],
-                    ["zero semantic content", closure!.totals.removed_with_zero_semantic_content],
+                    [
+                      "removed by STRUCTURED_ODS_EXTRA",
+                      closure!.totals.by_method.STRUCTURED_ODS_EXTRA,
+                    ],
+                    ["removed by LEGACY_FIELD", closure!.totals.by_method.LEGACY_FIELD],
+                    [
+                      "removed by DERIVED_REPRESENTATION",
+                      closure!.totals.by_method.DERIVED_REPRESENTATION,
+                    ],
+                    ["zero-content", closure!.totals.removed_with_zero_semantic_content],
                     ["remaining unresolved", closure!.totals.remaining_unresolved],
                   ].map(([label, value]) => (
                     <div key={String(label)} className="rounded-md border border-border p-2">
@@ -436,6 +455,62 @@ function ImportContractPage() {
                 >
                   <Download className="h-4 w-4" /> Closure CSV
                 </Button>
+                {unresolvedCells.length > 0 && (
+                  <div className="space-y-2 rounded-md border border-destructive/40 p-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-sm font-medium">
+                        Remaining unresolved cells — {unresolvedCells.length}
+                      </p>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="gap-1"
+                        onClick={() =>
+                          download(
+                            "load-master-unresolved-cells.csv",
+                            unresolvedCellCsv(unresolvedCells),
+                            "text/csv",
+                          )
+                        }
+                      >
+                        <Download className="h-4 w-4" /> Unresolved cells CSV
+                      </Button>
+                    </div>
+                    <div className="max-h-80 overflow-auto">
+                      <table className="w-full text-xs">
+                        <thead className="text-left text-muted-foreground">
+                          <tr>
+                            <th className="p-1">#</th>
+                            <th className="p-1">observed_header</th>
+                            <th className="p-1">row</th>
+                            <th className="p-1">stable_id</th>
+                            <th className="p-1">raw_value</th>
+                            <th className="p-1">surrounding_headers</th>
+                            <th className="p-1">proposed owner disposition</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {unresolvedCells.map((c) => (
+                            <tr
+                              key={`${c.physical_column}-${c.row}`}
+                              className="border-t border-border/60 align-top"
+                            >
+                              <td className="p-1 font-mono">{c.physical_column}</td>
+                              <td className="p-1 font-mono">
+                                {c.observed_header || "(blank)"}
+                              </td>
+                              <td className="p-1 font-mono">{c.row}</td>
+                              <td className="p-1 font-mono">{c.stable_id}</td>
+                              <td className="p-1 font-mono">{c.raw_value}</td>
+                              <td className="p-1 font-mono">{c.surrounding_headers}</td>
+                              <td className="p-1">{c.proposed_owner_disposition}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs">
                     <thead className="text-left text-muted-foreground">

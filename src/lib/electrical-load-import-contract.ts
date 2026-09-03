@@ -317,6 +317,18 @@ export interface FieldSimulation {
   note: string;
 }
 
+export interface UnresolvedCell {
+  physical_column: number;
+  observed_header: string;
+  expected_header: string;
+  /** 1-based worksheet row. */
+  row: number;
+  stable_id: string;
+  raw_value: string;
+  /** physical column : observed header for the cell's immediate neighbours. */
+  surrounding_headers: string;
+}
+
 export interface SimulatedRow {
   stable_id: string;
   /** FarmOps-shaped record produced by Contract v2. */
@@ -351,6 +363,8 @@ export interface ContractSimulation {
   };
   accepted: boolean;
   rows: SimulatedRow[];
+  /** Every populated cell in an UNRESOLVED physical column, with row evidence. */
+  unresolved_cells: UnresolvedCell[];
   simulated_rules: RuleSummary;
   canonical_rules: RuleSummary;
   rule_deltas: { metric: string; simulated: string; canonical: string; matches: boolean }[];
@@ -504,6 +518,35 @@ export function simulateContractReimport(input: SimulationInput): ContractSimula
     return stat;
   });
 
+  // Cell-level evidence for every populated cell in an UNRESOLVED physical
+  // column, so owner disposition can be decided per cell rather than per column.
+  const header = sheet.rows[headerRow] ?? [];
+  const neighbours = (pc: number): string => {
+    const at = (i: number) => `${i}:${(header[i - 1] ?? "").trim() || "(blank)"}`;
+    return [pc - 2, pc - 1, pc, pc + 1, pc + 2]
+      .filter((i) => i >= 1)
+      .map(at)
+      .join(" | ");
+  };
+  const unresolved_cells: UnresolvedCell[] = [];
+  for (const col of binding.columns) {
+    if (col.effective_action !== "UNRESOLVED") continue;
+    odsRows.forEach((r) => {
+      const raw = String(sheet.rows[r.sourceRow]?.[col.physical_column - 1] ?? "").trim();
+      if (!raw) return;
+      unresolved_cells.push({
+        physical_column: col.physical_column,
+        observed_header: col.observed_header,
+        expected_header: col.exact_header,
+        // Report 1-based worksheet rows, matching the workbook UI.
+        row: r.sourceRow + 1,
+        stable_id: r.stableId,
+        raw_value: raw,
+        surrounding_headers: neighbours(col.physical_column),
+      });
+    });
+  }
+
   const sum = (k: keyof FieldSimulation): number =>
     fields.reduce((a, f) => a + (typeof f[k] === "number" ? (f[k] as number) : 0), 0);
 
@@ -560,6 +603,7 @@ export function simulateContractReimport(input: SimulationInput): ContractSimula
     totals,
     accepted: totals.semantic_loss === 0,
     rows,
+    unresolved_cells,
     simulated_rules,
     canonical_rules,
     rule_deltas,
