@@ -26,8 +26,11 @@ import {
   type VerificationStatus,
 } from "@/lib/electrical-grid-operational";
 import { AXIS_COLS, AXIS_ROWS } from "@/lib/electrical-grid-map";
-import planImage from "@/assets/farm-shop-grid-plan.png";
-import { GridPlanSvg } from "@/components/electrical/grid-plan-svg";
+import { GridPlanSvg, PROPOSED_LED_HEX } from "@/components/electrical/grid-plan-svg";
+import {
+  PLAN_ASPECT_RATIO,
+  PROPOSED_OVERHEAD_LED_LEGEND,
+} from "@/lib/electrical-grid-plan-geometry";
 import { CollapsibleGroup } from "@/components/electrical/collapsible-section";
 import { cn } from "@/lib/utils";
 
@@ -96,6 +99,7 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
   const [install, setInstall] = useState("ALL");
   const [verify, setVerify] = useState<"ALL" | VerificationStatus>("ALL");
   const [selected, setSelected] = useState<string | null>(null);
+  const [showLeds, setShowLeds] = useState(false);
   const [printMode, setPrintMode] = usePrintMode();
   const [saving, setSaving] = useState(false);
   // Stamped at the moment a sheet is produced, so the header time is the
@@ -156,8 +160,9 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
       }`,
       `Install status: ${install === "ALL" ? "all" : install}`,
       `Field verification: ${verify === "ALL" ? "all" : VERIFICATION_LABEL[verify]}`,
+      `Overhead lighting layer: ${showLeds ? "proposed 2 x 5 LED layout shown" : "hidden"}`,
     ],
-    [panelLabel, kinds, precisions, install, verify, allKinds],
+    [panelLabel, kinds, precisions, install, verify, allKinds, showLeds],
   );
 
   const discrepancies = q.data
@@ -193,7 +198,6 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
     setSaving(true);
     try {
       const mod = await import("@/lib/electrical-grid-map-pdf");
-      const plan = await mod.loadPlanImage(planImage);
       const printedAt = new Date();
       setGeneratedAt(printedAt);
       const doc = mod.renderGridMapPdf({
@@ -205,8 +209,7 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
         impreciseCount: discrepancies,
         includeDataQuality: mode === "with-dq",
         filterSummary,
-        planDataUrl: plan.dataUrl,
-        planSize: { width: plan.width, height: plan.height },
+        showProposedLeds: showLeds,
         printedAt,
       });
       const name = mod.gridMapPdfFileName(panelLabel, printedAt);
@@ -332,6 +335,14 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
                     {ASSET_KIND_LABEL[k]} ({assets.filter((a) => a.kind === k).length})
                   </Chip>
                 ))}
+                <span className="ml-2 mr-1 text-xs text-muted-foreground">Layers:</span>
+                <Chip
+                  active={showLeds}
+                  onClick={() => setShowLeds((v) => !v)}
+                  title="Proposed design layout only — not field verified and not tied to a record."
+                >
+                  Overhead lighting — proposed (10)
+                </Chip>
               </div>
 
               <div className="flex flex-wrap items-center gap-1.5">
@@ -396,7 +407,7 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
             <div
               className="mx-auto w-full rounded-md border border-border bg-white"
               style={{
-                maxWidth: `max(28rem, calc((100vh - ${large ? "20rem" : "26rem"}) * ${(1448 / 1086).toFixed(4)}))`,
+                maxWidth: `max(28rem, calc((100vh - ${large ? "20rem" : "26rem"}) * ${PLAN_ASPECT_RATIO.toFixed(4)}))`,
               }}
             >
               <GridPlanSvg
@@ -404,6 +415,7 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
                 selectedId={selected}
                 onSelect={setSelected}
                 markerScale={large ? 1 : 0.8}
+                showProposedLeds={showLeds}
               />
             </div>
 
@@ -417,6 +429,16 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
               {q.data!.gaps.length ? ` · ${q.data!.gaps.length} record gap(s)` : ""} — detail in Data
               quality below.
             </p>
+            {showLeds ? (
+              <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <span
+                  aria-hidden
+                  className="inline-block h-2.5 w-2.5 rounded-full border-2"
+                  style={{ borderColor: PROPOSED_LED_HEX, background: "#fef3c7" }}
+                />
+                {PROPOSED_OVERHEAD_LED_LEGEND} — design/proposed centres, not field verified.
+              </p>
+            ) : null}
 
             {chosen ? <AssetDetail asset={chosen} /> : null}
 
@@ -511,7 +533,12 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
         </p>
         <p className="text-[11px]">Filters — {filterSummary.join(" · ")}</p>
         <div className="mt-2 w-full border border-black">
-          <GridPlanSvg plotted={plotted} interactive={false} markerScale={0.8} />
+          <GridPlanSvg
+            plotted={plotted}
+            interactive={false}
+            markerScale={0.8}
+            showProposedLeds={showLeds}
+          />
         </div>
         <p className="mt-1 text-[11px]">
           {plotted.length} of {filtered.length} record(s) plotted · {unplotted.length} not mapped (no

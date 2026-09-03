@@ -8,7 +8,7 @@ import {
   buildOperationalAssets,
   type OperationalInput,
 } from "@/lib/electrical-grid-operational";
-import { PLAN_ANCHORS_PX, PLAN_VIEW_BOX, feetToPlanPx } from "@/lib/electrical-grid-plan-geometry";
+import { PLAN_VIEW_BOX } from "@/lib/electrical-grid-plan-geometry";
 
 const row = (stableId: string, gridReference: string): OperationalInput => ({
   kind: "load",
@@ -46,7 +46,7 @@ const corners = buildOperationalAssets([
 
 function markerCentre(container: HTMLElement, stableId: string) {
   const g = container.querySelector(`[data-stable-id="${stableId}"]`)!;
-  const shape = g.querySelector("circle, rect")!;
+  const shape = g.querySelector("circle:not([data-anchor-dot]), rect")!;
   if (shape.tagName === "circle") {
     return { x: Number(shape.getAttribute("cx")), y: Number(shape.getAttribute("cy")) };
   }
@@ -58,37 +58,48 @@ function markerCentre(container: HTMLElement, stableId: string) {
 }
 
 describe("grid plan svg", () => {
-  it("uses one fixed viewBox for the plan and the markers", () => {
+  it("draws the building in physical feet with no raster image", () => {
     const { container } = render(<GridPlanSvg plotted={corners} />);
     const svg = container.querySelector("svg")!;
-    expect(svg.getAttribute("viewBox")).toBe(PLAN_VIEW_BOX);
-    // The plan image is inside the same SVG, drawn at the viewBox origin.
-    const image = container.querySelector("image")!;
-    expect(image.getAttribute("x")).toBe("0");
-    expect(image.getAttribute("y")).toBe("0");
+    expect(svg.getAttribute("viewBox")).toBe("0 0 60 40");
+    expect(PLAN_VIEW_BOX).toBe("0 0 60 40");
+    expect(svg.getAttribute("preserveAspectRatio")).toBe("xMidYMid meet");
+    expect(container.querySelector("image")).toBeNull();
+    expect(container.querySelector('[preserveAspectRatio="none"]')).toBeNull();
   });
 
-  it("pins the corner anchors to the wall centrelines", () => {
+  it("puts every gridline on its specified feet coordinate", () => {
     const { container } = render(<GridPlanSvg plotted={corners} />);
-    expect(markerCentre(container, "FS-A1")).toEqual({
-      x: PLAN_ANCHORS_PX.westWallX,
-      y: PLAN_ANCHORS_PX.northWallY,
-    });
-    expect(markerCentre(container, "FS-A9")).toEqual({
-      x: PLAN_ANCHORS_PX.eastWallX,
-      y: PLAN_ANCHORS_PX.northWallY,
-    });
-    expect(markerCentre(container, "FS-F1")).toEqual({
-      x: PLAN_ANCHORS_PX.westWallX,
-      y: PLAN_ANCHORS_PX.southWallY,
-    });
-    expect(markerCentre(container, "FS-F9")).toEqual({
-      x: PLAN_ANCHORS_PX.eastWallX,
-      y: PLAN_ANCHORS_PX.southWallY,
-    });
-    const d5 = feetToPlanPx(32, 24);
-    expect(markerCentre(container, "FS-D5").x).toBeCloseTo(d5.x, 6);
-    expect(markerCentre(container, "FS-D5").y).toBeCloseTo(d5.y, 6);
+    const cols = Array.from(container.querySelectorAll("line[data-grid-col]"));
+    expect(cols.map((l) => Number(l.getAttribute("x1")))).toEqual([
+      0, 8, 16, 24, 32, 40, 48, 56, 60,
+    ]);
+    for (const l of cols) expect(l.getAttribute("x1")).toBe(l.getAttribute("x2"));
+    const rows = Array.from(container.querySelectorAll("line[data-grid-row]"));
+    expect(rows.map((l) => Number(l.getAttribute("y1")))).toEqual([0, 8, 16, 24, 32, 40]);
+    // 8 -> 9 (56 -> 60 ft) is exactly half the drawn width of 48 -> 56 ft.
+    const x = (i: number) => Number(cols[i]!.getAttribute("x1"));
+    expect(x(8) - x(7)).toBe((x(7) - x(6)) / 2);
+  });
+
+  it("draws the NE man door at X 52.5-55.5 ft on the north wall", () => {
+    const { container } = render(<GridPlanSvg plotted={corners} />);
+    const g = container.querySelector('[data-opening="MAN DOOR (NE)"]')!;
+    expect(g.getAttribute("data-start-ft")).toBe("52.5");
+    expect(g.getAttribute("data-end-ft")).toBe("55.5");
+    const line = g.querySelector("line")!;
+    expect(Number(line.getAttribute("x1"))).toBe(52.5);
+    expect(Number(line.getAttribute("x2"))).toBe(55.5);
+    expect(Number(line.getAttribute("y1"))).toBe(0);
+  });
+
+  it("pins the corner anchors to their physical feet", () => {
+    const { container } = render(<GridPlanSvg plotted={corners} />);
+    expect(markerCentre(container, "FS-A1")).toEqual({ x: 0, y: 0 });
+    expect(markerCentre(container, "FS-A9")).toEqual({ x: 60, y: 0 });
+    expect(markerCentre(container, "FS-F1")).toEqual({ x: 0, y: 40 });
+    expect(markerCentre(container, "FS-F9")).toEqual({ x: 60, y: 40 });
+    expect(markerCentre(container, "FS-D5")).toEqual({ x: 32, y: 24 });
   });
 
   it("keeps marker coordinates unchanged across container widths and marker scales", () => {
@@ -104,7 +115,49 @@ describe("grid plan svg", () => {
     }
     expect(seen.size).toBe(1);
   });
+
+  it("collapses co-located records into one exact-anchor cluster badge", () => {
+    const stacked = buildOperationalAssets([
+      row("FS-S1", "C4"),
+      row("FS-S2", "C4"),
+      row("FS-S3", "C4"),
+    ]);
+    const { container } = render(<GridPlanSvg plotted={stacked} />);
+    const markers = Array.from(container.querySelectorAll("[data-stable-id]"));
+    expect(markers).toHaveLength(1);
+    expect(markers[0]!.getAttribute("data-cluster-size")).toBe("3");
+    // The single marker stays exactly on the shared anchor: nothing is nudged.
+    expect(markerCentre(container, "FS-S1")).toEqual({ x: 24, y: 16 });
+
+    // Selecting a member spiders the group apart, away from the anchor.
+    const expanded = render(<GridPlanSvg plotted={stacked} selectedId="FS-S2" />);
+    expect(Array.from(expanded.container.querySelectorAll("[data-stable-id]"))).toHaveLength(3);
+    const s3 = markerCentre(expanded.container, "FS-S3");
+    expect(s3.x === 24 && s3.y === 16).toBe(false);
+  });
+
+  it("draws the proposed 2 x 5 overhead LED layer only when enabled", () => {
+    const off = render(<GridPlanSvg plotted={corners} />);
+    expect(off.container.querySelectorAll("[data-proposed-led]")).toHaveLength(0);
+
+    const { container } = render(<GridPlanSvg plotted={corners} showProposedLeds />);
+    const leds = Array.from(container.querySelectorAll("[data-proposed-led]"));
+    expect(leds).toHaveLength(10);
+    expect(leds.map((g) => [Number(g.getAttribute("data-x-ft")), Number(g.getAttribute("data-y-ft"))])).toEqual([
+      [6, 10],
+      [18, 10],
+      [30, 10],
+      [42, 10],
+      [54, 10],
+      [6, 30],
+      [18, 30],
+      [30, 30],
+      [42, 30],
+      [54, 30],
+    ]);
+  });
 });
+
 
 describe("keyboard and ARIA support", () => {
   it("exposes focusable markers with the full helper text as their label", () => {
@@ -183,7 +236,7 @@ describe("helper text follows the selected marker", () => {
     );
     const a1 = container.querySelector('g[data-stable-id="FS-A1"]') as SVGGElement;
     fireEvent.mouseEnter(a1);
-    const hintText = () => container.querySelector("g[pointer-events='none'] text")?.textContent;
+    const hintText = () => container.querySelector("g[data-hint-card] text")?.textContent;
     expect(hintText()).toBe("FS-A1");
     fireEvent.mouseLeave(a1);
     expect(container.textContent).toContain("FS-D5");

@@ -18,6 +18,7 @@ import { Route as ReadyRouteImport } from './routes/ready'
 import { Route as PromoRouteImport } from './routes/promo'
 import { Route as ProjectsRouteImport } from './routes/projects'
 import { Route as ProceduresRouteImport } from './routes/procedures'
+import { Route as PlanGeometryCheckRouteImport } from './routes/plan-geometry-check'
 import { Route as MaintenanceRouteImport } from './routes/maintenance'
 import { Route as InventoryRouteImport } from './routes/inventory'
 import { Route as HealthRouteImport } from './routes/health'
@@ -170,6 +171,11 @@ const ProjectsRoute = ProjectsRouteImport.update({
 const ProceduresRoute = ProceduresRouteImport.update({
   id: '/procedures',
   path: '/procedures',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PlanGeometryCheckRoute = PlanGeometryCheckRouteImport.update({
+  id: '/plan-geometry-check',
+  path: '/plan-geometry-check',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MaintenanceRoute = MaintenanceRouteImport.update({
@@ -735,6 +741,7 @@ export interface FileRoutesByFullPath {
   '/health': typeof HealthRouteWithChildren
   '/inventory': typeof InventoryRoute
   '/maintenance': typeof MaintenanceRouteWithChildren
+  '/plan-geometry-check': typeof PlanGeometryCheckRoute
   '/procedures': typeof ProceduresRouteWithChildren
   '/projects': typeof ProjectsRoute
   '/promo': typeof PromoRoute
@@ -852,6 +859,7 @@ export interface FileRoutesByTo {
   '/deck': typeof DeckRoute
   '/health': typeof HealthRouteWithChildren
   '/inventory': typeof InventoryRoute
+  '/plan-geometry-check': typeof PlanGeometryCheckRoute
   '/projects': typeof ProjectsRoute
   '/promo': typeof PromoRoute
   '/ready': typeof ReadyRoute
@@ -971,6 +979,7 @@ export interface FileRoutesById {
   '/health': typeof HealthRouteWithChildren
   '/inventory': typeof InventoryRoute
   '/maintenance': typeof MaintenanceRouteWithChildren
+  '/plan-geometry-check': typeof PlanGeometryCheckRoute
   '/procedures': typeof ProceduresRouteWithChildren
   '/projects': typeof ProjectsRoute
   '/promo': typeof PromoRoute
@@ -1092,6 +1101,7 @@ export interface FileRouteTypes {
     | '/health'
     | '/inventory'
     | '/maintenance'
+    | '/plan-geometry-check'
     | '/procedures'
     | '/projects'
     | '/promo'
@@ -1209,6 +1219,7 @@ export interface FileRouteTypes {
     | '/deck'
     | '/health'
     | '/inventory'
+    | '/plan-geometry-check'
     | '/projects'
     | '/promo'
     | '/ready'
@@ -1327,6 +1338,7 @@ export interface FileRouteTypes {
     | '/health'
     | '/inventory'
     | '/maintenance'
+    | '/plan-geometry-check'
     | '/procedures'
     | '/projects'
     | '/promo'
@@ -1447,6 +1459,7 @@ export interface RootRouteChildren {
   HealthRoute: typeof HealthRouteWithChildren
   InventoryRoute: typeof InventoryRoute
   MaintenanceRoute: typeof MaintenanceRouteWithChildren
+  PlanGeometryCheckRoute: typeof PlanGeometryCheckRoute
   ProceduresRoute: typeof ProceduresRouteWithChildren
   ProjectsRoute: typeof ProjectsRoute
   PromoRoute: typeof PromoRoute
@@ -1599,6 +1612,13 @@ declare module '@tanstack/react-router' {
       path: '/procedures'
       fullPath: '/procedures'
       preLoaderRoute: typeof ProceduresRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/plan-geometry-check': {
+      id: '/plan-geometry-check'
+      path: '/plan-geometry-check'
+      fullPath: '/plan-geometry-check'
+      preLoaderRoute: typeof PlanGeometryCheckRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/maintenance': {
@@ -2460,6 +2480,7 @@ const rootRouteChildren: RootRouteChildren = {
   HealthRoute: HealthRouteWithChildren,
   InventoryRoute: InventoryRoute,
   MaintenanceRoute: MaintenanceRouteWithChildren,
+  PlanGeometryCheckRoute: PlanGeometryCheckRoute,
   ProceduresRoute: ProceduresRouteWithChildren,
   ProjectsRoute: ProjectsRoute,
   PromoRoute: PromoRoute,

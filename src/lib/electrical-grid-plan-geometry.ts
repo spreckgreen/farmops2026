@@ -1,133 +1,153 @@
-// Farm Shop plan geometry — the single documented feet → drawing transform.
+// Farm Shop plan geometry — coordinate-native, in physical feet.
 //
-// Every consumer (screen SVG, print SVG, PDF export) places the plan drawing and
-// every marker in ONE coordinate system: the drawing's own pixel space, used as
-// an SVG viewBox. Nothing is positioned from viewport size, page coordinates or
-// separately measured elements, so a marker stays attached to the same physical
-// location at any window size, device pixel ratio or browser zoom level.
+// There is exactly one coordinate system: the building's own feet. The SVG
+// viewBox IS the building area, `0 0 60 40`, so a drawing unit is one foot and
+// every wall, gridline, opening, marker and proposed fixture is placed from its
+// physical dimension. Nothing is calibrated against a raster drawing, no pixel
+// anchors exist, and `preserveAspectRatio="none"` is never used — so browser
+// zoom, window size and device pixel ratio cannot shift anything relative to
+// anything else.
 //
-// The anchors below are measured from the drawing itself (wall centrelines and
-// the orange grid markers on the west wall), not guessed percentages:
-//
-//   west wall  (column 1, 0 ft)  x = 185 px
-//   east wall  (column 9, 60 ft) x = 1253 px
-//   north wall (row A, 0 ft)     y = 210 px
-//   south wall (row F, 40 ft)    y = 826 px
-//
-// The drawing is not uniformly scaled (1068 px across 60 ft, 616 px across
-// 40 ft), so X and Y carry their own scale. That is a property of the drawing
-// and is why the transform must be applied per axis instead of assuming a
-// square scale.
+// Origin is the north-west corner (A1). X grows east across 60 ft, Y grows
+// south across 40 ft. A9 = north-east, F1 = south-west, F9 = south-east.
 import { SHOP_DEPTH_FT, SHOP_WIDTH_FT } from "@/lib/electrical-grid-migration";
 
-export const PLAN_GEOMETRY_VERSION = "farm-shop-plan-geometry-2";
+export const PLAN_GEOMETRY_VERSION = "farm-shop-plan-geometry-3-coordinate-native";
 
-/** Intrinsic pixel size of the bundled plan drawing. */
-export const PLAN_IMAGE = { width: 1448, height: 1086 } as const;
-
-/** Measured building envelope inside the drawing, in drawing pixels. */
-export const PLAN_ANCHORS_PX = {
-  westWallX: 185,
-  eastWallX: 1253,
-  northWallY: 210,
-  southWallY: 826,
+/** The building envelope, in feet. This is also the SVG viewBox. */
+export const PLAN_BUILDING = {
+  left: 0,
+  top: 0,
+  width: SHOP_WIDTH_FT,
+  height: SHOP_DEPTH_FT,
 } as const;
 
-export const PLAN_VIEW_BOX = `0 0 ${PLAN_IMAGE.width} ${PLAN_IMAGE.height}`;
+/** Exactly 60:40 — the drawn aspect ratio equals the physical one. */
+export const PLAN_ASPECT_RATIO = SHOP_WIDTH_FT / SHOP_DEPTH_FT;
 
-const buildingLeft = PLAN_ANCHORS_PX.westWallX;
-const buildingTop = PLAN_ANCHORS_PX.northWallY;
-const buildingWidth = PLAN_ANCHORS_PX.eastWallX - PLAN_ANCHORS_PX.westWallX;
-const buildingHeight = PLAN_ANCHORS_PX.southWallY - PLAN_ANCHORS_PX.northWallY;
-
-export const PLAN_BUILDING_PX = {
-  left: buildingLeft,
-  top: buildingTop,
-  width: buildingWidth,
-  height: buildingHeight,
-} as const;
+export const PLAN_VIEW_BOX = `0 0 ${SHOP_WIDTH_FT} ${SHOP_DEPTH_FT}`;
 
 /**
- * The one documented transformation. Origin is the north-west corner; X grows
- * east across 60 ft, Y grows south across 40 ft.
+ * Feet → drawing units. The transform is the identity by construction:
  *
- *   screenX = buildingLeft + (xFeet / 60) * buildingWidth
- *   screenY = buildingTop  + (yFeet / 40) * buildingHeight
+ *   drawX = xFeet, drawY = yFeet
+ *
+ * Consumers that render into an arbitrary rectangle (the PDF export) use
+ * `feetToPlanFraction` and multiply by their own rectangle instead.
  */
-export function feetToPlanPx(xFt: number, yFt: number): { x: number; y: number } {
-  return {
-    x: buildingLeft + (xFt / SHOP_WIDTH_FT) * buildingWidth,
-    y: buildingTop + (yFt / SHOP_DEPTH_FT) * buildingHeight,
-  };
+export function feetToPlan(xFt: number, yFt: number): { x: number; y: number } {
+  return { x: xFt, y: yFt };
 }
 
-/** Inverse transform, used by tests and by any pointer-driven inspection. */
-export function planPxToFeet(x: number, y: number): { xFt: number; yFt: number } {
-  return {
-    xFt: ((x - buildingLeft) / buildingWidth) * SHOP_WIDTH_FT,
-    yFt: ((y - buildingTop) / buildingHeight) * SHOP_DEPTH_FT,
-  };
+/** Retained name used across the map, print and test code. */
+export const feetToPlanPx = feetToPlan;
+
+export function planToFeet(x: number, y: number): { xFt: number; yFt: number } {
+  return { xFt: x, yFt: y };
 }
 
-/**
- * Building envelope as a fraction of the drawing (0–1). Only for raster targets
- * such as the PDF export, which draws the same image into a known rectangle and
- * therefore needs the same anchors expressed relative to the image.
- */
-export const PLAN_BUILDING_FRACTION = {
-  left: buildingLeft / PLAN_IMAGE.width,
-  top: buildingTop / PLAN_IMAGE.height,
-  width: buildingWidth / PLAN_IMAGE.width,
-  height: buildingHeight / PLAN_IMAGE.height,
-} as const;
+export const planPxToFeet = planToFeet;
 
-/** Feet → fraction of the drawing, for the raster PDF path. */
+/** Feet → fraction of the building envelope (0–1), for foreign rectangles. */
 export function feetToPlanFraction(xFt: number, yFt: number): { fx: number; fy: number } {
-  const p = feetToPlanPx(xFt, yFt);
-  return { fx: p.x / PLAN_IMAGE.width, fy: p.y / PLAN_IMAGE.height };
+  return { fx: xFt / SHOP_WIDTH_FT, fy: yFt / SHOP_DEPTH_FT };
 }
 
-/**
- * Openings drawn on the accepted plan, with the drawn dimension strings that
- * define them. Used by the alignment regression tests.
- */
-export const PLAN_OPENINGS: {
+/** The building envelope as a fraction of itself — kept for raster consumers. */
+export const PLAN_BUILDING_FRACTION = { left: 0, top: 0, width: 1, height: 1 } as const;
+
+/* ------------------------------------------------------------ wall openings */
+
+export interface PlanOpening {
   id: string;
   wall: "north" | "west" | "south" | "east";
+  /** Physical span along the wall, in feet from the north-west corner. */
+  startFt: number;
+  endFt: number;
   centreXFt: number;
   centreYFt: number;
-  /** Pixel span of the graphic on the drawing, where one is drawn to scale. */
-  drawnSpanPx?: [number, number];
+  kind: "overhead_door" | "man_door" | "window";
   evidence: string;
-}[] = [
-  {
-    id: "GD2",
-    wall: "north",
-    centreXFt: 9.9,
-    centreYFt: 0,
-    drawnSpanPx: [300, 453],
-    evidence: "GD2 12'x12' overhead door spans 3'-10 1/2\" to 15'-10 1/2\" on the north wall.",
-  },
-  {
-    id: "GD1",
-    wall: "north",
-    centreXFt: 30.1,
-    centreYFt: 0,
-    drawnSpanPx: [619, 772],
-    evidence: "GD1 12'x12' overhead door spans 24'-1 1/2\" to 36'-1 1/2\" on the north wall.",
-  },
-  {
-    id: "MAN DOOR (NE)",
-    wall: "north",
-    centreXFt: 57,
-    centreYFt: 0,
-    evidence: "MAN DOOR (NE), 3'-0\" wide, spans 55'-6\" to 58'-6\" on the north wall.",
-  },
+}
+
+const northOpening = (
+  id: string,
+  startFt: number,
+  endFt: number,
+  kind: PlanOpening["kind"],
+  evidence: string,
+): PlanOpening => ({
+  id,
+  wall: "north",
+  startFt,
+  endFt,
+  centreXFt: (startFt + endFt) / 2,
+  centreYFt: 0,
+  kind,
+  evidence,
+});
+
+/** Openings drawn directly in feet from the corrected Farm Shop drawing. */
+export const PLAN_OPENINGS: PlanOpening[] = [
+  northOpening(
+    "GD2",
+    3.875,
+    15.875,
+    "overhead_door",
+    "GD2 12' overhead door spans 3'-10 1/2\" to 15'-10 1/2\" on the north wall.",
+  ),
+  northOpening(
+    "GD1",
+    24,
+    36,
+    "overhead_door",
+    "GD1 12' overhead door spans 24'-0\" to 36'-0\" on the north wall.",
+  ),
+  northOpening(
+    "MAN DOOR (NE)",
+    52.5,
+    55.5,
+    "man_door",
+    "MAN DOOR (NE), 3'-0\" wide, spans 52'-6\" to 55'-6\"; 4'-6\" of wall remains to the NE corner.",
+  ),
   {
     id: "MAN DOOR (SW)",
     wall: "west",
+    startFt: 30.5,
+    endFt: 33.5,
     centreXFt: 0,
     centreYFt: 32,
-    evidence: "MAN DOOR (SW) sits on the west wall about 32 ft south of the north wall.",
+    kind: "man_door",
+    evidence: "MAN DOOR (SW), 3'-0\" wide, on the west wall about 32 ft south of the north wall.",
   },
 ];
+
+/** Wall remaining east of the NE man door, in feet. */
+export const NE_MAN_DOOR_TO_CORNER_FT =
+  SHOP_WIDTH_FT - (PLAN_OPENINGS.find((o) => o.id === "MAN DOOR (NE)")?.endFt ?? 0);
+
+/* -------------------------------------------------- proposed overhead lights */
+
+export interface ProposedFixture {
+  /** Plan order: west-to-east across the northern row, then the southern row. */
+  planOrder: number;
+  xFt: number;
+  yFt: number;
+  row: "north" | "south";
+}
+
+const LED_X_FT = [6, 18, 30, 42, 54] as const;
+
+/**
+ * Proposed 2 x 5 symmetric overhead LED layout. Design/proposed geometry only —
+ * these are not field observations and are not tied to any record until an
+ * approved update assigns them.
+ */
+export const PROPOSED_OVERHEAD_LEDS: ProposedFixture[] = [
+  ...LED_X_FT.map((xFt, i) => ({ planOrder: i + 1, xFt, yFt: 10, row: "north" as const })),
+  ...LED_X_FT.map((xFt, i) => ({ planOrder: i + 6, xFt, yFt: 30, row: "south" as const })),
+];
+
+export const PROPOSED_OVERHEAD_LED_LEGEND = `Overhead LED — Proposed (${PROPOSED_OVERHEAD_LEDS.length})`;
+
+export { SHOP_DEPTH_FT, SHOP_WIDTH_FT };

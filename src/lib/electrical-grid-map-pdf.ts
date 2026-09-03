@@ -9,7 +9,15 @@ import {
   type OperationalAsset,
 } from "@/lib/electrical-grid-operational";
 import { AXIS_COLS, AXIS_ROWS } from "@/lib/electrical-grid-map";
-import { feetToPlanFraction } from "@/lib/electrical-grid-plan-geometry";
+import {
+  PLAN_ASPECT_RATIO,
+  PLAN_OPENINGS,
+  PROPOSED_OVERHEAD_LEDS,
+  PROPOSED_OVERHEAD_LED_LEGEND,
+  SHOP_DEPTH_FT as PLAN_DEPTH_FT,
+  SHOP_WIDTH_FT as PLAN_WIDTH_FT,
+  feetToPlanFraction,
+} from "@/lib/electrical-grid-plan-geometry";
 
 /** Dot colours, matched to the Tailwind swatches used on screen. */
 const PRECISION_RGB: Record<LocationPrecision, [number, number, number]> = {
@@ -43,34 +51,10 @@ export type GridMapPdfInput = {
   impreciseCount: number;
   /** Include the data-quality pages, mirroring the remembered print method. */
   includeDataQuality: boolean;
-  /** Data URL of the plan drawing. */
-  planDataUrl: string;
-  /** Natural pixel size of the plan drawing, for aspect ratio. */
-  planSize: { width: number; height: number };
+  /** Draw the proposed 2 x 5 overhead LED design layer. */
+  showProposedLeds?: boolean;
   printedAt?: Date;
 };
-
-/** Load a bundled image URL as a PNG data URL so jsPDF can embed it. */
-export async function loadPlanImage(
-  src: string,
-): Promise<{ dataUrl: string; width: number; height: number }> {
-  const res = await fetch(src);
-  if (!res.ok) throw new Error(`Could not read the grid plan image (${res.status}).`);
-  const blob = await res.blob();
-  const dataUrl = await new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error("Could not decode the grid plan image."));
-    reader.onload = () => resolve(String(reader.result));
-    reader.readAsDataURL(blob);
-  });
-  const size = await new Promise<{ width: number; height: number }>((resolve, reject) => {
-    const img = new Image();
-    img.onerror = () => reject(new Error("Could not measure the grid plan image."));
-    img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
-    img.src = dataUrl;
-  });
-  return { dataUrl, ...size };
-}
 
 /** File name for a saved grid map, stamped with the print date and panel scope. */
 export function gridMapPdfFileName(panelLabel: string, printedAt = new Date()): string {
@@ -114,16 +98,58 @@ export function renderGridMapPdf(input: GridMapPdfInput): jsPDF {
   const legendW = 128;
   const availW = pageWidth - MARGIN * 2 - legendW;
   const availH = pageHeight - top - 34;
-  const ratio = input.planSize.height / input.planSize.width;
+  const ratio = 1 / PLAN_ASPECT_RATIO;
   const planW = Math.min(availW, availH / ratio);
   const planH = planW * ratio;
   const x0 = MARGIN;
   const y0 = top;
+  const ptPerFt = planW / PLAN_WIDTH_FT;
+  const fx = (xFt: number) => x0 + xFt * ptPerFt;
+  const fy = (yFt: number) => y0 + yFt * (planH / PLAN_DEPTH_FT);
 
-  doc.addImage(input.planDataUrl, "PNG", x0, y0, planW, planH);
-  doc.setDrawColor(0);
-  doc.setLineWidth(0.6);
+  // The plan is drawn from physical feet, not traced from a raster image, so a
+  // printed dot lands exactly where the on-screen SVG marker sits.
+  doc.setFillColor(255, 255, 255);
+  doc.rect(x0, y0, planW, planH, "F");
+  doc.setDrawColor(148, 163, 184);
+  doc.setLineWidth(0.3);
+  for (const c of AXIS_COLS) doc.line(fx(c.xFt), y0, fx(c.xFt), y0 + planH);
+  for (const r of AXIS_ROWS) doc.line(x0, fy(r.yFt), x0 + planW, fy(r.yFt));
+  doc.setFontSize(6);
+  doc.setTextColor(100);
+  for (const c of AXIS_COLS) doc.text(c.label, fx(c.xFt) + 1, y0 + 8);
+  for (const r of AXIS_ROWS) doc.text(r.label, x0 + 2, fy(r.yFt) + 7);
+  doc.setTextColor(0);
+  doc.setDrawColor(15, 23, 42);
+  doc.setLineWidth(1.6);
   doc.rect(x0, y0, planW, planH);
+  for (const o of PLAN_OPENINGS) {
+    doc.setDrawColor(255, 255, 255);
+    doc.setLineWidth(2.6);
+    if (o.wall === "north") doc.line(fx(o.startFt), y0, fx(o.endFt), y0);
+    else doc.line(x0, fy(o.startFt), x0, fy(o.endFt));
+    const [r, g, b] = o.kind === "overhead_door" ? [37, 99, 235] : [14, 165, 233];
+    doc.setDrawColor(r, g, b);
+    doc.setLineWidth(1.4);
+    if (o.wall === "north") doc.line(fx(o.startFt), y0, fx(o.endFt), y0);
+    else doc.line(x0, fy(o.startFt), x0, fy(o.endFt));
+    doc.setFontSize(5.5);
+    doc.setTextColor(r, g, b);
+    if (o.wall === "north") doc.text(o.id, fx(o.centreXFt) - 8, y0 + 16);
+    else doc.text(o.id, x0 + 4, fy(o.centreYFt));
+    doc.setTextColor(0);
+  }
+
+  if (input.showProposedLeds) {
+    doc.setDrawColor(245, 158, 11);
+    doc.setFillColor(254, 243, 199);
+    doc.setLineWidth(0.8);
+    for (const f of PROPOSED_OVERHEAD_LEDS) {
+      doc.circle(fx(f.xFt), fy(f.yFt), 4, "FD");
+      doc.setFontSize(5);
+      doc.text(String(f.planOrder), fx(f.xFt) - 1.4, fy(f.yFt) + 1.8);
+    }
+  }
 
   // Dot placement uses the one documented feet → plan transform.
   for (const a of input.plotted) {
@@ -163,6 +189,15 @@ export function renderGridMapPdf(input: GridMapPdfInput): jsPDF {
   }
   ly += 6;
   doc.setFontSize(8);
+  if (input.showProposedLeds) {
+    doc.setFontSize(7);
+    doc.setDrawColor(245, 158, 11);
+    doc.setFillColor(254, 243, 199);
+    doc.circle(lx + 3, ly - 2.4, 3, "FD");
+    doc.text(PROPOSED_OVERHEAD_LED_LEGEND, lx + 10, ly, { maxWidth: legendW - 12 });
+    ly += 18;
+    doc.setFontSize(8);
+  }
   doc.text("Shapes", lx, ly);
   ly += 11;
   doc.setFontSize(7);
