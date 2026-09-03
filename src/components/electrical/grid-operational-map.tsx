@@ -98,6 +98,9 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
   const [selected, setSelected] = useState<string | null>(null);
   const [printMode, setPrintMode] = usePrintMode();
   const [saving, setSaving] = useState(false);
+  // Stamped at the moment a sheet is produced, so the header time is the
+  // generation time rather than whenever the page happened to render.
+  const [generatedAt, setGeneratedAt] = useState<Date>(() => new Date());
 
   const assets = q.data?.assets ?? [];
 
@@ -124,6 +127,38 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
   const unplotted = filtered.filter((a) => a.xPct == null);
   const chosen = filtered.find((a) => a.stableId === selected) ?? null;
 
+  const allKinds = (Object.keys(ASSET_KIND_LABEL) as AssetKind[]).length;
+  const panelLabel = panel === "ALL" ? "all panels" : panel;
+
+  /** Every active filter, written out so a printed sheet explains its own scope. */
+  const filterSummary = useMemo(
+    () => [
+      `Panel: ${panelLabel}`,
+      `Type: ${
+        kinds.size === allKinds
+          ? "all types"
+          : kinds.size === 0
+            ? "none selected"
+            : (Object.keys(ASSET_KIND_LABEL) as AssetKind[])
+                .filter((k) => kinds.has(k))
+                .map((k) => ASSET_KIND_LABEL[k])
+                .join(", ")
+      }`,
+      `Location precision: ${
+        precisions.size === PRECISION_ORDER.length
+          ? "all precisions"
+          : precisions.size === 0
+            ? "none selected"
+            : PRECISION_ORDER.filter((p) => precisions.has(p))
+                .map((p) => PRECISION_META[p].label)
+                .join(", ")
+      }`,
+      `Install status: ${install === "ALL" ? "all" : install}`,
+      `Field verification: ${verify === "ALL" ? "all" : VERIFICATION_LABEL[verify]}`,
+    ],
+    [panelLabel, kinds, precisions, install, verify, allKinds],
+  );
+
   const discrepancies = q.data
     ? q.data.summary.precision.UNRESOLVED + q.data.summary.precision.INTERVAL
     : 0;
@@ -139,6 +174,7 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
    * the data-quality summary follows the plan on its own page. */
   const print = (mode: PrintMode) => {
     setPrintMode(mode);
+    setGeneratedAt(new Date());
     document.body.dataset["gridMapPrint"] = mode;
     const clear = () => {
       delete document.body.dataset["gridMapPrint"];
@@ -157,8 +193,8 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
     try {
       const mod = await import("@/lib/electrical-grid-map-pdf");
       const plan = await mod.loadPlanImage(planImage);
-      const panelLabel = panel === "ALL" ? "all panels" : panel;
       const printedAt = new Date();
+      setGeneratedAt(printedAt);
       const doc = mod.renderGridMapPdf({
         plotted,
         unplotted,
@@ -167,6 +203,7 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
         filteredCount: filtered.length,
         impreciseCount: discrepancies,
         includeDataQuality: mode === "with-dq",
+        filterSummary,
         planDataUrl: plan.dataUrl,
         planSize: { width: plan.width, height: plan.height },
         printedAt,
@@ -460,11 +497,11 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
           Farm Shop grid map — current install locations
         </h1>
         <p className="text-xs">
-          Printed {new Date().toLocaleString()} · panel filter:{" "}
-          {panel === "ALL" ? "all panels" : panel} · {plotted.length} of {filtered.length} record(s)
-          plotted · {unplotted.length} not mapped
+          Generated {generatedAt.toLocaleString()} ({generatedAt.toISOString()}) · {plotted.length} of{" "}
+          {filtered.length} record(s) plotted · {unplotted.length} not mapped
           {q.data.gaps.length ? ` · ${q.data.gaps.length} record gap(s)` : ""}
         </p>
+        <p className="text-[11px]">Filters — {filterSummary.join(" · ")}</p>
         <div className="relative mt-2 w-full border border-black">
           <img src={planImage} alt="Farm Shop grid plan" className="block h-auto w-full" />
           {plotted.map((a) => {

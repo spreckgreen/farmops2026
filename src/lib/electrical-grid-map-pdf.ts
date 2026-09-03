@@ -35,6 +35,8 @@ export type GridMapPdfInput = {
   gaps: string[];
   /** Human label for the active panel filter, e.g. "PNL-FS-NW" or "all panels". */
   panelLabel: string;
+  /** Every active filter, written out so the sheet explains its own scope. */
+  filterSummary: string[];
   /** Total filtered record count (plotted + unplotted). */
   filteredCount: number;
   /** Imprecise count (INTERVAL + UNRESOLVED) as reported by the loader summary. */
@@ -94,17 +96,21 @@ export function renderGridMapPdf(input: GridMapPdfInput): jsPDF {
   doc.setFontSize(8);
   doc.setTextColor(90);
   doc.text(
-    `Printed ${printedAt.toLocaleString()} · panel filter: ${input.panelLabel} · ` +
+    `Generated ${printedAt.toLocaleString()} (${printedAt.toISOString()}) · ` +
       `${input.plotted.length} of ${input.filteredCount} record(s) plotted · ` +
       `${input.unplotted.length} not mapped` +
       (input.gaps.length ? ` · ${input.gaps.length} record gap(s)` : ""),
     MARGIN,
-    MARGIN + 18,
+    MARGIN + 17,
   );
+  doc.setFontSize(7);
+  doc.text(`Filters — ${input.filterSummary.join(" · ")}`, MARGIN, MARGIN + 27, {
+    maxWidth: pageWidth - MARGIN * 2,
+  });
   doc.setTextColor(0);
 
   // Plan: keep the drawing's own aspect ratio so the frozen geometry is intact.
-  const top = MARGIN + 28;
+  const top = MARGIN + 36;
   const legendW = 128;
   const availW = pageWidth - MARGIN * 2 - legendW;
   const availH = pageHeight - top - 34;
@@ -202,7 +208,16 @@ function renderDataQuality(doc: jsPDF, input: GridMapPdfInput): void {
 
   doc.setFontSize(12);
   doc.text("Data quality", MARGIN, y);
-  y += 18;
+  y += 16;
+  doc.setTextColor(90);
+  line(
+    `Generated ${(input.printedAt ?? new Date()).toLocaleString()} · Filters — ` +
+      input.filterSummary.join(" · "),
+    7.5,
+    10,
+  );
+  doc.setTextColor(0);
+  y += 4;
 
   line(
     `Rows A–F run north→south at ${AXIS_ROWS.map((r) => r.yFt).join("/")} ft; ` +
