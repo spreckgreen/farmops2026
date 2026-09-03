@@ -176,3 +176,11 @@ describe("re-import simulation", () => {
     expect(simulationCsv(sim).split("\n")).toHaveLength(42);
   });
 });
+
+describe("debug", () => {
+  it("dump", () => {
+    const sim = simulateContractReimport({ sheet: sheet(), headerRow: 0, odsRows: rows() });
+    console.log(sim.fields.filter((f) => f.semantic_loss).map((f) => [f.field, f.import_action, f.semantic_loss]));
+    console.log(sim.simulated_rules, sim.canonical_rules);
+  });
+});
