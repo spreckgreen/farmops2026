@@ -160,7 +160,7 @@ export const getMyProfile = createServerFn({ method: "GET" })
 export type ReseedResult = {
   ok: boolean;
   email: string | null;
-  profile: "created" | "updated" | "unchanged";
+  profile: "created" | "created_pending" | "updated" | "unchanged" | "awaiting_admin_approval";
   adminRole: "granted" | "already" | "denied_admins_exist";
   message: string;
 };
