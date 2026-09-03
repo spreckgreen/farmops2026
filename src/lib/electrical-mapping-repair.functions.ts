@@ -53,6 +53,10 @@ const inputSchema = odsBaselineInput.extend({
   confirm: z.boolean().default(false),
   /** Approved mappings as `electrical_loads|<stable_id>|<destination>`. */
   approved: z.array(z.string()).default([]),
+  /** Why this repair is being made (required on apply). */
+  repair_reason: z.string().trim().max(2000).default(""),
+  /** Evidence or field-verification note backing the repair (required on apply). */
+  repair_evidence: z.string().trim().max(2000).default(""),
 });
 
 export interface MappingRepairResult {
@@ -201,7 +205,14 @@ async function runGate(
   db: LooseDb,
   supabase: unknown,
   userId: string,
-  data: { file_name: string; base64: string; confirm: boolean; approved: string[] },
+  data: {
+    file_name: string;
+    base64: string;
+    confirm: boolean;
+    approved: string[];
+    repair_reason?: string;
+    repair_evidence?: string;
+  },
 ): Promise<MappingRepairResult> {
   const generated_at = new Date().toISOString();
   const parsed = await parseCanonical(data);
@@ -357,7 +368,7 @@ async function runGate(
         action: "update",
         entityUuid: base.row_uuid,
         entityRef: base.stable_id,
-        summary: repairAuditSummary(appliedRow),
+        summary: `${repairAuditSummary(appliedRow)} Reason: ${data.repair_reason || "(not stated)"}. Evidence: ${data.repair_evidence || "(not stated)"}.`,
         changes: [
           {
             column: destination,
@@ -436,6 +447,14 @@ export const applyLoadMappingRepair = createServerFn({ method: "POST" })
     if (!parsed.approved.length) {
       throw new Error("No mappings were approved. Nothing was written.");
     }
+    if (parsed.repair_reason.length < 4) {
+      throw new Error("A repair reason is required before any value is written.");
+    }
+    if (parsed.repair_evidence.length < 4) {
+      throw new Error(
+        "Evidence or a field-verification note is required before any value is written.",
+      );
+    }
     return parsed;
   })
   .handler(async ({ context, data }): Promise<MappingRepairResult> => {
@@ -445,5 +464,7 @@ export const applyLoadMappingRepair = createServerFn({ method: "POST" })
       base64: data.base64,
       confirm: true,
       approved: data.approved,
+      repair_reason: data.repair_reason,
+      repair_evidence: data.repair_evidence,
     });
   });
