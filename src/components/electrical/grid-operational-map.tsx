@@ -9,7 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Maximize2, Map as MapIcon, Printer, ShieldAlert } from "lucide-react";
+import { Download, Maximize2, Map as MapIcon, Printer, ShieldAlert } from "lucide-react";
+import { toast } from "sonner";
 import { electricalGridOperational } from "@/lib/electrical-grid-operational.functions";
 import {
   ASSET_KIND_LABEL,
@@ -96,6 +97,7 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
   const [verify, setVerify] = useState<"ALL" | VerificationStatus>("ALL");
   const [selected, setSelected] = useState<string | null>(null);
   const [printMode, setPrintMode] = usePrintMode();
+  const [saving, setSaving] = useState(false);
 
   const assets = q.data?.assets ?? [];
 
@@ -147,6 +149,40 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
     window.setTimeout(clear, 2000);
   };
 
+  /** Save the same rendering as a PDF file, using the remembered method so a
+   * download matches what printing would produce. */
+  const downloadPdf = async (mode: PrintMode) => {
+    setPrintMode(mode);
+    setSaving(true);
+    try {
+      const mod = await import("@/lib/electrical-grid-map-pdf");
+      const plan = await mod.loadPlanImage(planImage);
+      const panelLabel = panel === "ALL" ? "all panels" : panel;
+      const printedAt = new Date();
+      const doc = mod.renderGridMapPdf({
+        plotted,
+        unplotted,
+        gaps: q.data?.gaps ?? [],
+        panelLabel,
+        filteredCount: filtered.length,
+        impreciseCount: discrepancies,
+        includeDataQuality: mode === "with-dq",
+        planDataUrl: plan.dataUrl,
+        planSize: { width: plan.width, height: plan.height },
+        printedAt,
+      });
+      const name = mod.gridMapPdfFileName(panelLabel, printedAt);
+      doc.save(name);
+      toast.success("Grid map PDF saved", { description: name });
+    } catch (err) {
+      toast.error("Could not save the grid map PDF", {
+        description: err instanceof Error ? err.message : String(err),
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <>
     <Card className="grid-map-screen-only">
@@ -181,6 +217,21 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
             >
               <Printer className="mr-1 h-3.5 w-3.5" />
               Print {printMode === "solo" ? "map" : "map + DQ"}
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 rounded-none border-l border-border px-2 text-xs"
+              onClick={() => void downloadPdf(printMode)}
+              disabled={!q.data || saving}
+              title={
+                printMode === "solo"
+                  ? "Download the grid map only as a PDF (remembered choice)"
+                  : "Download the grid map with the data quality summary as a PDF (remembered choice)"
+              }
+            >
+              <Download className="mr-1 h-3.5 w-3.5" />
+              {saving ? "Saving…" : "Download PDF"}
             </Button>
             <select
               className="h-7 border-l border-border bg-background px-1 text-xs"
