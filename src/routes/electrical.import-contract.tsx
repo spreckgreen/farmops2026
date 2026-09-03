@@ -263,7 +263,7 @@ function ImportContractPage() {
         </Card>
 
         <PersistedSection
-          id="import-contract-columns"
+          storageKey="import-contract-columns"
           title={`Contract — ${CONTRACT_COLUMN_COUNT} physical columns`}
           defaultOpen
         >
@@ -322,7 +322,7 @@ function ImportContractPage() {
 
         {result ? (
           <>
-            <PersistedSection id="import-contract-simulation" title="Re-import simulation" defaultOpen>
+            <PersistedSection storageKey="import-contract-simulation" title="Re-import simulation" defaultOpen>
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead className="text-left text-muted-foreground">
@@ -380,7 +380,7 @@ function ImportContractPage() {
             </PersistedSection>
 
             <PersistedSection
-              id="import-contract-rules"
+              storageKey="import-contract-rules"
               title="Critical-load rule reconciliation (simulated vs canonical)"
             >
               <div className="overflow-x-auto">
@@ -411,7 +411,7 @@ function ImportContractPage() {
               </div>
             </PersistedSection>
 
-            <PersistedSection id="import-contract-extra" title="Columns outside the contract">
+            <PersistedSection storageKey="import-contract-extra" title="Columns outside the contract">
               {result.binding.extra_populated_columns.length ? (
                 <ul className="space-y-1 text-xs">
                   {result.binding.extra_populated_columns.map((c) => (
