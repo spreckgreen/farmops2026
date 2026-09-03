@@ -119,7 +119,7 @@ function ReconciliationPage() {
   const h = result?.headline;
 
   return (
-    <ElectricalGate need="read">
+    <ElectricalGate>
       <div className="space-y-4">
         <Card>
           <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-2 pb-2">
