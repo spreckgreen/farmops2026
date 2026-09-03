@@ -14,8 +14,10 @@ import {
   itemQrUrl,
   labelLines,
   shortLabelText,
+  shortRightLines,
   type LabelRecord,
 } from "@/lib/electrical-labels";
+
 import { ENTITIES } from "@/lib/electrical-entities";
 import { cn } from "@/lib/utils";
 
