@@ -5,7 +5,7 @@
 // window size, device pixel ratio and responsive layout cannot move a marker
 // relative to the plan. Positions come only from feetToPlanPx — never from
 // viewport measurements, page coordinates or separately measured elements.
-import { useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { feetToPlanPx, PLAN_IMAGE, PLAN_VIEW_BOX } from "@/lib/electrical-grid-plan-geometry";
 import { AXIS_COLS, AXIS_ROWS } from "@/lib/electrical-grid-map";
 import {
@@ -50,15 +50,96 @@ export function GridPlanSvg({
 }) {
   // Hover helper text: which marker the pointer (or keyboard focus) is on.
   const [hovered, setHovered] = useState<string | null>(null);
+  const [focusedId, setFocusedId] = useState<string | null>(null);
   const hint = interactive ? (plotted.find((a) => a.stableId === hovered) ?? null) : null;
+
+  // Keyboard order: north-to-south, then west-to-east, so arrow keys walk the
+  // plan the same way a reader scans it.
+  const order = useMemo(
+    () =>
+      plotted
+        .filter((a) => a.plottedXFt != null && a.plottedYFt != null)
+        .slice()
+        .sort(
+          (a, b) => (a.plottedYFt ?? 0) - (b.plottedYFt ?? 0) || (a.plottedXFt ?? 0) - (b.plottedXFt ?? 0),
+        )
+        .map((a) => a.stableId),
+    [plotted],
+  );
+  const nodes = useRef(new Map<string, SVGGElement | null>());
+
+  const moveFocus = useCallback(
+    (from: string, delta: number | "first" | "last") => {
+      if (order.length === 0) return;
+      const i = order.indexOf(from);
+      const next =
+        delta === "first"
+          ? 0
+          : delta === "last"
+            ? order.length - 1
+            : (((i === -1 ? 0 : i) + delta + order.length) % order.length);
+      const id = order[next];
+      if (!id) return;
+      nodes.current.get(id)?.focus();
+    },
+    [order],
+  );
+
+  const onMarkerKeyDown = useCallback(
+    (e: React.KeyboardEvent<SVGGElement>, stableId: string) => {
+      switch (e.key) {
+        case "Enter":
+        case " ":
+        case "Spacebar":
+          e.preventDefault();
+          onSelect?.(stableId);
+          setHovered(stableId);
+          return;
+        case "ArrowRight":
+        case "ArrowDown":
+          e.preventDefault();
+          moveFocus(stableId, 1);
+          return;
+        case "ArrowLeft":
+        case "ArrowUp":
+          e.preventDefault();
+          moveFocus(stableId, -1);
+          return;
+        case "Home":
+          e.preventDefault();
+          moveFocus(stableId, "first");
+          return;
+        case "End":
+          e.preventDefault();
+          moveFocus(stableId, "last");
+          return;
+        case "Escape":
+          // Dismiss the helper text but keep focus where it is.
+          setHovered(null);
+          return;
+        default:
+      }
+    },
+    [moveFocus, onSelect],
+  );
+
   return (
     <svg
       viewBox={PLAN_VIEW_BOX}
       className={className ?? "block h-auto w-full select-none"}
-      role="img"
-      aria-label={PLAN_ALT}
+      // Interactive maps must expose their markers, so the plan is a labelled
+      // group; the static (print/PDF) render stays a single image.
+      role={interactive ? "group" : "img"}
+      aria-label={interactive ? `${PLAN_ALT}. ${order.length} markers.` : PLAN_ALT}
+      aria-describedby={interactive ? "grid-plan-keyboard-help" : undefined}
       preserveAspectRatio="xMidYMid meet"
     >
+      {interactive ? (
+        <desc id="grid-plan-keyboard-help">
+          Use Tab to enter the markers, arrow keys or Home and End to move between them, Enter or
+          Space to open the full record, and Escape to dismiss the helper text.
+        </desc>
+      ) : null}
       <image
         href={planImage}
         x={0}
@@ -77,24 +158,34 @@ export function GridPlanSvg({
         const selected = selectedId === a.stableId;
         const r = (selected ? 13 : 9) * markerScale;
         const fill = PRECISION_HEX[a.precision];
-        const label = `${a.stableId} ${a.description ?? ""}`.trim();
+        // Screen readers get the same facts the sighted hover card shows.
+        const label = hintLines(a).join(". ");
+        const focused = focusedId === a.stableId;
         return (
           <g
             key={`${a.kind}-${a.stableId}`}
             {...(interactive
               ? {
+                  ref: (el: SVGGElement | null) => {
+                    nodes.current.set(a.stableId, el);
+                  },
                   role: "button",
                   tabIndex: 0,
                   "aria-label": label,
+                  "aria-pressed": selected,
                   onClick: () => onSelect?.(a.stableId),
+                  onKeyDown: (e: React.KeyboardEvent<SVGGElement>) => onMarkerKeyDown(e, a.stableId),
                   onFocus: () => {
+                    setFocusedId(a.stableId);
                     setHovered(a.stableId);
-                    onSelect?.(a.stableId);
                   },
-                  onBlur: () => setHovered((h) => (h === a.stableId ? null : h)),
+                  onBlur: () => {
+                    setFocusedId((f) => (f === a.stableId ? null : f));
+                    setHovered((h) => (h === a.stableId ? null : h));
+                  },
                   onMouseEnter: () => setHovered(a.stableId),
                   onMouseLeave: () => setHovered((h) => (h === a.stableId ? null : h)),
-                  style: { cursor: "pointer" },
+                  style: { cursor: "pointer", outline: "none" },
                 }
               : {})}
             data-stable-id={a.stableId}
@@ -102,6 +193,29 @@ export function GridPlanSvg({
             data-y-ft={a.plottedYFt}
             data-precision={a.precision}
           >
+            {focused ? (
+              // Visible focus ring, drawn in plan space so it scales with the map.
+              <circle
+                cx={shown.x}
+                cy={shown.y}
+                r={r + 7}
+                fill="none"
+                stroke="#111827"
+                strokeWidth={5}
+                pointerEvents="none"
+              />
+            ) : null}
+            {focused ? (
+              <circle
+                cx={shown.x}
+                cy={shown.y}
+                r={r + 7}
+                fill="none"
+                stroke="#facc15"
+                strokeWidth={3}
+                pointerEvents="none"
+              />
+            ) : null}
             {offset ? (
               <>
                 <line
@@ -162,20 +276,27 @@ export function GridPlanSvg({
   );
 }
 
-/** Hover/focus helper text, drawn inside the same viewBox so it scales with the
- * plan and never drifts at a different browser zoom. */
-function HoverHint({ asset }: { asset: OperationalAsset }) {
-  if (asset.plottedXFt == null || asset.plottedYFt == null) return null;
-  const at = feetToPlanPx(asset.plottedXFt + asset.fanDxFt, asset.plottedYFt + asset.fanDyFt);
-  const lines = [
+/** The helper-text facts, shared by the drawn hover card and the marker's
+ * aria-label, so keyboard and screen-reader users get exactly what a mouse
+ * user sees. */
+export function hintLines(asset: OperationalAsset): string[] {
+  return [
     asset.stableId,
     asset.description ?? "No description in record",
-    `${PRECISION_META[asset.precision].label} · ${asset.plottedXFt} ft E, ${asset.plottedYFt} ft S`,
+    `${PRECISION_META[asset.precision].label} · ${asset.plottedXFt ?? "?"} ft E, ${asset.plottedYFt ?? "?"} ft S`,
     `Panel: ${asset.panel ?? "NOT IN RECORD"} · Install: ${asset.installStatus ?? "NOT IN RECORD"}`,
     `Verification: ${VERIFICATION_LABEL[verificationOf(asset.verification)]}`,
     ...(asset.spanned ? ["Interval — a preserved span, not a final point"] : []),
     ...(asset.placementDisagreement ? ["Placement conflict — see Data quality"] : []),
   ];
+}
+
+/** Hover/focus helper text, drawn inside the same viewBox so it scales with the
+ * plan and never drifts at a different browser zoom. */
+function HoverHint({ asset }: { asset: OperationalAsset }) {
+  if (asset.plottedXFt == null || asset.plottedYFt == null) return null;
+  const at = feetToPlanPx(asset.plottedXFt + asset.fanDxFt, asset.plottedYFt + asset.fanDyFt);
+  const lines = hintLines(asset);
   const fontSize = 22;
   const pad = 12;
   const lineH = fontSize * 1.35;
