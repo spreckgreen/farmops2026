@@ -317,6 +317,18 @@ export interface FieldSimulation {
   note: string;
 }
 
+export interface UnresolvedCell {
+  physical_column: number;
+  observed_header: string;
+  expected_header: string;
+  /** 1-based worksheet row. */
+  row: number;
+  stable_id: string;
+  raw_value: string;
+  /** physical column : observed header for the cell's immediate neighbours. */
+  surrounding_headers: string;
+}
+
 export interface SimulatedRow {
   stable_id: string;
   /** FarmOps-shaped record produced by Contract v2. */
@@ -351,6 +363,8 @@ export interface ContractSimulation {
   };
   accepted: boolean;
   rows: SimulatedRow[];
+  /** Every populated cell in an UNRESOLVED physical column, with row evidence. */
+  unresolved_cells: UnresolvedCell[];
   simulated_rules: RuleSummary;
   canonical_rules: RuleSummary;
   rule_deltas: { metric: string; simulated: string; canonical: string; matches: boolean }[];
@@ -589,6 +603,7 @@ export function simulateContractReimport(input: SimulationInput): ContractSimula
     totals,
     accepted: totals.semantic_loss === 0,
     rows,
+    unresolved_cells,
     simulated_rules,
     canonical_rules,
     rule_deltas,
