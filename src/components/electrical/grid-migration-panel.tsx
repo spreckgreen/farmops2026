@@ -55,7 +55,7 @@ function download(name: string, body: string) {
   URL.revokeObjectURL(url);
 }
 
-export function GridMigrationPanel() {
+export function GridMigrationPanel({ readOnly = false }: { readOnly?: boolean }) {
   const load = useServerFn(previewFarmShopGridMigration);
   const [filter, setFilter] = useState("");
   const [only, setOnly] = useState<GridConfidence | "">("");
@@ -81,7 +81,7 @@ export function GridMigrationPanel() {
   return (
     <>
       <div className="space-y-3">
-        <GridApplyGate />
+        {readOnly ? null : <GridApplyGate />}
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-base">
