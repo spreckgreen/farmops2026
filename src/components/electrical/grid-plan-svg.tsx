@@ -678,3 +678,99 @@ function ProposedLedLayer() {
     </g>
   );
 }
+
+/** Approved design vs latest field observation.
+ *
+ * Design positions are drawn as dashed squares, verified field positions as
+ * small crosses, and the two are joined by a leader line. A mismatch beyond
+ * tolerance gets a red halo and its separation in feet — the layer reports the
+ * disagreement, it never resolves it. */
+function DesignFieldLayer({ pairs }: { pairs: DesignFieldPair[] }) {
+  return (
+    <g pointerEvents="none" data-layer="design-vs-field">
+      {pairs.map((p) => {
+        const hex = DESIGN_FIELD_HEX[p.status];
+        const mismatch = p.status === "MISMATCH";
+        const title = `${p.stableId} — ${DESIGN_FIELD_STATUS_LABEL[p.status]}`;
+        return (
+          <g
+            key={`dvf-${p.stableId}`}
+            data-design-field={p.stableId}
+            data-design-field-status={p.status}
+            data-delta-ft={p.deltaFt ?? ""}
+          >
+            <title>{title}</title>
+            {p.designXFt != null && p.designYFt != null ? (
+              <rect
+                data-design-marker
+                x={p.designXFt - 0.55}
+                y={p.designYFt - 0.55}
+                width={1.1}
+                height={1.1}
+                fill="none"
+                stroke={hex}
+                strokeWidth={0.16}
+                strokeDasharray="0.35 0.22"
+              />
+            ) : null}
+            {p.fieldXFt != null && p.fieldYFt != null ? (
+              <g data-field-marker stroke={hex} strokeWidth={0.16}>
+                <line
+                  x1={p.fieldXFt - 0.5}
+                  y1={p.fieldYFt - 0.5}
+                  x2={p.fieldXFt + 0.5}
+                  y2={p.fieldYFt + 0.5}
+                />
+                <line
+                  x1={p.fieldXFt + 0.5}
+                  y1={p.fieldYFt - 0.5}
+                  x2={p.fieldXFt - 0.5}
+                  y2={p.fieldYFt + 0.5}
+                />
+              </g>
+            ) : null}
+            {p.designXFt != null &&
+            p.designYFt != null &&
+            p.fieldXFt != null &&
+            p.fieldYFt != null ? (
+              <line
+                data-design-field-leader
+                x1={p.designXFt}
+                y1={p.designYFt}
+                x2={p.fieldXFt}
+                y2={p.fieldYFt}
+                stroke={hex}
+                strokeWidth={mismatch ? 0.2 : 0.12}
+                strokeDasharray={mismatch ? undefined : "0.3 0.25"}
+              />
+            ) : null}
+            {mismatch && p.fieldXFt != null && p.fieldYFt != null ? (
+              <>
+                <circle
+                  data-mismatch-halo
+                  cx={p.fieldXFt}
+                  cy={p.fieldYFt}
+                  r={1.5}
+                  fill="none"
+                  stroke={hex}
+                  strokeWidth={0.22}
+                  strokeOpacity={0.85}
+                />
+                <text
+                  x={p.fieldXFt}
+                  y={p.fieldYFt - 1.9}
+                  fontSize={0.85}
+                  textAnchor="middle"
+                  fill={hex}
+                  fontFamily="ui-sans-serif, system-ui, sans-serif"
+                >
+                  {p.deltaFt} ft off
+                </text>
+              </>
+            ) : null}
+          </g>
+        );
+      })}
+    </g>
+  );
+}
