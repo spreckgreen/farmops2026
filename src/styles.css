@@ -285,3 +285,17 @@ html:not(.dark) {
   /* Wide data tables scroll instead of squeezing text to unreadable widths. */
   .overflow-x-auto > table, table { font-size: 0.875rem; }
 }
+
+/* ---------- Farm Shop grid map printing (/electrical/grid-map) ----------
+ * The screen keeps its filters and collapsible drawers; printing emits only the
+ * dedicated print region so the sheet is the plan (and, optionally, the data
+ * quality summary) rather than the whole application chrome.
+ */
+.grid-map-print-region { display: none; }
+@media print {
+  body[data-grid-map-print] .grid-map-screen-only { display: none !important; }
+  body[data-grid-map-print] .grid-map-print-region { display: block; }
+  body[data-grid-map-print="solo"] .grid-map-print-dq { display: none !important; }
+  .grid-map-print-region img { max-width: 100%; }
+  .grid-map-print-dq { break-before: page; page-break-before: always; }
+}

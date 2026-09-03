@@ -1,7 +1,7 @@
 // Operational Farm Shop grid map: plots current FarmOps install locations on the
 // corrected 40' x 60' drawing. Presentation only — it plots what
 // electricalGridOperational supplies and never invents a location.
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Maximize2, Map as MapIcon, ShieldAlert } from "lucide-react";
+import { Maximize2, Map as MapIcon, Printer, ShieldAlert } from "lucide-react";
 import { electricalGridOperational } from "@/lib/electrical-grid-operational.functions";
 import {
   ASSET_KIND_LABEL,
@@ -58,6 +58,31 @@ function Chip({
   );
 }
 
+const PRINT_MODE_KEY = "farmops.grid-map.print-mode";
+type PrintMode = "solo" | "with-dq";
+
+/** Remembered print choice: plan only, or plan plus the data-quality summary. */
+function usePrintMode(): [PrintMode, (next: PrintMode) => void] {
+  const [mode, setMode] = useState<PrintMode>("solo");
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(PRINT_MODE_KEY);
+      if (saved === "solo" || saved === "with-dq") setMode(saved);
+    } catch {
+      // Storage unavailable; keep the default.
+    }
+  }, []);
+  const apply = (next: PrintMode) => {
+    setMode(next);
+    try {
+      window.localStorage.setItem(PRINT_MODE_KEY, next);
+    } catch {
+      // Persistence is a convenience only.
+    }
+  };
+  return [mode, apply];
+}
+
 export function GridOperationalMap({ large = false }: { large?: boolean }) {
   const fetcher = useServerFn(electricalGridOperational);
   const q = useQuery({ queryKey: ["electrical", "grid-operational"], queryFn: () => fetcher() });
@@ -70,8 +95,10 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
   const [install, setInstall] = useState("ALL");
   const [verify, setVerify] = useState<"ALL" | VerificationStatus>("ALL");
   const [selected, setSelected] = useState<string | null>(null);
+  const [printMode, setPrintMode] = usePrintMode();
 
   const assets = q.data?.assets ?? [];
+
 
   const installStatuses = useMemo(
     () => [...new Set(assets.map((a) => a.installStatus).filter(Boolean) as string[])].sort(),
@@ -106,8 +133,25 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
     apply(next);
   };
 
+  /** Print the dedicated print region only; the remembered mode decides whether
+   * the data-quality summary follows the plan on its own page. */
+  const print = (mode: PrintMode) => {
+    setPrintMode(mode);
+    document.body.dataset["gridMapPrint"] = mode;
+    const clear = () => {
+      delete document.body.dataset["gridMapPrint"];
+      window.removeEventListener("afterprint", clear);
+    };
+    window.addEventListener("afterprint", clear);
+    window.print();
+    window.setTimeout(clear, 2000);
+  };
+
   return (
-    <Card>
+    <>
+    <Card className="grid-map-screen-only">
+
+
       <CardHeader className="pb-2 flex-row items-center justify-between gap-2">
         <CardTitle className="text-base flex items-center gap-2">
           <MapIcon className="h-4 w-4" />
@@ -123,6 +167,31 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
               </Badge>
             </Link>
           </Button>
+          <div className="flex items-center rounded border border-border">
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 rounded-none px-2 text-xs"
+              onClick={() => print(printMode)}
+              title={
+                printMode === "solo"
+                  ? "Print the grid map only (remembered choice)"
+                  : "Print the grid map with the data quality summary (remembered choice)"
+              }
+            >
+              <Printer className="mr-1 h-3.5 w-3.5" />
+              Print {printMode === "solo" ? "map" : "map + DQ"}
+            </Button>
+            <select
+              className="h-7 border-l border-border bg-background px-1 text-xs"
+              value={printMode}
+              onChange={(e) => setPrintMode(e.target.value as PrintMode)}
+              aria-label="Print method"
+            >
+              <option value="solo">Map only</option>
+              <option value="with-dq">Map + data quality</option>
+            </select>
+          </div>
           {large ? null : (
             <Button asChild size="sm" variant="outline" className="h-7 px-2 text-xs">
               <Link to="/electrical/grid-map">
@@ -131,6 +200,7 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
               </Link>
             </Button>
           )}
+
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -330,8 +400,82 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
         )}
       </CardContent>
     </Card>
+
+    {/* Dedicated print region: the same plotted records, rendered without
+        controls. Data quality only follows when that method is chosen. */}
+    {q.data ? (
+      <div className="grid-map-print-region text-black">
+        <h1 className="text-lg font-semibold">
+          Farm Shop grid map — current install locations
+        </h1>
+        <p className="text-xs">
+          Printed {new Date().toLocaleString()} · panel filter:{" "}
+          {panel === "ALL" ? "all panels" : panel} · {plotted.length} of {filtered.length} record(s)
+          plotted · {unplotted.length} not mapped
+          {q.data.gaps.length ? ` · ${q.data.gaps.length} record gap(s)` : ""}
+        </p>
+        <div className="relative mt-2 w-full border border-black">
+          <img src={planImage} alt="Farm Shop grid plan" className="block h-auto w-full" />
+          {plotted.map((a) => {
+            const left = PLAN.left + ((a.xPct ?? 0) / 100) * (PLAN.right - PLAN.left);
+            const top = PLAN.top + ((a.yPct ?? 0) / 100) * (PLAN.bottom - PLAN.top);
+            return (
+              <span
+                key={`print-${a.kind}-${a.stableId}`}
+                className={cn(
+                  "absolute block h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2",
+                  PRECISION_META[a.precision].dot,
+                  a.kind === "panel" ? "rounded-sm" : "rounded-full",
+                )}
+                style={{ left: `${left}%`, top: `${top}%` }}
+              />
+            );
+          })}
+        </div>
+        <p className="mt-1 text-[11px]">
+          {plotted.length} of {filtered.length} record(s) plotted · {unplotted.length} not mapped (no
+          permanent location in the record)
+          {q.data.gaps.length ? ` · ${q.data.gaps.length} record gap(s)` : ""}
+        </p>
+
+        <div className="grid-map-print-dq mt-4 space-y-2">
+          <h2 className="text-base font-semibold">Data quality</h2>
+          <p className="text-[11px]">
+            Rows A–F run north→south at {AXIS_ROWS.map((r) => r.yFt).join("/")} ft; columns 1–9 run
+            west→east at {AXIS_COLS.map((c) => c.xFt).join("/")} ft. Interval dots mark a preserved
+            span, not a final install point. Mobile and unresolved records are never snapped onto the
+            drawing.
+          </p>
+          <p className="text-[11px] font-medium">
+            {unplotted.length} not mapped · {discrepancies} imprecise · {q.data.gaps.length} record
+            gap(s)
+          </p>
+          {unplotted.length ? (
+            <ul className="text-[11px]">
+              {unplotted.map((a) => (
+                <li key={`print-dq-${a.kind}-${a.stableId}`}>
+                  <span className="font-mono">{a.stableId}</span> —{" "}
+                  {PRECISION_META[a.precision].label}
+                  {a.precisionBasis ? ` — ${a.precisionBasis}` : ""}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {q.data.gaps.length ? (
+            <div className="text-[11px]">
+              <p className="font-medium">Record gaps</p>
+              {q.data.gaps.map((g, i) => (
+                <p key={i}>{g}</p>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      </div>
+    ) : null}
+    </>
   );
 }
+
 
 export function AssetDetail({ asset }: { asset: OperationalAsset }) {
   const rows: [string, string][] = [
