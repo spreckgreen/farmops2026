@@ -70,15 +70,25 @@ describe("operational classification", () => {
     expect(assets.map((a) => a.precision)).toEqual(["NON_FIXED", "UNRESOLVED", "UNRESOLVED"]);
   });
 
-  it("keeps intervals as intervals and prefers recorded X/Y", () => {
+  // Recorded X/Y no longer wins by default: it must be a verified field
+  // observation that is the current installed location.
+  it("keeps intervals as intervals and prefers verified field-observation X/Y", () => {
     const [interval, recorded] = buildOperationalAssets([
       row({ stableId: "FS-200", grid: "C3", gridReference: "C-D2-3" }),
-      row({ stableId: "FS-201", grid: "B4", xFt: 21, yFt: 9, storedPrecision: "NEAREST" }),
+      row({
+        stableId: "FS-201",
+        grid: "B4",
+        xFt: 21,
+        yFt: 9,
+        storedPrecision: "NEAREST",
+        verification: "VERIFIED_AS_INSTALLED",
+        installStatus: "complete",
+      }),
     ]);
     expect(interval!.precision).toBe("INTERVAL");
     expect(interval!.spanned).toBe(true);
     expect(recorded!.precision).toBe("NEAREST");
-    expect(recorded!.locationSource).toBe("RECORDED_XY");
+    expect(recorded!.locationSource).toBe("VERIFIED_FIELD_OBSERVATION_XY");
     expect(recorded!.plottedXFt).toBe(21);
   });
 

@@ -29,11 +29,17 @@ import {
   type RecoveryRow,
 } from "@/lib/electrical-grid-recovery";
 import { AXIS_COLS, AXIS_ROWS } from "@/lib/electrical-grid-map";
+import { PLAN_BUILDING_FRACTION } from "@/lib/electrical-grid-plan-geometry";
 import planImage from "@/assets/farm-shop-grid-plan.png";
 import { cn } from "@/lib/utils";
 
 /** Plan envelope inside the drawing, measured from the grid corner markers. */
-const PLAN = { left: 12.91, right: 86.4, top: 19.52, bottom: 75.97 };
+const PLAN = {
+  left: PLAN_BUILDING_FRACTION.left * 100,
+  top: PLAN_BUILDING_FRACTION.top * 100,
+  right: (PLAN_BUILDING_FRACTION.left + PLAN_BUILDING_FRACTION.width) * 100,
+  bottom: (PLAN_BUILDING_FRACTION.top + PLAN_BUILDING_FRACTION.height) * 100,
+};
 
 async function fileToBase64(file: File): Promise<string> {
   const buf = new Uint8Array(await file.arrayBuffer());
