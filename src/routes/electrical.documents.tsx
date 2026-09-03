@@ -7,12 +7,23 @@
 // totals and a content digest — printed on the cover, repeated in the footer of
 // every page, written into the PDF metadata and encoded in the filename. The
 // verifier on this screen answers "is the print in my hand still the truth?".
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { CheckCircle2, FileDown, FileText, Grid3x3, RefreshCw, Tag, TriangleAlert } from "lucide-react";
+import {
+  Archive,
+  CheckCircle2,
+  FileDown,
+  FileText,
+  Grid3x3,
+  History,
+  RefreshCw,
+  Tag,
+  TriangleAlert,
+  Upload,
+} from "lucide-react";
 
 import { ElectricalGate } from "@/components/electrical/electrical-gate";
 import { requireAuthenticatedUser } from "@/lib/auth-route";
@@ -37,6 +48,21 @@ import {
   type DocType,
   type VersionStamp,
 } from "@/lib/electrical-doc-version";
+import {
+  buildVersionedBundleFile,
+  parseVersionedBundleFile,
+  verifyVersionedBundleFile,
+  versionedBundleFileName,
+  type BundleIntegrity,
+  type VersionedBundleFile,
+} from "@/lib/electrical-bundle-version";
+import {
+  clearDocVersionHistory,
+  docVersionHistory,
+  historyCsv,
+  recordDocVersion,
+  type DocVersionHistoryEntry,
+} from "@/lib/electrical-doc-history";
 import { LABEL_KINDS, type LabelKind } from "@/lib/electrical-labels";
 import { ENTITIES } from "@/lib/electrical-entities";
 import { Button } from "@/components/ui/button";
