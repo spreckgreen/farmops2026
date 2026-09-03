@@ -87,7 +87,13 @@ export function GridPlanSvg({
                   tabIndex: 0,
                   "aria-label": label,
                   onClick: () => onSelect?.(a.stableId),
-                  onFocus: () => onSelect?.(a.stableId),
+                  onFocus: () => {
+                    setHovered(a.stableId);
+                    onSelect?.(a.stableId);
+                  },
+                  onBlur: () => setHovered((h) => (h === a.stableId ? null : h)),
+                  onMouseEnter: () => setHovered(a.stableId),
+                  onMouseLeave: () => setHovered((h) => (h === a.stableId ? null : h)),
                   style: { cursor: "pointer" },
                 }
               : {})}
