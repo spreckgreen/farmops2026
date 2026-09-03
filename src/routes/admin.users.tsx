@@ -930,8 +930,9 @@ function AiFeaturesButton({ userId, email }: { userId: string; email: string | n
             <DialogTitle>AI features</DialogTitle>
             <DialogDescription>
               <span className="font-mono">{email ?? userId}</span> — tick the Electrical AI
-              scenarios they may run. This enables the scenario only: it never widens which
-              records they can read, and AI never writes an electrical record.
+              scenarios they may run. Unticking a scenario switches it off for them even when
+              their add-on would otherwise allow it. This enables the scenario only: it never
+              widens which records they can read, and AI never writes an electrical record.
             </DialogDescription>
           </DialogHeader>
 
