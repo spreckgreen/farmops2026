@@ -133,8 +133,23 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
     apply(next);
   };
 
+  /** Print the dedicated print region only; the remembered mode decides whether
+   * the data-quality summary follows the plan on its own page. */
+  const print = (mode: PrintMode) => {
+    setPrintMode(mode);
+    document.body.dataset["gridMapPrint"] = mode;
+    const clear = () => {
+      delete document.body.dataset["gridMapPrint"];
+      window.removeEventListener("afterprint", clear);
+    };
+    window.addEventListener("afterprint", clear);
+    window.print();
+    window.setTimeout(clear, 2000);
+  };
+
   return (
-    <Card>
+    <Card className="grid-map-screen-only">
+
       <CardHeader className="pb-2 flex-row items-center justify-between gap-2">
         <CardTitle className="text-base flex items-center gap-2">
           <MapIcon className="h-4 w-4" />
