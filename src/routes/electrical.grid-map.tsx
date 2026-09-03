@@ -1,7 +1,7 @@
 // Full-screen Farm Shop grid map.
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ElectricalGate } from "@/components/electrical/electrical-gate";
-import { GridMapPanel } from "@/components/electrical/grid-map-panel";
+import { GridOperationalMap } from "@/components/electrical/grid-operational-map";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 
@@ -40,7 +40,7 @@ function GridMapPage() {
             </Link>
           </Button>
         </div>
-        <GridMapPanel large />
+        <GridOperationalMap large />
       </div>
     </ElectricalGate>
   );

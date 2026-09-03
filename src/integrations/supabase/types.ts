@@ -1641,8 +1641,12 @@ export type Database = {
           demand_va: number | null
           description: string | null
           design_circuit_ampacity: number | null
+          design_grid: string | null
+          design_x_ft: number | null
+          design_y_ft: number | null
           equipment_fla: number | null
           equipment_model: string | null
+          field_verification_status: string | null
           future: boolean | null
           grid: string | null
           grid_migration_provenance: string | null
@@ -1656,6 +1660,7 @@ export type Database = {
           load_id: string
           load_shed_group: string | null
           location: string | null
+          location_evidence: string | null
           location_x_ft: number | null
           location_y_ft: number | null
           maximum_overcurrent_protection: number | null
@@ -1681,6 +1686,8 @@ export type Database = {
           suggested_panel: string | null
           updated_at: string
           user_id: string
+          verification_notes: string | null
+          verified_at: string | null
           volts: number | null
         }
         Insert: {
@@ -1708,8 +1715,12 @@ export type Database = {
           demand_va?: number | null
           description?: string | null
           design_circuit_ampacity?: number | null
+          design_grid?: string | null
+          design_x_ft?: number | null
+          design_y_ft?: number | null
           equipment_fla?: number | null
           equipment_model?: string | null
+          field_verification_status?: string | null
           future?: boolean | null
           grid?: string | null
           grid_migration_provenance?: string | null
@@ -1723,6 +1734,7 @@ export type Database = {
           load_id: string
           load_shed_group?: string | null
           location?: string | null
+          location_evidence?: string | null
           location_x_ft?: number | null
           location_y_ft?: number | null
           maximum_overcurrent_protection?: number | null
@@ -1748,6 +1760,8 @@ export type Database = {
           suggested_panel?: string | null
           updated_at?: string
           user_id: string
+          verification_notes?: string | null
+          verified_at?: string | null
           volts?: number | null
         }
         Update: {
@@ -1775,8 +1789,12 @@ export type Database = {
           demand_va?: number | null
           description?: string | null
           design_circuit_ampacity?: number | null
+          design_grid?: string | null
+          design_x_ft?: number | null
+          design_y_ft?: number | null
           equipment_fla?: number | null
           equipment_model?: string | null
+          field_verification_status?: string | null
           future?: boolean | null
           grid?: string | null
           grid_migration_provenance?: string | null
@@ -1790,6 +1808,7 @@ export type Database = {
           load_id?: string
           load_shed_group?: string | null
           location?: string | null
+          location_evidence?: string | null
           location_x_ft?: number | null
           location_y_ft?: number | null
           maximum_overcurrent_protection?: number | null
@@ -1815,6 +1834,8 @@ export type Database = {
           suggested_panel?: string | null
           updated_at?: string
           user_id?: string
+          verification_notes?: string | null
+          verified_at?: string | null
           volts?: number | null
         }
         Relationships: [
@@ -2049,7 +2070,11 @@ export type Database = {
           completion_percent: number
           created_at: string
           description: string | null
+          design_grid: string | null
+          design_x_ft: number | null
+          design_y_ft: number | null
           feeder_source: string | null
+          field_verification_status: string | null
           grid: string | null
           grid_migration_provenance: string | null
           grid_reference: string | null
@@ -2058,6 +2083,7 @@ export type Database = {
           install_status: string
           label_status: string
           legacy_grid: string | null
+          location_evidence: string | null
           location_x_ft: number | null
           location_y_ft: number | null
           notes: string | null
@@ -2070,6 +2096,8 @@ export type Database = {
           system_voltage_applied_at: string | null
           updated_at: string
           user_id: string
+          verification_notes: string | null
+          verified_at: string | null
           voltage: number | null
         }
         Insert: {
@@ -2081,7 +2109,11 @@ export type Database = {
           completion_percent?: number
           created_at?: string
           description?: string | null
+          design_grid?: string | null
+          design_x_ft?: number | null
+          design_y_ft?: number | null
           feeder_source?: string | null
+          field_verification_status?: string | null
           grid?: string | null
           grid_migration_provenance?: string | null
           grid_reference?: string | null
@@ -2090,6 +2122,7 @@ export type Database = {
           install_status?: string
           label_status?: string
           legacy_grid?: string | null
+          location_evidence?: string | null
           location_x_ft?: number | null
           location_y_ft?: number | null
           notes?: string | null
@@ -2102,6 +2135,8 @@ export type Database = {
           system_voltage_applied_at?: string | null
           updated_at?: string
           user_id: string
+          verification_notes?: string | null
+          verified_at?: string | null
           voltage?: number | null
         }
         Update: {
@@ -2113,7 +2148,11 @@ export type Database = {
           completion_percent?: number
           created_at?: string
           description?: string | null
+          design_grid?: string | null
+          design_x_ft?: number | null
+          design_y_ft?: number | null
           feeder_source?: string | null
+          field_verification_status?: string | null
           grid?: string | null
           grid_migration_provenance?: string | null
           grid_reference?: string | null
@@ -2122,6 +2161,7 @@ export type Database = {
           install_status?: string
           label_status?: string
           legacy_grid?: string | null
+          location_evidence?: string | null
           location_x_ft?: number | null
           location_y_ft?: number | null
           notes?: string | null
@@ -2134,6 +2174,8 @@ export type Database = {
           system_voltage_applied_at?: string | null
           updated_at?: string
           user_id?: string
+          verification_notes?: string | null
+          verified_at?: string | null
           voltage?: number | null
         }
         Relationships: []

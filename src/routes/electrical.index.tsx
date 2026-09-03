@@ -5,7 +5,7 @@ import { ElectricalGate } from "@/components/electrical/electrical-gate";
 import { electricalOverview } from "@/lib/electrical.functions";
 import { ENTITIES, ENTITY_KINDS } from "@/lib/electrical-entities";
 import { installStatusLabel } from "@/lib/electrical";
-import { GridMapPanel } from "@/components/electrical/grid-map-panel";
+import { GridOperationalMap } from "@/components/electrical/grid-operational-map";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -77,7 +77,7 @@ function Overview() {
         ))}
       </div>
 
-      <GridMapPanel />
+      <GridOperationalMap />
 
       <Card>
         <CardHeader className="pb-2">
