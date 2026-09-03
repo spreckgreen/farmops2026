@@ -230,6 +230,19 @@ elif [ -z "$ENV_FILE" ]; then
 fi
 
 # --- 2. Build ---------------------------------------------------------------
+# Size the builder's Node heap from real host memory. Too low -> the Nitro pass
+# is SIGKILLed by the OOM killer; too high -> the host swaps/dies. Rule of thumb:
+# MemAvailable minus a 1.5 GB reserve for kernel + docker + running containers,
+# clamped to 1536..4096 MB. Override by exporting NODE_HEAP_MB before running.
+if [ -z "${NODE_HEAP_MB:-}" ]; then
+  avail_mb=$(awk '/MemAvailable/{printf "%d", $2/1024}' /proc/meminfo 2>/dev/null || echo 0)
+  heap=$(( avail_mb - 1536 ))
+  [ "$heap" -lt 1536 ] && heap=1536
+  [ "$heap" -gt 4096 ] && heap=4096
+  NODE_HEAP_MB="$heap"
+  log "Host MemAvailable=${avail_mb}MB -> NODE_HEAP_MB=${NODE_HEAP_MB}"
+fi
+export NODE_HEAP_MB
 log "Building app image (BuildKit cache will short-circuit unchanged layers)"
 DOCKER_BUILDKIT=1 "${DOCKER[@]}" compose build app
 

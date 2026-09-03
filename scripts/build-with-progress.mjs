@@ -86,11 +86,32 @@ log(`node=${process.version} platform=${process.platform} cwd=${process.cwd()}`)
 log(`NITRO_PRESET=${process.env.NITRO_PRESET ?? "(default)"} BUILD_LOW_MEM=${process.env.BUILD_LOW_MEM ?? "0"}`);
 log(`heap cap=${HEAP_CAP ?? "(node default)"}MB host=${HOST ? `${HOST.totalMB}MB total, ${HOST.availMB}MB avail` : "(unknown)"}`);
 
-const args = ["vite", "build", ...process.argv.slice(2)];
-const child = spawn("bunx", args, {
+// IMPORTANT: run Vite under **node**, not `bunx`.
+// Bun's JS engine ignores NODE_OPTIONS=--max-old-space-size, so the heap cap
+// above is silently dropped and the Nitro/SSR pass grows until the host OOM
+// killer SIGKILLs it (symptom: `signal=SIGKILL`, host-avail near 0 MB, while
+// wrapper-rss stays tiny because the memory is in the child). Node honours the
+// cap and fails with a clean heap error instead of taking the host down.
+import { existsSync } from "node:fs";
+import path from "node:path";
+
+const viteBin = ["node_modules/vite/bin/vite.js", "../node_modules/vite/bin/vite.js"]
+  .map((p) => path.resolve(process.cwd(), p))
+  .find((p) => existsSync(p));
+
+const viteArgs = ["build", ...process.argv.slice(2)];
+const spawnCmd = viteBin ? process.execPath : "bunx";
+const spawnArgs = viteBin ? [viteBin, ...viteArgs] : ["vite", ...viteArgs];
+log(
+  viteBin
+    ? `runner: node ${path.relative(process.cwd(), viteBin)} (heap cap enforced)`
+    : `runner: bunx vite (vite bin not found — WARNING: heap cap is NOT enforced under bun)`,
+);
+const child = spawn(spawnCmd, spawnArgs, {
   stdio: ["ignore", "pipe", "pipe"],
   env: { ...process.env, FORCE_COLOR: "0" },
 });
+
 
 
 let lastOutput = performance.now();

@@ -10,6 +10,9 @@ services:
         VITE_SUPABASE_PROJECT_ID: ${VITE_SUPABASE_PROJECT_ID:?Set VITE_SUPABASE_PROJECT_ID in the Compose environment}
         # Lets refresh.sh detect a git pull performed before the script ran.
         APP_REVISION: ${APP_REVISION:-unknown}
+        # Node heap cap for the Vite/Nitro build. refresh.sh computes this from
+        # host MemAvailable; falls back to the Dockerfile default when unset.
+        NODE_HEAP_MB: ${NODE_HEAP_MB:-1536}
         # UID/GID default to 1001; override below or via .env to match host user
         UID: ${UID:-1001}
         GID: ${GID:-1001}
