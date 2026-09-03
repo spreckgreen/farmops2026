@@ -165,6 +165,10 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
   const unplotted = filtered.filter((a) => a.xPct == null);
   const chosen = filtered.find((a) => a.stableId === selected) ?? null;
 
+  // Design vs field: derived from positions the records already state.
+  const designField = useMemo(() => designFieldOverlay(filtered), [filtered]);
+
+
   const allKinds = (Object.keys(ASSET_KIND_LABEL) as AssetKind[]).length;
   const panelLabel = panel === "ALL" ? "all panels" : panel;
 
