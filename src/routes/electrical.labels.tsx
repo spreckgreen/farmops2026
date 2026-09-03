@@ -434,11 +434,16 @@ function PanelLabelsPage() {
             <style
               dangerouslySetInnerHTML={{
                 __html:
-                  "@media print { .label-section { break-before: page; page-break-before: always; } .label-section:first-of-type { break-before: auto; page-break-before: auto; } }",
+                  // Every group starts a fresh sheet except the very first one in the
+                  // whole run. :first-of-type can't express that here, because each
+                  // group div lives inside its own per-kind <section>, so it would
+                  // exempt the first group of every kind and drop the break between
+                  // kinds entirely. The explicit first-group class is parent-agnostic.
+                  "@media print { .label-section { break-before: page; page-break-before: always; } .label-section.label-section-first { break-before: auto; page-break-before: auto; } }",
               }}
             />
 
-            {sections.map((section) => (
+            {sections.map((section, sectionIndex) => (
               <section key={section.kind} className="space-y-2">
                 {kinds.length > 1 ? (
                   <h2 className="flex items-center gap-2 text-sm font-semibold print:hidden">
@@ -449,8 +454,14 @@ function PanelLabelsPage() {
                 {(LABEL_FORMATS[format].short
                   ? labelWalkGroups(section.records)
                   : [{ key: section.kind, location: "", panel: "", records: section.records }]
-                ).map((group) => (
-                  <div key={group.key} className="label-section space-y-1">
+                ).map((group, groupIndex) => (
+                  <div
+                    key={group.key}
+                    className={`label-section space-y-1${
+                      sectionIndex === 0 && groupIndex === 0 ? " label-section-first" : ""
+                    }`}
+                  >
+
                     {LABEL_FORMATS[format].short && (group.location || group.panel) ? (
                       <h3 className="text-xs font-semibold text-muted-foreground">
                         {[group.location || "No location", group.panel || "No panel"].join(" · ")}
