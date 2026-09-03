@@ -1,43 +1,85 @@
-# Continuous Raceway Preview Defect Correction
+# FarmOps Product Architecture — Design Document
 
-## Goal
-Make the QA orphan finding and correction preview use one deterministic candidate-resolution path, expose the rejection reason for every orphan-path junction box, and prove the exact `CON-104` production topology without writing any records.
+Deliverable for this phase: a written design only. No runtime code, schema, billing, or entitlement changes. Output is `docs/PRODUCT_ARCHITECTURE.md` plus a read-only in-app page at `/docs/product-architecture` that renders the same content so it is browsable inside the app.
 
-## Implementation
+## What the document defines
 
-1. **Create one shared pure candidate resolver**
-   - Add a pure resolver in the continuous-raceway topology module that receives a junction box plus the visible raceway rows.
-   - Return the full decision record: junction-box ID/UUID, extracted path and encoded position, current raceway UUID/sequence, matching raceway IDs/UUIDs, endpoint evidence, status, and explicit rejection reason.
-   - Treat `CON-104.dest_jbox_uuid = JB-104-01` as supporting evidence, not a conflict or a requirement for downstream boxes.
-   - Require one unique matching continuous raceway for an automatic proposal; retain explicit ambiguous/no-match/conflict results instead of dropping rows.
+### 1. Product shape
 
-2. **Unify QA and preview matching**
-   - Replace the independent `orphan_path_topology` path lookup with the shared resolver.
-   - Build `planJboxRacewayPopulation` from the same resolver result so any J-box reported by QA as an actionable orphan is also represented in preview with either a proposal or a concrete rejection reason.
-   - Preserve existing protections: no overwrite of an existing different parent, no occupied sequence collision, no ID rename, and no invented raceway records.
+Three layers, named explicitly so pricing and packaging can hang off them:
 
-3. **Return and display complete diagnostics**
-   - Extend the preview response with one diagnostic row per orphan-path J-box:
-     `jbox_id | extracted_path | raceway_uuid | sequence | matching_raceways | status | rejection_reason`.
-   - Ensure the server handler does not filter these rows before returning them.
-   - Render the diagnostic table in the Continuous raceway topology QA section even when there are zero eligible proposals, and include the same fields in the CSV export.
-   - Keep Preview read-only; do not invoke Apply or perform any production write during diagnosis or verification.
+```text
+FarmOps OS  (platform, always required)
+  └── Knowledge Base            free forever, capped  (default add-on)
+  └── Paid add-ons              Electrical, Food, Inventory, Maintenance
+        └── Standalone editions Customer (single site) / Contractor (multi-site)
+```
 
-4. **Add exact production-fixture regressions**
-   - Model `PNL-FS-NW → CON-104`, with `CON-104.dest_jbox_uuid → JB-104-01`; all three J-box parent/sequence fields null; four branches from `JB-104-02`; one branch from `JB-104-03`.
-   - Assert QA classifies all three as actionable orphan-path records through the shared resolver.
-   - Assert preview returns exactly:
-     - `JB-104-01 → CON-104 / 1`
-     - `JB-104-02 → CON-104 / 2`
-     - `JB-104-03 → CON-104 / 3`
-   - In a separate linked-state renderer assertion, verify the continuous edges `CON-104 → JB-104-01 → JB-104-02 → JB-104-03` remain present while all five branches attach to their proper intermediate boxes.
+FarmOps OS base modules the doc specifies (each with purpose, who administers it, and what it must gate):
 
-5. **Verify without changing data**
-   - Run the focused continuous-raceway tests, then the relevant electrical integrity/diagram tests.
-   - Check the application build diagnostics after edits.
-   - Report the exact condition found and corrected, plus the diagnostic output shape; do not claim production records were populated.
+- Licensing & entitlement service — edition + module licenses, license keys, seat counts, expiry, grace periods, offline validation for self-host
+- AI configuration, routing & billing — provider/engine config, per-feature routing, metering, usage caps, cost display (already partly built: `ai-routing`, `ai-metering`, `ai-usage`)
+- User management — roles, invitations, per-module grants, revocation and lockout rules (already built: `user_roles`, `app_entitlements`)
+- Configuration management — environment/tenant settings, feature toggles, versioned config with audit
+- Deployment & installation management — installers, upgrade channel, version/migration state, health & readiness checks
+- Data quality management — audit/reconciliation framework, authority model (design vs as-built), preview→approve→apply gates
+- Backup & restore / disaster recovery — scheduled exports, snapshot integrity, restore drills
+- Vault — server-encrypted secrets, key wrap/rotation, export audit
+- Audit & change history — immutable change log shared by all add-ons
+- Import/export & API layer — versioned read-only API, OpenAPI, scoped write endpoints
+- Observability & support — diagnostics, logs, support bundle
+- Notification/email — transactional email, domain setup
 
-## Constraints
-- No database or canonical ODS writes.
-- No stable-ID changes, new `CON` records, branch source-panel population, Boolean reconciliation changes, or Phase 4.5 work.
-- Existing Apply behavior remains explicitly user-triggered and is not exercised as part of this correction.
+### 2. Commercial model
+
+**Self-host, one-time purchase.** Perpetual license for the purchased major version, includes first year of quarterly upgrade releases. After year one, an optional maintenance fee restores upgrade + support entitlement. Expired maintenance never disables a running install — it stops delivering new versions. Documented: price anchors per edition, what the license key encodes (edition, modules, seats, issue/expiry, maintenance-through date), signature verification, offline grace window, and how a lapsed key degrades.
+
+**Cloud subscription.** Monthly and yearly (yearly discounted) at defined breakpoints, priced on the OS base plus per add-on, with seat and AI-usage caps per tier. Documented: tier table (Free KB / Homestead / Pro / Contractor), what each cap is, overage behavior, trial and downgrade rules.
+
+**Rails.** Stripe. The doc specifies subscriptions, one-time self-host license purchase, and Connect-based revenue share for electricians, plus the webhook→entitlement mapping (`app_entitlements` rows written by billing rather than by an admin) and what stays provider-agnostic behind a billing port.
+
+**Free tier.** Knowledge Base free forever with caps (users, storage, AI runs/month); paid tiers lift caps and unlock add-ons.
+
+### 3. Add-ons as standalone applications
+
+Each add-on can ship as a standalone app carrying only its own scoped data plus the minimum OS services (auth, licensing, vault, backup/restore, export, data quality, audit).
+
+Two license types:
+
+- **Customer edition** — one site per instance. Hand-over target: the customer owns and edits their scoped data, produces exports, and runs backup/restore. No contractor tooling, no spawn rights.
+- **Contractor edition** — many customer sites in one instance with per-site isolation, plus the right to spawn a Customer-edition instance for any site and hand it over.
+
+The doc specifies the hand-over package (scoped dataset + attachments + audit history + license grant + integrity manifest), the spawn flow, and how identity/ownership transfers.
+
+**Electrician deployment choices**, as the request describes:
+
+- Electrician self-hosts the Contractor edition (one-time license) and hands out Customer-edition spawns
+- Electrician pays for cloud-managed customer accounts (per-site subscription), keeping continuous records
+- Customer pays directly and the electrician receives a revenue share via Stripe Connect
+
+### 4. Migration paths
+
+Documented as first-class, bidirectional where safe:
+
+```text
+Standalone (customer)  →  Self-host FarmOps OS  →  Cloud subscription
+        ↘                        ↕                      ↙
+             portable export bundle + license transfer
+```
+
+Rules the doc fixes: stable IDs and audit history survive migration unchanged; canonical/design values never get overwritten by as-built values during import; every migration is preview → approve → apply with a reconciliation report; a migration is reversible by restoring the pre-migration bundle.
+
+### 5. Boundaries and non-goals
+
+Stated explicitly so later phases cannot drift: no canonical ODS write-back, no unrestricted database mutation, no collapsing design and as-built locations, no add-on reaching another add-on's data in standalone form, no license mechanism that can silently disable a self-hosted install already in service.
+
+### 6. Gap analysis against today's codebase
+
+A section mapping each designed capability to what already exists (`app_entitlements`, `app_addons`, `ADDON_KEYS`, `requireAddon`, vault, AI metering, data-quality gates, electrical API) versus what is missing (license-key issuance/verification, edition concept, tenant/site scoping, Stripe billing, standalone packaging, spawn/hand-over tooling), with a suggested build order.
+
+## Technical notes
+
+- `docs/PRODUCT_ARCHITECTURE.md` is the source of truth; the in-app page renders the same material so no content is duplicated by hand.
+- Diagrams are ASCII fenced as `text`, consistent with the other docs in `docs/`.
+- The gap analysis names existing modules by file so the follow-on implementation phase can start from it.
+- Nothing in this phase touches entitlements, schema, navigation gates, or billing.
