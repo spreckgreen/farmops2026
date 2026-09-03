@@ -422,9 +422,10 @@ function PanelLabelsPage() {
             <style
               dangerouslySetInnerHTML={{
                 __html:
-                  "@media print { .label-section + .label-section { break-before: page; page-break-before: always; } }",
+                  "@media print { .label-section { break-before: page; page-break-before: always; } .label-section:first-of-type { break-before: auto; page-break-before: auto; } }",
               }}
             />
+
             {sections.map((section) => (
               <section key={section.kind} className="space-y-2">
                 {kinds.length > 1 ? (
