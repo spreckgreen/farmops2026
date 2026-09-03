@@ -477,6 +477,7 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
                 onSelect={setSelected}
                 markerScale={large ? 1 : 0.8}
                 showProposedLeds={showLeds}
+                {...(showDesignVsField ? { designOverlay: designField.pairs } : {})}
               />
             </div>
 
@@ -500,6 +501,63 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
                 {PROPOSED_OVERHEAD_LED_LEGEND} — design/proposed centres, not field verified.
               </p>
             ) : null}
+            {showDesignVsField ? (
+              <CollapsibleGroup
+                title={`Design vs field — ${designField.counts.MISMATCH} mismatch, ${designField.counts.MATCH} confirmed, ${designField.counts.DESIGN_ONLY} design only, ${designField.counts.FIELD_ONLY} field only`}
+                storageKey="grid-map.design-vs-field"
+              >
+                <p className="text-xs text-muted-foreground">
+                  Dashed squares are approved design centres, crosses are verified field
+                  observations, and a leader line joins the two. A separation over{" "}
+                  {DESIGN_FIELD_TOLERANCE_FT} ft is highlighted in red on the plan and listed here
+                  for disposition — no record, grid reference or engineering value is changed by this
+                  view.
+                </p>
+                <div className="flex flex-wrap gap-3 text-xs">
+                  {(
+                    Object.keys(DESIGN_FIELD_STATUS_LABEL) as (keyof typeof DESIGN_FIELD_HEX)[]
+                  ).map((s) => (
+                    <span key={s} className="flex items-center gap-1.5">
+                      <span
+                        aria-hidden
+                        className="inline-block h-2.5 w-2.5 rounded-sm border-2"
+                        style={{ borderColor: DESIGN_FIELD_HEX[s] }}
+                      />
+                      {DESIGN_FIELD_STATUS_LABEL[s]} ({designField.counts[s]})
+                    </span>
+                  ))}
+                </div>
+                {designField.pairs.length ? (
+                  <ul className="space-y-1 text-xs">
+                    {designField.pairs.map((p) => (
+                      <li key={p.stableId} className="flex flex-wrap items-center gap-1.5">
+                        <button
+                          type="button"
+                          className="font-mono underline decoration-dotted"
+                          onClick={() => setSelected(p.stableId)}
+                        >
+                          {p.stableId}
+                        </button>
+                        <Badge
+                          variant={p.status === "MISMATCH" ? "destructive" : "secondary"}
+                          className="text-[10px]"
+                        >
+                          {DESIGN_FIELD_STATUS_LABEL[p.status]}
+                          {p.deltaFt != null ? ` · ${p.deltaFt} ft` : ""}
+                        </Badge>
+                        <span className="text-muted-foreground">{p.basis}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    No record in this filter states an approved design position or a verified field
+                    observation.
+                  </p>
+                )}
+              </CollapsibleGroup>
+            ) : null}
+
 
             {chosen ? <AssetDetail asset={chosen} /> : null}
 
