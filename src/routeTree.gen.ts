@@ -15,6 +15,7 @@ import { Route as ServiceSchedulingRouteImport } from './routes/service-scheduli
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as ReadyRouteImport } from './routes/ready'
+import { Route as PromoRouteImport } from './routes/promo'
 import { Route as ProjectsRouteImport } from './routes/projects'
 import { Route as ProceduresRouteImport } from './routes/procedures'
 import { Route as MaintenanceRouteImport } from './routes/maintenance'
@@ -151,6 +152,11 @@ const ReportsRoute = ReportsRouteImport.update({
 const ReadyRoute = ReadyRouteImport.update({
   id: '/ready',
   path: '/ready',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PromoRoute = PromoRouteImport.update({
+  id: '/promo',
+  path: '/promo',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProjectsRoute = ProjectsRouteImport.update({
@@ -713,6 +719,7 @@ export interface FileRoutesByFullPath {
   '/maintenance': typeof MaintenanceRouteWithChildren
   '/procedures': typeof ProceduresRouteWithChildren
   '/projects': typeof ProjectsRoute
+  '/promo': typeof PromoRoute
   '/ready': typeof ReadyRoute
   '/reports': typeof ReportsRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -825,6 +832,7 @@ export interface FileRoutesByTo {
   '/health': typeof HealthRouteWithChildren
   '/inventory': typeof InventoryRoute
   '/projects': typeof ProjectsRoute
+  '/promo': typeof PromoRoute
   '/ready': typeof ReadyRoute
   '/reports': typeof ReportsRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -941,6 +949,7 @@ export interface FileRoutesById {
   '/maintenance': typeof MaintenanceRouteWithChildren
   '/procedures': typeof ProceduresRouteWithChildren
   '/projects': typeof ProjectsRoute
+  '/promo': typeof PromoRoute
   '/ready': typeof ReadyRoute
   '/reports': typeof ReportsRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -1058,6 +1067,7 @@ export interface FileRouteTypes {
     | '/maintenance'
     | '/procedures'
     | '/projects'
+    | '/promo'
     | '/ready'
     | '/reports'
     | '/reset-password'
@@ -1170,6 +1180,7 @@ export interface FileRouteTypes {
     | '/health'
     | '/inventory'
     | '/projects'
+    | '/promo'
     | '/ready'
     | '/reports'
     | '/reset-password'
@@ -1285,6 +1296,7 @@ export interface FileRouteTypes {
     | '/maintenance'
     | '/procedures'
     | '/projects'
+    | '/promo'
     | '/ready'
     | '/reports'
     | '/reset-password'
@@ -1401,6 +1413,7 @@ export interface RootRouteChildren {
   MaintenanceRoute: typeof MaintenanceRouteWithChildren
   ProceduresRoute: typeof ProceduresRouteWithChildren
   ProjectsRoute: typeof ProjectsRoute
+  PromoRoute: typeof PromoRoute
   ReadyRoute: typeof ReadyRoute
   ReportsRoute: typeof ReportsRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
@@ -1526,6 +1539,13 @@ declare module '@tanstack/react-router' {
       path: '/ready'
       fullPath: '/ready'
       preLoaderRoute: typeof ReadyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/promo': {
+      id: '/promo'
+      path: '/promo'
+      fullPath: '/promo'
+      preLoaderRoute: typeof PromoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/projects': {
@@ -2382,6 +2402,7 @@ const rootRouteChildren: RootRouteChildren = {
   MaintenanceRoute: MaintenanceRouteWithChildren,
   ProceduresRoute: ProceduresRouteWithChildren,
   ProjectsRoute: ProjectsRoute,
+  PromoRoute: PromoRoute,
   ReadyRoute: ReadyRoute,
   ReportsRoute: ReportsRoute,
   ResetPasswordRoute: ResetPasswordRoute,
