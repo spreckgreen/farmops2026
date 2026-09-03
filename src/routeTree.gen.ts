@@ -117,6 +117,7 @@ import { Route as ApiElectricalV1OpenapiDotjsonRouteImport } from './routes/api/
 import { Route as ApiElectricalV1SplatRouteImport } from './routes/api/electrical/v1/$'
 import { Route as ApiElectricalV1RelationshipsPreviewRouteImport } from './routes/api/electrical/v1/relationships.preview'
 import { Route as ApiElectricalV1RelationshipsApplyRouteImport } from './routes/api/electrical/v1/relationships.apply'
+import { Route as ApiElectricalV1FieldObservationsPreviewRouteImport } from './routes/api/electrical/v1/field-observations.preview'
 
 const VaultRoute = VaultRouteImport.update({
   id: '/vault',
@@ -669,6 +670,12 @@ const ApiElectricalV1RelationshipsApplyRoute =
     path: '/api/electrical/v1/relationships/apply',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiElectricalV1FieldObservationsPreviewRoute =
+  ApiElectricalV1FieldObservationsPreviewRouteImport.update({
+    id: '/api/electrical/v1/field-observations/preview',
+    path: '/api/electrical/v1/field-observations/preview',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -777,6 +784,7 @@ export interface FileRoutesByFullPath {
   '/api/public/hooks/task-health': typeof ApiPublicHooksTaskHealthRoute
   '/api/public/webhooks/rachio': typeof ApiPublicWebhooksRachioRoute
   '/electrical/item/$kind/$id': typeof ElectricalItemKindIdRoute
+  '/api/electrical/v1/field-observations/preview': typeof ApiElectricalV1FieldObservationsPreviewRoute
   '/api/electrical/v1/relationships/apply': typeof ApiElectricalV1RelationshipsApplyRoute
   '/api/electrical/v1/relationships/preview': typeof ApiElectricalV1RelationshipsPreviewRoute
 }
@@ -884,6 +892,7 @@ export interface FileRoutesByTo {
   '/api/public/hooks/task-health': typeof ApiPublicHooksTaskHealthRoute
   '/api/public/webhooks/rachio': typeof ApiPublicWebhooksRachioRoute
   '/electrical/item/$kind/$id': typeof ElectricalItemKindIdRoute
+  '/api/electrical/v1/field-observations/preview': typeof ApiElectricalV1FieldObservationsPreviewRoute
   '/api/electrical/v1/relationships/apply': typeof ApiElectricalV1RelationshipsApplyRoute
   '/api/electrical/v1/relationships/preview': typeof ApiElectricalV1RelationshipsPreviewRoute
 }
@@ -995,6 +1004,7 @@ export interface FileRoutesById {
   '/api/public/hooks/task-health': typeof ApiPublicHooksTaskHealthRoute
   '/api/public/webhooks/rachio': typeof ApiPublicWebhooksRachioRoute
   '/electrical/item/$kind/$id': typeof ElectricalItemKindIdRoute
+  '/api/electrical/v1/field-observations/preview': typeof ApiElectricalV1FieldObservationsPreviewRoute
   '/api/electrical/v1/relationships/apply': typeof ApiElectricalV1RelationshipsApplyRoute
   '/api/electrical/v1/relationships/preview': typeof ApiElectricalV1RelationshipsPreviewRoute
 }
@@ -1107,6 +1117,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/task-health'
     | '/api/public/webhooks/rachio'
     | '/electrical/item/$kind/$id'
+    | '/api/electrical/v1/field-observations/preview'
     | '/api/electrical/v1/relationships/apply'
     | '/api/electrical/v1/relationships/preview'
   fileRoutesByTo: FileRoutesByTo
@@ -1214,6 +1225,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/task-health'
     | '/api/public/webhooks/rachio'
     | '/electrical/item/$kind/$id'
+    | '/api/electrical/v1/field-observations/preview'
     | '/api/electrical/v1/relationships/apply'
     | '/api/electrical/v1/relationships/preview'
   id:
@@ -1324,6 +1336,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/task-health'
     | '/api/public/webhooks/rachio'
     | '/electrical/item/$kind/$id'
+    | '/api/electrical/v1/field-observations/preview'
     | '/api/electrical/v1/relationships/apply'
     | '/api/electrical/v1/relationships/preview'
   fileRoutesById: FileRoutesById
@@ -1413,6 +1426,7 @@ export interface RootRouteChildren {
   ApiPublicHooksTaskHealthRoute: typeof ApiPublicHooksTaskHealthRoute
   ApiPublicWebhooksRachioRoute: typeof ApiPublicWebhooksRachioRoute
   ElectricalItemKindIdRoute: typeof ElectricalItemKindIdRoute
+  ApiElectricalV1FieldObservationsPreviewRoute: typeof ApiElectricalV1FieldObservationsPreviewRoute
   ApiElectricalV1RelationshipsApplyRoute: typeof ApiElectricalV1RelationshipsApplyRoute
   ApiElectricalV1RelationshipsPreviewRoute: typeof ApiElectricalV1RelationshipsPreviewRoute
 }
@@ -2175,6 +2189,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiElectricalV1RelationshipsApplyRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/electrical/v1/field-observations/preview': {
+      id: '/api/electrical/v1/field-observations/preview'
+      path: '/api/electrical/v1/field-observations/preview'
+      fullPath: '/api/electrical/v1/field-observations/preview'
+      preLoaderRoute: typeof ApiElectricalV1FieldObservationsPreviewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -2354,6 +2375,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicHooksTaskHealthRoute: ApiPublicHooksTaskHealthRoute,
   ApiPublicWebhooksRachioRoute: ApiPublicWebhooksRachioRoute,
   ElectricalItemKindIdRoute: ElectricalItemKindIdRoute,
+  ApiElectricalV1FieldObservationsPreviewRoute:
+    ApiElectricalV1FieldObservationsPreviewRoute,
   ApiElectricalV1RelationshipsApplyRoute:
     ApiElectricalV1RelationshipsApplyRoute,
   ApiElectricalV1RelationshipsPreviewRoute:
