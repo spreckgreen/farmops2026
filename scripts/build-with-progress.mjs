@@ -54,6 +54,26 @@ function hostMemMB() {
     return null;
   }
 }
+function processRssMB(pid) {
+  try {
+    const status = readFileSync(`/proc/${pid}/status`, "utf8");
+    const rss = /VmRSS:\s+(\d+)/.exec(status)?.[1];
+    return rss ? Math.round(Number(rss) / 1024) : null;
+  } catch {
+    return null;
+  }
+}
+function cgroupMemMB() {
+  for (const file of ["/sys/fs/cgroup/memory.current", "/sys/fs/cgroup/memory/memory.usage_in_bytes"]) {
+    try {
+      const bytes = Number(readFileSync(file, "utf8").trim());
+      if (Number.isFinite(bytes)) return Math.round(bytes / 1024 / 1024);
+    } catch {
+      // Try the next cgroup layout.
+    }
+  }
+  return null;
+}
 const HOST = hostMemMB();
 const HEAP_CAP = /max-old-space-size=(\d+)/.exec(process.env.NODE_OPTIONS ?? "")?.[1];
 
@@ -101,10 +121,12 @@ const viteBin = ["node_modules/vite/bin/vite.js", "../node_modules/vite/bin/vite
 
 const viteArgs = ["build", ...process.argv.slice(2)];
 const spawnCmd = viteBin ? process.execPath : "bunx";
-const spawnArgs = viteBin ? [viteBin, ...viteArgs] : ["vite", ...viteArgs];
+// Expose explicit GC so the low-memory Vite plugin can release the completed
+// client/SSR module graph before Nitro starts its next environment build.
+const spawnArgs = viteBin ? ["--expose-gc", viteBin, ...viteArgs] : ["vite", ...viteArgs];
 log(
   viteBin
-    ? `runner: node ${path.relative(process.cwd(), viteBin)} (heap cap enforced)`
+    ? `runner: node --expose-gc ${path.relative(process.cwd(), viteBin)} (heap cap enforced)`
     : `runner: bunx vite (vite bin not found — WARNING: heap cap is NOT enforced under bun)`,
 );
 const child = spawn(spawnCmd, spawnArgs, {
@@ -148,7 +170,11 @@ const heartbeat = setInterval(() => {
   const rssMB = Math.round(mu.rss / 1024 / 1024);
   const host = hostMemMB();
   const hostStr = host?.availMB != null ? ` host-avail=${host.availMB}MB` : "";
-  log(`heartbeat — idle ${fmt(idle)} wrapper-rss=${rssMB}MB${hostStr} phases: ${[...seen].join(",") || "(none yet)"}`);
+  const childRss = processRssMB(child.pid);
+  const childStr = childRss == null ? "" : ` vite-rss=${childRss}MB`;
+  const cgroup = cgroupMemMB();
+  const cgroupStr = cgroup == null ? "" : ` cgroup=${cgroup}MB`;
+  log(`heartbeat — idle ${fmt(idle)} wrapper-rss=${rssMB}MB${childStr}${cgroupStr}${hostStr} phases: ${[...seen].join(",") || "(none yet)"}`);
 }, HEARTBEAT_MS);
 
 // Stall detection is advisory only. Vite is largely silent in non-TTY mode
@@ -196,7 +222,7 @@ child.on("exit", (code, signal) => {
       log(
         `FAIL: likely OOM — heap cap was ${HEAP_CAP ?? "(default)"}MB, host has ${
           host?.totalMB ?? "?"
-        }MB total. Rebuild with --build-arg NODE_HEAP_MB=<value> (use ~60% of host RAM), or free memory on the host.`,
+        }MB total. Lower NODE_HEAP_MB to leave room for native bundler memory, or free memory on the host.`,
       );
     }
     process.exit(code ?? 1);

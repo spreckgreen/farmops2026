@@ -16,6 +16,18 @@ const nitroPreset = process.env.NITRO_PRESET;
 // Dockerfile); never on in local dev unless explicitly requested.
 const lowMem = process.env.BUILD_LOW_MEM === "1";
 
+const lowMemoryGcPlugin = {
+  name: "farmops-low-memory-gc",
+  enforce: "post" as const,
+  closeBundle() {
+    const runtime = globalThis as typeof globalThis & { gc?: () => void };
+    if (typeof runtime.gc === "function") {
+      runtime.gc();
+      console.log("[low-memory] released completed Vite environment before next build phase");
+    }
+  },
+};
+
 // Every module that must resolve to exactly ONE copy in the bundle. Two copies of
 // @tanstack/react-router (or its core/store deps) means two React contexts: the
 // provider writes to one, <Matches /> reads the other, and the app crashes with
@@ -54,6 +66,7 @@ export default defineConfig({
       }
     : {}),
   vite: {
+    ...(lowMem ? { plugins: [lowMemoryGcPlugin] } : {}),
     resolve: {
       // Belt-and-braces on top of the preset's dedupe: forces a single copy of
       // the router in both the client and the SSR/worker bundle.
