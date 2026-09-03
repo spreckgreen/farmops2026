@@ -313,6 +313,73 @@ export function sortLabelRecords(records: LabelRecord[]): LabelRecord[] {
   });
 }
 
+/** The human name printed on a label, used for the alphabetical tie-break. */
+export function labelNameOf(record: LabelRecord): string {
+  for (const key of ["description", "load_description", "equipment_model"]) {
+    const v = (record.values[key] ?? "").trim();
+    if (v) return v;
+  }
+  return record.stable_id;
+}
+
+/** One printed block of shortened labels: a single location + panel. */
+export interface LabelWalkGroup {
+  key: string;
+  location: string;
+  panel: string;
+  records: LabelRecord[];
+}
+
+/**
+ * Shortened (Avery 8593) print order: location, then panel, then the Farm Shop
+ * grid walk order, then load name alphabetically. Each returned group is one
+ * location + panel, so the print view can break the page at every location and
+ * every panel change. Records with no location or no panel keep their own
+ * groups at the end instead of being merged or dropped.
+ */
+export function labelWalkGroups(records: LabelRecord[]): LabelWalkGroup[] {
+  const walk = farmShopWalkOrder(records.map(gridOf));
+  const walkIndex = new Map(walk.map((g, i) => [g, i]));
+  const gridRank = (r: LabelRecord) => {
+    const idx = walkIndex.get(gridOf(r).toUpperCase());
+    return idx === undefined ? Number.MAX_SAFE_INTEGER : idx;
+  };
+
+  const groups = new Map<string, LabelWalkGroup>();
+  for (const r of records) {
+    const location = locationKeyOf(r);
+    const panel = panelKeyOf(r);
+    const key = `${location}\u0000${panel}`;
+    let g = groups.get(key);
+    if (!g) {
+      g = { key, location, panel, records: [] };
+      groups.set(key, g);
+    }
+    g.records.push(r);
+  }
+
+  const blankLast = (a: string, b: string) => {
+    if (a === b) return 0;
+    if (!a) return 1;
+    if (!b) return -1;
+    return a.localeCompare(b, undefined, { numeric: true });
+  };
+
+  const out = [...groups.values()].sort(
+    (a, b) => blankLast(a.location, b.location) || blankLast(a.panel, b.panel),
+  );
+  for (const g of out) {
+    g.records.sort(
+      (a, b) =>
+        gridRank(a) - gridRank(b) ||
+        labelNameOf(a).localeCompare(labelNameOf(b), undefined, { numeric: true }) ||
+        a.stable_id.localeCompare(b.stable_id, undefined, { numeric: true }),
+    );
+  }
+  return out;
+}
+
+
 /* -------------------------------------------------------------- print groups */
 
 export interface PrintGroup {
