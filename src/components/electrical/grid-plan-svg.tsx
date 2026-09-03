@@ -48,10 +48,15 @@ export function GridPlanSvg({
   markerScale?: number;
   className?: string;
 }) {
-  // Hover helper text: which marker the pointer (or keyboard focus) is on.
+  // Helper text follows, in order: the marker under the pointer/keyboard focus,
+  // then the selected marker — so after a click the same helper stays visible
+  // once the mouse moves away. Escape dismisses the pinned (selected) one.
   const [hovered, setHovered] = useState<string | null>(null);
   const [focusedId, setFocusedId] = useState<string | null>(null);
-  const hint = interactive ? (plotted.find((a) => a.stableId === hovered) ?? null) : null;
+  const [dismissed, setDismissed] = useState<string | null>(null);
+  const pinned = selectedId && selectedId !== dismissed ? selectedId : null;
+  const hintId = hovered ?? pinned;
+  const hint = interactive ? (plotted.find((a) => a.stableId === hintId) ?? null) : null;
 
   // Keyboard order: north-to-south, then west-to-east, so arrow keys walk the
   // plan the same way a reader scans it.
