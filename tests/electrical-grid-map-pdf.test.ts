@@ -3,7 +3,7 @@ import { gridMapPdfFileName, renderGridMapPdf } from "@/lib/electrical-grid-map-
 import type { OperationalAsset } from "@/lib/electrical-grid-operational";
 
 const png =
-  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==";
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAADCAIAAAA7ljmRAAAAFElEQVR4nGP88OEDAwwwMSABFA4AaKwC1hdCaIkAAAAASUVORK5CYII=";
 
 const asset = (over: Partial<OperationalAsset>): OperationalAsset =>
   ({
