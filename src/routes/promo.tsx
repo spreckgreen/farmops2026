@@ -220,8 +220,9 @@ function PromoPage() {
         </div>
       </header>
 
-      <ScaledSlide className="flex-1 w-full" />
-      <ScaledSlide className="hidden" />
+      <ScaledSlide className="flex-1 w-full">
+        <PromoSlideView slide={current} index={index} total={total} />
+      </ScaledSlide>
 
       <footer className="border-t border-border px-4 py-2 text-xs text-muted-foreground">
         ← / → or Space to move · G for grid · P for print · F for fullscreen
