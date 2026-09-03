@@ -168,7 +168,9 @@ describe("read handlers project the reconciliation snapshot", () => {
 
     const bundle = await (await handleApiRead(caller, ["documents", "bundle"])).json();
     expect(bundle.manifest).toHaveLength(cols.length);
-    expect(bundle.snapshot.counts).toEqual(snap.counts);
+    // The envelope adds derived collections (circuits/relationships/observations)
+    // alongside the stored counts, so the stored counts must still match exactly.
+    expect(bundle.snapshot.counts).toMatchObject(snap.counts);
     expect(bundle.excluded_by_design).toHaveLength(3);
 
     expect((await handleApiRead(caller, ["totally-unknown"])).status).toBe(404);
