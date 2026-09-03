@@ -58,6 +58,31 @@ function Chip({
   );
 }
 
+const PRINT_MODE_KEY = "farmops.grid-map.print-mode";
+type PrintMode = "solo" | "with-dq";
+
+/** Remembered print choice: plan only, or plan plus the data-quality summary. */
+function usePrintMode(): [PrintMode, (next: PrintMode) => void] {
+  const [mode, setMode] = useState<PrintMode>("solo");
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(PRINT_MODE_KEY);
+      if (saved === "solo" || saved === "with-dq") setMode(saved);
+    } catch {
+      // Storage unavailable; keep the default.
+    }
+  }, []);
+  const apply = (next: PrintMode) => {
+    setMode(next);
+    try {
+      window.localStorage.setItem(PRINT_MODE_KEY, next);
+    } catch {
+      // Persistence is a convenience only.
+    }
+  };
+  return [mode, apply];
+}
+
 export function GridOperationalMap({ large = false }: { large?: boolean }) {
   const fetcher = useServerFn(electricalGridOperational);
   const q = useQuery({ queryKey: ["electrical", "grid-operational"], queryFn: () => fetcher() });
@@ -70,8 +95,10 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
   const [install, setInstall] = useState("ALL");
   const [verify, setVerify] = useState<"ALL" | VerificationStatus>("ALL");
   const [selected, setSelected] = useState<string | null>(null);
+  const [printMode, setPrintMode] = usePrintMode();
 
   const assets = q.data?.assets ?? [];
+
 
   const installStatuses = useMemo(
     () => [...new Set(assets.map((a) => a.installStatus).filter(Boolean) as string[])].sort(),
