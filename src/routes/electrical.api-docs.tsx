@@ -87,13 +87,16 @@ function ApiDocs() {
             contract is at{" "}
             <a
               className="text-foreground underline"
-              href={`${ELECTRICAL_API_BASE}/openapi.json`}
+              href={OPENAPI_PATH}
               target="_blank"
               rel="noreferrer"
             >
-              openapi.json
+              {OPENAPI_PATH}
             </a>
-            .
+            . <code className="text-foreground">{ELECTRICAL_API_LEGACY_BASE}</code> still
+            answers as a deprecated alias and returns{" "}
+            <code className="text-foreground">Deprecation</code> and{" "}
+            <code className="text-foreground">Link</code> headers.
           </p>
           <p>
             Authority: the canonical PremoFarmElectrical.ods workbook remains the
@@ -101,14 +104,106 @@ function ApiDocs() {
             FarmOps owns verified field/as-built state.
           </p>
           <Code>{`curl -sS "$HOST${ELECTRICAL_API_BASE}" \\
-  -H "Authorization: Bearer $FARMOPS_ACCESS_TOKEN"`}</Code>
+  -H "Authorization: Bearer $FARMOPS_SERVICE_KEY" \\
+  -H "x-request-id: doc-run-2026-06-08-01"`}</Code>
           <p>
-            Reads need an electrical read entitlement; the two write endpoints need a
-            field-write entitlement. Row-level security scopes every row to the caller and
-            responses are never shared-cacheable.
+            Callers authenticate as a signed-in user or as a scoped service principal.
+            Every response carries <code className="text-foreground">request_id</code>, and
+            snapshot responses carry <code className="text-foreground">snapshot_id</code>,{" "}
+            <code className="text-foreground">api_version</code>,{" "}
+            <code className="text-foreground">data_updated_through</code>, the canonical ODS
+            SHA-256, the FarmOps snapshot hash, a deterministic{" "}
+            <code className="text-foreground">content_hash</code> and a full source
+            manifest, so two identical requests hash identically.
+          </p>
+          <p>
+            Phase status: Phase 1 read-only integration is the active surface. Write scopes
+            are{" "}
+            <Badge variant={WRITE_SCOPES_ACTIVATED ? "secondary" : "outline"}>
+              {WRITE_SCOPES_ACTIVATED ? "activated" : "not activated"}
+            </Badge>{" "}
+            — the Phase 2/3 relationship and field-observation endpoints answer{" "}
+            <code className="text-foreground">503 write_scopes_not_activated</code> until
+            Phase 1 is accepted and their safety protocol is completed.
           </p>
         </CardContent>
       </Card>
+
+      <ApiPrincipalsCard />
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Scopes, errors and rate limits</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="text-muted-foreground">
+                <tr>
+                  <th className="py-1 pr-3">Scope</th>
+                  <th className="py-1">Grants</th>
+                </tr>
+              </thead>
+              <tbody>
+                {API_SCOPE_LIST.map((s) => (
+                  <tr key={s} className="border-t border-border">
+                    <td className="py-1 pr-3 font-mono">{s}</td>
+                    <td className="py-1">{API_SCOPES[s]}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="text-muted-foreground">
+                <tr>
+                  <th className="py-1 pr-3">Error code</th>
+                  <th className="py-1 pr-3">HTTP</th>
+                  <th className="py-1">Meaning</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(Object.keys(API_ERROR_CODES) as ApiErrorCode[]).map((code) => (
+                  <tr key={code} className="border-t border-border">
+                    <td className="py-1 pr-3 font-mono">{code}</td>
+                    <td className="py-1 pr-3">{API_ERROR_CODES[code].status}</td>
+                    <td className="py-1">{API_ERROR_CODES[code].meaning}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="text-xs text-muted-foreground">
+            Rate limits per principal:{" "}
+            {API_RATE_LIMITS.map(
+              (r) => `${r.bucket} ${r.limit}/${r.window_seconds}s`,
+            ).join(" · ")}
+            .
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Known-unreliable fields</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2 text-sm">
+          {KNOWN_UNRELIABLE_FIELDS.map((f) => (
+            <div key={`${f.collection}.${f.field}`}>
+              <div className="font-mono text-xs">
+                {f.collection}.{f.field}
+              </div>
+              <div className="text-muted-foreground">{f.warning}</div>
+            </div>
+          ))}
+          <p className="text-xs text-muted-foreground">
+            These are surfaced as <code>warnings[]</code> on every snapshot response, so a
+            generator can annotate rather than silently publish them.
+          </p>
+        </CardContent>
+      </Card>
+
 
       <Card>
         <CardHeader className="pb-2">
