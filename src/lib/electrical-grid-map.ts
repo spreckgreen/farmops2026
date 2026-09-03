@@ -316,11 +316,11 @@ export function buildGridMapPoints(rows: GridMapLoadInput[]): GridMapPoint[] {
     const xPct =
       place.xFt == null
         ? null
-        : clampPct(clampBase((place.xFt / SHOP_WIDTH_FT) * 100) + (offset.dx / SHOP_WIDTH_FT) * 100);
+        : applyFan((place.xFt / SHOP_WIDTH_FT) * 100, (offset.dx / SHOP_WIDTH_FT) * 100);
     const yPct =
       place.yFt == null
         ? null
-        : clampPct(clampBase((place.yFt / SHOP_DEPTH_FT) * 100) + (offset.dy / SHOP_DEPTH_FT) * 100);
+        : applyFan((place.yFt / SHOP_DEPTH_FT) * 100, (offset.dy / SHOP_DEPTH_FT) * 100);
 
     return {
       loadId: s(row.load_id) || NOT_IN_RECORD,
@@ -359,7 +359,13 @@ function fanOffset(index: number, size: number): { dx: number; dy: number } {
 
 // Dots are centred on their coordinate, so wall-line positions stay exact.
 const clampPct = (v: number): number => Math.min(100, Math.max(0, v));
-const clampBase = clampPct;
+
+/** Apply a display fan offset, mirroring it inward at the plan edges. */
+function applyFan(basePct: number, offsetPct: number): number {
+  const base = clampPct(basePct);
+  const out = base + offsetPct;
+  return clampPct(out < 0 || out > 100 ? base - offsetPct : out);
+}
 
 export interface GridMapSummary {
   counts: Record<CircuitClass, number>;
