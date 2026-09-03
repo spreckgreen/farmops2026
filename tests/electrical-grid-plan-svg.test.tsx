@@ -3,7 +3,7 @@
 import { describe, expect, it } from "vitest";
 import { fireEvent, render } from "@testing-library/react";
 import React from "react";
-import { GridPlanSvg } from "@/components/electrical/grid-plan-svg";
+import { GridPlanSvg, hintCardBox } from "@/components/electrical/grid-plan-svg";
 import {
   buildOperationalAssets,
   type OperationalInput,
@@ -249,5 +249,66 @@ describe("helper text follows the selected marker", () => {
     const d5 = container.querySelector('g[data-stable-id="FS-D5"]') as SVGGElement;
     fireEvent.keyDown(d5, { key: "Escape" });
     expect(container.textContent).not.toContain("Verification:");
+  });
+});
+
+describe("helper card never overflows the plan", () => {
+  const long = [
+    "FS-123",
+    "A very long description that would otherwise run past the wall edge of the plan",
+    "Exact · 59 ft E, 39 ft S",
+    "Panel: PNL-FS-NW · Install: planned",
+    "Verification: Not verified",
+    "Interval — a preserved span, not a final point",
+    "Placement conflict — see Data quality",
+  ];
+  const inside = (b: { x: number; y: number; width: number; height: number }) =>
+    b.x >= 0 && b.y >= 0 && b.x + b.width <= 60 && b.y + b.height <= 40;
+
+  it("stays inside the viewBox at every corner and wall edge", () => {
+    for (const [x, y] of [
+      [0, 0],
+      [60, 0],
+      [0, 40],
+      [60, 40],
+      [30, 0],
+      [30, 40],
+      [0, 20],
+      [60, 20],
+      [30, 20],
+    ] as const) {
+      expect(inside(hintCardBox(x, y, long))).toBe(true);
+    }
+  });
+
+  it("flips to the left of the anchor near the east wall and above near the south wall", () => {
+    const east = hintCardBox(59, 20, long);
+    expect(east.x + east.width).toBeLessThanOrEqual(59);
+    const south = hintCardBox(30, 39, long);
+    expect(south.y + south.height).toBeLessThanOrEqual(39);
+  });
+
+  it("prefers right-and-below when there is room", () => {
+    const b = hintCardBox(4, 4, long);
+    expect(b.x).toBeGreaterThan(4);
+    expect(b.y).toBeGreaterThan(4);
+  });
+
+  it("drops lines that could not fit rather than spilling past the wall", () => {
+    const many = Array.from({ length: 80 }, (_, i) => `line ${i}`);
+    const b = hintCardBox(30, 20, many);
+    expect(b.lines.length).toBeLessThan(many.length);
+    expect(inside(b)).toBe(true);
+  });
+
+  it("keeps the rendered card within the viewBox for the south-east corner marker", () => {
+    const { container } = render(<GridPlanSvg plotted={corners} selectedId="FS-F9" />);
+    const rect = container.querySelector("g[data-hint-card] rect")!;
+    const x = Number(rect.getAttribute("x"));
+    const y = Number(rect.getAttribute("y"));
+    expect(x + Number(rect.getAttribute("width"))).toBeLessThanOrEqual(60);
+    expect(y + Number(rect.getAttribute("height"))).toBeLessThanOrEqual(40);
+    expect(x).toBeGreaterThanOrEqual(0);
+    expect(y).toBeGreaterThanOrEqual(0);
   });
 });

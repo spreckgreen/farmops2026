@@ -397,24 +397,78 @@ export function hintLines(asset: OperationalAsset): string[] {
   ];
 }
 
+/** Helper-card typography and padding, in feet, so the card scales with the
+ * plan instead of with the pixel size of the container. */
+const HINT_FONT_FT = 0.85;
+const HINT_PAD_FT = 0.5;
+const HINT_LINE_FT = HINT_FONT_FT * 1.35;
+/** Keep the card this far inside the viewBox edge so its stroke stays visible. */
+const HINT_MARGIN_FT = 0.3;
+/** Gap between the anchor point and the card, so the marker stays readable. */
+const HINT_GAP_FT = 1;
+
+/**
+ * Places the helper card fully inside the viewBox for any anchor, including the
+ * four corners and the wall edges.
+ *
+ * Preferred side is right-and-below the anchor. When that would overflow, the
+ * card flips to the opposite side; when neither side fits (a card wider or
+ * taller than the plan on very small viewports), it is clamped to the edge.
+ * Pure and exported so the placement is testable without a browser.
+ */
+export function hintCardBox(anchorXFt: number, anchorYFt: number, lines: string[]) {
+  const maxLines = Math.max(
+    1,
+    Math.floor((PLAN_BUILDING.height - HINT_MARGIN_FT * 2 - HINT_PAD_FT * 2) / HINT_LINE_FT),
+  );
+  const shown = lines.slice(0, maxLines);
+  lines = shown;
+  const longest = Math.max(...lines.map((l) => l.length));
+  const maxWidth = Math.min(26, PLAN_BUILDING.width - HINT_MARGIN_FT * 2);
+  const width = Math.min(
+    maxWidth,
+    Math.max(
+      Math.min(11, maxWidth),
+      longest * HINT_FONT_FT * 0.52 + HINT_PAD_FT * 2,
+    ),
+  );
+  const height = lines.length * HINT_LINE_FT + HINT_PAD_FT * 2;
+
+  const clamp = (v: number, lo: number, hi: number) =>
+    hi < lo ? lo : Math.min(Math.max(v, lo), hi);
+
+  const right = anchorXFt + HINT_GAP_FT;
+  const fitsRight = right + width <= PLAN_BUILDING.width - HINT_MARGIN_FT;
+  const left = anchorXFt - HINT_GAP_FT - width;
+  const x = clamp(
+    fitsRight ? right : left,
+    HINT_MARGIN_FT,
+    PLAN_BUILDING.width - width - HINT_MARGIN_FT,
+  );
+
+  const below = anchorYFt + HINT_GAP_FT;
+  const fitsBelow = below + height <= PLAN_BUILDING.height - HINT_MARGIN_FT;
+  const above = anchorYFt - HINT_GAP_FT - height;
+  const y = clamp(
+    fitsBelow ? below : above,
+    HINT_MARGIN_FT,
+    PLAN_BUILDING.height - height - HINT_MARGIN_FT,
+  );
+
+  return { x, y, width, height, lines: shown };
+}
+
 /** Hover/focus helper text, drawn inside the same viewBox so it scales with the
  * plan and never drifts at a different browser zoom. */
 function HoverHint({ asset }: { asset: OperationalAsset }) {
   if (asset.plottedXFt == null || asset.plottedYFt == null) return null;
   const at = feetToPlan(asset.plottedXFt, asset.plottedYFt);
   const lines = hintLines(asset);
-  const fontSize = 0.85; // feet
-  const pad = 0.5;
-  const lineH = fontSize * 1.35;
-  const width = Math.min(
-    26,
-    Math.max(11, Math.max(...lines.map((l) => l.length)) * fontSize * 0.52 + pad * 2),
-  );
-  const height = lines.length * lineH + pad * 2;
-  // Flip the card so it stays inside the building near the edges.
-  const x = Math.min(Math.max(0.3, at.x + 1), PLAN_BUILDING.width - width - 0.3);
-  const y = at.y + 1 + height > PLAN_BUILDING.height ? at.y - height - 1 : at.y + 1;
-  const top = Math.max(0.3, y);
+  const fontSize = HINT_FONT_FT;
+  const pad = HINT_PAD_FT;
+  const lineH = HINT_LINE_FT;
+  const { x, y: top, width, height, lines: shown } = hintCardBox(at.x, at.y, lines);
+
   return (
     <g pointerEvents="none" data-hint-card="true">
       <rect
@@ -429,7 +483,7 @@ function HoverHint({ asset }: { asset: OperationalAsset }) {
         strokeOpacity={0.5}
         strokeWidth={0.08}
       />
-      {lines.map((line, i) => (
+      {shown.map((line, i) => (
         <text
           key={line + i}
           x={x + pad}
