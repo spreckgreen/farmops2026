@@ -162,3 +162,39 @@ describe("keyboard and ARIA support", () => {
     expect((document.activeElement as Element).getAttribute("data-stable-id")).toBe("FS-F9");
   });
 });
+
+describe("helper text follows the selected marker", () => {
+  it("keeps the selected marker's helper visible after the mouse leaves", () => {
+    const { container } = render(
+      React.createElement(GridPlanSvg, { plotted: corners, selectedId: "FS-D5", onSelect: () => {} }),
+    );
+    const d5 = container.querySelector('g[data-stable-id="FS-D5"]') as SVGGElement;
+    fireEvent.mouseEnter(d5);
+    expect(container.textContent).toContain("FS-D5");
+    fireEvent.mouseLeave(d5);
+    // Still pinned to the selection, not cleared with the pointer.
+    expect(container.textContent).toContain("FS-D5");
+    expect(container.textContent).toContain("Verification:");
+  });
+
+  it("hovering another marker overrides the pinned helper, then falls back to it", () => {
+    const { container } = render(
+      React.createElement(GridPlanSvg, { plotted: corners, selectedId: "FS-D5", onSelect: () => {} }),
+    );
+    const a1 = container.querySelector('g[data-stable-id="FS-A1"]') as SVGGElement;
+    fireEvent.mouseEnter(a1);
+    const hintText = () => container.querySelector("g[pointer-events='none'] text")?.textContent;
+    expect(hintText()).toBe("FS-A1");
+    fireEvent.mouseLeave(a1);
+    expect(container.textContent).toContain("FS-D5");
+  });
+
+  it("Escape dismisses the pinned helper", () => {
+    const { container } = render(
+      React.createElement(GridPlanSvg, { plotted: corners, selectedId: "FS-D5", onSelect: () => {} }),
+    );
+    const d5 = container.querySelector('g[data-stable-id="FS-D5"]') as SVGGElement;
+    fireEvent.keyDown(d5, { key: "Escape" });
+    expect(container.textContent).not.toContain("Verification:");
+  });
+});
