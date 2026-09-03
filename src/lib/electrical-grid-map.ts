@@ -310,11 +310,17 @@ export function buildGridMapPoints(rows: GridMapLoadInput[]): GridMapPoint[] {
     const stackIndex = key ? (seen.get(key) ?? 0) : 0;
     if (key) seen.set(key, stackIndex + 1);
 
+    // Clamp the true coordinate into the plan first, then apply the display
+    // fan, so co-located loads on a wall corner still separate visually.
     const offset = fanOffset(stackIndex, stackSize);
     const xPct =
-      place.xFt == null ? null : clampPct(((place.xFt + offset.dx) / SHOP_WIDTH_FT) * 100);
+      place.xFt == null
+        ? null
+        : clampPct(clampBase((place.xFt / SHOP_WIDTH_FT) * 100) + (offset.dx / SHOP_WIDTH_FT) * 100);
     const yPct =
-      place.yFt == null ? null : clampPct(((place.yFt + offset.dy) / SHOP_DEPTH_FT) * 100);
+      place.yFt == null
+        ? null
+        : clampPct(clampBase((place.yFt / SHOP_DEPTH_FT) * 100) + (offset.dy / SHOP_DEPTH_FT) * 100);
 
     return {
       loadId: s(row.load_id) || NOT_IN_RECORD,
