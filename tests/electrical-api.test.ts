@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   API_RESOURCES,
   ELECTRICAL_API_BASE,
@@ -131,5 +131,49 @@ describe("field observation proposals", () => {
         verification_status: "verified_as_installed",
       }),
     ).toEqual([]);
+  });
+});
+
+describe("read handlers project the reconciliation snapshot", () => {
+  it("serves collections, records, qa and the document bundle from one snapshot", async () => {
+    const { buildElectricalSnapshot, SNAPSHOT_COLLECTIONS: cols } = await import(
+      "@/lib/electrical-snapshot"
+    );
+    const { ENTITY_KINDS } = await import("@/lib/electrical-entities");
+    const rows = Object.fromEntries(ENTITY_KINDS.map((k) => [k, [] as any[]])) as any;
+    rows.panel = [{ id: "u1", stable_id: "PNL-FS-NW", location: "Farm Shop" }];
+    const snap = buildElectricalSnapshot({
+      generatedAt: "2026-09-03T00:00:00.000Z",
+      rows,
+      waypoints: [],
+      qa: [{ code: "X", severity: "warning", stable_id: "PNL-FS-NW", message: "check" }],
+    });
+    vi.doMock("@/lib/electrical-snapshot.functions", () => ({
+      collectSnapshot: async () => snap,
+    }));
+    const { handleApiRead } = await import("@/lib/electrical-api.server");
+    const caller = { supabase: {}, userId: "user" };
+
+    const panels = await (await handleApiRead(caller, ["resources", "panels"])).json();
+    expect(panels.count).toBe(1);
+    expect(panels.records).toEqual(snap.panels);
+
+    const record = await (await handleApiRead(caller, ["records", "PNL-FS-NW"])).json();
+    expect(record.count).toBe(1);
+    expect(record.collections.panels[0].stable_id).toBe("PNL-FS-NW");
+    expect((await handleApiRead(caller, ["records", "PNL-NOPE"])).status).toBe(404);
+
+    const qa = await (await handleApiRead(caller, ["qa"])).json();
+    expect(qa.warnings).toBe(snap.qa.warnings);
+
+    const bundle = await (await handleApiRead(caller, ["documents", "bundle"])).json();
+    expect(bundle.manifest).toHaveLength(cols.length);
+    expect(bundle.snapshot.counts).toEqual(snap.counts);
+    expect(bundle.excluded_by_design).toHaveLength(3);
+
+    expect((await handleApiRead(caller, ["totally-unknown"])).status).toBe(404);
+    const index = await (await handleApiRead(caller, [])).json();
+    expect(index.base_path).toBe(ELECTRICAL_API_BASE);
+    vi.doUnmock("@/lib/electrical-snapshot.functions");
   });
 });
