@@ -50,6 +50,16 @@ async function snapshotFixture() {
     generatedAt: "2026-09-03T00:00:00.000Z",
     rows,
     waypoints: [],
+    breakerPositions: [
+      {
+        id: "u-bp",
+        panel_uuid: "u-pnl",
+        load_uuid: "u-load",
+        side: "A",
+        position: 3,
+        updated_at: "2026-06-01T10:00:00.000Z",
+      },
+    ],
     qa: [{ code: "X", severity: "warning", stable_id: "PNL-FS-NW", message: "check" }],
   });
 }
@@ -88,7 +98,8 @@ describe("Phase 1 — published contract", () => {
     const paths = ELECTRICAL_API_ENDPOINTS.map((e) => `${e.method} ${e.path}`);
     expect(paths).toContain(`GET ${ELECTRICAL_API_BASE}/sor/status`);
     for (const e of ELECTRICAL_API_ENDPOINTS) {
-      expect(API_SCOPE_LIST).toContain(e.scope);
+      // The OpenAPI document itself is public; every other endpoint is scoped.
+      if (e.scope !== "public") expect(API_SCOPE_LIST).toContain(e.scope);
       expect([1, 2, 3]).toContain(e.phase);
       if (e.phase === 1) expect(e.activated).toBe(true);
       else expect(e.activated).toBe(WRITE_SCOPES_ACTIVATED);
