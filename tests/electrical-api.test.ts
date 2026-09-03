@@ -141,7 +141,7 @@ describe("read handlers project the reconciliation snapshot", () => {
     );
     const { ENTITY_KINDS } = await import("@/lib/electrical-entities");
     const rows = Object.fromEntries(ENTITY_KINDS.map((k) => [k, [] as any[]])) as any;
-    rows.panel = [{ id: "u1", stable_id: "PNL-FS-NW", location: "Farm Shop" }];
+    rows.panel = [{ id: "u1", panel_id: "PNL-FS-NW", building: "Farm Shop" }];
     const snap = buildElectricalSnapshot({
       generatedAt: "2026-09-03T00:00:00.000Z",
       rows,
