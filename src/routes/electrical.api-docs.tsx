@@ -5,16 +5,29 @@ import { ElectricalGate } from "@/components/electrical/electrical-gate";
 import {
   API_RESOURCES,
   ELECTRICAL_API_BASE,
+  ELECTRICAL_API_LEGACY_BASE,
   ELECTRICAL_API_ENDPOINTS,
   ELECTRICAL_API_EXCLUSIONS,
   ELECTRICAL_API_SCHEMA_VERSION,
   ELECTRICAL_API_VERSION,
+  OPENAPI_PATH,
+  WRITE_SCOPES_ACTIVATED,
   RELATIONSHIP_CAPABILITIES,
   OBSERVATION_CONFIDENCE,
   OBSERVATION_VERIFICATION,
 } from "@/lib/electrical-api";
+import {
+  API_SCOPES,
+  API_SCOPE_LIST,
+  API_ERROR_CODES,
+  API_RATE_LIMITS,
+  KNOWN_UNRELIABLE_FIELDS,
+  type ApiErrorCode,
+} from "@/lib/electrical-api-envelope";
+import { ApiPrincipalsCard } from "@/components/electrical/api-principals-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+
 
 export const Route = createFileRoute("/electrical/api-docs")({
   component: ApiDocsPage,
