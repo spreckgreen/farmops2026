@@ -173,7 +173,28 @@ export const reseedMyProfile = createServerFn({ method: "POST" })
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    // 1. Ensure the profile row exists and is approved.
+    // 1. Establish whether approving is legitimate BEFORE touching the profile.
+    //    Self-approval is only allowed during first-run bootstrap (no admin
+    //    exists yet) or when the caller already is an admin repairing their own
+    //    row. Otherwise a provisioned household still requires a real admin.
+    const myAdmin = await supabaseAdmin
+      .from("user_roles")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("role", "admin")
+      .maybeSingle();
+    if (myAdmin.error) throw new Error(`role lookup failed: ${myAdmin.error.message}`);
+
+    const anyAdmin = await supabaseAdmin
+      .from("user_roles")
+      .select("id", { head: true, count: "exact" })
+      .eq("role", "admin");
+    if (anyAdmin.error) throw new Error(`admin count failed: ${anyAdmin.error.message}`);
+    const adminsExist = (anyAdmin.count ?? 0) > 0;
+    const callerIsAdmin = Boolean(myAdmin.data);
+    const mayApprove = callerIsAdmin || !adminsExist;
+
+    // 2. Ensure the profile row exists. Approval is only written when allowed.
     const existing = await supabaseAdmin
       .from("profiles")
       .select("id, status, email")
@@ -183,49 +204,58 @@ export const reseedMyProfile = createServerFn({ method: "POST" })
 
     let profileState: ReseedResult["profile"] = "unchanged";
     if (!existing.data) {
-      const ins = await supabaseAdmin
-        .from("profiles")
-        .insert({ id: userId, email, status: "approved", reviewed_by: userId, reviewed_at: new Date().toISOString() });
+      const ins = await supabaseAdmin.from("profiles").insert(
+        mayApprove
+          ? {
+              id: userId,
+              email,
+              status: "approved",
+              reviewed_by: userId,
+              reviewed_at: new Date().toISOString(),
+            }
+          : { id: userId, email, status: "pending" },
+      );
       if (ins.error) throw new Error(`profile insert failed: ${ins.error.message}`);
-      profileState = "created";
-    } else if (existing.data.status !== "approved" || (email && existing.data.email !== email)) {
-      const upd = await supabaseAdmin
-        .from("profiles")
-        .update({ status: "approved", email: email ?? existing.data.email, reviewed_by: userId, reviewed_at: new Date().toISOString() })
-        .eq("id", userId);
+      profileState = mayApprove ? "created" : "created_pending";
+    } else if (existing.data.status !== "approved") {
+      if (mayApprove) {
+        const upd = await supabaseAdmin
+          .from("profiles")
+          .update({
+            status: "approved",
+            email: email ?? existing.data.email,
+            reviewed_by: userId,
+            reviewed_at: new Date().toISOString(),
+          })
+          .eq("id", userId);
+        if (upd.error) throw new Error(`profile update failed: ${upd.error.message}`);
+        profileState = "updated";
+      } else {
+        // Keep the pending status; only the email may be refreshed.
+        if (email && existing.data.email !== email) {
+          const upd = await supabaseAdmin.from("profiles").update({ email }).eq("id", userId);
+          if (upd.error) throw new Error(`profile update failed: ${upd.error.message}`);
+        }
+        profileState = "awaiting_admin_approval";
+      }
+    } else if (email && existing.data.email !== email) {
+      const upd = await supabaseAdmin.from("profiles").update({ email }).eq("id", userId);
       if (upd.error) throw new Error(`profile update failed: ${upd.error.message}`);
       profileState = "updated";
     }
 
-    // 2. Decide whether to grant the admin role.
-    const myAdmin = await supabaseAdmin
-      .from("user_roles")
-      .select("id")
-      .eq("user_id", userId)
-      .eq("role", "admin")
-      .maybeSingle();
-    if (myAdmin.error) throw new Error(`role lookup failed: ${myAdmin.error.message}`);
-
+    // 3. Grant the admin role only in the same bootstrap case.
     let adminRole: ReseedResult["adminRole"];
-    if (myAdmin.data) {
+    if (callerIsAdmin) {
       adminRole = "already";
-    } else {
-      // Bootstrap allowed only when no admin exists yet.
-      const anyAdmin = await supabaseAdmin
+    } else if (!adminsExist) {
+      const grant = await supabaseAdmin
         .from("user_roles")
-        .select("id", { head: true, count: "exact" })
-        .eq("role", "admin");
-      if (anyAdmin.error) throw new Error(`admin count failed: ${anyAdmin.error.message}`);
-
-      if ((anyAdmin.count ?? 0) === 0) {
-        const grant = await supabaseAdmin
-          .from("user_roles")
-          .insert({ user_id: userId, role: "admin", granted_by: userId });
-        if (grant.error) throw new Error(`admin grant failed: ${grant.error.message}`);
-        adminRole = "granted";
-      } else {
-        adminRole = "denied_admins_exist";
-      }
+        .insert({ user_id: userId, role: "admin", granted_by: userId });
+      if (grant.error) throw new Error(`admin grant failed: ${grant.error.message}`);
+      adminRole = "granted";
+    } else {
+      adminRole = "denied_admins_exist";
     }
 
     const parts: string[] = [];
