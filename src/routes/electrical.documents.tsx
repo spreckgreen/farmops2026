@@ -7,12 +7,23 @@
 // totals and a content digest — printed on the cover, repeated in the footer of
 // every page, written into the PDF metadata and encoded in the filename. The
 // verifier on this screen answers "is the print in my hand still the truth?".
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { CheckCircle2, FileDown, FileText, Grid3x3, RefreshCw, Tag, TriangleAlert } from "lucide-react";
+import {
+  Archive,
+  CheckCircle2,
+  FileDown,
+  FileText,
+  Grid3x3,
+  History,
+  RefreshCw,
+  Tag,
+  TriangleAlert,
+  Upload,
+} from "lucide-react";
 
 import { ElectricalGate } from "@/components/electrical/electrical-gate";
 import { requireAuthenticatedUser } from "@/lib/auth-route";
@@ -37,6 +48,21 @@ import {
   type DocType,
   type VersionStamp,
 } from "@/lib/electrical-doc-version";
+import {
+  buildVersionedBundleFile,
+  parseVersionedBundleFile,
+  verifyVersionedBundleFile,
+  versionedBundleFileName,
+  type BundleIntegrity,
+  type VersionedBundleFile,
+} from "@/lib/electrical-bundle-version";
+import {
+  clearDocVersionHistory,
+  docVersionHistory,
+  historyCsv,
+  recordDocVersion,
+  type DocVersionHistoryEntry,
+} from "@/lib/electrical-doc-history";
 import { LABEL_KINDS, type LabelKind } from "@/lib/electrical-labels";
 import { ENTITIES } from "@/lib/electrical-entities";
 import { Button } from "@/components/ui/button";
@@ -95,6 +121,18 @@ function DocumentsWorkspace() {
   const [busy, setBusy] = useState<DocType | null>(null);
   const [lastStamps, setLastStamps] = useState<Partial<Record<DocType, VersionStamp>>>({});
   const [pasted, setPasted] = useState("");
+  // A loaded capture replaces the live snapshot as the source of truth for
+  // every document on this screen, so a reprint reproduces the original version.
+  const [captured, setCaptured] = useState<{
+    file: VersionedBundleFile;
+    fileName: string;
+    integrity: BundleIntegrity;
+  } | null>(null);
+  const [history, setHistory] = useState<DocVersionHistoryEntry[]>([]);
+
+  useEffect(() => {
+    setHistory(docVersionHistory());
+  }, []);
 
   const query = useQuery({
     queryKey: ["electrical-document-bundle"],
@@ -102,7 +140,13 @@ function DocumentsWorkspace() {
     staleTime: 60_000,
   });
 
-  const bundle = query.data?.bundle ?? null;
+  const live = query.data ?? null;
+  const bundle = captured ? captured.file.bundle : (live?.bundle ?? null);
+  const apiVersion = captured ? captured.file.api_version : (live?.apiVersion ?? "");
+  const generatedBy = live?.generatedBy ?? "";
+  const source = captured
+    ? ({ kind: "captured-bundle", label: captured.file.bundle_version_code } as const)
+    : ({ kind: "live", label: "live snapshot" } as const);
 
   const buildings = useMemo(() => (bundle ? buildingOptions(bundle) : []), [bundle]);
   const panels = useMemo(
@@ -120,26 +164,75 @@ function DocumentsWorkspace() {
   }, [bundle, scope, labelKinds]);
 
   async function stampFor(docType: DocType, counts: Record<string, number>, records: unknown) {
-    const data = query.data!;
+    if (!bundle) throw new Error("No bundle loaded.");
     return buildVersionStamp(
       {
         docType,
-        apiVersion: data.apiVersion,
-        schemaVersion: data.bundle.schema_version,
-        generatedAt: data.bundle.generated_at,
+        apiVersion,
+        schemaVersion: bundle.schema_version,
+        generatedAt: bundle.generated_at,
         counts,
-        qaErrors: data.bundle.qa.errors,
-        qaWarnings: data.bundle.qa.warnings,
-        generatedBy: data.generatedBy,
+        qaErrors: bundle.qa.errors,
+        qaWarnings: bundle.qa.warnings,
+        generatedBy: generatedBy || captured?.file.captured_by || "unknown",
         printedAt: new Date().toISOString(),
         scope: scopeLabel(scope),
+        bundleSource: captured
+          ? `captured bundle ${captured.file.bundle_version_code} (${captured.fileName}, digest ${captured.integrity})`
+          : "live snapshot",
       },
       records,
     );
   }
 
+  /** Save the current live snapshot as a versioned bundle file for later reprints. */
+  async function captureBundle() {
+    if (!live) return;
+    try {
+      const file = await buildVersionedBundleFile(live.bundle, {
+        apiVersion: live.apiVersion,
+        capturedBy: live.generatedBy,
+      });
+      const name = versionedBundleFileName(file);
+      const url = URL.createObjectURL(
+        new Blob([JSON.stringify(file, null, 2)], { type: "application/json" }),
+      );
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = name;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("Bundle version captured", { description: name });
+    } catch (err) {
+      toast.error("Could not capture the bundle", {
+        description: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
+  async function loadCapturedBundle(fileInput: File) {
+    try {
+      const text = await fileInput.text();
+      const parsed = parseVersionedBundleFile(text);
+      const { status } = await verifyVersionedBundleFile(parsed);
+      setCaptured({ file: parsed, fileName: fileInput.name, integrity: status });
+      setScope(DEFAULT_SCOPE);
+      if (status === "digest-mismatch") {
+        toast.warning("Bundle loaded, digest does not match", {
+          description: "The capture was altered after it was written. Documents will say so.",
+        });
+      } else {
+        toast.success("Versioned bundle loaded", { description: parsed.bundle_version_code });
+      }
+    } catch (err) {
+      toast.error("Could not read that bundle", {
+        description: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
   async function generate(docType: DocType) {
-    if (!models || !query.data) return;
+    if (!models || !bundle) return;
     setBusy(docType);
     try {
       const pdf = await import("@/lib/electrical-pdf");
@@ -169,6 +262,8 @@ function DocumentsWorkspace() {
       }
       const name = pdf.savePdf(doc, stamp);
       setLastStamps((prev) => ({ ...prev, [docType]: stamp }));
+      recordDocVersion(stamp, source, name);
+      setHistory(docVersionHistory());
       toast.success(`${DOC_TYPE_LABEL[docType]} generated`, { description: name });
     } catch (err) {
       toast.error("Could not generate the document", {
@@ -178,6 +273,7 @@ function DocumentsWorkspace() {
       setBusy(null);
     }
   }
+
 
   const toggleKind = (kind: LabelKind) =>
     setLabelKinds((prev) =>
@@ -199,27 +295,87 @@ function DocumentsWorkspace() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-3">
           <CardTitle className="text-base">Source</CardTitle>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => query.refetch()}
-            disabled={query.isFetching}
-          >
-            <RefreshCw className={query.isFetching ? "mr-2 size-4 animate-spin" : "mr-2 size-4"} />
-            Re-read API
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="outline" size="sm" onClick={captureBundle} disabled={!live}>
+              <Archive className="mr-2 size-4" />
+              Capture bundle version
+            </Button>
+            <Button variant="outline" size="sm" asChild>
+              <label className="cursor-pointer">
+                <Upload className="mr-2 size-4" />
+                Load versioned bundle
+                <input
+                  type="file"
+                  accept="application/json,.json"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    e.target.value = "";
+                    if (f) void loadCapturedBundle(f);
+                  }}
+                />
+              </label>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => query.refetch()}
+              disabled={query.isFetching}
+            >
+              <RefreshCw className={query.isFetching ? "mr-2 size-4 animate-spin" : "mr-2 size-4"} />
+              Re-read API
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          {query.isLoading ? (
+          {captured ? (
+            <div className="border-border bg-muted/40 space-y-1 rounded-md border p-3 text-xs">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant="secondary" className="font-mono text-[10px]">
+                  {captured.file.bundle_version_code}
+                </Badge>
+                <Badge
+                  variant={captured.integrity === "verified" ? "outline" : "destructive"}
+                  className="text-[10px]"
+                >
+                  {captured.integrity === "verified"
+                    ? "digest verified"
+                    : captured.integrity === "digest-mismatch"
+                      ? "digest MISMATCH — capture altered"
+                      : "no digest in capture"}
+                </Badge>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-2 text-xs"
+                  onClick={() => {
+                    setCaptured(null);
+                    setScope(DEFAULT_SCOPE);
+                  }}
+                >
+                  Return to live snapshot
+                </Button>
+              </div>
+              <p className="text-muted-foreground break-all">
+                Printing from captured bundle <span className="font-mono">{captured.fileName}</span>{" "}
+                — snapshot {captured.file.generated_at}, captured {captured.file.captured_at || "—"}{" "}
+                by {captured.file.captured_by || "—"}. Documents stamp this snapshot version, not the
+                live one.
+              </p>
+            </div>
+          ) : null}
+
+          {query.isLoading && !captured ? (
             <Skeleton className="h-24 w-full" />
-          ) : query.error ? (
+          ) : query.error && !captured ? (
             <p className="text-destructive text-sm">
               {query.error instanceof Error ? query.error.message : "Could not read the API bundle."}
             </p>
           ) : bundle ? (
             <>
               <dl className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
-                <Field label="API version" value={query.data!.apiVersion} />
+                <Field label="Bundle source" value={captured ? "Captured version" : "Live snapshot"} />
+                <Field label="API version" value={apiVersion || "unknown"} />
                 <Field label="Snapshot schema" value={bundle.schema_version} />
                 <Field label="Snapshot generated" value={bundle.generated_at} />
                 <Field
@@ -229,6 +385,7 @@ function DocumentsWorkspace() {
               </dl>
 
               <Separator />
+
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
@@ -342,6 +499,16 @@ function DocumentsWorkspace() {
           />
         </div>
       ) : null}
+
+      <LabelVersionHistory
+        entries={history.filter((e) => e.docType === "avery-labels")}
+        onClear={() => {
+          clearDocVersionHistory("avery-labels");
+          setHistory(docVersionHistory());
+        }}
+      />
+
+
 
       {models ? (
         <Card>
@@ -518,5 +685,82 @@ function VerifyResultView({
         </div>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * Printed Avery sheet history: every label sheet generated on this browser,
+ * with the FarmOps version it came from. Each printed cell also carries the same
+ * version code, so a sheet on a panel door can be traced back to this list.
+ */
+function LabelVersionHistory({
+  entries,
+  onClear,
+}: {
+  entries: DocVersionHistoryEntry[];
+  onClear: () => void;
+}) {
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between gap-3">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <History className="size-4" />
+          Avery label sheet version history
+        </CardTitle>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={!entries.length}
+            onClick={() => {
+              const url = URL.createObjectURL(
+                new Blob([historyCsv(entries)], { type: "text/csv" }),
+              );
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = "avery-label-version-history.csv";
+              a.click();
+              URL.revokeObjectURL(url);
+            }}
+          >
+            <FileDown className="mr-2 size-4" />
+            Export CSV
+          </Button>
+          <Button variant="ghost" size="sm" disabled={!entries.length} onClick={onClear}>
+            Clear
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {entries.length === 0 ? (
+          <p className="text-muted-foreground text-sm">
+            No label sheets printed from this browser yet. Each generated sheet is recorded here with
+            its version code, the snapshot it was built from and whether it came from the live
+            snapshot or a captured bundle.
+          </p>
+        ) : (
+          <ul className="divide-border divide-y text-sm">
+            {entries.map((e) => (
+              <li key={e.id} className="flex flex-wrap items-baseline gap-x-3 gap-y-1 py-2">
+                <span className="font-mono text-xs">{e.versionCode}</span>
+                <Badge variant="outline" className="text-[10px]">
+                  {e.sourceKind === "live" ? "live snapshot" : `captured ${e.sourceLabel}`}
+                </Badge>
+                <span className="text-muted-foreground text-xs">
+                  data {e.generatedAt} · schema {e.schemaVersion} · API {e.apiVersion}
+                </span>
+                <span className="text-muted-foreground text-xs">
+                  {e.counts["labels"] ?? 0} labels · {e.scope}
+                </span>
+                <span className="text-muted-foreground text-xs">
+                  printed {new Date(e.printedAt).toLocaleString()} by {e.printedBy}
+                </span>
+                <span className="text-muted-foreground w-full text-xs break-all">{e.fileName}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
   );
 }
