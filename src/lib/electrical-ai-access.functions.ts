@@ -9,6 +9,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { isAdminRole, requireAdminRole } from "@/lib/admin-role.server";
 import {
+  ELECTRICAL_AI_SCENARIOS,
   isElectricalAiScenarioId,
   type ElectricalAiScenarioId,
 } from "@/lib/electrical-ai-scenarios";
