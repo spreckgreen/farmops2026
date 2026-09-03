@@ -231,26 +231,74 @@ fi
 
 # --- 2. Build ---------------------------------------------------------------
 # Size the builder's Node heap from real host memory. V8 old-space is only part
-# of peak usage: Rollup/esbuild buffers, generated chunks, and Docker overhead
-# live outside that cap. Keep the automatic heap at the lower of 38% of total
-# RAM or MemAvailable minus a 2.5 GB native/host reserve, clamped to
-# 1536..3072 MB. Override explicitly with NODE_HEAP_MB when the host has swap or
-# substantially more headroom.
+# of peak usage: Rolldown's Rust graph, generated chunks, and Docker overhead
+# live outside that cap. On an 8 GB host the Nitro server pass can use roughly
+# 4 GB outside V8, so keep automatic old-space at 25% of RAM and no more than
+# 2048 MB. Override explicitly only on a host with measured extra headroom.
 if [ -z "${NODE_HEAP_MB:-}" ]; then
   total_mb=$(awk '/MemTotal/{printf "%d", $2/1024}' /proc/meminfo 2>/dev/null || echo 0)
   avail_mb=$(awk '/MemAvailable/{printf "%d", $2/1024}' /proc/meminfo 2>/dev/null || echo 0)
-  by_total=$(( total_mb * 38 / 100 ))
-  by_available=$(( avail_mb - 2560 ))
+  by_total=$(( total_mb * 25 / 100 ))
+  by_available=$(( avail_mb - 4096 ))
   heap="$by_total"
   [ "$by_available" -lt "$heap" ] && heap="$by_available"
   [ "$heap" -lt 1536 ] && heap=1536
-  [ "$heap" -gt 3072 ] && heap=3072
+  [ "$heap" -gt 2048 ] && heap=2048
   NODE_HEAP_MB="$heap"
   log "Host memory total=${total_mb}MB available=${avail_mb}MB -> NODE_HEAP_MB=${NODE_HEAP_MB} (native reserve preserved)"
 fi
 export NODE_HEAP_MB
+
+# Nitro 3 uses Rolldown for its final server bundle. Its Rust worker pools are
+# outside max-old-space-size and previously pushed this 8 GB host to 7.1 GB RSS.
+# Two workers trade a little build speed for a stable peak. Operators can still
+# override these values after measuring a larger machine.
+export ROLLDOWN_WORKER_THREADS="${ROLLDOWN_WORKER_THREADS:-2}"
+export ROLLDOWN_MAX_BLOCKING_THREADS="${ROLLDOWN_MAX_BLOCKING_THREADS:-2}"
+export RAYON_NUM_THREADS="${RAYON_NUM_THREADS:-2}"
+
+# A heap cap cannot constrain native allocations. For hosts below 12 GB with no
+# swap, create a private build-only swap file as an OOM safety net, then remove
+# it immediately after `docker compose build`. This does not interrupt the
+# currently running app. Failure to create swap is non-fatal because the worker
+# limits and conservative heap remain active.
+BUILD_SWAP_FILE="${BUILD_SWAP_FILE:-/var/tmp/farmops-build.swap}"
+BUILD_SWAP_CREATED=0
+cleanup_build_swap() {
+  if [ "$BUILD_SWAP_CREATED" -eq 1 ]; then
+    log "Removing temporary build swap"
+    "${ROOT_CMD[@]}" swapoff "$BUILD_SWAP_FILE" 2>/dev/null || true
+    "${ROOT_CMD[@]}" rm -f "$BUILD_SWAP_FILE" 2>/dev/null || true
+    BUILD_SWAP_CREATED=0
+  fi
+}
+trap cleanup_build_swap EXIT INT TERM
+
+swap_total_mb=$(awk '/SwapTotal/{printf "%d", $2/1024}' /proc/meminfo 2>/dev/null || echo 0)
+if [ "${total_mb:-0}" -lt 12288 ] && [ "$swap_total_mb" -lt 1024 ] && command -v mkswap >/dev/null 2>&1; then
+  log "Low-memory host has ${swap_total_mb}MB swap; preparing a 4096MB build-only safety net"
+  if "${ROOT_CMD[@]}" rm -f "$BUILD_SWAP_FILE" 2>/dev/null \
+    && { "${ROOT_CMD[@]}" fallocate -l 4G "$BUILD_SWAP_FILE" 2>/dev/null \
+      || "${ROOT_CMD[@]}" dd if=/dev/zero of="$BUILD_SWAP_FILE" bs=1M count=4096 status=none; } \
+    && "${ROOT_CMD[@]}" chmod 600 "$BUILD_SWAP_FILE" \
+    && "${ROOT_CMD[@]}" mkswap "$BUILD_SWAP_FILE" >/dev/null \
+    && "${ROOT_CMD[@]}" swapon "$BUILD_SWAP_FILE"; then
+    BUILD_SWAP_CREATED=1
+    log "Temporary build swap enabled at $BUILD_SWAP_FILE"
+  else
+    err "Warning: could not enable temporary build swap; continuing with constrained Rolldown workers"
+    "${ROOT_CMD[@]}" rm -f "$BUILD_SWAP_FILE" 2>/dev/null || true
+  fi
+fi
+
+log "Build limits: heap=${NODE_HEAP_MB}MB rolldown-workers=${ROLLDOWN_WORKER_THREADS} blocking-workers=${ROLLDOWN_MAX_BLOCKING_THREADS} rayon=${RAYON_NUM_THREADS}"
 log "Building app image (BuildKit cache will short-circuit unchanged layers)"
-DOCKER_BUILDKIT=1 "${DOCKER[@]}" compose build app
+if ! DOCKER_BUILDKIT=1 "${DOCKER[@]}" compose build app; then
+  build_rc=$?
+  cleanup_build_swap
+  exit "$build_rc"
+fi
+cleanup_build_swap
 
 # --- 2b. Apply pending DB migrations ---------------------------------------
 # Runs BEFORE the new app image starts serving, so the UI never goes live
