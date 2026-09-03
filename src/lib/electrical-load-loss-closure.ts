@@ -313,6 +313,7 @@ export function buildLossClosure(
   binding: ContractBinding,
   fields: FieldSimulation[],
   rowCount: number,
+  contractVersion?: string,
 ): ClosureReport {
   const byColumn = new Map(fields.map((f) => [f.physical_column, f]));
   const unbound = binding.columns.filter((c) => c.effective_action === "UNRESOLVED");
@@ -383,7 +384,7 @@ export function buildLossClosure(
   }
 
   return {
-    version: LOSS_CLOSURE_VERSION,
+    version: contractVersion ? `${contractVersion}.loss-closure.v1` : LOSS_CLOSURE_VERSION,
     row_count: rowCount,
     unbound_column_count: unbound.length,
     rows,

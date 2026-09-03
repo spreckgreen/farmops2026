@@ -185,11 +185,15 @@ export interface ContractBinding {
 const eqHeader = (a: string, b: string): boolean =>
   a.trim().toLowerCase().replace(/\s+/g, " ") === b.trim().toLowerCase().replace(/\s+/g, " ");
 
-export function bindContract(sheet: Sheet, headerRow: number): ContractBinding {
+export function bindContract(
+  sheet: Sheet,
+  headerRow: number,
+  contract: ContractColumn[] = LOAD_MASTER_CONTRACT_V2,
+): ContractBinding {
   const header = sheet.rows[headerRow] ?? [];
   const width = Math.max(header.length, ...sheet.rows.map((r) => r.length), 0);
 
-  const columns: BoundColumn[] = LOAD_MASTER_CONTRACT_V2.map((c) => {
+  const columns: BoundColumn[] = contract.map((c) => {
     const observed = (header[c.physical_column - 1] ?? "").trim();
     let binding_status: BindingStatus;
     if (c.physical_column > width) binding_status = "COLUMN_ABSENT";
@@ -209,7 +213,7 @@ export function bindContract(sheet: Sheet, headerRow: number): ContractBinding {
   });
 
   const extra_populated_columns: { physical_column: number; observed_header: string }[] = [];
-  for (let i = CONTRACT_COLUMN_COUNT; i < width; i++) {
+  for (let i = contract.length; i < width; i++) {
     const populated = sheet.rows.some((r, idx) => idx !== headerRow && String(r[i] ?? "").trim());
     if (populated || (header[i] ?? "").trim()) {
       extra_populated_columns.push({
@@ -223,7 +227,7 @@ export function bindContract(sheet: Sheet, headerRow: number): ContractBinding {
     sheet: sheet.name,
     header_row: headerRow + 1,
     observed_column_count: width,
-    expected_column_count: CONTRACT_COLUMN_COUNT,
+    expected_column_count: contract.length,
     columns,
     extra_populated_columns,
     bound: columns.filter((c) => c.effective_action !== "UNRESOLVED").length,
@@ -452,12 +456,16 @@ export interface SimulationInput {
   headerRow: number;
   /** 0-based worksheet row index + stable ID for each canonical data row. */
   odsRows: { sourceRow: number; stableId: string }[];
+  /** Contract registry to simulate. Defaults to the retained v2 registry. */
+  contract?: ContractColumn[];
+  /** Immutable version label recorded on the simulation. */
+  contractVersion?: string;
 }
 
-/** Simulate a complete re-import of every canonical row under Contract v2. */
+/** Simulate a complete re-import of every canonical row under the given contract. */
 export function simulateContractReimport(input: SimulationInput): ContractSimulation {
   const { sheet, headerRow, odsRows } = input;
-  const binding = bindContract(sheet, headerRow);
+  const binding = bindContract(sheet, headerRow, input.contract ?? LOAD_MASTER_CONTRACT_V2);
 
   const rows: SimulatedRow[] = odsRows.map((r) => ({
     stable_id: r.stableId,
@@ -596,7 +604,7 @@ export function simulateContractReimport(input: SimulationInput): ContractSimula
   };
 
   return {
-    contract_version: IMPORT_CONTRACT_VERSION,
+    contract_version: input.contractVersion ?? IMPORT_CONTRACT_VERSION,
     binding,
     row_count: odsRows.length,
     fields,
