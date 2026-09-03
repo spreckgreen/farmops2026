@@ -264,6 +264,12 @@ export RAYON_NUM_THREADS="${RAYON_NUM_THREADS:-2}"
 # limits and conservative heap remain active.
 BUILD_SWAP_FILE="${BUILD_SWAP_FILE:-/var/tmp/farmops-build.swap}"
 BUILD_SWAP_CREATED=0
+ROOT_CMD=()
+if [ "$(id -u)" -eq 0 ]; then
+  ROOT_CMD=()
+elif [ "$ALLOW_SUDO" -eq 1 ] && command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then
+  ROOT_CMD=(sudo -n)
+fi
 cleanup_build_swap() {
   if [ "$BUILD_SWAP_CREATED" -eq 1 ]; then
     log "Removing temporary build swap"
@@ -272,10 +278,11 @@ cleanup_build_swap() {
     BUILD_SWAP_CREATED=0
   fi
 }
-trap cleanup_build_swap EXIT INT TERM
+trap cleanup_build_swap EXIT
+trap 'cleanup_build_swap; exit 130' INT TERM
 
 swap_total_mb=$(awk '/SwapTotal/{printf "%d", $2/1024}' /proc/meminfo 2>/dev/null || echo 0)
-if [ "${total_mb:-0}" -lt 12288 ] && [ "$swap_total_mb" -lt 1024 ] && command -v mkswap >/dev/null 2>&1; then
+if [ "${total_mb:-0}" -lt 12288 ] && [ "$swap_total_mb" -lt 1024 ] && command -v mkswap >/dev/null 2>&1 && { [ "$(id -u)" -eq 0 ] || [ "${#ROOT_CMD[@]}" -gt 0 ]; }; then
   log "Low-memory host has ${swap_total_mb}MB swap; preparing a 4096MB build-only safety net"
   if "${ROOT_CMD[@]}" rm -f "$BUILD_SWAP_FILE" 2>/dev/null \
     && { "${ROOT_CMD[@]}" fallocate -l 4G "$BUILD_SWAP_FILE" 2>/dev/null \
@@ -289,12 +296,17 @@ if [ "${total_mb:-0}" -lt 12288 ] && [ "$swap_total_mb" -lt 1024 ] && command -v
     err "Warning: could not enable temporary build swap; continuing with constrained Rolldown workers"
     "${ROOT_CMD[@]}" rm -f "$BUILD_SWAP_FILE" 2>/dev/null || true
   fi
+elif [ "${total_mb:-0}" -lt 12288 ] && [ "$swap_total_mb" -lt 1024 ]; then
+  err "Warning: no passwordless root access for temporary swap; continuing with constrained Rolldown workers"
 fi
 
 log "Build limits: heap=${NODE_HEAP_MB}MB rolldown-workers=${ROLLDOWN_WORKER_THREADS} blocking-workers=${ROLLDOWN_MAX_BLOCKING_THREADS} rayon=${RAYON_NUM_THREADS}"
 log "Building app image (BuildKit cache will short-circuit unchanged layers)"
-if ! DOCKER_BUILDKIT=1 "${DOCKER[@]}" compose build app; then
-  build_rc=$?
+set +e
+DOCKER_BUILDKIT=1 "${DOCKER[@]}" compose build app
+build_rc=$?
+set -e
+if [ "$build_rc" -ne 0 ]; then
   cleanup_build_swap
   exit "$build_rc"
 fi
