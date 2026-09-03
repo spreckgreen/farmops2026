@@ -75,6 +75,7 @@
     "fflate": "^0.8.3",
     "html5-qrcode": "^2.3.8",
     "input-otp": "^1.4.2",
+    "jspdf": "^4.2.1",
     "lucide-react": "^0.575.0",
     "mammoth": "^1.12.0",
     "papaparse": "^5.5.3",
