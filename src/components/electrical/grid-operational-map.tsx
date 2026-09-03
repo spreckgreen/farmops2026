@@ -396,7 +396,7 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
             <div
               className="mx-auto w-full rounded-md border border-border bg-white"
               style={{
-                maxWidth: `calc((100vh - ${large ? "20rem" : "26rem"}) * ${(1448 / 1086).toFixed(4)})`,
+                maxWidth: `max(28rem, calc((100vh - ${large ? "20rem" : "26rem"}) * ${(1448 / 1086).toFixed(4)}))`,
               }}
             >
               <GridPlanSvg
