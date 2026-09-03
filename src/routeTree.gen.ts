@@ -114,6 +114,7 @@ import { Route as ApiPublicHooksTaskHealthRouteImport } from './routes/api/publi
 import { Route as ApiPublicHooksRachioSyncRouteImport } from './routes/api/public/hooks/rachio-sync'
 import { Route as ApiPublicHealthProceduresRouteImport } from './routes/api/public/health.procedures'
 import { Route as ApiElectricalV1OpenapiDotjsonRouteImport } from './routes/api/electrical/v1/openapi[.]json'
+import { Route as ApiElectricalV1SplatRouteImport } from './routes/api/electrical/v1/$'
 
 const VaultRoute = VaultRouteImport.update({
   id: '/vault',
@@ -649,6 +650,11 @@ const ApiElectricalV1OpenapiDotjsonRoute =
     path: '/api/electrical/v1/openapi.json',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiElectricalV1SplatRoute = ApiElectricalV1SplatRouteImport.update({
+  id: '/api/electrical/v1/$',
+  path: '/api/electrical/v1/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -750,6 +756,7 @@ export interface FileRoutesByFullPath {
   '/api/public/health': typeof ApiPublicHealthRouteWithChildren
   '/api/public/ready': typeof ApiPublicReadyRoute
   '/electrical/panel/$panelId': typeof ElectricalPanelPanelIdRoute
+  '/api/electrical/v1/$': typeof ApiElectricalV1SplatRoute
   '/api/electrical/v1/openapi.json': typeof ApiElectricalV1OpenapiDotjsonRoute
   '/api/public/health/procedures': typeof ApiPublicHealthProceduresRoute
   '/api/public/hooks/rachio-sync': typeof ApiPublicHooksRachioSyncRoute
@@ -854,6 +861,7 @@ export interface FileRoutesByTo {
   '/api/public/health': typeof ApiPublicHealthRouteWithChildren
   '/api/public/ready': typeof ApiPublicReadyRoute
   '/electrical/panel/$panelId': typeof ElectricalPanelPanelIdRoute
+  '/api/electrical/v1/$': typeof ApiElectricalV1SplatRoute
   '/api/electrical/v1/openapi.json': typeof ApiElectricalV1OpenapiDotjsonRoute
   '/api/public/health/procedures': typeof ApiPublicHealthProceduresRoute
   '/api/public/hooks/rachio-sync': typeof ApiPublicHooksRachioSyncRoute
@@ -962,6 +970,7 @@ export interface FileRoutesById {
   '/api/public/health': typeof ApiPublicHealthRouteWithChildren
   '/api/public/ready': typeof ApiPublicReadyRoute
   '/electrical/panel/$panelId': typeof ElectricalPanelPanelIdRoute
+  '/api/electrical/v1/$': typeof ApiElectricalV1SplatRoute
   '/api/electrical/v1/openapi.json': typeof ApiElectricalV1OpenapiDotjsonRoute
   '/api/public/health/procedures': typeof ApiPublicHealthProceduresRoute
   '/api/public/hooks/rachio-sync': typeof ApiPublicHooksRachioSyncRoute
@@ -1071,6 +1080,7 @@ export interface FileRouteTypes {
     | '/api/public/health'
     | '/api/public/ready'
     | '/electrical/panel/$panelId'
+    | '/api/electrical/v1/$'
     | '/api/electrical/v1/openapi.json'
     | '/api/public/health/procedures'
     | '/api/public/hooks/rachio-sync'
@@ -1175,6 +1185,7 @@ export interface FileRouteTypes {
     | '/api/public/health'
     | '/api/public/ready'
     | '/electrical/panel/$panelId'
+    | '/api/electrical/v1/$'
     | '/api/electrical/v1/openapi.json'
     | '/api/public/health/procedures'
     | '/api/public/hooks/rachio-sync'
@@ -1282,6 +1293,7 @@ export interface FileRouteTypes {
     | '/api/public/health'
     | '/api/public/ready'
     | '/electrical/panel/$panelId'
+    | '/api/electrical/v1/$'
     | '/api/electrical/v1/openapi.json'
     | '/api/public/health/procedures'
     | '/api/public/hooks/rachio-sync'
@@ -1369,6 +1381,7 @@ export interface RootRouteChildren {
   ApiPublicHealthRoute: typeof ApiPublicHealthRouteWithChildren
   ApiPublicReadyRoute: typeof ApiPublicReadyRoute
   ElectricalPanelPanelIdRoute: typeof ElectricalPanelPanelIdRoute
+  ApiElectricalV1SplatRoute: typeof ApiElectricalV1SplatRoute
   ApiElectricalV1OpenapiDotjsonRoute: typeof ApiElectricalV1OpenapiDotjsonRoute
   ApiPublicHooksRachioSyncRoute: typeof ApiPublicHooksRachioSyncRoute
   ApiPublicHooksTaskHealthRoute: typeof ApiPublicHooksTaskHealthRoute
@@ -2113,6 +2126,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiElectricalV1OpenapiDotjsonRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/electrical/v1/$': {
+      id: '/api/electrical/v1/$'
+      path: '/api/electrical/v1/$'
+      fullPath: '/api/electrical/v1/$'
+      preLoaderRoute: typeof ApiElectricalV1SplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -2286,6 +2306,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicHealthRoute: ApiPublicHealthRouteWithChildren,
   ApiPublicReadyRoute: ApiPublicReadyRoute,
   ElectricalPanelPanelIdRoute: ElectricalPanelPanelIdRoute,
+  ApiElectricalV1SplatRoute: ApiElectricalV1SplatRoute,
   ApiElectricalV1OpenapiDotjsonRoute: ApiElectricalV1OpenapiDotjsonRoute,
   ApiPublicHooksRachioSyncRoute: ApiPublicHooksRachioSyncRoute,
   ApiPublicHooksTaskHealthRoute: ApiPublicHooksTaskHealthRoute,
