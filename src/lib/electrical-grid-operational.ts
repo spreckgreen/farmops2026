@@ -365,6 +365,31 @@ export function placementCandidatesFor(row: OperationalInput): PlacementCandidat
     });
   }
 
+  // 1b. Approved design X/Y. The design coordinates are the authoritative
+  //     statement of the intended position; any grid label on the record is a
+  //     human-readable lookup of that position, never the position itself. This
+  //     is design intent only — it never claims the fixture is installed, and a
+  //     verified field observation still outranks it.
+  {
+    const dx = num(row.designXFt);
+    const dy = num(row.designYFt);
+    if (dx != null && dy != null) {
+      out.push({
+        source: "APPROVED_DESIGN_XY",
+        xFt: dx,
+        yFt: dy,
+        precision: "EXACT",
+        spanned: false,
+        basis: `Approved design position: ${dx} ft E, ${dy} ft S${
+          row.designGrid ? ` (design grid ${row.designGrid}, lookup only)` : ""
+        }. Design intent — not a field observation.`,
+        accepted: true,
+      });
+    }
+  }
+
+
+
   // 2. The accepted current FarmOps corrected grid reference. grid_reference is
   //    always a corrected A–F / 1–9 reference, never read through the old drawing.
   if (correctedReference.ok) {
