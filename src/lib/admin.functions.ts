@@ -262,9 +262,13 @@ export const reseedMyProfile = createServerFn({ method: "POST" })
     parts.push(
       profileState === "created"
         ? "Profile created (approved)."
-        : profileState === "updated"
-          ? "Profile updated to approved."
-          : "Profile already approved.",
+        : profileState === "created_pending"
+          ? "Profile created as pending — an administrator must approve it."
+          : profileState === "awaiting_admin_approval"
+            ? "Profile left pending — only an administrator can approve it."
+            : profileState === "updated"
+              ? "Profile updated."
+              : "Profile already approved.",
     );
     if (adminRole === "granted") parts.push("Admin role granted (bootstrap).");
     else if (adminRole === "already") parts.push("Admin role already present.");
