@@ -276,20 +276,27 @@ export function GridPlanSvg({
   );
 }
 
-/** Hover/focus helper text, drawn inside the same viewBox so it scales with the
- * plan and never drifts at a different browser zoom. */
-function HoverHint({ asset }: { asset: OperationalAsset }) {
-  if (asset.plottedXFt == null || asset.plottedYFt == null) return null;
-  const at = feetToPlanPx(asset.plottedXFt + asset.fanDxFt, asset.plottedYFt + asset.fanDyFt);
-  const lines = [
+/** The helper-text facts, shared by the drawn hover card and the marker's
+ * aria-label, so keyboard and screen-reader users get exactly what a mouse
+ * user sees. */
+export function hintLines(asset: OperationalAsset): string[] {
+  return [
     asset.stableId,
     asset.description ?? "No description in record",
-    `${PRECISION_META[asset.precision].label} · ${asset.plottedXFt} ft E, ${asset.plottedYFt} ft S`,
+    `${PRECISION_META[asset.precision].label} · ${asset.plottedXFt ?? "?"} ft E, ${asset.plottedYFt ?? "?"} ft S`,
     `Panel: ${asset.panel ?? "NOT IN RECORD"} · Install: ${asset.installStatus ?? "NOT IN RECORD"}`,
     `Verification: ${VERIFICATION_LABEL[verificationOf(asset.verification)]}`,
     ...(asset.spanned ? ["Interval — a preserved span, not a final point"] : []),
     ...(asset.placementDisagreement ? ["Placement conflict — see Data quality"] : []),
   ];
+}
+
+/** Hover/focus helper text, drawn inside the same viewBox so it scales with the
+ * plan and never drifts at a different browser zoom. */
+function HoverHint({ asset }: { asset: OperationalAsset }) {
+  if (asset.plottedXFt == null || asset.plottedYFt == null) return null;
+  const at = feetToPlanPx(asset.plottedXFt + asset.fanDxFt, asset.plottedYFt + asset.fanDyFt);
+  const lines = hintLines(asset);
   const fontSize = 22;
   const pad = 12;
   const lineH = fontSize * 1.35;
