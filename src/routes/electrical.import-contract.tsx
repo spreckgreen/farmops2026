@@ -30,6 +30,7 @@ import {
   simulationCsv,
   type ImportAction,
 } from "@/lib/electrical-load-import-contract";
+import { buildLossClosure, closureCsv } from "@/lib/electrical-load-loss-closure";
 
 export const Route = createFileRoute("/electrical/import-contract")({
   component: ImportContractPage,
@@ -119,6 +120,12 @@ function ImportContractPage() {
         .includes(needle),
     );
   }, [result, filter]);
+
+  // Read-only closure plan over the columns that do not bind at their physical position.
+  const closure = useMemo(
+    () => (result ? buildLossClosure(result.binding, result.fields, result.row_count) : null),
+    [result],
+  );
 
   return (
     <ElectricalGate>
