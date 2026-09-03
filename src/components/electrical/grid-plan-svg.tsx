@@ -153,7 +153,7 @@ export function GridPlanSvg({
             ) : (
               <circle cx={shown.x} cy={shown.y} r={r} fill={fill} stroke="#ffffff" strokeWidth={2} />
             )}
-            {interactive ? <title>{`${label} — ${a.precision}`}</title> : null}
+            {/* Helper text is drawn in-SVG (HoverHint); aria-label carries it for AT. */}
           </g>
         );
       })}
