@@ -52,6 +52,26 @@ export async function loadApprovedAiScenarios(
     .filter(isElectricalAiScenarioId);
 }
 
+/**
+ * Scenarios an admin explicitly switched off for this user (revoked/rejected).
+ * These override add-on entitlement, so unticking in Admin → Users really
+ * removes the scenario from the user's AI features tab.
+ */
+export async function loadDeniedAiScenarios(
+  supabase: unknown,
+  userId: string,
+): Promise<ElectricalAiScenarioId[]> {
+  const { data, error } = await (supabase as LooseDb)
+    .from(AI_GRANT_TABLE)
+    .select("scenario, status")
+    .eq("user_id", userId)
+    .in("status", ["revoked", "rejected"]);
+  if (error) throw new Error(error.message);
+  return ((data ?? []) as { scenario: string }[])
+    .map((r) => r.scenario)
+    .filter(isElectricalAiScenarioId);
+}
+
 /** The signed-in caller's own request/grant rows. */
 export const listMyElectricalAiFeatureRequests = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
