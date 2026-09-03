@@ -1,0 +1,44 @@
+# Electrical document generation screen (PDF output)
+
+A new page that pulls everything it prints from the versioned read-only Electrical API and turns it into three PDFs: the Farm Shop electrical sheet, an Avery label sheet, and the grid map.
+
+## What you get
+
+Route: `/electrical/documents`, in Electrical navigation under **Integration → Documents**.
+
+A single screen with:
+
+- **Source panel** — one `GET /api/electrical/v1/documents/bundle` call, showing schema version, generated-at timestamp, per-collection record counts and QA error/warning counts. A "Refresh from API" button re-pulls. If the API returns 401/403, the page says so plainly instead of rendering an empty document.
+- **Scope controls** — building/location (defaults to Farm Shop), panel filter, and per-document toggles.
+- **Three generate buttons**, each producing a PDF download and an on-screen preview count of what will be included:
+
+  1. **Farm Shop electrical sheet** (multi-page, letter portrait)
+     - Cover: building, generated-at, API schema version, record counts, authority note (canonical ODS = design intent, FarmOps = as-built).
+     - Panel schedules: one section per panel with bus rating, voltage, phase, spaces, feeder source, then its breaker positions and connected loads.
+     - Load schedule: stable ID, description, grid, volts, amps, VA, D/S, critical flag, installation status.
+     - Conduit/raceway and junction-box schedules where records exist.
+     - QA appendix: findings from `bundle.qa`, verbatim, reported not enforced.
+     - Anything absent in the records prints `NOT IN RECORD` — no inferred values, no invented connections.
+
+  2. **Avery label sheet** — the existing label engine, rendered to PDF instead of the browser print dialog. Same formats (including Avery 8593), same walk-order grouping by location → panel → grid → name, same page break per location/panel group, same far-right grid and volt-amp D/S lines, same QR content.
+
+  3. **Grid map** (letter landscape) — the corrected 40′ × 60′ Farm Shop drawing with rows A–F north→south and columns 1–9 west→east, plotted from the same classification helpers the on-screen map uses: red large dedicated, orange dedicated 20 A, blue shared. Unresolved and mobile/non-fixed assets are listed in a side table rather than plotted at invented coordinates. Legend plus a per-dot key table with stable ID, description, grid, precision.
+
+"Generate all three" produces the three files in one action.
+
+## Boundaries kept
+
+- Read-only. The page calls only the GET endpoints; no relationship or field-observation write path is touched.
+- No canonical ODS write-back, no schema change, no migration, no bulk edits.
+- Stable IDs, existing grid values, classifications and the frozen shop geometry are untouched.
+- Gated by the existing electrical entitlement and access checks, same as the other electrical pages.
+
+## Technical notes
+
+- Add `jspdf` for PDF generation (client-side, so nothing runs in the Worker runtime and no server timeouts apply). The grid map is drawn with jsPDF vector primitives plus the existing `farm-shop-grid-plan.png`; labels and schedules are drawn as text/table primitives — no HTML-to-canvas rasterization, so text stays crisp and selectable.
+- New `src/lib/electrical-documents.ts`: pure functions that turn a bundle payload plus scope into document models (`sheetModel`, `labelModel`, `gridMapModel`) — unit-testable with no PDF or DOM dependency.
+- New `src/lib/electrical-pdf.ts`: jsPDF renderers consuming those models.
+- Bundle fetch goes through a small authenticated server function that forwards the caller's session to the API handler, so the browser never needs to hold a raw bearer token.
+- Reuses without modification: `electrical-labels.ts` (walk groups, label lines, QR URLs), `electrical-grid-map.ts` (`classifyCircuit`, `placeLoad`, `AXIS_ROWS`/`AXIS_COLS`, `SHOP_WIDTH_FT`/`SHOP_DEPTH_FT`), `electrical-grid-operational.ts` (precision and verification classification).
+- Tests in `tests/electrical-documents.test.ts`: section/record counts match the bundle counts, `NOT IN RECORD` is emitted rather than a blank or guessed value, label walk order and page-break grouping are preserved, unresolved/mobile assets are excluded from plotted points and present in the unplotted table, and classification counts reconcile to the total.
+- Generated PDFs are visually QA'd page by page before the work is reported complete.
