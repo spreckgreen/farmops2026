@@ -137,13 +137,18 @@ Use `/field-observations/preview` to validate and see the exact row first.
 
 ## Verification
 
-- API reads are projections of the same snapshot builder used by
-  `/electrical/export` and the FarmOps UI, so collection counts, field values and
-  QA findings match the UI and the existing `/api/electrical/snapshot` byte-for-byte
-  for the same generation.
-- `tests/electrical-api.test.ts` covers the resource registry against the snapshot
-  collections, the OpenAPI document, relationship/observation validation, the
-  write-column allow-lists and the exclusion notice.
+- API reads call the same `collectSnapshot` builder that backs `/electrical/export`,
+  the FarmOps UI and the existing `/api/electrical/snapshot`, and they only project
+  from it — they never re-query or re-derive. For one generation, collection counts,
+  field values, `field_ownership` and QA findings are therefore identical across all
+  four surfaces.
+- `tests/electrical-api.test.ts` proves that projection against a fixture snapshot
+  (collections, single-record lookup, QA totals, document bundle) and covers the
+  resource registry against `SNAPSHOT_COLLECTIONS`, the OpenAPI document,
+  relationship/observation validation, the write-column allow-lists and the
+  exclusion notice.
+- Unauthenticated smoke check: `GET /api/electrical/v1` and every data path return
+  `401` without a bearer token; `GET /api/electrical/v1/openapi.json` returns `200`.
 
 ## Compatibility
 
