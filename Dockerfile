@@ -87,7 +87,15 @@ ENV NITRO_PRESET=node-server
 # (about 3 GB on an 8 GB host). The default fits a 4 GB host without swap.
 ARG NODE_HEAP_MB=1536
 ENV NODE_OPTIONS=--max-old-space-size=${NODE_HEAP_MB}
-ENV ROLLUP_NO_NATIVE=1
+ARG ROLLDOWN_WORKER_THREADS=2
+ARG ROLLDOWN_MAX_BLOCKING_THREADS=2
+ARG RAYON_NUM_THREADS=2
+ENV ROLLDOWN_WORKER_THREADS=${ROLLDOWN_WORKER_THREADS}
+ENV ROLLDOWN_MAX_BLOCKING_THREADS=${ROLLDOWN_MAX_BLOCKING_THREADS}
+ENV RAYON_NUM_THREADS=${RAYON_NUM_THREADS}
+# Limit glibc allocator arenas so native bundler buffers are returned/reused
+# instead of being retained across Nitro's sequential build environments.
+ENV MALLOC_ARENA_MAX=2
 ENV VITE_CJS_IGNORE_WARNING=true
 # Low-memory build path: vite.config.ts disables sourcemaps, gzip-size
 # reporting, and rollup cache when this is set. Always on inside Docker.
@@ -106,6 +114,7 @@ RUN --mount=type=cache,target=/app/node_modules/.vite,sharing=locked \
     echo "=== [builder] Command: install-log.sh build bun run build:ci" && \
     echo "=== [builder] NITRO_PRESET=$NITRO_PRESET" && \
     echo "=== [builder] NODE_OPTIONS=$NODE_OPTIONS (heap=${NODE_HEAP_MB}MB)" && \
+    echo "=== [builder] Rolldown workers=$ROLLDOWN_WORKER_THREADS blocking=$ROLLDOWN_MAX_BLOCKING_THREADS rayon=$RAYON_NUM_THREADS" && \
     echo "=== [builder] BUILD_LOW_MEM=$BUILD_LOW_MEM BUILD_HEARTBEAT_SECS=$BUILD_HEARTBEAT_SECS" && \
     echo "=== [builder] Host memory:" && (grep -E '^(MemTotal|MemAvailable)' /proc/meminfo || true) && \
     echo "=== [builder] INSTALL_LOG=$INSTALL_LOG" && \

@@ -17,3 +17,4 @@
 - [x] Preserve native bundler/host memory when automatically sizing the heap
 - [x] Release completed Vite environments between client, SSR, and Nitro phases
 - [x] Report child and cgroup memory in build heartbeats
+- [x] Bound Rolldown native worker pools and provide temporary build-only swap on low-memory hosts
