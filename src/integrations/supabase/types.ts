@@ -542,6 +542,51 @@ export type Database = {
         }
         Relationships: []
       }
+      electrical_api_principals: {
+        Row: {
+          created_at: string
+          disabled_at: string | null
+          expires_at: string | null
+          id: string
+          key_prefix: string
+          key_sha256: string
+          last_used_at: string | null
+          name: string
+          note: string | null
+          scopes: string[]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          disabled_at?: string | null
+          expires_at?: string | null
+          id?: string
+          key_prefix: string
+          key_sha256: string
+          last_used_at?: string | null
+          name: string
+          note?: string | null
+          scopes?: string[]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          disabled_at?: string | null
+          expires_at?: string | null
+          id?: string
+          key_prefix?: string
+          key_sha256?: string
+          last_used_at?: string | null
+          name?: string
+          note?: string | null
+          scopes?: string[]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       electrical_branch_runs: {
         Row: {
           branch_id: string

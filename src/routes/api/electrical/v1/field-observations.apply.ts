@@ -1,9 +1,9 @@
 /**
- * POST /api/electrical/v1/field-observations/apply — scoped write.
+ * POST /api/electrical/v1/field-observations/apply — Phase 2, NOT ACTIVATED.
  *
- * Appends approved field observations to `electrical_field_observations`. It
- * never modifies an engineering record, never writes the canonical ODS, and
- * requires `approved: true` on each observation. Every insert is audited.
+ * Phase 1 acceptance gates activation of production write scopes, so this surface
+ * refuses every request with 503 `write_scopes_not_activated` before it looks at
+ * a credential.
  */
 import { createFileRoute } from "@tanstack/react-router";
 
@@ -11,12 +11,25 @@ export const Route = createFileRoute("/api/electrical/v1/field-observations/appl
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const { authorizeApiRequest, handleObservationApply, readJsonArray } = await import(
-          "@/lib/electrical-api.server"
+        const {
+          requireActivatedSurface,
+          ELECTRICAL_WRITE_PATHS,
+          authorizeApiRequest,
+          handleObservationApply,
+          readJsonArray,
+        } = await import("@/lib/electrical-api.server");
+        const gate = requireActivatedSurface(
+          request,
+          "POST",
+          ELECTRICAL_WRITE_PATHS.observationsApply,
         );
-        const caller = await authorizeApiRequest(request, "field_write");
+        if (gate) return gate;
+        const caller = await authorizeApiRequest(request, "field_write", {
+          scope: "electrical:observations:write",
+          bucket: "write",
+        });
         if (caller instanceof Response) return caller;
-        const parsed = await readJsonArray(request, "observations");
+        const parsed = await readJsonArray(request, "observations", caller);
         if (parsed instanceof Response) return parsed;
         return handleObservationApply(caller, parsed.items);
       },
