@@ -86,6 +86,7 @@ import { Route as ElectricalAssistantRouteImport } from './routes/electrical.ass
 import { Route as ElectricalApiDocsRouteImport } from './routes/electrical.api-docs'
 import { Route as ElectricalAdjudicationRouteImport } from './routes/electrical.adjudication'
 import { Route as ElectricalKindRouteImport } from './routes/electrical.$kind'
+import { Route as DocsProductArchitectureRouteImport } from './routes/docs.product-architecture'
 import { Route as AdminVaultSecretsRouteImport } from './routes/admin.vault-secrets'
 import { Route as AdminVaultRotationRouteImport } from './routes/admin.vault-rotation'
 import { Route as AdminVaultBackupRouteImport } from './routes/admin.vault-backup'
@@ -511,6 +512,11 @@ const ElectricalKindRoute = ElectricalKindRouteImport.update({
   path: '/electrical/$kind',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DocsProductArchitectureRoute = DocsProductArchitectureRouteImport.update({
+  id: '/docs/product-architecture',
+  path: '/docs/product-architecture',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminVaultSecretsRoute = AdminVaultSecretsRouteImport.update({
   id: '/admin/vault-secrets',
   path: '/admin/vault-secrets',
@@ -726,6 +732,7 @@ export interface FileRoutesByFullPath {
   '/admin/vault-backup': typeof AdminVaultBackupRoute
   '/admin/vault-rotation': typeof AdminVaultRotationRoute
   '/admin/vault-secrets': typeof AdminVaultSecretsRoute
+  '/docs/product-architecture': typeof DocsProductArchitectureRoute
   '/electrical/$kind': typeof ElectricalKindRoute
   '/electrical/adjudication': typeof ElectricalAdjudicationRoute
   '/electrical/api-docs': typeof ElectricalApiDocsRoute
@@ -836,6 +843,7 @@ export interface FileRoutesByTo {
   '/admin/vault-backup': typeof AdminVaultBackupRoute
   '/admin/vault-rotation': typeof AdminVaultRotationRoute
   '/admin/vault-secrets': typeof AdminVaultSecretsRoute
+  '/docs/product-architecture': typeof DocsProductArchitectureRoute
   '/electrical/$kind': typeof ElectricalKindRoute
   '/electrical/adjudication': typeof ElectricalAdjudicationRoute
   '/electrical/api-docs': typeof ElectricalApiDocsRoute
@@ -950,6 +958,7 @@ export interface FileRoutesById {
   '/admin/vault-backup': typeof AdminVaultBackupRoute
   '/admin/vault-rotation': typeof AdminVaultRotationRoute
   '/admin/vault-secrets': typeof AdminVaultSecretsRoute
+  '/docs/product-architecture': typeof DocsProductArchitectureRoute
   '/electrical/$kind': typeof ElectricalKindRoute
   '/electrical/adjudication': typeof ElectricalAdjudicationRoute
   '/electrical/api-docs': typeof ElectricalApiDocsRoute
@@ -1065,6 +1074,7 @@ export interface FileRouteTypes {
     | '/admin/vault-backup'
     | '/admin/vault-rotation'
     | '/admin/vault-secrets'
+    | '/docs/product-architecture'
     | '/electrical/$kind'
     | '/electrical/adjudication'
     | '/electrical/api-docs'
@@ -1175,6 +1185,7 @@ export interface FileRouteTypes {
     | '/admin/vault-backup'
     | '/admin/vault-rotation'
     | '/admin/vault-secrets'
+    | '/docs/product-architecture'
     | '/electrical/$kind'
     | '/electrical/adjudication'
     | '/electrical/api-docs'
@@ -1288,6 +1299,7 @@ export interface FileRouteTypes {
     | '/admin/vault-backup'
     | '/admin/vault-rotation'
     | '/admin/vault-secrets'
+    | '/docs/product-architecture'
     | '/electrical/$kind'
     | '/electrical/adjudication'
     | '/electrical/api-docs'
@@ -1402,6 +1414,7 @@ export interface RootRouteChildren {
   AdminVaultBackupRoute: typeof AdminVaultBackupRoute
   AdminVaultRotationRoute: typeof AdminVaultRotationRoute
   AdminVaultSecretsRoute: typeof AdminVaultSecretsRoute
+  DocsProductArchitectureRoute: typeof DocsProductArchitectureRoute
   ElectricalKindRoute: typeof ElectricalKindRoute
   ElectricalAdjudicationRoute: typeof ElectricalAdjudicationRoute
   ElectricalApiDocsRoute: typeof ElectricalApiDocsRoute
@@ -1999,6 +2012,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ElectricalKindRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/docs/product-architecture': {
+      id: '/docs/product-architecture'
+      path: '/docs/product-architecture'
+      fullPath: '/docs/product-architecture'
+      preLoaderRoute: typeof DocsProductArchitectureRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/vault-secrets': {
       id: '/admin/vault-secrets'
       path: '/admin/vault-secrets'
@@ -2367,6 +2387,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminVaultBackupRoute: AdminVaultBackupRoute,
   AdminVaultRotationRoute: AdminVaultRotationRoute,
   AdminVaultSecretsRoute: AdminVaultSecretsRoute,
+  DocsProductArchitectureRoute: DocsProductArchitectureRoute,
   ElectricalKindRoute: ElectricalKindRoute,
   ElectricalAdjudicationRoute: ElectricalAdjudicationRoute,
   ElectricalApiDocsRoute: ElectricalApiDocsRoute,
