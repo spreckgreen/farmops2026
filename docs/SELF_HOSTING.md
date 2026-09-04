@@ -123,6 +123,20 @@ Bostead. The Supabase self-host stack from
    `host.docker.internal` returns, if an unauthenticated REST request does not
    return 401/403, or if the Supabase `.env` is not mode `600`.
 
+   **Migrations after hardening.** Because `5432` is no longer published,
+   `postgresql://postgres:...@localhost:5432/postgres` cannot connect from the
+   host — `psql` reports `Connection refused`. That is expected.
+   `scripts/apply-migrations.sh` (and therefore `scripts/refresh.sh`) detects it
+   and switches to `psql` **inside** the Compose `db` container over its local
+   socket, so no port has to be reopened and the password never appears in
+   `argv`. If the container cannot be found automatically, name it:
+
+   ```bash
+   SUPABASE_DB_CONTAINER=supabase-db ./scripts/apply-migrations.sh
+   ```
+
+
+
 
 3. **Apply migrations.** Every deploy does this for you — `scripts/refresh.sh`
    runs `scripts/apply-migrations.sh` after the build and before the new
