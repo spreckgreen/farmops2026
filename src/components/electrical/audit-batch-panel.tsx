@@ -10,6 +10,11 @@ import { useServerFn } from "@tanstack/react-start";
 import { AlertTriangle, Download, RefreshCw, ShieldCheck, Upload } from "lucide-react";
 import { toast } from "sonner";
 import {
+  FS_NW_AUDITED_BREAKERS,
+  FS_NW_AUDIT_R1_BATCH_ID,
+  fsNwAuditManifestR1Text,
+} from "@/lib/electrical-fs-nw-audit-r1";
+import {
   buildPeerRegistration,
   generatePeerToken,
   maskPeerToken,
@@ -303,6 +308,18 @@ export function AuditBatchPanel() {
             >
               <Upload className="mr-1 h-4 w-4" />
               Import &amp; preview
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setManifestText(fsNwAuditManifestR1Text());
+                toast.success(
+                  `${FS_NW_AUDIT_R1_BATCH_ID} loaded — ${FS_NW_AUDITED_BREAKERS.length} audited breakers with automatic CG-FS-### allocation. Import to preview; nothing is written yet.`,
+                );
+              }}
+            >
+              Load {FS_NW_AUDIT_R1_BATCH_ID}
             </Button>
             {payload ? (
               <Button

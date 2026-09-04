@@ -328,6 +328,9 @@ export const AUDIT_ENTITY_TARGETS: Record<AuditEntityKind, EntityTarget> = {
     idKind: "circuit_group",
     writable: [
       "panel_uuid",
+      // Observed circuit label (blue tape / panel schedule text). It is a field
+      // observation, never part of the permanent CG-<site>-### identity.
+      "description",
       "breaker_number",
       "breaker_position",
       "circuit_rating_amps",
@@ -1413,7 +1416,8 @@ export function nextCircuitGroupId(existingIds: Iterable<string>, prefix = "FS")
     const m = CIRCUIT_GROUP_ID_RE.exec(norm(raw));
     if (m && m[1] === prefix.toUpperCase()) max = Math.max(max, Number(m[2]));
   }
-  return `CG-${prefix.toUpperCase()}-${String(max + 1).padStart(2, "0")}`;
+  // Three digits to match the CG-<site>-### standard used everywhere else.
+  return `CG-${prefix.toUpperCase()}-${String(max + 1).padStart(3, "0")}`;
 }
 
 /**
