@@ -148,7 +148,12 @@ function panelRow(p: InstallPanel): AuditSheetRow {
 function positionRow(pos: InstallPosition, panel: InstallPanel | undefined): AuditSheetRow {
   const status = txt(pos.install_status);
   const breaker = panel
-    ? breakerDisplay({ panelId: panel.panel_id, breakerNumber: pos.breaker_number })
+    ? breakerDisplay({
+        panel_id: panel.panel_id,
+        breaker_number: pos.breaker_number,
+        side: pos.side,
+        position: pos.position,
+      }).label
     : null;
   return {
     key: `position:${pos.id}`,
@@ -179,7 +184,7 @@ function positionRow(pos: InstallPosition, panel: InstallPanel | undefined): Aud
 function circuitRow(c: InstallCircuit, panel: InstallPanel | undefined): AuditSheetRow {
   const status = txt(c.install_status);
   const breaker = panel
-    ? breakerDisplay({ panelId: panel.panel_id, breakerNumber: c.breaker_number })
+    ? breakerDisplay({ panel_id: panel.panel_id, breaker_number: c.breaker_number }).reference
     : null;
   return {
     key: `circuit:${c.id}`,
