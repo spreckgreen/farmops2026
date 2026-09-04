@@ -111,7 +111,7 @@ describe("classification", () => {
 
   it("produces an exact diff for an eligible field observation", () => {
     const item = classifyItem(
-      baseItem({ install_state: "rough_in" }),
+      baseItem({ install_state: "installed" }),
       { target },
     );
     expect(item.disposition).toBe("ready");
