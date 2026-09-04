@@ -576,7 +576,14 @@ export interface ClassifyContext {
   existingJboxIds?: string[];
   /** Resolved relational UUIDs by `kind|stable_id`, e.g. `panel|PNL-FS-NW`. */
   resolved?: Map<string, string>;
+  /**
+   * Manifest-local CREATE items keyed `kind|stable_id` → item_key. A reference
+   * that matches one of these resolves symbolically during preview and to the
+   * returned UUID during apply.
+   */
+  pendingCreates?: Map<string, string>;
 }
+
 
 export interface ClassifiedItem {
   item_key: string;
