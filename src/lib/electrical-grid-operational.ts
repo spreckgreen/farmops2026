@@ -237,7 +237,34 @@ export interface OperationalInput {
   /** Only loads carry a circuit class; other kinds leave this null. */
   circuitClass: string | null;
   circuitClassBasis: string | null;
+  /** Applied field-observed grid cell (corrected A–F / 1–9), if any. */
+  fieldGridReference?: string | null;
+  /** Applied field-observed perimeter post callout, if any. */
+  poleScheme?: string | null;
+  poleLocationKind?: string | null;
+  poleRefStart?: string | null;
+  poleRefEnd?: string | null;
+  /** A staged, not-yet-approved field observation for this record, if any. */
+  pendingObservation?: PendingObservation | null;
 }
+
+/**
+ * One field observation that exists only inside a staged audit batch. It has not
+ * been approved or applied, so it is a distinct, clearly labelled layer — never
+ * written to the record and never treated as an accepted statement.
+ */
+export interface PendingObservation {
+  batchId: string;
+  itemKey: string;
+  fieldGridReference: string | null;
+  poleScheme: string | null;
+  poleLocationKind: string | null;
+  poleRefStart: string | null;
+  poleRefEnd: string | null;
+  observedAt: string | null;
+  evidence: string | null;
+}
+
 
 /** Where a plotted position came from, in precedence order. */
 export type PlacementSource =
