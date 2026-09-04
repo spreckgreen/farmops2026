@@ -187,6 +187,8 @@ export async function runPeerAuditSync(
       .from("electrical_peer_sync_config")
       .update({ last_run_at: ranAt, last_error: message })
       .eq("id", config.id);
+    // Marked so the scheduled caller does not log the same failure twice.
+    if (e && typeof e === "object") (e as { loggedRun?: boolean }).loggedRun = true;
     throw e;
   }
 
