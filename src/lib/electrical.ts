@@ -572,6 +572,15 @@ export function checkStableId(
   if (!id) return { ok: false, error: "A stable ID is required." };
   if (/\s/.test(id)) return { ok: false, error: "Stable IDs cannot contain spaces." };
   if (kind === "load") return checkLoadId(id);
+  // Circuit groups carry a permanent CG-<site>-<sequence> identity that never
+  // encodes a breaker. Existing records are never renamed, so a non-compliant
+  // ID that already exists is reported as a warning instead of an error.
+  if (kind === "circuit_group") {
+    const check = checkCircuitGroupId(id);
+    if (check.ok) return { ok: true };
+    if (opts.mode === "existing") return { ok: true, warning: check.error };
+    return { ok: false, error: check.error };
+  }
   // Infrastructure IDs get the shared standards validator, which reports the
   // offending token plus a compliant example instead of "invalid ID".
   if (isInfrastructureKind(kind)) {
