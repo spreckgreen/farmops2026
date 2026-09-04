@@ -205,14 +205,19 @@ function loadLinkItem(b: AuditedBreaker, loadId: string): AuditBatchItemInput {
       circuit_group_ref: autoGroupToken(b),
       load_ref: loadId.toUpperCase(),
     },
-    observed_label: b.circuit_group_label,
+    // A link item changes circuit_group_uuid and nothing else. `observed_label`
+    // and `notes` are deliberately null: either would patch the load's own
+    // label/notes column, and how and when the relationship was observed is
+    // already preserved in the item's evidence and the batch audit trail.
+    observed_label: null,
     evidence: `PNL-FS-NW field audit 03 Sep 2026 PM — ${loadId.toUpperCase()} traced to the circuit on ${b.breaker_reference} ("${b.circuit_group_label}").`,
-    notes: `Connects the audited load to the permanent circuit group allocated for ${b.breaker_reference}.`,
+    notes: null,
     reason: null,
     ods_field: null,
     ods_candidate_value: null,
   };
 }
+
 
 function unidentifiedLoadHoldItem(): AuditBatchItemInput {
   const b = FS_NW_AUDITED_BREAKERS.find(
