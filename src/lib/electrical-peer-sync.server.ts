@@ -282,5 +282,20 @@ export async function runPeerAuditSync(
     })
     .eq("id", config.id);
 
+  await recordPeerSyncRun(db, {
+    started_at: ranAt,
+    trigger: options.trigger,
+    outcome: failed === 0 ? "success" : staged > 0 ? "partial" : "failed",
+    peer_origin: origin ?? config.peer_base_url,
+    peer_batches_seen: peerRows.length,
+    candidates: candidates.length,
+    staged,
+    failed,
+    capped: result.capped,
+    error: firstError,
+    items,
+  });
+
   return result;
+
 }
