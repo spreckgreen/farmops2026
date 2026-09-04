@@ -81,7 +81,7 @@ fi
 # ===========================================================================
 # CHECK 1 — containers running & healthy
 # ===========================================================================
-log "${BOLD}[1/3]${RESET} Checking containers…"
+log "${BOLD}[1/4]${RESET} Checking containers…"
 EXPECTED_SERVICES=(app caddy ollama)
 
 if [ ${#DOCKER[@]} -gt 0 ] && docker info >/dev/null 2>&1 || sudo -n docker info >/dev/null 2>&1; then
@@ -120,7 +120,7 @@ elif [ -f .env ];       then ENV_FILE=".env"
 else                         ENV_FILE=""
 fi
 
-log "${BOLD}[2/3]${RESET} Checking ${ENV_FILE:-<none>} vs .env.example…"
+log "${BOLD}[2/4]${RESET} Checking ${ENV_FILE:-<none>} vs .env.example…"
 if [ -z "$ENV_FILE" ]; then
   record FAIL "env file" "neither .env.local nor .env found in $(pwd)"
 elif [ ! -f .env.example ]; then
@@ -163,7 +163,7 @@ fi
 # ===========================================================================
 # CHECK 3 — caddy → app connectivity (end-to-end)
 # ===========================================================================
-log "${BOLD}[3/3]${RESET} Probing caddy → app path…"
+log "${BOLD}[3/4]${RESET} Probing caddy → app path…"
 
 probe_code() {
   # curl already prints 000 for connection/TLS failures. Do not append another
