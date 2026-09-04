@@ -95,15 +95,17 @@ function usePrintMode(): [PrintMode, (next: PrintMode) => void] {
 }
 
 /** Remembered on/off layer choice, so the map opens the way it was left. */
-function usePersistedFlag(key: string): [boolean, (next: boolean) => void] {
-  const [on, setOn] = useState(false);
+function usePersistedFlag(key: string, defaultOn = false): [boolean, (next: boolean) => void] {
+  const [on, setOn] = useState(defaultOn);
   useEffect(() => {
     try {
-      setOn(window.localStorage.getItem(key) === "1");
+      const saved = window.localStorage.getItem(key);
+      if (saved === "1" || saved === "0") setOn(saved === "1");
     } catch {
       // Storage unavailable; keep the default.
     }
   }, [key]);
+
   const apply = (next: boolean) => {
     setOn(next);
     try {
