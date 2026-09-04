@@ -21,13 +21,7 @@ describe("peer token lifetime", () => {
   });
 
   it("drops the key when the panel unmounts (leaving the page)", async () => {
-    let cleared = false;
-    const { result, unmount } = renderHook(() => {
-      const state = usePeerTokenState();
-      // Observe the value the hook keeps across renders.
-      if (state.peerToken === "" && cleared === false) cleared = false;
-      return state;
-    });
+    const { result, unmount } = renderHook(() => usePeerTokenState());
     act(() => result.current.setPeerToken(generatePeerToken()));
     expect(result.current.peerToken).not.toBe("");
     unmount();
