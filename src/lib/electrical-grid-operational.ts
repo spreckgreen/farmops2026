@@ -470,6 +470,56 @@ export function placementCandidatesFor(row: OperationalInput): PlacementCandidat
     }
   }
 
+  // 1c. Staged field observation: it lives in an audit batch that has not been
+  //     approved or applied, so it is never an accepted statement. It is still
+  //     the most recent thing anyone actually saw in the field, so it outranks
+  //     inherited grid assignments while staying visibly provisional.
+  {
+    const p = row.pendingObservation ?? null;
+    if (p) {
+      const pendingGrid = parseNewGrid(p.fieldGridReference ?? "");
+      const feet = pendingGrid.ok ? newGridFeet(pendingGrid) : null;
+      const post =
+        POST_GEOMETRY_CONFIRMED && p.poleLocationKind
+          ? postObservationFeet({
+              pole_scheme: p.poleScheme,
+              pole_location_kind: p.poleLocationKind as never,
+              pole_ref_start: p.poleRefStart,
+              pole_ref_end: p.poleRefEnd,
+            })
+          : null;
+      const chosen = feet
+        ? {
+            xFt: feet.xFt,
+            yFt: feet.yFt,
+            spanned: feet.span,
+            interval: pendingGrid.interval,
+            what: `grid ${p.fieldGridReference}`,
+          }
+        : post
+          ? {
+              xFt: post.xFt,
+              yFt: post.yFt,
+              spanned: post.spanned,
+              interval: post.spanned,
+              what: `post ${post.token}`,
+            }
+          : null;
+      if (chosen) {
+        out.push({
+          source: "PENDING_FIELD_OBSERVATION",
+          xFt: chosen.xFt,
+          yFt: chosen.yFt,
+          precision: chosen.interval ? "INTERVAL" : "GRIDLINE",
+          spanned: chosen.spanned,
+          basis: `Staged field observation (${chosen.what}) from audit batch ${p.batchId}, item ${p.itemKey}${
+            p.observedAt ? `, observed ${p.observedAt}` : ""
+          }. Not approved and not applied — shown for review only.`,
+          accepted: false,
+        });
+      }
+    }
+  }
 
 
   // 2. The accepted current FarmOps corrected grid reference. grid_reference is
