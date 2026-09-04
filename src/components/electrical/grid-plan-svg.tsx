@@ -379,7 +379,23 @@ export function GridPlanSvg({
                   strokeWidth={u(0.14)}
                 />
               )}
+              {a.locationSource === "PENDING_FIELD_OBSERVATION" ? (
+                // Staged field observation: a separate, visibly provisional layer
+                // drawn as a dashed halo so it is never read as applied data.
+                <circle
+                  data-pending-observation
+                  cx={shown.x}
+                  cy={shown.y}
+                  r={r + u(0.34)}
+                  fill="none"
+                  stroke="#b45309"
+                  strokeWidth={u(0.2)}
+                  strokeDasharray={`${u(0.32)} ${u(0.26)}`}
+                  pointerEvents="none"
+                />
+              ) : null}
               {badge > 1 ? (
+
                 // Cluster badge: the marker stays on the exact anchor and reports
                 // how many records share it. Selecting it spiders the group.
                 <>
