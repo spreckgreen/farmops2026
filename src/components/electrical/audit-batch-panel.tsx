@@ -27,6 +27,7 @@ import {
 import { PeerSyncPanel } from "@/components/electrical/peer-sync-panel";
 import { PeerSyncSecretPanel } from "@/components/electrical/peer-sync-secret-panel";
 import { PersistedSection } from "@/components/electrical/persisted-section";
+import { RevisionDiffPanel } from "@/components/electrical/revision-diff-panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -615,6 +616,11 @@ export function AuditBatchPanel() {
               </div>
             </CardContent>
           </Card>
+
+          <RevisionDiffPanel
+            revisionBatchId={payload.batch.batch_id}
+            batches={batches.data ?? []}
+          />
 
           <PersistedSection
             storageKey="electrical.audit-batches.items"
