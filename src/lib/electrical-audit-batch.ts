@@ -915,7 +915,12 @@ export function classifyItem(item: AuditBatchItemInput, ctx: ClassifyContext): C
         err(`${stableId} is not a canonical branch ID (BR-###-##-##).`),
       ]);
     }
-    const jboxes = (ctx.existingJboxIds ?? []).map((s) => norm(s));
+    // A J-box created earlier in the same manifest counts as a proven origin.
+    const pendingJboxes = [...(ctx.pendingCreates?.keys() ?? [])]
+      .filter((k) => k.startsWith("jbox|"))
+      .map((k) => k.slice("jbox|".length));
+    const jboxes = [...(ctx.existingJboxIds ?? []), ...pendingJboxes].map((s) => norm(s));
+
     if (!jboxes.includes(origin)) {
       return holdResult(item, ctx, [
         err(`${stableId} encodes origin ${origin}, which does not exist in FarmOps.`),
