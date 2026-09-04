@@ -562,6 +562,37 @@ export function manifestChecksum(manifest: unknown): Promise<string> {
   return sha256Hex(canonicalJson(manifest));
 }
 
+/** How an incoming manifest relates to what is already stored under its batch ID. */
+export type StoredManifestVerdict =
+  | { kind: "new" }
+  | { kind: "same" }
+  | { kind: "already_applied" }
+  | { kind: "fingerprint_conflict"; message: string };
+
+/**
+ * Strict fingerprint rule for a stored manifest: a batch ID is bound to the
+ * exact bytes first imported under it. Re-importing or pulling the same ID with
+ * different content is a hard conflict — corrections are published under a new
+ * batch ID, never by editing a stored audit.
+ */
+export function classifyStoredManifest(
+  incoming: { batch_id: string; checksum: string },
+  stored: { manifest_sha256: string; status: string } | null,
+): StoredManifestVerdict {
+  if (!stored) return { kind: "new" };
+  if (stored.manifest_sha256.trim() !== incoming.checksum) {
+    return {
+      kind: "fingerprint_conflict",
+      message: `Batch ${incoming.batch_id} already exists with a different manifest checksum. Issue a new batch ID instead of editing an imported audit.`,
+    };
+  }
+  if (["applied", "partially_applied"].includes(stored.status.trim())) {
+    return { kind: "already_applied" };
+  }
+  return { kind: "same" };
+}
+
+
 /* ------------------------------------------------------------------ *
  * Classification
  * ------------------------------------------------------------------ */
