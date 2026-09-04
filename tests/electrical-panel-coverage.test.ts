@@ -205,6 +205,6 @@ describe("panel-position coverage", () => {
     const report = run();
     const csv = panelCoverageCsv(report);
     expect(csv.split("\n")).toHaveLength(43);
-    expect(csv).toMatch(/PNL-H1,29,Left,15,missing_from_transcription/);
+    expect(csv).toMatch(/PNL-H1,PNL-H1-B29,29,Left,15,missing_from_transcription/);
   });
 });
