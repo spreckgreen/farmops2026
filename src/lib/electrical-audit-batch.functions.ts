@@ -352,16 +352,18 @@ export async function stageManifestText(
 
     let batchRow = existing.data as Record<string, unknown> | null;
     if (batchRow) {
-      if (s(batchRow["manifest_sha256"]) !== checksum) {
-        throw new Error(
-          `Batch ${manifest.batch_id} already exists with a different manifest checksum. Issue a new batch ID instead of editing an imported audit.`,
-        );
-      }
-      if (["applied", "partially_applied"].includes(s(batchRow["status"]))) {
+      const verdict = classifyStoredManifest(
+        { batch_id: manifest.batch_id, checksum },
+        { manifest_sha256: s(batchRow["manifest_sha256"]), status: s(batchRow["status"]) },
+      );
+      // Strict fingerprint: the stored bytes own the batch ID.
+      if (verdict.kind === "fingerprint_conflict") throw new Error(verdict.message);
+      if (verdict.kind === "already_applied") {
         // Idempotent re-import of an applied batch: report, never re-stage.
         return previewFor(context, batchRow, manifest, { qaBefore: null });
       }
     } else {
+
       const insert = await db
         .from(BATCHES)
         .insert({
