@@ -2422,6 +2422,51 @@ export type Database = {
         }
         Relationships: []
       }
+      electrical_peer_sync_config: {
+        Row: {
+          batches_staged_total: number
+          created_at: string
+          enabled: boolean
+          id: string
+          last_error: string | null
+          last_result: Json | null
+          last_run_at: string | null
+          last_success_at: string | null
+          max_batches_per_run: number
+          peer_base_url: string
+          run_as_user_id: string
+          updated_at: string
+        }
+        Insert: {
+          batches_staged_total?: number
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          last_error?: string | null
+          last_result?: Json | null
+          last_run_at?: string | null
+          last_success_at?: string | null
+          max_batches_per_run?: number
+          peer_base_url: string
+          run_as_user_id: string
+          updated_at?: string
+        }
+        Update: {
+          batches_staged_total?: number
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          last_error?: string | null
+          last_result?: Json | null
+          last_run_at?: string | null
+          last_success_at?: string | null
+          max_batches_per_run?: number
+          peer_base_url?: string
+          run_as_user_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       electrical_power_assets: {
         Row: {
           asset_ref: string | null
