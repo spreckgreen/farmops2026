@@ -2524,6 +2524,42 @@ export type Database = {
         }
         Relationships: []
       }
+      electrical_post_grid_overrides: {
+        Row: {
+          created_at: string
+          derived_grid_cell: string | null
+          geometry_version: string | null
+          id: string
+          override_grid_cell: string
+          post_ref: string
+          reconciliation_note: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          derived_grid_cell?: string | null
+          geometry_version?: string | null
+          id?: string
+          override_grid_cell: string
+          post_ref: string
+          reconciliation_note: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          derived_grid_cell?: string | null
+          geometry_version?: string | null
+          id?: string
+          override_grid_cell?: string
+          post_ref?: string
+          reconciliation_note?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       electrical_power_assets: {
         Row: {
           asset_ref: string | null
