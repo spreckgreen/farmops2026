@@ -101,13 +101,15 @@ describe("observed placement sources", () => {
     );
   });
 
-  it("does not plot post callouts while the geometry proposal is unconfirmed", () => {
+  it("plots a confirmed post callout at nearest-post precision", () => {
     const c = placementCandidatesFor({
       ...base,
       poleScheme: "FS_POLE_GRID_V1",
       poleLocationKind: "AT_POST",
       poleRefStart: "Post 06SE",
     });
-    expect(c.some((x) => x.source === "OBSERVED_POST")).toBe(false);
+    const post = c.find((x) => x.source === "OBSERVED_POST");
+    expect(post).toMatchObject({ xFt: 60, yFt: 40, precision: "NEAREST", spanned: false });
   });
 });
+
