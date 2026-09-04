@@ -342,12 +342,12 @@ export function buildFsNwAuditManifestR2(options: BuildOptions = {}): AuditBatch
     batch_id: FS_NW_AUDIT_R2_BATCH_ID,
     title: "Farm Shop PNL-FS-NW breaker audit — 03 Sep 2026 PM (R2)",
     scope:
-      `Establishes the seven audited PNL-FS-NW breakers as records, allocates a permanent CG-FS-### ` +
+      `Establishes the 7 audited PNL-FS-NW breaker positions, allocates a permanent CG-FS-### ` +
       `identity per circuit, links each position via circuit_group_uuid and records 20 observed ` +
-      `breaker-to-load links. Load links are relationship-only: circuit_group_uuid is the single ` +
-      `column they may change. 1 hold: the second load on PNL-FS-NW-B29 at F9 / Post 06SE is ` +
-      `unidentified. Supersedes ${FS_NW_AUDIT_R2_SUPERSEDES} (never applied) — a replacement, not a ` +
-      `compensating batch.`,
+      `breaker-to-load links (relationship-only: circuit_group_uuid is the one column they change). ` +
+      `1 hold: second load on B29 at F9 / Post 06SE unidentified. Supersedes ` +
+      `${FS_NW_AUDIT_R2_SUPERSEDES}, never applied.`,
+
 
     source: `revision-of:${FS_NW_AUDIT_R2_SUPERSEDES}`,
     // Never a compensating batch: R1 wrote nothing, so there is nothing to reverse.
