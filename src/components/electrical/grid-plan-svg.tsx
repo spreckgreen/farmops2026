@@ -255,6 +255,8 @@ export function GridPlanSvg({
       </defs>
       <g clipPath={`url(#${CLIP_ID})`}>
         <PlanDrawing />
+        <BaseReferenceLayer overlay={baseOverlay} />
+        {cellCounts?.length && !selectedId ? <CellCountLayer counts={cellCounts} /> : null}
         {showProposedLeds ? <ProposedLedLayer /> : null}
         {designOverlay?.length ? <DesignFieldLayer pairs={designOverlay} /> : null}
 
@@ -398,6 +400,20 @@ export function GridPlanSvg({
                   strokeWidth={u(0.14)}
                 />
               )}
+              {recentIds?.includes(a.stableId) ? (
+                // Most-recent-observed overlay: a solid outer ring. It reports
+                // recency only and never changes the plotted position.
+                <circle
+                  data-recent-observed
+                  cx={shown.x}
+                  cy={shown.y}
+                  r={r + u(0.62)}
+                  fill="none"
+                  stroke="#0f766e"
+                  strokeWidth={u(0.18)}
+                  pointerEvents="none"
+                />
+              ) : null}
               {a.locationSource === "PENDING_FIELD_OBSERVATION" ? (
                 // Staged field observation: a separate, visibly provisional layer
                 // drawn as a dashed halo so it is never read as applied data.
@@ -750,6 +766,148 @@ function DesignFieldLayer({ pairs }: { pairs: DesignFieldPair[] }) {
                 </text>
               </>
             ) : null}
+          </g>
+        );
+      })}
+    </g>
+  );
+}
+
+/**
+ * Base reference overlay: the corrected A–F / 1–9 grid lines and/or the proposed
+ * perimeter post callouts. Both are drawn from frozen geometry — the post
+ * positions are the proposed derivation from the corrected outline and are not
+ * field confirmed, so they are drawn as open, dashed callouts.
+ */
+function BaseReferenceLayer({ overlay }: { overlay: GridBaseOverlay }) {
+  const posts = overlayPosts(overlay);
+  return (
+    <g data-base-overlay={overlay} pointerEvents="none">
+      {overlayShowsGrid(overlay) ? (
+        <g data-grid-lines>
+          {AXIS_COLS.map((c) => {
+            const top = feetToPlan(c.xFt, 0);
+            const bottom = feetToPlan(c.xFt, SHOP_DEPTH_FT);
+            return (
+              <g key={`col-${c.label}`}>
+                <line
+                  x1={top.x}
+                  y1={top.y}
+                  x2={bottom.x}
+                  y2={bottom.y}
+                  stroke="#1e293b"
+                  strokeOpacity={0.28}
+                  strokeWidth={u(0.06)}
+                />
+                <text
+                  x={top.x}
+                  y={top.y - u(0.5)}
+                  textAnchor="middle"
+                  fontSize={u(0.8)}
+                  fill="#1e293b"
+                  fillOpacity={0.75}
+                >
+                  {c.label}
+                </text>
+              </g>
+            );
+          })}
+          {AXIS_ROWS.map((r) => {
+            const west = feetToPlan(0, r.yFt);
+            const east = feetToPlan(60, r.yFt);
+            return (
+              <g key={`row-${r.label}`}>
+                <line
+                  x1={west.x}
+                  y1={west.y}
+                  x2={east.x}
+                  y2={east.y}
+                  stroke="#1e293b"
+                  strokeOpacity={0.28}
+                  strokeWidth={u(0.06)}
+                />
+                <text
+                  x={west.x - u(0.9)}
+                  y={west.y + u(0.28)}
+                  textAnchor="middle"
+                  fontSize={u(0.8)}
+                  fill="#1e293b"
+                  fillOpacity={0.75}
+                >
+                  {r.label}
+                </text>
+              </g>
+            );
+          })}
+        </g>
+      ) : null}
+      {posts.length ? (
+        <g data-post-callouts>
+          {posts.map((p) => {
+            const at = feetToPlan(p.xFt, p.yFt);
+            return (
+              <g key={`post-${p.ref}`}>
+                <circle
+                  cx={at.x}
+                  cy={at.y}
+                  r={u(0.44)}
+                  fill="#ffffff"
+                  fillOpacity={0.8}
+                  stroke="#334155"
+                  strokeWidth={u(0.12)}
+                  strokeDasharray={`${u(0.2)} ${u(0.16)}`}
+                />
+                <text
+                  x={at.x}
+                  y={at.y + u(0.26)}
+                  textAnchor="middle"
+                  fontSize={u(0.5)}
+                  fill="#334155"
+                >
+                  {p.ref}
+                </text>
+              </g>
+            );
+          })}
+        </g>
+      ) : null}
+    </g>
+  );
+}
+
+/**
+ * How many records sit in each grid cell, shown before any marker is selected so
+ * the plan reads as a density map first. Counts come from plotted records only —
+ * nothing is snapped into a cell to be counted.
+ */
+function CellCountLayer({ counts }: { counts: GridCellCount[] }) {
+  return (
+    <g data-cell-counts pointerEvents="none">
+      {counts.map((c) => {
+        const at = feetToPlan(c.xFt, c.yFt);
+        return (
+          <g key={`count-${c.cell}`}>
+            <circle
+              cx={at.x}
+              cy={at.y}
+              r={u(1.05)}
+              fill="#0f172a"
+              fillOpacity={0.08}
+              stroke="#0f172a"
+              strokeOpacity={0.25}
+              strokeWidth={u(0.08)}
+            />
+            <text
+              x={at.x}
+              y={at.y + u(0.36)}
+              textAnchor="middle"
+              fontSize={u(1)}
+              fontWeight={600}
+              fill="#0f172a"
+              fillOpacity={0.75}
+            >
+              {c.count}
+            </text>
           </g>
         );
       })}
