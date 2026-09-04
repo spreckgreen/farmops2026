@@ -16,6 +16,7 @@ import {
 } from "@/components/electrical/panel-access-request";
 import { PanelLocalTopology } from "@/components/electrical/panel-local-topology";
 import { PanelQrLabel } from "@/components/electrical/panel-qr-label";
+import { breakerRelationshipLabel } from "@/lib/electrical-breaker-reference";
 import { useAddon } from "@/hooks/use-addon";
 import { requireAuthenticatedUser } from "@/lib/auth-route";
 import {
