@@ -1,11 +1,16 @@
 // Perimeter post geometry — proposal for owner review.
 //
-// Read-only. It shows the derived position of every post in the frozen clockwise
-// scheme, with the derivation behind each one. While the proposal is unconfirmed,
-// post-only field observations stay unplotted on the Grid Map.
+// It shows the derived position of every post in the frozen clockwise scheme, with
+// the derivation behind each one, and lets a person hand-correct a post's grid cell
+// with a reconciliation note when the geometric check is uncertain. An override
+// records the cell only — the frozen coordinates are never edited.
 import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
 import {
   POST_GEOMETRY_AUDIT,
   POST_GEOMETRY_CONFIRMED,
@@ -14,10 +19,20 @@ import {
   PROPOSED_POST_POSITIONS,
 } from "@/lib/electrical-grid-post-geometry";
 import {
+  GRID_CELL_CHOICES,
+  postGridRows,
+} from "@/lib/electrical-post-grid-override";
+import {
+  clearPostGridOverride,
+  listPostGridOverrides,
+  savePostGridOverride,
+} from "@/lib/electrical-post-grid-override.functions";
+import {
   postGeometryExportCsv,
   postGeometryExportFilename,
   postGeometryExportJson,
 } from "@/lib/electrical-post-geometry-export";
+
 
 /** Read-only download of the confirmed post callouts and their audit metadata. */
 function download(kind: "json" | "csv") {
