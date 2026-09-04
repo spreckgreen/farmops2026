@@ -550,20 +550,46 @@ export function AuditBatchPanel() {
       >
         <div className="space-y-1 text-sm">
           {(batches.data ?? []).map((b) => (
-            <button
+            <div
               key={b.id}
-              type="button"
-              className="flex w-full flex-wrap items-center gap-2 rounded-md px-2 py-1 text-left hover:bg-accent"
-              onClick={() => previewMutation.mutate(b.batch_id)}
+              className="flex w-full flex-wrap items-center gap-2 rounded-md px-2 py-1 hover:bg-accent"
             >
-              <span className="font-mono text-xs">{b.batch_id}</span>
-              <span className="text-muted-foreground">{b.title}</span>
-              <Badge variant="outline">{b.status}</Badge>
-              {b.observed_date ? (
-                <span className="text-xs text-muted-foreground">{b.observed_date}</span>
+              <button
+                type="button"
+                className="flex flex-1 flex-wrap items-center gap-2 text-left"
+                onClick={() => previewMutation.mutate(b.batch_id)}
+              >
+                <span className="font-mono text-xs">{b.batch_id}</span>
+                <span className="text-muted-foreground">{b.title}</span>
+                <Badge variant="outline">{b.status}</Badge>
+                {b.observed_date ? (
+                  <span className="text-xs text-muted-foreground">{b.observed_date}</span>
+                ) : null}
+              </button>
+              {["draft", "validated", "approved"].includes(b.status) ? (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={rejectMutation.isPending}
+                  title="Marks this stored batch rejected. The manifest and its fingerprint are left unchanged; nothing is written or reversed."
+                  onClick={() => {
+                    const suggested =
+                      b.batch_id === FS_NW_AUDIT_R1_BATCH_ID ? FS_NW_R1_REJECTION_REASON : "";
+                    const reason = window.prompt(
+                      `Reject ${b.batch_id} without applying it. Reason:`,
+                      suggested,
+                    );
+                    if (reason && reason.trim().length >= 5) {
+                      rejectMutation.mutate({ batch_id: b.batch_id, reason: reason.trim() });
+                    }
+                  }}
+                >
+                  Reject
+                </Button>
               ) : null}
-            </button>
+            </div>
           ))}
+
           {!batches.data?.length ? (
             <p className="text-xs text-muted-foreground">No audit batches imported yet.</p>
           ) : null}
