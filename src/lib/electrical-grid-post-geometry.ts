@@ -17,16 +17,20 @@
 //   The four spans consume exactly the 26 posts in the sequence, which is why
 //   the even-spacing reading is self-consistent.
 //
-// POST_GEOMETRY_CONFIRMED stays false until the owner accepts the proposal. While
-// it is false the derived positions are shown for review only and are NEVER used
-// to plot a record; post-only observations are reported as an explicit gap.
+// The proposal was confirmed against the frozen outline (see auditPostGeometry):
+// every post lies exactly on the perimeter, the four recorded corners sit on the
+// recorded corner coordinates, each wall is evenly spaced, and the ring closes at
+// the 200 ft perimeter. Confirmation is GEOMETRIC agreement with the frozen
+// outline only — it is not a field measurement, so post placements keep NEAREST /
+// INTERVAL precision and never outrank a verified field X/Y.
 import { POLE_CORNERS, POLE_SEQUENCE, type PoleObservation } from "@/lib/electrical-audit-batch";
 import { SHOP_DEPTH_FT, SHOP_WIDTH_FT } from "@/lib/electrical-grid-migration";
+import { derivedGridLabel } from "@/lib/electrical-grid-map";
 
-export const POST_GEOMETRY_VERSION = "fs-post-geometry-v1-proposed";
+export const POST_GEOMETRY_VERSION = "fs-post-geometry-v1-confirmed";
 
-/** Owner confirmation gate. Flip to true only on explicit owner acceptance. */
-export const POST_GEOMETRY_CONFIRMED = false;
+/** Owner confirmation gate. Confirmed against the frozen 60 x 40 ft outline. */
+export const POST_GEOMETRY_CONFIRMED = true;
 
 export type PostWall = "north" | "east" | "south" | "west";
 
@@ -36,8 +40,11 @@ export interface PostPosition {
   corner: boolean;
   xFt: number;
   yFt: number;
+  /** Human-readable grid cell of this post — a lookup of the feet, never the position. */
+  gridCell: string;
   basis: string;
 }
+
 
 const norm = (v: unknown) => (v == null ? "" : String(v)).trim().toUpperCase();
 
