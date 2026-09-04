@@ -402,6 +402,51 @@ export function placementCandidatesFor(row: OperationalInput): PlacementCandidat
     });
   }
 
+  // 1a. Applied field-observed grid cell. This is an accepted as-built statement
+  //     recorded by an applied audit, so it outranks design intent and every
+  //     inherited grid assignment. It fixes the record to a grid cell, not to a
+  //     measured point, so a verified X/Y still wins.
+  {
+    const observedGrid = parseNewGrid(row.fieldGridReference ?? "");
+    const feet = observedGrid.ok ? newGridFeet(observedGrid) : null;
+    if (feet) {
+      out.push({
+        source: "OBSERVED_FIELD_GRID",
+        xFt: feet.xFt,
+        yFt: feet.yFt,
+        precision: observedGrid.interval ? "INTERVAL" : "GRIDLINE",
+        spanned: feet.span,
+        basis: `Applied field observation: grid ${row.fieldGridReference}${
+          row.verifiedAt ? `, verified ${row.verifiedAt}` : ""
+        }. Fixes the record to that grid cell, not to a measured point.`,
+        accepted: true,
+      });
+    }
+  }
+
+  // 1a2. Applied field-observed perimeter post. Only usable once the post
+  //      geometry proposal has been confirmed by the owner.
+  if (POST_GEOMETRY_CONFIRMED && row.poleLocationKind) {
+    const post = postObservationFeet({
+      pole_scheme: row.poleScheme ?? null,
+      pole_location_kind: row.poleLocationKind as never,
+      pole_ref_start: row.poleRefStart ?? null,
+      pole_ref_end: row.poleRefEnd ?? null,
+    });
+    if (post) {
+      out.push({
+        source: "OBSERVED_POST",
+        xFt: post.xFt,
+        yFt: post.yFt,
+        precision: post.spanned ? "INTERVAL" : "NEAREST",
+        spanned: post.spanned,
+        basis: `Applied field observation at post ${post.token}. ${post.basis}`,
+        accepted: true,
+      });
+    }
+  }
+
+
   // 1b. Approved design X/Y. The design coordinates are the authoritative
   //     statement of the intended position; any grid label on the record is a
   //     human-readable lookup of that position, never the position itself. This
