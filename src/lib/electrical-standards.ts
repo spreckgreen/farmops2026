@@ -9,6 +9,13 @@ import {
   INFRASTRUCTURE_ID_STANDARDS,
   type InfrastructureKind,
 } from "./electrical-infrastructure-standards";
+import {
+  BREAKER_REFERENCE_EXAMPLE,
+  BREAKER_REFERENCE_SHAPE,
+  CIRCUIT_GROUP_ID_EXAMPLE,
+  CIRCUIT_GROUP_ID_SHAPE,
+} from "./electrical-breaker-reference";
+
 
 export interface StandardEntry {
   key: string;
