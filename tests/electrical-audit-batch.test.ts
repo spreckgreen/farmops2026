@@ -55,28 +55,28 @@ describe("pole grid semantics", () => {
   });
 
   it("accepts AT_POST with one reference only", () => {
-    expect(validatePole({ kind: "AT_POST", start: "03NE", end: null })).toEqual([]);
+    expect(validatePole({ pole_location_kind: "AT_POST", pole_ref_start: "03NE", pole_ref_end: null })).toEqual([]);
     expect(
-      validatePole({ kind: "AT_POST", start: "03NE", end: "04SE" }).length,
+      validatePole({ pole_location_kind: "AT_POST", pole_ref_start: "03NE", pole_ref_end: "04SE" }).length,
     ).toBeGreaterThan(0);
   });
 
   it("treats 04SE/05SE as one BETWEEN_POSTS location", () => {
     expect(polesAdjacent("04SE", "05SE")).toBe(true);
-    expect(validatePole({ kind: "BETWEEN_POSTS", start: "04SE", end: "05SE" })).toEqual([]);
+    expect(validatePole({ pole_location_kind: "BETWEEN_POSTS", pole_ref_start: "04SE", pole_ref_end: "05SE" })).toEqual([]);
     expect(
-      validatePole({ kind: "BETWEEN_POSTS", start: "03NE", end: "09SE" }).length,
+      validatePole({ pole_location_kind: "BETWEEN_POSTS", pole_ref_start: "03NE", pole_ref_end: "09SE" }).length,
     ).toBeGreaterThan(0);
   });
 
   it("rejects 14NW as invalid under the scheme", () => {
-    expect(validatePole({ kind: "AT_POST", start: "14NW", end: null }).length).toBeGreaterThan(0);
+    expect(validatePole({ pole_location_kind: "AT_POST", pole_ref_start: "14NW", pole_ref_end: null }).length).toBeGreaterThan(0);
   });
 
   it("allows NOT_APPLICABLE for central-room equipment", () => {
-    expect(validatePole({ kind: "NOT_APPLICABLE", start: null, end: null })).toEqual([]);
+    expect(validatePole({ pole_location_kind: "NOT_APPLICABLE", pole_ref_start: null, pole_ref_end: null })).toEqual([]);
     expect(
-      validatePole({ kind: "NOT_APPLICABLE", start: "03NE", end: null }).length,
+      validatePole({ pole_location_kind: "NOT_APPLICABLE", pole_ref_start: "03NE", pole_ref_end: null }).length,
     ).toBeGreaterThan(0);
   });
 
