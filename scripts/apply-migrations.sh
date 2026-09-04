@@ -32,9 +32,12 @@
 #   e.g. postgresql://postgres:secret@localhost:5432/postgres
 #
 # psql resolution: host psql if installed, else a throwaway
-# `docker run --rm postgres:16-alpine psql` container. If localhost:5432 is a
-# Supavisor pooler (ENOIDENTIFIER), the script automatically runs psql inside
-# the self-hosted Compose `db` container and connects over its local socket.
+# `docker run --rm postgres:16-alpine psql` container. When localhost:5432 is a
+# Supavisor pooler (ENOIDENTIFIER), OR when nothing is published on the host at
+# all (the hardened stack keeps 5432/6543/8000/8443 internal-only, so psql says
+# "Connection refused"), the script automatically runs psql inside the
+# self-hosted Compose `db` container and connects over its local socket.
+
 #
 # Usage:
 #   ./scripts/apply-migrations.sh              # apply pending, reload PostgREST
