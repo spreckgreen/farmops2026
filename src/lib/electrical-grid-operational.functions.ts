@@ -280,8 +280,15 @@ export const electricalGridOperational = createServerFn({ method: "GET" })
       });
     }
 
+    const pending = await pendingObservations(db);
+    for (const input of inputs) {
+      const p = pending.get(input.stableId);
+      if (p) input.pendingObservation = p;
+    }
+
     const built = buildOperationalAssets(inputs);
     const summary = summarizeOperational(built);
+
 
     const panelCounts = new Map<string, { count: number; basis: string }>();
     for (const a of built) {
