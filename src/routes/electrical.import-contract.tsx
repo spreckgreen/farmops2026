@@ -746,7 +746,15 @@ function ImportContractPage() {
             </PersistedSection>
           </>
         ) : null}
+
+        <PersistedSection
+          storageKey="import-contract-v3-reconciliation"
+          title="Contract v3 reconciliation (preview only)"
+        >
+          <ContractV3ReconciliationPanel />
+        </PersistedSection>
       </div>
     </ElectricalGate>
+
   );
 }
