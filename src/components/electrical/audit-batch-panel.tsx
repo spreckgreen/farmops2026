@@ -390,24 +390,34 @@ export function AuditBatchPanel() {
               size="sm"
               variant="outline"
               onClick={() => {
-                setManifestText(fsNwAuditManifestR1Text());
+                setManifestText(fsNwAuditManifestR2Text());
                 toast.success(
-                  `${FS_NW_AUDIT_R1_BATCH_ID} loaded — ${FS_NW_AUDITED_BREAKERS.length} circuit groups, ${FS_NW_AUDITED_BREAKERS.length} breaker positions, 20 audited load links and 1 hold (35 items). Import to preview; nothing is written yet.`,
+                  `${FS_NW_AUDIT_R2_BATCH_ID} loaded — ${FS_NW_AUDITED_BREAKERS.length} circuit groups, ${FS_NW_AUDITED_BREAKERS.length} breaker positions, 20 relationship-only load links and 1 hold (35 items). Supersedes ${FS_NW_AUDIT_R1_BATCH_ID}; import to preview, nothing is written yet.`,
                 );
               }}
             >
-              Load {FS_NW_AUDIT_R1_BATCH_ID}
+              Load {FS_NW_AUDIT_R2_BATCH_ID}
             </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={linkBuildMutation.isPending}
-              onClick={() => linkBuildMutation.mutate()}
-              title="Reads the approved PNL-FS-NW circuit groups and the existing FS-### loads, then builds the links-only follow-up batch."
-            >
-              <RefreshCw className="mr-1 h-4 w-4" />
-              Build load links from approved groups
-            </Button>
+            {manifestAlreadyHasLoadLinks ? (
+              <p className="w-full text-xs text-muted-foreground">
+                This batch already contains its audited load links, so the links-only follow-up
+                builder is not offered — it would stage a duplicate{" "}
+                <span className="font-mono">{FS_NW_LINKS_BATCH_ID}</span> for the same
+                relationships.
+              </p>
+            ) : (
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={linkBuildMutation.isPending}
+                onClick={() => linkBuildMutation.mutate()}
+                title="Reads the approved PNL-FS-NW circuit groups and the existing FS-### loads, then builds the links-only follow-up batch."
+              >
+                <RefreshCw className="mr-1 h-4 w-4" />
+                Build load links from approved groups
+              </Button>
+            )}
+
             {payload ? (
               <Button
                 size="sm"
