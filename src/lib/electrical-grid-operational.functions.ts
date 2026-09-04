@@ -249,10 +249,16 @@ export const electricalGridOperational = createServerFn({ method: "GET" })
       );
     }
     if (!summary.placementSources.VERIFIED_FIELD_OBSERVATION_XY) {
+      const reviewed = built.filter(
+        (a) => verificationOf(a.verification) !== "NOT_REVIEWED",
+      ).length;
       gaps.push(
-        "No Farm Shop record carries a verified field-observation X/Y yet, so every plotted position comes from its accepted grid assignment.",
+        reviewed
+          ? `${reviewed} record(s) carry a field verification, but none of them stores a verified X/Y coordinate, so plotted positions still come from the accepted grid assignment. A verified grid reference (for example A1–F9 or a post callout) fixes the record to that grid cell, not to a measured point.`
+          : "FarmOps holds no applied field verification for the Farm Shop yet — no verified X/Y and no verified grid reference — so every plotted position comes from the accepted grid assignment. A completed walkaround only changes this once its audit batch is imported and applied.",
       );
     }
+
     if (summary.placementSources.PROVISIONAL_RECORDED_XY) {
       gaps.push(
         `${summary.placementSources.PROVISIONAL_RECORDED_XY} record(s) are plotted from provisional, unverified X/Y because the record carries no accepted grid assignment. They need field verification before the coordinates are treated as installed.`,
