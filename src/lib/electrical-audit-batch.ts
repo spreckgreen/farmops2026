@@ -660,8 +660,20 @@ export function buildPatch(
       );
       continue;
     }
+    if (k === "notes" && typeof v === "string") {
+      // Explicit notes request: append with de-duplication, never overwrite.
+      const merged = mergeNotes(
+        typeof before?.["notes"] === "string" ? (before["notes"] as string) : null,
+        v,
+      );
+      if (merged !== ((before?.["notes"] as string | null | undefined) ?? null)) {
+        patch["notes"] = merged;
+      }
+      continue;
+    }
     patch[k] = v;
   }
+
 
   if (item.install_state) {
     const legal = installStatesFor(item.observation_class);
