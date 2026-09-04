@@ -20,6 +20,10 @@ import {
 } from "@/lib/electrical";
 import { diffFieldChanges, type FieldChange } from "@/lib/electrical-dependents";
 
+/** JSON-safe value: server functions serialize these across the wire. */
+export type Json = string | number | boolean | null | Json[] | { [k: string]: Json };
+export type JsonObject = { [k: string]: Json };
+
 export const AUDIT_BATCH_SCHEMA_VERSION = "farmops.electrical.audit-batch.v1";
 export const AUDIT_BATCH_GATE_VERSION = "FARMOPS-ELEC-AUDIT-BATCH-V1";
 
@@ -431,7 +435,7 @@ export const auditBatchItemSchema = z.object({
   /** Optional hint; the server always recomputes the operation. */
   operation: z.enum(AUDIT_OPERATIONS).nullish(),
   /** Column values proposed by the audit. */
-  fields: z.record(z.string(), z.unknown()).default({}),
+  fields: z.record(z.string(), z.any() as unknown as z.ZodType<Json>).default({}),
   install_state: z.enum(AUDIT_INSTALL_STATES).nullish(),
   pole: poleSchema.nullish(),
   field_grid_reference: z.string().trim().max(20).nullish(),
@@ -582,11 +586,11 @@ export interface ClassifiedItem {
   operation: AuditOperation;
   disposition: AuditDisposition;
   /** Patch that apply would write. Empty for holds, no-change and candidates. */
-  patch: Record<string, unknown>;
+  patch: JsonObject;
   changes: FieldChange[];
   unchanged: string[];
-  before: Record<string, unknown> | null;
-  after: Record<string, unknown> | null;
+  before: JsonObject | null;
+  after: JsonObject | null;
   expected_updated_at: string | null;
   messages: ValidationMessage[];
   evidence: string;
@@ -614,7 +618,7 @@ function holdResult(
     patch: {},
     changes: [],
     unchanged: [],
-    before: ctx.target ?? null,
+    before: (ctx.target as JsonObject | null) ?? null,
     after: null,
     expected_updated_at: (ctx.target?.["updated_at"] as string | undefined) ?? null,
     messages,
