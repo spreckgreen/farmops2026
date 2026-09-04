@@ -173,21 +173,8 @@ export const savePanelExit = createServerFn({ method: "POST" })
     await requireElectricalAccess(context.supabase, context.userId, "field_write");
     const db = context.supabase as unknown as LooseDb;
     const { id, ...values } = data;
-    // The breaker identifier is derived from the panel's own configuration and
-    // the physical slot — never typed in. When the panel's capacity has not
-    // been captured yet there is nothing to derive from, so the recorded number
-    // is kept as observed rather than guessed.
-    const panelRow = (
-      await db.from("electrical_panels").select("*").eq("id", values.panel_uuid).maybeSingle()
-    ).data as Record<string, unknown> | null;
-    const layout = panelRow ? resolvePanelLayout(panelRow) : null;
-    const derived =
-      layout && layout.totalSpaces > 0 && values.position <= layout.positionsPerColumn
-        ? expectedBreakerNumber(layout, values.side, values.position)
-        : null;
     const row = {
       ...values,
-      breaker_number: derived ?? values.breaker_number ?? null,
       raceway_uuid: values.raceway_uuid ?? null,
       exit_side: values.exit_side ?? null,
       trade_size: values.trade_size || null,
