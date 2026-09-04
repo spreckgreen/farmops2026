@@ -14,8 +14,14 @@
 //   * Circuit-group identity is allocated by FarmOps (AUTO) and is independent
 //     of panel, breaker number and tape label. The derived breaker reference
 //     PNL-FS-NW-B40 is display-only and never becomes part of the group ID.
-//   * Load linkage is only emitted for loads the caller identifies exactly.
-//     Nothing is guessed; unlinked circuits stay explicitly unlinked.
+//   * Load linkage comes from the observed breaker-to-load relationships in the
+//     field audit — direct evidence, not description matching. An incomplete or
+//     questionable LOCATION never suppresses a known electrical relationship
+//     (e.g. FS-044 has no completed grid reference and FS-076 carries a
+//     questionable 14NW location; both keep their audited circuit link and the
+//     location is reconciled separately).
+//   * The one observation that could not be resolved to a load record stays an
+//     explicit HOLD item and is never applied.
 //   * The manifest is preview-only input: import stages it, and every item
 //     still needs individual owner approval before anything is written.
 import {
@@ -62,6 +68,37 @@ export function auditedBreakerReferenceMatches(b: AuditedBreaker): boolean {
   return breakerReference(FS_NW_PANEL_ID, b.breaker_number) === b.breaker_reference;
 }
 
+/**
+ * Frozen audited breaker-to-load relationships, exactly as recorded on
+ * 03 Sep 2026 PM. These are direct field observations of what each breaker
+ * feeds; they are not derived from circuit descriptions, panel text, amps or
+ * any other field. Order is the audited walk order and is part of the frozen
+ * record, so the manifest stays byte-stable.
+ */
+export const FS_NW_AUDITED_LOADS: Readonly<Record<string, readonly string[]>> = {
+  "PNL-FS-NW-B40": ["FS-054", "FS-055"],
+  "PNL-FS-NW-B39": ["FS-076"],
+  "PNL-FS-NW-B37": ["FS-044", "FS-075", "FS-045", "FS-046", "FS-047"],
+  "PNL-FS-NW-B35": ["FS-074", "FS-043", "FS-040", "FS-042"],
+  "PNL-FS-NW-B33": ["FS-048", "FS-077", "FS-049", "FS-078"],
+  "PNL-FS-NW-B31": ["FS-036", "FS-037", "FS-038"],
+  "PNL-FS-NW-B29": ["FS-039"],
+} as const;
+
+/**
+ * The single audited observation that has no load record to link to: a second
+ * load on the "E" circuit (PNL-FS-NW-B29) seen at grid F9 / Post 06SE. It is
+ * carried as an explicit HOLD so the gap is recorded and never applied.
+ */
+export const FS_NW_UNIDENTIFIED_HOLD = {
+  item_key: "fs-nw-b29-second-load-unidentified",
+  breaker_reference: "PNL-FS-NW-B29",
+  grid_reference: "F9",
+  pole: "Post 06SE",
+} as const;
+
+export const holdItemKey = () => FS_NW_UNIDENTIFIED_HOLD.item_key;
+
 /** Placeholder token this manifest uses to ask FarmOps for the next CG-FS-###. */
 export const autoGroupToken = (b: AuditedBreaker) => `AUTO:${b.breaker_reference}-GROUP`;
 
@@ -78,8 +115,15 @@ export interface BuildOptions {
    * exact FarmOps load stable IDs (`FS-054`). Only supply IDs that were
    * positively identified in the field — an omitted breaker simply produces no
    * load item, and the circuit stays explicitly unlinked.
+   *
+   * Defaults to the frozen audited relationships in `FS_NW_AUDITED_LOADS`.
    */
   loads?: Record<string, readonly string[]>;
+  /**
+   * Include the HOLD item for the unidentified second load on B29. Defaults to
+   * true when the frozen audited relationships are used.
+   */
+  includeUnidentifiedHold?: boolean;
   observedDate?: string;
 }
 
@@ -169,14 +213,40 @@ function loadLinkItem(b: AuditedBreaker, loadId: string): AuditBatchItemInput {
   };
 }
 
+function unidentifiedLoadHoldItem(): AuditBatchItemInput {
+  const b = FS_NW_AUDITED_BREAKERS.find(
+    (x) => x.breaker_reference === FS_NW_UNIDENTIFIED_HOLD.breaker_reference,
+  )!;
+  return {
+    item_key: FS_NW_UNIDENTIFIED_HOLD.item_key,
+    entity_kind: "load",
+    target_stable_id: null,
+    observation_class: "HOLD_UNRESOLVED",
+    operation: "HOLD_UNRESOLVED",
+    fields: {},
+    install_state: null,
+    pole: FS_NW_UNIDENTIFIED_HOLD.pole,
+    field_grid_reference: FS_NW_UNIDENTIFIED_HOLD.grid_reference,
+    refs: { circuit_group_ref: autoGroupToken(b) },
+    observed_label: b.circuit_group_label,
+    evidence: `PNL-FS-NW field audit 03 Sep 2026 PM — a second load on the "${b.circuit_group_label}" circuit (${b.breaker_reference}) was observed at ${FS_NW_UNIDENTIFIED_HOLD.grid_reference} / ${FS_NW_UNIDENTIFIED_HOLD.pole} but could not be matched to a FarmOps load record.`,
+    notes: `Recorded so the gap is visible. A field audit never invents a load record, so this stays on hold until the load is identified in a later batch.`,
+    reason: `Unidentified second load on ${b.breaker_reference} at ${FS_NW_UNIDENTIFIED_HOLD.grid_reference} / ${FS_NW_UNIDENTIFIED_HOLD.pole} — no FarmOps load record identified.`,
+    ods_field: null,
+    ods_candidate_value: null,
+  };
+}
+
 /**
  * Build FA-FS-2026-09-03-PM-R1. Deterministic: the same inputs always produce
  * byte-identical JSON, so the manifest SHA-256 recorded at import is stable.
  */
 export function buildFsNwAuditManifestR1(options: BuildOptions = {}): AuditBatchManifest {
-  const loads = options.loads ?? {};
+  const loads = options.loads ?? FS_NW_AUDITED_LOADS;
+  const includeHold = options.includeUnidentifiedHold ?? options.loads === undefined;
   const linked: string[] = [];
   const unlinked: string[] = [];
+  let linkCount = 0;
   const items: AuditBatchItemInput[] = [];
 
   for (const b of FS_NW_AUDITED_BREAKERS) {
@@ -188,8 +258,11 @@ export function buildFsNwAuditManifestR1(options: BuildOptions = {}): AuditBatch
       continue;
     }
     linked.push(b.breaker_reference);
+    linkCount += ids.length;
     for (const id of ids) items.push(loadLinkItem(b, id));
   }
+
+  if (includeHold) items.push(unidentifiedLoadHoldItem());
 
   const scope =
     `Establishes the seven audited PNL-FS-NW breakers as records, allocates a permanent ` +
@@ -197,7 +270,13 @@ export function buildFsNwAuditManifestR1(options: BuildOptions = {}): AuditBatch
     `unresolved circuit-group placeholders in ${FS_NW_AUDIT_R1_SUPERSEDES}. ` +
     (unlinked.length
       ? `Load linkage withheld (no load positively identified): ${unlinked.join(", ")}.`
-      : `Every audited circuit carries explicit load linkage.`);
+      : `Every audited circuit carries explicit load linkage from the observed ` +
+        `breaker-to-load relationships (${linkCount} load links). Incomplete or questionable ` +
+        `locations are reconciled separately and never suppress a known relationship.`) +
+    (includeHold
+      ? ` One observation is held unresolved: a second load on ${FS_NW_UNIDENTIFIED_HOLD.breaker_reference} ` +
+        `at ${FS_NW_UNIDENTIFIED_HOLD.grid_reference} / ${FS_NW_UNIDENTIFIED_HOLD.pole} has no matching load record.`
+      : "");
 
   return {
     schema_version: AUDIT_BATCH_SCHEMA_VERSION,
