@@ -32,12 +32,19 @@ export const getSchemaDiagnostics = createServerFn({ method: "GET" })
   .handler(async ({ context }): Promise<SchemaDiagnostics> => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const supa = context.supabase as any;
-    const { data: isAdmin, error: roleErr } = await supa.rpc("has_role", {
-      _user_id: context.userId,
-      _role: "admin",
-    });
+    // Read `user_roles` under RLS. The `has_role()` helper now lives in the
+    // `private` schema and is not exposed through PostgREST, so an
+    // `rpc("has_role", ...)` call fails with
+    // "function public.has_role(uuid, unknown) does not exist".
+    const { data: roleRow, error: roleErr } = await supa
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", context.userId)
+      .eq("role", "admin")
+      .maybeSingle();
     if (roleErr) throw new Error(`Role check failed: ${roleErr.message}`);
-    if (!isAdmin) throw new Error("Forbidden: admin role required");
+    if (!roleRow) throw new Error("Forbidden: admin role required");
+
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
