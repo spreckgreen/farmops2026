@@ -27,10 +27,8 @@ const STATUS_VARIANT: Record<ManifestDiffStatus, "default" | "secondary" | "outl
     unchanged: "outline",
   };
 
-function val(v: unknown): string {
-  if (v == null) return "—";
-  if (typeof v === "string") return v || "—";
-  return JSON.stringify(v);
+function val(v: string | null): string {
+  return v == null || v === "" ? "—" : v;
 }
 
 export function RevisionDiffPanel({
@@ -60,7 +58,7 @@ export function RevisionDiffPanel({
     mutationFn: async () =>
       await runDiff({ data: { base_batch_id: selected, revision_batch_id: revisionBatchId } }),
     onSuccess: (d) => {
-      setDiff(d);
+      setDiff(d as ManifestDiff);
       setError(null);
     },
     onError: (e) => {

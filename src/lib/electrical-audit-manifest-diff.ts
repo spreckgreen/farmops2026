@@ -12,8 +12,17 @@ export type ManifestDiffStatus = "added" | "removed" | "changed" | "unchanged";
 
 export interface FieldChange {
   path: string;
-  before: unknown;
-  after: unknown;
+  /** Rendered as text so the diff is transport-safe across the server boundary. */
+  before: string | null;
+  after: string | null;
+}
+
+/** Compact, human-readable rendering of any manifest value. */
+export function renderValue(v: unknown): string | null {
+  if (v === null || v === undefined || v === "") return null;
+  if (typeof v === "string") return v;
+  if (typeof v === "number" || typeof v === "boolean") return String(v);
+  return stable(v);
 }
 
 export interface ManifestItemDiff {
@@ -82,7 +91,7 @@ function walk(prefix: string, before: unknown, after: unknown, out: FieldChange[
     for (const k of keys) walk(prefix ? `${prefix}.${k}` : k, b[k], a[k], out);
     return;
   }
-  out.push({ path: prefix || "value", before: b ?? null, after: a ?? null });
+  out.push({ path: prefix || "value", before: renderValue(b), after: renderValue(a) });
 }
 
 const ITEM_FIELDS = [
