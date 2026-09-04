@@ -26,6 +26,7 @@
 //     still needs individual owner approval before anything is written.
 import {
   AUDIT_BATCH_SCHEMA_VERSION,
+  POLE_SCHEME,
   type AuditBatchItemInput,
   type AuditBatchManifest,
 } from "@/lib/electrical-audit-batch";
@@ -94,7 +95,7 @@ export const FS_NW_UNIDENTIFIED_HOLD = {
   item_key: "fs-nw-b29-second-load-unidentified",
   breaker_reference: "PNL-FS-NW-B29",
   grid_reference: "F9",
-  pole: "Post 06SE",
+  pole_ref: "Post 06SE",
 } as const;
 
 export const holdItemKey = () => FS_NW_UNIDENTIFIED_HOLD.item_key;
@@ -225,13 +226,18 @@ function unidentifiedLoadHoldItem(): AuditBatchItemInput {
     operation: "HOLD_UNRESOLVED",
     fields: {},
     install_state: null,
-    pole: FS_NW_UNIDENTIFIED_HOLD.pole,
+    pole: {
+      pole_scheme: POLE_SCHEME,
+      pole_location_kind: "AT_POST",
+      pole_ref_start: FS_NW_UNIDENTIFIED_HOLD.pole_ref,
+      pole_ref_end: null,
+    },
     field_grid_reference: FS_NW_UNIDENTIFIED_HOLD.grid_reference,
     refs: { circuit_group_ref: autoGroupToken(b) },
     observed_label: b.circuit_group_label,
-    evidence: `PNL-FS-NW field audit 03 Sep 2026 PM — a second load on the "${b.circuit_group_label}" circuit (${b.breaker_reference}) was observed at ${FS_NW_UNIDENTIFIED_HOLD.grid_reference} / ${FS_NW_UNIDENTIFIED_HOLD.pole} but could not be matched to a FarmOps load record.`,
+    evidence: `PNL-FS-NW field audit 03 Sep 2026 PM — a second load on the "${b.circuit_group_label}" circuit (${b.breaker_reference}) was observed at ${FS_NW_UNIDENTIFIED_HOLD.grid_reference} / ${FS_NW_UNIDENTIFIED_HOLD.pole_ref} but could not be matched to a FarmOps load record.`,
     notes: `Recorded so the gap is visible. A field audit never invents a load record, so this stays on hold until the load is identified in a later batch.`,
-    reason: `Unidentified second load on ${b.breaker_reference} at ${FS_NW_UNIDENTIFIED_HOLD.grid_reference} / ${FS_NW_UNIDENTIFIED_HOLD.pole} — no FarmOps load record identified.`,
+    reason: `Unidentified second load on ${b.breaker_reference} at ${FS_NW_UNIDENTIFIED_HOLD.grid_reference} / ${FS_NW_UNIDENTIFIED_HOLD.pole_ref} — no FarmOps load record identified.`,
     ods_field: null,
     ods_candidate_value: null,
   };
@@ -270,12 +276,10 @@ export function buildFsNwAuditManifestR1(options: BuildOptions = {}): AuditBatch
     `unresolved circuit-group placeholders in ${FS_NW_AUDIT_R1_SUPERSEDES}. ` +
     (unlinked.length
       ? `Load linkage withheld (no load positively identified): ${unlinked.join(", ")}.`
-      : `Every audited circuit carries explicit load linkage from the observed ` +
-        `breaker-to-load relationships (${linkCount} load links). Incomplete or questionable ` +
-        `locations are reconciled separately and never suppress a known relationship.`) +
+      : `${linkCount} observed breaker-to-load links; incomplete locations are reconciled separately.`) +
     (includeHold
-      ? ` One observation is held unresolved: a second load on ${FS_NW_UNIDENTIFIED_HOLD.breaker_reference} ` +
-        `at ${FS_NW_UNIDENTIFIED_HOLD.grid_reference} / ${FS_NW_UNIDENTIFIED_HOLD.pole} has no matching load record.`
+      ? ` 1 hold: second load on ${FS_NW_UNIDENTIFIED_HOLD.breaker_reference} at ` +
+        `${FS_NW_UNIDENTIFIED_HOLD.grid_reference} / ${FS_NW_UNIDENTIFIED_HOLD.pole_ref} is unidentified.`
       : "");
 
   return {

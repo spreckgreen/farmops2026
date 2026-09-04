@@ -138,7 +138,7 @@ describe("FA-FS-2026-09-03-PM-R1", () => {
     expect(hold.observation_class).toBe("HOLD_UNRESOLVED");
     expect(hold.target_stable_id).toBeNull();
     expect(hold.field_grid_reference).toBe("F9");
-    expect(hold.pole).toBe("Post 06SE");
+    expect(hold.pole?.pole_ref_start).toBe("Post 06SE");
     const classified = classifyItem(hold, {
       target: null,
       resolved: new Map(),
