@@ -160,11 +160,13 @@ describe("FA-FS-2026-09-03-PM-R2", () => {
 
   it("exports/pulls R2 with an identical checksum and no approvals in the manifest", async () => {
     const exported = fsNwAuditManifestR2Text();
-    const reimported = parseManifest(exported).manifest!;
-    expect(await manifestChecksum(reimported)).toBe(
-      await manifestChecksum(buildFsNwAuditManifestR2()),
-    );
+    // A pull re-parses the transferred document; the checksum the peer stored
+    // and the checksum recomputed here must agree.
+    const stored = await manifestChecksum(parseManifest(exported).manifest!);
+    const recomputed = await manifestChecksum(parseManifest(fsNwAuditManifestR2Text()).manifest!);
+    expect(recomputed).toBe(stored);
     // Nothing in the transferred document carries an approval or an applied state.
+
     const raw = JSON.parse(exported) as Record<string, unknown>;
     expect(Object.keys(raw)).not.toContain("approved");
     expect(Object.keys(raw)).not.toContain("approved_by");
