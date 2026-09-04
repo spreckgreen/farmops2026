@@ -48,7 +48,9 @@ function GridDataQualityPage() {
           tab={tab}
           onTabChange={(t) => navigate({ search: { tab: t } })}
         />
+        <PostGeometryProposal />
       </div>
+
     </ElectricalGate>
   );
 }
