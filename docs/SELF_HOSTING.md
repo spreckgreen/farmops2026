@@ -63,24 +63,66 @@ Bostead. The Supabase self-host stack from
    the helper at <https://supabase.com/docs/guides/self-hosting/docker#generate-api-keys>
    (they are JWTs signed with `JWT_SECRET`, not random strings).
 
-2. **Expose the API behind TLS.** Supabase Studio should stay private
-   (bind `127.0.0.1:3000` or firewall it); only Kong needs public HTTPS.
-   Example Caddy block on the same host as Bostead's `caddy` service:
+2. **Expose the API behind TLS — and nothing else.** Since the
+   `self-hosted/v0.8.0` upgrade the API gateway is **Envoy** (service `api-gw`,
+   container `supabase-envoy`); Kong is optional. Both answer to the
+   compatibility DNS alias `kong` on the `supabase_default` docker network, so
+   the proxy configuration below is unchanged by the swap.
+
+   Keep every backend port internal. A small override file keeps the gateway
+   and pooler unpublished even after a Supabase release republishes them:
+
+   ```yaml
+   # supabase/docker/docker-compose.hardening.yml
+   services:
+     api-gw:
+       ports: !override []
+     supavisor:
+       ports: !override []
+   ```
+
+   Activate it once in the Supabase `docker/.env` (or your shell profile):
+
+   ```bash
+   COMPOSE_FILE=docker-compose.yml:docker-compose.hardening.yml
+   ```
+
+   The end state: PostgreSQL `5432`, pooler `6543`, and gateway `8000`/`8443`
+   are **not** published on the host, Studio stays private, and the only public
+   listeners are Caddy's `80`/`443`.
+
+   FarmOps' `Caddyfile` already carries the gateway route:
 
    ```caddy
-   supabase.example.com {
-     reverse_proxy supabase-kong:8000   # or 127.0.0.1:8000 if not on the same docker network
+   {$SUPABASE_DOMAIN} {
+     reverse_proxy kong:8000
    }
    ```
 
-   If Bostead's `caddy` and Supabase's `kong` share a docker network, add
-   `kong` to that network (`docker network connect bostead_default
-   supabase-kong`) so the `reverse_proxy` hostname resolves.
+   For that hostname to resolve, **Caddy** joins the external Supabase network —
+   FarmOps' `app` container must *not*. `docker-compose.yml` does this already
+   via the `supabase_internal` network aliased to `supabase_default`; keep it
+   when merging upstream changes.
 
-   > Bostead's `app` container reaches Supabase over the internal docker
-   > network — you can also point `SUPABASE_URL` at `http://supabase-kong:8000`
-   > for server-side calls. But `VITE_SUPABASE_URL` is baked into the browser
-   > bundle, so it **must** be the public HTTPS URL.
+   > `host.docker.internal` and its `extra_hosts` mapping were deliberately
+   > removed — the docker network alias replaces them. Do not reintroduce it.
+
+   > Server-side calls may use `SUPABASE_URL=http://kong:8000`, but
+   > `VITE_SUPABASE_URL` is baked into the browser bundle, so it **must** be the
+   > public HTTPS URL.
+
+   Verify the whole hardening set at any time — `scripts/healthcheck.sh` adds a
+   gateway-hardening section whenever a `supabase_default` network exists:
+
+   ```bash
+   ./scripts/healthcheck.sh
+   ```
+
+   It fails if the override is missing from `COMPOSE_FILE`, if `5432`/`6543`/
+   `8000`/`8443` are published, if Caddy is detached (or the app attached), if
+   `host.docker.internal` returns, if an unauthenticated REST request does not
+   return 401/403, or if the Supabase `.env` is not mode `600`.
+
 
 3. **Apply migrations.** Every deploy does this for you — `scripts/refresh.sh`
    runs `scripts/apply-migrations.sh` after the build and before the new
