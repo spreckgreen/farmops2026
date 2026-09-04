@@ -6,6 +6,8 @@
 // only when its group reference resolves to exactly one group; anything
 // ambiguous or unresolvable is reported instead of guessed.
 
+import { checkCircuitGroupId } from "./electrical-breaker-reference";
+
 export type LoadRow = {
   id: string;
   load_id: string;
@@ -57,6 +59,11 @@ export interface DerivedGroup {
   /** Distinct sources the reference was read from. */
   sources: RefSource[];
   shared: boolean;
+  /**
+   * Set when a NEW group would be created under a non-compliant stable ID.
+   * Apply refuses these; existing records are never renamed.
+   */
+  id_error: string | null;
 }
 
 export interface DerivedLink {
@@ -148,6 +155,7 @@ export function deriveCircuitGroups(loads: LoadRow[], existingGroups: GroupRow[]
       loadIds: bucket.loads.map((l) => l.load_id).sort((a, b) => a.localeCompare(b)),
       sources: [...bucket.sources].sort(),
       shared: bucket.loads.length > 1,
+      id_error: existing ? null : (checkCircuitGroupId(ref).error ?? null),
     });
     for (const load of bucket.loads) {
       if (load.circuit_group_uuid && existing && load.circuit_group_uuid === existing.id) continue;

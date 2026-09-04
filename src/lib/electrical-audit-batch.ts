@@ -19,6 +19,7 @@ import {
   type ElectricalEntityKind,
 } from "@/lib/electrical";
 import { diffFieldChanges, type FieldChange } from "@/lib/electrical-dependents";
+import { breakerRelationshipLabel } from "@/lib/electrical-breaker-reference";
 
 /** JSON-safe value: server functions serialize these across the wire. */
 export type Json = string | number | boolean | null | Json[] | { [k: string]: Json };
@@ -1089,6 +1090,33 @@ function csv(header: string[], rows: unknown[][]): string {
 }
 
 /** Preview report: one row per proposed change. */
+/**
+ * Derived, display-only breaker relationship for one audit item:
+ * breaker_reference -> circuit_group_id [description]. Built from the item's
+ * evidence refs, never stored, and null whenever either side is missing.
+ */
+export function itemBreakerRelationship(
+  item: Pick<AuditBatchItemInput, "entity_kind" | "target_stable_id" | "fields" | "refs" | "observed_label">,
+): string | null {
+  const fields = (item.fields ?? {}) as Record<string, unknown>;
+  const refs = item.refs ?? {};
+  const group =
+    item.entity_kind === "circuit_group"
+      ? (item.target_stable_id ?? refs.circuit_group_ref ?? null)
+      : (refs.circuit_group_ref ?? null);
+  return breakerRelationshipLabel({
+    panel_id: refs.panel_ref ?? null,
+    breaker_number: (fields["breaker_number"] as number | string | null | undefined) ?? null,
+    circuit_group_id: group,
+    description: item.observed_label ?? null,
+  });
+}
+
+/** Same projection for a classified preview row. */
+export function classifiedBreakerRelationship(item: ClassifiedItem): string | null {
+  return itemBreakerRelationship(item.payload);
+}
+
 export function previewCsv(items: ClassifiedItem[]): string {
   return csv(
     [
@@ -1102,6 +1130,7 @@ export function previewCsv(items: ClassifiedItem[]): string {
       "column",
       "current_value",
       "proposed_value",
+      "breaker_relationship",
       "evidence",
       "messages",
     ],
@@ -1120,6 +1149,7 @@ export function previewCsv(items: ClassifiedItem[]): string {
             "",
             "",
             "",
+            classifiedBreakerRelationship(i) ?? "",
             i.evidence,
             msgs,
           ],
@@ -1136,6 +1166,7 @@ export function previewCsv(items: ClassifiedItem[]): string {
         c.column,
         c.before,
         c.after,
+        classifiedBreakerRelationship(i) ?? "",
         i.evidence,
         msgs,
       ]);

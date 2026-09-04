@@ -28,15 +28,18 @@ export const panelLayout = createServerFn({ method: "GET" })
   .handler(async ({ context, data }) => {
     await requireElectricalAccess(context.supabase, context.userId, "read");
     const db = context.supabase as unknown as LooseDb;
-    const [panel, positions, exits, raceways] = await Promise.all([
+    const [panel, positions, exits, raceways, circuitGroups] = await Promise.all([
       db.from("electrical_panels").select("*").eq("id", data.panel_uuid).maybeSingle(),
       db.from(BREAKER_TABLE).select("*").eq("panel_uuid", data.panel_uuid).order("position"),
       db.from(EXIT_TABLE).select("*").eq("panel_uuid", data.panel_uuid).order("exit_order"),
       db
         .from("electrical_raceways")
         .select("id,conduit_id,source_panel_uuid,dest_panel_uuid,trade_size"),
+      // Circuit group stable IDs, so the schedule can show the derived
+      // breaker_reference -> circuit_group_id relationship.
+      db.from("electrical_circuit_groups").select("id,circuit_group_id,description"),
     ]);
-    for (const r of [panel, positions, exits, raceways]) {
+    for (const r of [panel, positions, exits, raceways, circuitGroups]) {
       if (r.error) throw new Error(r.error.message);
     }
     const panelRow = (panel.data ?? null) as Row | null;
@@ -56,6 +59,7 @@ export const panelLayout = createServerFn({ method: "GET" })
       positions: positionRows,
       exits: exitRows,
       raceways: racewayRows,
+      circuitGroups: (circuitGroups.data ?? []) as Row[],
       findings,
     };
   });

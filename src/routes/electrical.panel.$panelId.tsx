@@ -16,6 +16,7 @@ import {
 } from "@/components/electrical/panel-access-request";
 import { PanelLocalTopology } from "@/components/electrical/panel-local-topology";
 import { PanelQrLabel } from "@/components/electrical/panel-qr-label";
+import { breakerRelationshipLabel } from "@/lib/electrical-breaker-reference";
 import { useAddon } from "@/hooks/use-addon";
 import { requireAuthenticatedUser } from "@/lib/auth-route";
 import {
@@ -357,9 +358,28 @@ function PanelSheetPage() {
               subtitle={`${sheet.data.breakers.length} recorded`}
             >
               <DataTable
-                rows={sheet.data.breakers}
+                rows={sheet.data.breakers.map((b) => {
+                  const group = sheet.data!.circuit_groups.find(
+                    (g) => g["id"] === b["circuit_group_uuid"],
+                  );
+                  return {
+                    ...b,
+                    // Derived display only; identity stays panel + position.
+                    breaker_relationship:
+                      breakerRelationshipLabel({
+                        panel_id: panelId,
+                        breaker_number: b["breaker_number"] as number | null,
+                        circuit_group_id: group
+                          ? String(group["circuit_group_id"] ?? "")
+                          : null,
+                        description:
+                          group?.["description"] == null ? null : String(group["description"]),
+                      }) ?? null,
+                  };
+                })}
                 columns={[
                   ["breaker_number", "Breaker"],
+                  ["breaker_relationship", "Relationship"],
                   ["side", "Side"],
                   ["position", "Pos"],
                   ["poles", "Poles"],
@@ -373,9 +393,19 @@ function PanelSheetPage() {
 
             <CollapsibleSection title="Circuit groups" subtitle={`${sheet.data.circuit_groups.length}`}>
               <DataTable
-                rows={sheet.data.circuit_groups}
+                rows={sheet.data.circuit_groups.map((g) => ({
+                  ...g,
+                  breaker_relationship:
+                    breakerRelationshipLabel({
+                      panel_id: panelId,
+                      breaker_number: g["breaker_number"] as number | null,
+                      circuit_group_id: String(g["circuit_group_id"] ?? ""),
+                      description: g["description"] == null ? null : String(g["description"]),
+                    }) ?? null,
+                }))}
                 columns={[
                   ["circuit_group_id", "Circuit"],
+                  ["breaker_relationship", "Relationship"],
                   ["description", "Description"],
                   ["breaker_number", "Breaker"],
                   ["circuit_rating_amps", "Rating (A)"],

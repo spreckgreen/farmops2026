@@ -13,6 +13,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { requireElectricalAccess } from "@/lib/addons.server";
 import { requireAdminRole } from "@/lib/admin-role.server";
 import { recordElectricalChange } from "@/lib/electrical-audit.server";
+import { assertPeerUrl, peerFetch } from "@/lib/electrical-peer-net";
 import { collectSnapshot } from "@/lib/electrical-snapshot.functions";
 import {
   AUDIT_BATCH_GATE_VERSION,
@@ -413,29 +414,6 @@ export interface PeerPullResult {
   preview: AuditBatchPreview;
 }
 
-function assertPeerUrl(raw: string): URL {
-  let url: URL;
-  try {
-    url = new URL(raw);
-  } catch {
-    throw new Error("Peer instance URL is not a valid absolute URL.");
-  }
-  if (url.protocol !== "https:") throw new Error("Peer instance URL must use https.");
-  const host = url.hostname.toLowerCase();
-  const blocked =
-    host === "localhost" ||
-    host.endsWith(".localhost") ||
-    host === "0.0.0.0" ||
-    /^127\./.test(host) ||
-    /^10\./.test(host) ||
-    /^192\.168\./.test(host) ||
-    /^172\.(1[6-9]|2\d|3[01])\./.test(host) ||
-    /^169\.254\./.test(host) ||
-    host.startsWith("[");
-  if (blocked) throw new Error("Peer instance host is not reachable over the public internet.");
-  return url;
-}
-
 export const pullPeerAuditBatch = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
@@ -459,14 +437,18 @@ export const pullPeerAuditBatch = createServerFn({ method: "POST" })
 
     let res: Response;
     try {
-      res = await fetch(endpoint, {
+      // peerFetch resolves the hostname and refuses private/loopback/link-local
+      // /reserved answers, and disables redirects so a 302 cannot escape them.
+      res = await peerFetch(endpoint, {
         method: "GET",
         headers: {
           authorization: `Bearer ${data.peer_token}`,
           accept: "application/json",
         },
       });
-    } catch {
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "";
+      if (message.includes("Peer instance")) throw e;
       throw new Error("Peer instance could not be reached.");
     }
     if (!res.ok) {

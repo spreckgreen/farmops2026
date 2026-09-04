@@ -23,9 +23,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { usePeerTokenState } from "@/components/electrical/use-peer-token-state";
 import { Textarea } from "@/components/ui/textarea";
 import {
   AUDIT_DISPOSITIONS,
+  classifiedBreakerRelationship,
   holdCsv,
   isPendingRef,
   pendingRefItemKey,
@@ -90,6 +92,11 @@ function ItemRow({
         {item.pole_token ? (
           <span className="text-xs text-muted-foreground">pole {item.pole_token}</span>
         ) : null}
+        {classifiedBreakerRelationship(item) ? (
+          <span className="font-mono text-xs text-muted-foreground">
+            {classifiedBreakerRelationship(item)}
+          </span>
+        ) : null}
       </div>
       {item.changes.length ? (
         <ul className="mt-1 ml-6 space-y-0.5 text-xs text-muted-foreground">
@@ -136,8 +143,8 @@ export function AuditBatchPanel() {
   const [payload, setPayload] = useState<AuditBatchPreview | null>(null);
   const [peerUrl, setPeerUrl] = useState("");
   const [peerBatchId, setPeerBatchId] = useState("");
-  const [peerToken, setPeerToken] = useState("");
-  const [generatedPeerToken, setGeneratedPeerToken] = useState<PeerRegistration | null>(null);
+  const { peerToken, setPeerToken, generatedPeerToken, setGeneratedPeerToken, clearPeerToken } =
+    usePeerTokenState();
 
   const [peerNote, setPeerNote] = useState<string | null>(null);
   const [approved, setApproved] = useState<Set<string>>(new Set());
@@ -178,7 +185,7 @@ export function AuditBatchPanel() {
       }),
     onSuccess: (result) => {
       adopt(result.preview as AuditBatchPreview);
-      setPeerToken("");
+      clearPeerToken();
       setPeerNote(
         `Staged ${result.peer.batch_id} from ${result.peer.base_url} (there: ${result.peer.status ?? "unknown"}${
           result.peer.applied_at ? `, applied ${result.peer.applied_at}` : ""
@@ -365,8 +372,8 @@ export function AuditBatchPanel() {
                 Copy key
               </Button>
             ) : null}
-            {generatedPeerToken ? (
-              <Button size="sm" variant="ghost" onClick={() => setGeneratedPeerToken(null)}>
+            {generatedPeerToken || peerToken ? (
+              <Button size="sm" variant="ghost" onClick={clearPeerToken}>
                 Clear
               </Button>
             ) : null}

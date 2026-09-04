@@ -33,6 +33,7 @@ import {
   unrecordedBreakerSlots,
 } from "@/lib/electrical-panel-layout";
 import { PANEL_EXIT_SIDES } from "@/lib/electrical";
+import { breakerRelationshipLabel } from "@/lib/electrical-breaker-reference";
 
 type Row = Record<string, string | number | boolean | null>;
 
@@ -60,6 +61,7 @@ export function PanelLayoutPanels({ panelUuid }: { panelUuid: string }) {
   const positions = (q.data?.positions ?? []) as Row[];
   const exits = (q.data?.exits ?? []) as Row[];
   const raceways = (q.data?.raceways ?? []) as Row[];
+  const circuitGroups = (q.data?.circuitGroups ?? []) as Row[];
   const findings = q.data?.findings ?? [];
   if (!panel) return null;
 
@@ -86,6 +88,7 @@ export function PanelLayoutPanels({ panelUuid }: { panelUuid: string }) {
       <BreakerPositions
         panel={panel}
         rows={positions}
+        circuitGroups={circuitGroups}
         onChanged={invalidate}
       />
       <PanelExits
@@ -211,12 +214,30 @@ function BreakerRowEditor({
 function BreakerPositions({
   panel,
   rows,
+  circuitGroups,
   onChanged,
 }: {
   panel: Row;
   rows: Row[];
+  circuitGroups: Row[];
   onChanged: () => void;
 }) {
+  // Derived, display-only: PNL-<panel>-B<n> → CG-<site>-<seq> [description].
+  // The authoritative identity stays panel UUID + physical position.
+  const groupById = useMemo(() => {
+    const map = new Map<string, Row>();
+    for (const g of circuitGroups) map.set(String(g["id"]), g);
+    return map;
+  }, [circuitGroups]);
+  const relationshipFor = (r: Row): string | null => {
+    const group = r["circuit_group_uuid"] ? groupById.get(String(r["circuit_group_uuid"])) : null;
+    return breakerRelationshipLabel({
+      panel_id: panel["panel_id"] == null ? null : String(panel["panel_id"]),
+      breaker_number: r["breaker_number"] as number | null,
+      circuit_group_id: group ? String(group["circuit_group_id"]) : null,
+      description: group?.["description"] == null ? null : String(group["description"]),
+    });
+  };
   const layout = useMemo(() => resolvePanelLayout(panel), [panel]);
   const free = useMemo(() => freeBreakerSlots(layout, rows), [layout, rows]);
   // Gaps in the panel's observed range: recorded slots stop at the highest
@@ -371,6 +392,11 @@ function BreakerPositions({
                     {String(r["side"])} {String(r["position"])}
                   </span>
                   <Badge variant="outline">breaker {String(r["breaker_number"] ?? "—")}</Badge>
+                  {relationshipFor(r) ? (
+                    <span className="font-mono text-xs text-muted-foreground">
+                      {relationshipFor(r)}
+                    </span>
+                  ) : null}
                   {duplicateIds.has(String(r["id"])) ? (
                     <Badge variant="destructive">duplicate of a multi-pole slot</Badge>
                   ) : null}
