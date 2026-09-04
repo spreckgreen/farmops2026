@@ -331,6 +331,64 @@ export function AuditBatchPanel() {
             placeholder="Peer access token or farmops_sk_ key with electrical:audit-batches:read"
             autoComplete="off"
           />
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={async () => {
+                const token = generatePeerToken();
+                setGeneratedPeerToken(await buildPeerRegistration(token));
+                setPeerToken(token);
+              }}
+            >
+              Generate a token
+            </Button>
+            {generatedPeerToken ? (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  void navigator.clipboard?.writeText(generatedPeerToken.token);
+                  toast.success("Key copied. Register it on the peer, then discard the copy.");
+                }}
+              >
+                Copy key
+              </Button>
+            ) : null}
+            {generatedPeerToken ? (
+              <Button size="sm" variant="ghost" onClick={() => setGeneratedPeerToken(null)}>
+                Clear
+              </Button>
+            ) : null}
+          </div>
+          {generatedPeerToken ? (
+            <div className="space-y-2 rounded-md border border-border p-3 text-xs">
+              <p className="text-muted-foreground">
+                A pull authenticates against the peer, so this key must be registered{" "}
+                <strong>there</strong>. The key below is filled into the field above and is not
+                stored here — only its fingerprint is ever stored on the peer. Run this on your
+                self-hosted instance, replacing the owner id with your peer account:
+              </p>
+              <p className="font-mono break-all">{maskPeerToken(generatedPeerToken.token)}</p>
+              <pre className="overflow-x-auto rounded bg-muted p-2 font-mono whitespace-pre">
+                {generatedPeerToken.sql}
+              </pre>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  void navigator.clipboard?.writeText(generatedPeerToken.sql);
+                  toast.success("Registration statement copied.");
+                }}
+              >
+                Copy registration statement
+              </Button>
+              <p className="text-muted-foreground">
+                Scope granted: <span className="font-mono">{generatedPeerToken.scope}</span> — read
+                only. Nothing on this instance changes until you approve each staged item.
+              </p>
+            </div>
+          ) : null}
           <Button
             size="sm"
             disabled={
@@ -345,6 +403,7 @@ export function AuditBatchPanel() {
             Pull &amp; stage preview
           </Button>
           {peerNote ? <p className="text-xs text-muted-foreground">{peerNote}</p> : null}
+
         </div>
       </PersistedSection>
 
