@@ -794,14 +794,25 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
           {q.data.gaps.length ? ` · ${q.data.gaps.length} record gap(s)` : ""}
         </p>
         <p className="text-[11px]">Filters — {filterSummary.join(" · ")}</p>
+        <p className="text-[11px]">
+          Base: {GRID_BASE_OVERLAY_LABEL[baseOverlay]} · Progress:{" "}
+          {PROGRESS_MODE_LABEL[progressMode]} · {progress.installedPct}% of {progress.PLANNED}{" "}
+          recorded installed
+          {progress.stagedOnly
+            ? ` · ${progress.stagedOnly} staged audit observation(s), not approved`
+            : ""}
+        </p>
         <div data-plan-container="print" className="mt-2 w-full overflow-hidden border border-black">
           <GridPlanSvg
             plotted={plotted}
             interactive={false}
             markerScale={0.8}
             showProposedLeds={showLeds}
+            baseOverlay={baseOverlay}
+            cellCounts={cellCounts}
           />
         </div>
+
         <p className="mt-1 text-[11px]">
           {plotted.length} of {filtered.length} record(s) plotted · {unplotted.length} not mapped (no
           permanent location in the record)
