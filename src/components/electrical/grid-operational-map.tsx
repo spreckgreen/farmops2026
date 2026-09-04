@@ -397,7 +397,7 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
                 <span className="ml-2 mr-1 text-xs text-muted-foreground">Layers:</span>
                 <Chip
                   active={showLeds}
-                  onClick={() => setShowLeds((v) => !v)}
+                  onClick={() => setShowLeds(!showLeds)}
                   title="Proposed design layout only — not field verified and not tied to a record."
                 >
                   Overhead lighting — proposed (10)
