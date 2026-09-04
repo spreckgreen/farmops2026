@@ -4,7 +4,7 @@
 // individual items, types an approval statement and a reason, and confirms.
 // Holds, conflicts, ODS candidates, temporary-unresolved and no-change rows can
 // never be selected.
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { AlertTriangle, Download, RefreshCw, ShieldCheck, Upload } from "lucide-react";
@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { usePeerTokenState } from "@/components/electrical/use-peer-token-state";
 import { Textarea } from "@/components/ui/textarea";
 import {
   AUDIT_DISPOSITIONS,
@@ -142,8 +143,8 @@ export function AuditBatchPanel() {
   const [payload, setPayload] = useState<AuditBatchPreview | null>(null);
   const [peerUrl, setPeerUrl] = useState("");
   const [peerBatchId, setPeerBatchId] = useState("");
-  const [peerToken, setPeerToken] = useState("");
-  const [generatedPeerToken, setGeneratedPeerToken] = useState<PeerRegistration | null>(null);
+  const { peerToken, setPeerToken, generatedPeerToken, setGeneratedPeerToken, clearPeerToken } =
+    usePeerTokenState();
 
   const [peerNote, setPeerNote] = useState<string | null>(null);
   const [approved, setApproved] = useState<Set<string>>(new Set());
@@ -152,14 +153,6 @@ export function AuditBatchPanel() {
   const [reason, setReason] = useState("");
   const [confirmed, setConfirmed] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // A pasted or generated peer key never outlives its use: it is cleared on
-  // Clear, after a successful pull, and when this panel unmounts.
-  const clearPeerToken = useCallback(() => {
-    setPeerToken("");
-    setGeneratedPeerToken(null);
-  }, []);
-  useEffect(() => clearPeerToken, [clearPeerToken]);
 
   const batches = useQuery({
     queryKey: ["electrical-audit-batches"],
@@ -379,7 +372,7 @@ export function AuditBatchPanel() {
                 Copy key
               </Button>
             ) : null}
-            {generatedPeerToken ? (
+            {generatedPeerToken || peerToken ? (
               <Button size="sm" variant="ghost" onClick={clearPeerToken}>
                 Clear
               </Button>
