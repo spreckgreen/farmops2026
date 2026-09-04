@@ -91,7 +91,11 @@ function SheetRow({
                 <Check className="h-3 w-3" /> {stageLabel(row.status)}
               </Badge>
             ) : (
-              <Badge variant="secondary" className="shrink-0">
+              <Badge
+                variant="secondary"
+                className="max-w-[14rem] shrink-0 truncate"
+                title={stageLabel(row.status)}
+              >
                 {stageLabel(row.status)}
               </Badge>
             )}
