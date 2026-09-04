@@ -160,16 +160,82 @@ function findTarget(
   return map.get(up(item.target_stable_id)) ?? null;
 }
 
-function classifyAll(manifest: AuditBatchManifest, live: LiveSnapshot): ClassifiedItem[] {
-  return manifest.items.map((item) =>
-    classifyItem(item, {
+interface PreparedBatch {
+  items: ClassifiedItem[];
+  graph: ManifestGraph;
+  /** item_key → proposed CG-FS-## identity awaiting owner approval. */
+  proposed: Record<string, string>;
+}
+
+/**
+ * Normalize proposed circuit-group identities, build the manifest dependency
+ * graph, then classify every item against one live snapshot.
+ */
+function prepareBatch(manifest: AuditBatchManifest, live: LiveSnapshot): PreparedBatch {
+  const groupIds = [...(live.byKind["circuit_group"]?.keys() ?? [])];
+  const { items: normalized, proposed } = assignProposedCircuitGroupIds(manifest.items, groupIds);
+  const exists = (kind: string, id: string) => Boolean(live.byKind[kind]?.has(id));
+  const graph = buildManifestGraph(normalized, exists);
+
+  const items = normalized.map((item) => {
+    const classified = classifyItem(item, {
       target: findTarget(item, live),
       existingBranchIds: live.branchIds,
       existingJboxIds: live.jboxIds,
       resolved: live.resolved,
-    }),
-  );
+      pendingCreates: graph.pendingCreates,
+    });
+
+    const id = up(item.target_stable_id);
+    const key = `${item.entity_kind}|${id}`;
+    const ambiguous =
+      Boolean(id) &&
+      AUDIT_ENTITY_TARGETS[item.entity_kind].creatable &&
+      !exists(item.entity_kind, id) &&
+      graph.pendingCreates.get(key) !== item.item_key;
+
+    if (ambiguous) {
+      return {
+        ...classified,
+        operation: "CONFLICT" as ClassifiedItem["operation"],
+        disposition: "conflict" as AuditDisposition,
+        patch: {},
+        changes: [],
+        messages: [
+          ...classified.messages,
+          {
+            level: "error" as const,
+            text:
+              graph.conflicts.find((c) => c.includes(item.item_key)) ??
+              `${id} is proposed by more than one item; the reference is ambiguous.`,
+          },
+        ],
+      };
+    }
+
+    const proposedId = proposed[item.item_key];
+    if (proposedId) {
+      return {
+        ...classified,
+        messages: [
+          ...classified.messages,
+          {
+            level: "info" as const,
+            text: `${proposedId} is the next unused circuit-group identity proposed by FarmOps. It is independent of panel, breaker number and tape label, and needs your approval.`,
+          },
+        ],
+      };
+    }
+    return classified;
+  });
+
+  return { items, graph, proposed };
 }
+
+function classifyAll(manifest: AuditBatchManifest, live: LiveSnapshot): ClassifiedItem[] {
+  return prepareBatch(manifest, live).items;
+}
+
 
 async function qaCounts(supabase: unknown): Promise<QaCounts | null> {
   try {
