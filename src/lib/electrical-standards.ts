@@ -9,6 +9,13 @@ import {
   INFRASTRUCTURE_ID_STANDARDS,
   type InfrastructureKind,
 } from "./electrical-infrastructure-standards";
+import {
+  BREAKER_REFERENCE_EXAMPLE,
+  BREAKER_REFERENCE_SHAPE,
+  CIRCUIT_GROUP_ID_EXAMPLE,
+  CIRCUIT_GROUP_ID_SHAPE,
+} from "./electrical-breaker-reference";
+
 
 export interface StandardEntry {
   key: string;
@@ -170,6 +177,23 @@ export const BUILT_IN_STANDARDS: readonly StandardEntry[] = [
     sort_order: 70,
   },
   {
+    key: "breaker_reference",
+    title: "Derived breaker reference and circuit group relationship",
+    body:
+      `Breaker reference ${BREAKER_REFERENCE_SHAPE} (${BREAKER_REFERENCE_EXAMPLE}) is derived and read-only — ` +
+      "it is a display projection, never an identity and never editable.\n" +
+      "The authoritative breaker-position identity remains the panel UUID plus the physical position row in " +
+      "electrical_breaker_positions.\n" +
+      `Circuit groups keep independent permanent IDs ${CIRCUIT_GROUP_ID_SHAPE} (${CIRCUIT_GROUP_ID_EXAMPLE}).\n` +
+      "Relationships are displayed as breaker_reference → circuit_group_id [description], for example " +
+      `${BREAKER_REFERENCE_EXAMPLE} → ${CIRCUIT_GROUP_ID_EXAMPLE} [Shop east receptacles].\n` +
+      "The relationship is stored only in electrical_breaker_positions.circuit_group_uuid.\n" +
+      "Never concatenate a breaker reference into a circuit group stable ID, and never rename a circuit group " +
+      "when its breaker assignment changes — reassignment changes the link, not the identity.",
+    sort_order: 72,
+  },
+
+  {
     key: "labels",
     title: "Label conventions",
     body:
@@ -284,8 +308,24 @@ export const STABLE_ID_REFERENCE: readonly StableIdReferenceRow[] = [
     example: "BR-104-02-03",
     notes: "Encodes raceway path + origin junction box + branch sequence (resets per box)",
   },
-
+  {
+    entity: "Circuit Group",
+    format: CIRCUIT_GROUP_ID_SHAPE,
+    example: CIRCUIT_GROUP_ID_EXAMPLE,
+    notes:
+      "Permanent, independent of any breaker assignment. Never renamed when the breaker changes and " +
+      "never has a breaker reference concatenated into it.",
+  },
+  {
+    entity: "Breaker reference (derived, read-only)",
+    format: BREAKER_REFERENCE_SHAPE,
+    example: BREAKER_REFERENCE_EXAMPLE,
+    notes:
+      "Display projection only. Authoritative identity is the panel UUID plus physical position; the " +
+      "circuit-group link is stored in electrical_breaker_positions.circuit_group_uuid.",
+  },
 ];
+
 
 /** Infrastructure reference rows, derived from the centralized standards. */
 export const INFRASTRUCTURE_ID_REFERENCE: readonly StableIdReferenceRow[] = (

@@ -9,6 +9,14 @@ import {
   STABLE_ID_REFERENCE,
 } from "@/lib/electrical-standards";
 import { INFRASTRUCTURE_ID_STANDARDS } from "@/lib/electrical-infrastructure-standards";
+import {
+  BREAKER_REFERENCE_EXAMPLE,
+  BREAKER_REFERENCE_SHAPE,
+  CIRCUIT_GROUP_ID_EXAMPLE,
+  CIRCUIT_GROUP_ID_SHAPE,
+  breakerRelationshipLabel,
+} from "@/lib/electrical-breaker-reference";
+
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -118,6 +126,44 @@ function Standards() {
           </table>
         </CardContent>
       </Card>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">
+            Breaker reference and circuit group relationship
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2 text-sm text-muted-foreground">
+          <p>
+            <span className="font-mono">{BREAKER_REFERENCE_SHAPE}</span> — e.g.{" "}
+            <span className="font-mono">{BREAKER_REFERENCE_EXAMPLE}</span> — is derived and
+            read-only. The authoritative breaker-position identity remains the panel UUID plus the
+            physical position.
+          </p>
+          <p>
+            Circuit groups keep independent permanent IDs{" "}
+            <span className="font-mono">{CIRCUIT_GROUP_ID_SHAPE}</span> (e.g.{" "}
+            <span className="font-mono">{CIRCUIT_GROUP_ID_EXAMPLE}</span>).
+          </p>
+          <p>
+            Relationships display as{" "}
+            <span className="font-mono">
+              {breakerRelationshipLabel({
+                panel_id: "PNL-FS-NW",
+                breaker_number: 39,
+                circuit_group_id: CIRCUIT_GROUP_ID_EXAMPLE,
+                description: "Shop east receptacles",
+              })}
+            </span>{" "}
+            and are stored only as the breaker position&rsquo;s circuit group link.
+          </p>
+          <p>
+            A breaker reference is never concatenated into a circuit group ID, and a circuit group is
+            never renamed when its breaker assignment changes.
+          </p>
+        </CardContent>
+      </Card>
+
 
       <Card>
         <CardHeader className="pb-2">
