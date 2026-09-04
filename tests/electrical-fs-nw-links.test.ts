@@ -83,4 +83,22 @@ describe("FA-FS-2026-09-03-PM-R1-LINKS", () => {
     expect(parsed.errors).toEqual([]);
     expect(parsed.ok).toBe(true);
   });
+
+  it("changes only the relationship: no label, note or location on a link item", () => {
+    const r = buildFsNwLoadLinkManifest({ groups: approvedGroups, knownLoadIds: allLoads });
+    const links = r.manifest.items.filter((i) => i.operation === "LINK");
+    expect(links.length).toBe(20);
+    for (const i of links) {
+      expect(i.notes ?? null).toBeNull();
+      expect(i.observed_label ?? null).toBeNull();
+      expect(i.fields).toEqual({});
+      expect(i.field_grid_reference ?? null).toBeNull();
+      expect(i.pole ?? null).toBeNull();
+      expect(i.install_state ?? null).toBeNull();
+      // The relationship column is the only thing carried.
+      expect(Object.keys(i.refs ?? {}).sort()).toEqual(["circuit_group_ref", "load_ref"]);
+      // How and when it was observed still lives in the evidence line.
+      expect(i.evidence).toContain("field audit 03 Sep 2026 PM");
+    }
+  });
 });
