@@ -121,18 +121,22 @@ function buildPositions(): PostPosition[] {
       const ref = seq[(start + step) % seq.length]!;
       if (out.has(ref)) continue;
       const t = step / count;
+      const xFt = round(span.fromXFt + (span.toXFt - span.fromXFt) * t);
+      const yFt = round(span.fromYFt + (span.toYFt - span.fromYFt) * t);
       out.set(ref, {
         ref,
         wall: span.wall,
         corner: POLE_CORNERS.includes(ref),
-        xFt: round(span.fromXFt + (span.toXFt - span.fromXFt) * t),
-        yFt: round(span.fromYFt + (span.toYFt - span.fromYFt) * t),
+        xFt,
+        yFt,
+        gridCell: derivedGridLabel(xFt, yFt),
         basis: POLE_CORNERS.includes(ref)
           ? `Recorded corner post on the ${span.wall} / adjoining wall of the corrected 60 x 40 ft outline.`
           : `Derived: post ${step} of ${count} along the ${span.wall} wall between ${span.from} and ${span.to}, evenly spaced at ${round(spacing)} ft.`,
       });
     }
   }
+
   return (POLE_SEQUENCE as readonly string[]).map((ref) => out.get(ref)!).filter(Boolean);
 }
 
