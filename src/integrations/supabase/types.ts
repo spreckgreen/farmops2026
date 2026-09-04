@@ -4857,7 +4857,7 @@ export type Database = {
     Functions: {
       electrical_allowed: { Args: { _domain: string }; Returns: string[] }
       list_peer_sync_cron_secrets: {
-        Args: never
+        Args: { _actor: string }
         Returns: {
           activated_at: string
           fingerprint: string
@@ -4869,9 +4869,12 @@ export type Database = {
         }[]
       }
       restore_table_diagnostics: { Args: { _table: string }; Returns: Json }
-      revoke_retiring_peer_sync_cron_secrets: { Args: never; Returns: number }
+      revoke_retiring_peer_sync_cron_secrets: {
+        Args: { _actor: string }
+        Returns: number
+      }
       rotate_peer_sync_cron_secret: {
-        Args: { _grace_minutes?: number }
+        Args: { _actor: string; _grace_minutes?: number }
         Returns: {
           fingerprint: string
           retire_after: string
