@@ -130,10 +130,14 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
   const [install, setInstall] = useState("ALL");
   const [verify, setVerify] = useState<"ALL" | VerificationStatus>("ALL");
   const [selected, setSelected] = useState<string | null>(null);
-  const [showLeds, setShowLeds] = useState(false);
+  // Active build: the planned overhead LED layer and the design-vs-field
+  // (planned vs verified) overlay are on by default, and the choice persists.
+  const [showLeds, setShowLeds] = usePersistedFlag("farmops.grid-map.proposed-leds", true);
   const [showDesignVsField, setShowDesignVsField] = usePersistedFlag(
     "farmops.grid-map.design-vs-field",
+    true,
   );
+
 
   const [printMode, setPrintMode] = usePrintMode();
   const [saving, setSaving] = useState(false);
