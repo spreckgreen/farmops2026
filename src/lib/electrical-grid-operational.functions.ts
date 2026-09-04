@@ -21,6 +21,7 @@ import {
   type AssetKind,
   type OperationalAsset,
   type OperationalInput,
+  type PendingObservation,
   type OperationalSummary,
 } from "@/lib/electrical-grid-operational";
 
@@ -143,20 +144,26 @@ export const electricalGridOperational = createServerFn({ method: "GET" })
         db
           .from("electrical_loads")
           .select(
-            "id, load_id, description, area, location, grid, design_grid, design_x_ft, design_y_ft, legacy_grid, grid_reference, grid_reference_precision, location_x_ft, location_y_ft, install_status, field_verification_status, verification_notes, location_evidence, verified_at, updated_at, dedicated, dedicated_shared, circuit_group_ref, circuit_group_uuid, suggested_panel",
+            "id, load_id, description, area, location, grid, design_grid, design_x_ft, design_y_ft, legacy_grid, grid_reference, grid_reference_precision, location_x_ft, location_y_ft, install_status, field_verification_status, verification_notes, location_evidence, verified_at, updated_at, " +
+            OBSERVED_LOCATION_COLS +
+            ", dedicated, dedicated_shared, circuit_group_ref, circuit_group_uuid, suggested_panel",
           )
           .order("load_id"),
         db
           .from("electrical_panels")
           .select(
-            "id, panel_id, description, building, grid, design_grid, design_x_ft, design_y_ft, legacy_grid, grid_reference, grid_reference_precision, location_x_ft, location_y_ft, install_status, field_verification_status, verification_notes, location_evidence, verified_at, updated_at",
+            "id, panel_id, description, building, grid, design_grid, design_x_ft, design_y_ft, legacy_grid, grid_reference, grid_reference_precision, location_x_ft, location_y_ft, install_status, field_verification_status, verification_notes, location_evidence, verified_at, updated_at, " +
+            OBSERVED_LOCATION_COLS,
           )
           .order("panel_id"),
         db.from("electrical_circuit_groups").select("id, circuit_group_id, panel_uuid"),
         db.from("electrical_breaker_positions").select("panel_uuid, load_uuid, circuit_group_uuid"),
         db
           .from("electrical_junction_boxes")
-          .select("jbox_id, description, building, grid, install_status, updated_at"),
+          .select(
+            "jbox_id, description, building, grid, install_status, updated_at, " +
+              OBSERVED_LOCATION_COLS,
+          ),
         db
           .from("electrical_devices")
           .select("device_id, description, building, location_note, grid, install_status, updated_at"),
