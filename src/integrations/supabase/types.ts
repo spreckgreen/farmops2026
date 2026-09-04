@@ -2467,6 +2467,63 @@ export type Database = {
         }
         Relationships: []
       }
+      electrical_peer_sync_runs: {
+        Row: {
+          candidates: number
+          capped: boolean
+          created_at: string
+          duration_ms: number | null
+          error: string | null
+          failed: number
+          finished_at: string | null
+          id: string
+          items: Json | null
+          outcome: string
+          peer_batches_seen: number
+          peer_origin: string | null
+          skipped_reason: string | null
+          staged: number
+          started_at: string
+          trigger: string
+        }
+        Insert: {
+          candidates?: number
+          capped?: boolean
+          created_at?: string
+          duration_ms?: number | null
+          error?: string | null
+          failed?: number
+          finished_at?: string | null
+          id?: string
+          items?: Json | null
+          outcome: string
+          peer_batches_seen?: number
+          peer_origin?: string | null
+          skipped_reason?: string | null
+          staged?: number
+          started_at?: string
+          trigger?: string
+        }
+        Update: {
+          candidates?: number
+          capped?: boolean
+          created_at?: string
+          duration_ms?: number | null
+          error?: string | null
+          failed?: number
+          finished_at?: string | null
+          id?: string
+          items?: Json | null
+          outcome?: string
+          peer_batches_seen?: number
+          peer_origin?: string | null
+          skipped_reason?: string | null
+          staged?: number
+          started_at?: string
+          trigger?: string
+        }
+        Relationships: []
+      }
       electrical_power_assets: {
         Row: {
           asset_ref: string | null
