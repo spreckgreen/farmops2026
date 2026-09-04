@@ -105,7 +105,7 @@ describe("FA-FS-2026-09-03-PM-R1", () => {
   it("emits load linkage only for exactly identified loads and says so in scope", () => {
     const withoutLoads = buildFsNwAuditManifestR1();
     expect(withoutLoads.items.some((i) => i.entity_kind === "load")).toBe(false);
-    expect(withoutLoads.scope).toContain("Load linkage is withheld");
+    expect(withoutLoads.scope).toContain("Load linkage withheld");
 
     const b = FS_NW_AUDITED_BREAKERS[0]!;
     const withLoads = buildFsNwAuditManifestR1({
