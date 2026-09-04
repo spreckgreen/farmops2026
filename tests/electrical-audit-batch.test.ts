@@ -119,10 +119,32 @@ describe("classification", () => {
     expect(item.changes.length).toBeGreaterThan(0);
   });
 
-  it("reports no change when the record already matches", () => {
+  it("holds when the observation proposes nothing writable", () => {
     const item = classifyItem(baseItem({ fields: {} }), { target });
-    expect(["no_change", "ready"]).toContain(item.disposition);
+    expect(item.disposition).toBe("hold");
+    expect(item.patch).toEqual({});
   });
+
+  it("never writes evidence into notes when the manifest asks for no notes change", () => {
+    const withNotes = { ...target, notes: "Owner note: keep." };
+    const item = classifyItem(baseItem({ install_state: "installed" }), { target: withNotes });
+    expect(item.patch["notes"]).toBeUndefined();
+    expect(item.messages.some((m) => m.text.includes("journal only"))).toBe(true);
+  });
+
+  it("appends a requested note with de-duplication instead of replacing", () => {
+    const withNotes = { ...target, notes: "Owner note: keep." };
+    const appended = classifyItem(baseItem({ notes: "Audit: 20A confirmed." }), {
+      target: withNotes,
+    });
+    expect(appended.patch["notes"]).toBe("Owner note: keep. Audit: 20A confirmed.");
+
+    const duplicate = classifyItem(baseItem({ notes: "Owner note: keep." }), {
+      target: withNotes,
+    });
+    expect(duplicate.patch["notes"]).toBeUndefined();
+  });
+
 
   it("holds an unknown stable ID rather than inventing a record", () => {
     const item = classifyItem(baseItem({ target_stable_id: "FS-999" }), { target: null });
