@@ -14,6 +14,7 @@ import { requireElectricalAccess } from "@/lib/addons.server";
 import { requireAdminRole } from "@/lib/admin-role.server";
 import { recordElectricalChange } from "@/lib/electrical-audit.server";
 import { assertPeerUrl, peerFetch } from "@/lib/electrical-peer-net";
+import { diffManifests, type ManifestDiff } from "@/lib/electrical-audit-manifest-diff";
 import { collectSnapshot } from "@/lib/electrical-snapshot.functions";
 import {
   AUDIT_BATCH_GATE_VERSION,
@@ -1012,4 +1013,39 @@ export const compensatingAuditBatchManifest = createServerFn({ method: "GET" })
         applied,
       ),
     };
+  });
+
+/* ------------------------------------------------------------------ *
+ * Revision diff — read-only comparison of two staged/stored manifests.
+ * Shows what changed before the owner approves anything. Writes nothing.
+ * ------------------------------------------------------------------ */
+
+export const diffElectricalAuditManifests = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        base_batch_id: z.string().trim().min(1),
+        revision_batch_id: z.string().trim().min(1),
+      })
+      .parse(d),
+  )
+  .handler(async ({ context, data }): Promise<ManifestDiff> => {
+    await requireElectricalAccess(context.supabase, context.userId, "write");
+    const db = context.supabase as unknown as LooseDb;
+    const [baseRow, revRow] = await Promise.all([
+      loadBatch(db, data.base_batch_id),
+      loadBatch(db, data.revision_batch_id),
+    ]);
+    const base = parseManifest(baseRow["manifest"]);
+    const revision = parseManifest(revRow["manifest"]);
+    if (!base.ok || !base.manifest) {
+      throw new Error(`Stored manifest ${data.base_batch_id} is not valid: ${base.errors.join(" | ")}`);
+    }
+    if (!revision.ok || !revision.manifest) {
+      throw new Error(
+        `Stored manifest ${data.revision_batch_id} is not valid: ${revision.errors.join(" | ")}`,
+      );
+    }
+    return diffManifests(base.manifest, revision.manifest);
   });
