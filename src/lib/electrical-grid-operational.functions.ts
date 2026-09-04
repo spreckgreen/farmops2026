@@ -344,7 +344,27 @@ export const electricalGridOperational = createServerFn({ method: "GET" })
         `${summary.placementDisagreements} record(s) have disagreeing placement sources (recorded X/Y vs accepted grid vs canonical/recovery-derived). Nothing was overwritten; each is listed with every available value and the source that was selected.`,
       );
     }
-    gaps.push(
+    if (summary.placementSources.PENDING_FIELD_OBSERVATION) {
+      gaps.push(
+        `${summary.placementSources.PENDING_FIELD_OBSERVATION} record(s) are plotted from a field observation that is still staged in an audit batch — not approved and not applied. They are drawn as a separate pending layer and stay provisional until each item is approved.`,
+      );
+    }
+    {
+      const postOnly = inputs.filter((i) => {
+        const applied = (i.poleLocationKind ?? "").trim();
+        const staged = (i.pendingObservation?.poleLocationKind ?? "").trim();
+        const kind = applied || staged;
+        const grid = (i.fieldGridReference ?? i.pendingObservation?.fieldGridReference ?? "").trim();
+        return !!kind && kind !== "NOT_APPLICABLE" && !grid;
+      }).length;
+      if (postOnly && !POST_GEOMETRY_CONFIRMED) {
+        gaps.push(
+          `${postOnly} record(s) state only a perimeter post callout. ${POST_GEOMETRY_REVIEW_NOTE}`,
+        );
+      }
+    }
+    gaps.push(POST_GEOMETRY_REVIEW_NOTE);
+
       `Placement source counts: ${PLACEMENT_SOURCE_ORDER.filter((k) => summary.placementSources[k])
         .map((k) => `${PLACEMENT_SOURCE_LABEL[k]} ${summary.placementSources[k]}`)
         .join(" · ")}.`,
