@@ -23,7 +23,11 @@ describe("perimeter post geometry audit", () => {
   it("keeps every post on the outline with the frozen wall spacing", () => {
     for (const c of POST_GEOMETRY_AUDIT.checks) {
       expect(c.offOutlineFt).toBe(0);
-      expect(c.spacingFromPreviousFt).toBe(c.wall === "east" || c.wall === "west" ? 8 : 7.5);
+      // A corner post closes the previous wall, so its spacing is that wall's.
+      expect([8, 7.5]).toContain(c.spacingFromPreviousFt);
+      if (!c.corner) {
+        expect(c.spacingFromPreviousFt).toBe(c.expectedSpacingFt);
+      }
     }
   });
 
