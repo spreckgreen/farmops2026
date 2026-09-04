@@ -379,6 +379,30 @@ banner at *Admin → Self-host settings*.
 | `PUBLIC_APP_URL` | recommended | Externally reachable origin of this deployment (e.g. `https://farm.example.com`). Used to build the Rachio callback URL. Defaults to `https://bostead.lovable.app`, which will never reach your instance. |
 | `SELF_HOST_MODE` | optional | Set to `true` to hide Lovable-only UI (publish-status panel on `/sync`). |
 | `RACHIO_WEBHOOK_SECRET` | only if using Rachio | Shared secret Rachio HMAC-signs callbacks with. |
+| `ELECTRICAL_PEER_SYNC_CRON_SECRET` | only if using the automatic peer pull | Active automatic-pull key, copied from *Electrical → Audit batches → automatic pull*. The endpoint validates it against the key table, so rotating on that screen needs only this value updated here. |
+| `ELECTRICAL_PEER_SYNC_TOKEN` | only if this instance pulls from a peer | Access token for the peer instance's read-only audit-batch API. |
+
+#### Automatic peer pull on a self-hosted host
+
+Self-hosted Postgres has no `pg_cron`, so the in-database schedule is skipped and
+the trigger has to come from the host. Install it once:
+
+```bash
+sudo ./scripts/install-peer-sync-timer.sh              # systemd timer, every 15 min
+sudo ./scripts/install-peer-sync-timer.sh --interval 5 # different cadence
+./scripts/install-peer-sync-timer.sh --cron            # crontab instead of systemd
+./scripts/install-peer-sync-timer.sh --status          # what's installed + last runs
+sudo ./scripts/install-peer-sync-timer.sh --uninstall
+```
+
+It runs `scripts/peer-sync-tick.sh`, which POSTs the active key to
+`$PUBLIC_APP_URL/api/public/hooks/electrical-peer-sync`. Installation does one
+test run first so a wrong URL or key shows up immediately. Pulled batches always
+land as preview only — per-item approval is still required in the app.
+
+Logs: `journalctl -u farmops-peer-sync -f` (systemd) or
+`tail -f /tmp/farmops-peer-sync.log` (cron). Every tick is also recorded in the
+app's *Recent runs* table on the audit batches page.
 
 ### 3.4 Vault & other secrets
 
