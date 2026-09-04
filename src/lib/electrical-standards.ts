@@ -170,6 +170,23 @@ export const BUILT_IN_STANDARDS: readonly StandardEntry[] = [
     sort_order: 70,
   },
   {
+    key: "breaker_reference",
+    title: "Derived breaker reference and circuit group relationship",
+    body:
+      `Breaker reference ${BREAKER_REFERENCE_SHAPE} (${BREAKER_REFERENCE_EXAMPLE}) is derived and read-only — ` +
+      "it is a display projection, never an identity and never editable.\n" +
+      "The authoritative breaker-position identity remains the panel UUID plus the physical position row in " +
+      "electrical_breaker_positions.\n" +
+      `Circuit groups keep independent permanent IDs ${CIRCUIT_GROUP_ID_SHAPE} (${CIRCUIT_GROUP_ID_EXAMPLE}).\n` +
+      "Relationships are displayed as breaker_reference → circuit_group_id [description], for example " +
+      `${BREAKER_REFERENCE_EXAMPLE} → ${CIRCUIT_GROUP_ID_EXAMPLE} [Shop east receptacles].\n` +
+      "The relationship is stored only in electrical_breaker_positions.circuit_group_uuid.\n" +
+      "Never concatenate a breaker reference into a circuit group stable ID, and never rename a circuit group " +
+      "when its breaker assignment changes — reassignment changes the link, not the identity.",
+    sort_order: 72,
+  },
+
+  {
     key: "labels",
     title: "Label conventions",
     body:
