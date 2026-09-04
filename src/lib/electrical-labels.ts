@@ -6,6 +6,7 @@
 // Ordering rule (all kinds, matching the released load sheet): first by panel,
 // then by Farm Shop walk order of the record's grid, then alphabetically by
 // stable ID. Ordering is print sequence only — it never affects stable IDs.
+import { breakerDisplay } from "@/lib/electrical-breaker-reference";
 import { farmShopWalkOrder, type ElectricalEntityKind } from "@/lib/electrical";
 import { ENTITIES } from "@/lib/electrical-entities";
 import type { LabelLine } from "@/lib/electrical-panel-access";
@@ -253,11 +254,23 @@ export function gridOf(record: LabelRecord): string {
   return key ? (record.values[key] ?? "").trim() : "";
 }
 
+/**
+ * The value a label prints for one field. Breaker numbers print through the
+ * shared derived reference (PNL-FS-NW-B39) so a printed label, a panel
+ * schedule and an audit export all read identically; when the panel is not on
+ * record the recorded number prints unchanged.
+ */
+export function labelFieldValue(record: LabelRecord, key: string): string {
+  const raw = (record.values[key] ?? "").trim();
+  if (!raw || key !== "breaker_number") return raw;
+  return breakerDisplay({ panel_id: panelKeyOf(record), breaker_number: raw }).label || raw;
+}
+
 /** The printed detail lines for one record. */
 export function labelLines(record: LabelRecord): LabelLine[] {
   const out: LabelLine[] = [];
   for (const f of LABEL_FIELDS[record.kind]) {
-    const raw = (record.values[f.key] ?? "").trim();
+    const raw = labelFieldValue(record, f.key);
     if (!raw) continue;
     out.push({ label: f.label, value: f.unit ? `${raw}${f.unit}` : raw });
   }
@@ -272,7 +285,7 @@ export function shortLabelText(record: LabelRecord, max = 44): string {
   const parts: string[] = [];
   for (const f of LABEL_FIELDS[record.kind]) {
     if (!f.short) continue;
-    const raw = (record.values[f.key] ?? "").trim();
+    const raw = labelFieldValue(record, f.key);
     if (raw) parts.push(f.unit ? `${raw}${f.unit}` : raw);
   }
   const text = parts.join(" · ");
