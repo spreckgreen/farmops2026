@@ -364,8 +364,9 @@ export const electricalGridOperational = createServerFn({ method: "GET" })
       }
     }
     gaps.push(POST_GEOMETRY_REVIEW_NOTE);
-
+    gaps.push(
       `Placement source counts: ${PLACEMENT_SOURCE_ORDER.filter((k) => summary.placementSources[k])
+
         .map((k) => `${PLACEMENT_SOURCE_LABEL[k]} ${summary.placementSources[k]}`)
         .join(" · ")}.`,
     );
