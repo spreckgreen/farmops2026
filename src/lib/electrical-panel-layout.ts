@@ -11,6 +11,23 @@ import { PANEL_EXIT_SIDES } from "@/lib/electrical";
 export const BREAKER_SIDES = ["Left", "Right"] as const;
 export type BreakerSide = (typeof BREAKER_SIDES)[number];
 
+/**
+ * Canonical column name for a recorded breaker slot.
+ *
+ * Imported and hand-entered rows arrive as "left", "LEFT", "L", "A" / "right",
+ * "R", "B" — all the same physical column. Everything downstream (numbering,
+ * capacity, QA) compares against "Left" / "Right", so a stored "left 1" must
+ * not read as an unknown column. Anything unrecognised is returned trimmed so
+ * the caller can still report it rather than silently relabel it.
+ */
+export function normalizeBreakerSide(value: unknown): string {
+  const raw = String(value ?? "").trim();
+  const key = raw.toLowerCase();
+  if (key === "left" || key === "l" || key === "a" || key === "odd") return "Left";
+  if (key === "right" || key === "r" || key === "b" || key === "even") return "Right";
+  return raw;
+}
+
 export interface PanelLayout {
   /** 1 for a single-column (stacked) panel, 2 for a normal two-column panel. */
   columns: 1 | 2;
@@ -63,7 +80,7 @@ export function expectedBreakerNumber(
 ): number | null {
   if (!Number.isFinite(position) || position < 1) return null;
   if (layout.columns === 1) return position;
-  return side === "Right" ? position * 2 : position * 2 - 1;
+  return normalizeBreakerSide(side) === "Right" ? position * 2 : position * 2 - 1;
 }
 
 export interface BreakerSlot {
@@ -115,7 +132,7 @@ export function consumedSlotIndex(
 ): Map<string, ConsumedSlot> {
   const out = new Map<string, ConsumedSlot>();
   for (const row of rows) {
-    const side = String(row["side"] ?? "").trim() || "Left";
+    const side = normalizeBreakerSide(row["side"]) || "Left";
     const position = int(row["position"]);
     const poles = int(row["poles"]) ?? 1;
     if (position == null || position < 1 || poles < 2) continue;
@@ -154,7 +171,7 @@ export function multiPoleDuplicates(
   const consumed = consumedSlotIndex(layout, rows);
   const out: MultiPoleDuplicate[] = [];
   for (const row of rows) {
-    const side = String(row["side"] ?? "").trim() || "Left";
+    const side = normalizeBreakerSide(row["side"]) || "Left";
     const position = int(row["position"]);
     if (position == null) continue;
     const hit = consumed.get(slotKey(side, position));
@@ -175,7 +192,7 @@ export function freeBreakerSlots(
   rows: Record<string, unknown>[],
 ): BreakerSlot[] {
   const taken = new Set(
-    rows.map((r) => `${String(r["side"] ?? "")}#${int(r["position"]) ?? ""}`),
+    rows.map((r) => `${normalizeBreakerSide(r["side"]) || "Left"}#${int(r["position"]) ?? ""}`),
   );
   const consumed = consumedSlotIndex(layout, rows);
   return panelBreakerSlots(layout).filter(
@@ -203,7 +220,7 @@ export function unrecordedBreakerSlots(
   for (const r of rows) {
     const p = int(r["position"]);
     if (p != null) maxPosition = Math.max(maxPosition, p);
-    const side = String(r["side"] ?? "").trim();
+    const side = normalizeBreakerSide(r["side"]);
     if (side === "Right") sides.add("Right");
     else if (side === "Left") sides.add("Left");
   }
@@ -306,7 +323,7 @@ export function validatePanelLayout(input: PanelLayoutInput): PanelLayoutFinding
       continue;
     }
     const layout = resolvePanelLayout(panel);
-    const side = str(row, "side") || "Left";
+    const side = normalizeBreakerSide(row["side"]) || "Left";
     const position = int(row["position"]);
     const label = `${pid} ${side} ${position ?? "?"}`;
 
