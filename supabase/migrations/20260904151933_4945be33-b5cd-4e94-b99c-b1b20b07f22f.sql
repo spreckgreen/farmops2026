@@ -23,7 +23,7 @@ create unique index if not exists electrical_peer_sync_cron_secrets_one_active
 -- across this change; rotation replaces it afterwards.
 insert into private.electrical_peer_sync_cron_secrets (secret, fingerprint, status, note)
 select '8bb192c7c0026700a1b0b27f282ece5b6d57b698377ecc8c',
-       substr(encode(digest('8bb192c7c0026700a1b0b27f282ece5b6d57b698377ecc8c','sha256'),'hex'),1,12),
+       substr(encode(sha256(convert_to('8bb192c7c0026700a1b0b27f282ece5b6d57b698377ecc8c','utf8')),'hex'),1,12),
        'active',
        'seeded from existing scheduled job configuration'
 where not exists (select 1 from private.electrical_peer_sync_cron_secrets where status = 'active');
@@ -146,9 +146,23 @@ grant execute on function public.revoke_retiring_peer_sync_cron_secrets() to aut
 
 -- The scheduled job now reads the active secret at call time, so rotation needs
 -- no schedule edit and no redeploy.
-select cron.alter_job(
-  (select jobid from cron.job where jobname = 'electrical-peer-audit-sync'),
-  command := $job$
+-- pg_cron is optional: self-hosted deployments may schedule the peer sync
+-- outside the database. Only rewrite the job when it actually exists.
+do $do$
+declare v_jobid bigint;
+begin
+  if not exists (select 1 from pg_namespace where nspname = 'cron') then
+    raise notice 'pg_cron not installed — skipping peer-sync schedule rewrite';
+    return;
+  end if;
+  execute $q$select jobid from cron.job where jobname = 'electrical-peer-audit-sync'$q$ into v_jobid;
+  if v_jobid is null then
+    raise notice 'electrical-peer-audit-sync job not scheduled — skipping rewrite';
+    return;
+  end if;
+  perform cron.alter_job(
+    v_jobid,
+    command := $job$
   select net.http_post(
     url:='https://project--3262d5a9-40fd-4cf4-a353-9549a732cb96.lovable.app/api/public/hooks/electrical-peer-sync',
     headers:=jsonb_build_object(
@@ -160,4 +174,6 @@ select cron.alter_job(
     body:='{}'::jsonb
   ) as request_id;
   $job$
-);
+  );
+end
+$do$;

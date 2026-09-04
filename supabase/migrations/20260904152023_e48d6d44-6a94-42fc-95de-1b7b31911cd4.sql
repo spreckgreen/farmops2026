@@ -1,8 +1,23 @@
 -- These credential actions are invoked only by admin-verified server code using
 -- the service role, so signed-in users must not be able to call them directly.
-revoke execute on function public.list_peer_sync_cron_secrets() from authenticated;
-revoke execute on function public.rotate_peer_sync_cron_secret(integer) from authenticated;
-revoke execute on function public.revoke_retiring_peer_sync_cron_secrets() from authenticated;
+-- The zero-argument variants only exist where the earlier migration created
+-- them, so revoke them defensively rather than failing the whole migration.
+do $do$
+declare sig text;
+begin
+  foreach sig in array array[
+    'public.list_peer_sync_cron_secrets()',
+    'public.rotate_peer_sync_cron_secret(integer)',
+    'public.revoke_retiring_peer_sync_cron_secrets()'
+  ] loop
+    begin
+      execute format('revoke execute on function %s from authenticated', sig);
+    exception when undefined_function then
+      raise notice '% not present — nothing to revoke', sig;
+    end;
+  end loop;
+end
+$do$;
 
 -- Callers pass the acting administrator explicitly since there is no signed-in
 -- session inside a service-role call.
