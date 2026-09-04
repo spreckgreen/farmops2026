@@ -443,7 +443,7 @@ export const rejectElectricalAuditBatch = createServerFn({ method: "POST" })
 
     await recordElectricalChange(context.supabase, context.userId, {
       section: AUDIT_SECTION,
-      action: "batch_rejected",
+      action: "update",
       entityKind: "audit_batch",
       entityRef: data.batch_id,
       summary: `${data.batch_id} rejected without application — ${data.reason}`,
