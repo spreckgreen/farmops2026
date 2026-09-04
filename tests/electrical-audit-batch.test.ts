@@ -14,6 +14,11 @@ import {
   polesAdjacent,
   selectable,
   summarize,
+  assignProposedCircuitGroupIds,
+  buildManifestGraph,
+  nextCircuitGroupId,
+  orderForApply,
+  pendingRef,
   validatePole,
   type AuditBatchItemInput,
 } from "@/lib/electrical-audit-batch";
@@ -224,5 +229,73 @@ describe("recovery", () => {
     );
     expect(m.compensates_batch_id).toBe("FA-FS-2026-09-03-PM");
     expect(m.items[0]!.fields).toMatchObject({ install_status: "planned" });
+  });
+});
+
+describe("manifest-local dependency resolution (9.1)", () => {
+  const groupItem = baseItem({
+    item_key: "cg1",
+    entity_kind: "circuit_group",
+    target_stable_id: "AUTO",
+    operation: "CREATE",
+    refs: { panel_ref: "PNL-FS-NW" },
+    fields: { breaker_number: 39, circuit_rating_amps: 20 },
+  });
+  const breakerItem = baseItem({
+    item_key: "bp1",
+    entity_kind: "breaker_position",
+    target_stable_id: null,
+    operation: "CREATE",
+    refs: { panel_ref: "PNL-FS-NW", circuit_group_ref: "CG-FS-08" },
+    fields: { side: "right", position: 1, breaker_number: 39, poles: 1, ocp_amps: 20 },
+  });
+
+  it("proposes the next unused CG-FS-## identity, never reusing one", () => {
+    expect(nextCircuitGroupId(["CG-FS-01", "CG-FS-07", "CG-HS-09"])).toBe("CG-FS-08");
+    const { items, proposed } = assignProposedCircuitGroupIds([groupItem], ["CG-FS-07"]);
+    expect(items[0]!.target_stable_id).toBe("CG-FS-08");
+    expect(proposed["cg1"]).toBe("CG-FS-08");
+  });
+
+  it("flags a duplicated proposed stable ID as an ambiguous conflict", () => {
+    const graph = buildManifestGraph([
+      { ...breakerItem, item_key: "a", entity_kind: "circuit_group", target_stable_id: "CG-FS-08" },
+      { ...breakerItem, item_key: "b", entity_kind: "circuit_group", target_stable_id: "CG-FS-08" },
+    ] as never);
+    expect(graph.conflicts.length).toBe(1);
+    expect(graph.pendingCreates.size).toBe(0);
+  });
+
+  it("links a breaker position to the circuit group created in the same manifest", () => {
+    const { items } = assignProposedCircuitGroupIds([groupItem, breakerItem], ["CG-FS-07"]);
+    const graph = buildManifestGraph(items);
+    const bp = classifyItem(items[1]!, {
+      target: null,
+      resolved: new Map([["panel|PNL-FS-NW", "panel-uuid"]]),
+      pendingCreates: graph.pendingCreates,
+    });
+    expect(bp.disposition).toBe("ready");
+    expect(bp.patch["circuit_group_uuid"]).toBe(pendingRef("cg1"));
+    expect(graph.dependsOn.get("bp1")).toEqual(["cg1"]);
+  });
+
+  it("orders a manifest-local parent before its dependent", () => {
+    const ordered = orderForApply(
+      [
+        { item_key: "bp1", entity_kind: "breaker_position" as const },
+        { item_key: "cg1", entity_kind: "circuit_group" as const },
+      ],
+      new Map([["bp1", ["cg1"]]]),
+    );
+    expect(ordered.map((i) => i.item_key)).toEqual(["cg1", "bp1"]);
+  });
+
+  it("still refuses a reference that matches neither a record nor a manifest create", () => {
+    const bp = classifyItem(breakerItem, {
+      target: null,
+      resolved: new Map([["panel|PNL-FS-NW", "panel-uuid"]]),
+      pendingCreates: new Map(),
+    });
+    expect(bp.disposition).toBe("hold");
   });
 });
