@@ -1413,7 +1413,8 @@ export function nextCircuitGroupId(existingIds: Iterable<string>, prefix = "FS")
     const m = CIRCUIT_GROUP_ID_RE.exec(norm(raw));
     if (m && m[1] === prefix.toUpperCase()) max = Math.max(max, Number(m[2]));
   }
-  return `CG-${prefix.toUpperCase()}-${String(max + 1).padStart(2, "0")}`;
+  // Three digits to match the CG-<site>-### standard used everywhere else.
+  return `CG-${prefix.toUpperCase()}-${String(max + 1).padStart(3, "0")}`;
 }
 
 /**
