@@ -1,3 +1,9 @@
+    scope:
+      `Establishes the seven audited PNL-FS-NW breakers, allocates a permanent CG-FS-### identity per ` +
+      `circuit, links each position via circuit_group_uuid and records 20 observed breaker-to-load ` +
+      `links (relationship-only: circuit_group_uuid is the one column they change). 1 hold: the second ` +
+      `load on B29 at F9 / Post 06SE is unidentified. Supersedes ${FS_NW_AUDIT_R2_SUPERSEDES}, never ` +
+      `applied — a replacement, not a compensating batch.`,
 // FA-FS-2026-09-03-PM-R1 — revised Farm Shop / PNL-FS-NW breaker audit manifest.
 //
 // Why this exists: the earlier batch left the seven audited breakers as
