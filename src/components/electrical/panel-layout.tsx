@@ -19,6 +19,7 @@ import { electricalEntityOptions } from "@/lib/electrical.functions";
 import {
   deletePanelLayoutRow,
   panelLayout,
+  recordMissingBreakerPositions,
   saveBreakerPosition,
   savePanelExit,
 } from "@/lib/electrical-panel-layout.functions";
@@ -33,7 +34,7 @@ import {
   unrecordedBreakerSlots,
 } from "@/lib/electrical-panel-layout";
 import { PANEL_EXIT_SIDES } from "@/lib/electrical";
-import { breakerRelationshipLabel } from "@/lib/electrical-breaker-reference";
+import { breakerReference, breakerRelationshipLabel } from "@/lib/electrical-breaker-reference";
 
 type Row = Record<string, string | number | boolean | null>;
 
@@ -129,6 +130,7 @@ function BreakerRowEditor({
   onDone: () => void;
 }) {
   const save = useServerFn(saveBreakerPosition);
+  const recordMissing = useServerFn(recordMissingBreakerPositions);
   const [poles, setPoles] = useState(String(Number(row["poles"] ?? 1)));
   const [amps, setAmps] = useState(row["ocp_amps"] == null ? "" : String(row["ocp_amps"]));
   const [label, setLabel] = useState(String(row["label"] ?? ""));
@@ -253,6 +255,7 @@ function BreakerPositions({
     [duplicates],
   );
   const save = useServerFn(saveBreakerPosition);
+  const recordMissing = useServerFn(recordMissingBreakerPositions);
   const del = useDelete(onChanged);
   const optionsFn = useServerFn(electricalEntityOptions);
   const groups = useQuery({
@@ -270,9 +273,26 @@ function BreakerPositions({
   const [notes, setNotes] = useState("");
   const [editing, setEditing] = useState<string | null>(null);
 
+  // Derived, not typed: the breaker identifier follows this panel's own
+  // configuration (Left 3 → breaker 5), and the label is the standard reference.
   const suggestedBreaker = expectedBreakerNumber(layout, side, Number(position));
+  const panelStableId = panel["panel_id"] == null ? null : String(panel["panel_id"]);
+  const suggestedReference = breakerReference(panelStableId, suggestedBreaker);
 
   const consumedBy = consumed.get(`${side}#${Number(position)}`);
+
+  const fillMissing = useMutation({
+    mutationFn: async () => await recordMissing({ data: { panel_uuid: String(panel["id"]) } }),
+    onSuccess: (r) => {
+      toast.success(
+        r.created
+          ? `Recorded ${r.created} breaker slot${r.created === 1 ? "" : "s"} with derived breaker numbers.`
+          : "Every physical slot already has a record.",
+      );
+      onChanged();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   const add = useMutation({
     mutationFn: async () => {
@@ -360,8 +380,23 @@ function BreakerPositions({
             </div>
             <p className="text-xs text-muted-foreground">
               Slots consumed by a multi-pole breaker are excluded. Click one to prefill the add
-              form below.
+              form below, or record them all at once — each new row carries only its slot and the
+              breaker number derived from this panel's configuration; amps, labels and circuit
+              links stay blank until observed.
             </p>
+            {layout.totalSpaces > 0 ? (
+              <Button
+                size="sm"
+                onClick={() => fillMissing.mutate()}
+                disabled={fillMissing.isPending}
+              >
+                Record all {missing.length} slot{missing.length === 1 ? "" : "s"}
+              </Button>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                This panel's capacity has not been recorded, so slots cannot be derived in bulk.
+              </p>
+            )}
             <div className="flex flex-wrap gap-1">
               {missing.map((s) => (
                 <Button
@@ -391,7 +426,10 @@ function BreakerPositions({
                   <span className="font-mono">
                     {String(r["side"])} {String(r["position"])}
                   </span>
-                  <Badge variant="outline">breaker {String(r["breaker_number"] ?? "—")}</Badge>
+                  <Badge variant="outline">
+                    {breakerReference(panelStableId, r["breaker_number"] as number | null) ??
+                      `breaker ${String(r["breaker_number"] ?? "—")}`}
+                  </Badge>
                   {relationshipFor(r) ? (
                     <span className="font-mono text-xs text-muted-foreground">
                       {relationshipFor(r)}
@@ -572,6 +610,19 @@ function PanelExits({
       })),
     [raceways, panelUuid],
   );
+
+  const fillMissing = useMutation({
+    mutationFn: async () => await recordMissing({ data: { panel_uuid: String(panel["id"]) } }),
+    onSuccess: (r) => {
+      toast.success(
+        r.created
+          ? `Recorded ${r.created} breaker slot${r.created === 1 ? "" : "s"} with derived breaker numbers.`
+          : "Every physical slot already has a record.",
+      );
+      onChanged();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   const add = useMutation({
     mutationFn: async () =>
