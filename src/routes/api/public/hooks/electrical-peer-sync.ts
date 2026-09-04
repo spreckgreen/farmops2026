@@ -59,7 +59,9 @@ export const Route = createFileRoute("/api/public/hooks/electrical-peer-sync")({
 
         if (!authorized) return new Response("Unauthorized", { status: 401 });
 
-        const { runPeerAuditSync } = await import("@/lib/electrical-peer-sync.server");
+        const { runPeerAuditSync, recordPeerSyncRun } = await import(
+          "@/lib/electrical-peer-sync.server"
+        );
 
 
         const now = new Date();
@@ -75,13 +77,29 @@ export const Route = createFileRoute("/api/public/hooks/electrical-peer-sync")({
           .eq("name", LOCK_NAME)
           .maybeSingle();
 
+        // Every tick leaves a trace, including the ones that do no work, so the
+        // history on the audit batches page never has silent gaps.
+        const logSkip = async (reason: string) =>
+          await recordPeerSyncRun(supabaseAdmin as never, {
+            started_at: nowIso,
+            trigger: "scheduled",
+            outcome: "skipped",
+            skipped_reason: reason,
+          });
+
         if (lock?.paused) {
+          await logSkip(
+            lock.paused_reason
+              ? `paused after repeated failures: ${lock.paused_reason}`
+              : "paused after repeated failures",
+          );
           return Response.json(
             { skipped: "paused", reason: lock.paused_reason ?? null },
             { status: 200 },
           );
         }
         if (lock?.locked_until && lock.locked_until > nowIso) {
+          await logSkip("another pull was still running");
           return Response.json({ skipped: "already-running" }, { status: 200 });
         }
 
@@ -94,8 +112,10 @@ export const Route = createFileRoute("/api/public/hooks/electrical-peer-sync")({
           .or(`locked_until.is.null,locked_until.lt.${nowIso}`)
           .select("name");
         if (!leased || leased.length === 0) {
+          await logSkip("another pull claimed this run first");
           return Response.json({ skipped: "lease-lost" }, { status: 200 });
         }
+
 
         try {
           const result = await runPeerAuditSync(supabaseAdmin as never, {
@@ -120,6 +140,15 @@ export const Route = createFileRoute("/api/public/hooks/electrical-peer-sync")({
           return Response.json({ ok: true, result }, { status: 200 });
         } catch (e) {
           const message = e instanceof Error ? e.message : String(e);
+          const alreadyLogged = Boolean((e as { loggedRun?: boolean } | null)?.loggedRun);
+          if (!alreadyLogged) {
+            await recordPeerSyncRun(supabaseAdmin as never, {
+              started_at: nowIso,
+              trigger: "scheduled",
+              outcome: "failed",
+              error: message,
+            });
+          }
           const nextFailures = (lock?.consecutive_failures ?? 0) + 1;
           await supabaseAdmin
             .from("job_locks")

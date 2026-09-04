@@ -30,6 +30,25 @@ export interface PeerSyncState {
   } | null;
   token_configured: boolean;
   cron_secret_configured: boolean;
+  runs: PeerSyncRunLogRow[];
+}
+
+/** One recorded execution of the scheduled pull (append-only, admin-read). */
+export interface PeerSyncRunLogRow {
+  id: string;
+  started_at: string;
+  finished_at: string | null;
+  duration_ms: number | null;
+  trigger: "scheduled" | "manual";
+  outcome: "success" | "partial" | "failed" | "skipped";
+  skipped_reason: string | null;
+  peer_origin: string | null;
+  peer_batches_seen: number;
+  candidates: number;
+  staged: number;
+  failed: number;
+  capped: boolean;
+  error: string | null;
 }
 
 export const getPeerSyncState = createServerFn({ method: "GET" })
@@ -49,7 +68,15 @@ export const getPeerSyncState = createServerFn({ method: "GET" })
       .select("paused, paused_reason, last_run_at, consecutive_failures, locked_until")
       .eq("name", LOCK_NAME)
       .maybeSingle();
+    const { data: runs } = await (context.supabase as never as any)
+      .from("electrical_peer_sync_runs")
+      .select(
+        "id, started_at, finished_at, duration_ms, trigger, outcome, skipped_reason, peer_origin, peer_batches_seen, candidates, staged, failed, capped, error",
+      )
+      .order("started_at", { ascending: false })
+      .limit(25);
     return {
+      runs: (runs ?? []) as PeerSyncRunLogRow[],
       config: (config as PeerSyncState["config"]) ?? null,
       job: job
         ? {
