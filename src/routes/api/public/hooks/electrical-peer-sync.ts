@@ -49,16 +49,13 @@ export const Route = createFileRoute("/api/public/hooks/electrical-peer-sync")({
           authorized = verified === true;
         }
 
-        // Bootstrap fallback: only while no rotatable credential is stored at all.
-        if (!authorized) {
-          const { count } = await (supabaseAdmin as never as any)
-            .schema("private")
-            .from("electrical_peer_sync_cron_secrets")
-            .select("id", { count: "exact", head: true })
-            .eq("status", "active");
+        // Bootstrap fallback: only when the rotatable store is unavailable
+        // (e.g. an instance that has not run this migration yet).
+        if (!authorized && verifyError) {
           const envSecret = process.env["ELECTRICAL_PEER_SYNC_CRON_SECRET"] ?? "";
-          if ((count ?? 0) === 0 && secretOk(provided, envSecret)) authorized = true;
+          if (secretOk(provided, envSecret)) authorized = true;
         }
+
 
         if (!authorized) return new Response("Unauthorized", { status: 401 });
 
