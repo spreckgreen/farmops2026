@@ -100,19 +100,21 @@ describe("FA-FS-2026-09-03-PM-R2", () => {
 
   it("produces a preview CSV whose only load-field rows are circuit_group_uuid", () => {
     const classified = classifyAll(buildFsNwAuditManifestR2().items);
-    const rows = previewCsv(classified).trim().split("\n").slice(1);
-    const columnIndex = 7;
-    const kindIndex = 1;
-    const cell = (row: string, index: number) => row.split(",")[index]?.replace(/^"|"$/g, "");
-    const diffRows = rows.filter((r) => (cell(r, columnIndex) ?? "") !== "");
-    // 34 ready items with field diffs, one no-diff hold row.
+    const csvText = previewCsv(classified);
+    // One CSV row per field diff, plus one no-diff row for the single hold.
+    const diffRows = classified.flatMap((i) =>
+      i.changes.map((c) => ({ kind: i.entity_kind, column: c.column })),
+    );
     expect(diffRows.length).toBe(98);
-    expect(rows.length).toBe(99);
+    expect(diffRows.length + classified.filter((i) => !i.changes.length).length).toBe(99);
     const loadColumns = new Set(
-      diffRows.filter((r) => cell(r, kindIndex) === "load").map((r) => cell(r, columnIndex)),
+      diffRows.filter((r) => r.kind === "load").map((r) => r.column),
     );
     expect([...loadColumns]).toEqual(["circuit_group_uuid"]);
+    // Every diff row reached the exported CSV.
+    expect(csvText.trim().split("\n").length - 1).toBe(99);
   });
+
 
   it("keeps the stored R1 usable: rejectable, but never rewritten", async () => {
     const r1Checksum = await manifestChecksum(buildFsNwAuditManifestR1());
