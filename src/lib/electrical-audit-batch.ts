@@ -569,6 +569,13 @@ export function manifestChecksum(manifest: unknown): Promise<string> {
 export interface ValidationMessage {
   level: "error" | "warning" | "info";
   text: string;
+  /**
+   * What part of the observation the message is about. "location" marks a
+   * physical-location problem (grid cell, perimeter post, precision). Location
+   * problems must never suppress an otherwise valid electrical relationship —
+   * see `LOCATION_DOES_NOT_SUPPRESS_LINKS_RULE`.
+   */
+  scope?: "location" | "link" | "general";
 }
 
 export interface ClassifyContext {
@@ -611,6 +618,43 @@ export interface ClassifiedItem {
 
 const err = (text: string): ValidationMessage => ({ level: "error", text });
 const info = (text: string): ValidationMessage => ({ level: "info", text });
+/** An error about where a record physically is, not about what it connects to. */
+const locErr = (text: string): ValidationMessage => ({
+  level: "error",
+  text,
+  scope: "location",
+});
+
+/**
+ * Automated validation rule.
+ *
+ * An observed electrical relationship is direct evidence: FS-044 observed on
+ * PNL-FS-NW-B37 is a fact about the circuit, not about the grid. So an
+ * incomplete or disputed location — FS-044 with no finished grid reference, or
+ * FS-076 recorded at a questionable 14NW — must never hold back the link item.
+ *
+ * When every blocking error on an item is location-scoped and the item still
+ * proposes at least one valid relationship column, the location fields are
+ * dropped and the item stays a preview-ready LINK. Location reconciliation
+ * continues separately, on its own evidence.
+ */
+export const LOCATION_DOES_NOT_SUPPRESS_LINKS_RULE =
+  "Location incompleteness never suppresses an observed load-to-breaker relationship: link columns stay ready and the location claim is reconciled separately.";
+
+/** The columns that state where a record physically is. */
+export const LOCATION_PATCH_COLUMNS = [
+  "field_grid_reference",
+  "pole_scheme",
+  "pole_location_kind",
+  "pole_ref_start",
+  "pole_ref_end",
+  "location_evidence",
+  "grid",
+  "grid_reference",
+  "grid_reference_precision",
+  "location_x_ft",
+  "location_y_ft",
+] as const;
 
 function holdResult(
   item: AuditBatchItemInput,
@@ -709,7 +753,7 @@ export function buildPatch(
 
   if (item.pole) {
     const poleErrors = validatePole(item.pole);
-    for (const text of poleErrors) messages.push(err(text));
+    for (const text of poleErrors) messages.push(locErr(text));
     if (!poleErrors.length && allowed.has("pole_location_kind")) {
       patch["pole_scheme"] = POLE_SCHEME;
       patch["pole_location_kind"] = item.pole.pole_location_kind;
@@ -718,16 +762,16 @@ export function buildPatch(
         : null;
       patch["pole_ref_end"] = item.pole.pole_ref_end ? norm(item.pole.pole_ref_end) : null;
     } else if (!poleErrors.length && !allowed.has("pole_location_kind")) {
-      messages.push(err(`${item.entity_kind} records cannot carry a pole location.`));
+      messages.push(locErr(`${item.entity_kind} records cannot carry a pole location.`));
     }
   }
 
   if (item.field_grid_reference) {
     const grid = parseFieldGrid(item.field_grid_reference);
     if (!grid) {
-      messages.push(err(`"${item.field_grid_reference}" is not a valid field grid reference.`));
+      messages.push(locErr(`"${item.field_grid_reference}" is not a valid field grid reference.`));
     } else if (!allowed.has("field_grid_reference")) {
-      messages.push(err(`${item.entity_kind} records cannot carry a field grid reference.`));
+      messages.push(locErr(`${item.entity_kind} records cannot carry a field grid reference.`));
     } else {
       patch["field_grid_reference"] = grid.raw;
       if (grid.fractional) {
@@ -964,10 +1008,28 @@ export function classifyItem(item: AuditBatchItemInput, ctx: ClassifyContext): C
   messages.push(...built.messages, ...links.messages);
   const patch = { ...built.patch, ...links.patch };
 
-  if (messages.some((m) => m.level === "error")) {
-    return holdResult(item, ctx, messages);
+  let effectivePatch: Record<string, unknown> = patch;
+  const errors = messages.filter((m) => m.level === "error");
+  if (errors.length) {
+    // Rule: location-only failures never suppress a known relationship.
+    const locationOnly = errors.every((m) => m.scope === "location");
+    const linkColumns = Object.keys(links.patch).filter(
+      (c) => target.links.includes(c) && !LOCATION_PATCH_COLUMNS.includes(c as never),
+    );
+    if (locationOnly && !links.messages.some((m) => m.level === "error") && linkColumns.length) {
+      effectivePatch = Object.fromEntries(
+        Object.entries(patch).filter(([c]) => !LOCATION_PATCH_COLUMNS.includes(c as never)),
+      );
+      messages.push(
+        info(
+          `${LOCATION_DOES_NOT_SUPPRESS_LINKS_RULE} Relationship column(s) kept: ${linkColumns.join(", ")}. The location claim on this item is withheld and reconciled on its own evidence.`,
+        ),
+      );
+    } else {
+      return holdResult(item, ctx, messages);
+    }
   }
-  if (!Object.keys(patch).length) {
+  if (!Object.keys(effectivePatch).length) {
     return holdResult(item, ctx, [
       ...messages,
       err("The observation proposes no writable field value."),
@@ -983,7 +1045,7 @@ export function classifyItem(item: AuditBatchItemInput, ctx: ClassifyContext): C
         ),
       ]);
     }
-    const after = { ...patch };
+    const after = { ...effectivePatch };
     if (target.stableIdColumn) after[target.stableIdColumn] = stableId;
     return {
       item_key: item.item_key,
@@ -1005,7 +1067,7 @@ export function classifyItem(item: AuditBatchItemInput, ctx: ClassifyContext): C
     };
   }
 
-  const diff = diffFieldChanges(ctx.target, patch);
+  const diff = diffFieldChanges(ctx.target, effectivePatch);
   const onlyLinks =
     diff.changes.length > 0 && diff.changes.every((c) => target.links.includes(c.column));
   const operation: AuditOperation = diff.changes.length
@@ -1022,12 +1084,12 @@ export function classifyItem(item: AuditBatchItemInput, ctx: ClassifyContext): C
     operation,
     disposition: diff.changes.length ? "ready" : "no_change",
     patch: (diff.changes.length
-      ? Object.fromEntries(diff.changes.map((c) => [c.column, patch[c.column]]))
+      ? Object.fromEntries(diff.changes.map((c) => [c.column, effectivePatch[c.column]]))
       : {}) as JsonObject,
     changes: diff.changes,
     unchanged: diff.unchanged,
     before: ctx.target as JsonObject,
-    after: { ...ctx.target, ...patch } as JsonObject,
+    after: { ...ctx.target, ...effectivePatch } as JsonObject,
     expected_updated_at: (ctx.target["updated_at"] as string | undefined) ?? null,
     messages,
     evidence: item.evidence,
