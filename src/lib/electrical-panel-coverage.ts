@@ -11,6 +11,7 @@
 //
 // Nothing here writes, infers a breaker, or invents poles, amperage or labels.
 // A position with no evidence is reported as MISSING, never as absent-by-design.
+import { breakerReference } from "@/lib/electrical-breaker-reference";
 import {
   slotForBreakerNumber,
   type BreakerObservation,
@@ -368,6 +369,7 @@ export const PANEL_COVERAGE_CSV = "phase-4.4b-panel-position-coverage.csv";
 export function panelCoverageCsv(report: PanelCoverageReport): string {
   const head = [
     "panel_id",
+    "breaker_reference",
     "breaker_number",
     "side",
     "position",
@@ -388,6 +390,7 @@ export function panelCoverageCsv(report: PanelCoverageReport): string {
       lines.push(
         [
           pos.panel_id,
+          breakerReference(pos.panel_id, pos.breaker_number) ?? "",
           pos.breaker_number,
           pos.side,
           pos.position,

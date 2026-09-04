@@ -7,6 +7,8 @@
 
 export type WiringRow = Record<string, unknown>;
 
+import { breakerDisplay } from "@/lib/electrical-breaker-reference";
+
 export const NOT_IN_RECORD = "NOT IN RECORD";
 
 function str(v: unknown): string {
@@ -175,7 +177,12 @@ export function buildWiringSchedule(raw: WiringInput): WiringSchedule {
       key: str(pos.id) || `${str(pos.side)}-${str(pos.position)}`,
       side: str(pos.side).trim() || NOT_IN_RECORD,
       position: num(pos.position) ?? 0,
-      breakerNumber: str(pos.breaker_number).trim() || str(pos.position).trim() || NOT_IN_RECORD,
+      breakerNumber: breakerDisplay({
+        panel_id: str(panelByUuid.get(str(pos.panel_uuid))?.panel_id),
+        breaker_number: pos.breaker_number as number | string | null,
+        position: str(pos.position),
+        notInRecord: NOT_IN_RECORD,
+      }).label,
       poles: num(pos.poles) ?? 1,
       ocpAmps: ocp,
       circuitId: circuit ? str(circuit.circuit_group_id).trim() || NOT_IN_RECORD : NOT_IN_RECORD,

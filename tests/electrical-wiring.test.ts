@@ -21,7 +21,7 @@ describe("buildWiringSchedule", () => {
   const panel = schedule.panels[0]!;
 
   it("lists real breaker positions with their circuit and connected loads", () => {
-    const wired = panel.slots.find((s) => s.breakerNumber === "1")!;
+    const wired = panel.slots.find((s) => s.breakerNumber === "PNL-FS-NE-B1")!;
     expect(wired.side).toBe("Left");
     expect(wired.ocpAmps).toBe("30");
     expect(wired.poles).toBe(2);
@@ -32,7 +32,7 @@ describe("buildWiringSchedule", () => {
   });
 
   it("marks an empty breaker as a gap instead of guessing", () => {
-    const empty = panel.slots.find((s) => s.breakerNumber === "2")!;
+    const empty = panel.slots.find((s) => s.breakerNumber === "PNL-FS-NE-B2")!;
     expect(empty.state).toBe("empty");
     expect(empty.circuitId).toBe("NOT IN RECORD");
     expect(empty.gaps).toContain("no circuit group linked to this breaker (circuit_group_uuid)");
@@ -59,6 +59,6 @@ describe("buildWiringSchedule", () => {
 
   it("filters by load description", () => {
     const filtered = filterWiringSchedule(schedule, "mini split");
-    expect(filtered.panels[0]!.slots.map((s) => s.breakerNumber)).toEqual(["1"]);
+    expect(filtered.panels[0]!.slots.map((s) => s.breakerNumber)).toEqual(["PNL-FS-NE-B1"]);
   });
 });

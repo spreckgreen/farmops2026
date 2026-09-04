@@ -186,7 +186,7 @@ describe("electrical mermaid diagrams", () => {
     const out = buildDiagram(data, { type: "single_panel", focus: "PNL-FS-CRIT" });
     expect(out.nodes.some((n) => n.stableId === "PNL-FS-CRIT")).toBe(true);
     expect(out.nodes.some((n) => n.stableId === "CG-02")).toBe(false);
-    expect(out.edges.some((e) => e.label?.includes("breaker 5"))).toBe(true);
+    expect(out.edges.some((e) => e.label?.includes("PNL-FS-CRIT-B5"))).toBe(true);
   });
 
   it("keeps only critical / backup-eligible records in the critical-power view", () => {

@@ -7,6 +7,7 @@
 // ODS export.
 //
 // Pure and deterministic so it can be unit-tested without a database.
+import { breakerReference } from "@/lib/electrical-breaker-reference";
 import {
   ENDPOINT_ENTITY_KIND,
   checkControlledValue,
@@ -484,7 +485,10 @@ export function runIntegrityChecks(graph: ElectricalGraphData): IntegrityFinding
       kind: "circuit_group",
       stableId: conflict.ids.join(", "),
       id: null,
-      message: `Breaker ${conflict.breaker_number} in ${panel ? sid("panel", panel) : "an unknown panel"} is claimed by ${conflict.ids.join(", ")}.`,
+      message: `Breaker ${
+        breakerReference(panel ? sid("panel", panel) : null, conflict.breaker_number) ??
+        conflict.breaker_number
+      } in ${panel ? sid("panel", panel) : "an unknown panel"} is claimed by ${conflict.ids.join(", ")}.`,
     });
   }
 

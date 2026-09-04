@@ -9,6 +9,8 @@
 //
 // Pure functions over snapshot-shaped rows — unit tested, no I/O.
 
+import { breakerDisplay } from "@/lib/electrical-breaker-reference";
+
 export type ElectricalRow = Record<string, unknown>;
 
 export interface ElectricalContextInput {
@@ -250,10 +252,21 @@ export function describeLoadPath(load: ElectricalRow, ctx: LoadPathContext): str
   const circuit = group
     ? str(group.circuit_group_id)
     : str(load.circuit_group_ref).trim() || str(load.source_circuit).trim() || "NOT IN RECORD";
+  const breakerPanelId = panelRow ? str(panelRow.panel_id) : "";
   const breaker = position
-    ? `${str(position.side)}${str(position.position)} (${str(position.ocp_amps)}A)`
+    ? `${
+        breakerDisplay({
+          panel_id: breakerPanelId,
+          breaker_number: position.breaker_number as number | string | null,
+          side: str(position.side),
+          position: str(position.position),
+        }).label
+      } (${str(position.ocp_amps)}A)`
     : group && str(group.breaker_number).trim()
-      ? str(group.breaker_number)
+      ? breakerDisplay({
+          panel_id: breakerPanelId,
+          breaker_number: group.breaker_number as number | string | null,
+        }).label
       : "NOT IN RECORD";
   const panel = panelRow
     ? str(panelRow.panel_id)
@@ -357,13 +370,27 @@ export function traceLoadHops(load: ElectricalRow, ctx: LoadPathContext): LoadTr
     position
       ? {
           hop: "breaker",
-          value: `${str(position.side)}${str(position.position)}${
-            str(position.ocp_amps).trim() ? ` — ${str(position.ocp_amps)}A` : ""
-          }${str(position.poles).trim() ? `, ${str(position.poles)}P` : ""}`,
+          value: `${
+            breakerDisplay({
+              panel_id: panelRow ? str(panelRow.panel_id) : "",
+              breaker_number: position.breaker_number as number | string | null,
+              side: str(position.side),
+              position: str(position.position),
+            }).label
+          }${str(position.ocp_amps).trim() ? ` — ${str(position.ocp_amps)}A` : ""}${
+            str(position.poles).trim() ? `, ${str(position.poles)}P` : ""
+          }`,
           known: true,
         }
       : group && str(group.breaker_number).trim()
-        ? { hop: "breaker", value: str(group.breaker_number), known: true }
+        ? {
+            hop: "breaker",
+            value: breakerDisplay({
+              panel_id: panelRow ? str(panelRow.panel_id) : "",
+              breaker_number: group.breaker_number as number | string | null,
+            }).label,
+            known: true,
+          }
         : {
             hop: "breaker",
             value: "NOT IN RECORD",
