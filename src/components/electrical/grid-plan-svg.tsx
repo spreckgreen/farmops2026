@@ -22,6 +22,7 @@ import {
   feetToPlan,
 } from "@/lib/electrical-grid-plan-geometry";
 import {
+  PLACEMENT_SOURCE_LABEL,
   PRECISION_META,
   VERIFICATION_LABEL,
   verificationOf,
