@@ -19,7 +19,7 @@ describe("shared stable-ID validator enforces circuit-group identity", () => {
 
   it("refuses other malformed new IDs", () => {
     expect(checkStableId("circuit_group", "CG-14").ok).toBe(false);
-    expect(checkStableId("circuit_group", "cg-fs-014").ok).toBe(false);
+    expect(checkStableId("circuit_group", "CG-FS-14A").ok).toBe(false);
   });
 
   it("warns instead of failing for an existing non-compliant record", () => {
