@@ -19,6 +19,7 @@ import {
   legacyInfrastructurePattern,
   type InfrastructureKind,
 } from "./electrical-infrastructure-standards";
+import { checkCircuitGroupId } from "./electrical-breaker-reference";
 
 
 export const INSTALL_STATUSES = [
