@@ -1,19 +1,26 @@
-// One coordinate system for the Farm Shop plan and every marker: physical feet.
+// One coordinate system for the Farm Shop plan and every marker.
 //
-// The SVG viewBox IS the building (0 0 60 40), so one drawing unit is one foot.
-// The walls, gridlines, openings, markers and the proposed overhead-light layer
-// are all drawn from their feet dimensions — there is no raster drawing, no
-// pixel anchor and no non-uniform scaling, so browser zoom, window size and
-// device pixel ratio cannot move a marker relative to the plan.
+// The backdrop is the original `farm-shop-grid-plan.png`, placed 1:1 inside the
+// SVG viewBox `0 0 1448 1086`. Markers, the proposed overhead-light layer and
+// the helper card are drawn into that same viewBox, converting physical feet
+// through the single documented transform:
+//
+//   mapX = 185 + (xFeet / 60) * 1068
+//   mapY = 210 + (yFeet / 40) * 616
+//
+// There is no HTML percentage overlay and no non-uniform scaling, so container
+// width, browser zoom and device pixel ratio cannot move a marker relative to
+// the plan. Everything is clipped to the drawing, so nothing plots off-page.
 import { useCallback, useMemo, useRef, useState } from "react";
+import planImage from "@/assets/farm-shop-grid-plan.png";
 import {
-  PLAN_BUILDING,
-  PLAN_OPENINGS,
+  PLAN_DRAWING,
   PLAN_VIEW_BOX,
   PROPOSED_OVERHEAD_LEDS,
+  SHOP_DEPTH_FT,
+  clampToBuilding,
   feetToPlan,
 } from "@/lib/electrical-grid-plan-geometry";
-import { AXIS_COLS, AXIS_ROWS } from "@/lib/electrical-grid-map";
 import {
   PRECISION_META,
   VERIFICATION_LABEL,
@@ -26,7 +33,6 @@ import {
   DESIGN_FIELD_STATUS_LABEL,
   type DesignFieldPair,
 } from "@/lib/electrical-grid-design-vs-field";
-
 
 /** Marker colours, matched to the on-screen swatches and the PDF export. */
 export const PRECISION_HEX: Record<LocationPrecision, string> = {
@@ -41,14 +47,25 @@ export const PRECISION_HEX: Record<LocationPrecision, string> = {
 export const PROPOSED_LED_HEX = "#f59e0b";
 
 export const PLAN_ALT =
-  "Scale plan of the 60 by 40 foot Farm Shop drawn in feet, with lettered rows A to F north to south and numbered columns 1 to 9 west to east, the GD2 and GD1 overhead doors and the north-east and south-west man doors";
+  "Overhead grid plan of the 60 by 40 foot Farm Shop, with lettered rows A to F north to south and numbered columns 1 to 9 west to east, the GD2 and GD1 overhead doors and the north-east and south-west man doors";
+
+/**
+ * Symbol sizing. Marker glyphs are annotation, not building fabric, so they are
+ * sized as a share of the drawing rather than as a physical footprint: `u(n)`
+ * converts the previous foot-based symbol sizes into drawing units, keeping the
+ * on-screen appearance of every symbol unchanged.
+ */
+const SYMBOL_UNIT = PLAN_DRAWING.height / SHOP_DEPTH_FT;
+const u = (n: number) => n * SYMBOL_UNIT;
 
 /** Interval markers keep a visible span so they are never read as a point. */
 const INTERVAL_SPAN_FT = 4;
 
-/** Marker sizes in feet, so they scale with the plan. */
-const R_FT = 0.62;
-const R_SELECTED_FT = 0.9;
+/** Marker radii, in drawing units. */
+const R = u(0.62);
+const R_SELECTED = u(0.9);
+
+const CLIP_ID = "farm-shop-plan-clip";
 
 type RenderItem = {
   asset: OperationalAsset;
@@ -79,7 +96,6 @@ export function GridPlanSvg({
   designOverlay?: DesignFieldPair[];
   className?: string;
 }) {
-
   // Helper text follows, in order: the marker under the pointer/keyboard focus,
   // then the selected marker — so after a click the same helper stays visible
   // once the mouse moves away. Escape dismisses the pinned (selected) one.
@@ -205,7 +221,7 @@ export function GridPlanSvg({
       aria-label={interactive ? `${PLAN_ALT}. ${order.length} markers.` : PLAN_ALT}
       aria-describedby={interactive ? "grid-plan-keyboard-help" : undefined}
       preserveAspectRatio="xMidYMid meet"
-      data-plan-units="feet"
+      data-plan-units="drawing"
     >
       {interactive ? (
         <desc id="grid-plan-keyboard-help">
@@ -213,172 +229,191 @@ export function GridPlanSvg({
           Space to open the full record, and Escape to dismiss the helper text.
         </desc>
       ) : null}
-      <PlanDrawing />
-      {showProposedLeds ? <ProposedLedLayer /> : null}
-      {designOverlay?.length ? <DesignFieldLayer pairs={designOverlay} /> : null}
+      <defs>
+        <clipPath id={CLIP_ID}>
+          <rect x={0} y={0} width={PLAN_DRAWING.width} height={PLAN_DRAWING.height} />
+        </clipPath>
+      </defs>
+      <g clipPath={`url(#${CLIP_ID})`}>
+        <PlanDrawing />
+        {showProposedLeds ? <ProposedLedLayer /> : null}
+        {designOverlay?.length ? <DesignFieldLayer pairs={designOverlay} /> : null}
 
-      {items.map(({ asset: a, dxFt, dyFt, badge }) => {
-        const anchor = feetToPlan(a.plottedXFt as number, a.plottedYFt as number);
-        const shown = feetToPlan((a.plottedXFt as number) + dxFt, (a.plottedYFt as number) + dyFt);
-        const offset = dxFt !== 0 || dyFt !== 0;
-        const selected = selectedId === a.stableId;
-        const r = (selected ? R_SELECTED_FT : R_FT) * markerScale;
-        const fill = PRECISION_HEX[a.precision];
-        const label =
-          badge > 1
-            ? `${badge} records at ${a.plottedXFt} ft east, ${a.plottedYFt} ft south. ${hintLines(a).join(". ")}`
-            : hintLines(a).join(". ");
-        const focused = focusedId === a.stableId;
-        return (
-          <g
-            key={`${a.kind}-${a.stableId}`}
-            {...(interactive
-              ? {
-                  ref: (el: SVGGElement | null) => {
-                    nodes.current.set(a.stableId, el);
-                  },
-                  role: "button",
-                  tabIndex: 0,
-                  "aria-label": label,
-                  "aria-pressed": selected,
-                  onClick: () => {
-                    setDismissed(null);
-                    onSelect?.(a.stableId);
-                  },
-                  onKeyDown: (e: React.KeyboardEvent<SVGGElement>) => onMarkerKeyDown(e, a.stableId),
-                  onFocus: () => {
-                    setFocusedId(a.stableId);
-                    setHovered(a.stableId);
-                  },
-                  onBlur: () => {
-                    setFocusedId((f) => (f === a.stableId ? null : f));
-                    setHovered((h) => (h === a.stableId ? null : h));
-                  },
-                  onMouseEnter: () => setHovered(a.stableId),
-                  onMouseLeave: () => setHovered((h) => (h === a.stableId ? null : h)),
-                  style: { cursor: "pointer", outline: "none" },
-                }
-              : {})}
-            data-stable-id={a.stableId}
-            data-x-ft={a.plottedXFt}
-            data-y-ft={a.plottedYFt}
-            data-precision={a.precision}
-            data-cluster-size={badge}
-          >
-            {focused ? (
-              <>
-                <circle
-                  cx={shown.x}
-                  cy={shown.y}
-                  r={r + 0.5}
-                  fill="none"
-                  stroke="#111827"
-                  strokeWidth={0.34}
-                  pointerEvents="none"
-                />
-                <circle
-                  cx={shown.x}
-                  cy={shown.y}
-                  r={r + 0.5}
-                  fill="none"
-                  stroke="#facc15"
-                  strokeWidth={0.2}
-                  pointerEvents="none"
-                />
-              </>
-            ) : null}
-            {offset ? (
-              <>
-                <line
-                  x1={anchor.x}
-                  y1={anchor.y}
-                  x2={shown.x}
-                  y2={shown.y}
-                  stroke={fill}
-                  strokeWidth={0.14}
-                />
-                <circle data-anchor-dot cx={anchor.x} cy={anchor.y} r={0.18} fill={fill} />
-              </>
-            ) : null}
-            {a.spanned ? (
-              <>
-                <line
-                  x1={feetToPlan((a.plottedXFt as number) - INTERVAL_SPAN_FT, 0).x}
-                  y1={shown.y}
-                  x2={feetToPlan((a.plottedXFt as number) + INTERVAL_SPAN_FT, 0).x}
-                  y2={shown.y}
-                  stroke={fill}
-                  strokeWidth={0.28 * markerScale}
-                  strokeDasharray="0.5 0.3"
-                  opacity={0.85}
-                />
-                <circle
-                  cx={shown.x}
-                  cy={shown.y}
-                  r={r * 0.7}
+        {items.map(({ asset: a, dxFt, dyFt, badge }) => {
+          const anchor = feetToPlan(a.plottedXFt as number, a.plottedYFt as number);
+          // Spidered members may be nudged for readability, but never outside
+          // the building envelope — and they keep a leader line to the anchor.
+          const nudged = feetToPlan(
+            (a.plottedXFt as number) + dxFt,
+            (a.plottedYFt as number) + dyFt,
+          );
+          const shown = clampToBuilding(nudged.x, nudged.y);
+          const offset = dxFt !== 0 || dyFt !== 0;
+          const selected = selectedId === a.stableId;
+          const r = (selected ? R_SELECTED : R) * markerScale;
+          const fill = PRECISION_HEX[a.precision];
+          const label =
+            badge > 1
+              ? `${badge} records at ${a.plottedXFt} ft east, ${a.plottedYFt} ft south. ${hintLines(a).join(". ")}`
+              : hintLines(a).join(". ");
+          const focused = focusedId === a.stableId;
+          return (
+            <g
+              key={`${a.kind}-${a.stableId}`}
+              {...(interactive
+                ? {
+                    ref: (el: SVGGElement | null) => {
+                      nodes.current.set(a.stableId, el);
+                    },
+                    role: "button",
+                    tabIndex: 0,
+                    "aria-label": label,
+                    "aria-pressed": selected,
+                    onClick: () => {
+                      setDismissed(null);
+                      onSelect?.(a.stableId);
+                    },
+                    onKeyDown: (e: React.KeyboardEvent<SVGGElement>) =>
+                      onMarkerKeyDown(e, a.stableId),
+                    onFocus: () => {
+                      setFocusedId(a.stableId);
+                      setHovered(a.stableId);
+                    },
+                    onBlur: () => {
+                      setFocusedId((f) => (f === a.stableId ? null : f));
+                      setHovered((h) => (h === a.stableId ? null : h));
+                    },
+                    onMouseEnter: () => setHovered(a.stableId),
+                    onMouseLeave: () => setHovered((h) => (h === a.stableId ? null : h)),
+                    style: { cursor: "pointer", outline: "none" },
+                  }
+                : {})}
+              data-stable-id={a.stableId}
+              data-x-ft={a.plottedXFt}
+              data-y-ft={a.plottedYFt}
+              data-precision={a.precision}
+              data-cluster-size={badge}
+            >
+              {focused ? (
+                <>
+                  <circle
+                    cx={shown.x}
+                    cy={shown.y}
+                    r={r + u(0.5)}
+                    fill="none"
+                    stroke="#111827"
+                    strokeWidth={u(0.34)}
+                    pointerEvents="none"
+                  />
+                  <circle
+                    cx={shown.x}
+                    cy={shown.y}
+                    r={r + u(0.5)}
+                    fill="none"
+                    stroke="#facc15"
+                    strokeWidth={u(0.2)}
+                    pointerEvents="none"
+                  />
+                </>
+              ) : null}
+              {offset ? (
+                <>
+                  <line
+                    x1={anchor.x}
+                    y1={anchor.y}
+                    x2={shown.x}
+                    y2={shown.y}
+                    stroke={fill}
+                    strokeWidth={u(0.14)}
+                  />
+                  <circle
+                    data-anchor-dot
+                    cx={anchor.x}
+                    cy={anchor.y}
+                    r={u(0.18)}
+                    fill={fill}
+                  />
+                </>
+              ) : null}
+              {a.spanned ? (
+                <>
+                  <line
+                    x1={feetToPlan((a.plottedXFt as number) - INTERVAL_SPAN_FT, 0).x}
+                    y1={shown.y}
+                    x2={feetToPlan((a.plottedXFt as number) + INTERVAL_SPAN_FT, 0).x}
+                    y2={shown.y}
+                    stroke={fill}
+                    strokeWidth={u(0.28) * markerScale}
+                    strokeDasharray={`${u(0.5)} ${u(0.3)}`}
+                    opacity={0.85}
+                  />
+                  <circle
+                    cx={shown.x}
+                    cy={shown.y}
+                    r={r * 0.7}
+                    fill={fill}
+                    fillOpacity={0.55}
+                    stroke="#ffffff"
+                    strokeWidth={u(0.14)}
+                    strokeDasharray={`${u(0.3)} ${u(0.22)}`}
+                  />
+                </>
+              ) : a.kind === "panel" ? (
+                <rect
+                  x={shown.x - r}
+                  y={shown.y - r}
+                  width={r * 2}
+                  height={r * 2}
+                  rx={u(0.15)}
                   fill={fill}
-                  fillOpacity={0.55}
                   stroke="#ffffff"
-                  strokeWidth={0.14}
-                  strokeDasharray="0.3 0.22"
+                  strokeWidth={u(0.14)}
                 />
-              </>
-            ) : a.kind === "panel" ? (
-              <rect
-                x={shown.x - r}
-                y={shown.y - r}
-                width={r * 2}
-                height={r * 2}
-                rx={0.15}
-                fill={fill}
-                stroke="#ffffff"
-                strokeWidth={0.14}
-              />
-            ) : (
-              <circle
-                cx={shown.x}
-                cy={shown.y}
-                r={r}
-                fill={fill}
-                stroke="#ffffff"
-                strokeWidth={0.14}
-              />
-            )}
-            {badge > 1 ? (
-              // Cluster badge: the marker stays on the exact anchor and reports
-              // how many records share it. Selecting it spiders the group.
-              <>
+              ) : (
                 <circle
-                  cx={shown.x + r * 0.95}
-                  cy={shown.y - r * 0.95}
-                  r={r * 0.85}
-                  fill="#111827"
+                  cx={shown.x}
+                  cy={shown.y}
+                  r={r}
+                  fill={fill}
                   stroke="#ffffff"
-                  strokeWidth={0.1}
+                  strokeWidth={u(0.14)}
                 />
-                <text
-                  x={shown.x + r * 0.95}
-                  y={shown.y - r * 0.95 + r * 0.3}
-                  textAnchor="middle"
-                  fontSize={r * 0.95}
-                  fill="#ffffff"
-                  fontFamily="ui-sans-serif, system-ui, sans-serif"
-                  pointerEvents="none"
-                >
-                  {badge}
-                </text>
-              </>
-            ) : null}
-          </g>
-        );
-      })}
-      {hint ? <HoverHint asset={hint} /> : null}
+              )}
+              {badge > 1 ? (
+                // Cluster badge: the marker stays on the exact anchor and reports
+                // how many records share it. Selecting it spiders the group.
+                <>
+                  <circle
+                    cx={shown.x + r * 0.95}
+                    cy={shown.y - r * 0.95}
+                    r={r * 0.85}
+                    fill="#111827"
+                    stroke="#ffffff"
+                    strokeWidth={u(0.1)}
+                  />
+                  <text
+                    x={shown.x + r * 0.95}
+                    y={shown.y - r * 0.95 + r * 0.3}
+                    textAnchor="middle"
+                    fontSize={r * 0.95}
+                    fill="#ffffff"
+                    fontFamily="ui-sans-serif, system-ui, sans-serif"
+                    pointerEvents="none"
+                  >
+                    {badge}
+                  </text>
+                </>
+              ) : null}
+            </g>
+          );
+        })}
+        {hint ? <HoverHint asset={hint} /> : null}
+      </g>
     </svg>
   );
 }
 
-/** The bare plan (walls, gridlines, openings) in feet — for overlays that place
- * their own markers as percentages of the building envelope. */
+/** The bare plan, for consumers that draw their own overlay on top. */
 export function GridPlanBackdrop({ className }: { className?: string }) {
   return (
     <svg
@@ -387,7 +422,7 @@ export function GridPlanBackdrop({ className }: { className?: string }) {
       role="img"
       aria-label={PLAN_ALT}
       preserveAspectRatio="xMidYMid meet"
-      data-plan-units="feet"
+      data-plan-units="drawing"
     >
       <PlanDrawing />
     </svg>
@@ -409,62 +444,59 @@ export function hintLines(asset: OperationalAsset): string[] {
   ];
 }
 
-/** Helper-card typography and padding, in feet, so the card scales with the
- * plan instead of with the pixel size of the container. */
-const HINT_FONT_FT = 0.85;
-const HINT_PAD_FT = 0.5;
-const HINT_LINE_FT = HINT_FONT_FT * 1.35;
+/** Helper-card typography and padding, in drawing units, so the card scales
+ * with the plan instead of with the pixel size of the container. */
+const HINT_FONT = u(0.85);
+const HINT_PAD = u(0.5);
+const HINT_LINE = HINT_FONT * 1.35;
 /** Keep the card this far inside the viewBox edge so its stroke stays visible. */
-const HINT_MARGIN_FT = 0.3;
+const HINT_MARGIN = u(0.3);
 /** Gap between the anchor point and the card, so the marker stays readable. */
-const HINT_GAP_FT = 1;
+const HINT_GAP = u(1);
 
 /**
- * Places the helper card fully inside the viewBox for any anchor, including the
- * four corners and the wall edges.
+ * Places the helper card fully inside the drawing for any anchor in feet,
+ * including the four corners and the wall edges.
  *
  * Preferred side is right-and-below the anchor. When that would overflow, the
- * card flips to the opposite side; when neither side fits (a card wider or
- * taller than the plan on very small viewports), it is clamped to the edge.
- * Pure and exported so the placement is testable without a browser.
+ * card flips to the opposite side; when neither side fits, it is clamped to the
+ * edge. Pure and exported so the placement is testable without a browser.
  */
 export function hintCardBox(anchorXFt: number, anchorYFt: number, lines: string[]) {
   const maxLines = Math.max(
     1,
-    Math.floor((PLAN_BUILDING.height - HINT_MARGIN_FT * 2 - HINT_PAD_FT * 2) / HINT_LINE_FT),
+    Math.floor((PLAN_DRAWING.height - HINT_MARGIN * 2 - HINT_PAD * 2) / HINT_LINE),
   );
   const shown = lines.slice(0, maxLines);
   lines = shown;
   const longest = Math.max(...lines.map((l) => l.length));
-  const maxWidth = Math.min(26, PLAN_BUILDING.width - HINT_MARGIN_FT * 2);
+  const maxWidth = Math.min(u(26), PLAN_DRAWING.width - HINT_MARGIN * 2);
   const width = Math.min(
     maxWidth,
-    Math.max(
-      Math.min(11, maxWidth),
-      longest * HINT_FONT_FT * 0.52 + HINT_PAD_FT * 2,
-    ),
+    Math.max(Math.min(u(11), maxWidth), longest * HINT_FONT * 0.52 + HINT_PAD * 2),
   );
-  const height = lines.length * HINT_LINE_FT + HINT_PAD_FT * 2;
+  const height = lines.length * HINT_LINE + HINT_PAD * 2;
 
   const clamp = (v: number, lo: number, hi: number) =>
     hi < lo ? lo : Math.min(Math.max(v, lo), hi);
 
-  const right = anchorXFt + HINT_GAP_FT;
-  const fitsRight = right + width <= PLAN_BUILDING.width - HINT_MARGIN_FT;
-  const left = anchorXFt - HINT_GAP_FT - width;
+  const at = feetToPlan(anchorXFt, anchorYFt);
+  const right = at.x + HINT_GAP;
+  const fitsRight = right + width <= PLAN_DRAWING.width - HINT_MARGIN;
+  const left = at.x - HINT_GAP - width;
   const x = clamp(
     fitsRight ? right : left,
-    HINT_MARGIN_FT,
-    PLAN_BUILDING.width - width - HINT_MARGIN_FT,
+    HINT_MARGIN,
+    PLAN_DRAWING.width - width - HINT_MARGIN,
   );
 
-  const below = anchorYFt + HINT_GAP_FT;
-  const fitsBelow = below + height <= PLAN_BUILDING.height - HINT_MARGIN_FT;
-  const above = anchorYFt - HINT_GAP_FT - height;
+  const below = at.y + HINT_GAP;
+  const fitsBelow = below + height <= PLAN_DRAWING.height - HINT_MARGIN;
+  const above = at.y - HINT_GAP - height;
   const y = clamp(
     fitsBelow ? below : above,
-    HINT_MARGIN_FT,
-    PLAN_BUILDING.height - height - HINT_MARGIN_FT,
+    HINT_MARGIN,
+    PLAN_DRAWING.height - height - HINT_MARGIN,
   );
 
   return { x, y, width, height, lines: shown };
@@ -474,12 +506,12 @@ export function hintCardBox(anchorXFt: number, anchorYFt: number, lines: string[
  * plan and never drifts at a different browser zoom. */
 function HoverHint({ asset }: { asset: OperationalAsset }) {
   if (asset.plottedXFt == null || asset.plottedYFt == null) return null;
-  const at = feetToPlan(asset.plottedXFt, asset.plottedYFt);
   const lines = hintLines(asset);
-  const fontSize = HINT_FONT_FT;
-  const pad = HINT_PAD_FT;
-  const lineH = HINT_LINE_FT;
-  const { x, y: top, width, height, lines: shown } = hintCardBox(at.x, at.y, lines);
+  const { x, y: top, width, height, lines: shown } = hintCardBox(
+    asset.plottedXFt,
+    asset.plottedYFt,
+    lines,
+  );
 
   return (
     <g pointerEvents="none" data-hint-card="true">
@@ -488,20 +520,20 @@ function HoverHint({ asset }: { asset: OperationalAsset }) {
         y={top}
         width={width}
         height={height}
-        rx={0.35}
+        rx={u(0.35)}
         fill="#0f172a"
         fillOpacity={0.92}
         stroke="#ffffff"
         strokeOpacity={0.5}
-        strokeWidth={0.08}
+        strokeWidth={u(0.08)}
       />
       {shown.map((line, i) => (
         <text
           key={line + i}
-          x={x + pad}
-          y={top + pad + fontSize + i * lineH - 0.15}
+          x={x + HINT_PAD}
+          y={top + HINT_PAD + HINT_FONT + i * HINT_LINE - u(0.15)}
           fill="#ffffff"
-          fontSize={i === 0 ? fontSize * 1.08 : fontSize}
+          fontSize={i === 0 ? HINT_FONT * 1.08 : HINT_FONT}
           fontWeight={i === 0 ? 700 : 400}
           fontFamily="ui-sans-serif, system-ui, sans-serif"
         >
@@ -513,118 +545,22 @@ function HoverHint({ asset }: { asset: OperationalAsset }) {
 }
 
 /**
- * The plan itself: walls, the frozen gridlines and the drawn wall openings, all
- * from physical feet. Nothing here is traced from an image.
+ * The base plan: the original overhead grid drawing, placed 1:1 in the viewBox.
+ * It is never redrawn or re-traced — walls, gridlines, dimension strings, both
+ * man doors and the overhead doors are the drawing's own.
  */
 function PlanDrawing() {
   return (
-    <g pointerEvents="none">
-      <rect
-        x={0}
-        y={0}
-        width={PLAN_BUILDING.width}
-        height={PLAN_BUILDING.height}
-        fill="#ffffff"
-      />
-      {/* Gridlines: exact feet from the frozen axis definition. */}
-      {AXIS_COLS.map((c) => (
-        <line
-          key={`col-${c.label}`}
-          data-grid-col={c.label}
-          data-x-ft={c.xFt}
-          x1={c.xFt}
-          y1={0}
-          x2={c.xFt}
-          y2={PLAN_BUILDING.height}
-          stroke="#94a3b8"
-          strokeWidth={0.06}
-        />
-      ))}
-      {AXIS_ROWS.map((r) => (
-        <line
-          key={`row-${r.label}`}
-          data-grid-row={r.label}
-          data-y-ft={r.yFt}
-          x1={0}
-          y1={r.yFt}
-          x2={PLAN_BUILDING.width}
-          y2={r.yFt}
-          stroke="#94a3b8"
-          strokeWidth={0.06}
-        />
-      ))}
-      {/* Grid labels, inset so they stay inside the building area. */}
-      {AXIS_COLS.map((c) => (
-        <text
-          key={`col-label-${c.label}`}
-          x={Math.min(Math.max(c.xFt, 0.6), PLAN_BUILDING.width - 0.4)}
-          y={1.3}
-          fontSize={0.9}
-          fill="#64748b"
-          textAnchor="middle"
-          fontFamily="ui-sans-serif, system-ui, sans-serif"
-        >
-          {c.label}
-        </text>
-      ))}
-      {AXIS_ROWS.map((r) => (
-        <text
-          key={`row-label-${r.label}`}
-          x={0.5}
-          y={Math.min(Math.max(r.yFt + 0.3, 1), PLAN_BUILDING.height - 0.3)}
-          fontSize={0.9}
-          fill="#64748b"
-          fontFamily="ui-sans-serif, system-ui, sans-serif"
-        >
-          {r.label}
-        </text>
-      ))}
-      {/* Walls. */}
-      <rect
-        x={0}
-        y={0}
-        width={PLAN_BUILDING.width}
-        height={PLAN_BUILDING.height}
-        fill="none"
-        stroke="#0f172a"
-        strokeWidth={0.4}
-      />
-      {/* Openings, drawn over the wall from their feet spans. */}
-      {PLAN_OPENINGS.map((o) => {
-        const isNorth = o.wall === "north";
-        const stroke = o.kind === "overhead_door" ? "#2563eb" : "#0ea5e9";
-        return (
-          <g key={o.id} data-opening={o.id} data-start-ft={o.startFt} data-end-ft={o.endFt}>
-            <line
-              x1={isNorth ? o.startFt : 0}
-              y1={isNorth ? 0 : o.startFt}
-              x2={isNorth ? o.endFt : 0}
-              y2={isNorth ? 0 : o.endFt}
-              stroke="#ffffff"
-              strokeWidth={0.5}
-            />
-            <line
-              x1={isNorth ? o.startFt : 0}
-              y1={isNorth ? 0 : o.startFt}
-              x2={isNorth ? o.endFt : 0}
-              y2={isNorth ? 0 : o.endFt}
-              stroke={stroke}
-              strokeWidth={0.26}
-            />
-            <text
-              x={isNorth ? (o.startFt + o.endFt) / 2 : 0.6}
-              y={isNorth ? 2.6 : (o.startFt + o.endFt) / 2}
-              fontSize={0.8}
-              fill={stroke}
-              textAnchor={isNorth ? "middle" : "start"}
-              fontFamily="ui-sans-serif, system-ui, sans-serif"
-            >
-              {o.id}
-            </text>
-          </g>
-        );
-      })}
-    </g>
+    <image
+      href={planImage}
+      x={0}
+      y={0}
+      width={PLAN_DRAWING.width}
+      height={PLAN_DRAWING.height}
+      preserveAspectRatio="xMidYMid meet"
+      data-plan-backdrop="farm-shop-grid-plan"
+      pointerEvents="none"
+    />
   );
 }
 
@@ -632,49 +568,52 @@ function PlanDrawing() {
 function ProposedLedLayer() {
   return (
     <g pointerEvents="none" data-layer="proposed-overhead-led">
-      {PROPOSED_OVERHEAD_LEDS.map((f) => (
-        <g
-          key={`led-${f.planOrder}`}
-          data-proposed-led={f.planOrder}
-          data-x-ft={f.xFt}
-          data-y-ft={f.yFt}
-        >
-          {/* Light symbol: a glowing centre with radiating rays. */}
-          {[0, 45, 90, 135, 180, 225, 270, 315].map((deg) => {
-            const rad = (deg * Math.PI) / 180;
-            return (
-              <line
-                key={deg}
-                x1={f.xFt + Math.cos(rad) * 0.75}
-                y1={f.yFt + Math.sin(rad) * 0.75}
-                x2={f.xFt + Math.cos(rad) * 1.3}
-                y2={f.yFt + Math.sin(rad) * 1.3}
-                stroke={PROPOSED_LED_HEX}
-                strokeWidth={0.12}
-              />
-            );
-          })}
-          <circle
-            cx={f.xFt}
-            cy={f.yFt}
-            r={0.7}
-            fill="#fef3c7"
-            stroke={PROPOSED_LED_HEX}
-            strokeWidth={0.16}
-            strokeDasharray="0.35 0.2"
-          />
-          <text
-            x={f.xFt}
-            y={f.yFt + 0.3}
-            fontSize={0.75}
-            textAnchor="middle"
-            fill="#92400e"
-            fontFamily="ui-sans-serif, system-ui, sans-serif"
+      {PROPOSED_OVERHEAD_LEDS.map((f) => {
+        const at = feetToPlan(f.xFt, f.yFt);
+        return (
+          <g
+            key={`led-${f.planOrder}`}
+            data-proposed-led={f.planOrder}
+            data-x-ft={f.xFt}
+            data-y-ft={f.yFt}
           >
-            {f.planOrder}
-          </text>
-        </g>
-      ))}
+            {/* Light symbol: a glowing centre with radiating rays. */}
+            {[0, 45, 90, 135, 180, 225, 270, 315].map((deg) => {
+              const rad = (deg * Math.PI) / 180;
+              return (
+                <line
+                  key={deg}
+                  x1={at.x + Math.cos(rad) * u(0.75)}
+                  y1={at.y + Math.sin(rad) * u(0.75)}
+                  x2={at.x + Math.cos(rad) * u(1.3)}
+                  y2={at.y + Math.sin(rad) * u(1.3)}
+                  stroke={PROPOSED_LED_HEX}
+                  strokeWidth={u(0.12)}
+                />
+              );
+            })}
+            <circle
+              cx={at.x}
+              cy={at.y}
+              r={u(0.7)}
+              fill="#fef3c7"
+              stroke={PROPOSED_LED_HEX}
+              strokeWidth={u(0.16)}
+              strokeDasharray={`${u(0.35)} ${u(0.2)}`}
+            />
+            <text
+              x={at.x}
+              y={at.y + u(0.3)}
+              fontSize={u(0.75)}
+              textAnchor="middle"
+              fill="#92400e"
+              fontFamily="ui-sans-serif, system-ui, sans-serif"
+            >
+              {f.planOrder}
+            </text>
+          </g>
+        );
+      })}
     </g>
   );
 }
@@ -692,6 +631,10 @@ function DesignFieldLayer({ pairs }: { pairs: DesignFieldPair[] }) {
         const hex = DESIGN_FIELD_HEX[p.status];
         const mismatch = p.status === "MISMATCH";
         const title = `${p.stableId} — ${DESIGN_FIELD_STATUS_LABEL[p.status]}`;
+        const design =
+          p.designXFt != null && p.designYFt != null ? feetToPlan(p.designXFt, p.designYFt) : null;
+        const field =
+          p.fieldXFt != null && p.fieldYFt != null ? feetToPlan(p.fieldXFt, p.fieldYFt) : null;
         return (
           <g
             key={`dvf-${p.stableId}`}
@@ -700,66 +643,63 @@ function DesignFieldLayer({ pairs }: { pairs: DesignFieldPair[] }) {
             data-delta-ft={p.deltaFt ?? ""}
           >
             <title>{title}</title>
-            {p.designXFt != null && p.designYFt != null ? (
+            {design ? (
               <rect
                 data-design-marker
-                x={p.designXFt - 0.55}
-                y={p.designYFt - 0.55}
-                width={1.1}
-                height={1.1}
+                x={design.x - u(0.55)}
+                y={design.y - u(0.55)}
+                width={u(1.1)}
+                height={u(1.1)}
                 fill="none"
                 stroke={hex}
-                strokeWidth={0.16}
-                strokeDasharray="0.35 0.22"
+                strokeWidth={u(0.16)}
+                strokeDasharray={`${u(0.35)} ${u(0.22)}`}
               />
             ) : null}
-            {p.fieldXFt != null && p.fieldYFt != null ? (
-              <g data-field-marker stroke={hex} strokeWidth={0.16}>
+            {field ? (
+              <g data-field-marker stroke={hex} strokeWidth={u(0.16)}>
                 <line
-                  x1={p.fieldXFt - 0.5}
-                  y1={p.fieldYFt - 0.5}
-                  x2={p.fieldXFt + 0.5}
-                  y2={p.fieldYFt + 0.5}
+                  x1={field.x - u(0.5)}
+                  y1={field.y - u(0.5)}
+                  x2={field.x + u(0.5)}
+                  y2={field.y + u(0.5)}
                 />
                 <line
-                  x1={p.fieldXFt + 0.5}
-                  y1={p.fieldYFt - 0.5}
-                  x2={p.fieldXFt - 0.5}
-                  y2={p.fieldYFt + 0.5}
+                  x1={field.x + u(0.5)}
+                  y1={field.y - u(0.5)}
+                  x2={field.x - u(0.5)}
+                  y2={field.y + u(0.5)}
                 />
               </g>
             ) : null}
-            {p.designXFt != null &&
-            p.designYFt != null &&
-            p.fieldXFt != null &&
-            p.fieldYFt != null ? (
+            {design && field ? (
               <line
                 data-design-field-leader
-                x1={p.designXFt}
-                y1={p.designYFt}
-                x2={p.fieldXFt}
-                y2={p.fieldYFt}
+                x1={design.x}
+                y1={design.y}
+                x2={field.x}
+                y2={field.y}
                 stroke={hex}
-                strokeWidth={mismatch ? 0.2 : 0.12}
-                strokeDasharray={mismatch ? undefined : "0.3 0.25"}
+                strokeWidth={mismatch ? u(0.2) : u(0.12)}
+                strokeDasharray={mismatch ? undefined : `${u(0.3)} ${u(0.25)}`}
               />
             ) : null}
-            {mismatch && p.fieldXFt != null && p.fieldYFt != null ? (
+            {mismatch && field ? (
               <>
                 <circle
                   data-mismatch-halo
-                  cx={p.fieldXFt}
-                  cy={p.fieldYFt}
-                  r={1.5}
+                  cx={field.x}
+                  cy={field.y}
+                  r={u(1.5)}
                   fill="none"
                   stroke={hex}
-                  strokeWidth={0.22}
+                  strokeWidth={u(0.22)}
                   strokeOpacity={0.85}
                 />
                 <text
-                  x={p.fieldXFt}
-                  y={p.fieldYFt - 1.9}
-                  fontSize={0.85}
+                  x={field.x}
+                  y={field.y - u(1.9)}
+                  fontSize={u(0.85)}
                   textAnchor="middle"
                   fill={hex}
                   fontFamily="ui-sans-serif, system-ui, sans-serif"
