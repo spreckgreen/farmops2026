@@ -169,7 +169,27 @@ export async function runPeerAuditSync(
 
 
   const limit = Math.max(1, Math.min(config.max_batches_per_run || 5, PEER_SYNC_MAX_BATCHES));
-  const peerRows = await fetchPeerBatchList(config.peer_base_url, options.peerToken);
+  let peerRows: Record<string, unknown>[];
+  try {
+    peerRows = await fetchPeerBatchList(config.peer_base_url, options.peerToken);
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    // A run that could not even list the peer's batches is a failed run, and it
+    // is logged as one before the error travels on to the circuit breaker.
+    await recordPeerSyncRun(db, {
+      started_at: ranAt,
+      trigger: options.trigger,
+      outcome: "failed",
+      peer_origin: config.peer_base_url,
+      error: message,
+    });
+    await db
+      .from("electrical_peer_sync_config")
+      .update({ last_run_at: ranAt, last_error: message })
+      .eq("id", config.id);
+    throw e;
+  }
+
 
   // Everything already known here is skipped: identity is the batch ID, and the
   // staging path additionally refuses a same-ID manifest with a different checksum.
