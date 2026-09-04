@@ -32,9 +32,12 @@
 #   e.g. postgresql://postgres:secret@localhost:5432/postgres
 #
 # psql resolution: host psql if installed, else a throwaway
-# `docker run --rm postgres:16-alpine psql` container. If localhost:5432 is a
-# Supavisor pooler (ENOIDENTIFIER), the script automatically runs psql inside
-# the self-hosted Compose `db` container and connects over its local socket.
+# `docker run --rm postgres:16-alpine psql` container. When localhost:5432 is a
+# Supavisor pooler (ENOIDENTIFIER), OR when nothing is published on the host at
+# all (the hardened stack keeps 5432/6543/8000/8443 internal-only, so psql says
+# "Connection refused"), the script automatically runs psql inside the
+# self-hosted Compose `db` container and connects over its local socket.
+
 #
 # Usage:
 #   ./scripts/apply-migrations.sh              # apply pending, reload PostgREST
@@ -193,27 +196,49 @@ run_migration_file() {
   run_sql_file "$1" -1
 }
 
-
 # A standard self-hosted stack often publishes Supavisor—not raw Postgres—on
 # localhost:5432. A direct postgres URL then fails with:
 #   (ENOIDENTIFIER) no tenant identifier provided
-# In that case use psql inside the Compose `db` service. The local Unix socket
-# bypasses the pooler and does not expose the database password in argv.
+#
+# A HARDENED stack (docker-compose.hardening.yml) publishes NOTHING on the host:
+# ports 5432/6543/8000/8443 are internal-only, so the same URL fails with:
+#   connection to server at "localhost" (127.0.0.1), port 5432 failed: Connection refused
+#
+# Both cases are normal, not misconfiguration: use psql INSIDE the Compose `db`
+# service. Its local Unix socket bypasses the pooler, works with no published
+# port, and keeps the database password out of argv.
 CONNECTION_LOG="$(mktemp -t bostead-db-connect.XXXXXX.log)"
+
+# True when the failure is "the host cannot reach a published port", which is the
+# expected state on a hardened stack.
+db_unreachable_on_host() {
+  grep -qiE 'connection refused|could not connect to server|no route to host|connection timed out|could not translate host name|network is unreachable|server closed the connection unexpectedly' "$CONNECTION_LOG"
+}
+db_is_pooler() {
+  grep -q 'ENOIDENTIFIER\|no tenant identifier provided' "$CONNECTION_LOG"
+}
+
+find_db_container() {
+  local c="${SUPABASE_DB_CONTAINER:-}"
+  [ -n "$c" ] || c="$(docker ps --filter 'label=com.docker.compose.service=db' --format '{{.ID}}' 2>/dev/null | head -1 || true)"
+  [ -n "$c" ] || c="$(docker ps --filter 'name=supabase-db' --format '{{.ID}}' 2>/dev/null | head -1 || true)"
+  printf '%s' "$c"
+}
+
 if ! run_sql -At -c "SELECT 1;" >"$CONNECTION_LOG" 2>&1; then
-  if grep -q 'ENOIDENTIFIER\|no tenant identifier provided' "$CONNECTION_LOG" && command -v docker >/dev/null 2>&1; then
-    DB_CONTAINER="${SUPABASE_DB_CONTAINER:-}"
-    if [ -z "$DB_CONTAINER" ]; then
-      DB_CONTAINER="$(docker ps --filter 'label=com.docker.compose.service=db' --format '{{.ID}}' 2>/dev/null | head -1 || true)"
+  if { db_is_pooler || db_unreachable_on_host; } && command -v docker >/dev/null 2>&1; then
+    if db_is_pooler; then
+      REASON="localhost:5432 is the pooler"
+    else
+      REASON="the database port is not published on the host (hardened stack)"
     fi
-    if [ -z "$DB_CONTAINER" ]; then
-      DB_CONTAINER="$(docker ps --filter 'name=supabase-db' --format '{{.ID}}' 2>/dev/null | head -1 || true)"
-    fi
+    DB_CONTAINER="$(find_db_container)"
     if [ -n "$DB_CONTAINER" ]; then
       PSQL=(docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres)
       PSQL_TARGET=()
       PSQL_MODE="container"
-      log "localhost:5432 is the pooler — using psql inside the self-hosted db container"
+      HOST_PSQL=0
+      log "$REASON — using psql inside the self-hosted db container"
       if ! run_sql -At -c "SELECT 1;" >"$CONNECTION_LOG" 2>&1; then
         err "Found the self-hosted db container, but its local PostgreSQL connection failed:"
         sed 's/^/    /' "$CONNECTION_LOG" >&2 || true
@@ -221,9 +246,10 @@ if ! run_sql -At -c "SELECT 1;" >"$CONNECTION_LOG" 2>&1; then
         exit 1
       fi
     else
-      err "localhost:5432 is the connection pooler, and no running Compose 'db' container was found."
-      err "  Start the self-hosted backend, or set its container explicitly:"
-      err "    SUPABASE_DB_CONTAINER=<database-container-name> ./scripts/apply-migrations.sh --adopt"
+      err "$REASON, and no running Compose 'db' container was found."
+      err "  Start the self-hosted backend (docker compose up -d in ../supabase-project),"
+      err "  or name its container explicitly:"
+      err "    SUPABASE_DB_CONTAINER=supabase-db ./scripts/apply-migrations.sh"
       rm -f "$CONNECTION_LOG"
       exit 1
     fi
@@ -235,6 +261,7 @@ if ! run_sql -At -c "SELECT 1;" >"$CONNECTION_LOG" 2>&1; then
   fi
 fi
 rm -f "$CONNECTION_LOG"
+
 
 # --- Ledger ------------------------------------------------------------------
 # Needs an owner-level role (the self-hosted `postgres` superuser). A pooled or
