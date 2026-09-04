@@ -186,10 +186,14 @@ describe("recorded column-name spellings", () => {
   });
 
   it("stops reporting a missing column for rows stored as left/right", () => {
-    const findings = validatePanelLayout(panel, [
-      { id: "r1", panel_uuid: "p1", side: "left", position: 1, breaker_number: 1, poles: 1 },
-      { id: "r2", panel_uuid: "p1", side: "right", position: 6, breaker_number: 12, poles: 1 },
-    ]);
+    const findings = validatePanelLayout({
+      panels: [panel],
+      positions: [
+        { id: "r1", panel_uuid: "p1", side: "left", position: 1, breaker_number: 1, poles: 1 },
+        { id: "r2", panel_uuid: "p1", side: "right", position: 6, breaker_number: 12, poles: 1 },
+      ],
+      exits: [],
+    });
     expect(findings.filter((f) => /no "?(left|right)"? column/i.test(f.message))).toHaveLength(0);
   });
 
