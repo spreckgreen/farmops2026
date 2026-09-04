@@ -95,15 +95,17 @@ function usePrintMode(): [PrintMode, (next: PrintMode) => void] {
 }
 
 /** Remembered on/off layer choice, so the map opens the way it was left. */
-function usePersistedFlag(key: string): [boolean, (next: boolean) => void] {
-  const [on, setOn] = useState(false);
+function usePersistedFlag(key: string, defaultOn = false): [boolean, (next: boolean) => void] {
+  const [on, setOn] = useState(defaultOn);
   useEffect(() => {
     try {
-      setOn(window.localStorage.getItem(key) === "1");
+      const saved = window.localStorage.getItem(key);
+      if (saved === "1" || saved === "0") setOn(saved === "1");
     } catch {
       // Storage unavailable; keep the default.
     }
   }, [key]);
+
   const apply = (next: boolean) => {
     setOn(next);
     try {
@@ -128,10 +130,14 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
   const [install, setInstall] = useState("ALL");
   const [verify, setVerify] = useState<"ALL" | VerificationStatus>("ALL");
   const [selected, setSelected] = useState<string | null>(null);
-  const [showLeds, setShowLeds] = useState(false);
+  // Active build: the planned overhead LED layer and the design-vs-field
+  // (planned vs verified) overlay are on by default, and the choice persists.
+  const [showLeds, setShowLeds] = usePersistedFlag("farmops.grid-map.proposed-leds", true);
   const [showDesignVsField, setShowDesignVsField] = usePersistedFlag(
     "farmops.grid-map.design-vs-field",
+    true,
   );
+
 
   const [printMode, setPrintMode] = usePrintMode();
   const [saving, setSaving] = useState(false);
@@ -391,7 +397,7 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
                 <span className="ml-2 mr-1 text-xs text-muted-foreground">Layers:</span>
                 <Chip
                   active={showLeds}
-                  onClick={() => setShowLeds((v) => !v)}
+                  onClick={() => setShowLeds(!showLeds)}
                   title="Proposed design layout only — not field verified and not tied to a record."
                 >
                   Overhead lighting — proposed (10)
@@ -401,7 +407,7 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
                   onClick={() => setShowDesignVsField(!showDesignVsField)}
                   title={`Overlay approved design X/Y against the latest verified field observation. Separations over ${DESIGN_FIELD_TOLERANCE_FT} ft are highlighted; nothing is changed.`}
                 >
-                  Design vs field ({designField.counts.MISMATCH} mismatch)
+                  Planned vs verified ({designField.counts.MISMATCH} mismatch)
                 </Chip>
               </div>
 
