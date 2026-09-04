@@ -60,3 +60,29 @@ export function checkCircuitGroupId(value: string): { ok: boolean; error?: strin
     error: `Required format ${CIRCUIT_GROUP_ID_SHAPE} — e.g. ${CIRCUIT_GROUP_ID_EXAMPLE}.`,
   };
 }
+
+/**
+ * The one sync path every surface uses to print a breaker.
+ *
+ * Returns the derived `PNL-<panel>-B<n>` reference when both the panel stable
+ * ID and a numeric breaker number are on record; otherwise it falls back to
+ * whatever positional identity IS recorded (side + physical position, then a
+ * bare breaker number) and finally to the caller's not-in-record sentinel.
+ * Nothing is invented, and the fallback is always distinguishable via `derived`.
+ */
+export function breakerDisplay(input: {
+  panel_id?: string | null;
+  breaker_number?: number | string | null;
+  side?: string | null;
+  position?: number | string | null;
+  notInRecord?: string;
+}): { reference: string | null; label: string; derived: boolean } {
+  const sentinel = input.notInRecord ?? "NOT IN RECORD";
+  const reference = breakerReference(input.panel_id, input.breaker_number);
+  if (reference) return { reference, label: reference, derived: true };
+  const side = String(input.side ?? "").trim();
+  const position = String(input.position ?? "").trim();
+  const positional = side || position ? `${side}${position}`.trim() : "";
+  const bare = String(input.breaker_number ?? "").trim();
+  return { reference: null, label: positional || bare || sentinel, derived: false };
+}
