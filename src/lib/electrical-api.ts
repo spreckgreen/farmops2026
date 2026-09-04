@@ -448,6 +448,32 @@ export const ELECTRICAL_API_ENDPOINTS: ApiEndpoint[] = [
     intended_use: "Single call that feeds the external document generator.",
   },
   {
+    method: "GET",
+    path: `${ELECTRICAL_API_BASE}/audit-batches`,
+    summary: "Field-audit batch metadata staged or applied on this instance.",
+    scope: "electrical:audit-batches:read",
+    access: "read",
+    rate_bucket: "read",
+    writes: false,
+    phase: 1,
+    activated: true,
+    intended_use: "Let a peer instance discover which audit batches exist and their status.",
+  },
+  {
+    method: "GET",
+    path: `${ELECTRICAL_API_BASE}/audit-batches/{batch_id}/manifest`,
+    summary:
+      "Export one stored field-audit manifest with its checksum, for preview-only staging on a peer instance.",
+    scope: "electrical:audit-batches:read",
+    access: "read",
+    rate_bucket: "read",
+    writes: false,
+    phase: 1,
+    activated: true,
+    intended_use:
+      "Keep a second FarmOps instance in sync: the importer stages a preview and still requires per-item owner approval.",
+  },
+  {
     method: "POST",
     path: `${ELECTRICAL_API_BASE}/relationships/preview`,
     summary: "Preview relationship changes. No writes. Not activated.",
@@ -1028,6 +1054,39 @@ export function buildOpenApiDocument(serverUrl?: string): Record<string, unknown
       get: operation(find("GET", `${ELECTRICAL_API_BASE}/documents/bundle`), {
         operationId: "electricalApiDocumentBundle",
         responses: { "200": json("Snapshot, QA and section manifest.", ref("DocumentBundle")) },
+      }),
+    },
+    [`${ELECTRICAL_API_BASE}/audit-batches`]: {
+      get: operation(find("GET", `${ELECTRICAL_API_BASE}/audit-batches`), {
+        operationId: "electricalApiAuditBatches",
+        responses: {
+          "200": json("Batch metadata for this instance.", {
+            type: "object",
+            additionalProperties: true,
+          }),
+        },
+      }),
+    },
+    [`${ELECTRICAL_API_BASE}/audit-batches/{batch_id}/manifest`]: {
+      get: operation(find("GET", `${ELECTRICAL_API_BASE}/audit-batches/{batch_id}/manifest`), {
+        operationId: "electricalApiAuditBatchManifest",
+        parameters: [
+          requestIdHeader,
+          {
+            name: "batch_id",
+            in: "path",
+            required: true,
+            description: "Batch identifier, e.g. FA-FS-2026-09-03-PM.",
+            schema: { type: "string", minLength: 3, maxLength: 128 },
+          },
+        ],
+        responses: {
+          "200": json("Stored manifest, checksums and staging contract.", {
+            type: "object",
+            additionalProperties: true,
+          }),
+          "404": json("No batch with that identifier.", ref("Error")),
+        },
       }),
     },
     [`${ELECTRICAL_API_BASE}/relationships/preview`]: {
