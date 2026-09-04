@@ -69,7 +69,9 @@ function navGroups(): NavGroup[] {
     {
       label: "Field work",
       entries: [
+        { label: "Audit sheet", to: "/electrical/audit-sheet" },
         { label: "Install progress", to: "/electrical/install-progress" },
+
         { label: "Labels", to: "/electrical/labels" },
         { label: "Documents", to: "/electrical/documents" },
         { label: "Nameplate scan", to: "/electrical/nameplate-scan", section: "nameplate_scan" },
