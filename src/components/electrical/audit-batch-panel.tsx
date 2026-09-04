@@ -12,8 +12,10 @@ import { toast } from "sonner";
 import {
   FS_NW_AUDITED_BREAKERS,
   FS_NW_AUDIT_R1_BATCH_ID,
+  FS_NW_LINKS_BATCH_ID,
   fsNwAuditManifestR1Text,
 } from "@/lib/electrical-fs-nw-audit-r1";
+import { resolveFsNwAuditedLoadLinks } from "@/lib/electrical-fs-nw-links.functions";
 import {
   buildPeerRegistration,
   generatePeerToken,
@@ -145,6 +147,7 @@ export function AuditBatchPanel() {
   const runCompensate = useServerFn(compensatingAuditBatchManifest);
   const list = useServerFn(listElectricalAuditBatches);
   const runPeerPull = useServerFn(pullPeerAuditBatch);
+  const resolveLinks = useServerFn(resolveFsNwAuditedLoadLinks);
 
   const [manifestText, setManifestText] = useState("");
   const [payload, setPayload] = useState<AuditBatchPreview | null>(null);
@@ -177,6 +180,31 @@ export function AuditBatchPanel() {
     onSuccess: (data) => {
       adopt(data as AuditBatchPreview);
       batches.refetch();
+    },
+    onError: (e) => setError(String(e)),
+  });
+
+  // Build the follow-up links batch from the approved circuit groups. Read
+  // only: it fills the import box, and every item still needs approval.
+  const linkBuildMutation = useMutation({
+    mutationFn: async () => await resolveLinks({}),
+    onSuccess: (r) => {
+      setManifestText(r.manifest_text);
+      setError(null);
+      if (!r.resolvedGroups.length) {
+        toast.error(
+          `No approved circuit group found for the audited PNL-FS-NW breakers yet. Approve and apply ${FS_NW_AUDIT_R1_BATCH_ID} first; the held items explain each gap.`,
+        );
+        return;
+      }
+      const parts = [
+        `${r.linkCount} load link(s) using ${r.resolvedGroups.length} approved CG-FS-### group(s)`,
+      ];
+      if (r.skippedAlreadyLinked.length) parts.push(`${r.skippedAlreadyLinked.length} already linked`);
+      if (r.loadsNotFound.length) parts.push(`${r.loadsNotFound.length} load(s) not found (held)`);
+      if (r.groupsNotApproved.length)
+        parts.push(`${r.groupsNotApproved.length} breaker(s) without an approved group (held)`);
+      toast.success(`${FS_NW_LINKS_BATCH_ID} built — ${parts.join(", ")}. Import to preview; nothing is written yet.`);
     },
     onError: (e) => setError(String(e)),
   });
@@ -320,6 +348,16 @@ export function AuditBatchPanel() {
               }}
             >
               Load {FS_NW_AUDIT_R1_BATCH_ID}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={linkBuildMutation.isPending}
+              onClick={() => linkBuildMutation.mutate()}
+              title="Reads the approved PNL-FS-NW circuit groups and the existing FS-### loads, then builds the links-only follow-up batch."
+            >
+              <RefreshCw className="mr-1 h-4 w-4" />
+              Build load links from approved groups
             </Button>
             {payload ? (
               <Button
