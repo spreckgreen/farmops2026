@@ -74,6 +74,7 @@ function navGroups(): NavGroup[] {
         { label: "Documents", to: "/electrical/documents" },
         { label: "Nameplate scan", to: "/electrical/nameplate-scan", section: "nameplate_scan" },
         { label: "Change log", to: "/electrical/changes", section: "changes" },
+        { label: "Standards", to: "/electrical/standards" },
       ],
     },
     {
@@ -83,9 +84,9 @@ function navGroups(): NavGroup[] {
         { label: "Parallel validation", to: "/electrical/validation", section: "validation" },
         { label: "Load adjudication", to: "/electrical/adjudication", section: "adjudication" },
         { label: "SOR status", to: "/electrical/sor", section: "sor" },
-        { label: "Standards", to: "/electrical/standards" },
       ],
     },
+
     {
       label: "Data & migration",
       entries: [
