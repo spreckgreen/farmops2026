@@ -315,7 +315,7 @@ export function AuditBatchPanel() {
               onClick={() => {
                 setManifestText(fsNwAuditManifestR1Text());
                 toast.success(
-                  `${FS_NW_AUDIT_R1_BATCH_ID} loaded — ${FS_NW_AUDITED_BREAKERS.length} audited breakers with automatic CG-FS-### allocation. Import to preview; nothing is written yet.`,
+                  `${FS_NW_AUDIT_R1_BATCH_ID} loaded — ${FS_NW_AUDITED_BREAKERS.length} circuit groups, ${FS_NW_AUDITED_BREAKERS.length} breaker positions, 20 audited load links and 1 hold (35 items). Import to preview; nothing is written yet.`,
                 );
               }}
             >
