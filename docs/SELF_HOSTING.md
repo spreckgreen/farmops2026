@@ -384,6 +384,9 @@ banner at *Admin → Self-host settings*.
 
 #### Automatic peer pull on a self-hosted host
 
+Full end-to-end runbook (service accounts, first sync, audit re-run):
+[`PEER_SYNC_SETUP.md`](PEER_SYNC_SETUP.md).
+
 Self-hosted Postgres has no `pg_cron`, so the in-database schedule is skipped and
 the trigger has to come from the host. Install it once:
 
