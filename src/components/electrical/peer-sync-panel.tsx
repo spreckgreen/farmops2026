@@ -16,6 +16,21 @@ import {
   savePeerSyncConfig,
 } from "@/lib/electrical-peer-sync.functions";
 
+type Outcome = "success" | "partial" | "failed" | "skipped";
+
+function outcomeLabel(outcome: Outcome): string {
+  if (outcome === "success") return "clean";
+  if (outcome === "partial") return "partly clean";
+  if (outcome === "failed") return "failed";
+  return "nothing to do";
+}
+
+function outcomeVariant(outcome: Outcome): "secondary" | "destructive" | "outline" {
+  if (outcome === "success") return "secondary";
+  if (outcome === "failed" || outcome === "partial") return "destructive";
+  return "outline";
+}
+
 export function PeerSyncPanel() {
   const readState = useServerFn(getPeerSyncState);
   const save = useServerFn(savePeerSyncConfig);
@@ -65,6 +80,10 @@ export function PeerSyncPanel() {
 
   const job = state.data?.job ?? null;
   const config = state.data?.config ?? null;
+  const runs = state.data?.runs ?? [];
+  // The list arrives newest first, so the first match in each case is the latest.
+  const lastSuccess = runs.find((r) => r.outcome === "success") ?? null;
+  const lastError = runs.find((r) => r.outcome === "failed" || r.outcome === "partial") ?? null;
 
   return (
     <PersistedSection
@@ -163,6 +182,83 @@ export function PeerSyncPanel() {
             No self-hosted instance is configured yet.
           </p>
         )}
+
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-xs font-medium">Recent runs</p>
+            {lastSuccess ? (
+              <Badge variant="secondary">
+                last clean {new Date(lastSuccess.started_at).toLocaleString()}
+              </Badge>
+            ) : (
+              <Badge variant="outline">no clean run recorded</Badge>
+            )}
+            {lastError ? (
+              <Badge variant="destructive">
+                last problem {new Date(lastError.started_at).toLocaleString()}
+              </Badge>
+            ) : (
+              <Badge variant="outline">no problem recorded</Badge>
+            )}
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-6 px-2 text-xs"
+              disabled={state.isFetching}
+              onClick={() => state.refetch()}
+            >
+              Refresh
+            </Button>
+          </div>
+          {lastError?.error ? (
+            <p className="text-xs text-destructive">
+              Most recent problem: {lastError.error}
+            </p>
+          ) : null}
+          {runs.length === 0 ? (
+            <p className="text-xs text-muted-foreground">
+              Nothing has run yet. Entries appear here every time the automatic pull runs,
+              including the runs that found nothing to do.
+            </p>
+          ) : (
+            <div className="overflow-x-auto rounded-md border border-border">
+              <table className="w-full text-xs">
+                <thead className="bg-muted/50 text-left">
+                  <tr>
+                    <th className="px-2 py-1 font-medium">When</th>
+                    <th className="px-2 py-1 font-medium">Result</th>
+                    <th className="px-2 py-1 font-medium">Staged</th>
+                    <th className="px-2 py-1 font-medium">Failed</th>
+                    <th className="px-2 py-1 font-medium">Seen</th>
+                    <th className="px-2 py-1 font-medium">Took</th>
+                    <th className="px-2 py-1 font-medium">Detail</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {runs.map((run) => (
+                    <tr key={run.id} className="border-t border-border align-top">
+                      <td className="px-2 py-1 whitespace-nowrap">
+                        {new Date(run.started_at).toLocaleString()}
+                      </td>
+                      <td className="px-2 py-1">
+                        <Badge variant={outcomeVariant(run.outcome)}>{outcomeLabel(run.outcome)}</Badge>
+                      </td>
+                      <td className="px-2 py-1">{run.staged}</td>
+                      <td className="px-2 py-1">{run.failed}</td>
+                      <td className="px-2 py-1">{run.peer_batches_seen}</td>
+                      <td className="px-2 py-1 whitespace-nowrap">
+                        {run.duration_ms == null ? "—" : `${(run.duration_ms / 1000).toFixed(1)}s`}
+                      </td>
+                      <td className="px-2 py-1 text-muted-foreground">
+                        {run.error ?? run.skipped_reason ?? (run.capped ? "hit the per-run limit" : "—")}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </div>
     </PersistedSection>
   );
