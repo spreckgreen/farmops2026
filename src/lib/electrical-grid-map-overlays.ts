@@ -253,7 +253,9 @@ export function recentObserved(assets: OperationalAsset[], limit = 12): Observed
     const verified = iso(a.verifiedAt);
     const staged = iso(a.pendingObservation?.observedAt);
     const updated = iso(a.updatedAt);
-    if (verified && verificationOf(a.verification) === "FIELD_VERIFIED") {
+    const v = verificationOf(a.verification);
+    const fieldVerified = v === "VERIFIED_AS_INSTALLED" || v === "UPDATED_FROM_FIELD_OBSERVATION";
+    if (verified && fieldVerified) {
       out.push({
         stableId: a.stableId,
         observedAt: verified,
