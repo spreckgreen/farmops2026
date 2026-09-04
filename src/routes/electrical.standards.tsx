@@ -9,6 +9,14 @@ import {
   STABLE_ID_REFERENCE,
 } from "@/lib/electrical-standards";
 import { INFRASTRUCTURE_ID_STANDARDS } from "@/lib/electrical-infrastructure-standards";
+import {
+  BREAKER_REFERENCE_EXAMPLE,
+  BREAKER_REFERENCE_SHAPE,
+  CIRCUIT_GROUP_ID_EXAMPLE,
+  CIRCUIT_GROUP_ID_SHAPE,
+  breakerRelationshipLabel,
+} from "@/lib/electrical-breaker-reference";
+
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
