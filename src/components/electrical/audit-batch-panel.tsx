@@ -12,10 +12,13 @@ import { toast } from "sonner";
 import {
   FS_NW_AUDITED_BREAKERS,
   FS_NW_AUDIT_R1_BATCH_ID,
+  FS_NW_AUDIT_R2_BATCH_ID,
   FS_NW_LINKS_BATCH_ID,
-  fsNwAuditManifestR1Text,
+  FS_NW_R1_REJECTION_REASON,
+  fsNwAuditManifestR2Text,
 } from "@/lib/electrical-fs-nw-audit-r1";
 import { resolveFsNwAuditedLoadLinks } from "@/lib/electrical-fs-nw-links.functions";
+
 import {
   buildPeerRegistration,
   generatePeerToken,
@@ -54,6 +57,8 @@ import {
   pullPeerAuditBatch,
   listElectricalAuditBatches,
   previewElectricalAuditBatch,
+  rejectElectricalAuditBatch,
+
   setElectricalAuditItemApproval,
   type AuditBatchPreview,
 } from "@/lib/electrical-audit-batch.functions";
@@ -149,6 +154,8 @@ export function AuditBatchPanel() {
   const list = useServerFn(listElectricalAuditBatches);
   const runPeerPull = useServerFn(pullPeerAuditBatch);
   const resolveLinks = useServerFn(resolveFsNwAuditedLoadLinks);
+  const runReject = useServerFn(rejectElectricalAuditBatch);
+
 
   const [manifestText, setManifestText] = useState("");
   const [payload, setPayload] = useState<AuditBatchPreview | null>(null);
@@ -256,6 +263,22 @@ export function AuditBatchPanel() {
     onError: (e) => setError(String(e)),
   });
 
+  const rejectMutation = useMutation({
+    mutationFn: async (input: { batch_id: string; reason: string }) =>
+      await runReject({ data: input }),
+    onSuccess: (r: { batch_id: string; already: boolean }) => {
+      setError(null);
+      toast.success(
+        r.already
+          ? `${r.batch_id} was already rejected. Its stored manifest and fingerprint are unchanged.`
+          : `${r.batch_id} marked rejected. The stored manifest and its fingerprint are unchanged.`,
+      );
+      batches.refetch();
+      if (payload?.batch.batch_id === r.batch_id) previewMutation.mutate(r.batch_id);
+    },
+    onError: (e) => setError(String(e)),
+  });
+
   const items = payload?.items ?? [];
   const shown = useMemo(
     () => (filter === "all" ? items : items.filter((i) => i.disposition === filter)),
@@ -265,6 +288,31 @@ export function AuditBatchPanel() {
     () => items.filter((i) => selectable(i.disposition)).map((i) => i.item_key),
     [items],
   );
+
+  // A built-in batch that already carries its own load-link items must never be
+  // followed by the links-only builder: that would stage a duplicate -LINKS batch
+  // for the same relationships.
+  const manifestAlreadyHasLoadLinks = useMemo(() => {
+    const hasLinks = (arr: unknown) =>
+      Array.isArray(arr) &&
+      arr.some(
+        (i) =>
+          i && typeof i === "object" &&
+          (i as Record<string, unknown>)["operation"] === "LINK" &&
+          (i as Record<string, unknown>)["entity_kind"] === "load",
+      );
+    const text = manifestText.trim();
+    if (text.startsWith("{")) {
+      try {
+        const parsed = JSON.parse(text) as { items?: unknown };
+        if (hasLinks(parsed.items)) return true;
+      } catch {
+        /* incomplete paste — fall through to the staged preview */
+      }
+    }
+    return items.some((i) => i.operation === "LINK" && i.entity_kind === "load");
+  }, [manifestText, items]);
+
 
   const persistApproval = async (keys: string[], value: boolean) => {
     if (!payload || !keys.length) return;
@@ -342,24 +390,34 @@ export function AuditBatchPanel() {
               size="sm"
               variant="outline"
               onClick={() => {
-                setManifestText(fsNwAuditManifestR1Text());
+                setManifestText(fsNwAuditManifestR2Text());
                 toast.success(
-                  `${FS_NW_AUDIT_R1_BATCH_ID} loaded — ${FS_NW_AUDITED_BREAKERS.length} circuit groups, ${FS_NW_AUDITED_BREAKERS.length} breaker positions, 20 audited load links and 1 hold (35 items). Import to preview; nothing is written yet.`,
+                  `${FS_NW_AUDIT_R2_BATCH_ID} loaded — ${FS_NW_AUDITED_BREAKERS.length} circuit groups, ${FS_NW_AUDITED_BREAKERS.length} breaker positions, 20 relationship-only load links and 1 hold (35 items). Supersedes ${FS_NW_AUDIT_R1_BATCH_ID}; import to preview, nothing is written yet.`,
                 );
               }}
             >
-              Load {FS_NW_AUDIT_R1_BATCH_ID}
+              Load {FS_NW_AUDIT_R2_BATCH_ID}
             </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={linkBuildMutation.isPending}
-              onClick={() => linkBuildMutation.mutate()}
-              title="Reads the approved PNL-FS-NW circuit groups and the existing FS-### loads, then builds the links-only follow-up batch."
-            >
-              <RefreshCw className="mr-1 h-4 w-4" />
-              Build load links from approved groups
-            </Button>
+            {manifestAlreadyHasLoadLinks ? (
+              <p className="w-full text-xs text-muted-foreground">
+                This batch already contains its audited load links, so the links-only follow-up
+                builder is not offered — it would stage a duplicate{" "}
+                <span className="font-mono">{FS_NW_LINKS_BATCH_ID}</span> for the same
+                relationships.
+              </p>
+            ) : (
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={linkBuildMutation.isPending}
+                onClick={() => linkBuildMutation.mutate()}
+                title="Reads the approved PNL-FS-NW circuit groups and the existing FS-### loads, then builds the links-only follow-up batch."
+              >
+                <RefreshCw className="mr-1 h-4 w-4" />
+                Build load links from approved groups
+              </Button>
+            )}
+
             {payload ? (
               <Button
                 size="sm"
@@ -492,20 +550,46 @@ export function AuditBatchPanel() {
       >
         <div className="space-y-1 text-sm">
           {(batches.data ?? []).map((b) => (
-            <button
+            <div
               key={b.id}
-              type="button"
-              className="flex w-full flex-wrap items-center gap-2 rounded-md px-2 py-1 text-left hover:bg-accent"
-              onClick={() => previewMutation.mutate(b.batch_id)}
+              className="flex w-full flex-wrap items-center gap-2 rounded-md px-2 py-1 hover:bg-accent"
             >
-              <span className="font-mono text-xs">{b.batch_id}</span>
-              <span className="text-muted-foreground">{b.title}</span>
-              <Badge variant="outline">{b.status}</Badge>
-              {b.observed_date ? (
-                <span className="text-xs text-muted-foreground">{b.observed_date}</span>
+              <button
+                type="button"
+                className="flex flex-1 flex-wrap items-center gap-2 text-left"
+                onClick={() => previewMutation.mutate(b.batch_id)}
+              >
+                <span className="font-mono text-xs">{b.batch_id}</span>
+                <span className="text-muted-foreground">{b.title}</span>
+                <Badge variant="outline">{b.status}</Badge>
+                {b.observed_date ? (
+                  <span className="text-xs text-muted-foreground">{b.observed_date}</span>
+                ) : null}
+              </button>
+              {["draft", "validated", "approved"].includes(b.status) ? (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={rejectMutation.isPending}
+                  title="Marks this stored batch rejected. The manifest and its fingerprint are left unchanged; nothing is written or reversed."
+                  onClick={() => {
+                    const suggested =
+                      b.batch_id === FS_NW_AUDIT_R1_BATCH_ID ? FS_NW_R1_REJECTION_REASON : "";
+                    const reason = window.prompt(
+                      `Reject ${b.batch_id} without applying it. Reason:`,
+                      suggested,
+                    );
+                    if (reason && reason.trim().length >= 5) {
+                      rejectMutation.mutate({ batch_id: b.batch_id, reason: reason.trim() });
+                    }
+                  }}
+                >
+                  Reject
+                </Button>
               ) : null}
-            </button>
+            </div>
           ))}
+
           {!batches.data?.length ? (
             <p className="text-xs text-muted-foreground">No audit batches imported yet.</p>
           ) : null}

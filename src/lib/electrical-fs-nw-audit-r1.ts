@@ -315,6 +315,61 @@ export function fsNwAuditManifestR1Text(options: BuildOptions = {}): string {
 }
 
 /* ------------------------------------------------------------------ *
+ * R2 — the relationship-only correction.
+ *
+ * R1 is already STORED as `validated` on the self-hosted instance under its
+ * original fingerprint. A stored manifest is immutable: its batch ID may never
+ * be reused with different content, so the corrected manifest is published as a
+ * NEW batch ID. R1 stays byte-for-byte as imported and is simply marked
+ * rejected ("superseded") because it was never applied — R2 is therefore a
+ * replacement, NOT a compensating batch (there is nothing to reverse).
+ * ------------------------------------------------------------------ */
+
+export const FS_NW_AUDIT_R2_BATCH_ID = "FA-FS-2026-09-03-PM-R2";
+export const FS_NW_AUDIT_R2_SUPERSEDES = FS_NW_AUDIT_R1_BATCH_ID;
+export const FS_NW_R1_REJECTION_REASON =
+  `Superseded before application by ${FS_NW_AUDIT_R2_BATCH_ID}`;
+
+/**
+ * Build FA-FS-2026-09-03-PM-R2 — identical audited content to R1 with the
+ * relationship-only load links, published under its own batch ID and its own
+ * fingerprint. Deterministic: byte-stable for a given set of options.
+ */
+export function buildFsNwAuditManifestR2(options: BuildOptions = {}): AuditBatchManifest {
+  const base = buildFsNwAuditManifestR1(options);
+  return {
+    ...base,
+    batch_id: FS_NW_AUDIT_R2_BATCH_ID,
+    title: "Farm Shop PNL-FS-NW breaker audit — 03 Sep 2026 PM (R2)",
+    scope:
+      `Establishes the 7 audited PNL-FS-NW breaker positions, allocates a permanent CG-FS-### ` +
+      `identity per circuit, links each position via circuit_group_uuid and records 20 observed ` +
+      `breaker-to-load links (relationship-only: circuit_group_uuid is the one column they change). ` +
+      `1 hold: second load on B29 at F9 / Post 06SE unidentified. Supersedes ` +
+      `${FS_NW_AUDIT_R2_SUPERSEDES}, never applied.`,
+
+
+    source: `revision-of:${FS_NW_AUDIT_R2_SUPERSEDES}`,
+    // Never a compensating batch: R1 wrote nothing, so there is nothing to reverse.
+    compensates_batch_id: null,
+  };
+}
+
+export function fsNwAuditManifestR2Text(options: BuildOptions = {}): string {
+  return JSON.stringify(buildFsNwAuditManifestR2(options), null, 2);
+}
+
+/**
+ * True when a manifest already carries its audited load-link items, so the
+ * separate "build load links from approved groups" follow-up would only produce
+ * a duplicate batch.
+ */
+export function manifestContainsLoadLinks(manifest: AuditBatchManifest): boolean {
+  return manifest.items.some((i) => i.operation === "LINK" && i.entity_kind === "load");
+}
+
+
+/* ------------------------------------------------------------------ *
  * Follow-up links batch — built AFTER the seven circuit groups are
  * approved and applied, so every LINK item can reference the real
  * permanent CG-FS-### identity instead of an AUTO placeholder.
