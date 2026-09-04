@@ -403,6 +403,58 @@ export const importElectricalAuditBatch = createServerFn({ method: "POST" })
   );
 
 /* ------------------------------------------------------------------ *
+ * Reject — closes out a stored batch that will never be applied (for
+ * example, superseded by a corrected revision). The stored manifest and
+ * its fingerprint are left untouched: only the batch status and the
+ * recorded reason change, so the original import stays auditable.
+ * ------------------------------------------------------------------ */
+
+export const rejectElectricalAuditBatch = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        batch_id: z.string().min(3).max(120),
+        reason: z.string().min(5).max(500),
+      })
+      .parse(d),
+  )
+  .handler(async ({ context, data }) => {
+    await requireElectricalAccess(context.supabase, context.userId, "write");
+    await requireAdminRole(context.supabase, context.userId);
+    const db = context.supabase as unknown as LooseDb;
+
+    const batchRow = await loadBatch(db, data.batch_id);
+    const status = s(batchRow["status"]);
+    if (["applied", "partially_applied"].includes(status)) {
+      throw new Error(
+        `Batch ${data.batch_id} is ${status}; an applied batch is reversed with a compensating batch, never rejected.`,
+      );
+    }
+    if (status === "rejected") {
+      return { ok: true as const, batch_id: data.batch_id, status, already: true as const };
+    }
+
+    const { error } = await db
+      .from(BATCHES)
+      .update({ status: "rejected", approval_reason: data.reason })
+      .eq("id", String(batchRow["id"]));
+    if (error) throw new Error(error.message);
+
+    await recordElectricalChange(context.supabase, context.userId, {
+      section: AUDIT_SECTION,
+      action: "batch_rejected",
+      entityKind: "audit_batch",
+      entityRef: data.batch_id,
+      summary: `${data.batch_id} rejected without application — ${data.reason}`,
+      changes: [{ column: "status", before: status, after: "rejected" }],
+    });
+
+    return { ok: true as const, batch_id: data.batch_id, status: "rejected", already: false as const };
+  });
+
+
+/* ------------------------------------------------------------------ *
  * Peer-instance pull — stages a manifest exported by another FarmOps
  * deployment through GET /api/v1/electrical/audit-batches/{id}/manifest.
  * One-way, preview only: the pulled batch lands as `validated`, with no
