@@ -154,6 +154,8 @@ export function AuditBatchPanel() {
   const list = useServerFn(listElectricalAuditBatches);
   const runPeerPull = useServerFn(pullPeerAuditBatch);
   const resolveLinks = useServerFn(resolveFsNwAuditedLoadLinks);
+  const runReject = useServerFn(rejectElectricalAuditBatch);
+
 
   const [manifestText, setManifestText] = useState("");
   const [payload, setPayload] = useState<AuditBatchPreview | null>(null);
