@@ -192,7 +192,131 @@ export function postObservationFeet(
   };
 }
 
-export const POST_GEOMETRY_REVIEW_NOTE =
-  POST_GEOMETRY_CONFIRMED
-    ? "Perimeter post geometry is confirmed and post callouts are plotted from it."
-    : "Perimeter post geometry is PROPOSED — derived from the corrected 60 x 40 ft outline and the frozen clockwise post sequence. Until it is confirmed, post callouts are listed for review and are never used to plot a record.";
+export interface PostGeometryCheck {
+  ref: string;
+  wall: PostWall;
+  corner: boolean;
+  xFt: number;
+  yFt: number;
+  gridCell: string;
+  /** Distance from the post to the nearest outline edge, in feet. 0 = on the outline. */
+  offOutlineFt: number;
+  /** Spacing from the previous post in the frozen clockwise sequence, in feet. */
+  spacingFromPreviousFt: number;
+  expectedSpacingFt: number;
+  ok: boolean;
+  issues: string[];
+}
+
+export interface PostGeometryAudit {
+  version: string;
+  confirmed: boolean;
+  outline: { widthFt: number; depthFt: number; perimeterFt: number };
+  postCount: number;
+  expectedPostCount: number;
+  ringLengthFt: number;
+  checks: PostGeometryCheck[];
+  issues: string[];
+  ok: boolean;
+}
+
+const EPS = 0.01;
+const near = (a: number, b: number) => Math.abs(a - b) <= EPS;
+
+/**
+ * Deterministic self-check of the 26 post callouts against the frozen 60 x 40 ft
+ * outline: every post on the perimeter, corners on the recorded corner points,
+ * even spacing per wall, and a closed ring of exactly the perimeter length.
+ * Read-only — it never writes and never adjusts a coordinate.
+ */
+export function auditPostGeometry(): PostGeometryAudit {
+  const posts = PROPOSED_POST_POSITIONS;
+  const perimeterFt = 2 * (SHOP_WIDTH_FT + SHOP_DEPTH_FT);
+  const expectedByWall: Record<PostWall, number> = {
+    east: SHOP_DEPTH_FT / 5,
+    south: SHOP_WIDTH_FT / 8,
+    west: SHOP_DEPTH_FT / 5,
+    north: SHOP_WIDTH_FT / 8,
+  };
+  const issues: string[] = [];
+  let ringLengthFt = 0;
+
+  const checks: PostGeometryCheck[] = posts.map((p, i) => {
+    const prev = posts[(i - 1 + posts.length) % posts.length]!;
+    const spacing = round(Math.hypot(p.xFt - prev.xFt, p.yFt - prev.yFt));
+    ringLengthFt = round(ringLengthFt + spacing);
+    const offOutlineFt = round(
+      Math.min(
+        Math.abs(p.xFt - 0),
+        Math.abs(p.xFt - SHOP_WIDTH_FT),
+        Math.abs(p.yFt - 0),
+        Math.abs(p.yFt - SHOP_DEPTH_FT),
+      ),
+    );
+    const rowIssues: string[] = [];
+    if (!near(offOutlineFt, 0)) rowIssues.push(`Not on the frozen outline (off by ${offOutlineFt} ft).`);
+    if (p.xFt < -EPS || p.xFt > SHOP_WIDTH_FT + EPS || p.yFt < -EPS || p.yFt > SHOP_DEPTH_FT + EPS) {
+      rowIssues.push("Outside the 60 x 40 ft building area.");
+    }
+    if (p.corner) {
+      const c = CORNER_XY[p.ref];
+      if (!c) rowIssues.push("Listed as a corner but has no recorded corner coordinate.");
+      else if (!near(p.xFt, c.xFt) || !near(p.yFt, c.yFt)) {
+        rowIssues.push(`Corner post is not on its recorded corner (${c.xFt}, ${c.yFt}).`);
+      }
+    }
+    // The wall a post enters (its first post) legitimately continues the previous
+    // wall's spacing, so spacing is only compared inside a wall.
+    const expected = expectedByWall[p.wall];
+    const sameWallAsPrev = prev.wall === p.wall || prev.corner;
+    if (sameWallAsPrev && !near(spacing, expected)) {
+      rowIssues.push(
+        `Spacing from ${prev.ref} is ${spacing} ft; the ${p.wall} wall is evenly spaced at ${round(expected)} ft.`,
+      );
+    }
+    return {
+      ref: p.ref,
+      wall: p.wall,
+      corner: p.corner,
+      xFt: p.xFt,
+      yFt: p.yFt,
+      gridCell: p.gridCell,
+      offOutlineFt,
+      spacingFromPreviousFt: spacing,
+      expectedSpacingFt: round(expected),
+      ok: rowIssues.length === 0,
+      issues: rowIssues,
+    };
+  });
+
+  if (posts.length !== (POLE_SEQUENCE as readonly string[]).length) {
+    issues.push(
+      `Positioned ${posts.length} posts but the frozen sequence names ${(POLE_SEQUENCE as readonly string[]).length}.`,
+    );
+  }
+  if (!near(ringLengthFt, perimeterFt)) {
+    issues.push(`The post ring measures ${ringLengthFt} ft; the frozen perimeter is ${perimeterFt} ft.`);
+  }
+  for (const ref of POLE_CORNERS) {
+    if (!checks.some((c) => c.ref === ref && c.corner)) issues.push(`Recorded corner ${ref} is missing.`);
+  }
+
+  return {
+    version: POST_GEOMETRY_VERSION,
+    confirmed: POST_GEOMETRY_CONFIRMED,
+    outline: { widthFt: SHOP_WIDTH_FT, depthFt: SHOP_DEPTH_FT, perimeterFt },
+    postCount: posts.length,
+    expectedPostCount: (POLE_SEQUENCE as readonly string[]).length,
+    ringLengthFt,
+    checks,
+    issues,
+    ok: issues.length === 0 && checks.every((c) => c.ok),
+  };
+}
+
+export const POST_GEOMETRY_AUDIT: PostGeometryAudit = auditPostGeometry();
+
+export const POST_GEOMETRY_REVIEW_NOTE = POST_GEOMETRY_CONFIRMED
+  ? "Perimeter post geometry is CONFIRMED against the frozen corrected 60 x 40 ft outline: all 26 posts lie on the perimeter, the four recorded corners match, each wall is evenly spaced (8.0 ft east/west, 7.5 ft north/south) and the ring closes at 200 ft. Confirmation is geometric only — post callouts plot at nearest-post (or interval) precision and never outrank a measured field position."
+  : "Perimeter post geometry is PROPOSED — derived from the corrected 60 x 40 ft outline and the frozen clockwise post sequence. Until it is confirmed, post callouts are listed for review and are never used to plot a record.";
+
