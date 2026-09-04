@@ -328,6 +328,9 @@ export const AUDIT_ENTITY_TARGETS: Record<AuditEntityKind, EntityTarget> = {
     idKind: "circuit_group",
     writable: [
       "panel_uuid",
+      // Observed circuit label (blue tape / panel schedule text). It is a field
+      // observation, never part of the permanent CG-<site>-### identity.
+      "description",
       "breaker_number",
       "breaker_position",
       "circuit_rating_amps",
