@@ -628,13 +628,28 @@ function holdResult(
   };
 }
 
+/**
+ * Append `addition` to `existing` notes unless it is already present.
+ * Never replaces text the manifest did not ask to change.
+ */
+export function mergeNotes(existing: string | null | undefined, addition: string): string {
+  const base = (existing ?? "").trim();
+  const add = addition.trim();
+  if (!add) return base;
+  if (!base) return add;
+  if (base.toLowerCase().includes(add.toLowerCase())) return base;
+  return `${base} ${add}`;
+}
+
 /** Build the column patch a field observation proposes, with its messages. */
 export function buildPatch(
   item: AuditBatchItemInput,
+  before?: JsonObject | null,
 ): { patch: Record<string, unknown>; messages: ValidationMessage[] } {
   const messages: ValidationMessage[] = [];
   const allowed = new Set(fieldsAllowed(item.entity_kind, item.observation_class));
   const patch: Record<string, unknown> = {};
+
 
   for (const [k, v] of Object.entries(item.fields ?? {})) {
     if (!allowed.has(k)) {
