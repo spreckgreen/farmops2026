@@ -19,10 +19,15 @@ import {
   AUDIT_BATCH_GATE_VERSION,
   AUDIT_BATCH_SCHEMA_VERSION,
   AUDIT_ENTITY_TARGETS,
+  assignProposedCircuitGroupIds,
+  buildManifestGraph,
   classifyItem,
   compensatingManifest,
+  isPendingRef,
   manifestChecksum,
+  orderForApply,
   parseManifest,
+  pendingRefItemKey,
   summarize,
   type AuditBatchItemInput,
   type AuditBatchManifest,
@@ -30,7 +35,9 @@ import {
   type AuditEntityKind,
   type BatchSummary,
   type ClassifiedItem,
+  type ManifestGraph,
 } from "@/lib/electrical-audit-batch";
+
 
 type LooseDb = { from: (table: string) => any };
 
