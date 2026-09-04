@@ -10,7 +10,7 @@ import {
 } from "@/lib/electrical-grid-operational";
 import { AXIS_COLS, AXIS_ROWS } from "@/lib/electrical-grid-map";
 import {
-  PLAN_ASPECT_RATIO,
+  PLAN_BUILDING_ASPECT_RATIO,
   PLAN_OPENINGS,
   PROPOSED_OVERHEAD_LEDS,
   PROPOSED_OVERHEAD_LED_LEGEND,
@@ -98,7 +98,7 @@ export function renderGridMapPdf(input: GridMapPdfInput): jsPDF {
   const legendW = 128;
   const availW = pageWidth - MARGIN * 2 - legendW;
   const availH = pageHeight - top - 34;
-  const ratio = 1 / PLAN_ASPECT_RATIO;
+  const ratio = 1 / PLAN_BUILDING_ASPECT_RATIO;
   const planW = Math.min(availW, availH / ratio);
   const planH = planW * ratio;
   const x0 = MARGIN;

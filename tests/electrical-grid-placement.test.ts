@@ -9,6 +9,8 @@ import {
   NE_MAN_DOOR_TO_CORNER_FT,
   PLAN_ASPECT_RATIO,
   PLAN_BUILDING,
+  PLAN_BUILDING_ASPECT_RATIO,
+  PLAN_DRAWING,
   PLAN_OPENINGS,
   PLAN_VIEW_BOX,
   PROPOSED_OVERHEAD_LEDS,
@@ -16,6 +18,7 @@ import {
   planToFeet,
   feetToPlanPx,
   planPxToFeet,
+  clampToBuilding,
 } from "@/lib/electrical-grid-plan-geometry";
 import { AXIS_COLS, AXIS_ROWS } from "@/lib/electrical-grid-map";
 import {
@@ -53,48 +56,62 @@ const base: OperationalInput = {
 };
 const row = (over: Partial<OperationalInput>): OperationalInput => ({ ...base, ...over });
 
-describe("coordinate-native plan geometry", () => {
-  it("uses the building itself as the viewBox, 60 ft x 40 ft", () => {
-    expect(PLAN_VIEW_BOX).toBe("0 0 60 40");
-    expect(PLAN_BUILDING).toEqual({ left: 0, top: 0, width: 60, height: 40 });
-    expect(PLAN_BUILDING.width / PLAN_BUILDING.height).toBe(1.5);
-    expect(PLAN_ASPECT_RATIO).toBe(1.5);
+describe("drawing-native plan geometry", () => {
+  const mapX = (xFt: number) => 185 + (xFt / 60) * 1068;
+  const mapY = (yFt: number) => 210 + (yFt / 40) * 616;
+
+  it("uses the original drawing as the viewBox and the measured envelope", () => {
+    expect(PLAN_VIEW_BOX).toBe("0 0 1448 1086");
+    expect(PLAN_DRAWING).toEqual({ width: 1448, height: 1086 });
+    expect(PLAN_BUILDING).toEqual({ left: 185, top: 210, width: 1068, height: 616 });
+    expect(PLAN_ASPECT_RATIO).toBeCloseTo(1448 / 1086, 12);
+    expect(PLAN_BUILDING_ASPECT_RATIO).toBe(1.5);
   });
 
-  it("anchors the four corners at their physical feet", () => {
-    expect(feetToPlan(0, 0)).toEqual({ x: 0, y: 0 }); // A1 north-west
-    expect(feetToPlan(60, 0)).toEqual({ x: 60, y: 0 }); // A9 north-east
-    expect(feetToPlan(0, 40)).toEqual({ x: 0, y: 40 }); // F1 south-west
-    expect(feetToPlan(60, 40)).toEqual({ x: 60, y: 40 }); // F9 south-east
-    // The retained alias is the same transform.
-    expect(feetToPlanPx(32, 24)).toEqual({ x: 32, y: 24 });
-    expect(planPxToFeet(32, 24)).toEqual({ xFt: 32, yFt: 24 });
+  it("anchors the four corners on the envelope corners", () => {
+    expect(feetToPlan(0, 0)).toEqual({ x: 185, y: 210 }); // A1 north-west
+    expect(feetToPlan(60, 0)).toEqual({ x: 1253, y: 210 }); // A9 north-east
+    expect(feetToPlan(0, 40)).toEqual({ x: 185, y: 826 }); // F1 south-west
+    expect(feetToPlan(60, 40)).toEqual({ x: 1253, y: 826 }); // F9 south-east
+    // The retained alias is the same transform, and it round-trips.
+    expect(feetToPlanPx(32, 24)).toEqual({ x: mapX(32), y: mapY(24) });
+    const back = planPxToFeet(mapX(32), mapY(24));
+    expect(back.xFt).toBeCloseTo(32, 10);
+    expect(back.yFt).toBeCloseTo(24, 10);
   });
 
-  it("puts every column and row line on its specified feet coordinate", () => {
+  it("puts every column and row line on its mapped drawing coordinate", () => {
     expect(AXIS_COLS.map((c) => c.label)).toEqual(["1", "2", "3", "4", "5", "6", "7", "8", "9"]);
-    expect(AXIS_COLS.map((c) => feetToPlan(c.xFt, 0).x)).toEqual([
-      0, 8, 16, 24, 32, 40, 48, 56, 60,
-    ]);
+    expect(AXIS_COLS.map((c) => feetToPlan(c.xFt, 0).x)).toEqual(
+      [0, 8, 16, 24, 32, 40, 48, 56, 60].map(mapX),
+    );
     expect(AXIS_ROWS.map((r) => r.label)).toEqual(["A", "B", "C", "D", "E", "F"]);
-    expect(AXIS_ROWS.map((r) => feetToPlan(0, r.yFt).y)).toEqual([0, 8, 16, 24, 32, 40]);
+    expect(AXIS_ROWS.map((r) => feetToPlan(0, r.yFt).y)).toEqual(
+      [0, 8, 16, 24, 32, 40].map(mapY),
+    );
   });
 
-  it("draws column span 8→9 at exactly half the width of 48'→56'", () => {
+  it("draws column span 8->9 at exactly half the width of 48'->56'", () => {
     const w8to9 = feetToPlan(60, 0).x - feetToPlan(56, 0).x;
     const w48to56 = feetToPlan(56, 0).x - feetToPlan(48, 0).x;
-    expect(w8to9).toBe(4);
-    expect(w48to56).toBe(8);
-    expect(w8to9).toBe(w48to56 / 2);
+    expect(w8to9).toBeCloseTo(w48to56 / 2, 12);
   });
 
   it("places D5 at its expected interior position", () => {
     // D = 24 ft south, 5 = 32 ft east.
-    expect(feetToPlan(32, 24)).toEqual({ x: 32, y: 24 });
-    expect(planToFeet(32, 24)).toEqual({ xFt: 32, yFt: 24 });
+    expect(feetToPlan(32, 24)).toEqual({ x: mapX(32), y: mapY(24) });
+    const back = planToFeet(mapX(32), mapY(24));
+    expect(back.xFt).toBeCloseTo(32, 10);
+    expect(back.yFt).toBeCloseTo(24, 10);
   });
 
-  it("draws the north-wall openings from their feet spans", () => {
+  it("clamps anything outside the building envelope back onto it", () => {
+    expect(clampToBuilding(-500, -500)).toEqual({ x: 185, y: 210 });
+    expect(clampToBuilding(9000, 9000)).toEqual({ x: 1253, y: 826 });
+    expect(clampToBuilding(mapX(30), mapY(20))).toEqual({ x: mapX(30), y: mapY(20) });
+  });
+
+  it("keeps the recorded feet spans of both man doors and the overhead doors", () => {
     const byId = new Map(PLAN_OPENINGS.map((o) => [o.id, o]));
     expect([byId.get("GD2")!.startFt, byId.get("GD2")!.endFt]).toEqual([3.875, 15.875]);
     expect([byId.get("GD1")!.startFt, byId.get("GD1")!.endFt]).toEqual([24, 36]);
@@ -102,9 +119,11 @@ describe("coordinate-native plan geometry", () => {
     expect([ne.startFt, ne.endFt]).toEqual([52.5, 55.5]);
     expect(ne.endFt - ne.startFt).toBe(3);
     expect(NE_MAN_DOOR_TO_CORNER_FT).toBe(4.5);
+    const sw = byId.get("MAN DOOR (SW)")!;
+    expect([sw.wall, sw.centreYFt]).toEqual(["west", 32]);
     for (const o of PLAN_OPENINGS) {
-      if (o.wall === "north") expect(feetToPlan(o.centreXFt, o.centreYFt).y).toBe(0);
-      if (o.wall === "west") expect(feetToPlan(o.centreXFt, o.centreYFt).x).toBe(0);
+      if (o.wall === "north") expect(feetToPlan(o.centreXFt, o.centreYFt).y).toBe(210);
+      if (o.wall === "west") expect(feetToPlan(o.centreXFt, o.centreYFt).x).toBe(185);
     }
   });
 
@@ -124,8 +143,14 @@ describe("coordinate-native plan geometry", () => {
     expect(PROPOSED_OVERHEAD_LEDS.map((f) => f.planOrder)).toEqual([
       1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
     ]);
-    // Symmetric about X = 30 ft and Y = 20 ft, 12 ft and 20 ft on centre.
+    // Every proposed centre maps inside the building envelope.
     for (const f of PROPOSED_OVERHEAD_LEDS) {
+      const p = feetToPlan(f.xFt, f.yFt);
+      expect(p.x).toBeGreaterThanOrEqual(185);
+      expect(p.x).toBeLessThanOrEqual(1253);
+      expect(p.y).toBeGreaterThanOrEqual(210);
+      expect(p.y).toBeLessThanOrEqual(826);
+      // Symmetric about X = 30 ft and Y = 20 ft, 12 ft and 20 ft on centre.
       expect(
         PROPOSED_OVERHEAD_LEDS.some((m) => m.xFt === 60 - f.xFt && m.yFt === 40 - f.yFt),
       ).toBe(true);
@@ -140,19 +165,19 @@ describe("coordinate-native plan geometry", () => {
       [1440, 3],
       [2560, 1],
     ] as const) {
-      // The SVG scales as one unit: feet -> rendered px is a single factor.
-      const scale = (cssWidth / 60) * dpr;
+      // The SVG scales as one unit: drawing units -> rendered px is one factor.
+      const scale = (cssWidth / 1448) * dpr;
       const p = feetToPlan(32, 24);
       const back = planToFeet((p.x * scale) / scale, (p.y * scale) / scale);
-      expect(back).toEqual({ xFt: 32, yFt: 24 });
+      expect(back.xFt).toBeCloseTo(32, 10);
+      expect(back.yFt).toBeCloseTo(24, 10);
     }
-    // Browser zoom levels: markers and plan share one transform, so the ratio
-    // of a marker's position to the building width is zoom-invariant.
+    // Browser zoom levels: markers and plan share one transform, so a marker's
+    // position as a fraction of the drawing is zoom-invariant.
     for (const zoom of [0.67, 0.8, 1, 1.25, 1.5, 2]) {
-      const renderedWidth = 60 * zoom;
       const marker = feetToPlan(54, 30);
-      expect((marker.x * zoom) / renderedWidth).toBeCloseTo(54 / 60, 12);
-      expect((marker.y * zoom) / (40 * zoom)).toBeCloseTo(30 / 40, 12);
+      expect((marker.x * zoom) / (1448 * zoom)).toBeCloseTo(mapX(54) / 1448, 12);
+      expect((marker.y * zoom) / (1086 * zoom)).toBeCloseTo(mapY(30) / 1086, 12);
     }
   });
 });

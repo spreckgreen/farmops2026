@@ -466,7 +466,8 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
                 viewport height, so increasing or decreasing browser zoom shrinks
                 or grows the whole drawing instead of overflowing the screen. */}
             <div
-              className="mx-auto w-full rounded-md border border-border bg-white"
+              data-plan-container="grid-map"
+              className="mx-auto w-full overflow-hidden rounded-md border border-border bg-white"
               style={{
                 maxWidth: `max(28rem, calc((100vh - ${large ? "20rem" : "26rem"}) * ${PLAN_ASPECT_RATIO.toFixed(4)}))`,
               }}
@@ -651,7 +652,7 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
           {q.data.gaps.length ? ` · ${q.data.gaps.length} record gap(s)` : ""}
         </p>
         <p className="text-[11px]">Filters — {filterSummary.join(" · ")}</p>
-        <div className="mt-2 w-full border border-black">
+        <div data-plan-container="print" className="mt-2 w-full overflow-hidden border border-black">
           <GridPlanSvg
             plotted={plotted}
             interactive={false}

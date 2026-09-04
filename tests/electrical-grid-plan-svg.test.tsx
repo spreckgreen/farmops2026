@@ -8,7 +8,7 @@ import {
   buildOperationalAssets,
   type OperationalInput,
 } from "@/lib/electrical-grid-operational";
-import { PLAN_VIEW_BOX } from "@/lib/electrical-grid-plan-geometry";
+import { PLAN_DRAWING, PLAN_VIEW_BOX, feetToPlan } from "@/lib/electrical-grid-plan-geometry";
 
 const row = (stableId: string, gridReference: string): OperationalInput => ({
   kind: "load",
@@ -57,49 +57,59 @@ function markerCentre(container: HTMLElement, stableId: string) {
   return { x: x + w / 2, y: y + h / 2 };
 }
 
+const mapX = (xFt: number) => 185 + (xFt / 60) * 1068;
+const mapY = (yFt: number) => 210 + (yFt / 40) * 616;
+const near = (a: { x: number; y: number }, xFt: number, yFt: number) => {
+  expect(a.x).toBeCloseTo(mapX(xFt), 6);
+  expect(a.y).toBeCloseTo(mapY(yFt), 6);
+};
+
 describe("grid plan svg", () => {
-  it("draws the building in physical feet with no raster image", () => {
+  it("places the original plan drawing 1:1 in one viewBox", () => {
     const { container } = render(<GridPlanSvg plotted={corners} />);
     const svg = container.querySelector("svg")!;
-    expect(svg.getAttribute("viewBox")).toBe("0 0 60 40");
-    expect(PLAN_VIEW_BOX).toBe("0 0 60 40");
+    expect(svg.getAttribute("viewBox")).toBe("0 0 1448 1086");
+    expect(PLAN_VIEW_BOX).toBe("0 0 1448 1086");
     expect(svg.getAttribute("preserveAspectRatio")).toBe("xMidYMid meet");
-    expect(container.querySelector("image")).toBeNull();
+    const img = container.querySelector("image")!;
+    expect(img.getAttribute("width")).toBe(String(PLAN_DRAWING.width));
+    expect(img.getAttribute("height")).toBe(String(PLAN_DRAWING.height));
+    expect(img.getAttribute("x")).toBe("0");
+    expect(img.getAttribute("y")).toBe("0");
+    // No separate HTML percentage overlay and no non-uniform scaling anywhere.
     expect(container.querySelector('[preserveAspectRatio="none"]')).toBeNull();
   });
 
-  it("puts every gridline on its specified feet coordinate", () => {
+  it("clips the drawing and every marker so nothing plots off-page", () => {
     const { container } = render(<GridPlanSvg plotted={corners} />);
-    const cols = Array.from(container.querySelectorAll("line[data-grid-col]"));
-    expect(cols.map((l) => Number(l.getAttribute("x1")))).toEqual([
-      0, 8, 16, 24, 32, 40, 48, 56, 60,
-    ]);
-    for (const l of cols) expect(l.getAttribute("x1")).toBe(l.getAttribute("x2"));
-    const rows = Array.from(container.querySelectorAll("line[data-grid-row]"));
-    expect(rows.map((l) => Number(l.getAttribute("y1")))).toEqual([0, 8, 16, 24, 32, 40]);
-    // 8 -> 9 (56 -> 60 ft) is exactly half the drawn width of 48 -> 56 ft.
-    const x = (i: number) => Number(cols[i]!.getAttribute("x1"));
-    expect(x(8) - x(7)).toBe((x(7) - x(6)) / 2);
+    const clip = container.querySelector("clipPath > rect")!;
+    expect([
+      clip.getAttribute("x"),
+      clip.getAttribute("y"),
+      clip.getAttribute("width"),
+      clip.getAttribute("height"),
+    ]).toEqual(["0", "0", "1448", "1086"]);
+    const clipId = container.querySelector("clipPath")!.getAttribute("id")!;
+    const clipped = container.querySelector(`g[clip-path="url(#${clipId})"]`)!;
+    expect(clipped.querySelector("image")).not.toBeNull();
+    expect(clipped.querySelector('[data-stable-id="FS-A1"]')).not.toBeNull();
   });
 
-  it("draws the NE man door at X 52.5-55.5 ft on the north wall", () => {
+  it("maps the four corners and the D5 intersection through mapX/mapY", () => {
     const { container } = render(<GridPlanSvg plotted={corners} />);
-    const g = container.querySelector('[data-opening="MAN DOOR (NE)"]')!;
-    expect(g.getAttribute("data-start-ft")).toBe("52.5");
-    expect(g.getAttribute("data-end-ft")).toBe("55.5");
-    const line = g.querySelector("line")!;
-    expect(Number(line.getAttribute("x1"))).toBe(52.5);
-    expect(Number(line.getAttribute("x2"))).toBe(55.5);
-    expect(Number(line.getAttribute("y1"))).toBe(0);
-  });
-
-  it("pins the corner anchors to their physical feet", () => {
-    const { container } = render(<GridPlanSvg plotted={corners} />);
-    expect(markerCentre(container, "FS-A1")).toEqual({ x: 0, y: 0 });
-    expect(markerCentre(container, "FS-A9")).toEqual({ x: 60, y: 0 });
-    expect(markerCentre(container, "FS-F1")).toEqual({ x: 0, y: 40 });
-    expect(markerCentre(container, "FS-F9")).toEqual({ x: 60, y: 40 });
-    expect(markerCentre(container, "FS-D5")).toEqual({ x: 32, y: 24 });
+    near(markerCentre(container, "FS-A1"), 0, 0);
+    near(markerCentre(container, "FS-A9"), 60, 0);
+    near(markerCentre(container, "FS-F1"), 0, 40);
+    near(markerCentre(container, "FS-F9"), 60, 40);
+    near(markerCentre(container, "FS-D5"), 32, 24);
+    // Every marker lands inside the measured building envelope.
+    for (const id of ["FS-A1", "FS-A9", "FS-F1", "FS-F9", "FS-D5"]) {
+      const c = markerCentre(container, id);
+      expect(c.x).toBeGreaterThanOrEqual(185);
+      expect(c.x).toBeLessThanOrEqual(1253);
+      expect(c.y).toBeGreaterThanOrEqual(210);
+      expect(c.y).toBeLessThanOrEqual(826);
+    }
   });
 
   it("keeps marker coordinates unchanged across container widths and marker scales", () => {
@@ -114,6 +124,7 @@ describe("grid plan svg", () => {
       seen.add(JSON.stringify(markerCentre(container, "FS-D5")));
     }
     expect(seen.size).toBe(1);
+    expect(JSON.parse([...seen][0]!).x).toBeCloseTo(mapX(32), 6);
   });
 
   it("collapses co-located records into one exact-anchor cluster badge", () => {
@@ -127,13 +138,26 @@ describe("grid plan svg", () => {
     expect(markers).toHaveLength(1);
     expect(markers[0]!.getAttribute("data-cluster-size")).toBe("3");
     // The single marker stays exactly on the shared anchor: nothing is nudged.
-    expect(markerCentre(container, "FS-S1")).toEqual({ x: 24, y: 16 });
+    near(markerCentre(container, "FS-S1"), 24, 16);
 
-    // Selecting a member spiders the group apart, away from the anchor.
+    // Selecting a member spiders the group apart, inside the envelope, and each
+    // expanded member keeps a leader line back to its true anchor.
     const expanded = render(<GridPlanSvg plotted={stacked} selectedId="FS-S2" />);
-    expect(Array.from(expanded.container.querySelectorAll("[data-stable-id]"))).toHaveLength(3);
+    const shown = Array.from(expanded.container.querySelectorAll("[data-stable-id]"));
+    expect(shown).toHaveLength(3);
     const s3 = markerCentre(expanded.container, "FS-S3");
-    expect(s3.x === 24 && s3.y === 16).toBe(false);
+    expect(s3.x === mapX(24) && s3.y === mapY(16)).toBe(false);
+    for (const g of shown) {
+      const c = markerCentre(expanded.container, g.getAttribute("data-stable-id")!);
+      expect(c.x).toBeGreaterThanOrEqual(185);
+      expect(c.x).toBeLessThanOrEqual(1253);
+      expect(c.y).toBeGreaterThanOrEqual(210);
+      expect(c.y).toBeLessThanOrEqual(826);
+      const dot = g.querySelector("circle[data-anchor-dot]")!;
+      expect(Number(dot.getAttribute("cx"))).toBeCloseTo(mapX(24), 6);
+      expect(Number(dot.getAttribute("cy"))).toBeCloseTo(mapY(16), 6);
+      expect(g.querySelector("line")).not.toBeNull();
+    }
   });
 
   it("draws the proposed 2 x 5 overhead LED layer only when enabled", () => {
@@ -143,7 +167,7 @@ describe("grid plan svg", () => {
     const { container } = render(<GridPlanSvg plotted={corners} showProposedLeds />);
     const leds = Array.from(container.querySelectorAll("[data-proposed-led]"));
     expect(leds).toHaveLength(10);
-    expect(leds.map((g) => [Number(g.getAttribute("data-x-ft")), Number(g.getAttribute("data-y-ft"))])).toEqual([
+    const feet: [number, number][] = [
       [6, 10],
       [18, 10],
       [30, 10],
@@ -154,10 +178,18 @@ describe("grid plan svg", () => {
       [30, 30],
       [42, 30],
       [54, 30],
-    ]);
+    ];
+    expect(
+      leds.map((g) => [Number(g.getAttribute("data-x-ft")), Number(g.getAttribute("data-y-ft"))]),
+    ).toEqual(feet);
+    leds.forEach((g, i) => {
+      const c = g.querySelector("circle")!;
+      const [xFt, yFt] = feet[i]!;
+      expect(Number(c.getAttribute("cx"))).toBeCloseTo(feetToPlan(xFt, yFt).x, 6);
+      expect(Number(c.getAttribute("cy"))).toBeCloseTo(feetToPlan(xFt, yFt).y, 6);
+    });
   });
 });
-
 
 describe("keyboard and ARIA support", () => {
   it("exposes focusable markers with the full helper text as their label", () => {
@@ -263,7 +295,7 @@ describe("helper card never overflows the plan", () => {
     "Placement conflict — see Data quality",
   ];
   const inside = (b: { x: number; y: number; width: number; height: number }) =>
-    b.x >= 0 && b.y >= 0 && b.x + b.width <= 60 && b.y + b.height <= 40;
+    b.x >= 0 && b.y >= 0 && b.x + b.width <= 1448 && b.y + b.height <= 1086;
 
   it("stays inside the viewBox at every corner and wall edge", () => {
     for (const [x, y] of [
@@ -283,15 +315,15 @@ describe("helper card never overflows the plan", () => {
 
   it("flips to the left of the anchor near the east wall and above near the south wall", () => {
     const east = hintCardBox(59, 20, long);
-    expect(east.x + east.width).toBeLessThanOrEqual(59);
+    expect(east.x + east.width).toBeLessThanOrEqual(mapX(59));
     const south = hintCardBox(30, 39, long);
-    expect(south.y + south.height).toBeLessThanOrEqual(39);
+    expect(south.y + south.height).toBeLessThanOrEqual(mapY(39));
   });
 
   it("prefers right-and-below when there is room", () => {
     const b = hintCardBox(4, 4, long);
-    expect(b.x).toBeGreaterThan(4);
-    expect(b.y).toBeGreaterThan(4);
+    expect(b.x).toBeGreaterThan(mapX(4));
+    expect(b.y).toBeGreaterThan(mapY(4));
   });
 
   it("drops lines that could not fit rather than spilling past the wall", () => {
@@ -306,8 +338,8 @@ describe("helper card never overflows the plan", () => {
     const rect = container.querySelector("g[data-hint-card] rect")!;
     const x = Number(rect.getAttribute("x"));
     const y = Number(rect.getAttribute("y"));
-    expect(x + Number(rect.getAttribute("width"))).toBeLessThanOrEqual(60);
-    expect(y + Number(rect.getAttribute("height"))).toBeLessThanOrEqual(40);
+    expect(x + Number(rect.getAttribute("width"))).toBeLessThanOrEqual(1448);
+    expect(y + Number(rect.getAttribute("height"))).toBeLessThanOrEqual(1086);
     expect(x).toBeGreaterThanOrEqual(0);
     expect(y).toBeGreaterThanOrEqual(0);
   });
