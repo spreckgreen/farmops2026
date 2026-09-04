@@ -12,7 +12,12 @@ import { ADDON_KEYS, ELECTRICAL_READ_ADDONS, PANEL_SHEET_ADDONS } from "@/lib/ad
 describe("read-only electrician electrical access", () => {
   it("registers the read-only add-on as a farm-wide read key", () => {
     expect(ADDON_KEYS).toContain("electrical_readonly");
-    expect(ELECTRICAL_READ_ADDONS).toEqual(["electrical", "electrical_readonly"]);
+    // The field-write add-on implies read as well, so it belongs in the read set.
+    expect(ELECTRICAL_READ_ADDONS).toEqual([
+      "electrical",
+      "electrical_fieldwrite",
+      "electrical_readonly",
+    ]);
     expect(PANEL_SHEET_ADDONS).toContain("electrical_readonly");
   });
 
