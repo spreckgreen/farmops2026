@@ -24,6 +24,10 @@ import {
   type PendingObservation,
   type OperationalSummary,
 } from "@/lib/electrical-grid-operational";
+import {
+  POST_GEOMETRY_CONFIRMED,
+  POST_GEOMETRY_REVIEW_NOTE,
+} from "@/lib/electrical-grid-post-geometry";
 
 type LooseDb = { from: (table: string) => any };
 type Row = Record<string, unknown>;
