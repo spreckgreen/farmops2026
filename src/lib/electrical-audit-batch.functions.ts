@@ -15,7 +15,6 @@ import { requireAdminRole } from "@/lib/admin-role.server";
 import { recordElectricalChange } from "@/lib/electrical-audit.server";
 import { collectSnapshot } from "@/lib/electrical-snapshot.functions";
 import {
-  APPLY_ORDER,
   AUDIT_BATCH_GATE_VERSION,
   AUDIT_BATCH_SCHEMA_VERSION,
   AUDIT_ENTITY_TARGETS,
@@ -549,7 +548,7 @@ export const applyElectricalAuditBatch = createServerFn({ method: "POST" })
     // Which items the owner approved, and what the preview promised.
     const itemRows = await db
       .from(ITEMS)
-      .select("item_key, approved, expected_updated_at, applied_at")
+      .select("item_key, approved, expected_updated_at, applied_at, applied_row_uuid")
       .eq("batch_uuid", String(batchRow["id"]));
     if (itemRows.error) throw new Error(itemRows.error.message);
     const staged = new Map(
@@ -558,6 +557,7 @@ export const applyElectricalAuditBatch = createServerFn({ method: "POST" })
         approved: boolean;
         expected_updated_at: string | null;
         applied_at: string | null;
+        applied_row_uuid: string | null;
       }[]).map((r) => [r.item_key, r]),
     );
 
