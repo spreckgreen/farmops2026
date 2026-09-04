@@ -790,10 +790,25 @@ export function buildPatch(
   return { patch, messages };
 }
 
+/**
+ * Symbolic reference to a record this manifest proposes to create. The real
+ * UUID does not exist until apply, so preview shows the symbol and apply
+ * substitutes the UUID returned by the parent insert.
+ */
+export const PENDING_REF_PREFIX = "pending:";
+
+export const pendingRef = (itemKey: string) => `${PENDING_REF_PREFIX}${itemKey}`;
+
+export const isPendingRef = (value: unknown): value is string =>
+  typeof value === "string" && value.startsWith(PENDING_REF_PREFIX);
+
+export const pendingRefItemKey = (value: string) => value.slice(PENDING_REF_PREFIX.length);
+
 /** Resolve relational links from human references. Missing links are errors. */
 export function resolveLinks(
   item: AuditBatchItemInput,
   resolved: Map<string, string>,
+  pendingCreates?: Map<string, string>,
 ): { patch: Record<string, unknown>; messages: ValidationMessage[] } {
   const messages: ValidationMessage[] = [];
   const patch: Record<string, unknown> = {};
@@ -808,17 +823,31 @@ export function resolveLinks(
   for (const [column, ref, kind] of want) {
     if (!ref) continue;
     if (!target.links.includes(column)) continue;
-    const uuid = resolved.get(`${kind}|${norm(ref)}`);
-    if (!uuid) {
+    const key = `${kind}|${norm(ref)}`;
+    const uuid = resolved.get(key);
+    if (uuid) {
+      patch[column] = uuid;
+      continue;
+    }
+    const pendingKey = pendingCreates?.get(key);
+    if (pendingKey && pendingKey !== item.item_key) {
+      // Manifest-local dependency: linked to the record this batch creates
+      // first, in the same transaction. Never invented, never orphaned.
+      patch[column] = pendingRef(pendingKey);
       messages.push(
-        err(`${ref} could not be resolved to an existing ${kind} record — nothing is invented.`),
+        info(
+          `${ref} resolves to the ${kind} this manifest creates (${pendingKey}); the link is written with its returned UUID in the same transaction.`,
+        ),
       );
       continue;
     }
-    patch[column] = uuid;
+    messages.push(
+      err(`${ref} could not be resolved to an existing ${kind} record — nothing is invented.`),
+    );
   }
   return { patch, messages };
 }
+
 
 /**
  * Classify one manifest item against the live snapshot. Never writes; the
