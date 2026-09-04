@@ -94,6 +94,8 @@ function navGroups(): NavGroup[] {
         { label: "ODS import", to: "/electrical/import", section: "import" },
         { label: "Import contract", to: "/electrical/import-contract" },
         { label: "Contract v3 reconciliation", to: "/electrical/reconciliation" },
+        { label: "Grid data quality", to: "/electrical/grid-data-quality" },
+        { label: "Audit batches", to: "/electrical/audit-batches" },
         { label: "Reconciliation export", to: "/electrical/export", section: "export" },
       ],
     },

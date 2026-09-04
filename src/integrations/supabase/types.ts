@@ -587,6 +587,158 @@ export type Database = {
         }
         Relationships: []
       }
+      electrical_audit_batch_items: {
+        Row: {
+          applied_at: string | null
+          applied_row_uuid: string | null
+          approved: boolean
+          batch_uuid: string
+          created_at: string
+          disposition: string
+          entity_kind: string
+          expected_updated_at: string | null
+          id: string
+          item_key: string
+          observation_class: string
+          operation: string
+          payload: Json
+          preview_after: Json | null
+          preview_before: Json | null
+          target_stable_id: string | null
+          updated_at: string
+          validation_messages: Json
+        }
+        Insert: {
+          applied_at?: string | null
+          applied_row_uuid?: string | null
+          approved?: boolean
+          batch_uuid: string
+          created_at?: string
+          disposition?: string
+          entity_kind: string
+          expected_updated_at?: string | null
+          id?: string
+          item_key: string
+          observation_class: string
+          operation: string
+          payload?: Json
+          preview_after?: Json | null
+          preview_before?: Json | null
+          target_stable_id?: string | null
+          updated_at?: string
+          validation_messages?: Json
+        }
+        Update: {
+          applied_at?: string | null
+          applied_row_uuid?: string | null
+          approved?: boolean
+          batch_uuid?: string
+          created_at?: string
+          disposition?: string
+          entity_kind?: string
+          expected_updated_at?: string | null
+          id?: string
+          item_key?: string
+          observation_class?: string
+          operation?: string
+          payload?: Json
+          preview_after?: Json | null
+          preview_before?: Json | null
+          target_stable_id?: string | null
+          updated_at?: string
+          validation_messages?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "electrical_audit_batch_items_batch_uuid_fkey"
+            columns: ["batch_uuid"]
+            isOneToOne: false
+            referencedRelation: "electrical_audit_batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      electrical_audit_batches: {
+        Row: {
+          applied_at: string | null
+          approval_reason: string | null
+          approval_statement: string | null
+          approved_at: string | null
+          approved_by: string | null
+          batch_id: string
+          building: string | null
+          compensates_batch_id: string | null
+          created_at: string
+          created_by: string
+          evidence: Json
+          id: string
+          manifest: Json
+          manifest_sha256: string
+          observed_date: string | null
+          observed_time_precision: string | null
+          schema_version: string
+          scope: string | null
+          source: string | null
+          status: string
+          summary: Json
+          timezone: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          applied_at?: string | null
+          approval_reason?: string | null
+          approval_statement?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          batch_id: string
+          building?: string | null
+          compensates_batch_id?: string | null
+          created_at?: string
+          created_by: string
+          evidence?: Json
+          id?: string
+          manifest?: Json
+          manifest_sha256: string
+          observed_date?: string | null
+          observed_time_precision?: string | null
+          schema_version?: string
+          scope?: string | null
+          source?: string | null
+          status?: string
+          summary?: Json
+          timezone?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          applied_at?: string | null
+          approval_reason?: string | null
+          approval_statement?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          batch_id?: string
+          building?: string | null
+          compensates_batch_id?: string | null
+          created_at?: string
+          created_by?: string
+          evidence?: Json
+          id?: string
+          manifest?: Json
+          manifest_sha256?: string
+          observed_date?: string | null
+          observed_time_precision?: string | null
+          schema_version?: string
+          scope?: string | null
+          source?: string | null
+          status?: string
+          summary?: Json
+          timezone?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       electrical_branch_runs: {
         Row: {
           branch_id: string
@@ -1544,6 +1696,7 @@ export type Database = {
           description: string | null
           dimensions: string | null
           elevation_zone: string | null
+          field_grid_reference: string | null
           grid: string | null
           id: string
           install_status: string
@@ -1551,6 +1704,10 @@ export type Database = {
           label_status: string
           notes: string | null
           ods_extras: string | null
+          pole_location_kind: string | null
+          pole_ref_end: string | null
+          pole_ref_start: string | null
+          pole_scheme: string | null
           raceway_ref: string | null
           raceway_sequence: number | null
           raceway_uuid: string | null
@@ -1565,6 +1722,7 @@ export type Database = {
           description?: string | null
           dimensions?: string | null
           elevation_zone?: string | null
+          field_grid_reference?: string | null
           grid?: string | null
           id?: string
           install_status?: string
@@ -1572,6 +1730,10 @@ export type Database = {
           label_status?: string
           notes?: string | null
           ods_extras?: string | null
+          pole_location_kind?: string | null
+          pole_ref_end?: string | null
+          pole_ref_start?: string | null
+          pole_scheme?: string | null
           raceway_ref?: string | null
           raceway_sequence?: number | null
           raceway_uuid?: string | null
@@ -1586,6 +1748,7 @@ export type Database = {
           description?: string | null
           dimensions?: string | null
           elevation_zone?: string | null
+          field_grid_reference?: string | null
           grid?: string | null
           id?: string
           install_status?: string
@@ -1593,6 +1756,10 @@ export type Database = {
           label_status?: string
           notes?: string | null
           ods_extras?: string | null
+          pole_location_kind?: string | null
+          pole_ref_end?: string | null
+          pole_ref_start?: string | null
+          pole_scheme?: string | null
           raceway_ref?: string | null
           raceway_sequence?: number | null
           raceway_uuid?: string | null
@@ -1691,6 +1858,7 @@ export type Database = {
           design_y_ft: number | null
           equipment_fla: number | null
           equipment_model: string | null
+          field_grid_reference: string | null
           field_verification_status: string | null
           future: boolean | null
           grid: string | null
@@ -1724,6 +1892,10 @@ export type Database = {
           notes: string | null
           ods_extras: string | null
           phase: string | null
+          pole_location_kind: string | null
+          pole_ref_end: string | null
+          pole_ref_start: string | null
+          pole_scheme: string | null
           rated_current_amps: number | null
           rated_load_amps: number | null
           source_circuit: string | null
@@ -1765,6 +1937,7 @@ export type Database = {
           design_y_ft?: number | null
           equipment_fla?: number | null
           equipment_model?: string | null
+          field_grid_reference?: string | null
           field_verification_status?: string | null
           future?: boolean | null
           grid?: string | null
@@ -1798,6 +1971,10 @@ export type Database = {
           notes?: string | null
           ods_extras?: string | null
           phase?: string | null
+          pole_location_kind?: string | null
+          pole_ref_end?: string | null
+          pole_ref_start?: string | null
+          pole_scheme?: string | null
           rated_current_amps?: number | null
           rated_load_amps?: number | null
           source_circuit?: string | null
@@ -1839,6 +2016,7 @@ export type Database = {
           design_y_ft?: number | null
           equipment_fla?: number | null
           equipment_model?: string | null
+          field_grid_reference?: string | null
           field_verification_status?: string | null
           future?: boolean | null
           grid?: string | null
@@ -1872,6 +2050,10 @@ export type Database = {
           notes?: string | null
           ods_extras?: string | null
           phase?: string | null
+          pole_location_kind?: string | null
+          pole_ref_end?: string | null
+          pole_ref_start?: string | null
+          pole_scheme?: string | null
           rated_current_amps?: number | null
           rated_load_amps?: number | null
           source_circuit?: string | null
@@ -2119,6 +2301,7 @@ export type Database = {
           design_x_ft: number | null
           design_y_ft: number | null
           feeder_source: string | null
+          field_grid_reference: string | null
           field_verification_status: string | null
           grid: string | null
           grid_migration_provenance: string | null
@@ -2135,6 +2318,10 @@ export type Database = {
           ods_extras: string | null
           panel_id: string
           phase: string | null
+          pole_location_kind: string | null
+          pole_ref_end: string | null
+          pole_ref_start: string | null
+          pole_scheme: string | null
           positions_per_column: number | null
           spaces: number | null
           system_voltage: Json | null
@@ -2158,6 +2345,7 @@ export type Database = {
           design_x_ft?: number | null
           design_y_ft?: number | null
           feeder_source?: string | null
+          field_grid_reference?: string | null
           field_verification_status?: string | null
           grid?: string | null
           grid_migration_provenance?: string | null
@@ -2174,6 +2362,10 @@ export type Database = {
           ods_extras?: string | null
           panel_id: string
           phase?: string | null
+          pole_location_kind?: string | null
+          pole_ref_end?: string | null
+          pole_ref_start?: string | null
+          pole_scheme?: string | null
           positions_per_column?: number | null
           spaces?: number | null
           system_voltage?: Json | null
@@ -2197,6 +2389,7 @@ export type Database = {
           design_x_ft?: number | null
           design_y_ft?: number | null
           feeder_source?: string | null
+          field_grid_reference?: string | null
           field_verification_status?: string | null
           grid?: string | null
           grid_migration_provenance?: string | null
@@ -2213,6 +2406,10 @@ export type Database = {
           ods_extras?: string | null
           panel_id?: string
           phase?: string | null
+          pole_location_kind?: string | null
+          pole_ref_end?: string | null
+          pole_ref_start?: string | null
+          pole_scheme?: string | null
           positions_per_column?: number | null
           spaces?: number | null
           system_voltage?: Json | null
