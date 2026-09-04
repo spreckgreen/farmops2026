@@ -4,7 +4,7 @@
 // the derivation behind each one, and lets a person hand-correct a post's grid cell
 // with a reconciliation note when the geometric check is uncertain. An override
 // records the cell only — the frozen coordinates are never edited.
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -165,8 +165,8 @@ export function PostGeometryProposal() {
               </thead>
               <tbody>
                 {rows.map((p) => (
-                  <>
-                    <tr key={p.ref} className="border-b last:border-0 align-top">
+                  <Fragment key={p.ref}>
+                    <tr className="border-b last:border-0 align-top">
                       <td className="py-1 pr-3 font-mono">{p.ref}</td>
                       <td className="py-1 pr-3">
                         {p.wall}
@@ -220,7 +220,7 @@ export function PostGeometryProposal() {
                       </td>
                     </tr>
                     {editing === p.ref ? (
-                      <tr key={`${p.ref}-edit`} className="border-b bg-muted/40">
+                      <tr className="border-b bg-muted/40">
                         <td colSpan={9} className="p-3">
                           <div className="space-y-2">
                             {p.uncertainty.uncertain ? (
@@ -279,7 +279,7 @@ export function PostGeometryProposal() {
                         </td>
                       </tr>
                     ) : null}
-                  </>
+                  </Fragment>
                 ))}
               </tbody>
             </table>
