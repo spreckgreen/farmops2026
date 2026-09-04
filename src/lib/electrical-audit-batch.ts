@@ -956,7 +956,7 @@ export function classifyItem(item: AuditBatchItemInput, ctx: ClassifyContext): C
   }
 
   const built = buildPatch(item, (ctx.target as JsonObject | null) ?? null);
-  const links = resolveLinks(item, resolved);
+  const links = resolveLinks(item, resolved, ctx.pendingCreates);
   messages.push(...built.messages, ...links.messages);
   const patch = { ...built.patch, ...links.patch };
 
