@@ -230,7 +230,7 @@ function loadRow(
     ]
       .filter(Boolean)
       .join(" · "),
-    panelId: panel?.panel_id ?? txt(l.suggested_panel) || null,
+    panelId: panel?.panel_id ?? (txt(l.suggested_panel) || null),
     panelUuid: panel?.id ?? null,
     status,
     stageIndex: stageIndexOf(status),
