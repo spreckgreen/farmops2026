@@ -308,8 +308,24 @@ export const STABLE_ID_REFERENCE: readonly StableIdReferenceRow[] = [
     example: "BR-104-02-03",
     notes: "Encodes raceway path + origin junction box + branch sequence (resets per box)",
   },
-
+  {
+    entity: "Circuit Group",
+    format: CIRCUIT_GROUP_ID_SHAPE,
+    example: CIRCUIT_GROUP_ID_EXAMPLE,
+    notes:
+      "Permanent, independent of any breaker assignment. Never renamed when the breaker changes and " +
+      "never has a breaker reference concatenated into it.",
+  },
+  {
+    entity: "Breaker reference (derived, read-only)",
+    format: BREAKER_REFERENCE_SHAPE,
+    example: BREAKER_REFERENCE_EXAMPLE,
+    notes:
+      "Display projection only. Authoritative identity is the panel UUID plus physical position; the " +
+      "circuit-group link is stored in electrical_breaker_positions.circuit_group_uuid.",
+  },
 ];
+
 
 /** Infrastructure reference rows, derived from the centralized standards. */
 export const INFRASTRUCTURE_ID_REFERENCE: readonly StableIdReferenceRow[] = (
