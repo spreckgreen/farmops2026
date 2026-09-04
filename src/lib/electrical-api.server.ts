@@ -366,6 +366,7 @@ export async function authorizeApiRequest(
 export function scopeForReadPath(segments: string[]): ApiScope {
   if (segments[0] === "sor") return "electrical:sor:read";
   if (segments[0] === "documents") return "electrical:documents:read";
+  if (segments[0] === "audit-batches") return "electrical:audit-batches:read";
   return "electrical:read";
 }
 
