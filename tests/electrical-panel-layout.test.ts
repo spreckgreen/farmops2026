@@ -4,6 +4,7 @@ import {
   expectedBreakerNumber,
   freeBreakerSlots,
   multiPoleDuplicates,
+  normalizeBreakerSide,
   nextExitOrder,
   panelBreakerSlots,
   resolvePanelLayout,
@@ -170,5 +171,35 @@ describe("multi-pole consumed slots", () => {
     expect(multiPoleDuplicates(layout, [owner])).toEqual([]);
     expect(freeBreakerSlots(layout, [owner]).some((s) => s.side === "Right" && s.position === 20))
       .toBe(false);
+  });
+});
+
+describe("recorded column-name spellings", () => {
+  const panel = { id: "p1", panel_id: "PNL-FS-NW", spaces: 40 };
+
+  it("treats lowercase and abbreviated column names as the panel's real columns", () => {
+    expect(normalizeBreakerSide("left")).toBe("Left");
+    expect(normalizeBreakerSide(" RIGHT ")).toBe("Right");
+    expect(normalizeBreakerSide("L")).toBe("Left");
+    expect(normalizeBreakerSide("b")).toBe("Right");
+    expect(normalizeBreakerSide("middle")).toBe("middle");
+  });
+
+  it("stops reporting a missing column for rows stored as left/right", () => {
+    const findings = validatePanelLayout({
+      panels: [panel],
+      positions: [
+        { id: "r1", panel_uuid: "p1", side: "left", position: 1, breaker_number: 1, poles: 1 },
+        { id: "r2", panel_uuid: "p1", side: "right", position: 6, breaker_number: 12, poles: 1 },
+      ],
+      exits: [],
+    });
+    expect(findings.filter((f) => /no "?(left|right)"? column/i.test(f.message))).toHaveLength(0);
+  });
+
+  it("derives the breaker number from the physical slot regardless of spelling", () => {
+    const layout = resolvePanelLayout(panel);
+    expect(expectedBreakerNumber(layout, "left", 3)).toBe(5);
+    expect(expectedBreakerNumber(layout, "right", 6)).toBe(12);
   });
 });
