@@ -251,10 +251,10 @@ describe("manifest-local dependency resolution (9.1)", () => {
   });
 
   it("proposes the next unused CG-FS-## identity, never reusing one", () => {
-    expect(nextCircuitGroupId(["CG-FS-01", "CG-FS-07", "CG-HS-09"])).toBe("CG-FS-08");
+    expect(nextCircuitGroupId(["CG-FS-01", "CG-FS-07", "CG-HS-09"])).toBe("CG-FS-008");
     const { items, proposed } = assignProposedCircuitGroupIds([groupItem], ["CG-FS-07"]);
-    expect(items[0]!.target_stable_id).toBe("CG-FS-08");
-    expect(proposed["cg1"]).toBe("CG-FS-08");
+    expect(items[0]!.target_stable_id).toBe("CG-FS-008");
+    expect(proposed["cg1"]).toBe("CG-FS-008");
   });
 
   it("flags a duplicated proposed stable ID as an ambiguous conflict", () => {
