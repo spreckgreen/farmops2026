@@ -614,18 +614,6 @@ function PanelExits({
     [raceways, panelUuid],
   );
 
-  const fillMissing = useMutation({
-    mutationFn: async () => await recordMissing({ data: { panel_uuid: String(panel["id"]) } }),
-    onSuccess: (r) => {
-      toast.success(
-        r.created
-          ? `Recorded ${r.created} breaker slot${r.created === 1 ? "" : "s"} with derived breaker numbers.`
-          : "Every physical slot already has a record.",
-      );
-      onChanged();
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
 
   const add = useMutation({
     mutationFn: async () =>
