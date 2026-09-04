@@ -4,7 +4,7 @@
 // individual items, types an approval statement and a reason, and confirms.
 // Holds, conflicts, ODS candidates, temporary-unresolved and no-change rows can
 // never be selected.
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { AlertTriangle, Download, RefreshCw, ShieldCheck, Upload } from "lucide-react";
@@ -26,6 +26,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   AUDIT_DISPOSITIONS,
+  classifiedBreakerRelationship,
   holdCsv,
   isPendingRef,
   pendingRefItemKey,
@@ -151,6 +152,14 @@ export function AuditBatchPanel() {
   const [reason, setReason] = useState("");
   const [confirmed, setConfirmed] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // A pasted or generated peer key never outlives its use: it is cleared on
+  // Clear, after a successful pull, and when this panel unmounts.
+  const clearPeerToken = useCallback(() => {
+    setPeerToken("");
+    setGeneratedPeerToken(null);
+  }, []);
+  useEffect(() => clearPeerToken, [clearPeerToken]);
 
   const batches = useQuery({
     queryKey: ["electrical-audit-batches"],
@@ -371,7 +380,7 @@ export function AuditBatchPanel() {
               </Button>
             ) : null}
             {generatedPeerToken ? (
-              <Button size="sm" variant="ghost" onClick={() => setGeneratedPeerToken(null)}>
+              <Button size="sm" variant="ghost" onClick={clearPeerToken}>
                 Clear
               </Button>
             ) : null}
