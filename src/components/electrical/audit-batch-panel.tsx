@@ -18,6 +18,7 @@ import {
 
 
 import { PeerSyncPanel } from "@/components/electrical/peer-sync-panel";
+import { PeerSyncSecretPanel } from "@/components/electrical/peer-sync-secret-panel";
 import { PersistedSection } from "@/components/electrical/persisted-section";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -426,6 +427,7 @@ export function AuditBatchPanel() {
       </PersistedSection>
 
       <PeerSyncPanel />
+      <PeerSyncSecretPanel />
 
       <PersistedSection
         storageKey="electrical.audit-batches.list"
