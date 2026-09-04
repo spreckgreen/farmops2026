@@ -708,21 +708,44 @@ export function buildPatch(
     if (v) refNotes.push(`${k}=${v}`);
   }
 
-  const noteParts: string[] = [];
-  if (item.notes) noteParts.push(item.notes);
+  // Evidence, observed references and class annotations are journal-only: they
+  // are never written into the entity's notes column, because doing so would
+  // replace notes the manifest never asked to change. They surface here as
+  // preview messages and are persisted by the field-observation journal.
   if (item.observation_class === "TEMPORARY") {
-    noteParts.push(
-      `TEMPORARY observed installation${item.observed_label ? ` (tape label ${item.observed_label})` : ""}.`,
+    messages.push(
+      info(
+        `TEMPORARY observed installation${item.observed_label ? ` (tape label ${item.observed_label})` : ""} — recorded in the field journal only.`,
+      ),
     );
   }
   if (item.observation_class === "ROUGH_IN") {
-    noteParts.push("ROUGH_IN observed; device/termination not confirmed and not energized.");
+    messages.push(
+      info(
+        "ROUGH_IN observed; device/termination not confirmed and not energized — recorded in the field journal only.",
+      ),
+    );
   }
-  if (refNotes.length) noteParts.push(`Observed references: ${refNotes.join(", ")}.`);
-  noteParts.push(`Evidence: ${item.evidence}.`);
-  if (allowed.has("notes")) {
-    patch["notes"] = noteParts.join(" ");
+  if (refNotes.length) {
+    messages.push(info(`Observed references (journal only): ${refNotes.join(", ")}.`));
   }
+  messages.push(info(`Evidence (journal only): ${item.evidence}.`));
+
+  // Notes are only touched when the manifest explicitly requests a notes value,
+  // and then they are appended with de-duplication instead of overwritten.
+  const requestedNote =
+    typeof item.notes === "string" && item.notes.trim() ? item.notes.trim() : null;
+  if (requestedNote) {
+    if (!allowed.has("notes")) {
+      messages.push(err(`${item.entity_kind} records cannot carry an audit note.`));
+    } else {
+      const existing = typeof before?.["notes"] === "string" ? (before["notes"] as string) : null;
+      const merged = mergeNotes(existing, requestedNote);
+      if (merged !== (existing ?? null)) patch["notes"] = merged;
+      else messages.push(info("Requested note is already present; notes are left unchanged."));
+    }
+  }
+
 
   if (allowed.has("location_evidence") && (item.pole || item.field_grid_reference)) {
     patch["location_evidence"] = `${item.evidence}${
