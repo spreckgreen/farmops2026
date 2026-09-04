@@ -60,9 +60,22 @@ async function getServerEntry(): Promise<ServerEntry> {
   return serverEntryPromise;
 }
 
+// A client that navigates away / cancels mid-render aborts the request signal.
+// srvx then rejects the in-flight SSR with AbortError, which h3 turns into a
+// generic 500. That is not an app fault and must not surface as a runtime error
+// or a rendered error page (the browser is already gone).
+function isClientAbort(request: Request, error?: unknown): boolean {
+  if (request.signal?.aborted) return true;
+  const name = (error as { name?: string; cause?: { name?: string } } | undefined)?.name;
+  const causeName = (error as { cause?: { name?: string } } | undefined)?.cause?.name;
+  return name === "AbortError" || causeName === "AbortError";
+}
+
+const abortedResponse = () => new Response(null, { status: 499, statusText: "Client Closed Request" });
+
 // h3 swallows in-handler throws into a normal 500 Response with body
 // {"unhandled":true,"message":"HTTPError"} — try/catch alone never fires for those.
-async function normalizeCatastrophicSsrResponse(response: Response): Promise<Response> {
+async function normalizeCatastrophicSsrResponse(request: Request, response: Response): Promise<Response> {
   if (response.status < 500) return response;
   const contentType = response.headers.get("content-type") ?? "";
   if (!contentType.includes("application/json")) return response;
@@ -72,7 +85,10 @@ async function normalizeCatastrophicSsrResponse(response: Response): Promise<Res
     return response;
   }
 
-  console.error(consumeLastCapturedError() ?? new Error(`h3 swallowed SSR error: ${body}`));
+  const captured = consumeLastCapturedError();
+  if (isClientAbort(request, captured)) return abortedResponse();
+
+  console.error(captured ?? new Error(`h3 swallowed SSR error: ${body}`));
   return new Response(renderErrorPage(), {
     status: 500,
     headers: { "content-type": "text/html; charset=utf-8" },
@@ -84,8 +100,9 @@ export default {
     try {
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
-      return await normalizeCatastrophicSsrResponse(response);
+      return await normalizeCatastrophicSsrResponse(request, response);
     } catch (error) {
+      if (isClientAbort(request, error)) return abortedResponse();
       console.error(error);
       return new Response(renderErrorPage(), {
         status: 500,
@@ -94,3 +111,4 @@ export default {
     }
   },
 };
+
