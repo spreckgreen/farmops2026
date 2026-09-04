@@ -138,6 +138,15 @@ export function PostGeometryProposal() {
           </Button>
         </div>
 
+        <p className="text-muted-foreground">
+          {uncertainCount === 0
+            ? "The geometric check is certain for all 26 posts. A grid cell can still be corrected by hand when the site says otherwise; a reconciliation note is required."
+            : `${uncertainCount} post(s) have an uncertain grid cell (tied between grid lines or off the outline). Correct the cell by hand with a reconciliation note.`}{" "}
+          {rows.filter((r) => r.override).length
+            ? `${rows.filter((r) => r.override).length} manual override(s) in effect — feet are unchanged.`
+            : "No manual overrides in effect."}
+        </p>
+
         {open ? (
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-left">
@@ -150,33 +159,133 @@ export function PostGeometryProposal() {
                   <th className="py-1 pr-3">Grid cell</th>
                   <th className="py-1 pr-3">Spacing</th>
                   <th className="py-1 pr-3">Outline</th>
-                  <th className="py-1">Basis</th>
+                  <th className="py-1 pr-3">Basis</th>
+                  <th className="py-1">Grid cell override</th>
                 </tr>
               </thead>
               <tbody>
-                {audit.checks.map((p) => (
-                  <tr key={p.ref} className="border-b last:border-0 align-top">
-                    <td className="py-1 pr-3 font-mono">{p.ref}</td>
-                    <td className="py-1 pr-3">
-                      {p.wall}
-                      {p.corner ? " (corner)" : ""}
-                    </td>
-                    <td className="py-1 pr-3 font-mono">{p.xFt}</td>
-                    <td className="py-1 pr-3 font-mono">{p.yFt}</td>
-                    <td className="py-1 pr-3 font-mono">{p.gridCell}</td>
-                    <td className="py-1 pr-3 font-mono">{p.spacingFromPreviousFt} ft</td>
-                    <td className="py-1 pr-3">
-                      {p.ok ? "on outline" : p.issues.join(" ")}
-                    </td>
-                    <td className="py-1 text-muted-foreground">
-                      {PROPOSED_POST_POSITIONS.find((q) => q.ref === p.ref)?.basis}
-                    </td>
-                  </tr>
+                {rows.map((p) => (
+                  <>
+                    <tr key={p.ref} className="border-b last:border-0 align-top">
+                      <td className="py-1 pr-3 font-mono">{p.ref}</td>
+                      <td className="py-1 pr-3">
+                        {p.wall}
+                        {p.corner ? " (corner)" : ""}
+                      </td>
+                      <td className="py-1 pr-3 font-mono">{p.xFt}</td>
+                      <td className="py-1 pr-3 font-mono">{p.yFt}</td>
+                      <td className="py-1 pr-3 font-mono">
+                        {p.effectiveGridCell}
+                        {p.override ? (
+                          <span className="ml-1 text-amber-600">(manual, derived {p.gridCell})</span>
+                        ) : null}
+                      </td>
+                      <td className="py-1 pr-3 font-mono">{p.spacingFromPreviousFt} ft</td>
+                      <td className="py-1 pr-3">
+                        {p.ok ? "on outline" : p.issues.join(" ")}
+                        {p.uncertainty.uncertain ? (
+                          <span className="ml-1 text-amber-600">uncertain</span>
+                        ) : null}
+                      </td>
+                      <td className="py-1 pr-3 text-muted-foreground">
+                        {PROPOSED_POST_POSITIONS.find((q) => q.ref === p.ref)?.basis}
+                      </td>
+                      <td className="py-1">
+                        <div className="flex flex-wrap gap-1">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() =>
+                              editing === p.ref ? setEditing(null) : startEdit(p.ref, p.effectiveGridCell)
+                            }
+                          >
+                            {editing === p.ref ? "Cancel" : p.override ? "Edit override" : "Override cell"}
+                          </Button>
+                          {p.override ? (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              disabled={clearing.isPending}
+                              onClick={() => clearing.mutate(p.ref)}
+                            >
+                              Remove
+                            </Button>
+                          ) : null}
+                        </div>
+                        {p.override ? (
+                          <p className="mt-1 max-w-xs text-muted-foreground">
+                            {p.override.reconciliationNote}
+                          </p>
+                        ) : null}
+                      </td>
+                    </tr>
+                    {editing === p.ref ? (
+                      <tr key={`${p.ref}-edit`} className="border-b bg-muted/40">
+                        <td colSpan={9} className="p-3">
+                          <div className="space-y-2">
+                            {p.uncertainty.uncertain ? (
+                              <ul className="list-disc space-y-1 pl-4 text-amber-600">
+                                {p.uncertainty.reasons.map((r) => (
+                                  <li key={r}>{r}</li>
+                                ))}
+                              </ul>
+                            ) : null}
+                            <div className="flex flex-wrap items-center gap-2">
+                              <label className="text-muted-foreground" htmlFor={`cell-${p.ref}`}>
+                                Corrected grid cell for {p.ref}
+                              </label>
+                              <select
+                                id={`cell-${p.ref}`}
+                                className="h-8 rounded-md border bg-background px-2"
+                                value={cell}
+                                onChange={(e) => setCell(e.target.value)}
+                              >
+                                <option value="">Select a cell…</option>
+                                {GRID_CELL_CHOICES.map((c) => (
+                                  <option key={c} value={c}>
+                                    {c}
+                                    {c === p.gridCell ? " (derived)" : ""}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                            <Textarea
+                              aria-label={`Reconciliation note for ${p.ref}`}
+                              placeholder="Why does the site differ from the derived cell? (required)"
+                              value={note}
+                              onChange={(e) => setNote(e.target.value)}
+                              rows={2}
+                            />
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                disabled={saving.isPending}
+                                onClick={() =>
+                                  saving.mutate({ postRef: p.ref, gridCell: cell, note })
+                                }
+                              >
+                                Save override and note
+                              </Button>
+                              <Button size="sm" variant="ghost" onClick={() => setEditing(null)}>
+                                Cancel
+                              </Button>
+                            </div>
+                            <p className="text-muted-foreground">
+                              The override records the grid cell only. The post keeps its frozen
+                              position ({p.xFt} ft east, {p.yFt} ft south) and no electrical record
+                              is changed.
+                            </p>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : null}
+                  </>
                 ))}
               </tbody>
             </table>
           </div>
         ) : null}
+
 
       </CardContent>
     </Card>
