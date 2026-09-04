@@ -326,7 +326,7 @@ async function storeItems(
  * Validates, records provenance and stages a preview. Writes no electrical record
  * and never approves or applies anything.
  */
-async function stageManifestText(
+export async function stageManifestText(
   context: { supabase: unknown; userId: string },
   manifestText: string,
   provenance?: { source_note: string },
@@ -414,6 +414,110 @@ export interface PeerPullResult {
   preview: AuditBatchPreview;
 }
 
+/**
+ * Fetch and integrity-check one manifest from a peer instance.
+ *
+ * Shared by the manual pull and by the scheduled pull job so both run exactly
+ * the same safety checks: https-only, resolved-address SSRF guard, no
+ * redirects, and a checksum that must match what the peer stored.
+ */
+export interface PeerManifestFetch {
+  origin: string;
+  manifest: unknown;
+  peer_stored: string | null;
+  peer_recomputed: string | null;
+  local_checksum: string;
+  status: string | null;
+  applied_at: string | null;
+}
+
+export async function fetchPeerManifest(
+  peerBaseUrl: string,
+  batchId: string,
+  peerToken: string,
+): Promise<PeerManifestFetch> {
+  const base = assertPeerUrl(peerBaseUrl);
+  const endpoint = new URL(
+    `/api/v1/electrical/audit-batches/${encodeURIComponent(batchId)}/manifest`,
+    base.origin,
+  );
+
+  let res: Response;
+  try {
+    // peerFetch resolves the hostname and refuses private/loopback/link-local
+    // /reserved answers, and disables redirects so a 302 cannot escape them.
+    res = await peerFetch(endpoint, {
+      method: "GET",
+      headers: { authorization: `Bearer ${peerToken}`, accept: "application/json" },
+    });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "";
+    if (message.includes("Peer instance")) throw e;
+    throw new Error("Peer instance could not be reached.");
+  }
+  if (!res.ok) {
+    throw new Error(
+      `Peer instance refused the manifest export (HTTP ${res.status}). Check the batch ID and that the token carries electrical:audit-batches:read.`,
+    );
+  }
+  const body = (await res.json()) as Record<string, unknown>;
+  const manifest = body["manifest"];
+  if (!manifest || typeof manifest !== "object") {
+    throw new Error("Peer response carried no manifest object.");
+  }
+  const peerStored = body["stored_manifest_sha256"] == null ? null : String(body["stored_manifest_sha256"]);
+  const peerRecomputed =
+    body["recomputed_manifest_sha256"] == null ? null : String(body["recomputed_manifest_sha256"]);
+  if (peerStored && peerRecomputed && peerStored !== peerRecomputed) {
+    throw new Error(
+      "Peer manifest checksum does not match the manifest it stored; refusing to stage a manifest whose integrity the peer cannot prove.",
+    );
+  }
+  const localChecksum = await manifestChecksum(manifest);
+  if (peerStored && localChecksum !== peerStored) {
+    throw new Error(
+      `Manifest checksum mismatch after transfer (peer ${peerStored}, here ${localChecksum}). Nothing was staged.`,
+    );
+  }
+  return {
+    origin: base.origin,
+    manifest,
+    peer_stored: peerStored,
+    peer_recomputed: peerRecomputed,
+    local_checksum: localChecksum,
+    status: body["status"] == null ? null : String(body["status"]),
+    applied_at: body["applied_at"] == null ? null : String(body["applied_at"]),
+  };
+}
+
+/** List the batch metadata a peer instance exposes (no manifests). */
+export async function fetchPeerBatchList(
+  peerBaseUrl: string,
+  peerToken: string,
+): Promise<Record<string, unknown>[]> {
+  const base = assertPeerUrl(peerBaseUrl);
+  const endpoint = new URL("/api/v1/electrical/audit-batches", base.origin);
+  let res: Response;
+  try {
+    res = await peerFetch(endpoint, {
+      method: "GET",
+      headers: { authorization: `Bearer ${peerToken}`, accept: "application/json" },
+    });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "";
+    if (message.includes("Peer instance")) throw e;
+    throw new Error("Peer instance could not be reached.");
+  }
+  if (!res.ok) {
+    throw new Error(
+      `Peer instance refused the batch list (HTTP ${res.status}). The token needs electrical:audit-batches:read.`,
+    );
+  }
+  const body = (await res.json()) as Record<string, unknown>;
+  const rows = body["batches"];
+  return Array.isArray(rows) ? (rows as Record<string, unknown>[]) : [];
+}
+
 export const pullPeerAuditBatch = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
@@ -429,57 +533,9 @@ export const pullPeerAuditBatch = createServerFn({ method: "POST" })
     await requireElectricalAccess(context.supabase, context.userId, "write");
     await requireAdminRole(context.supabase, context.userId);
 
-    const base = assertPeerUrl(data.peer_base_url);
-    const endpoint = new URL(
-      `/api/v1/electrical/audit-batches/${encodeURIComponent(data.batch_id)}/manifest`,
-      base.origin,
-    );
-
-    let res: Response;
-    try {
-      // peerFetch resolves the hostname and refuses private/loopback/link-local
-      // /reserved answers, and disables redirects so a 302 cannot escape them.
-      res = await peerFetch(endpoint, {
-        method: "GET",
-        headers: {
-          authorization: `Bearer ${data.peer_token}`,
-          accept: "application/json",
-        },
-      });
-    } catch (e) {
-      const message = e instanceof Error ? e.message : "";
-      if (message.includes("Peer instance")) throw e;
-      throw new Error("Peer instance could not be reached.");
-    }
-    if (!res.ok) {
-      throw new Error(
-        `Peer instance refused the manifest export (HTTP ${res.status}). Check the batch ID and that the token carries electrical:audit-batches:read.`,
-      );
-    }
-    const body = (await res.json()) as Record<string, unknown>;
-    const manifest = body["manifest"];
-    if (!manifest || typeof manifest !== "object") {
-      throw new Error("Peer response carried no manifest object.");
-    }
-    const peerStored = body["stored_manifest_sha256"] == null ? null : String(body["stored_manifest_sha256"]);
-    const peerRecomputed =
-      body["recomputed_manifest_sha256"] == null ? null : String(body["recomputed_manifest_sha256"]);
-    if (peerStored && peerRecomputed && peerStored !== peerRecomputed) {
-      throw new Error(
-        "Peer manifest checksum does not match the manifest it stored; refusing to stage a manifest whose integrity the peer cannot prove.",
-      );
-    }
-    const localChecksum = await manifestChecksum(manifest);
-    if (peerStored && localChecksum !== peerStored) {
-      throw new Error(
-        `Manifest checksum mismatch after transfer (peer ${peerStored}, here ${localChecksum}). Nothing was staged.`,
-      );
-    }
-
-    const peerStatus = body["status"] == null ? null : String(body["status"]);
-    const peerAppliedAt = body["applied_at"] == null ? null : String(body["applied_at"]);
-    const preview = await stageManifestText(context, JSON.stringify(manifest), {
-      source_note: `pulled from peer ${base.origin} on ${new Date().toISOString()} (peer status ${peerStatus ?? "unknown"})`,
+    const fetched = await fetchPeerManifest(data.peer_base_url, data.batch_id, data.peer_token);
+    const preview = await stageManifestText(context, JSON.stringify(fetched.manifest), {
+      source_note: `pulled from peer ${fetched.origin} on ${new Date().toISOString()} (peer status ${fetched.status ?? "unknown"})`,
     });
 
     await recordElectricalChange(context.supabase, context.userId, {
@@ -488,25 +544,25 @@ export const pullPeerAuditBatch = createServerFn({ method: "POST" })
       entity_kind: "audit_batch",
       entity_ref: data.batch_id,
       detail: {
-        peer_origin: base.origin,
-        peer_status: peerStatus,
-        peer_applied_at: peerAppliedAt,
-        manifest_sha256: localChecksum,
+        peer_origin: fetched.origin,
+        peer_status: fetched.status,
+        peer_applied_at: fetched.applied_at,
+        manifest_sha256: fetched.local_checksum,
         staged_preview_only: true,
       },
     } as never);
 
     return {
       peer: {
-        base_url: base.origin,
+        base_url: fetched.origin,
         batch_id: data.batch_id,
-        status: peerStatus,
-        applied_at: peerAppliedAt,
+        status: fetched.status,
+        applied_at: fetched.applied_at,
       },
       checksum: {
-        peer_stored: peerStored,
-        peer_recomputed: peerRecomputed,
-        matches: !peerStored || peerStored === localChecksum,
+        peer_stored: fetched.peer_stored,
+        peer_recomputed: fetched.peer_recomputed,
+        matches: !fetched.peer_stored || fetched.peer_stored === fetched.local_checksum,
       },
       preview,
     };
