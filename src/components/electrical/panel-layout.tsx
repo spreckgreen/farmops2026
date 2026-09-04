@@ -130,7 +130,6 @@ function BreakerRowEditor({
   onDone: () => void;
 }) {
   const save = useServerFn(saveBreakerPosition);
-  const recordMissing = useServerFn(recordMissingBreakerPositions);
   const [poles, setPoles] = useState(String(Number(row["poles"] ?? 1)));
   const [amps, setAmps] = useState(row["ocp_amps"] == null ? "" : String(row["ocp_amps"]));
   const [label, setLabel] = useState(String(row["label"] ?? ""));
@@ -557,7 +556,11 @@ function BreakerPositions({
             >
               <Plus className="h-4 w-4" />
               Add {side} {position}
-              {suggestedBreaker ? ` (breaker ${suggestedBreaker})` : ""}
+              {suggestedReference
+                ? ` — ${suggestedReference} (derived from this panel's configuration)`
+                : suggestedBreaker
+                  ? ` (breaker ${suggestedBreaker})`
+                  : ""}
             </Button>
           </div>
         </div>
