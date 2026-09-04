@@ -407,7 +407,7 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
                   onClick={() => setShowDesignVsField(!showDesignVsField)}
                   title={`Overlay approved design X/Y against the latest verified field observation. Separations over ${DESIGN_FIELD_TOLERANCE_FT} ft are highlighted; nothing is changed.`}
                 >
-                  Design vs field ({designField.counts.MISMATCH} mismatch)
+                  Planned vs verified ({designField.counts.MISMATCH} mismatch)
                 </Chip>
               </div>
 
