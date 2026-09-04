@@ -129,6 +129,8 @@ export function AuditBatchPanel() {
   const [peerUrl, setPeerUrl] = useState("");
   const [peerBatchId, setPeerBatchId] = useState("");
   const [peerToken, setPeerToken] = useState("");
+  const [generatedPeerToken, setGeneratedPeerToken] = useState<PeerRegistration | null>(null);
+
   const [peerNote, setPeerNote] = useState<string | null>(null);
   const [approved, setApproved] = useState<Set<string>>(new Set());
   const [filter, setFilter] = useState<AuditDisposition | "all">("all");
