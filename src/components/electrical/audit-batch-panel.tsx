@@ -309,6 +309,18 @@ export function AuditBatchPanel() {
               <Upload className="mr-1 h-4 w-4" />
               Import &amp; preview
             </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setManifestText(fsNwAuditManifestR1Text());
+                toast.success(
+                  `${FS_NW_AUDIT_R1_BATCH_ID} loaded — ${FS_NW_AUDITED_BREAKERS.length} audited breakers with automatic CG-FS-### allocation. Import to preview; nothing is written yet.`,
+                );
+              }}
+            >
+              Load {FS_NW_AUDIT_R1_BATCH_ID}
+            </Button>
             {payload ? (
               <Button
                 size="sm"
