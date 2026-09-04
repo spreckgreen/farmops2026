@@ -12,10 +12,13 @@ import { toast } from "sonner";
 import {
   FS_NW_AUDITED_BREAKERS,
   FS_NW_AUDIT_R1_BATCH_ID,
+  FS_NW_AUDIT_R2_BATCH_ID,
   FS_NW_LINKS_BATCH_ID,
-  fsNwAuditManifestR1Text,
+  FS_NW_R1_REJECTION_REASON,
+  fsNwAuditManifestR2Text,
 } from "@/lib/electrical-fs-nw-audit-r1";
 import { resolveFsNwAuditedLoadLinks } from "@/lib/electrical-fs-nw-links.functions";
+
 import {
   buildPeerRegistration,
   generatePeerToken,
