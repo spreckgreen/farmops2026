@@ -21,8 +21,13 @@ import {
   type AssetKind,
   type OperationalAsset,
   type OperationalInput,
+  type PendingObservation,
   type OperationalSummary,
 } from "@/lib/electrical-grid-operational";
+import {
+  POST_GEOMETRY_CONFIRMED,
+  POST_GEOMETRY_REVIEW_NOTE,
+} from "@/lib/electrical-grid-post-geometry";
 
 type LooseDb = { from: (table: string) => any };
 type Row = Record<string, unknown>;
@@ -71,8 +76,66 @@ function baseInput(kind: AssetKind, row: Row, id: string): OperationalInput {
     panelBasis: null,
     circuitClass: null,
     circuitClassBasis: null,
+    fieldGridReference: str(row["field_grid_reference"]),
+    poleScheme: str(row["pole_scheme"]),
+    poleLocationKind: str(row["pole_location_kind"]),
+    poleRefStart: str(row["pole_ref_start"]),
+    poleRefEnd: str(row["pole_ref_end"]),
+    pendingObservation: null,
   };
 }
+
+/** Location columns an applied audit writes onto a record. */
+const OBSERVED_LOCATION_COLS =
+  "field_grid_reference, pole_scheme, pole_location_kind, pole_ref_start, pole_ref_end";
+
+/**
+ * Staged field observations: audit-batch items that state a location but have not
+ * been approved or applied. They are read only to show a clearly separate pending
+ * layer; nothing here is written to any record.
+ */
+async function pendingObservations(db: LooseDb): Promise<Map<string, PendingObservation>> {
+  const out = new Map<string, PendingObservation>();
+  const [batches, items] = await Promise.all([
+    db
+      .from("electrical_audit_batches")
+      .select("id, batch_id, status, observed_date, applied_at"),
+    db
+      .from("electrical_audit_batch_items")
+      .select(
+        "batch_uuid, item_key, target_stable_id, payload, approved, applied_at, disposition, created_at",
+      )
+      .order("created_at"),
+  ]);
+  if (batches.error || items.error) return out;
+  const batchById = new Map<string, Row>();
+  for (const b of (batches.data ?? []) as Row[]) batchById.set(s(b["id"]), b);
+
+  for (const it of (items.data ?? []) as Row[]) {
+    if (it["approved"] === true || s(it["applied_at"])) continue;
+    const target = s(it["target_stable_id"]);
+    if (!target) continue;
+    const batch = batchById.get(s(it["batch_uuid"]));
+    if (!batch || s(batch["applied_at"])) continue;
+    const payload = (it["payload"] ?? {}) as Row;
+    const grid = str(payload["field_grid_reference"]);
+    const kind = str(payload["pole_location_kind"]);
+    if (!grid && !kind) continue;
+    out.set(target, {
+      batchId: s(batch["batch_id"]) || s(batch["id"]),
+      itemKey: s(it["item_key"]),
+      fieldGridReference: grid,
+      poleScheme: str(payload["pole_scheme"]),
+      poleLocationKind: kind,
+      poleRefStart: str(payload["pole_ref_start"]),
+      poleRefEnd: str(payload["pole_ref_end"]),
+      observedAt: str(batch["observed_date"]),
+      evidence: str(payload["location_evidence"]),
+    });
+  }
+  return out;
+}
+
 
 export const electricalGridOperational = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -85,20 +148,26 @@ export const electricalGridOperational = createServerFn({ method: "GET" })
         db
           .from("electrical_loads")
           .select(
-            "id, load_id, description, area, location, grid, design_grid, design_x_ft, design_y_ft, legacy_grid, grid_reference, grid_reference_precision, location_x_ft, location_y_ft, install_status, field_verification_status, verification_notes, location_evidence, verified_at, updated_at, dedicated, dedicated_shared, circuit_group_ref, circuit_group_uuid, suggested_panel",
+            "id, load_id, description, area, location, grid, design_grid, design_x_ft, design_y_ft, legacy_grid, grid_reference, grid_reference_precision, location_x_ft, location_y_ft, install_status, field_verification_status, verification_notes, location_evidence, verified_at, updated_at, " +
+            OBSERVED_LOCATION_COLS +
+            ", dedicated, dedicated_shared, circuit_group_ref, circuit_group_uuid, suggested_panel",
           )
           .order("load_id"),
         db
           .from("electrical_panels")
           .select(
-            "id, panel_id, description, building, grid, design_grid, design_x_ft, design_y_ft, legacy_grid, grid_reference, grid_reference_precision, location_x_ft, location_y_ft, install_status, field_verification_status, verification_notes, location_evidence, verified_at, updated_at",
+            "id, panel_id, description, building, grid, design_grid, design_x_ft, design_y_ft, legacy_grid, grid_reference, grid_reference_precision, location_x_ft, location_y_ft, install_status, field_verification_status, verification_notes, location_evidence, verified_at, updated_at, " +
+            OBSERVED_LOCATION_COLS,
           )
           .order("panel_id"),
         db.from("electrical_circuit_groups").select("id, circuit_group_id, panel_uuid"),
         db.from("electrical_breaker_positions").select("panel_uuid, load_uuid, circuit_group_uuid"),
         db
           .from("electrical_junction_boxes")
-          .select("jbox_id, description, building, grid, install_status, updated_at"),
+          .select(
+            "jbox_id, description, building, grid, install_status, updated_at, " +
+              OBSERVED_LOCATION_COLS,
+          ),
         db
           .from("electrical_devices")
           .select("device_id, description, building, location_note, grid, install_status, updated_at"),
@@ -215,8 +284,15 @@ export const electricalGridOperational = createServerFn({ method: "GET" })
       });
     }
 
+    const pending = await pendingObservations(db);
+    for (const input of inputs) {
+      const p = pending.get(input.stableId);
+      if (p) input.pendingObservation = p;
+    }
+
     const built = buildOperationalAssets(inputs);
     const summary = summarizeOperational(built);
+
 
     const panelCounts = new Map<string, { count: number; basis: string }>();
     for (const a of built) {
@@ -272,8 +348,29 @@ export const electricalGridOperational = createServerFn({ method: "GET" })
         `${summary.placementDisagreements} record(s) have disagreeing placement sources (recorded X/Y vs accepted grid vs canonical/recovery-derived). Nothing was overwritten; each is listed with every available value and the source that was selected.`,
       );
     }
+    if (summary.placementSources.PENDING_FIELD_OBSERVATION) {
+      gaps.push(
+        `${summary.placementSources.PENDING_FIELD_OBSERVATION} record(s) are plotted from a field observation that is still staged in an audit batch — not approved and not applied. They are drawn as a separate pending layer and stay provisional until each item is approved.`,
+      );
+    }
+    {
+      const postOnly = inputs.filter((i) => {
+        const applied = (i.poleLocationKind ?? "").trim();
+        const staged = (i.pendingObservation?.poleLocationKind ?? "").trim();
+        const kind = applied || staged;
+        const grid = (i.fieldGridReference ?? i.pendingObservation?.fieldGridReference ?? "").trim();
+        return !!kind && kind !== "NOT_APPLICABLE" && !grid;
+      }).length;
+      if (postOnly && !POST_GEOMETRY_CONFIRMED) {
+        gaps.push(
+          `${postOnly} record(s) state only a perimeter post callout. ${POST_GEOMETRY_REVIEW_NOTE}`,
+        );
+      }
+    }
+    gaps.push(POST_GEOMETRY_REVIEW_NOTE);
     gaps.push(
       `Placement source counts: ${PLACEMENT_SOURCE_ORDER.filter((k) => summary.placementSources[k])
+
         .map((k) => `${PLACEMENT_SOURCE_LABEL[k]} ${summary.placementSources[k]}`)
         .join(" · ")}.`,
     );

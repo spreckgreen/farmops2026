@@ -15,6 +15,11 @@ import {
   oldNumberToFeet,
   parseOldGrid,
 } from "@/lib/electrical-grid-migration";
+import {
+  POST_GEOMETRY_CONFIRMED,
+  postObservationFeet,
+} from "@/lib/electrical-grid-post-geometry";
+
 
 export const OPERATIONAL_MODEL_VERSION = "farm-shop-operational-location-1";
 
@@ -237,12 +242,42 @@ export interface OperationalInput {
   /** Only loads carry a circuit class; other kinds leave this null. */
   circuitClass: string | null;
   circuitClassBasis: string | null;
+  /** Applied field-observed grid cell (corrected A–F / 1–9), if any. */
+  fieldGridReference?: string | null;
+  /** Applied field-observed perimeter post callout, if any. */
+  poleScheme?: string | null;
+  poleLocationKind?: string | null;
+  poleRefStart?: string | null;
+  poleRefEnd?: string | null;
+  /** A staged, not-yet-approved field observation for this record, if any. */
+  pendingObservation?: PendingObservation | null;
 }
+
+/**
+ * One field observation that exists only inside a staged audit batch. It has not
+ * been approved or applied, so it is a distinct, clearly labelled layer — never
+ * written to the record and never treated as an accepted statement.
+ */
+export interface PendingObservation {
+  batchId: string;
+  itemKey: string;
+  fieldGridReference: string | null;
+  poleScheme: string | null;
+  poleLocationKind: string | null;
+  poleRefStart: string | null;
+  poleRefEnd: string | null;
+  observedAt: string | null;
+  evidence: string | null;
+}
+
 
 /** Where a plotted position came from, in precedence order. */
 export type PlacementSource =
   | "VERIFIED_FIELD_OBSERVATION_XY"
+  | "OBSERVED_FIELD_GRID"
+  | "OBSERVED_POST"
   | "APPROVED_DESIGN_XY"
+  | "PENDING_FIELD_OBSERVATION"
   | "DERIVED_FROM_GRID_REFERENCE"
   | "DERIVED_FROM_CURRENT_GRID"
   | "DERIVED_FROM_LEGACY_GRID"
@@ -251,7 +286,10 @@ export type PlacementSource =
 
 export const PLACEMENT_SOURCE_LABEL: Record<PlacementSource, string> = {
   VERIFIED_FIELD_OBSERVATION_XY: "Verified field observation X/Y",
+  OBSERVED_FIELD_GRID: "Applied field-observed grid cell",
+  OBSERVED_POST: "Applied field-observed perimeter post",
   APPROVED_DESIGN_XY: "Approved design X/Y (not yet field verified)",
+  PENDING_FIELD_OBSERVATION: "Field observation staged for approval (not applied)",
   DERIVED_FROM_GRID_REFERENCE: "Accepted corrected grid reference",
   DERIVED_FROM_CURRENT_GRID: "Accepted current FarmOps grid",
   DERIVED_FROM_LEGACY_GRID: "Canonical / recovery-derived legacy grid",
@@ -261,13 +299,17 @@ export const PLACEMENT_SOURCE_LABEL: Record<PlacementSource, string> = {
 
 export const PLACEMENT_SOURCE_ORDER: PlacementSource[] = [
   "VERIFIED_FIELD_OBSERVATION_XY",
+  "OBSERVED_FIELD_GRID",
+  "OBSERVED_POST",
   "APPROVED_DESIGN_XY",
+  "PENDING_FIELD_OBSERVATION",
   "DERIVED_FROM_GRID_REFERENCE",
   "DERIVED_FROM_CURRENT_GRID",
   "DERIVED_FROM_LEGACY_GRID",
   "PROVISIONAL_RECORDED_XY",
   "NOT_PLOTTED",
 ];
+
 
 
 /** One candidate position the record could support, evaluated but not chosen. */
@@ -365,6 +407,51 @@ export function placementCandidatesFor(row: OperationalInput): PlacementCandidat
     });
   }
 
+  // 1a. Applied field-observed grid cell. This is an accepted as-built statement
+  //     recorded by an applied audit, so it outranks design intent and every
+  //     inherited grid assignment. It fixes the record to a grid cell, not to a
+  //     measured point, so a verified X/Y still wins.
+  {
+    const observedGrid = parseNewGrid(row.fieldGridReference ?? "");
+    const feet = observedGrid.ok ? newGridFeet(observedGrid) : null;
+    if (feet) {
+      out.push({
+        source: "OBSERVED_FIELD_GRID",
+        xFt: feet.xFt,
+        yFt: feet.yFt,
+        precision: observedGrid.interval ? "INTERVAL" : "GRIDLINE",
+        spanned: feet.span,
+        basis: `Applied field observation: grid ${row.fieldGridReference}${
+          row.verifiedAt ? `, verified ${row.verifiedAt}` : ""
+        }. Fixes the record to that grid cell, not to a measured point.`,
+        accepted: true,
+      });
+    }
+  }
+
+  // 1a2. Applied field-observed perimeter post. Only usable once the post
+  //      geometry proposal has been confirmed by the owner.
+  if (POST_GEOMETRY_CONFIRMED && row.poleLocationKind) {
+    const post = postObservationFeet({
+      pole_scheme: row.poleScheme ?? null,
+      pole_location_kind: row.poleLocationKind as never,
+      pole_ref_start: row.poleRefStart ?? null,
+      pole_ref_end: row.poleRefEnd ?? null,
+    });
+    if (post) {
+      out.push({
+        source: "OBSERVED_POST",
+        xFt: post.xFt,
+        yFt: post.yFt,
+        precision: post.spanned ? "INTERVAL" : "NEAREST",
+        spanned: post.spanned,
+        basis: `Applied field observation at post ${post.token}. ${post.basis}`,
+        accepted: true,
+      });
+    }
+  }
+
+
   // 1b. Approved design X/Y. The design coordinates are the authoritative
   //     statement of the intended position; any grid label on the record is a
   //     human-readable lookup of that position, never the position itself. This
@@ -388,6 +475,56 @@ export function placementCandidatesFor(row: OperationalInput): PlacementCandidat
     }
   }
 
+  // 1c. Staged field observation: it lives in an audit batch that has not been
+  //     approved or applied, so it is never an accepted statement. It is still
+  //     the most recent thing anyone actually saw in the field, so it outranks
+  //     inherited grid assignments while staying visibly provisional.
+  {
+    const p = row.pendingObservation ?? null;
+    if (p) {
+      const pendingGrid = parseNewGrid(p.fieldGridReference ?? "");
+      const feet = pendingGrid.ok ? newGridFeet(pendingGrid) : null;
+      const post =
+        POST_GEOMETRY_CONFIRMED && p.poleLocationKind
+          ? postObservationFeet({
+              pole_scheme: p.poleScheme,
+              pole_location_kind: p.poleLocationKind as never,
+              pole_ref_start: p.poleRefStart,
+              pole_ref_end: p.poleRefEnd,
+            })
+          : null;
+      const chosen = feet
+        ? {
+            xFt: feet.xFt,
+            yFt: feet.yFt,
+            spanned: feet.span,
+            interval: pendingGrid.interval,
+            what: `grid ${p.fieldGridReference}`,
+          }
+        : post
+          ? {
+              xFt: post.xFt,
+              yFt: post.yFt,
+              spanned: post.spanned,
+              interval: post.spanned,
+              what: `post ${post.token}`,
+            }
+          : null;
+      if (chosen) {
+        out.push({
+          source: "PENDING_FIELD_OBSERVATION",
+          xFt: chosen.xFt,
+          yFt: chosen.yFt,
+          precision: chosen.interval ? "INTERVAL" : "GRIDLINE",
+          spanned: chosen.spanned,
+          basis: `Staged field observation (${chosen.what}) from audit batch ${p.batchId}, item ${p.itemKey}${
+            p.observedAt ? `, observed ${p.observedAt}` : ""
+          }. Not approved and not applied — shown for review only.`,
+          accepted: false,
+        });
+      }
+    }
+  }
 
 
   // 2. The accepted current FarmOps corrected grid reference. grid_reference is

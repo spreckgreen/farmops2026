@@ -22,6 +22,7 @@ import {
   feetToPlan,
 } from "@/lib/electrical-grid-plan-geometry";
 import {
+  PLACEMENT_SOURCE_LABEL,
   PRECISION_META,
   VERIFICATION_LABEL,
   verificationOf,
@@ -379,7 +380,23 @@ export function GridPlanSvg({
                   strokeWidth={u(0.14)}
                 />
               )}
+              {a.locationSource === "PENDING_FIELD_OBSERVATION" ? (
+                // Staged field observation: a separate, visibly provisional layer
+                // drawn as a dashed halo so it is never read as applied data.
+                <circle
+                  data-pending-observation
+                  cx={shown.x}
+                  cy={shown.y}
+                  r={r + u(0.34)}
+                  fill="none"
+                  stroke="#b45309"
+                  strokeWidth={u(0.2)}
+                  strokeDasharray={`${u(0.32)} ${u(0.26)}`}
+                  pointerEvents="none"
+                />
+              ) : null}
               {badge > 1 ? (
+
                 // Cluster badge: the marker stays on the exact anchor and reports
                 // how many records share it. Selecting it spiders the group.
                 <>
@@ -439,8 +456,15 @@ export function hintLines(asset: OperationalAsset): string[] {
     `${PRECISION_META[asset.precision].label} · ${asset.plottedXFt ?? "?"} ft E, ${asset.plottedYFt ?? "?"} ft S`,
     `Panel: ${asset.panel ?? "NOT IN RECORD"} · Install: ${asset.installStatus ?? "NOT IN RECORD"}`,
     `Verification: ${VERIFICATION_LABEL[verificationOf(asset.verification)]}`,
+    `Position from: ${PLACEMENT_SOURCE_LABEL[asset.locationSource]}`,
+    ...(asset.locationSource === "PENDING_FIELD_OBSERVATION"
+      ? [
+          `Staged observation ${asset.pendingObservation?.batchId ?? ""} — awaiting approval, not applied`.trim(),
+        ]
+      : []),
     ...(asset.spanned ? ["Interval — a preserved span, not a final point"] : []),
     ...(asset.placementDisagreement ? ["Placement conflict — see Data quality"] : []),
+
   ];
 }
 
