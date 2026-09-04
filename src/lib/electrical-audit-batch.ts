@@ -1263,3 +1263,160 @@ export function compensatingManifest(
     items,
   };
 }
+
+/* ------------------------------------------------------------------ *
+ * 9.1 Manifest-local dependency resolution
+ * ------------------------------------------------------------------ */
+
+/** Reference keys (`kind|STABLE_ID`) an item declares. */
+export function itemReferenceKeys(item: AuditBatchItemInput): string[] {
+  const refs = item.refs ?? {};
+  const pairs: [string, string | null | undefined][] = [
+    ["panel", refs.panel_ref],
+    ["circuit_group", refs.circuit_group_ref],
+    ["load", refs.load_ref],
+    ["jbox", refs.jbox_ref],
+    ["raceway", refs.raceway_ref],
+  ];
+  return pairs.filter(([, v]) => Boolean(v)).map(([k, v]) => `${k}|${norm(v)}`);
+}
+
+export interface ManifestGraph {
+  /** `kind|STABLE_ID` → item_key of the CREATE item that will produce it. */
+  pendingCreates: Map<string, string>;
+  /** item_key → item_keys it depends on inside this manifest. */
+  dependsOn: Map<string, string[]>;
+  /** Blocking ambiguity: the same proposed stable ID appears more than once. */
+  conflicts: string[];
+}
+
+/**
+ * Build the manifest dependency graph before classification, so an item may
+ * reference a record another item in the same manifest creates. A duplicate or
+ * ambiguous proposed stable ID is a blocking conflict, never a guess.
+ */
+export function buildManifestGraph(
+  items: AuditBatchItemInput[],
+  existing: (kind: string, stableId: string) => boolean = () => false,
+): ManifestGraph {
+  const pendingCreates = new Map<string, string>();
+  const conflicts: string[] = [];
+  const seen = new Map<string, string[]>();
+
+  for (const item of items) {
+    const id = norm(item.target_stable_id);
+    if (!id) continue;
+    if (!AUDIT_ENTITY_TARGETS[item.entity_kind].creatable) continue;
+    if (existing(item.entity_kind, id)) continue; // already a real record
+    const key = `${item.entity_kind}|${id}`;
+    seen.set(key, [...(seen.get(key) ?? []), item.item_key]);
+  }
+  for (const [key, keys] of seen) {
+    if (keys.length > 1) {
+      conflicts.push(
+        `${key.split("|")[1]} is proposed for creation by more than one item (${keys.join(", ")}); the reference is ambiguous and the batch cannot apply.`,
+      );
+      continue;
+    }
+    pendingCreates.set(key, keys[0]!);
+  }
+
+  const dependsOn = new Map<string, string[]>();
+  for (const item of items) {
+    const deps = itemReferenceKeys(item)
+      .map((k) => pendingCreates.get(k))
+      .filter((k): k is string => Boolean(k) && k !== item.item_key);
+    dependsOn.set(item.item_key, [...new Set(deps)]);
+  }
+  return { pendingCreates, dependsOn, conflicts };
+}
+
+/**
+ * Order items for apply: entity dependency order first, then a topological
+ * pass so a manifest-local parent is always written before its dependents.
+ */
+export function orderForApply<T extends { item_key: string; entity_kind: AuditEntityKind }>(
+  items: T[],
+  dependsOn: Map<string, string[]>,
+): T[] {
+  const rank = new Map(APPLY_ORDER.map((k, i) => [k, i] as const));
+  const base = [...items].sort(
+    (a, b) => (rank.get(a.entity_kind) ?? 99) - (rank.get(b.entity_kind) ?? 99),
+  );
+  const byKey = new Map(base.map((i) => [i.item_key, i]));
+  const out: T[] = [];
+  const done = new Set<string>();
+  const visiting = new Set<string>();
+
+  const visit = (item: T) => {
+    if (done.has(item.item_key) || visiting.has(item.item_key)) return;
+    visiting.add(item.item_key);
+    for (const dep of dependsOn.get(item.item_key) ?? []) {
+      const parent = byKey.get(dep);
+      if (parent) visit(parent);
+    }
+    visiting.delete(item.item_key);
+    done.add(item.item_key);
+    out.push(item);
+  };
+  for (const item of base) visit(item);
+  return out;
+}
+
+/* ------------------------------------------------------------------ *
+ * Circuit-group identity (CG-FS-##)
+ * ------------------------------------------------------------------ */
+
+/** Placeholder a manifest uses to ask FarmOps to propose the next group ID. */
+export const AUTO_CIRCUIT_GROUP_ID = "AUTO";
+
+export const CIRCUIT_GROUP_ID_RE = /^CG-([A-Z]{2,6})-(\d{2,})$/;
+
+/**
+ * Next unused circuit-group ID for a prefix. Identity is independent of panel,
+ * breaker number and blue-tape label; existing IDs are never reused.
+ */
+export function nextCircuitGroupId(existingIds: Iterable<string>, prefix = "FS"): string {
+  let max = 0;
+  for (const raw of existingIds) {
+    const m = CIRCUIT_GROUP_ID_RE.exec(norm(raw));
+    if (m && m[1] === prefix.toUpperCase()) max = Math.max(max, Number(m[2]));
+  }
+  return `CG-${prefix.toUpperCase()}-${String(max + 1).padStart(2, "0")}`;
+}
+
+/**
+ * Replace `AUTO` (or a missing) circuit-group ID with the next unused CG-<prefix>-##
+ * deterministically, in manifest order, and rewrite the references that point
+ * at the placeholder so downstream links still resolve. The owner still has to
+ * approve every proposed ID during preview.
+ */
+export function assignProposedCircuitGroupIds(
+  items: AuditBatchItemInput[],
+  existingIds: Iterable<string>,
+  prefix = "FS",
+): { items: AuditBatchItemInput[]; proposed: Record<string, string> } {
+  const taken = new Set([...existingIds].map((v) => norm(v)));
+  const proposed: Record<string, string> = {};
+
+  const out = items.map((item) => {
+    if (item.entity_kind !== "circuit_group") return item;
+    const id = norm(item.target_stable_id);
+    if (id && id !== AUTO_CIRCUIT_GROUP_ID && !id.startsWith("AUTO:")) return item;
+    const next = nextCircuitGroupId(taken, prefix);
+    taken.add(next);
+    proposed[item.item_key] = next;
+    if (id.startsWith("AUTO:")) proposed[id] = next;
+    return { ...item, target_stable_id: next };
+  });
+
+  if (!Object.keys(proposed).length) return { items, proposed };
+
+  // Rewrite placeholder references (AUTO:<token>) to the proposed IDs.
+  const rewritten = out.map((item) => {
+    const ref = norm(item.refs?.circuit_group_ref);
+    if (!ref || !proposed[ref]) return item;
+    return { ...item, refs: { ...item.refs, circuit_group_ref: proposed[ref] } };
+  });
+  return { items: rewritten, proposed };
+}
