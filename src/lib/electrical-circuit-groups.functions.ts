@@ -67,7 +67,14 @@ export const applyCircuitGroupDerivation = createServerFn({ method: "POST" })
     const idByStableId = new Map<string, string>();
     for (const g of groups) if (g.existingId) idByStableId.set(g.circuit_group_id, g.existingId);
 
-    const toCreate = groups.filter((g) => !g.exists);
+    // A new circuit group must carry a compliant permanent ID (CG-<site>-<seq>)
+    // and never a breaker reference. Non-compliant candidates are reported, not
+    // created; existing records are never renamed.
+    const blocked = groups.filter((g) => !g.exists && g.id_error);
+    for (const g of blocked) {
+      messages.push(`${g.circuit_group_id}: not created — ${g.id_error}`);
+    }
+    const toCreate = groups.filter((g) => !g.exists && !g.id_error);
     if (toCreate.length) {
       const insert = await db
         .from("electrical_circuit_groups")
