@@ -20,7 +20,6 @@ export interface PeerSyncState {
     last_success_at: string | null;
     last_error: string | null;
     batches_staged_total: number;
-    last_result: unknown;
   } | null;
   job: {
     paused: boolean;
@@ -40,7 +39,7 @@ export const getPeerSyncState = createServerFn({ method: "GET" })
     const { data: config } = await (context.supabase as never as any)
       .from("electrical_peer_sync_config")
       .select(
-        "id, enabled, peer_base_url, max_batches_per_run, last_run_at, last_success_at, last_error, batches_staged_total, last_result",
+        "id, enabled, peer_base_url, max_batches_per_run, last_run_at, last_success_at, last_error, batches_staged_total",
       )
       .order("created_at", { ascending: true })
       .limit(1)
