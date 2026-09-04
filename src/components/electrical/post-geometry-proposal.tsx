@@ -50,8 +50,47 @@ function download(kind: "json" | "csv") {
 
 export function PostGeometryProposal() {
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<string | null>(null);
+  const [cell, setCell] = useState("");
+  const [note, setNote] = useState("");
   const audit = POST_GEOMETRY_AUDIT;
   const failing = audit.checks.filter((c) => !c.ok);
+
+  const qc = useQueryClient();
+  const list = useServerFn(listPostGridOverrides);
+  const save = useServerFn(savePostGridOverride);
+  const clear = useServerFn(clearPostGridOverride);
+  const overrides = useQuery({ queryKey: ["post-grid-overrides"], queryFn: () => list() });
+  const rows = postGridRows(overrides.data ?? []);
+  const uncertainCount = rows.filter((r) => r.uncertainty.uncertain).length;
+
+  const done = (msg: string) => {
+    toast.success(msg);
+    setEditing(null);
+    setCell("");
+    setNote("");
+    void qc.invalidateQueries({ queryKey: ["post-grid-overrides"] });
+  };
+  const fail = (e: unknown) => toast.error(e instanceof Error ? e.message : "Could not save that override");
+
+  const saving = useMutation({
+    mutationFn: (v: { postRef: string; gridCell: string; note: string }) => save({ data: v }),
+    onSuccess: (r) => done(`Override saved for ${r.postRef}`),
+    onError: fail,
+  });
+  const clearing = useMutation({
+    mutationFn: (postRef: string) => clear({ data: { postRef } }),
+    onSuccess: (r) => done(`Override removed for ${r.postRef}`),
+    onError: fail,
+  });
+
+  const startEdit = (ref: string, current: string) => {
+    setEditing(ref);
+    setCell(current);
+    setNote(rows.find((r) => r.ref === ref)?.override?.reconciliationNote ?? "");
+  };
+
+
   return (
     <Card>
       <CardHeader className="pb-2">
