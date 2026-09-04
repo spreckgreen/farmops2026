@@ -28,16 +28,39 @@ export const Route = createFileRoute("/api/public/hooks/electrical-peer-sync")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const secret = process.env["ELECTRICAL_PEER_SYNC_CRON_SECRET"] ?? "";
         const provided =
           request.headers.get("x-electrical-peer-sync-secret") ??
           (request.headers.get("authorization") ?? "").replace(/^Bearer /, "");
-        if (!secretOk(provided, secret)) {
-          return new Response("Unauthorized", { status: 401 });
-        }
+        if (!provided) return new Response("Unauthorized", { status: 401 });
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+        // Rotatable credentials live in a private store the scheduled job reads
+        // at call time. A rotated-out credential stops working the moment its
+        // grace window ends (or immediately, when revoked).
+        let authorized = false;
+        const { data: verified, error: verifyError } = await (supabaseAdmin as never as any).rpc(
+          "verify_peer_sync_cron_secret",
+          { _secret: provided },
+        );
+        if (verifyError) {
+          console.error(`[electrical-peer-sync] secret check failed: ${verifyError.message}`);
+        } else {
+          authorized = verified === true;
+        }
+
+        // Bootstrap fallback: only when the rotatable store is unavailable
+        // (e.g. an instance that has not run this migration yet).
+        if (!authorized && verifyError) {
+          const envSecret = process.env["ELECTRICAL_PEER_SYNC_CRON_SECRET"] ?? "";
+          if (secretOk(provided, envSecret)) authorized = true;
+        }
+
+
+        if (!authorized) return new Response("Unauthorized", { status: 401 });
+
         const { runPeerAuditSync } = await import("@/lib/electrical-peer-sync.server");
+
 
         const now = new Date();
         const nowIso = now.toISOString();

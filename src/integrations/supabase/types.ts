@@ -4856,7 +4856,35 @@ export type Database = {
     }
     Functions: {
       electrical_allowed: { Args: { _domain: string }; Returns: string[] }
+      list_peer_sync_cron_secrets: {
+        Args: { _actor: string }
+        Returns: {
+          activated_at: string
+          fingerprint: string
+          id: string
+          note: string
+          retire_after: string
+          revoked_at: string
+          status: string
+        }[]
+      }
       restore_table_diagnostics: { Args: { _table: string }; Returns: Json }
+      revoke_retiring_peer_sync_cron_secrets: {
+        Args: { _actor: string }
+        Returns: number
+      }
+      rotate_peer_sync_cron_secret: {
+        Args: { _actor: string; _grace_minutes?: number }
+        Returns: {
+          fingerprint: string
+          retire_after: string
+          retired_fingerprint: string
+        }[]
+      }
+      verify_peer_sync_cron_secret: {
+        Args: { _secret: string }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "viewer" | "editor" | "admin" | "electrician"

@@ -123,3 +123,72 @@ export const resumePeerSyncJob = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { resumed: true };
   });
+
+/* -------------------------------------------------------------------------- */
+/* Scheduling credential rotation                                             */
+/* -------------------------------------------------------------------------- */
+//
+// The scheduled job reads the ACTIVE credential from a private store when it
+// runs, so rotating is a database-only action: no schedule edit, no redeploy.
+// A rotation optionally leaves the previous credential valid for a short grace
+// window (in case a tick is already in flight), and it can be invalidated
+// immediately at any time. Plaintext credentials are never returned to the UI —
+// only a short fingerprint.
+
+export interface CronSecretRow {
+  id: string;
+  fingerprint: string;
+  status: "active" | "retiring" | "revoked";
+  activated_at: string;
+  retire_after: string | null;
+  revoked_at: string | null;
+  note: string | null;
+}
+
+export const listPeerSyncCronSecrets = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<{ secrets: CronSecretRow[] }> => {
+    await requireAdminRole(context.supabase, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data, error } = await (supabaseAdmin as never as any).rpc(
+      "list_peer_sync_cron_secrets",
+      { _actor: context.userId },
+    );
+    if (error) throw new Error(error.message);
+    return { secrets: (data ?? []) as CronSecretRow[] };
+  });
+
+export const rotatePeerSyncCronSecret = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ grace_minutes: z.number().int().min(0).max(1440) }).parse(d),
+  )
+  .handler(async ({ context, data }) => {
+    await requireAdminRole(context.supabase, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: rows, error } = await (supabaseAdmin as never as any).rpc(
+      "rotate_peer_sync_cron_secret",
+      { _actor: context.userId, _grace_minutes: data.grace_minutes },
+    );
+    if (error) throw new Error(error.message);
+    const row = (Array.isArray(rows) ? rows[0] : rows) ?? {};
+    return {
+      rotated: true,
+      fingerprint: (row.fingerprint ?? null) as string | null,
+      retired_fingerprint: (row.retired_fingerprint ?? null) as string | null,
+      retire_after: (row.retire_after ?? null) as string | null,
+    };
+  });
+
+export const revokeRetiringPeerSyncCronSecrets = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await requireAdminRole(context.supabase, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data, error } = await (supabaseAdmin as never as any).rpc(
+      "revoke_retiring_peer_sync_cron_secrets",
+      { _actor: context.userId },
+    );
+    if (error) throw new Error(error.message);
+    return { revoked: Number(data ?? 0) };
+  });
