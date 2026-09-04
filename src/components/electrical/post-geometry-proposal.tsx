@@ -53,9 +53,18 @@ export function PostGeometryProposal() {
           introduced. The grid cell shown for each post is a human-readable lookup of its
           feet, never the position itself. Geometry version {POST_GEOMETRY_VERSION}.
         </p>
-        <Button size="sm" variant="outline" onClick={() => setOpen((v) => !v)}>
-          {open ? "Hide post callouts" : "Show post callouts"}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm" variant="outline" onClick={() => setOpen((v) => !v)}>
+            {open ? "Hide post callouts" : "Show post callouts"}
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => download("csv")}>
+            Download CSV report
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => download("json")}>
+            Download JSON report
+          </Button>
+        </div>
+
         {open ? (
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-left">
