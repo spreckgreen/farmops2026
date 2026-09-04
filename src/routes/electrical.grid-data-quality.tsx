@@ -8,6 +8,7 @@ import {
   GridDataQualityPanel,
   type DataQualityTab,
 } from "@/components/electrical/grid-data-quality-panel";
+import { PostGeometryProposal } from "@/components/electrical/post-geometry-proposal";
 
 const searchSchema = z.object({
   tab: z.enum(DATA_QUALITY_TABS as unknown as [DataQualityTab, ...DataQualityTab[]]).catch("status"),
