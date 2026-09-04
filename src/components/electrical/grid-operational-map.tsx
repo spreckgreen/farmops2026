@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
+import { useUiFlag } from "@/hooks/use-ui-preference";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -133,7 +134,10 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
   // Active build: the planned overhead LED layer and the design-vs-field
   // (planned vs verified) overlay are on by default, and the choice persists.
   const [showLeds, setShowLeds] = usePersistedFlag("farmops.grid-map.proposed-leds", true);
-  const [showDesignVsField, setShowDesignVsField] = usePersistedFlag(
+  // Account-level so the planned-vs-verified choice follows the user across
+  // browsers and devices; localStorage is only a first-paint fallback.
+  const [showDesignVsField, setShowDesignVsField] = useUiFlag(
+    "grid-map.design-vs-field",
     "farmops.grid-map.design-vs-field",
     true,
   );
