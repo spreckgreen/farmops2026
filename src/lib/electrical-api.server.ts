@@ -27,6 +27,8 @@ import {
   buildSnapshotEnvelope,
   deriveRelationships,
   isApiScope,
+  isActivatedApiScope,
+
   projectObservations,
   rateLimitFor,
   resolveRequestId,
@@ -196,7 +198,33 @@ async function loadServicePrincipal(token: string): Promise<
   if (expires && new Date(expires).getTime() <= Date.now()) {
     return { failure: "unauthorized_principal_expired", message: "This service-principal key has expired." };
   }
-  const scopes = ((row["scopes"] as string[] | null) ?? []).filter(isApiScope);
+  // Stored scopes are narrowed twice: to recognised names, and to scopes that
+  // are activated right now. A key issued (or written directly) with a scope
+  // that is no longer activated silently loses it rather than gaining reach.
+  const scopes = ((row["scopes"] as string[] | null) ?? [])
+    .filter(isApiScope)
+    .filter(isActivatedApiScope);
+  if (!scopes.length) {
+    return {
+      failure: "forbidden_scope_missing",
+      message: "This service principal carries no currently activated scope.",
+    };
+  }
+  // The owner's entitlement is rechecked on every use: revoking or expiring the
+  // Electrical add-on immediately stops keys issued while it was active.
+  try {
+    const { supabaseAdmin: gateClient } = await import("@/integrations/supabase/client.server");
+    await requireElectricalAccess(gateClient, String(row["user_id"]), "read");
+  } catch (err) {
+    return {
+      failure: "forbidden_entitlement_missing",
+      message:
+        err instanceof Error
+          ? `Service-principal owner has no active electrical access. ${err.message}`
+          : "Service-principal owner has no active electrical access.",
+    };
+  }
+
   // Best-effort usage stamp; never blocks the read.
   void (supabaseAdmin as unknown as LooseDb)
     .from("electrical_api_principals")

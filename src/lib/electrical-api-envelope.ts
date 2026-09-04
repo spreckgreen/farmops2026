@@ -60,6 +60,25 @@ export function isApiScope(value: string): value is ApiScope {
   return (API_SCOPE_LIST as string[]).includes(value);
 }
 
+/**
+ * Scopes that are recognised AND currently activated. Phase 2/3 write scopes are
+ * defined but not activated, so they are deliberately absent. This list is the
+ * TypeScript twin of `public.electrical_api_activated_scopes()`; a database
+ * CHECK constraint enforces the same set, so a direct Supabase write cannot
+ * store a key carrying an unactivated scope.
+ */
+export const ACTIVATED_API_SCOPES: ApiScope[] = [
+  "electrical:read",
+  "electrical:sor:read",
+  "electrical:documents:read",
+  "electrical:audit-batches:read",
+];
+
+export function isActivatedApiScope(value: string): value is ApiScope {
+  return (ACTIVATED_API_SCOPES as string[]).includes(value);
+}
+
+
 /* ------------------------------------------------------------ error codes */
 
 /**
