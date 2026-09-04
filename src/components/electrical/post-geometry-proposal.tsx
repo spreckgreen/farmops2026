@@ -13,6 +13,25 @@ import {
   POST_GEOMETRY_VERSION,
   PROPOSED_POST_POSITIONS,
 } from "@/lib/electrical-grid-post-geometry";
+import {
+  postGeometryExportCsv,
+  postGeometryExportFilename,
+  postGeometryExportJson,
+} from "@/lib/electrical-post-geometry-export";
+
+/** Read-only download of the confirmed post callouts and their audit metadata. */
+function download(kind: "json" | "csv") {
+  const now = new Date();
+  const body = kind === "json" ? postGeometryExportJson(now) : postGeometryExportCsv(now);
+  const url = URL.createObjectURL(
+    new Blob([body], { type: kind === "json" ? "application/json" : "text/csv" }),
+  );
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = postGeometryExportFilename(kind, now);
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 export function PostGeometryProposal() {
   const [open, setOpen] = useState(false);
@@ -53,9 +72,18 @@ export function PostGeometryProposal() {
           introduced. The grid cell shown for each post is a human-readable lookup of its
           feet, never the position itself. Geometry version {POST_GEOMETRY_VERSION}.
         </p>
-        <Button size="sm" variant="outline" onClick={() => setOpen((v) => !v)}>
-          {open ? "Hide post callouts" : "Show post callouts"}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm" variant="outline" onClick={() => setOpen((v) => !v)}>
+            {open ? "Hide post callouts" : "Show post callouts"}
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => download("csv")}>
+            Download CSV report
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => download("json")}>
+            Download JSON report
+          </Button>
+        </div>
+
         {open ? (
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-left">
