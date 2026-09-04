@@ -84,6 +84,9 @@ export function GridPlanSvg({
   markerScale = 1,
   showProposedLeds = false,
   designOverlay,
+  baseOverlay = "GRID_ONLY",
+  cellCounts,
+  recentIds,
   className,
 }: {
   plotted: OperationalAsset[];
@@ -95,8 +98,15 @@ export function GridPlanSvg({
   showProposedLeds?: boolean;
   /** Approved-design vs field-observation overlay; mismatches are highlighted. */
   designOverlay?: DesignFieldPair[];
+  /** Which base reference to draw: pole-based grid, A1–F9 only, or posts only. */
+  baseOverlay?: GridBaseOverlay;
+  /** Per-cell object counts, drawn until a marker is selected. */
+  cellCounts?: GridCellCount[];
+  /** Most-recently-observed records, ringed so they read at a glance. */
+  recentIds?: string[];
   className?: string;
 }) {
+
   // Helper text follows, in order: the marker under the pointer/keyboard focus,
   // then the selected marker — so after a click the same helper stays visible
   // once the mouse moves away. Escape dismisses the pinned (selected) one.
