@@ -105,14 +105,22 @@ describe("FA-FS-2026-09-03-PM-R2", () => {
     const diffRows = classified.flatMap((i) =>
       i.changes.map((c) => ({ kind: i.entity_kind, column: c.column })),
     );
-    expect(diffRows.length).toBe(98);
-    expect(diffRows.length + classified.filter((i) => !i.changes.length).length).toBe(99);
+    // Actual field-diff total is 146, not the ~98 estimate: the 7 circuit-group
+    // creates contribute 56 diffs, the 7 breaker-position creates 70, and the
+    // 20 load links exactly one each (circuit_group_uuid). The hold has none.
+    const byKind = (kind: string) =>
+      diffRows.filter((r) => r.kind === kind).length;
+    expect(byKind("circuit_group")).toBe(56);
+    expect(byKind("breaker_position")).toBe(70);
+    expect(byKind("load")).toBe(20);
+    expect(diffRows.length).toBe(146);
+    expect(diffRows.length + classified.filter((i) => !i.changes.length).length).toBe(147);
     const loadColumns = new Set(
       diffRows.filter((r) => r.kind === "load").map((r) => r.column),
     );
     expect([...loadColumns]).toEqual(["circuit_group_uuid"]);
     // Every diff row reached the exported CSV.
-    expect(csvText.trim().split("\n").length - 1).toBe(99);
+    expect(csvText.trim().split("\n").length - 1).toBe(147);
   });
 
 
