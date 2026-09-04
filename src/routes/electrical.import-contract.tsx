@@ -13,6 +13,8 @@ import { toast } from "sonner";
 
 import { ElectricalGate } from "@/components/electrical/electrical-gate";
 import { PersistedSection } from "@/components/electrical/persisted-section";
+import { ContractV3ReconciliationPanel } from "@/components/electrical/contract-v3-reconciliation-panel";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
