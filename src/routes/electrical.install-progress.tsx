@@ -9,6 +9,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { ElectricalGate } from "@/components/electrical/electrical-gate";
 import { PersistedSection } from "@/components/electrical/persisted-section";
+import { GridOperationalMap } from "@/components/electrical/grid-operational-map";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -548,6 +549,17 @@ function InstallProgressPage() {
           </Card>
         ) : (
           <>
+            {/* Visual progress: the same grid map, with the base-reference,
+                progress-mode and most-recent-observed controls. Read-only —
+                recording still happens in the forms below. */}
+            <PersistedSection
+              storageKey="install-progress.progress-map"
+              title="Visual progress map"
+              defaultOpen
+            >
+              <GridOperationalMap />
+            </PersistedSection>
+
             <PersistedSection storageKey="install-progress.panels" title="Panel" defaultOpen>
               <div className="flex flex-wrap gap-2">
                 {panels.map((p) => (

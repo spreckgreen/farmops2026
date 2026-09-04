@@ -5,7 +5,22 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useUiFlag } from "@/hooks/use-ui-preference";
+import { useUiChoice, useUiFlag } from "@/hooks/use-ui-preference";
+import {
+  GRID_BASE_OVERLAY_LABEL,
+  GRID_BASE_OVERLAY_NOTE,
+  GRID_BASE_OVERLAY_ORDER,
+  OBSERVED_SOURCE_LABEL,
+  PROGRESS_MODE_LABEL,
+  PROGRESS_MODE_NOTE,
+  PROGRESS_MODE_ORDER,
+  gridCellCounts,
+  progressCounts,
+  progressModeMatches,
+  recentObserved,
+  type GridBaseOverlay,
+  type ProgressMode,
+} from "@/lib/electrical-grid-map-overlays";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -143,6 +158,26 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
   );
 
 
+  // Base reference, progress mode and the most-recent-observed overlay are all
+  // remembered on the account, so the view a user works in follows them.
+  const [baseOverlay, setBaseOverlay] = useUiChoice<GridBaseOverlay>(
+    "grid-map.base-overlay",
+    "farmops.grid-map.base-overlay",
+    GRID_BASE_OVERLAY_ORDER,
+    "GRID_ONLY",
+  );
+  const [progressMode, setProgressMode] = useUiChoice<ProgressMode>(
+    "grid-map.progress-mode",
+    "farmops.grid-map.progress-mode",
+    PROGRESS_MODE_ORDER,
+    "PLANNED",
+  );
+  const [showRecent, setShowRecent] = useUiFlag(
+    "grid-map.recent-observed",
+    "farmops.grid-map.recent-observed",
+    false,
+  );
+
   const [printMode, setPrintMode] = usePrintMode();
   const [saving, setSaving] = useState(false);
   // Stamped at the moment a sheet is produced, so the header time is the
@@ -165,10 +200,27 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
           precisions.has(a.precision) &&
           (panel === "ALL" || (a.panel ?? "NOT IN RECORD") === panel) &&
           (install === "ALL" || a.installStatus === install) &&
+          (verify === "ALL" || verificationOf(a.verification) === verify) &&
+          progressModeMatches(a, progressMode),
+      ),
+    [assets, kinds, precisions, panel, install, verify, progressMode],
+  );
+
+  // Progress arithmetic is read against the same scope the panel/type/precision
+  // filters describe, so the mode counts and the plan always agree.
+  const scoped = useMemo(
+    () =>
+      assets.filter(
+        (a) =>
+          kinds.has(a.kind) &&
+          precisions.has(a.precision) &&
+          (panel === "ALL" || (a.panel ?? "NOT IN RECORD") === panel) &&
+          (install === "ALL" || a.installStatus === install) &&
           (verify === "ALL" || verificationOf(a.verification) === verify),
       ),
     [assets, kinds, precisions, panel, install, verify],
   );
+  const progress = useMemo(() => progressCounts(scoped), [scoped]);
 
   const plotted = filtered.filter((a) => a.xPct != null);
   const disagreeing = filtered.filter((a) => a.placementDisagreement);
@@ -177,6 +229,11 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
 
   // Design vs field: derived from positions the records already state.
   const designField = useMemo(() => designFieldOverlay(filtered), [filtered]);
+
+  // Object counts per grid cell, read before a marker is selected.
+  const cellCounts = useMemo(() => gridCellCounts(plotted), [plotted]);
+  const recent = useMemo(() => (showRecent ? recentObserved(filtered, 12) : []), [filtered, showRecent]);
+  const recentIds = useMemo(() => recent.map((r) => r.stableId), [recent]);
 
 
   const allKinds = (Object.keys(ASSET_KIND_LABEL) as AssetKind[]).length;
@@ -365,6 +422,53 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
           <p className="text-sm text-destructive">{(q.error as Error).message}</p>
         ) : (
           <>
+            <div className="flex flex-wrap items-center gap-3 text-xs">
+              <label className="flex items-center gap-1">
+                Base
+                <select
+                  className="rounded border border-border bg-background px-1 py-0.5"
+                  value={baseOverlay}
+                  onChange={(e) => setBaseOverlay(e.target.value as GridBaseOverlay)}
+                  title={GRID_BASE_OVERLAY_NOTE[baseOverlay]}
+                >
+                  {GRID_BASE_OVERLAY_ORDER.map((o) => (
+                    <option key={o} value={o}>
+                      {GRID_BASE_OVERLAY_LABEL[o]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="flex items-center gap-1">
+                Progress
+                <select
+                  className="rounded border border-border bg-background px-1 py-0.5"
+                  value={progressMode}
+                  onChange={(e) => setProgressMode(e.target.value as ProgressMode)}
+                  title={PROGRESS_MODE_NOTE[progressMode]}
+                >
+                  {PROGRESS_MODE_ORDER.map((m) => (
+                    <option key={m} value={m}>
+                      {PROGRESS_MODE_LABEL[m]} ({progress[m]})
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <Chip
+                active={showRecent}
+                onClick={() => setShowRecent(!showRecent)}
+                title="Ring the 12 most recently observed records. Recency only — no position is changed."
+              >
+                Most recent observed
+              </Chip>
+              <span className="text-muted-foreground">
+                {progress.installedPct}% of {progress.PLANNED} recorded installed
+                {progress.stagedOnly
+                  ? ` · ${progress.stagedOnly} staged audit observation(s), not approved`
+                  : ""}
+              </span>
+            </div>
+            <p className="text-xs text-muted-foreground">{GRID_BASE_OVERLAY_NOTE[baseOverlay]}</p>
+
             <div className="flex flex-wrap items-center gap-1.5">
               <span className="mr-1 text-xs text-muted-foreground">Panel:</span>
               <Chip active={panel === "ALL"} onClick={() => setPanel("ALL")}>
@@ -488,6 +592,9 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
                 onSelect={setSelected}
                 markerScale={large ? 1 : 0.8}
                 showProposedLeds={showLeds}
+                baseOverlay={baseOverlay}
+                cellCounts={cellCounts}
+                {...(showRecent ? { recentIds } : {})}
                 {...(showDesignVsField ? { designOverlay: designField.pairs } : {})}
               />
             </div>
@@ -502,6 +609,31 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
               {q.data!.gaps.length ? ` · ${q.data!.gaps.length} record gap(s)` : ""} — detail in Data
               quality below.
             </p>
+            {selected ? null : cellCounts.length ? (
+              <p className="text-xs text-muted-foreground">
+                Grid counts shown per cell ({cellCounts.length} cell(s) with records). Select a
+                marker to hide the counts and read the record.
+              </p>
+            ) : null}
+            {showRecent && recent.length ? (
+              <CollapsibleGroup
+                title={`Most recent observed — ${recent.length} record(s)`}
+                storageKey="grid-map.recent-observed"
+              >
+                <ul className="space-y-1 text-xs">
+                  {recent.map((r) => (
+                    <li key={r.stableId} className="flex flex-wrap items-center gap-1.5">
+                      <span className="font-mono">{r.stableId}</span>
+                      <Badge variant="outline">{OBSERVED_SOURCE_LABEL[r.source]}</Badge>
+                      <span className="text-muted-foreground">
+                        {new Date(r.observedAt).toLocaleString()}
+                        {r.batchId ? ` · batch ${r.batchId}` : ""} · {r.note}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </CollapsibleGroup>
+            ) : null}
             {showLeds ? (
               <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <span
@@ -662,14 +794,25 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
           {q.data.gaps.length ? ` · ${q.data.gaps.length} record gap(s)` : ""}
         </p>
         <p className="text-[11px]">Filters — {filterSummary.join(" · ")}</p>
+        <p className="text-[11px]">
+          Base: {GRID_BASE_OVERLAY_LABEL[baseOverlay]} · Progress:{" "}
+          {PROGRESS_MODE_LABEL[progressMode]} · {progress.installedPct}% of {progress.PLANNED}{" "}
+          recorded installed
+          {progress.stagedOnly
+            ? ` · ${progress.stagedOnly} staged audit observation(s), not approved`
+            : ""}
+        </p>
         <div data-plan-container="print" className="mt-2 w-full overflow-hidden border border-black">
           <GridPlanSvg
             plotted={plotted}
             interactive={false}
             markerScale={0.8}
             showProposedLeds={showLeds}
+            baseOverlay={baseOverlay}
+            cellCounts={cellCounts}
           />
         </div>
+
         <p className="mt-1 text-[11px]">
           {plotted.length} of {filtered.length} record(s) plotted · {unplotted.length} not mapped (no
           permanent location in the record)
