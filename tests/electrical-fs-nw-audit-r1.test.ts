@@ -67,7 +67,7 @@ describe("FA-FS-2026-09-03-PM-R1", () => {
   it("never puts a breaker reference inside a proposed circuit-group identity", () => {
     const m = buildFsNwAuditManifestR1();
     const { items, proposed } = assignProposedCircuitGroupIds(m.items, []);
-    const ids = Object.values(proposed);
+    const ids = FS_NW_AUDITED_BREAKERS.map((b) => proposed[groupItemKey(b)]!);
     expect(ids).toEqual([
       "CG-FS-001",
       "CG-FS-002",

@@ -246,7 +246,7 @@ describe("manifest-local dependency resolution (9.1)", () => {
     entity_kind: "breaker_position",
     target_stable_id: null,
     operation: "CREATE",
-    refs: { panel_ref: "PNL-FS-NW", circuit_group_ref: "CG-FS-08" },
+    refs: { panel_ref: "PNL-FS-NW", circuit_group_ref: "CG-FS-008" },
     fields: { side: "right", position: 1, breaker_number: 39, poles: 1, ocp_amps: 20 },
   });
 
@@ -259,8 +259,8 @@ describe("manifest-local dependency resolution (9.1)", () => {
 
   it("flags a duplicated proposed stable ID as an ambiguous conflict", () => {
     const graph = buildManifestGraph([
-      { ...breakerItem, item_key: "a", entity_kind: "circuit_group", target_stable_id: "CG-FS-08" },
-      { ...breakerItem, item_key: "b", entity_kind: "circuit_group", target_stable_id: "CG-FS-08" },
+      { ...breakerItem, item_key: "a", entity_kind: "circuit_group", target_stable_id: "CG-FS-008" },
+      { ...breakerItem, item_key: "b", entity_kind: "circuit_group", target_stable_id: "CG-FS-008" },
     ] as never);
     expect(graph.conflicts.length).toBe(1);
     expect(graph.pendingCreates.size).toBe(0);
