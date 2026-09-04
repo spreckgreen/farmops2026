@@ -31,6 +31,7 @@ import {
   applyElectricalAuditBatch,
   compensatingAuditBatchManifest,
   importElectricalAuditBatch,
+  pullPeerAuditBatch,
   listElectricalAuditBatches,
   previewElectricalAuditBatch,
   setElectricalAuditItemApproval,
@@ -121,9 +122,14 @@ export function AuditBatchPanel() {
   const runApply = useServerFn(applyElectricalAuditBatch);
   const runCompensate = useServerFn(compensatingAuditBatchManifest);
   const list = useServerFn(listElectricalAuditBatches);
+  const runPeerPull = useServerFn(pullPeerAuditBatch);
 
   const [manifestText, setManifestText] = useState("");
   const [payload, setPayload] = useState<AuditBatchPreview | null>(null);
+  const [peerUrl, setPeerUrl] = useState("");
+  const [peerBatchId, setPeerBatchId] = useState("");
+  const [peerToken, setPeerToken] = useState("");
+  const [peerNote, setPeerNote] = useState<string | null>(null);
   const [approved, setApproved] = useState<Set<string>>(new Set());
   const [filter, setFilter] = useState<AuditDisposition | "all">("all");
   const [statement, setStatement] = useState("");
@@ -146,6 +152,28 @@ export function AuditBatchPanel() {
     mutationFn: async () => await runImport({ data: { manifest: manifestText } }),
     onSuccess: (data) => {
       adopt(data as AuditBatchPreview);
+      batches.refetch();
+    },
+    onError: (e) => setError(String(e)),
+  });
+
+  const peerPullMutation = useMutation({
+    mutationFn: async () =>
+      await runPeerPull({
+        data: {
+          peer_base_url: peerUrl.trim(),
+          batch_id: peerBatchId.trim(),
+          peer_token: peerToken.trim(),
+        },
+      }),
+    onSuccess: (result) => {
+      adopt(result.preview as AuditBatchPreview);
+      setPeerToken("");
+      setPeerNote(
+        `Staged ${result.peer.batch_id} from ${result.peer.base_url} (there: ${result.peer.status ?? "unknown"}${
+          result.peer.applied_at ? `, applied ${result.peer.applied_at}` : ""
+        }). Checksum ${result.checksum.matches ? "matched" : "unverified"}. Nothing has been written here yet.`,
+      );
       batches.refetch();
     },
     onError: (e) => setError(String(e)),
@@ -269,6 +297,54 @@ export function AuditBatchPanel() {
               </Button>
             ) : null}
           </div>
+        </div>
+      </PersistedSection>
+
+      <PersistedSection
+        storageKey="electrical.audit-batches.peer-pull"
+        title="Pull a batch from another FarmOps instance"
+        badges={<Badge variant="outline">preview only</Badge>}
+      >
+        <div className="space-y-2">
+          <p className="text-xs text-muted-foreground">
+            Reads one stored manifest from a peer deployment&apos;s read-only API
+            (<span className="font-mono">GET /api/v1/electrical/audit-batches/&#123;batch_id&#125;/manifest</span>),
+            verifies its checksum after transfer and stages it here as a preview. Approvals are never
+            carried over: every item still needs your explicit approval, and the conflict check runs
+            against this instance&apos;s records. The canonical workbook is never touched.
+          </p>
+          <Input
+            value={peerUrl}
+            onChange={(e) => setPeerUrl(e.target.value)}
+            placeholder="https://electrical.example.com"
+          />
+          <Input
+            value={peerBatchId}
+            onChange={(e) => setPeerBatchId(e.target.value)}
+            placeholder="FA-FS-2026-09-03-PM"
+            className="font-mono text-xs"
+          />
+          <Input
+            type="password"
+            value={peerToken}
+            onChange={(e) => setPeerToken(e.target.value)}
+            placeholder="Peer access token or farmops_sk_ key with electrical:audit-batches:read"
+            autoComplete="off"
+          />
+          <Button
+            size="sm"
+            disabled={
+              !peerUrl.trim() ||
+              !peerBatchId.trim() ||
+              !peerToken.trim() ||
+              peerPullMutation.isPending
+            }
+            onClick={() => peerPullMutation.mutate()}
+          >
+            <Upload className="mr-1 h-4 w-4" />
+            Pull &amp; stage preview
+          </Button>
+          {peerNote ? <p className="text-xs text-muted-foreground">{peerNote}</p> : null}
         </div>
       </PersistedSection>
 

@@ -27,6 +27,8 @@ export const API_SCOPES = {
   "electrical:read": "Read the electrical record: snapshot, collections, records and QA.",
   "electrical:sor:read": "Read system-of-record status and provenance (no record data).",
   "electrical:documents:read": "Read document-generation bundles and document payloads.",
+  "electrical:audit-batches:read":
+    "Read field-audit batch metadata and export a stored batch manifest for peer-instance staging.",
   "electrical:observations:write":
     "Append field observations to the field journal (Phase 2 — not activated).",
   "electrical:relationships:write":
@@ -38,11 +40,17 @@ export const API_SCOPE_LIST = Object.keys(API_SCOPES) as ApiScope[];
 
 /** Scopes granted to an interactive user by electrical entitlement mode. */
 export const SCOPES_FOR_ENTITLEMENT: Record<"read" | "field_write", ApiScope[]> = {
-  read: ["electrical:read", "electrical:sor:read", "electrical:documents:read"],
+  read: [
+    "electrical:read",
+    "electrical:sor:read",
+    "electrical:documents:read",
+    "electrical:audit-batches:read",
+  ],
   field_write: [
     "electrical:read",
     "electrical:sor:read",
     "electrical:documents:read",
+    "electrical:audit-batches:read",
     "electrical:observations:write",
     "electrical:relationships:write",
   ],

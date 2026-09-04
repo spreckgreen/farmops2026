@@ -3,10 +3,13 @@
 Versioned machine interface to the FarmOps electrical **field/as-built** record.
 Built for document generation, QA and external reconciliation (BosteadFarmsBuildDocs).
 
-- Base path: `/api/electrical/v1`
-- Contract: `GET /api/electrical/v1/openapi.json` (OpenAPI 3.1, no token required —
-  it contains interface description only, no farm data)
-- Schema version: `1.0`
+- Base path: `/api/v1/electrical` (Stage 1, read-only integration)
+- Contract: `GET /api/openapi.json` (OpenAPI 3.1, no token required — it contains
+  interface description only, no farm data)
+- API schema version: `1.1`
+- Deprecated alias: `/api/electrical/v1` still answers reads and carries
+  `Deprecation: true` plus a `Link: …rel="successor-version"` header. Move callers
+  to `/api/v1/electrical`.
 - Preview host: `https://project--3262d5a9-40fd-4cf4-a353-9549a732cb96-dev.lovable.app`
 - Published host: `https://bostead.lovable.app`
 
@@ -28,14 +31,44 @@ Built for document generation, QA and external reconciliation (BosteadFarmsBuild
    and no SQL passthrough. Only two allow-listed write paths exist, both requiring
    explicit per-record approval, both audited in `electrical_change_audit`.
 
-## Authentication
+## Stage 1 status
 
-Send a Supabase user access token:
+| Stage | Surface | Status |
+| --- | --- | --- |
+| 1 | Read endpoints (index, SOR status, snapshot, resources, records, QA, document bundle, audit-batch export) | implemented and activated |
+| 2 | `field-observations/preview` + `apply` | defined, **not activated** — answers `503 write_scopes_not_activated` |
+| 3 | `relationships/preview` + `apply` | defined, **not activated** — answers `503 write_scopes_not_activated` |
+| 4 | Document generation service | not implemented |
+
+Activation of Stage 2/3 is a reviewed source change (`WRITE_SCOPES_ACTIVATED`), not
+a config toggle. Call `GET /api/v1/electrical/sor/status` for the live phase state,
+canonical baseline hash and snapshot hashes.
+
+## Authentication and scopes
+
+Send a Supabase user access token, or a service-principal key (`farmops_sk_…`)
+scoped to the endpoints it may call:
 
 ```bash
-curl -sS https://bostead.lovable.app/api/electrical/v1 \
+curl -sS https://bostead.lovable.app/api/v1/electrical \
   -H "Authorization: Bearer $FARMOPS_ACCESS_TOKEN"
 ```
+
+Named scopes (every endpoint declares exactly one):
+
+| Scope | Grants |
+| --- | --- |
+| `electrical:read` | snapshot, collections, single records, QA |
+| `electrical:sor:read` | system-of-record status and provenance |
+| `electrical:documents:read` | document-generation bundles |
+| `electrical:audit-batches:read` | field-audit batch metadata and manifest export |
+| `electrical:observations:write` | Stage 2 — not activated |
+| `electrical:relationships:write` | Stage 3 — not activated |
+
+Every response carries `x-request-id`, the API version, and rate-limit headers.
+Limits per principal: 120 read requests/60 s, 30 write requests/60 s; exceeding
+returns `429 rate_limited`. Errors always use
+`{ "error": { "code", "message", "details?" }, "request_id", "api_version" }`.
 
 - `401` — missing/invalid token.
 - `403` — the account lacks the electrical entitlement for the requested mode.
@@ -50,12 +83,12 @@ with `cache-control: private, no-store`.
 
 | Endpoint | Intended use |
 | --- | --- |
-| `GET /api/electrical/v1` | Capability discovery: version, resources, endpoints, relationship capabilities, exclusions. Call this first. |
-| `GET /api/electrical/v1/snapshot` | One-shot pull of every collection plus QA. Same builder as the FarmOps UI export, so API output matches the UI exactly. |
-| `GET /api/electrical/v1/resources/{collection}` | A single collection for a targeted document section (e.g. panel schedule, conduit schedule). |
-| `GET /api/electrical/v1/records/{stable_id}` | Every record carrying one stable ID (`PNL-FS-NW`, `FS-082`, `EMT-104`) — per-asset pages, QR/label detail. |
-| `GET /api/electrical/v1/qa` | QA findings with error/warning counts, for a QA appendix. QA is reported, never enforced. |
-| `GET /api/electrical/v1/documents/bundle` | Section manifest + counts + field ownership + QA + full snapshot in one call — the recommended input for a document generator. |
+| `GET /api/v1/electrical` | Capability discovery: version, resources, endpoints, relationship capabilities, exclusions. Call this first. |
+| `GET /api/v1/electrical/snapshot` | One-shot pull of every collection plus QA. Same builder as the FarmOps UI export, so API output matches the UI exactly. |
+| `GET /api/v1/electrical/resources/{collection}` | A single collection for a targeted document section (e.g. panel schedule, conduit schedule). |
+| `GET /api/v1/electrical/records/{stable_id}` | Every record carrying one stable ID (`PNL-FS-NW`, `FS-082`, `EMT-104`) — per-asset pages, QR/label detail. |
+| `GET /api/v1/electrical/qa` | QA findings with error/warning counts, for a QA appendix. QA is reported, never enforced. |
+| `GET /api/v1/electrical/documents/bundle` | Section manifest + counts + field ownership + QA + full snapshot in one call — the recommended input for a document generator. |
 
 Collections: `panels`, `loads`, `circuit_groups`, `feeders`, `raceways`,
 `raceway_waypoints`, `junction_boxes`, `branch_runs`, `panel_breaker_positions`,
@@ -70,9 +103,34 @@ presented as verified field values.
 Example — build a conduit schedule:
 
 ```bash
-curl -sS "$HOST/api/electrical/v1/resources/raceways" \
+curl -sS "$HOST/api/v1/electrical/resources/raceways" \
   -H "Authorization: Bearer $FARMOPS_ACCESS_TOKEN" | jq '.count, .records[0]'
 ```
+
+## Field-audit batch export and peer-instance sync (Stage 1)
+
+Two read-only endpoints let a second FarmOps deployment stay in step with an audit
+that was already staged or applied elsewhere. Both require
+`electrical:audit-batches:read`.
+
+| Endpoint | Returns |
+| --- | --- |
+| `GET /api/v1/electrical/audit-batches` | batch metadata: `batch_id`, title, scope, building, observed date, `manifest_sha256`, `status`, summary, `approved_at`, `applied_at` |
+| `GET /api/v1/electrical/audit-batches/{batch_id}/manifest` | the stored `farmops.electrical.audit-batch.v1` manifest, its stored and recomputed SHA-256, peer status, evidence and the staging contract |
+
+```bash
+curl -sS "$HOST/api/v1/electrical/audit-batches/FA-FS-2026-09-03-PM/manifest" \
+  -H "Authorization: Bearer $FARMOPS_ACCESS_TOKEN" | jq '.status, .checksum_matches'
+```
+
+The export is one-way and carries no approvals. In the FarmOps UI,
+**Electrical → Data & migration → Audit batches → "Pull a batch from another
+FarmOps instance"** (admin only) reads the peer manifest over https, refuses the
+transfer when the checksum does not match, and stages the batch locally as
+`validated` preview. Applying it still requires per-item owner approval, the
+statement/reason confirmation and the `expected_updated_at` conflict check against
+*this* instance's records. Nothing is auto-applied, no engineering value is copied,
+and the canonical `PremoFarmElectrical.ods` workbook is never involved.
 
 ## Write endpoints (scoped, approval-bearing)
 
@@ -88,7 +146,7 @@ endpoint, e.g. `raceway.source_panel_uuid → panel` (mirror `source_endpoint_re
 Preview (no writes):
 
 ```bash
-curl -sS -X POST "$HOST/api/electrical/v1/relationships/preview" \
+curl -sS -X POST "$HOST/api/v1/electrical/relationships/preview" \
   -H "Authorization: Bearer $FARMOPS_ACCESS_TOKEN" \
   -H "content-type: application/json" \
   -d '{"proposals":[
@@ -101,7 +159,7 @@ Response per proposal: `eligible`, `errors[]`, `writable_columns[]`, `before`, `
 Apply (each proposal needs `approved: true` and a `reason`):
 
 ```bash
-curl -sS -X POST "$HOST/api/electrical/v1/relationships/apply" \
+curl -sS -X POST "$HOST/api/v1/electrical/relationships/apply" \
   -H "Authorization: Bearer $FARMOPS_ACCESS_TOKEN" \
   -H "content-type: application/json" \
   -d '{"proposals":[
@@ -120,7 +178,7 @@ Inserts an append-only row into the field journal. It never edits an engineering
 record; correcting a record is a separate, owner-approved UI workflow.
 
 ```bash
-curl -sS -X POST "$HOST/api/electrical/v1/field-observations/apply" \
+curl -sS -X POST "$HOST/api/v1/electrical/field-observations/apply" \
   -H "Authorization: Bearer $FARMOPS_ACCESS_TOKEN" \
   -H "content-type: application/json" \
   -d '{"observations":[
@@ -147,11 +205,11 @@ Use `/field-observations/preview` to validate and see the exact row first.
   resource registry against `SNAPSHOT_COLLECTIONS`, the OpenAPI document,
   relationship/observation validation, the write-column allow-lists and the
   exclusion notice.
-- Unauthenticated smoke check: `GET /api/electrical/v1` and every data path return
-  `401` without a bearer token; `GET /api/electrical/v1/openapi.json` returns `200`.
+- Unauthenticated smoke check: `GET /api/v1/electrical` and every data path return
+  `401` without a bearer token; `GET /api/openapi.json` returns `200`.
 
 ## Compatibility
 
 `/api/electrical/snapshot` (Phase 4.2) remains available and unchanged;
-`/api/electrical/v1/snapshot` is the versioned equivalent. Breaking changes get a
+`/api/v1/electrical/snapshot` is the versioned equivalent. Breaking changes get a
 new version prefix (`/api/electrical/v2`), never an in-place change to v1.

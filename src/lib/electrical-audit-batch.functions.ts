@@ -320,16 +320,21 @@ async function storeItems(
  * Import — parses, validates and stages. Writes no electrical record.
  * ------------------------------------------------------------------ */
 
-export const importElectricalAuditBatch = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) =>
-    z.object({ manifest: z.string().min(2).max(4_000_000) }).parse(d),
-  )
-  .handler(async ({ context, data }): Promise<AuditBatchPreview> => {
+/**
+ * Shared staging path used by manual import and by the peer-instance pull.
+ * Validates, records provenance and stages a preview. Writes no electrical record
+ * and never approves or applies anything.
+ */
+async function stageManifestText(
+  context: { supabase: unknown; userId: string },
+  manifestText: string,
+  provenance?: { source_note: string },
+): Promise<AuditBatchPreview> {
+  {
     await requireElectricalAccess(context.supabase, context.userId, "write");
     const db = context.supabase as unknown as LooseDb;
 
-    const parsed = parseManifest(data.manifest);
+    const parsed = parseManifest(manifestText);
     if (!parsed.ok || !parsed.manifest) {
       throw new Error(`Manifest rejected: ${parsed.errors.join(" | ")}`);
     }
@@ -366,7 +371,9 @@ export const importElectricalAuditBatch = createServerFn({ method: "POST" })
           observed_date: manifest.observed_date ?? null,
           observed_time_precision: manifest.observed_time_precision ?? null,
           timezone: manifest.timezone ?? null,
-          source: manifest.source ?? null,
+          source: provenance?.source_note
+            ? [manifest.source, provenance.source_note].filter(Boolean).join(" | ")
+            : (manifest.source ?? null),
           manifest_sha256: checksum,
           manifest: manifest as unknown,
           evidence: manifest.evidence as unknown,
@@ -381,6 +388,146 @@ export const importElectricalAuditBatch = createServerFn({ method: "POST" })
     }
 
     return previewFor(context, batchRow!, manifest, { qaBefore: null, stage: true });
+  }
+}
+
+export const importElectricalAuditBatch = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ manifest: z.string().min(2).max(4_000_000) }).parse(d),
+  )
+  .handler(({ context, data }): Promise<AuditBatchPreview> =>
+    stageManifestText(context, data.manifest),
+  );
+
+/* ------------------------------------------------------------------ *
+ * Peer-instance pull — stages a manifest exported by another FarmOps
+ * deployment through GET /api/v1/electrical/audit-batches/{id}/manifest.
+ * One-way, preview only: the pulled batch lands as `validated`, with no
+ * approvals carried over and no write performed here.
+ * ------------------------------------------------------------------ */
+
+export interface PeerPullResult {
+  peer: { base_url: string; batch_id: string; status: string | null; applied_at: string | null };
+  checksum: { peer_stored: string | null; peer_recomputed: string | null; matches: boolean };
+  preview: AuditBatchPreview;
+}
+
+function assertPeerUrl(raw: string): URL {
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    throw new Error("Peer instance URL is not a valid absolute URL.");
+  }
+  if (url.protocol !== "https:") throw new Error("Peer instance URL must use https.");
+  const host = url.hostname.toLowerCase();
+  const blocked =
+    host === "localhost" ||
+    host.endsWith(".localhost") ||
+    host === "0.0.0.0" ||
+    /^127\./.test(host) ||
+    /^10\./.test(host) ||
+    /^192\.168\./.test(host) ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(host) ||
+    /^169\.254\./.test(host) ||
+    host.startsWith("[");
+  if (blocked) throw new Error("Peer instance host is not reachable over the public internet.");
+  return url;
+}
+
+export const pullPeerAuditBatch = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        peer_base_url: z.string().trim().min(8).max(300),
+        batch_id: z.string().trim().min(3).max(128),
+        peer_token: z.string().trim().min(10).max(4000),
+      })
+      .parse(d),
+  )
+  .handler(async ({ context, data }): Promise<PeerPullResult> => {
+    await requireElectricalAccess(context.supabase, context.userId, "write");
+    await requireAdminRole(context.supabase, context.userId);
+
+    const base = assertPeerUrl(data.peer_base_url);
+    const endpoint = new URL(
+      `/api/v1/electrical/audit-batches/${encodeURIComponent(data.batch_id)}/manifest`,
+      base.origin,
+    );
+
+    let res: Response;
+    try {
+      res = await fetch(endpoint, {
+        method: "GET",
+        headers: {
+          authorization: `Bearer ${data.peer_token}`,
+          accept: "application/json",
+        },
+      });
+    } catch {
+      throw new Error("Peer instance could not be reached.");
+    }
+    if (!res.ok) {
+      throw new Error(
+        `Peer instance refused the manifest export (HTTP ${res.status}). Check the batch ID and that the token carries electrical:audit-batches:read.`,
+      );
+    }
+    const body = (await res.json()) as Record<string, unknown>;
+    const manifest = body["manifest"];
+    if (!manifest || typeof manifest !== "object") {
+      throw new Error("Peer response carried no manifest object.");
+    }
+    const peerStored = body["stored_manifest_sha256"] == null ? null : String(body["stored_manifest_sha256"]);
+    const peerRecomputed =
+      body["recomputed_manifest_sha256"] == null ? null : String(body["recomputed_manifest_sha256"]);
+    if (peerStored && peerRecomputed && peerStored !== peerRecomputed) {
+      throw new Error(
+        "Peer manifest checksum does not match the manifest it stored; refusing to stage a manifest whose integrity the peer cannot prove.",
+      );
+    }
+    const localChecksum = await manifestChecksum(manifest);
+    if (peerStored && localChecksum !== peerStored) {
+      throw new Error(
+        `Manifest checksum mismatch after transfer (peer ${peerStored}, here ${localChecksum}). Nothing was staged.`,
+      );
+    }
+
+    const peerStatus = body["status"] == null ? null : String(body["status"]);
+    const peerAppliedAt = body["applied_at"] == null ? null : String(body["applied_at"]);
+    const preview = await stageManifestText(context, JSON.stringify(manifest), {
+      source_note: `pulled from peer ${base.origin} on ${new Date().toISOString()} (peer status ${peerStatus ?? "unknown"})`,
+    });
+
+    await recordElectricalChange(context.supabase, context.userId, {
+      section: AUDIT_SECTION,
+      action: "peer_pull_staged",
+      entity_kind: "audit_batch",
+      entity_ref: data.batch_id,
+      detail: {
+        peer_origin: base.origin,
+        peer_status: peerStatus,
+        peer_applied_at: peerAppliedAt,
+        manifest_sha256: localChecksum,
+        staged_preview_only: true,
+      },
+    } as never);
+
+    return {
+      peer: {
+        base_url: base.origin,
+        batch_id: data.batch_id,
+        status: peerStatus,
+        applied_at: peerAppliedAt,
+      },
+      checksum: {
+        peer_stored: peerStored,
+        peer_recomputed: peerRecomputed,
+        matches: !peerStored || peerStored === localChecksum,
+      },
+      preview,
+    };
   });
 
 /* ------------------------------------------------------------------ *
