@@ -8,6 +8,14 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { AlertTriangle, Download, RefreshCw, ShieldCheck, Upload } from "lucide-react";
+import { toast } from "sonner";
+import {
+  buildPeerRegistration,
+  generatePeerToken,
+  maskPeerToken,
+  type PeerRegistration,
+} from "@/lib/electrical-peer-token";
+
 
 import { PersistedSection } from "@/components/electrical/persisted-section";
 import { Badge } from "@/components/ui/badge";
