@@ -263,6 +263,22 @@ export function AuditBatchPanel() {
     onError: (e) => setError(String(e)),
   });
 
+  const rejectMutation = useMutation({
+    mutationFn: async (input: { batch_id: string; reason: string }) =>
+      await runReject({ data: input }),
+    onSuccess: (r: { batch_id: string; already: boolean }) => {
+      setError(null);
+      toast.success(
+        r.already
+          ? `${r.batch_id} was already rejected. Its stored manifest and fingerprint are unchanged.`
+          : `${r.batch_id} marked rejected. The stored manifest and its fingerprint are unchanged.`,
+      );
+      batches.refetch();
+      if (payload?.batch.batch_id === r.batch_id) previewMutation.mutate(r.batch_id);
+    },
+    onError: (e) => setError(String(e)),
+  });
+
   const items = payload?.items ?? [];
   const shown = useMemo(
     () => (filter === "all" ? items : items.filter((i) => i.disposition === filter)),
@@ -272,6 +288,31 @@ export function AuditBatchPanel() {
     () => items.filter((i) => selectable(i.disposition)).map((i) => i.item_key),
     [items],
   );
+
+  // A built-in batch that already carries its own load-link items must never be
+  // followed by the links-only builder: that would stage a duplicate -LINKS batch
+  // for the same relationships.
+  const manifestAlreadyHasLoadLinks = useMemo(() => {
+    const hasLinks = (arr: unknown) =>
+      Array.isArray(arr) &&
+      arr.some(
+        (i) =>
+          i && typeof i === "object" &&
+          (i as Record<string, unknown>)["operation"] === "LINK" &&
+          (i as Record<string, unknown>)["entity_kind"] === "load",
+      );
+    const text = manifestText.trim();
+    if (text.startsWith("{")) {
+      try {
+        const parsed = JSON.parse(text) as { items?: unknown };
+        if (hasLinks(parsed.items)) return true;
+      } catch {
+        /* incomplete paste — fall through to the staged preview */
+      }
+    }
+    return items.some((i) => i.operation === "LINK" && i.entity_kind === "load");
+  }, [manifestText, items]);
+
 
   const persistApproval = async (keys: string[], value: boolean) => {
     if (!payload || !keys.length) return;
