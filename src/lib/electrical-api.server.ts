@@ -698,6 +698,91 @@ export async function handleApiRead(caller: ApiCaller, segments: string[]): Prom
     );
   }
 
+  // Field-audit batches. Read-only export of what THIS instance already staged or
+  // applied, so a peer FarmOps instance can stage the same manifest for its own
+  // owner-approved apply. No manifest is ever imported through this path.
+  if (head === "audit-batches") {
+    const db = caller.supabase as LooseDb;
+    const columns =
+      "batch_id, schema_version, title, scope, building, observed_date, observed_time_precision, timezone, source, manifest_sha256, status, summary, compensates_batch_id, approved_at, applied_at, created_at";
+    if (!tail) {
+      const { data, error } = await db
+        .from("electrical_audit_batches")
+        .select(columns)
+        .order("created_at", { ascending: false });
+      if (error) {
+        return apiError("not_found_collection", "Field-audit batches are not readable for this caller.", {
+          caller,
+        });
+      }
+      const rows = (data ?? []) as Record<string, unknown>[];
+      return apiJson(
+        {
+          generated_at: new Date().toISOString(),
+          count: rows.length,
+          manifest_path: `${ELECTRICAL_API_BASE}/audit-batches/{batch_id}/manifest`,
+          batches: rows,
+        },
+        200,
+        caller,
+      );
+    }
+
+    const wantedBatch = decodeURIComponent(tail);
+    if (segments[2] !== "manifest" || segments.length !== 3) {
+      return apiError(
+        "not_found_endpoint",
+        `Use ${ELECTRICAL_API_BASE}/audit-batches/{batch_id}/manifest.`,
+        { caller },
+      );
+    }
+    const { data, error } = await db
+      .from("electrical_audit_batches")
+      .select(`${columns}, manifest, evidence`)
+      .eq("batch_id", wantedBatch)
+      .maybeSingle();
+    if (error || !data) {
+      return apiError("not_found_record", `No field-audit batch "${wantedBatch}".`, { caller });
+    }
+    const row = data as Record<string, unknown>;
+    const manifest = row["manifest"];
+    const { manifestChecksum } = await import("@/lib/electrical-audit-batch");
+    const checksum = manifest == null ? null : await manifestChecksum(manifest);
+    return apiJson(
+      {
+        generated_at: new Date().toISOString(),
+        source_instance: {
+          api_version: ELECTRICAL_API_VERSION,
+          api_schema_version: ELECTRICAL_API_SCHEMA_VERSION,
+        },
+        batch_id: row["batch_id"],
+        schema_version: row["schema_version"],
+        status: row["status"],
+        applied_at: row["applied_at"],
+        approved_at: row["approved_at"],
+        compensates_batch_id: row["compensates_batch_id"],
+        summary: row["summary"],
+        evidence: row["evidence"],
+        stored_manifest_sha256: row["manifest_sha256"],
+        recomputed_manifest_sha256: checksum,
+        checksum_matches: checksum != null && checksum === String(row["manifest_sha256"] ?? ""),
+        manifest,
+        staging_contract: {
+          direction: "export only",
+          importer_requirements: [
+            "stage as preview; never auto-apply",
+            "explicit per-item owner approval before any write",
+            "expected_updated_at conflict check re-run against the importing instance",
+          ],
+          canonical_ods: "never read or written through this API",
+        },
+      },
+      200,
+      caller,
+    );
+  }
+
+
   return apiError("not_found_endpoint", `Unknown endpoint "${ELECTRICAL_API_BASE}/${segments.join("/")}".`, {
     caller,
     details: { endpoints: ELECTRICAL_API_ENDPOINTS.map((e) => `${e.method} ${e.path}`) },
