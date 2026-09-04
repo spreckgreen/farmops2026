@@ -82,25 +82,29 @@ export async function runPeerAuditSync(
   options: { peerToken: string; trigger: "scheduled" | "manual" },
 ): Promise<PeerSyncRunResult> {
   const ranAt = new Date().toISOString();
+  const empty: PeerSyncRunResult = {
+    ran_at: ranAt,
+    peer_origin: null,
+    peer_batches_seen: 0,
+    candidates: 0,
+    staged: 0,
+    failed: 0,
+    capped: false,
+    items: [],
+  };
   const config = await readPeerSyncConfig(db);
+  // Not configured / switched off / no token is "nothing to do", not a failure:
+  // a scheduled run must not trip the circuit breaker just because the owner
+  // has not set the peer up yet.
   if (!config) {
+    if (options.trigger === "scheduled") return empty;
     throw new Error(
       "No peer instance is configured yet. Save the peer address on the audit batches page first.",
     );
   }
-  if (!config.enabled && options.trigger === "scheduled") {
-    return {
-      ran_at: ranAt,
-      peer_origin: null,
-      peer_batches_seen: 0,
-      candidates: 0,
-      staged: 0,
-      failed: 0,
-      capped: false,
-      items: [],
-    };
-  }
+  if (!config.enabled && options.trigger === "scheduled") return empty;
   if (!options.peerToken) {
+    if (options.trigger === "scheduled") return empty;
     throw new Error(
       "The peer access token is not configured, so the pull cannot authenticate to the peer instance.",
     );
