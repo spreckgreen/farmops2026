@@ -53,7 +53,7 @@ describe("FA-FS-2026-09-03-PM-R1", () => {
     expect(parsed.ok).toBe(true);
     const m = parsed.manifest!;
     expect(m.batch_id).toBe(FS_NW_AUDIT_R1_BATCH_ID);
-    expect(m.items.length).toBe(14);
+    expect(m.items.length).toBe(35);
     for (const b of FS_NW_AUDITED_BREAKERS) {
       const group = m.items.find((i) => i.item_key === groupItemKey(b))!;
       const bp = m.items.find((i) => i.item_key === breakerItemKey(b))!;
