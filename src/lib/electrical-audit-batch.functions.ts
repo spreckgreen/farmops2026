@@ -562,7 +562,8 @@ export const applyElectricalAuditBatch = createServerFn({ method: "POST" })
     );
 
     const live = await readSnapshot(db);
-    const items = classifyAll(manifest, live);
+    const prepared = prepareBatch(manifest, live);
+    const items = prepared.items;
     const approved = items.filter((i) => staged.get(i.item_key)?.approved);
     const pending = approved.filter((i) => !staged.get(i.item_key)?.applied_at);
 
@@ -593,34 +594,94 @@ export const applyElectricalAuditBatch = createServerFn({ method: "POST" })
       }
     }
 
-    const order = new Map(APPLY_ORDER.map((k, i) => [k, i]));
-    const ordered = [...pending].sort(
-      (a, b) => (order.get(a.entity_kind) ?? 99) - (order.get(b.entity_kind) ?? 99),
-    );
+    // Every manifest-local dependency must itself be in this transaction (or
+    // already applied), otherwise the whole selection is refused rather than
+    // leaving an unlinked child behind.
+    const selected = new Set(pending.map((i) => i.item_key));
+    const alreadyApplied = new Map<string, string>();
+    for (const [key, row] of staged) {
+      if (row.applied_at) {
+        const uuid = (row as { applied_row_uuid?: string | null }).applied_row_uuid;
+        if (uuid) alreadyApplied.set(key, String(uuid));
+      }
+    }
+    for (const item of pending) {
+      for (const value of Object.values(item.patch)) {
+        if (!isPendingRef(value)) continue;
+        const dep = pendingRefItemKey(value);
+        if (selected.has(dep) || alreadyApplied.has(dep)) continue;
+        return previewFor(context, batchRow, manifest, {
+          qaBefore,
+          refused: `${item.item_key} depends on ${dep}, which is not approved in this transaction. Approve the parent record first — the whole selection was refused.`,
+        });
+      }
+    }
 
+    const ordered = orderForApply(pending, prepared.graph.dependsOn);
+
+    // Rollback bookkeeping: created rows are deleted and updated rows are
+    // restored if any part of the selected transaction fails.
+    const createdRows: { table: string; uuid: string; item_key: string }[] = [];
+    const updatedRows: {
+      table: string;
+      uuid: string;
+      item_key: string;
+      restore: Record<string, unknown>;
+    }[] = [];
+    const createdUuids = new Map(alreadyApplied);
     const failures: string[] = [];
+
+    const substitute = (patch: Record<string, unknown>) => {
+      const out: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(patch)) {
+        if (isPendingRef(v)) {
+          const uuid = createdUuids.get(pendingRefItemKey(v));
+          if (!uuid) {
+            throw new Error(
+              `Manifest-local dependency ${pendingRefItemKey(v)} produced no record; ${k} cannot be linked.`,
+            );
+          }
+          out[k] = uuid;
+          continue;
+        }
+        out[k] = v;
+      }
+      return out;
+    };
+
     for (const item of ordered) {
       const target = AUDIT_ENTITY_TARGETS[item.entity_kind];
       const nowIso = new Date().toISOString();
       try {
+        const patch = substitute(item.patch);
         if (item.operation === "CREATE") {
-          const insert = { ...item.patch, user_id: context.userId };
+          const insert = { ...patch, user_id: context.userId };
           const res = await db.from(target.table).insert(insert).select("id").maybeSingle();
           if (res.error) throw new Error(res.error.message);
+          const uuid = res.data ? String((res.data as { id: string }).id) : "";
+          if (uuid) {
+            createdUuids.set(item.item_key, uuid);
+            createdRows.push({ table: target.table, uuid, item_key: item.item_key });
+          }
           await db
             .from(ITEMS)
             .update({
               disposition: "applied",
               applied_at: nowIso,
-              applied_row_uuid: res.data ? String((res.data as { id: string }).id) : null,
+              applied_row_uuid: uuid || null,
             })
             .eq("batch_uuid", String(batchRow["id"]))
             .eq("item_key", item.item_key);
         } else {
           const rowUuid = String(item.before?.["id"] ?? "");
           if (!rowUuid) throw new Error("Target row UUID missing.");
-          const res = await db.from(target.table).update(item.patch).eq("id", rowUuid);
+          const restore: Record<string, unknown> = {};
+          for (const column of Object.keys(patch)) {
+            restore[column] = (item.before as Record<string, unknown> | null)?.[column] ?? null;
+          }
+          const res = await db.from(target.table).update(patch).eq("id", rowUuid);
           if (res.error) throw new Error(res.error.message);
+          updatedRows.push({ table: target.table, uuid: rowUuid, item_key: item.item_key, restore });
           await db
             .from(ITEMS)
             .update({ disposition: "applied", applied_at: nowIso, applied_row_uuid: rowUuid })
@@ -639,7 +700,7 @@ export const applyElectricalAuditBatch = createServerFn({ method: "POST" })
           } — ${item.evidence}`,
           changes: item.changes.length
             ? item.changes
-            : Object.entries(item.patch).map(([column, after]) => ({
+            : Object.entries(patch).map(([column, after]) => ({
                 column,
                 before: null,
                 after: after == null ? null : String(after),
@@ -652,8 +713,38 @@ export const applyElectricalAuditBatch = createServerFn({ method: "POST" })
           .update({ disposition: "failed" })
           .eq("batch_uuid", String(batchRow["id"]))
           .eq("item_key", item.item_key);
+        break;
       }
     }
+
+    // Any failure rolls the whole selected transaction back: created rows are
+    // removed and updated columns restored, so no dependent link is orphaned.
+    if (failures.length) {
+      for (const row of [...updatedRows].reverse()) {
+        await db.from(row.table).update(row.restore).eq("id", row.uuid);
+      }
+      for (const row of [...createdRows].reverse()) {
+        await db.from(row.table).delete().eq("id", row.uuid);
+      }
+      const keys = [...createdRows, ...updatedRows].map((r) => r.item_key);
+      if (keys.length) {
+        await db
+          .from(ITEMS)
+          .update({ disposition: "ready", applied_at: null, applied_row_uuid: null })
+          .eq("batch_uuid", String(batchRow["id"]))
+          .in("item_key", keys);
+      }
+      await db
+        .from(BATCHES)
+        .update({ status: "validated" })
+        .eq("id", String(batchRow["id"]));
+      const fresh = await loadBatch(db, data.batch_id);
+      return previewFor(context, fresh, manifest, {
+        qaBefore,
+        refused: `The approved transaction was rolled back; nothing was left partially applied. Failed items: ${failures.join(" | ")}`,
+      });
+    }
+
 
     const qaAfter = await qaCounts(context.supabase);
     const regressed =
