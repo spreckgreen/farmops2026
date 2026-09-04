@@ -8,6 +8,11 @@ import { recordElectricalChange } from "@/lib/electrical-audit.server";
 import { PANEL_EXIT_SIDES, INSTALL_STATUSES } from "@/lib/electrical";
 import {
   BREAKER_SIDES,
+  consumedSlotIndex,
+  expectedBreakerNumber,
+  normalizeBreakerSide,
+  resolvePanelLayout,
+  unrecordedBreakerSlots,
   validatePanelLayout,
   type PanelLayoutFinding,
 } from "@/lib/electrical-panel-layout";
@@ -71,7 +76,14 @@ export const saveBreakerPosition = createServerFn({ method: "POST" })
       .object({
         id: z.string().uuid().optional(),
         panel_uuid: z.string().uuid(),
-        side: z.enum(BREAKER_SIDES as unknown as [string, ...string[]]),
+        // Accept any recorded spelling of the column ("left", "L", "A") and
+        // store the canonical one, so QA never reads it as a missing column.
+        side: z
+          .string()
+          .transform((v) => normalizeBreakerSide(v))
+          .refine((v) => (BREAKER_SIDES as readonly string[]).includes(v), {
+            message: "Breaker column must be the left or right column of the panel.",
+          }),
         position: z.number().int().min(1).max(200),
         breaker_number: z.number().int().min(1).max(400).nullable().optional(),
         poles: z.number().int().min(1).max(4).default(1),
@@ -88,11 +100,23 @@ export const saveBreakerPosition = createServerFn({ method: "POST" })
     await requireElectricalAccess(context.supabase, context.userId, "field_write");
     const db = context.supabase as unknown as LooseDb;
     const { id, ...values } = data;
+    // The breaker identifier is derived from the panel's own configuration and
+    // the physical slot — never typed in. When the panel's capacity has not
+    // been captured yet there is nothing to derive from, so the recorded number
+    // is kept as observed rather than guessed.
+    const panelRow = (
+      await db.from("electrical_panels").select("*").eq("id", values.panel_uuid).maybeSingle()
+    ).data as Record<string, unknown> | null;
+    const layout = panelRow ? resolvePanelLayout(panelRow) : null;
+    const derived =
+      layout && layout.totalSpaces > 0 && values.position <= layout.positionsPerColumn
+        ? expectedBreakerNumber(layout, values.side, values.position)
+        : null;
     const row = {
       ...values,
+      breaker_number: derived ?? values.breaker_number ?? null,
       circuit_group_uuid: values.circuit_group_uuid ?? null,
       load_uuid: values.load_uuid ?? null,
-      breaker_number: values.breaker_number ?? null,
       ocp_amps: values.ocp_amps ?? null,
       label: values.label || null,
       notes: values.notes || null,
@@ -149,8 +173,21 @@ export const savePanelExit = createServerFn({ method: "POST" })
     await requireElectricalAccess(context.supabase, context.userId, "field_write");
     const db = context.supabase as unknown as LooseDb;
     const { id, ...values } = data;
+    // The breaker identifier is derived from the panel's own configuration and
+    // the physical slot — never typed in. When the panel's capacity has not
+    // been captured yet there is nothing to derive from, so the recorded number
+    // is kept as observed rather than guessed.
+    const panelRow = (
+      await db.from("electrical_panels").select("*").eq("id", values.panel_uuid).maybeSingle()
+    ).data as Record<string, unknown> | null;
+    const layout = panelRow ? resolvePanelLayout(panelRow) : null;
+    const derived =
+      layout && layout.totalSpaces > 0 && values.position <= layout.positionsPerColumn
+        ? expectedBreakerNumber(layout, values.side, values.position)
+        : null;
     const row = {
       ...values,
+      breaker_number: derived ?? values.breaker_number ?? null,
       raceway_uuid: values.raceway_uuid ?? null,
       exit_side: values.exit_side ?? null,
       trade_size: values.trade_size || null,
@@ -211,4 +248,61 @@ export const deletePanelLayoutRow = createServerFn({ method: "POST" })
         .map((c) => ({ column: c, before: String(removed[c]), after: null })),
     });
     return { ok: true };
+  });
+
+/**
+ * Record one row per physical slot that has no breaker-position record yet.
+ *
+ * Identifiers only: each new row carries its physical slot and the breaker
+ * number derived from this panel's own configuration. No amps, label, circuit
+ * group or load is invented — those stay blank until observed in the field.
+ * Requires the panel's capacity to be captured, so nothing is ever created
+ * against an assumed panel size.
+ */
+export const recordMissingBreakerPositions = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ panel_uuid: z.string().uuid() }).parse(d))
+  .handler(async ({ context, data }) => {
+    await requireElectricalAccess(context.supabase, context.userId, "field_write");
+    const db = context.supabase as unknown as LooseDb;
+    const panel = (
+      await db.from("electrical_panels").select("*").eq("id", data.panel_uuid).maybeSingle()
+    ).data as Record<string, unknown> | null;
+    if (!panel) throw new Error("That panel no longer exists.");
+    const layout = resolvePanelLayout(panel);
+    if (layout.totalSpaces <= 0) {
+      throw new Error(
+        "This panel's capacity (spaces / positions per column) has not been recorded yet, so its slots cannot be derived. Record the panel configuration first.",
+      );
+    }
+    const existing = ((
+      await db.from(BREAKER_TABLE).select("*").eq("panel_uuid", data.panel_uuid)
+    ).data ?? []) as Record<string, unknown>[];
+    const consumed = consumedSlotIndex(layout, existing);
+    const slots = unrecordedBreakerSlots(layout, existing).filter(
+      (s) => !consumed.has(`${s.side}#${s.position}`),
+    );
+    if (!slots.length) return { ok: true, created: 0, slots: [] as string[] };
+    const rows = slots.map((s) => ({
+      user_id: context.userId,
+      panel_uuid: data.panel_uuid,
+      side: s.side,
+      position: s.position,
+      breaker_number: s.breaker,
+      poles: 1,
+    }));
+    const res = await db.from(BREAKER_TABLE).insert(rows);
+    if (res.error) throw new Error(res.error.message);
+    const labels = slots.map((s) => `${s.side} ${s.position} (breaker ${s.breaker})`);
+    await recordElectricalChange(context.supabase, context.userId, {
+      section: "panel",
+      entityKind: "breaker_position",
+      action: "create",
+      entityUuid: null,
+      entityRef: String(panel["panel_id"] ?? data.panel_uuid),
+      summary: `Recorded ${slots.length} breaker slot${slots.length === 1 ? "" : "s"} with derived breaker numbers: ${labels.join(", ")}`,
+      before: {},
+      patch: { slots: labels },
+    });
+    return { ok: true, created: slots.length, slots: labels };
   });
