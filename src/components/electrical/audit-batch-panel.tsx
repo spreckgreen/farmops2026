@@ -1,0 +1,482 @@
+// FARMOPS-ELEC-AUDIT-BATCH-V1 — bulk field-audit import, preview and apply UI.
+//
+// Nothing on this screen writes an electrical record until the owner ticks the
+// individual items, types an approval statement and a reason, and confirms.
+// Holds, conflicts, ODS candidates, temporary-unresolved and no-change rows can
+// never be selected.
+import { useMemo, useState } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { AlertTriangle, Download, RefreshCw, ShieldCheck, Upload } from "lucide-react";
+
+import { PersistedSection } from "@/components/electrical/persisted-section";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  AUDIT_DISPOSITIONS,
+  holdCsv,
+  odsCandidateCsv,
+  previewCsv,
+  selectable,
+  type AuditDisposition,
+  type ClassifiedItem,
+} from "@/lib/electrical-audit-batch";
+import {
+  applyElectricalAuditBatch,
+  compensatingAuditBatchManifest,
+  importElectricalAuditBatch,
+  listElectricalAuditBatches,
+  previewElectricalAuditBatch,
+  setElectricalAuditItemApproval,
+  type AuditBatchPreview,
+} from "@/lib/electrical-audit-batch.functions";
+
+const DISPOSITION_VARIANT: Record<
+  AuditDisposition,
+  "default" | "secondary" | "destructive" | "outline"
+> = {
+  ready: "default",
+  no_change: "secondary",
+  hold: "destructive",
+  conflict: "destructive",
+  ods_candidate: "outline",
+  applied: "default",
+  failed: "destructive",
+};
+
+function download(name: string, body: string, type = "text/csv") {
+  const url = URL.createObjectURL(new Blob([body], { type }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function ItemRow({
+  item,
+  approved,
+  onToggle,
+}: {
+  item: ClassifiedItem;
+  approved: boolean;
+  onToggle: () => void;
+}) {
+  const can = selectable(item.disposition);
+  return (
+    <div className="border-b border-border py-2 text-sm last:border-0">
+      <div className="flex flex-wrap items-center gap-2">
+        <Checkbox checked={approved} disabled={!can} onCheckedChange={onToggle} aria-label={`Approve ${item.item_key}`} />
+        <span className="font-mono text-xs">{item.target_stable_id ?? item.item_key}</span>
+        <Badge variant="outline">{item.entity_kind}</Badge>
+        <Badge variant="secondary">{item.observation_class}</Badge>
+        <Badge variant={DISPOSITION_VARIANT[item.disposition]}>{item.disposition}</Badge>
+        <span className="text-xs text-muted-foreground">{item.operation}</span>
+        {item.pole_token ? (
+          <span className="text-xs text-muted-foreground">pole {item.pole_token}</span>
+        ) : null}
+      </div>
+      {item.changes.length ? (
+        <ul className="mt-1 ml-6 space-y-0.5 text-xs text-muted-foreground">
+          {item.changes.map((c) => (
+            <li key={c.column}>
+              <span className="font-mono">{c.column}</span>: {c.before ?? "—"} → {c.after ?? "—"}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {item.messages.length ? (
+        <ul className="mt-1 ml-6 space-y-0.5 text-xs">
+          {item.messages.map((m, idx) => (
+            <li
+              key={idx}
+              className={m.level === "error" ? "text-destructive" : "text-muted-foreground"}
+            >
+              {m.text}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      <p className="mt-1 ml-6 text-xs text-muted-foreground">Evidence: {item.evidence}</p>
+    </div>
+  );
+}
+
+export function AuditBatchPanel() {
+  const runImport = useServerFn(importElectricalAuditBatch);
+  const runPreview = useServerFn(previewElectricalAuditBatch);
+  const runApprove = useServerFn(setElectricalAuditItemApproval);
+  const runApply = useServerFn(applyElectricalAuditBatch);
+  const runCompensate = useServerFn(compensatingAuditBatchManifest);
+  const list = useServerFn(listElectricalAuditBatches);
+
+  const [manifestText, setManifestText] = useState("");
+  const [payload, setPayload] = useState<AuditBatchPreview | null>(null);
+  const [approved, setApproved] = useState<Set<string>>(new Set());
+  const [filter, setFilter] = useState<AuditDisposition | "all">("all");
+  const [statement, setStatement] = useState("");
+  const [reason, setReason] = useState("");
+  const [confirmed, setConfirmed] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const batches = useQuery({
+    queryKey: ["electrical-audit-batches"],
+    queryFn: async () => await list({}),
+  });
+
+  const adopt = (data: AuditBatchPreview) => {
+    setPayload(data);
+    setApproved(new Set(data.approved));
+    setError(null);
+  };
+
+  const importMutation = useMutation({
+    mutationFn: async () => await runImport({ data: { manifest: manifestText } }),
+    onSuccess: (data) => {
+      adopt(data as AuditBatchPreview);
+      batches.refetch();
+    },
+    onError: (e) => setError(String(e)),
+  });
+
+  const previewMutation = useMutation({
+    mutationFn: async (batchId: string) => await runPreview({ data: { batch_id: batchId } }),
+    onSuccess: (data) => adopt(data as AuditBatchPreview),
+    onError: (e) => setError(String(e)),
+  });
+
+  const applyMutation = useMutation({
+    mutationFn: async () =>
+      await runApply({
+        data: {
+          batch_id: payload!.batch.batch_id,
+          statement,
+          reason,
+          confirm: true as const,
+        },
+      }),
+    onSuccess: (data) => {
+      adopt(data as AuditBatchPreview);
+      setConfirmed(false);
+      batches.refetch();
+    },
+    onError: (e) => setError(String(e)),
+  });
+
+  const items = payload?.items ?? [];
+  const shown = useMemo(
+    () => (filter === "all" ? items : items.filter((i) => i.disposition === filter)),
+    [items, filter],
+  );
+  const readyKeys = useMemo(
+    () => items.filter((i) => selectable(i.disposition)).map((i) => i.item_key),
+    [items],
+  );
+
+  const persistApproval = async (keys: string[], value: boolean) => {
+    if (!payload || !keys.length) return;
+    try {
+      await runApprove({
+        data: { batch_id: payload.batch.batch_id, item_keys: keys, approved: value },
+      });
+    } catch (e) {
+      setError(String(e));
+    }
+  };
+
+  const toggle = (key: string) => {
+    const next = new Set(approved);
+    const value = !next.has(key);
+    if (value) next.add(key);
+    else next.delete(key);
+    setApproved(next);
+    void persistApproval([key], value);
+  };
+
+  const selectAllReady = () => {
+    setApproved(new Set(readyKeys));
+    void persistApproval(readyKeys, true);
+  };
+
+  return (
+    <div className="space-y-3">
+      {error ? (
+        <Card className="border-destructive">
+          <CardContent className="flex items-start gap-2 py-3 text-sm text-destructive">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            <span className="break-words">{error}</span>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      <PersistedSection
+        storageKey="electrical.audit-batches.import"
+        title="Import an audit manifest"
+        defaultOpen
+        badges={<Badge variant="outline">farmops.electrical.audit-batch.v1</Badge>}
+      >
+        <div className="space-y-2">
+          <p className="text-xs text-muted-foreground">
+            Import parses and validates the manifest, resolves every reference against a single
+            database snapshot and produces exact before/after diffs. Nothing is written until you
+            approve individual items below.
+          </p>
+          <Input
+            type="file"
+            accept="application/json,.json"
+            onChange={async (e) => {
+              const file = e.target.files?.[0];
+              if (file) setManifestText(await file.text());
+            }}
+          />
+          <Textarea
+            rows={6}
+            value={manifestText}
+            onChange={(e) => setManifestText(e.target.value)}
+            placeholder='{"schema_version":"farmops.electrical.audit-batch.v1","batch_id":"FA-FS-2026-09-03-PM", …}'
+            className="font-mono text-xs"
+          />
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              disabled={!manifestText.trim() || importMutation.isPending}
+              onClick={() => importMutation.mutate()}
+            >
+              <Upload className="mr-1 h-4 w-4" />
+              Import &amp; preview
+            </Button>
+            {payload ? (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => previewMutation.mutate(payload.batch.batch_id)}
+                disabled={previewMutation.isPending}
+              >
+                <RefreshCw className="mr-1 h-4 w-4" />
+                Re-preview
+              </Button>
+            ) : null}
+          </div>
+        </div>
+      </PersistedSection>
+
+      <PersistedSection
+        storageKey="electrical.audit-batches.list"
+        title="Audit batches"
+        badges={<Badge variant="secondary">{batches.data?.length ?? 0}</Badge>}
+      >
+        <div className="space-y-1 text-sm">
+          {(batches.data ?? []).map((b) => (
+            <button
+              key={b.id}
+              type="button"
+              className="flex w-full flex-wrap items-center gap-2 rounded-md px-2 py-1 text-left hover:bg-accent"
+              onClick={() => previewMutation.mutate(b.batch_id)}
+            >
+              <span className="font-mono text-xs">{b.batch_id}</span>
+              <span className="text-muted-foreground">{b.title}</span>
+              <Badge variant="outline">{b.status}</Badge>
+              {b.observed_date ? (
+                <span className="text-xs text-muted-foreground">{b.observed_date}</span>
+              ) : null}
+            </button>
+          ))}
+          {!batches.data?.length ? (
+            <p className="text-xs text-muted-foreground">No audit batches imported yet.</p>
+          ) : null}
+        </div>
+      </PersistedSection>
+
+      {payload ? (
+        <>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="flex flex-wrap items-center gap-2 text-base">
+                {payload.batch.batch_id}
+                <Badge variant="outline">{payload.batch.status}</Badge>
+                <Badge variant="secondary">{payload.gate_version}</Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              <p className="text-muted-foreground">{payload.batch.scope}</p>
+              <p className="text-xs text-muted-foreground">
+                Building {payload.batch.building ?? "—"} · observed{" "}
+                {payload.batch.observed_date ?? "—"} ({payload.batch.observed_time_precision ?? "—"},{" "}
+                {payload.batch.timezone ?? "—"}) · manifest SHA-256{" "}
+                <span className="font-mono">{payload.batch.manifest_sha256.slice(0, 16)}…</span>
+              </p>
+              {payload.batch.evidence.length ? (
+                <p className="text-xs text-muted-foreground">
+                  Evidence:{" "}
+                  {payload.batch.evidence
+                    .map((e) => `${e.name}${e.subject ? ` (${e.subject})` : ""}`)
+                    .join(", ")}
+                </p>
+              ) : null}
+              <div className="flex flex-wrap gap-2">
+                {(["ready", "no_change", "hold", "conflict", "ods_candidate", "applied", "failed"] as AuditDisposition[]).map(
+                  (d) => (
+                    <Badge key={d} variant={DISPOSITION_VARIANT[d]}>
+                      {d}: {payload.summary.by_disposition[d] ?? 0}
+                    </Badge>
+                  ),
+                )}
+              </div>
+              {payload.refused_reason ? (
+                <p className="text-sm text-destructive">{payload.refused_reason}</p>
+              ) : null}
+              {payload.qa_before || payload.qa ? (
+                <p className="text-xs text-muted-foreground">
+                  QA errors before {payload.qa_before?.error ?? "—"} → after{" "}
+                  {payload.qa?.error ?? "—"} (total {payload.qa_before?.total ?? "—"} →{" "}
+                  {payload.qa?.total ?? "—"})
+                </p>
+              ) : null}
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    download(`${payload.batch.batch_id}-manifest.json`, JSON.stringify(payload.batch, null, 2), "application/json")
+                  }
+                >
+                  <Download className="mr-1 h-4 w-4" /> Normalized batch
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => download(`${payload.batch.batch_id}-preview.csv`, previewCsv(items))}
+                >
+                  <Download className="mr-1 h-4 w-4" /> Preview report
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => download(`${payload.batch.batch_id}-holds.csv`, holdCsv(items))}
+                >
+                  <Download className="mr-1 h-4 w-4" /> Hold report
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    download(
+                      `${payload.batch.batch_id}-ods-candidates.csv`,
+                      odsCandidateCsv(payload.batch.batch_id, items),
+                    )
+                  }
+                >
+                  <Download className="mr-1 h-4 w-4" /> ODS candidates
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={async () => {
+                    try {
+                      const res = await runCompensate({
+                        data: { batch_id: payload.batch.batch_id },
+                      });
+                      download(
+                        `${payload.batch.batch_id}-compensating.json`,
+                        JSON.stringify(res.manifest, null, 2),
+                        "application/json",
+                      );
+                    } catch (e) {
+                      setError(String(e));
+                    }
+                  }}
+                >
+                  <Download className="mr-1 h-4 w-4" /> Compensating batch
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          <PersistedSection
+            storageKey="electrical.audit-batches.items"
+            title="Proposed changes"
+            defaultOpen
+            badges={<Badge variant="secondary">{shown.length}</Badge>}
+          >
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center gap-1">
+                {(["all", ...AUDIT_DISPOSITIONS] as (AuditDisposition | "all")[]).map((d) => (
+                  <Button
+                    key={d}
+                    size="sm"
+                    variant={filter === d ? "default" : "outline"}
+                    onClick={() => setFilter(d)}
+                  >
+                    {d}
+                  </Button>
+                ))}
+                <Button size="sm" variant="secondary" onClick={selectAllReady}>
+                  Select all ready ({readyKeys.length})
+                </Button>
+              </div>
+              {shown.map((i) => (
+                <ItemRow
+                  key={i.item_key}
+                  item={i}
+                  approved={approved.has(i.item_key)}
+                  onToggle={() => toggle(i.item_key)}
+                />
+              ))}
+              {!shown.length ? (
+                <p className="text-xs text-muted-foreground">Nothing matches this filter.</p>
+              ) : null}
+            </div>
+          </PersistedSection>
+
+          <PersistedSection
+            storageKey="electrical.audit-batches.apply"
+            title="Approve and apply"
+            defaultOpen
+            badges={<Badge variant="default">{approved.size} approved</Badge>}
+          >
+            <div className="space-y-2 text-sm">
+              <Input
+                placeholder="Approval statement (required)"
+                value={statement}
+                onChange={(e) => setStatement(e.target.value)}
+              />
+              <Textarea
+                rows={2}
+                placeholder="Reason for approving this apply (required)"
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+              />
+              <label className="flex items-center gap-2 text-sm">
+                <Checkbox
+                  checked={confirmed}
+                  onCheckedChange={() => setConfirmed((v) => !v)}
+                  aria-label="Confirm apply"
+                />
+                I approve writing the {approved.size} selected field observations. Holds, conflicts
+                and ODS candidates stay unapplied.
+              </label>
+              <Button
+                size="sm"
+                disabled={
+                  !confirmed ||
+                  approved.size === 0 ||
+                  statement.trim().length < 10 ||
+                  reason.trim().length < 3 ||
+                  applyMutation.isPending
+                }
+                onClick={() => applyMutation.mutate()}
+              >
+                <ShieldCheck className="mr-1 h-4 w-4" />
+                Apply approved items
+              </Button>
+            </div>
+          </PersistedSection>
+        </>
+      ) : null}
+    </div>
+  );
+}
