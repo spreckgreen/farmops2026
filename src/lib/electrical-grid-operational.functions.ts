@@ -16,6 +16,8 @@ import {
   PLACEMENT_SOURCE_LABEL,
   PLACEMENT_SOURCE_ORDER,
   VERIFICATION_STATUSES,
+  verificationOf,
+
   type AssetKind,
   type OperationalAsset,
   type OperationalInput,
