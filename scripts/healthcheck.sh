@@ -216,6 +216,90 @@ else
 fi
 
 # ===========================================================================
+# CHECK 4 — network / gateway hardening (self-hosted Supabase only)
+# ===========================================================================
+# Skipped entirely when no self-hosted Supabase stack is present, so this file
+# stays usable on a managed backend.
+if "${DOCKER[@]}" network inspect supabase_default >/dev/null 2>&1; then
+  log "${BOLD}[4/4]${RESET} Checking gateway hardening…"
+
+  # 4a. The hardening override must be part of the active compose layering,
+  #     otherwise `docker compose up` republishes the gateway/pooler ports.
+  ACTIVE_COMPOSE="${COMPOSE_FILE:-}"
+  if [ -z "$ACTIVE_COMPOSE" ] && [ -f .env ]; then
+    ACTIVE_COMPOSE="$(sed -n 's/^COMPOSE_FILE=//p' .env | tail -1)"
+  fi
+  if [ ! -f docker-compose.hardening.yml ]; then
+    record WARN "hardening override" "docker-compose.hardening.yml not found in this directory"
+  elif printf '%s' "$ACTIVE_COMPOSE" | grep -q 'docker-compose.hardening.yml'; then
+    record PASS "hardening override" "COMPOSE_FILE includes docker-compose.hardening.yml"
+  else
+    record FAIL "hardening override" "COMPOSE_FILE does not include docker-compose.hardening.yml — gateway/pooler ports may be republished"
+  fi
+
+  # 4b. No database, pooler or gateway port may be published on the host.
+  PUBLISHED="$("${DOCKER[@]}" ps --format '{{.Ports}}' 2>/dev/null || true)"
+  BAD_PORTS=""
+  for port in 5432 6543 8000 8443; do
+    if printf '%s\n' "$PUBLISHED" | grep -Eq "(^|[^0-9])0\.0\.0\.0:${port}->|\[::\]:${port}->"; then
+      BAD_PORTS="$BAD_PORTS $port"
+    fi
+  done
+  if [ -n "$BAD_PORTS" ]; then
+    record FAIL "published host ports" "publicly reachable:${BAD_PORTS} (expected none)"
+  else
+    record PASS "published host ports" "5432/6543/8000/8443 not published on the host"
+  fi
+
+  # 4c. Only caddy — never app — is attached to the external supabase network.
+  ATTACHED="$("${DOCKER[@]}" network inspect supabase_default \
+    --format '{{range .Containers}}{{.Name}} {{end}}' 2>/dev/null || true)"
+  if printf '%s' "$ATTACHED" | grep -q 'caddy'; then
+    record PASS "caddy on supabase_default" "attached (reverse_proxy kong:8000 resolves)"
+  else
+    record FAIL "caddy on supabase_default" "not attached — the HTTPS route to the gateway will 502"
+  fi
+  if printf '%s' "$ATTACHED" | grep -Eq '(^| )[^ ]*[-_]app( |$)'; then
+    record FAIL "app off supabase_default" "the app container is attached directly — remove it"
+  else
+    record PASS "app off supabase_default" "not attached directly"
+  fi
+
+  # 4d. host.docker.internal must stay removed.
+  if grep -q 'host\.docker\.internal' docker-compose.yml Caddyfile 2>/dev/null; then
+    record FAIL "host.docker.internal" "still referenced in docker-compose.yml/Caddyfile — remove it"
+  else
+    record PASS "host.docker.internal" "not referenced"
+  fi
+
+  # 4e. Unauthenticated gateway requests must fail closed. Probed through the
+  #     public HTTPS route; a 200 here would mean an open API surface.
+  SUPA_HOST="$(sed -n 's/^SUPABASE_DOMAIN=//p' .env 2>/dev/null | tail -1)"
+  SUPA_HOST="${SUPA_HOST:-supabase.$HOST_NAME}"
+  CODE_SUPA="$(probe_code -k --resolve "$SUPA_HOST:443:127.0.0.1" "https://$SUPA_HOST/rest/v1/profiles?select=id")"
+  if [[ "$CODE_SUPA" =~ ^(401|403)$ ]]; then
+    record PASS "gateway fails closed" "unauthenticated REST → HTTP $CODE_SUPA"
+  elif [ "$CODE_SUPA" = "000" ]; then
+    record WARN "gateway fails closed" "no response on https://$SUPA_HOST (cert or DNS not ready?)"
+  else
+    record FAIL "gateway fails closed" "unauthenticated REST → HTTP $CODE_SUPA (expected 401/403)"
+  fi
+
+  # 4f. The Supabase secret file must not be group/world readable.
+  for envpath in ../supabase/docker/.env /opt/supabase/docker/.env "$HOME/supabase/docker/.env"; do
+    [ -f "$envpath" ] || continue
+    MODE="$(stat -c '%a' "$envpath" 2>/dev/null || echo '?')"
+    if [ "$MODE" = "600" ]; then
+      record PASS "supabase .env mode" "$envpath is 600"
+    else
+      record FAIL "supabase .env mode" "$envpath is $MODE (expected 600) — run: chmod 600 $envpath"
+    fi
+    break
+  done
+fi
+
+# ===========================================================================
+
 # Report
 # ===========================================================================
 [ "$QUIET" -eq 1 ] || {

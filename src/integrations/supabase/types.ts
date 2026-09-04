@@ -4949,6 +4949,7 @@ export type Database = {
     }
     Functions: {
       electrical_allowed: { Args: { _domain: string }; Returns: string[] }
+      electrical_api_activated_scopes: { Args: never; Returns: string[] }
       list_peer_sync_cron_secrets: {
         Args: { _actor: string }
         Returns: {
