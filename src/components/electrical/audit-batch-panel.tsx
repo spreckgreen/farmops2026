@@ -90,6 +90,11 @@ function ItemRow({
         {item.pole_token ? (
           <span className="text-xs text-muted-foreground">pole {item.pole_token}</span>
         ) : null}
+        {classifiedBreakerRelationship(item) ? (
+          <span className="font-mono text-xs text-muted-foreground">
+            {classifiedBreakerRelationship(item)}
+          </span>
+        ) : null}
       </div>
       {item.changes.length ? (
         <ul className="mt-1 ml-6 space-y-0.5 text-xs text-muted-foreground">
@@ -178,7 +183,7 @@ export function AuditBatchPanel() {
       }),
     onSuccess: (result) => {
       adopt(result.preview as AuditBatchPreview);
-      setPeerToken("");
+      clearPeerToken();
       setPeerNote(
         `Staged ${result.peer.batch_id} from ${result.peer.base_url} (there: ${result.peer.status ?? "unknown"}${
           result.peer.applied_at ? `, applied ${result.peer.applied_at}` : ""
