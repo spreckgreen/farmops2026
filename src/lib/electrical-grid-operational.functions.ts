@@ -256,9 +256,10 @@ export const electricalGridOperational = createServerFn({ method: "GET" })
       ).length;
       gaps.push(
         reviewed
-          ? `${reviewed} record(s) carry a field verification, but none of them stores a verified X/Y coordinate, so plotted positions still come from the accepted grid assignment. A verified grid reference (for example A1–F9 or a post callout) fixes the record to that grid cell, not to a measured point.`
-          : "FarmOps holds no applied field verification for the Farm Shop yet — no verified X/Y and no verified grid reference — so every plotted position comes from the accepted grid assignment. A completed walkaround only changes this once its audit batch is imported and applied.",
+          ? `${reviewed} record(s) in this FarmOps instance's database carry a field verification, but none of them stores a verified X/Y coordinate, so plotted positions still come from the accepted grid assignment. A verified grid reference (for example A1–F9 or a post callout) fixes the record to that grid cell, not to a measured point. Another deployment (for example a self-hosted copy) has its own database and may already hold an applied field audit.`
+          : "This FarmOps instance's database holds no applied field verification for the Farm Shop — no verified X/Y and no verified grid reference — so every plotted position here comes from the accepted grid assignment. A completed walkaround only changes this instance once its audit batch is imported and applied here; another deployment (for example a self-hosted copy) has its own database and may already show it as applied.",
       );
+
     }
 
     if (summary.placementSources.PROVISIONAL_RECORDED_XY) {
