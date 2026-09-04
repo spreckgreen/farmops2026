@@ -23,6 +23,7 @@ import {
   assignProposedCircuitGroupIds,
   buildManifestGraph,
   classifyItem,
+  classifyStoredManifest,
   compensatingManifest,
   isPendingRef,
   manifestChecksum,
