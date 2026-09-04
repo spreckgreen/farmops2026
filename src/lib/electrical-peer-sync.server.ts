@@ -73,6 +73,52 @@ export async function readPeerSyncConfig(db: LooseDb): Promise<PeerSyncConfigRow
   return (data as PeerSyncConfigRow | null) ?? null;
 }
 
+/** One row of the append-only execution log shown on the audit batches page. */
+export interface PeerSyncRunLogInput {
+  started_at: string;
+  trigger: "scheduled" | "manual";
+  outcome: "success" | "partial" | "failed" | "skipped";
+  skipped_reason?: string | null;
+  peer_origin?: string | null;
+  peer_batches_seen?: number;
+  candidates?: number;
+  staged?: number;
+  failed?: number;
+  capped?: boolean;
+  error?: string | null;
+  items?: unknown;
+}
+
+/**
+ * Append one execution-log entry. Logging is best-effort on purpose: a failure
+ * to record must never fail (or retry) the pull itself.
+ */
+export async function recordPeerSyncRun(db: LooseDb, input: PeerSyncRunLogInput): Promise<void> {
+  const finishedAt = new Date();
+  try {
+    await db.from("electrical_peer_sync_runs").insert({
+      started_at: input.started_at,
+      finished_at: finishedAt.toISOString(),
+      duration_ms: Math.max(0, finishedAt.getTime() - new Date(input.started_at).getTime()),
+      trigger: input.trigger,
+      outcome: input.outcome,
+      skipped_reason: input.skipped_reason ?? null,
+      peer_origin: input.peer_origin ?? null,
+      peer_batches_seen: input.peer_batches_seen ?? 0,
+      candidates: input.candidates ?? 0,
+      staged: input.staged ?? 0,
+      failed: input.failed ?? 0,
+      capped: input.capped ?? false,
+      error: input.error ?? null,
+      items: (input.items ?? null) as never,
+    });
+  } catch (e) {
+    console.error(
+      `[electrical-peer-sync] could not record run log: ${e instanceof Error ? e.message : String(e)}`,
+    );
+  }
+}
+
 /**
  * One bounded sync pass. `db` must be a service-role client for the scheduled
  * path (there is no session) or the caller's client for a manual run.
@@ -92,23 +138,35 @@ export async function runPeerAuditSync(
     capped: false,
     items: [],
   };
+  const skip = async (reason: string) => {
+    await recordPeerSyncRun(db, {
+      started_at: ranAt,
+      trigger: options.trigger,
+      outcome: "skipped",
+      skipped_reason: reason,
+    });
+    return empty;
+  };
   const config = await readPeerSyncConfig(db);
   // Not configured / switched off / no token is "nothing to do", not a failure:
   // a scheduled run must not trip the circuit breaker just because the owner
   // has not set the peer up yet.
   if (!config) {
-    if (options.trigger === "scheduled") return empty;
+    if (options.trigger === "scheduled") return await skip("no peer instance configured");
     throw new Error(
       "No peer instance is configured yet. Save the peer address on the audit batches page first.",
     );
   }
-  if (!config.enabled && options.trigger === "scheduled") return empty;
+  if (!config.enabled && options.trigger === "scheduled") {
+    return await skip("automatic pull is switched off");
+  }
   if (!options.peerToken) {
-    if (options.trigger === "scheduled") return empty;
+    if (options.trigger === "scheduled") return await skip("peer access key not configured");
     throw new Error(
       "The peer access token is not configured, so the pull cannot authenticate to the peer instance.",
     );
   }
+
 
   const limit = Math.max(1, Math.min(config.max_batches_per_run || 5, PEER_SYNC_MAX_BATCHES));
   const peerRows = await fetchPeerBatchList(config.peer_base_url, options.peerToken);
