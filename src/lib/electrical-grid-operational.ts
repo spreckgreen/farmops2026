@@ -15,6 +15,11 @@ import {
   oldNumberToFeet,
   parseOldGrid,
 } from "@/lib/electrical-grid-migration";
+import {
+  POST_GEOMETRY_CONFIRMED,
+  postObservationFeet,
+} from "@/lib/electrical-grid-post-geometry";
+
 
 export const OPERATIONAL_MODEL_VERSION = "farm-shop-operational-location-1";
 
