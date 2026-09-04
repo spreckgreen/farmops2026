@@ -34,11 +34,10 @@
 	reverse_proxy app:3000
 }
 
-# --- Self-hosted Supabase (Kong on host :8000) ---------------------------
-# Kong is published by the separate supabase-project compose stack on
-# 0.0.0.0:8000 (plain HTTP). We terminate TLS here with a real Let's Encrypt
-# cert and proxy over the host gateway. Requires `extra_hosts` on the caddy
-# service so `host.docker.internal` resolves inside the container.
+# --- Self-hosted Supabase internal API gateway ---------------------------
+# The active gateway is reached through the shared supabase_default Docker
+# network. The `kong` alias resolves to Envoy v0.8 or optional Kong.
+# Caddy provides public TLS; no Supabase gateway port is published on the host.
 {$SUPABASE_DOMAIN} {
 	encode zstd gzip
 	log {
@@ -48,5 +47,5 @@
 		}
 		format json
 	}
-	reverse_proxy host.docker.internal:8000
+	reverse_proxy kong:8000
 }

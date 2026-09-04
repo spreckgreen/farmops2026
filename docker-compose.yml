@@ -144,11 +144,9 @@ services:
       - "80:80"
       - "443:443"
       - "443:443/udp"   # HTTP/3
-    # Let the caddy container reach the Supabase Kong published on the host
-    # (0.0.0.0:8000) via host.docker.internal. Required on Linux; no-op on
-    # Docker Desktop where the alias resolves automatically.
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+    # Reach the separate Supabase stack through the shared internal Docker
+    # network. Supabase gateway and database ports are not published on the host.
+
     environment:
       ACME_DOMAIN: ${ACME_DOMAIN:-farmops.bostead.life}
       ACME_EMAIL: ${ACME_EMAIL:-admin@bostead.life}
@@ -158,9 +156,15 @@ services:
       - ./logs/caddy:/var/log/caddy
       - caddy_data:/data      # certs + ACME account (persist across restarts)
       - caddy_config:/config
-
-
+    networks:
+      - default
+      - supabase_internal
 volumes:
   ollama:
   caddy_data:
   caddy_config:
+
+networks:
+  supabase_internal:
+    external: true
+    name: supabase_default
