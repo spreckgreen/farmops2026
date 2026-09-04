@@ -308,3 +308,218 @@ export function buildFsNwAuditManifestR1(options: BuildOptions = {}): AuditBatch
 export function fsNwAuditManifestR1Text(options: BuildOptions = {}): string {
   return JSON.stringify(buildFsNwAuditManifestR1(options), null, 2);
 }
+
+/* ------------------------------------------------------------------ *
+ * Follow-up links batch — built AFTER the seven circuit groups are
+ * approved and applied, so every LINK item can reference the real
+ * permanent CG-FS-### identity instead of an AUTO placeholder.
+ * ------------------------------------------------------------------ */
+
+export const FS_NW_LINKS_BATCH_ID = "FA-FS-2026-09-03-PM-R1-LINKS";
+
+export interface ResolvedAuditedGroup {
+  /** Derived display reference of the audited breaker (PNL-FS-NW-B37). */
+  breaker_reference: string;
+  /** Permanent circuit-group identity read back from the approved record. */
+  circuit_group_id: string;
+}
+
+export interface LinkManifestInput {
+  /** Approved circuit groups, resolved from the applied breaker positions. */
+  groups: readonly ResolvedAuditedGroup[];
+  /** Load stable IDs that exist in FarmOps today (`FS-054`, ...). */
+  knownLoadIds: readonly string[];
+  /** Loads already carrying the audited group link — skipped as no-ops. */
+  alreadyLinked?: readonly string[];
+  /** Audited relationships; defaults to the frozen field record. */
+  loads?: Record<string, readonly string[]>;
+  observedDate?: string;
+  includeUnidentifiedHold?: boolean;
+}
+
+export interface LinkManifestResult {
+  manifest: AuditBatchManifest;
+  /** LINK items emitted, per audited breaker. */
+  linked: { breaker_reference: string; circuit_group_id: string; load_ids: string[] }[];
+  /** Audited breakers with no approved circuit group yet — held, never guessed. */
+  groupsNotApproved: string[];
+  /** Audited load IDs with no FarmOps record — held, never created. */
+  loadsNotFound: string[];
+  /** Loads already linked to the audited group; nothing to write. */
+  skippedAlreadyLinked: string[];
+  linkCount: number;
+}
+
+function resolvedLinkItem(
+  b: AuditedBreaker,
+  circuitGroupId: string,
+  loadId: string,
+): AuditBatchItemInput {
+  return {
+    item_key: loadLinkItemKey(b, loadId),
+    entity_kind: "load",
+    target_stable_id: loadId.toUpperCase(),
+    observation_class: "FIELD_AS_BUILT",
+    operation: "LINK",
+    fields: {},
+    install_state: null,
+    pole: null,
+    field_grid_reference: null,
+    refs: { circuit_group_ref: circuitGroupId, load_ref: loadId.toUpperCase() },
+    observed_label: b.circuit_group_label,
+    evidence: `PNL-FS-NW field audit 03 Sep 2026 PM — ${loadId.toUpperCase()} traced to the circuit on ${b.breaker_reference} ("${b.circuit_group_label}"), now recorded as ${circuitGroupId}.`,
+    notes: `Sets circuit_group_uuid on ${loadId.toUpperCase()} to the approved circuit group ${circuitGroupId}. No location field is written: an incomplete or questionable grid reference is reconciled separately and never suppresses this relationship.`,
+    reason: null,
+    ods_field: null,
+    ods_candidate_value: null,
+  };
+}
+
+function missingLoadHoldItem(
+  b: AuditedBreaker,
+  circuitGroupId: string | null,
+  loadId: string,
+): AuditBatchItemInput {
+  return {
+    item_key: `${loadLinkItemKey(b, loadId)}-hold`,
+    entity_kind: "load",
+    target_stable_id: null,
+    observation_class: "HOLD_UNRESOLVED",
+    operation: "HOLD_UNRESOLVED",
+    fields: {},
+    install_state: null,
+    pole: null,
+    field_grid_reference: null,
+    refs: circuitGroupId ? { circuit_group_ref: circuitGroupId } : {},
+    observed_label: b.circuit_group_label,
+    evidence: `PNL-FS-NW field audit 03 Sep 2026 PM — ${loadId.toUpperCase()} was observed on ${b.breaker_reference} ("${b.circuit_group_label}").`,
+    notes: `Held because ${loadId.toUpperCase()} has no FarmOps load record in this instance. A field audit never creates a load record to satisfy a link.`,
+    reason: circuitGroupId
+      ? `No load record ${loadId.toUpperCase()} found; cannot link it to ${circuitGroupId}.`
+      : `No load record ${loadId.toUpperCase()} found, and ${b.breaker_reference} has no approved circuit group yet.`,
+    ods_field: null,
+    ods_candidate_value: null,
+  };
+}
+
+function groupNotApprovedHoldItem(b: AuditedBreaker, loadIds: readonly string[]): AuditBatchItemInput {
+  return {
+    item_key: `fs-nw-b${b.breaker_number}-group-not-approved`,
+    entity_kind: "circuit_group",
+    target_stable_id: null,
+    observation_class: "HOLD_UNRESOLVED",
+    operation: "HOLD_UNRESOLVED",
+    fields: {},
+    install_state: null,
+    pole: null,
+    field_grid_reference: null,
+    refs: { panel_ref: FS_NW_PANEL_ID },
+    observed_label: b.circuit_group_label,
+    evidence: `PNL-FS-NW field audit 03 Sep 2026 PM — ${b.breaker_reference} ("${b.circuit_group_label}") feeds ${loadIds.join(", ")}.`,
+    notes: `Held because no approved circuit group was found for ${b.breaker_reference}. Approve and apply ${FS_NW_AUDIT_R1_BATCH_ID} first, then rebuild this links batch so the real CG-FS-### identity is used.`,
+    reason: `No approved circuit group for ${b.breaker_reference}; ${loadIds.length} load link(s) withheld.`,
+    ods_field: null,
+    ods_candidate_value: null,
+  };
+}
+
+/**
+ * Build the links-only follow-up batch from the APPROVED circuit-group records.
+ *
+ * Deterministic and conservative: a link is emitted only when both sides are
+ * real records — an approved CG-FS-### for the audited breaker and an existing
+ * FS-### load. Everything else becomes an explicit hold, and no identity, load
+ * record or location value is invented.
+ */
+export function buildFsNwLoadLinkManifest(input: LinkManifestInput): LinkManifestResult {
+  const loads = input.loads ?? FS_NW_AUDITED_LOADS;
+  const includeHold = input.includeUnidentifiedHold ?? input.loads === undefined;
+  const groupByBreaker = new Map(
+    input.groups.map((g) => [g.breaker_reference.toUpperCase(), g.circuit_group_id]),
+  );
+  const known = new Set(input.knownLoadIds.map((v) => v.trim().toUpperCase()));
+  const alreadyLinked = new Set((input.alreadyLinked ?? []).map((v) => v.trim().toUpperCase()));
+
+  const items: AuditBatchItemInput[] = [];
+  const linked: LinkManifestResult["linked"] = [];
+  const groupsNotApproved: string[] = [];
+  const loadsNotFound: string[] = [];
+  const skippedAlreadyLinked: string[] = [];
+  let linkCount = 0;
+
+  for (const b of FS_NW_AUDITED_BREAKERS) {
+    const ids = (loads[b.breaker_reference] ?? []).map((v) => v.trim().toUpperCase()).filter(Boolean);
+    if (!ids.length) continue;
+    const groupId = groupByBreaker.get(b.breaker_reference.toUpperCase()) ?? null;
+    if (!groupId) {
+      groupsNotApproved.push(b.breaker_reference);
+      items.push(groupNotApprovedHoldItem(b, ids));
+      for (const id of ids) if (!known.has(id)) loadsNotFound.push(id);
+      continue;
+    }
+    const emitted: string[] = [];
+    for (const id of ids) {
+      if (!known.has(id)) {
+        loadsNotFound.push(id);
+        items.push(missingLoadHoldItem(b, groupId, id));
+        continue;
+      }
+      if (alreadyLinked.has(id)) {
+        skippedAlreadyLinked.push(id);
+        continue;
+      }
+      emitted.push(id);
+      items.push(resolvedLinkItem(b, groupId, id));
+    }
+    linkCount += emitted.length;
+    if (emitted.length) {
+      linked.push({ breaker_reference: b.breaker_reference, circuit_group_id: groupId, load_ids: emitted });
+    }
+  }
+
+  if (includeHold) items.push(unidentifiedLoadHoldItem());
+
+  const scope =
+    `Links the audited PNL-FS-NW loads to the approved permanent circuit groups from ` +
+    `${FS_NW_AUDIT_R1_BATCH_ID}. ${linkCount} load link(s) using real CG-FS-### identities` +
+    (skippedAlreadyLinked.length ? `, ${skippedAlreadyLinked.length} already linked` : "") +
+    (loadsNotFound.length ? `, ${loadsNotFound.length} load(s) not found (held)` : "") +
+    (groupsNotApproved.length
+      ? `, ${groupsNotApproved.length} breaker(s) without an approved group (held)`
+      : "") +
+    `. Locations are reconciled separately and never written here.`;
+
+  const manifest: AuditBatchManifest = {
+    schema_version: AUDIT_BATCH_SCHEMA_VERSION,
+    batch_id: FS_NW_LINKS_BATCH_ID,
+    title: "Farm Shop PNL-FS-NW audited load links — 03 Sep 2026 PM (R1)",
+    scope: scope.length > 400 ? `${scope.slice(0, 397)}...` : scope,
+    building: "Farm Shop",
+    observed_date: input.observedDate ?? "2026-09-03",
+    observed_time_precision: "afternoon",
+    timezone: "America/New_York",
+    source: `follow-up-of:${FS_NW_AUDIT_R1_BATCH_ID}`,
+    evidence: [
+      {
+        name: "PNL-FS-NW panel schedule photo set",
+        label: "03 Sep 2026 PM",
+        subject: "PNL-FS-NW breakers 29–40 load tracing",
+      },
+    ],
+    compensates_batch_id: null,
+    items,
+  };
+
+  return {
+    manifest,
+    linked,
+    groupsNotApproved,
+    loadsNotFound,
+    skippedAlreadyLinked,
+    linkCount,
+  };
+}
+
+export function fsNwLoadLinkManifestText(input: LinkManifestInput): string {
+  return JSON.stringify(buildFsNwLoadLinkManifest(input).manifest, null, 2);
+}
