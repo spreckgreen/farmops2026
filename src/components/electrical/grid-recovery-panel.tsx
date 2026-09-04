@@ -29,17 +29,16 @@ import {
   type RecoveryRow,
 } from "@/lib/electrical-grid-recovery";
 import { AXIS_COLS, AXIS_ROWS } from "@/lib/electrical-grid-map";
-import { PLAN_BUILDING_FRACTION } from "@/lib/electrical-grid-plan-geometry";
-import { GridPlanBackdrop } from "@/components/electrical/grid-plan-svg";
+import planImage from "@/assets/farm-shop-grid-plan.png";
 import { cn } from "@/lib/utils";
 
-/** Plan envelope inside the drawing, measured from the grid corner markers. */
-const PLAN = {
-  left: PLAN_BUILDING_FRACTION.left * 100,
-  top: PLAN_BUILDING_FRACTION.top * 100,
-  right: (PLAN_BUILDING_FRACTION.left + PLAN_BUILDING_FRACTION.width) * 100,
-  bottom: (PLAN_BUILDING_FRACTION.top + PLAN_BUILDING_FRACTION.height) * 100,
-};
+/**
+ * Calibrated building envelope inside the accepted overhead-plan artwork.
+ * Recovery rows already expose 0–100 percentages within the 60′ × 40′
+ * building. Keep that overlay inside this inset instead of stretching it over
+ * the artwork's title, dimensions, axis labels and north arrow.
+ */
+const PLAN = { left: 12.91, right: 86.4, top: 19.52, bottom: 75.97 };
 
 async function fileToBase64(file: File): Promise<string> {
   const buf = new Uint8Array(await file.arrayBuffer());
@@ -74,8 +73,17 @@ function RecoveryMap({
 
   return (
     <div className="space-y-2">
-      <div className={cn("relative w-full", large ? "max-w-none" : "max-w-3xl")}>
-        <GridPlanBackdrop className="block h-auto w-full rounded-md border bg-white" />
+      <div
+        className={cn(
+          "relative w-full overflow-hidden rounded-md border bg-white",
+          large ? "max-w-none" : "max-w-3xl",
+        )}
+      >
+        <img
+          src={planImage}
+          alt="Corrected Farm Shop 40 by 60 foot overhead grid plan, rows A to F north to south and columns 1 to 9 west to east"
+          className="block h-auto w-full"
+        />
         <div
           className="absolute"
           style={{
