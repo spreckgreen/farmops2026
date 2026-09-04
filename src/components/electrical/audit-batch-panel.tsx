@@ -84,11 +84,17 @@ function ItemRow({
         <ul className="mt-1 ml-6 space-y-0.5 text-xs text-muted-foreground">
           {item.changes.map((c) => (
             <li key={c.column}>
-              <span className="font-mono">{c.column}</span>: {c.before ?? "—"} → {c.after ?? "—"}
+              <span className="font-mono">{c.column}</span>: {c.before ?? "—"} →{" "}
+              {c.after == null
+                ? "—"
+                : isPendingRef(c.after)
+                  ? `new record from ${pendingRefItemKey(c.after)} (linked at apply)`
+                  : c.after}
             </li>
           ))}
         </ul>
       ) : null}
+
       {item.messages.length ? (
         <ul className="mt-1 ml-6 space-y-0.5 text-xs">
           {item.messages.map((m, idx) => (
