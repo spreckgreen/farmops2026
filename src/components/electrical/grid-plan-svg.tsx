@@ -34,6 +34,14 @@ import {
   DESIGN_FIELD_STATUS_LABEL,
   type DesignFieldPair,
 } from "@/lib/electrical-grid-design-vs-field";
+import { AXIS_COLS, AXIS_ROWS } from "@/lib/electrical-grid-map";
+import {
+  overlayPosts,
+  overlayShowsGrid,
+  type GridBaseOverlay,
+  type GridCellCount,
+} from "@/lib/electrical-grid-map-overlays";
+
 
 /** Marker colours, matched to the on-screen swatches and the PDF export. */
 export const PRECISION_HEX: Record<LocationPrecision, string> = {
