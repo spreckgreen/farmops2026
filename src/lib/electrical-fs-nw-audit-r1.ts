@@ -371,9 +371,14 @@ function resolvedLinkItem(
     pole: null,
     field_grid_reference: null,
     refs: { circuit_group_ref: circuitGroupId, load_ref: loadId.toUpperCase() },
-    observed_label: b.circuit_group_label,
+    // Relationship-only: circuit_group_uuid is the single column this item may
+    // change. No label and no note is written to the load; the evidence line and
+    // the batch audit trail carry how and when the link was observed. Location
+    // remains untouched and is reconciled separately on its own evidence.
+    observed_label: null,
     evidence: `PNL-FS-NW field audit 03 Sep 2026 PM — ${loadId.toUpperCase()} traced to the circuit on ${b.breaker_reference} ("${b.circuit_group_label}"), now recorded as ${circuitGroupId}.`,
-    notes: `Sets circuit_group_uuid on ${loadId.toUpperCase()} to the approved circuit group ${circuitGroupId}. No location field is written: an incomplete or questionable grid reference is reconciled separately and never suppresses this relationship.`,
+    notes: null,
+
     reason: null,
     ods_field: null,
     ods_candidate_value: null,
