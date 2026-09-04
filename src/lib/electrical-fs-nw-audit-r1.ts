@@ -192,13 +192,12 @@ export function buildFsNwAuditManifestR1(options: BuildOptions = {}): AuditBatch
   }
 
   const scope =
-    `Establishes the seven audited PNL-FS-NW breaker positions as records, allocates a permanent ` +
-    `CG-FS-### identity per audited circuit and links each position through circuit_group_uuid. ` +
-    `Replaces the unresolved circuit-group placeholders in ${FS_NW_AUDIT_R1_SUPERSEDES}. ` +
+    `Establishes the seven audited PNL-FS-NW breakers as records, allocates a permanent ` +
+    `CG-FS-### identity per circuit and links each position via circuit_group_uuid. Replaces the ` +
+    `unresolved circuit-group placeholders in ${FS_NW_AUDIT_R1_SUPERSEDES}. ` +
     (unlinked.length
-      ? `Load linkage is withheld for ${unlinked.join(", ")} — no load record was positively identified for those circuits, so nothing is guessed.`
-      : `Every audited circuit carries an explicit load linkage.`) +
-    (linked.length ? ` Load linkage supplied for ${linked.join(", ")}.` : "");
+      ? `Load linkage withheld (no load positively identified): ${unlinked.join(", ")}.`
+      : `Every audited circuit carries explicit load linkage.`);
 
   return {
     schema_version: AUDIT_BATCH_SCHEMA_VERSION,
