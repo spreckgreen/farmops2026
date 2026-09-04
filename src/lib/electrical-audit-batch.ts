@@ -576,7 +576,14 @@ export interface ClassifyContext {
   existingJboxIds?: string[];
   /** Resolved relational UUIDs by `kind|stable_id`, e.g. `panel|PNL-FS-NW`. */
   resolved?: Map<string, string>;
+  /**
+   * Manifest-local CREATE items keyed `kind|stable_id` → item_key. A reference
+   * that matches one of these resolves symbolically during preview and to the
+   * returned UUID during apply.
+   */
+  pendingCreates?: Map<string, string>;
 }
+
 
 export interface ClassifiedItem {
   item_key: string;
@@ -783,10 +790,25 @@ export function buildPatch(
   return { patch, messages };
 }
 
+/**
+ * Symbolic reference to a record this manifest proposes to create. The real
+ * UUID does not exist until apply, so preview shows the symbol and apply
+ * substitutes the UUID returned by the parent insert.
+ */
+export const PENDING_REF_PREFIX = "pending:";
+
+export const pendingRef = (itemKey: string) => `${PENDING_REF_PREFIX}${itemKey}`;
+
+export const isPendingRef = (value: unknown): value is string =>
+  typeof value === "string" && value.startsWith(PENDING_REF_PREFIX);
+
+export const pendingRefItemKey = (value: string) => value.slice(PENDING_REF_PREFIX.length);
+
 /** Resolve relational links from human references. Missing links are errors. */
 export function resolveLinks(
   item: AuditBatchItemInput,
   resolved: Map<string, string>,
+  pendingCreates?: Map<string, string>,
 ): { patch: Record<string, unknown>; messages: ValidationMessage[] } {
   const messages: ValidationMessage[] = [];
   const patch: Record<string, unknown> = {};
@@ -801,17 +823,31 @@ export function resolveLinks(
   for (const [column, ref, kind] of want) {
     if (!ref) continue;
     if (!target.links.includes(column)) continue;
-    const uuid = resolved.get(`${kind}|${norm(ref)}`);
-    if (!uuid) {
+    const key = `${kind}|${norm(ref)}`;
+    const uuid = resolved.get(key);
+    if (uuid) {
+      patch[column] = uuid;
+      continue;
+    }
+    const pendingKey = pendingCreates?.get(key);
+    if (pendingKey && pendingKey !== item.item_key) {
+      // Manifest-local dependency: linked to the record this batch creates
+      // first, in the same transaction. Never invented, never orphaned.
+      patch[column] = pendingRef(pendingKey);
       messages.push(
-        err(`${ref} could not be resolved to an existing ${kind} record — nothing is invented.`),
+        info(
+          `${ref} resolves to the ${kind} this manifest creates (${pendingKey}); the link is written with its returned UUID in the same transaction.`,
+        ),
       );
       continue;
     }
-    patch[column] = uuid;
+    messages.push(
+      err(`${ref} could not be resolved to an existing ${kind} record — nothing is invented.`),
+    );
   }
   return { patch, messages };
 }
+
 
 /**
  * Classify one manifest item against the live snapshot. Never writes; the
@@ -879,7 +915,12 @@ export function classifyItem(item: AuditBatchItemInput, ctx: ClassifyContext): C
         err(`${stableId} is not a canonical branch ID (BR-###-##-##).`),
       ]);
     }
-    const jboxes = (ctx.existingJboxIds ?? []).map((s) => norm(s));
+    // A J-box created earlier in the same manifest counts as a proven origin.
+    const pendingJboxes = [...(ctx.pendingCreates?.keys() ?? [])]
+      .filter((k) => k.startsWith("jbox|"))
+      .map((k) => k.slice("jbox|".length));
+    const jboxes = [...(ctx.existingJboxIds ?? []), ...pendingJboxes].map((s) => norm(s));
+
     if (!jboxes.includes(origin)) {
       return holdResult(item, ctx, [
         err(`${stableId} encodes origin ${origin}, which does not exist in FarmOps.`),
@@ -915,7 +956,7 @@ export function classifyItem(item: AuditBatchItemInput, ctx: ClassifyContext): C
   }
 
   const built = buildPatch(item, (ctx.target as JsonObject | null) ?? null);
-  const links = resolveLinks(item, resolved);
+  const links = resolveLinks(item, resolved, ctx.pendingCreates);
   messages.push(...built.messages, ...links.messages);
   const patch = { ...built.patch, ...links.patch };
 
@@ -1221,4 +1262,161 @@ export function compensatingManifest(
     compensates_batch_id: batch.batch_id,
     items,
   };
+}
+
+/* ------------------------------------------------------------------ *
+ * 9.1 Manifest-local dependency resolution
+ * ------------------------------------------------------------------ */
+
+/** Reference keys (`kind|STABLE_ID`) an item declares. */
+export function itemReferenceKeys(item: AuditBatchItemInput): string[] {
+  const refs = item.refs ?? {};
+  const pairs: [string, string | null | undefined][] = [
+    ["panel", refs.panel_ref],
+    ["circuit_group", refs.circuit_group_ref],
+    ["load", refs.load_ref],
+    ["jbox", refs.jbox_ref],
+    ["raceway", refs.raceway_ref],
+  ];
+  return pairs.filter(([, v]) => Boolean(v)).map(([k, v]) => `${k}|${norm(v)}`);
+}
+
+export interface ManifestGraph {
+  /** `kind|STABLE_ID` → item_key of the CREATE item that will produce it. */
+  pendingCreates: Map<string, string>;
+  /** item_key → item_keys it depends on inside this manifest. */
+  dependsOn: Map<string, string[]>;
+  /** Blocking ambiguity: the same proposed stable ID appears more than once. */
+  conflicts: string[];
+}
+
+/**
+ * Build the manifest dependency graph before classification, so an item may
+ * reference a record another item in the same manifest creates. A duplicate or
+ * ambiguous proposed stable ID is a blocking conflict, never a guess.
+ */
+export function buildManifestGraph(
+  items: AuditBatchItemInput[],
+  existing: (kind: string, stableId: string) => boolean = () => false,
+): ManifestGraph {
+  const pendingCreates = new Map<string, string>();
+  const conflicts: string[] = [];
+  const seen = new Map<string, string[]>();
+
+  for (const item of items) {
+    const id = norm(item.target_stable_id);
+    if (!id) continue;
+    if (!AUDIT_ENTITY_TARGETS[item.entity_kind].creatable) continue;
+    if (existing(item.entity_kind, id)) continue; // already a real record
+    const key = `${item.entity_kind}|${id}`;
+    seen.set(key, [...(seen.get(key) ?? []), item.item_key]);
+  }
+  for (const [key, keys] of seen) {
+    if (keys.length > 1) {
+      conflicts.push(
+        `${key.split("|")[1]} is proposed for creation by more than one item (${keys.join(", ")}); the reference is ambiguous and the batch cannot apply.`,
+      );
+      continue;
+    }
+    pendingCreates.set(key, keys[0]!);
+  }
+
+  const dependsOn = new Map<string, string[]>();
+  for (const item of items) {
+    const deps = itemReferenceKeys(item)
+      .map((k) => pendingCreates.get(k))
+      .filter((k): k is string => Boolean(k) && k !== item.item_key);
+    dependsOn.set(item.item_key, [...new Set(deps)]);
+  }
+  return { pendingCreates, dependsOn, conflicts };
+}
+
+/**
+ * Order items for apply: entity dependency order first, then a topological
+ * pass so a manifest-local parent is always written before its dependents.
+ */
+export function orderForApply<T extends { item_key: string; entity_kind: AuditEntityKind }>(
+  items: T[],
+  dependsOn: Map<string, string[]>,
+): T[] {
+  const rank = new Map(APPLY_ORDER.map((k, i) => [k, i] as const));
+  const base = [...items].sort(
+    (a, b) => (rank.get(a.entity_kind) ?? 99) - (rank.get(b.entity_kind) ?? 99),
+  );
+  const byKey = new Map(base.map((i) => [i.item_key, i]));
+  const out: T[] = [];
+  const done = new Set<string>();
+  const visiting = new Set<string>();
+
+  const visit = (item: T) => {
+    if (done.has(item.item_key) || visiting.has(item.item_key)) return;
+    visiting.add(item.item_key);
+    for (const dep of dependsOn.get(item.item_key) ?? []) {
+      const parent = byKey.get(dep);
+      if (parent) visit(parent);
+    }
+    visiting.delete(item.item_key);
+    done.add(item.item_key);
+    out.push(item);
+  };
+  for (const item of base) visit(item);
+  return out;
+}
+
+/* ------------------------------------------------------------------ *
+ * Circuit-group identity (CG-FS-##)
+ * ------------------------------------------------------------------ */
+
+/** Placeholder a manifest uses to ask FarmOps to propose the next group ID. */
+export const AUTO_CIRCUIT_GROUP_ID = "AUTO";
+
+export const CIRCUIT_GROUP_ID_RE = /^CG-([A-Z]{2,6})-(\d{2,})$/;
+
+/**
+ * Next unused circuit-group ID for a prefix. Identity is independent of panel,
+ * breaker number and blue-tape label; existing IDs are never reused.
+ */
+export function nextCircuitGroupId(existingIds: Iterable<string>, prefix = "FS"): string {
+  let max = 0;
+  for (const raw of existingIds) {
+    const m = CIRCUIT_GROUP_ID_RE.exec(norm(raw));
+    if (m && m[1] === prefix.toUpperCase()) max = Math.max(max, Number(m[2]));
+  }
+  return `CG-${prefix.toUpperCase()}-${String(max + 1).padStart(2, "0")}`;
+}
+
+/**
+ * Replace `AUTO` (or a missing) circuit-group ID with the next unused CG-<prefix>-##
+ * deterministically, in manifest order, and rewrite the references that point
+ * at the placeholder so downstream links still resolve. The owner still has to
+ * approve every proposed ID during preview.
+ */
+export function assignProposedCircuitGroupIds(
+  items: AuditBatchItemInput[],
+  existingIds: Iterable<string>,
+  prefix = "FS",
+): { items: AuditBatchItemInput[]; proposed: Record<string, string> } {
+  const taken = new Set([...existingIds].map((v) => norm(v)));
+  const proposed: Record<string, string> = {};
+
+  const out = items.map((item) => {
+    if (item.entity_kind !== "circuit_group") return item;
+    const id = norm(item.target_stable_id);
+    if (id && id !== AUTO_CIRCUIT_GROUP_ID && !id.startsWith("AUTO:")) return item;
+    const next = nextCircuitGroupId(taken, prefix);
+    taken.add(next);
+    proposed[item.item_key] = next;
+    if (id.startsWith("AUTO:")) proposed[id] = next;
+    return { ...item, target_stable_id: next };
+  });
+
+  if (!Object.keys(proposed).length) return { items, proposed };
+
+  // Rewrite placeholder references (AUTO:<token>) to the proposed IDs.
+  const rewritten = out.map((item) => {
+    const ref = norm(item.refs?.circuit_group_ref);
+    if (!ref || !proposed[ref]) return item;
+    return { ...item, refs: { ...item.refs, circuit_group_ref: proposed[ref] } };
+  });
+  return { items: rewritten, proposed };
 }
