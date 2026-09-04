@@ -140,6 +140,15 @@ export const Route = createFileRoute("/api/public/hooks/electrical-peer-sync")({
           return Response.json({ ok: true, result }, { status: 200 });
         } catch (e) {
           const message = e instanceof Error ? e.message : String(e);
+          const alreadyLogged = Boolean((e as { loggedRun?: boolean } | null)?.loggedRun);
+          if (!alreadyLogged) {
+            await recordPeerSyncRun(supabaseAdmin as never, {
+              started_at: nowIso,
+              trigger: "scheduled",
+              outcome: "failed",
+              error: message,
+            });
+          }
           const nextFailures = (lock?.consecutive_failures ?? 0) + 1;
           await supabaseAdmin
             .from("job_locks")
