@@ -4,6 +4,7 @@ import {
   expectedBreakerNumber,
   freeBreakerSlots,
   multiPoleDuplicates,
+  normalizeBreakerSide,
   nextExitOrder,
   panelBreakerSlots,
   resolvePanelLayout,
