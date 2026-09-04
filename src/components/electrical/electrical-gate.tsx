@@ -72,8 +72,8 @@ function navGroups(): NavGroup[] {
         { label: "Install progress", to: "/electrical/install-progress" },
         { label: "Labels", to: "/electrical/labels" },
         { label: "Documents", to: "/electrical/documents" },
-        { label: "Field mapping", to: "/electrical/mapping", section: "mapping" },
         { label: "Nameplate scan", to: "/electrical/nameplate-scan", section: "nameplate_scan" },
+        { label: "Change log", to: "/electrical/changes", section: "changes" },
       ],
     },
     {
@@ -83,7 +83,6 @@ function navGroups(): NavGroup[] {
         { label: "Parallel validation", to: "/electrical/validation", section: "validation" },
         { label: "Load adjudication", to: "/electrical/adjudication", section: "adjudication" },
         { label: "SOR status", to: "/electrical/sor", section: "sor" },
-        { label: "Change log", to: "/electrical/changes", section: "changes" },
         { label: "Standards", to: "/electrical/standards" },
       ],
     },
@@ -93,12 +92,13 @@ function navGroups(): NavGroup[] {
         { label: "Workbook", to: "/electrical/workbook" },
         { label: "ODS import", to: "/electrical/import", section: "import" },
         { label: "Import contract", to: "/electrical/import-contract" },
-        { label: "Contract v3 reconciliation", to: "/electrical/reconciliation" },
+        { label: "Field mapping", to: "/electrical/mapping", section: "mapping" },
         { label: "Grid data quality", to: "/electrical/grid-data-quality" },
         { label: "Audit batches", to: "/electrical/audit-batches" },
         { label: "Reconciliation export", to: "/electrical/export", section: "export" },
       ],
     },
+
     {
       label: "Integration",
       entries: [{ label: "API & docs", to: "/electrical/api-docs" }],
