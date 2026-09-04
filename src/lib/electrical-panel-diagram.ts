@@ -10,6 +10,8 @@ function str(v: unknown): string {
   return v == null ? "" : String(v);
 }
 
+import { breakerDisplay } from "@/lib/electrical-breaker-reference";
+
 export const NOT_IN_RECORD = "NOT IN RECORD";
 
 export interface DiagramLoad {
@@ -217,12 +219,29 @@ export function buildPanelDiagram(rawInput: PanelDiagramInput): PanelDiagram {
     );
   }
 
+  const panelStableId = (uuid: string): string =>
+    str(panelByUuid.get(uuid)?.panel_id).trim();
+
   const breakerLabel = (group: DiagramRow, pos: DiagramRow | null): string => {
     if (pos) {
       const ocp = str(pos.ocp_amps).trim();
-      return `${str(pos.side)}${str(pos.position)}${ocp ? ` (${ocp}A)` : ""}`;
+      const shown = breakerDisplay({
+        panel_id: panelStableId(str(pos.panel_uuid)) || panelStableId(str(group.panel_uuid)),
+        breaker_number: pos.breaker_number as number | string | null,
+        side: str(pos.side),
+        position: str(pos.position),
+        notInRecord: NOT_IN_RECORD,
+      }).label;
+      return `${shown}${ocp ? ` (${ocp}A)` : ""}`;
     }
-    return str(group.breaker_number).trim() || str(group.breaker_position).trim() || NOT_IN_RECORD;
+    return (
+      breakerDisplay({
+        panel_id: panelStableId(str(group.panel_uuid)),
+        breaker_number: group.breaker_number as number | string | null,
+        position: str(group.breaker_position),
+        notInRecord: NOT_IN_RECORD,
+      }).label || NOT_IN_RECORD
+    );
   };
 
   const toCircuit = (group: DiagramRow): DiagramCircuit => {

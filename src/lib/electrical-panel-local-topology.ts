@@ -5,6 +5,7 @@
 // branch runs). It never reaches for another panel's internals: an upstream or
 // downstream panel appears only as a named endpoint box, which is the same
 // information the printed label already carries.
+import { breakerReference } from "@/lib/electrical-breaker-reference";
 import { mermaidLabel, nodeKey } from "@/lib/electrical-mermaid";
 
 export type LocalValue = string | number | boolean | null;
@@ -92,7 +93,8 @@ export function buildPanelLocalTopology(input: PanelLocalTopologyInput): PanelLo
     const label = [
       id,
       text(g["description"]),
-      num(g["breaker_number"]) ? `bkr ${num(g["breaker_number"])}` : "",
+      breakerReference(input.panelId, num(g["breaker_number"])) ??
+        (num(g["breaker_number"]) ? `bkr ${num(g["breaker_number"])}` : ""),
       num(g["circuit_rating_amps"]) ? `${num(g["circuit_rating_amps"])} A` : "",
     ]
       .filter(Boolean)

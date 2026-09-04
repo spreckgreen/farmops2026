@@ -5,6 +5,7 @@
 // validation pass (orphans, unknown panels, duplicate IDs, cycles) can be
 // unit-tested without a database.
 
+import { breakerReference } from "@/lib/electrical-breaker-reference";
 import { ENTITIES } from "@/lib/electrical-entities";
 import { isSiteEnvironment, type ElectricalEntityKind } from "@/lib/electrical";
 import { orderedJunctionPoints, positionLabel } from "@/lib/electrical-raceway-path";
@@ -694,7 +695,13 @@ export function buildDiagram(
       const panel = idx.panelById.get(panelRef);
       if (panel) {
         const pKey = b.node("panel", panelRef, panelLabel(panel), panel);
-        const edgeLabel = [breaker ? `breaker ${breaker}` : "", position].filter(Boolean).join(" · ");
+        const breakerRef = breakerReference(panelRef, breaker);
+        const edgeLabel = [
+          breakerRef ?? (breaker ? `breaker ${breaker}` : ""),
+          position,
+        ]
+          .filter(Boolean)
+          .join(" · ");
         b.edge(pKey, key, edgeLabel || undefined);
       } else {
         b.issue("error", "unknown_panel", `Circuit group ${id} references unknown panel ${panelRef}.`);
