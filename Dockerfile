@@ -84,7 +84,7 @@ RUN chmod +x /app/scripts/docker-preflight.sh 2>/dev/null || true && \
 ENV NITRO_PRESET=node-server
 # Node heap cap. This controls V8 old-space only; Rollup/esbuild and Docker use
 # additional native memory. refresh.sh chooses a conservative host-aware value
-# (about 3 GB on an 8 GB host). The default fits a 4 GB host without swap.
+# (about 2 GB on an 8 GB host). The default fits a 4 GB host without swap.
 ARG NODE_HEAP_MB=1536
 ENV NODE_OPTIONS=--max-old-space-size=${NODE_HEAP_MB}
 ARG ROLLDOWN_WORKER_THREADS=1

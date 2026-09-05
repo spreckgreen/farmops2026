@@ -225,7 +225,7 @@ child.on("exit", (code, signal) => {
       log(
         `FAIL: likely OOM — heap cap was ${HEAP_CAP ?? "(default)"}MB, host has ${
           host?.totalMB ?? "?"
-        }MB total. Native Rolldown memory exhausted the host; keep worker limits enabled and provide swap for the build.`,
+        }MB total. Native Rolldown memory exhausted the host; on an 8 GB self-hosted machine, stop the local AI service during the build or provide swap.`,
       );
     }
     process.exit(code ?? 1);
