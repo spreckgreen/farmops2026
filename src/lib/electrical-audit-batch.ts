@@ -306,6 +306,27 @@ const STATE_FIELDS = ["install_status", "label_status", "completion_percent", "n
  */
 export const AS_BUILT_CONSEQUENCE_FIELDS = ["dedicated_shared", "dedicated", "location"] as const;
 
+/**
+ * Legacy outlet current metadata a FIELD_AS_BUILT observation may clear once the
+ * audited circuit-group relationship establishes that the recorded amperage was
+ * a branch-circuit rating rather than the outlet's own load current. Clearing is
+ * the only correction this permits: a null value means "not recorded", never
+ * zero load and never zero circuit capacity. Writable for FIELD_AS_BUILT only.
+ */
+export const LEGACY_CURRENT_METADATA_FIELDS = [
+  "amps",
+  "connected_va",
+  "amps_semantic",
+  "amps_semantic_provenance",
+] as const;
+
+/** Fields only a FIELD_AS_BUILT load observation may write. */
+export const FIELD_AS_BUILT_ONLY_FIELDS = [
+  ...AS_BUILT_CONSEQUENCE_FIELDS,
+  ...LEGACY_CURRENT_METADATA_FIELDS,
+] as const;
+
+
 
 export interface EntityTarget {
   table: string;
@@ -424,7 +445,7 @@ export const AUDIT_ENTITY_TARGETS: Record<AuditEntityKind, EntityTarget> = {
       "circuit_group_uuid",
       "circuit_group_ref",
       "source_circuit",
-      ...AS_BUILT_CONSEQUENCE_FIELDS,
+      ...FIELD_AS_BUILT_ONLY_FIELDS,
       ...STATE_FIELDS,
       ...LOCATION_FIELDS,
     ],
@@ -597,11 +618,11 @@ export function fieldsAllowed(kind: AuditEntityKind, cls: ObservationClass): str
     return all.filter(
       (c) =>
         !c.startsWith("verified_") &&
-        !(AS_BUILT_CONSEQUENCE_FIELDS as readonly string[]).includes(c),
+        !(FIELD_AS_BUILT_ONLY_FIELDS as readonly string[]).includes(c),
     );
   }
   if (cls !== "FIELD_AS_BUILT") {
-    return all.filter((c) => !(AS_BUILT_CONSEQUENCE_FIELDS as readonly string[]).includes(c));
+    return all.filter((c) => !(FIELD_AS_BUILT_ONLY_FIELDS as readonly string[]).includes(c));
   }
   return all;
 }

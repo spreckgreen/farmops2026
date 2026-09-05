@@ -9,6 +9,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { FileCheck2, ShieldCheck, ShieldX } from "lucide-react";
 import { toast } from "sonner";
 
+import { NOT_RECORDED, isRecordedNumber } from "@/lib/electrical-current-display";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -209,8 +210,8 @@ export function AdjudicationBaselinePicker({
                       <td className="py-1 pr-3">{l.worksheet}</td>
                       <td className="py-1 pr-3">{l.row}</td>
                       <td className="py-1 pr-3 font-mono">{l.volts ?? "not stated"}</td>
-                      <td className="py-1 pr-3 font-mono">{l.amps ?? "not stated"}</td>
-                      <td className="py-1 pr-3 font-mono">{l.connected_va ?? "not stated"}</td>
+                      <td className="py-1 pr-3 font-mono">{isRecordedNumber(l.amps) ? l.amps : NOT_RECORDED}</td>
+                      <td className="py-1 pr-3 font-mono">{isRecordedNumber(l.connected_va) ? l.connected_va : NOT_RECORDED}</td>
                     </tr>
                   ))}
                 </tbody>
