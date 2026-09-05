@@ -49,9 +49,14 @@ function VaultKeyMissingBanner() {
               <code>VAULT_ENCRYPTION_KEY_OLD</code> (fingerprint <code>{q.data.oldFingerprint}</code>) are
               loaded. Finish the rotation and then remove the old key.
             </p>
-            <a href="/admin/vault-rotation" className="mt-2 inline-block underline font-medium">
-              Open rotation console →
-            </a>
+            <div className="mt-2 flex flex-wrap gap-4">
+              <a href="/admin/vault-rotation" className="underline font-medium">
+                Open rotation console →
+              </a>
+              <a href="/admin/vault-key-change" className="underline font-medium">
+                Key change &amp; history →
+              </a>
+            </div>
           </div>
         </div>
       </div>
