@@ -14,6 +14,7 @@ export const ADDON_KEYS = [
   "maintenance",
   "inventory",
   "food",
+  "cameras",
 ] as const;
 
 export type AddonKey = (typeof ADDON_KEYS)[number];
