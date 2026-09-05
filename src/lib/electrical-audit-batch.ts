@@ -639,6 +639,10 @@ export const auditBatchItemSchema = z.object({
       load_ref: z.string().trim().max(80).nullish(),
       jbox_ref: z.string().trim().max(80).nullish(),
       raceway_ref: z.string().trim().max(80).nullish(),
+      switch_bank_ref: z.string().trim().max(80).nullish(),
+      source_switch_bank_ref: z.string().trim().max(80).nullish(),
+      dest_switch_bank_ref: z.string().trim().max(80).nullish(),
+      control_group_ref: z.string().trim().max(80).nullish(),
     })
     .default({}),
   observed_label: z.string().trim().max(120).nullish(),
