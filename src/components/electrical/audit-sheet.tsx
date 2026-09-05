@@ -14,6 +14,11 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -25,6 +30,7 @@ import { loadInstallProgress } from "@/lib/electrical-install-progress.functions
 import { recordAuditSheetEntry } from "@/lib/electrical-audit-sheet.functions";
 import {
   QUICK_STAGES,
+  STAGE_HELP,
   STAGE_ORDER,
   buildAuditSheet,
   nextStage,
@@ -47,16 +53,53 @@ const KIND_LABEL: Record<AuditTargetKind, string> = {
 function ProgressBar({ progress }: { progress: AuditProgress }) {
   const pct = progress.percent ?? 0;
   return (
-    <div className="space-y-1">
-      <div className="h-2.5 w-full overflow-hidden rounded-full bg-muted">
-        <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${pct}%` }} />
-      </div>
-      <p className="text-xs text-muted-foreground">
-        {progress.done} of {progress.total} finished ·{" "}
-        {progress.percent == null ? "no staged rows to score" : `${progress.percent}% through the stages`}
-        {progress.offScheme ? ` · ${progress.offScheme} with an unrecognised status` : ""}
-      </p>
-    </div>
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="block w-full space-y-1 rounded-md text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          aria-label="What do the install stages mean?"
+        >
+          <div className="h-2.5 w-full overflow-hidden rounded-full bg-muted">
+            <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${pct}%` }} />
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {progress.done} of {progress.total} finished ·{" "}
+            {progress.percent == null ? "no staged rows to score" : `${progress.percent}% through the stages`}
+            {progress.offScheme ? ` · ${progress.offScheme} with an unrecognised status` : ""}
+            {" · "}
+            <span className="underline underline-offset-2">what do the stages mean?</span>
+          </p>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-80 space-y-2">
+        <p className="text-sm font-medium">Install stages, in order</p>
+        <ol className="space-y-1.5">
+          {STAGE_ORDER.map((stage, i) => {
+            const count = progress.byStage[stage] ?? 0;
+            return (
+              <li key={stage} className="flex items-start gap-2 text-xs">
+                <span className="mt-0.5 w-4 shrink-0 text-right tabular-nums text-muted-foreground">
+                  {i + 1}.
+                </span>
+                <div className="min-w-0">
+                  <p className="font-medium leading-tight">
+                    {stageLabel(stage)}
+                    {count ? (
+                      <span className="ml-1 font-normal text-muted-foreground">({count} here)</span>
+                    ) : null}
+                  </p>
+                  <p className="text-muted-foreground">{STAGE_HELP[stage]}</p>
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+        <p className="text-xs text-muted-foreground">
+          Tap the button on a row to move that item to its next stage.
+        </p>
+      </PopoverContent>
+    </Popover>
   );
 }
 

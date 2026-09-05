@@ -19,6 +19,20 @@ export type AuditTargetKind = "panel" | "position" | "circuit" | "load";
 /** Ordered install stages, oldest → most complete. Mirrors INSTALL_STATUSES. */
 export const STAGE_ORDER: readonly string[] = INSTALL_STATUSES;
 
+/** Plain-language explanation of each stage, shown as helper text in the field. */
+export const STAGE_HELP: Record<string, string> = {
+  planned: "On the drawings but no work has started.",
+  material_ready: "Parts and materials are on site and staged for this item.",
+  rough_in_started: "Physical work has begun — layout, supports or first runs.",
+  raceway_installed: "Conduit, EMT or tray is mounted and run.",
+  conductors_installed: "Wire is pulled through the raceway, end to end.",
+  device_side_connected: "Terminated at the load or device end.",
+  source_side_connected: "Terminated at the panel or source end.",
+  tested: "Continuity, insulation or function checks passed.",
+  complete: "Installed, connected, tested and in service.",
+  as_built_verified: "Field-verified against the finished installation — final state.",
+};
+
 /** The stages worth a one-tap button in the field. */
 export const QUICK_STAGES: readonly string[] = [
   "rough_in_started",
