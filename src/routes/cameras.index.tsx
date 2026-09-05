@@ -170,6 +170,21 @@ function CamerasPage() {
           powered_by: row.electrical_load_ref ?? "",
           last_seen_at: row.last_seen_at ?? "",
         })),
+        [
+          { key: "camera_id", label: "Camera" },
+          { key: "name", label: "Name" },
+          { key: "building", label: "Building" },
+          { key: "area", label: "Area" },
+          { key: "mount", label: "Mount" },
+          { key: "status", label: "Status" },
+          { key: "x_feet", label: "X (ft)" },
+          { key: "y_feet", label: "Y (ft)" },
+          { key: "heading", label: "Facing (deg)" },
+          { key: "fov_degrees", label: "View width (deg)" },
+          { key: "range_feet", label: "Distance (ft)" },
+          { key: "powered_by", label: "Powered by" },
+          { key: "last_seen_at", label: "Last seen" },
+        ],
       ),
     );
   };
