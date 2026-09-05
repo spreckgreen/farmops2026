@@ -135,6 +135,7 @@ export const Route = createFileRoute("/api/public/hooks/electrical-peer-sync")({
               auto_resume_at: null,
             })
             .eq("name", LOCK_NAME);
+          autoResumed = true;
           await recordPeerSyncRun(supabaseAdmin as never, {
             started_at: nowIso,
             trigger: "scheduled",
