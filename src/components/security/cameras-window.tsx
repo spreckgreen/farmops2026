@@ -164,6 +164,8 @@ export function CamerasWindow() {
       ),
   });
 
+  const plottedRows = rows.filter((row) => row.x_feet !== null && row.y_feet !== null);
+
   const openNew = () => {
     setDraft(draftFromRow(null, nextCameraId(rows)));
     setDialogOpen(true);
@@ -399,10 +401,12 @@ export function CamerasWindow() {
                   </CardContent>
                 </Card>
               ) : null}
+              {plottedRows.length > 0 ? (
               <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="flex items-center gap-2 text-base">
-                    <MapPin className="h-4 w-4 text-primary" aria-hidden /> Farm Shop coverage
+                    <MapPin className="h-4 w-4 text-primary" aria-hidden /> Coverage on the building
+                    plan
                   </CardTitle>
                   <CardDescription>
                     Each wedge is what one camera can see, drawn from its recorded position, facing,
@@ -411,7 +415,7 @@ export function CamerasWindow() {
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <CameraCoverageMap
-                    cameras={rows}
+                    cameras={plottedRows}
                     selectedId={selectedId}
                     onSelect={(camera) => setSelectedId(camera.id)}
                   />
@@ -425,6 +429,7 @@ export function CamerasWindow() {
                   </div>
                 </CardContent>
               </Card>
+              ) : null}
 
               {summary.gaps.length > 0 ? (
                 <Card>
