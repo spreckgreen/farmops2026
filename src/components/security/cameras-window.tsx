@@ -534,7 +534,8 @@ export function CamerasWindow() {
                 <CardContent className="p-0">
                   <div className="divide-y divide-border">
                     {rows.map((row) => {
-                      const status = cameraStatus(row);
+                      const live = cameraLiveState(row);
+                      const status = live.status;
                       return (
                         <div key={row.id} className="space-y-2 p-4">
                           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -549,9 +550,16 @@ export function CamerasWindow() {
                             </div>
                             <div className="flex items-center gap-2">
                               <span
-                                className={`rounded-full border px-2 py-0.5 text-xs ${CAMERA_STATUS_CLASS[status]}`}
+                                className={`flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs ${CAMERA_STATUS_CLASS[status]} ${
+                                  live.freshness === "fresh" ? "" : "opacity-70"
+                                }`}
                               >
-                                {CAMERA_STATUS_LABEL[status]}
+                                <span
+                                  className="inline-block h-2 w-2 rounded-full"
+                                  style={{ backgroundColor: statusToken(status) }}
+                                  aria-hidden
+                                />
+                                {live.label}
                               </span>
                               <Button
                                 size="sm"
