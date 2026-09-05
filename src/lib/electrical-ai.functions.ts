@@ -178,6 +178,14 @@ export interface ElectricalAiAnswer {
   answer: string;
   /** Records actually put in front of the model, so the answer is auditable. */
   contextCounts: Record<string, number>;
+  /** Non-canonical wording found in the generated answer, shown to the reader. */
+  terminologyNotes?: {
+    matched: string;
+    canonical: string;
+    instead: string;
+    reason: string;
+  }[];
+
   /** Nameplate scenario only: the transcribed draft fields for confirmation. */
   nameplate?: NameplateField[];
   latencyMs: number;
