@@ -15,6 +15,8 @@ import {
   resolveDemoFarm,
   type DemoResolvedLoad,
 } from "@/lib/demo-sample-farm";
+import { DemoSiteExplorer } from "@/components/demo/demo-site-explorer";
+
 import type { EffectiveLocationSource } from "@/lib/electrical-effective-location";
 
 const TITLE = "Sample Farm — FarmOps Electrical Demo";
@@ -177,7 +179,18 @@ function SampleFarmPage() {
         </p>
       </header>
 
+      <DemoSiteExplorer />
+
+      <section className="space-y-1">
+        <h2 className="text-lg font-medium">Electrical, in detail</h2>
+        <p className="text-sm text-muted-foreground">
+          The main barn's panels, circuits and items, showing how an approved design position
+          becomes a confirmed field position.
+        </p>
+      </section>
+
       <section className="grid gap-4 sm:grid-cols-3">
+
         {rollups.map((r) => (
           <div key={r.panel.stableId} className="rounded-lg border border-border bg-card p-4">
             <p className="text-sm font-medium">{r.panel.name}</p>
