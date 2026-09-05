@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as CamerasRouteImport } from './routes/cameras'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as DeckRouteImport } from './routes/deck'
 import { Route as FoodRouteImport } from './routes/food'
@@ -147,6 +148,11 @@ const IndexRoute = IndexRouteImport.update({
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CamerasRoute = CamerasRouteImport.update({
+  id: '/cameras',
+  path: '/cameras',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardRoute = DashboardRouteImport.update({
@@ -803,6 +809,7 @@ const ApiElectricalV1RelationshipsPreviewRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/cameras': typeof CamerasRoute
   '/dashboard': typeof DashboardRoute
   '/deck': typeof DeckRoute
   '/food': typeof FoodRouteWithChildren
@@ -934,6 +941,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/cameras': typeof CamerasRoute
   '/dashboard': typeof DashboardRoute
   '/deck': typeof DeckRoute
   '/health': typeof HealthRouteWithChildren
@@ -1063,6 +1071,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/cameras': typeof CamerasRoute
   '/dashboard': typeof DashboardRoute
   '/deck': typeof DeckRoute
   '/food': typeof FoodRouteWithChildren
@@ -1196,6 +1205,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/cameras'
     | '/dashboard'
     | '/deck'
     | '/food'
@@ -1327,6 +1337,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
+    | '/cameras'
     | '/dashboard'
     | '/deck'
     | '/health'
@@ -1455,6 +1466,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/auth'
+    | '/cameras'
     | '/dashboard'
     | '/deck'
     | '/food'
@@ -1587,6 +1599,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthRoute: typeof AuthRoute
+  CamerasRoute: typeof CamerasRoute
   DashboardRoute: typeof DashboardRoute
   DeckRoute: typeof DeckRoute
   FoodRoute: typeof FoodRouteWithChildren
@@ -1708,6 +1721,13 @@ declare module '@tanstack/react-router' {
       path: '/auth'
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/cameras': {
+      id: '/cameras'
+      path: '/cameras'
+      fullPath: '/cameras'
+      preLoaderRoute: typeof CamerasRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dashboard': {
@@ -2696,6 +2716,7 @@ const ApiPublicHealthRouteWithChildren = ApiPublicHealthRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRoute: AuthRoute,
+  CamerasRoute: CamerasRoute,
   DashboardRoute: DashboardRoute,
   DeckRoute: DeckRoute,
   FoodRoute: FoodRouteWithChildren,
