@@ -77,7 +77,7 @@ describe("resolved-address enforcement", () => {
 });
 
 describe("peerFetch", () => {
-  it("disables redirects and checks the resolved address first", async () => {
+  it("does not follow redirects and checks the resolved address first", async () => {
     const doFetch = vi.fn(async () => new Response("{}"));
     await peerFetch(
       new URL("https://peer.example.com/x"),
