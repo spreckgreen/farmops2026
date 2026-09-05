@@ -259,7 +259,12 @@ export type AuditEntityKind =
   | "raceway"
   | "jbox"
   | "branch"
-  | "load";
+  | "load"
+  | "switch_bank"
+  | "switch_device"
+  | "control_group"
+  | "control_target"
+  | "control_wiring_segment";
 
 /** Apply order: parents before the records that reference them. */
 export const APPLY_ORDER: readonly AuditEntityKind[] = [
@@ -270,6 +275,11 @@ export const APPLY_ORDER: readonly AuditEntityKind[] = [
   "jbox",
   "branch",
   "load",
+  "switch_bank",
+  "control_group",
+  "switch_device",
+  "control_target",
+  "control_wiring_segment",
 ];
 
 const LOCATION_FIELDS = [
