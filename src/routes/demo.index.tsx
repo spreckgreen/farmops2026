@@ -1,7 +1,7 @@
 // /demo — public landing page listing the anonymously viewable FarmOps
 // presentations. No auth loader and no record reads.
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Presentation, Zap, BookOpen, Cpu, Calculator } from "lucide-react";
+import { Presentation, Zap, BookOpen, Cpu, Calculator, MapPin } from "lucide-react";
 import { ELECTRICAL_DEMO_SLIDES } from "@/lib/electrical-demo-slides";
 import { FARMOPS_OS_DEMO_SLIDES } from "@/lib/farmops-os-demo-slides";
 import { PROMO_SLIDES } from "@/lib/promo-slides";
