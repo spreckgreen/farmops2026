@@ -9,6 +9,13 @@
 // Precedence (highest first):
 //   1. FIELD_OBSERVED_POLE_ALIGNMENT — perimeter objects only.
 //   2. FIELD_OBSERVED_GRID          — accepted field observation, current A1–F9.
+//   2b. APPROVED_DESIGN_CORNER_FACE — approved planned design expressed as a
+//                                     shared building corner plus a distinct
+//                                     wall face and coverage direction (e.g. the
+//                                     Farm Shop exterior Ring cameras). Exact
+//                                     corner coordinate is the location; the
+//                                     A1–F9 label is a derived read-out. Planned,
+//                                     never field verified.
 //   3. APPROVED_DESIGN_XY           — approved design coordinates for a planned,
 //                                     pattern-generated object (e.g. FS-056..FS-065).
 //                                     The exact X/Y is the location; its A1–F9 label
@@ -46,6 +53,7 @@ export const EFFECTIVE_LOCATION_VERSION = "electrical-effective-location-1";
 export type EffectiveLocationSource =
   | "FIELD_OBSERVED_POLE_ALIGNMENT"
   | "FIELD_OBSERVED_GRID"
+  | "APPROVED_DESIGN_CORNER_FACE"
   | "APPROVED_DESIGN_XY"
   | "GRID_REMAPPED"
   | "ORIGINAL_GRID";
@@ -54,6 +62,7 @@ export type EffectiveLocationSource =
 export const EFFECTIVE_LOCATION_PRIORITY: EffectiveLocationSource[] = [
   "FIELD_OBSERVED_POLE_ALIGNMENT",
   "FIELD_OBSERVED_GRID",
+  "APPROVED_DESIGN_CORNER_FACE",
   "APPROVED_DESIGN_XY",
   "GRID_REMAPPED",
   "ORIGINAL_GRID",
@@ -63,6 +72,7 @@ export const EFFECTIVE_LOCATION_PRIORITY: EffectiveLocationSource[] = [
 export const EFFECTIVE_LOCATION_SOURCE_PHRASE: Record<EffectiveLocationSource, string> = {
   FIELD_OBSERVED_POLE_ALIGNMENT: "observed pole alignment",
   FIELD_OBSERVED_GRID: "observed A1–F9 grid",
+  APPROVED_DESIGN_CORNER_FACE: "approved design corner/face",
   APPROVED_DESIGN_XY: "approved design X/Y",
   GRID_REMAPPED: "remapped A1–F9 grid",
   ORIGINAL_GRID: "original grid",
@@ -72,6 +82,7 @@ export const EFFECTIVE_LOCATION_SOURCE_PHRASE: Record<EffectiveLocationSource, s
 export const EFFECTIVE_LOCATION_EVIDENCE_WORD: Record<EffectiveLocationSource, string> = {
   FIELD_OBSERVED_POLE_ALIGNMENT: "field verified",
   FIELD_OBSERVED_GRID: "field verified",
+  APPROVED_DESIGN_CORNER_FACE: "approved planned design, not field verified",
   APPROVED_DESIGN_XY: "approved design, not field verified",
   GRID_REMAPPED: "derived",
   ORIGINAL_GRID: "fallback",
@@ -94,7 +105,11 @@ export interface LocationStatement {
   poleLocationKind?: PoleLocationKindLike | null;
   poleRefStart?: string | null;
   poleRefEnd?: string | null;
-  /** APPROVED_DESIGN_XY only: exact approved coordinates, in feet. */
+  /** APPROVED_DESIGN_CORNER_FACE only: shared corner and distinct wall face. */
+  cornerReference?: string | null;
+  wallFace?: string | null;
+  coverageDirection?: string | null;
+  /** APPROVED_DESIGN_XY / _CORNER_FACE: exact approved coordinates, in feet. */
   designXFt?: number | null;
   designYFt?: number | null;
   /** Evidence reference (photo, audit item, observation note). Preserved as-is. */
@@ -341,6 +356,56 @@ function resolveDesignXy(s: LocationStatement): {
   return { label: derivedGridLabel(xFt, yFt), xFt, yFt, spanned: false, reason: null };
 }
 
+function cornerFaceRaw(s: LocationStatement): string | null {
+  const corner = clean(s.cornerReference);
+  const face = clean(s.wallFace);
+  if (!corner && !face) return null;
+  return [corner ? `${corner.toUpperCase()} corner` : null, face ? `${face.toLowerCase()} face` : null]
+    .filter(Boolean)
+    .join(", ");
+}
+
+/**
+ * Approved planned design expressed as a shared building corner plus one
+ * distinct wall face. Two devices may share the corner coordinate while keeping
+ * different faces and coverage directions, so the face is part of the label and
+ * never of the geometry. Exact corner feet are the plotted location.
+ */
+function resolveDesignCornerFace(s: LocationStatement): {
+  label: string | null;
+  xFt: number | null;
+  yFt: number | null;
+  spanned: boolean;
+  reason: string | null;
+} {
+  const corner = clean(s.cornerReference);
+  const face = clean(s.wallFace);
+  if (!corner || !face)
+    return {
+      label: null,
+      xFt: null,
+      yFt: null,
+      spanned: false,
+      reason: "Approved corner/face design needs both a corner reference and a wall face.",
+    };
+  const xy = resolveDesignXy(s);
+  if (xy.label == null)
+    return {
+      ...xy,
+      reason: xy.reason ?? "Approved corner coordinates are not resolvable.",
+    };
+  const cover = clean(s.coverageDirection);
+  return {
+    label: `${corner.toUpperCase()} corner ${face.toLowerCase()} face (${xy.label}${
+      cover ? `, covers ${cover.toLowerCase()}` : ""
+    })`,
+    xFt: xy.xFt,
+    yFt: xy.yFt,
+    spanned: false,
+    reason: null,
+  };
+}
+
 function resolveOriginal(raw: string | null): {
   label: string | null;
   xFt: number | null;
@@ -416,6 +481,9 @@ export function resolveEffectiveLocation(
       const rank = EFFECTIVE_LOCATION_PRIORITY.indexOf(s.source);
       const raw =
         clean(s.value) ??
+        (s.source === "APPROVED_DESIGN_CORNER_FACE"
+          ? cornerFaceRaw(s)
+          : null) ??
         (s.source === "APPROVED_DESIGN_XY"
           ? num(s.designXFt) != null || num(s.designYFt) != null
             ? `${num(s.designXFt) ?? "?"} ft E / ${num(s.designYFt) ?? "?"} ft S`
@@ -427,11 +495,13 @@ export function resolveEffectiveLocation(
       const r =
         s.source === "FIELD_OBSERVED_POLE_ALIGNMENT"
           ? resolvePole(s)
-          : s.source === "APPROVED_DESIGN_XY"
-            ? resolveDesignXy(s)
-            : s.source === "ORIGINAL_GRID"
-              ? resolveOriginal(raw)
-              : resolveGrid(raw);
+          : s.source === "APPROVED_DESIGN_CORNER_FACE"
+            ? resolveDesignCornerFace(s)
+            : s.source === "APPROVED_DESIGN_XY"
+              ? resolveDesignXy(s)
+              : s.source === "ORIGINAL_GRID"
+                ? resolveOriginal(raw)
+                : resolveGrid(raw);
       const accepted = s.accepted == null ? true : Boolean(s.accepted);
       const valid = r.label != null;
       let eligible = valid;
@@ -626,6 +696,11 @@ export interface EffectiveLocationRecord {
   designXFt?: number | null;
   designYFt?: number | null;
   designApprovalReference?: string | null;
+  /** Approved planned corner/face design (more specific than APPROVED_DESIGN_XY). */
+  designLocationSource?: string | null;
+  cornerReference?: string | null;
+  mountingWallFace?: string | null;
+  coverageDirection?: string | null;
   /** Accepted legacy→current remap result. */
   remappedGridReference?: string | null;
   remappedEvidence?: string | null;
@@ -664,9 +739,26 @@ export function effectiveLocationForRecord(
       evidence: record.fieldGridEvidence ?? null,
       observedAt: record.fieldGridObservedAt ?? null,
     });
+  const cornerFaceDesign =
+    (record.designLocationSource ?? "").trim().toUpperCase() === "APPROVED_DESIGN_CORNER_FACE" ||
+    (clean(record.cornerReference) != null && clean(record.mountingWallFace) != null);
   if (
-    typeof record.designXFt === "number" ||
-    typeof record.designYFt === "number"
+    cornerFaceDesign &&
+    (typeof record.designXFt === "number" || typeof record.designYFt === "number")
+  )
+    statements.push({
+      source: "APPROVED_DESIGN_CORNER_FACE",
+      id: "record-approved-design-corner-face",
+      cornerReference: record.cornerReference ?? null,
+      wallFace: record.mountingWallFace ?? null,
+      coverageDirection: record.coverageDirection ?? null,
+      designXFt: record.designXFt ?? null,
+      designYFt: record.designYFt ?? null,
+      evidence: record.designApprovalReference ?? null,
+    });
+  if (
+    !cornerFaceDesign &&
+    (typeof record.designXFt === "number" || typeof record.designYFt === "number")
   )
     statements.push({
       source: "APPROVED_DESIGN_XY",

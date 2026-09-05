@@ -32,6 +32,7 @@ describe("effective-location precedence", () => {
     expect(EFFECTIVE_LOCATION_PRIORITY).toEqual([
       "FIELD_OBSERVED_POLE_ALIGNMENT",
       "FIELD_OBSERVED_GRID",
+      "APPROVED_DESIGN_CORNER_FACE",
       "APPROVED_DESIGN_XY",
       "GRID_REMAPPED",
       "ORIGINAL_GRID",
