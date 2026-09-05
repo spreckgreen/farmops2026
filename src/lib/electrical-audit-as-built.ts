@@ -232,11 +232,7 @@ export function stageAsBuiltLoadObservation(obs: AsBuiltLoadObservation): AsBuil
     install_state: installState,
     pole,
     field_grid_reference: grid,
-    refs: {
-      circuit_group_ref: groupRef,
-      load_ref: loadId,
-      ...(obs.breaker_reference ? { panel_ref: null } : {}),
-    },
+    refs: { circuit_group_ref: groupRef, load_ref: loadId },
     // Labels are never rewritten from an audit: the observed circuit label is
     // evidence about the circuit, not the load's own text.
     observed_label: null,
