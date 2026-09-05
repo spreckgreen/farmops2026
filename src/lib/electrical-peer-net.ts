@@ -169,9 +169,11 @@ export async function assertResolvedHostAllowed(
   let addresses: string[];
   try {
     addresses = await resolve(hostname);
-  } catch {
+  } catch (err) {
     throw new Error(
-      `Peer instance address could not be verified for ${hostname}; the pull was refused rather than fetched unchecked.`,
+      `Peer instance address could not be verified for ${hostname} — ${
+        err instanceof Error ? err.message : String(err)
+      }. The pull was refused rather than fetched unchecked.`,
     );
   }
   if (!addresses.length) {
