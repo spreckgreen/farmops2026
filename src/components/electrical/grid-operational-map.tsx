@@ -886,8 +886,10 @@ export function AssetDetail({ asset }: { asset: OperationalAsset }) {
         ? `${asset.plottedXFt} ft E, ${asset.plottedYFt} ft S`
         : "NOT IN RECORD",
     ],
+    ["Effective location", asset.locationProvenance],
     ["Location precision", PRECISION_META[asset.precision].label],
     ["Placement source", PLACEMENT_SOURCE_LABEL[asset.locationSource]],
+
     ["Install status", asset.installStatus ?? "NOT IN RECORD"],
     ["Field verification", VERIFICATION_LABEL[verificationOf(asset.verification)]],
     ["Evidence / source", asset.locationEvidence ?? asset.precisionBasis],
