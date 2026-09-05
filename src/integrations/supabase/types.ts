@@ -454,13 +454,22 @@ export type Database = {
         Row: {
           area_kind: string
           area_name: string
+          building_level_uuid: string | null
           created_at: string
           end_cell: string | null
           floor_level: string | null
           grid_cells: string | null
+          grid_scheme_uuid: string | null
           id: string
+          level_grid_reference: string | null
+          location_precision: string | null
+          location_source: string | null
+          location_x_ft: number | null
+          location_y_ft: number | null
+          location_z_ft: number | null
           notes: string | null
           site_building_id: string
+          site_building_uuid: string | null
           start_cell: string | null
           updated_at: string
           user_id: string
@@ -468,13 +477,22 @@ export type Database = {
         Insert: {
           area_kind?: string
           area_name: string
+          building_level_uuid?: string | null
           created_at?: string
           end_cell?: string | null
           floor_level?: string | null
           grid_cells?: string | null
+          grid_scheme_uuid?: string | null
           id?: string
+          level_grid_reference?: string | null
+          location_precision?: string | null
+          location_source?: string | null
+          location_x_ft?: number | null
+          location_y_ft?: number | null
+          location_z_ft?: number | null
           notes?: string | null
           site_building_id: string
+          site_building_uuid?: string | null
           start_cell?: string | null
           updated_at?: string
           user_id: string
@@ -482,20 +500,183 @@ export type Database = {
         Update: {
           area_kind?: string
           area_name?: string
+          building_level_uuid?: string | null
           created_at?: string
           end_cell?: string | null
           floor_level?: string | null
           grid_cells?: string | null
+          grid_scheme_uuid?: string | null
           id?: string
+          level_grid_reference?: string | null
+          location_precision?: string | null
+          location_source?: string | null
+          location_x_ft?: number | null
+          location_y_ft?: number | null
+          location_z_ft?: number | null
           notes?: string | null
           site_building_id?: string
+          site_building_uuid?: string | null
           start_cell?: string | null
           updated_at?: string
           user_id?: string
         }
         Relationships: [
           {
+            foreignKeyName: "building_areas_building_level_uuid_fkey"
+            columns: ["building_level_uuid"]
+            isOneToOne: false
+            referencedRelation: "building_levels"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "building_areas_site_building_id_fkey"
+            columns: ["site_building_id"]
+            isOneToOne: false
+            referencedRelation: "site_buildings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "building_areas_site_building_uuid_fkey"
+            columns: ["site_building_uuid"]
+            isOneToOne: false
+            referencedRelation: "site_buildings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      building_level_grid_refs: {
+        Row: {
+          building_level_uuid: string
+          created_at: string
+          grid_reference: string
+          grid_scheme_uuid: string
+          id: string
+          location_precision: string | null
+          location_source: string | null
+          notes: string | null
+          site_building_id: string
+          updated_at: string
+          user_id: string
+          x_ft: number | null
+          y_ft: number | null
+          z_ft: number | null
+        }
+        Insert: {
+          building_level_uuid: string
+          created_at?: string
+          grid_reference: string
+          grid_scheme_uuid: string
+          id?: string
+          location_precision?: string | null
+          location_source?: string | null
+          notes?: string | null
+          site_building_id: string
+          updated_at?: string
+          user_id: string
+          x_ft?: number | null
+          y_ft?: number | null
+          z_ft?: number | null
+        }
+        Update: {
+          building_level_uuid?: string
+          created_at?: string
+          grid_reference?: string
+          grid_scheme_uuid?: string
+          id?: string
+          location_precision?: string | null
+          location_source?: string | null
+          notes?: string | null
+          site_building_id?: string
+          updated_at?: string
+          user_id?: string
+          x_ft?: number | null
+          y_ft?: number | null
+          z_ft?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "building_level_grid_refs_building_level_uuid_fkey"
+            columns: ["building_level_uuid"]
+            isOneToOne: false
+            referencedRelation: "building_levels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "building_level_grid_refs_site_building_id_fkey"
+            columns: ["site_building_id"]
+            isOneToOne: false
+            referencedRelation: "site_buildings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      building_levels: {
+        Row: {
+          created_at: string
+          display_name: string
+          elevation_ft: number | null
+          evidence_observed_at: string | null
+          evidence_ref: string | null
+          grid_cell_ft: number | null
+          grid_columns: number | null
+          grid_rows: number | null
+          grid_scheme_uuid: string
+          id: string
+          is_default: boolean
+          level_stable_id: string
+          lifecycle_state: string
+          notes: string | null
+          short_code: string
+          site_building_id: string
+          sort_order: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          display_name: string
+          elevation_ft?: number | null
+          evidence_observed_at?: string | null
+          evidence_ref?: string | null
+          grid_cell_ft?: number | null
+          grid_columns?: number | null
+          grid_rows?: number | null
+          grid_scheme_uuid?: string
+          id?: string
+          is_default?: boolean
+          level_stable_id: string
+          lifecycle_state?: string
+          notes?: string | null
+          short_code: string
+          site_building_id: string
+          sort_order?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string
+          elevation_ft?: number | null
+          evidence_observed_at?: string | null
+          evidence_ref?: string | null
+          grid_cell_ft?: number | null
+          grid_columns?: number | null
+          grid_rows?: number | null
+          grid_scheme_uuid?: string
+          id?: string
+          is_default?: boolean
+          level_stable_id?: string
+          lifecycle_state?: string
+          notes?: string | null
+          short_code?: string
+          site_building_id?: string
+          sort_order?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "building_levels_site_building_id_fkey"
             columns: ["site_building_id"]
             isOneToOne: false
             referencedRelation: "site_buildings"
@@ -554,22 +735,31 @@ export type Database = {
         Row: {
           area: string | null
           building: string | null
+          building_level_uuid: string | null
           camera_id: string
           compass_side: string | null
           created_at: string
           electrical_load_ref: string | null
           fov_degrees: number
+          grid_scheme_uuid: string | null
           heading_degrees: number | null
           id: string
           last_check_at: string | null
           last_check_detail: string | null
           last_seen_at: string | null
+          level_grid_reference: string | null
+          location_precision: string | null
+          location_source: string | null
+          location_x_ft: number | null
+          location_y_ft: number | null
+          location_z_ft: number | null
           mount: string | null
           name: string
           notes: string | null
           range_feet: number
           ring_model: string | null
           side_slot: number | null
+          site_building_uuid: string | null
           snapshot_url: string | null
           status: string
           stream_kind: string
@@ -582,22 +772,31 @@ export type Database = {
         Insert: {
           area?: string | null
           building?: string | null
+          building_level_uuid?: string | null
           camera_id: string
           compass_side?: string | null
           created_at?: string
           electrical_load_ref?: string | null
           fov_degrees?: number
+          grid_scheme_uuid?: string | null
           heading_degrees?: number | null
           id?: string
           last_check_at?: string | null
           last_check_detail?: string | null
           last_seen_at?: string | null
+          level_grid_reference?: string | null
+          location_precision?: string | null
+          location_source?: string | null
+          location_x_ft?: number | null
+          location_y_ft?: number | null
+          location_z_ft?: number | null
           mount?: string | null
           name?: string
           notes?: string | null
           range_feet?: number
           ring_model?: string | null
           side_slot?: number | null
+          site_building_uuid?: string | null
           snapshot_url?: string | null
           status?: string
           stream_kind?: string
@@ -610,22 +809,31 @@ export type Database = {
         Update: {
           area?: string | null
           building?: string | null
+          building_level_uuid?: string | null
           camera_id?: string
           compass_side?: string | null
           created_at?: string
           electrical_load_ref?: string | null
           fov_degrees?: number
+          grid_scheme_uuid?: string | null
           heading_degrees?: number | null
           id?: string
           last_check_at?: string | null
           last_check_detail?: string | null
           last_seen_at?: string | null
+          level_grid_reference?: string | null
+          location_precision?: string | null
+          location_source?: string | null
+          location_x_ft?: number | null
+          location_y_ft?: number | null
+          location_z_ft?: number | null
           mount?: string | null
           name?: string
           notes?: string | null
           range_feet?: number
           ring_model?: string | null
           side_slot?: number | null
+          site_building_uuid?: string | null
           snapshot_url?: string | null
           status?: string
           stream_kind?: string
@@ -635,7 +843,22 @@ export type Database = {
           x_feet?: number | null
           y_feet?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "cameras_building_level_uuid_fkey"
+            columns: ["building_level_uuid"]
+            isOneToOne: false
+            referencedRelation: "building_levels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cameras_site_building_uuid_fkey"
+            columns: ["site_building_uuid"]
+            isOneToOne: false
+            referencedRelation: "site_buildings"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       consumables: {
         Row: {
@@ -1130,13 +1353,16 @@ export type Database = {
           conductor_count: number | null
           conductor_size: string | null
           created_at: string
+          dest_building_level_uuid: string | null
           dest_endpoint_ref: string | null
           dest_endpoint_type: string | null
+          dest_level_grid_reference: string | null
           dest_switch_bank_uuid: string | null
           device_side_connected: boolean
           ground_conductor: string | null
           id: string
           install_status: string
+          is_vertical_riser: boolean
           label_status: string
           load_uuid: string | null
           measured_length_ft: number | null
@@ -1144,14 +1370,18 @@ export type Database = {
           ods_extras: string | null
           path_notes: string | null
           planned_length_ft: number | null
+          source_building_level_uuid: string | null
           source_endpoint_ref: string | null
           source_endpoint_type: string | null
           source_jbox_uuid: string | null
+          source_level_grid_reference: string | null
           source_panel_uuid: string | null
           source_side_connected: boolean
           source_switch_bank_uuid: string | null
           updated_at: string
           user_id: string
+          vertical_rise_ft: number | null
+          vertical_run_kind: string | null
           voltage: number | null
           wiring_method: string | null
         }
@@ -1164,13 +1394,16 @@ export type Database = {
           conductor_count?: number | null
           conductor_size?: string | null
           created_at?: string
+          dest_building_level_uuid?: string | null
           dest_endpoint_ref?: string | null
           dest_endpoint_type?: string | null
+          dest_level_grid_reference?: string | null
           dest_switch_bank_uuid?: string | null
           device_side_connected?: boolean
           ground_conductor?: string | null
           id?: string
           install_status?: string
+          is_vertical_riser?: boolean
           label_status?: string
           load_uuid?: string | null
           measured_length_ft?: number | null
@@ -1178,14 +1411,18 @@ export type Database = {
           ods_extras?: string | null
           path_notes?: string | null
           planned_length_ft?: number | null
+          source_building_level_uuid?: string | null
           source_endpoint_ref?: string | null
           source_endpoint_type?: string | null
           source_jbox_uuid?: string | null
+          source_level_grid_reference?: string | null
           source_panel_uuid?: string | null
           source_side_connected?: boolean
           source_switch_bank_uuid?: string | null
           updated_at?: string
           user_id: string
+          vertical_rise_ft?: number | null
+          vertical_run_kind?: string | null
           voltage?: number | null
           wiring_method?: string | null
         }
@@ -1198,13 +1435,16 @@ export type Database = {
           conductor_count?: number | null
           conductor_size?: string | null
           created_at?: string
+          dest_building_level_uuid?: string | null
           dest_endpoint_ref?: string | null
           dest_endpoint_type?: string | null
+          dest_level_grid_reference?: string | null
           dest_switch_bank_uuid?: string | null
           device_side_connected?: boolean
           ground_conductor?: string | null
           id?: string
           install_status?: string
+          is_vertical_riser?: boolean
           label_status?: string
           load_uuid?: string | null
           measured_length_ft?: number | null
@@ -1212,14 +1452,18 @@ export type Database = {
           ods_extras?: string | null
           path_notes?: string | null
           planned_length_ft?: number | null
+          source_building_level_uuid?: string | null
           source_endpoint_ref?: string | null
           source_endpoint_type?: string | null
           source_jbox_uuid?: string | null
+          source_level_grid_reference?: string | null
           source_panel_uuid?: string | null
           source_side_connected?: boolean
           source_switch_bank_uuid?: string | null
           updated_at?: string
           user_id?: string
+          vertical_rise_ft?: number | null
+          vertical_run_kind?: string | null
           voltage?: number | null
           wiring_method?: string | null
         }
@@ -1229,6 +1473,13 @@ export type Database = {
             columns: ["circuit_group_uuid"]
             isOneToOne: false
             referencedRelation: "electrical_circuit_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "electrical_branch_runs_dest_building_level_uuid_fkey"
+            columns: ["dest_building_level_uuid"]
+            isOneToOne: false
+            referencedRelation: "building_levels"
             referencedColumns: ["id"]
           },
           {
@@ -1243,6 +1494,13 @@ export type Database = {
             columns: ["load_uuid"]
             isOneToOne: false
             referencedRelation: "electrical_loads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "electrical_branch_runs_source_building_level_uuid_fkey"
+            columns: ["source_building_level_uuid"]
+            isOneToOne: false
+            referencedRelation: "building_levels"
             referencedColumns: ["id"]
           },
           {
@@ -1414,6 +1672,7 @@ export type Database = {
           backup_priority: string | null
           breaker_number: number | null
           breaker_position: string | null
+          building_level_uuid: string | null
           circuit_group_id: string
           circuit_rating_amps: number | null
           completion_percent: number
@@ -1425,16 +1684,24 @@ export type Database = {
           description: string | null
           generator_start_amps: number | null
           generator_start_class: string | null
+          grid_scheme_uuid: string | null
           id: string
           install_status: string
           label_status: string
+          level_grid_reference: string | null
           load_shed_group: string | null
+          location_precision: string | null
+          location_source: string | null
+          location_x_ft: number | null
+          location_y_ft: number | null
+          location_z_ft: number | null
           logical_panel_ref: string | null
           logical_panel_uuid: string | null
           notes: string | null
           ods_extras: string | null
           panel_uuid: string | null
           phase: string | null
+          site_building_uuid: string | null
           suggested_panel: string | null
           updated_at: string
           user_id: string
@@ -1446,6 +1713,7 @@ export type Database = {
           backup_priority?: string | null
           breaker_number?: number | null
           breaker_position?: string | null
+          building_level_uuid?: string | null
           circuit_group_id: string
           circuit_rating_amps?: number | null
           completion_percent?: number
@@ -1457,16 +1725,24 @@ export type Database = {
           description?: string | null
           generator_start_amps?: number | null
           generator_start_class?: string | null
+          grid_scheme_uuid?: string | null
           id?: string
           install_status?: string
           label_status?: string
+          level_grid_reference?: string | null
           load_shed_group?: string | null
+          location_precision?: string | null
+          location_source?: string | null
+          location_x_ft?: number | null
+          location_y_ft?: number | null
+          location_z_ft?: number | null
           logical_panel_ref?: string | null
           logical_panel_uuid?: string | null
           notes?: string | null
           ods_extras?: string | null
           panel_uuid?: string | null
           phase?: string | null
+          site_building_uuid?: string | null
           suggested_panel?: string | null
           updated_at?: string
           user_id: string
@@ -1478,6 +1754,7 @@ export type Database = {
           backup_priority?: string | null
           breaker_number?: number | null
           breaker_position?: string | null
+          building_level_uuid?: string | null
           circuit_group_id?: string
           circuit_rating_amps?: number | null
           completion_percent?: number
@@ -1489,22 +1766,37 @@ export type Database = {
           description?: string | null
           generator_start_amps?: number | null
           generator_start_class?: string | null
+          grid_scheme_uuid?: string | null
           id?: string
           install_status?: string
           label_status?: string
+          level_grid_reference?: string | null
           load_shed_group?: string | null
+          location_precision?: string | null
+          location_source?: string | null
+          location_x_ft?: number | null
+          location_y_ft?: number | null
+          location_z_ft?: number | null
           logical_panel_ref?: string | null
           logical_panel_uuid?: string | null
           notes?: string | null
           ods_extras?: string | null
           panel_uuid?: string | null
           phase?: string | null
+          site_building_uuid?: string | null
           suggested_panel?: string | null
           updated_at?: string
           user_id?: string
           voltage?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "electrical_circuit_groups_building_level_uuid_fkey"
+            columns: ["building_level_uuid"]
+            isOneToOne: false
+            referencedRelation: "building_levels"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "electrical_circuit_groups_logical_panel_uuid_fkey"
             columns: ["logical_panel_uuid"]
@@ -1517,6 +1809,13 @@ export type Database = {
             columns: ["panel_uuid"]
             isOneToOne: false
             referencedRelation: "electrical_panels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "electrical_circuit_groups_site_building_uuid_fkey"
+            columns: ["site_building_uuid"]
+            isOneToOne: false
+            referencedRelation: "site_buildings"
             referencedColumns: ["id"]
           },
         ]
@@ -1661,25 +1960,32 @@ export type Database = {
           conductor_function: string
           created_at: string
           description: string | null
+          dest_building_level_uuid: string | null
           dest_jbox_uuid: string | null
           dest_kind: string | null
+          dest_level_grid_reference: string | null
           dest_load_uuid: string | null
           dest_switch_bank_uuid: string | null
           evidence: string | null
           field_verification_status: string
           id: string
           install_state: string
+          is_vertical_riser: boolean
           notes: string | null
           observed_marking: string | null
           raceway_uuid: string | null
           segment_id: string | null
+          source_building_level_uuid: string | null
           source_jbox_uuid: string | null
           source_kind: string | null
+          source_level_grid_reference: string | null
           source_panel_uuid: string | null
           source_switch_bank_uuid: string | null
           supplying_circuit_group_uuid: string | null
           updated_at: string
           user_id: string
+          vertical_rise_ft: number | null
+          vertical_run_kind: string | null
         }
         Insert: {
           branch_run_uuid?: string | null
@@ -1688,25 +1994,32 @@ export type Database = {
           conductor_function?: string
           created_at?: string
           description?: string | null
+          dest_building_level_uuid?: string | null
           dest_jbox_uuid?: string | null
           dest_kind?: string | null
+          dest_level_grid_reference?: string | null
           dest_load_uuid?: string | null
           dest_switch_bank_uuid?: string | null
           evidence?: string | null
           field_verification_status?: string
           id?: string
           install_state?: string
+          is_vertical_riser?: boolean
           notes?: string | null
           observed_marking?: string | null
           raceway_uuid?: string | null
           segment_id?: string | null
+          source_building_level_uuid?: string | null
           source_jbox_uuid?: string | null
           source_kind?: string | null
+          source_level_grid_reference?: string | null
           source_panel_uuid?: string | null
           source_switch_bank_uuid?: string | null
           supplying_circuit_group_uuid?: string | null
           updated_at?: string
           user_id: string
+          vertical_rise_ft?: number | null
+          vertical_run_kind?: string | null
         }
         Update: {
           branch_run_uuid?: string | null
@@ -1715,25 +2028,32 @@ export type Database = {
           conductor_function?: string
           created_at?: string
           description?: string | null
+          dest_building_level_uuid?: string | null
           dest_jbox_uuid?: string | null
           dest_kind?: string | null
+          dest_level_grid_reference?: string | null
           dest_load_uuid?: string | null
           dest_switch_bank_uuid?: string | null
           evidence?: string | null
           field_verification_status?: string
           id?: string
           install_state?: string
+          is_vertical_riser?: boolean
           notes?: string | null
           observed_marking?: string | null
           raceway_uuid?: string | null
           segment_id?: string | null
+          source_building_level_uuid?: string | null
           source_jbox_uuid?: string | null
           source_kind?: string | null
+          source_level_grid_reference?: string | null
           source_panel_uuid?: string | null
           source_switch_bank_uuid?: string | null
           supplying_circuit_group_uuid?: string | null
           updated_at?: string
           user_id?: string
+          vertical_rise_ft?: number | null
+          vertical_run_kind?: string | null
         }
         Relationships: [
           {
@@ -1741,6 +2061,20 @@ export type Database = {
             columns: ["supplying_circuit_group_uuid"]
             isOneToOne: false
             referencedRelation: "electrical_circuit_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "electrical_control_wiring_segme_source_building_level_uuid_fkey"
+            columns: ["source_building_level_uuid"]
+            isOneToOne: false
+            referencedRelation: "building_levels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "electrical_control_wiring_segment_dest_building_level_uuid_fkey"
+            columns: ["dest_building_level_uuid"]
+            isOneToOne: false
+            referencedRelation: "building_levels"
             referencedColumns: ["id"]
           },
           {
@@ -1807,6 +2141,7 @@ export type Database = {
           asset_ref: string | null
           asset_uuid: string | null
           building: string | null
+          building_level_uuid: string | null
           circuit_group_ref: string | null
           circuit_group_uuid: string | null
           completion_percent: number | null
@@ -1816,15 +2151,22 @@ export type Database = {
           device_role: string | null
           device_type: string | null
           grid: string | null
+          grid_scheme_uuid: string | null
           hostname: string | null
           id: string
           input_current_amps: number | null
           input_voltage: number | null
           install_status: string
           label_status: string
+          level_grid_reference: string | null
           load_ref: string | null
           load_uuid: string | null
           location_note: string | null
+          location_precision: string | null
+          location_source: string | null
+          location_x_ft: number | null
+          location_y_ft: number | null
+          location_z_ft: number | null
           manufacturer: string | null
           model: string | null
           notes: string | null
@@ -1833,6 +2175,7 @@ export type Database = {
           rack_position_u: number | null
           rack_ref: string | null
           rack_uuid: string | null
+          site_building_uuid: string | null
           updated_at: string
           uplink_device_ref: string | null
           uplink_device_uuid: string | null
@@ -1843,6 +2186,7 @@ export type Database = {
           asset_ref?: string | null
           asset_uuid?: string | null
           building?: string | null
+          building_level_uuid?: string | null
           circuit_group_ref?: string | null
           circuit_group_uuid?: string | null
           completion_percent?: number | null
@@ -1852,15 +2196,22 @@ export type Database = {
           device_role?: string | null
           device_type?: string | null
           grid?: string | null
+          grid_scheme_uuid?: string | null
           hostname?: string | null
           id?: string
           input_current_amps?: number | null
           input_voltage?: number | null
           install_status?: string
           label_status?: string
+          level_grid_reference?: string | null
           load_ref?: string | null
           load_uuid?: string | null
           location_note?: string | null
+          location_precision?: string | null
+          location_source?: string | null
+          location_x_ft?: number | null
+          location_y_ft?: number | null
+          location_z_ft?: number | null
           manufacturer?: string | null
           model?: string | null
           notes?: string | null
@@ -1869,6 +2220,7 @@ export type Database = {
           rack_position_u?: number | null
           rack_ref?: string | null
           rack_uuid?: string | null
+          site_building_uuid?: string | null
           updated_at?: string
           uplink_device_ref?: string | null
           uplink_device_uuid?: string | null
@@ -1879,6 +2231,7 @@ export type Database = {
           asset_ref?: string | null
           asset_uuid?: string | null
           building?: string | null
+          building_level_uuid?: string | null
           circuit_group_ref?: string | null
           circuit_group_uuid?: string | null
           completion_percent?: number | null
@@ -1888,15 +2241,22 @@ export type Database = {
           device_role?: string | null
           device_type?: string | null
           grid?: string | null
+          grid_scheme_uuid?: string | null
           hostname?: string | null
           id?: string
           input_current_amps?: number | null
           input_voltage?: number | null
           install_status?: string
           label_status?: string
+          level_grid_reference?: string | null
           load_ref?: string | null
           load_uuid?: string | null
           location_note?: string | null
+          location_precision?: string | null
+          location_source?: string | null
+          location_x_ft?: number | null
+          location_y_ft?: number | null
+          location_z_ft?: number | null
           manufacturer?: string | null
           model?: string | null
           notes?: string | null
@@ -1905,6 +2265,7 @@ export type Database = {
           rack_position_u?: number | null
           rack_ref?: string | null
           rack_uuid?: string | null
+          site_building_uuid?: string | null
           updated_at?: string
           uplink_device_ref?: string | null
           uplink_device_uuid?: string | null
@@ -1916,6 +2277,13 @@ export type Database = {
             columns: ["asset_uuid"]
             isOneToOne: false
             referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "electrical_devices_building_level_uuid_fkey"
+            columns: ["building_level_uuid"]
+            isOneToOne: false
+            referencedRelation: "building_levels"
             referencedColumns: ["id"]
           },
           {
@@ -1947,6 +2315,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "electrical_devices_site_building_uuid_fkey"
+            columns: ["site_building_uuid"]
+            isOneToOne: false
+            referencedRelation: "site_buildings"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "electrical_devices_uplink_device_uuid_fkey"
             columns: ["uplink_device_uuid"]
             isOneToOne: false
@@ -1968,14 +2343,17 @@ export type Database = {
           demand_basis: string | null
           demand_va: number | null
           description: string | null
+          dest_building_level_uuid: string | null
           dest_endpoint_ref: string | null
           dest_endpoint_type: string | null
+          dest_level_grid_reference: string | null
           dest_panel_uuid: string | null
           feeder_id: string
           future: boolean | null
           ground_conductor: string | null
           id: string
           install_status: string
+          is_vertical_riser: boolean
           label_status: string
           measured_length_ft: number | null
           neutral_conductor: string | null
@@ -1988,11 +2366,15 @@ export type Database = {
           raceway_ref: string | null
           raceway_uuid: string | null
           service_type: string | null
+          source_building_level_uuid: string | null
           source_endpoint_ref: string | null
           source_endpoint_type: string | null
+          source_level_grid_reference: string | null
           source_panel_uuid: string | null
           updated_at: string
           user_id: string
+          vertical_rise_ft: number | null
+          vertical_run_kind: string | null
           voltage: number | null
         }
         Insert: {
@@ -2007,14 +2389,17 @@ export type Database = {
           demand_basis?: string | null
           demand_va?: number | null
           description?: string | null
+          dest_building_level_uuid?: string | null
           dest_endpoint_ref?: string | null
           dest_endpoint_type?: string | null
+          dest_level_grid_reference?: string | null
           dest_panel_uuid?: string | null
           feeder_id: string
           future?: boolean | null
           ground_conductor?: string | null
           id?: string
           install_status?: string
+          is_vertical_riser?: boolean
           label_status?: string
           measured_length_ft?: number | null
           neutral_conductor?: string | null
@@ -2027,11 +2412,15 @@ export type Database = {
           raceway_ref?: string | null
           raceway_uuid?: string | null
           service_type?: string | null
+          source_building_level_uuid?: string | null
           source_endpoint_ref?: string | null
           source_endpoint_type?: string | null
+          source_level_grid_reference?: string | null
           source_panel_uuid?: string | null
           updated_at?: string
           user_id: string
+          vertical_rise_ft?: number | null
+          vertical_run_kind?: string | null
           voltage?: number | null
         }
         Update: {
@@ -2046,14 +2435,17 @@ export type Database = {
           demand_basis?: string | null
           demand_va?: number | null
           description?: string | null
+          dest_building_level_uuid?: string | null
           dest_endpoint_ref?: string | null
           dest_endpoint_type?: string | null
+          dest_level_grid_reference?: string | null
           dest_panel_uuid?: string | null
           feeder_id?: string
           future?: boolean | null
           ground_conductor?: string | null
           id?: string
           install_status?: string
+          is_vertical_riser?: boolean
           label_status?: string
           measured_length_ft?: number | null
           neutral_conductor?: string | null
@@ -2066,14 +2458,25 @@ export type Database = {
           raceway_ref?: string | null
           raceway_uuid?: string | null
           service_type?: string | null
+          source_building_level_uuid?: string | null
           source_endpoint_ref?: string | null
           source_endpoint_type?: string | null
+          source_level_grid_reference?: string | null
           source_panel_uuid?: string | null
           updated_at?: string
           user_id?: string
+          vertical_rise_ft?: number | null
+          vertical_run_kind?: string | null
           voltage?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "electrical_feeders_dest_building_level_uuid_fkey"
+            columns: ["dest_building_level_uuid"]
+            isOneToOne: false
+            referencedRelation: "building_levels"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "electrical_feeders_dest_panel_uuid_fkey"
             columns: ["dest_panel_uuid"]
@@ -2086,6 +2489,13 @@ export type Database = {
             columns: ["raceway_uuid"]
             isOneToOne: false
             referencedRelation: "electrical_raceways"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "electrical_feeders_source_building_level_uuid_fkey"
+            columns: ["source_building_level_uuid"]
+            isOneToOne: false
+            referencedRelation: "building_levels"
             referencedColumns: ["id"]
           },
           {
@@ -2103,6 +2513,7 @@ export type Database = {
           applied_previous_value: string | null
           applied_value: string | null
           apply_status: string | null
+          building_level_uuid: string | null
           canonical_value: string | null
           classification: string | null
           confidence: string | null
@@ -2110,8 +2521,15 @@ export type Database = {
           disposition: string
           farmops_value: string | null
           field: string
+          grid_scheme_uuid: string | null
           id: string
           interpreted_value: string | null
+          level_grid_reference: string | null
+          location_precision: string | null
+          location_source: string | null
+          location_x_ft: number | null
+          location_y_ft: number | null
+          location_z_ft: number | null
           notes: string | null
           observed_at: string
           observed_text: string
@@ -2129,6 +2547,7 @@ export type Database = {
           proposed_action: string | null
           scope: string | null
           side: string | null
+          site_building_uuid: string | null
           source_column: string | null
           source_photo: string | null
           source_row: number | null
@@ -2143,6 +2562,7 @@ export type Database = {
           applied_previous_value?: string | null
           applied_value?: string | null
           apply_status?: string | null
+          building_level_uuid?: string | null
           canonical_value?: string | null
           classification?: string | null
           confidence?: string | null
@@ -2150,8 +2570,15 @@ export type Database = {
           disposition?: string
           farmops_value?: string | null
           field: string
+          grid_scheme_uuid?: string | null
           id?: string
           interpreted_value?: string | null
+          level_grid_reference?: string | null
+          location_precision?: string | null
+          location_source?: string | null
+          location_x_ft?: number | null
+          location_y_ft?: number | null
+          location_z_ft?: number | null
           notes?: string | null
           observed_at?: string
           observed_text: string
@@ -2169,6 +2596,7 @@ export type Database = {
           proposed_action?: string | null
           scope?: string | null
           side?: string | null
+          site_building_uuid?: string | null
           source_column?: string | null
           source_photo?: string | null
           source_row?: number | null
@@ -2183,6 +2611,7 @@ export type Database = {
           applied_previous_value?: string | null
           applied_value?: string | null
           apply_status?: string | null
+          building_level_uuid?: string | null
           canonical_value?: string | null
           classification?: string | null
           confidence?: string | null
@@ -2190,8 +2619,15 @@ export type Database = {
           disposition?: string
           farmops_value?: string | null
           field?: string
+          grid_scheme_uuid?: string | null
           id?: string
           interpreted_value?: string | null
+          level_grid_reference?: string | null
+          location_precision?: string | null
+          location_source?: string | null
+          location_x_ft?: number | null
+          location_y_ft?: number | null
+          location_z_ft?: number | null
           notes?: string | null
           observed_at?: string
           observed_text?: string
@@ -2209,6 +2645,7 @@ export type Database = {
           proposed_action?: string | null
           scope?: string | null
           side?: string | null
+          site_building_uuid?: string | null
           source_column?: string | null
           source_photo?: string | null
           source_row?: number | null
@@ -2220,10 +2657,24 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "electrical_field_observations_building_level_uuid_fkey"
+            columns: ["building_level_uuid"]
+            isOneToOne: false
+            referencedRelation: "building_levels"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "electrical_field_observations_panel_uuid_fkey"
             columns: ["panel_uuid"]
             isOneToOne: false
             referencedRelation: "electrical_panels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "electrical_field_observations_site_building_uuid_fkey"
+            columns: ["site_building_uuid"]
+            isOneToOne: false
+            referencedRelation: "site_buildings"
             referencedColumns: ["id"]
           },
         ]
@@ -2385,6 +2836,7 @@ export type Database = {
         Row: {
           box_type: string | null
           building: string | null
+          building_level_uuid: string | null
           completion_percent: number
           created_at: string
           description: string | null
@@ -2392,10 +2844,17 @@ export type Database = {
           elevation_zone: string | null
           field_grid_reference: string | null
           grid: string | null
+          grid_scheme_uuid: string | null
           id: string
           install_status: string
           jbox_id: string
           label_status: string
+          level_grid_reference: string | null
+          location_precision: string | null
+          location_source: string | null
+          location_x_ft: number | null
+          location_y_ft: number | null
+          location_z_ft: number | null
           notes: string | null
           ods_extras: string | null
           pole_location_kind: string | null
@@ -2405,12 +2864,14 @@ export type Database = {
           raceway_ref: string | null
           raceway_sequence: number | null
           raceway_uuid: string | null
+          site_building_uuid: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
           box_type?: string | null
           building?: string | null
+          building_level_uuid?: string | null
           completion_percent?: number
           created_at?: string
           description?: string | null
@@ -2418,10 +2879,17 @@ export type Database = {
           elevation_zone?: string | null
           field_grid_reference?: string | null
           grid?: string | null
+          grid_scheme_uuid?: string | null
           id?: string
           install_status?: string
           jbox_id: string
           label_status?: string
+          level_grid_reference?: string | null
+          location_precision?: string | null
+          location_source?: string | null
+          location_x_ft?: number | null
+          location_y_ft?: number | null
+          location_z_ft?: number | null
           notes?: string | null
           ods_extras?: string | null
           pole_location_kind?: string | null
@@ -2431,12 +2899,14 @@ export type Database = {
           raceway_ref?: string | null
           raceway_sequence?: number | null
           raceway_uuid?: string | null
+          site_building_uuid?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
           box_type?: string | null
           building?: string | null
+          building_level_uuid?: string | null
           completion_percent?: number
           created_at?: string
           description?: string | null
@@ -2444,10 +2914,17 @@ export type Database = {
           elevation_zone?: string | null
           field_grid_reference?: string | null
           grid?: string | null
+          grid_scheme_uuid?: string | null
           id?: string
           install_status?: string
           jbox_id?: string
           label_status?: string
+          level_grid_reference?: string | null
+          location_precision?: string | null
+          location_source?: string | null
+          location_x_ft?: number | null
+          location_y_ft?: number | null
+          location_z_ft?: number | null
           notes?: string | null
           ods_extras?: string | null
           pole_location_kind?: string | null
@@ -2457,15 +2934,30 @@ export type Database = {
           raceway_ref?: string | null
           raceway_sequence?: number | null
           raceway_uuid?: string | null
+          site_building_uuid?: string | null
           updated_at?: string
           user_id?: string
         }
         Relationships: [
           {
+            foreignKeyName: "electrical_junction_boxes_building_level_uuid_fkey"
+            columns: ["building_level_uuid"]
+            isOneToOne: false
+            referencedRelation: "building_levels"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "electrical_junction_boxes_raceway_uuid_fkey"
             columns: ["raceway_uuid"]
             isOneToOne: false
             referencedRelation: "electrical_raceways"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "electrical_junction_boxes_site_building_uuid_fkey"
+            columns: ["site_building_uuid"]
+            isOneToOne: false
+            referencedRelation: "site_buildings"
             referencedColumns: ["id"]
           },
         ]
@@ -2532,6 +3024,7 @@ export type Database = {
           backup_eligible: boolean | null
           backup_panel: string | null
           backup_priority: string | null
+          building_level_uuid: string | null
           circuit_group_ref: string | null
           circuit_group_uuid: string | null
           completion_percent: number
@@ -2562,18 +3055,23 @@ export type Database = {
           grid_migration_provenance: string | null
           grid_reference: string | null
           grid_reference_precision: string | null
+          grid_scheme_uuid: string | null
           id: string
           install_status: string
           installed_ocp_rating: number | null
           label_status: string
           legacy_grid: string | null
+          level_grid_reference: string | null
           load_id: string
           load_shed_capable: boolean | null
           load_shed_group: string | null
           location: string | null
           location_evidence: string | null
+          location_precision: string | null
+          location_source: string | null
           location_x_ft: number | null
           location_y_ft: number | null
+          location_z_ft: number | null
           logical_panel_ref: string | null
           logical_panel_uuid: string | null
           maximum_overcurrent_protection: number | null
@@ -2602,6 +3100,7 @@ export type Database = {
           rated_current_amps: number | null
           rated_load_amps: number | null
           resilience_class: string | null
+          site_building_uuid: string | null
           source_circuit: string | null
           source_reference: string | null
           suggested_panel: string | null
@@ -2621,6 +3120,7 @@ export type Database = {
           backup_eligible?: boolean | null
           backup_panel?: string | null
           backup_priority?: string | null
+          building_level_uuid?: string | null
           circuit_group_ref?: string | null
           circuit_group_uuid?: string | null
           completion_percent?: number
@@ -2651,18 +3151,23 @@ export type Database = {
           grid_migration_provenance?: string | null
           grid_reference?: string | null
           grid_reference_precision?: string | null
+          grid_scheme_uuid?: string | null
           id?: string
           install_status?: string
           installed_ocp_rating?: number | null
           label_status?: string
           legacy_grid?: string | null
+          level_grid_reference?: string | null
           load_id: string
           load_shed_capable?: boolean | null
           load_shed_group?: string | null
           location?: string | null
           location_evidence?: string | null
+          location_precision?: string | null
+          location_source?: string | null
           location_x_ft?: number | null
           location_y_ft?: number | null
+          location_z_ft?: number | null
           logical_panel_ref?: string | null
           logical_panel_uuid?: string | null
           maximum_overcurrent_protection?: number | null
@@ -2691,6 +3196,7 @@ export type Database = {
           rated_current_amps?: number | null
           rated_load_amps?: number | null
           resilience_class?: string | null
+          site_building_uuid?: string | null
           source_circuit?: string | null
           source_reference?: string | null
           suggested_panel?: string | null
@@ -2710,6 +3216,7 @@ export type Database = {
           backup_eligible?: boolean | null
           backup_panel?: string | null
           backup_priority?: string | null
+          building_level_uuid?: string | null
           circuit_group_ref?: string | null
           circuit_group_uuid?: string | null
           completion_percent?: number
@@ -2740,18 +3247,23 @@ export type Database = {
           grid_migration_provenance?: string | null
           grid_reference?: string | null
           grid_reference_precision?: string | null
+          grid_scheme_uuid?: string | null
           id?: string
           install_status?: string
           installed_ocp_rating?: number | null
           label_status?: string
           legacy_grid?: string | null
+          level_grid_reference?: string | null
           load_id?: string
           load_shed_capable?: boolean | null
           load_shed_group?: string | null
           location?: string | null
           location_evidence?: string | null
+          location_precision?: string | null
+          location_source?: string | null
           location_x_ft?: number | null
           location_y_ft?: number | null
+          location_z_ft?: number | null
           logical_panel_ref?: string | null
           logical_panel_uuid?: string | null
           maximum_overcurrent_protection?: number | null
@@ -2780,6 +3292,7 @@ export type Database = {
           rated_current_amps?: number | null
           rated_load_amps?: number | null
           resilience_class?: string | null
+          site_building_uuid?: string | null
           source_circuit?: string | null
           source_reference?: string | null
           suggested_panel?: string | null
@@ -2790,6 +3303,13 @@ export type Database = {
           volts?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "electrical_loads_building_level_uuid_fkey"
+            columns: ["building_level_uuid"]
+            isOneToOne: false
+            referencedRelation: "building_levels"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "electrical_loads_circuit_group_uuid_fkey"
             columns: ["circuit_group_uuid"]
@@ -2802,6 +3322,13 @@ export type Database = {
             columns: ["logical_panel_uuid"]
             isOneToOne: false
             referencedRelation: "electrical_panels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "electrical_loads_site_building_uuid_fkey"
+            columns: ["site_building_uuid"]
+            isOneToOne: false
+            referencedRelation: "site_buildings"
             referencedColumns: ["id"]
           },
         ]
@@ -3023,6 +3550,7 @@ export type Database = {
           backup_class: string | null
           breaker_columns: number | null
           building: string | null
+          building_level_uuid: string | null
           bus_rating_amps: number | null
           circuits: number | null
           completion_percent: number
@@ -3038,13 +3566,18 @@ export type Database = {
           grid_migration_provenance: string | null
           grid_reference: string | null
           grid_reference_precision: string | null
+          grid_scheme_uuid: string | null
           id: string
           install_status: string
           label_status: string
           legacy_grid: string | null
+          level_grid_reference: string | null
           location_evidence: string | null
+          location_precision: string | null
+          location_source: string | null
           location_x_ft: number | null
           location_y_ft: number | null
+          location_z_ft: number | null
           logical_panel_note: string | null
           notes: string | null
           ods_extras: string | null
@@ -3057,6 +3590,7 @@ export type Database = {
           pole_ref_start: string | null
           pole_scheme: string | null
           positions_per_column: number | null
+          site_building_uuid: string | null
           spaces: number | null
           system_voltage: Json | null
           system_voltage_applied_at: string | null
@@ -3070,6 +3604,7 @@ export type Database = {
           backup_class?: string | null
           breaker_columns?: number | null
           building?: string | null
+          building_level_uuid?: string | null
           bus_rating_amps?: number | null
           circuits?: number | null
           completion_percent?: number
@@ -3085,13 +3620,18 @@ export type Database = {
           grid_migration_provenance?: string | null
           grid_reference?: string | null
           grid_reference_precision?: string | null
+          grid_scheme_uuid?: string | null
           id?: string
           install_status?: string
           label_status?: string
           legacy_grid?: string | null
+          level_grid_reference?: string | null
           location_evidence?: string | null
+          location_precision?: string | null
+          location_source?: string | null
           location_x_ft?: number | null
           location_y_ft?: number | null
+          location_z_ft?: number | null
           logical_panel_note?: string | null
           notes?: string | null
           ods_extras?: string | null
@@ -3104,6 +3644,7 @@ export type Database = {
           pole_ref_start?: string | null
           pole_scheme?: string | null
           positions_per_column?: number | null
+          site_building_uuid?: string | null
           spaces?: number | null
           system_voltage?: Json | null
           system_voltage_applied_at?: string | null
@@ -3117,6 +3658,7 @@ export type Database = {
           backup_class?: string | null
           breaker_columns?: number | null
           building?: string | null
+          building_level_uuid?: string | null
           bus_rating_amps?: number | null
           circuits?: number | null
           completion_percent?: number
@@ -3132,13 +3674,18 @@ export type Database = {
           grid_migration_provenance?: string | null
           grid_reference?: string | null
           grid_reference_precision?: string | null
+          grid_scheme_uuid?: string | null
           id?: string
           install_status?: string
           label_status?: string
           legacy_grid?: string | null
+          level_grid_reference?: string | null
           location_evidence?: string | null
+          location_precision?: string | null
+          location_source?: string | null
           location_x_ft?: number | null
           location_y_ft?: number | null
+          location_z_ft?: number | null
           logical_panel_note?: string | null
           notes?: string | null
           ods_extras?: string | null
@@ -3151,6 +3698,7 @@ export type Database = {
           pole_ref_start?: string | null
           pole_scheme?: string | null
           positions_per_column?: number | null
+          site_building_uuid?: string | null
           spaces?: number | null
           system_voltage?: Json | null
           system_voltage_applied_at?: string | null
@@ -3162,10 +3710,24 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "electrical_panels_building_level_uuid_fkey"
+            columns: ["building_level_uuid"]
+            isOneToOne: false
+            referencedRelation: "building_levels"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "electrical_panels_physical_panel_uuid_fkey"
             columns: ["physical_panel_uuid"]
             isOneToOne: false
             referencedRelation: "electrical_panels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "electrical_panels_site_building_uuid_fkey"
+            columns: ["site_building_uuid"]
+            isOneToOne: false
+            referencedRelation: "site_buildings"
             referencedColumns: ["id"]
           },
         ]
@@ -3314,18 +3876,26 @@ export type Database = {
           asset_type: string
           asset_uuid: string | null
           building: string | null
+          building_level_uuid: string | null
           capacity_note: string | null
           completion_percent: number | null
           created_at: string
           description: string | null
           grid: string | null
+          grid_scheme_uuid: string | null
           id: string
           input_current_amps: number | null
           input_type: string | null
           input_voltage: number | null
           install_status: string
           label_status: string
+          level_grid_reference: string | null
           location_note: string | null
+          location_precision: string | null
+          location_source: string | null
+          location_x_ft: number | null
+          location_y_ft: number | null
+          location_z_ft: number | null
           manufacturer: string | null
           model: string | null
           notes: string | null
@@ -3335,6 +3905,7 @@ export type Database = {
           power_asset_id: string
           rack_ref: string | null
           rack_uuid: string | null
+          site_building_uuid: string | null
           source_branch_ref: string | null
           source_branch_uuid: string | null
           source_circuit_group_ref: string | null
@@ -3353,18 +3924,26 @@ export type Database = {
           asset_type?: string
           asset_uuid?: string | null
           building?: string | null
+          building_level_uuid?: string | null
           capacity_note?: string | null
           completion_percent?: number | null
           created_at?: string
           description?: string | null
           grid?: string | null
+          grid_scheme_uuid?: string | null
           id?: string
           input_current_amps?: number | null
           input_type?: string | null
           input_voltage?: number | null
           install_status?: string
           label_status?: string
+          level_grid_reference?: string | null
           location_note?: string | null
+          location_precision?: string | null
+          location_source?: string | null
+          location_x_ft?: number | null
+          location_y_ft?: number | null
+          location_z_ft?: number | null
           manufacturer?: string | null
           model?: string | null
           notes?: string | null
@@ -3374,6 +3953,7 @@ export type Database = {
           power_asset_id: string
           rack_ref?: string | null
           rack_uuid?: string | null
+          site_building_uuid?: string | null
           source_branch_ref?: string | null
           source_branch_uuid?: string | null
           source_circuit_group_ref?: string | null
@@ -3392,18 +3972,26 @@ export type Database = {
           asset_type?: string
           asset_uuid?: string | null
           building?: string | null
+          building_level_uuid?: string | null
           capacity_note?: string | null
           completion_percent?: number | null
           created_at?: string
           description?: string | null
           grid?: string | null
+          grid_scheme_uuid?: string | null
           id?: string
           input_current_amps?: number | null
           input_type?: string | null
           input_voltage?: number | null
           install_status?: string
           label_status?: string
+          level_grid_reference?: string | null
           location_note?: string | null
+          location_precision?: string | null
+          location_source?: string | null
+          location_x_ft?: number | null
+          location_y_ft?: number | null
+          location_z_ft?: number | null
           manufacturer?: string | null
           model?: string | null
           notes?: string | null
@@ -3413,6 +4001,7 @@ export type Database = {
           power_asset_id?: string
           rack_ref?: string | null
           rack_uuid?: string | null
+          site_building_uuid?: string | null
           source_branch_ref?: string | null
           source_branch_uuid?: string | null
           source_circuit_group_ref?: string | null
@@ -3435,10 +4024,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "electrical_power_assets_building_level_uuid_fkey"
+            columns: ["building_level_uuid"]
+            isOneToOne: false
+            referencedRelation: "building_levels"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "electrical_power_assets_rack_uuid_fkey"
             columns: ["rack_uuid"]
             isOneToOne: false
             referencedRelation: "electrical_racks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "electrical_power_assets_site_building_uuid_fkey"
+            columns: ["site_building_uuid"]
+            isOneToOne: false
+            referencedRelation: "site_buildings"
             referencedColumns: ["id"]
           },
           {
@@ -3480,47 +4083,88 @@ export type Database = {
       }
       electrical_raceway_waypoints: {
         Row: {
+          building_level_uuid: string | null
           created_at: string
           direction: string | null
           grid: string | null
+          grid_scheme_uuid: string | null
           id: string
           label: string | null
+          level_grid_reference: string | null
+          location_precision: string | null
+          location_source: string | null
+          location_x_ft: number | null
+          location_y_ft: number | null
+          location_z_ft: number | null
           notes: string | null
           raceway_id: string
           sequence: number
+          site_building_uuid: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
+          building_level_uuid?: string | null
           created_at?: string
           direction?: string | null
           grid?: string | null
+          grid_scheme_uuid?: string | null
           id?: string
           label?: string | null
+          level_grid_reference?: string | null
+          location_precision?: string | null
+          location_source?: string | null
+          location_x_ft?: number | null
+          location_y_ft?: number | null
+          location_z_ft?: number | null
           notes?: string | null
           raceway_id: string
           sequence?: number
+          site_building_uuid?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
+          building_level_uuid?: string | null
           created_at?: string
           direction?: string | null
           grid?: string | null
+          grid_scheme_uuid?: string | null
           id?: string
           label?: string | null
+          level_grid_reference?: string | null
+          location_precision?: string | null
+          location_source?: string | null
+          location_x_ft?: number | null
+          location_y_ft?: number | null
+          location_z_ft?: number | null
           notes?: string | null
           raceway_id?: string
           sequence?: number
+          site_building_uuid?: string | null
           updated_at?: string
           user_id?: string
         }
         Relationships: [
           {
+            foreignKeyName: "electrical_raceway_waypoints_building_level_uuid_fkey"
+            columns: ["building_level_uuid"]
+            isOneToOne: false
+            referencedRelation: "building_levels"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "electrical_raceway_waypoints_raceway_id_fkey"
             columns: ["raceway_id"]
             isOneToOne: false
             referencedRelation: "electrical_raceways"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "electrical_raceway_waypoints_site_building_uuid_fkey"
+            columns: ["site_building_uuid"]
+            isOneToOne: false
+            referencedRelation: "site_buildings"
             referencedColumns: ["id"]
           },
         ]
@@ -3533,10 +4177,12 @@ export type Database = {
           created_at: string
           description: string | null
           dest_building: string | null
+          dest_building_level_uuid: string | null
           dest_endpoint_ref: string | null
           dest_endpoint_type: string | null
           dest_grid: string | null
           dest_jbox_uuid: string | null
+          dest_level_grid_reference: string | null
           dest_panel_uuid: string | null
           environment: string
           exit_notes: string | null
@@ -3545,6 +4191,7 @@ export type Database = {
           from_label: string | null
           id: string
           install_status: string
+          is_vertical_riser: boolean
           label_status: string
           material: string | null
           measured_length_ft: number | null
@@ -3556,16 +4203,20 @@ export type Database = {
           route_group: string | null
           service_type: string | null
           source_building: string | null
+          source_building_level_uuid: string | null
           source_endpoint_ref: string | null
           source_endpoint_type: string | null
           source_grid: string | null
           source_jbox_uuid: string | null
+          source_level_grid_reference: string | null
           source_panel_uuid: string | null
           spare: boolean | null
           to_label: string | null
           trade_size: string | null
           updated_at: string
           user_id: string
+          vertical_rise_ft: number | null
+          vertical_run_kind: string | null
         }
         Insert: {
           circuit_refs?: string | null
@@ -3574,10 +4225,12 @@ export type Database = {
           created_at?: string
           description?: string | null
           dest_building?: string | null
+          dest_building_level_uuid?: string | null
           dest_endpoint_ref?: string | null
           dest_endpoint_type?: string | null
           dest_grid?: string | null
           dest_jbox_uuid?: string | null
+          dest_level_grid_reference?: string | null
           dest_panel_uuid?: string | null
           environment?: string
           exit_notes?: string | null
@@ -3586,6 +4239,7 @@ export type Database = {
           from_label?: string | null
           id?: string
           install_status?: string
+          is_vertical_riser?: boolean
           label_status?: string
           material?: string | null
           measured_length_ft?: number | null
@@ -3597,16 +4251,20 @@ export type Database = {
           route_group?: string | null
           service_type?: string | null
           source_building?: string | null
+          source_building_level_uuid?: string | null
           source_endpoint_ref?: string | null
           source_endpoint_type?: string | null
           source_grid?: string | null
           source_jbox_uuid?: string | null
+          source_level_grid_reference?: string | null
           source_panel_uuid?: string | null
           spare?: boolean | null
           to_label?: string | null
           trade_size?: string | null
           updated_at?: string
           user_id: string
+          vertical_rise_ft?: number | null
+          vertical_run_kind?: string | null
         }
         Update: {
           circuit_refs?: string | null
@@ -3615,10 +4273,12 @@ export type Database = {
           created_at?: string
           description?: string | null
           dest_building?: string | null
+          dest_building_level_uuid?: string | null
           dest_endpoint_ref?: string | null
           dest_endpoint_type?: string | null
           dest_grid?: string | null
           dest_jbox_uuid?: string | null
+          dest_level_grid_reference?: string | null
           dest_panel_uuid?: string | null
           environment?: string
           exit_notes?: string | null
@@ -3627,6 +4287,7 @@ export type Database = {
           from_label?: string | null
           id?: string
           install_status?: string
+          is_vertical_riser?: boolean
           label_status?: string
           material?: string | null
           measured_length_ft?: number | null
@@ -3638,18 +4299,29 @@ export type Database = {
           route_group?: string | null
           service_type?: string | null
           source_building?: string | null
+          source_building_level_uuid?: string | null
           source_endpoint_ref?: string | null
           source_endpoint_type?: string | null
           source_grid?: string | null
           source_jbox_uuid?: string | null
+          source_level_grid_reference?: string | null
           source_panel_uuid?: string | null
           spare?: boolean | null
           to_label?: string | null
           trade_size?: string | null
           updated_at?: string
           user_id?: string
+          vertical_rise_ft?: number | null
+          vertical_run_kind?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "electrical_raceways_dest_building_level_uuid_fkey"
+            columns: ["dest_building_level_uuid"]
+            isOneToOne: false
+            referencedRelation: "building_levels"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "electrical_raceways_dest_jbox_uuid_fkey"
             columns: ["dest_jbox_uuid"]
@@ -3662,6 +4334,13 @@ export type Database = {
             columns: ["dest_panel_uuid"]
             isOneToOne: false
             referencedRelation: "electrical_panels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "electrical_raceways_source_building_level_uuid_fkey"
+            columns: ["source_building_level_uuid"]
+            isOneToOne: false
+            referencedRelation: "building_levels"
             referencedColumns: ["id"]
           },
           {
@@ -3685,20 +4364,29 @@ export type Database = {
           asset_ref: string | null
           asset_uuid: string | null
           building: string | null
+          building_level_uuid: string | null
           completion_percent: number | null
           created_at: string
           description: string | null
           grid: string | null
+          grid_scheme_uuid: string | null
           id: string
           install_status: string
           label_status: string
+          level_grid_reference: string | null
           location_note: string | null
+          location_precision: string | null
+          location_source: string | null
+          location_x_ft: number | null
+          location_y_ft: number | null
+          location_z_ft: number | null
           mounting: string | null
           notes: string | null
           rack_id: string
           rack_role: string | null
           rack_size_u: number | null
           site_area: string | null
+          site_building_uuid: string | null
           updated_at: string
           user_id: string
         }
@@ -3706,20 +4394,29 @@ export type Database = {
           asset_ref?: string | null
           asset_uuid?: string | null
           building?: string | null
+          building_level_uuid?: string | null
           completion_percent?: number | null
           created_at?: string
           description?: string | null
           grid?: string | null
+          grid_scheme_uuid?: string | null
           id?: string
           install_status?: string
           label_status?: string
+          level_grid_reference?: string | null
           location_note?: string | null
+          location_precision?: string | null
+          location_source?: string | null
+          location_x_ft?: number | null
+          location_y_ft?: number | null
+          location_z_ft?: number | null
           mounting?: string | null
           notes?: string | null
           rack_id: string
           rack_role?: string | null
           rack_size_u?: number | null
           site_area?: string | null
+          site_building_uuid?: string | null
           updated_at?: string
           user_id: string
         }
@@ -3727,20 +4424,29 @@ export type Database = {
           asset_ref?: string | null
           asset_uuid?: string | null
           building?: string | null
+          building_level_uuid?: string | null
           completion_percent?: number | null
           created_at?: string
           description?: string | null
           grid?: string | null
+          grid_scheme_uuid?: string | null
           id?: string
           install_status?: string
           label_status?: string
+          level_grid_reference?: string | null
           location_note?: string | null
+          location_precision?: string | null
+          location_source?: string | null
+          location_x_ft?: number | null
+          location_y_ft?: number | null
+          location_z_ft?: number | null
           mounting?: string | null
           notes?: string | null
           rack_id?: string
           rack_role?: string | null
           rack_size_u?: number | null
           site_area?: string | null
+          site_building_uuid?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -3750,6 +4456,20 @@ export type Database = {
             columns: ["asset_uuid"]
             isOneToOne: false
             referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "electrical_racks_building_level_uuid_fkey"
+            columns: ["building_level_uuid"]
+            isOneToOne: false
+            referencedRelation: "building_levels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "electrical_racks_site_building_uuid_fkey"
+            columns: ["site_building_uuid"]
+            isOneToOne: false
+            referencedRelation: "site_buildings"
             referencedColumns: ["id"]
           },
         ]
@@ -3977,6 +4697,7 @@ export type Database = {
         Row: {
           box_state: string
           building: string | null
+          building_level_uuid: string | null
           conductors_state: string
           created_at: string
           description: string | null
@@ -3988,16 +4709,22 @@ export type Database = {
           function_test_state: string
           gang_count: number | null
           grid: string | null
+          grid_scheme_uuid: string | null
           id: string
           installed_device_count: number
+          level_grid_reference: string | null
           lifecycle_status: string
           location_note: string | null
+          location_precision: string | null
+          location_source: string | null
           location_x_ft: number | null
           location_y_ft: number | null
+          location_z_ft: number | null
           notes: string | null
           pole_ref: string | null
           pole_scheme: string | null
           raceway_state: string
+          site_building_uuid: string | null
           source_jbox_uuid: string | null
           supplying_circuit_group_uuid: string | null
           switch_bank_id: string
@@ -4008,6 +4735,7 @@ export type Database = {
         Insert: {
           box_state?: string
           building?: string | null
+          building_level_uuid?: string | null
           conductors_state?: string
           created_at?: string
           description?: string | null
@@ -4019,16 +4747,22 @@ export type Database = {
           function_test_state?: string
           gang_count?: number | null
           grid?: string | null
+          grid_scheme_uuid?: string | null
           id?: string
           installed_device_count?: number
+          level_grid_reference?: string | null
           lifecycle_status?: string
           location_note?: string | null
+          location_precision?: string | null
+          location_source?: string | null
           location_x_ft?: number | null
           location_y_ft?: number | null
+          location_z_ft?: number | null
           notes?: string | null
           pole_ref?: string | null
           pole_scheme?: string | null
           raceway_state?: string
+          site_building_uuid?: string | null
           source_jbox_uuid?: string | null
           supplying_circuit_group_uuid?: string | null
           switch_bank_id: string
@@ -4039,6 +4773,7 @@ export type Database = {
         Update: {
           box_state?: string
           building?: string | null
+          building_level_uuid?: string | null
           conductors_state?: string
           created_at?: string
           description?: string | null
@@ -4050,16 +4785,22 @@ export type Database = {
           function_test_state?: string
           gang_count?: number | null
           grid?: string | null
+          grid_scheme_uuid?: string | null
           id?: string
           installed_device_count?: number
+          level_grid_reference?: string | null
           lifecycle_status?: string
           location_note?: string | null
+          location_precision?: string | null
+          location_source?: string | null
           location_x_ft?: number | null
           location_y_ft?: number | null
+          location_z_ft?: number | null
           notes?: string | null
           pole_ref?: string | null
           pole_scheme?: string | null
           raceway_state?: string
+          site_building_uuid?: string | null
           source_jbox_uuid?: string | null
           supplying_circuit_group_uuid?: string | null
           switch_bank_id?: string
@@ -4068,6 +4809,20 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "electrical_switch_banks_building_level_uuid_fkey"
+            columns: ["building_level_uuid"]
+            isOneToOne: false
+            referencedRelation: "building_levels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "electrical_switch_banks_site_building_uuid_fkey"
+            columns: ["site_building_uuid"]
+            isOneToOne: false
+            referencedRelation: "site_buildings"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "electrical_switch_banks_source_jbox_uuid_fkey"
             columns: ["source_jbox_uuid"]
@@ -4086,6 +4841,7 @@ export type Database = {
       }
       electrical_switch_devices: {
         Row: {
+          building_level_uuid: string | null
           control_group_uuid: string | null
           created_at: string
           description: string | null
@@ -4096,13 +4852,21 @@ export type Database = {
           field_verification_status: string
           function_test_state: string
           gang_position: number | null
+          grid_scheme_uuid: string | null
           id: string
           is_disconnecting_means: boolean
+          level_grid_reference: string | null
           lifecycle_status: string
+          location_precision: string | null
+          location_source: string | null
+          location_x_ft: number | null
+          location_y_ft: number | null
+          location_z_ft: number | null
           notes: string | null
           poles: number | null
           rated_current_amps: number | null
           rated_voltage: number | null
+          site_building_uuid: string | null
           supplying_circuit_group_uuid: string | null
           switch_bank_uuid: string | null
           switch_device_id: string
@@ -4113,6 +4877,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          building_level_uuid?: string | null
           control_group_uuid?: string | null
           created_at?: string
           description?: string | null
@@ -4123,13 +4888,21 @@ export type Database = {
           field_verification_status?: string
           function_test_state?: string
           gang_position?: number | null
+          grid_scheme_uuid?: string | null
           id?: string
           is_disconnecting_means?: boolean
+          level_grid_reference?: string | null
           lifecycle_status?: string
+          location_precision?: string | null
+          location_source?: string | null
+          location_x_ft?: number | null
+          location_y_ft?: number | null
+          location_z_ft?: number | null
           notes?: string | null
           poles?: number | null
           rated_current_amps?: number | null
           rated_voltage?: number | null
+          site_building_uuid?: string | null
           supplying_circuit_group_uuid?: string | null
           switch_bank_uuid?: string | null
           switch_device_id: string
@@ -4140,6 +4913,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          building_level_uuid?: string | null
           control_group_uuid?: string | null
           created_at?: string
           description?: string | null
@@ -4150,13 +4924,21 @@ export type Database = {
           field_verification_status?: string
           function_test_state?: string
           gang_position?: number | null
+          grid_scheme_uuid?: string | null
           id?: string
           is_disconnecting_means?: boolean
+          level_grid_reference?: string | null
           lifecycle_status?: string
+          location_precision?: string | null
+          location_source?: string | null
+          location_x_ft?: number | null
+          location_y_ft?: number | null
+          location_z_ft?: number | null
           notes?: string | null
           poles?: number | null
           rated_current_amps?: number | null
           rated_voltage?: number | null
+          site_building_uuid?: string | null
           supplying_circuit_group_uuid?: string | null
           switch_bank_uuid?: string | null
           switch_device_id?: string
@@ -4168,10 +4950,24 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "electrical_switch_devices_building_level_uuid_fkey"
+            columns: ["building_level_uuid"]
+            isOneToOne: false
+            referencedRelation: "building_levels"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "electrical_switch_devices_control_group_uuid_fkey"
             columns: ["control_group_uuid"]
             isOneToOne: false
             referencedRelation: "electrical_control_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "electrical_switch_devices_site_building_uuid_fkey"
+            columns: ["site_building_uuid"]
+            isOneToOne: false
+            referencedRelation: "site_buildings"
             referencedColumns: ["id"]
           },
           {
