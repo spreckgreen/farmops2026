@@ -82,6 +82,14 @@ export function SiteTracer() {
   // ---- map bootstrap ----
   useEffect(() => {
     let cancelled = false;
+    // Google calls this when the map key is refused for this web address — the
+    // usual case is opening the page on a domain the key does not allow.
+    (window as unknown as { gm_authFailure?: () => void }).gm_authFailure = () => {
+      if (cancelled) return;
+      setMapError(
+        `Aerial imagery is not permitted on this web address (${window.location.host}). Open the site plan on the Lovable preview or published address, or connect a map key that allows this domain. Everything else on this page still works: you can type building corners in feet on the Building grids page.`,
+      );
+    };
     loadGoogleMaps()
       .then((maps) => {
         if (cancelled || !mapNode.current) return;
