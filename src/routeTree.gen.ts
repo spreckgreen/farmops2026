@@ -78,6 +78,7 @@ import { Route as ElectricalReconciliationRouteImport } from './routes/electrica
 import { Route as ElectricalServicesRouteImport } from './routes/electrical.services'
 import { Route as ElectricalSorRouteImport } from './routes/electrical.sor'
 import { Route as ElectricalStandardsRouteImport } from './routes/electrical.standards'
+import { Route as ElectricalTerminologyRouteImport } from './routes/electrical.terminology'
 import { Route as ElectricalTopologyRouteImport } from './routes/electrical.topology'
 import { Route as ElectricalValidationRouteImport } from './routes/electrical.validation'
 import { Route as ElectricalWiringRouteImport } from './routes/electrical.wiring'
@@ -479,6 +480,11 @@ const ElectricalStandardsRoute = ElectricalStandardsRouteImport.update({
   path: '/electrical/standards',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ElectricalTerminologyRoute = ElectricalTerminologyRouteImport.update({
+  id: '/electrical/terminology',
+  path: '/electrical/terminology',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ElectricalTopologyRoute = ElectricalTopologyRouteImport.update({
   id: '/electrical/topology',
   path: '/electrical/topology',
@@ -813,6 +819,7 @@ export interface FileRoutesByFullPath {
   '/electrical/services': typeof ElectricalServicesRoute
   '/electrical/sor': typeof ElectricalSorRoute
   '/electrical/standards': typeof ElectricalStandardsRoute
+  '/electrical/terminology': typeof ElectricalTerminologyRoute
   '/electrical/topology': typeof ElectricalTopologyRoute
   '/electrical/validation': typeof ElectricalValidationRoute
   '/electrical/wiring': typeof ElectricalWiringRoute
@@ -932,6 +939,7 @@ export interface FileRoutesByTo {
   '/electrical/services': typeof ElectricalServicesRoute
   '/electrical/sor': typeof ElectricalSorRoute
   '/electrical/standards': typeof ElectricalStandardsRoute
+  '/electrical/terminology': typeof ElectricalTerminologyRoute
   '/electrical/topology': typeof ElectricalTopologyRoute
   '/electrical/validation': typeof ElectricalValidationRoute
   '/electrical/wiring': typeof ElectricalWiringRoute
@@ -1055,6 +1063,7 @@ export interface FileRoutesById {
   '/electrical/services': typeof ElectricalServicesRoute
   '/electrical/sor': typeof ElectricalSorRoute
   '/electrical/standards': typeof ElectricalStandardsRoute
+  '/electrical/terminology': typeof ElectricalTerminologyRoute
   '/electrical/topology': typeof ElectricalTopologyRoute
   '/electrical/validation': typeof ElectricalValidationRoute
   '/electrical/wiring': typeof ElectricalWiringRoute
@@ -1179,6 +1188,7 @@ export interface FileRouteTypes {
     | '/electrical/services'
     | '/electrical/sor'
     | '/electrical/standards'
+    | '/electrical/terminology'
     | '/electrical/topology'
     | '/electrical/validation'
     | '/electrical/wiring'
@@ -1298,6 +1308,7 @@ export interface FileRouteTypes {
     | '/electrical/services'
     | '/electrical/sor'
     | '/electrical/standards'
+    | '/electrical/terminology'
     | '/electrical/topology'
     | '/electrical/validation'
     | '/electrical/wiring'
@@ -1420,6 +1431,7 @@ export interface FileRouteTypes {
     | '/electrical/services'
     | '/electrical/sor'
     | '/electrical/standards'
+    | '/electrical/terminology'
     | '/electrical/topology'
     | '/electrical/validation'
     | '/electrical/wiring'
@@ -1543,6 +1555,7 @@ export interface RootRouteChildren {
   ElectricalServicesRoute: typeof ElectricalServicesRoute
   ElectricalSorRoute: typeof ElectricalSorRoute
   ElectricalStandardsRoute: typeof ElectricalStandardsRoute
+  ElectricalTerminologyRoute: typeof ElectricalTerminologyRoute
   ElectricalTopologyRoute: typeof ElectricalTopologyRoute
   ElectricalValidationRoute: typeof ElectricalValidationRoute
   ElectricalWiringRoute: typeof ElectricalWiringRoute
@@ -2059,6 +2072,13 @@ declare module '@tanstack/react-router' {
       path: '/electrical/standards'
       fullPath: '/electrical/standards'
       preLoaderRoute: typeof ElectricalStandardsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/electrical/terminology': {
+      id: '/electrical/terminology'
+      path: '/electrical/terminology'
+      fullPath: '/electrical/terminology'
+      preLoaderRoute: typeof ElectricalTerminologyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/electrical/topology': {
@@ -2580,6 +2600,7 @@ const rootRouteChildren: RootRouteChildren = {
   ElectricalServicesRoute: ElectricalServicesRoute,
   ElectricalSorRoute: ElectricalSorRoute,
   ElectricalStandardsRoute: ElectricalStandardsRoute,
+  ElectricalTerminologyRoute: ElectricalTerminologyRoute,
   ElectricalTopologyRoute: ElectricalTopologyRoute,
   ElectricalValidationRoute: ElectricalValidationRoute,
   ElectricalWiringRoute: ElectricalWiringRoute,
