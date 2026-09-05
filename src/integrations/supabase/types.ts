@@ -5773,6 +5773,42 @@ export type Database = {
         }
         Relationships: []
       }
+      vault_key_journal: {
+        Row: {
+          created_at: string
+          event: string
+          fingerprint: string
+          id: string
+          key_shape: string
+          note: string | null
+          recorded_by: string | null
+          rows_readable: number | null
+          rows_total: number | null
+        }
+        Insert: {
+          created_at?: string
+          event: string
+          fingerprint: string
+          id?: string
+          key_shape: string
+          note?: string | null
+          recorded_by?: string | null
+          rows_readable?: number | null
+          rows_total?: number | null
+        }
+        Update: {
+          created_at?: string
+          event?: string
+          fingerprint?: string
+          id?: string
+          key_shape?: string
+          note?: string | null
+          recorded_by?: string | null
+          rows_readable?: number | null
+          rows_total?: number | null
+        }
+        Relationships: []
+      }
       vault_key_wrap_credentials: {
         Row: {
           created_at: string
