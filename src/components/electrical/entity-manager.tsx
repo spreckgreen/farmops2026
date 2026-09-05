@@ -33,6 +33,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  NOT_RECORDED,
+  RATING_IS_NOT_LOAD_CURRENT,
+  isRecordedNumber,
+} from "@/lib/electrical-current-display";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -191,6 +196,12 @@ function FieldInput({
   );
 }
 
+
+/**
+ * Recorded current and apparent-power columns. A blank cell here means the
+ * record does not carry the value — not zero load and not zero capacity.
+ */
+const CURRENT_METRIC_KEYS = new Set(["amps", "connected_va"]);
 
 export function EntityManager({
   kind,
@@ -586,6 +597,14 @@ export function EntityManager({
                             <span>{p.percent}%</span>
                           );
                         })()
+                      ) : CURRENT_METRIC_KEYS.has(f.key) ? (
+                        isRecordedNumber(row[f.key]) ? (
+                          <span>{String(row[f.key])}</span>
+                        ) : (
+                          <span className="text-muted-foreground" title={RATING_IS_NOT_LOAD_CURRENT}>
+                            {NOT_RECORDED}
+                          </span>
+                        )
                       ) : (
                         String(row[f.key] ?? "") || <span className="text-muted-foreground">—</span>
                       )}

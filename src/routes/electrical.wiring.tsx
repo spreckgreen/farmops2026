@@ -6,6 +6,13 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { ElectricalGate } from "@/components/electrical/electrical-gate";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  NOT_RECORDED,
+  RATING_IS_NOT_LOAD_CURRENT,
+  displayAmps,
+  displayVa,
+  isRecordedNumber,
+} from "@/lib/electrical-current-display";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,7 +52,11 @@ export const Route = createFileRoute("/electrical/wiring")({
 });
 
 function LoadLine({ load }: { load: WiringLoad }) {
-  const rating = [load.amps ? `${load.amps} A` : null, load.va ? `${load.va} VA` : null]
+  // A missing amps or VA value is "not recorded" — never rendered as zero and
+  // never replaced with the branch-circuit rating.
+  const hasAmps = isRecordedNumber(load.amps);
+  const hasVa = isRecordedNumber(load.va);
+  const rating = [hasAmps ? displayAmps(load.amps) : null, hasVa ? displayVa(load.va) : null]
     .filter(Boolean)
     .join(" · ");
   return (
@@ -57,7 +68,9 @@ function LoadLine({ load }: { load: WiringLoad }) {
       {rating ? (
         <span className="text-muted-foreground">{rating}</span>
       ) : (
-        <span className="text-destructive">no amps / VA</span>
+        <span className="text-muted-foreground" title={RATING_IS_NOT_LOAD_CURRENT}>
+          amps / VA {NOT_RECORDED}
+        </span>
       )}
     </div>
   );

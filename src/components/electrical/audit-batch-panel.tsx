@@ -24,6 +24,12 @@ import {
   fsSwitchControlsManifestText,
 } from "@/lib/electrical-audit-switch-controls";
 import { resolveFsNwAsBuiltReconciliation } from "@/lib/electrical-fs-nw-r3.functions";
+import { resolveOutletMetadataR3 } from "@/lib/electrical-outlet-metadata-r3.functions";
+import {
+  R3_OUTLET_METADATA_BATCH_ID,
+  outletCandidateCsv,
+  type OutletCandidateReport,
+} from "@/lib/electrical-outlet-metadata-r3";
 
 import {
   buildPeerRegistration,
@@ -161,6 +167,7 @@ export function AuditBatchPanel() {
   const runPeerPull = useServerFn(pullPeerAuditBatch);
   const resolveLinks = useServerFn(resolveFsNwAuditedLoadLinks);
   const resolveReconciliation = useServerFn(resolveFsNwAsBuiltReconciliation);
+  const resolveOutletMetadata = useServerFn(resolveOutletMetadataR3);
   const runReject = useServerFn(rejectElectricalAuditBatch);
 
 
@@ -249,6 +256,26 @@ export function AuditBatchPanel() {
       if (r.gapCount) parts.push(`${r.gapCount} explicit gap note(s)`);
       toast.success(
         `${FS_NW_AUDIT_R3_BATCH_ID} built — ${parts.join(", ")}. Import to preview every affected field; nothing is written yet.`,
+      );
+    },
+    onError: (e) => setError(String(e)),
+  });
+
+  // Build the preview-only receptacle-outlet metadata correction. Read only:
+  // it fills the import box with exact before/after values and reports the nine
+  // unaudited candidate records without staging anything for them.
+  const [outletCandidates, setOutletCandidates] = useState<OutletCandidateReport[] | null>(null);
+  const outletBuildMutation = useMutation({
+    mutationFn: async () => await resolveOutletMetadata({}),
+    onSuccess: (r) => {
+      setManifestText(r.manifest_text);
+      setOutletCandidates(r.candidates);
+      setError(null);
+      const parts = [`${r.itemCount} metadata-only item(s)`];
+      if (r.alreadyCorrect.length) parts.push(`${r.alreadyCorrect.length} already corrected`);
+      if (r.loadsNotFound.length) parts.push(`${r.loadsNotFound.length} load(s) not found (held)`);
+      toast.success(
+        `${r.batch_id} built — ${parts.join(", ")}. Circuit groups, breakers and 20 A ratings are untouched; import to preview, nothing is written yet.`,
       );
     },
     onError: (e) => setError(String(e)),
@@ -463,6 +490,56 @@ export function AuditBatchPanel() {
               <RefreshCw className="mr-1 h-4 w-4" />
               Build {FS_NW_AUDIT_R3_BATCH_ID} metadata reconciliation
             </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={outletBuildMutation.isPending}
+              onClick={() => outletBuildMutation.mutate()}
+              title="Corrects legacy receptacle-outlet metadata for the 18 audited outlets: shared circuit class, and removal of the branch-circuit amperage and the VA derived from it. Relationships, 20 A ratings, descriptions, locations, voltage and lifecycle state are preserved."
+            >
+              <RefreshCw className="mr-1 h-4 w-4" />
+              Build {R3_OUTLET_METADATA_BATCH_ID}
+            </Button>
+            {outletCandidates?.length ? (
+              <div className="w-full rounded-md border p-3 text-xs">
+                <p className="font-medium">
+                  Outlet-like records not covered by this audit ({outletCandidates.length})
+                </p>
+                <p className="mt-1 text-muted-foreground">
+                  Read-only. Nothing is staged for these records: they need their own field evidence
+                  before any metadata changes.
+                </p>
+                <ul className="mt-2 space-y-1">
+                  {outletCandidates.map((c) => (
+                    <li key={c.load_id} className="font-mono">
+                      {c.load_id} — {c.found ? "in record" : "no record"}, class{" "}
+                      {c.dedicated_shared ?? "not recorded"}, amps{" "}
+                      {c.amps === null ? "not recorded" : c.amps}, VA{" "}
+                      {c.connected_va === null ? "not recorded" : c.connected_va}
+                    </li>
+                  ))}
+                </ul>
+                <Button
+                  className="mt-2"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    const blob = new Blob([outletCandidateCsv(outletCandidates)], {
+                      type: "text/csv",
+                    });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `${R3_OUTLET_METADATA_BATCH_ID}-candidates.csv`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  }}
+                >
+                  <Download className="mr-1 h-4 w-4" />
+                  Candidate report CSV
+                </Button>
+              </div>
+            ) : null}
             {manifestAlreadyHasLoadLinks ? (
               <p className="w-full text-xs text-muted-foreground">
                 This batch already contains its audited load links, so the links-only follow-up
