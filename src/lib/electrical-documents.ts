@@ -26,6 +26,11 @@ import {
   type GridMapSummary,
 } from "@/lib/electrical-grid-map";
 import { COLLECTION_FOR_KIND, type SnapshotQaFinding, type SnapshotRecord } from "@/lib/electrical-snapshot";
+import {
+  PROPOSED_POST_POSITIONS,
+  POST_GEOMETRY_VERSION,
+  type PostPosition,
+} from "@/lib/electrical-grid-post-geometry";
 
 export const NOT_IN_RECORD = "NOT IN RECORD";
 export const ALL_SCOPE = "ALL";
@@ -510,6 +515,12 @@ export interface GridMapDocModel {
   panels: string[];
   /** Loads that could not be placed on the plan, with the reason. */
   unplaced: { loadId: string; description: string; reason: string }[];
+  /**
+   * Pole Barn perimeter posts (26), so a printed plan can be read either by the
+   * A1-F9 grid cell or by the post reference painted on the building itself.
+   */
+  poles: PostPosition[];
+  poleGeometryVersion: string;
   digestSource: unknown;
 }
 
@@ -559,6 +570,8 @@ export function buildGridMapModel(bundle: DocumentBundle, scope: DocScope): Grid
     summary,
     panels,
     unplaced,
+    poles: PROPOSED_POST_POSITIONS,
+    poleGeometryVersion: POST_GEOMETRY_VERSION,
     digestSource: points.map((p) => ({
       id: p.loadId,
       grid: p.gridReference,
