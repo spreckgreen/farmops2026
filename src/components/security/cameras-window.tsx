@@ -325,6 +325,20 @@ export function CamerasWindow() {
           </p>
         ) : null}
 
+        {/* Cameras with no address cannot be checked at all, so the bridge card
+            is offered until every one has a playable feed recorded. */}
+        {rows.length > 0 && checkableCount < rows.length && (
+          <BridgeWiringCard
+            cameras={rows.filter((row) => (row.stream_url ?? row.snapshot_url ?? "") === "")}
+            onApplied={() => {
+              void queryClient.invalidateQueries({ queryKey: ["cameras"] });
+              checkAllMutation.mutate();
+            }}
+          />
+        )}
+
+
+
         {camerasQuery.isLoading ? (
           <p className="flex items-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading cameras…
