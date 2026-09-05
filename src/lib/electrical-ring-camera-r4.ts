@@ -264,7 +264,9 @@ export function buildRingCameraDesignBatch(input: {
     schema_version: AUDIT_BATCH_SCHEMA_VERSION,
     batch_id: RING_CAMERA_BATCH_ID,
     title: "Farm Shop exterior Ring camera approved planned design",
-    scope: `Approved planned design for ${RING_CAMERA_LOADS.join(", ")}: structured planned location, corner/face geometry, exterior mounting at 8 ft, proposed physical panel ${RING_CAMERA_PROPOSED_PANEL}, logical ${RING_CAMERA_RESILIENCE_CLASS} with planned load shedding. ${RING_CAMERA_HELD_LOAD} held. ${RING_CAMERA_OUT_OF_SCOPE_NOTE}`,
+    // Kept under the 400-character manifest scope limit; the full out-of-scope
+    // note travels with every item.
+    scope: `Approved planned design for ${RING_CAMERA_LOADS[0]}…${RING_CAMERA_LOADS[RING_CAMERA_LOADS.length - 1]} (8 exterior cameras): planned location, corner/face geometry, exterior mounting at 8 ft, proposed physical panel ${RING_CAMERA_PROPOSED_PANEL}, logical ${RING_CAMERA_RESILIENCE_CLASS} with planned load shedding. ${RING_CAMERA_HELD_LOAD} held. Descriptions, stable IDs, lifecycle, breakers, circuit groups and engineering values unchanged.`,
     building: "Farm Shop",
     observed_date: "2026-09-05",
     observed_time_precision: "design",

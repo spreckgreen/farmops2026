@@ -345,6 +345,10 @@ export const APPROVED_PLANNED_DESIGN_FIELDS = [
   "load_shed_capable",
   "dedicated",
   "dedicated_shared",
+  // Logical grouping assignment (e.g. a critical-camera logical panel). It is a
+  // design fact and never a physical panel, breaker or circuit identity.
+  "logical_panel_ref",
+  "logical_panel_uuid",
   "notes",
 ] as const;
 
