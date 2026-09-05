@@ -18,6 +18,8 @@ import {
   fsNwAuditManifestR2Text,
 } from "@/lib/electrical-fs-nw-audit-r1";
 import { resolveFsNwAuditedLoadLinks } from "@/lib/electrical-fs-nw-links.functions";
+import { FS_NW_AUDIT_R3_BATCH_ID } from "@/lib/electrical-fs-nw-audit-r3";
+import { resolveFsNwAsBuiltReconciliation } from "@/lib/electrical-fs-nw-r3.functions";
 
 import {
   buildPeerRegistration,
@@ -154,6 +156,7 @@ export function AuditBatchPanel() {
   const list = useServerFn(listElectricalAuditBatches);
   const runPeerPull = useServerFn(pullPeerAuditBatch);
   const resolveLinks = useServerFn(resolveFsNwAuditedLoadLinks);
+  const resolveReconciliation = useServerFn(resolveFsNwAsBuiltReconciliation);
   const runReject = useServerFn(rejectElectricalAuditBatch);
 
 
@@ -213,6 +216,36 @@ export function AuditBatchPanel() {
       if (r.groupsNotApproved.length)
         parts.push(`${r.groupsNotApproved.length} breaker(s) without an approved group (held)`);
       toast.success(`${FS_NW_LINKS_BATCH_ID} built — ${parts.join(", ")}. Import to preview; nothing is written yet.`);
+    },
+    onError: (e) => setError(String(e)),
+  });
+
+  // Build the R3 as-built metadata reconciliation for the loads whose
+  // relationship-only links were applied in R2. R2 itself is left untouched.
+  const reconcileBuildMutation = useMutation({
+    mutationFn: async () => await resolveReconciliation({}),
+    onSuccess: (r) => {
+      setManifestText(r.manifest_text);
+      setError(null);
+      if (!r.reconciled.length) {
+        toast.error(
+          `No approved circuit group and load pair could be reconciled yet. The held items in ${FS_NW_AUDIT_R3_BATCH_ID} explain each gap.`,
+        );
+        return;
+      }
+      const parts = [
+        `${r.reconciled.length} load(s) staged with relationship, installed state, ${r.sharedCircuitLoads.length} shared / ${r.dedicatedCircuitLoads.length} dedicated classification`,
+        r.building_from_panel
+          ? `building "${r.building_from_panel}" from the panel chain`
+          : "building context unresolved (left as a gap)",
+      ];
+      if (r.loadsNotFound.length) parts.push(`${r.loadsNotFound.length} load(s) not found (held)`);
+      if (r.groupsNotApproved.length)
+        parts.push(`${r.groupsNotApproved.length} breaker(s) without an approved group (held)`);
+      if (r.gapCount) parts.push(`${r.gapCount} explicit gap note(s)`);
+      toast.success(
+        `${FS_NW_AUDIT_R3_BATCH_ID} built — ${parts.join(", ")}. Import to preview every affected field; nothing is written yet.`,
+      );
     },
     onError: (e) => setError(String(e)),
   });
@@ -402,6 +435,16 @@ export function AuditBatchPanel() {
               }}
             >
               Load {FS_NW_AUDIT_R2_BATCH_ID}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={reconcileBuildMutation.isPending}
+              onClick={() => reconcileBuildMutation.mutate()}
+              title="Stages the outstanding as-built consequences (installed state, shared/dedicated, building context, explicitly observed grid and post) for the 20 loads audited in R2. R2 stays unchanged."
+            >
+              <RefreshCw className="mr-1 h-4 w-4" />
+              Build {FS_NW_AUDIT_R3_BATCH_ID} metadata reconciliation
             </Button>
             {manifestAlreadyHasLoadLinks ? (
               <p className="w-full text-xs text-muted-foreground">

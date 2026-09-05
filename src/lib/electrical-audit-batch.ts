@@ -278,6 +278,16 @@ const LOCATION_FIELDS = [
 
 const STATE_FIELDS = ["install_status", "label_status", "completion_percent", "notes"];
 
+/**
+ * Deterministic metadata consequences of a confirmed FIELD_AS_BUILT load
+ * observation. They are *consequences of authoritative relationships*, never
+ * inferences: sharing follows from how many loads occupy the approved circuit
+ * group, and building context follows from the panel the group is on. They are
+ * writable only for a FIELD_AS_BUILT observation.
+ */
+export const AS_BUILT_CONSEQUENCE_FIELDS = ["dedicated_shared", "dedicated", "location"] as const;
+
+
 export interface EntityTarget {
   table: string;
   stableIdColumn: string | null;
@@ -393,6 +403,7 @@ export const AUDIT_ENTITY_TARGETS: Record<AuditEntityKind, EntityTarget> = {
       "circuit_group_uuid",
       "circuit_group_ref",
       "source_circuit",
+      ...AS_BUILT_CONSEQUENCE_FIELDS,
       ...STATE_FIELDS,
       ...LOCATION_FIELDS,
     ],
@@ -406,6 +417,10 @@ export const AUDIT_ENTITY_TARGETS: Record<AuditEntityKind, EntityTarget> = {
  * Which columns this observation class may write. A temporary observation may
  * only record an observed label, notes and its own non-complete install state —
  * it can never become a permanent design fact or a stable circuit identity.
+ *
+ * The as-built metadata consequences (sharing, building context) are reserved
+ * for FIELD_AS_BUILT: a planned, rough-in, temporary or proposed observation
+ * never restates them.
  */
 export function fieldsAllowed(kind: AuditEntityKind, cls: ObservationClass): string[] {
   const all = [...AUDIT_ENTITY_TARGETS[kind].writable];
@@ -413,10 +428,18 @@ export function fieldsAllowed(kind: AuditEntityKind, cls: ObservationClass): str
     return all.filter((c) => ["label", "notes", "install_status", "label_status"].includes(c));
   }
   if (cls === "ROUGH_IN") {
-    return all.filter((c) => !c.startsWith("verified_"));
+    return all.filter(
+      (c) =>
+        !c.startsWith("verified_") &&
+        !(AS_BUILT_CONSEQUENCE_FIELDS as readonly string[]).includes(c),
+    );
+  }
+  if (cls !== "FIELD_AS_BUILT") {
+    return all.filter((c) => !(AS_BUILT_CONSEQUENCE_FIELDS as readonly string[]).includes(c));
   }
   return all;
 }
+
 
 /* ------------------------------------------------------------------ *
  * Manifest schema
