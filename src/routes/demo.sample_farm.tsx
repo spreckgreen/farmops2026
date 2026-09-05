@@ -15,6 +15,8 @@ import {
   resolveDemoFarm,
   type DemoResolvedLoad,
 } from "@/lib/demo-sample-farm";
+import { DemoSiteExplorer } from "@/components/demo/demo-site-explorer";
+
 import type { EffectiveLocationSource } from "@/lib/electrical-effective-location";
 
 const TITLE = "Sample Farm — FarmOps Electrical Demo";
