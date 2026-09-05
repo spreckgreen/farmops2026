@@ -47,6 +47,7 @@ import { Route as AdminVaultBackupRouteImport } from './routes/admin.vault-backu
 import { Route as AdminVaultRotationRouteImport } from './routes/admin.vault-rotation'
 import { Route as AdminVaultSecretsRouteImport } from './routes/admin.vault-secrets'
 import { Route as ApiOpenapiDotjsonRouteImport } from './routes/api/openapi[.]json'
+import { Route as DemoElectricalRouteImport } from './routes/demo.electrical'
 import { Route as DocsProductArchitectureRouteImport } from './routes/docs.product-architecture'
 import { Route as ElectricalIndexRouteImport } from './routes/electrical.index'
 import { Route as ElectricalKindRouteImport } from './routes/electrical.$kind'
@@ -320,6 +321,11 @@ const AdminVaultSecretsRoute = AdminVaultSecretsRouteImport.update({
 const ApiOpenapiDotjsonRoute = ApiOpenapiDotjsonRouteImport.update({
   id: '/api/openapi.json',
   path: '/api/openapi.json',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DemoElectricalRoute = DemoElectricalRouteImport.update({
+  id: '/demo/electrical',
+  path: '/demo/electrical',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DocsProductArchitectureRoute = DocsProductArchitectureRouteImport.update({
@@ -796,6 +802,7 @@ export interface FileRoutesByFullPath {
   '/admin/vault-rotation': typeof AdminVaultRotationRoute
   '/admin/vault-secrets': typeof AdminVaultSecretsRoute
   '/api/openapi.json': typeof ApiOpenapiDotjsonRoute
+  '/demo/electrical': typeof DemoElectricalRoute
   '/docs/product-architecture': typeof DocsProductArchitectureRoute
   '/electrical/$kind': typeof ElectricalKindRoute
   '/electrical/adjudication': typeof ElectricalAdjudicationRoute
@@ -917,6 +924,7 @@ export interface FileRoutesByTo {
   '/admin/vault-rotation': typeof AdminVaultRotationRoute
   '/admin/vault-secrets': typeof AdminVaultSecretsRoute
   '/api/openapi.json': typeof ApiOpenapiDotjsonRoute
+  '/demo/electrical': typeof DemoElectricalRoute
   '/docs/product-architecture': typeof DocsProductArchitectureRoute
   '/electrical/$kind': typeof ElectricalKindRoute
   '/electrical/adjudication': typeof ElectricalAdjudicationRoute
@@ -1042,6 +1050,7 @@ export interface FileRoutesById {
   '/admin/vault-rotation': typeof AdminVaultRotationRoute
   '/admin/vault-secrets': typeof AdminVaultSecretsRoute
   '/api/openapi.json': typeof ApiOpenapiDotjsonRoute
+  '/demo/electrical': typeof DemoElectricalRoute
   '/docs/product-architecture': typeof DocsProductArchitectureRoute
   '/electrical/$kind': typeof ElectricalKindRoute
   '/electrical/adjudication': typeof ElectricalAdjudicationRoute
@@ -1168,6 +1177,7 @@ export interface FileRouteTypes {
     | '/admin/vault-rotation'
     | '/admin/vault-secrets'
     | '/api/openapi.json'
+    | '/demo/electrical'
     | '/docs/product-architecture'
     | '/electrical/$kind'
     | '/electrical/adjudication'
@@ -1289,6 +1299,7 @@ export interface FileRouteTypes {
     | '/admin/vault-rotation'
     | '/admin/vault-secrets'
     | '/api/openapi.json'
+    | '/demo/electrical'
     | '/docs/product-architecture'
     | '/electrical/$kind'
     | '/electrical/adjudication'
@@ -1413,6 +1424,7 @@ export interface FileRouteTypes {
     | '/admin/vault-rotation'
     | '/admin/vault-secrets'
     | '/api/openapi.json'
+    | '/demo/electrical'
     | '/docs/product-architecture'
     | '/electrical/$kind'
     | '/electrical/adjudication'
@@ -1538,6 +1550,7 @@ export interface RootRouteChildren {
   AdminVaultRotationRoute: typeof AdminVaultRotationRoute
   AdminVaultSecretsRoute: typeof AdminVaultSecretsRoute
   ApiOpenapiDotjsonRoute: typeof ApiOpenapiDotjsonRoute
+  DemoElectricalRoute: typeof DemoElectricalRoute
   DocsProductArchitectureRoute: typeof DocsProductArchitectureRoute
   ElectricalKindRoute: typeof ElectricalKindRoute
   ElectricalAdjudicationRoute: typeof ElectricalAdjudicationRoute
@@ -1869,6 +1882,13 @@ declare module '@tanstack/react-router' {
       path: '/api/openapi.json'
       fullPath: '/api/openapi.json'
       preLoaderRoute: typeof ApiOpenapiDotjsonRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/demo/electrical': {
+      id: '/demo/electrical'
+      path: '/demo/electrical'
+      fullPath: '/demo/electrical'
+      preLoaderRoute: typeof DemoElectricalRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/docs/product-architecture': {
@@ -2591,6 +2611,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminVaultRotationRoute: AdminVaultRotationRoute,
   AdminVaultSecretsRoute: AdminVaultSecretsRoute,
   ApiOpenapiDotjsonRoute: ApiOpenapiDotjsonRoute,
+  DemoElectricalRoute: DemoElectricalRoute,
   DocsProductArchitectureRoute: DocsProductArchitectureRoute,
   ElectricalKindRoute: ElectricalKindRoute,
   ElectricalAdjudicationRoute: ElectricalAdjudicationRoute,
