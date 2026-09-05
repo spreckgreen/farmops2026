@@ -27,6 +27,7 @@ import {
   installStatusLabel,
   type ElectricalEntityKind,
 } from "@/lib/electrical";
+import { displayCompletionPercent, stageCompletionPercent } from "@/lib/electrical-lifecycle";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

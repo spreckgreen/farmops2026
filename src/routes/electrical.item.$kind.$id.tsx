@@ -16,6 +16,7 @@ import {
   panelPositions,
   type ElectricalEntityKind,
 } from "@/lib/electrical";
+import { displayCompletionPercent, stageCompletionPercent } from "@/lib/electrical-lifecycle";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
