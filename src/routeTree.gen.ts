@@ -24,6 +24,7 @@ import { Route as ReadyRouteImport } from './routes/ready'
 import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as ServiceSchedulingRouteImport } from './routes/service-scheduling'
+import { Route as SubscriptionRouteImport } from './routes/subscription'
 import { Route as SyncRouteImport } from './routes/sync'
 import { Route as VaultRouteImport } from './routes/vault'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
@@ -40,6 +41,7 @@ import { Route as AdminPanelAccessRouteImport } from './routes/admin.panel-acces
 import { Route as AdminResetRouteImport } from './routes/admin.reset'
 import { Route as AdminRestoreRouteImport } from './routes/admin.restore'
 import { Route as AdminSchemaRouteImport } from './routes/admin.schema'
+import { Route as AdminSubscriptionsRouteImport } from './routes/admin.subscriptions'
 import { Route as AdminTaskDedupeRouteImport } from './routes/admin.task-dedupe'
 import { Route as AdminTaskHealthRouteImport } from './routes/admin.task-health'
 import { Route as AdminUsersRouteImport } from './routes/admin.users'
@@ -211,6 +213,11 @@ const ServiceSchedulingRoute = ServiceSchedulingRouteImport.update({
   path: '/service-scheduling',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SubscriptionRoute = SubscriptionRouteImport.update({
+  id: '/subscription',
+  path: '/subscription',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SyncRoute = SyncRouteImport.update({
   id: '/sync',
   path: '/sync',
@@ -289,6 +296,11 @@ const AdminRestoreRoute = AdminRestoreRouteImport.update({
 const AdminSchemaRoute = AdminSchemaRouteImport.update({
   id: '/admin/schema',
   path: '/admin/schema',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminSubscriptionsRoute = AdminSubscriptionsRouteImport.update({
+  id: '/admin/subscriptions',
+  path: '/admin/subscriptions',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminTaskDedupeRoute = AdminTaskDedupeRouteImport.update({
@@ -798,6 +810,7 @@ export interface FileRoutesByFullPath {
   '/reports': typeof ReportsRoute
   '/reset-password': typeof ResetPasswordRoute
   '/service-scheduling': typeof ServiceSchedulingRoute
+  '/subscription': typeof SubscriptionRoute
   '/sync': typeof SyncRoute
   '/vault': typeof VaultRoute
   '/admin/addons': typeof AdminAddonsRoute
@@ -813,6 +826,7 @@ export interface FileRoutesByFullPath {
   '/admin/reset': typeof AdminResetRoute
   '/admin/restore': typeof AdminRestoreRoute
   '/admin/schema': typeof AdminSchemaRoute
+  '/admin/subscriptions': typeof AdminSubscriptionsRoute
   '/admin/task-dedupe': typeof AdminTaskDedupeRoute
   '/admin/task-health': typeof AdminTaskHealthRoute
   '/admin/users': typeof AdminUsersRoute
@@ -923,6 +937,7 @@ export interface FileRoutesByTo {
   '/reports': typeof ReportsRoute
   '/reset-password': typeof ResetPasswordRoute
   '/service-scheduling': typeof ServiceSchedulingRoute
+  '/subscription': typeof SubscriptionRoute
   '/sync': typeof SyncRoute
   '/vault': typeof VaultRoute
   '/admin/addons': typeof AdminAddonsRoute
@@ -938,6 +953,7 @@ export interface FileRoutesByTo {
   '/admin/reset': typeof AdminResetRoute
   '/admin/restore': typeof AdminRestoreRoute
   '/admin/schema': typeof AdminSchemaRoute
+  '/admin/subscriptions': typeof AdminSubscriptionsRoute
   '/admin/task-dedupe': typeof AdminTaskDedupeRoute
   '/admin/task-health': typeof AdminTaskHealthRoute
   '/admin/users': typeof AdminUsersRoute
@@ -1052,6 +1068,7 @@ export interface FileRoutesById {
   '/reports': typeof ReportsRoute
   '/reset-password': typeof ResetPasswordRoute
   '/service-scheduling': typeof ServiceSchedulingRoute
+  '/subscription': typeof SubscriptionRoute
   '/sync': typeof SyncRoute
   '/vault': typeof VaultRoute
   '/admin/addons': typeof AdminAddonsRoute
@@ -1067,6 +1084,7 @@ export interface FileRoutesById {
   '/admin/reset': typeof AdminResetRoute
   '/admin/restore': typeof AdminRestoreRoute
   '/admin/schema': typeof AdminSchemaRoute
+  '/admin/subscriptions': typeof AdminSubscriptionsRoute
   '/admin/task-dedupe': typeof AdminTaskDedupeRoute
   '/admin/task-health': typeof AdminTaskHealthRoute
   '/admin/users': typeof AdminUsersRoute
@@ -1182,6 +1200,7 @@ export interface FileRouteTypes {
     | '/reports'
     | '/reset-password'
     | '/service-scheduling'
+    | '/subscription'
     | '/sync'
     | '/vault'
     | '/admin/addons'
@@ -1197,6 +1216,7 @@ export interface FileRouteTypes {
     | '/admin/reset'
     | '/admin/restore'
     | '/admin/schema'
+    | '/admin/subscriptions'
     | '/admin/task-dedupe'
     | '/admin/task-health'
     | '/admin/users'
@@ -1307,6 +1327,7 @@ export interface FileRouteTypes {
     | '/reports'
     | '/reset-password'
     | '/service-scheduling'
+    | '/subscription'
     | '/sync'
     | '/vault'
     | '/admin/addons'
@@ -1322,6 +1343,7 @@ export interface FileRouteTypes {
     | '/admin/reset'
     | '/admin/restore'
     | '/admin/schema'
+    | '/admin/subscriptions'
     | '/admin/task-dedupe'
     | '/admin/task-health'
     | '/admin/users'
@@ -1435,6 +1457,7 @@ export interface FileRouteTypes {
     | '/reports'
     | '/reset-password'
     | '/service-scheduling'
+    | '/subscription'
     | '/sync'
     | '/vault'
     | '/admin/addons'
@@ -1450,6 +1473,7 @@ export interface FileRouteTypes {
     | '/admin/reset'
     | '/admin/restore'
     | '/admin/schema'
+    | '/admin/subscriptions'
     | '/admin/task-dedupe'
     | '/admin/task-health'
     | '/admin/users'
@@ -1564,6 +1588,7 @@ export interface RootRouteChildren {
   ReportsRoute: typeof ReportsRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   ServiceSchedulingRoute: typeof ServiceSchedulingRoute
+  SubscriptionRoute: typeof SubscriptionRoute
   SyncRoute: typeof SyncRoute
   VaultRoute: typeof VaultRoute
   AdminAddonsRoute: typeof AdminAddonsRoute
@@ -1579,6 +1604,7 @@ export interface RootRouteChildren {
   AdminResetRoute: typeof AdminResetRoute
   AdminRestoreRoute: typeof AdminRestoreRoute
   AdminSchemaRoute: typeof AdminSchemaRoute
+  AdminSubscriptionsRoute: typeof AdminSubscriptionsRoute
   AdminTaskDedupeRoute: typeof AdminTaskDedupeRoute
   AdminTaskHealthRoute: typeof AdminTaskHealthRoute
   AdminUsersRoute: typeof AdminUsersRoute
@@ -1762,6 +1788,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ServiceSchedulingRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/subscription': {
+      id: '/subscription'
+      path: '/subscription'
+      fullPath: '/subscription'
+      preLoaderRoute: typeof SubscriptionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/sync': {
       id: '/sync'
       path: '/sync'
@@ -1872,6 +1905,13 @@ declare module '@tanstack/react-router' {
       path: '/admin/schema'
       fullPath: '/admin/schema'
       preLoaderRoute: typeof AdminSchemaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/subscriptions': {
+      id: '/admin/subscriptions'
+      path: '/admin/subscriptions'
+      fullPath: '/admin/subscriptions'
+      preLoaderRoute: typeof AdminSubscriptionsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/task-dedupe': {
@@ -2649,6 +2689,7 @@ const rootRouteChildren: RootRouteChildren = {
   ReportsRoute: ReportsRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   ServiceSchedulingRoute: ServiceSchedulingRoute,
+  SubscriptionRoute: SubscriptionRoute,
   SyncRoute: SyncRoute,
   VaultRoute: VaultRoute,
   AdminAddonsRoute: AdminAddonsRoute,
@@ -2664,6 +2705,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminResetRoute: AdminResetRoute,
   AdminRestoreRoute: AdminRestoreRoute,
   AdminSchemaRoute: AdminSchemaRoute,
+  AdminSubscriptionsRoute: AdminSubscriptionsRoute,
   AdminTaskDedupeRoute: AdminTaskDedupeRoute,
   AdminTaskHealthRoute: AdminTaskHealthRoute,
   AdminUsersRoute: AdminUsersRoute,

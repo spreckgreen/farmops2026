@@ -14,7 +14,7 @@ import { ProfileGate } from "@/components/profile-gate";
 import { useCurrentProfile } from "@/hooks/use-current-profile";
 import { useAddon } from "@/hooks/use-addon";
 import { isElectricianScoped } from "@/lib/electrical-access";
-import { ShieldCheck, ChevronDown, Users, Trash2, Download, Upload, KeyRound, RefreshCw, Server, AlertTriangle, PackagePlus } from "lucide-react";
+import { ShieldCheck, ChevronDown, Users, Trash2, Download, Upload, KeyRound, RefreshCw, Server, AlertTriangle, PackagePlus, CreditCard } from "lucide-react";
 
 export function AppLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
@@ -140,6 +140,13 @@ export function AppLayout({ children }: { children: ReactNode }) {
                     Troubleshooting
                   </Link>
                 </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/subscription" className="flex items-center gap-2 cursor-pointer">
+                    <CreditCard className="h-4 w-4" />
+                    Your plan
+                  </Link>
+                </DropdownMenuItem>
+
 
                 {profile.data?.isAdmin && (
                   <>
@@ -159,6 +166,12 @@ export function AppLayout({ children }: { children: ReactNode }) {
                       <Link to="/admin/addons" className="flex items-center gap-2 cursor-pointer">
                         <PackagePlus className="h-4 w-4" />
                         Add-ons
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link to="/admin/subscriptions" className="flex items-center gap-2 cursor-pointer">
+                        <CreditCard className="h-4 w-4" />
+                        Subscriptions
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>

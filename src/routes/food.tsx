@@ -1,6 +1,7 @@
 import { createFileRoute, Link, Outlet } from "@tanstack/react-router";
 import { AppLayout } from "@/components/app-layout";
 import { requireAuthenticatedUser } from "@/lib/auth-route";
+import { ModuleGate } from "@/components/module-gate";
 
 export const Route = createFileRoute("/food")({
   ssr: false,
@@ -36,6 +37,7 @@ const TABS: Array<{ to: string; label: string; exact?: boolean }> = [
 
 function FoodLayout() {
   return (
+    <ModuleGate moduleKey="food" title="Food & Growing">
     <AppLayout>
       <div className="max-w-5xl mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
@@ -60,5 +62,6 @@ function FoodLayout() {
         <Outlet />
       </div>
     </AppLayout>
+    </ModuleGate>
   );
 }
