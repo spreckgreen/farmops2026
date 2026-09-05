@@ -34,6 +34,7 @@ import {
 } from "@/lib/cameras";
 import { rowsToCsv, downloadCsv } from "@/lib/csv";
 import { CompassCoverage } from "@/components/security/compass-coverage";
+import { createHouseCameraElectricalObject } from "@/lib/house-camera-electrical.functions";
 import {
   cameraPlacement,
   ringModelLabel,
@@ -61,6 +62,7 @@ export function CamerasWindow() {
   const remove = useServerFn(deleteCamera);
   const check = useServerFn(checkCameraStatus);
   const checks = useServerFn(listCameraChecks);
+  const createElectrical = useServerFn(createHouseCameraElectricalObject);
 
   const [draft, setDraft] = useState<CameraDraft | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -136,6 +138,30 @@ export function CamerasWindow() {
     },
     onError: (error: unknown) =>
       toast.error(error instanceof Error ? error.message : "The camera could not be checked."),
+  });
+
+  const electricalMutation = useMutation({
+    mutationFn: (cameraUuid: string) => createElectrical({ data: { cameraUuid, confirm: false } }),
+    onSuccess: async (result, cameraUuid) => {
+      const p = result.preview;
+      const ok = window.confirm(
+        `Create electrical record ${p.loadId} for ${p.cameraId}?\n\n${p.description}\n${p.location}\n\nLeft empty on purpose:\n- ${p.withheld.join("\n- ")}`,
+      );
+      if (!ok) return;
+      try {
+        const applied = await createElectrical({ data: { cameraUuid, confirm: true } });
+        toast.success(`${applied.loadId} created and linked to ${p.cameraId}`);
+        void queryClient.invalidateQueries({ queryKey: ["cameras"] });
+      } catch (error) {
+        toast.error(
+          error instanceof Error ? error.message : "The electrical record could not be created.",
+        );
+      }
+    },
+    onError: (error: unknown) =>
+      toast.error(
+        error instanceof Error ? error.message : "The electrical record could not be prepared.",
+      ),
   });
 
   const openNew = () => {
@@ -313,6 +339,16 @@ export function CamerasWindow() {
                         >
                           <RefreshCw className="mr-1.5 h-3.5 w-3.5" aria-hidden /> Check now
                         </Button>
+                        {!row.electrical_load_ref && isCompassSide(row.compass_side) ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => electricalMutation.mutate(row.id)}
+                            disabled={electricalMutation.isPending}
+                          >
+                            Create electrical record
+                          </Button>
+                        ) : null}
                         <Button size="sm" variant="outline" onClick={() => openEdit(row)}>
                           <Pencil className="mr-1.5 h-3.5 w-3.5" aria-hidden /> Edit
                         </Button>
