@@ -248,6 +248,16 @@ function PricingCalculatorPage() {
                       Then {money(best.ongoingPerYear)} per year. Price anchor:{" "}
                       {editionAnchorText(best.edition.key)}.
                     </p>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <Button asChild size="sm">
+                        <Link to="/subscription" search={{ tier: best.edition.key }}>
+                          Get this plan
+                        </Link>
+                      </Button>
+                      <span className="text-xs text-muted-foreground self-center">
+                        Sign in to start it — a plan switches its modules on straight away.
+                      </span>
+                    </div>
                   </>
                 ) : (
                   <p className="text-sm text-muted-foreground">
@@ -278,7 +288,14 @@ function PricingCalculatorPage() {
                     </div>
                     {q.fits ? (
                       <p className="text-xs text-muted-foreground">
-                        first year, then {money(q.ongoingPerYear)} per year
+                        first year, then {money(q.ongoingPerYear)} per year ·{" "}
+                        <Link
+                          to="/subscription"
+                          search={{ tier: q.edition.key }}
+                          className="hover:text-primary underline underline-offset-2"
+                        >
+                          get this plan
+                        </Link>
                       </p>
                     ) : (
                       <ul className="mt-1 space-y-0.5">
