@@ -44,7 +44,7 @@ export interface PeerSyncConfigRow {
 
 export interface PeerSyncItemResult {
   batch_id: string;
-  outcome: "staged" | "skipped_present" | "skipped_status" | "failed";
+  outcome: "staged" | "would_stage" | "skipped_present" | "skipped_status" | "failed";
   peer_status: string | null;
   peer_applied_at: string | null;
   manifest_sha256?: string;
@@ -52,6 +52,8 @@ export interface PeerSyncItemResult {
 }
 
 export interface PeerSyncRunResult {
+  /** True when this pass only reported what it would do and wrote nothing. */
+  dry_run?: boolean;
   ran_at: string;
   peer_origin: string | null;
   peer_batches_seen: number;
@@ -125,11 +127,16 @@ export async function recordPeerSyncRun(db: LooseDb, input: PeerSyncRunLogInput)
  */
 export async function runPeerAuditSync(
   db: LooseDb,
-  options: { peerToken: string; trigger: "scheduled" | "manual" },
+  options: { peerToken: string; trigger: "scheduled" | "manual"; dryRun?: boolean },
 ): Promise<PeerSyncRunResult> {
+  // A dry run reads the peer and compares against local records, but never
+  // stages a preview and never updates the sync counters. It exists so an
+  // operator can see exactly which batches a real pull would stage first.
+  const dryRun = options.dryRun === true;
   const ranAt = new Date().toISOString();
   const empty: PeerSyncRunResult = {
     ran_at: ranAt,
+    dry_run: dryRun,
     peer_origin: null,
     peer_batches_seen: 0,
     candidates: 0,
@@ -234,6 +241,16 @@ export async function runPeerAuditSync(
     try {
       const fetched = await fetchPeerManifest(config.peer_base_url, batchId, options.peerToken);
       origin = fetched.origin;
+      if (dryRun) {
+        items.push({
+          batch_id: batchId,
+          outcome: "would_stage",
+          peer_status: fetched.status,
+          peer_applied_at: fetched.applied_at,
+          manifest_sha256: fetched.local_checksum,
+        });
+        continue;
+      }
       await stageManifestText(
         { supabase: db, userId: config.run_as_user_id },
         JSON.stringify(fetched.manifest),
@@ -262,6 +279,7 @@ export async function runPeerAuditSync(
   }
 
   const result: PeerSyncRunResult = {
+    dry_run: dryRun,
     ran_at: ranAt,
     peer_origin: origin,
     peer_batches_seen: peerRows.length,
@@ -273,6 +291,27 @@ export async function runPeerAuditSync(
   };
 
   const firstError = items.find((i) => i.outcome === "failed")?.message ?? null;
+
+  if (dryRun) {
+    // Nothing is written to the config counters; the attempt is still recorded
+    // so the history shows who checked and what they saw.
+    await recordPeerSyncRun(db, {
+      started_at: ranAt,
+      trigger: options.trigger,
+      outcome: "skipped",
+      skipped_reason: "dry run — reported only, nothing staged",
+      peer_origin: origin ?? config.peer_base_url,
+      peer_batches_seen: peerRows.length,
+      candidates: candidates.length,
+      staged: 0,
+      failed,
+      capped: result.capped,
+      error: firstError,
+      items,
+    });
+    return result;
+  }
+
   await db
     .from("electrical_peer_sync_config")
     .update({
