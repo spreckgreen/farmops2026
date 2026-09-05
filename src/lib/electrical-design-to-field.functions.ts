@@ -104,7 +104,7 @@ const shape = (row: DesignToFieldRow): DesignToFieldRecord => {
     effectiveSource: resolved.effective?.source ?? null,
     provenance: provenanceLine(row),
     warnings: resolved.warnings.map((w) => w.message),
-    needsAdjudication: resolved.conflicts.length > 0,
+    needsAdjudication: resolved.conflict !== null,
     updatedAt: row.updated_at,
   };
 };
