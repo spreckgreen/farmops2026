@@ -282,6 +282,7 @@ export function stageAsBuiltLoadObservation(obs: AsBuiltLoadObservation): AsBuil
     gaps,
     errors,
     install_state: installState,
+    as_built_verified: installState === "as_built_verified",
     sharing,
   };
 }
