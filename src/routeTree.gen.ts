@@ -119,6 +119,7 @@ import { Route as MaintenanceGenerateScheduleRouteImport } from './routes/mainte
 import { Route as MaintenanceImportManualRouteImport } from './routes/maintenance.import-manual'
 import { Route as NotesDateRouteImport } from './routes/notes.$date'
 import { Route as PlansIndexRouteImport } from './routes/plans.index'
+import { Route as PlansTierRouteImport } from './routes/plans.$tier'
 import { Route as ProceduresIndexRouteImport } from './routes/procedures.index'
 import { Route as ProceduresIngestRouteImport } from './routes/procedures.ingest'
 import { Route as SecurityIndexRouteImport } from './routes/security.index'
@@ -704,6 +705,11 @@ const PlansIndexRoute = PlansIndexRouteImport.update({
   path: '/plans/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PlansTierRoute = PlansTierRouteImport.update({
+  id: '/plans/$tier',
+  path: '/plans/$tier',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProceduresIndexRoute = ProceduresIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -958,6 +964,7 @@ export interface FileRoutesByFullPath {
   '/maintenance/generate-schedule': typeof MaintenanceGenerateScheduleRoute
   '/maintenance/import-manual': typeof MaintenanceImportManualRoute
   '/notes/$date': typeof NotesDateRoute
+  '/plans/$tier': typeof PlansTierRoute
   '/procedures/ingest': typeof ProceduresIngestRoute
   '/settings/self-host': typeof SettingsSelfHostRoute
   '/settings/troubleshooting': typeof SettingsTroubleshootingRoute
@@ -1093,6 +1100,7 @@ export interface FileRoutesByTo {
   '/maintenance/generate-schedule': typeof MaintenanceGenerateScheduleRoute
   '/maintenance/import-manual': typeof MaintenanceImportManualRoute
   '/notes/$date': typeof NotesDateRoute
+  '/plans/$tier': typeof PlansTierRoute
   '/procedures/ingest': typeof ProceduresIngestRoute
   '/settings/self-host': typeof SettingsSelfHostRoute
   '/settings/troubleshooting': typeof SettingsTroubleshootingRoute
@@ -1234,6 +1242,7 @@ export interface FileRoutesById {
   '/maintenance/generate-schedule': typeof MaintenanceGenerateScheduleRoute
   '/maintenance/import-manual': typeof MaintenanceImportManualRoute
   '/notes/$date': typeof NotesDateRoute
+  '/plans/$tier': typeof PlansTierRoute
   '/procedures/ingest': typeof ProceduresIngestRoute
   '/settings/self-host': typeof SettingsSelfHostRoute
   '/settings/troubleshooting': typeof SettingsTroubleshootingRoute
@@ -1376,6 +1385,7 @@ export interface FileRouteTypes {
     | '/maintenance/generate-schedule'
     | '/maintenance/import-manual'
     | '/notes/$date'
+    | '/plans/$tier'
     | '/procedures/ingest'
     | '/settings/self-host'
     | '/settings/troubleshooting'
@@ -1511,6 +1521,7 @@ export interface FileRouteTypes {
     | '/maintenance/generate-schedule'
     | '/maintenance/import-manual'
     | '/notes/$date'
+    | '/plans/$tier'
     | '/procedures/ingest'
     | '/settings/self-host'
     | '/settings/troubleshooting'
@@ -1651,6 +1662,7 @@ export interface FileRouteTypes {
     | '/maintenance/generate-schedule'
     | '/maintenance/import-manual'
     | '/notes/$date'
+    | '/plans/$tier'
     | '/procedures/ingest'
     | '/settings/self-host'
     | '/settings/troubleshooting'
@@ -1775,6 +1787,7 @@ export interface RootRouteChildren {
   ElectricalWiringRoute: typeof ElectricalWiringRoute
   ElectricalWorkbookRoute: typeof ElectricalWorkbookRoute
   NotesDateRoute: typeof NotesDateRoute
+  PlansTierRoute: typeof PlansTierRoute
   SettingsSelfHostRoute: typeof SettingsSelfHostRoute
   SettingsTroubleshootingRoute: typeof SettingsTroubleshootingRoute
   TasksSlugRoute: typeof TasksSlugRoute
@@ -2577,6 +2590,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PlansIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/plans/$tier': {
+      id: '/plans/$tier'
+      path: '/plans/$tier'
+      fullPath: '/plans/$tier'
+      preLoaderRoute: typeof PlansTierRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/procedures/': {
       id: '/procedures/'
       path: '/'
@@ -2977,6 +2997,7 @@ const rootRouteChildren: RootRouteChildren = {
   ElectricalWiringRoute: ElectricalWiringRoute,
   ElectricalWorkbookRoute: ElectricalWorkbookRoute,
   NotesDateRoute: NotesDateRoute,
+  PlansTierRoute: PlansTierRoute,
   SettingsSelfHostRoute: SettingsSelfHostRoute,
   SettingsTroubleshootingRoute: SettingsTroubleshootingRoute,
   TasksSlugRoute: TasksSlugRoute,
