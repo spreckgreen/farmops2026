@@ -11,6 +11,7 @@ import { requireElectricalAccess } from "@/lib/addons.server";
 import {
   RING_CAMERA_HELD_LOAD,
   RING_CAMERA_LOADS,
+  RING_CAMERA_LOGICAL_PANEL_TOKEN,
 } from "@/lib/electrical-ring-camera-design";
 import {
   RING_CAMERA_BATCH_ID,
@@ -42,6 +43,8 @@ const COLUMNS = [
   "dedicated",
   "dedicated_shared",
   "install_status",
+  "logical_panel_ref",
+  "logical_panel_uuid",
   "updated_at",
 ].join(",");
 
@@ -66,8 +69,21 @@ export const resolveRingCameraDesign = createServerFn({ method: "GET" })
       .in("load_id", [...RING_CAMERA_LOADS, RING_CAMERA_HELD_LOAD]);
     if (res.error) throw new Error(res.error.message);
 
+    // The logical panel is looked up, never invented: PNL-FS-CRIT must already
+    // be on record AND classified logical before it can be assigned.
+    const lp = await db
+      .from("electrical_panels")
+      .select("id,panel_id,panel_kind")
+      .eq("panel_id", RING_CAMERA_LOGICAL_PANEL_TOKEN)
+      .maybeSingle();
+    const logicalPanelUuid =
+      !lp.error && lp.data && String(lp.data.panel_kind) === "logical"
+        ? String(lp.data.id)
+        : null;
+
     const built = buildRingCameraDesignBatch({
       loads: (res.data ?? []) as RingCameraLoadRow[],
+      logicalPanelUuid,
     });
 
     return {

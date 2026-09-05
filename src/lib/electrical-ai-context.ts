@@ -494,6 +494,7 @@ export function buildElectricalRecordContext(
     line(p, [
       "panel_id",
       "description",
+      "panel_kind",
       "building",
       "grid",
       "system_voltage",
@@ -683,7 +684,10 @@ export function buildElectricalRecordContext(
           answerSet.join("\n") || "(no load matched the question keywords)"
         }\n\n`
       : "") +
-    `PANELS (${input.panels.length}) — panel_id is the stable PNL-* id:\n${panelLines.join("\n")}\n\n` +
+    `PANELS (${input.panels.length}) — panel_id is the stable PNL-* id. ` +
+    `panel_kind=logical means it is a grouping (for example critical / backup loads) ` +
+    `hosted on a physical panel, not a panelboard: never report a logical panel as ` +
+    `the physical supply, and never add its demand to the host panel twice:\n${panelLines.join("\n")}\n\n` +
     `FEEDERS (${input.feeders.length}):\n${feederLines.join("\n") || "(none recorded)"}\n\n` +
     `CIRCUITS (${input.circuitGroups.length}, showing ${groupLines.length}) — panel= is the panel this circuit lives in:\n${groupLines.join("\n")}\n\n` +
     `LOADS (${input.loads.length}, showing ${loadLines.length}) — panel=/circuit= are resolved from the record:\n${loadLines.join("\n")}\n\n` +

@@ -67,6 +67,8 @@ export interface RingCameraLoadRow {
   dedicated?: boolean | null;
   dedicated_shared?: string | null;
   install_status?: string | null;
+  logical_panel_ref?: string | null;
+  logical_panel_uuid?: string | null;
   updated_at?: string | null;
 }
 
@@ -140,6 +142,8 @@ function logicalPanelWarning(row: RingCameraLoadRow): string | null {
 /** Deterministic: identical rows produce a byte-identical manifest. */
 export function buildRingCameraDesignBatch(input: {
   loads: readonly RingCameraLoadRow[];
+  /** UUID of the logical panel PNL-FS-CRIT, when it is on record. */
+  logicalPanelUuid?: string | null;
 }): RingCameraBuild {
   const byId = new Map(
     input.loads.map((r) => [String(r.load_id).trim().toUpperCase(), r] as const),
@@ -151,7 +155,7 @@ export function buildRingCameraDesignBatch(input: {
 
   const push = (d: RingCameraDesign) => {
     const row = byId.get(d.load_id.toUpperCase());
-    const after = ringCameraDesignFields(d);
+    const after = ringCameraDesignFields(d, { logicalPanelUuid: input.logicalPanelUuid ?? null });
     if (!row) {
       loadsNotFound.push(d.load_id);
       rows.push({
