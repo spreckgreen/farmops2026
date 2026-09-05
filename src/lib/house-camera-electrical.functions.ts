@@ -129,7 +129,7 @@ export const createHouseCameraElectricalObject = createServerFn({ method: "POST"
       entity_kind: "electrical_load",
       entity_uuid: created.id,
       entity_ref: loadId,
-      action: "create_from_camera",
+      action: "create",
       summary: `${loadId} created from camera ${camera.camera_id} (${sideLabel}). Description and side only; no panel, circuit or engineering value recorded.`,
       changes: {
         camera_id: camera.camera_id,
