@@ -49,9 +49,14 @@ function VaultKeyMissingBanner() {
               <code>VAULT_ENCRYPTION_KEY_OLD</code> (fingerprint <code>{q.data.oldFingerprint}</code>) are
               loaded. Finish the rotation and then remove the old key.
             </p>
-            <a href="/admin/vault-rotation" className="mt-2 inline-block underline font-medium">
-              Open rotation console →
-            </a>
+            <div className="mt-2 flex flex-wrap gap-4">
+              <a href="/admin/vault-rotation" className="underline font-medium">
+                Open rotation console →
+              </a>
+              <a href="/admin/vault-key-change" className="underline font-medium">
+                Key change &amp; history →
+              </a>
+            </div>
           </div>
         </div>
       </div>
@@ -93,10 +98,10 @@ sudo chown "$USER": .env.local && sudo chmod 600 .env.local`}</pre>
           </li>
           <li>
             Back the key up in a password manager <strong>immediately</strong>. If it is
-            lost, every existing vault entry becomes permanently unrecoverable. To rotate
-            the key later, follow the{" "}
-            <a href="/admin/vault-rotation" className="underline font-medium">
-              vault rotation workflow
+            lost, every existing vault entry becomes permanently unrecoverable. To change
+            or reset the key later, use the{" "}
+            <a href="/admin/vault-key-change" className="underline font-medium">
+              guided key change workflow
             </a>
             .
           </li>

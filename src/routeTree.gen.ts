@@ -51,6 +51,7 @@ import { Route as AdminTaskDedupeRouteImport } from './routes/admin.task-dedupe'
 import { Route as AdminTaskHealthRouteImport } from './routes/admin.task-health'
 import { Route as AdminUsersRouteImport } from './routes/admin.users'
 import { Route as AdminVaultBackupRouteImport } from './routes/admin.vault-backup'
+import { Route as AdminVaultKeyChangeRouteImport } from './routes/admin.vault-key-change'
 import { Route as AdminVaultRotationRouteImport } from './routes/admin.vault-rotation'
 import { Route as AdminVaultSecretsRouteImport } from './routes/admin.vault-secrets'
 import { Route as ApiOpenapiDotjsonRouteImport } from './routes/api/openapi[.]json'
@@ -363,6 +364,11 @@ const AdminUsersRoute = AdminUsersRouteImport.update({
 const AdminVaultBackupRoute = AdminVaultBackupRouteImport.update({
   id: '/admin/vault-backup',
   path: '/admin/vault-backup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminVaultKeyChangeRoute = AdminVaultKeyChangeRouteImport.update({
+  id: '/admin/vault-key-change',
+  path: '/admin/vault-key-change',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminVaultRotationRoute = AdminVaultRotationRouteImport.update({
@@ -938,6 +944,7 @@ export interface FileRoutesByFullPath {
   '/admin/task-health': typeof AdminTaskHealthRoute
   '/admin/users': typeof AdminUsersRoute
   '/admin/vault-backup': typeof AdminVaultBackupRoute
+  '/admin/vault-key-change': typeof AdminVaultKeyChangeRoute
   '/admin/vault-rotation': typeof AdminVaultRotationRoute
   '/admin/vault-secrets': typeof AdminVaultSecretsRoute
   '/api/openapi.json': typeof ApiOpenapiDotjsonRoute
@@ -1080,6 +1087,7 @@ export interface FileRoutesByTo {
   '/admin/task-health': typeof AdminTaskHealthRoute
   '/admin/users': typeof AdminUsersRoute
   '/admin/vault-backup': typeof AdminVaultBackupRoute
+  '/admin/vault-key-change': typeof AdminVaultKeyChangeRoute
   '/admin/vault-rotation': typeof AdminVaultRotationRoute
   '/admin/vault-secrets': typeof AdminVaultSecretsRoute
   '/api/openapi.json': typeof ApiOpenapiDotjsonRoute
@@ -1228,6 +1236,7 @@ export interface FileRoutesById {
   '/admin/task-health': typeof AdminTaskHealthRoute
   '/admin/users': typeof AdminUsersRoute
   '/admin/vault-backup': typeof AdminVaultBackupRoute
+  '/admin/vault-key-change': typeof AdminVaultKeyChangeRoute
   '/admin/vault-rotation': typeof AdminVaultRotationRoute
   '/admin/vault-secrets': typeof AdminVaultSecretsRoute
   '/api/openapi.json': typeof ApiOpenapiDotjsonRoute
@@ -1377,6 +1386,7 @@ export interface FileRouteTypes {
     | '/admin/task-health'
     | '/admin/users'
     | '/admin/vault-backup'
+    | '/admin/vault-key-change'
     | '/admin/vault-rotation'
     | '/admin/vault-secrets'
     | '/api/openapi.json'
@@ -1519,6 +1529,7 @@ export interface FileRouteTypes {
     | '/admin/task-health'
     | '/admin/users'
     | '/admin/vault-backup'
+    | '/admin/vault-key-change'
     | '/admin/vault-rotation'
     | '/admin/vault-secrets'
     | '/api/openapi.json'
@@ -1666,6 +1677,7 @@ export interface FileRouteTypes {
     | '/admin/task-health'
     | '/admin/users'
     | '/admin/vault-backup'
+    | '/admin/vault-key-change'
     | '/admin/vault-rotation'
     | '/admin/vault-secrets'
     | '/api/openapi.json'
@@ -1814,6 +1826,7 @@ export interface RootRouteChildren {
   AdminTaskHealthRoute: typeof AdminTaskHealthRoute
   AdminUsersRoute: typeof AdminUsersRoute
   AdminVaultBackupRoute: typeof AdminVaultBackupRoute
+  AdminVaultKeyChangeRoute: typeof AdminVaultKeyChangeRoute
   AdminVaultRotationRoute: typeof AdminVaultRotationRoute
   AdminVaultSecretsRoute: typeof AdminVaultSecretsRoute
   ApiOpenapiDotjsonRoute: typeof ApiOpenapiDotjsonRoute
@@ -2190,6 +2203,13 @@ declare module '@tanstack/react-router' {
       path: '/admin/vault-backup'
       fullPath: '/admin/vault-backup'
       preLoaderRoute: typeof AdminVaultBackupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/vault-key-change': {
+      id: '/admin/vault-key-change'
+      path: '/admin/vault-key-change'
+      fullPath: '/admin/vault-key-change'
+      preLoaderRoute: typeof AdminVaultKeyChangeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/vault-rotation': {
@@ -3072,6 +3092,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminTaskHealthRoute: AdminTaskHealthRoute,
   AdminUsersRoute: AdminUsersRoute,
   AdminVaultBackupRoute: AdminVaultBackupRoute,
+  AdminVaultKeyChangeRoute: AdminVaultKeyChangeRoute,
   AdminVaultRotationRoute: AdminVaultRotationRoute,
   AdminVaultSecretsRoute: AdminVaultSecretsRoute,
   ApiOpenapiDotjsonRoute: ApiOpenapiDotjsonRoute,

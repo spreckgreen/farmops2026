@@ -92,6 +92,15 @@ function VaultRotationPage() {
             entry gets re-encrypted with the new key while the old key stays loaded as a
             fallback so nothing goes dark during the roll.
           </p>
+          <p className="text-sm">
+            <a href="/admin/vault-key-change" className="underline font-medium">
+              Key change &amp; history console →
+            </a>{" "}
+            <span className="text-muted-foreground">
+              — start here to see which key the server is running, whether it changed
+              unexpectedly, and the full order of operations.
+            </span>
+          </p>
         </header>
 
         <Card>
