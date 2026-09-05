@@ -82,3 +82,60 @@ it. Batches are capped at 25 entries per direction per run.
   bridge computes the same string, so no plaintext is needed to detect changes.
 - Pause mirroring on the admin page to make every bridge request fail closed
   with HTTP 423.
+
+## 7. Configuration checklist
+
+Work through this in order; each step depends on the one before it.
+
+| # | Where | Action | Done when |
+|---|---|---|---|
+| 1 | bridge machine | `npm install -g @bitwarden/cli`, `jq`, `curl` present | `bw --version` and `jq --version` both print |
+| 2 | bridge machine | `bw login` (and `bw config server https://…` first if self-hosted Bitwarden) | `bw status` shows `locked`, not `unauthenticated` |
+| 3 | bridge machine | `export BW_SESSION="$(bw unlock --raw)"` | `bw list folders --session "$BW_SESSION"` returns JSON |
+| 4 | FarmOps | `/admin/vault-bitwarden`: pick personal/shared scope, set folder name | settings saved |
+| 5 | FarmOps | **Create a new access code**, copy it once | fingerprint shown on the page |
+| 6 | bridge machine | store the code at `/etc/farmops/bridge-token`, mode `600`, owned by the service user | `stat -c '%a %U' /etc/farmops/bridge-token` → `600` |
+| 7 | bridge machine | run the bridge once by hand | run appears in **Recent runs** with a status |
+| 8 | bridge machine | install the cron entry or systemd timer from section 3 | second run appears on schedule |
+
+Required environment for every run — the script exits immediately if any is missing:
+
+| Variable | Example | Notes |
+|---|---|---|
+| `FARMOPS_BASE_URL` | `https://farmops.bostead.life` | no trailing slash needed; must be HTTPS in production |
+| `VAULT_BRIDGE_TOKEN` | `fops_…` | the access code from step 5 |
+| `BW_SESSION` | output of `bw unlock --raw` | expires on reboot or vault lock |
+| `BW_FOLDER` | `FarmOps` | optional, defaults to `FarmOps`; created if absent |
+
+## 8. Rotating and revoking the access code
+
+1. Open `/admin/vault-bitwarden` and press **Create a new access code**.
+2. The previous code stops working the moment the new one is created — there is no
+   overlap window, so update the bridge machine in the same sitting.
+3. Replace the file and re-run:
+
+   ```bash
+   printf '%s' '<new code>' | sudo tee /etc/farmops/bridge-token >/dev/null
+   sudo chmod 600 /etc/farmops/bridge-token
+   ```
+
+To stop mirroring entirely, press **Pause mirroring**: every bridge request then
+fails closed with HTTP 423 and nothing moves in either direction.
+
+## 9. Troubleshooting
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| `BW_SESSION is required` | the shell variable was lost, usually after a reboot | `export BW_SESSION="$(bw unlock --raw)"` and refresh the file cron reads |
+| `bw` reports `You are not logged in` | credentials cleared or CLI reinstalled | `bw login`, then unlock again |
+| HTTP 401 from a bridge endpoint | wrong or rotated access code | create a new code and update the token file |
+| HTTP 423 from every endpoint | mirroring is paused in FarmOps | resume it on the admin page |
+| Run status `partial` | one or more Bitwarden CLI calls failed mid-run | check the log; the next run retries only what did not move |
+| Entries listed as *Needs your decision* | changed on both sides since the last run | choose a winner on the admin page; nothing moves until you do |
+| Entries listed as *Cannot read* | FarmOps cannot decrypt them with the current key | recover them at `/admin/vault-rotation` first |
+| A deleted item reappears | deletions are never propagated by design | use **Forget pairing** to break the link |
+| Nothing at all moves, no errors | scope excludes those entries, or the folder name does not match | recheck scope and `BW_FOLDER` against the folder in Bitwarden |
+
+Logs from a scheduled run land wherever the cron entry redirects them
+(`/var/log/farmops-bridge.log` in the example). Keep them readable only by the
+service user: they contain entry **names**, never values.
