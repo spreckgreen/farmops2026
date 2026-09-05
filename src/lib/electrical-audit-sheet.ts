@@ -47,7 +47,7 @@ export const QUICK_STAGES: readonly string[] = [
 ];
 
 /** Stages that count a row as finished for progress rollups. */
-export const DONE_STAGES: readonly string[] = ["complete", "as_built_verified"];
+export { DONE_STAGES } from "@/lib/electrical-lifecycle";
 
 export const UNASSIGNED_GROUP = "Not assigned to a panel";
 

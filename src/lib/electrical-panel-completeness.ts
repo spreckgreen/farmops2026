@@ -84,12 +84,12 @@ export function panelCompletenessFromSnapshot(
     // Every connected load carrying accepted field evidence proves the load-side
     // termination of its circuit. Testing and energization are never inferred.
     if (loadsDone.length > 0) evidence.add("load_termination");
-    if (loads.length > 0 && loadsDone.length === loads.length) {
-      evidence.add("as_built_verified" as ElectricalMilestone);
-    }
-    if (!loads.some((l) => txt(l.install_status) === "as_built_verified")) {
-      evidence.delete("as_built_verified");
-    }
+    // As-built verification requires accepted evidence on every connected load.
+    const allVerified =
+      loads.length > 0 &&
+      loads.every((l) => txt(l.install_status) === "as_built_verified");
+    if (allVerified) evidence.add("as_built_verified");
+    else evidence.delete("as_built_verified");
 
     circuits.push({
       circuit_group_id: ref,
