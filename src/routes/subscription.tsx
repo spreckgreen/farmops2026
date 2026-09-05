@@ -269,7 +269,9 @@ function SubscriptionPage() {
                     )}
                     {isPaidTier(t.key) && (
                       <Button asChild size="sm" variant="ghost">
-                        <Link to="/demo/pricing">See the numbers</Link>
+                        <Link to="/plans/$tier" params={{ tier: t.key }}>
+                          See the pages it opens
+                        </Link>
                       </Button>
                     )}
                   </div>
