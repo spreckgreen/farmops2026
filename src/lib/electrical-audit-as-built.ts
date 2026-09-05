@@ -55,9 +55,22 @@ export interface AsBuiltLoadObservation {
   circuit_group_label?: string | null;
   /**
    * Every load occupying the same approved circuit group, including this one.
-   * More than one member means the circuit is shared.
+   * More than one member means the circuit is shared. One member means NOTHING
+   * about dedication — see DEDICATED_REQUIRES_EVIDENCE_RULE.
    */
   group_load_ids: readonly string[];
+  /**
+   * True only when the dedicated/shared column is explicitly inside this
+   * batch's evidence-supported scope. A general metadata reconciliation leaves
+   * it false, so the existing classification is never overwritten.
+   */
+  sharing_classification_in_scope?: boolean;
+  /** Explicit evidence the circuit supplies only this utilization equipment. */
+  dedicated_circuit_evidence?: boolean;
+  /** General-use receptacle outlet or grouped receptacle record. */
+  general_use_receptacle?: boolean;
+  /** The audit could not rule out further loads on the same circuit. */
+  additional_loads_unresolved?: boolean;
   /**
    * Building context resolved from the authoritative relationship chain
    * (load → circuit group → panel → building). Omit it when the chain does not
@@ -98,16 +111,85 @@ export interface AsBuiltStaging {
 export const asBuiltItemKey = (loadId: string) =>
   `as-built-load-${loadId.trim().toLowerCase()}`;
 
-/** Shared as soon as more than one load occupies the same approved group. */
+export const DEDICATED_REQUIRES_EVIDENCE_RULE =
+  "A dedicated branch circuit is only ever classified from explicit evidence that the circuit supplies nothing but the identified utilization equipment. The number of load rows presently linked to a circuit group is never that evidence: general-use receptacle outlets, grouped receptacle records and circuits with unresolved additional loads stay shared or unresolved.";
+
+/** Evidence a sharing classification may be derived from. */
+export interface SharingEvidence {
+  /** Every load presently linked to the same approved circuit group. */
+  groupLoadIds: readonly string[];
+  /**
+   * Explicit field evidence that this branch circuit supplies ONLY the
+   * identified utilization equipment. Without it a single linked row can never
+   * produce a dedicated classification.
+   */
+  dedicatedCircuitEvidence?: boolean;
+  /** General-use receptacle outlet, or a grouped receptacle record. */
+  generalUseReceptacle?: boolean;
+  /** The audit could not rule out further loads on the same circuit. */
+  additionalLoadsUnresolved?: boolean;
+}
+
+export interface SharingClassification {
+  /** "S" shared, "D" dedicated, null when the evidence leaves it unresolved. */
+  value: "D" | "S" | null;
+  because: string;
+}
+
+/**
+ * Classify a branch circuit as shared, dedicated, or unresolved.
+ *
+ * Shared is derivable from membership; dedicated is NOT. See
+ * DEDICATED_REQUIRES_EVIDENCE_RULE.
+ */
+export function classifyCircuitSharing(
+  loadId: string,
+  ev: SharingEvidence,
+): SharingClassification {
+  const members = new Set(
+    [loadId, ...ev.groupLoadIds].map((v) => v.trim().toUpperCase()).filter(Boolean),
+  );
+  if (members.size > 1) {
+    return {
+      value: "S",
+      because: `${members.size} loads occupy the same approved circuit group, so the circuit is shared.`,
+    };
+  }
+  if (ev.generalUseReceptacle) {
+    return {
+      value: "S",
+      because: `${loadId} is a general-use receptacle outlet record, so the circuit is shared regardless of how many load rows are linked today.`,
+    };
+  }
+  if (ev.additionalLoadsUnresolved) {
+    return {
+      value: null,
+      because: `Classification unresolved for ${loadId}: the audit could not rule out further loads on the same branch circuit.`,
+    };
+  }
+  if (ev.dedicatedCircuitEvidence) {
+    return {
+      value: "D",
+      because: `Explicit field evidence records that this branch circuit supplies only ${loadId}, so it is dedicated.`,
+    };
+  }
+  return {
+    value: null,
+    because: `Classification unresolved for ${loadId}: only one load row is linked to the circuit group, which is never on its own evidence of a dedicated branch circuit.`,
+  };
+}
+
+/**
+ * Shared when more than one load occupies the same approved group; otherwise
+ * null (never "D" — dedicated needs explicit evidence).
+ */
 export function sharingFromGroupMembers(
   loadId: string,
   groupLoadIds: readonly string[],
-): "D" | "S" {
-  const members = new Set(
-    [loadId, ...groupLoadIds].map((v) => v.trim().toUpperCase()).filter(Boolean),
-  );
-  return members.size > 1 ? "S" : "D";
+): "S" | null {
+  return classifyCircuitSharing(loadId, { groupLoadIds }).value === "S" ? "S" : null;
 }
+
 
 /**
  * Stage one FIELD_AS_BUILT load observation.
@@ -202,18 +284,32 @@ export function stageAsBuiltLoadObservation(obs: AsBuiltLoadObservation): AsBuil
       );
     }
 
-    // 3. Sharing classification — from the approved group's membership only.
-    sharing = sharingFromGroupMembers(loadId, obs.group_load_ids);
-    fields["dedicated_shared"] = sharing;
-    fields["dedicated"] = sharing === "D";
-    consequences.push({
-      field: "dedicated_shared",
-      value: sharing,
-      because:
-        sharing === "S"
-          ? `${obs.group_load_ids.length} loads occupy ${groupRef}, so the circuit displays as shared.`
-          : `${loadId} is the only load on ${groupRef}, so the circuit stays dedicated.`,
+    // 3. Sharing classification — only when the column is explicitly inside
+    //    this batch's evidence-supported scope, and only from evidence that can
+    //    actually establish it. Dedicated is never inferred from the number of
+    //    load rows linked to the group.
+    const classified = classifyCircuitSharing(loadId, {
+      groupLoadIds: obs.group_load_ids,
+      dedicatedCircuitEvidence: obs.dedicated_circuit_evidence ?? false,
+      generalUseReceptacle: obs.general_use_receptacle ?? false,
+      additionalLoadsUnresolved: obs.additional_loads_unresolved ?? false,
     });
+    if (!obs.sharing_classification_in_scope) {
+      gaps.push(
+        `Dedicated/shared classification left unchanged for ${loadId}: the column is outside this batch's evidence-supported scope, so a metadata reconciliation never overwrites it.`,
+      );
+    } else if (classified.value === null) {
+      gaps.push(classified.because);
+    } else {
+      sharing = classified.value;
+      fields["dedicated_shared"] = sharing;
+      fields["dedicated"] = sharing === "D";
+      consequences.push({
+        field: "dedicated_shared",
+        value: sharing,
+        because: classified.because,
+      });
+    }
 
     // 4. Building context — from the authoritative relationship chain only.
     const building = (obs.building_from_relationship ?? "").trim();

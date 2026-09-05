@@ -33,6 +33,14 @@ import {
   outletCandidateCsv,
   type OutletCandidateReport,
 } from "@/lib/electrical-outlet-metadata-r3";
+import { resolveOutletClassificationR3A } from "@/lib/electrical-outlet-classification-r3a.functions";
+import type { OutletClassificationResolution } from "@/lib/electrical-outlet-classification-r3a.functions";
+import {
+  R3A_OUTLET_CLASSIFICATION_BATCH_ID,
+  R3A_OUTLET_LOADS,
+  outletClassificationCsv,
+  type R3AClassificationRow,
+} from "@/lib/electrical-outlet-classification-r3a";
 
 import {
   buildPeerRegistration,
@@ -284,6 +292,27 @@ export function AuditBatchPanel() {
     onError: (e) => setError(String(e)),
   });
 
+  // Build the preview-only two-item classification correction. Read only: it
+  // fills the import box with exact before/after values for FS-039 and FS-076.
+  const resolveOutletClassification = useServerFn(resolveOutletClassificationR3A);
+  const [classificationRows, setClassificationRows] = useState<R3AClassificationRow[] | null>(null);
+  const classificationBuildMutation = useMutation({
+    mutationFn: async () =>
+      (await resolveOutletClassification({})) as OutletClassificationResolution,
+    onSuccess: (r) => {
+      setManifestText(r.manifest_text);
+      setClassificationRows(r.rows);
+      setError(null);
+      const parts = [`${r.itemCount} classification-only item(s)`];
+      if (r.alreadyCorrect.length) parts.push(`${r.alreadyCorrect.length} already shared`);
+      if (r.loadsNotFound.length) parts.push(`${r.loadsNotFound.length} load(s) not found (held)`);
+      toast.success(
+        `${r.batch_id} built — ${parts.join(", ")}. Only dedicated and dedicated_shared are in scope; import to preview, nothing is written yet.`,
+      );
+    },
+    onError: (e) => setError(String(e)),
+  });
+
   const peerPullMutation = useMutation({
     mutationFn: async () =>
       await runPeerPull({
@@ -503,6 +532,60 @@ export function AuditBatchPanel() {
               <RefreshCw className="mr-1 h-4 w-4" />
               Build {R3_OUTLET_METADATA_BATCH_ID}
             </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={classificationBuildMutation.isPending}
+              onClick={() => classificationBuildMutation.mutate()}
+              title={`Corrects the dedicated/shared classification of ${R3A_OUTLET_LOADS.join(" and ")} to shared. Amperage, connected VA, circuit-group relationships, locations, lifecycle state, voltage, descriptions and stable IDs are out of scope and unchanged.`}
+            >
+              <RefreshCw className="mr-1 h-4 w-4" />
+              Build {R3A_OUTLET_CLASSIFICATION_BATCH_ID}
+            </Button>
+            {classificationRows?.length ? (
+              <div className="w-full rounded-md border p-3 text-xs">
+                <p className="font-medium">
+                  Classification correction preview ({classificationRows.length})
+                </p>
+                <p className="mt-1 text-muted-foreground">
+                  An individual branch circuit is only recorded as dedicated with evidence that it
+                  supplies nothing but the identified equipment — a single recorded load on the
+                  circuit is never that evidence. Nothing is written until
+                  each item is approved.
+                </p>
+                <ul className="mt-2 space-y-1">
+                  {classificationRows.map((r) => (
+                    <li key={r.load_id} className="font-mono">
+                      {r.load_id} — dedicated{" "}
+                      {r.before.dedicated === null ? "not recorded" : String(r.before.dedicated)} →{" "}
+                      {String(r.after.dedicated)}, class{" "}
+                      {r.before.dedicated_shared ?? "not recorded"} → {r.after.dedicated_shared}
+                      {r.already_correct ? " (already correct)" : ""}
+                      {r.found ? "" : " (no record — held)"}
+                    </li>
+                  ))}
+                </ul>
+                <Button
+                  className="mt-2"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    const blob = new Blob([outletClassificationCsv(classificationRows)], {
+                      type: "text/csv",
+                    });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `${R3A_OUTLET_CLASSIFICATION_BATCH_ID}-preview.csv`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  }}
+                >
+                  <Download className="mr-1 h-4 w-4" />
+                  Classification preview CSV
+                </Button>
+              </div>
+            ) : null}
             {outletCandidates?.length ? (
               <div className="w-full rounded-md border p-3 text-xs">
                 <p className="font-medium">
