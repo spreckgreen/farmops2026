@@ -16,6 +16,7 @@ import {
   runPeerSyncNow,
   savePeerSyncConfig,
 } from "@/lib/electrical-peer-sync.functions";
+import type { PeerSyncRunResult } from "@/lib/electrical-peer-sync.server";
 
 
 type Outcome = "success" | "partial" | "failed" | "skipped";
@@ -57,6 +58,9 @@ export function PeerSyncPanel() {
   const [peerUrl, setPeerUrl] = useState("");
   const [enabled, setEnabled] = useState(false);
   const [limit, setLimit] = useState("5");
+  // Result of the most recent "Dry run": what a real pull would do. Held in
+  // local state only — nothing was written to produce it.
+  const [dryResult, setDryResult] = useState<PeerSyncRunResult | null>(null);
 
   useEffect(() => {
     const config = state.data?.config;
@@ -191,10 +195,23 @@ export function PeerSyncPanel() {
             size="sm"
             variant="outline"
             disabled={pullNowMutation.isPending || Boolean(job?.running)}
-            onClick={() => pullNowMutation.mutate()}
+            onClick={() => pullNowMutation.mutate({ dry_run: true })}
+            title="Reads your self-hosted instance and reports what a pull would bring over. Changes nothing."
+          >
+            {pullNowMutation.isPending && pullNowMutation.variables?.dry_run
+              ? "Checking…"
+              : "Dry run"}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={pullNowMutation.isPending || Boolean(job?.running)}
+            onClick={() => pullNowMutation.mutate({})}
             title="Runs the preview-only pull right now. Nothing is applied."
           >
-            {pullNowMutation.isPending ? "Pulling…" : "Pull now"}
+            {pullNowMutation.isPending && !pullNowMutation.variables?.dry_run
+              ? "Pulling…"
+              : "Pull now"}
           </Button>
 
           {job?.paused ? (
