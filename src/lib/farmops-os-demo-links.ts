@@ -23,8 +23,8 @@ export const FARMOPS_OS_SLIDE_LINKS: Record<number, SlideLinkSet> = {
   1: {
     heading: "Jump in",
     links: [
+      { to: "/demo", label: "All module decks" },
       { to: "/demo/pricing", label: "Pricing calculator" },
-      { to: "/demo/electrical", label: "Electrical module deck" },
       { to: "/procedures", label: "Free Procedures module", gated: true },
     ],
   },
