@@ -143,7 +143,9 @@ export function PeerSyncPanel() {
           previews on their own, without you pasting anything. Nothing is ever written here by the
           automatic pull: each staged item still needs your approval, and the change check still runs
           against this instance&apos;s own records. It never sends anything back, and it never
-          touches the canonical workbook.
+          touches the canonical workbook. If a run fails a few times in a row it rests, then starts
+          itself again after a short wait (30 minutes, then 2, 6 and 12 hours), so a brief outage
+          clears up without you pressing Resume.
         </p>
 
         <Input
