@@ -129,7 +129,15 @@ export interface ElectricalSnapshot {
   equipment_racks: SnapshotRecord[];
   power_assets: SnapshotRecord[];
   devices: SnapshotRecord[];
-
+  /**
+   * Switching and control topology (schema 1.3). Switch banks and switching
+   * devices are never loads, and a control group is never a circuit group.
+   */
+  switch_banks: SnapshotRecord[];
+  switch_devices: SnapshotRecord[];
+  control_groups: SnapshotRecord[];
+  control_targets: SnapshotRecord[];
+  control_wiring_segments: SnapshotRecord[];
 }
 
 export type RawRow = Record<string, unknown>;
@@ -141,6 +149,12 @@ export interface SnapshotInput {
   /** Phase 4.3 child collections; optional so older callers keep compiling. */
   breakerPositions?: RawRow[];
   panelExits?: RawRow[];
+  /** Schema 1.3 switch/control collections; optional for older callers. */
+  switchBanks?: RawRow[];
+  switchDevices?: RawRow[];
+  controlGroups?: RawRow[];
+  controlTargets?: RawRow[];
+  controlWiringSegments?: RawRow[];
   qa?: SnapshotQaFinding[];
 }
 
