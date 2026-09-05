@@ -82,7 +82,7 @@ The target workbook structure is:
 - `Panels` — authoritative panel inventory
 - `Conduit_Runs` — authoritative raceway inventory
 - `Junction_Boxes` — authoritative physical junction/pull-box inventory
-- `Branch_Runs` — authoritative downstream branch wiring paths
+- `Branch_Runs` — authoritative downstream branch-circuit wiring paths
 - `Naming_Standards` — authoritative naming and physical-order rules
 - `Interior_Raceways` — generated/convenience view
 - `Site_Raceways` — generated/convenience view
@@ -261,7 +261,7 @@ Required fields:
 - box type
 - box dimensions where known
 - upstream raceway IDs
-- downstream raceway/branch IDs
+- downstream raceway/branch run IDs
 - installation status
 - completion percentage
 - label status
@@ -635,7 +635,7 @@ Important field changes should retain timestamps and user identity, particularly
 - panel assignment
 - breaker position
 - raceway endpoint
-- branch endpoint
+- branch run endpoint
 - measured length
 - installation completion
 - as-built verification
@@ -681,7 +681,7 @@ Implementation should be incremental.
 ### Phase 6 — Labels
 
 - label queue
-- compact panel/raceway/J-box/branch labels
+- compact panel/raceway/J-box/branch run labels
 - existing load-label integration
 
 ### Phase 7 — Operational Cutover

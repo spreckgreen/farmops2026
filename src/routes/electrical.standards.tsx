@@ -75,12 +75,12 @@ function Standards() {
             Raceway type field, never in the ID.
           </p>
           <p>
-            Raceway, junction box and branch IDs are hierarchical:{" "}
+            Raceway, junction box and branch run IDs are hierarchical:{" "}
             <span className="font-mono">CON-104</span> →{" "}
             <span className="font-mono">JB-104-02</span> →{" "}
             <span className="font-mono">BR-104-02-03</span>, so a technician can read the
-            originating raceway and junction box straight from the ID. A branch always inherits
-            the junction box it physically originates from, and branch numbering restarts at{" "}
+            originating raceway and junction box straight from the ID. A branch run always inherits
+            the junction box it physically originates from, and branch-run numbering restarts at{" "}
             <span className="font-mono">01</span> for each box.
           </p>
 

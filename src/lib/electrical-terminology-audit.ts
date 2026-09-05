@@ -81,7 +81,10 @@ const ALLOWED_PHRASES: string[] = (() => {
  * scope. Only prose and message strings are audited.
  */
 function isCodeIdentifier(line: string, index: number, matched: string): boolean {
+  const wide = line.slice(Math.max(0, index - 12), index);
   const before = line.slice(Math.max(0, index - 2), index);
+  // JSX element or import specifier: <Plug />, { Plug, RefreshCw }
+  if (/^[A-Z]/.test(matched) && /[<{,]\s*$/.test(wide)) return true;
   const after = line.slice(index + matched.length, index + matched.length + 2);
   if (/[_.$]$/.test(before) || /^[_.$]/.test(after)) return true;
   // A bare quoted token or an object key is an identifier, not a sentence.

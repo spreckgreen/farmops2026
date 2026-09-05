@@ -109,7 +109,7 @@ export function SystemVoltageApplyGate({
             Writes only the <code>system_voltage</code> designation on the seven authorized panels
             ({AUTHORIZED_PANELS.join(", ")}). The legacy scalar <code>voltage</code> column is
             preserved for backwards compatibility, so existing consumers are unaffected. Panel IDs,
-            service identities and revisions, feeder/branch topology, breaker positions, loads,
+            service identities and revisions, feeder/branch-run topology, breaker positions, loads,
             Boolean reconciliation, House field observations, the canonical ODS and every unrelated
             numeric field are never modified. Each write re-reads the live row and re-verifies the
             stable ID, the scalar voltage, the absence of a conflicting designation and the

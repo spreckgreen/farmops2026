@@ -643,9 +643,9 @@ export interface ValidationMessage {
 export interface ClassifyContext {
   /** Current row for the target, or null when no record exists. */
   target: Record<string, unknown> | null;
-  /** Existing branch IDs, used for branch-sequence availability. */
+  /** Existing branch run IDs, used for branch-run sequence availability. */
   existingBranchIds?: string[];
-  /** Existing junction-box IDs, used to prove an encoded branch origin. */
+  /** Existing junction-box IDs, used to prove an encoded branch run origin. */
   existingJboxIds?: string[];
   /** Resolved relational UUIDs by `kind|stable_id`, e.g. `panel|PNL-FS-NW`. */
   resolved?: Map<string, string>;
@@ -1015,14 +1015,14 @@ export function classifyItem(item: AuditBatchItemInput, ctx: ClassifyContext): C
     }
   }
 
-  // A branch may only be created when its ID's encoded origin is proven and its
+  // A branch run may only be created when its ID's encoded origin is proven and its
   // sequence is genuinely the next unused number under that junction box.
   if (item.entity_kind === "branch" && !ctx.target) {
     const parsed = parseHierarchicalId(stableId);
     const origin = encodedBranchOrigin(stableId);
     if (!parsed || !origin) {
       return holdResult(item, ctx, [
-        err(`${stableId} is not a canonical branch ID (BR-###-##-##).`),
+        err(`${stableId} is not a canonical branch run ID (BR-###-##-##).`),
       ]);
     }
     // A J-box created earlier in the same manifest counts as a proven origin.
@@ -1040,7 +1040,7 @@ export function classifyItem(item: AuditBatchItemInput, ctx: ClassifyContext): C
     if (declaredOrigin && declaredOrigin !== origin) {
       return holdResult(item, ctx, [
         err(
-          `${stableId} encodes origin ${origin} but the audit states ${declaredOrigin}. A branch sequence is never derived from a breaker number.`,
+          `${stableId} encodes origin ${origin} but the audit states ${declaredOrigin}. A branch-run sequence is never derived from a breaker number.`,
         ),
       ]);
     }
@@ -1059,7 +1059,7 @@ export function classifyItem(item: AuditBatchItemInput, ctx: ClassifyContext): C
     if (seq !== expected) {
       return holdResult(item, ctx, [
         err(
-          `${stableId} is not the next unused branch under ${origin} (next available is ${String(expected).padStart(2, "0")}).`,
+          `${stableId} is not the next unused branch run under ${origin} (next available is ${String(expected).padStart(2, "0")}).`,
         ),
       ]);
     }
