@@ -49,6 +49,7 @@ import { Route as AdminVaultSecretsRouteImport } from './routes/admin.vault-secr
 import { Route as ApiOpenapiDotjsonRouteImport } from './routes/api/openapi[.]json'
 import { Route as DemoIndexRouteImport } from './routes/demo.index'
 import { Route as DemoElectricalRouteImport } from './routes/demo.electrical'
+import { Route as DemoFarmops_o_sRouteImport } from './routes/demo.farmops_o_s'
 import { Route as DocsProductArchitectureRouteImport } from './routes/docs.product-architecture'
 import { Route as ElectricalIndexRouteImport } from './routes/electrical.index'
 import { Route as ElectricalKindRouteImport } from './routes/electrical.$kind'
@@ -332,6 +333,11 @@ const DemoIndexRoute = DemoIndexRouteImport.update({
 const DemoElectricalRoute = DemoElectricalRouteImport.update({
   id: '/demo/electrical',
   path: '/demo/electrical',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DemoFarmops_o_sRoute = DemoFarmops_o_sRouteImport.update({
+  id: '/demo/farmops_o_s',
+  path: '/demo/farmops_o_s',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DocsProductArchitectureRoute = DocsProductArchitectureRouteImport.update({
@@ -809,6 +815,7 @@ export interface FileRoutesByFullPath {
   '/admin/vault-secrets': typeof AdminVaultSecretsRoute
   '/api/openapi.json': typeof ApiOpenapiDotjsonRoute
   '/demo/electrical': typeof DemoElectricalRoute
+  '/demo/farmops_o_s': typeof DemoFarmops_o_sRoute
   '/docs/product-architecture': typeof DocsProductArchitectureRoute
   '/electrical/$kind': typeof ElectricalKindRoute
   '/electrical/adjudication': typeof ElectricalAdjudicationRoute
@@ -932,6 +939,7 @@ export interface FileRoutesByTo {
   '/admin/vault-secrets': typeof AdminVaultSecretsRoute
   '/api/openapi.json': typeof ApiOpenapiDotjsonRoute
   '/demo/electrical': typeof DemoElectricalRoute
+  '/demo/farmops_o_s': typeof DemoFarmops_o_sRoute
   '/docs/product-architecture': typeof DocsProductArchitectureRoute
   '/electrical/$kind': typeof ElectricalKindRoute
   '/electrical/adjudication': typeof ElectricalAdjudicationRoute
@@ -1059,6 +1067,7 @@ export interface FileRoutesById {
   '/admin/vault-secrets': typeof AdminVaultSecretsRoute
   '/api/openapi.json': typeof ApiOpenapiDotjsonRoute
   '/demo/electrical': typeof DemoElectricalRoute
+  '/demo/farmops_o_s': typeof DemoFarmops_o_sRoute
   '/docs/product-architecture': typeof DocsProductArchitectureRoute
   '/electrical/$kind': typeof ElectricalKindRoute
   '/electrical/adjudication': typeof ElectricalAdjudicationRoute
@@ -1187,6 +1196,7 @@ export interface FileRouteTypes {
     | '/admin/vault-secrets'
     | '/api/openapi.json'
     | '/demo/electrical'
+    | '/demo/farmops_o_s'
     | '/docs/product-architecture'
     | '/electrical/$kind'
     | '/electrical/adjudication'
@@ -1310,6 +1320,7 @@ export interface FileRouteTypes {
     | '/admin/vault-secrets'
     | '/api/openapi.json'
     | '/demo/electrical'
+    | '/demo/farmops_o_s'
     | '/docs/product-architecture'
     | '/electrical/$kind'
     | '/electrical/adjudication'
@@ -1436,6 +1447,7 @@ export interface FileRouteTypes {
     | '/admin/vault-secrets'
     | '/api/openapi.json'
     | '/demo/electrical'
+    | '/demo/farmops_o_s'
     | '/docs/product-architecture'
     | '/electrical/$kind'
     | '/electrical/adjudication'
@@ -1563,6 +1575,7 @@ export interface RootRouteChildren {
   AdminVaultSecretsRoute: typeof AdminVaultSecretsRoute
   ApiOpenapiDotjsonRoute: typeof ApiOpenapiDotjsonRoute
   DemoElectricalRoute: typeof DemoElectricalRoute
+  DemoFarmops_o_sRoute: typeof DemoFarmops_o_sRoute
   DocsProductArchitectureRoute: typeof DocsProductArchitectureRoute
   ElectricalKindRoute: typeof ElectricalKindRoute
   ElectricalAdjudicationRoute: typeof ElectricalAdjudicationRoute
@@ -1909,6 +1922,13 @@ declare module '@tanstack/react-router' {
       path: '/demo/electrical'
       fullPath: '/demo/electrical'
       preLoaderRoute: typeof DemoElectricalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/demo/farmops_o_s': {
+      id: '/demo/farmops_o_s'
+      path: '/demo/farmops_o_s'
+      fullPath: '/demo/farmops_o_s'
+      preLoaderRoute: typeof DemoFarmops_o_sRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/docs/product-architecture': {
@@ -2632,6 +2652,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminVaultSecretsRoute: AdminVaultSecretsRoute,
   ApiOpenapiDotjsonRoute: ApiOpenapiDotjsonRoute,
   DemoElectricalRoute: DemoElectricalRoute,
+  DemoFarmops_o_sRoute: DemoFarmops_o_sRoute,
   DocsProductArchitectureRoute: DocsProductArchitectureRoute,
   ElectricalKindRoute: ElectricalKindRoute,
   ElectricalAdjudicationRoute: ElectricalAdjudicationRoute,

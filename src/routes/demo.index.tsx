@@ -1,14 +1,15 @@
 // /demo — public landing page listing the anonymously viewable FarmOps
 // presentations. No auth loader and no record reads.
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Presentation, Zap, BookOpen } from "lucide-react";
+import { Presentation, Zap, BookOpen, Cpu } from "lucide-react";
 import { ELECTRICAL_DEMO_SLIDES } from "@/lib/electrical-demo-slides";
+import { FARMOPS_OS_DEMO_SLIDES } from "@/lib/farmops-os-demo-slides";
 import { PROMO_SLIDES } from "@/lib/promo-slides";
 import { SLIDES } from "@/lib/deck-slides";
 
 const TITLE = "FarmOps Demos — Web Presentations";
 const DESCRIPTION =
-  "Browse the FarmOps web presentations: the Electrical module feature demo, the platform overview, and the homestead operations handbook. No sign-in required.";
+  "Browse the FarmOps web presentations: the FarmOps O/S demo, the Electrical module feature demo, the platform overview, and the homestead operations handbook. No sign-in required.";
 
 export const Route = createFileRoute("/demo/")({
   head: () => ({
@@ -25,6 +26,13 @@ export const Route = createFileRoute("/demo/")({
 });
 
 const DECKS = [
+  {
+    to: "/demo/farmops_o_s" as const,
+    icon: Cpu,
+    name: "FarmOps O/S — feature demo",
+    pages: FARMOPS_OS_DEMO_SLIDES.length,
+    body: "The shared platform layer, the free-forever Procedures knowledge base, and the Electrical, Maintenance, Inventory and Food modules already built and awaiting subscription packaging. Downloadable as a PDF.",
+  },
   {
     to: "/demo/electrical" as const,
     icon: Zap,
