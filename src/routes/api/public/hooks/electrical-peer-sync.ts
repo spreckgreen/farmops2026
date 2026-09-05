@@ -160,26 +160,35 @@ export const Route = createFileRoute("/api/public/hooks/electrical-peer-sync")({
         }
 
 
+        // An automatic retry starts from a clean failure count.
+        const priorFailures = autoResumed ? 0 : (lock?.consecutive_failures ?? 0);
+
+        /** Persist the outcome, arming the next automatic retry when it pauses. */
+        const settle = async (nextFailures: number, reason: string | null) => {
+          const pausing = nextFailures >= MAX_FAILURES;
+          const nextAutoPause = pausing ? autoPauseCount + 1 : nextFailures === 0 ? 0 : autoPauseCount;
+          await (supabaseAdmin as never as any)
+            .from("job_locks")
+            .update({
+              locked_until: null,
+              last_run_at: nowIso,
+              consecutive_failures: nextFailures,
+              paused: pausing,
+              paused_reason: pausing ? reason : null,
+              auto_pause_count: nextAutoPause,
+              auto_resume_at: pausing ? autoResumeAt(now, autoPauseCount) : null,
+            })
+            .eq("name", LOCK_NAME);
+        };
+
         try {
           const result = await runPeerAuditSync(supabaseAdmin as never, {
             peerToken: process.env["ELECTRICAL_PEER_SYNC_TOKEN"] ?? "",
             trigger: "scheduled",
           });
           const allFailed = result.failed > 0 && result.staged === 0;
-          const nextFailures = allFailed ? (lock?.consecutive_failures ?? 0) + 1 : 0;
-          await supabaseAdmin
-            .from("job_locks")
-            .update({
-              locked_until: null,
-              last_run_at: nowIso,
-              consecutive_failures: nextFailures,
-              paused: nextFailures >= MAX_FAILURES,
-              paused_reason:
-                nextFailures >= MAX_FAILURES
-                  ? `paused after ${nextFailures} consecutive failed peer pulls`
-                  : null,
-            })
-            .eq("name", LOCK_NAME);
+          const nextFailures = allFailed ? priorFailures + 1 : 0;
+          await settle(nextFailures, `paused after ${nextFailures} consecutive failed peer pulls`);
           return Response.json({ ok: true, result }, { status: 200 });
         } catch (e) {
           const message = e instanceof Error ? e.message : String(e);
@@ -192,20 +201,11 @@ export const Route = createFileRoute("/api/public/hooks/electrical-peer-sync")({
               error: message,
             });
           }
-          const nextFailures = (lock?.consecutive_failures ?? 0) + 1;
-          await supabaseAdmin
-            .from("job_locks")
-            .update({
-              locked_until: null,
-              last_run_at: nowIso,
-              consecutive_failures: nextFailures,
-              paused: nextFailures >= MAX_FAILURES,
-              paused_reason:
-                nextFailures >= MAX_FAILURES
-                  ? `paused after ${nextFailures} consecutive failed peer pulls: ${message}`
-                  : null,
-            })
-            .eq("name", LOCK_NAME);
+          const nextFailures = priorFailures + 1;
+          await settle(
+            nextFailures,
+            `paused after ${nextFailures} consecutive failed peer pulls: ${message}`,
+          );
           console.error(`[electrical-peer-sync] run failed: ${message}`);
           return Response.json({ ok: false, error: message }, { status: 500 });
         }
