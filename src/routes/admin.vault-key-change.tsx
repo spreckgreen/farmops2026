@@ -63,7 +63,7 @@ function VaultKeyChangePage() {
 
   const q = useQuery({
     queryKey: ["vault-key-health"],
-    queryFn: () => health({ data: {} }),
+    queryFn: () => health(),
     refetchOnWindowFocus: false,
     retry: false,
   });
