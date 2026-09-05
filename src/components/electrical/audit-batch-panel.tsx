@@ -227,6 +227,11 @@ export function AuditBatchPanel() {
         },
       }),
     onSuccess: (result) => {
+      if (!result.preview) {
+        setPeerNote(null);
+        setError(result.error ?? "The peer instance refused the pull. Nothing was staged.");
+        return;
+      }
       adopt(result.preview as AuditBatchPreview);
       clearPeerToken();
       setPeerNote(
