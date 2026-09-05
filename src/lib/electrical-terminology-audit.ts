@@ -75,6 +75,21 @@ const ALLOWED_PHRASES: string[] = (() => {
   return [...out].sort((a, b) => b.length - a.length);
 })();
 
+/**
+ * Code identifiers are not display text: `kind === "branch"`, `branch_runs`,
+ * `ENTITIES.branch.table` are structural, and renaming them is explicitly out of
+ * scope. Only prose and message strings are audited.
+ */
+function isCodeIdentifier(line: string, index: number, matched: string): boolean {
+  const before = line.slice(Math.max(0, index - 2), index);
+  const after = line.slice(index + matched.length, index + matched.length + 2);
+  if (/[_.$]$/.test(before) || /^[_.$]/.test(after)) return true;
+  // A bare quoted token or an object key is an identifier, not a sentence.
+  if (/["'`]$/.test(before) && /^["'`]/.test(after)) return true;
+  if (/^\s*:/.test(after)) return true;
+  return false;
+}
+
 /** True when the match at `index` is the start of an accepted longer phrase. */
 function insideAllowedPhrase(line: string, index: number, matched: string): boolean {
   const rest = line.slice(index).toLowerCase().replace(/-/g, " ");
@@ -85,7 +100,7 @@ function insideAllowedPhrase(line: string, index: number, matched: string): bool
 
 /** Lines that only declare aliases are not display text. */
 function isAliasContext(line: string): boolean {
-  return /alias|aliases|synonym|search|observed label|import header|deprecated|prohibited/i.test(
+  return /alias|aliases|synonym|search|triggers|terms\s*:|keywords|observed label|import header|deprecated|prohibited/i.test(
     line,
   );
 }
@@ -108,6 +123,7 @@ export function scanText(text: string, opts: ScanOptions): TerminologyFinding[] 
       const m = p.pattern.exec(line);
       if (!m) continue;
       if (insideAllowedPhrase(line, m.index, m[0])) continue;
+      if (isCodeIdentifier(line, m.index, m[0])) continue;
       findings.push({
         surface: opts.surface,
         location: opts.location,
