@@ -275,8 +275,16 @@ OLLAMA_WAS_RUNNING=0
 ROOT_CMD=()
 if [ "$(id -u)" -eq 0 ]; then
   ROOT_CMD=()
-elif [ "$ALLOW_SUDO" -eq 1 ] && command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then
-  ROOT_CMD=(sudo -n)
+elif [ "$ALLOW_SUDO" -eq 1 ] && command -v sudo >/dev/null 2>&1; then
+  if sudo -n true 2>/dev/null; then
+    ROOT_CMD=(sudo -n)
+  elif [ -t 0 ]; then
+    # Interactive terminal: ask once for the password so the build-only swap can
+    # actually be created. Without swap this host's final native bundler pass is
+    # killed by the kernel, so prompting beats failing.
+    log "Requesting sudo once to enable a temporary build-only swap file"
+    if sudo -v; then ROOT_CMD=(sudo); fi
+  fi
 fi
 cleanup_build_swap() {
   if [ "$BUILD_SWAP_CREATED" -eq 1 ]; then
@@ -309,22 +317,34 @@ trap 'cleanup_build_resources; exit 130' INT TERM
 
 swap_total_mb=$(awk '/SwapTotal/{printf "%d", $2/1024}' /proc/meminfo 2>/dev/null || echo 0)
 swap_dir_available_mb=$(df -Pm "$(dirname "$BUILD_SWAP_FILE")" 2>/dev/null | awk 'NR==2{print $4}' || echo 0)
-if [ "${total_mb:-0}" -lt 12288 ] && [ "$swap_total_mb" -lt 4096 ] && [ "$swap_dir_available_mb" -ge 7168 ] && command -v mkswap >/dev/null 2>&1 && { [ "$(id -u)" -eq 0 ] || [ "${#ROOT_CMD[@]}" -gt 0 ]; }; then
-  log "Low-memory host has ${swap_total_mb}MB swap; preparing a 6144MB build-only safety net"
+# Size the safety net to the disk that is actually free: 6 GB when there is
+# room, otherwise as little as 2 GB. A small cushion still absorbs the native
+# bundler's peak far better than none at all. Keep 1 GB of headroom free.
+build_swap_mb=0
+for _candidate in 6144 4096 3072 2048; do
+  if [ "$swap_dir_available_mb" -ge $(( _candidate + 1024 )) ]; then
+    build_swap_mb="$_candidate"
+    break
+  fi
+done
+if [ "${total_mb:-0}" -lt 12288 ] && [ "$swap_total_mb" -lt 4096 ] && [ "$build_swap_mb" -gt 0 ] && command -v mkswap >/dev/null 2>&1 && { [ "$(id -u)" -eq 0 ] || [ "${#ROOT_CMD[@]}" -gt 0 ]; }; then
+  log "Low-memory host has ${swap_total_mb}MB swap; preparing a ${build_swap_mb}MB build-only safety net"
   if "${ROOT_CMD[@]}" rm -f "$BUILD_SWAP_FILE" 2>/dev/null \
-    && { "${ROOT_CMD[@]}" fallocate -l 6G "$BUILD_SWAP_FILE" 2>/dev/null \
-      || "${ROOT_CMD[@]}" dd if=/dev/zero of="$BUILD_SWAP_FILE" bs=1M count=6144 status=none; } \
+    && { "${ROOT_CMD[@]}" fallocate -l "${build_swap_mb}M" "$BUILD_SWAP_FILE" 2>/dev/null \
+      || "${ROOT_CMD[@]}" dd if=/dev/zero of="$BUILD_SWAP_FILE" bs=1M count="$build_swap_mb" status=none; } \
     && "${ROOT_CMD[@]}" chmod 600 "$BUILD_SWAP_FILE" \
     && "${ROOT_CMD[@]}" mkswap "$BUILD_SWAP_FILE" >/dev/null \
     && "${ROOT_CMD[@]}" swapon "$BUILD_SWAP_FILE"; then
     BUILD_SWAP_CREATED=1
-    log "Temporary build swap enabled at $BUILD_SWAP_FILE"
+    log "Temporary build swap enabled at $BUILD_SWAP_FILE (${build_swap_mb}MB)"
   else
     err "Warning: could not enable temporary build swap; continuing with constrained Rolldown workers"
     "${ROOT_CMD[@]}" rm -f "$BUILD_SWAP_FILE" 2>/dev/null || true
   fi
 elif [ "${total_mb:-0}" -lt 12288 ] && [ "$swap_total_mb" -lt 4096 ]; then
-  err "Warning: temporary swap unavailable (needs passwordless root and 7168MB free); continuing with constrained Rolldown workers"
+  err "Warning: no build swap. This ${total_mb}MB host needs a cushion for the final bundler pass."
+  err "         Free disk at $(dirname "$BUILD_SWAP_FILE"): ${swap_dir_available_mb}MB (need 3072MB+)."
+  err "         Fix it permanently, once: sudo ./scripts/ensure-build-swap.sh"
 fi
 
 if [ "${total_mb:-0}" -lt 12288 ] && [ -n "$("${DOCKER[@]}" compose ps --status running -q ollama 2>/dev/null || true)" ]; then

@@ -436,6 +436,32 @@ docker compose stop ollama && docker compose up -d app
 Longer-term: add a swapfile, set `CUSTOM_AI_MODEL=llama3.2:1b`, or point
 `CUSTOM_AI_BASE_URL` at a remote provider (see `AI-HOSTING.md`).
 
+### 2b. `refresh.sh` build killed with `signal=SIGKILL` (no swap)
+
+**Symptom:** `./scripts/refresh.sh --force` fails in the Docker `builder` stage
+with `vite build exited code=null signal=SIGKILL`, heartbeats showing
+`vite-rss` climbing past ~6.5 GB and `host-avail` falling under 100 MB, plus
+`Warning: no build swap`. Nothing is wrong with the application code — the final
+native bundler pass (Nitro/Rolldown) simply needs more memory than an 8 GB host
+has free, and its Rust allocations are not bounded by `--max-old-space-size`.
+
+Fix it once, permanently:
+
+```bash
+sudo ./scripts/ensure-build-swap.sh        # 6 GB swapfile, or: ... 3G
+./scripts/refresh.sh --force
+```
+
+`ensure-build-swap.sh` is idempotent, adds the swapfile to `/etc/fstab`, and
+sets `vm.swappiness=10` so swap is only touched under real pressure. If the disk
+is tight, pass a smaller size — even 2–3 GB usually absorbs the peak.
+
+`refresh.sh` also creates a temporary build-only swap file itself when it can:
+it sizes the file to free disk (6 GB down to 2 GB), prompts for `sudo` once on
+an interactive terminal, stops the local AI container for the build, and removes
+the temporary swap afterwards. It cannot do this non-interactively without
+passwordless sudo — that's when the permanent swapfile above is the answer.
+
 ### 3. App listening on the wrong address
 
 **Symptom:** startup banner missing `HOST: 0.0.0.0` / `PORT: 3000`. Binding to
