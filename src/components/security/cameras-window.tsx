@@ -38,6 +38,8 @@ import {
   STATUS_FRESH_MINUTES,
 } from "@/lib/cameras";
 import { rowsToCsv, downloadCsv } from "@/lib/csv";
+import { BridgeWiringCard } from "@/components/security/bridge-wiring-card";
+
 import { CompassCoverage } from "@/components/security/compass-coverage";
 import { createHouseCameraElectricalObject } from "@/lib/house-camera-electrical.functions";
 import {
