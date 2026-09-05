@@ -811,8 +811,8 @@ export const SECURITY_SLIDE_LINKS: Record<number, DeckSlideLinks> = {
   6: {
     heading: "See it in the app",
     links: [
-      { to: "/building-grids", label: "Building grids", gated: true },
-      { to: "/site-plan", label: "Site plan", gated: true },
+      { to: "/electrical/site-grids", label: "Site grids", gated: true },
+      
     ],
   },
   8: {

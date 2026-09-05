@@ -124,8 +124,8 @@ export const FARMOPS_OS_SLIDE_LINKS: Record<number, SlideLinkSet> = {
   13: {
     heading: "Locations, live",
     links: [
-      { to: "/building-grids", label: "Building grids", gated: true },
-      { to: "/site-plan", label: "Site plan from imagery", gated: true },
+      { to: "/electrical/site-grids", label: "Site grids", gated: true },
+      
     ],
   },
   14: {
