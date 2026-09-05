@@ -194,11 +194,18 @@ export function AppLayout({ children }: { children: ReactNode }) {
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
+                      <Link to="/admin/data-cleaning" className="flex items-center gap-2 cursor-pointer">
+                        <Trash2 className="h-4 w-4" />
+                        Clear &amp; restore site data
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
                       <Link to="/admin/reset" className="flex items-center gap-2 cursor-pointer">
                         <Trash2 className="h-4 w-4" />
                         Reset data
                       </Link>
                     </DropdownMenuItem>
+
                   </>
                 )}
               </DropdownMenuContent>

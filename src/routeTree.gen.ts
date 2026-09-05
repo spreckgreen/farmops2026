@@ -38,6 +38,7 @@ import { Route as AdminAiCostsRouteImport } from './routes/admin.ai-costs'
 import { Route as AdminAiEnginesRouteImport } from './routes/admin.ai-engines'
 import { Route as AdminAiRuntimeRouteImport } from './routes/admin.ai-runtime'
 import { Route as AdminAiSettingsRouteImport } from './routes/admin.ai-settings'
+import { Route as AdminDataCleaningRouteImport } from './routes/admin.data-cleaning'
 import { Route as AdminElectricalAuditRouteImport } from './routes/admin.electrical-audit'
 import { Route as AdminExportRouteImport } from './routes/admin.export'
 import { Route as AdminExportKeyRouteImport } from './routes/admin.export-key'
@@ -289,6 +290,11 @@ const AdminAiRuntimeRoute = AdminAiRuntimeRouteImport.update({
 const AdminAiSettingsRoute = AdminAiSettingsRouteImport.update({
   id: '/admin/ai-settings',
   path: '/admin/ai-settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminDataCleaningRoute = AdminDataCleaningRouteImport.update({
+  id: '/admin/data-cleaning',
+  path: '/admin/data-cleaning',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminElectricalAuditRoute = AdminElectricalAuditRouteImport.update({
@@ -871,6 +877,7 @@ export interface FileRoutesByFullPath {
   '/admin/ai-engines': typeof AdminAiEnginesRoute
   '/admin/ai-runtime': typeof AdminAiRuntimeRoute
   '/admin/ai-settings': typeof AdminAiSettingsRoute
+  '/admin/data-cleaning': typeof AdminDataCleaningRoute
   '/admin/electrical-audit': typeof AdminElectricalAuditRoute
   '/admin/export': typeof AdminExportRoute
   '/admin/export-key': typeof AdminExportKeyRoute
@@ -1004,6 +1011,7 @@ export interface FileRoutesByTo {
   '/admin/ai-engines': typeof AdminAiEnginesRoute
   '/admin/ai-runtime': typeof AdminAiRuntimeRoute
   '/admin/ai-settings': typeof AdminAiSettingsRoute
+  '/admin/data-cleaning': typeof AdminDataCleaningRoute
   '/admin/electrical-audit': typeof AdminElectricalAuditRoute
   '/admin/export': typeof AdminExportRoute
   '/admin/export-key': typeof AdminExportKeyRoute
@@ -1143,6 +1151,7 @@ export interface FileRoutesById {
   '/admin/ai-engines': typeof AdminAiEnginesRoute
   '/admin/ai-runtime': typeof AdminAiRuntimeRoute
   '/admin/ai-settings': typeof AdminAiSettingsRoute
+  '/admin/data-cleaning': typeof AdminDataCleaningRoute
   '/admin/electrical-audit': typeof AdminElectricalAuditRoute
   '/admin/export': typeof AdminExportRoute
   '/admin/export-key': typeof AdminExportKeyRoute
@@ -1283,6 +1292,7 @@ export interface FileRouteTypes {
     | '/admin/ai-engines'
     | '/admin/ai-runtime'
     | '/admin/ai-settings'
+    | '/admin/data-cleaning'
     | '/admin/electrical-audit'
     | '/admin/export'
     | '/admin/export-key'
@@ -1416,6 +1426,7 @@ export interface FileRouteTypes {
     | '/admin/ai-engines'
     | '/admin/ai-runtime'
     | '/admin/ai-settings'
+    | '/admin/data-cleaning'
     | '/admin/electrical-audit'
     | '/admin/export'
     | '/admin/export-key'
@@ -1554,6 +1565,7 @@ export interface FileRouteTypes {
     | '/admin/ai-engines'
     | '/admin/ai-runtime'
     | '/admin/ai-settings'
+    | '/admin/data-cleaning'
     | '/admin/electrical-audit'
     | '/admin/export'
     | '/admin/export-key'
@@ -1693,6 +1705,7 @@ export interface RootRouteChildren {
   AdminAiEnginesRoute: typeof AdminAiEnginesRoute
   AdminAiRuntimeRoute: typeof AdminAiRuntimeRoute
   AdminAiSettingsRoute: typeof AdminAiSettingsRoute
+  AdminDataCleaningRoute: typeof AdminDataCleaningRoute
   AdminElectricalAuditRoute: typeof AdminElectricalAuditRoute
   AdminExportRoute: typeof AdminExportRoute
   AdminExportKeyRoute: typeof AdminExportKeyRoute
@@ -1982,6 +1995,13 @@ declare module '@tanstack/react-router' {
       path: '/admin/ai-settings'
       fullPath: '/admin/ai-settings'
       preLoaderRoute: typeof AdminAiSettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/data-cleaning': {
+      id: '/admin/data-cleaning'
+      path: '/admin/data-cleaning'
+      fullPath: '/admin/data-cleaning'
+      preLoaderRoute: typeof AdminDataCleaningRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/electrical-audit': {
@@ -2879,6 +2899,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminAiEnginesRoute: AdminAiEnginesRoute,
   AdminAiRuntimeRoute: AdminAiRuntimeRoute,
   AdminAiSettingsRoute: AdminAiSettingsRoute,
+  AdminDataCleaningRoute: AdminDataCleaningRoute,
   AdminElectricalAuditRoute: AdminElectricalAuditRoute,
   AdminExportRoute: AdminExportRoute,
   AdminExportKeyRoute: AdminExportKeyRoute,
