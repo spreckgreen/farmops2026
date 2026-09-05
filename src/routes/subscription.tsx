@@ -37,9 +37,8 @@ export const Route = createFileRoute("/subscription")({
       { name: "robots", content: "noindex" },
     ],
   }),
-  validateSearch: (search: Record<string, unknown>) => ({
-    tier: typeof search.tier === "string" ? search.tier : undefined,
-  }),
+  validateSearch: (search: Record<string, unknown>): { tier?: string } =>
+    typeof search.tier === "string" ? { tier: search.tier } : {},
 });
 
 function moduleName(key: string) {
