@@ -95,6 +95,7 @@ import { Route as ElectricalPanelDiagramRouteImport } from './routes/electrical.
 import { Route as ElectricalQaRouteImport } from './routes/electrical.qa'
 import { Route as ElectricalReconciliationRouteImport } from './routes/electrical.reconciliation'
 import { Route as ElectricalServicesRouteImport } from './routes/electrical.services'
+import { Route as ElectricalSiteGridsRouteImport } from './routes/electrical.site-grids'
 import { Route as ElectricalSorRouteImport } from './routes/electrical.sor'
 import { Route as ElectricalStandardsRouteImport } from './routes/electrical.standards'
 import { Route as ElectricalSwitchControlsRouteImport } from './routes/electrical.switch-controls'
@@ -588,6 +589,11 @@ const ElectricalServicesRoute = ElectricalServicesRouteImport.update({
   path: '/electrical/services',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ElectricalSiteGridsRoute = ElectricalSiteGridsRouteImport.update({
+  id: '/electrical/site-grids',
+  path: '/electrical/site-grids',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ElectricalSorRoute = ElectricalSorRouteImport.update({
   id: '/electrical/sor',
   path: '/electrical/sor',
@@ -973,6 +979,7 @@ export interface FileRoutesByFullPath {
   '/electrical/qa': typeof ElectricalQaRoute
   '/electrical/reconciliation': typeof ElectricalReconciliationRoute
   '/electrical/services': typeof ElectricalServicesRoute
+  '/electrical/site-grids': typeof ElectricalSiteGridsRoute
   '/electrical/sor': typeof ElectricalSorRoute
   '/electrical/standards': typeof ElectricalStandardsRoute
   '/electrical/switch-controls': typeof ElectricalSwitchControlsRoute
@@ -1114,6 +1121,7 @@ export interface FileRoutesByTo {
   '/electrical/qa': typeof ElectricalQaRoute
   '/electrical/reconciliation': typeof ElectricalReconciliationRoute
   '/electrical/services': typeof ElectricalServicesRoute
+  '/electrical/site-grids': typeof ElectricalSiteGridsRoute
   '/electrical/sor': typeof ElectricalSorRoute
   '/electrical/standards': typeof ElectricalStandardsRoute
   '/electrical/switch-controls': typeof ElectricalSwitchControlsRoute
@@ -1261,6 +1269,7 @@ export interface FileRoutesById {
   '/electrical/qa': typeof ElectricalQaRoute
   '/electrical/reconciliation': typeof ElectricalReconciliationRoute
   '/electrical/services': typeof ElectricalServicesRoute
+  '/electrical/site-grids': typeof ElectricalSiteGridsRoute
   '/electrical/sor': typeof ElectricalSorRoute
   '/electrical/standards': typeof ElectricalStandardsRoute
   '/electrical/switch-controls': typeof ElectricalSwitchControlsRoute
@@ -1409,6 +1418,7 @@ export interface FileRouteTypes {
     | '/electrical/qa'
     | '/electrical/reconciliation'
     | '/electrical/services'
+    | '/electrical/site-grids'
     | '/electrical/sor'
     | '/electrical/standards'
     | '/electrical/switch-controls'
@@ -1550,6 +1560,7 @@ export interface FileRouteTypes {
     | '/electrical/qa'
     | '/electrical/reconciliation'
     | '/electrical/services'
+    | '/electrical/site-grids'
     | '/electrical/sor'
     | '/electrical/standards'
     | '/electrical/switch-controls'
@@ -1696,6 +1707,7 @@ export interface FileRouteTypes {
     | '/electrical/qa'
     | '/electrical/reconciliation'
     | '/electrical/services'
+    | '/electrical/site-grids'
     | '/electrical/sor'
     | '/electrical/standards'
     | '/electrical/switch-controls'
@@ -1843,6 +1855,7 @@ export interface RootRouteChildren {
   ElectricalQaRoute: typeof ElectricalQaRoute
   ElectricalReconciliationRoute: typeof ElectricalReconciliationRoute
   ElectricalServicesRoute: typeof ElectricalServicesRoute
+  ElectricalSiteGridsRoute: typeof ElectricalSiteGridsRoute
   ElectricalSorRoute: typeof ElectricalSorRoute
   ElectricalStandardsRoute: typeof ElectricalStandardsRoute
   ElectricalSwitchControlsRoute: typeof ElectricalSwitchControlsRoute
@@ -2487,6 +2500,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ElectricalServicesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/electrical/site-grids': {
+      id: '/electrical/site-grids'
+      path: '/electrical/site-grids'
+      fullPath: '/electrical/site-grids'
+      preLoaderRoute: typeof ElectricalSiteGridsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/electrical/sor': {
       id: '/electrical/sor'
       path: '/electrical/sor'
@@ -3093,6 +3113,7 @@ const rootRouteChildren: RootRouteChildren = {
   ElectricalQaRoute: ElectricalQaRoute,
   ElectricalReconciliationRoute: ElectricalReconciliationRoute,
   ElectricalServicesRoute: ElectricalServicesRoute,
+  ElectricalSiteGridsRoute: ElectricalSiteGridsRoute,
   ElectricalSorRoute: ElectricalSorRoute,
   ElectricalStandardsRoute: ElectricalStandardsRoute,
   ElectricalSwitchControlsRoute: ElectricalSwitchControlsRoute,
