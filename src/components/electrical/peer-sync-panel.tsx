@@ -46,6 +46,8 @@ export function PeerSyncPanel() {
   const readState = useServerFn(getPeerSyncState);
   const save = useServerFn(savePeerSyncConfig);
   const resume = useServerFn(resumePeerSyncJob);
+  const pullNow = useServerFn(runPeerSyncNow);
+
 
   const state = useQuery({
     queryKey: ["electrical-peer-sync-state"],
