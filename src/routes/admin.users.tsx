@@ -84,6 +84,7 @@ const ADDON_LABEL: Record<AddonKey, string> = {
   maintenance: "Maintenance module",
   inventory: "Inventory module",
   food: "Food & Growing module",
+  cameras: "Cameras module",
 };
 
 const ADDON_HINT: Record<AddonKey, string> = {
@@ -94,6 +95,7 @@ const ADDON_HINT: Record<AddonKey, string> = {
   maintenance: "(usually granted by a plan)",
   inventory: "(usually granted by a plan)",
   food: "(usually granted by a plan)",
+  cameras: "(usually granted by a plan)",
 };
 
 const ROLE_HINT: Record<AppRole, string> = {

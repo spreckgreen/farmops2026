@@ -165,6 +165,15 @@ export const ADDON_PRODUCTS: AddonProduct[] = [
     status: "in-app today",
   },
   {
+    key: "cameras",
+    name: "Cameras",
+    tier: "paid",
+    summary:
+      "Camera register with live feeds, recorded plan positions and facing, coverage wedges on the building plan, and on-demand reachability checks with history.",
+    standalone: true,
+    status: "in-app today",
+  },
+  {
     key: "inventory",
     name: "Inventory",
     tier: "paid",

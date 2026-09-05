@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as CamerasRouteImport } from './routes/cameras'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as DeckRouteImport } from './routes/deck'
 import { Route as FoodRouteImport } from './routes/food'
@@ -49,6 +50,7 @@ import { Route as AdminVaultBackupRouteImport } from './routes/admin.vault-backu
 import { Route as AdminVaultRotationRouteImport } from './routes/admin.vault-rotation'
 import { Route as AdminVaultSecretsRouteImport } from './routes/admin.vault-secrets'
 import { Route as ApiOpenapiDotjsonRouteImport } from './routes/api/openapi[.]json'
+import { Route as CamerasIndexRouteImport } from './routes/cameras.index'
 import { Route as DemoIndexRouteImport } from './routes/demo.index'
 import { Route as DemoElectricalRouteImport } from './routes/demo.electrical'
 import { Route as DemoFarmops_o_sRouteImport } from './routes/demo.farmops_o_s'
@@ -147,6 +149,11 @@ const IndexRoute = IndexRouteImport.update({
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CamerasRoute = CamerasRouteImport.update({
+  id: '/cameras',
+  path: '/cameras',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardRoute = DashboardRouteImport.update({
@@ -338,6 +345,11 @@ const ApiOpenapiDotjsonRoute = ApiOpenapiDotjsonRouteImport.update({
   id: '/api/openapi.json',
   path: '/api/openapi.json',
   getParentRoute: () => rootRouteImport,
+} as any)
+const CamerasIndexRoute = CamerasIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => CamerasRoute,
 } as any)
 const DemoIndexRoute = DemoIndexRouteImport.update({
   id: '/demo/',
@@ -803,6 +815,7 @@ const ApiElectricalV1RelationshipsPreviewRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/cameras': typeof CamerasRouteWithChildren
   '/dashboard': typeof DashboardRoute
   '/deck': typeof DeckRoute
   '/food': typeof FoodRouteWithChildren
@@ -906,6 +919,7 @@ export interface FileRoutesByFullPath {
   '/tasks/refs': typeof TasksRefsRoute
   '/tasks/scheduled': typeof TasksScheduledRoute
   '/admin/': typeof AdminIndexRoute
+  '/cameras/': typeof CamerasIndexRoute
   '/demo/': typeof DemoIndexRoute
   '/electrical/': typeof ElectricalIndexRoute
   '/food/': typeof FoodIndexRoute
@@ -1034,6 +1048,7 @@ export interface FileRoutesByTo {
   '/tasks/refs': typeof TasksRefsRoute
   '/tasks/scheduled': typeof TasksScheduledRoute
   '/admin': typeof AdminIndexRoute
+  '/cameras': typeof CamerasIndexRoute
   '/demo': typeof DemoIndexRoute
   '/electrical': typeof ElectricalIndexRoute
   '/food': typeof FoodIndexRoute
@@ -1063,6 +1078,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/cameras': typeof CamerasRouteWithChildren
   '/dashboard': typeof DashboardRoute
   '/deck': typeof DeckRoute
   '/food': typeof FoodRouteWithChildren
@@ -1166,6 +1182,7 @@ export interface FileRoutesById {
   '/tasks/refs': typeof TasksRefsRoute
   '/tasks/scheduled': typeof TasksScheduledRoute
   '/admin/': typeof AdminIndexRoute
+  '/cameras/': typeof CamerasIndexRoute
   '/demo/': typeof DemoIndexRoute
   '/electrical/': typeof ElectricalIndexRoute
   '/food/': typeof FoodIndexRoute
@@ -1196,6 +1213,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/cameras'
     | '/dashboard'
     | '/deck'
     | '/food'
@@ -1299,6 +1317,7 @@ export interface FileRouteTypes {
     | '/tasks/refs'
     | '/tasks/scheduled'
     | '/admin/'
+    | '/cameras/'
     | '/demo/'
     | '/electrical/'
     | '/food/'
@@ -1427,6 +1446,7 @@ export interface FileRouteTypes {
     | '/tasks/refs'
     | '/tasks/scheduled'
     | '/admin'
+    | '/cameras'
     | '/demo'
     | '/electrical'
     | '/food'
@@ -1455,6 +1475,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/auth'
+    | '/cameras'
     | '/dashboard'
     | '/deck'
     | '/food'
@@ -1558,6 +1579,7 @@ export interface FileRouteTypes {
     | '/tasks/refs'
     | '/tasks/scheduled'
     | '/admin/'
+    | '/cameras/'
     | '/demo/'
     | '/electrical/'
     | '/food/'
@@ -1587,6 +1609,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthRoute: typeof AuthRoute
+  CamerasRoute: typeof CamerasRouteWithChildren
   DashboardRoute: typeof DashboardRoute
   DeckRoute: typeof DeckRoute
   FoodRoute: typeof FoodRouteWithChildren
@@ -1708,6 +1731,13 @@ declare module '@tanstack/react-router' {
       path: '/auth'
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/cameras': {
+      id: '/cameras'
+      path: '/cameras'
+      fullPath: '/cameras'
+      preLoaderRoute: typeof CamerasRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dashboard': {
@@ -1975,6 +2005,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/openapi.json'
       preLoaderRoute: typeof ApiOpenapiDotjsonRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/cameras/': {
+      id: '/cameras/'
+      path: '/'
+      fullPath: '/cameras/'
+      preLoaderRoute: typeof CamerasIndexRouteImport
+      parentRoute: typeof CamerasRoute
     }
     '/demo/': {
       id: '/demo/'
@@ -2602,6 +2639,17 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface CamerasRouteChildren {
+  CamerasIndexRoute: typeof CamerasIndexRoute
+}
+
+const CamerasRouteChildren: CamerasRouteChildren = {
+  CamerasIndexRoute: CamerasIndexRoute,
+}
+
+const CamerasRouteWithChildren =
+  CamerasRoute._addFileChildren(CamerasRouteChildren)
+
 interface FoodRouteChildren {
   FoodCropsRoute: typeof FoodCropsRoute
   FoodGardenRoute: typeof FoodGardenRoute
@@ -2696,6 +2744,7 @@ const ApiPublicHealthRouteWithChildren = ApiPublicHealthRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRoute: AuthRoute,
+  CamerasRoute: CamerasRouteWithChildren,
   DashboardRoute: DashboardRoute,
   DeckRoute: DeckRoute,
   FoodRoute: FoodRouteWithChildren,
