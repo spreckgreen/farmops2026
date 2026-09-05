@@ -327,8 +327,31 @@ export function BuildingAreasManager() {
         </CardContent>
       </Card>
 
+      {building && buildingAreas.length === 0 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Start this building off</CardTitle>
+            <CardDescription>
+              Adds a service wall, two bays and an exterior area across this building&apos;s grid,
+              each with one planned circuit reference. Names are yours to change, and no ratings,
+              breaker numbers or wire sizes are invented — record those from the real wiring.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button
+              size="sm"
+              onClick={() => starterPlan.mutate()}
+              disabled={starterPlan.isPending}
+            >
+              {starterPlan.isPending ? "Adding…" : "Add starter rooms and planned circuits"}
+            </Button>
+          </CardContent>
+        </Card>
+      ) : null}
+
       {building ? (
         <>
+
           <Card>
             <CardHeader>
               <CardTitle className="text-base">
