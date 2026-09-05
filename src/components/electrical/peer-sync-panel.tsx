@@ -94,11 +94,22 @@ export function PeerSyncPanel() {
   // Same preview-only pull the schedule performs, on demand, so the operator can
   // confirm the credential and address without waiting for the next tick.
   const pullNowMutation = useMutation({
-    mutationFn: async () => await pullNow({}),
+    mutationFn: async (opts?: { dry_run?: boolean }) =>
+      await pullNow({ data: { dry_run: opts?.dry_run === true } }),
     onSuccess: (r) => {
       if (!r.ok) {
+        setDryResult(null);
         toast.error(r.error);
+      } else if (r.result.dry_run) {
+        setDryResult(r.result);
+        const would = r.result.items.filter((i) => i.outcome === "would_stage").length;
+        toast.success(
+          would > 0
+            ? `Dry run: ${would} batch(es) would come over. Nothing was changed.`
+            : "Dry run: nothing new to bring over. Nothing was changed.",
+        );
       } else if (r.result.staged > 0) {
+        setDryResult(null);
         toast.success(
           `Staged ${r.result.staged} batch(es) as previews. Nothing was applied — approve each item yourself.`,
         );
