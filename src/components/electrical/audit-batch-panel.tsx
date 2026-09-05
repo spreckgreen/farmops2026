@@ -33,6 +33,13 @@ import {
   outletCandidateCsv,
   type OutletCandidateReport,
 } from "@/lib/electrical-outlet-metadata-r3";
+import { resolveRingCameraDesign } from "@/lib/electrical-ring-camera-r4.functions";
+import type { RingCameraResolution } from "@/lib/electrical-ring-camera-r4.functions";
+import {
+  RING_CAMERA_BATCH_ID,
+  ringCameraCsv,
+  type RingCameraRow,
+} from "@/lib/electrical-ring-camera-r4";
 import { resolveOutletClassificationR3A } from "@/lib/electrical-outlet-classification-r3a.functions";
 import type { OutletClassificationResolution } from "@/lib/electrical-outlet-classification-r3a.functions";
 import {
@@ -313,6 +320,26 @@ export function AuditBatchPanel() {
     onError: (e) => setError(String(e)),
   });
 
+  // Build the preview-only approved planned design for the eight exterior Ring
+  // cameras. Read only: it fills the import box with exact before/after values.
+  const resolveRingCameras = useServerFn(resolveRingCameraDesign);
+  const [ringCameraRows, setRingCameraRows] = useState<RingCameraRow[] | null>(null);
+  const ringCameraBuildMutation = useMutation({
+    mutationFn: async () => (await resolveRingCameras({})) as RingCameraResolution,
+    onSuccess: (r) => {
+      setManifestText(r.manifest_text);
+      setRingCameraRows(r.rows);
+      setError(null);
+      const parts = [`${r.itemCount} item(s)`];
+      if (r.alreadyCorrect.length) parts.push(`${r.alreadyCorrect.length} already correct`);
+      if (r.loadsNotFound.length) parts.push(`${r.loadsNotFound.length} load(s) not found (held)`);
+      toast.success(
+        `${r.batch_id} built — ${parts.join(", ")}. Planned design only: no field verification, no breaker or circuit group, FS-010 held. Import to preview, nothing is written yet.`,
+      );
+    },
+    onError: (e) => setError(String(e)),
+  });
+
   const peerPullMutation = useMutation({
     mutationFn: async () =>
       await runPeerPull({
@@ -455,11 +482,21 @@ export function AuditBatchPanel() {
         disabled: classificationBuildMutation.isPending,
         onClick: () => classificationBuildMutation.mutate(),
       },
+      {
+        id: RING_CAMERA_BATCH_ID,
+        kind: "build" as const,
+        label: `Build ${RING_CAMERA_BATCH_ID}`,
+        title:
+          "Reconciles the eight Farm Shop exterior Ring camera locations as an approved planned design: two cameras per corner clockwise from the north-east corner, sharing the corner coordinate with distinct wall faces and coverage directions, exterior mounting at 8 ft, proposed physical panel PNL-FS-NE and a separate logical critical-camera grouping. FS-010 is held; equipment descriptions, breakers, circuit groups and stable IDs are unchanged.",
+        disabled: ringCameraBuildMutation.isPending,
+        onClick: () => ringCameraBuildMutation.mutate(),
+      },
     ],
     [
       reconcileBuildMutation,
       outletBuildMutation,
       classificationBuildMutation,
+      ringCameraBuildMutation,
       setManifestText,
     ],
   );
@@ -621,6 +658,59 @@ export function AuditBatchPanel() {
                 >
                   <Download className="mr-1 h-4 w-4" />
                   Classification preview CSV
+                </Button>
+              </div>
+            ) : null}
+            {ringCameraRows?.length ? (
+              <div className="w-full rounded-md border p-3 text-xs">
+                <p className="font-medium">
+                  Approved planned camera design preview ({ringCameraRows.length} records)
+                </p>
+                <p className="mt-1 text-muted-foreground">
+                  Planned design, not field verified. Lifecycle stays planned and a later accepted
+                  field observation supersedes the planned position while it is kept for comparison.
+                </p>
+                <ul className="mt-2 space-y-2">
+                  {ringCameraRows.map((r) => (
+                    <li key={r.load_id}>
+                      <span className="font-mono">
+                        {r.load_id}
+                        {r.wording ? ` — ${r.wording}` : ""}
+                        {r.held ? " (held — no location assigned)" : ""}
+                        {r.already_correct ? " (already correct)" : ""}
+                      </span>
+                      {r.changes.length ? (
+                        <ul className="ml-4 mt-1 space-y-0.5 text-muted-foreground">
+                          {r.changes.map((c) => (
+                            <li key={c.column} className="font-mono">
+                              {c.column}: {c.before === null ? "not recorded" : String(c.before)} →{" "}
+                              {c.after === null ? "not recorded" : String(c.after)}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : null}
+                      {r.logical_panel_warning ? (
+                        <p className="ml-4 mt-1 text-muted-foreground">{r.logical_panel_warning}</p>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+                <Button
+                  className="mt-2"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    const blob = new Blob([ringCameraCsv(ringCameraRows)], { type: "text/csv" });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `${RING_CAMERA_BATCH_ID}-preview.csv`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  }}
+                >
+                  <Download className="mr-1 h-4 w-4" />
+                  Camera design preview CSV
                 </Button>
               </div>
             ) : null}

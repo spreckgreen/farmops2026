@@ -174,6 +174,7 @@ export const OBSERVATION_CLASSES = [
   "ROUGH_IN",
   "TEMPORARY",
   "PLANNED_DESIGN",
+  "APPROVED_PLANNED_DESIGN",
   "PROPOSED_RESEARCH",
   "HOLD_UNRESOLVED",
 ] as const;
@@ -320,6 +321,33 @@ export const LEGACY_CURRENT_METADATA_FIELDS = [
   "amps_semantic_provenance",
 ] as const;
 
+/**
+ * Fields an APPROVED_PLANNED_DESIGN observation may write on a load. These are
+ * approved *design* facts — a structured planned location, its corner/face
+ * geometry, mounting classification and height, the proposed physical source
+ * panel, and the logical resilience/load-shed classification. They never claim
+ * field verification, never advance a lifecycle state and never touch the
+ * equipment description, breaker or circuit-group identity.
+ */
+export const APPROVED_PLANNED_DESIGN_FIELDS = [
+  "location",
+  "design_location_source",
+  "corner_reference",
+  "mounting_wall_face",
+  "coverage_direction",
+  "mounting_classification",
+  "mounting_height_ft",
+  "design_x_ft",
+  "design_y_ft",
+  "design_grid",
+  "suggested_panel",
+  "resilience_class",
+  "load_shed_capable",
+  "dedicated",
+  "dedicated_shared",
+  "notes",
+] as const;
+
 /** Fields only a FIELD_AS_BUILT load observation may write. */
 export const FIELD_AS_BUILT_ONLY_FIELDS = [
   ...AS_BUILT_CONSEQUENCE_FIELDS,
@@ -445,6 +473,7 @@ export const AUDIT_ENTITY_TARGETS: Record<AuditEntityKind, EntityTarget> = {
       "circuit_group_uuid",
       "circuit_group_ref",
       "source_circuit",
+      ...APPROVED_PLANNED_DESIGN_FIELDS,
       ...FIELD_AS_BUILT_ONLY_FIELDS,
       ...STATE_FIELDS,
       ...LOCATION_FIELDS,
@@ -610,7 +639,11 @@ export const AUDIT_ENTITY_TARGETS: Record<AuditEntityKind, EntityTarget> = {
  * never restates them.
  */
 export function fieldsAllowed(kind: AuditEntityKind, cls: ObservationClass): string[] {
-  const all = [...AUDIT_ENTITY_TARGETS[kind].writable];
+  const all = [...new Set(AUDIT_ENTITY_TARGETS[kind].writable)];
+  if (cls === "APPROVED_PLANNED_DESIGN") {
+    // Approved design facts only: no verification fields, no lifecycle change.
+    return all.filter((c) => (APPROVED_PLANNED_DESIGN_FIELDS as readonly string[]).includes(c));
+  }
   if (cls === "TEMPORARY") {
     return all.filter((c) => ["label", "notes", "install_status", "label_status"].includes(c));
   }

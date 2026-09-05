@@ -2204,7 +2204,9 @@ export type Database = {
           connected_load_current: number | null
           connected_va: number | null
           continuous_load: boolean | null
+          corner_reference: string | null
           count: number
+          coverage_direction: string | null
           created_at: string
           critical: boolean | null
           dedicated: boolean | null
@@ -2214,6 +2216,7 @@ export type Database = {
           description: string | null
           design_circuit_ampacity: number | null
           design_grid: string | null
+          design_location_source: string | null
           design_x_ft: number | null
           design_y_ft: number | null
           equipment_fla: number | null
@@ -2231,6 +2234,7 @@ export type Database = {
           label_status: string
           legacy_grid: string | null
           load_id: string
+          load_shed_capable: boolean | null
           load_shed_group: string | null
           location: string | null
           location_evidence: string | null
@@ -2238,6 +2242,9 @@ export type Database = {
           location_y_ft: number | null
           maximum_overcurrent_protection: number | null
           minimum_circuit_ampacity: number | null
+          mounting_classification: string | null
+          mounting_height_ft: number | null
+          mounting_wall_face: string | null
           nameplate_applied_by: string | null
           nameplate_captured_at: string | null
           nameplate_fla_rla: string | null
@@ -2258,6 +2265,7 @@ export type Database = {
           pole_scheme: string | null
           rated_current_amps: number | null
           rated_load_amps: number | null
+          resilience_class: string | null
           source_circuit: string | null
           source_reference: string | null
           suggested_panel: string | null
@@ -2283,7 +2291,9 @@ export type Database = {
           connected_load_current?: number | null
           connected_va?: number | null
           continuous_load?: boolean | null
+          corner_reference?: string | null
           count?: number
+          coverage_direction?: string | null
           created_at?: string
           critical?: boolean | null
           dedicated?: boolean | null
@@ -2293,6 +2303,7 @@ export type Database = {
           description?: string | null
           design_circuit_ampacity?: number | null
           design_grid?: string | null
+          design_location_source?: string | null
           design_x_ft?: number | null
           design_y_ft?: number | null
           equipment_fla?: number | null
@@ -2310,6 +2321,7 @@ export type Database = {
           label_status?: string
           legacy_grid?: string | null
           load_id: string
+          load_shed_capable?: boolean | null
           load_shed_group?: string | null
           location?: string | null
           location_evidence?: string | null
@@ -2317,6 +2329,9 @@ export type Database = {
           location_y_ft?: number | null
           maximum_overcurrent_protection?: number | null
           minimum_circuit_ampacity?: number | null
+          mounting_classification?: string | null
+          mounting_height_ft?: number | null
+          mounting_wall_face?: string | null
           nameplate_applied_by?: string | null
           nameplate_captured_at?: string | null
           nameplate_fla_rla?: string | null
@@ -2337,6 +2352,7 @@ export type Database = {
           pole_scheme?: string | null
           rated_current_amps?: number | null
           rated_load_amps?: number | null
+          resilience_class?: string | null
           source_circuit?: string | null
           source_reference?: string | null
           suggested_panel?: string | null
@@ -2362,7 +2378,9 @@ export type Database = {
           connected_load_current?: number | null
           connected_va?: number | null
           continuous_load?: boolean | null
+          corner_reference?: string | null
           count?: number
+          coverage_direction?: string | null
           created_at?: string
           critical?: boolean | null
           dedicated?: boolean | null
@@ -2372,6 +2390,7 @@ export type Database = {
           description?: string | null
           design_circuit_ampacity?: number | null
           design_grid?: string | null
+          design_location_source?: string | null
           design_x_ft?: number | null
           design_y_ft?: number | null
           equipment_fla?: number | null
@@ -2389,6 +2408,7 @@ export type Database = {
           label_status?: string
           legacy_grid?: string | null
           load_id?: string
+          load_shed_capable?: boolean | null
           load_shed_group?: string | null
           location?: string | null
           location_evidence?: string | null
@@ -2396,6 +2416,9 @@ export type Database = {
           location_y_ft?: number | null
           maximum_overcurrent_protection?: number | null
           minimum_circuit_ampacity?: number | null
+          mounting_classification?: string | null
+          mounting_height_ft?: number | null
+          mounting_wall_face?: string | null
           nameplate_applied_by?: string | null
           nameplate_captured_at?: string | null
           nameplate_fla_rla?: string | null
@@ -2416,6 +2439,7 @@ export type Database = {
           pole_scheme?: string | null
           rated_current_amps?: number | null
           rated_load_amps?: number | null
+          resilience_class?: string | null
           source_circuit?: string | null
           source_reference?: string | null
           suggested_panel?: string | null
