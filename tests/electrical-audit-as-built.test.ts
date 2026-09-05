@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { classifyItem, fieldsAllowed } from "@/lib/electrical-audit-batch";
+import { INSTALL_STATE_TO_FARMOPS, classifyItem, fieldsAllowed } from "@/lib/electrical-audit-batch";
+import { deriveCircuitGroupState } from "@/lib/electrical-circuit-group-state";
 import {
   DEFAULT_AS_BUILT_STAGING_MODE,
   stageAsBuiltLoadObservation,
@@ -185,5 +186,71 @@ describe("R3 metadata reconciliation", () => {
     const a = buildFsNwAuditManifestR3({ groups, knownLoadIds: auditedIds, buildingFromPanel: "Farm Shop" });
     const b = buildFsNwAuditManifestR3({ groups, knownLoadIds: auditedIds, buildingFromPanel: "Farm Shop" });
     expect(JSON.stringify(a.manifest)).toBe(JSON.stringify(b.manifest));
+  });
+});
+
+describe("direct completion and circuit-group state", () => {
+  it("advances a traced load straight to complete without intermediate stages", () => {
+    const s = stageAsBuiltLoadObservation({
+      load_id: "FS-044",
+      circuit_group_ref: "CG-FS-003",
+      group_load_ids: ["FS-044"],
+      physically_installed: true,
+      evidence: "traced",
+    });
+    expect(s.install_state).toBe("installed");
+    expect(INSTALL_STATE_TO_FARMOPS[s.install_state!]).toBe("complete");
+    expect(s.as_built_verified).toBe(false);
+  });
+
+  it("marks as-built verified when location evidence is accepted too", () => {
+    const s = stageAsBuiltLoadObservation({
+      load_id: "FS-055",
+      circuit_group_ref: "CG-FS-001",
+      group_load_ids: ["FS-055"],
+      physically_installed: true,
+      observed_grid_reference: "F9",
+      evidence: "traced",
+    });
+    expect(s.as_built_verified).toBe(true);
+    expect(INSTALL_STATE_TO_FARMOPS[s.install_state!]).toBe("as_built_verified");
+  });
+
+  it("shows a circuit group complete only with a complete breaker and complete audited loads", () => {
+    const complete = deriveCircuitGroupState({
+      breaker_assigned: true,
+      breaker_install_status: "complete",
+      loads: [{ load_id: "FS-044", install_status: "complete", field_audited: true }],
+    });
+    expect(complete.state).toBe("complete");
+
+    const partial = deriveCircuitGroupState({
+      breaker_assigned: true,
+      breaker_install_status: "complete",
+      loads: [
+        { load_id: "FS-044", install_status: "complete", field_audited: true },
+        { load_id: "FS-075", install_status: "tested", field_audited: true },
+      ],
+    });
+    expect(partial.state).toBe("partially_complete");
+  });
+
+  it("never cascades completion from a planned assignment alone", () => {
+    const r = deriveCircuitGroupState({
+      breaker_assigned: true,
+      breaker_install_status: "planned",
+      loads: [{ load_id: "FS-090", install_status: "planned", field_audited: false }],
+    });
+    expect(r.state).toBe("configured");
+    expect(r.unauditedAssigned).toBe(1);
+  });
+
+  it("R3 corrects all 20 R2 loads to complete", () => {
+    const built = buildFsNwAuditManifestR3({
+      groups,
+      knownLoadIds: auditedIds,
+      buildingFromPanel: "Farm Shop",
+    });
+    expect(built.completeLoads.length + built.verifiedLoads.length).toBe(20);
   });
 });

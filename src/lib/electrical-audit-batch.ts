@@ -210,6 +210,7 @@ export function selectable(d: AuditDisposition): boolean {
  * ------------------------------------------------------------------ */
 
 export const AUDIT_INSTALL_STATES = [
+  "as_built_verified",
   "installed",
   "rough_in",
   "temporary",
@@ -220,11 +221,18 @@ export type AuditInstallState = (typeof AUDIT_INSTALL_STATES)[number];
 
 /**
  * Map the audit vocabulary onto the existing FarmOps `install_status` column.
- * Only `installed` may reach a completed status — rough-in, temporary and
- * not-wired states must never display as a finished installation, and energized
- * status is never inferred from conductor presence.
+ * Only `installed` and `as_built_verified` may reach a completed status —
+ * rough-in, temporary and not-wired states must never display as a finished
+ * installation, and energized status is never inferred from conductor presence.
+ *
+ * A FIELD_AS_BUILT observation that explicitly traced a load as physically
+ * connected to an installed breaker/circuit group advances the load straight to
+ * `complete`: the intermediate material-ready / rough-in stages exist for work
+ * being tracked forward, and are never required retroactively for an
+ * installation that field evidence already found finished.
  */
 export const INSTALL_STATE_TO_FARMOPS: Record<AuditInstallState, string> = {
+  as_built_verified: "as_built_verified",
   installed: "complete",
   rough_in: "rough_in_started",
   temporary: "conductors_installed",
@@ -234,7 +242,7 @@ export const INSTALL_STATE_TO_FARMOPS: Record<AuditInstallState, string> = {
 
 /** Install states that are legal for a given observation class. */
 export function installStatesFor(cls: ObservationClass): AuditInstallState[] {
-  if (cls === "FIELD_AS_BUILT") return ["installed", "not_wired"];
+  if (cls === "FIELD_AS_BUILT") return ["as_built_verified", "installed", "not_wired"];
   if (cls === "ROUGH_IN") return ["rough_in", "not_wired"];
   if (cls === "TEMPORARY") return ["temporary"];
   return ["planned", "not_wired"];

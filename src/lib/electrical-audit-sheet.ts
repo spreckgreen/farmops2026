@@ -13,6 +13,10 @@ import type {
 } from "@/lib/electrical-install-progress.functions";
 import { INSTALL_STATUSES } from "@/lib/electrical-install-progress.functions";
 import { breakerDisplay } from "@/lib/electrical-breaker-reference";
+import {
+  deriveCircuitGroupState,
+  type CircuitGroupStateResult,
+} from "@/lib/electrical-circuit-group-state";
 
 export type AuditTargetKind = "panel" | "position" | "circuit" | "load";
 
@@ -195,8 +199,20 @@ function positionRow(pos: InstallPosition, panel: InstallPanel | undefined): Aud
   };
 }
 
-function circuitRow(c: InstallCircuit, panel: InstallPanel | undefined): AuditSheetRow {
-  const status = txt(c.install_status);
+function circuitRow(
+  c: InstallCircuit,
+  panel: InstallPanel | undefined,
+  derived?: CircuitGroupStateResult,
+): AuditSheetRow {
+  const recorded = txt(c.install_status);
+  // A circuit group displays complete only when its breaker assignment is
+  // complete AND every audited connected load is at least complete; otherwise it
+  // displays configured or partially complete. Assignment alone never cascades.
+  const status = derived
+    ? derived.state === "complete"
+      ? "complete"
+      : recorded
+    : recorded;
   const breaker = panel
     ? breakerDisplay({ panel_id: panel.panel_id, breaker_number: c.breaker_number }).reference
     : null;
@@ -211,6 +227,7 @@ function circuitRow(c: InstallCircuit, panel: InstallPanel | undefined): AuditSh
       breaker ?? (c.breaker_number == null ? "no breaker recorded" : `breaker ${c.breaker_number}`),
       c.circuit_rating_amps == null ? "" : `${c.circuit_rating_amps}A`,
       c.voltage == null ? "" : `${c.voltage}V`,
+      derived ? derived.label : "",
     ]
       .filter(Boolean)
       .join(" · "),
@@ -219,8 +236,8 @@ function circuitRow(c: InstallCircuit, panel: InstallPanel | undefined): AuditSh
     status,
     stageIndex: stageIndexOf(status),
     percent: c.completion_percent ?? null,
-    notes: txt(c.notes),
-    done: DONE_STAGES.includes(status),
+    notes: [txt(c.notes), derived ? derived.because : ""].filter(Boolean).join(" — "),
+    done: derived ? derived.state === "complete" : DONE_STAGES.includes(status),
     verification: null,
   };
 }
@@ -297,9 +314,32 @@ export function buildAuditSheet(
       (a.breaker_number ?? Number.MAX_SAFE_INTEGER) - (b.breaker_number ?? Number.MAX_SAFE_INTEGER) ||
       a.circuit_group_id.localeCompare(b.circuit_group_id),
   );
+  const positionByCircuit = new Map(
+    snapshot.positions
+      .filter((p) => p.circuit_group_uuid)
+      .map((p) => [p.circuit_group_uuid as string, p]),
+  );
+  const loadsByCircuit = new Map<string, typeof snapshot.loads>();
+  for (const l of snapshot.loads) {
+    if (!l.circuit_group_uuid) continue;
+    const list = loadsByCircuit.get(l.circuit_group_uuid);
+    if (list) list.push(l);
+    else loadsByCircuit.set(l.circuit_group_uuid, [l]);
+  }
   for (const c of circuits) {
     const panel = c.panel_uuid ? panelsByUuid.get(c.panel_uuid) : undefined;
-    push(panel?.panel_id ?? UNASSIGNED_GROUP, circuitRow(c, panel));
+    const pos = positionByCircuit.get(c.id);
+    const derived = deriveCircuitGroupState({
+      breaker_assigned: Boolean(pos),
+      breaker_install_status: pos?.install_status ?? null,
+      loads: (loadsByCircuit.get(c.id) ?? []).map((l) => ({
+        load_id: txt(l.load_id) || l.id,
+        install_status: l.install_status,
+        // Accepted field evidence is what an audit records; assignment alone is not.
+        field_audited: DONE_STAGES.includes(txt(l.install_status)),
+      })),
+    });
+    push(panel?.panel_id ?? UNASSIGNED_GROUP, circuitRow(c, panel, derived));
   }
 
   const loads = [...snapshot.loads].sort((a, b) => txt(a.load_id).localeCompare(txt(b.load_id)));

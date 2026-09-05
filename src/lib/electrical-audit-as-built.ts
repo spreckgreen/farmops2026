@@ -89,6 +89,8 @@ export interface AsBuiltStaging {
   gaps: string[];
   errors: string[];
   install_state: AuditInstallState | null;
+  /** True when both the audited connection and its location evidence were accepted. */
+  as_built_verified: boolean;
   sharing: "D" | "S" | null;
 }
 
@@ -139,55 +141,8 @@ export function stageAsBuiltLoadObservation(obs: AsBuiltLoadObservation): AsBuil
   let grid: string | null = null;
 
   if (mode === "FULL_AS_BUILT") {
-    // 1. Install-state consequence — only from confirmed physical installation.
-    if (obs.physically_installed) {
-      installState = "installed";
-      consequences.push({
-        field: "install_status",
-        value: INSTALL_STATE_TO_FARMOPS.installed,
-        because: `Field audit physically traced ${loadId} as installed, so its planned state advances to ${INSTALL_STATE_TO_FARMOPS.installed}.`,
-      });
-      fields["completion_percent"] = 100;
-      consequences.push({
-        field: "completion_percent",
-        value: 100,
-        because: "Installation confirmed in the field.",
-      });
-    } else {
-      gaps.push(
-        `Install state left unchanged: the observation did not confirm physical installation of ${loadId}.`,
-      );
-    }
-
-    // 2. Sharing classification — from the approved group's membership only.
-    sharing = sharingFromGroupMembers(loadId, obs.group_load_ids);
-    fields["dedicated_shared"] = sharing;
-    fields["dedicated"] = sharing === "D";
-    consequences.push({
-      field: "dedicated_shared",
-      value: sharing,
-      because:
-        sharing === "S"
-          ? `${obs.group_load_ids.length} loads occupy ${groupRef}, so the circuit displays as shared.`
-          : `${loadId} is the only load on ${groupRef}, so the circuit stays dedicated.`,
-    });
-
-    // 3. Building context — from the authoritative relationship chain only.
-    const building = (obs.building_from_relationship ?? "").trim();
-    if (building) {
-      fields["location"] = building;
-      consequences.push({
-        field: "location",
-        value: building,
-        because: `Building context derived from the authoritative relationship chain ${loadId} → ${groupRef}${obs.breaker_reference ? ` → ${obs.breaker_reference}` : ""} → panel.`,
-      });
-    } else {
-      gaps.push(
-        "Building context not staged: the authoritative load → circuit group → panel chain did not resolve a building. It is never taken from a stable-ID prefix.",
-      );
-    }
-
-    // 4. Explicit location observations only.
+    // 1. Explicit location observations first: whether location evidence was
+    //    accepted decides between complete and as-built verified.
     if (obs.observed_grid_reference && obs.observed_grid_reference.trim()) {
       const parsed = parseFieldGrid(obs.observed_grid_reference);
       if (!parsed) {
@@ -209,6 +164,66 @@ export function stageAsBuiltLoadObservation(obs: AsBuiltLoadObservation): AsBuil
     } else {
       gaps.push(
         `No perimeter post staged for ${loadId}: the audit supplied none, and post location is never inferred.`,
+      );
+    }
+    const locationEvidence = Boolean(grid || pole);
+
+    // 2. Install-state consequence — only from confirmed physical installation.
+    //    A traced connection to an installed breaker/circuit group advances the
+    //    load directly to complete; no artificial material-ready or
+    //    installation clicks are required. When the audited connection AND its
+    //    location evidence are both accepted, the load is as-built verified.
+    if (obs.physically_installed) {
+      installState = locationEvidence ? "as_built_verified" : "installed";
+      consequences.push({
+        field: "install_status",
+        value: INSTALL_STATE_TO_FARMOPS[installState],
+        because: locationEvidence
+          ? `Field audit physically traced ${loadId} as connected to ${groupRef} and accepted its location evidence, so it advances directly to ${INSTALL_STATE_TO_FARMOPS.as_built_verified} — the intermediate stages are not required retroactively.`
+          : `Field audit physically traced ${loadId} as connected to ${groupRef}, so it advances directly to ${INSTALL_STATE_TO_FARMOPS.installed} without artificial material-ready or installation steps.`,
+      });
+      fields["completion_percent"] = 100;
+      consequences.push({
+        field: "completion_percent",
+        value: 100,
+        because: "Installation confirmed in the field.",
+      });
+      if (!locationEvidence) {
+        gaps.push(
+          `${loadId} is recorded complete but not as-built verified: no location evidence (grid cell or perimeter post) was observed.`,
+        );
+      }
+    } else {
+      gaps.push(
+        `Install state left unchanged: the observation did not confirm physical installation of ${loadId}.`,
+      );
+    }
+
+    // 3. Sharing classification — from the approved group's membership only.
+    sharing = sharingFromGroupMembers(loadId, obs.group_load_ids);
+    fields["dedicated_shared"] = sharing;
+    fields["dedicated"] = sharing === "D";
+    consequences.push({
+      field: "dedicated_shared",
+      value: sharing,
+      because:
+        sharing === "S"
+          ? `${obs.group_load_ids.length} loads occupy ${groupRef}, so the circuit displays as shared.`
+          : `${loadId} is the only load on ${groupRef}, so the circuit stays dedicated.`,
+    });
+
+    // 4. Building context — from the authoritative relationship chain only.
+    const building = (obs.building_from_relationship ?? "").trim();
+    if (building) {
+      fields["location"] = building;
+      consequences.push({
+        field: "location",
+        value: building,
+        because: `Building context derived from the authoritative relationship chain ${loadId} → ${groupRef}${obs.breaker_reference ? ` → ${obs.breaker_reference}` : ""} → panel.`,
+      });
+    } else {
+      gaps.push(
+        "Building context not staged: the authoritative load → circuit group → panel chain did not resolve a building. It is never taken from a stable-ID prefix.",
       );
     }
   } else {
@@ -269,6 +284,7 @@ export function stageAsBuiltLoadObservation(obs: AsBuiltLoadObservation): AsBuil
     gaps,
     errors,
     install_state: installState,
+    as_built_verified: installState === "as_built_verified",
     sharing,
   };
 }
