@@ -31,6 +31,15 @@ function outcomeVariant(outcome: Outcome): "secondary" | "destructive" | "outlin
   return "outline";
 }
 
+// The saved value is bounded server-side (1-10). Clamp here so an out-of-range
+// entry is corrected in place instead of surfacing a validation crash.
+function clampLimit(raw: string): number {
+  const n = Number.parseInt(raw, 10);
+  if (!Number.isFinite(n) || n < 1) return 1;
+  return Math.min(n, 10);
+}
+
+
 export function PeerSyncPanel() {
   const readState = useServerFn(getPeerSyncState);
   const save = useServerFn(savePeerSyncConfig);
@@ -59,7 +68,7 @@ export function PeerSyncPanel() {
         data: {
           peer_base_url: peerUrl.trim(),
           enabled,
-          max_batches_per_run: Number(limit) || 5,
+          max_batches_per_run: clampLimit(limit),
         },
       }),
     onSuccess: (r) => {
@@ -121,14 +130,16 @@ export function PeerSyncPanel() {
             Pull automatically
           </label>
           <label className="flex items-center gap-2 text-xs">
-            Batches per run
+            Batches per run (1–10)
             <Input
               value={limit}
               onChange={(e) => setLimit(e.target.value.replace(/[^0-9]/g, "").slice(0, 2))}
+              onBlur={() => setLimit(String(clampLimit(limit)))}
               className="h-8 w-16"
               inputMode="numeric"
             />
           </label>
+
           <Button
             size="sm"
             disabled={!peerUrl.trim() || saveMutation.isPending}
