@@ -30,7 +30,7 @@ export const FARMOPS_OS_DEMO_SLIDES: PromoSlide[] = [
     title: "The operations layer under every module",
     subtitle:
       "FarmOps O/S is the shared platform: identity and roles, entitlements, configuration, data quality gates, audit history, vault, backups, API and AI routing. Modules plug into it — starting with a Procedures knowledge base that is free forever.",
-    footer: "Feature demo · 15 pages · design data, no live farm records",
+    footer: "Feature demo · design data, no live farm records · a deck for every module",
   },
   {
     kind: "statement",
