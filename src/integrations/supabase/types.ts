@@ -4698,6 +4698,8 @@ export type Database = {
       }
       job_locks: {
         Row: {
+          auto_pause_count: number
+          auto_resume_at: string | null
           consecutive_failures: number
           created_at: string
           last_run_at: string | null
@@ -4708,6 +4710,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          auto_pause_count?: number
+          auto_resume_at?: string | null
           consecutive_failures?: number
           created_at?: string
           last_run_at?: string | null
@@ -4718,6 +4722,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          auto_pause_count?: number
+          auto_resume_at?: string | null
           consecutive_failures?: number
           created_at?: string
           last_run_at?: string | null

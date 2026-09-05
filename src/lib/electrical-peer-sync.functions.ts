@@ -27,6 +27,8 @@ export interface PeerSyncState {
     last_run_at: string | null;
     consecutive_failures: number;
     running: boolean;
+    auto_resume_at: string | null;
+    auto_pause_count: number;
   } | null;
   token_configured: boolean;
   cron_secret_configured: boolean;
@@ -65,7 +67,9 @@ export const getPeerSyncState = createServerFn({ method: "GET" })
       .maybeSingle();
     const { data: job } = await (context.supabase as never as any)
       .from("job_locks")
-      .select("paused, paused_reason, last_run_at, consecutive_failures, locked_until")
+      .select(
+        "paused, paused_reason, last_run_at, consecutive_failures, locked_until, auto_resume_at, auto_pause_count",
+      )
       .eq("name", LOCK_NAME)
       .maybeSingle();
     const { data: runs } = await (context.supabase as never as any)
@@ -85,6 +89,8 @@ export const getPeerSyncState = createServerFn({ method: "GET" })
             last_run_at: job.last_run_at ?? null,
             consecutive_failures: job.consecutive_failures ?? 0,
             running: Boolean(job.locked_until && job.locked_until > new Date().toISOString()),
+            auto_resume_at: job.auto_resume_at ?? null,
+            auto_pause_count: job.auto_pause_count ?? 0,
           }
         : null,
       token_configured: Boolean(process.env["ELECTRICAL_PEER_SYNC_TOKEN"]),
@@ -145,7 +151,14 @@ export const resumePeerSyncJob = createServerFn({ method: "POST" })
     await requireAdminRole(context.supabase, context.userId);
     const { error } = await (context.supabase as never as any)
       .from("job_locks")
-      .update({ paused: false, paused_reason: null, consecutive_failures: 0, locked_until: null })
+      .update({
+        paused: false,
+        paused_reason: null,
+        consecutive_failures: 0,
+        locked_until: null,
+        auto_resume_at: null,
+        auto_pause_count: 0,
+      })
       .eq("name", LOCK_NAME);
     if (error) throw new Error(error.message);
     return { resumed: true };

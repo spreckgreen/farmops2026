@@ -143,7 +143,9 @@ export function PeerSyncPanel() {
           previews on their own, without you pasting anything. Nothing is ever written here by the
           automatic pull: each staged item still needs your approval, and the change check still runs
           against this instance&apos;s own records. It never sends anything back, and it never
-          touches the canonical workbook.
+          touches the canonical workbook. If a run fails a few times in a row it rests, then starts
+          itself again after a short wait (30 minutes, then 2, 6 and 12 hours), so a brief outage
+          clears up without you pressing Resume.
         </p>
 
         <Input
@@ -219,9 +221,19 @@ export function PeerSyncPanel() {
               <p className="text-destructive">Last problem: {config.last_error}</p>
             ) : null}
             {job?.paused ? (
-              <p className="text-destructive">
-                Paused after repeated failures{job.paused_reason ? `: ${job.paused_reason}` : "."}
-              </p>
+              <>
+                <p className="text-destructive">
+                  Paused after repeated failures{job.paused_reason ? `: ${job.paused_reason}` : "."}
+                </p>
+                <p>
+                  {job.auto_resume_at
+                    ? `It will try again on its own at ${new Date(job.auto_resume_at).toLocaleString()} — you do not need to press Resume.`
+                    : "Automatic retries are used up, so this one needs Resume."}
+                </p>
+              </>
+            ) : null}
+            {!job?.paused && (job?.auto_pause_count ?? 0) > 0 ? (
+              <p>Automatic restarts used so far: {job?.auto_pause_count}</p>
             ) : null}
             {job?.running ? <p>A pull is running right now.</p> : null}
           </div>
