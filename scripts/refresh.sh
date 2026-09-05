@@ -233,17 +233,18 @@ fi
 # Size the builder's Node heap from real host memory. V8 old-space is only part
 # of peak usage: Rolldown's Rust graph, generated chunks, and Docker overhead
 # live outside that cap. Docker builds use the Rollup server packager below,
-# which keeps native use bounded but needs about 3 GB of JavaScript heap for
-# this application. Preserve at least 3 GB for Docker/the OS on smaller hosts.
+# which keeps native use bounded but needs about 4 GB of JavaScript heap for
+# this application. Preserve at least 2 GB for Docker/the OS on smaller hosts;
+# refresh temporarily stops the local AI model below to create that headroom.
 total_mb=$(awk '/MemTotal/{printf "%d", $2/1024}' /proc/meminfo 2>/dev/null || echo 0)
 avail_mb=$(awk '/MemAvailable/{printf "%d", $2/1024}' /proc/meminfo 2>/dev/null || echo 0)
 if [ -z "${NODE_HEAP_MB:-}" ]; then
-  by_total=$(( total_mb * 40 / 100 ))
-  by_available=$(( avail_mb - 3072 ))
+  by_total=$(( total_mb * 50 / 100 ))
+  by_available=$(( avail_mb - 2048 ))
   heap="$by_total"
   [ "$by_available" -lt "$heap" ] && heap="$by_available"
   [ "$heap" -lt 1536 ] && heap=1536
-  [ "$heap" -gt 3072 ] && heap=3072
+  [ "$heap" -gt 4096 ] && heap=4096
   NODE_HEAP_MB="$heap"
   log "Host memory total=${total_mb}MB available=${avail_mb}MB -> NODE_HEAP_MB=${NODE_HEAP_MB} (native reserve preserved)"
 fi
