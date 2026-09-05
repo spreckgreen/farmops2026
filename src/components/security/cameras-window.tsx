@@ -1,5 +1,5 @@
 // The Cameras window inside the Security tab: live feeds, coverage and status.
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -17,6 +17,7 @@ import {
 import {
   checkCameraStatus,
   deleteCamera,
+  checkAllCameraStatuses,
   listCameraChecks,
   listCameras,
   saveCamera,
@@ -31,6 +32,10 @@ import {
   nextCameraId,
   sortCameras,
   type CameraRow,
+  cameraLiveState,
+  needsRecheck,
+  statusToken,
+  STATUS_FRESH_MINUTES,
 } from "@/lib/cameras";
 import { rowsToCsv, downloadCsv } from "@/lib/csv";
 import { CompassCoverage } from "@/components/security/compass-coverage";
@@ -62,6 +67,7 @@ export function CamerasWindow() {
   const remove = useServerFn(deleteCamera);
   const check = useServerFn(checkCameraStatus);
   const checks = useServerFn(listCameraChecks);
+  const checkAll = useServerFn(checkAllCameraStatuses);
   const createElectrical = useServerFn(createHouseCameraElectricalObject);
 
   const [draft, setDraft] = useState<CameraDraft | null>(null);
@@ -69,7 +75,14 @@ export function CamerasWindow() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [historyFor, setHistoryFor] = useState<string | null>(null);
 
-  const camerasQuery = useQuery({ queryKey: ["cameras"], queryFn: () => load() });
+  const camerasQuery = useQuery({
+    queryKey: ["cameras"],
+    queryFn: () => load(),
+    // The recorded state is re-read regularly so the pills, feeds and coverage
+    // wedges age visibly instead of sitting on a stale answer.
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: true,
+  });
   const rows = useMemo(() => sortCameras(camerasQuery.data?.cameras ?? []), [camerasQuery.data]);
   const summary = useMemo(() => cameraCoverageSummary(rows), [rows]);
   /** Cameras with no measured position: shown on the compass view instead. */
@@ -165,6 +178,37 @@ export function CamerasWindow() {
   });
 
   const plottedRows = rows.filter((row) => row.x_feet !== null && row.y_feet !== null);
+  const staleCount = needsRecheck(rows);
+  const checkableCount = rows.filter((row) => cameraLiveState(row).checkable).length;
+
+  const checkAllMutation = useMutation({
+    mutationFn: () => checkAll({}),
+    onSuccess: (result) => {
+      void queryClient.invalidateQueries({ queryKey: ["cameras"] });
+      void queryClient.invalidateQueries({ queryKey: ["camera-checks"] });
+      if (result.checked === 0) {
+        toast.info("No camera has a feed or snapshot address to check yet.");
+        return;
+      }
+      toast.success(
+        `${result.online} answering, ${result.offline} not answering` +
+          (result.skipped > 0 ? ` · ${result.skipped} with no address to check` : ""),
+      );
+    },
+    onError: (error: unknown) =>
+      toast.error(error instanceof Error ? error.message : "The cameras could not be checked."),
+  });
+
+  // One sweep after the list first arrives when anything is stale, so the tab
+  // opens on a current state rather than whatever was last recorded.
+  const sweptRef = useRef(false);
+  useEffect(() => {
+    if (sweptRef.current) return;
+    if (camerasQuery.isLoading || rows.length === 0) return;
+    if (staleCount === 0) return;
+    sweptRef.current = true;
+    checkAllMutation.mutate();
+  }, [camerasQuery.isLoading, rows.length, staleCount, checkAllMutation]);
 
   const openNew = () => {
     setDraft(draftFromRow(null, nextCameraId(rows)));
@@ -234,6 +278,18 @@ export function CamerasWindow() {
             </p>
           </div>
           <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => checkAllMutation.mutate()}
+              disabled={checkAllMutation.isPending || checkableCount === 0}
+            >
+              {checkAllMutation.isPending ? (
+                <Loader2 className="mr-1.5 h-4 w-4 animate-spin" aria-hidden />
+              ) : (
+                <RefreshCw className="mr-1.5 h-4 w-4" aria-hidden />
+              )}
+              Check all now
+            </Button>
             <Button variant="outline" onClick={exportCsv} disabled={rows.length === 0}>
               Export list
             </Button>
@@ -258,6 +314,16 @@ export function CamerasWindow() {
             </Card>
           ))}
         </div>
+
+        {rows.length > 0 ? (
+          <p className="text-xs text-muted-foreground">
+            {checkableCount === 0
+              ? "No camera has a feed or snapshot address yet, so none can be checked — every one stays \"not checked\"."
+              : staleCount > 0
+                ? `${staleCount} of ${checkableCount} checkable cameras were last checked more than ${STATUS_FRESH_MINUTES} minutes ago; those are drawn faded until re-checked.`
+                : `All ${checkableCount} checkable cameras were checked within the last ${STATUS_FRESH_MINUTES} minutes.`}
+          </p>
+        ) : null}
 
         {camerasQuery.isLoading ? (
           <p className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -293,7 +359,8 @@ export function CamerasWindow() {
 
             <TabsContent value="live" className="mt-4 grid gap-4 md:grid-cols-2">
               {rows.map((row) => {
-                const status = cameraStatus(row);
+                const live = cameraLiveState(row);
+                const status = live.status;
                 return (
                   <Card key={row.id}>
                     <CardHeader className="pb-3">
@@ -308,15 +375,24 @@ export function CamerasWindow() {
                           </CardDescription>
                         </div>
                         <span
-                          className={`rounded-full border px-2 py-0.5 text-xs ${CAMERA_STATUS_CLASS[status]}`}
+                          className={`flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs ${CAMERA_STATUS_CLASS[status]} ${
+                            live.freshness === "fresh" ? "" : "opacity-70"
+                          }`}
+                          title={row.last_check_detail ?? undefined}
                         >
-                          {CAMERA_STATUS_LABEL[status]}
+                          <span
+                            className="inline-block h-2 w-2 rounded-full"
+                            style={{ backgroundColor: statusToken(status) }}
+                            aria-hidden
+                          />
+                          {live.label}
                         </span>
                       </div>
                     </CardHeader>
                     <CardContent className="space-y-3">
                       <CameraFeed camera={row} />
                       <p className="text-xs text-muted-foreground">
+                        {row.last_check_detail ? `${row.last_check_detail} · ` : ""}
                         {lastSeenLabel(row)}
                         {row.electrical_load_ref ? ` · Powered by ${row.electrical_load_ref}` : ""}
                         {headingLabel(row.heading_degrees)
@@ -458,7 +534,8 @@ export function CamerasWindow() {
                 <CardContent className="p-0">
                   <div className="divide-y divide-border">
                     {rows.map((row) => {
-                      const status = cameraStatus(row);
+                      const live = cameraLiveState(row);
+                      const status = live.status;
                       return (
                         <div key={row.id} className="space-y-2 p-4">
                           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -473,9 +550,16 @@ export function CamerasWindow() {
                             </div>
                             <div className="flex items-center gap-2">
                               <span
-                                className={`rounded-full border px-2 py-0.5 text-xs ${CAMERA_STATUS_CLASS[status]}`}
+                                className={`flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs ${CAMERA_STATUS_CLASS[status]} ${
+                                  live.freshness === "fresh" ? "" : "opacity-70"
+                                }`}
                               >
-                                {CAMERA_STATUS_LABEL[status]}
+                                <span
+                                  className="inline-block h-2 w-2 rounded-full"
+                                  style={{ backgroundColor: statusToken(status) }}
+                                  aria-hidden
+                                />
+                                {live.label}
                               </span>
                               <Button
                                 size="sm"

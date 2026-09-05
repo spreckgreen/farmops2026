@@ -6,6 +6,12 @@
 // compass rose around a plain building box — a direction picture, not a map.
 import { useMemo } from "react";
 import {
+  CAMERA_STATUS_LABEL,
+  cameraLiveState,
+  statusToken,
+  type CameraRow,
+} from "@/lib/cameras";
+import {
   COMPASS_SIDES,
   COMPASS_SIDE_LABEL,
   aimByCompassSide,
@@ -36,7 +42,10 @@ export function CompassCoverage({
   selectedId,
   onSelect,
 }: {
-  cameras: readonly (GridAwareCamera & { name: string; id: string })[];
+  cameras: readonly (GridAwareCamera & { name: string; id: string } & Pick<
+    CameraRow,
+    "status" | "last_check_at" | "stream_url" | "snapshot_url"
+  >)[];
   selectedId?: string | null;
   onSelect?: (id: string) => void;
 }) {
@@ -52,13 +61,16 @@ export function CompassCoverage({
           const aim = aims.get(camera.camera_id);
           if (!aim) return null;
           const active = selectedId === camera.id;
+          const live = cameraLiveState(camera);
+          const colour = statusToken(live.status);
           return (
             <path
               key={camera.id}
               d={wedgePath(aim.headingDegrees, aim.fovDegrees)}
-              fill="var(--chart-2)"
-              opacity={active ? 0.55 : 0.22}
-              stroke="var(--chart-2)"
+              fill={colour}
+              opacity={active ? 0.55 : live.freshness === "fresh" ? 0.28 : 0.16}
+              stroke={colour}
+              strokeDasharray={live.freshness === "fresh" ? undefined : "3 2"}
               strokeWidth={active ? 1.5 : 0.6}
               className="cursor-pointer"
               onClick={() => onSelect?.(camera.id)}
@@ -94,6 +106,7 @@ export function CompassCoverage({
               <ul className="mt-1 space-y-1">
                 {members.map((camera) => {
                   const aim = aims.get(camera.camera_id);
+                  const live = cameraLiveState(camera);
                   return (
                     <li key={camera.id}>
                       <button
@@ -103,6 +116,16 @@ export function CompassCoverage({
                       >
                         <span className="font-mono text-xs">{camera.camera_id}</span> {camera.name}
                       </button>
+                      <p className="text-xs">
+                        <span
+                          className="mr-1.5 inline-block h-2 w-2 rounded-full align-middle"
+                          style={{ backgroundColor: statusToken(live.status) }}
+                          aria-hidden
+                        />
+                        <span className="text-muted-foreground">
+                          {CAMERA_STATUS_LABEL[live.status]} · {live.label}
+                        </span>
+                      </p>
                       <p className="text-xs text-muted-foreground">
                         {ringModelLabel(camera.ring_model) ?? "Ring model not recorded"}
                         {aim ? ` · aimed ${Math.round(aim.headingDegrees)}° · ${aim.fovDegrees}° wide` : " · no view width known yet"}
