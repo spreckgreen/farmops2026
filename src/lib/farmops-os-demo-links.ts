@@ -76,7 +76,7 @@ export const FARMOPS_OS_SLIDE_LINKS: Record<number, SlideLinkSet> = {
       { to: "/maintenance", label: "Maintenance", gated: true },
       { to: "/inventory", label: "Inventory", gated: true },
       { to: "/food", label: "Food & Growing", gated: true },
-      { to: "/cameras", label: "Cameras", gated: true },
+      { to: "/security", label: "Security (cameras)", gated: true },
     ],
   },
   8: {
