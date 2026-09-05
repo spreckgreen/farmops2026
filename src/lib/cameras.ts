@@ -222,6 +222,110 @@ export function nextCameraId(rows: readonly Pick<CameraRow, "camera_id">[]): str
   return `CAM-${String(max + 1).padStart(3, "0")}`;
 }
 
+/**
+ * How long a recorded status is treated as current. Beyond this the state is
+ * still shown, but marked as ageing rather than presented as live truth.
+ */
+export const STATUS_FRESH_MINUTES = 10;
+
+export type StatusFreshness = "fresh" | "ageing" | "never";
+
+export interface CameraLiveState {
+  status: CameraStatus;
+  freshness: StatusFreshness;
+  /** Minutes since the last check, null when never checked. */
+  ageMinutes: number | null;
+  /** Plain wording for the pill, e.g. "Online — checked 2 min ago". */
+  label: string;
+  /** True when there is an address to check at all. */
+  checkable: boolean;
+}
+
+/** Minutes since the last reachability check, null when never checked. */
+export function checkAgeMinutes(
+  row: Pick<CameraRow, "last_check_at">,
+  now: Date = new Date(),
+): number | null {
+  const at = row.last_check_at ? new Date(row.last_check_at) : null;
+  if (!at || Number.isNaN(at.getTime())) return null;
+  return Math.max(0, Math.round((now.getTime() - at.getTime()) / 60000));
+}
+
+function ageWords(minutes: number): string {
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes} min ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 48) return `${hours} h ago`;
+  return `${Math.round(hours / 24)} d ago`;
+}
+
+/** True when the camera has an address the server can actually request. */
+export function isCheckable(
+  row: Pick<CameraRow, "stream_url" | "snapshot_url">,
+): boolean {
+  return Boolean(String(row.snapshot_url ?? row.stream_url ?? "").trim());
+}
+
+/**
+ * The single source of on/off wording used by every camera view. It reports the
+ * recorded check result and how old it is; it never guesses a state from the
+ * presence of an address.
+ */
+export function cameraLiveState(
+  row: Pick<
+    CameraRow,
+    "status" | "last_check_at" | "stream_url" | "snapshot_url"
+  >,
+  now: Date = new Date(),
+): CameraLiveState {
+  const status = cameraStatus(row);
+  const ageMinutes = checkAgeMinutes(row, now);
+  const checkable = isCheckable(row);
+  if (ageMinutes === null) {
+    return {
+      status,
+      freshness: "never",
+      ageMinutes: null,
+      checkable,
+      label: checkable ? "Never checked" : "No address to check",
+    };
+  }
+  const freshness: StatusFreshness = ageMinutes <= STATUS_FRESH_MINUTES ? "fresh" : "ageing";
+  const base = CAMERA_STATUS_LABEL[status];
+  return {
+    status,
+    freshness,
+    ageMinutes,
+    checkable,
+    label:
+      freshness === "fresh"
+        ? `${base} — checked ${ageWords(ageMinutes)}`
+        : `${base} ${ageWords(ageMinutes)} — needs a fresh check`,
+  };
+}
+
+/** Design token for drawing a status, shared by the plan map and compass view. */
+export function statusToken(status: CameraStatus): string {
+  if (status === "online") return "var(--chart-2)";
+  if (status === "offline") return "var(--destructive)";
+  return "var(--muted-foreground)";
+}
+
+/** Cameras whose recorded status is old enough to be worth re-checking. */
+export function needsRecheck(
+  rows: readonly Pick<
+    CameraRow,
+    "status" | "last_check_at" | "stream_url" | "snapshot_url"
+  >[],
+  now: Date = new Date(),
+): number {
+  return rows.filter((row) => {
+    if (!isCheckable(row)) return false;
+    const state = cameraLiveState(row, now);
+    return state.freshness !== "fresh";
+  }).length;
+}
+
 /** Relative age of the last successful contact, for the status column. */
 export function lastSeenLabel(row: Pick<CameraRow, "last_seen_at">, now: Date = new Date()): string {
   const at = row.last_seen_at ? new Date(row.last_seen_at) : null;
