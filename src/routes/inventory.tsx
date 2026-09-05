@@ -58,6 +58,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
+import { ModuleGate } from "@/components/module-gate";
 
 
 
@@ -161,6 +162,14 @@ function PatchEditor({
 }
 
 function InventoryPage() {
+  return (
+    <ModuleGate moduleKey="inventory" title="Inventory">
+      <InventoryDashboard />
+    </ModuleGate>
+  );
+}
+
+function InventoryDashboard() {
 
   const navigate = useNavigate();
   const [session, setSession] = useState<Session | null>(null);
