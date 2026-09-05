@@ -210,7 +210,7 @@ export function stageAsBuiltLoadObservation(obs: AsBuiltLoadObservation): AsBuil
           : `${loadId} is the only load on ${groupRef}, so the circuit stays dedicated.`,
     });
 
-    // 3. Building context — from the authoritative relationship chain only.
+    // 4. Building context — from the authoritative relationship chain only.
     const building = (obs.building_from_relationship ?? "").trim();
     if (building) {
       fields["location"] = building;
@@ -222,31 +222,6 @@ export function stageAsBuiltLoadObservation(obs: AsBuiltLoadObservation): AsBuil
     } else {
       gaps.push(
         "Building context not staged: the authoritative load → circuit group → panel chain did not resolve a building. It is never taken from a stable-ID prefix.",
-      );
-    }
-
-    // 4. Explicit location observations only.
-    if (obs.observed_grid_reference && obs.observed_grid_reference.trim()) {
-      const parsed = parseFieldGrid(obs.observed_grid_reference);
-      if (!parsed) {
-        errors.push(
-          `"${obs.observed_grid_reference}" is not a valid observed grid reference for ${loadId}.`,
-        );
-      } else {
-        grid = parsed.raw;
-      }
-    } else {
-      gaps.push(
-        `No grid cell staged for ${loadId}: the audit supplied none, and grid is never inferred from the stable ID or breaker.`,
-      );
-    }
-    if (obs.observed_pole) {
-      const poleErrors = validatePole(obs.observed_pole);
-      if (poleErrors.length) errors.push(...poleErrors);
-      else pole = { ...obs.observed_pole, pole_scheme: POLE_SCHEME };
-    } else {
-      gaps.push(
-        `No perimeter post staged for ${loadId}: the audit supplied none, and post location is never inferred.`,
       );
     }
   } else {
