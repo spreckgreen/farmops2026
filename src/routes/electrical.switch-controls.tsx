@@ -66,23 +66,8 @@ function BankCard({
   onSelect: () => void;
 }) {
   const devices = model.devices.filter((d) => d.switch_bank_uuid === bank.uuid);
-  const derived = deriveBankLifecycle({
-    box: bank.box_state,
-    raceway: bank.raceway_state,
-    conductors: bank.conductors_state,
-    devices: bank.devices_state,
-    termination: bank.termination_state,
-    functionTest: bank.function_test_state,
-    installedDeviceCount: bank.installed_device_count ?? 0,
-  });
-  const progress = bankComponentProgress({
-    box: bank.box_state,
-    raceway: bank.raceway_state,
-    conductors: bank.conductors_state,
-    devices: bank.devices_state,
-    termination: bank.termination_state,
-    functionTest: bank.function_test_state,
-  });
+  const derived = deriveBankLifecycle({ ...bank, installedDeviceCount: bank.installed_device_count ?? 0 });
+  const progress = bankComponentProgress(bank);
 
   return (
     <Card className={selected ? "border-primary" : undefined}>
@@ -194,7 +179,7 @@ function SwitchControlsPage() {
   const findings = useMemo(() => (model ? validateSwitchControlModel(model) : []), [model]);
 
   return (
-    <ElectricalGate mode="read">
+    <ElectricalGate>
       <div className="space-y-4 p-4">
         <header className="space-y-1">
           <h1 className="text-2xl font-semibold">Switches &amp; controls</h1>
