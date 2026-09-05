@@ -86,9 +86,7 @@ function isCodeIdentifier(line: string, index: number, matched: string): boolean
   // JSX element or import specifier: <Plug />, { Plug, RefreshCw }
   if (/^[A-Z]/.test(matched) && /[<{,]\s*$/.test(wide)) return true;
   const after = line.slice(index + matched.length, index + matched.length + 2);
-  if (/[_$]$/.test(before) || /[_$.]\w*$/.test(before.replace(/\s/g, ""))) {
-    if (/[_$.]$/.test(before)) return true;
-  }
+  if (/[_$.]$/.test(before)) return true;
   if (/^[_$]/.test(after) || /^\.[A-Za-z_]/.test(after)) return true;
   // A bare quoted token or an object key is an identifier, not a sentence.
   if (/["'`]$/.test(before) && /^["'`]/.test(after)) return true;
