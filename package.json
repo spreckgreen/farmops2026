@@ -14,6 +14,7 @@
     "build:ci": "BUILD_QUIET=1 BUILD_STALL_SECS=600 BUILD_MAX_SECS=2700 node scripts/build-with-progress.mjs",
     "preview": "vite preview",
     "lint": "eslint .",
+    "check:terminology": "bun scripts/terminology-check.ts",
     "format": "prettier --write .",
     "test": "vitest run",
     "test:auth:unit": "vitest run tests/auth.test.tsx tests/profile-gate.test.tsx tests/app-layout.test.tsx",
