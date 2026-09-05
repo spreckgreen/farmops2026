@@ -103,7 +103,9 @@ if (aiApplied.length) {
 
 log(`starting vite build (heartbeat=${HEARTBEAT_MS / 1000}s stall=${STALL_MS / 1000}s max=${MAX_MS / 1000}s)`);
 log(`node=${process.version} platform=${process.platform} cwd=${process.cwd()}`);
-log(`NITRO_PRESET=${process.env.NITRO_PRESET ?? "(default)"} BUILD_LOW_MEM=${process.env.BUILD_LOW_MEM ?? "0"}`);
+log(
+  `NITRO_PRESET=${process.env.NITRO_PRESET ?? "(default)"} NITRO_BUILDER=${process.env.NITRO_BUILDER ?? "(auto)"} BUILD_LOW_MEM=${process.env.BUILD_LOW_MEM ?? "0"}`,
+);
 log(`heap cap=${HEAP_CAP ?? "(node default)"}MB host=${HOST ? `${HOST.totalMB}MB total, ${HOST.availMB}MB avail` : "(unknown)"}`);
 log(
   `native workers: rolldown=${process.env.ROLLDOWN_WORKER_THREADS ?? "default"} blocking=${process.env.ROLLDOWN_MAX_BLOCKING_THREADS ?? "default"} rayon=${process.env.RAYON_NUM_THREADS ?? "default"}`,
