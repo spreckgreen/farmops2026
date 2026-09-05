@@ -146,6 +146,7 @@ describe("as-built staging", () => {
       load_id: "FS-044",
       circuit_group_ref: "CG-FS-003",
       group_load_ids: ["FS-044", "FS-075"],
+      sharing_classification_in_scope: true,
       building_from_relationship: "Farm Shop",
       physically_installed: true,
       evidence: "traced",
