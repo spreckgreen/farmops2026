@@ -10,6 +10,8 @@ import {
 } from "@/lib/electrical-effective-location";
 import { buildOperationalAssets, type OperationalInput } from "@/lib/electrical-grid-operational";
 import { PROPOSED_POST_POSITIONS } from "@/lib/electrical-grid-post-geometry";
+import { approvedDesignXy } from "@/lib/electrical-grid-plan-geometry";
+import { derivedGridLabel } from "@/lib/electrical-grid-map";
 
 const POST = PROPOSED_POST_POSITIONS[13]!;
 
