@@ -302,6 +302,19 @@ export function ownerScopedDb(admin: unknown, ownerUserId: string) {
         delete: () => b.delete().eq(column, ownerUserId),
       };
     },
+    /**
+     * Read a child table that has no owner column, keyed by a foreign key value
+     * that was itself obtained from an owner-scoped parent read. Never call this
+     * with caller-supplied identifiers.
+     */
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    childOfOwnedParent(table: string, foreignKey: string, parentValue: string, columns = "*"): any {
+      if (ownerColumnFor(table) !== null) {
+        throw new Error(`${table} is owner-scoped; use from("${table}") instead.`);
+      }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return (db as any).from(table).select(columns).eq(foreignKey, parentValue);
+    },
   };
 }
 
