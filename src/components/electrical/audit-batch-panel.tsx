@@ -548,8 +548,9 @@ export function AuditBatchPanel() {
                   Classification correction preview ({classificationRows.length})
                 </p>
                 <p className="mt-1 text-muted-foreground">
-                  A dedicated circuit needs evidence that it supplies only the identified
-                  equipment — one linked load row is never that evidence. Nothing is written until
+                  An individual branch circuit is only recorded as dedicated with evidence that it
+                  supplies nothing but the identified equipment — a single recorded load on the
+                  circuit is never that evidence. Nothing is written until
                   each item is approved.
                 </p>
                 <ul className="mt-2 space-y-1">
