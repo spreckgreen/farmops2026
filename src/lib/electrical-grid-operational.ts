@@ -23,6 +23,7 @@ import {
   POST_GEOMETRY_CONFIRMED,
   postObservationFeet,
 } from "@/lib/electrical-grid-post-geometry";
+import { approvedDesignXy } from "@/lib/electrical-grid-plan-geometry";
 
 
 
