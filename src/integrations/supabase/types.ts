@@ -390,6 +390,131 @@ export type Database = {
           },
         ]
       }
+      camera_status_checks: {
+        Row: {
+          camera_uuid: string
+          checked_at: string
+          created_at: string
+          detail: string | null
+          http_status: number | null
+          id: string
+          latency_ms: number | null
+          ok: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          camera_uuid: string
+          checked_at?: string
+          created_at?: string
+          detail?: string | null
+          http_status?: number | null
+          id?: string
+          latency_ms?: number | null
+          ok?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          camera_uuid?: string
+          checked_at?: string
+          created_at?: string
+          detail?: string | null
+          http_status?: number | null
+          id?: string
+          latency_ms?: number | null
+          ok?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "camera_status_checks_camera_uuid_fkey"
+            columns: ["camera_uuid"]
+            isOneToOne: false
+            referencedRelation: "cameras"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cameras: {
+        Row: {
+          area: string | null
+          building: string | null
+          camera_id: string
+          created_at: string
+          electrical_load_ref: string | null
+          fov_degrees: number
+          heading_degrees: number | null
+          id: string
+          last_check_at: string | null
+          last_check_detail: string | null
+          last_seen_at: string | null
+          mount: string | null
+          name: string
+          notes: string | null
+          range_feet: number
+          snapshot_url: string | null
+          status: string
+          stream_kind: string
+          stream_url: string | null
+          updated_at: string
+          user_id: string
+          x_feet: number | null
+          y_feet: number | null
+        }
+        Insert: {
+          area?: string | null
+          building?: string | null
+          camera_id: string
+          created_at?: string
+          electrical_load_ref?: string | null
+          fov_degrees?: number
+          heading_degrees?: number | null
+          id?: string
+          last_check_at?: string | null
+          last_check_detail?: string | null
+          last_seen_at?: string | null
+          mount?: string | null
+          name?: string
+          notes?: string | null
+          range_feet?: number
+          snapshot_url?: string | null
+          status?: string
+          stream_kind?: string
+          stream_url?: string | null
+          updated_at?: string
+          user_id: string
+          x_feet?: number | null
+          y_feet?: number | null
+        }
+        Update: {
+          area?: string | null
+          building?: string | null
+          camera_id?: string
+          created_at?: string
+          electrical_load_ref?: string | null
+          fov_degrees?: number
+          heading_degrees?: number | null
+          id?: string
+          last_check_at?: string | null
+          last_check_detail?: string | null
+          last_seen_at?: string | null
+          mount?: string | null
+          name?: string
+          notes?: string | null
+          range_feet?: number
+          snapshot_url?: string | null
+          status?: string
+          stream_kind?: string
+          stream_url?: string | null
+          updated_at?: string
+          user_id?: string
+          x_feet?: number | null
+          y_feet?: number | null
+        }
+        Relationships: []
+      }
       consumables: {
         Row: {
           category: string | null
