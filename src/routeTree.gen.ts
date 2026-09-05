@@ -50,6 +50,7 @@ import { Route as AdminVaultBackupRouteImport } from './routes/admin.vault-backu
 import { Route as AdminVaultRotationRouteImport } from './routes/admin.vault-rotation'
 import { Route as AdminVaultSecretsRouteImport } from './routes/admin.vault-secrets'
 import { Route as ApiOpenapiDotjsonRouteImport } from './routes/api/openapi[.]json'
+import { Route as CamerasIndexRouteImport } from './routes/cameras.index'
 import { Route as DemoIndexRouteImport } from './routes/demo.index'
 import { Route as DemoElectricalRouteImport } from './routes/demo.electrical'
 import { Route as DemoFarmops_o_sRouteImport } from './routes/demo.farmops_o_s'
@@ -344,6 +345,11 @@ const ApiOpenapiDotjsonRoute = ApiOpenapiDotjsonRouteImport.update({
   id: '/api/openapi.json',
   path: '/api/openapi.json',
   getParentRoute: () => rootRouteImport,
+} as any)
+const CamerasIndexRoute = CamerasIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => CamerasRoute,
 } as any)
 const DemoIndexRoute = DemoIndexRouteImport.update({
   id: '/demo/',
@@ -809,7 +815,7 @@ const ApiElectricalV1RelationshipsPreviewRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
-  '/cameras': typeof CamerasRoute
+  '/cameras': typeof CamerasRouteWithChildren
   '/dashboard': typeof DashboardRoute
   '/deck': typeof DeckRoute
   '/food': typeof FoodRouteWithChildren
@@ -913,6 +919,7 @@ export interface FileRoutesByFullPath {
   '/tasks/refs': typeof TasksRefsRoute
   '/tasks/scheduled': typeof TasksScheduledRoute
   '/admin/': typeof AdminIndexRoute
+  '/cameras/': typeof CamerasIndexRoute
   '/demo/': typeof DemoIndexRoute
   '/electrical/': typeof ElectricalIndexRoute
   '/food/': typeof FoodIndexRoute
@@ -941,7 +948,6 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
-  '/cameras': typeof CamerasRoute
   '/dashboard': typeof DashboardRoute
   '/deck': typeof DeckRoute
   '/health': typeof HealthRouteWithChildren
@@ -1042,6 +1048,7 @@ export interface FileRoutesByTo {
   '/tasks/refs': typeof TasksRefsRoute
   '/tasks/scheduled': typeof TasksScheduledRoute
   '/admin': typeof AdminIndexRoute
+  '/cameras': typeof CamerasIndexRoute
   '/demo': typeof DemoIndexRoute
   '/electrical': typeof ElectricalIndexRoute
   '/food': typeof FoodIndexRoute
@@ -1071,7 +1078,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
-  '/cameras': typeof CamerasRoute
+  '/cameras': typeof CamerasRouteWithChildren
   '/dashboard': typeof DashboardRoute
   '/deck': typeof DeckRoute
   '/food': typeof FoodRouteWithChildren
@@ -1175,6 +1182,7 @@ export interface FileRoutesById {
   '/tasks/refs': typeof TasksRefsRoute
   '/tasks/scheduled': typeof TasksScheduledRoute
   '/admin/': typeof AdminIndexRoute
+  '/cameras/': typeof CamerasIndexRoute
   '/demo/': typeof DemoIndexRoute
   '/electrical/': typeof ElectricalIndexRoute
   '/food/': typeof FoodIndexRoute
@@ -1309,6 +1317,7 @@ export interface FileRouteTypes {
     | '/tasks/refs'
     | '/tasks/scheduled'
     | '/admin/'
+    | '/cameras/'
     | '/demo/'
     | '/electrical/'
     | '/food/'
@@ -1337,7 +1346,6 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
-    | '/cameras'
     | '/dashboard'
     | '/deck'
     | '/health'
@@ -1438,6 +1446,7 @@ export interface FileRouteTypes {
     | '/tasks/refs'
     | '/tasks/scheduled'
     | '/admin'
+    | '/cameras'
     | '/demo'
     | '/electrical'
     | '/food'
@@ -1570,6 +1579,7 @@ export interface FileRouteTypes {
     | '/tasks/refs'
     | '/tasks/scheduled'
     | '/admin/'
+    | '/cameras/'
     | '/demo/'
     | '/electrical/'
     | '/food/'
@@ -1599,7 +1609,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthRoute: typeof AuthRoute
-  CamerasRoute: typeof CamerasRoute
+  CamerasRoute: typeof CamerasRouteWithChildren
   DashboardRoute: typeof DashboardRoute
   DeckRoute: typeof DeckRoute
   FoodRoute: typeof FoodRouteWithChildren
@@ -1995,6 +2005,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/openapi.json'
       preLoaderRoute: typeof ApiOpenapiDotjsonRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/cameras/': {
+      id: '/cameras/'
+      path: '/'
+      fullPath: '/cameras/'
+      preLoaderRoute: typeof CamerasIndexRouteImport
+      parentRoute: typeof CamerasRoute
     }
     '/demo/': {
       id: '/demo/'
@@ -2622,6 +2639,17 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface CamerasRouteChildren {
+  CamerasIndexRoute: typeof CamerasIndexRoute
+}
+
+const CamerasRouteChildren: CamerasRouteChildren = {
+  CamerasIndexRoute: CamerasIndexRoute,
+}
+
+const CamerasRouteWithChildren =
+  CamerasRoute._addFileChildren(CamerasRouteChildren)
+
 interface FoodRouteChildren {
   FoodCropsRoute: typeof FoodCropsRoute
   FoodGardenRoute: typeof FoodGardenRoute
@@ -2716,7 +2744,7 @@ const ApiPublicHealthRouteWithChildren = ApiPublicHealthRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRoute: AuthRoute,
-  CamerasRoute: CamerasRoute,
+  CamerasRoute: CamerasRouteWithChildren,
   DashboardRoute: DashboardRoute,
   DeckRoute: DeckRoute,
   FoodRoute: FoodRouteWithChildren,
