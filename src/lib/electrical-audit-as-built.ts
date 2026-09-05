@@ -139,13 +139,46 @@ export function stageAsBuiltLoadObservation(obs: AsBuiltLoadObservation): AsBuil
   let grid: string | null = null;
 
   if (mode === "FULL_AS_BUILT") {
-    // 1. Install-state consequence — only from confirmed physical installation.
+    // 1. Explicit location observations first: whether location evidence was
+    //    accepted decides between complete and as-built verified.
+    if (obs.observed_grid_reference && obs.observed_grid_reference.trim()) {
+      const parsed = parseFieldGrid(obs.observed_grid_reference);
+      if (!parsed) {
+        errors.push(
+          `"${obs.observed_grid_reference}" is not a valid observed grid reference for ${loadId}.`,
+        );
+      } else {
+        grid = parsed.raw;
+      }
+    } else {
+      gaps.push(
+        `No grid cell staged for ${loadId}: the audit supplied none, and grid is never inferred from the stable ID or breaker.`,
+      );
+    }
+    if (obs.observed_pole) {
+      const poleErrors = validatePole(obs.observed_pole);
+      if (poleErrors.length) errors.push(...poleErrors);
+      else pole = { ...obs.observed_pole, pole_scheme: POLE_SCHEME };
+    } else {
+      gaps.push(
+        `No perimeter post staged for ${loadId}: the audit supplied none, and post location is never inferred.`,
+      );
+    }
+    const locationEvidence = Boolean(grid || pole);
+
+    // 2. Install-state consequence — only from confirmed physical installation.
+    //    A traced connection to an installed breaker/circuit group advances the
+    //    load directly to complete; no artificial material-ready or
+    //    installation clicks are required. When the audited connection AND its
+    //    location evidence are both accepted, the load is as-built verified.
     if (obs.physically_installed) {
-      installState = "installed";
+      installState = locationEvidence ? "as_built_verified" : "installed";
       consequences.push({
         field: "install_status",
-        value: INSTALL_STATE_TO_FARMOPS.installed,
-        because: `Field audit physically traced ${loadId} as installed, so its planned state advances to ${INSTALL_STATE_TO_FARMOPS.installed}.`,
+        value: INSTALL_STATE_TO_FARMOPS[installState],
+        because: locationEvidence
+          ? `Field audit physically traced ${loadId} as connected to ${groupRef} and accepted its location evidence, so it advances directly to ${INSTALL_STATE_TO_FARMOPS.as_built_verified} — the intermediate stages are not required retroactively.`
+          : `Field audit physically traced ${loadId} as connected to ${groupRef}, so it advances directly to ${INSTALL_STATE_TO_FARMOPS.installed} without artificial material-ready or installation steps.`,
       });
       fields["completion_percent"] = 100;
       consequences.push({
@@ -153,13 +186,18 @@ export function stageAsBuiltLoadObservation(obs: AsBuiltLoadObservation): AsBuil
         value: 100,
         because: "Installation confirmed in the field.",
       });
+      if (!locationEvidence) {
+        gaps.push(
+          `${loadId} is recorded complete but not as-built verified: no location evidence (grid cell or perimeter post) was observed.`,
+        );
+      }
     } else {
       gaps.push(
         `Install state left unchanged: the observation did not confirm physical installation of ${loadId}.`,
       );
     }
 
-    // 2. Sharing classification — from the approved group's membership only.
+    // 3. Sharing classification — from the approved group's membership only.
     sharing = sharingFromGroupMembers(loadId, obs.group_load_ids);
     fields["dedicated_shared"] = sharing;
     fields["dedicated"] = sharing === "D";
