@@ -103,15 +103,43 @@ export const Route = createFileRoute("/api/public/hooks/electrical-peer-sync")({
           });
 
         if (lock?.paused) {
-          await logSkip(
-            lock.paused_reason
-              ? `paused after repeated failures: ${lock.paused_reason}`
-              : "paused after repeated failures",
-          );
-          return Response.json(
-            { skipped: "paused", reason: lock.paused_reason ?? null },
-            { status: 200 },
-          );
+          const retryDue = Boolean(lock.auto_resume_at && lock.auto_resume_at <= nowIso);
+          if (!retryDue) {
+            const waiting = lock.auto_resume_at
+              ? `; automatic retry due ${lock.auto_resume_at}`
+              : "; waiting for an administrator to resume";
+            await logSkip(
+              (lock.paused_reason
+                ? `paused after repeated failures: ${lock.paused_reason}`
+                : "paused after repeated failures") + waiting,
+            );
+            return Response.json(
+              {
+                skipped: "paused",
+                reason: lock.paused_reason ?? null,
+                auto_resume_at: lock.auto_resume_at ?? null,
+              },
+              { status: 200 },
+            );
+          }
+          // Cooling-off window elapsed: un-pause and let this tick try again.
+          // The failure counter resets so one more transient error does not
+          // instantly re-park the job.
+          await (supabaseAdmin as never as any)
+            .from("job_locks")
+            .update({
+              paused: false,
+              paused_reason: null,
+              consecutive_failures: 0,
+              auto_resume_at: null,
+            })
+            .eq("name", LOCK_NAME);
+          await recordPeerSyncRun(supabaseAdmin as never, {
+            started_at: nowIso,
+            trigger: "scheduled",
+            outcome: "skipped",
+            skipped_reason: `automatic retry after cooling-off (attempt ${autoPauseCount + 1}) — resuming this run`,
+          });
         }
         if (lock?.locked_until && lock.locked_until > nowIso) {
           await logSkip("another pull was still running");
