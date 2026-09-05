@@ -664,12 +664,11 @@ export function AuditBatchPanel() {
                 </Button>
               </div>
             ) : null}
-            {manifestAlreadyHasLoadLinks ? (
+            {manifestAlreadyHasLoadLinks || isClosed(FS_NW_LINKS_BATCH_ID) ? (
               <p className="w-full text-xs text-muted-foreground">
-                This batch already contains its audited load links, so the links-only follow-up
-                builder is not offered — it would stage a duplicate{" "}
-                <span className="font-mono">{FS_NW_LINKS_BATCH_ID}</span> for the same
-                relationships.
+                {isClosed(FS_NW_LINKS_BATCH_ID)
+                  ? `${FS_NW_LINKS_BATCH_ID} is already ${statusById[FS_NW_LINKS_BATCH_ID]}, so the links-only builder has moved to the history list below.`
+                  : "This batch already contains its audited load links, so the links-only follow-up builder is not offered — it would stage a duplicate batch for the same relationships."}
               </p>
             ) : (
               <Button
@@ -698,6 +697,76 @@ export function AuditBatchPanel() {
           </div>
         </div>
       </PersistedSection>
+
+      {closedBuiltIns.length || isClosed(FS_NW_LINKS_BATCH_ID) ? (
+        <PersistedSection
+          storageKey="electrical.audit-batches.builtin-history"
+          title="Completed built-in batches (history)"
+          badges={
+            <Badge variant="secondary">
+              {closedBuiltIns.length + (isClosed(FS_NW_LINKS_BATCH_ID) ? 1 : 0)}
+            </Badge>
+          }
+        >
+          <div className="space-y-2 text-xs">
+            <p className="text-muted-foreground">
+              These batches have already been applied or rejected here, so their loaders and
+              builders are kept out of the working list above. Re-running one only re-stages a
+              preview — it never re-writes anything on its own, and every item still needs your
+              approval. A re-run of an applied batch normally shows only no-change rows.
+            </p>
+            {closedBuiltIns.map((b) => (
+              <div key={b.id} className="flex flex-wrap items-center gap-2">
+                <span className="font-mono">{b.id}</span>
+                <Badge variant="outline">{statusById[b.id]}</Badge>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={b.disabled}
+                  onClick={b.onClick}
+                  title={b.title}
+                >
+                  <RefreshCw className="mr-1 h-4 w-4" />
+                  Re-stage preview
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => previewMutation.mutate(b.id)}
+                  disabled={previewMutation.isPending}
+                >
+                  View stored batch
+                </Button>
+              </div>
+            ))}
+            {isClosed(FS_NW_LINKS_BATCH_ID) ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-mono">{FS_NW_LINKS_BATCH_ID}</span>
+                <Badge variant="outline">{statusById[FS_NW_LINKS_BATCH_ID]}</Badge>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={linkBuildMutation.isPending}
+                  onClick={() => linkBuildMutation.mutate()}
+                  title="Re-reads the approved PNL-FS-NW circuit groups and rebuilds the links-only follow-up batch as a preview."
+                >
+                  <RefreshCw className="mr-1 h-4 w-4" />
+                  Re-stage preview
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => previewMutation.mutate(FS_NW_LINKS_BATCH_ID)}
+                  disabled={previewMutation.isPending}
+                >
+                  View stored batch
+                </Button>
+              </div>
+            ) : null}
+          </div>
+        </PersistedSection>
+      ) : null}
+
 
       <PersistedSection
         storageKey="electrical.audit-batches.peer-pull"
