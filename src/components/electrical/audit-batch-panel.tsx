@@ -390,6 +390,85 @@ export function AuditBatchPanel() {
     [items],
   );
 
+  // Built-in loaders and builders. Once a batch has been applied (or rejected)
+  // it moves out of the working row into the history section below: the builder
+  // is still available there for a deliberate re-run, but it no longer competes
+  // for attention with the batches that still need work.
+  const statusById = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const b of batches.data ?? []) map[b.batch_id] = b.status;
+    return map;
+  }, [batches.data]);
+
+  const builtIns = useMemo(
+    () => [
+      {
+        id: FS_NW_AUDIT_R2_BATCH_ID,
+        kind: "load" as const,
+        label: `Load ${FS_NW_AUDIT_R2_BATCH_ID}`,
+        title: `Loads the immutable ${FS_NW_AUDIT_R2_BATCH_ID} manifest into the import box. Nothing is written until each item is approved.`,
+        disabled: false,
+        onClick: () => {
+          setManifestText(fsNwAuditManifestR2Text());
+          toast.success(
+            `${FS_NW_AUDIT_R2_BATCH_ID} loaded — ${FS_NW_AUDITED_BREAKERS.length} circuit groups, ${FS_NW_AUDITED_BREAKERS.length} breaker positions, 20 relationship-only load links and 1 hold (35 items). Supersedes ${FS_NW_AUDIT_R1_BATCH_ID}; import to preview, nothing is written yet.`,
+          );
+        },
+      },
+      {
+        id: FS_SWITCH_CONTROLS_BATCH_ID,
+        kind: "load" as const,
+        label: `Load ${FS_SWITCH_CONTROLS_BATCH_ID}`,
+        title:
+          "Loads the Farm Shop switching observation: the northeast (A8) and southwest (E1) enclosures, the cables between them, and explicit holds for device counts, conductor functions, controlled targets and functional operation.",
+        disabled: false,
+        onClick: () => {
+          setManifestText(fsSwitchControlsManifestText());
+          toast.success(
+            `${FS_SWITCH_CONTROLS_BATCH_ID} loaded — 2 observed switch banks, 2 wiring segments, 1 design-only control group and 4 holds. R2 and R3 are untouched; import to preview, nothing is written yet.`,
+          );
+        },
+      },
+      {
+        id: FS_NW_AUDIT_R3_BATCH_ID,
+        kind: "build" as const,
+        label: `Build ${FS_NW_AUDIT_R3_BATCH_ID} metadata reconciliation`,
+        title:
+          "Stages the outstanding as-built consequences (installed state, shared/dedicated, building context, explicitly observed grid and post) for the 20 loads audited in R2. R2 stays unchanged.",
+        disabled: reconcileBuildMutation.isPending,
+        onClick: () => reconcileBuildMutation.mutate(),
+      },
+      {
+        id: R3_OUTLET_METADATA_BATCH_ID,
+        kind: "build" as const,
+        label: `Build ${R3_OUTLET_METADATA_BATCH_ID}`,
+        title:
+          "Corrects legacy receptacle-outlet metadata for the 18 audited outlets: shared circuit class, and removal of the branch-circuit amperage and the VA derived from it. Relationships, 20 A ratings, descriptions, locations, voltage and lifecycle state are preserved.",
+        disabled: outletBuildMutation.isPending,
+        onClick: () => outletBuildMutation.mutate(),
+      },
+      {
+        id: R3A_OUTLET_CLASSIFICATION_BATCH_ID,
+        kind: "build" as const,
+        label: `Build ${R3A_OUTLET_CLASSIFICATION_BATCH_ID}`,
+        title: `Corrects the dedicated/shared classification of ${R3A_OUTLET_LOADS.join(" and ")} to shared. Amperage, connected VA, circuit-group relationships, locations, lifecycle state, voltage, descriptions and stable IDs are out of scope and unchanged.`,
+        disabled: classificationBuildMutation.isPending,
+        onClick: () => classificationBuildMutation.mutate(),
+      },
+    ],
+    [
+      reconcileBuildMutation,
+      outletBuildMutation,
+      classificationBuildMutation,
+      setManifestText,
+    ],
+  );
+
+  const isClosed = (id: string) => ["applied", "rejected"].includes(statusById[id] ?? "");
+  const activeBuiltIns = builtIns.filter((b) => !isClosed(b.id));
+  const closedBuiltIns = builtIns.filter((b) => isClosed(b.id));
+
+
   // A built-in batch that already carries its own load-link items must never be
   // followed by the links-only builder: that would stage a duplicate -LINKS batch
   // for the same relationships.
@@ -487,61 +566,20 @@ export function AuditBatchPanel() {
               <Upload className="mr-1 h-4 w-4" />
               Import &amp; preview
             </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => {
-                setManifestText(fsNwAuditManifestR2Text());
-                toast.success(
-                  `${FS_NW_AUDIT_R2_BATCH_ID} loaded — ${FS_NW_AUDITED_BREAKERS.length} circuit groups, ${FS_NW_AUDITED_BREAKERS.length} breaker positions, 20 relationship-only load links and 1 hold (35 items). Supersedes ${FS_NW_AUDIT_R1_BATCH_ID}; import to preview, nothing is written yet.`,
-                );
-              }}
-            >
-              Load {FS_NW_AUDIT_R2_BATCH_ID}
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => {
-                setManifestText(fsSwitchControlsManifestText());
-                toast.success(
-                  `${FS_SWITCH_CONTROLS_BATCH_ID} loaded — 2 observed switch banks, 2 wiring segments, 1 design-only control group and 4 holds. R2 and R3 are untouched; import to preview, nothing is written yet.`,
-                );
-              }}
-              title="Loads the Farm Shop switching observation: the northeast (A8) and southwest (E1) enclosures, the cables between them, and explicit holds for device counts, conductor functions, controlled targets and functional operation."
-            >
-              Load {FS_SWITCH_CONTROLS_BATCH_ID}
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={reconcileBuildMutation.isPending}
-              onClick={() => reconcileBuildMutation.mutate()}
-              title="Stages the outstanding as-built consequences (installed state, shared/dedicated, building context, explicitly observed grid and post) for the 20 loads audited in R2. R2 stays unchanged."
-            >
-              <RefreshCw className="mr-1 h-4 w-4" />
-              Build {FS_NW_AUDIT_R3_BATCH_ID} metadata reconciliation
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={outletBuildMutation.isPending}
-              onClick={() => outletBuildMutation.mutate()}
-              title="Corrects legacy receptacle-outlet metadata for the 18 audited outlets: shared circuit class, and removal of the branch-circuit amperage and the VA derived from it. Relationships, 20 A ratings, descriptions, locations, voltage and lifecycle state are preserved."
-            >
-              <RefreshCw className="mr-1 h-4 w-4" />
-              Build {R3_OUTLET_METADATA_BATCH_ID}
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={classificationBuildMutation.isPending}
-              onClick={() => classificationBuildMutation.mutate()}
-              title={`Corrects the dedicated/shared classification of ${R3A_OUTLET_LOADS.join(" and ")} to shared. Amperage, connected VA, circuit-group relationships, locations, lifecycle state, voltage, descriptions and stable IDs are out of scope and unchanged.`}
-            >
-              <RefreshCw className="mr-1 h-4 w-4" />
-              Build {R3A_OUTLET_CLASSIFICATION_BATCH_ID}
-            </Button>
+            {activeBuiltIns.map((b) => (
+              <Button
+                key={b.id}
+                size="sm"
+                variant="outline"
+                disabled={b.disabled}
+                onClick={b.onClick}
+                title={b.title}
+              >
+                {b.kind === "build" ? <RefreshCw className="mr-1 h-4 w-4" /> : null}
+                {b.label}
+              </Button>
+            ))}
+
             {classificationRows?.length ? (
               <div className="w-full rounded-md border p-3 text-xs">
                 <p className="font-medium">
@@ -626,12 +664,11 @@ export function AuditBatchPanel() {
                 </Button>
               </div>
             ) : null}
-            {manifestAlreadyHasLoadLinks ? (
+            {manifestAlreadyHasLoadLinks || isClosed(FS_NW_LINKS_BATCH_ID) ? (
               <p className="w-full text-xs text-muted-foreground">
-                This batch already contains its audited load links, so the links-only follow-up
-                builder is not offered — it would stage a duplicate{" "}
-                <span className="font-mono">{FS_NW_LINKS_BATCH_ID}</span> for the same
-                relationships.
+                {isClosed(FS_NW_LINKS_BATCH_ID)
+                  ? `${FS_NW_LINKS_BATCH_ID} is already ${statusById[FS_NW_LINKS_BATCH_ID]}, so the links-only builder has moved to the history list below.`
+                  : "This batch already contains its audited load links, so the links-only follow-up builder is not offered — it would stage a duplicate batch for the same relationships."}
               </p>
             ) : (
               <Button
@@ -660,6 +697,76 @@ export function AuditBatchPanel() {
           </div>
         </div>
       </PersistedSection>
+
+      {closedBuiltIns.length || isClosed(FS_NW_LINKS_BATCH_ID) ? (
+        <PersistedSection
+          storageKey="electrical.audit-batches.builtin-history"
+          title="Completed built-in batches (history)"
+          badges={
+            <Badge variant="secondary">
+              {closedBuiltIns.length + (isClosed(FS_NW_LINKS_BATCH_ID) ? 1 : 0)}
+            </Badge>
+          }
+        >
+          <div className="space-y-2 text-xs">
+            <p className="text-muted-foreground">
+              These batches have already been applied or rejected here, so their loaders and
+              builders are kept out of the working list above. Re-running one only re-stages a
+              preview — it never re-writes anything on its own, and every item still needs your
+              approval. A re-run of an applied batch normally shows only no-change rows.
+            </p>
+            {closedBuiltIns.map((b) => (
+              <div key={b.id} className="flex flex-wrap items-center gap-2">
+                <span className="font-mono">{b.id}</span>
+                <Badge variant="outline">{statusById[b.id]}</Badge>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={b.disabled}
+                  onClick={b.onClick}
+                  title={b.title}
+                >
+                  <RefreshCw className="mr-1 h-4 w-4" />
+                  Re-stage preview
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => previewMutation.mutate(b.id)}
+                  disabled={previewMutation.isPending}
+                >
+                  View stored batch
+                </Button>
+              </div>
+            ))}
+            {isClosed(FS_NW_LINKS_BATCH_ID) ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-mono">{FS_NW_LINKS_BATCH_ID}</span>
+                <Badge variant="outline">{statusById[FS_NW_LINKS_BATCH_ID]}</Badge>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={linkBuildMutation.isPending}
+                  onClick={() => linkBuildMutation.mutate()}
+                  title="Re-reads the approved PNL-FS-NW circuit groups and rebuilds the links-only follow-up batch as a preview."
+                >
+                  <RefreshCw className="mr-1 h-4 w-4" />
+                  Re-stage preview
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => previewMutation.mutate(FS_NW_LINKS_BATCH_ID)}
+                  disabled={previewMutation.isPending}
+                >
+                  View stored batch
+                </Button>
+              </div>
+            ) : null}
+          </div>
+        </PersistedSection>
+      ) : null}
+
 
       <PersistedSection
         storageKey="electrical.audit-batches.peer-pull"
