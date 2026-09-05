@@ -4,6 +4,7 @@
 // /electrical/wiring and the critical-load study read real data.
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { stageCompletionPercent } from "@/lib/electrical-lifecycle";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { requireElectricalAccess } from "@/lib/addons.server";
 
@@ -158,7 +159,8 @@ export const savePanelInstall = createServerFn({ method: "POST" })
     const db = context.supabase as unknown as LooseDb;
     const patch: Record<string, unknown> = { install_status: data.installStatus };
     if (data.labelStatus) patch.label_status = data.labelStatus;
-    if (data.completionPercent != null) patch.completion_percent = data.completionPercent;
+    // Complete % always mirrors the recorded stage.
+    patch.completion_percent = stageCompletionPercent(data.installStatus) ?? data.completionPercent;
     if (data.spaces != null) patch.spaces = data.spaces;
     if (data.notes !== undefined) patch.notes = data.notes;
     const { error } = await db
