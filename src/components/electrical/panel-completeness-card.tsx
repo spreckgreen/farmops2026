@@ -6,6 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { downloadCsv } from "@/lib/csv";
+import { panelCompletenessCsv } from "@/lib/electrical-panel-completeness";
 import {
   POSITION_CLASSES,
   POSITION_CLASS_LABELS,
@@ -99,9 +101,20 @@ export function PanelCompletenessCard({ result }: { result: PanelCompleteness })
           ))}
         </div>
 
-        <Button size="sm" variant="outline" onClick={() => setOpen((v) => !v)}>
-          {open ? "Hide milestone counts" : "Show milestone counts"}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm" variant="outline" onClick={() => setOpen((v) => !v)}>
+            {open ? "Hide milestone counts" : "Show milestone counts"}
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() =>
+              downloadCsv(`${result.panel_id}-completeness.csv`, panelCompletenessCsv(result))
+            }
+          >
+            Export counts (CSV)
+          </Button>
+        </div>
 
         {open ? (
           <div className="space-y-3">

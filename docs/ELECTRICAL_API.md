@@ -213,3 +213,57 @@ Use `/field-observations/preview` to validate and see the exact row first.
 `/api/electrical/snapshot` (Phase 4.2) remains available and unchanged;
 `/api/v1/electrical/snapshot` is the versioned equivalent. Breaking changes get a
 new version prefix (`/api/electrical/v2`), never an in-place change to v1.
+
+## Lifecycle milestones and panel completeness (schema 1.2)
+
+`install_status` remains a single stored column, but consumers MUST NOT read it as
+overall completion. The API and UI share one vocabulary of separately tracked
+milestones, any of which may be *not applicable*:
+
+`planned`, `material_ready`, `breaker_installed`, `raceway_installed`,
+`conductors_pulled`, `source_termination`, `load_termination`, `tested`,
+`energized`, `as_built_verified`, `out_of_service`, `retired`.
+
+- `material_ready` means the materials are physically on hand; it does not mean
+  installation started.
+- `tested`, `energized` and `as_built_verified` only advance on explicit accepted
+  evidence and are never inferred from a neighbouring milestone.
+
+Panel results are always derived from `panel_breaker_positions`,
+`circuit_groups`, `branch_runs`, `raceways`, terminations, `loads`, tests and
+accepted field observations. No panel percentage is authoritative data.
+
+| Result | Formula |
+| --- | --- |
+| Capacity utilization | occupied physical positions (poles) ÷ usable physical positions |
+| Position documentation coverage | classified positions ÷ usable physical positions |
+| Circuit rollout | completed applicable milestones ÷ total applicable milestones, declared in-scope circuits only |
+| Load completion | connected identified loads ÷ identified loads |
+| Weighted headline (optional) | identical to circuit rollout; never published without the component metrics |
+
+Position classifications: `active`, `planned`, `reserved`, `spare`,
+`unavailable`, `unclassified`. Spare and reserved positions never reduce
+installation completion; unclassified positions reduce documentation coverage
+only. A multi-pole breaker consumes several poles but counts once as a breaker
+and normally once as a circuit group.
+
+Holds and conflicts (`disposition = hold | conflict`) are always reported beside
+progress and never change a percentage.
+
+### Audit-driven lifecycle changes
+
+An approved `FIELD_AS_BUILT` observation carries its lifecycle consequences in
+the same preview and the same atomic transaction: the circuit-group
+relationship, direct advance to the installed/complete state (no artificial
+material-ready or rough-in steps), shared vs dedicated classification from group
+membership, building context from authoritative relationships, and any
+explicitly observed grid cell or perimeter post. Testing and energization are
+recorded only when explicitly observed. Labels, descriptions and notes are never
+rewritten unless the audit proposes them. Every consequence appears as an exact
+before/after difference before approval.
+
+Batch `FA-FS-2026-09-03-PM-R2` stays applied and immutable with its original
+fingerprint; `FA-FS-2026-09-03-PM-R3-METADATA` reconciles only the omitted
+lifecycle, shared/dedicated and explicit location metadata for its 20
+field-confirmed loads and recreates no circuit group, breaker position or load
+relationship.
