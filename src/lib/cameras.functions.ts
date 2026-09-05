@@ -444,3 +444,90 @@ export const applyBridgeFeeds = createServerFn({ method: "POST" })
     };
   });
 
+
+/** Buildings with a grid, from Site Grids, so cameras can be placed on one. */
+export const listCameraGridBuildings = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context;
+    await requireCameras(supabase, userId);
+    const { data, error } = await supabase
+      .from("site_buildings")
+      .select(
+        "id, building_name, temp_name, grid_cell_ft, grid_rows, grid_columns, grid_row_labels, grid_column_labels, north_offset_degrees, footprint_sqft",
+      )
+      .order("size_rank", { ascending: true });
+    if (error) throw new Error(error.message);
+    return { buildings: data ?? [] };
+  });
+
+/**
+ * Write the derived plan positions for cameras on one building grid.
+ *
+ * Only position and aim are written, from the compass side already recorded for
+ * each camera. Nothing else about a camera, its electrical record, or the
+ * building changes, and a camera with no recorded side is skipped.
+ */
+export const placeCamerasOnBuildingGrid = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { building_id: string; camera_ids?: string[] }) => {
+    const building = clean(input?.building_id);
+    if (!building) throw new Error("Choose which building grid to place the cameras on.");
+    const ids = Array.isArray(input?.camera_ids)
+      ? input.camera_ids.map((id) => clean(id)).filter((id): id is string => id !== null)
+      : [];
+    return { building_id: building, camera_ids: ids };
+  })
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await requireCameras(supabase, userId);
+
+    const { data: building, error: buildingError } = await supabase
+      .from("site_buildings")
+      .select(
+        "id, building_name, temp_name, grid_cell_ft, grid_rows, grid_columns, grid_row_labels, grid_column_labels, north_offset_degrees",
+      )
+      .eq("id", data.building_id)
+      .maybeSingle();
+    if (buildingError) throw new Error(buildingError.message);
+    if (!building) throw new Error("That building is not on record for this account.");
+
+    let query = supabase.from("cameras").select(CAMERA_COLUMNS);
+    if (data.camera_ids.length > 0) query = query.in("id", data.camera_ids);
+    const { data: cameras, error: cameraError } = await query;
+    if (cameraError) throw new Error(cameraError.message);
+
+    const { derivePlacements } = await import("@/lib/camera-grid-placement");
+    const plan = derivePlacements(building as never, (cameras ?? []) as never);
+
+    const results: { camera_id: string; cell: string | null; error?: string }[] = [];
+    for (const placement of plan.placements) {
+      const { error } = await supabase
+        .from("cameras")
+        .update({
+          x_feet: placement.x_feet,
+          y_feet: placement.y_feet,
+          heading_degrees: placement.heading_degrees,
+        })
+        .eq("id", placement.id);
+      results.push({
+        camera_id: placement.camera_id,
+        cell: placement.cell,
+        ...(error ? { error: error.message } : {}),
+      });
+    }
+
+    const { data: list, error: listError } = await supabase
+      .from("cameras")
+      .select(CAMERA_COLUMNS)
+      .order("area", { ascending: true })
+      .order("camera_id", { ascending: true });
+    if (listError) throw new Error(listError.message);
+
+    return {
+      placed: results.filter((r) => !r.error).length,
+      results,
+      withheld: plan.withheld,
+      cameras: (list ?? []) as unknown as CameraRow[],
+    };
+  });
