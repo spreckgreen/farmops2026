@@ -278,6 +278,16 @@ const LOCATION_FIELDS = [
 
 const STATE_FIELDS = ["install_status", "label_status", "completion_percent", "notes"];
 
+/**
+ * Deterministic metadata consequences of a confirmed FIELD_AS_BUILT load
+ * observation. They are *consequences of authoritative relationships*, never
+ * inferences: sharing follows from how many loads occupy the approved circuit
+ * group, and building context follows from the panel the group is on. They are
+ * writable only for a FIELD_AS_BUILT observation.
+ */
+export const AS_BUILT_CONSEQUENCE_FIELDS = ["dedicated_shared", "dedicated", "location"] as const;
+
+
 export interface EntityTarget {
   table: string;
   stableIdColumn: string | null;
