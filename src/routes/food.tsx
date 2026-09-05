@@ -62,5 +62,6 @@ function FoodLayout() {
         <Outlet />
       </div>
     </AppLayout>
+    </ModuleGate>
   );
 }
