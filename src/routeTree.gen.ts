@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as BuildingGridsRouteImport } from './routes/building-grids'
 import { Route as CamerasRouteImport } from './routes/cameras'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as DeckRouteImport } from './routes/deck'
@@ -153,6 +154,11 @@ const IndexRoute = IndexRouteImport.update({
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BuildingGridsRoute = BuildingGridsRouteImport.update({
+  id: '/building-grids',
+  path: '/building-grids',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CamerasRoute = CamerasRouteImport.update({
@@ -839,6 +845,7 @@ const ApiElectricalV1RelationshipsPreviewRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/building-grids': typeof BuildingGridsRoute
   '/cameras': typeof CamerasRouteWithChildren
   '/dashboard': typeof DashboardRoute
   '/deck': typeof DeckRoute
@@ -976,6 +983,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/building-grids': typeof BuildingGridsRoute
   '/dashboard': typeof DashboardRoute
   '/deck': typeof DeckRoute
   '/health': typeof HealthRouteWithChildren
@@ -1109,6 +1117,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/building-grids': typeof BuildingGridsRoute
   '/cameras': typeof CamerasRouteWithChildren
   '/dashboard': typeof DashboardRoute
   '/deck': typeof DeckRoute
@@ -1248,6 +1257,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/building-grids'
     | '/cameras'
     | '/dashboard'
     | '/deck'
@@ -1385,6 +1395,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
+    | '/building-grids'
     | '/dashboard'
     | '/deck'
     | '/health'
@@ -1517,6 +1528,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/auth'
+    | '/building-grids'
     | '/cameras'
     | '/dashboard'
     | '/deck'
@@ -1655,6 +1667,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthRoute: typeof AuthRoute
+  BuildingGridsRoute: typeof BuildingGridsRoute
   CamerasRoute: typeof CamerasRouteWithChildren
   DashboardRoute: typeof DashboardRoute
   DeckRoute: typeof DeckRoute
@@ -1780,6 +1793,13 @@ declare module '@tanstack/react-router' {
       path: '/auth'
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/building-grids': {
+      id: '/building-grids'
+      path: '/building-grids'
+      fullPath: '/building-grids'
+      preLoaderRoute: typeof BuildingGridsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/cameras': {
@@ -2833,6 +2853,7 @@ const ApiPublicHealthRouteWithChildren = ApiPublicHealthRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRoute: AuthRoute,
+  BuildingGridsRoute: BuildingGridsRoute,
   CamerasRoute: CamerasRouteWithChildren,
   DashboardRoute: DashboardRoute,
   DeckRoute: DeckRoute,

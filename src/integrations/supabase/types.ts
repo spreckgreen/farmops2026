@@ -5290,7 +5290,9 @@ export type Database = {
       }
       site_buildings: {
         Row: {
+          building_name: string | null
           created_at: string
+          definition_method: string | null
           fit_length_ft: number | null
           fit_width_ft: number | null
           footprint_sqft: number | null
@@ -5299,24 +5301,35 @@ export type Database = {
           grid_columns: number | null
           grid_row_labels: string | null
           grid_rows: number | null
+          height_ft: number | null
           id: string
           mapped_confidence: string | null
           mapped_structure: string | null
+          north_offset_degrees: number | null
           notes: string | null
           orientation_degrees: number | null
           origin_latitude: number | null
           origin_longitude: number | null
           outline: Json
+          outline_local: Json | null
           perimeter_ft: number | null
+          shape_template: string | null
           site_plan_id: string
           size_rank: number
+          source_file_name: string | null
+          source_scale_note: string | null
           temp_name: string
           trace_method: string
           updated_at: string
           user_id: string
+          walk_finish_cell: string | null
+          walk_pattern: string | null
+          walk_start_cell: string | null
         }
         Insert: {
+          building_name?: string | null
           created_at?: string
+          definition_method?: string | null
           fit_length_ft?: number | null
           fit_width_ft?: number | null
           footprint_sqft?: number | null
@@ -5325,24 +5338,35 @@ export type Database = {
           grid_columns?: number | null
           grid_row_labels?: string | null
           grid_rows?: number | null
+          height_ft?: number | null
           id?: string
           mapped_confidence?: string | null
           mapped_structure?: string | null
+          north_offset_degrees?: number | null
           notes?: string | null
           orientation_degrees?: number | null
           origin_latitude?: number | null
           origin_longitude?: number | null
           outline: Json
+          outline_local?: Json | null
           perimeter_ft?: number | null
+          shape_template?: string | null
           site_plan_id: string
           size_rank?: number
+          source_file_name?: string | null
+          source_scale_note?: string | null
           temp_name: string
           trace_method?: string
           updated_at?: string
           user_id: string
+          walk_finish_cell?: string | null
+          walk_pattern?: string | null
+          walk_start_cell?: string | null
         }
         Update: {
+          building_name?: string | null
           created_at?: string
+          definition_method?: string | null
           fit_length_ft?: number | null
           fit_width_ft?: number | null
           footprint_sqft?: number | null
@@ -5351,21 +5375,30 @@ export type Database = {
           grid_columns?: number | null
           grid_row_labels?: string | null
           grid_rows?: number | null
+          height_ft?: number | null
           id?: string
           mapped_confidence?: string | null
           mapped_structure?: string | null
+          north_offset_degrees?: number | null
           notes?: string | null
           orientation_degrees?: number | null
           origin_latitude?: number | null
           origin_longitude?: number | null
           outline?: Json
+          outline_local?: Json | null
           perimeter_ft?: number | null
+          shape_template?: string | null
           site_plan_id?: string
           size_rank?: number
+          source_file_name?: string | null
+          source_scale_note?: string | null
           temp_name?: string
           trace_method?: string
           updated_at?: string
           user_id?: string
+          walk_finish_cell?: string | null
+          walk_pattern?: string | null
+          walk_start_cell?: string | null
         }
         Relationships: [
           {
@@ -5379,7 +5412,7 @@ export type Database = {
       }
       site_plans: {
         Row: {
-          address: string
+          address: string | null
           created_at: string
           formatted_address: string | null
           id: string
@@ -5392,7 +5425,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
-          address: string
+          address?: string | null
           created_at?: string
           formatted_address?: string | null
           id?: string
@@ -5405,7 +5438,7 @@ export type Database = {
           user_id: string
         }
         Update: {
-          address?: string
+          address?: string | null
           created_at?: string
           formatted_address?: string | null
           id?: string
