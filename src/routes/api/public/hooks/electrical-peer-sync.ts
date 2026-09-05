@@ -9,8 +9,10 @@
  * - a private server-only shared secret authenticates the cron caller,
  * - single-flight lease so overlapping ticks cannot both pull,
  * - bounded work per run (max_batches_per_run, hard-capped in the engine),
- * - paused-state guard: after 3 consecutive failed runs the job parks itself
- *   and every later tick exits until an admin resumes it.
+ * - paused-state guard: after 3 consecutive failed runs the job parks itself,
+ *   then RETRIES ITSELF automatically after a growing cooling-off window
+ *   (30 min, 2 h, 6 h, 12 h). Only after the 4th automatic pause does it wait
+ *   for an admin to resume, so a transient outage never needs a click.
  */
 import { createFileRoute } from "@tanstack/react-router";
 import { timingSafeEqual } from "node:crypto";
@@ -18,6 +20,16 @@ import { timingSafeEqual } from "node:crypto";
 const LOCK_NAME = "electrical-peer-sync";
 const LEASE_MS = 5 * 60 * 1000;
 const MAX_FAILURES = 3;
+
+/** Cooling-off windows between automatic retries, in minutes. */
+const AUTO_RESUME_BACKOFF_MIN = [30, 120, 360, 720];
+
+/** When the job pauses, when should it try itself again (null = needs an admin)? */
+function autoResumeAt(now: Date, autoPauseCount: number): string | null {
+  const minutes = AUTO_RESUME_BACKOFF_MIN[autoPauseCount];
+  if (minutes === undefined) return null;
+  return new Date(now.getTime() + minutes * 60 * 1000).toISOString();
+}
 
 function secretOk(provided: string, expected: string): boolean {
   if (!expected || provided.length !== expected.length) return false;
