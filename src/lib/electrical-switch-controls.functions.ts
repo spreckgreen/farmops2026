@@ -2,7 +2,7 @@
 // scope is added here, and nothing is derived that the records do not state.
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { requireElectricalAccess } from "@/lib/electrical-access.server";
+import { requireElectricalAccess } from "@/lib/addons.server";
 import type { SwitchControlModel } from "@/lib/electrical-switch-controls";
 
 type Row = Record<string, unknown>;
@@ -45,9 +45,9 @@ export const loadSwitchControlModel = createServerFn({ method: "GET" })
         stable_id: s(r["switch_bank_id"]) ?? "",
         description: s(r["description"]),
         building: s(r["building"]),
-        grid: s(r["grid_reference"]),
+        grid: s(r["grid"]),
         field_grid_reference: s(r["field_grid_reference"]),
-        pole_ref: s(r["pole_grid"]),
+        pole_ref: s(r["pole_ref"]),
         enclosure_type: s(r["enclosure_type"]),
         gang_count: n(r["gang_count"]),
         installed_device_count: n(r["installed_device_count"]),
