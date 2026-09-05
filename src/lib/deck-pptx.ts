@@ -23,6 +23,11 @@ function clean(text: string): string {
  * Builds and downloads a .pptx handout for a deck.
  * Returns the filename that was saved.
  */
+/** pptxgenjs expects table cells as objects, not bare strings. */
+function toRow(cells: string[]) {
+  return cells.map((text) => ({ text }));
+}
+
 export async function downloadDeckPptx(options: {
   slides: PromoSlide[];
   deckTitle: string;
@@ -146,10 +151,17 @@ export async function downloadDeckPptx(options: {
     }
 
     if (s.kind === "addons") {
-      const rows: string[][] = [["Module", "Included", "What it does", "Status"]];
-      s.items.forEach((it) =>
-        rows.push([clean(it.name), it.tier === "free" ? "Free" : "Paid", clean(it.summary), clean(it.status)]),
-      );
+      const rows = [
+        toRow(["Module", "Included", "What it does", "Status"]),
+        ...s.items.map((it) =>
+          toRow([
+            clean(it.name),
+            it.tier === "free" ? "Free" : "Paid",
+            clean(it.summary),
+            clean(it.status),
+          ]),
+        ),
+      ];
       slide.addTable(rows, {
         x: M, y: 1.75, w: BODY_W, colW: [2.0, 0.9, 4.5, 1.4], fontSize: 10, fontFace: "Calibri",
         color: INK, border: { type: "solid", color: "EADBC8", pt: 1 },
@@ -162,8 +174,12 @@ export async function downloadDeckPptx(options: {
     }
 
     if (s.kind === "pricing") {
-      const rows: string[][] = [["Edition", "Price", "People", "Modules"]];
-      s.rows.forEach((r) => rows.push([clean(r.name), clean(r.price), clean(r.seats), clean(r.addons)]));
+      const rows = [
+        toRow(["Edition", "Price", "People", "Modules"]),
+        ...s.rows.map((r) =>
+          toRow([clean(r.name), clean(r.price), clean(r.seats), clean(r.addons)]),
+        ),
+      ];
       slide.addTable(rows, {
         x: M, y: 1.75, w: BODY_W, colW: [2.6, 2.2, 2.2, 1.8], fontSize: 10, fontFace: "Calibri",
         color: INK, border: { type: "solid", color: "EADBC8", pt: 1 }, fill: { color: PAPER },
