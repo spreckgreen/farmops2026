@@ -192,3 +192,67 @@ describe("shared resolver feeds the operational consumers", () => {
     expect(after!.gridReference).toBe("E4");
   });
 });
+
+describe("APPROVED_DESIGN_XY", () => {
+  const design = { designXFt: 18, designYFt: 10 };
+
+  it("ranks below field observations and above remapped/original grid", () => {
+    const r = effectiveLocationForRecord({
+      stableId: "FS-057",
+      ...design,
+      remappedGridReference: "E4",
+      originalGrid: "C7",
+    });
+    expect(r.effective?.source).toBe("APPROVED_DESIGN_XY");
+    expect(r.effective?.xFt).toBe(18);
+    expect(r.effective?.yFt).toBe(10);
+    expect(r.provenance).toContain("approved design X/Y");
+    expect(r.provenance).toContain("not field verified");
+    // nothing is discarded
+    expect(r.statements.map((s) => s.source)).toContain("GRID_REMAPPED");
+    expect(r.statements.map((s) => s.source)).toContain("ORIGINAL_GRID");
+  });
+
+  it("is superseded by an accepted field-observed grid", () => {
+    const r = effectiveLocationForRecord({
+      stableId: "FS-057",
+      ...design,
+      fieldGridReference: "A8",
+      fieldGridEvidence: "field verified",
+    });
+    expect(r.effective?.source).toBe("FIELD_OBSERVED_GRID");
+  });
+
+  it("falls through with a warning when design coordinates are incomplete", () => {
+    const r = effectiveLocationForRecord({
+      stableId: "X-1",
+      designXFt: 18,
+      designYFt: null,
+      originalGrid: "C7",
+    });
+    expect(r.effective?.source).toBe("ORIGINAL_GRID");
+    expect(r.warnings.length).toBeGreaterThan(0);
+  });
+
+  it("plots exact approved coordinates for FS-056..FS-065 and shows a derived grid label", () => {
+    for (let i = 0; i < 10; i++) {
+      const stableId = `FS-${String(56 + i).padStart(3, "0")}`;
+      const approved = approvedDesignXy(stableId)!;
+      expect(approved).toBeTruthy();
+      const asset = buildOperationalAssets([
+        { stableId, kind: "load", name: `LED ${i + 1}`, lifecycle: "planned" } as never,
+      ])[0];
+      expect(asset.effectiveLocation.effective?.source).toBe("APPROVED_DESIGN_XY");
+      expect(asset.plottedXFt).toBe(approved.xFt);
+      expect(asset.plottedYFt).toBe(approved.yFt);
+      expect(asset.effectiveLocation.effective?.label).toBe(
+        derivedGridLabel(approved.xFt, approved.yFt),
+      );
+      // derived label is never promoted to field evidence
+      expect(asset.effectiveLocation.statements.some((s) => s.source === "FIELD_OBSERVED_GRID")).toBe(
+        false,
+      );
+      expect(asset.lifecycle).toBe("planned");
+    }
+  });
+});
