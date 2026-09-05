@@ -16,6 +16,13 @@ import {
   type CameraRow,
 } from "@/lib/cameras";
 import { isCompassSide } from "@/lib/ring-cameras";
+import {
+  bridgeBaseProblem,
+  go2rtcHlsUrl,
+  go2rtcSnapshotUrl,
+  normalizeBridgeBase,
+} from "@/lib/camera-bridge";
+
 
 const CAMERA_COLUMNS =
   "id, camera_id, name, area, building, mount, stream_kind, stream_url, snapshot_url, x_feet, y_feet, heading_degrees, fov_degrees, range_feet, electrical_load_ref, ring_model, compass_side, side_slot, status, last_seen_at, last_check_at, last_check_detail, notes, updated_at";
@@ -359,3 +366,81 @@ export const listCameraChecks = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { checks: (rows ?? []) as unknown as CameraCheckRow[] };
   });
+
+/**
+ * Record bridge feed addresses for several cameras at once.
+ *
+ * Only the feed fields are written: nothing about a camera's position, aim,
+ * Ring model or electrical link is touched. Cameras without a stream name are
+ * left exactly as they were.
+ */
+export const applyBridgeFeeds = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    (input: { base_url: string; assignments: { id: string; stream_name: string }[] }) => {
+      const baseProblem = bridgeBaseProblem(input?.base_url);
+      if (baseProblem) throw new Error(baseProblem);
+      const base = normalizeBridgeBase(input.base_url);
+      const rawAssignments = Array.isArray(input?.assignments) ? input.assignments : [];
+      const assignments = rawAssignments
+        .map((entry) => ({
+          id: clean(entry?.id) ?? "",
+          stream_name: clean(entry?.stream_name) ?? "",
+        }))
+        .filter((entry) => entry.id !== "" && entry.stream_name !== "");
+      if (assignments.length === 0) {
+        throw new Error("Enter the bridge stream name for at least one camera.");
+      }
+      return { base_url: base, assignments };
+    },
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    await requireCameras(supabase, userId);
+
+    const results: { id: string; camera_id: string; stream_url: string; error?: string }[] = [];
+    for (const entry of data.assignments) {
+      const streamUrl = go2rtcHlsUrl(data.base_url, entry.stream_name);
+      const snapshotUrl = go2rtcSnapshotUrl(data.base_url, entry.stream_name);
+      const problem = streamUrlProblem(streamUrl);
+      if (problem) {
+        results.push({ id: entry.id, camera_id: entry.id, stream_url: streamUrl, error: problem });
+        continue;
+      }
+      const { data: row, error } = await supabase
+        .from("cameras")
+        .update({ stream_kind: "hls", stream_url: streamUrl, snapshot_url: snapshotUrl })
+        .eq("id", entry.id)
+        .select("id, camera_id")
+        .maybeSingle();
+      if (error) {
+        results.push({ id: entry.id, camera_id: entry.id, stream_url: streamUrl, error: error.message });
+        continue;
+      }
+      if (!row) {
+        results.push({
+          id: entry.id,
+          camera_id: entry.id,
+          stream_url: streamUrl,
+          error: "That camera was not found.",
+        });
+        continue;
+      }
+      results.push({ id: entry.id, camera_id: String(row.camera_id), stream_url: streamUrl });
+    }
+
+    const { data: list, error: listError } = await supabase
+      .from("cameras")
+      .select(CAMERA_COLUMNS)
+      .order("area", { ascending: true })
+      .order("camera_id", { ascending: true });
+    if (listError) throw new Error(listError.message);
+
+    return {
+      ok: results.every((r) => !r.error),
+      updated: results.filter((r) => !r.error).length,
+      results,
+      cameras: (list ?? []) as unknown as CameraRow[],
+    };
+  });
+

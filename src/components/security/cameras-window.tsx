@@ -38,6 +38,8 @@ import {
   STATUS_FRESH_MINUTES,
 } from "@/lib/cameras";
 import { rowsToCsv, downloadCsv } from "@/lib/csv";
+import { BridgeWiringCard } from "@/components/security/bridge-wiring-card";
+
 import { CompassCoverage } from "@/components/security/compass-coverage";
 import { createHouseCameraElectricalObject } from "@/lib/house-camera-electrical.functions";
 import {
@@ -324,6 +326,20 @@ export function CamerasWindow() {
                 : `All ${checkableCount} checkable cameras were checked within the last ${STATUS_FRESH_MINUTES} minutes.`}
           </p>
         ) : null}
+
+        {/* Cameras with no address cannot be checked at all, so the bridge card
+            is offered until every one has a playable feed recorded. */}
+        {rows.length > 0 && checkableCount < rows.length && (
+          <BridgeWiringCard
+            cameras={rows.filter((row) => (row.stream_url ?? row.snapshot_url ?? "") === "")}
+            onApplied={() => {
+              void queryClient.invalidateQueries({ queryKey: ["cameras"] });
+              checkAllMutation.mutate();
+            }}
+          />
+        )}
+
+
 
         {camerasQuery.isLoading ? (
           <p className="flex items-center gap-2 text-sm text-muted-foreground">
