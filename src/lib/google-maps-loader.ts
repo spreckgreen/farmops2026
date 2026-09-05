@@ -19,9 +19,10 @@ export function loadGoogleMaps(): Promise<typeof google.maps> {
   if (window.google?.maps) return Promise.resolve(window.google.maps);
   if (loadPromise) return loadPromise;
 
-  const key = import.meta.env["VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY"] as
-    | string
-    | undefined;
+  // Self-hosted installs supply their own browser key as
+  // VITE_GOOGLE_MAPS_BROWSER_KEY; hosted installs get the connector variable.
+  const key = (import.meta.env["VITE_GOOGLE_MAPS_BROWSER_KEY"] ||
+    import.meta.env["VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY"]) as string | undefined;
   const channel = import.meta.env["VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_TRACKING_ID"] as
     | string
     | undefined;
