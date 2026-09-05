@@ -117,6 +117,10 @@ async function readSnapshot(db: LooseDb): Promise<LiveSnapshot> {
     "jbox",
     "branch",
     "load",
+    "switch_bank",
+    "switch_device",
+    "control_group",
+    "control_wiring_segment",
   ];
   const byKind: Record<string, Map<string, Record<string, unknown>>> = {};
   const resolved = new Map<string, string>();
