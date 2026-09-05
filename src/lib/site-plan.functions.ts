@@ -52,18 +52,27 @@ export const geocodeSiteAddress = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<GeocodedSite> => {
     const lovableKey = process.env["LOVABLE_API_KEY"];
     const connectionKey = process.env["GOOGLE_MAPS_API_KEY"];
-    if (!lovableKey || !connectionKey) {
+    if (!connectionKey) {
       throw new Error("Map lookup is not configured for this project yet.");
     }
-    const response = await fetch(
-      `${GATEWAY_URL}/maps/api/geocode/json?address=${encodeURIComponent(data.address)}`,
-      {
-        headers: {
-          Authorization: `Bearer ${lovableKey}`,
-          "X-Connection-Api-Key": connectionKey,
-        },
-      },
-    );
+    // Hosted installs route through the connector gateway. Self-hosted installs
+    // have no gateway key, so the server key calls Google directly.
+    const viaGateway = Boolean(lovableKey);
+    const response = viaGateway
+      ? await fetch(
+          `${GATEWAY_URL}/maps/api/geocode/json?address=${encodeURIComponent(data.address)}`,
+          {
+            headers: {
+              Authorization: `Bearer ${lovableKey}`,
+              "X-Connection-Api-Key": connectionKey,
+            },
+          },
+        )
+      : await fetch(
+          `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
+            data.address,
+          )}&key=${encodeURIComponent(connectionKey)}`,
+        );
     if (!response.ok) {
       const body = await response.text();
       if (response.status === 403) {
