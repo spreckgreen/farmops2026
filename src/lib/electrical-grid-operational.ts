@@ -757,7 +757,9 @@ function cluster(assets: OperationalAsset[]): OperationalAsset[] {
 export function buildOperationalAssets(rows: OperationalInput[]): OperationalAsset[] {
   const assets = rows.map((row) => {
     const place = classifyLocation(row);
+    const effective = effectiveLocationForOperational(row);
     const plottable = PRECISION_META[place.precision].plottable && place.xFt != null;
+
     const asset: OperationalAsset = {
       ...row,
       precision: place.precision,
