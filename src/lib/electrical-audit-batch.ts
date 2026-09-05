@@ -20,6 +20,7 @@ import {
 } from "@/lib/electrical";
 import { diffFieldChanges, type FieldChange } from "@/lib/electrical-dependents";
 import { breakerRelationshipLabel } from "@/lib/electrical-breaker-reference";
+import { checkSwitchControlId } from "@/lib/electrical-switch-controls";
 
 /** JSON-safe value: server functions serialize these across the wire. */
 export type Json = string | number | boolean | null | Json[] | { [k: string]: Json };
