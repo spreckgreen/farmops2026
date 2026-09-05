@@ -84,6 +84,7 @@ const ADDON_LABEL: Record<AddonKey, string> = {
   maintenance: "Maintenance module",
   inventory: "Inventory module",
   food: "Food & Growing module",
+  cameras: "Cameras module",
 };
 
 const ADDON_HINT: Record<AddonKey, string> = {
