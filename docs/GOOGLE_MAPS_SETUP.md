@@ -122,6 +122,8 @@ Notes specific to self-hosting:
 | "Map lookup is not configured for this project yet" | no connection linked, so the server key is absent | link the Google Maps connector |
 | "The map is not connected for this project yet" | the browser key is missing from the build | link the connector, then publish |
 | `BillingNotEnabledMapError` | billing off on the Cloud project | enable billing |
+| Self-hosted: map blank and no key in the page source | `VITE_GOOGLE_MAPS_BROWSER_KEY` was set after the image was built | set it in `.env`, then `docker compose up -d --build app` |
+| Self-hosted: lookup says "Map lookup is not configured" | `GOOGLE_MAPS_API_KEY` missing from `.env` | add it, then `docker compose up -d app` |
 | Map works in preview but not on the custom domain | the built-in managed key only allows `*.lovable.app` / `*.lovableproject.com` | use your own keys as above |
 
 Manual corner entry always works, with no key at all, so a building can be defined
