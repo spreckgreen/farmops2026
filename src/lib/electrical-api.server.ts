@@ -822,9 +822,8 @@ export async function handleApiRead(caller: ApiCaller, segments: string[]): Prom
         .select(columns)
         .order("created_at", { ascending: false });
       if (error) {
-        return apiError("not_found_collection", "Field-audit batches are not readable for this caller.", {
-          caller,
-        });
+        // A failed query is a backend fault, never "nothing here".
+        return apiError("backend_query_failed", "Could not read field-audit batches.", { caller });
       }
       const rows = (data ?? []) as Record<string, unknown>[];
       return apiJson(
