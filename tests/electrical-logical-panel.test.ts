@@ -14,30 +14,34 @@ const logical = {
 
 describe("logical panel model", () => {
   it("summarises a logical panel against its physical host", () => {
-    const out = logicalPanelSummary(logical, [physical, logical], {
+    const out = logicalPanelSummary({
+      panel: logical,
+      panels: [physical, logical],
       loads: [{ id: "l1", load_id: "FS-002", logical_panel_uuid: "u-crit" }],
-      circuitGroups: [],
     });
-    expect(out.panelId).toBe("PNL-FS-CRIT");
-    expect(out.hostPanelId).toBe("PNL-FS-NE");
-    expect(out.loadStableIds).toEqual(["FS-002"]);
+    expect(out.id).toBe("PNL-FS-CRIT");
+    expect(out.hostPhysicalPanel).toBe("PNL-FS-NE");
+    expect(out.loadCount).toBe(1);
+    expect(out.countsTowardPhysicalTotals).toBe(false);
   });
 
   it("rejects a logical panel hosted on itself or on another logical panel", () => {
     expect(
-      validateLogicalPanelModel([{ ...logical, physical_panel_uuid: "u-crit" }]).length,
+      validateLogicalPanelModel({ panels: [{ ...logical, physical_panel_uuid: "u-crit" }] }).length,
     ).toBeGreaterThan(0);
     expect(
-      validateLogicalPanelModel([
-        logical,
-        { id: "u-b", panel_id: "PNL-X", panel_kind: "logical", physical_panel_uuid: "u-crit" },
-      ]).length,
+      validateLogicalPanelModel({
+        panels: [
+          logical,
+          { id: "u-b", panel_id: "PNL-X", panel_kind: "logical", physical_panel_uuid: "u-crit" },
+        ],
+      }).length,
     ).toBeGreaterThan(0);
   });
 
   it("rejects physical capacity recorded on a logical panel", () => {
     expect(
-      validateLogicalPanelModel([physical, { ...logical, spaces: 12 }]).length,
+      validateLogicalPanelModel({ panels: [physical, { ...logical, spaces: 12 }] }).length,
     ).toBeGreaterThan(0);
   });
 });
