@@ -521,7 +521,16 @@ export function SiteTracer() {
                     ) : (
                       rows.map((row: any) => (
                         <p key={row.id} className="text-xs">
-                          <span className="font-mono">{row.temp_name}</span> ·{" "}
+                          <span className="font-medium">
+                            {row.building_name || row.temp_name}
+                          </span>
+                          {row.building_name ? (
+                            <span className="text-muted-foreground">
+                              {" "}
+                              (<span className="font-mono">{row.temp_name}</span>)
+                            </span>
+                          ) : null}{" "}
+                          ·{" "}
                           {Number(row.footprint_sqft ?? 0).toFixed(0)} sq ft ·{" "}
                           {Number(row.fit_length_ft ?? 0).toFixed(0)}′ ×{" "}
                           {Number(row.fit_width_ft ?? 0).toFixed(0)}′ · grid{" "}
