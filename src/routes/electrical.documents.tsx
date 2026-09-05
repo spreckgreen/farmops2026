@@ -258,7 +258,10 @@ function DocumentsWorkspace() {
           },
           models.map.digestSource,
         );
-        doc = pdf.renderGridMapPdf(models.map, stamp);
+        // Print the same plan drawing the screen shows, so a printed dot lands
+        // where the on-screen dot lands.
+        const planImage = await pdf.loadPlanImage();
+        doc = pdf.renderGridMapPdf(models.map, stamp, planImage);
       }
       const name = pdf.savePdf(doc, stamp);
       setLastStamps((prev) => ({ ...prev, [docType]: stamp }));
