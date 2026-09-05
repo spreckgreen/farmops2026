@@ -11,6 +11,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { TERMINOLOGY_PROMPT_RULES } from "@/lib/electrical-terminology";
+import { scanAiAnswer } from "@/lib/electrical-terminology-audit";
 import { hasAddon } from "@/lib/addons.server";
 import { isAdminRole } from "@/lib/admin-role.server";
 import { electricalAccess } from "@/lib/electrical-access";
@@ -487,6 +489,14 @@ export const runElectricalAiScenario = createServerFn({ method: "POST" })
       model: run.modelId,
       backend: run.backend,
       answer,
+      // Generated wording is checked against the terminology registry so a
+      // reader is told when the model used a non-canonical term.
+      terminologyNotes: scanAiAnswer(answer).map((f) => ({
+        matched: f.matched,
+        canonical: f.canonical,
+        instead: f.instead,
+        reason: f.reason,
+      })),
       contextCounts,
       ...(def.input === "photo"
         ? { nameplate: nameplateFields(parseNameplateDraft(run.value)) }
