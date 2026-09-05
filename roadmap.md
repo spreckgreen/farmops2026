@@ -18,3 +18,4 @@
 - [x] Release completed Vite environments between client, SSR, and Nitro phases
 - [x] Report child and cgroup memory in build heartbeats
 - [x] Bound Rolldown native worker pools and provide temporary build-only swap on low-memory hosts
+- [x] Use memory-capped Rollup for Docker server packaging and pause local AI during low-memory builds

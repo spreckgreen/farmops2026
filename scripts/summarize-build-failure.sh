@@ -69,7 +69,7 @@ fi
 emit ""
 
 emit "## Next steps"
-emit "- If \`likely OOM\`, \`Killed\`, or \`exit 137\` appears: lower \`NODE_HEAP_MB\` or build on a host with more RAM."
+emit "- If \`likely OOM\`, \`Killed\`, or \`exit 137\` appears: stop the local AI service during the build or provide swap; lowering the JavaScript heap does not cap native bundler memory."
 emit "- If the last phase is Rollup transform and no OOM hint: try \`BUILD_LOW_MEM=1\` (already default in Docker) and re-run."
 emit "- Full logs are in the \`docker-install-log\` artifact."
 

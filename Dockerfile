@@ -82,9 +82,14 @@ RUN chmod +x /app/scripts/docker-preflight.sh 2>/dev/null || true && \
 # Build a Node-compatible server bundle instead of the default Cloudflare Worker.
 # vite.config.ts forwards NITRO_PRESET into the nitro plugin's `preset` option.
 ENV NITRO_PRESET=node-server
+# Nitro otherwise auto-selects the native Rolldown builder when driven through
+# its Vite plugin. That builder's off-heap graph reached 7.2 GB on an 8 GB host
+# even with one worker. Rollup stays within the Node heap cap configured below.
+ENV NITRO_BUILDER=rollup
 # Node heap cap. This controls V8 old-space only; Rollup/esbuild and Docker use
 # additional native memory. refresh.sh chooses a conservative host-aware value
-# (about 3 GB on an 8 GB host). The default fits a 4 GB host without swap.
+# (about 4 GB on an 8 GB host) after selecting Rollup for the server package.
+# The default remains safe for a 4 GB host.
 ARG NODE_HEAP_MB=1536
 ENV NODE_OPTIONS=--max-old-space-size=${NODE_HEAP_MB}
 ARG ROLLDOWN_WORKER_THREADS=1
@@ -114,6 +119,7 @@ RUN --mount=type=cache,target=/app/node_modules/.vite,sharing=locked \
     echo "=== [builder] STAGE 2/3: Vite + Nitro build ===" && \
     echo "=== [builder] Command: install-log.sh build bun run build:ci" && \
     echo "=== [builder] NITRO_PRESET=$NITRO_PRESET" && \
+    echo "=== [builder] NITRO_BUILDER=$NITRO_BUILDER" && \
     echo "=== [builder] NODE_OPTIONS=$NODE_OPTIONS (heap=${NODE_HEAP_MB}MB)" && \
     echo "=== [builder] Rolldown workers=$ROLLDOWN_WORKER_THREADS blocking=$ROLLDOWN_MAX_BLOCKING_THREADS rayon=$RAYON_NUM_THREADS" && \
     echo "=== [builder] BUILD_LOW_MEM=$BUILD_LOW_MEM BUILD_HEARTBEAT_SECS=$BUILD_HEARTBEAT_SECS" && \

@@ -232,18 +232,19 @@ fi
 # --- 2. Build ---------------------------------------------------------------
 # Size the builder's Node heap from real host memory. V8 old-space is only part
 # of peak usage: Rolldown's Rust graph, generated chunks, and Docker overhead
-# live outside that cap. On an 8 GB host the Nitro server pass can use roughly
-# 4 GB outside V8, so keep automatic old-space at 25% of RAM and no more than
-# 2048 MB. Override explicitly only on a host with measured extra headroom.
+# live outside that cap. Docker builds use the Rollup server packager below,
+# which keeps native use bounded but needs about 4 GB of JavaScript heap for
+# this application. Preserve at least 2 GB for Docker/the OS on smaller hosts;
+# refresh temporarily stops the local AI model below to create that headroom.
 total_mb=$(awk '/MemTotal/{printf "%d", $2/1024}' /proc/meminfo 2>/dev/null || echo 0)
 avail_mb=$(awk '/MemAvailable/{printf "%d", $2/1024}' /proc/meminfo 2>/dev/null || echo 0)
 if [ -z "${NODE_HEAP_MB:-}" ]; then
-  by_total=$(( total_mb * 25 / 100 ))
-  by_available=$(( avail_mb - 4096 ))
+  by_total=$(( total_mb * 50 / 100 ))
+  by_available=$(( avail_mb - 2048 ))
   heap="$by_total"
   [ "$by_available" -lt "$heap" ] && heap="$by_available"
   [ "$heap" -lt 1536 ] && heap=1536
-  [ "$heap" -gt 2048 ] && heap=2048
+  [ "$heap" -gt 4096 ] && heap=4096
   NODE_HEAP_MB="$heap"
   log "Host memory total=${total_mb}MB available=${avail_mb}MB -> NODE_HEAP_MB=${NODE_HEAP_MB} (native reserve preserved)"
 fi
@@ -270,6 +271,7 @@ export RAYON_NUM_THREADS="${RAYON_NUM_THREADS:-$_native_workers}"
 # limits and conservative heap remain active.
 BUILD_SWAP_FILE="${BUILD_SWAP_FILE:-/var/tmp/farmops-build.swap}"
 BUILD_SWAP_CREATED=0
+OLLAMA_WAS_RUNNING=0
 ROOT_CMD=()
 if [ "$(id -u)" -eq 0 ]; then
   ROOT_CMD=()
@@ -284,8 +286,26 @@ cleanup_build_swap() {
     BUILD_SWAP_CREATED=0
   fi
 }
-trap cleanup_build_swap EXIT
-trap 'cleanup_build_swap; exit 130' INT TERM
+
+# The bundled local AI model commonly retains 1–3 GB while idle. On an 8 GB
+# host that is the difference between Nitro completing and the kernel killing
+# its final native bundler pass. Stop only that optional service for the build,
+# remember whether it was running, and restore it even when the build fails.
+restore_build_services() {
+  if [ "$OLLAMA_WAS_RUNNING" -eq 1 ]; then
+    log "Restoring local AI service after build"
+    "${DOCKER[@]}" compose up -d ollama >/dev/null 2>&1 || \
+      err "Warning: local AI service did not restart; run: docker compose up -d ollama"
+    OLLAMA_WAS_RUNNING=0
+  fi
+}
+
+cleanup_build_resources() {
+  cleanup_build_swap
+  restore_build_services
+}
+trap cleanup_build_resources EXIT
+trap 'cleanup_build_resources; exit 130' INT TERM
 
 swap_total_mb=$(awk '/SwapTotal/{printf "%d", $2/1024}' /proc/meminfo 2>/dev/null || echo 0)
 swap_dir_available_mb=$(df -Pm "$(dirname "$BUILD_SWAP_FILE")" 2>/dev/null | awk 'NR==2{print $4}' || echo 0)
@@ -307,6 +327,15 @@ elif [ "${total_mb:-0}" -lt 12288 ] && [ "$swap_total_mb" -lt 4096 ]; then
   err "Warning: temporary swap unavailable (needs passwordless root and 7168MB free); continuing with constrained Rolldown workers"
 fi
 
+if [ "${total_mb:-0}" -lt 12288 ] && [ -n "$("${DOCKER[@]}" compose ps --status running -q ollama 2>/dev/null || true)" ]; then
+  OLLAMA_WAS_RUNNING=1
+  log "Pausing local AI service during this memory-intensive build"
+  if ! "${DOCKER[@]}" compose stop -t 30 ollama; then
+    OLLAMA_WAS_RUNNING=0
+    err "Warning: local AI service could not be stopped; the build may still run out of memory"
+  fi
+fi
+
 log "Build limits: heap=${NODE_HEAP_MB}MB rolldown-workers=${ROLLDOWN_WORKER_THREADS} blocking-workers=${ROLLDOWN_MAX_BLOCKING_THREADS} rayon=${RAYON_NUM_THREADS}"
 log "Building app image (BuildKit cache will short-circuit unchanged layers)"
 set +e
@@ -314,10 +343,10 @@ DOCKER_BUILDKIT=1 "${DOCKER[@]}" compose build app
 build_rc=$?
 set -e
 if [ "$build_rc" -ne 0 ]; then
-  cleanup_build_swap
+  cleanup_build_resources
   exit "$build_rc"
 fi
-cleanup_build_swap
+cleanup_build_resources
 
 # --- 2b. Apply pending DB migrations ---------------------------------------
 # Runs BEFORE the new app image starts serving, so the UI never goes live
