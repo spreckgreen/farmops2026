@@ -12,7 +12,10 @@
 //     connection to an installed breaker/circuit group (no artificial
 //     material-ready or installation steps), advancing to as-built verified
 //     where location evidence was also accepted;
-//   * shared vs dedicated, from how many audited loads occupy that group;
+//   * NOT the dedicated/shared classification: that column is outside this
+//     batch's evidence-supported scope, so a general metadata reconciliation
+//     never overwrites it (a dedicated circuit needs explicit evidence that it
+//     supplies only the identified equipment);
 //   * building context from the authoritative group → panel chain;
 //   * any grid cell / perimeter post the audit EXPLICITLY observed.
 //
@@ -181,6 +184,9 @@ export function buildFsNwAuditManifestR3(input: R3BuildInput): R3BuildResult {
         group_load_ids: ids,
         building_from_relationship: input.buildingFromPanel ?? null,
         physically_installed: true,
+        // Out of scope: this reconciliation carries no evidence about what else
+        // each branch circuit supplies, so the classification is left alone.
+        sharing_classification_in_scope: false,
         observed_grid_reference: loc.grid_reference ?? null,
         observed_pole: loc.pole ?? null,
         evidence: `PNL-FS-NW field audit 03 Sep 2026 PM — ${id} physically traced to the circuit on ${b.breaker_reference} ("${b.circuit_group_label}"), recorded as ${groupId}. Metadata reconciliation of the relationship-only links applied in ${FS_NW_AUDIT_R3_RECONCILES}.`,
@@ -199,8 +205,8 @@ export function buildFsNwAuditManifestR3(input: R3BuildInput): R3BuildResult {
   const scope =
     `Reconciles the metadata consequences of the ${reconciled.length} physically traced load(s) whose ` +
     `relationship-only links were applied in ${FS_NW_AUDIT_R3_RECONCILES} (preserved unchanged). Each item stages the ` +
-    `circuit-group relationship, the complete/as-built-verified state, shared vs dedicated classification from group ` +
-    `membership and building context from the panel chain in one transaction` +
+    `circuit-group relationship, the complete/as-built-verified state and building context from the panel chain in one ` +
+    `transaction. Dedicated/shared classification is out of scope and untouched` +
     (groupsNotApproved.length
       ? `. ${groupsNotApproved.length} breaker(s) without an approved group held`
       : "") +
