@@ -846,12 +846,17 @@ export async function handleApiRead(caller: ApiCaller, segments: string[]): Prom
         { caller },
       );
     }
+    // Owner scoping (created_by) is applied by ownerScopedDb, so this resolves
+    // the batch by ID *and* owner in a single query.
     const { data, error } = await db
       .from("electrical_audit_batches")
       .select(`${columns}, manifest, evidence`)
       .eq("batch_id", wantedBatch)
       .maybeSingle();
-    if (error || !data) {
+    if (error) {
+      return apiError("backend_query_failed", "Could not read that field-audit batch.", { caller });
+    }
+    if (!data) {
       return apiError("not_found_record", `No field-audit batch "${wantedBatch}".`, { caller });
     }
     const row = data as Record<string, unknown>;
