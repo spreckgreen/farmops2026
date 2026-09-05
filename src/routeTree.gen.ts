@@ -150,6 +150,7 @@ import { Route as ApiPublicHooksTaskHealthRouteImport } from './routes/api/publi
 import { Route as ApiPublicVaultBridgePullBatchRouteImport } from './routes/api/public/vault-bridge/pull-batch'
 import { Route as ApiPublicVaultBridgePullPlanRouteImport } from './routes/api/public/vault-bridge/pull-plan'
 import { Route as ApiPublicVaultBridgePushBatchRouteImport } from './routes/api/public/vault-bridge/push-batch'
+import { Route as ApiPublicVaultBridgeRunCompleteRouteImport } from './routes/api/public/vault-bridge/run-complete'
 import { Route as ApiPublicWebhooksRachioRouteImport } from './routes/api/public/webhooks/rachio'
 import { Route as ApiV1ElectricalIndexRouteImport } from './routes/api/v1/electrical/index'
 import { Route as ApiV1ElectricalSplatRouteImport } from './routes/api/v1/electrical/$'
@@ -878,6 +879,12 @@ const ApiPublicVaultBridgePushBatchRoute =
     path: '/api/public/vault-bridge/push-batch',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicVaultBridgeRunCompleteRoute =
+  ApiPublicVaultBridgeRunCompleteRouteImport.update({
+    id: '/api/public/vault-bridge/run-complete',
+    path: '/api/public/vault-bridge/run-complete',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicWebhooksRachioRoute = ApiPublicWebhooksRachioRouteImport.update({
   id: '/api/public/webhooks/rachio',
   path: '/api/public/webhooks/rachio',
@@ -1065,6 +1072,7 @@ export interface FileRoutesByFullPath {
   '/api/public/vault-bridge/pull-batch': typeof ApiPublicVaultBridgePullBatchRoute
   '/api/public/vault-bridge/pull-plan': typeof ApiPublicVaultBridgePullPlanRoute
   '/api/public/vault-bridge/push-batch': typeof ApiPublicVaultBridgePushBatchRoute
+  '/api/public/vault-bridge/run-complete': typeof ApiPublicVaultBridgeRunCompleteRoute
   '/api/public/webhooks/rachio': typeof ApiPublicWebhooksRachioRoute
   '/api/v1/electrical/$': typeof ApiV1ElectricalSplatRoute
   '/electrical/item/$kind/$id': typeof ElectricalItemKindIdRoute
@@ -1211,6 +1219,7 @@ export interface FileRoutesByTo {
   '/api/public/vault-bridge/pull-batch': typeof ApiPublicVaultBridgePullBatchRoute
   '/api/public/vault-bridge/pull-plan': typeof ApiPublicVaultBridgePullPlanRoute
   '/api/public/vault-bridge/push-batch': typeof ApiPublicVaultBridgePushBatchRoute
+  '/api/public/vault-bridge/run-complete': typeof ApiPublicVaultBridgeRunCompleteRoute
   '/api/public/webhooks/rachio': typeof ApiPublicWebhooksRachioRoute
   '/api/v1/electrical/$': typeof ApiV1ElectricalSplatRoute
   '/electrical/item/$kind/$id': typeof ElectricalItemKindIdRoute
@@ -1363,6 +1372,7 @@ export interface FileRoutesById {
   '/api/public/vault-bridge/pull-batch': typeof ApiPublicVaultBridgePullBatchRoute
   '/api/public/vault-bridge/pull-plan': typeof ApiPublicVaultBridgePullPlanRoute
   '/api/public/vault-bridge/push-batch': typeof ApiPublicVaultBridgePushBatchRoute
+  '/api/public/vault-bridge/run-complete': typeof ApiPublicVaultBridgeRunCompleteRoute
   '/api/public/webhooks/rachio': typeof ApiPublicWebhooksRachioRoute
   '/api/v1/electrical/$': typeof ApiV1ElectricalSplatRoute
   '/electrical/item/$kind/$id': typeof ElectricalItemKindIdRoute
@@ -1516,6 +1526,7 @@ export interface FileRouteTypes {
     | '/api/public/vault-bridge/pull-batch'
     | '/api/public/vault-bridge/pull-plan'
     | '/api/public/vault-bridge/push-batch'
+    | '/api/public/vault-bridge/run-complete'
     | '/api/public/webhooks/rachio'
     | '/api/v1/electrical/$'
     | '/electrical/item/$kind/$id'
@@ -1662,6 +1673,7 @@ export interface FileRouteTypes {
     | '/api/public/vault-bridge/pull-batch'
     | '/api/public/vault-bridge/pull-plan'
     | '/api/public/vault-bridge/push-batch'
+    | '/api/public/vault-bridge/run-complete'
     | '/api/public/webhooks/rachio'
     | '/api/v1/electrical/$'
     | '/electrical/item/$kind/$id'
@@ -1813,6 +1825,7 @@ export interface FileRouteTypes {
     | '/api/public/vault-bridge/pull-batch'
     | '/api/public/vault-bridge/pull-plan'
     | '/api/public/vault-bridge/push-batch'
+    | '/api/public/vault-bridge/run-complete'
     | '/api/public/webhooks/rachio'
     | '/api/v1/electrical/$'
     | '/electrical/item/$kind/$id'
@@ -1941,6 +1954,7 @@ export interface RootRouteChildren {
   ApiPublicVaultBridgePullBatchRoute: typeof ApiPublicVaultBridgePullBatchRoute
   ApiPublicVaultBridgePullPlanRoute: typeof ApiPublicVaultBridgePullPlanRoute
   ApiPublicVaultBridgePushBatchRoute: typeof ApiPublicVaultBridgePushBatchRoute
+  ApiPublicVaultBridgeRunCompleteRoute: typeof ApiPublicVaultBridgeRunCompleteRoute
   ApiPublicWebhooksRachioRoute: typeof ApiPublicWebhooksRachioRoute
   ApiV1ElectricalSplatRoute: typeof ApiV1ElectricalSplatRoute
   ElectricalItemKindIdRoute: typeof ElectricalItemKindIdRoute
@@ -2940,6 +2954,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicVaultBridgePushBatchRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/vault-bridge/run-complete': {
+      id: '/api/public/vault-bridge/run-complete'
+      path: '/api/public/vault-bridge/run-complete'
+      fullPath: '/api/public/vault-bridge/run-complete'
+      preLoaderRoute: typeof ApiPublicVaultBridgeRunCompleteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/webhooks/rachio': {
       id: '/api/public/webhooks/rachio'
       path: '/api/public/webhooks/rachio'
@@ -3231,6 +3252,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicVaultBridgePullBatchRoute: ApiPublicVaultBridgePullBatchRoute,
   ApiPublicVaultBridgePullPlanRoute: ApiPublicVaultBridgePullPlanRoute,
   ApiPublicVaultBridgePushBatchRoute: ApiPublicVaultBridgePushBatchRoute,
+  ApiPublicVaultBridgeRunCompleteRoute: ApiPublicVaultBridgeRunCompleteRoute,
   ApiPublicWebhooksRachioRoute: ApiPublicWebhooksRachioRoute,
   ApiV1ElectricalSplatRoute: ApiV1ElectricalSplatRoute,
   ElectricalItemKindIdRoute: ElectricalItemKindIdRoute,
