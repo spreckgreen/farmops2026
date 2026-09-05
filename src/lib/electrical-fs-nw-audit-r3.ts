@@ -8,7 +8,10 @@
 // stages, per load and in ONE item each:
 //   * the approved circuit-group relationship (idempotent — already applied
 //     loads become no-change on preview);
-//   * planned → installed/complete, because the audit physically traced them;
+//   * planned → complete directly, because the audit physically traced the
+//     connection to an installed breaker/circuit group (no artificial
+//     material-ready or installation steps), advancing to as-built verified
+//     where location evidence was also accepted;
 //   * shared vs dedicated, from how many audited loads occupy that group;
 //   * building context from the authoritative group → panel chain;
 //   * any grid cell / perimeter post the audit EXPLICITLY observed.
@@ -70,6 +73,10 @@ export interface R3BuildResult {
   loadsNotFound: string[];
   sharedCircuitLoads: string[];
   dedicatedCircuitLoads: string[];
+  /** Loads whose connection AND location evidence were accepted (as-built verified). */
+  verifiedLoads: string[];
+  /** Loads advanced straight to complete without location evidence. */
+  completeLoads: string[];
   gapCount: number;
 }
 
@@ -141,6 +148,8 @@ export function buildFsNwAuditManifestR3(input: R3BuildInput): R3BuildResult {
   const loadsNotFound: string[] = [];
   const sharedCircuitLoads: string[] = [];
   const dedicatedCircuitLoads: string[] = [];
+  const verifiedLoads: string[] = [];
+  const completeLoads: string[] = [];
   let gapCount = 0;
 
   for (const b of FS_NW_AUDITED_BREAKERS) {
@@ -180,6 +189,8 @@ export function buildFsNwAuditManifestR3(input: R3BuildInput): R3BuildResult {
       items.push(stage.item);
       reconciled.push(id);
       gapCount += stage.gaps.length;
+      if (stage.as_built_verified) verifiedLoads.push(id);
+      else if (stage.install_state === "installed") completeLoads.push(id);
       if (stage.sharing === "S") sharedCircuitLoads.push(id);
       else if (stage.sharing === "D") dedicatedCircuitLoads.push(id);
     }
@@ -188,7 +199,7 @@ export function buildFsNwAuditManifestR3(input: R3BuildInput): R3BuildResult {
   const scope =
     `Reconciles the metadata consequences of the ${reconciled.length} physically traced load(s) whose ` +
     `relationship-only links were applied in ${FS_NW_AUDIT_R3_RECONCILES} (preserved unchanged). Each item stages the ` +
-    `circuit-group relationship, the installed/complete state, shared vs dedicated classification from group ` +
+    `circuit-group relationship, the complete/as-built-verified state, shared vs dedicated classification from group ` +
     `membership and building context from the panel chain in one transaction` +
     (groupsNotApproved.length
       ? `. ${groupsNotApproved.length} breaker(s) without an approved group held`
@@ -228,6 +239,8 @@ export function buildFsNwAuditManifestR3(input: R3BuildInput): R3BuildResult {
     loadsNotFound,
     sharedCircuitLoads,
     dedicatedCircuitLoads,
+    verifiedLoads,
+    completeLoads,
     gapCount,
   };
 }
