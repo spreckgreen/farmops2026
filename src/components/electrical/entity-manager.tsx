@@ -676,7 +676,9 @@ export function EntityManager({
                             ...(f.key === "install_status"
                               ? {
                                   completion_percent: String(
-                                    stageCompletionPercent(v) ?? prev["completion_percent"] ?? "",
+                                    stageCompletionPercent(typeof v === "string" ? v : null) ??
+                                      prev["completion_percent"] ??
+                                      "",
                                   ),
                                 }
                               : {}),
