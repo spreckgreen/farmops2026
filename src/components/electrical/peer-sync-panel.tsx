@@ -174,6 +174,16 @@ export function PeerSyncPanel() {
           >
             Save
           </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={pullNowMutation.isPending || Boolean(job?.running)}
+            onClick={() => pullNowMutation.mutate()}
+            title="Runs the preview-only pull right now. Nothing is applied."
+          >
+            {pullNowMutation.isPending ? "Pulling…" : "Pull now"}
+          </Button>
+
           {job?.paused ? (
             <Button
               size="sm"
