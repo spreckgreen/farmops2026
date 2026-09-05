@@ -694,6 +694,80 @@ export type Database = {
         }
         Relationships: []
       }
+      data_clean_backups: {
+        Row: {
+          cleared_at: string
+          created_at: string
+          id: string
+          integrity_digest: string | null
+          label: string
+          location_label: string | null
+          module_key: string | null
+          payload: Json
+          restore_report: Json | null
+          restored_at: string | null
+          restored_by: string | null
+          scope_kind: string
+          site_name: string | null
+          site_plan_id: string | null
+          table_counts: Json
+          total_rows: number
+          updated_at: string
+          user_id: string
+          withheld_notes: string[]
+        }
+        Insert: {
+          cleared_at?: string
+          created_at?: string
+          id?: string
+          integrity_digest?: string | null
+          label: string
+          location_label?: string | null
+          module_key?: string | null
+          payload?: Json
+          restore_report?: Json | null
+          restored_at?: string | null
+          restored_by?: string | null
+          scope_kind: string
+          site_name?: string | null
+          site_plan_id?: string | null
+          table_counts?: Json
+          total_rows?: number
+          updated_at?: string
+          user_id: string
+          withheld_notes?: string[]
+        }
+        Update: {
+          cleared_at?: string
+          created_at?: string
+          id?: string
+          integrity_digest?: string | null
+          label?: string
+          location_label?: string | null
+          module_key?: string | null
+          payload?: Json
+          restore_report?: Json | null
+          restored_at?: string | null
+          restored_by?: string | null
+          scope_kind?: string
+          site_name?: string | null
+          site_plan_id?: string | null
+          table_counts?: Json
+          total_rows?: number
+          updated_at?: string
+          user_id?: string
+          withheld_notes?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "data_clean_backups_site_plan_id_fkey"
+            columns: ["site_plan_id"]
+            isOneToOne: false
+            referencedRelation: "site_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       electrical_ai_feature_grants: {
         Row: {
           created_at: string
