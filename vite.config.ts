@@ -57,6 +57,10 @@ export default defineConfig({
     ? {
         nitro: {
           preset: nitroPreset,
+          // Minifying the server bundle is pure cost on a memory-starved host:
+          // nothing downloads it. Skipping it removes the native allocation
+          // spike that ended the Nitro phase with a SIGKILL on 8 GB hosts.
+          ...(lowMem ? { minify: false } : {}),
           output: {
             dir: "dist",
             serverDir: "dist/server",
@@ -65,6 +69,7 @@ export default defineConfig({
         },
       }
     : {}),
+
   vite: {
     ...(lowMem ? { plugins: [lowMemoryGcPlugin] } : {}),
     resolve: {
