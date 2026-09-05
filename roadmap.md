@@ -19,3 +19,8 @@
 - [x] Report child and cgroup memory in build heartbeats
 - [x] Bound Rolldown native worker pools and provide temporary build-only swap on low-memory hosts
 - [x] Use memory-capped Rollup for Docker server packaging and pause local AI during low-memory builds
+
+## Garage + Farm House camera placement (Sept 2026)
+- [ ] Garage electrical plan: grid-linked areas and circuit tracing
+- [ ] Place HS-001..HS-006 Ring cameras on the Farm House grid at real positions
+- [ ] Mark cameras live (blocked: needs playable stream addresses)
