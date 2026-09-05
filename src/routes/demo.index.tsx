@@ -118,7 +118,8 @@ function DemoIndexPage() {
         <h1 className="text-4xl font-semibold mb-4">Web presentations</h1>
         <p className="text-muted-foreground mb-12 max-w-2xl">
           These decks run in the browser — arrow keys to move, G for a page grid, P to save a PDF
-          handout. Nothing here reads farm records, and no sign-in is required.
+          handout, and a download button for a PowerPoint (.pptx) version. Nothing here reads farm
+          records, and no sign-in is required.
         </p>
 
         <div className="space-y-5">
