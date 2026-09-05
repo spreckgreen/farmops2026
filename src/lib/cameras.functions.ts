@@ -183,11 +183,97 @@ export const deleteCamera = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+interface ProbeResult {
+  ok: boolean;
+  httpStatus: number | null;
+  latency: number | null;
+  detail: string;
+  hadTarget: boolean;
+}
+
 /**
- * Reachability check. The server requests the snapshot (preferred) or feed
- * address and records exactly what came back: no response is ever interpreted
- * as "probably fine".
+ * Request a camera's snapshot (preferred) or feed address once and report
+ * exactly what came back. No response is ever interpreted as "probably fine",
+ * and a camera with no address is reported as uncheckable rather than offline.
  */
+async function probeCamera(camera: {
+  snapshot_url: string | null;
+  stream_url: string | null;
+}): Promise<ProbeResult> {
+  const target = (camera.snapshot_url ?? camera.stream_url ?? "").trim();
+  if (!target) {
+    return {
+      ok: false,
+      httpStatus: null,
+      latency: null,
+      hadTarget: false,
+      detail: "No feed or snapshot address is recorded, so the camera cannot be checked.",
+    };
+  }
+  const started = Date.now();
+  try {
+    const response = await fetch(target, {
+      method: "GET",
+      redirect: "follow",
+      signal: AbortSignal.timeout(8000),
+    });
+    const latency = Date.now() - started;
+    return {
+      ok: response.ok,
+      httpStatus: response.status,
+      latency,
+      hadTarget: true,
+      detail: response.ok
+        ? `Answered with ${response.status} in ${latency} ms.`
+        : `Answered with ${response.status}.`,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      httpStatus: null,
+      latency: Date.now() - started,
+      hadTarget: true,
+      detail:
+        error instanceof Error ? `No answer: ${error.message}` : "No answer from the camera.",
+    };
+  }
+}
+
+/** Record one probe result: a check row plus the camera's current state. */
+async function recordProbe(
+  supabase: any,
+  userId: string,
+  cameraUuid: string,
+  probe: ProbeResult,
+): Promise<CameraRow> {
+  const checkedAt = new Date().toISOString();
+  const { error: checkError } = await supabase.from("camera_status_checks").insert({
+    user_id: userId,
+    camera_uuid: cameraUuid,
+    checked_at: checkedAt,
+    ok: probe.ok,
+    http_status: probe.httpStatus,
+    latency_ms: probe.latency,
+    detail: probe.detail,
+  });
+  if (checkError) throw new Error(checkError.message);
+
+  const patch = {
+    status: probe.hadTarget ? (probe.ok ? "online" : "offline") : "unknown",
+    last_check_at: checkedAt,
+    last_check_detail: probe.detail,
+    ...(probe.ok ? { last_seen_at: checkedAt } : {}),
+  };
+  const { data: row, error: updateError } = await supabase
+    .from("cameras")
+    .update(patch)
+    .eq("id", cameraUuid)
+    .select(CAMERA_COLUMNS)
+    .maybeSingle();
+  if (updateError) throw new Error(updateError.message);
+  return row as unknown as CameraRow;
+}
+
 export const checkCameraStatus = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { id: string }) => {
@@ -206,58 +292,52 @@ export const checkCameraStatus = createServerFn({ method: "POST" })
     if (readError) throw new Error(readError.message);
     if (!camera) throw new Error("That camera was not found.");
 
-    const target = (camera.snapshot_url ?? camera.stream_url ?? "").trim();
-    const checkedAt = new Date().toISOString();
-    let ok = false;
-    let httpStatus: number | null = null;
-    let latency: number | null = null;
-    let detail = "No feed or snapshot address is recorded, so the camera cannot be checked.";
+    const probe = await probeCamera(camera);
+    const row = await recordProbe(supabase, userId, camera.id, probe);
+    return { camera: row, ok: probe.ok, detail: probe.detail };
+  });
 
-    if (target) {
-      const started = Date.now();
-      try {
-        const response = await fetch(target, {
-          method: "GET",
-          redirect: "follow",
-          signal: AbortSignal.timeout(8000),
-        });
-        latency = Date.now() - started;
-        httpStatus = response.status;
-        ok = response.ok;
-        detail = ok
-          ? `Answered with ${response.status} in ${latency} ms.`
-          : `Answered with ${response.status}.`;
-      } catch (error) {
-        latency = Date.now() - started;
-        detail = error instanceof Error ? `No answer: ${error.message}` : "No answer from the camera.";
+/**
+ * Check every camera that has an address, so the live views and the coverage
+ * map show a current on/off state rather than a stale one. Cameras with no
+ * address are counted separately and left as "not checked".
+ */
+export const checkAllCameraStatuses = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context;
+    await requireCameras(supabase, userId);
+    const { data: list, error: readError } = await supabase
+      .from("cameras")
+      .select("id, snapshot_url, stream_url");
+    if (readError) throw new Error(readError.message);
+    const cameras = (list ?? []) as { id: string; snapshot_url: string | null; stream_url: string | null }[];
+
+    const checkable = cameras.filter((c) => (c.snapshot_url ?? c.stream_url ?? "").trim() !== "");
+    const rows: CameraRow[] = [];
+    let online = 0;
+    let offline = 0;
+    // Probed in small batches so one slow camera cannot stall the whole sweep
+    // and the request stays inside the server function time budget.
+    for (let i = 0; i < checkable.length; i += 4) {
+      const batch = checkable.slice(i, i + 4);
+      const probes = await Promise.all(batch.map((camera) => probeCamera(camera)));
+      for (let n = 0; n < batch.length; n += 1) {
+        const camera = batch[n]!;
+        const probe = probes[n]!;
+        rows.push(await recordProbe(supabase, userId, camera.id, probe));
+        if (probe.ok) online += 1;
+        else offline += 1;
       }
     }
 
-    const { error: checkError } = await supabase.from("camera_status_checks").insert({
-      user_id: userId,
-      camera_uuid: camera.id,
-      checked_at: checkedAt,
-      ok,
-      http_status: httpStatus,
-      latency_ms: latency,
-      detail,
-    });
-    if (checkError) throw new Error(checkError.message);
-
-    const patch = {
-      status: target ? (ok ? "online" : "offline") : "unknown",
-      last_check_at: checkedAt,
-      last_check_detail: detail,
-      ...(ok ? { last_seen_at: checkedAt } : {}),
+    return {
+      cameras: rows,
+      checked: checkable.length,
+      online,
+      offline,
+      skipped: cameras.length - checkable.length,
     };
-    const { data: row, error: updateError } = await supabase
-      .from("cameras")
-      .update(patch)
-      .eq("id", camera.id)
-      .select(CAMERA_COLUMNS)
-      .maybeSingle();
-    if (updateError) throw new Error(updateError.message);
-    return { camera: row as unknown as CameraRow, ok, detail };
   });
 
 export const listCameraChecks = createServerFn({ method: "POST" })
