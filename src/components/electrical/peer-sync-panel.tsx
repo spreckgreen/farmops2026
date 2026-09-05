@@ -13,8 +13,10 @@ import { Input } from "@/components/ui/input";
 import {
   getPeerSyncState,
   resumePeerSyncJob,
+  runPeerSyncNow,
   savePeerSyncConfig,
 } from "@/lib/electrical-peer-sync.functions";
+
 
 type Outcome = "success" | "partial" | "failed" | "skipped";
 
