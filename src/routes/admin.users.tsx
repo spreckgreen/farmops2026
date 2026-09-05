@@ -81,6 +81,9 @@ const ADDON_LABEL: Record<AddonKey, string> = {
   electrical_fieldwrite: "Electrical field write",
   electrical_readonly: "Electrical read-only",
   electrical_scan: "Scanned panel only",
+  maintenance: "Maintenance module",
+  inventory: "Inventory module",
+  food: "Food & Growing module",
 };
 
 const ADDON_HINT: Record<AddonKey, string> = {
@@ -88,6 +91,9 @@ const ADDON_HINT: Record<AddonKey, string> = {
   electrical_fieldwrite: "(audited as-built writes)",
   electrical_readonly: "(electrician-viewable screens, read-only)",
   electrical_scan: "(only panels they scanned)",
+  maintenance: "(usually granted by a plan)",
+  inventory: "(usually granted by a plan)",
+  food: "(usually granted by a plan)",
 };
 
 const ROLE_HINT: Record<AppRole, string> = {
