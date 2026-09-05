@@ -417,8 +417,8 @@ export function resolveEffectiveLocation(
       const raw =
         clean(s.value) ??
         (s.source === "APPROVED_DESIGN_XY"
-          ? num(s.designXFt) != null && num(s.designYFt) != null
-            ? `${s.designXFt} ft E / ${s.designYFt} ft S`
+          ? num(s.designXFt) != null || num(s.designYFt) != null
+            ? `${num(s.designXFt) ?? "?"} ft E / ${num(s.designYFt) ?? "?"} ft S`
             : null
           : null) ??
         (s.source === "FIELD_OBSERVED_POLE_ALIGNMENT"
