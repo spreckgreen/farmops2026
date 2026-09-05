@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Camera, Loader2, MapPin, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { Camera, Compass, Loader2, MapPin, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -33,6 +33,20 @@ import {
   type CameraRow,
 } from "@/lib/cameras";
 import { rowsToCsv, downloadCsv } from "@/lib/csv";
+import { CompassCoverage } from "@/components/security/compass-coverage";
+import { createHouseCameraElectricalObject } from "@/lib/house-camera-electrical.functions";
+import {
+  cameraPlacement,
+  ringModelLabel,
+  COMPASS_SIDE_LABEL,
+  isCompassSide,
+} from "@/lib/ring-cameras";
+
+/**
+ * Buildings that already have a measured, frozen location grid. A camera in any
+ * other building stays on the compass view until a grid is created for it.
+ */
+const BUILDINGS_WITH_GRID = new Set(["Farm Shop"]);
 
 function numberOrNull(value: string): number | null {
   const text = value.trim();
@@ -48,6 +62,7 @@ export function CamerasWindow() {
   const remove = useServerFn(deleteCamera);
   const check = useServerFn(checkCameraStatus);
   const checks = useServerFn(listCameraChecks);
+  const createElectrical = useServerFn(createHouseCameraElectricalObject);
 
   const [draft, setDraft] = useState<CameraDraft | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -57,6 +72,11 @@ export function CamerasWindow() {
   const camerasQuery = useQuery({ queryKey: ["cameras"], queryFn: () => load() });
   const rows = useMemo(() => sortCameras(camerasQuery.data?.cameras ?? []), [camerasQuery.data]);
   const summary = useMemo(() => cameraCoverageSummary(rows), [rows]);
+  /** Cameras with no measured position: shown on the compass view instead. */
+  const compassRows = useMemo(
+    () => rows.filter((row) => row.x_feet === null || row.y_feet === null),
+    [rows],
+  );
 
   const historyQuery = useQuery({
     queryKey: ["camera-checks", historyFor],
@@ -84,6 +104,10 @@ export function CamerasWindow() {
           range_feet: numberOrNull(value.range_feet),
           electrical_load_ref: value.electrical_load_ref,
           notes: value.notes,
+          ring_model: value.ring_model,
+          compass_side: value.compass_side,
+          side_slot:
+            value.side_slot.trim() === "" ? null : Number(value.side_slot.trim()),
         },
       }),
     onSuccess: () => {
@@ -116,6 +140,30 @@ export function CamerasWindow() {
       toast.error(error instanceof Error ? error.message : "The camera could not be checked."),
   });
 
+  const electricalMutation = useMutation({
+    mutationFn: (cameraUuid: string) => createElectrical({ data: { cameraUuid, confirm: false } }),
+    onSuccess: async (result, cameraUuid) => {
+      const p = result.preview;
+      const ok = window.confirm(
+        `Create electrical record ${p.loadId} for ${p.cameraId}?\n\n${p.description}\n${p.location}\n\nLeft empty on purpose:\n- ${p.withheld.join("\n- ")}`,
+      );
+      if (!ok) return;
+      try {
+        const applied = await createElectrical({ data: { cameraUuid, confirm: true } });
+        toast.success(`${applied.loadId} created and linked to ${p.cameraId}`);
+        void queryClient.invalidateQueries({ queryKey: ["cameras"] });
+      } catch (error) {
+        toast.error(
+          error instanceof Error ? error.message : "The electrical record could not be created.",
+        );
+      }
+    },
+    onError: (error: unknown) =>
+      toast.error(
+        error instanceof Error ? error.message : "The electrical record could not be prepared.",
+      ),
+  });
+
   const openNew = () => {
     setDraft(draftFromRow(null, nextCameraId(rows)));
     setDialogOpen(true);
@@ -142,6 +190,11 @@ export function CamerasWindow() {
           fov_degrees: row.fov_degrees,
           range_feet: row.range_feet,
           powered_by: row.electrical_load_ref ?? "",
+          ring_model: ringModelLabel(row.ring_model) ?? "",
+          compass_side: isCompassSide(row.compass_side)
+            ? COMPASS_SIDE_LABEL[row.compass_side]
+            : "",
+          side_slot: row.side_slot ?? "",
           last_seen_at: row.last_seen_at ?? "",
         })),
         [
@@ -157,6 +210,9 @@ export function CamerasWindow() {
           { key: "fov_degrees", label: "View width (deg)" },
           { key: "range_feet", label: "Distance (ft)" },
           { key: "powered_by", label: "Powered by" },
+          { key: "ring_model", label: "Ring model" },
+          { key: "compass_side", label: "Side" },
+          { key: "side_slot", label: "Share of side" },
           { key: "last_seen_at", label: "Last seen" },
         ],
       ),
@@ -265,6 +321,15 @@ export function CamerasWindow() {
                           ? ` · Facing ${headingLabel(row.heading_degrees)}`
                           : ""}
                       </p>
+                      <p className="text-xs text-muted-foreground">
+                        {ringModelLabel(row.ring_model)
+                          ? `${ringModelLabel(row.ring_model)} · `
+                          : ""}
+                        {
+                          cameraPlacement(row, BUILDINGS_WITH_GRID.has(String(row.building ?? "")))
+                            .detail
+                        }
+                      </p>
                       <div className="flex flex-wrap gap-2">
                         <Button
                           size="sm"
@@ -274,6 +339,16 @@ export function CamerasWindow() {
                         >
                           <RefreshCw className="mr-1.5 h-3.5 w-3.5" aria-hidden /> Check now
                         </Button>
+                        {!row.electrical_load_ref && isCompassSide(row.compass_side) ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => electricalMutation.mutate(row.id)}
+                            disabled={electricalMutation.isPending}
+                          >
+                            Create electrical record
+                          </Button>
+                        ) : null}
                         <Button size="sm" variant="outline" onClick={() => openEdit(row)}>
                           <Pencil className="mr-1.5 h-3.5 w-3.5" aria-hidden /> Edit
                         </Button>
@@ -301,6 +376,29 @@ export function CamerasWindow() {
             </TabsContent>
 
             <TabsContent value="coverage" className="mt-4 space-y-4">
+              {compassRows.length > 0 ? (
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center gap-2 text-base">
+                      <Compass className="h-4 w-4 text-primary" aria-hidden /> Compass view — no
+                      building grid yet
+                    </CardTitle>
+                    <CardDescription>
+                      These cameras have no measured position, so they are not drawn on a plan. What
+                      is recorded is the side they are on and Ring's own published view width. When
+                      a grid is created for the building, a measured position can be added and they
+                      move onto the plan.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <CompassCoverage
+                      cameras={compassRows}
+                      selectedId={selectedId}
+                      onSelect={(id) => setSelectedId(id)}
+                    />
+                  </CardContent>
+                </Card>
+              ) : null}
               <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="flex items-center gap-2 text-base">

@@ -442,6 +442,7 @@ export type Database = {
           area: string | null
           building: string | null
           camera_id: string
+          compass_side: string | null
           created_at: string
           electrical_load_ref: string | null
           fov_degrees: number
@@ -454,6 +455,8 @@ export type Database = {
           name: string
           notes: string | null
           range_feet: number
+          ring_model: string | null
+          side_slot: number | null
           snapshot_url: string | null
           status: string
           stream_kind: string
@@ -467,6 +470,7 @@ export type Database = {
           area?: string | null
           building?: string | null
           camera_id: string
+          compass_side?: string | null
           created_at?: string
           electrical_load_ref?: string | null
           fov_degrees?: number
@@ -479,6 +483,8 @@ export type Database = {
           name?: string
           notes?: string | null
           range_feet?: number
+          ring_model?: string | null
+          side_slot?: number | null
           snapshot_url?: string | null
           status?: string
           stream_kind?: string
@@ -492,6 +498,7 @@ export type Database = {
           area?: string | null
           building?: string | null
           camera_id?: string
+          compass_side?: string | null
           created_at?: string
           electrical_load_ref?: string | null
           fov_degrees?: number
@@ -504,6 +511,8 @@ export type Database = {
           name?: string
           notes?: string | null
           range_feet?: number
+          ring_model?: string | null
+          side_slot?: number | null
           snapshot_url?: string | null
           status?: string
           stream_kind?: string
