@@ -5740,6 +5740,164 @@ export type Database = {
         }
         Relationships: []
       }
+      vault_bitwarden_config: {
+        Row: {
+          bridge_token_fingerprint: string | null
+          bridge_token_hash: string | null
+          bridge_token_rotated_at: string | null
+          bw_folder_id: string | null
+          created_at: string
+          folder_name: string
+          id: string
+          last_seen_at: string | null
+          mirror_personal: boolean
+          mirror_shared: boolean
+          owner_user_id: string
+          paused: boolean
+          paused_reason: string | null
+          updated_at: string
+        }
+        Insert: {
+          bridge_token_fingerprint?: string | null
+          bridge_token_hash?: string | null
+          bridge_token_rotated_at?: string | null
+          bw_folder_id?: string | null
+          created_at?: string
+          folder_name?: string
+          id?: string
+          last_seen_at?: string | null
+          mirror_personal?: boolean
+          mirror_shared?: boolean
+          owner_user_id: string
+          paused?: boolean
+          paused_reason?: string | null
+          updated_at?: string
+        }
+        Update: {
+          bridge_token_fingerprint?: string | null
+          bridge_token_hash?: string | null
+          bridge_token_rotated_at?: string | null
+          bw_folder_id?: string | null
+          created_at?: string
+          folder_name?: string
+          id?: string
+          last_seen_at?: string | null
+          mirror_personal?: boolean
+          mirror_shared?: boolean
+          owner_user_id?: string
+          paused?: boolean
+          paused_reason?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      vault_bitwarden_links: {
+        Row: {
+          bw_folder_id: string | null
+          bw_item_id: string | null
+          conflict_detail: Json | null
+          created_at: string
+          id: string
+          last_bw_revision: string | null
+          last_pulled_fingerprint: string | null
+          last_pushed_fingerprint: string | null
+          last_synced_at: string | null
+          owner_user_id: string
+          scope: string
+          status: string
+          title: string | null
+          updated_at: string
+          vault_secret_id: string | null
+        }
+        Insert: {
+          bw_folder_id?: string | null
+          bw_item_id?: string | null
+          conflict_detail?: Json | null
+          created_at?: string
+          id?: string
+          last_bw_revision?: string | null
+          last_pulled_fingerprint?: string | null
+          last_pushed_fingerprint?: string | null
+          last_synced_at?: string | null
+          owner_user_id: string
+          scope?: string
+          status?: string
+          title?: string | null
+          updated_at?: string
+          vault_secret_id?: string | null
+        }
+        Update: {
+          bw_folder_id?: string | null
+          bw_item_id?: string | null
+          conflict_detail?: Json | null
+          created_at?: string
+          id?: string
+          last_bw_revision?: string | null
+          last_pulled_fingerprint?: string | null
+          last_pushed_fingerprint?: string | null
+          last_synced_at?: string | null
+          owner_user_id?: string
+          scope?: string
+          status?: string
+          title?: string | null
+          updated_at?: string
+          vault_secret_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vault_bitwarden_links_vault_secret_id_fkey"
+            columns: ["vault_secret_id"]
+            isOneToOne: false
+            referencedRelation: "vault_secrets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vault_bitwarden_runs: {
+        Row: {
+          conflict_count: number
+          created_at: string
+          error_text: string | null
+          finished_at: string | null
+          id: string
+          owner_user_id: string
+          pulled_count: number
+          pushed_count: number
+          skipped_count: number
+          started_at: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          conflict_count?: number
+          created_at?: string
+          error_text?: string | null
+          finished_at?: string | null
+          id?: string
+          owner_user_id: string
+          pulled_count?: number
+          pushed_count?: number
+          skipped_count?: number
+          started_at?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          conflict_count?: number
+          created_at?: string
+          error_text?: string | null
+          finished_at?: string | null
+          id?: string
+          owner_user_id?: string
+          pulled_count?: number
+          pushed_count?: number
+          skipped_count?: number
+          started_at?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       vault_key_export_audit: {
         Row: {
           action: string
