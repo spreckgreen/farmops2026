@@ -51,6 +51,7 @@ import { Route as AdminTaskDedupeRouteImport } from './routes/admin.task-dedupe'
 import { Route as AdminTaskHealthRouteImport } from './routes/admin.task-health'
 import { Route as AdminUsersRouteImport } from './routes/admin.users'
 import { Route as AdminVaultBackupRouteImport } from './routes/admin.vault-backup'
+import { Route as AdminVaultBitwardenRouteImport } from './routes/admin.vault-bitwarden'
 import { Route as AdminVaultKeyChangeRouteImport } from './routes/admin.vault-key-change'
 import { Route as AdminVaultRotationRouteImport } from './routes/admin.vault-rotation'
 import { Route as AdminVaultSecretsRouteImport } from './routes/admin.vault-secrets'
@@ -368,6 +369,11 @@ const AdminUsersRoute = AdminUsersRouteImport.update({
 const AdminVaultBackupRoute = AdminVaultBackupRouteImport.update({
   id: '/admin/vault-backup',
   path: '/admin/vault-backup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminVaultBitwardenRoute = AdminVaultBitwardenRouteImport.update({
+  id: '/admin/vault-bitwarden',
+  path: '/admin/vault-bitwarden',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminVaultKeyChangeRoute = AdminVaultKeyChangeRouteImport.update({
@@ -972,6 +978,7 @@ export interface FileRoutesByFullPath {
   '/admin/task-health': typeof AdminTaskHealthRoute
   '/admin/users': typeof AdminUsersRoute
   '/admin/vault-backup': typeof AdminVaultBackupRoute
+  '/admin/vault-bitwarden': typeof AdminVaultBitwardenRoute
   '/admin/vault-key-change': typeof AdminVaultKeyChangeRoute
   '/admin/vault-rotation': typeof AdminVaultRotationRoute
   '/admin/vault-secrets': typeof AdminVaultSecretsRoute
@@ -1119,6 +1126,7 @@ export interface FileRoutesByTo {
   '/admin/task-health': typeof AdminTaskHealthRoute
   '/admin/users': typeof AdminUsersRoute
   '/admin/vault-backup': typeof AdminVaultBackupRoute
+  '/admin/vault-bitwarden': typeof AdminVaultBitwardenRoute
   '/admin/vault-key-change': typeof AdminVaultKeyChangeRoute
   '/admin/vault-rotation': typeof AdminVaultRotationRoute
   '/admin/vault-secrets': typeof AdminVaultSecretsRoute
@@ -1272,6 +1280,7 @@ export interface FileRoutesById {
   '/admin/task-health': typeof AdminTaskHealthRoute
   '/admin/users': typeof AdminUsersRoute
   '/admin/vault-backup': typeof AdminVaultBackupRoute
+  '/admin/vault-bitwarden': typeof AdminVaultBitwardenRoute
   '/admin/vault-key-change': typeof AdminVaultKeyChangeRoute
   '/admin/vault-rotation': typeof AdminVaultRotationRoute
   '/admin/vault-secrets': typeof AdminVaultSecretsRoute
@@ -1426,6 +1435,7 @@ export interface FileRouteTypes {
     | '/admin/task-health'
     | '/admin/users'
     | '/admin/vault-backup'
+    | '/admin/vault-bitwarden'
     | '/admin/vault-key-change'
     | '/admin/vault-rotation'
     | '/admin/vault-secrets'
@@ -1573,6 +1583,7 @@ export interface FileRouteTypes {
     | '/admin/task-health'
     | '/admin/users'
     | '/admin/vault-backup'
+    | '/admin/vault-bitwarden'
     | '/admin/vault-key-change'
     | '/admin/vault-rotation'
     | '/admin/vault-secrets'
@@ -1725,6 +1736,7 @@ export interface FileRouteTypes {
     | '/admin/task-health'
     | '/admin/users'
     | '/admin/vault-backup'
+    | '/admin/vault-bitwarden'
     | '/admin/vault-key-change'
     | '/admin/vault-rotation'
     | '/admin/vault-secrets'
@@ -1878,6 +1890,7 @@ export interface RootRouteChildren {
   AdminTaskHealthRoute: typeof AdminTaskHealthRoute
   AdminUsersRoute: typeof AdminUsersRoute
   AdminVaultBackupRoute: typeof AdminVaultBackupRoute
+  AdminVaultBitwardenRoute: typeof AdminVaultBitwardenRoute
   AdminVaultKeyChangeRoute: typeof AdminVaultKeyChangeRoute
   AdminVaultRotationRoute: typeof AdminVaultRotationRoute
   AdminVaultSecretsRoute: typeof AdminVaultSecretsRoute
@@ -2259,6 +2272,13 @@ declare module '@tanstack/react-router' {
       path: '/admin/vault-backup'
       fullPath: '/admin/vault-backup'
       preLoaderRoute: typeof AdminVaultBackupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/vault-bitwarden': {
+      id: '/admin/vault-bitwarden'
+      path: '/admin/vault-bitwarden'
+      fullPath: '/admin/vault-bitwarden'
+      preLoaderRoute: typeof AdminVaultBitwardenRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/vault-key-change': {
@@ -3176,6 +3196,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminTaskHealthRoute: AdminTaskHealthRoute,
   AdminUsersRoute: AdminUsersRoute,
   AdminVaultBackupRoute: AdminVaultBackupRoute,
+  AdminVaultBitwardenRoute: AdminVaultBitwardenRoute,
   AdminVaultKeyChangeRoute: AdminVaultKeyChangeRoute,
   AdminVaultRotationRoute: AdminVaultRotationRoute,
   AdminVaultSecretsRoute: AdminVaultSecretsRoute,
