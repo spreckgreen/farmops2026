@@ -770,6 +770,9 @@ export function buildOperationalAssets(rows: OperationalInput[]): OperationalAss
       locationSource: plottable ? place.source : "NOT_PLOTTED",
       placementCandidates: place.candidates,
       placementDisagreement: place.disagreement,
+      effectiveLocation: effective,
+      locationProvenance: effective.provenance,
+
       stackIndex: 0,
       stackSize: 1,
       fanDxFt: 0,
