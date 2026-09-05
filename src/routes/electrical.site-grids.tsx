@@ -37,12 +37,17 @@ function SiteGridsPage() {
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <h1 className="text-lg font-semibold">Site grids</h1>
-          <Button asChild size="sm" variant="outline">
-            <Link to="/electrical">
-              <ArrowLeft className="mr-1 h-4 w-4" />
-              Overview
-            </Link>
-          </Button>
+          <div className="flex gap-2">
+            <Button asChild size="sm" variant="outline">
+              <Link to="/electrical/building-grid">Rooms &amp; circuits</Link>
+            </Button>
+            <Button asChild size="sm" variant="outline">
+              <Link to="/electrical">
+                <ArrowLeft className="mr-1 h-4 w-4" />
+                Overview
+              </Link>
+            </Button>
+          </div>
         </div>
         <p className="text-sm text-muted-foreground">
           Build a measured outline of each building on a site, then give each building its own

@@ -390,6 +390,119 @@ export type Database = {
           },
         ]
       }
+      building_area_circuits: {
+        Row: {
+          assignment_basis: string
+          breaker_number: number | null
+          building_area_id: string
+          circuit_group_ref: string | null
+          circuit_group_uuid: string | null
+          created_at: string
+          id: string
+          load_ref: string | null
+          notes: string | null
+          panel_ref: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          assignment_basis?: string
+          breaker_number?: number | null
+          building_area_id: string
+          circuit_group_ref?: string | null
+          circuit_group_uuid?: string | null
+          created_at?: string
+          id?: string
+          load_ref?: string | null
+          notes?: string | null
+          panel_ref?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          assignment_basis?: string
+          breaker_number?: number | null
+          building_area_id?: string
+          circuit_group_ref?: string | null
+          circuit_group_uuid?: string | null
+          created_at?: string
+          id?: string
+          load_ref?: string | null
+          notes?: string | null
+          panel_ref?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "building_area_circuits_building_area_id_fkey"
+            columns: ["building_area_id"]
+            isOneToOne: false
+            referencedRelation: "building_areas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "building_area_circuits_circuit_group_uuid_fkey"
+            columns: ["circuit_group_uuid"]
+            isOneToOne: false
+            referencedRelation: "electrical_circuit_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      building_areas: {
+        Row: {
+          area_kind: string
+          area_name: string
+          created_at: string
+          end_cell: string | null
+          floor_level: string | null
+          grid_cells: string | null
+          id: string
+          notes: string | null
+          site_building_id: string
+          start_cell: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          area_kind?: string
+          area_name: string
+          created_at?: string
+          end_cell?: string | null
+          floor_level?: string | null
+          grid_cells?: string | null
+          id?: string
+          notes?: string | null
+          site_building_id: string
+          start_cell?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          area_kind?: string
+          area_name?: string
+          created_at?: string
+          end_cell?: string | null
+          floor_level?: string | null
+          grid_cells?: string | null
+          id?: string
+          notes?: string | null
+          site_building_id?: string
+          start_cell?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "building_areas_site_building_id_fkey"
+            columns: ["site_building_id"]
+            isOneToOne: false
+            referencedRelation: "site_buildings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       camera_status_checks: {
         Row: {
           camera_uuid: string
