@@ -37,7 +37,12 @@ export type SnapshotCollection =
   | "panel_exits"
   | "equipment_racks"
   | "power_assets"
-  | "devices";
+  | "devices"
+  | "switch_banks"
+  | "switch_devices"
+  | "control_groups"
+  | "control_targets"
+  | "control_wiring_segments";
 
 /** Collection name for each entity kind. Stable part of the wire contract. */
 export const COLLECTION_FOR_KIND: Record<ElectricalEntityKind, SnapshotCollection> = {
