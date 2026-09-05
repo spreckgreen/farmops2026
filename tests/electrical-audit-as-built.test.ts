@@ -29,6 +29,7 @@ describe("as-built staging", () => {
       group_load_ids: ["FS-044", "FS-075"],
       building_from_relationship: "Farm Shop",
       physically_installed: true,
+      sharing_classification_in_scope: true,
       evidence: "traced",
     });
     expect(s.errors).toEqual([]);
@@ -41,13 +42,29 @@ describe("as-built staging", () => {
     expect(s.affected_fields).toContain("circuit_group_uuid");
   });
 
-  it("marks a single-load group dedicated", () => {
+  it("never marks a single-load group dedicated without explicit evidence", () => {
     const s = stageAsBuiltLoadObservation({
       load_id: "FS-039",
       circuit_group_ref: "CG-FS-007",
       group_load_ids: ["FS-039"],
       physically_installed: true,
+      sharing_classification_in_scope: true,
       evidence: "traced",
+    });
+    expect(s.sharing).toBeNull();
+    expect(s.item.fields).not.toHaveProperty("dedicated");
+    expect(s.item.fields).not.toHaveProperty("dedicated_shared");
+  });
+
+  it("marks a single-load circuit dedicated only from supplies-only-this evidence", () => {
+    const s = stageAsBuiltLoadObservation({
+      load_id: "FS-101",
+      circuit_group_ref: "CG-FS-009",
+      group_load_ids: ["FS-101"],
+      physically_installed: true,
+      sharing_classification_in_scope: true,
+      dedicated_circuit_evidence: true,
+      evidence: "traced; circuit supplies only this equipment",
     });
     expect(s.sharing).toBe("D");
     expect(s.item.fields["dedicated"]).toBe(true);
@@ -168,9 +185,10 @@ describe("R3 metadata reconciliation", () => {
       expect(s.item.fields["location"]).toBe("Farm Shop");
       expect(s.item.field_grid_reference).toBeNull();
     }
-    expect(built.sharedCircuitLoads.length + built.dedicatedCircuitLoads.length).toBe(20);
-    // B39 feeds only FS-076 and B29 only FS-039 → dedicated; the rest are shared.
-    expect(built.dedicatedCircuitLoads.sort()).toEqual(["FS-039", "FS-076"]);
+    // Classification is outside this reconciliation's evidence-supported scope,
+    // so no load is reclassified either way.
+    expect(built.sharedCircuitLoads).toEqual([]);
+    expect(built.dedicatedCircuitLoads).toEqual([]);
   });
 
   it("holds instead of guessing when a group or load is missing", () => {
