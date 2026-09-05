@@ -119,6 +119,8 @@ function DocumentsWorkspace() {
   const [scope, setScope] = useState<DocScope>(DEFAULT_SCOPE);
   const [labelKinds, setLabelKinds] = useState<LabelKind[]>(DEFAULT_LABEL_KINDS);
   const [busy, setBusy] = useState<DocType | null>(null);
+  /** Print option: clean plan with posts only, no load markers. */
+  const [gridPostsOnly, setGridPostsOnly] = useState(false);
   const [lastStamps, setLastStamps] = useState<Partial<Record<DocType, VersionStamp>>>({});
   const [pasted, setPasted] = useState("");
   // A loaded capture replaces the live snapshot as the source of truth for
