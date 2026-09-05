@@ -19,6 +19,10 @@ import {
 } from "@/lib/electrical-fs-nw-audit-r1";
 import { resolveFsNwAuditedLoadLinks } from "@/lib/electrical-fs-nw-links.functions";
 import { FS_NW_AUDIT_R3_BATCH_ID } from "@/lib/electrical-fs-nw-audit-r3";
+import {
+  FS_SWITCH_CONTROLS_BATCH_ID,
+  fsSwitchControlsManifestText,
+} from "@/lib/electrical-audit-switch-controls";
 import { resolveFsNwAsBuiltReconciliation } from "@/lib/electrical-fs-nw-r3.functions";
 
 import {
@@ -435,6 +439,19 @@ export function AuditBatchPanel() {
               }}
             >
               Load {FS_NW_AUDIT_R2_BATCH_ID}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setManifestText(fsSwitchControlsManifestText());
+                toast.success(
+                  `${FS_SWITCH_CONTROLS_BATCH_ID} loaded — 2 observed switch banks, 2 wiring segments, 1 design-only control group and 4 holds. R2 and R3 are untouched; import to preview, nothing is written yet.`,
+                );
+              }}
+              title="Loads the Farm Shop switching observation: the northeast (A8) and southwest (E1) enclosures, the cables between them, and explicit holds for device counts, conductor functions, controlled targets and functional operation."
+            >
+              Load {FS_SWITCH_CONTROLS_BATCH_ID}
             </Button>
             <Button
               size="sm"
