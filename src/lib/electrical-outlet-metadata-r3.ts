@@ -89,10 +89,20 @@ export interface OutletLoadRow {
   circuit_group_uuid?: string | null;
 }
 
+/** Serializable values of the six correctable metadata fields. */
+export interface OutletFieldValues {
+  dedicated: boolean | null;
+  dedicated_shared: string | null;
+  amps: number | null;
+  connected_va: number | null;
+  amps_semantic: string | null;
+  amps_semantic_provenance: string | null;
+}
+
 export interface OutletCorrection {
   load_id: string;
-  before: Record<string, unknown>;
-  after: Record<string, unknown>;
+  before: OutletFieldValues;
+  after: OutletFieldValues;
   changed: string[];
   /** True when the load already carries the corrected metadata. */
   already_correct: boolean;
@@ -130,7 +140,7 @@ const str = (v: unknown): string | null => {
 };
 
 /** The corrected target state for one audited outlet. */
-function targetState(): Record<string, unknown> {
+function targetState(): OutletFieldValues {
   return {
     dedicated: false,
     dedicated_shared: SHARED_TOKEN,
@@ -189,7 +199,7 @@ export function buildOutletMetadataR3(input: {
     };
     const after = targetState();
     const changed = R3_OUTLET_PERMITTED_FIELDS.filter(
-      (f) => (before as Record<string, unknown>)[f] !== after[f],
+      (f) => (before as OutletFieldValues)[f] !== after[f],
     );
     const already = changed.length === 0;
     if (already) alreadyCorrect.push(loadId);
