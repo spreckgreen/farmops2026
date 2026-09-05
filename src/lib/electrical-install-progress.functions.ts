@@ -205,7 +205,8 @@ export const saveCircuitInstall = createServerFn({ method: "POST" })
       install_status: data.installStatus,
       notes: data.notes,
     };
-    if (data.completionPercent != null) row.completion_percent = data.completionPercent;
+    row.completion_percent =
+      stageCompletionPercent(data.installStatus) ?? data.completionPercent ?? null;
 
     if (data.circuitUuid) {
       const { error } = await db
