@@ -226,6 +226,55 @@ export function PeerSyncPanel() {
           ) : null}
         </div>
 
+        {dryResult ? (
+          <div className="space-y-2 rounded-md border border-border p-3 text-xs">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="outline">dry run — nothing changed</Badge>
+              <span className="text-muted-foreground">
+                Checked {new Date(dryResult.ran_at).toLocaleString()} ·{" "}
+                {dryResult.peer_batches_seen} found on your self-hosted instance
+              </span>
+            </div>
+            <ul className="grid gap-1">
+              {dryResult.items.map((item) => (
+                <li key={`${item.batch_id}-${item.outcome}`} className="flex flex-wrap gap-2">
+                  <span className="font-mono">{item.batch_id}</span>
+                  <span className="text-muted-foreground">
+                    {item.outcome === "would_stage"
+                      ? "would come over as a preview"
+                      : item.outcome === "skipped_present"
+                        ? "already here — skipped"
+                        : item.outcome === "skipped_status"
+                          ? `not finished there (${item.peer_status ?? "unknown"}) — skipped`
+                          : `could not be read: ${item.message ?? "unknown reason"}`}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            {dryResult.capped ? (
+              <p className="text-muted-foreground">
+                More are waiting than one run brings over; the rest come on the next run.
+              </p>
+            ) : null}
+            <div className="flex flex-wrap gap-2 pt-1">
+              <Button
+                size="sm"
+                disabled={
+                  pullNowMutation.isPending ||
+                  Boolean(job?.running) ||
+                  dryResult.items.every((i) => i.outcome !== "would_stage")
+                }
+                onClick={() => pullNowMutation.mutate({})}
+              >
+                Bring these over
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setDryResult(null)}>
+                Dismiss
+              </Button>
+            </div>
+          </div>
+        ) : null}
+
         {state.data && !state.data.token_configured ? (
           <p className="text-xs text-destructive">
             The access key for your self-hosted instance is not saved yet, so the automatic pull
