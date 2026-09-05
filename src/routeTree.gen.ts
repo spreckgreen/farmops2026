@@ -50,6 +50,7 @@ import { Route as ApiOpenapiDotjsonRouteImport } from './routes/api/openapi[.]js
 import { Route as DemoIndexRouteImport } from './routes/demo.index'
 import { Route as DemoElectricalRouteImport } from './routes/demo.electrical'
 import { Route as DemoFarmops_o_sRouteImport } from './routes/demo.farmops_o_s'
+import { Route as DemoPricingRouteImport } from './routes/demo.pricing'
 import { Route as DocsProductArchitectureRouteImport } from './routes/docs.product-architecture'
 import { Route as ElectricalIndexRouteImport } from './routes/electrical.index'
 import { Route as ElectricalKindRouteImport } from './routes/electrical.$kind'
@@ -338,6 +339,11 @@ const DemoElectricalRoute = DemoElectricalRouteImport.update({
 const DemoFarmops_o_sRoute = DemoFarmops_o_sRouteImport.update({
   id: '/demo/farmops_o_s',
   path: '/demo/farmops_o_s',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DemoPricingRoute = DemoPricingRouteImport.update({
+  id: '/demo/pricing',
+  path: '/demo/pricing',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DocsProductArchitectureRoute = DocsProductArchitectureRouteImport.update({
@@ -816,6 +822,7 @@ export interface FileRoutesByFullPath {
   '/api/openapi.json': typeof ApiOpenapiDotjsonRoute
   '/demo/electrical': typeof DemoElectricalRoute
   '/demo/farmops_o_s': typeof DemoFarmops_o_sRoute
+  '/demo/pricing': typeof DemoPricingRoute
   '/docs/product-architecture': typeof DocsProductArchitectureRoute
   '/electrical/$kind': typeof ElectricalKindRoute
   '/electrical/adjudication': typeof ElectricalAdjudicationRoute
@@ -940,6 +947,7 @@ export interface FileRoutesByTo {
   '/api/openapi.json': typeof ApiOpenapiDotjsonRoute
   '/demo/electrical': typeof DemoElectricalRoute
   '/demo/farmops_o_s': typeof DemoFarmops_o_sRoute
+  '/demo/pricing': typeof DemoPricingRoute
   '/docs/product-architecture': typeof DocsProductArchitectureRoute
   '/electrical/$kind': typeof ElectricalKindRoute
   '/electrical/adjudication': typeof ElectricalAdjudicationRoute
@@ -1068,6 +1076,7 @@ export interface FileRoutesById {
   '/api/openapi.json': typeof ApiOpenapiDotjsonRoute
   '/demo/electrical': typeof DemoElectricalRoute
   '/demo/farmops_o_s': typeof DemoFarmops_o_sRoute
+  '/demo/pricing': typeof DemoPricingRoute
   '/docs/product-architecture': typeof DocsProductArchitectureRoute
   '/electrical/$kind': typeof ElectricalKindRoute
   '/electrical/adjudication': typeof ElectricalAdjudicationRoute
@@ -1197,6 +1206,7 @@ export interface FileRouteTypes {
     | '/api/openapi.json'
     | '/demo/electrical'
     | '/demo/farmops_o_s'
+    | '/demo/pricing'
     | '/docs/product-architecture'
     | '/electrical/$kind'
     | '/electrical/adjudication'
@@ -1321,6 +1331,7 @@ export interface FileRouteTypes {
     | '/api/openapi.json'
     | '/demo/electrical'
     | '/demo/farmops_o_s'
+    | '/demo/pricing'
     | '/docs/product-architecture'
     | '/electrical/$kind'
     | '/electrical/adjudication'
@@ -1448,6 +1459,7 @@ export interface FileRouteTypes {
     | '/api/openapi.json'
     | '/demo/electrical'
     | '/demo/farmops_o_s'
+    | '/demo/pricing'
     | '/docs/product-architecture'
     | '/electrical/$kind'
     | '/electrical/adjudication'
@@ -1576,6 +1588,7 @@ export interface RootRouteChildren {
   ApiOpenapiDotjsonRoute: typeof ApiOpenapiDotjsonRoute
   DemoElectricalRoute: typeof DemoElectricalRoute
   DemoFarmops_o_sRoute: typeof DemoFarmops_o_sRoute
+  DemoPricingRoute: typeof DemoPricingRoute
   DocsProductArchitectureRoute: typeof DocsProductArchitectureRoute
   ElectricalKindRoute: typeof ElectricalKindRoute
   ElectricalAdjudicationRoute: typeof ElectricalAdjudicationRoute
@@ -1929,6 +1942,13 @@ declare module '@tanstack/react-router' {
       path: '/demo/farmops_o_s'
       fullPath: '/demo/farmops_o_s'
       preLoaderRoute: typeof DemoFarmops_o_sRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/demo/pricing': {
+      id: '/demo/pricing'
+      path: '/demo/pricing'
+      fullPath: '/demo/pricing'
+      preLoaderRoute: typeof DemoPricingRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/docs/product-architecture': {
@@ -2653,6 +2673,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiOpenapiDotjsonRoute: ApiOpenapiDotjsonRoute,
   DemoElectricalRoute: DemoElectricalRoute,
   DemoFarmops_o_sRoute: DemoFarmops_o_sRoute,
+  DemoPricingRoute: DemoPricingRoute,
   DocsProductArchitectureRoute: DocsProductArchitectureRoute,
   ElectricalKindRoute: ElectricalKindRoute,
   ElectricalAdjudicationRoute: ElectricalAdjudicationRoute,

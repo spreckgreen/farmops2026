@@ -9,12 +9,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { PromoSlideView } from "@/components/deck/promo-slide";
 import { FARMOPS_OS_DEMO_SLIDES } from "@/lib/farmops-os-demo-slides";
+import { FARMOPS_OS_SLIDE_LINKS } from "@/lib/farmops-os-demo-links";
 import { Button } from "@/components/ui/button";
 import {
   ChevronLeft,
   ChevronRight,
   Download,
   LayoutGrid,
+  Lock,
   Presentation,
   X,
 } from "lucide-react";
@@ -90,6 +92,7 @@ function FarmOpsOsDemoPage() {
   const index = slide - 1;
   const total = FARMOPS_OS_DEMO_SLIDES.length;
   const current = FARMOPS_OS_DEMO_SLIDES[index];
+  const links = FARMOPS_OS_SLIDE_LINKS[slide];
   const autoPrinted = useRef(false);
 
   const go = useCallback(
@@ -244,9 +247,31 @@ function FarmOpsOsDemoPage() {
         </div>
       </header>
 
-      <ScaledSlide className="flex-1 w-full">
+      <ScaledSlide className="flex-1 w-full min-h-0">
         <PromoSlideView slide={current} index={index} total={total} />
       </ScaledSlide>
+
+      {links && (
+        <div className="no-print flex flex-wrap items-center gap-2 border-t border-border bg-card px-4 py-2">
+          <span className="text-xs uppercase tracking-wide text-muted-foreground mr-1">
+            {links.heading}
+          </span>
+          {links.links.map((l) => (
+            <Link
+              key={l.to + l.label}
+              to={l.to as never}
+              className="inline-flex items-center gap-1 rounded-full border border-border px-3 py-1 text-xs hover:border-primary hover:text-primary transition-colors"
+            >
+              {l.label}
+              {l.gated && <Lock className="h-3 w-3 opacity-60" />}
+            </Link>
+          ))}
+          <span className="ml-auto text-[11px] text-muted-foreground">
+            <Lock className="inline h-3 w-3 mr-1 align-[-2px]" />
+            needs a sign-in with that module granted
+          </span>
+        </div>
+      )}
 
       <footer className="flex items-center justify-between gap-4 border-t border-border px-4 py-2 text-xs text-muted-foreground">
         <span>← / → or Space to move · G for grid · P for the PDF handout · F for fullscreen</span>

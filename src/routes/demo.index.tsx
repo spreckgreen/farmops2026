@@ -1,7 +1,7 @@
 // /demo — public landing page listing the anonymously viewable FarmOps
 // presentations. No auth loader and no record reads.
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Presentation, Zap, BookOpen, Cpu } from "lucide-react";
+import { Presentation, Zap, BookOpen, Cpu, Calculator } from "lucide-react";
 import { ELECTRICAL_DEMO_SLIDES } from "@/lib/electrical-demo-slides";
 import { FARMOPS_OS_DEMO_SLIDES } from "@/lib/farmops-os-demo-slides";
 import { PROMO_SLIDES } from "@/lib/promo-slides";
@@ -85,6 +85,21 @@ function DemoIndexPage() {
               <p className="text-sm text-muted-foreground leading-relaxed">{d.body}</p>
             </Link>
           ))}
+
+          <Link
+            to="/demo/pricing"
+            className="block rounded-xl border border-border bg-card px-7 py-6 hover:border-primary transition-colors"
+          >
+            <div className="flex items-center gap-3 mb-3">
+              <Calculator className="h-5 w-5 text-primary shrink-0" />
+              <h2 className="text-lg font-semibold">Pricing calculator</h2>
+              <span className="ml-auto text-xs text-muted-foreground">interactive</span>
+            </div>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Pick hosted or your own hardware, choose the modules you need, set people and sites, and
+              compare first-year and ongoing cost across every proposed edition.
+            </p>
+          </Link>
         </div>
       </div>
     </main>
