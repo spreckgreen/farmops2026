@@ -39,6 +39,7 @@ import {
 } from "@/lib/cameras";
 import { rowsToCsv, downloadCsv } from "@/lib/csv";
 import { BridgeWiringCard } from "@/components/security/bridge-wiring-card";
+import { CameraGridPlacementCard } from "@/components/security/camera-grid-placement-card";
 
 import { CompassCoverage } from "@/components/security/compass-coverage";
 import { createHouseCameraElectricalObject } from "@/lib/house-camera-electrical.functions";
