@@ -57,6 +57,7 @@ import { Route as DemoIndexRouteImport } from './routes/demo.index'
 import { Route as DemoElectricalRouteImport } from './routes/demo.electrical'
 import { Route as DemoFarmops_o_sRouteImport } from './routes/demo.farmops_o_s'
 import { Route as DemoPricingRouteImport } from './routes/demo.pricing'
+import { Route as DemoSample_farmRouteImport } from './routes/demo.sample_farm'
 import { Route as DocsProductArchitectureRouteImport } from './routes/docs.product-architecture'
 import { Route as ElectricalIndexRouteImport } from './routes/electrical.index'
 import { Route as ElectricalKindRouteImport } from './routes/electrical.$kind'
@@ -382,6 +383,11 @@ const DemoFarmops_o_sRoute = DemoFarmops_o_sRouteImport.update({
 const DemoPricingRoute = DemoPricingRouteImport.update({
   id: '/demo/pricing',
   path: '/demo/pricing',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DemoSample_farmRoute = DemoSample_farmRouteImport.update({
+  id: '/demo/sample_farm',
+  path: '/demo/sample_farm',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DocsProductArchitectureRoute = DocsProductArchitectureRouteImport.update({
@@ -876,6 +882,7 @@ export interface FileRoutesByFullPath {
   '/demo/electrical': typeof DemoElectricalRoute
   '/demo/farmops_o_s': typeof DemoFarmops_o_sRoute
   '/demo/pricing': typeof DemoPricingRoute
+  '/demo/sample_farm': typeof DemoSample_farmRoute
   '/docs/product-architecture': typeof DocsProductArchitectureRoute
   '/electrical/$kind': typeof ElectricalKindRoute
   '/electrical/adjudication': typeof ElectricalAdjudicationRoute
@@ -1007,6 +1014,7 @@ export interface FileRoutesByTo {
   '/demo/electrical': typeof DemoElectricalRoute
   '/demo/farmops_o_s': typeof DemoFarmops_o_sRoute
   '/demo/pricing': typeof DemoPricingRoute
+  '/demo/sample_farm': typeof DemoSample_farmRoute
   '/docs/product-architecture': typeof DocsProductArchitectureRoute
   '/electrical/$kind': typeof ElectricalKindRoute
   '/electrical/adjudication': typeof ElectricalAdjudicationRoute
@@ -1144,6 +1152,7 @@ export interface FileRoutesById {
   '/demo/electrical': typeof DemoElectricalRoute
   '/demo/farmops_o_s': typeof DemoFarmops_o_sRoute
   '/demo/pricing': typeof DemoPricingRoute
+  '/demo/sample_farm': typeof DemoSample_farmRoute
   '/docs/product-architecture': typeof DocsProductArchitectureRoute
   '/electrical/$kind': typeof ElectricalKindRoute
   '/electrical/adjudication': typeof ElectricalAdjudicationRoute
@@ -1282,6 +1291,7 @@ export interface FileRouteTypes {
     | '/demo/electrical'
     | '/demo/farmops_o_s'
     | '/demo/pricing'
+    | '/demo/sample_farm'
     | '/docs/product-architecture'
     | '/electrical/$kind'
     | '/electrical/adjudication'
@@ -1413,6 +1423,7 @@ export interface FileRouteTypes {
     | '/demo/electrical'
     | '/demo/farmops_o_s'
     | '/demo/pricing'
+    | '/demo/sample_farm'
     | '/docs/product-architecture'
     | '/electrical/$kind'
     | '/electrical/adjudication'
@@ -1549,6 +1560,7 @@ export interface FileRouteTypes {
     | '/demo/electrical'
     | '/demo/farmops_o_s'
     | '/demo/pricing'
+    | '/demo/sample_farm'
     | '/docs/product-architecture'
     | '/electrical/$kind'
     | '/electrical/adjudication'
@@ -1686,6 +1698,7 @@ export interface RootRouteChildren {
   DemoElectricalRoute: typeof DemoElectricalRoute
   DemoFarmops_o_sRoute: typeof DemoFarmops_o_sRoute
   DemoPricingRoute: typeof DemoPricingRoute
+  DemoSample_farmRoute: typeof DemoSample_farmRoute
   DocsProductArchitectureRoute: typeof DocsProductArchitectureRoute
   ElectricalKindRoute: typeof ElectricalKindRoute
   ElectricalAdjudicationRoute: typeof ElectricalAdjudicationRoute
@@ -2089,6 +2102,13 @@ declare module '@tanstack/react-router' {
       path: '/demo/pricing'
       fullPath: '/demo/pricing'
       preLoaderRoute: typeof DemoPricingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/demo/sample_farm': {
+      id: '/demo/sample_farm'
+      path: '/demo/sample_farm'
+      fullPath: '/demo/sample_farm'
+      preLoaderRoute: typeof DemoSample_farmRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/docs/product-architecture': {
@@ -2856,6 +2876,7 @@ const rootRouteChildren: RootRouteChildren = {
   DemoElectricalRoute: DemoElectricalRoute,
   DemoFarmops_o_sRoute: DemoFarmops_o_sRoute,
   DemoPricingRoute: DemoPricingRoute,
+  DemoSample_farmRoute: DemoSample_farmRoute,
   DocsProductArchitectureRoute: DocsProductArchitectureRoute,
   ElectricalKindRoute: ElectricalKindRoute,
   ElectricalAdjudicationRoute: ElectricalAdjudicationRoute,
