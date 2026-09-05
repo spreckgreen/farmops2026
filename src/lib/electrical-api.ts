@@ -66,6 +66,11 @@ export const COLLECTION_TABLE: Record<SnapshotCollection, string> = {
   equipment_racks: ENTITIES.rack.table,
   power_assets: ENTITIES.power_asset.table,
   devices: ENTITIES.device.table,
+  switch_banks: "electrical_switch_banks",
+  switch_devices: "electrical_switch_devices",
+  control_groups: "electrical_control_groups",
+  control_targets: "electrical_control_targets",
+  control_wiring_segments: "electrical_control_wiring_segments",
 };
 
 const COLLECTION_KIND: Partial<Record<SnapshotCollection, ElectricalEntityKind>> = {
