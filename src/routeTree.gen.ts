@@ -118,6 +118,7 @@ import { Route as MaintenanceForecastRouteImport } from './routes/maintenance.fo
 import { Route as MaintenanceGenerateScheduleRouteImport } from './routes/maintenance.generate-schedule'
 import { Route as MaintenanceImportManualRouteImport } from './routes/maintenance.import-manual'
 import { Route as NotesDateRouteImport } from './routes/notes.$date'
+import { Route as PlansIndexRouteImport } from './routes/plans.index'
 import { Route as ProceduresIndexRouteImport } from './routes/procedures.index'
 import { Route as ProceduresIngestRouteImport } from './routes/procedures.ingest'
 import { Route as SecurityIndexRouteImport } from './routes/security.index'
@@ -698,6 +699,11 @@ const NotesDateRoute = NotesDateRouteImport.update({
   path: '/notes/$date',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PlansIndexRoute = PlansIndexRouteImport.update({
+  id: '/plans/',
+  path: '/plans/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProceduresIndexRoute = ProceduresIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -965,6 +971,7 @@ export interface FileRoutesByFullPath {
   '/electrical/': typeof ElectricalIndexRoute
   '/food/': typeof FoodIndexRoute
   '/maintenance/': typeof MaintenanceIndexRoute
+  '/plans/': typeof PlansIndexRoute
   '/procedures/': typeof ProceduresIndexRoute
   '/security/': typeof SecurityIndexRoute
   '/tasks/': typeof TasksIndexRoute
@@ -1099,6 +1106,7 @@ export interface FileRoutesByTo {
   '/electrical': typeof ElectricalIndexRoute
   '/food': typeof FoodIndexRoute
   '/maintenance': typeof MaintenanceIndexRoute
+  '/plans': typeof PlansIndexRoute
   '/procedures': typeof ProceduresIndexRoute
   '/security': typeof SecurityIndexRoute
   '/tasks': typeof TasksIndexRoute
@@ -1239,6 +1247,7 @@ export interface FileRoutesById {
   '/electrical/': typeof ElectricalIndexRoute
   '/food/': typeof FoodIndexRoute
   '/maintenance/': typeof MaintenanceIndexRoute
+  '/plans/': typeof PlansIndexRoute
   '/procedures/': typeof ProceduresIndexRoute
   '/security/': typeof SecurityIndexRoute
   '/tasks/': typeof TasksIndexRoute
@@ -1380,6 +1389,7 @@ export interface FileRouteTypes {
     | '/electrical/'
     | '/food/'
     | '/maintenance/'
+    | '/plans/'
     | '/procedures/'
     | '/security/'
     | '/tasks/'
@@ -1514,6 +1524,7 @@ export interface FileRouteTypes {
     | '/electrical'
     | '/food'
     | '/maintenance'
+    | '/plans'
     | '/procedures'
     | '/security'
     | '/tasks'
@@ -1653,6 +1664,7 @@ export interface FileRouteTypes {
     | '/electrical/'
     | '/food/'
     | '/maintenance/'
+    | '/plans/'
     | '/procedures/'
     | '/security/'
     | '/tasks/'
@@ -1772,6 +1784,7 @@ export interface RootRouteChildren {
   AdminIndexRoute: typeof AdminIndexRoute
   DemoIndexRoute: typeof DemoIndexRoute
   ElectricalIndexRoute: typeof ElectricalIndexRoute
+  PlansIndexRoute: typeof PlansIndexRoute
   TasksIndexRoute: typeof TasksIndexRoute
   ApiElectricalSnapshotRoute: typeof ApiElectricalSnapshotRoute
   ApiPublicHealthRoute: typeof ApiPublicHealthRouteWithChildren
@@ -2557,6 +2570,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof NotesDateRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/plans/': {
+      id: '/plans/'
+      path: '/plans'
+      fullPath: '/plans/'
+      preLoaderRoute: typeof PlansIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/procedures/': {
       id: '/procedures/'
       path: '/'
@@ -2966,6 +2986,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminIndexRoute: AdminIndexRoute,
   DemoIndexRoute: DemoIndexRoute,
   ElectricalIndexRoute: ElectricalIndexRoute,
+  PlansIndexRoute: PlansIndexRoute,
   TasksIndexRoute: TasksIndexRoute,
   ApiElectricalSnapshotRoute: ApiElectricalSnapshotRoute,
   ApiPublicHealthRoute: ApiPublicHealthRouteWithChildren,
