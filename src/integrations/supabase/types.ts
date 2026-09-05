@@ -292,6 +292,66 @@ export type Database = {
           },
         ]
       }
+      app_subscriptions: {
+        Row: {
+          billing: string
+          contractor: boolean
+          created_at: string
+          created_by: string | null
+          current_period_end: string | null
+          deployment: string
+          id: string
+          modules: string[]
+          notes: string | null
+          provider: string
+          provider_ref: string | null
+          seats: number
+          sites: number
+          status: string
+          tier_key: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          billing?: string
+          contractor?: boolean
+          created_at?: string
+          created_by?: string | null
+          current_period_end?: string | null
+          deployment?: string
+          id?: string
+          modules?: string[]
+          notes?: string | null
+          provider?: string
+          provider_ref?: string | null
+          seats?: number
+          sites?: number
+          status?: string
+          tier_key: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          billing?: string
+          contractor?: boolean
+          created_at?: string
+          created_by?: string | null
+          current_period_end?: string | null
+          deployment?: string
+          id?: string
+          modules?: string[]
+          notes?: string | null
+          provider?: string
+          provider_ref?: string | null
+          seats?: number
+          sites?: number
+          status?: string
+          tier_key?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       asset_usage_snapshots: {
         Row: {
           created_at: string
