@@ -234,6 +234,35 @@ export const BUILT_IN_STANDARDS: readonly StandardEntry[] = [
     sort_order: 96,
   },
   {
+    key: "lifecycle_dimensions",
+    title: "Lifecycle milestones and panel completeness",
+    body:
+      "One status can never describe design, procurement, installation, energization and verification at once. " +
+      "Each object tracks these milestones separately, and any of them may be marked not applicable " +
+      "(a direct-buried cable needs no raceway): Planned; Material ready; Breaker/device installed; " +
+      "Raceway or cable pathway installed; Conductors pulled; Panel/source termination complete; " +
+      "Load termination complete; Tested; Energized; As-built verified; Out of service; Retired/removed.\n" +
+      "Material ready means the materials are physically on hand — it does not mean installation has begun.\n" +
+      "Testing, energization and as-built verification only advance on explicit accepted evidence.\n" +
+      "A panel reports separate results, never one combined bar: infrastructure stage; capacity utilization; " +
+      "position documentation coverage; circuit rollout; and per-milestone counts (breakers installed, " +
+      "circuit groups assigned, raceways, conductor pulls, terminations, tests, energization, loads, " +
+      "as-built verification), with holds and conflicts listed separately.\n" +
+      "Capacity utilization = occupied physical positions (poles) / usable physical positions. It is NOT project " +
+      "completion: a 40-position panel with seven installed circuits is 17.5% utilized and can still be 100% " +
+      "complete for a declared seven-circuit scope.\n" +
+      "Circuit rollout = completed applicable milestones / total applicable milestones for declared in-scope " +
+      "circuits. Not-applicable milestones leave the denominator entirely.\n" +
+      "Every physical position is classified Active, Planned, Reserved, Spare or Unavailable. Spare and reserved " +
+      "positions never reduce installation completion; only unclassified positions reduce documentation coverage. " +
+      "A multi-pole breaker consumes several poles but counts as one breaker and normally one circuit group.\n" +
+      "Panel percentages are always derived from breaker positions, circuit groups, branch runs, raceways, " +
+      "terminations, loads, tests and accepted field observations — never stored as authoritative data, and cached " +
+      "only for performance with a recalculate action. \"Panel complete\" means the declared scope is complete, " +
+      "not that every position is occupied.",
+    sort_order: 235,
+  },
+  {
     key: "authority",
     title: "Authority boundary",
     body:
