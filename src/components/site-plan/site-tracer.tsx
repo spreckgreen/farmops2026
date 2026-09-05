@@ -1,3 +1,4 @@
+/// <reference types="google.maps" />
 // Trace building outlines on satellite imagery, then read the measured
 // footprint, orientation and derived reference grid for each one.
 //

@@ -1,3 +1,4 @@
+/// <reference types="google.maps" />
 // Loads the Google Maps JavaScript API once, in the browser only.
 //
 // The browser key is referrer-restricted and safe to embed. Loading is async
