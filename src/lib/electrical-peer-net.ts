@@ -88,13 +88,30 @@ export function assertPeerUrl(raw: string): URL {
 
 export type HostResolver = (hostname: string) => Promise<string[]>;
 
-/** Resolve A/AAAA records over DNS-over-HTTPS (no Node dns dependency). */
-export const dohResolver: HostResolver = async (hostname) => {
+/**
+ * DoH endpoints tried in order. A single provider is not enough: the deployed
+ * worker runtime cannot always reach Cloudflare's own resolver hostname, which
+ * made every peer pull refuse itself. Any provider that answers is sufficient —
+ * the answer is still classified against the private/reserved ranges below.
+ */
+const DOH_ENDPOINTS = [
+  "https://dns.google/resolve",
+  "https://cloudflare-dns.com/dns-query",
+  "https://dns.quad9.net:5053/dns-query",
+];
+
+const DOH_TIMEOUT_MS = 5000;
+
+async function queryDoh(endpoint: string, hostname: string): Promise<string[]> {
   const out: string[] = [];
   for (const type of ["A", "AAAA"]) {
     const res = await fetch(
-      `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(hostname)}&type=${type}`,
-      { headers: { accept: "application/dns-json" }, redirect: "error" },
+      `${endpoint}?name=${encodeURIComponent(hostname)}&type=${type}`,
+      {
+        headers: { accept: "application/dns-json" },
+        redirect: "error",
+        signal: AbortSignal.timeout(DOH_TIMEOUT_MS),
+      },
     );
     if (!res.ok) continue;
     const body = (await res.json()) as { Answer?: { type?: number; data?: string }[] };
@@ -103,7 +120,23 @@ export const dohResolver: HostResolver = async (hostname) => {
     }
   }
   return out.filter(Boolean);
+}
+
+/** Resolve A/AAAA records over DNS-over-HTTPS (no Node dns dependency). */
+export const dohResolver: HostResolver = async (hostname) => {
+  let lastError: unknown = null;
+  for (const endpoint of DOH_ENDPOINTS) {
+    try {
+      const answers = await queryDoh(endpoint, hostname);
+      if (answers.length) return answers;
+    } catch (err) {
+      lastError = err;
+    }
+  }
+  if (lastError) throw lastError;
+  return [];
 };
+
 
 /**
  * Reject a host whose RESOLVED addresses land in a private, loopback,
