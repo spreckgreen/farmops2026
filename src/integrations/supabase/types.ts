@@ -5279,6 +5279,137 @@ export type Database = {
           },
         ]
       }
+      site_buildings: {
+        Row: {
+          created_at: string
+          fit_length_ft: number | null
+          fit_width_ft: number | null
+          footprint_sqft: number | null
+          grid_cell_ft: number
+          grid_column_labels: string | null
+          grid_columns: number | null
+          grid_row_labels: string | null
+          grid_rows: number | null
+          id: string
+          mapped_confidence: string | null
+          mapped_structure: string | null
+          notes: string | null
+          orientation_degrees: number | null
+          origin_latitude: number | null
+          origin_longitude: number | null
+          outline: Json
+          perimeter_ft: number | null
+          site_plan_id: string
+          size_rank: number
+          temp_name: string
+          trace_method: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          fit_length_ft?: number | null
+          fit_width_ft?: number | null
+          footprint_sqft?: number | null
+          grid_cell_ft?: number
+          grid_column_labels?: string | null
+          grid_columns?: number | null
+          grid_row_labels?: string | null
+          grid_rows?: number | null
+          id?: string
+          mapped_confidence?: string | null
+          mapped_structure?: string | null
+          notes?: string | null
+          orientation_degrees?: number | null
+          origin_latitude?: number | null
+          origin_longitude?: number | null
+          outline: Json
+          perimeter_ft?: number | null
+          site_plan_id: string
+          size_rank?: number
+          temp_name: string
+          trace_method?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          fit_length_ft?: number | null
+          fit_width_ft?: number | null
+          footprint_sqft?: number | null
+          grid_cell_ft?: number
+          grid_column_labels?: string | null
+          grid_columns?: number | null
+          grid_row_labels?: string | null
+          grid_rows?: number | null
+          id?: string
+          mapped_confidence?: string | null
+          mapped_structure?: string | null
+          notes?: string | null
+          orientation_degrees?: number | null
+          origin_latitude?: number | null
+          origin_longitude?: number | null
+          outline?: Json
+          perimeter_ft?: number | null
+          site_plan_id?: string
+          size_rank?: number
+          temp_name?: string
+          trace_method?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "site_buildings_site_plan_id_fkey"
+            columns: ["site_plan_id"]
+            isOneToOne: false
+            referencedRelation: "site_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      site_plans: {
+        Row: {
+          address: string
+          created_at: string
+          formatted_address: string | null
+          id: string
+          imagery_source: string
+          latitude: number | null
+          longitude: number | null
+          notes: string | null
+          site_name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          address: string
+          created_at?: string
+          formatted_address?: string | null
+          id?: string
+          imagery_source?: string
+          latitude?: number | null
+          longitude?: number | null
+          notes?: string | null
+          site_name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          address?: string
+          created_at?: string
+          formatted_address?: string | null
+          id?: string
+          imagery_source?: string
+          latitude?: number | null
+          longitude?: number | null
+          notes?: string | null
+          site_name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       summaries: {
         Row: {
           created_at: string
