@@ -140,6 +140,13 @@ export function AppLayout({ children }: { children: ReactNode }) {
                     Troubleshooting
                   </Link>
                 </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/subscription" className="flex items-center gap-2 cursor-pointer">
+                    <CreditCard className="h-4 w-4" />
+                    Your plan
+                  </Link>
+                </DropdownMenuItem>
+
 
                 {profile.data?.isAdmin && (
                   <>
