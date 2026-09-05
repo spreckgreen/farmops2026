@@ -30,7 +30,12 @@ import {
   type Json,
   type PoleObservation,
 } from "@/lib/electrical-audit-batch";
+import {
+  effectiveLocationAfterObservation,
+  type EffectiveLocation,
+} from "@/lib/electrical-effective-location";
 import { stageCompletionPercent } from "@/lib/electrical-lifecycle";
+
 
 export const AS_BUILT_STAGING_MODES = ["FULL_AS_BUILT", "RELATIONSHIP_ONLY"] as const;
 export type AsBuiltStagingMode = (typeof AS_BUILT_STAGING_MODES)[number];
@@ -106,7 +111,15 @@ export interface AsBuiltStaging {
   /** True when both the audited connection and its location evidence were accepted. */
   as_built_verified: boolean;
   sharing: "D" | "S" | null;
+  /**
+   * Derived, read-only effective location the shared resolver produces once this
+   * observation is accepted. It is recomputed inside the same approved
+   * transaction — there is no separate metadata reconciliation step — and no
+   * prior location value or evidence is removed.
+   */
+  effective_location_after: EffectiveLocation | null;
 }
+
 
 export const asBuiltItemKey = (loadId: string) =>
   `as-built-load-${loadId.trim().toLowerCase()}`;
@@ -375,6 +388,33 @@ export function stageAsBuiltLoadObservation(obs: AsBuiltLoadObservation): AsBuil
   }
   if (notes) affected.add("notes");
 
+  // Derived consequence: the shared resolver's effective location after this
+  // observation is accepted. Read-only, recomputed in the same transaction.
+  const effectiveAfter =
+    grid || pole
+      ? effectiveLocationAfterObservation(
+          { stableId: loadId },
+          {
+            fieldGridReference: grid,
+            poleScheme: pole?.pole_scheme ?? null,
+            poleLocationKind: pole?.pole_location_kind ?? null,
+            poleRefStart: pole?.pole_ref_start ?? null,
+            poleRefEnd: pole?.pole_ref_end ?? null,
+            evidence: obs.evidence,
+            fieldEvidencePerimeter: pole ? true : null,
+          },
+        ).after
+      : null;
+  if (effectiveAfter?.effective) {
+    affected.add("effective_location (derived, read-only)");
+    consequences.push({
+      field: "effective_location",
+      value: effectiveAfter.provenance,
+      because:
+        "Derived by the shared effective-location resolver from the accepted observation, recomputed in this same approved transaction. Every prior location value, source, evidence reference and timestamp is preserved.",
+    });
+  }
+
   return {
     item,
     mode,
@@ -385,7 +425,9 @@ export function stageAsBuiltLoadObservation(obs: AsBuiltLoadObservation): AsBuil
     install_state: installState,
     as_built_verified: installState === "as_built_verified",
     sharing,
+    effective_location_after: effectiveAfter,
   };
+
 }
 
 /** Convenience: the consequence columns a full as-built load item can touch. */

@@ -491,6 +491,8 @@ export function hintLines(asset: OperationalAsset): string[] {
     `Panel: ${asset.panel ?? "NOT IN RECORD"} · Install: ${asset.installStatus ?? "NOT IN RECORD"}`,
     `Verification: ${VERIFICATION_LABEL[verificationOf(asset.verification)]}`,
     `Position from: ${PLACEMENT_SOURCE_LABEL[asset.locationSource]}`,
+    `Effective location: ${asset.locationProvenance}`,
+
     ...(asset.locationSource === "PENDING_FIELD_OBSERVATION"
       ? [
           `Staged observation ${asset.pendingObservation?.batchId ?? ""} — awaiting approval, not applied`.trim(),

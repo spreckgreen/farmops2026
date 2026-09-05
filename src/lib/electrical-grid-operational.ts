@@ -16,9 +16,14 @@ import {
   parseOldGrid,
 } from "@/lib/electrical-grid-migration";
 import {
+  effectiveLocationForRecord,
+  type EffectiveLocation,
+} from "@/lib/electrical-effective-location";
+import {
   POST_GEOMETRY_CONFIRMED,
   postObservationFeet,
 } from "@/lib/electrical-grid-post-geometry";
+
 
 
 export const OPERATIONAL_MODEL_VERSION = "farm-shop-operational-location-1";
@@ -339,12 +344,43 @@ export interface OperationalAsset extends Omit<OperationalInput, "storedPrecisio
   placementCandidates: PlacementCandidate[];
   /** Set when candidates disagree; a Data Quality finding, never silently resolved. */
   placementDisagreement: string | null;
+  /**
+   * Derived, read-only effective location from the ONE shared resolver. Every
+   * consumer (maps, diagrams, lists, previews, exports, AI, completeness) must
+   * display this rather than re-deriving precedence.
+   */
+  effectiveLocation: EffectiveLocation;
+  /** "A8 · observed A1–F9 grid · field verified" */
+  locationProvenance: string;
   stackIndex: number;
   stackSize: number;
   /** Display-only separation for co-located markers. The anchor stays true. */
   fanDxFt: number;
   fanDyFt: number;
 }
+
+/**
+ * Maps one operational record onto the shared effective-location resolver.
+ * Precedence lives in electrical-effective-location.ts and nowhere else.
+ */
+export function effectiveLocationForOperational(row: OperationalInput): EffectiveLocation {
+  const legacyKind = row.kind === "load" || row.kind === "panel";
+  return effectiveLocationForRecord({
+    stableId: row.stableId,
+    poleScheme: row.poleScheme ?? null,
+    poleLocationKind: row.poleLocationKind ?? null,
+    poleRefStart: row.poleRefStart ?? null,
+    poleRefEnd: row.poleRefEnd ?? null,
+    poleEvidence: row.locationEvidence ?? null,
+    poleObservedAt: row.verifiedAt ?? null,
+    fieldGridReference: row.fieldGridReference ?? null,
+    fieldGridEvidence: row.locationEvidence ?? null,
+    fieldGridObservedAt: row.verifiedAt ?? null,
+    remappedGridReference: row.gridReference ?? (legacyKind ? null : row.grid),
+    originalGrid: legacyKind ? (row.grid ?? row.legacyGrid) : row.legacyGrid,
+  });
+}
+
 
 const num = (v: unknown): number | null =>
   typeof v === "number" && Number.isFinite(v) ? v : null;
@@ -721,7 +757,9 @@ function cluster(assets: OperationalAsset[]): OperationalAsset[] {
 export function buildOperationalAssets(rows: OperationalInput[]): OperationalAsset[] {
   const assets = rows.map((row) => {
     const place = classifyLocation(row);
+    const effective = effectiveLocationForOperational(row);
     const plottable = PRECISION_META[place.precision].plottable && place.xFt != null;
+
     const asset: OperationalAsset = {
       ...row,
       precision: place.precision,
@@ -734,6 +772,9 @@ export function buildOperationalAssets(rows: OperationalInput[]): OperationalAss
       locationSource: plottable ? place.source : "NOT_PLOTTED",
       placementCandidates: place.candidates,
       placementDisagreement: place.disagreement,
+      effectiveLocation: effective,
+      locationProvenance: effective.provenance,
+
       stackIndex: 0,
       stackSize: 1,
       fanDxFt: 0,

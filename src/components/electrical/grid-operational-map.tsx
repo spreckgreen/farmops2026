@@ -886,8 +886,10 @@ export function AssetDetail({ asset }: { asset: OperationalAsset }) {
         ? `${asset.plottedXFt} ft E, ${asset.plottedYFt} ft S`
         : "NOT IN RECORD",
     ],
+    ["Effective location", asset.locationProvenance],
     ["Location precision", PRECISION_META[asset.precision].label],
     ["Placement source", PLACEMENT_SOURCE_LABEL[asset.locationSource]],
+
     ["Install status", asset.installStatus ?? "NOT IN RECORD"],
     ["Field verification", VERIFICATION_LABEL[verificationOf(asset.verification)]],
     ["Evidence / source", asset.locationEvidence ?? asset.precisionBasis],
@@ -907,6 +909,20 @@ export function AssetDetail({ asset }: { asset: OperationalAsset }) {
         ))}
       </div>
       <p className="mt-2 text-[11px] text-muted-foreground">{asset.precisionBasis}</p>
+      {asset.effectiveLocation.conflict ? (
+        <p className="mt-2 text-[11px] text-destructive">
+          {asset.effectiveLocation.conflict.message}
+        </p>
+      ) : null}
+      {asset.effectiveLocation.warnings.length ? (
+        <div className="mt-2 text-[11px] text-muted-foreground">
+          <p className="font-medium">Location data quality</p>
+          {asset.effectiveLocation.warnings.map((w) => (
+            <p key={`${w.code}-${w.source ?? "none"}`}>{w.message}</p>
+          ))}
+        </div>
+      ) : null}
+
       {asset.placementCandidates.length > 1 ? (
         <div className="mt-2 text-[11px]">
           <p className="font-medium">Placement sources evaluated</p>
