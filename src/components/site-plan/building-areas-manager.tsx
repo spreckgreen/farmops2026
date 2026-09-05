@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { starterOutbuildingPlan } from "@/lib/garage-plan";
 import {
   Select,
   SelectContent,
@@ -184,6 +185,56 @@ export function BuildingAreasManager() {
     onError: (error: any) => toast.error(error?.message ?? "The link could not be removed."),
   });
 
+  // A starter layout for a simple rectangular outbuilding: rooms/bays plus one
+  // planned circuit reference each. No engineering values and no breaker
+  // numbers are created — those come from real records or field evidence.
+  const starterPlan = useMutation({
+    mutationFn: async () => {
+      const panelRef = `${(building?.building_name || building?.temp_name || "BLDG")
+        .toString()
+        .trim()
+        .toUpperCase()
+        .replace(/[^A-Z0-9]+/g, "-")} panel (planned)`;
+      const plan = starterOutbuildingPlan(building as never, panelRef);
+      let areasCreated = 0;
+      let circuitsCreated = 0;
+      for (const area of plan) {
+        const saved: any = await saveAreaFn({
+          data: {
+            site_building_id: buildingId,
+            area_name: area.area_name,
+            area_kind: area.area_kind,
+            grid_cells: area.grid_cells,
+            notes: area.notes,
+          },
+        });
+        areasCreated += 1;
+        const areaId = saved?.id;
+        if (!areaId) continue;
+        for (const circuit of area.circuits) {
+          await saveCircuitFn({
+            data: {
+              building_area_id: areaId,
+              circuit_group_ref: circuit.circuit_group_ref,
+              panel_ref: circuit.panel_ref,
+              assignment_basis: "DESIGN",
+              notes: circuit.notes,
+            },
+          });
+          circuitsCreated += 1;
+        }
+      }
+      return { areasCreated, circuitsCreated };
+    },
+    onSuccess: (result) => {
+      toast.success(
+        `Added ${result.areasCreated} areas and ${result.circuitsCreated} planned circuits.`,
+      );
+      invalidate();
+    },
+    onError: (error: any) => toast.error(error?.message ?? "The starter plan could not be added."),
+  });
+
   function toggleCell(cell: string) {
     const current = cellList(areaForm.grid_cells);
     const next = current.includes(cell)
@@ -277,8 +328,31 @@ export function BuildingAreasManager() {
         </CardContent>
       </Card>
 
+      {building && buildingAreas.length === 0 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Start this building off</CardTitle>
+            <CardDescription>
+              Adds a service wall, two bays and an exterior area across this building&apos;s grid,
+              each with one planned circuit reference. Names are yours to change, and no ratings,
+              breaker numbers or wire sizes are invented — record those from the real wiring.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button
+              size="sm"
+              onClick={() => starterPlan.mutate()}
+              disabled={starterPlan.isPending}
+            >
+              {starterPlan.isPending ? "Adding…" : "Add starter rooms and planned circuits"}
+            </Button>
+          </CardContent>
+        </Card>
+      ) : null}
+
       {building ? (
         <>
+
           <Card>
             <CardHeader>
               <CardTitle className="text-base">
