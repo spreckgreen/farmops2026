@@ -147,6 +147,7 @@ import { Route as ApiPublicHealthProceduresRouteImport } from './routes/api/publ
 import { Route as ApiPublicHooksElectricalPeerSyncRouteImport } from './routes/api/public/hooks/electrical-peer-sync'
 import { Route as ApiPublicHooksRachioSyncRouteImport } from './routes/api/public/hooks/rachio-sync'
 import { Route as ApiPublicHooksTaskHealthRouteImport } from './routes/api/public/hooks/task-health'
+import { Route as ApiPublicVaultBridgePullBatchRouteImport } from './routes/api/public/vault-bridge/pull-batch'
 import { Route as ApiPublicVaultBridgePullPlanRouteImport } from './routes/api/public/vault-bridge/pull-plan'
 import { Route as ApiPublicVaultBridgePushBatchRouteImport } from './routes/api/public/vault-bridge/push-batch'
 import { Route as ApiPublicWebhooksRachioRouteImport } from './routes/api/public/webhooks/rachio'
@@ -859,6 +860,12 @@ const ApiPublicHooksTaskHealthRoute =
     path: '/api/public/hooks/task-health',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicVaultBridgePullBatchRoute =
+  ApiPublicVaultBridgePullBatchRouteImport.update({
+    id: '/api/public/vault-bridge/pull-batch',
+    path: '/api/public/vault-bridge/pull-batch',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicVaultBridgePullPlanRoute =
   ApiPublicVaultBridgePullPlanRouteImport.update({
     id: '/api/public/vault-bridge/pull-plan',
@@ -1055,6 +1062,7 @@ export interface FileRoutesByFullPath {
   '/api/public/hooks/electrical-peer-sync': typeof ApiPublicHooksElectricalPeerSyncRoute
   '/api/public/hooks/rachio-sync': typeof ApiPublicHooksRachioSyncRoute
   '/api/public/hooks/task-health': typeof ApiPublicHooksTaskHealthRoute
+  '/api/public/vault-bridge/pull-batch': typeof ApiPublicVaultBridgePullBatchRoute
   '/api/public/vault-bridge/pull-plan': typeof ApiPublicVaultBridgePullPlanRoute
   '/api/public/vault-bridge/push-batch': typeof ApiPublicVaultBridgePushBatchRoute
   '/api/public/webhooks/rachio': typeof ApiPublicWebhooksRachioRoute
@@ -1200,6 +1208,7 @@ export interface FileRoutesByTo {
   '/api/public/hooks/electrical-peer-sync': typeof ApiPublicHooksElectricalPeerSyncRoute
   '/api/public/hooks/rachio-sync': typeof ApiPublicHooksRachioSyncRoute
   '/api/public/hooks/task-health': typeof ApiPublicHooksTaskHealthRoute
+  '/api/public/vault-bridge/pull-batch': typeof ApiPublicVaultBridgePullBatchRoute
   '/api/public/vault-bridge/pull-plan': typeof ApiPublicVaultBridgePullPlanRoute
   '/api/public/vault-bridge/push-batch': typeof ApiPublicVaultBridgePushBatchRoute
   '/api/public/webhooks/rachio': typeof ApiPublicWebhooksRachioRoute
@@ -1351,6 +1360,7 @@ export interface FileRoutesById {
   '/api/public/hooks/electrical-peer-sync': typeof ApiPublicHooksElectricalPeerSyncRoute
   '/api/public/hooks/rachio-sync': typeof ApiPublicHooksRachioSyncRoute
   '/api/public/hooks/task-health': typeof ApiPublicHooksTaskHealthRoute
+  '/api/public/vault-bridge/pull-batch': typeof ApiPublicVaultBridgePullBatchRoute
   '/api/public/vault-bridge/pull-plan': typeof ApiPublicVaultBridgePullPlanRoute
   '/api/public/vault-bridge/push-batch': typeof ApiPublicVaultBridgePushBatchRoute
   '/api/public/webhooks/rachio': typeof ApiPublicWebhooksRachioRoute
@@ -1503,6 +1513,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/electrical-peer-sync'
     | '/api/public/hooks/rachio-sync'
     | '/api/public/hooks/task-health'
+    | '/api/public/vault-bridge/pull-batch'
     | '/api/public/vault-bridge/pull-plan'
     | '/api/public/vault-bridge/push-batch'
     | '/api/public/webhooks/rachio'
@@ -1648,6 +1659,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/electrical-peer-sync'
     | '/api/public/hooks/rachio-sync'
     | '/api/public/hooks/task-health'
+    | '/api/public/vault-bridge/pull-batch'
     | '/api/public/vault-bridge/pull-plan'
     | '/api/public/vault-bridge/push-batch'
     | '/api/public/webhooks/rachio'
@@ -1798,6 +1810,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/electrical-peer-sync'
     | '/api/public/hooks/rachio-sync'
     | '/api/public/hooks/task-health'
+    | '/api/public/vault-bridge/pull-batch'
     | '/api/public/vault-bridge/pull-plan'
     | '/api/public/vault-bridge/push-batch'
     | '/api/public/webhooks/rachio'
@@ -1925,6 +1938,7 @@ export interface RootRouteChildren {
   ApiPublicHooksElectricalPeerSyncRoute: typeof ApiPublicHooksElectricalPeerSyncRoute
   ApiPublicHooksRachioSyncRoute: typeof ApiPublicHooksRachioSyncRoute
   ApiPublicHooksTaskHealthRoute: typeof ApiPublicHooksTaskHealthRoute
+  ApiPublicVaultBridgePullBatchRoute: typeof ApiPublicVaultBridgePullBatchRoute
   ApiPublicVaultBridgePullPlanRoute: typeof ApiPublicVaultBridgePullPlanRoute
   ApiPublicVaultBridgePushBatchRoute: typeof ApiPublicVaultBridgePushBatchRoute
   ApiPublicWebhooksRachioRoute: typeof ApiPublicWebhooksRachioRoute
@@ -2905,6 +2919,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksTaskHealthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/vault-bridge/pull-batch': {
+      id: '/api/public/vault-bridge/pull-batch'
+      path: '/api/public/vault-bridge/pull-batch'
+      fullPath: '/api/public/vault-bridge/pull-batch'
+      preLoaderRoute: typeof ApiPublicVaultBridgePullBatchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/vault-bridge/pull-plan': {
       id: '/api/public/vault-bridge/pull-plan'
       path: '/api/public/vault-bridge/pull-plan'
@@ -3207,6 +3228,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicHooksElectricalPeerSyncRoute: ApiPublicHooksElectricalPeerSyncRoute,
   ApiPublicHooksRachioSyncRoute: ApiPublicHooksRachioSyncRoute,
   ApiPublicHooksTaskHealthRoute: ApiPublicHooksTaskHealthRoute,
+  ApiPublicVaultBridgePullBatchRoute: ApiPublicVaultBridgePullBatchRoute,
   ApiPublicVaultBridgePullPlanRoute: ApiPublicVaultBridgePullPlanRoute,
   ApiPublicVaultBridgePushBatchRoute: ApiPublicVaultBridgePushBatchRoute,
   ApiPublicWebhooksRachioRoute: ApiPublicWebhooksRachioRoute,
