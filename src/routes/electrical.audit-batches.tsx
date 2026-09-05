@@ -38,6 +38,14 @@ function AuditBatchesPage() {
             electrical record until you approve individual observations; holds, conflicts and
             design-only changes stay unapplied and export as ODS correction candidates instead.
           </p>
+          <p className="text-sm text-muted-foreground">
+            An accepted as-built observation carries its consequences in the same preview and the
+            same approval: the circuit relationship, a direct advance to complete (no artificial
+            material-ready or installation taps), shared or dedicated from how many loads share the
+            circuit, building from the panel it hangs off, and any grid cell or post the audit
+            actually observed. Testing and energization are only recorded when they were explicitly
+            observed, and every change is shown as an exact before-and-after difference first.
+          </p>
         </header>
         <AuditBatchPanel />
       </div>
