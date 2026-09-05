@@ -88,9 +88,19 @@ export default defineConfig({
             sourcemap: false,
             // Skips the final gzip-size pass that briefly doubles RAM.
             reportCompressedSize: false,
+            // One file operation at a time: Rolldown's native buffers are the
+            // dominant peak on small hosts, and they scale with parallelism.
+            maxParallelFileOps: 1,
+          },
+          // The Nitro/SSR server bundle is never shipped to browsers, so
+          // minifying it only burns native memory during the phase that
+          // previously pushed an 8 GB host into the OOM killer.
+          environments: {
+            ssr: { build: { minify: false as const, sourcemap: false } },
           },
         }
       : {}),
+
   },
 });
 
