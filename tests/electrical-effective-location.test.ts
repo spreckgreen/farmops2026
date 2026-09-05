@@ -32,6 +32,7 @@ describe("effective-location precedence", () => {
     expect(EFFECTIVE_LOCATION_PRIORITY).toEqual([
       "FIELD_OBSERVED_POLE_ALIGNMENT",
       "FIELD_OBSERVED_GRID",
+      "APPROVED_DESIGN_XY",
       "GRID_REMAPPED",
       "ORIGINAL_GRID",
     ]);
@@ -230,9 +231,9 @@ describe("APPROVED_DESIGN_XY", () => {
       stableId: "X-1",
       designXFt: 18,
       designYFt: null,
-      originalGrid: "C7",
+      remappedGridReference: "E4",
     });
-    expect(r.effective?.source).toBe("ORIGINAL_GRID");
+    expect(r.effective?.source).toBe("GRID_REMAPPED");
     expect(r.warnings.length).toBeGreaterThan(0);
   });
 
