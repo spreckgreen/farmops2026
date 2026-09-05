@@ -311,6 +311,8 @@ export interface EntityTarget {
   stableIdColumn: string | null;
   /** Entity kind used for stable-ID validation, when one applies. */
   idKind: ElectricalEntityKind | null;
+  /** Switch/control stable-ID family, when the kind uses one. */
+  switchIdKind?: "switch_bank" | "switch_device" | "control_group";
   /** Columns a field audit may ever write. Everything else is ODS-owned. */
   writable: readonly string[];
   /** Relational link columns (used to classify an item as LINK). */
