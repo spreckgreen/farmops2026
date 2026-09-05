@@ -49,10 +49,14 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 ARG VITE_SUPABASE_URL
 ARG VITE_SUPABASE_PUBLISHABLE_KEY
 ARG VITE_SUPABASE_PROJECT_ID
+# Public Google Maps browser key for Site Grids imagery. Optional: when empty
+# the map area explains it is not configured and manual corner entry still works.
+ARG VITE_GOOGLE_MAPS_BROWSER_KEY
 ARG APP_REVISION=unknown
 ENV VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
 ENV VITE_SUPABASE_PUBLISHABLE_KEY=${VITE_SUPABASE_PUBLISHABLE_KEY}
 ENV VITE_SUPABASE_PROJECT_ID=${VITE_SUPABASE_PROJECT_ID}
+ENV VITE_GOOGLE_MAPS_BROWSER_KEY=${VITE_GOOGLE_MAPS_BROWSER_KEY}
 LABEL org.opencontainers.image.revision=${APP_REVISION}
 
 COPY --from=deps /app/node_modules ./node_modules
