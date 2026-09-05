@@ -13,8 +13,10 @@ import { Input } from "@/components/ui/input";
 import {
   getPeerSyncState,
   resumePeerSyncJob,
+  runPeerSyncNow,
   savePeerSyncConfig,
 } from "@/lib/electrical-peer-sync.functions";
+
 
 type Outcome = "success" | "partial" | "failed" | "skipped";
 
@@ -44,6 +46,8 @@ export function PeerSyncPanel() {
   const readState = useServerFn(getPeerSyncState);
   const save = useServerFn(savePeerSyncConfig);
   const resume = useServerFn(resumePeerSyncJob);
+  const pullNow = useServerFn(runPeerSyncNow);
+
 
   const state = useQuery({
     queryKey: ["electrical-peer-sync-state"],
@@ -86,6 +90,29 @@ export function PeerSyncPanel() {
     },
     onError: (e) => toast.error(String(e)),
   });
+
+  // Same preview-only pull the schedule performs, on demand, so the operator can
+  // confirm the credential and address without waiting for the next tick.
+  const pullNowMutation = useMutation({
+    mutationFn: async () => await pullNow({}),
+    onSuccess: (r) => {
+      if (!r.ok) {
+        toast.error(r.error);
+      } else if (r.result.staged > 0) {
+        toast.success(
+          `Staged ${r.result.staged} batch(es) as previews. Nothing was applied — approve each item yourself.`,
+        );
+      } else if (r.result.failed > 0) {
+        toast.error(`Nothing staged: ${r.result.failed} batch(es) could not be read.`);
+      } else {
+        toast.success("Pull finished — nothing new to bring over.");
+      }
+      state.refetch();
+    },
+    onError: (e) => toast.error(String(e)),
+  });
+
+
 
   const job = state.data?.job ?? null;
   const config = state.data?.config ?? null;
@@ -147,6 +174,16 @@ export function PeerSyncPanel() {
           >
             Save
           </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={pullNowMutation.isPending || Boolean(job?.running)}
+            onClick={() => pullNowMutation.mutate()}
+            title="Runs the preview-only pull right now. Nothing is applied."
+          >
+            {pullNowMutation.isPending ? "Pulling…" : "Pull now"}
+          </Button>
+
           {job?.paused ? (
             <Button
               size="sm"

@@ -151,6 +151,30 @@ export const resumePeerSyncJob = createServerFn({ method: "POST" })
     return { resumed: true };
   });
 
+/**
+ * Run the same preview-only peer pull the schedule runs, on demand.
+ * Admin-only; still stages previews and never applies or approves anything.
+ */
+export const runPeerSyncNow = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await requireAdminRole(context.supabase, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { runPeerAuditSync } = await import("@/lib/electrical-peer-sync.server");
+    const token = process.env["ELECTRICAL_PEER_SYNC_TOKEN"] ?? "";
+    try {
+      const result = await runPeerAuditSync(supabaseAdmin as never, {
+        peerToken: token,
+        trigger: "manual",
+      });
+      return { ok: true as const, result };
+    } catch (e) {
+      return { ok: false as const, error: e instanceof Error ? e.message : String(e) };
+    }
+  });
+
+
+
 /* -------------------------------------------------------------------------- */
 /* Scheduling credential rotation                                             */
 /* -------------------------------------------------------------------------- */
