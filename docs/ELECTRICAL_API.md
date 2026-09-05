@@ -92,7 +92,9 @@ with `cache-control: private, no-store`.
 
 Collections: `panels`, `loads`, `circuit_groups`, `feeders`, `raceways`,
 `raceway_waypoints`, `junction_boxes`, `branch_runs`, `panel_breaker_positions`,
-`panel_exits`, `equipment_racks`, `power_assets`, `devices`.
+`panel_exits`, `equipment_racks`, `power_assets`, `devices`, `switch_banks`,
+`switch_devices`, `control_groups`, `control_targets`,
+`control_wiring_segments`.
 
 Every record exposes `stable_id` (integration identity) and `uuid` (traceability
 only). `null` means *unknown / not established* and is never replaced by a guess.
@@ -288,3 +290,40 @@ registry and may change definitions. FarmOps does not determine code compliance;
 interpretation and installation acceptance remain with the licensed electrician and the authority
 having jurisdiction. Field names, enum values and stable IDs are contract surface and are never
 renamed because a display term changes.
+
+
+## Switching and control topology (schema 1.3)
+
+Snapshot schema `1.3` adds five read-only collections. They are read through the
+same `electrical:read` scope; **no new write scope is activated**.
+
+| Collection | Contents |
+| --- | --- |
+| `switch_banks` | `SWB-<site>-###` — the device box or enclosure holding switching devices. FarmOps operational object, never a load. |
+| `switch_devices` | `SW-<site>-###` — individual switching devices: single-pole, double-pole, 3-way, 4-way, dimmer, selector. |
+| `control_groups` | `CTL-<site>-###` — FarmOps logical grouping of switching devices operating the same target(s). Never a circuit group. |
+| `control_targets` | the objects a control group operates: loads, devices, relays, contactors, receptacle outlets. |
+| `control_wiring_segments` | physical wiring segments and their conductor function: line supply, switched ungrounded, traveler, grounded conductor, EGC, control conductor, or `unknown_unverified`. |
+
+Rules a consumer can rely on:
+
+- Power distribution and control topology are reported separately. The cable
+  between two 3-way switches is a wiring segment of the supplying branch
+  circuit, never a second circuit group.
+- Conductor function is never inferred from insulation colour, tape or a band.
+  A marking is reported in `observed_marking` while `conductor_function` stays
+  `unknown_unverified` until the conductor is traced or tested.
+- A switch is classified as a disconnecting means only when
+  `disconnecting_means_verified` is true.
+- Lifecycle components (enclosure, raceway, conductors, device, termination,
+  function test, verification) are tracked independently. Raceway or cable
+  installation never completes a switch.
+- Stable IDs are permanent: moving a bank, reassigning its circuit or changing
+  its controlled target never renames `SWB-*`, `SW-*` or `CTL-*`.
+
+Farm Shop batch `FA-FS-2026-09-05-SWITCH-CONTROLS` stages the two observed
+enclosures (northeast man door A8 fed from CON-204, southwest man door E1 fed
+from CON-107) and the two cables between them. Device counts and types,
+conductor functions, controlled targets and functional operation are explicit
+holds. `FA-FS-2026-09-03-PM-R2` and `FA-FS-2026-09-03-PM-R3-METADATA` are
+unchanged, and peer sync stays preview-only with no writes.
