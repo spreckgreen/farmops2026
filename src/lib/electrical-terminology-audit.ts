@@ -59,6 +59,30 @@ export interface TerminologyFinding {
 
 const PROHIBITED = prohibitedUsages();
 
+/**
+ * Phrases that are themselves correct, so a deprecated word is not flagged when
+ * it is the first word of one: "branch" is ambiguous, "branch circuit" is not.
+ */
+const ALLOWED_PHRASES: string[] = (() => {
+  const deprecated = new Set(TERMS.flatMap((t) => t.deprecated.map((d) => d.usage.toLowerCase())));
+  const out = new Set<string>();
+  for (const t of TERMS) {
+    const canonical = t.canonical.replace(/\s*\([^)]*\)/g, "").trim().toLowerCase();
+    for (const phrase of [canonical, ...t.aliases.map((a) => a.toLowerCase())]) {
+      if (phrase.includes(" ") && !deprecated.has(phrase)) out.add(phrase);
+    }
+  }
+  return [...out].sort((a, b) => b.length - a.length);
+})();
+
+/** True when the match at `index` is the start of an accepted longer phrase. */
+function insideAllowedPhrase(line: string, index: number, matched: string): boolean {
+  const rest = line.slice(index).toLowerCase().replace(/-/g, " ");
+  return ALLOWED_PHRASES.some(
+    (p) => p.length > matched.length && rest.startsWith(p.replace(/-/g, " ")),
+  );
+}
+
 /** Lines that only declare aliases are not display text. */
 function isAliasContext(line: string): boolean {
   return /alias|aliases|synonym|search|observed label|import header|deprecated|prohibited/i.test(
@@ -83,6 +107,7 @@ export function scanText(text: string, opts: ScanOptions): TerminologyFinding[] 
     for (const p of PROHIBITED) {
       const m = p.pattern.exec(line);
       if (!m) continue;
+      if (insideAllowedPhrase(line, m.index, m[0])) continue;
       findings.push({
         surface: opts.surface,
         location: opts.location,
