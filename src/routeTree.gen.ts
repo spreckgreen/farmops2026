@@ -41,6 +41,7 @@ import { Route as AdminPanelAccessRouteImport } from './routes/admin.panel-acces
 import { Route as AdminResetRouteImport } from './routes/admin.reset'
 import { Route as AdminRestoreRouteImport } from './routes/admin.restore'
 import { Route as AdminSchemaRouteImport } from './routes/admin.schema'
+import { Route as AdminSubscriptionsRouteImport } from './routes/admin.subscriptions'
 import { Route as AdminTaskDedupeRouteImport } from './routes/admin.task-dedupe'
 import { Route as AdminTaskHealthRouteImport } from './routes/admin.task-health'
 import { Route as AdminUsersRouteImport } from './routes/admin.users'
@@ -295,6 +296,11 @@ const AdminRestoreRoute = AdminRestoreRouteImport.update({
 const AdminSchemaRoute = AdminSchemaRouteImport.update({
   id: '/admin/schema',
   path: '/admin/schema',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminSubscriptionsRoute = AdminSubscriptionsRouteImport.update({
+  id: '/admin/subscriptions',
+  path: '/admin/subscriptions',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminTaskDedupeRoute = AdminTaskDedupeRouteImport.update({
@@ -820,6 +826,7 @@ export interface FileRoutesByFullPath {
   '/admin/reset': typeof AdminResetRoute
   '/admin/restore': typeof AdminRestoreRoute
   '/admin/schema': typeof AdminSchemaRoute
+  '/admin/subscriptions': typeof AdminSubscriptionsRoute
   '/admin/task-dedupe': typeof AdminTaskDedupeRoute
   '/admin/task-health': typeof AdminTaskHealthRoute
   '/admin/users': typeof AdminUsersRoute
@@ -946,6 +953,7 @@ export interface FileRoutesByTo {
   '/admin/reset': typeof AdminResetRoute
   '/admin/restore': typeof AdminRestoreRoute
   '/admin/schema': typeof AdminSchemaRoute
+  '/admin/subscriptions': typeof AdminSubscriptionsRoute
   '/admin/task-dedupe': typeof AdminTaskDedupeRoute
   '/admin/task-health': typeof AdminTaskHealthRoute
   '/admin/users': typeof AdminUsersRoute
@@ -1076,6 +1084,7 @@ export interface FileRoutesById {
   '/admin/reset': typeof AdminResetRoute
   '/admin/restore': typeof AdminRestoreRoute
   '/admin/schema': typeof AdminSchemaRoute
+  '/admin/subscriptions': typeof AdminSubscriptionsRoute
   '/admin/task-dedupe': typeof AdminTaskDedupeRoute
   '/admin/task-health': typeof AdminTaskHealthRoute
   '/admin/users': typeof AdminUsersRoute
@@ -1207,6 +1216,7 @@ export interface FileRouteTypes {
     | '/admin/reset'
     | '/admin/restore'
     | '/admin/schema'
+    | '/admin/subscriptions'
     | '/admin/task-dedupe'
     | '/admin/task-health'
     | '/admin/users'
@@ -1333,6 +1343,7 @@ export interface FileRouteTypes {
     | '/admin/reset'
     | '/admin/restore'
     | '/admin/schema'
+    | '/admin/subscriptions'
     | '/admin/task-dedupe'
     | '/admin/task-health'
     | '/admin/users'
@@ -1462,6 +1473,7 @@ export interface FileRouteTypes {
     | '/admin/reset'
     | '/admin/restore'
     | '/admin/schema'
+    | '/admin/subscriptions'
     | '/admin/task-dedupe'
     | '/admin/task-health'
     | '/admin/users'
@@ -1592,6 +1604,7 @@ export interface RootRouteChildren {
   AdminResetRoute: typeof AdminResetRoute
   AdminRestoreRoute: typeof AdminRestoreRoute
   AdminSchemaRoute: typeof AdminSchemaRoute
+  AdminSubscriptionsRoute: typeof AdminSubscriptionsRoute
   AdminTaskDedupeRoute: typeof AdminTaskDedupeRoute
   AdminTaskHealthRoute: typeof AdminTaskHealthRoute
   AdminUsersRoute: typeof AdminUsersRoute
@@ -1892,6 +1905,13 @@ declare module '@tanstack/react-router' {
       path: '/admin/schema'
       fullPath: '/admin/schema'
       preLoaderRoute: typeof AdminSchemaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/subscriptions': {
+      id: '/admin/subscriptions'
+      path: '/admin/subscriptions'
+      fullPath: '/admin/subscriptions'
+      preLoaderRoute: typeof AdminSubscriptionsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/task-dedupe': {
@@ -2685,6 +2705,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminResetRoute: AdminResetRoute,
   AdminRestoreRoute: AdminRestoreRoute,
   AdminSchemaRoute: AdminSchemaRoute,
+  AdminSubscriptionsRoute: AdminSubscriptionsRoute,
   AdminTaskDedupeRoute: AdminTaskDedupeRoute,
   AdminTaskHealthRoute: AdminTaskHealthRoute,
   AdminUsersRoute: AdminUsersRoute,

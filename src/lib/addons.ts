@@ -10,6 +10,10 @@ export const ADDON_KEYS = [
   "electrical_scan",
   "electrical_readonly",
   "electrical_fieldwrite",
+  // Paid modules a subscription tier can unlock (see @/lib/subscription-tiers).
+  "maintenance",
+  "inventory",
+  "food",
 ] as const;
 
 export type AddonKey = (typeof ADDON_KEYS)[number];
