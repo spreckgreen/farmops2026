@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /$
+Allow: /demo
+Disallow: /admin
+Disallow: /api
+Disallow: /electrical
+Disallow: /notes
+Disallow: /settings
+Disallow: /auth
+
+Sitemap: https://farmops.bostead.life/sitemap.xml
