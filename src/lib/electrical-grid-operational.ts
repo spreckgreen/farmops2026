@@ -365,6 +365,7 @@ export interface OperationalAsset extends Omit<OperationalInput, "storedPrecisio
  */
 export function effectiveLocationForOperational(row: OperationalInput): EffectiveLocation {
   const legacyKind = row.kind === "load" || row.kind === "panel";
+  const design = approvedDesignXy(row.stableId);
   return effectiveLocationForRecord({
     stableId: row.stableId,
     poleScheme: row.poleScheme ?? null,
@@ -376,6 +377,9 @@ export function effectiveLocationForOperational(row: OperationalInput): Effectiv
     fieldGridReference: row.fieldGridReference ?? null,
     fieldGridEvidence: row.locationEvidence ?? null,
     fieldGridObservedAt: row.verifiedAt ?? null,
+    designXFt: design?.xFt ?? null,
+    designYFt: design?.yFt ?? null,
+    designApprovalReference: design?.approval ?? null,
     remappedGridReference: row.gridReference ?? (legacyKind ? null : row.grid),
     originalGrid: legacyKind ? (row.grid ?? row.legacyGrid) : row.legacyGrid,
   });

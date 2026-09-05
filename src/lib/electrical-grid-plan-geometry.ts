@@ -180,6 +180,31 @@ export const PROPOSED_OVERHEAD_LEDS: ProposedFixture[] = [
   ...LED_X_FT.map((xFt, i) => ({ planOrder: i + 6, xFt, yFt: 30, row: "south" as const })),
 ];
 
+/**
+ * Approved design coordinates for the pattern-generated overhead LED records,
+ * in plan order (north row west→east, then south row). These are APPROVED
+ * DESIGN X/Y, not field observations: lifecycle stays planned and the location
+ * stays unverified until accepted field evidence supersedes it. Consumers plot
+ * these exact feet; the A1–F9 label shown alongside is derived read-out only.
+ */
+export const APPROVED_DESIGN_XY_BY_STABLE_ID: Record<string, { xFt: number; yFt: number; approval: string }> =
+  Object.fromEntries(
+    PROPOSED_OVERHEAD_LEDS.map((f, i) => [
+      `FS-${String(56 + i).padStart(3, "0")}`,
+      {
+        xFt: f.xFt,
+        yFt: f.yFt,
+        approval: "Approved 2 x 5 overhead LED design layout (frozen plan geometry)",
+      },
+    ]),
+  );
+
+/** Approved design coordinates for a stable ID, or null when none is approved. */
+export function approvedDesignXy(stableId: string | null | undefined) {
+  const id = (stableId ?? "").trim().toUpperCase();
+  return id ? (APPROVED_DESIGN_XY_BY_STABLE_ID[id] ?? null) : null;
+}
+
 export const PROPOSED_OVERHEAD_LED_LEGEND = `Overhead LED — Proposed (${PROPOSED_OVERHEAD_LEDS.length})`;
 
 export { SHOP_DEPTH_FT, SHOP_WIDTH_FT };
