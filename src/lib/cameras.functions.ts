@@ -16,6 +16,13 @@ import {
   type CameraRow,
 } from "@/lib/cameras";
 import { isCompassSide } from "@/lib/ring-cameras";
+import {
+  bridgeBaseProblem,
+  go2rtcHlsUrl,
+  go2rtcSnapshotUrl,
+  normalizeBridgeBase,
+} from "@/lib/camera-bridge";
+
 
 const CAMERA_COLUMNS =
   "id, camera_id, name, area, building, mount, stream_kind, stream_url, snapshot_url, x_feet, y_feet, heading_degrees, fov_degrees, range_feet, electrical_load_ref, ring_model, compass_side, side_slot, status, last_seen_at, last_check_at, last_check_detail, notes, updated_at";
