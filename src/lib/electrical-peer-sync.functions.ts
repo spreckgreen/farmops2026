@@ -167,10 +167,17 @@ export const resumePeerSyncJob = createServerFn({ method: "POST" })
 /**
  * Run the same preview-only peer pull the schedule runs, on demand.
  * Admin-only; still stages previews and never applies or approves anything.
+ *
+ * `dry_run: true` goes one step further: it reads the peer and reports which
+ * batches WOULD be staged or skipped, without staging anything and without
+ * touching the sync counters. The reported attempt is still logged.
  */
 export const runPeerSyncNow = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
+  .inputValidator((d: unknown) =>
+    z.object({ dry_run: z.boolean().optional() }).parse(d ?? {}),
+  )
+  .handler(async ({ context, data }) => {
     await requireAdminRole(context.supabase, context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { runPeerAuditSync } = await import("@/lib/electrical-peer-sync.server");
@@ -179,6 +186,7 @@ export const runPeerSyncNow = createServerFn({ method: "POST" })
       const result = await runPeerAuditSync(supabaseAdmin as never, {
         peerToken: token,
         trigger: "manual",
+        dryRun: data.dry_run === true,
       });
       return { ok: true as const, result };
     } catch (e) {
