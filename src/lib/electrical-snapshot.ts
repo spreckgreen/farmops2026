@@ -73,6 +73,11 @@ export const SNAPSHOT_COLLECTIONS: SnapshotCollection[] = [
   "equipment_racks",
   "power_assets",
   "devices",
+  "switch_banks",
+  "switch_devices",
+  "control_groups",
+  "control_targets",
+  "control_wiring_segments",
 ];
 
 
