@@ -302,6 +302,22 @@ export function renderGridMapPdf(model: GridMapDocModel, stamp: VersionStamp): j
   doc.text("North", x0 + planW / 2, y0 - 16, { align: "center" });
   doc.text(`${SHOP_WIDTH_FT} ft west to east`, x0 + planW / 2, y0 + planH + 14, { align: "center" });
 
+  // Pole Barn perimeter posts: a second way to read the same plan. A field crew
+  // that cannot see a grid cell can still name the nearest painted post.
+  doc.setFillColor(70, 70, 70);
+  doc.setFontSize(4.2);
+  for (const post of model.poles) {
+    const px = x0 + (post.xFt / SHOP_WIDTH_FT) * planW;
+    const py = y0 + (post.yFt / SHOP_DEPTH_FT) * planH;
+    doc.rect(px - 2.1, py - 2.1, 4.2, 4.2, "F");
+    doc.setTextColor(70);
+    const ox = post.wall === "west" ? -12 : post.wall === "east" ? 5 : -5;
+    const oy = post.wall === "north" ? -5 : post.wall === "south" ? 10 : 2;
+    doc.text(post.ref, px + ox, py + oy);
+    doc.setTextColor(0);
+  }
+  doc.setFontSize(7);
+
   for (const p of model.points) {
     if (p.xPct == null || p.yPct == null) continue;
     const cx = x0 + (p.xPct / 100) * planW;
@@ -339,7 +355,14 @@ export function renderGridMapPdf(model: GridMapDocModel, stamp: VersionStamp): j
     doc.text(`${CLASS_LABEL[k]} — ${model.summary.counts[k]}`, lx + 10, ly, { maxWidth: 130 });
     ly += 14;
   });
-  ly += 4;
+  doc.setFillColor(70, 70, 70);
+  doc.rect(lx + 0.5, ly - 4.5, 5, 5, "F");
+  doc.text(`Pole Barn post (${model.poles.length}) — square marker`, lx + 10, ly, { maxWidth: 130 });
+  ly += 14;
+  doc.text("Grid cells: rows A-F north to south, columns 1-9 west to east.", lx, ly, {
+    maxWidth: 140,
+  });
+  ly += 18;
   doc.text(`Placed: ${model.summary.placed} of ${model.summary.total}`, lx, ly);
   ly += 10;
   doc.text(`Unplaced: ${model.summary.unplaced}`, lx, ly);
@@ -355,6 +378,127 @@ export function renderGridMapPdf(model: GridMapDocModel, stamp: VersionStamp): j
   }
   doc.setTextColor(0);
   void lx;
+
+  // Cross-reference table: every plotted load by grid cell and nearest post, so
+  // the sheet can be read from either reference system.
+  doc.addPage();
+  y = MARGIN + 10;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(11);
+  doc.text(`Grid cell and post reference (${model.points.filter((p) => p.xFt != null).length} plotted)`, MARGIN, y);
+  y += 14;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(7.2);
+  const refCols: [string, number][] = [
+    ["Stable ID", 90],
+    ["Description", 230],
+    ["Grid cell", 60],
+    ["Nearest post", 70],
+    ["X ft", 40],
+    ["Y ft", 40],
+  ];
+  const drawRefHeader = () => {
+    let cx = MARGIN;
+    for (const [head, w] of refCols) {
+      doc.text(head, cx, y);
+      cx += w;
+    }
+    y += 10;
+    doc.setFont("helvetica", "normal");
+  };
+  drawRefHeader();
+  for (const p of model.points) {
+    if (p.xFt == null || p.yFt == null) continue;
+    if (y > pageHeight - 44) {
+      doc.addPage();
+      y = MARGIN + 10;
+      doc.setFont("helvetica", "bold");
+      drawRefHeader();
+    }
+    const nearest = model.poles.reduce<{ ref: string; d: number } | null>((best, post) => {
+      const d = Math.hypot(post.xFt - p.xFt!, post.yFt - p.yFt!);
+      return !best || d < best.d ? { ref: post.ref, d } : best;
+    }, null);
+    const cells = [
+      p.loadId,
+      p.description || NOT_IN_RECORD,
+      p.gridReference || NOT_IN_RECORD,
+      nearest ? `${nearest.ref} (${nearest.d.toFixed(1)} ft)` : NOT_IN_RECORD,
+      p.xFt.toFixed(1),
+      p.yFt.toFixed(1),
+    ];
+    let cx = MARGIN;
+    cells.forEach((cell, i) => {
+      const w = refCols[i]![1];
+      const line = (doc.splitTextToSize(cell, w - 4) as string[])[0] ?? "";
+      doc.text(line, cx, y);
+      cx += w;
+    });
+    y += 9;
+  }
+
+  // Pole Barn post schedule: the frozen perimeter geometry, with its grid cell.
+  doc.addPage();
+  y = MARGIN + 10;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(11);
+  doc.text(`Pole Barn post reference (${model.poles.length} posts)`, MARGIN, y);
+  y += 14;
+  doc.setFont("helvetica", "italic");
+  doc.setFontSize(7.5);
+  doc.text(
+    `Perimeter post geometry ${model.poleGeometryVersion}, confirmed against the ${SHOP_WIDTH_FT} x ${SHOP_DEPTH_FT} ft outline. Grid cell is looked up from the post position; it never renames the post.`,
+    MARGIN,
+    y,
+    { maxWidth: pageWidth - MARGIN * 2 },
+  );
+  y += 16;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(7.2);
+  const postCols: [string, number][] = [
+    ["Post", 60],
+    ["Wall", 60],
+    ["Corner", 50],
+    ["Grid cell", 60],
+    ["X ft", 45],
+    ["Y ft", 45],
+    ["Basis", 240],
+  ];
+  const drawPostHeader = () => {
+    let cx = MARGIN;
+    for (const [head, w] of postCols) {
+      doc.text(head, cx, y);
+      cx += w;
+    }
+    y += 10;
+    doc.setFont("helvetica", "normal");
+  };
+  drawPostHeader();
+  for (const post of model.poles) {
+    if (y > pageHeight - 44) {
+      doc.addPage();
+      y = MARGIN + 10;
+      doc.setFont("helvetica", "bold");
+      drawPostHeader();
+    }
+    const cells = [
+      post.ref,
+      post.wall,
+      post.corner ? "Yes" : "No",
+      post.gridCell,
+      post.xFt.toFixed(1),
+      post.yFt.toFixed(1),
+      post.basis,
+    ];
+    let cx = MARGIN;
+    cells.forEach((cell, i) => {
+      const w = postCols[i]![1];
+      const line = (doc.splitTextToSize(cell, w - 4) as string[])[0] ?? "";
+      doc.text(line, cx, y);
+      cx += w;
+    });
+    y += 9;
+  }
 
   // Unplaced loads: listed explicitly rather than dropped or approximated.
   doc.addPage();
