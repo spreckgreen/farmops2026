@@ -51,6 +51,7 @@
         "docx": "^9.7.1",
         "embla-carousel-react": "^8.6.0",
         "fflate": "^0.8.3",
+        "hls.js": "^1.7.2",
         "html5-qrcode": "^2.3.8",
         "input-otp": "^1.4.2",
         "jspdf": "^4.2.1",
@@ -1086,6 +1087,8 @@
     "has-flag": ["has-flag@4.0.0", "", {}, "sha512-EykJT/Q1KjTWctppgIAgfSO0tKVuZUjhgMr17kqTumMl6Afv3EISleU7qZUzoXDFTAHTDC4NOoG/ZxU3EvlMPQ=="],
 
     "hash.js": ["hash.js@1.1.7", "https://europe-west1-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/hash.js/-/hash.js-1.1.7.tgz", { "dependencies": { "inherits": "^2.0.3", "minimalistic-assert": "^1.0.1" } }, "sha512-taOaskGt4z4SOANNseOviYDvjEJinIkRgmp7LbKP2YTTmVxWBl87s/uzK9r+44BclBSp2X7K1hqeNfz9JbBeXA=="],
+
+    "hls.js": ["hls.js@1.7.2", "https://europe-west4-npm.pkg.dev/lovable-core-prod/sandbox-npm-cache/hls.js/-/hls.js-1.7.2.tgz", {}, "sha512-CW/pPvSOFIRsosbwxrYaE9ERmpTo5fbTqL7wCvuCFlqW1Bmb1K5fXsY7yiH95rmlr4rVuA7UXHbM/cIXQ6AXwg=="],
 
     "hookable": ["hookable@6.1.1", "", {}, "sha512-U9LYDy1CwhMCnprUfeAZWZGByVbhd54hwepegYTK7Pi5NvqEj63ifz5z+xukznehT7i6NIZRu89Ay1AZmRsLEQ=="],
 

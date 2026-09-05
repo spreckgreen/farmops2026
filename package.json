@@ -74,6 +74,7 @@
     "docx": "^9.7.1",
     "embla-carousel-react": "^8.6.0",
     "fflate": "^0.8.3",
+    "hls.js": "^1.7.2",
     "html5-qrcode": "^2.3.8",
     "input-otp": "^1.4.2",
     "jspdf": "^4.2.1",
