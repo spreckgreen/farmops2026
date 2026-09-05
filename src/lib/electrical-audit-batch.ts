@@ -1090,6 +1090,13 @@ export function resolveLinks(
     ["load_uuid", item.refs?.load_ref, "load"],
     ["source_jbox_uuid", item.refs?.jbox_ref, "jbox"],
     ["raceway_uuid", item.refs?.raceway_ref, "raceway"],
+    // Switching and control topology.
+    ["supplying_circuit_group_uuid", item.refs?.circuit_group_ref, "circuit_group"],
+    ["switch_bank_uuid", item.refs?.switch_bank_ref, "switch_bank"],
+    ["source_switch_bank_uuid", item.refs?.source_switch_bank_ref, "switch_bank"],
+    ["dest_switch_bank_uuid", item.refs?.dest_switch_bank_ref, "switch_bank"],
+    ["dest_load_uuid", item.refs?.load_ref, "load"],
+    ["control_group_uuid", item.refs?.control_group_ref, "control_group"],
   ];
   for (const [column, ref, kind] of want) {
     if (!ref) continue;
