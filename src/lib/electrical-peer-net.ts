@@ -90,20 +90,25 @@ export type HostResolver = (hostname: string) => Promise<string[]>;
 
 /**
  * DoH endpoints tried in order. A single provider is not enough: the deployed
- * worker runtime cannot always reach Cloudflare's own resolver hostname, which
- * made every peer pull refuse itself. Any provider that answers is sufficient —
- * the answer is still classified against the private/reserved ranges below.
+ * worker runtime cannot always reach one resolver hostname (or a non-standard
+ * resolver port), which made every peer pull refuse itself. Any provider that
+ * answers is sufficient — the answer is still classified against the
+ * private/reserved ranges below. Each entry keeps a readable name so a total
+ * failure can say exactly what was attempted.
  */
-const DOH_ENDPOINTS = [
-  "https://dns.google/resolve",
-  "https://cloudflare-dns.com/dns-query",
-  "https://dns.quad9.net:5053/dns-query",
+export const DOH_ENDPOINTS: { name: string; url: string }[] = [
+  { name: "Google", url: "https://dns.google/resolve" },
+  { name: "Cloudflare", url: "https://cloudflare-dns.com/dns-query" },
+  { name: "Quad9", url: "https://dns.quad9.net/dns-query" },
+  { name: "Quad9 (alt)", url: "https://dns11.quad9.net/dns-query" },
+  { name: "NextDNS", url: "https://dns.nextdns.io/dns-query" },
 ];
 
 const DOH_TIMEOUT_MS = 5000;
 
 async function queryDoh(endpoint: string, hostname: string): Promise<string[]> {
   const out: string[] = [];
+  let anyAnswered = false;
   for (const type of ["A", "AAAA"]) {
     const res = await fetch(
       `${endpoint}?name=${encodeURIComponent(hostname)}&type=${type}`,
@@ -114,28 +119,37 @@ async function queryDoh(endpoint: string, hostname: string): Promise<string[]> {
       },
     );
     if (!res.ok) continue;
+    anyAnswered = true;
     const body = (await res.json()) as { Answer?: { type?: number; data?: string }[] };
     for (const a of body.Answer ?? []) {
       if (a.type === 1 || a.type === 28) out.push(String(a.data ?? "").trim());
     }
   }
+  // A provider that answered with no A/AAAA record is a real "does not exist"
+  // answer, not a transport failure, so stop walking the fallback list.
+  if (anyAnswered && !out.length) return [];
+  if (!anyAnswered) throw new Error("resolver did not answer");
   return out.filter(Boolean);
 }
 
-/** Resolve A/AAAA records over DNS-over-HTTPS (no Node dns dependency). */
+/**
+ * Resolve A/AAAA records over DNS-over-HTTPS (no Node dns dependency), walking
+ * the provider list until one of them actually answers. Only when every
+ * provider is unreachable does this throw — an authoritative "no such host"
+ * answer returns an empty list instead.
+ */
 export const dohResolver: HostResolver = async (hostname) => {
-  let lastError: unknown = null;
+  const failures: string[] = [];
   for (const endpoint of DOH_ENDPOINTS) {
     try {
-      const answers = await queryDoh(endpoint, hostname);
-      if (answers.length) return answers;
+      return await queryDoh(endpoint.url, hostname);
     } catch (err) {
-      lastError = err;
+      failures.push(`${endpoint.name}: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
-  if (lastError) throw lastError;
-  return [];
+  throw new Error(`no DNS resolver was reachable (${failures.join("; ")})`);
 };
+
 
 
 /**
@@ -155,9 +169,11 @@ export async function assertResolvedHostAllowed(
   let addresses: string[];
   try {
     addresses = await resolve(hostname);
-  } catch {
+  } catch (err) {
     throw new Error(
-      `Peer instance address could not be verified for ${hostname}; the pull was refused rather than fetched unchecked.`,
+      `Peer instance address could not be verified for ${hostname} — ${
+        err instanceof Error ? err.message : String(err)
+      }. The pull was refused rather than fetched unchecked.`,
     );
   }
   if (!addresses.length) {
