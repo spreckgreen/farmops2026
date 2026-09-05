@@ -106,7 +106,15 @@ export interface AsBuiltStaging {
   /** True when both the audited connection and its location evidence were accepted. */
   as_built_verified: boolean;
   sharing: "D" | "S" | null;
+  /**
+   * Derived, read-only effective location the shared resolver produces once this
+   * observation is accepted. It is recomputed inside the same approved
+   * transaction — there is no separate metadata reconciliation step — and no
+   * prior location value or evidence is removed.
+   */
+  effective_location_after: EffectiveLocation | null;
 }
+
 
 export const asBuiltItemKey = (loadId: string) =>
   `as-built-load-${loadId.trim().toLowerCase()}`;
