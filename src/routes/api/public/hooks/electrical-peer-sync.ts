@@ -91,6 +91,7 @@ export const Route = createFileRoute("/api/public/hooks/electrical-peer-sync")({
           .eq("name", LOCK_NAME)
           .maybeSingle();
         const autoPauseCount: number = lock?.auto_pause_count ?? 0;
+        let autoResumed = false;
 
         // Every tick leaves a trace, including the ones that do no work, so the
         // history on the audit batches page never has silent gaps.
