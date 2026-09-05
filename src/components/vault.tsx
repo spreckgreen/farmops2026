@@ -98,10 +98,10 @@ sudo chown "$USER": .env.local && sudo chmod 600 .env.local`}</pre>
           </li>
           <li>
             Back the key up in a password manager <strong>immediately</strong>. If it is
-            lost, every existing vault entry becomes permanently unrecoverable. To rotate
-            the key later, follow the{" "}
-            <a href="/admin/vault-rotation" className="underline font-medium">
-              vault rotation workflow
+            lost, every existing vault entry becomes permanently unrecoverable. To change
+            or reset the key later, use the{" "}
+            <a href="/admin/vault-key-change" className="underline font-medium">
+              guided key change workflow
             </a>
             .
           </li>
