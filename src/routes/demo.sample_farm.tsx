@@ -36,12 +36,12 @@ export const Route = createFileRoute("/demo/sample_farm")({
 });
 
 const SOURCE_COLOR: Record<EffectiveLocationSource, string> = {
-  FIELD_OBSERVED_POLE_ALIGNMENT: "hsl(var(--chart-1))",
-  FIELD_OBSERVED_GRID: "hsl(var(--chart-2))",
-  APPROVED_DESIGN_CORNER_FACE: "hsl(var(--chart-3))",
-  APPROVED_DESIGN_XY: "hsl(var(--chart-4))",
-  GRID_REMAPPED: "hsl(var(--chart-5))",
-  ORIGINAL_GRID: "hsl(var(--muted-foreground))",
+  FIELD_OBSERVED_POLE_ALIGNMENT: "var(--chart-1)",
+  FIELD_OBSERVED_GRID: "var(--chart-2)",
+  APPROVED_DESIGN_CORNER_FACE: "var(--chart-3)",
+  APPROVED_DESIGN_XY: "var(--chart-4)",
+  GRID_REMAPPED: "var(--chart-5)",
+  ORIGINAL_GRID: "var(--muted-foreground)",
 };
 
 const SOURCE_LABEL: Record<EffectiveLocationSource, string> = {
@@ -71,14 +71,14 @@ function Plan({
       role="img"
       aria-label="Demo farm building plan with equipment positions"
     >
-      <rect x={0} y={0} width={w} height={d} fill="hsl(var(--muted))" opacity={0.35} />
+      <rect x={0} y={0} width={w} height={d} fill="var(--muted)" opacity={0.35} />
       {Array.from({ length: 8 }, (_, i) => (i + 1) * (w / 9)).map((x) => (
-        <line key={`v${x}`} x1={x} y1={0} x2={x} y2={d} stroke="hsl(var(--border))" strokeWidth={0.1} />
+        <line key={`v${x}`} x1={x} y1={0} x2={x} y2={d} stroke="var(--border)" strokeWidth={0.1} />
       ))}
       {Array.from({ length: 5 }, (_, i) => (i + 1) * (d / 6)).map((y) => (
-        <line key={`h${y}`} x1={0} y1={y} x2={w} y2={y} stroke="hsl(var(--border))" strokeWidth={0.1} />
+        <line key={`h${y}`} x1={0} y1={y} x2={w} y2={y} stroke="var(--border)" strokeWidth={0.1} />
       ))}
-      <rect x={0} y={0} width={w} height={d} fill="none" stroke="hsl(var(--foreground))" strokeWidth={0.4} />
+      <rect x={0} y={0} width={w} height={d} fill="none" stroke="var(--foreground)" strokeWidth={0.4} />
       {rows.map((r) => {
         const design = r.resolved.statements.find(
           (s) =>
@@ -96,7 +96,7 @@ function Plan({
             y1={design.yFt!}
             x2={field.xFt!}
             y2={field.yFt!}
-            stroke="hsl(var(--muted-foreground))"
+            stroke="var(--muted-foreground)"
             strokeWidth={0.15}
             strokeDasharray="0.6 0.6"
           />
@@ -136,7 +136,7 @@ function Plan({
               cy={r.yFt}
               r={active ? 1.5 : 1}
               fill={SOURCE_COLOR[r.resolved.effective!.source]}
-              stroke="hsl(var(--background))"
+              stroke="var(--background)"
               strokeWidth={0.2}
             />
             {active ? (
@@ -144,7 +144,7 @@ function Plan({
                 x={r.xFt + 2}
                 y={r.yFt + 0.6}
                 fontSize={1.8}
-                fill="hsl(var(--foreground))"
+                fill="var(--foreground)"
               >
                 {r.load.stableId}
               </text>
