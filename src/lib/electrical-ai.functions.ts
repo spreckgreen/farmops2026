@@ -282,6 +282,8 @@ export const runElectricalAiScenario = createServerFn({ method: "POST" })
             : "") + contextBlock;
       }
 
+      const terminologyRules = " " + TERMINOLOGY_PROMPT_RULES + " ";
+
       const loadFirstRules =
         "Most questions here are one of three kinds: (a) a LOAD question ('which panel are the " +
         "mini-splits on', 'what feeds the freezer'), (b) a PANEL/topology question, or (c) a TRACE " +
@@ -297,7 +299,8 @@ export const runElectricalAiScenario = createServerFn({ method: "POST" })
         "panels serving that area listed as candidates only) and name the field that must be filled to " +
         "close the path. Never invent an assignment, rating or route. " +
         "If the answer set is empty, say which equipment term you searched for and that no load row " +
-        "matches it — do not fall back to describing other records.";
+        "matches it — do not fall back to describing other records." +
+        terminologyRules;
 
       system =
         def.id === "panel_qa"

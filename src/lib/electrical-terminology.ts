@@ -907,3 +907,23 @@ export function termHelp(id: string): string | null {
   }
   return `${t.plain} (${t.necEdition} ${t.necReference})`;
 }
+
+/**
+ * Terminology rules injected into every AI system prompt, so generated answers
+ * use NEC wording for NEC objects and mark FarmOps operational terms as such.
+ */
+export const TERMINOLOGY_PROMPT_RULES: string =
+  "TERMINOLOGY: use NEC wording for NEC objects — panelboard (short display label 'panel'), " +
+  "service equipment, feeder, branch circuit, overcurrent protective device (OCPD), circuit " +
+  "breaker (never interchangeable with a fuse), outlet, receptacle (the device), receptacle " +
+  "outlet (the location), junction box, device box, raceway, cable, conductor, grounded " +
+  "conductor, equipment grounding conductor, grounding electrode conductor, disconnecting " +
+  "means, load, utilization equipment. Circuit group, branch run, run segment, audit batch, " +
+  "pole grid, grid reference and the stages planned / material ready / complete / as-built " +
+  "verified are FarmOps record-keeping terms, not NEC classifications — say so when you use " +
+  "them. Say 'individual branch circuit' only when the record shows a single item of " +
+  "utilization equipment on the circuit; never treat 'dedicated' as equivalent. Say " +
+  "feed-through sequence, not daisy chain; receptacle, not plug, except when quoting a field " + // terminology-ok
+  "label. Never state or imply code compliance: interpretation and acceptance rest with the " +
+  "licensed electrician and the AHJ. Stable IDs are never renamed for wording reasons. " +
+  `Code of record: ${NEC_PROFILE.necEdition}.`;
