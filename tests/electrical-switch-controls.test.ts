@@ -26,7 +26,7 @@ import {
   FS_SWITCH_CONTROLS_BATCH_ID,
   buildFsSwitchControlsManifest,
 } from "@/lib/electrical-audit-switch-controls";
-import { FS_NW_AUDIT_R2_BATCH_ID } from "@/lib/electrical-fs-nw-audit-r2";
+import { FS_NW_AUDIT_R2_BATCH_ID } from "@/lib/electrical-fs-nw-audit-r1";
 
 const model = (over: Partial<SwitchControlModel> = {}): SwitchControlModel => ({
   banks: [],
