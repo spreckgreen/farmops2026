@@ -1,5 +1,6 @@
 // Full-screen Farm Shop grid map.
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { TermHint } from "@/components/electrical/term-hint";
 import { ElectricalGate } from "@/components/electrical/electrical-gate";
 import { GridOperationalMap } from "@/components/electrical/grid-operational-map";
 import { Button } from "@/components/ui/button";
@@ -40,6 +41,12 @@ function GridMapPage() {
             </Link>
           </Button>
         </div>
+        <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+          Terms used on this map:
+          <TermHint id="grid_reference" />
+          <TermHint id="pole_grid" />
+          <TermHint id="circuit_group" />
+        </p>
         <GridOperationalMap large />
       </div>
     </ElectricalGate>

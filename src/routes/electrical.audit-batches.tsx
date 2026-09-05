@@ -2,6 +2,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { AuditBatchPanel } from "@/components/electrical/audit-batch-panel";
+import { TermHint } from "@/components/electrical/term-hint";
 import { ElectricalGate } from "@/components/electrical/electrical-gate";
 
 export const Route = createFileRoute("/electrical/audit-batches")({
@@ -37,6 +38,12 @@ function AuditBatchesPage() {
             Bulk field audits are staged, validated and previewed here. Nothing is written to an
             electrical record until you approve individual observations; holds, conflicts and
             design-only changes stay unapplied and export as ODS correction candidates instead.
+          </p>
+          <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+            Terms used here:
+            <TermHint id="audit_batch" />
+            <TermHint id="as_built_verified" />
+            <TermHint id="circuit_group" />
           </p>
           <p className="text-sm text-muted-foreground">
             An accepted as-built observation carries its consequences in the same preview and the
