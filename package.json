@@ -82,6 +82,7 @@
     "mammoth": "^1.12.2",
     "papaparse": "^5.5.3",
     "pdfjs-dist": "^6.2.108",
+    "pptxgenjs": "^4.0.1",
     "qrcode": "^1.5.4",
     "react": "^19.2.0",
     "react-day-picker": "^9.14.0",
