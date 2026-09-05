@@ -315,12 +315,13 @@ export const applyLevelAssignment = createServerFn({ method: "POST" })
     // Superseded evidence is preserved, never overwritten in place.
     await supabase.from("electrical_change_audit").insert({
       user_id: userId,
+      section: "building_levels",
       entity_kind: data.table,
-      stable_id: data.stable_id,
-      change_kind: "LEVEL_ASSIGNMENT",
-      before_values: before,
-      after_values: after,
-      evidence_ref: data.evidence_ref,
+      entity_uuid: before.id ?? null,
+      entity_ref: data.stable_id,
+      action: "level_assignment",
+      summary: `${data.stable_id} placed on ${level.display_name} (${level.short_code}). Location components only; stable ID and engineering values unchanged.`,
+      changes: { before, after, evidence_ref: data.evidence_ref },
     });
 
     return { stable_id: data.stable_id, before, after, stable_id_changed: false };
