@@ -16,7 +16,15 @@ import {
   type TerminologySurface,
 } from "../../src/lib/electrical-terminology-audit";
 
-const ROOT = new URL("../..", import.meta.url).pathname;
+const ROOT = (() => {
+  const fromUrl = new URL("../..", import.meta.url).pathname;
+  try {
+    statSync(join(fromUrl, "package.json"));
+    return fromUrl;
+  } catch {
+    return process.cwd();
+  }
+})();
 
 const SKIP_FILES = new Set([
   "src/lib/electrical-terminology.ts",
