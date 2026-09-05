@@ -64,6 +64,7 @@ function navGroups(): NavGroup[] {
         { label: "Wiring", to: "/electrical/wiring" },
         { label: "Grid map", to: "/electrical/grid-map" },
         { label: "Site grids", to: "/electrical/site-grids" },
+        { label: "Building grid", to: "/electrical/building-grid" },
         { label: "Critical loads", to: "/electrical/critical-loads" },
       ],
     },
