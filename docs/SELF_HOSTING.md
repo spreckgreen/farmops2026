@@ -470,6 +470,12 @@ app's *Recent runs* table on the audit batches page.
 | `VAULT_ENCRYPTION_KEY` | yes (for `/vault`) | 64 hex chars (32 bytes). Generate with `openssl rand -hex 32`. **Losing this permanently destroys every stored secret** — back it up out-of-band. |
 | `GHOST_API_URL`, `GHOST_ADMIN_API_KEY` | optional | Ghost blog sync. May be stored in the app Vault instead of env. |
 | `TEMPEST_API_TOKEN` | optional | Tempest weather integration. |
+| `GOOGLE_MAPS_API_KEY` + `VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY` | optional (needed for Site Grids imagery/geocoding) | Two **different** keys — server key unrestricted-by-referrer, browser key referrer-restricted. Full procedure: [`GOOGLE_MAPS_SETUP.md`](GOOGLE_MAPS_SETUP.md). |
+
+Mirroring the vault to Bitwarden runs through a bridge on your own network rather
+than env vars; the full configuration procedure, rotation steps and troubleshooting
+table are in [`VAULT_BITWARDEN_SETUP.md`](VAULT_BITWARDEN_SETUP.md).
+
 
 ### 3.5 Runtime
 
