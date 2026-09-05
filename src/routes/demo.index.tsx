@@ -1,15 +1,34 @@
 // /demo — public landing page listing the anonymously viewable FarmOps
 // presentations. No auth loader and no record reads.
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Presentation, Zap, BookOpen, Cpu, Calculator, MapPin } from "lucide-react";
+import {
+  Presentation,
+  Zap,
+  BookOpen,
+  Cpu,
+  Calculator,
+  MapPin,
+  Wrench,
+  Boxes,
+  Sprout,
+  Camera,
+  FileText,
+} from "lucide-react";
 import { ELECTRICAL_DEMO_SLIDES } from "@/lib/electrical-demo-slides";
 import { FARMOPS_OS_DEMO_SLIDES } from "@/lib/farmops-os-demo-slides";
+import {
+  MAINTENANCE_DEMO_SLIDES,
+  INVENTORY_DEMO_SLIDES,
+  FOOD_DEMO_SLIDES,
+  PROCEDURES_DEMO_SLIDES,
+  SECURITY_DEMO_SLIDES,
+} from "@/lib/module-demo-slides";
 import { PROMO_SLIDES } from "@/lib/promo-slides";
 import { SLIDES } from "@/lib/deck-slides";
 
 const TITLE = "FarmOps Demos — Web Presentations";
 const DESCRIPTION =
-  "Browse the FarmOps web presentations: the FarmOps O/S demo, the Electrical module feature demo, the platform overview, and the homestead operations handbook. No sign-in required.";
+  "Browse the FarmOps web presentations: the FarmOps O/S demo plus a feature deck for every module — Electrical, Maintenance, Inventory, Food & Growing, Security and the free Procedures module. No sign-in required.";
 
 export const Route = createFileRoute("/demo/")({
   head: () => ({
@@ -31,7 +50,7 @@ const DECKS = [
     icon: Cpu,
     name: "FarmOps O/S — feature demo",
     pages: FARMOPS_OS_DEMO_SLIDES.length,
-    body: "The shared platform layer, the free-forever Procedures knowledge base, and the Electrical, Maintenance, Inventory and Food modules already built and awaiting subscription packaging. Downloadable as a PDF.",
+    body: "The shared platform layer, the free-forever Procedures knowledge base, property grids, scoped data clearing and restore, plan entitlements, the read API, and every paid module — with links straight to each module's own deck.",
   },
   {
     to: "/demo/electrical" as const,
@@ -39,6 +58,41 @@ const DECKS = [
     name: "Electrical module — feature demo",
     pages: ELECTRICAL_DEMO_SLIDES.length,
     body: "Panelboards, branch circuits, OCPDs, wiring and switching topology, approval-gated field audits, grid documents, API access, and standalone or federated deployment.",
+  },
+  {
+    to: "/demo/maintenance" as const,
+    icon: Wrench,
+    name: "Maintenance module — feature demo",
+    pages: MAINTENANCE_DEMO_SLIDES.length,
+    body: "An equipment register, plans built from real service manuals, usage-based forecasting, symptom-led diagnosis and drafted schedules you approve before they land.",
+  },
+  {
+    to: "/demo/inventory" as const,
+    icon: Boxes,
+    name: "Inventory module — feature demo",
+    pages: INVENTORY_DEMO_SLIDES.length,
+    body: "Searchable and barcode-friendly stock, reviewable imports with rollback, parts lists with costs, and kits that check out and come back accounted for.",
+  },
+  {
+    to: "/demo/food" as const,
+    icon: Sprout,
+    name: "Food & Growing module — feature demo",
+    pages: FOOD_DEMO_SLIDES.length,
+    body: "The household food plan, garden, orchard and livestock registers, seasons and irrigation, preserving runs, storage inventory and what the season was worth.",
+  },
+  {
+    to: "/demo/security" as const,
+    icon: Camera,
+    name: "Security module — feature demo",
+    pages: SECURITY_DEMO_SLIDES.length,
+    body: "A camera register with permanent numbers, real online/offline/unknown status, evidence-only coverage, compass placement before a grid exists, and local bridge wiring.",
+  },
+  {
+    to: "/demo/procedures" as const,
+    icon: FileText,
+    name: "Procedures module — feature demo (free forever)",
+    pages: PROCEDURES_DEMO_SLIDES.length,
+    body: "The free knowledge base: editable procedure pages, AI-assisted authoring, manual and document ingestion, linked equipment and parts, review and full export.",
   },
   {
     to: "/promo" as const,
@@ -64,7 +118,8 @@ function DemoIndexPage() {
         <h1 className="text-4xl font-semibold mb-4">Web presentations</h1>
         <p className="text-muted-foreground mb-12 max-w-2xl">
           These decks run in the browser — arrow keys to move, G for a page grid, P to save a PDF
-          handout. Nothing here reads farm records, and no sign-in is required.
+          handout, and a download button for a PowerPoint (.pptx) version. Nothing here reads farm
+          records, and no sign-in is required.
         </p>
 
         <div className="space-y-5">

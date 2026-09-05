@@ -23,8 +23,8 @@ export const FARMOPS_OS_SLIDE_LINKS: Record<number, SlideLinkSet> = {
   1: {
     heading: "Jump in",
     links: [
+      { to: "/demo", label: "All module decks" },
       { to: "/demo/pricing", label: "Pricing calculator" },
-      { to: "/demo/electrical", label: "Electrical module deck" },
       { to: "/procedures", label: "Free Procedures module", gated: true },
     ],
   },
@@ -115,6 +115,53 @@ export const FARMOPS_OS_SLIDE_LINKS: Record<number, SlideLinkSet> = {
     ],
   },
   12: {
+    heading: "Security, live",
+    links: [
+      { to: "/security", label: "Cameras and coverage", gated: true },
+      { to: "/demo/security", label: "Security module deck" },
+    ],
+  },
+  13: {
+    heading: "Locations, live",
+    links: [
+      { to: "/building-grids", label: "Building grids", gated: true },
+      { to: "/site-plan", label: "Site plan from imagery", gated: true },
+    ],
+  },
+  14: {
+    heading: "Clearing and restoring",
+    links: [
+      { to: "/admin/data-cleaning", label: "Data cleaning", gated: true },
+      { to: "/admin/restore", label: "Restore", gated: true },
+    ],
+  },
+  15: {
+    heading: "What your plan opens",
+    links: [
+      { to: "/plans", label: "Plans", gated: true },
+      { to: "/subscription", label: "Subscription", gated: true },
+      { to: "/demo/pricing", label: "Pricing calculator" },
+    ],
+  },
+  16: {
+    heading: "API and instances",
+    links: [
+      { to: "/electrical/api-docs", label: "API documentation", gated: true },
+      { to: "/electrical/audit-batches", label: "Field-audit batches", gated: true },
+    ],
+  },
+  17: {
+    heading: "Module decks",
+    links: [
+      { to: "/demo/electrical", label: "Electrical" },
+      { to: "/demo/maintenance", label: "Maintenance" },
+      { to: "/demo/inventory", label: "Inventory" },
+      { to: "/demo/food", label: "Food & Growing" },
+      { to: "/demo/security", label: "Security" },
+      { to: "/demo/procedures", label: "Procedures (free)" },
+    ],
+  },
+  18: {
     heading: "Growing from free",
     links: [
       { to: "/procedures", label: "Start with Procedures", gated: true },
@@ -122,14 +169,15 @@ export const FARMOPS_OS_SLIDE_LINKS: Record<number, SlideLinkSet> = {
       { to: "/demo/pricing", label: "Price the next step" },
     ],
   },
-  13: {
+  19: {
     heading: "Price it yourself",
     links: [
       { to: "/demo/pricing", label: "Open the pricing calculator" },
+      { to: "/plans", label: "What each plan opens", gated: true },
       { to: "/docs/product-architecture", label: "Full edition table", gated: true },
     ],
   },
-  14: {
+  20: {
     heading: "Hosted or your own hardware",
     links: [
       { to: "/settings/self-host", label: "Self-host settings", gated: true },
@@ -137,12 +185,11 @@ export const FARMOPS_OS_SLIDE_LINKS: Record<number, SlideLinkSet> = {
       { to: "/demo/pricing", label: "Compare cost both ways" },
     ],
   },
-  15: {
+  21: {
     heading: "Next step",
     links: [
       { to: "/procedures", label: "Open the free module", gated: true },
       { to: "/demo/pricing", label: "Pricing calculator" },
-      { to: "/demo/electrical", label: "Electrical module deck" },
       { to: "/demo", label: "All presentations" },
     ],
   },

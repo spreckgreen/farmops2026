@@ -30,7 +30,7 @@ export const FARMOPS_OS_DEMO_SLIDES: PromoSlide[] = [
     title: "The operations layer under every module",
     subtitle:
       "FarmOps O/S is the shared platform: identity and roles, entitlements, configuration, data quality gates, audit history, vault, backups, API and AI routing. Modules plug into it — starting with a Procedures knowledge base that is free forever.",
-    footer: "Feature demo · 15 pages · design data, no live farm records",
+    footer: "Feature demo · design data, no live farm records · a deck for every module",
   },
   {
     kind: "statement",
@@ -250,6 +250,129 @@ export const FARMOPS_OS_DEMO_SLIDES: PromoSlide[] = [
       },
     ],
     note: "Status: in the application today; needs module packaging only.",
+  },
+  {
+    kind: "cards",
+    kicker: "Module · Security",
+    title: "Cameras recorded, not sketched",
+    cards: [
+      {
+        label: "Register",
+        heading: "Cameras with stable numbers",
+        body: "Each camera keeps a permanent number, a playable feed kind where one exists, and a checked status with the time it was checked.",
+      },
+      {
+        label: "Coverage",
+        heading: "Evidence-only coverage",
+        body: "A coverage cone is drawn only where both a position and an aim were recorded. Everything else is listed as a named gap.",
+      },
+      {
+        label: "Before a grid",
+        heading: "Compass placement",
+        body: "New buildings place cameras by compass side and slot until a measured grid exists — never by inventing coordinates.",
+      },
+      {
+        label: "Bridges",
+        heading: "Brands with no public video",
+        body: "A local bridge on your own network republishes such streams in a form a browser can play, with mixed-content problems called out.",
+      },
+    ],
+    note: "Status: in the application today. Cameras can also be given their own electrical records, preview first.",
+  },
+  {
+    kind: "statement",
+    kicker: "Platform · property geography",
+    title: "Locations that every module can point at",
+    lead:
+      "Before a module records anything, the property needs places. FarmOps builds those places from what you can actually supply.",
+    bullets: [
+      "Define a building grid from entered dimensions with a shape template — rectangle, L, T, or rectangle with a lean-to.",
+      "Or import the outline: a corner list, an SVG drawing, or a CAD file; or trace the corners on aerial imagery.",
+      "Set orientation against north, the walk-around start, finish and pattern, and the cell size per building.",
+      "Grid references are derived, human-readable labels — physical coordinates stay the authority underneath.",
+    ],
+    note: "Existing sites add outbuilding grids the same way a new site defines its first one.",
+  },
+  {
+    kind: "cards",
+    kicker: "Platform · data lifecycle",
+    title: "Clearing and restoring on purpose",
+    cards: [
+      {
+        label: "Scoped",
+        heading: "Site, module or location",
+        body: "An administrator can clear a whole site, one module, or one location on a site — the scope is chosen, never implied.",
+      },
+      {
+        label: "Backed up",
+        heading: "Backup before every clear",
+        body: "Each clear takes a downloadable backup first, and restore only runs into a scope that is empty.",
+      },
+      {
+        label: "Protected",
+        heading: "Accounts never touched",
+        body: "Accounts, roles, subscriptions and entitlements are excluded from any clear, and rows that cannot be tied to a location are withheld and reported.",
+      },
+      {
+        label: "Shippable",
+        heading: "A clean starting image",
+        body: "The same capability produces an empty, ready-to-ship install without hand-editing tables.",
+      },
+    ],
+  },
+  {
+    kind: "statement",
+    kicker: "Platform · entitlements",
+    title: "You can see exactly what your plan opens",
+    lead:
+      "Plans are not a marketing page. Signed in, FarmOps lists the real pages each plan opens and marks the ones currently closed to you.",
+    bullets: [
+      "A plans page per tier, with the modules it covers and the actual screens inside them.",
+      "Procedures, the knowledge base and the dashboard are listed as free on every plan.",
+      "A trial can be started, and module allowances are counted rather than assumed.",
+      "Access is decided by the server on every page — the plan pages only describe it.",
+    ],
+  },
+  {
+    kind: "statement",
+    kicker: "Platform · connected instances",
+    title: "An API, and instances that stay in step",
+    lead:
+      "Electrical records already publish through a versioned, token-scoped read API with a published specification. Two instances can be kept in step without either one trusting the other.",
+    bullets: [
+      "Tokens carry explicit scopes and rate limits, and unauthenticated requests fail closed.",
+      "Write surfaces exist but stay switched off until they are explicitly activated.",
+      "A scheduled one-way pull brings applied field-audit batches from a peer instance in as previews only.",
+      "Nothing pulled is ever auto-applied, and nothing is pushed back to the source.",
+    ],
+  },
+  {
+    kind: "cards",
+    kicker: "Go deeper",
+    title: "Every module has its own feature deck",
+    cards: [
+      {
+        label: "/demo/electrical",
+        heading: "Electrical",
+        body: "Panelboards, branch circuits, wiring and switching topology, approval-gated field audits and grid documents.",
+      },
+      {
+        label: "/demo/maintenance",
+        heading: "Maintenance",
+        body: "Plans built from real manuals, a usage-based forecast, symptom diagnosis and service scheduling.",
+      },
+      {
+        label: "/demo/inventory",
+        heading: "Inventory",
+        body: "Searchable register, reviewable imports with rollback, parts lists with costs, and kits that check out and back in.",
+      },
+      {
+        label: "/demo/food · /demo/security · /demo/procedures",
+        heading: "Food, Security, Procedures",
+        body: "The food plan and growing registers, the camera register and coverage, and the free-forever knowledge base.",
+      },
+    ],
+    note: "Every deck downloads as a PDF or a PowerPoint handout from its own header.",
   },
   {
     kind: "statement",
