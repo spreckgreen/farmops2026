@@ -74,7 +74,11 @@ describe("capacity vs completion", () => {
     const rollout = circuitRollout(
       sevenOfForty.map((_, i) => circuit(`CG-FS-00${i + 1}`, "as_built_verified")),
     );
-    expect(rollout.rolloutPercent).toBe(100);
+    // 8 of 9 applicable milestones: energization still needs explicit evidence.
+    expect(rollout.rolloutPercent).toBe(88.9);
+    expect(
+      rollout.counts.find((c) => c.milestone === "energized")!.complete,
+    ).toBe(0);
   });
 
   it("counts a multi-pole breaker once but takes its poles", () => {
