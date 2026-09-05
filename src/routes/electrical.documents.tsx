@@ -261,7 +261,7 @@ function DocumentsWorkspace() {
         // Print the same plan drawing the screen shows, so a printed dot lands
         // where the on-screen dot lands.
         const planImage = await pdf.loadPlanImage();
-        doc = pdf.renderGridMapPdf(models.map, stamp, planImage);
+        doc = pdf.renderGridMapPdf(models.map, stamp, planImage, { postsOnly: gridPostsOnly });
       }
       const name = pdf.savePdf(doc, stamp);
       setLastStamps((prev) => ({ ...prev, [docType]: stamp }));
@@ -509,11 +509,40 @@ function DocumentsWorkspace() {
               `${models.map.summary.counts["SHARED"]} shared (blue)`,
               `${models.map.unplaced.length} unplaced loads listed, never estimated`,
               `Grid cells A1–F9 plus ${models.map.poles.length} Pole Barn post references`,
+              gridPostsOnly
+                ? "Clean plan: drawing, posts and grid references only — no load markers or load tables"
+                : "Full map: load markers, grid/post cross-reference and unplaced list",
             ]}
             busy={busy}
             stamp={lastStamps["grid-map"]}
             onGenerate={generate}
-          />
+          >
+            {/* Print option only: the records are untouched either way. */}
+            <div className="flex flex-wrap gap-1.5 pt-1">
+              <button
+                type="button"
+                onClick={() => setGridPostsOnly(false)}
+                className={
+                  gridPostsOnly
+                    ? "bg-muted text-muted-foreground rounded-md px-2 py-0.5 text-xs"
+                    : "bg-primary text-primary-foreground rounded-md px-2 py-0.5 text-xs"
+                }
+              >
+                Full map with loads
+              </button>
+              <button
+                type="button"
+                onClick={() => setGridPostsOnly(true)}
+                className={
+                  gridPostsOnly
+                    ? "bg-primary text-primary-foreground rounded-md px-2 py-0.5 text-xs"
+                    : "bg-muted text-muted-foreground rounded-md px-2 py-0.5 text-xs"
+                }
+              >
+                Clean plan — posts only
+              </button>
+            </div>
+          </DocCard>
         </div>
       ) : null}
 
