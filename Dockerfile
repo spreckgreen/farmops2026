@@ -87,15 +87,16 @@ ENV NITRO_PRESET=node-server
 # (about 3 GB on an 8 GB host). The default fits a 4 GB host without swap.
 ARG NODE_HEAP_MB=1536
 ENV NODE_OPTIONS=--max-old-space-size=${NODE_HEAP_MB}
-ARG ROLLDOWN_WORKER_THREADS=2
-ARG ROLLDOWN_MAX_BLOCKING_THREADS=2
-ARG RAYON_NUM_THREADS=2
+ARG ROLLDOWN_WORKER_THREADS=1
+ARG ROLLDOWN_MAX_BLOCKING_THREADS=1
+ARG RAYON_NUM_THREADS=1
 ENV ROLLDOWN_WORKER_THREADS=${ROLLDOWN_WORKER_THREADS}
 ENV ROLLDOWN_MAX_BLOCKING_THREADS=${ROLLDOWN_MAX_BLOCKING_THREADS}
 ENV RAYON_NUM_THREADS=${RAYON_NUM_THREADS}
 # Limit glibc allocator arenas so native bundler buffers are returned/reused
 # instead of being retained across Nitro's sequential build environments.
-ENV MALLOC_ARENA_MAX=2
+ENV MALLOC_ARENA_MAX=1
+
 ENV VITE_CJS_IGNORE_WARNING=true
 # Low-memory build path: vite.config.ts disables sourcemaps, gzip-size
 # reporting, and rollup cache when this is set. Always on inside Docker.
