@@ -786,6 +786,9 @@ export async function handleApiRead(caller: ApiCaller, segments: string[]): Prom
     const envelope = await snapshotEnvelopeFor(caller);
     return apiJson(
       {
+        // Document generators stamp this version, so it must be present at the
+        // top level of the bundle, not only inside the snapshot envelope.
+        schema_version: envelope.snapshot_schema_version,
         snapshot_id: envelope.snapshot_id,
         generated_at: envelope.generated_at,
         content_hash: envelope.hashes.content_hash,
