@@ -30,7 +30,12 @@ import {
   type Json,
   type PoleObservation,
 } from "@/lib/electrical-audit-batch";
+import {
+  effectiveLocationAfterObservation,
+  type EffectiveLocation,
+} from "@/lib/electrical-effective-location";
 import { stageCompletionPercent } from "@/lib/electrical-lifecycle";
+
 
 export const AS_BUILT_STAGING_MODES = ["FULL_AS_BUILT", "RELATIONSHIP_ONLY"] as const;
 export type AsBuiltStagingMode = (typeof AS_BUILT_STAGING_MODES)[number];
