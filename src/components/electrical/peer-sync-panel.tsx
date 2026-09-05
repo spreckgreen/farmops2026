@@ -121,14 +121,16 @@ export function PeerSyncPanel() {
             Pull automatically
           </label>
           <label className="flex items-center gap-2 text-xs">
-            Batches per run
+            Batches per run (1–10)
             <Input
               value={limit}
               onChange={(e) => setLimit(e.target.value.replace(/[^0-9]/g, "").slice(0, 2))}
+              onBlur={() => setLimit(String(clampLimit(limit)))}
               className="h-8 w-16"
               inputMode="numeric"
             />
           </label>
+
           <Button
             size="sm"
             disabled={!peerUrl.trim() || saveMutation.isPending}
