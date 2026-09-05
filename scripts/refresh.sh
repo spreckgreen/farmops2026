@@ -235,9 +235,9 @@ fi
 # live outside that cap. On an 8 GB host the Nitro server pass can use roughly
 # 4 GB outside V8, so keep automatic old-space at 25% of RAM and no more than
 # 2048 MB. Override explicitly only on a host with measured extra headroom.
+total_mb=$(awk '/MemTotal/{printf "%d", $2/1024}' /proc/meminfo 2>/dev/null || echo 0)
+avail_mb=$(awk '/MemAvailable/{printf "%d", $2/1024}' /proc/meminfo 2>/dev/null || echo 0)
 if [ -z "${NODE_HEAP_MB:-}" ]; then
-  total_mb=$(awk '/MemTotal/{printf "%d", $2/1024}' /proc/meminfo 2>/dev/null || echo 0)
-  avail_mb=$(awk '/MemAvailable/{printf "%d", $2/1024}' /proc/meminfo 2>/dev/null || echo 0)
   by_total=$(( total_mb * 25 / 100 ))
   by_available=$(( avail_mb - 4096 ))
   heap="$by_total"
