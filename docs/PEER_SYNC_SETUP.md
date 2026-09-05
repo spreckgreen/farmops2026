@@ -170,5 +170,5 @@ QA screens, plus **Grid map** for field-verified positions.
 | Run logged as `skipped: no peer instance configured` | Peer address not saved on PULLER. |
 | `skipped: peer access key not configured` | `ELECTRICAL_PEER_SYNC_TOKEN` missing on PULLER. |
 | `refused: peer address must be https` / private address | SOURCE is not publicly reachable over HTTPS; fix DNS/TLS rather than relaxing the guard. |
-| Job stops running, page shows paused | Three consecutive failed runs tripped the breaker — fix the cause, then **Resume** on the panel. |
+| Job stops running, page shows paused | Three consecutive failed runs tripped the breaker. It re-arms itself automatically after 30 min, then 2 h, 6 h and 12 h (`job_locks.auto_resume_at` / `auto_pause_count`); the first tick after that window un-pauses, resets the failure count and pulls. After the fourth automatic pause it waits for **Resume** on the panel. |
 | Peer batch never appears | Its status on SOURCE is not `applied`/`partially_applied`. |
