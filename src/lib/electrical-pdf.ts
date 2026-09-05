@@ -18,6 +18,7 @@ import {
   type SheetModel,
 } from "@/lib/electrical-documents";
 import { AXIS_COLS, AXIS_ROWS, SHOP_DEPTH_FT, SHOP_WIDTH_FT, type CircuitClass } from "@/lib/electrical-grid-map";
+import { PLAN_ASPECT_RATIO, PLAN_BUILDING_FRACTION } from "@/lib/electrical-grid-plan-geometry";
 import { LABEL_FORMATS } from "@/components/electrical/panel-qr-label";
 
 const PT_PER_IN = 72;
@@ -262,7 +263,30 @@ export function renderLabelsPdf(model: LabelDocModel, stamp: VersionStamp): jsPD
 
 /* ----------------------------------------------------------- Grid map plan */
 
-export function renderGridMapPdf(model: GridMapDocModel, stamp: VersionStamp): jsPDF {
+/**
+ * The same drawing the screen shows. jsPDF needs pixels in hand, so the caller
+ * loads the plan image once and passes it in; without it the plan falls back to
+ * plain outline + grid lines rather than printing nothing.
+ */
+export async function loadPlanImage(): Promise<HTMLImageElement | null> {
+  try {
+    const src = (await import("@/assets/farm-shop-grid-plan.png")).default as string;
+    return await new Promise<HTMLImageElement | null>((resolve) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => resolve(null);
+      img.src = src;
+    });
+  } catch {
+    return null;
+  }
+}
+
+export function renderGridMapPdf(
+  model: GridMapDocModel,
+  stamp: VersionStamp,
+  planImage?: HTMLImageElement | null,
+): jsPDF {
   const doc = new jsPDF({ unit: "pt", format: "letter", orientation: "landscape" });
   applyMeta(doc, stamp);
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -270,37 +294,67 @@ export function renderGridMapPdf(model: GridMapDocModel, stamp: VersionStamp): j
 
   let y = drawStampBlock(doc, stamp, "Farm Shop grid map", MARGIN + 10);
 
-  // Plan area: frozen 60 ft (W→E) x 40 ft (N→S) geometry, uniform scale.
+  // Plan area. With the current drawing available, the whole drawing is placed
+  // 1:1 in its own aspect ratio and every marker is mapped through the same
+  // documented feet→drawing transform the screen uses, so a printed dot sits
+  // exactly where the on-screen dot sits. Without it, the frozen 60 x 40 ft
+  // outline is drawn instead.
   const availW = pageWidth - MARGIN * 2 - 150;
   const availH = pageHeight - y - 60;
-  const scale = Math.min(availW / SHOP_WIDTH_FT, availH / SHOP_DEPTH_FT);
-  const planW = SHOP_WIDTH_FT * scale;
-  const planH = SHOP_DEPTH_FT * scale;
-  const x0 = MARGIN + 22;
-  const y0 = y + 14;
+  const drawingAspect = planImage ? PLAN_ASPECT_RATIO : SHOP_WIDTH_FT / SHOP_DEPTH_FT;
+  let drawW = availW;
+  let drawH = drawW / drawingAspect;
+  if (drawH > availH) {
+    drawH = availH;
+    drawW = drawH * drawingAspect;
+  }
+  const dx0 = MARGIN + 22;
+  const dy0 = y + 14;
 
-  doc.setDrawColor(60);
-  doc.setLineWidth(1);
-  doc.rect(x0, y0, planW, planH);
+  // Building envelope inside the placed drawing — markers are mapped into this.
+  const x0 = planImage ? dx0 + PLAN_BUILDING_FRACTION.left * drawW : dx0;
+  const y0 = planImage ? dy0 + PLAN_BUILDING_FRACTION.top * drawH : dy0;
+  const planW = planImage ? PLAN_BUILDING_FRACTION.width * drawW : drawW;
+  const planH = planImage ? PLAN_BUILDING_FRACTION.height * drawH : drawH;
 
-  doc.setLineWidth(0.3);
-  doc.setDrawColor(205);
+  if (planImage) {
+    doc.addImage(planImage, "PNG", dx0, dy0, drawW, drawH);
+  } else {
+    doc.setDrawColor(60);
+    doc.setLineWidth(1);
+    doc.rect(x0, y0, planW, planH);
+    doc.setLineWidth(0.3);
+    doc.setDrawColor(205);
+    doc.setFontSize(6.5);
+    doc.setTextColor(110);
+    for (const col of AXIS_COLS) {
+      const cx = x0 + (col.xFt / SHOP_WIDTH_FT) * planW;
+      doc.line(cx, y0, cx, y0 + planH);
+    }
+    for (const row of AXIS_ROWS) {
+      const cy = y0 + (row.yFt / SHOP_DEPTH_FT) * planH;
+      doc.line(x0, cy, x0 + planW, cy);
+    }
+  }
+
+  // A1–F9 reference letters and numbers, printed outside the drawing so they
+  // never cover it, on both the drawing and the fallback outline.
   doc.setFontSize(6.5);
   doc.setTextColor(110);
   for (const col of AXIS_COLS) {
     const cx = x0 + (col.xFt / SHOP_WIDTH_FT) * planW;
-    doc.line(cx, y0, cx, y0 + planH);
-    doc.text(col.label, cx, y0 - 4, { align: "center" });
+    doc.text(col.label, cx, dy0 - 4, { align: "center" });
   }
   for (const row of AXIS_ROWS) {
     const cy = y0 + (row.yFt / SHOP_DEPTH_FT) * planH;
-    doc.line(x0, cy, x0 + planW, cy);
-    doc.text(row.label, x0 - 8, cy + 2, { align: "right" });
+    doc.text(row.label, dx0 - 8, cy + 2, { align: "right" });
   }
   doc.setTextColor(0);
   doc.setFontSize(7);
-  doc.text("North", x0 + planW / 2, y0 - 16, { align: "center" });
-  doc.text(`${SHOP_WIDTH_FT} ft west to east`, x0 + planW / 2, y0 + planH + 14, { align: "center" });
+  doc.text("North", dx0 + drawW / 2, dy0 - 16, { align: "center" });
+  doc.text(`${SHOP_WIDTH_FT} ft west to east`, dx0 + drawW / 2, dy0 + drawH + 14, {
+    align: "center",
+  });
 
   // Pole Barn perimeter posts: a second way to read the same plan. A field crew
   // that cannot see a grid cell can still name the nearest painted post.
@@ -340,8 +394,8 @@ export function renderGridMapPdf(model: GridMapDocModel, stamp: VersionStamp): j
   }
 
   // Legend + counts.
-  let lx = x0 + planW + 22;
-  let ly = y0 + 6;
+  let lx = dx0 + drawW + 22;
+  let ly = dy0 + 6;
   doc.setFont("helvetica", "bold");
   doc.setFontSize(8.5);
   doc.text("Legend", lx, ly);
