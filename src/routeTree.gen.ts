@@ -24,6 +24,7 @@ import { Route as PromoRouteImport } from './routes/promo'
 import { Route as ReadyRouteImport } from './routes/ready'
 import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
+import { Route as SecurityRouteImport } from './routes/security'
 import { Route as ServiceSchedulingRouteImport } from './routes/service-scheduling'
 import { Route as SitePlanRouteImport } from './routes/site-plan'
 import { Route as SubscriptionRouteImport } from './routes/subscription'
@@ -116,6 +117,7 @@ import { Route as MaintenanceImportManualRouteImport } from './routes/maintenanc
 import { Route as NotesDateRouteImport } from './routes/notes.$date'
 import { Route as ProceduresIndexRouteImport } from './routes/procedures.index'
 import { Route as ProceduresIngestRouteImport } from './routes/procedures.ingest'
+import { Route as SecurityIndexRouteImport } from './routes/security.index'
 import { Route as SettingsSelfHostRouteImport } from './routes/settings.self-host'
 import { Route as SettingsTroubleshootingRouteImport } from './routes/settings.troubleshooting'
 import { Route as TasksIndexRouteImport } from './routes/tasks.index'
@@ -215,6 +217,11 @@ const ReportsRoute = ReportsRouteImport.update({
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
   id: '/reset-password',
   path: '/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SecurityRoute = SecurityRouteImport.update({
+  id: '/security',
+  path: '/security',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ServiceSchedulingRoute = ServiceSchedulingRouteImport.update({
@@ -683,6 +690,11 @@ const ProceduresIngestRoute = ProceduresIngestRouteImport.update({
   path: '/ingest',
   getParentRoute: () => ProceduresRoute,
 } as any)
+const SecurityIndexRoute = SecurityIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => SecurityRoute,
+} as any)
 const SettingsSelfHostRoute = SettingsSelfHostRouteImport.update({
   id: '/settings/self-host',
   path: '/settings/self-host',
@@ -834,6 +846,7 @@ export interface FileRoutesByFullPath {
   '/ready': typeof ReadyRoute
   '/reports': typeof ReportsRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/security': typeof SecurityRouteWithChildren
   '/service-scheduling': typeof ServiceSchedulingRoute
   '/site-plan': typeof SitePlanRoute
   '/subscription': typeof SubscriptionRoute
@@ -932,6 +945,7 @@ export interface FileRoutesByFullPath {
   '/food/': typeof FoodIndexRoute
   '/maintenance/': typeof MaintenanceIndexRoute
   '/procedures/': typeof ProceduresIndexRoute
+  '/security/': typeof SecurityIndexRoute
   '/tasks/': typeof TasksIndexRoute
   '/api/electrical/snapshot': typeof ApiElectricalSnapshotRoute
   '/api/public/health': typeof ApiPublicHealthRouteWithChildren
@@ -1062,6 +1076,7 @@ export interface FileRoutesByTo {
   '/food': typeof FoodIndexRoute
   '/maintenance': typeof MaintenanceIndexRoute
   '/procedures': typeof ProceduresIndexRoute
+  '/security': typeof SecurityIndexRoute
   '/tasks': typeof TasksIndexRoute
   '/api/electrical/snapshot': typeof ApiElectricalSnapshotRoute
   '/api/public/health': typeof ApiPublicHealthRouteWithChildren
@@ -1099,6 +1114,7 @@ export interface FileRoutesById {
   '/ready': typeof ReadyRoute
   '/reports': typeof ReportsRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/security': typeof SecurityRouteWithChildren
   '/service-scheduling': typeof ServiceSchedulingRoute
   '/site-plan': typeof SitePlanRoute
   '/subscription': typeof SubscriptionRoute
@@ -1197,6 +1213,7 @@ export interface FileRoutesById {
   '/food/': typeof FoodIndexRoute
   '/maintenance/': typeof MaintenanceIndexRoute
   '/procedures/': typeof ProceduresIndexRoute
+  '/security/': typeof SecurityIndexRoute
   '/tasks/': typeof TasksIndexRoute
   '/api/electrical/snapshot': typeof ApiElectricalSnapshotRoute
   '/api/public/health': typeof ApiPublicHealthRouteWithChildren
@@ -1235,6 +1252,7 @@ export interface FileRouteTypes {
     | '/ready'
     | '/reports'
     | '/reset-password'
+    | '/security'
     | '/service-scheduling'
     | '/site-plan'
     | '/subscription'
@@ -1333,6 +1351,7 @@ export interface FileRouteTypes {
     | '/food/'
     | '/maintenance/'
     | '/procedures/'
+    | '/security/'
     | '/tasks/'
     | '/api/electrical/snapshot'
     | '/api/public/health'
@@ -1463,6 +1482,7 @@ export interface FileRouteTypes {
     | '/food'
     | '/maintenance'
     | '/procedures'
+    | '/security'
     | '/tasks'
     | '/api/electrical/snapshot'
     | '/api/public/health'
@@ -1499,6 +1519,7 @@ export interface FileRouteTypes {
     | '/ready'
     | '/reports'
     | '/reset-password'
+    | '/security'
     | '/service-scheduling'
     | '/site-plan'
     | '/subscription'
@@ -1597,6 +1618,7 @@ export interface FileRouteTypes {
     | '/food/'
     | '/maintenance/'
     | '/procedures/'
+    | '/security/'
     | '/tasks/'
     | '/api/electrical/snapshot'
     | '/api/public/health'
@@ -1634,6 +1656,7 @@ export interface RootRouteChildren {
   ReadyRoute: typeof ReadyRoute
   ReportsRoute: typeof ReportsRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
+  SecurityRoute: typeof SecurityRouteWithChildren
   ServiceSchedulingRoute: typeof ServiceSchedulingRoute
   SitePlanRoute: typeof SitePlanRoute
   SubscriptionRoute: typeof SubscriptionRoute
@@ -1835,6 +1858,13 @@ declare module '@tanstack/react-router' {
       path: '/reset-password'
       fullPath: '/reset-password'
       preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/security': {
+      id: '/security'
+      path: '/security'
+      fullPath: '/security'
+      preLoaderRoute: typeof SecurityRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/service-scheduling': {
@@ -2481,6 +2511,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProceduresIngestRouteImport
       parentRoute: typeof ProceduresRoute
     }
+    '/security/': {
+      id: '/security/'
+      path: '/'
+      fullPath: '/security/'
+      preLoaderRoute: typeof SecurityIndexRouteImport
+      parentRoute: typeof SecurityRoute
+    }
     '/settings/self-host': {
       id: '/settings/self-host'
       path: '/settings/self-host'
@@ -2749,6 +2786,18 @@ const ProceduresRouteWithChildren = ProceduresRoute._addFileChildren(
   ProceduresRouteChildren,
 )
 
+interface SecurityRouteChildren {
+  SecurityIndexRoute: typeof SecurityIndexRoute
+}
+
+const SecurityRouteChildren: SecurityRouteChildren = {
+  SecurityIndexRoute: SecurityIndexRoute,
+}
+
+const SecurityRouteWithChildren = SecurityRoute._addFileChildren(
+  SecurityRouteChildren,
+)
+
 interface ApiPublicHealthRouteChildren {
   ApiPublicHealthProceduresRoute: typeof ApiPublicHealthProceduresRoute
 }
@@ -2777,6 +2826,7 @@ const rootRouteChildren: RootRouteChildren = {
   ReadyRoute: ReadyRoute,
   ReportsRoute: ReportsRoute,
   ResetPasswordRoute: ResetPasswordRoute,
+  SecurityRoute: SecurityRouteWithChildren,
   ServiceSchedulingRoute: ServiceSchedulingRoute,
   SitePlanRoute: SitePlanRoute,
   SubscriptionRoute: SubscriptionRoute,
