@@ -384,6 +384,19 @@ function DocumentsWorkspace() {
                 />
               </dl>
 
+              {/* Record counts, so it is obvious at a glance whether the read
+                  returned data before anything is printed. */}
+              <div className="flex flex-wrap gap-1.5">
+                {Object.entries(bundle.counts ?? {})
+                  .filter(([, n]) => typeof n === "number")
+                  .sort((a, b) => b[1] - a[1])
+                  .map(([name, n]) => (
+                    <Badge key={name} variant={n ? "secondary" : "outline"} className="text-[10px]">
+                      {name.replace(/_/g, " ")}: {n}
+                    </Badge>
+                  ))}
+              </div>
+
               <Separator />
 
 
@@ -492,6 +505,7 @@ function DocumentsWorkspace() {
               `${models.map.summary.counts["DEDICATED_20A"]} dedicated 20A (orange)`,
               `${models.map.summary.counts["SHARED"]} shared (blue)`,
               `${models.map.unplaced.length} unplaced loads listed, never estimated`,
+              `Grid cells A1–F9 plus ${models.map.poles.length} Pole Barn post references`,
             ]}
             busy={busy}
             stamp={lastStamps["grid-map"]}

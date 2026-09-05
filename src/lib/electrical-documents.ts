@@ -26,6 +26,11 @@ import {
   type GridMapSummary,
 } from "@/lib/electrical-grid-map";
 import { COLLECTION_FOR_KIND, type SnapshotQaFinding, type SnapshotRecord } from "@/lib/electrical-snapshot";
+import {
+  PROPOSED_POST_POSITIONS,
+  POST_GEOMETRY_VERSION,
+  type PostPosition,
+} from "@/lib/electrical-grid-post-geometry";
 
 export const NOT_IN_RECORD = "NOT IN RECORD";
 export const ALL_SCOPE = "ALL";
@@ -68,8 +73,16 @@ export function shown(record: SnapshotRecord | undefined, key: string): string {
 }
 
 export function collection(bundle: DocumentBundle, name: string): SnapshotRecord[] {
+  // The API envelope nests record arrays under `collections`; older captured
+  // bundles carry them at the top level of the snapshot. Both are read, so a
+  // reprint from a saved capture shows the same rows as a live print.
+  const nested = (bundle.snapshot as Record<string, JsonValue>)["collections"];
+  if (nested && typeof nested === "object" && !Array.isArray(nested)) {
+    const rows = (nested as Record<string, JsonValue>)[name];
+    if (Array.isArray(rows)) return rows as unknown as SnapshotRecord[];
+  }
   const rows = bundle.snapshot[name];
-  return Array.isArray(rows) ? (rows as SnapshotRecord[]) : [];
+  return Array.isArray(rows) ? (rows as unknown as SnapshotRecord[]) : [];
 }
 
 /** Panel stable ID for a load, and the evidence for it. Never guessed. */
@@ -502,6 +515,12 @@ export interface GridMapDocModel {
   panels: string[];
   /** Loads that could not be placed on the plan, with the reason. */
   unplaced: { loadId: string; description: string; reason: string }[];
+  /**
+   * Pole Barn perimeter posts (26), so a printed plan can be read either by the
+   * A1-F9 grid cell or by the post reference painted on the building itself.
+   */
+  poles: PostPosition[];
+  poleGeometryVersion: string;
   digestSource: unknown;
 }
 
@@ -551,6 +570,8 @@ export function buildGridMapModel(bundle: DocumentBundle, scope: DocScope): Grid
     summary,
     panels,
     unplaced,
+    poles: PROPOSED_POST_POSITIONS,
+    poleGeometryVersion: POST_GEOMETRY_VERSION,
     digestSource: points.map((p) => ({
       id: p.loadId,
       grid: p.gridReference,
