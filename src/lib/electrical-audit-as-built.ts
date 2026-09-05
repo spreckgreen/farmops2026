@@ -89,6 +89,8 @@ export interface AsBuiltStaging {
   gaps: string[];
   errors: string[];
   install_state: AuditInstallState | null;
+  /** True when both the audited connection and its location evidence were accepted. */
+  as_built_verified: boolean;
   sharing: "D" | "S" | null;
 }
 
