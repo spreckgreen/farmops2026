@@ -869,6 +869,8 @@ export const TERMS: readonly TermEntry[] = [
     plain:
       "A switching device with one common terminal and two traveler terminals. Two of them, one " +
       "at each location, give control of the same target from two places.",
+    necRelation:
+      "The NEC does not define '3-way switch' in Article 100; it is the common trade name for a general-use snap switch with traveler terminals used in the switch connections of Art. 404.",
     aliases: ["3 way", "three way", "two-location switch"],
     deprecated: [],
     affects: {
@@ -887,6 +889,8 @@ export const TERMS: readonly TermEntry[] = [
     plain:
       "An intermediate switching device wired between two 3-way switches so a third or later " +
       "location can also operate the same target.",
+    necRelation:
+      "The NEC does not define '4-way switch' in Article 100; it is the trade name for the intermediate switching device used in the arrangements of Art. 404.",
     aliases: ["4 way", "four way", "intermediate switch"],
     deprecated: [],
     affects: {
@@ -905,6 +909,8 @@ export const TERMS: readonly TermEntry[] = [
     plain:
       "A conductor between switching devices that carries the switched connection from one device " +
       "to the next. It belongs to the supplying branch circuit, not to a separate circuit.",
+    necRelation:
+      "Traveler is NEC requirement wording rather than an Article 100 definition; the conductors are branch-circuit conductors of the supplying circuit (Art. 210, 300.3(B)).",
     aliases: ["traveller", "runner"],
     deprecated: [],
     affects: {
@@ -1013,34 +1019,6 @@ export const TERMS: readonly TermEntry[] = [
       ui: ["Switches & controls"],
       api: ["/api/v1/electrical/control-targets"],
       export: ["target_kind"],
-    },
-  },
-  {
-    id: "feed_through_sequence",
-    canonical: "Feed-through sequence (FarmOps)",
-    classification: "FARMOPS_OPERATIONAL",
-    necEdition: null,
-    necReference: null,
-    plain:
-      "The recorded order in which devices are fed one from the next along the same branch " +
-      "circuit.",
-    necRelation:
-      "Describes recorded wiring order only. The NEC has no such object; the conductors are " +
-      "branch-circuit conductors (Art. 210).",
-    aliases: ["daisy chain", "downstream device sequence", "pass-through"],
-    deprecated: [
-      {
-        usage: "daisy chain",
-        instead: "feed-through sequence",
-        reason: "Informal; kept only as a searchable alias.",
-        aliasOnly: true,
-      },
-    ],
-    affects: {
-      db: ["electrical_control_wiring_segments"],
-      ui: ["Switches & controls", "Wiring"],
-      api: ["/api/v1/electrical/control-wiring-segments"],
-      export: ["conductor_function"],
     },
   },
 ];

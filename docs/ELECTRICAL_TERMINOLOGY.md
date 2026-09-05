@@ -83,6 +83,23 @@ explains the NEC relationship through the term hint.
 - **Lifecycle stages** (planned, material ready, complete, verified) are never described as NEC
   installation classifications.
 
+## Switching and control terms
+
+| Term | Status | Reference (NEC 2023) |
+| --- | --- | --- |
+| Switch (general-use snap switch) | NEC-defined | Art. 100; Art. 404 |
+| 3-way switch | NEC usage | Art. 404; 200.7 |
+| 4-way switch | NEC usage | Art. 404 |
+| Traveler | NEC usage | Art. 404; 300.3(B) |
+| Ungrounded conductor | NEC-defined | Art. 100; Art. 200; 210.5(C) |
+| Switch bank | FarmOps operational | enclosure is a device box, Art. 314 |
+| Control group | FarmOps operational | groups devices controlling one target; never a circuit group |
+| Control target | FarmOps operational | the target is normally utilization equipment or an outlet |
+| Feed-through sequence | FarmOps operational | replaces user-facing "daisy chain" |
+
+"Hot wire" and "kill switch" survive only as searchable aliases. A wall switch is
+described as a disconnecting means only where that classification is verified.
+
 ## Automated checks
 
 `bun scripts/terminology-check.ts` (npm script `check:terminology`) and the vitest gate
