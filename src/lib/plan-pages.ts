@@ -39,10 +39,7 @@ export const MODULE_PAGES: Record<string, ModulePage[]> = {
     { to: "/food/plan", label: "Food plan" },
     { to: "/food/storage", label: "Storage" },
   ],
-  cameras: [
-    { to: "/security", label: "Security" },
-    { to: "/security/cameras", label: "Cameras" },
-  ],
+  cameras: [{ to: "/security", label: "Security — cameras and coverage" }],
 };
 
 /** Always-included pages: free forever on every plan, including the free one. */
