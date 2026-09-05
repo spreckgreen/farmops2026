@@ -76,6 +76,7 @@ import { Route as ElectricalAssistantRouteImport } from './routes/electrical.ass
 import { Route as ElectricalAuditBatchesRouteImport } from './routes/electrical.audit-batches'
 import { Route as ElectricalAuditSheetRouteImport } from './routes/electrical.audit-sheet'
 import { Route as ElectricalBuildingGridRouteImport } from './routes/electrical.building-grid'
+import { Route as ElectricalBuildingLevelsRouteImport } from './routes/electrical.building-levels'
 import { Route as ElectricalChangesRouteImport } from './routes/electrical.changes'
 import { Route as ElectricalCriticalLoadsRouteImport } from './routes/electrical.critical-loads'
 import { Route as ElectricalDesignToFieldRouteImport } from './routes/electrical.design-to-field'
@@ -497,6 +498,12 @@ const ElectricalBuildingGridRoute = ElectricalBuildingGridRouteImport.update({
   path: '/electrical/building-grid',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ElectricalBuildingLevelsRoute =
+  ElectricalBuildingLevelsRouteImport.update({
+    id: '/electrical/building-levels',
+    path: '/electrical/building-levels',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ElectricalChangesRoute = ElectricalChangesRouteImport.update({
   id: '/electrical/changes',
   path: '/electrical/changes',
@@ -1006,6 +1013,7 @@ export interface FileRoutesByFullPath {
   '/electrical/audit-batches': typeof ElectricalAuditBatchesRoute
   '/electrical/audit-sheet': typeof ElectricalAuditSheetRoute
   '/electrical/building-grid': typeof ElectricalBuildingGridRoute
+  '/electrical/building-levels': typeof ElectricalBuildingLevelsRoute
   '/electrical/changes': typeof ElectricalChangesRoute
   '/electrical/critical-loads': typeof ElectricalCriticalLoadsRoute
   '/electrical/design-to-field': typeof ElectricalDesignToFieldRoute
@@ -1155,6 +1163,7 @@ export interface FileRoutesByTo {
   '/electrical/audit-batches': typeof ElectricalAuditBatchesRoute
   '/electrical/audit-sheet': typeof ElectricalAuditSheetRoute
   '/electrical/building-grid': typeof ElectricalBuildingGridRoute
+  '/electrical/building-levels': typeof ElectricalBuildingLevelsRoute
   '/electrical/changes': typeof ElectricalChangesRoute
   '/electrical/critical-loads': typeof ElectricalCriticalLoadsRoute
   '/electrical/design-to-field': typeof ElectricalDesignToFieldRoute
@@ -1310,6 +1319,7 @@ export interface FileRoutesById {
   '/electrical/audit-batches': typeof ElectricalAuditBatchesRoute
   '/electrical/audit-sheet': typeof ElectricalAuditSheetRoute
   '/electrical/building-grid': typeof ElectricalBuildingGridRoute
+  '/electrical/building-levels': typeof ElectricalBuildingLevelsRoute
   '/electrical/changes': typeof ElectricalChangesRoute
   '/electrical/critical-loads': typeof ElectricalCriticalLoadsRoute
   '/electrical/design-to-field': typeof ElectricalDesignToFieldRoute
@@ -1466,6 +1476,7 @@ export interface FileRouteTypes {
     | '/electrical/audit-batches'
     | '/electrical/audit-sheet'
     | '/electrical/building-grid'
+    | '/electrical/building-levels'
     | '/electrical/changes'
     | '/electrical/critical-loads'
     | '/electrical/design-to-field'
@@ -1615,6 +1626,7 @@ export interface FileRouteTypes {
     | '/electrical/audit-batches'
     | '/electrical/audit-sheet'
     | '/electrical/building-grid'
+    | '/electrical/building-levels'
     | '/electrical/changes'
     | '/electrical/critical-loads'
     | '/electrical/design-to-field'
@@ -1769,6 +1781,7 @@ export interface FileRouteTypes {
     | '/electrical/audit-batches'
     | '/electrical/audit-sheet'
     | '/electrical/building-grid'
+    | '/electrical/building-levels'
     | '/electrical/changes'
     | '/electrical/critical-loads'
     | '/electrical/design-to-field'
@@ -1924,6 +1937,7 @@ export interface RootRouteChildren {
   ElectricalAuditBatchesRoute: typeof ElectricalAuditBatchesRoute
   ElectricalAuditSheetRoute: typeof ElectricalAuditSheetRoute
   ElectricalBuildingGridRoute: typeof ElectricalBuildingGridRoute
+  ElectricalBuildingLevelsRoute: typeof ElectricalBuildingLevelsRoute
   ElectricalChangesRoute: typeof ElectricalChangesRoute
   ElectricalCriticalLoadsRoute: typeof ElectricalCriticalLoadsRoute
   ElectricalDesignToFieldRoute: typeof ElectricalDesignToFieldRoute
@@ -2460,6 +2474,13 @@ declare module '@tanstack/react-router' {
       path: '/electrical/building-grid'
       fullPath: '/electrical/building-grid'
       preLoaderRoute: typeof ElectricalBuildingGridRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/electrical/building-levels': {
+      id: '/electrical/building-levels'
+      path: '/electrical/building-levels'
+      fullPath: '/electrical/building-levels'
+      preLoaderRoute: typeof ElectricalBuildingLevelsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/electrical/changes': {
@@ -3238,6 +3259,7 @@ const rootRouteChildren: RootRouteChildren = {
   ElectricalAuditBatchesRoute: ElectricalAuditBatchesRoute,
   ElectricalAuditSheetRoute: ElectricalAuditSheetRoute,
   ElectricalBuildingGridRoute: ElectricalBuildingGridRoute,
+  ElectricalBuildingLevelsRoute: ElectricalBuildingLevelsRoute,
   ElectricalChangesRoute: ElectricalChangesRoute,
   ElectricalCriticalLoadsRoute: ElectricalCriticalLoadsRoute,
   ElectricalDesignToFieldRoute: ElectricalDesignToFieldRoute,
