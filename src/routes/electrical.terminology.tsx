@@ -203,10 +203,7 @@ function Terminology() {
                     affectedFields: r.affectedFields.join("; "),
                     migrationImpact: IMPACT_LABEL[r.migrationImpact],
                   })),
-                  RECONCILIATION_CSV_COLUMNS as unknown as ReadonlyArray<{
-                    key: string;
-                    label: string;
-                  }>,
+                  RECONCILIATION_CSV_COLUMNS,
                 ),
               )
             }
