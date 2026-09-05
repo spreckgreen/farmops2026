@@ -253,9 +253,15 @@ export NODE_HEAP_MB
 # outside max-old-space-size and previously pushed this 8 GB host to 7.1 GB RSS.
 # Two workers trade a little build speed for a stable peak. Operators can still
 # override these values after measuring a larger machine.
-export ROLLDOWN_WORKER_THREADS="${ROLLDOWN_WORKER_THREADS:-2}"
-export ROLLDOWN_MAX_BLOCKING_THREADS="${ROLLDOWN_MAX_BLOCKING_THREADS:-2}"
-export RAYON_NUM_THREADS="${RAYON_NUM_THREADS:-2}"
+# Two workers still peaked near 7.1 GB during the Nitro server pass on this
+# 8 GB host and was SIGKILLed. Single-threaded native work is the only setting
+# that keeps that phase inside the host budget; hosts with 12 GB or more get
+# two workers back automatically.
+_native_workers=1
+[ "${total_mb:-0}" -ge 12288 ] && _native_workers=2
+export ROLLDOWN_WORKER_THREADS="${ROLLDOWN_WORKER_THREADS:-$_native_workers}"
+export ROLLDOWN_MAX_BLOCKING_THREADS="${ROLLDOWN_MAX_BLOCKING_THREADS:-$_native_workers}"
+export RAYON_NUM_THREADS="${RAYON_NUM_THREADS:-$_native_workers}"
 
 # A heap cap cannot constrain native allocations. For hosts below 12 GB with no
 # swap, create a private build-only swap file as an OOM safety net, then remove
@@ -283,11 +289,11 @@ trap 'cleanup_build_swap; exit 130' INT TERM
 
 swap_total_mb=$(awk '/SwapTotal/{printf "%d", $2/1024}' /proc/meminfo 2>/dev/null || echo 0)
 swap_dir_available_mb=$(df -Pm "$(dirname "$BUILD_SWAP_FILE")" 2>/dev/null | awk 'NR==2{print $4}' || echo 0)
-if [ "${total_mb:-0}" -lt 12288 ] && [ "$swap_total_mb" -lt 1024 ] && [ "$swap_dir_available_mb" -ge 5120 ] && command -v mkswap >/dev/null 2>&1 && { [ "$(id -u)" -eq 0 ] || [ "${#ROOT_CMD[@]}" -gt 0 ]; }; then
-  log "Low-memory host has ${swap_total_mb}MB swap; preparing a 4096MB build-only safety net"
+if [ "${total_mb:-0}" -lt 12288 ] && [ "$swap_total_mb" -lt 4096 ] && [ "$swap_dir_available_mb" -ge 7168 ] && command -v mkswap >/dev/null 2>&1 && { [ "$(id -u)" -eq 0 ] || [ "${#ROOT_CMD[@]}" -gt 0 ]; }; then
+  log "Low-memory host has ${swap_total_mb}MB swap; preparing a 6144MB build-only safety net"
   if "${ROOT_CMD[@]}" rm -f "$BUILD_SWAP_FILE" 2>/dev/null \
-    && { "${ROOT_CMD[@]}" fallocate -l 4G "$BUILD_SWAP_FILE" 2>/dev/null \
-      || "${ROOT_CMD[@]}" dd if=/dev/zero of="$BUILD_SWAP_FILE" bs=1M count=4096 status=none; } \
+    && { "${ROOT_CMD[@]}" fallocate -l 6G "$BUILD_SWAP_FILE" 2>/dev/null \
+      || "${ROOT_CMD[@]}" dd if=/dev/zero of="$BUILD_SWAP_FILE" bs=1M count=6144 status=none; } \
     && "${ROOT_CMD[@]}" chmod 600 "$BUILD_SWAP_FILE" \
     && "${ROOT_CMD[@]}" mkswap "$BUILD_SWAP_FILE" >/dev/null \
     && "${ROOT_CMD[@]}" swapon "$BUILD_SWAP_FILE"; then
@@ -297,8 +303,8 @@ if [ "${total_mb:-0}" -lt 12288 ] && [ "$swap_total_mb" -lt 1024 ] && [ "$swap_d
     err "Warning: could not enable temporary build swap; continuing with constrained Rolldown workers"
     "${ROOT_CMD[@]}" rm -f "$BUILD_SWAP_FILE" 2>/dev/null || true
   fi
-elif [ "${total_mb:-0}" -lt 12288 ] && [ "$swap_total_mb" -lt 1024 ]; then
-  err "Warning: temporary swap unavailable (needs passwordless root and 5120MB free); continuing with constrained Rolldown workers"
+elif [ "${total_mb:-0}" -lt 12288 ] && [ "$swap_total_mb" -lt 4096 ]; then
+  err "Warning: temporary swap unavailable (needs passwordless root and 7168MB free); continuing with constrained Rolldown workers"
 fi
 
 log "Build limits: heap=${NODE_HEAP_MB}MB rolldown-workers=${ROLLDOWN_WORKER_THREADS} blocking-workers=${ROLLDOWN_MAX_BLOCKING_THREADS} rayon=${RAYON_NUM_THREADS}"

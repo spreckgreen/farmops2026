@@ -15,9 +15,9 @@ services:
         NODE_HEAP_MB: ${NODE_HEAP_MB:-1536}
         # Nitro 3's Rolldown workers allocate outside V8 old-space. Keep their
         # native-memory concurrency bounded on small self-hosted machines.
-        ROLLDOWN_WORKER_THREADS: ${ROLLDOWN_WORKER_THREADS:-2}
-        ROLLDOWN_MAX_BLOCKING_THREADS: ${ROLLDOWN_MAX_BLOCKING_THREADS:-2}
-        RAYON_NUM_THREADS: ${RAYON_NUM_THREADS:-2}
+        ROLLDOWN_WORKER_THREADS: ${ROLLDOWN_WORKER_THREADS:-1}
+        ROLLDOWN_MAX_BLOCKING_THREADS: ${ROLLDOWN_MAX_BLOCKING_THREADS:-1}
+        RAYON_NUM_THREADS: ${RAYON_NUM_THREADS:-1}
         # UID/GID default to 1001; override below or via .env to match host user
         UID: ${UID:-1001}
         GID: ${GID:-1001}
