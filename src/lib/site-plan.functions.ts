@@ -12,7 +12,7 @@ const GATEWAY_URL = "https://connector-gateway.lovable.dev/google_maps";
 const SITE_COLUMNS =
   "id, site_name, address, formatted_address, latitude, longitude, imagery_source, notes, created_at, updated_at";
 const BUILDING_COLUMNS =
-  "id, site_plan_id, temp_name, size_rank, outline, origin_latitude, origin_longitude, footprint_sqft, perimeter_ft, fit_length_ft, fit_width_ft, orientation_degrees, grid_cell_ft, grid_rows, grid_columns, grid_row_labels, grid_column_labels, mapped_structure, mapped_confidence, trace_method, notes, updated_at";
+  "id, site_plan_id, temp_name, building_name, size_rank, outline, origin_latitude, origin_longitude, footprint_sqft, perimeter_ft, fit_length_ft, fit_width_ft, orientation_degrees, grid_cell_ft, grid_rows, grid_columns, grid_row_labels, grid_column_labels, mapped_structure, mapped_confidence, trace_method, notes, updated_at";
 
 /**
  * Footprints the app already holds as frozen, approved geometry. Only these are
