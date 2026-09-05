@@ -6,6 +6,8 @@ import { requireElectricalAccess } from "@/lib/addons.server";
 import type { SwitchControlModel } from "@/lib/electrical-switch-controls";
 
 type Row = Record<string, unknown>;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type LooseDb = { from: (table: string) => any };
 const s = (v: unknown) => (v == null ? null : String(v));
 const n = (v: unknown) => (v == null || v === "" ? null : Number(v));
 
@@ -13,7 +15,7 @@ export const loadSwitchControlModel = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<SwitchControlModel> => {
     await requireElectricalAccess(context.supabase, context.userId, "read");
-    const db = context.supabase;
+    const db = context.supabase as unknown as LooseDb;
 
     const read = async (table: string): Promise<Row[]> => {
       const { data, error } = await db.from(table).select("*");
