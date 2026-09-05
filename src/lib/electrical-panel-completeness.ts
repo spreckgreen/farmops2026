@@ -121,3 +121,58 @@ export function panelCompletenessFromSnapshot(
     ...(options.calculatedAt ? { calculatedAt: options.calculatedAt } : {}),
   });
 }
+
+/** Milestone counts as CSV, using exactly the terminology shown in the UI. */
+export function panelCompletenessCsv(result: PanelCompleteness): string {
+  const rows: string[][] = [
+    ["panel_id", "metric", "complete", "applicable", "percent", "denominator"],
+    [
+      result.panel_id,
+      "Capacity utilization (poles)",
+      String(result.capacity.occupiedPositions),
+      String(result.capacity.usablePositions),
+      String(result.capacity.utilizationPercent),
+      result.capacity.denominator,
+    ],
+    [
+      result.panel_id,
+      "Position documentation coverage",
+      String(result.positionClasses.classified),
+      String(result.capacity.usablePositions),
+      String(result.positionClasses.documentationCoveragePercent),
+      result.positionClasses.denominator,
+    ],
+    [
+      result.panel_id,
+      "Circuit rollout (in-scope milestones)",
+      String(result.rollout.completedMilestones),
+      String(result.rollout.applicableMilestones),
+      String(result.rollout.rolloutPercent),
+      result.rollout.denominator,
+    ],
+    [
+      result.panel_id,
+      "Identified loads connected",
+      String(result.loads.connected),
+      String(result.loads.identified),
+      String(result.loads.percent),
+      result.loads.denominator,
+    ],
+  ];
+  for (const c of result.rollout.counts) {
+    rows.push([
+      result.panel_id,
+      c.label,
+      String(c.complete),
+      String(c.applicable),
+      String(c.percent),
+      `Applicable in-scope circuits only; ${c.notApplicable} not applicable, ${c.unknown} with no record yet.`,
+    ]);
+  }
+  for (const h of result.holds) {
+    rows.push([result.panel_id, `Hold (${h.kind})`, "0", "0", "", `${h.ref}: ${h.reason}`]);
+  }
+  return rows
+    .map((r) => r.map((c) => `"${c.replace(/"/g, '""')}"`).join(","))
+    .join("\n");
+}
