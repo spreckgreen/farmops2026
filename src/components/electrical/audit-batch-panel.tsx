@@ -40,6 +40,14 @@ import {
   ringCameraCsv,
   type RingCameraRow,
 } from "@/lib/electrical-ring-camera-r4";
+import { resolveLoadShedGroupR5 } from "@/lib/electrical-load-shed-group-r5.functions";
+import type { LoadShedGroupResolution } from "@/lib/electrical-load-shed-group-r5.functions";
+import {
+  LOAD_SHED_GROUP_BATCH_ID,
+  LOAD_SHED_GROUP_LOADS,
+  loadShedGroupCsv,
+  type LoadShedGroupRow,
+} from "@/lib/electrical-load-shed-group-r5";
 import { resolveOutletClassificationR3A } from "@/lib/electrical-outlet-classification-r3a.functions";
 import type { OutletClassificationResolution } from "@/lib/electrical-outlet-classification-r3a.functions";
 import {
@@ -320,6 +328,27 @@ export function AuditBatchPanel() {
     onError: (e) => setError(String(e)),
   });
 
+  // Build the preview-only single-field load-shedding group correction. Read
+  // only: it fills the import box with the exact before/after value.
+  const resolveLoadShedGroup = useServerFn(resolveLoadShedGroupR5);
+  const [loadShedRows, setLoadShedRows] = useState<LoadShedGroupRow[] | null>(null);
+  const loadShedBuildMutation = useMutation({
+    mutationFn: async () => (await resolveLoadShedGroup({})) as LoadShedGroupResolution,
+    onSuccess: (r) => {
+      setManifestText(r.manifest_text);
+      setLoadShedRows(r.rows);
+      setError(null);
+      const parts = [`${r.itemCount} item(s)`];
+      if (r.alreadyCorrect.length) parts.push(`${r.alreadyCorrect.length} already logical`);
+      if (r.held.length) parts.push(`${r.held.length} held for review`);
+      if (r.loadsNotFound.length) parts.push(`${r.loadsNotFound.length} load(s) not found (held)`);
+      toast.success(
+        `${r.batch_id} built — ${parts.join(", ")}. Only the load-shedding group is in scope; import to preview, nothing is written yet.`,
+      );
+    },
+    onError: (e) => setError(String(e)),
+  });
+
   // Build the preview-only approved planned design for the eight exterior Ring
   // cameras. Read only: it fills the import box with exact before/after values.
   const resolveRingCameras = useServerFn(resolveRingCameraDesign);
@@ -491,12 +520,23 @@ export function AuditBatchPanel() {
         disabled: ringCameraBuildMutation.isPending,
         onClick: () => ringCameraBuildMutation.mutate(),
       },
+      {
+        id: LOAD_SHED_GROUP_BATCH_ID,
+        kind: "build" as const,
+        label: `Build ${LOAD_SHED_GROUP_BATCH_ID}`,
+        title: `Corrects the load-shedding group of ${LOAD_SHED_GROUP_LOADS.join(
+          " and ",
+        )} so it reads the logical panel PNL-FS-CRIT instead of the physical panelboard PNL-FS-NE. The physical proposed source panel, logical panel link, resilience class, load-shed capability, locations, lifecycle state, breakers, circuit groups, engineering values and stable IDs are out of scope and unchanged.`,
+        disabled: loadShedBuildMutation.isPending,
+        onClick: () => loadShedBuildMutation.mutate(),
+      },
     ],
     [
       reconcileBuildMutation,
       outletBuildMutation,
       classificationBuildMutation,
       ringCameraBuildMutation,
+      loadShedBuildMutation,
       setManifestText,
     ],
   );
@@ -658,6 +698,48 @@ export function AuditBatchPanel() {
                 >
                   <Download className="mr-1 h-4 w-4" />
                   Classification preview CSV
+                </Button>
+              </div>
+            ) : null}
+            {loadShedRows?.length ? (
+              <div className="w-full rounded-md border p-3 text-xs">
+                <p className="font-medium">
+                  Load-shedding group correction preview ({loadShedRows.length})
+                </p>
+                <p className="mt-1 text-muted-foreground">
+                  Load shedding is decided on the logical grouping PNL-FS-CRIT, which is assigned to
+                  the physical panelboard PNL-FS-NE. The physical supply path stays where it belongs,
+                  in the proposed source panel. Nothing is written until each item is approved.
+                </p>
+                <ul className="mt-2 space-y-1">
+                  {loadShedRows.map((r) => (
+                    <li key={r.load_id}>
+                      <span className="font-mono">
+                        {r.load_id} — {r.before ?? "not recorded"} →{" "}
+                        {r.after ?? "no change staged"}
+                        {r.already_correct ? " (already correct)" : ""}
+                        {r.held ? " (held)" : ""}
+                      </span>
+                      <p className="ml-4 text-muted-foreground">{r.note}</p>
+                    </li>
+                  ))}
+                </ul>
+                <Button
+                  className="mt-2"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    const blob = new Blob([loadShedGroupCsv(loadShedRows)], { type: "text/csv" });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `${LOAD_SHED_GROUP_BATCH_ID}-preview.csv`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  }}
+                >
+                  <Download className="mr-1 h-4 w-4" />
+                  Load-shedding preview CSV
                 </Button>
               </div>
             ) : null}
