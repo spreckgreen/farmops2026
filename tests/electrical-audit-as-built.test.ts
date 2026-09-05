@@ -134,7 +134,10 @@ describe("as-built staging", () => {
     });
     const classified = classifyItem(s.item, {
       target: { load_id: "FS-044", install_status: "planned", updated_at: "now" },
+      resolved: new Map([["circuit_group|CG-FS-003", "11111111-1111-1111-1111-111111111111"]]),
     });
+    expect(classified.disposition).toBe("ready");
+    expect(Object.keys(classified.patch)).toContain("circuit_group_uuid");
     for (const f of ["dedicated_shared", "location", "install_status"]) {
       expect(Object.keys(classified.patch)).toContain(f);
     }
@@ -165,8 +168,8 @@ describe("R3 metadata reconciliation", () => {
       expect(s.item.field_grid_reference).toBeNull();
     }
     expect(built.sharedCircuitLoads.length + built.dedicatedCircuitLoads.length).toBe(20);
-    // B29 feeds only FS-039 → dedicated; every other audited circuit is shared.
-    expect(built.dedicatedCircuitLoads).toEqual(["FS-039"]);
+    // B39 feeds only FS-076 and B29 only FS-039 → dedicated; the rest are shared.
+    expect(built.dedicatedCircuitLoads.sort()).toEqual(["FS-039", "FS-076"]);
   });
 
   it("holds instead of guessing when a group or load is missing", () => {
