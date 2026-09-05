@@ -22,6 +22,7 @@ export const PRICED_MODULES: PricedModule[] = [
   { key: "maintenance", name: "Maintenance", route: "/maintenance", status: "in-app today" },
   { key: "inventory", name: "Inventory", route: "/inventory", status: "in-app today" },
   { key: "food", name: "Food & Growing", route: "/food", status: "in-app today" },
+  { key: "cameras", name: "Cameras", route: "/cameras", status: "in-app today" },
 ];
 
 export interface PricedEdition {
