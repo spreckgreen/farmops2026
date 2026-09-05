@@ -28,6 +28,12 @@ import {
   type CameraRow,
   type CameraStreamKind,
 } from "@/lib/cameras";
+import {
+  COMPASS_SIDES,
+  COMPASS_SIDE_LABEL,
+  RING_MODELS,
+  ringModel,
+} from "@/lib/ring-cameras";
 
 export interface CameraDraft {
   id?: string | null;
@@ -46,6 +52,9 @@ export interface CameraDraft {
   range_feet: string;
   electrical_load_ref: string;
   notes: string;
+  ring_model: string;
+  compass_side: string;
+  side_slot: string;
 }
 
 export function draftFromRow(row: CameraRow | null, fallbackId: string): CameraDraft {
@@ -69,6 +78,10 @@ export function draftFromRow(row: CameraRow | null, fallbackId: string): CameraD
     range_feet: String(row?.range_feet ?? 30),
     electrical_load_ref: row?.electrical_load_ref ?? "",
     notes: row?.notes ?? "",
+    ring_model: row?.ring_model ?? "",
+    compass_side: row?.compass_side ?? "",
+    side_slot:
+      row?.side_slot === null || row?.side_slot === undefined ? "" : String(row.side_slot),
   };
 }
 
@@ -156,6 +169,77 @@ export function CameraEditDialog({
               placeholder="FS-002"
               onChange={(e) => set({ electrical_load_ref: e.target.value.toUpperCase() })}
             />
+          </div>
+
+          <div className="grid gap-1.5">
+            <Label htmlFor="cam-ring">Ring model</Label>
+            <Select
+              value={form.ring_model || "none"}
+              onValueChange={(value) => {
+                if (value === "none") {
+                  set({ ring_model: "" });
+                  return;
+                }
+                const model = ringModel(value);
+                set({
+                  ring_model: value,
+                  fov_degrees: model ? String(model.fovDegrees) : form.fov_degrees,
+                  range_feet: model ? String(model.motionRangeFeet) : form.range_feet,
+                });
+              }}
+            >
+              <SelectTrigger id="cam-ring">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Not a Ring camera / not recorded</SelectItem>
+                {RING_MODELS.map((model) => (
+                  <SelectItem key={model.id} value={model.id}>
+                    {model.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {ringModel(form.ring_model) ? (
+              <p className="text-xs text-muted-foreground">{ringModel(form.ring_model)!.note}</p>
+            ) : null}
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="cam-side">Which side of the building</Label>
+            <Select
+              value={form.compass_side || "none"}
+              onValueChange={(value) => set({ compass_side: value === "none" ? "" : value })}
+            >
+              <SelectTrigger id="cam-side">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Not recorded yet</SelectItem>
+                {COMPASS_SIDES.map((side) => (
+                  <SelectItem key={side} value={side}>
+                    {COMPASS_SIDE_LABEL[side]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Used until this building has a measured grid. It never becomes a position in feet on
+              its own.
+            </p>
+          </div>
+          <div className="grid gap-1.5 sm:col-span-2">
+            <Label htmlFor="cam-slot">Share of that side (1, 2, 3…) when more than one camera is on it</Label>
+            <Input
+              id="cam-slot"
+              inputMode="numeric"
+              value={form.side_slot}
+              placeholder="1"
+              onChange={(e) => set({ side_slot: e.target.value })}
+            />
+            <p className="text-xs text-muted-foreground">
+              With two cameras on one side, share 1 takes the left half looking outward and share 2
+              the right half — each keeping Ring's own view width.
+            </p>
           </div>
 
           <div className="grid gap-1.5 sm:col-span-2">
