@@ -30,6 +30,7 @@ import {
   type Json,
   type PoleObservation,
 } from "@/lib/electrical-audit-batch";
+import { stageCompletionPercent } from "@/lib/electrical-lifecycle";
 
 export const AS_BUILT_STAGING_MODES = ["FULL_AS_BUILT", "RELATIONSHIP_ONLY"] as const;
 export type AsBuiltStagingMode = (typeof AS_BUILT_STAGING_MODES)[number];
