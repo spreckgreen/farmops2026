@@ -108,6 +108,10 @@ function Detail({ kind, id }: { kind: ElectricalEntityKind; id: string }) {
       </Card>
     );
   const positions = kind === "panel" ? panelPositions(record["spaces"] as number | null) : [];
+  const progress = displayCompletionPercent(
+    record["install_status"] as string | null,
+    record["completion_percent"] as number | null,
+  );
 
   return (
     <div className="space-y-4">
@@ -167,6 +171,10 @@ function Detail({ kind, id }: { kind: ElectricalEntityKind; id: string }) {
                 }
                 // Already rendered as the link above.
                 if (f.key === "asset_ref" && record["asset_uuid"]) return null;
+                // Complete % is a reading of the recorded stage, not an
+                // independent number, so it always matches the stage shown
+                // above it.
+                if (f.key === "completion_percent") return null;
                 return (
                   <div key={f.key} className="contents">
                     <dt className="text-muted-foreground">{f.label}</dt>
@@ -180,6 +188,24 @@ function Detail({ kind, id }: { kind: ElectricalEntityKind; id: string }) {
                   </div>
                 );
               })}
+              {def.fields.some((f) => f.key === "completion_percent") && progress.percent != null ? (
+                <div className="contents">
+                  <dt className="text-muted-foreground">Complete %</dt>
+                  <dd>
+                    {progress.percent}%
+                    <span className="ml-1 text-xs text-muted-foreground">
+                      {progress.source === "stage"
+                        ? `matches stage ${installStatusLabel(String(record["install_status"] ?? "planned"))}`
+                        : "recorded value"}
+                    </span>
+                    {progress.stale ? (
+                      <span className="ml-1 text-xs text-muted-foreground">
+                        (an older saved number disagreed and was ignored)
+                      </span>
+                    ) : null}
+                  </dd>
+                </div>
+              ) : null}
             </dl>
           </CardContent>
         </Card>

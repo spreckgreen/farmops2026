@@ -573,6 +573,18 @@ export function EntityManager({
                         )
                       ) : f.key === "install_status" ? (
                         <Badge variant="outline">{installStatusLabel(String(row[f.key] ?? ""))}</Badge>
+                      ) : f.key === "completion_percent" ? (
+                        (() => {
+                          const p = displayCompletionPercent(
+                            row["install_status"] as string | null,
+                            row[f.key] as number | null,
+                          );
+                          return p.percent == null ? (
+                            <span className="text-muted-foreground">—</span>
+                          ) : (
+                            <span>{p.percent}%</span>
+                          );
+                        })()
                       ) : (
                         String(row[f.key] ?? "") || <span className="text-muted-foreground">—</span>
                       )}
