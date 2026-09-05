@@ -56,8 +56,8 @@ export function SiteTracer() {
   const [mapError, setMapError] = useState<string | null>(null);
   const [mapReady, setMapReady] = useState(false);
 
-  const [siteName, setSiteName] = useState("");
-  const [address, setAddress] = useState("");
+  const [siteName, setSiteName] = useState("Bostead Farms");
+  const [address, setAddress] = useState("10090 State Route 753 S, Greenfield, OH 45123");
   const [located, setLocated] = useState<{ formatted: string; lat: number; lng: number } | null>(
     null,
   );
