@@ -1181,6 +1181,10 @@ export function classifyItem(item: AuditBatchItemInput, ctx: ClassifyContext): C
       if (!check.ok) return holdResult(item, ctx, [err(check.error ?? "Invalid stable ID.")]);
       if (check.warning) messages.push(info(check.warning));
     }
+    if (target.switchIdKind) {
+      const check = checkSwitchControlId(target.switchIdKind, stableId);
+      if (!check.ok) return holdResult(item, ctx, [err(check.error ?? "Invalid stable ID.")]);
+    }
   }
 
   // A branch run may only be created when its ID's encoded origin is proven and its
