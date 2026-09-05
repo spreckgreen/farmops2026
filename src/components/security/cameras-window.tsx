@@ -339,6 +339,12 @@ export function CamerasWindow() {
           />
         )}
 
+        {rows.length > 0 && (
+          <CameraGridPlacementCard
+            rows={rows}
+            onPlaced={() => void queryClient.invalidateQueries({ queryKey: ["cameras"] })}
+          />
+        )}
 
 
         {camerasQuery.isLoading ? (
