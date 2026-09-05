@@ -59,7 +59,7 @@ what protects it.
 3. **API restrictions → Restrict key →** Geocoding API.
 4. Never put this key in front-end code, a URL, or a screenshot.
 
-## 4. Connect the keys to FarmOps
+## 4a. Connect the keys — hosted install
 
 Both keys are supplied through the Google Maps connector, not by editing files:
 
@@ -72,6 +72,36 @@ After the connection is linked the values arrive as environment variables:
 `VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY` (client) and
 `GOOGLE_MAPS_API_KEY` (server, used with `LOVABLE_API_KEY` against the gateway).
 Publish the app so the published site picks up the browser key.
+
+## 4b. Configure the keys — self-hosted install
+
+There is no connector on a self-hosted box, so both keys come from `.env`:
+
+```bash
+# .env (project root, next to docker-compose.yml)
+VITE_GOOGLE_MAPS_BROWSER_KEY=AIza...browser-key
+GOOGLE_MAPS_API_KEY=AIza...server-key
+```
+
+Then rebuild, because the browser key is baked into the page at build time —
+restarting alone is not enough:
+
+```bash
+docker compose up -d --build app
+```
+
+Notes specific to self-hosting:
+
+- The browser key's website list must contain the host you actually browse,
+  e.g. `https://farmops.example.com/*` **and** `https://*.example.com/*`.
+  A LAN address such as `http://192.168.1.20:3000/*` also has to be listed if
+  you use it.
+- `LOVABLE_API_KEY` stays empty. With no gateway key the server calls
+  Google's Geocoding API directly with `GOOGLE_MAPS_API_KEY`, so the server key
+  must have **Application restrictions → None** (or your box's egress IP) and
+  Geocoding API allowed.
+- `GOOGLE_MAPS_API_KEY` is read at request time, so a change to it only needs
+  `docker compose up -d app`; a change to the browser key needs `--build`.
 
 ## 5. Verify
 
