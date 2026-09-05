@@ -59,7 +59,7 @@ export function PeerSyncPanel() {
         data: {
           peer_base_url: peerUrl.trim(),
           enabled,
-          max_batches_per_run: Number(limit) || 5,
+          max_batches_per_run: clampLimit(limit),
         },
       }),
     onSuccess: (r) => {
