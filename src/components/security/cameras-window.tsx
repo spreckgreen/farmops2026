@@ -17,6 +17,7 @@ import {
 import {
   checkCameraStatus,
   deleteCamera,
+  checkAllCameraStatuses,
   listCameraChecks,
   listCameras,
   saveCamera,
@@ -31,6 +32,10 @@ import {
   nextCameraId,
   sortCameras,
   type CameraRow,
+  cameraLiveState,
+  needsRecheck,
+  statusToken,
+  STATUS_FRESH_MINUTES,
 } from "@/lib/cameras";
 import { rowsToCsv, downloadCsv } from "@/lib/csv";
 import { CompassCoverage } from "@/components/security/compass-coverage";
@@ -62,6 +67,7 @@ export function CamerasWindow() {
   const remove = useServerFn(deleteCamera);
   const check = useServerFn(checkCameraStatus);
   const checks = useServerFn(listCameraChecks);
+  const checkAll = useServerFn(checkAllCameraStatuses);
   const createElectrical = useServerFn(createHouseCameraElectricalObject);
 
   const [draft, setDraft] = useState<CameraDraft | null>(null);
@@ -69,7 +75,14 @@ export function CamerasWindow() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [historyFor, setHistoryFor] = useState<string | null>(null);
 
-  const camerasQuery = useQuery({ queryKey: ["cameras"], queryFn: () => load() });
+  const camerasQuery = useQuery({
+    queryKey: ["cameras"],
+    queryFn: () => load(),
+    // The recorded state is re-read regularly so the pills, feeds and coverage
+    // wedges age visibly instead of sitting on a stale answer.
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: true,
+  });
   const rows = useMemo(() => sortCameras(camerasQuery.data?.cameras ?? []), [camerasQuery.data]);
   const summary = useMemo(() => cameraCoverageSummary(rows), [rows]);
   /** Cameras with no measured position: shown on the compass view instead. */
