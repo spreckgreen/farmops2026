@@ -113,7 +113,7 @@ export const DEMO_LOADS: DemoLoad[] = [
     fieldGridReference: "B2",
     fieldGridEvidence: "Demo audit item 1 — photographed on the feed room wall",
     fieldGridObservedAt: "2026-08-14T15:10:00.000Z",
-    originalGrid: "B-2",
+    originalGrid: "B2",
   },
   {
     stableId: "DEMO-LD-002",
@@ -126,7 +126,7 @@ export const DEMO_LOADS: DemoLoad[] = [
     fieldGridEvidence: "Demo audit item 2 — measured from the west wall",
     fieldGridObservedAt: "2026-08-14T15:25:00.000Z",
     remappedGridReference: "C4",
-    originalGrid: "C-4",
+    originalGrid: "C4",
   },
   {
     stableId: "DEMO-LD-003",
@@ -137,7 +137,7 @@ export const DEMO_LOADS: DemoLoad[] = [
     critical: false,
     remappedGridReference: "A4",
     remappedEvidence: "Demo legacy-to-current grid map, accepted",
-    originalGrid: "A-3",
+    originalGrid: "A3",
   },
   {
     stableId: "DEMO-LD-004",
@@ -146,7 +146,7 @@ export const DEMO_LOADS: DemoLoad[] = [
     panel: "DEMO-PNL-BARN-MAIN",
     stage: "conductors",
     critical: false,
-    originalGrid: "A-6",
+    originalGrid: "A6",
   },
   {
     stableId: "DEMO-LD-005",
@@ -218,7 +218,7 @@ export const DEMO_LOADS: DemoLoad[] = [
     fieldGridReference: "D9",
     fieldGridEvidence: "Demo audit item 10 — east wall control enclosure",
     fieldGridObservedAt: "2026-08-21T14:20:00.000Z",
-    originalGrid: "D-9",
+    originalGrid: "D9",
   },
   {
     stableId: "DEMO-LD-011",
