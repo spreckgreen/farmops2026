@@ -83,11 +83,14 @@ export const Route = createFileRoute("/api/public/hooks/electrical-peer-sync")({
           .from("job_locks")
           .upsert({ name: LOCK_NAME }, { onConflict: "name", ignoreDuplicates: true });
 
-        const { data: lock } = await supabaseAdmin
+        const { data: lock } = await (supabaseAdmin as never as any)
           .from("job_locks")
-          .select("paused, paused_reason, locked_until, consecutive_failures")
+          .select(
+            "paused, paused_reason, locked_until, consecutive_failures, auto_resume_at, auto_pause_count",
+          )
           .eq("name", LOCK_NAME)
           .maybeSingle();
+        const autoPauseCount: number = lock?.auto_pause_count ?? 0;
 
         // Every tick leaves a trace, including the ones that do no work, so the
         // history on the audit batches page never has silent gaps.
