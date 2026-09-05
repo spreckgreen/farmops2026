@@ -16,9 +16,14 @@ import {
   parseOldGrid,
 } from "@/lib/electrical-grid-migration";
 import {
+  effectiveLocationForRecord,
+  type EffectiveLocation,
+} from "@/lib/electrical-effective-location";
+import {
   POST_GEOMETRY_CONFIRMED,
   postObservationFeet,
 } from "@/lib/electrical-grid-post-geometry";
+
 
 
 export const OPERATIONAL_MODEL_VERSION = "farm-shop-operational-location-1";
