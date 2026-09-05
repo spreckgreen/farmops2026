@@ -68,8 +68,16 @@ export function shown(record: SnapshotRecord | undefined, key: string): string {
 }
 
 export function collection(bundle: DocumentBundle, name: string): SnapshotRecord[] {
+  // The API envelope nests record arrays under `collections`; older captured
+  // bundles carry them at the top level of the snapshot. Both are read, so a
+  // reprint from a saved capture shows the same rows as a live print.
+  const nested = (bundle.snapshot as Record<string, JsonValue>)["collections"];
+  if (nested && typeof nested === "object" && !Array.isArray(nested)) {
+    const rows = (nested as Record<string, JsonValue>)[name];
+    if (Array.isArray(rows)) return rows as unknown as SnapshotRecord[];
+  }
   const rows = bundle.snapshot[name];
-  return Array.isArray(rows) ? (rows as SnapshotRecord[]) : [];
+  return Array.isArray(rows) ? (rows as unknown as SnapshotRecord[]) : [];
 }
 
 /** Panel stable ID for a load, and the evidence for it. Never guessed. */
