@@ -279,7 +279,7 @@ export const listSitePlans = createServerFn({ method: "GET" })
       .order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
     const ids = (sites ?? []).map((s: { id: string }) => s.id);
-    let buildings: unknown[] = [];
+    let buildings: any[] = [];
     if (ids.length > 0) {
       const { data: rows, error: buildingError } = await supabase
         .from("site_buildings")
