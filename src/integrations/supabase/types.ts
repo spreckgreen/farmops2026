@@ -751,6 +751,7 @@ export type Database = {
           created_at: string
           dest_endpoint_ref: string | null
           dest_endpoint_type: string | null
+          dest_switch_bank_uuid: string | null
           device_side_connected: boolean
           ground_conductor: string | null
           id: string
@@ -767,6 +768,7 @@ export type Database = {
           source_jbox_uuid: string | null
           source_panel_uuid: string | null
           source_side_connected: boolean
+          source_switch_bank_uuid: string | null
           updated_at: string
           user_id: string
           voltage: number | null
@@ -783,6 +785,7 @@ export type Database = {
           created_at?: string
           dest_endpoint_ref?: string | null
           dest_endpoint_type?: string | null
+          dest_switch_bank_uuid?: string | null
           device_side_connected?: boolean
           ground_conductor?: string | null
           id?: string
@@ -799,6 +802,7 @@ export type Database = {
           source_jbox_uuid?: string | null
           source_panel_uuid?: string | null
           source_side_connected?: boolean
+          source_switch_bank_uuid?: string | null
           updated_at?: string
           user_id: string
           voltage?: number | null
@@ -815,6 +819,7 @@ export type Database = {
           created_at?: string
           dest_endpoint_ref?: string | null
           dest_endpoint_type?: string | null
+          dest_switch_bank_uuid?: string | null
           device_side_connected?: boolean
           ground_conductor?: string | null
           id?: string
@@ -831,6 +836,7 @@ export type Database = {
           source_jbox_uuid?: string | null
           source_panel_uuid?: string | null
           source_side_connected?: boolean
+          source_switch_bank_uuid?: string | null
           updated_at?: string
           user_id?: string
           voltage?: number | null
@@ -842,6 +848,13 @@ export type Database = {
             columns: ["circuit_group_uuid"]
             isOneToOne: false
             referencedRelation: "electrical_circuit_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "electrical_branch_runs_dest_switch_bank_uuid_fkey"
+            columns: ["dest_switch_bank_uuid"]
+            isOneToOne: false
+            referencedRelation: "electrical_switch_banks"
             referencedColumns: ["id"]
           },
           {
@@ -863,6 +876,13 @@ export type Database = {
             columns: ["source_panel_uuid"]
             isOneToOne: false
             referencedRelation: "electrical_panels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "electrical_branch_runs_source_switch_bank_uuid_fkey"
+            columns: ["source_switch_bank_uuid"]
+            isOneToOne: false
+            referencedRelation: "electrical_switch_banks"
             referencedColumns: ["id"]
           },
         ]
@@ -1103,6 +1123,286 @@ export type Database = {
             columns: ["panel_uuid"]
             isOneToOne: false
             referencedRelation: "electrical_panels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      electrical_control_groups: {
+        Row: {
+          building: string | null
+          control_group_id: string
+          control_method: string
+          created_at: string
+          description: string | null
+          design_only: boolean
+          evidence: string | null
+          expected_device_count: number | null
+          field_verification_status: string
+          id: string
+          lifecycle_status: string
+          notes: string | null
+          supplying_circuit_group_uuid: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          building?: string | null
+          control_group_id: string
+          control_method?: string
+          created_at?: string
+          description?: string | null
+          design_only?: boolean
+          evidence?: string | null
+          expected_device_count?: number | null
+          field_verification_status?: string
+          id?: string
+          lifecycle_status?: string
+          notes?: string | null
+          supplying_circuit_group_uuid?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          building?: string | null
+          control_group_id?: string
+          control_method?: string
+          created_at?: string
+          description?: string | null
+          design_only?: boolean
+          evidence?: string | null
+          expected_device_count?: number | null
+          field_verification_status?: string
+          id?: string
+          lifecycle_status?: string
+          notes?: string | null
+          supplying_circuit_group_uuid?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "electrical_control_groups_supplying_circuit_group_uuid_fkey"
+            columns: ["supplying_circuit_group_uuid"]
+            isOneToOne: false
+            referencedRelation: "electrical_circuit_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      electrical_control_targets: {
+        Row: {
+          control_group_uuid: string
+          created_at: string
+          design_only: boolean
+          device_uuid: string | null
+          evidence: string | null
+          field_verification_status: string
+          id: string
+          load_uuid: string | null
+          target_kind: string
+          target_note: string | null
+          target_ref: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          control_group_uuid: string
+          created_at?: string
+          design_only?: boolean
+          device_uuid?: string | null
+          evidence?: string | null
+          field_verification_status?: string
+          id?: string
+          load_uuid?: string | null
+          target_kind?: string
+          target_note?: string | null
+          target_ref?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          control_group_uuid?: string
+          created_at?: string
+          design_only?: boolean
+          device_uuid?: string | null
+          evidence?: string | null
+          field_verification_status?: string
+          id?: string
+          load_uuid?: string | null
+          target_kind?: string
+          target_note?: string | null
+          target_ref?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "electrical_control_targets_control_group_uuid_fkey"
+            columns: ["control_group_uuid"]
+            isOneToOne: false
+            referencedRelation: "electrical_control_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "electrical_control_targets_device_uuid_fkey"
+            columns: ["device_uuid"]
+            isOneToOne: false
+            referencedRelation: "electrical_devices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "electrical_control_targets_load_uuid_fkey"
+            columns: ["load_uuid"]
+            isOneToOne: false
+            referencedRelation: "electrical_loads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      electrical_control_wiring_segments: {
+        Row: {
+          branch_run_uuid: string | null
+          cable_or_raceway_label: string | null
+          conductor_count: number | null
+          conductor_function: string
+          created_at: string
+          description: string | null
+          dest_jbox_uuid: string | null
+          dest_kind: string | null
+          dest_load_uuid: string | null
+          dest_switch_bank_uuid: string | null
+          evidence: string | null
+          field_verification_status: string
+          id: string
+          install_state: string
+          notes: string | null
+          observed_marking: string | null
+          raceway_uuid: string | null
+          segment_id: string | null
+          source_jbox_uuid: string | null
+          source_kind: string | null
+          source_panel_uuid: string | null
+          source_switch_bank_uuid: string | null
+          supplying_circuit_group_uuid: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          branch_run_uuid?: string | null
+          cable_or_raceway_label?: string | null
+          conductor_count?: number | null
+          conductor_function?: string
+          created_at?: string
+          description?: string | null
+          dest_jbox_uuid?: string | null
+          dest_kind?: string | null
+          dest_load_uuid?: string | null
+          dest_switch_bank_uuid?: string | null
+          evidence?: string | null
+          field_verification_status?: string
+          id?: string
+          install_state?: string
+          notes?: string | null
+          observed_marking?: string | null
+          raceway_uuid?: string | null
+          segment_id?: string | null
+          source_jbox_uuid?: string | null
+          source_kind?: string | null
+          source_panel_uuid?: string | null
+          source_switch_bank_uuid?: string | null
+          supplying_circuit_group_uuid?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          branch_run_uuid?: string | null
+          cable_or_raceway_label?: string | null
+          conductor_count?: number | null
+          conductor_function?: string
+          created_at?: string
+          description?: string | null
+          dest_jbox_uuid?: string | null
+          dest_kind?: string | null
+          dest_load_uuid?: string | null
+          dest_switch_bank_uuid?: string | null
+          evidence?: string | null
+          field_verification_status?: string
+          id?: string
+          install_state?: string
+          notes?: string | null
+          observed_marking?: string | null
+          raceway_uuid?: string | null
+          segment_id?: string | null
+          source_jbox_uuid?: string | null
+          source_kind?: string | null
+          source_panel_uuid?: string | null
+          source_switch_bank_uuid?: string | null
+          supplying_circuit_group_uuid?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "electrical_control_wiring_seg_supplying_circuit_group_uuid_fkey"
+            columns: ["supplying_circuit_group_uuid"]
+            isOneToOne: false
+            referencedRelation: "electrical_circuit_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "electrical_control_wiring_segments_branch_run_uuid_fkey"
+            columns: ["branch_run_uuid"]
+            isOneToOne: false
+            referencedRelation: "electrical_branch_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "electrical_control_wiring_segments_dest_jbox_uuid_fkey"
+            columns: ["dest_jbox_uuid"]
+            isOneToOne: false
+            referencedRelation: "electrical_junction_boxes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "electrical_control_wiring_segments_dest_load_uuid_fkey"
+            columns: ["dest_load_uuid"]
+            isOneToOne: false
+            referencedRelation: "electrical_loads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "electrical_control_wiring_segments_dest_switch_bank_uuid_fkey"
+            columns: ["dest_switch_bank_uuid"]
+            isOneToOne: false
+            referencedRelation: "electrical_switch_banks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "electrical_control_wiring_segments_raceway_uuid_fkey"
+            columns: ["raceway_uuid"]
+            isOneToOne: false
+            referencedRelation: "electrical_raceways"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "electrical_control_wiring_segments_source_jbox_uuid_fkey"
+            columns: ["source_jbox_uuid"]
+            isOneToOne: false
+            referencedRelation: "electrical_junction_boxes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "electrical_control_wiring_segments_source_panel_uuid_fkey"
+            columns: ["source_panel_uuid"]
+            isOneToOne: false
+            referencedRelation: "electrical_panels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "electrical_control_wiring_segments_source_switch_bank_uuid_fkey"
+            columns: ["source_switch_bank_uuid"]
+            isOneToOne: false
+            referencedRelation: "electrical_switch_banks"
             referencedColumns: ["id"]
           },
         ]
@@ -3224,6 +3524,223 @@ export type Database = {
           utility_account?: string | null
         }
         Relationships: []
+      }
+      electrical_switch_banks: {
+        Row: {
+          box_state: string
+          building: string | null
+          conductors_state: string
+          created_at: string
+          description: string | null
+          devices_state: string
+          enclosure_type: string | null
+          evidence: string | null
+          field_grid_reference: string | null
+          field_verification_status: string
+          function_test_state: string
+          gang_count: number | null
+          grid: string | null
+          id: string
+          installed_device_count: number
+          lifecycle_status: string
+          location_note: string | null
+          location_x_ft: number | null
+          location_y_ft: number | null
+          notes: string | null
+          pole_ref: string | null
+          pole_scheme: string | null
+          raceway_state: string
+          source_jbox_uuid: string | null
+          supplying_circuit_group_uuid: string | null
+          switch_bank_id: string
+          termination_state: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          box_state?: string
+          building?: string | null
+          conductors_state?: string
+          created_at?: string
+          description?: string | null
+          devices_state?: string
+          enclosure_type?: string | null
+          evidence?: string | null
+          field_grid_reference?: string | null
+          field_verification_status?: string
+          function_test_state?: string
+          gang_count?: number | null
+          grid?: string | null
+          id?: string
+          installed_device_count?: number
+          lifecycle_status?: string
+          location_note?: string | null
+          location_x_ft?: number | null
+          location_y_ft?: number | null
+          notes?: string | null
+          pole_ref?: string | null
+          pole_scheme?: string | null
+          raceway_state?: string
+          source_jbox_uuid?: string | null
+          supplying_circuit_group_uuid?: string | null
+          switch_bank_id: string
+          termination_state?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          box_state?: string
+          building?: string | null
+          conductors_state?: string
+          created_at?: string
+          description?: string | null
+          devices_state?: string
+          enclosure_type?: string | null
+          evidence?: string | null
+          field_grid_reference?: string | null
+          field_verification_status?: string
+          function_test_state?: string
+          gang_count?: number | null
+          grid?: string | null
+          id?: string
+          installed_device_count?: number
+          lifecycle_status?: string
+          location_note?: string | null
+          location_x_ft?: number | null
+          location_y_ft?: number | null
+          notes?: string | null
+          pole_ref?: string | null
+          pole_scheme?: string | null
+          raceway_state?: string
+          source_jbox_uuid?: string | null
+          supplying_circuit_group_uuid?: string | null
+          switch_bank_id?: string
+          termination_state?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "electrical_switch_banks_source_jbox_uuid_fkey"
+            columns: ["source_jbox_uuid"]
+            isOneToOne: false
+            referencedRelation: "electrical_junction_boxes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "electrical_switch_banks_supplying_circuit_group_uuid_fkey"
+            columns: ["supplying_circuit_group_uuid"]
+            isOneToOne: false
+            referencedRelation: "electrical_circuit_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      electrical_switch_devices: {
+        Row: {
+          control_group_uuid: string | null
+          created_at: string
+          description: string | null
+          design_only: boolean
+          device_state: string
+          disconnecting_means_verified: boolean
+          evidence: string | null
+          field_verification_status: string
+          function_test_state: string
+          gang_position: number | null
+          id: string
+          is_disconnecting_means: boolean
+          lifecycle_status: string
+          notes: string | null
+          poles: number | null
+          rated_current_amps: number | null
+          rated_voltage: number | null
+          supplying_circuit_group_uuid: string | null
+          switch_bank_uuid: string | null
+          switch_device_id: string
+          switch_type: string
+          switching_arrangement: string | null
+          termination_state: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          control_group_uuid?: string | null
+          created_at?: string
+          description?: string | null
+          design_only?: boolean
+          device_state?: string
+          disconnecting_means_verified?: boolean
+          evidence?: string | null
+          field_verification_status?: string
+          function_test_state?: string
+          gang_position?: number | null
+          id?: string
+          is_disconnecting_means?: boolean
+          lifecycle_status?: string
+          notes?: string | null
+          poles?: number | null
+          rated_current_amps?: number | null
+          rated_voltage?: number | null
+          supplying_circuit_group_uuid?: string | null
+          switch_bank_uuid?: string | null
+          switch_device_id: string
+          switch_type?: string
+          switching_arrangement?: string | null
+          termination_state?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          control_group_uuid?: string | null
+          created_at?: string
+          description?: string | null
+          design_only?: boolean
+          device_state?: string
+          disconnecting_means_verified?: boolean
+          evidence?: string | null
+          field_verification_status?: string
+          function_test_state?: string
+          gang_position?: number | null
+          id?: string
+          is_disconnecting_means?: boolean
+          lifecycle_status?: string
+          notes?: string | null
+          poles?: number | null
+          rated_current_amps?: number | null
+          rated_voltage?: number | null
+          supplying_circuit_group_uuid?: string | null
+          switch_bank_uuid?: string | null
+          switch_device_id?: string
+          switch_type?: string
+          switching_arrangement?: string | null
+          termination_state?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "electrical_switch_devices_control_group_uuid_fkey"
+            columns: ["control_group_uuid"]
+            isOneToOne: false
+            referencedRelation: "electrical_control_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "electrical_switch_devices_supplying_circuit_group_uuid_fkey"
+            columns: ["supplying_circuit_group_uuid"]
+            isOneToOne: false
+            referencedRelation: "electrical_circuit_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "electrical_switch_devices_switch_bank_uuid_fkey"
+            columns: ["switch_bank_uuid"]
+            isOneToOne: false
+            referencedRelation: "electrical_switch_banks"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       food_plan_entries: {
         Row: {
