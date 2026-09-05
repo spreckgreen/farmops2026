@@ -27,6 +27,7 @@ import {
   installStatusLabel,
   type ElectricalEntityKind,
 } from "@/lib/electrical";
+import { displayCompletionPercent, stageCompletionPercent } from "@/lib/electrical-lifecycle";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -573,6 +574,18 @@ export function EntityManager({
                         )
                       ) : f.key === "install_status" ? (
                         <Badge variant="outline">{installStatusLabel(String(row[f.key] ?? ""))}</Badge>
+                      ) : f.key === "completion_percent" ? (
+                        (() => {
+                          const p = displayCompletionPercent(
+                            row["install_status"] as string | null,
+                            row[f.key] as number | null,
+                          );
+                          return p.percent == null ? (
+                            <span className="text-muted-foreground">—</span>
+                          ) : (
+                            <span>{p.percent}%</span>
+                          );
+                        })()
                       ) : (
                         String(row[f.key] ?? "") || <span className="text-muted-foreground">—</span>
                       )}
@@ -637,16 +650,45 @@ export function EntityManager({
                   ) : null}
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  {group.fields.map((f) => (
-                    <FieldInput
-                      key={f.key}
-                      field={f}
-                      value={values[f.key] ?? (f.kind === "bool" ? "unknown" : "")}
-                      onChange={(v) => setValues((prev) => ({ ...prev, [f.key]: v }))}
-                      options={f.entityKind ? (optionsQuery.data?.[f.entityKind] ?? []) : undefined}
-                      optionsLoading={optionsQuery.isLoading}
-                    />
-                  ))}
+                  {group.fields.map((f) =>
+                    // Complete % is never typed in: it is the percentage of the
+                    // stage selected above, so it stays in step automatically.
+                    f.key === "completion_percent" ? (
+                      <div key={f.key} className="space-y-1">
+                        <Label>Complete %</Label>
+                        <p className="text-sm">
+                          {stageCompletionPercent(String(values["install_status"] ?? "")) ?? 0}%
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Set by the stage —{" "}
+                          {installStatusLabel(String(values["install_status"] ?? "planned"))}.
+                        </p>
+                      </div>
+                    ) : (
+                      <FieldInput
+                        key={f.key}
+                        field={f}
+                        value={values[f.key] ?? (f.kind === "bool" ? "unknown" : "")}
+                        onChange={(v) =>
+                          setValues((prev) => ({
+                            ...prev,
+                            [f.key]: v,
+                            ...(f.key === "install_status"
+                              ? {
+                                  completion_percent: String(
+                                    stageCompletionPercent(typeof v === "string" ? v : null) ??
+                                      prev["completion_percent"] ??
+                                      "",
+                                  ),
+                                }
+                              : {}),
+                          }))
+                        }
+                        options={f.entityKind ? (optionsQuery.data?.[f.entityKind] ?? []) : undefined}
+                        optionsLoading={optionsQuery.isLoading}
+                      />
+                    ),
+                  )}
                 </div>
               </div>
             ))}

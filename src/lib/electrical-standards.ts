@@ -259,7 +259,11 @@ export const BUILT_IN_STANDARDS: readonly StandardEntry[] = [
       "Panel percentages are always derived from breaker positions, circuit groups, branch runs, raceways, " +
       "terminations, loads, tests and accepted field observations — never stored as authoritative data, and cached " +
       "only for performance with a recalculate action. \"Panel complete\" means the declared scope is complete, " +
-      "not that every position is occupied.",
+      "not that every position is occupied.\n" +
+      "Complete % on any single record is never typed in — it is the percentage of that record's recorded " +
+      "stage: planned 0, material ready 10, rough-in started 25, raceway installed 40, conductors installed 55, " +
+      "load/device termination 70, source termination 80, tested 90, energized 95, complete 100, " +
+      "as-built verified 100. A saved number that disagrees with the stage is ignored and reported.",
     sort_order: 235,
   },
   {

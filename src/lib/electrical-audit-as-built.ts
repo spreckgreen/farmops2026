@@ -30,6 +30,7 @@ import {
   type Json,
   type PoleObservation,
 } from "@/lib/electrical-audit-batch";
+import { stageCompletionPercent } from "@/lib/electrical-lifecycle";
 
 export const AS_BUILT_STAGING_MODES = ["FULL_AS_BUILT", "RELATIONSHIP_ONLY"] as const;
 export type AsBuiltStagingMode = (typeof AS_BUILT_STAGING_MODES)[number];
@@ -182,11 +183,13 @@ export function stageAsBuiltLoadObservation(obs: AsBuiltLoadObservation): AsBuil
           ? `Field audit physically traced ${loadId} as connected to ${groupRef} and accepted its location evidence, so it advances directly to ${INSTALL_STATE_TO_FARMOPS.as_built_verified} — the intermediate stages are not required retroactively.`
           : `Field audit physically traced ${loadId} as connected to ${groupRef}, so it advances directly to ${INSTALL_STATE_TO_FARMOPS.installed} without artificial material-ready or installation steps.`,
       });
-      fields["completion_percent"] = 100;
+      const stagePercent =
+        stageCompletionPercent(INSTALL_STATE_TO_FARMOPS[installState]) ?? 100;
+      fields["completion_percent"] = stagePercent;
       consequences.push({
         field: "completion_percent",
-        value: 100,
-        because: "Installation confirmed in the field.",
+        value: stagePercent,
+        because: `Complete % always mirrors the recorded stage; ${INSTALL_STATE_TO_FARMOPS[installState]} is ${stagePercent}%.`,
       });
       if (!locationEvidence) {
         gaps.push(
