@@ -282,17 +282,33 @@ export async function loadPlanImage(): Promise<HTMLImageElement | null> {
   }
 }
 
+export interface GridMapPdfOptions {
+  /**
+   * Clean plan: the drawing plus the Pole Barn posts and the A1-F9 references,
+   * with no load markers and no load tables. Nothing is removed from the
+   * records — this is a print option only, for marking up in the field.
+   */
+  postsOnly?: boolean;
+}
+
 export function renderGridMapPdf(
   model: GridMapDocModel,
   stamp: VersionStamp,
   planImage?: HTMLImageElement | null,
+  options: GridMapPdfOptions = {},
 ): jsPDF {
+  const postsOnly = options.postsOnly === true;
   const doc = new jsPDF({ unit: "pt", format: "letter", orientation: "landscape" });
   applyMeta(doc, stamp);
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
 
-  let y = drawStampBlock(doc, stamp, "Farm Shop grid map", MARGIN + 10);
+  let y = drawStampBlock(
+    doc,
+    stamp,
+    postsOnly ? "Farm Shop grid map — clean plan (posts only)" : "Farm Shop grid map",
+    MARGIN + 10,
+  );
 
   // Plan area. With the current drawing available, the whole drawing is placed
   // 1:1 in its own aspect ratio and every marker is mapped through the same
@@ -372,7 +388,7 @@ export function renderGridMapPdf(
   }
   doc.setFontSize(7);
 
-  for (const p of model.points) {
+  for (const p of postsOnly ? [] : model.points) {
     if (p.xPct == null || p.yPct == null) continue;
     const cx = x0 + (p.xPct / 100) * planW;
     const cy = y0 + (p.yPct / 100) * planH;
@@ -402,7 +418,7 @@ export function renderGridMapPdf(
   ly += 12;
   doc.setFont("helvetica", "normal");
   doc.setFontSize(7);
-  (Object.keys(CLASS_RGB) as CircuitClass[]).forEach((k) => {
+  (postsOnly ? [] : (Object.keys(CLASS_RGB) as CircuitClass[])).forEach((k) => {
     const [r, g, b] = CLASS_RGB[k];
     doc.setFillColor(r, g, b);
     doc.circle(lx + 3, ly - 2, 3, "F");
@@ -417,10 +433,12 @@ export function renderGridMapPdf(
     maxWidth: 140,
   });
   ly += 18;
-  doc.text(`Placed: ${model.summary.placed} of ${model.summary.total}`, lx, ly);
-  ly += 10;
-  doc.text(`Unplaced: ${model.summary.unplaced}`, lx, ly);
-  ly += 14;
+  if (!postsOnly) {
+    doc.text(`Placed: ${model.summary.placed} of ${model.summary.total}`, lx, ly);
+    ly += 10;
+    doc.text(`Unplaced: ${model.summary.unplaced}`, lx, ly);
+    ly += 14;
+  }
   doc.setFontSize(6.5);
   doc.setTextColor(90);
   for (const w of doc.splitTextToSize(
@@ -433,6 +451,7 @@ export function renderGridMapPdf(
   doc.setTextColor(0);
   void lx;
 
+  if (!postsOnly) {
   // Cross-reference table: every plotted load by grid cell and nearest post, so
   // the sheet can be read from either reference system.
   doc.addPage();
@@ -489,6 +508,7 @@ export function renderGridMapPdf(
       cx += w;
     });
     y += 9;
+  }
   }
 
   // Pole Barn post schedule: the frozen perimeter geometry, with its grid cell.
@@ -554,6 +574,7 @@ export function renderGridMapPdf(
     y += 9;
   }
 
+  if (!postsOnly) {
   // Unplaced loads: listed explicitly rather than dropped or approximated.
   doc.addPage();
   y = MARGIN + 10;
@@ -584,6 +605,7 @@ export function renderGridMapPdf(
     y += 2;
   }
   if (!model.unplaced.length) doc.text("None — every load in scope is placed.", MARGIN, y);
+  }
 
   stampFooters(doc, stamp);
   return doc;
