@@ -103,3 +103,36 @@ describe("peerFetch", () => {
     expect(doFetch).not.toHaveBeenCalled();
   });
 });
+
+describe("dohResolver fallback", () => {
+  const realFetch = globalThis.fetch;
+  afterEach(() => {
+    globalThis.fetch = realFetch;
+  });
+
+  it("uses the next provider when the first is unreachable", async () => {
+    const seen: string[] = [];
+    globalThis.fetch = (async (input: unknown) => {
+      const url = String(input);
+      seen.push(new URL(url).host);
+      if (url.startsWith("https://dns.google")) throw new Error("network unreachable");
+      return new Response(JSON.stringify({ Answer: [{ type: 1, data: "93.184.216.34" }] }), {
+        headers: { "content-type": "application/json" },
+      });
+    }) as unknown as typeof fetch;
+    const { dohResolver } = await import("@/lib/electrical-peer-net");
+    await expect(dohResolver("peer.example.com")).resolves.toContain("93.184.216.34");
+    expect(seen[0]).toBe("dns.google");
+    expect(seen).toContain("cloudflare-dns.com");
+  });
+
+  it("reports every provider when none is reachable", async () => {
+    globalThis.fetch = (async () => {
+      throw new Error("network unreachable");
+    }) as unknown as typeof fetch;
+    const { dohResolver, DOH_ENDPOINTS } = await import("@/lib/electrical-peer-net");
+    await expect(dohResolver("peer.example.com")).rejects.toThrow(
+      new RegExp(DOH_ENDPOINTS[0]!.name),
+    );
+  });
+});
