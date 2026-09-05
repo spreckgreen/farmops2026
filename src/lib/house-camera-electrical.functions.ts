@@ -67,7 +67,8 @@ export const createHouseCameraElectricalObject = createServerFn({ method: "POST"
         `${camera.camera_id} is already linked to electrical record ${camera.electrical_load_ref}.`,
       );
     }
-    if (!isCompassSide(camera.compass_side)) {
+    const side = camera.compass_side as string;
+    if (!isCompassSide(side)) {
       throw new Error(
         `Record which side of the building ${camera.camera_id} is on before creating its electrical record.`,
       );
@@ -80,7 +81,7 @@ export const createHouseCameraElectricalObject = createServerFn({ method: "POST"
     const loadId = nextHouseId((existing ?? []).map((r: { load_id: string }) => r.load_id));
 
     const model = ringModelLabel(camera.ring_model);
-    const sideLabel = COMPASS_SIDE_LABEL[camera.compass_side];
+    const sideLabel = COMPASS_SIDE_LABEL[side];
     const description = `Camera — ${model ?? "Ring camera"}${camera.mount ? ` (${camera.mount})` : ""}`;
     const location = `${camera.building ?? "House"} exterior, ${sideLabel.toLowerCase()}${
       camera.side_slot ? `, share ${camera.side_slot} of that side` : ""
@@ -135,7 +136,7 @@ export const createHouseCameraElectricalObject = createServerFn({ method: "POST"
         description,
         location,
         ring_model: camera.ring_model ?? null,
-        compass_side: camera.compass_side,
+        compass_side: side,
         side_slot: camera.side_slot ?? null,
         withheld: preview.withheld,
       },
