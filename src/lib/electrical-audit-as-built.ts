@@ -135,7 +135,7 @@ export function stageAsBuiltLoadObservation(obs: AsBuiltLoadObservation): AsBuil
 
   let installState: AuditInstallState | null = null;
   let sharing: "D" | "S" | null = null;
-  let pole: PoleObservation | null = null;
+  let pole: (PoleObservation & { pole_scheme: string }) | null = null;
   let grid: string | null = null;
 
   if (mode === "FULL_AS_BUILT") {
