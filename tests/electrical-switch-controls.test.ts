@@ -108,7 +108,7 @@ describe("validation", () => {
   });
 
   it("never derives a conductor function from a marking", () => {
-    expect(conductorFunctionFromMarking("black band").function).toBe("unknown_unverified");
+    expect(conductorFunctionFromMarking("black band").conductor_function).toBe("unknown_unverified");
     const findings = validateSwitchControlModel(
       model({
         segments: [
