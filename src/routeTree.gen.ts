@@ -47,6 +47,7 @@ import { Route as AdminVaultBackupRouteImport } from './routes/admin.vault-backu
 import { Route as AdminVaultRotationRouteImport } from './routes/admin.vault-rotation'
 import { Route as AdminVaultSecretsRouteImport } from './routes/admin.vault-secrets'
 import { Route as ApiOpenapiDotjsonRouteImport } from './routes/api/openapi[.]json'
+import { Route as DemoIndexRouteImport } from './routes/demo.index'
 import { Route as DemoElectricalRouteImport } from './routes/demo.electrical'
 import { Route as DocsProductArchitectureRouteImport } from './routes/docs.product-architecture'
 import { Route as ElectricalIndexRouteImport } from './routes/electrical.index'
@@ -321,6 +322,11 @@ const AdminVaultSecretsRoute = AdminVaultSecretsRouteImport.update({
 const ApiOpenapiDotjsonRoute = ApiOpenapiDotjsonRouteImport.update({
   id: '/api/openapi.json',
   path: '/api/openapi.json',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DemoIndexRoute = DemoIndexRouteImport.update({
+  id: '/demo/',
+  path: '/demo/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DemoElectricalRoute = DemoElectricalRouteImport.update({
@@ -865,6 +871,7 @@ export interface FileRoutesByFullPath {
   '/tasks/refs': typeof TasksRefsRoute
   '/tasks/scheduled': typeof TasksScheduledRoute
   '/admin/': typeof AdminIndexRoute
+  '/demo/': typeof DemoIndexRoute
   '/electrical/': typeof ElectricalIndexRoute
   '/food/': typeof FoodIndexRoute
   '/maintenance/': typeof MaintenanceIndexRoute
@@ -987,6 +994,7 @@ export interface FileRoutesByTo {
   '/tasks/refs': typeof TasksRefsRoute
   '/tasks/scheduled': typeof TasksScheduledRoute
   '/admin': typeof AdminIndexRoute
+  '/demo': typeof DemoIndexRoute
   '/electrical': typeof ElectricalIndexRoute
   '/food': typeof FoodIndexRoute
   '/maintenance': typeof MaintenanceIndexRoute
@@ -1113,6 +1121,7 @@ export interface FileRoutesById {
   '/tasks/refs': typeof TasksRefsRoute
   '/tasks/scheduled': typeof TasksScheduledRoute
   '/admin/': typeof AdminIndexRoute
+  '/demo/': typeof DemoIndexRoute
   '/electrical/': typeof ElectricalIndexRoute
   '/food/': typeof FoodIndexRoute
   '/maintenance/': typeof MaintenanceIndexRoute
@@ -1240,6 +1249,7 @@ export interface FileRouteTypes {
     | '/tasks/refs'
     | '/tasks/scheduled'
     | '/admin/'
+    | '/demo/'
     | '/electrical/'
     | '/food/'
     | '/maintenance/'
@@ -1362,6 +1372,7 @@ export interface FileRouteTypes {
     | '/tasks/refs'
     | '/tasks/scheduled'
     | '/admin'
+    | '/demo'
     | '/electrical'
     | '/food'
     | '/maintenance'
@@ -1487,6 +1498,7 @@ export interface FileRouteTypes {
     | '/tasks/refs'
     | '/tasks/scheduled'
     | '/admin/'
+    | '/demo/'
     | '/electrical/'
     | '/food/'
     | '/maintenance/'
@@ -1595,6 +1607,7 @@ export interface RootRouteChildren {
   TasksRefsRoute: typeof TasksRefsRoute
   TasksScheduledRoute: typeof TasksScheduledRoute
   AdminIndexRoute: typeof AdminIndexRoute
+  DemoIndexRoute: typeof DemoIndexRoute
   ElectricalIndexRoute: typeof ElectricalIndexRoute
   TasksIndexRoute: typeof TasksIndexRoute
   ApiElectricalSnapshotRoute: typeof ApiElectricalSnapshotRoute
@@ -1882,6 +1895,13 @@ declare module '@tanstack/react-router' {
       path: '/api/openapi.json'
       fullPath: '/api/openapi.json'
       preLoaderRoute: typeof ApiOpenapiDotjsonRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/demo/': {
+      id: '/demo/'
+      path: '/demo'
+      fullPath: '/demo/'
+      preLoaderRoute: typeof DemoIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/demo/electrical': {
@@ -2656,6 +2676,7 @@ const rootRouteChildren: RootRouteChildren = {
   TasksRefsRoute: TasksRefsRoute,
   TasksScheduledRoute: TasksScheduledRoute,
   AdminIndexRoute: AdminIndexRoute,
+  DemoIndexRoute: DemoIndexRoute,
   ElectricalIndexRoute: ElectricalIndexRoute,
   TasksIndexRoute: TasksIndexRoute,
   ApiElectricalSnapshotRoute: ApiElectricalSnapshotRoute,
