@@ -64,6 +64,7 @@ function DemoIndexPage() {
             <Link
               key={d.to}
               to={d.to}
+              search={{ slide: 1, view: undefined }}
               className="block rounded-xl border border-border bg-card px-7 py-6 hover:border-primary transition-colors"
             >
               <div className="flex items-center gap-3 mb-3">
