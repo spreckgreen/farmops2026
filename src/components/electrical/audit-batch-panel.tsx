@@ -390,6 +390,85 @@ export function AuditBatchPanel() {
     [items],
   );
 
+  // Built-in loaders and builders. Once a batch has been applied (or rejected)
+  // it moves out of the working row into the history section below: the builder
+  // is still available there for a deliberate re-run, but it no longer competes
+  // for attention with the batches that still need work.
+  const statusById = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const b of batches.data ?? []) map[b.batch_id] = b.status;
+    return map;
+  }, [batches.data]);
+
+  const builtIns = useMemo(
+    () => [
+      {
+        id: FS_NW_AUDIT_R2_BATCH_ID,
+        kind: "load" as const,
+        label: `Load ${FS_NW_AUDIT_R2_BATCH_ID}`,
+        title: `Loads the immutable ${FS_NW_AUDIT_R2_BATCH_ID} manifest into the import box. Nothing is written until each item is approved.`,
+        disabled: false,
+        onClick: () => {
+          setManifestText(fsNwAuditManifestR2Text());
+          toast.success(
+            `${FS_NW_AUDIT_R2_BATCH_ID} loaded — ${FS_NW_AUDITED_BREAKERS.length} circuit groups, ${FS_NW_AUDITED_BREAKERS.length} breaker positions, 20 relationship-only load links and 1 hold (35 items). Supersedes ${FS_NW_AUDIT_R1_BATCH_ID}; import to preview, nothing is written yet.`,
+          );
+        },
+      },
+      {
+        id: FS_SWITCH_CONTROLS_BATCH_ID,
+        kind: "load" as const,
+        label: `Load ${FS_SWITCH_CONTROLS_BATCH_ID}`,
+        title:
+          "Loads the Farm Shop switching observation: the northeast (A8) and southwest (E1) enclosures, the cables between them, and explicit holds for device counts, conductor functions, controlled targets and functional operation.",
+        disabled: false,
+        onClick: () => {
+          setManifestText(fsSwitchControlsManifestText());
+          toast.success(
+            `${FS_SWITCH_CONTROLS_BATCH_ID} loaded — 2 observed switch banks, 2 wiring segments, 1 design-only control group and 4 holds. R2 and R3 are untouched; import to preview, nothing is written yet.`,
+          );
+        },
+      },
+      {
+        id: FS_NW_AUDIT_R3_BATCH_ID,
+        kind: "build" as const,
+        label: `Build ${FS_NW_AUDIT_R3_BATCH_ID} metadata reconciliation`,
+        title:
+          "Stages the outstanding as-built consequences (installed state, shared/dedicated, building context, explicitly observed grid and post) for the 20 loads audited in R2. R2 stays unchanged.",
+        disabled: reconcileBuildMutation.isPending,
+        onClick: () => reconcileBuildMutation.mutate(),
+      },
+      {
+        id: R3_OUTLET_METADATA_BATCH_ID,
+        kind: "build" as const,
+        label: `Build ${R3_OUTLET_METADATA_BATCH_ID}`,
+        title:
+          "Corrects legacy receptacle-outlet metadata for the 18 audited outlets: shared circuit class, and removal of the branch-circuit amperage and the VA derived from it. Relationships, 20 A ratings, descriptions, locations, voltage and lifecycle state are preserved.",
+        disabled: outletBuildMutation.isPending,
+        onClick: () => outletBuildMutation.mutate(),
+      },
+      {
+        id: R3A_OUTLET_CLASSIFICATION_BATCH_ID,
+        kind: "build" as const,
+        label: `Build ${R3A_OUTLET_CLASSIFICATION_BATCH_ID}`,
+        title: `Corrects the dedicated/shared classification of ${R3A_OUTLET_LOADS.join(" and ")} to shared. Amperage, connected VA, circuit-group relationships, locations, lifecycle state, voltage, descriptions and stable IDs are out of scope and unchanged.`,
+        disabled: classificationBuildMutation.isPending,
+        onClick: () => classificationBuildMutation.mutate(),
+      },
+    ],
+    [
+      reconcileBuildMutation,
+      outletBuildMutation,
+      classificationBuildMutation,
+      setManifestText,
+    ],
+  );
+
+  const isClosed = (id: string) => ["applied", "rejected"].includes(statusById[id] ?? "");
+  const activeBuiltIns = builtIns.filter((b) => !isClosed(b.id));
+  const closedBuiltIns = builtIns.filter((b) => isClosed(b.id));
+
+
   // A built-in batch that already carries its own load-link items must never be
   // followed by the links-only builder: that would stage a duplicate -LINKS batch
   // for the same relationships.
