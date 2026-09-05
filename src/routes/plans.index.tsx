@@ -113,8 +113,8 @@ function PlansPage() {
                   </p>
                 )}
                 {access.filter((m) => !m.open).length > 0 && (
-                  <p className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
-                    <Lock className="h-3.5 w-3.5" aria-hidden /> Closed today:
+                  <div className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
+                    <Lock className="h-3.5 w-3.5" aria-hidden /> <span>Closed today:</span>
                     {access
                       .filter((m) => !m.open)
                       .map((m) => (
@@ -122,7 +122,7 @@ function PlansPage() {
                           {m.name}
                         </Badge>
                       ))}
-                  </p>
+                  </div>
                 )}
               </>
             )}
