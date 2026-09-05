@@ -487,61 +487,20 @@ export function AuditBatchPanel() {
               <Upload className="mr-1 h-4 w-4" />
               Import &amp; preview
             </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => {
-                setManifestText(fsNwAuditManifestR2Text());
-                toast.success(
-                  `${FS_NW_AUDIT_R2_BATCH_ID} loaded — ${FS_NW_AUDITED_BREAKERS.length} circuit groups, ${FS_NW_AUDITED_BREAKERS.length} breaker positions, 20 relationship-only load links and 1 hold (35 items). Supersedes ${FS_NW_AUDIT_R1_BATCH_ID}; import to preview, nothing is written yet.`,
-                );
-              }}
-            >
-              Load {FS_NW_AUDIT_R2_BATCH_ID}
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => {
-                setManifestText(fsSwitchControlsManifestText());
-                toast.success(
-                  `${FS_SWITCH_CONTROLS_BATCH_ID} loaded — 2 observed switch banks, 2 wiring segments, 1 design-only control group and 4 holds. R2 and R3 are untouched; import to preview, nothing is written yet.`,
-                );
-              }}
-              title="Loads the Farm Shop switching observation: the northeast (A8) and southwest (E1) enclosures, the cables between them, and explicit holds for device counts, conductor functions, controlled targets and functional operation."
-            >
-              Load {FS_SWITCH_CONTROLS_BATCH_ID}
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={reconcileBuildMutation.isPending}
-              onClick={() => reconcileBuildMutation.mutate()}
-              title="Stages the outstanding as-built consequences (installed state, shared/dedicated, building context, explicitly observed grid and post) for the 20 loads audited in R2. R2 stays unchanged."
-            >
-              <RefreshCw className="mr-1 h-4 w-4" />
-              Build {FS_NW_AUDIT_R3_BATCH_ID} metadata reconciliation
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={outletBuildMutation.isPending}
-              onClick={() => outletBuildMutation.mutate()}
-              title="Corrects legacy receptacle-outlet metadata for the 18 audited outlets: shared circuit class, and removal of the branch-circuit amperage and the VA derived from it. Relationships, 20 A ratings, descriptions, locations, voltage and lifecycle state are preserved."
-            >
-              <RefreshCw className="mr-1 h-4 w-4" />
-              Build {R3_OUTLET_METADATA_BATCH_ID}
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={classificationBuildMutation.isPending}
-              onClick={() => classificationBuildMutation.mutate()}
-              title={`Corrects the dedicated/shared classification of ${R3A_OUTLET_LOADS.join(" and ")} to shared. Amperage, connected VA, circuit-group relationships, locations, lifecycle state, voltage, descriptions and stable IDs are out of scope and unchanged.`}
-            >
-              <RefreshCw className="mr-1 h-4 w-4" />
-              Build {R3A_OUTLET_CLASSIFICATION_BATCH_ID}
-            </Button>
+            {activeBuiltIns.map((b) => (
+              <Button
+                key={b.id}
+                size="sm"
+                variant="outline"
+                disabled={b.disabled}
+                onClick={b.onClick}
+                title={b.title}
+              >
+                {b.kind === "build" ? <RefreshCw className="mr-1 h-4 w-4" /> : null}
+                {b.label}
+              </Button>
+            ))}
+
             {classificationRows?.length ? (
               <div className="w-full rounded-md border p-3 text-xs">
                 <p className="font-medium">
