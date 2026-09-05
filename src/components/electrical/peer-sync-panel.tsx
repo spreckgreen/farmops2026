@@ -16,6 +16,7 @@ import {
   runPeerSyncNow,
   savePeerSyncConfig,
 } from "@/lib/electrical-peer-sync.functions";
+import type { PeerSyncRunResult } from "@/lib/electrical-peer-sync.server";
 
 
 type Outcome = "success" | "partial" | "failed" | "skipped";
@@ -57,6 +58,9 @@ export function PeerSyncPanel() {
   const [peerUrl, setPeerUrl] = useState("");
   const [enabled, setEnabled] = useState(false);
   const [limit, setLimit] = useState("5");
+  // Result of the most recent "Dry run": what a real pull would do. Held in
+  // local state only — nothing was written to produce it.
+  const [dryResult, setDryResult] = useState<PeerSyncRunResult | null>(null);
 
   useEffect(() => {
     const config = state.data?.config;
@@ -94,11 +98,22 @@ export function PeerSyncPanel() {
   // Same preview-only pull the schedule performs, on demand, so the operator can
   // confirm the credential and address without waiting for the next tick.
   const pullNowMutation = useMutation({
-    mutationFn: async () => await pullNow({}),
+    mutationFn: async (opts?: { dry_run?: boolean }) =>
+      await pullNow({ data: { dry_run: opts?.dry_run === true } }),
     onSuccess: (r) => {
       if (!r.ok) {
+        setDryResult(null);
         toast.error(r.error);
+      } else if (r.result.dry_run) {
+        setDryResult(r.result);
+        const would = r.result.items.filter((i) => i.outcome === "would_stage").length;
+        toast.success(
+          would > 0
+            ? `Dry run: ${would} batch(es) would come over. Nothing was changed.`
+            : "Dry run: nothing new to bring over. Nothing was changed.",
+        );
       } else if (r.result.staged > 0) {
+        setDryResult(null);
         toast.success(
           `Staged ${r.result.staged} batch(es) as previews. Nothing was applied — approve each item yourself.`,
         );
@@ -180,10 +195,23 @@ export function PeerSyncPanel() {
             size="sm"
             variant="outline"
             disabled={pullNowMutation.isPending || Boolean(job?.running)}
-            onClick={() => pullNowMutation.mutate()}
+            onClick={() => pullNowMutation.mutate({ dry_run: true })}
+            title="Reads your self-hosted instance and reports what a pull would bring over. Changes nothing."
+          >
+            {pullNowMutation.isPending && pullNowMutation.variables?.dry_run
+              ? "Checking…"
+              : "Dry run"}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={pullNowMutation.isPending || Boolean(job?.running)}
+            onClick={() => pullNowMutation.mutate({})}
             title="Runs the preview-only pull right now. Nothing is applied."
           >
-            {pullNowMutation.isPending ? "Pulling…" : "Pull now"}
+            {pullNowMutation.isPending && !pullNowMutation.variables?.dry_run
+              ? "Pulling…"
+              : "Pull now"}
           </Button>
 
           {job?.paused ? (
@@ -197,6 +225,55 @@ export function PeerSyncPanel() {
             </Button>
           ) : null}
         </div>
+
+        {dryResult ? (
+          <div className="space-y-2 rounded-md border border-border p-3 text-xs">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="outline">dry run — nothing changed</Badge>
+              <span className="text-muted-foreground">
+                Checked {new Date(dryResult.ran_at).toLocaleString()} ·{" "}
+                {dryResult.peer_batches_seen} found on your self-hosted instance
+              </span>
+            </div>
+            <ul className="grid gap-1">
+              {dryResult.items.map((item) => (
+                <li key={`${item.batch_id}-${item.outcome}`} className="flex flex-wrap gap-2">
+                  <span className="font-mono">{item.batch_id}</span>
+                  <span className="text-muted-foreground">
+                    {item.outcome === "would_stage"
+                      ? "would come over as a preview"
+                      : item.outcome === "skipped_present"
+                        ? "already here — skipped"
+                        : item.outcome === "skipped_status"
+                          ? `not finished there (${item.peer_status ?? "unknown"}) — skipped`
+                          : `could not be read: ${item.message ?? "unknown reason"}`}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            {dryResult.capped ? (
+              <p className="text-muted-foreground">
+                More are waiting than one run brings over; the rest come on the next run.
+              </p>
+            ) : null}
+            <div className="flex flex-wrap gap-2 pt-1">
+              <Button
+                size="sm"
+                disabled={
+                  pullNowMutation.isPending ||
+                  Boolean(job?.running) ||
+                  dryResult.items.every((i) => i.outcome !== "would_stage")
+                }
+                onClick={() => pullNowMutation.mutate({})}
+              >
+                Bring these over
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setDryResult(null)}>
+                Dismiss
+              </Button>
+            </div>
+          </div>
+        ) : null}
 
         {state.data && !state.data.token_configured ? (
           <p className="text-xs text-destructive">
