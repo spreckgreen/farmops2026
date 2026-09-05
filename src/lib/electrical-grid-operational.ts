@@ -364,9 +364,27 @@ export interface OperationalAsset extends Omit<OperationalInput, "storedPrecisio
  * Maps one operational record onto the shared effective-location resolver.
  * Precedence lives in electrical-effective-location.ts and nowhere else.
  */
+/**
+ * Approved design coordinates for a row: recorded design X/Y wins; otherwise the
+ * frozen approved-design registry supplies them for pattern-generated planned
+ * objects (the 2 x 5 overhead LED layout, FS-056..FS-065). Exact feet only —
+ * never rebuilt from a grid label.
+ */
+export function designCoordsFor(row: OperationalInput): {
+  xFt: number;
+  yFt: number;
+  approval: string | null;
+} | null {
+  const dx = num(row.designXFt);
+  const dy = num(row.designYFt);
+  if (dx != null && dy != null) return { xFt: dx, yFt: dy, approval: null };
+  const approved = approvedDesignXy(row.stableId);
+  return approved ? { xFt: approved.xFt, yFt: approved.yFt, approval: approved.approval } : null;
+}
+
 export function effectiveLocationForOperational(row: OperationalInput): EffectiveLocation {
   const legacyKind = row.kind === "load" || row.kind === "panel";
-  const design = approvedDesignXy(row.stableId);
+  const design = designCoordsFor(row);
   return effectiveLocationForRecord({
     stableId: row.stableId,
     poleScheme: row.poleScheme ?? null,
@@ -380,7 +398,7 @@ export function effectiveLocationForOperational(row: OperationalInput): Effectiv
     fieldGridObservedAt: row.verifiedAt ?? null,
     designXFt: design?.xFt ?? null,
     designYFt: design?.yFt ?? null,
-    designApprovalReference: design?.approval ?? null,
+    designApprovalReference: design?.approval ?? row.designGrid ?? null,
     remappedGridReference: row.gridReference ?? (legacyKind ? null : row.grid),
     originalGrid: legacyKind ? (row.grid ?? row.legacyGrid) : row.legacyGrid,
   });
@@ -499,8 +517,9 @@ export function placementCandidatesFor(row: OperationalInput): PlacementCandidat
   //     is design intent only — it never claims the fixture is installed, and a
   //     verified field observation still outranks it.
   {
-    const dx = num(row.designXFt);
-    const dy = num(row.designYFt);
+    const design = designCoordsFor(row);
+    const dx = design?.xFt ?? null;
+    const dy = design?.yFt ?? null;
     if (dx != null && dy != null) {
       out.push({
         source: "APPROVED_DESIGN_XY",
