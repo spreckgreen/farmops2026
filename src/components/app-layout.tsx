@@ -91,6 +91,9 @@ export function AppLayout({ children }: { children: ReactNode }) {
               <Link to="/procedures" className={navItem} activeProps={navActive}>
                 Procedures
               </Link>
+              <Link to="/site-plan" className={navItem} activeProps={navActive}>
+                Site plan
+              </Link>
                 </>
               )}
               {showElectrical && (

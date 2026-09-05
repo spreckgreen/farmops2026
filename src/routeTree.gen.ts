@@ -25,6 +25,7 @@ import { Route as ReadyRouteImport } from './routes/ready'
 import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as ServiceSchedulingRouteImport } from './routes/service-scheduling'
+import { Route as SitePlanRouteImport } from './routes/site-plan'
 import { Route as SubscriptionRouteImport } from './routes/subscription'
 import { Route as SyncRouteImport } from './routes/sync'
 import { Route as VaultRouteImport } from './routes/vault'
@@ -219,6 +220,11 @@ const ResetPasswordRoute = ResetPasswordRouteImport.update({
 const ServiceSchedulingRoute = ServiceSchedulingRouteImport.update({
   id: '/service-scheduling',
   path: '/service-scheduling',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SitePlanRoute = SitePlanRouteImport.update({
+  id: '/site-plan',
+  path: '/site-plan',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SubscriptionRoute = SubscriptionRouteImport.update({
@@ -829,6 +835,7 @@ export interface FileRoutesByFullPath {
   '/reports': typeof ReportsRoute
   '/reset-password': typeof ResetPasswordRoute
   '/service-scheduling': typeof ServiceSchedulingRoute
+  '/site-plan': typeof SitePlanRoute
   '/subscription': typeof SubscriptionRoute
   '/sync': typeof SyncRoute
   '/vault': typeof VaultRoute
@@ -958,6 +965,7 @@ export interface FileRoutesByTo {
   '/reports': typeof ReportsRoute
   '/reset-password': typeof ResetPasswordRoute
   '/service-scheduling': typeof ServiceSchedulingRoute
+  '/site-plan': typeof SitePlanRoute
   '/subscription': typeof SubscriptionRoute
   '/sync': typeof SyncRoute
   '/vault': typeof VaultRoute
@@ -1092,6 +1100,7 @@ export interface FileRoutesById {
   '/reports': typeof ReportsRoute
   '/reset-password': typeof ResetPasswordRoute
   '/service-scheduling': typeof ServiceSchedulingRoute
+  '/site-plan': typeof SitePlanRoute
   '/subscription': typeof SubscriptionRoute
   '/sync': typeof SyncRoute
   '/vault': typeof VaultRoute
@@ -1227,6 +1236,7 @@ export interface FileRouteTypes {
     | '/reports'
     | '/reset-password'
     | '/service-scheduling'
+    | '/site-plan'
     | '/subscription'
     | '/sync'
     | '/vault'
@@ -1356,6 +1366,7 @@ export interface FileRouteTypes {
     | '/reports'
     | '/reset-password'
     | '/service-scheduling'
+    | '/site-plan'
     | '/subscription'
     | '/sync'
     | '/vault'
@@ -1489,6 +1500,7 @@ export interface FileRouteTypes {
     | '/reports'
     | '/reset-password'
     | '/service-scheduling'
+    | '/site-plan'
     | '/subscription'
     | '/sync'
     | '/vault'
@@ -1623,6 +1635,7 @@ export interface RootRouteChildren {
   ReportsRoute: typeof ReportsRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   ServiceSchedulingRoute: typeof ServiceSchedulingRoute
+  SitePlanRoute: typeof SitePlanRoute
   SubscriptionRoute: typeof SubscriptionRoute
   SyncRoute: typeof SyncRoute
   VaultRoute: typeof VaultRoute
@@ -1829,6 +1842,13 @@ declare module '@tanstack/react-router' {
       path: '/service-scheduling'
       fullPath: '/service-scheduling'
       preLoaderRoute: typeof ServiceSchedulingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/site-plan': {
+      id: '/site-plan'
+      path: '/site-plan'
+      fullPath: '/site-plan'
+      preLoaderRoute: typeof SitePlanRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/subscription': {
@@ -2758,6 +2778,7 @@ const rootRouteChildren: RootRouteChildren = {
   ReportsRoute: ReportsRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   ServiceSchedulingRoute: ServiceSchedulingRoute,
+  SitePlanRoute: SitePlanRoute,
   SubscriptionRoute: SubscriptionRoute,
   SyncRoute: SyncRoute,
   VaultRoute: VaultRoute,
