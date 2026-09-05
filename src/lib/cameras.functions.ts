@@ -55,7 +55,25 @@ function num(value: unknown): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-function validateCamera(input: CameraInput): CameraInput {
+interface CameraFields {
+  camera_id: string;
+  name: string;
+  area: string | null;
+  building: string | null;
+  mount: string | null;
+  stream_kind: string;
+  stream_url: string | null;
+  snapshot_url: string | null;
+  x_feet: number | null;
+  y_feet: number | null;
+  heading_degrees: number | null;
+  fov_degrees: number;
+  range_feet: number;
+  electrical_load_ref: string | null;
+  notes: string | null;
+}
+
+function validateCamera(input: CameraInput): CameraFields & { id: string | null } {
   const cameraId = clean(input.camera_id);
   if (!cameraId) throw new Error("A camera identifier is required.");
   const name = clean(input.name);
@@ -210,12 +228,12 @@ export const checkCameraStatus = createServerFn({ method: "POST" })
     });
     if (checkError) throw new Error(checkError.message);
 
-    const patch: Record<string, unknown> = {
+    const patch = {
       status: target ? (ok ? "online" : "offline") : "unknown",
       last_check_at: checkedAt,
       last_check_detail: detail,
+      ...(ok ? { last_seen_at: checkedAt } : {}),
     };
-    if (ok) patch['last_seen_at'] = checkedAt;
     const { data: row, error: updateError } = await supabase
       .from("cameras")
       .update(patch)
