@@ -24,7 +24,10 @@ import {
   fsSwitchControlsManifestText,
 } from "@/lib/electrical-audit-switch-controls";
 import { resolveFsNwAsBuiltReconciliation } from "@/lib/electrical-fs-nw-r3.functions";
-import { resolveOutletMetadataR3 } from "@/lib/electrical-outlet-metadata-r3.functions";
+import {
+  resolveOutletMetadataR3,
+  type OutletMetadataResolution,
+} from "@/lib/electrical-outlet-metadata-r3.functions";
 import {
   R3_OUTLET_METADATA_BATCH_ID,
   outletCandidateCsv,
@@ -266,7 +269,7 @@ export function AuditBatchPanel() {
   // unaudited candidate records without staging anything for them.
   const [outletCandidates, setOutletCandidates] = useState<OutletCandidateReport[] | null>(null);
   const outletBuildMutation = useMutation({
-    mutationFn: async () => await resolveOutletMetadata({}),
+    mutationFn: async () => (await resolveOutletMetadata({})) as OutletMetadataResolution,
     onSuccess: (r) => {
       setManifestText(r.manifest_text);
       setOutletCandidates(r.candidates);
