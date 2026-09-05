@@ -7,6 +7,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
+import { PanelCompletenessCard } from "@/components/electrical/panel-completeness-card";
+import { panelCompletenessFromSnapshot } from "@/lib/electrical-panel-completeness";
+import { loadAuditHolds } from "@/lib/electrical-panel-completeness.functions";
 import { ElectricalGate } from "@/components/electrical/electrical-gate";
 import { PersistedSection } from "@/components/electrical/persisted-section";
 import { GridOperationalMap } from "@/components/electrical/grid-operational-map";
@@ -485,6 +488,7 @@ function WireLoads({
 
 function InstallProgressPage() {
   const fetchSnapshot = useServerFn(loadInstallProgress);
+  const fetchHolds = useServerFn(loadAuditHolds);
   const qc = useQueryClient();
   const { data, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ["electrical", "install-progress"],
@@ -503,7 +507,24 @@ function InstallProgressPage() {
     void refetch();
   };
 
+  const holds = useQuery({
+    queryKey: ["electrical", "audit-holds"],
+    queryFn: () => fetchHolds(),
+  });
   const panel = panels.find((p) => p.id === selected) ?? null;
+  // Derived, never stored: recalculated from the snapshot on every read.
+  const completeness = useMemo(() => {
+    if (!data || !panel) return null;
+    const rows = (holds.data ?? []).filter((h) => (h.panel_ref ?? "") === panel.panel_id);
+    return panelCompletenessFromSnapshot(data, panel.id, {
+      holds: rows.map((h) => ({
+        ref: h.location ? `${h.ref} (${h.location})` : h.ref,
+        reason: `${h.reason} [${h.batch_id}]`,
+        kind: h.kind,
+      })),
+      evidenceSource: rows[0]?.batch_id ?? "stored electrical records",
+    });
+  }, [data, panel, holds.data]);
   const circuits = useMemo(
     () => (data?.circuits ?? []).filter((c) => c.panel_uuid === selected),
     [data, selected],
@@ -552,6 +573,8 @@ function InstallProgressPage() {
             {/* Visual progress: the same grid map, with the base-reference,
                 progress-mode and most-recent-observed controls. Read-only —
                 recording still happens in the forms below. */}
+            {completeness ? <PanelCompletenessCard result={completeness} /> : null}
+
             <PersistedSection
               storageKey="install-progress.progress-map"
               title="Visual progress map"
