@@ -68,9 +68,9 @@ describe("effective-location precedence", () => {
   it("falls back to the original grid", () => {
     const r = effectiveLocationForRecord({
       stableId: "FS-901",
-      originalGrid: "C7",
+      originalGrid: "C5",
     });
-    expect(r.provenance).toBe("Old grid C7 · original grid · fallback");
+    expect(r.provenance).toBe("Old grid C5 · original grid · fallback");
   });
 
   it("makes pole alignment ineligible for a non-perimeter object", () => {
