@@ -521,7 +521,11 @@ export function buildElectricalSnapshot(input: SnapshotInput): ElectricalSnapsho
     equipment_racks: collections.equipment_racks ?? [],
     power_assets: collections.power_assets ?? [],
     devices: collections.devices ?? [],
-
+    switch_banks: collections.switch_banks ?? [],
+    switch_devices: collections.switch_devices ?? [],
+    control_groups: collections.control_groups ?? [],
+    control_targets: collections.control_targets ?? [],
+    control_wiring_segments: collections.control_wiring_segments ?? [],
   };
 }
 
