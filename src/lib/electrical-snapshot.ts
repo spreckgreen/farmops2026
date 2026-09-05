@@ -453,6 +453,24 @@ export function buildElectricalSnapshot(input: SnapshotInput): ElectricalSnapsho
     .map((row) => buildPanelExitRecord(row, indexes.panel, indexes.raceway))
     .sort(compareRecords);
 
+  collections.switch_banks = buildSwitchControlRecords("switch_banks", input.switchBanks ?? []);
+  collections.switch_devices = buildSwitchControlRecords(
+    "switch_devices",
+    input.switchDevices ?? [],
+  );
+  collections.control_groups = buildSwitchControlRecords(
+    "control_groups",
+    input.controlGroups ?? [],
+  );
+  collections.control_targets = buildSwitchControlRecords(
+    "control_targets",
+    input.controlTargets ?? [],
+  );
+  collections.control_wiring_segments = buildSwitchControlRecords(
+    "control_wiring_segments",
+    input.controlWiringSegments ?? [],
+  );
+
   const counts = {} as Record<SnapshotCollection, number>;
   const ownership = {} as Record<SnapshotCollection, Record<string, FieldOwnership>>;
   for (const collection of SNAPSHOT_COLLECTIONS) {
@@ -462,6 +480,11 @@ export function buildElectricalSnapshot(input: SnapshotInput): ElectricalSnapsho
   ownership.raceway_waypoints = WAYPOINT_OWNERSHIP;
   ownership.panel_breaker_positions = BREAKER_POSITION_OWNERSHIP;
   ownership.panel_exits = PANEL_EXIT_OWNERSHIP;
+  ownership.switch_banks = switchControlOwnership("switch_banks");
+  ownership.switch_devices = switchControlOwnership("switch_devices");
+  ownership.control_groups = switchControlOwnership("control_groups");
+  ownership.control_targets = switchControlOwnership("control_targets");
+  ownership.control_wiring_segments = switchControlOwnership("control_wiring_segments");
 
   const findings = [...(input.qa ?? [])].sort(
     (a, b) =>
