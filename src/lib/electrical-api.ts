@@ -136,6 +136,26 @@ const COLLECTION_PURPOSE: Record<SnapshotCollection, [string, string]> = {
     "FarmOps-native powered devices linked to loads and racks.",
     "Device inventories and dependency documents.",
   ],
+  switch_banks: [
+    "Device boxes or enclosures holding switching devices (SWB-*). FarmOps operational object; a switch bank is not NEC-defined and is never a load.",
+    "Switch schedules, control documentation and field audit sheets.",
+  ],
+  switch_devices: [
+    "Individual switching devices (SW-*): single-pole, double-pole, 3-way, 4-way, dimmer, selector and other types.",
+    "Switch schedules and control-arrangement documentation.",
+  ],
+  control_groups: [
+    "FarmOps logical grouping (CTL-*) of switching devices operating the same target(s). A control group is not a circuit group and is not NEC-defined.",
+    "Control diagrams and multi-location control documentation.",
+  ],
+  control_targets: [
+    "Objects operated by a control group: loads, devices, relays, contactors or receptacle outlets.",
+    "Control-to-target cross references.",
+  ],
+  control_wiring_segments: [
+    "Physical wiring segments carrying line supply, switched ungrounded, traveler, grounded, equipment grounding or control conductors between panelboards, junction boxes, switch banks and loads. Conductor function is never inferred from a marking.",
+    "Wiring documentation, pull sheets and conductor-function verification lists.",
+  ],
 };
 
 export const API_RESOURCES: ApiResource[] = SNAPSHOT_COLLECTIONS.map((name) => {
