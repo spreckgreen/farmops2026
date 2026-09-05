@@ -9,8 +9,14 @@
 // Precedence (highest first):
 //   1. FIELD_OBSERVED_POLE_ALIGNMENT — perimeter objects only.
 //   2. FIELD_OBSERVED_GRID          — accepted field observation, current A1–F9.
-//   3. GRID_REMAPPED                — derived from an accepted legacy→current map.
-//   4. ORIGINAL_GRID                — lowest-precision fallback.
+//   3. APPROVED_DESIGN_XY           — approved design coordinates for a planned,
+//                                     pattern-generated object (e.g. FS-056..FS-065).
+//                                     The exact X/Y is the location; its A1–F9 label
+//                                     is a derived read-out only. Lifecycle stays
+//                                     planned and the location stays unverified
+//                                     until accepted field evidence supersedes it.
+//   4. GRID_REMAPPED                — derived from an accepted legacy→current map.
+//   5. ORIGINAL_GRID                — lowest-precision fallback.
 //
 // Invariants:
 //   * The winner is DERIVED and READ-ONLY. Nothing is written, nothing is
@@ -24,7 +30,14 @@
 //     frozen scheme, or accepted field evidence.
 //   * Two accepted statements at the same priority that disagree produce a
 //     location conflict requiring adjudication — never an import-order pick.
-import { parseOldGrid, oldLetterToFeet, oldNumberToFeet } from "@/lib/electrical-grid-migration";
+import {
+  SHOP_DEPTH_FT,
+  SHOP_WIDTH_FT,
+  oldLetterToFeet,
+  oldNumberToFeet,
+  parseOldGrid,
+} from "@/lib/electrical-grid-migration";
+import { derivedGridLabel } from "@/lib/electrical-grid-map";
 import { parseNewGrid, newGridFeet } from "@/lib/electrical-grid-operational";
 import { normalizePostRef, proposedPostFeet } from "@/lib/electrical-grid-post-geometry";
 
@@ -33,6 +46,7 @@ export const EFFECTIVE_LOCATION_VERSION = "electrical-effective-location-1";
 export type EffectiveLocationSource =
   | "FIELD_OBSERVED_POLE_ALIGNMENT"
   | "FIELD_OBSERVED_GRID"
+  | "APPROVED_DESIGN_XY"
   | "GRID_REMAPPED"
   | "ORIGINAL_GRID";
 
@@ -40,6 +54,7 @@ export type EffectiveLocationSource =
 export const EFFECTIVE_LOCATION_PRIORITY: EffectiveLocationSource[] = [
   "FIELD_OBSERVED_POLE_ALIGNMENT",
   "FIELD_OBSERVED_GRID",
+  "APPROVED_DESIGN_XY",
   "GRID_REMAPPED",
   "ORIGINAL_GRID",
 ];
@@ -48,6 +63,7 @@ export const EFFECTIVE_LOCATION_PRIORITY: EffectiveLocationSource[] = [
 export const EFFECTIVE_LOCATION_SOURCE_PHRASE: Record<EffectiveLocationSource, string> = {
   FIELD_OBSERVED_POLE_ALIGNMENT: "observed pole alignment",
   FIELD_OBSERVED_GRID: "observed A1–F9 grid",
+  APPROVED_DESIGN_XY: "approved design X/Y",
   GRID_REMAPPED: "remapped A1–F9 grid",
   ORIGINAL_GRID: "original grid",
 };
@@ -56,6 +72,7 @@ export const EFFECTIVE_LOCATION_SOURCE_PHRASE: Record<EffectiveLocationSource, s
 export const EFFECTIVE_LOCATION_EVIDENCE_WORD: Record<EffectiveLocationSource, string> = {
   FIELD_OBSERVED_POLE_ALIGNMENT: "field verified",
   FIELD_OBSERVED_GRID: "field verified",
+  APPROVED_DESIGN_XY: "approved design, not field verified",
   GRID_REMAPPED: "derived",
   ORIGINAL_GRID: "fallback",
 };
@@ -77,6 +94,9 @@ export interface LocationStatement {
   poleLocationKind?: PoleLocationKindLike | null;
   poleRefStart?: string | null;
   poleRefEnd?: string | null;
+  /** APPROVED_DESIGN_XY only: exact approved coordinates, in feet. */
+  designXFt?: number | null;
+  designYFt?: number | null;
   /** Evidence reference (photo, audit item, observation note). Preserved as-is. */
   evidence?: string | null;
   observedAt?: string | null;
@@ -285,6 +305,42 @@ function resolveGrid(raw: string | null): {
   return { label, xFt: feet.xFt, yFt: feet.yFt, spanned: feet.span, reason: null };
 }
 
+const num = (v: unknown): number | null =>
+  typeof v === "number" && Number.isFinite(v) ? v : null;
+
+/**
+ * Approved design coordinates. The exact approved X/Y IS the location; the A1–F9
+ * label is only a human read-out of those feet, so maps and diagrams must plot
+ * xFt/yFt and never rebuild coordinates from the label.
+ */
+function resolveDesignXy(s: LocationStatement): {
+  label: string | null;
+  xFt: number | null;
+  yFt: number | null;
+  spanned: boolean;
+  reason: string | null;
+} {
+  const xFt = num(s.designXFt);
+  const yFt = num(s.designYFt);
+  if (xFt == null || yFt == null)
+    return {
+      label: null,
+      xFt: null,
+      yFt: null,
+      spanned: false,
+      reason: "Approved design coordinates are incomplete.",
+    };
+  if (xFt < 0 || xFt > SHOP_WIDTH_FT || yFt < 0 || yFt > SHOP_DEPTH_FT)
+    return {
+      label: null,
+      xFt: null,
+      yFt: null,
+      spanned: false,
+      reason: `Approved design coordinates ${xFt} ft E / ${yFt} ft S fall outside the frozen building envelope.`,
+    };
+  return { label: derivedGridLabel(xFt, yFt), xFt, yFt, spanned: false, reason: null };
+}
+
 function resolveOriginal(raw: string | null): {
   label: string | null;
   xFt: number | null;
@@ -360,15 +416,22 @@ export function resolveEffectiveLocation(
       const rank = EFFECTIVE_LOCATION_PRIORITY.indexOf(s.source);
       const raw =
         clean(s.value) ??
+        (s.source === "APPROVED_DESIGN_XY"
+          ? num(s.designXFt) != null || num(s.designYFt) != null
+            ? `${num(s.designXFt) ?? "?"} ft E / ${num(s.designYFt) ?? "?"} ft S`
+            : null
+          : null) ??
         (s.source === "FIELD_OBSERVED_POLE_ALIGNMENT"
           ? [clean(s.poleRefStart), clean(s.poleRefEnd)].filter(Boolean).join("/") || null
           : null);
       const r =
         s.source === "FIELD_OBSERVED_POLE_ALIGNMENT"
           ? resolvePole(s)
-          : s.source === "ORIGINAL_GRID"
-            ? resolveOriginal(raw)
-            : resolveGrid(raw);
+          : s.source === "APPROVED_DESIGN_XY"
+            ? resolveDesignXy(s)
+            : s.source === "ORIGINAL_GRID"
+              ? resolveOriginal(raw)
+              : resolveGrid(raw);
       const accepted = s.accepted == null ? true : Boolean(s.accepted);
       const valid = r.label != null;
       let eligible = valid;
@@ -556,6 +619,13 @@ export interface EffectiveLocationRecord {
   fieldGridReference?: string | null;
   fieldGridEvidence?: string | null;
   fieldGridObservedAt?: string | null;
+  /**
+   * Approved design coordinates for a planned, pattern-generated object. Exact
+   * feet; the derived grid label is never treated as field evidence.
+   */
+  designXFt?: number | null;
+  designYFt?: number | null;
+  designApprovalReference?: string | null;
   /** Accepted legacy→current remap result. */
   remappedGridReference?: string | null;
   remappedEvidence?: string | null;
@@ -593,6 +663,17 @@ export function effectiveLocationForRecord(
       value: record.fieldGridReference ?? null,
       evidence: record.fieldGridEvidence ?? null,
       observedAt: record.fieldGridObservedAt ?? null,
+    });
+  if (
+    typeof record.designXFt === "number" ||
+    typeof record.designYFt === "number"
+  )
+    statements.push({
+      source: "APPROVED_DESIGN_XY",
+      id: "record-approved-design-xy",
+      designXFt: record.designXFt ?? null,
+      designYFt: record.designYFt ?? null,
+      evidence: record.designApprovalReference ?? null,
     });
   if (clean(record.remappedGridReference))
     statements.push({
