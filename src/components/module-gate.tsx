@@ -86,7 +86,7 @@ export function ModuleGate({
               <Link to="/subscription">See plans</Link>
             </Button>
             <Button asChild size="sm" variant="outline">
-              <Link to="/demo/pricing">Price it out</Link>
+              <Link to="/plans">What each plan opens</Link>
             </Button>
           </div>
         </CardContent>

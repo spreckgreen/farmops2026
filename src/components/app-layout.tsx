@@ -152,6 +152,12 @@ export function AppLayout({ children }: { children: ReactNode }) {
                     Your plan
                   </Link>
                 </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/plans" className="flex items-center gap-2 cursor-pointer">
+                    <PackagePlus className="h-4 w-4" />
+                    Plans &amp; what they open
+                  </Link>
+                </DropdownMenuItem>
 
 
                 {profile.data?.isAdmin && (
