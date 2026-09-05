@@ -13,6 +13,7 @@ import type {
 } from "@/lib/electrical-install-progress.functions";
 import { INSTALL_STATUSES } from "@/lib/electrical-install-progress.functions";
 import { breakerDisplay } from "@/lib/electrical-breaker-reference";
+import { DONE_STAGES } from "@/lib/electrical-lifecycle";
 import {
   deriveCircuitGroupState,
   type CircuitGroupStateResult,
@@ -47,7 +48,7 @@ export const QUICK_STAGES: readonly string[] = [
 ];
 
 /** Stages that count a row as finished for progress rollups. */
-export const DONE_STAGES: readonly string[] = ["complete", "as_built_verified"];
+export { DONE_STAGES };
 
 export const UNASSIGNED_GROUP = "Not assigned to a panel";
 

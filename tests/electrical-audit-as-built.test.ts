@@ -161,7 +161,7 @@ describe("R3 metadata reconciliation", () => {
     });
     expect(built.reconciled).toHaveLength(20);
     expect(built.groupsNotApproved).toEqual([]);
-    expect(built.manifest.batch_id).toBe("FA-FS-2026-09-03-PM-R3");
+    expect(built.manifest.batch_id).toBe("FA-FS-2026-09-03-PM-R3-METADATA");
     expect(built.manifest.compensates_batch_id).toBeNull();
     for (const s of built.staged) {
       expect(s.install_state).toBe("installed");

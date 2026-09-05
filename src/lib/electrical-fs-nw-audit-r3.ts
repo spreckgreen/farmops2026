@@ -38,7 +38,7 @@ import {
   type ResolvedAuditedGroup,
 } from "@/lib/electrical-fs-nw-audit-r1";
 
-export const FS_NW_AUDIT_R3_BATCH_ID = "FA-FS-2026-09-03-PM-R3";
+export const FS_NW_AUDIT_R3_BATCH_ID = "FA-FS-2026-09-03-PM-R3-METADATA";
 export const FS_NW_AUDIT_R3_RECONCILES = FS_NW_AUDIT_R2_BATCH_ID;
 
 /** Explicitly observed location per load, keyed by load stable ID. Empty by default. */
@@ -210,7 +210,7 @@ export function buildFsNwAuditManifestR3(input: R3BuildInput): R3BuildResult {
   const manifest: AuditBatchManifest = {
     schema_version: AUDIT_BATCH_SCHEMA_VERSION,
     batch_id: FS_NW_AUDIT_R3_BATCH_ID,
-    title: "Farm Shop PNL-FS-NW as-built metadata reconciliation — 03 Sep 2026 PM (R3)",
+    title: "Farm Shop PNL-FS-NW as-built metadata reconciliation — 03 Sep 2026 PM (R3-METADATA)",
     scope: scope.length > 400 ? `${scope.slice(0, 397)}...` : scope,
     building: "Farm Shop",
     observed_date: input.observedDate ?? "2026-09-03",

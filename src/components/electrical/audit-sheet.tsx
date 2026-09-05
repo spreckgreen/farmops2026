@@ -28,6 +28,9 @@ import {
 import { useUiChoice, useUiFlag } from "@/hooks/use-ui-preference";
 import { loadInstallProgress } from "@/lib/electrical-install-progress.functions";
 import { recordAuditSheetEntry } from "@/lib/electrical-audit-sheet.functions";
+import { loadAuditHolds } from "@/lib/electrical-panel-completeness.functions";
+import { panelCompletenessFromSnapshot } from "@/lib/electrical-panel-completeness";
+import { PanelCompletenessCard } from "@/components/electrical/panel-completeness-card";
 import {
   QUICK_STAGES,
   STAGE_HELP,
@@ -288,6 +291,37 @@ export function AuditSheet() {
     });
   }, [snapshot.data, panelChoice, kindChoice, hideDone, query]);
 
+  const holdsFetcher = useServerFn(loadAuditHolds);
+  const holds = useQuery({
+    queryKey: ["electrical", "audit-holds"],
+    queryFn: () => holdsFetcher(),
+  });
+
+  // Panel completeness is always recalculated from the snapshot; no panel
+  // percentage is stored as authoritative data.
+  const completeness = useMemo(() => {
+    if (!snapshot.data) return [];
+    const holdRows = holds.data ?? [];
+    return snapshot.data.panels
+      .filter((p) => panelChoice === "all" || p.panel_id === panelChoice)
+      .map((p) =>
+        panelCompletenessFromSnapshot(snapshot.data!, p.id, {
+          holds: holdRows
+            .filter((h) => (h.panel_ref ?? "") === p.panel_id)
+            .map((h) => ({
+              ref: h.location ? `${h.ref} (${h.location})` : h.ref,
+              reason: `${h.reason} [${h.batch_id}]`,
+              kind: h.kind,
+            })),
+          evidenceSource:
+            holdRows.find((h) => (h.panel_ref ?? "") === p.panel_id)?.batch_id ??
+            "stored electrical records",
+        }),
+      )
+      .filter((r): r is NonNullable<typeof r> => Boolean(r))
+      .filter((r) => r.capacity.usablePositions > 0 || r.rollout.inScopeCircuits > 0);
+  }, [snapshot.data, holds.data, panelChoice]);
+
   const panelOptions = useMemo(
     () => (snapshot.data ? buildAuditSheet(snapshot.data).panelOptions : []),
     [snapshot.data],
@@ -399,6 +433,10 @@ export function AuditSheet() {
           </div>
         </CardContent>
       </Card>
+
+      {completeness.map((r) => (
+        <PanelCompletenessCard key={r.panel_id} result={r} />
+      ))}
 
       {sheet && sheet.groups.length === 0 ? (
         <Card>

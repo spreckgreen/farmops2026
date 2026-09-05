@@ -16,7 +16,7 @@
 // Completion is never cascaded from mere assignment: a planned load that was
 // simply assigned to the group contributes nothing. Only loads carrying accepted
 // field evidence (an approved FIELD_AS_BUILT observation) are counted.
-import { DONE_STAGES } from "@/lib/electrical-audit-sheet";
+import { DONE_STAGES } from "@/lib/electrical-lifecycle";
 
 export const CIRCUIT_GROUP_DISPLAY_STATES = [
   "configured",
