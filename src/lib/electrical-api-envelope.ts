@@ -104,6 +104,7 @@ export const API_ERROR_CODES = {
   rate_limited: 429,
   write_scopes_not_activated: 503,
   backend_not_configured: 500,
+  backend_query_failed: 500,
   internal_error: 500,
 } as const;
 
