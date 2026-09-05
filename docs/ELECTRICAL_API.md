@@ -308,8 +308,8 @@ same `electrical:read` scope; **no new write scope is activated**.
 Rules a consumer can rely on:
 
 - Power distribution and control topology are reported separately. The cable
-  between two 3-way switches is a wiring segment of the supplying branch
-  circuit, never a second circuit group.
+  between two 3-way switches is a wiring segment of the supplying branch circuit,
+  never a second circuit group.
 - Conductor function is never inferred from insulation colour, tape or a band.
   A marking is reported in `observed_marking` while `conductor_function` stays
   `unknown_unverified` until the conductor is traced or tested.
