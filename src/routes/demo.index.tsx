@@ -87,6 +87,22 @@ function DemoIndexPage() {
           ))}
 
           <Link
+            to="/demo/sample_farm"
+            className="block rounded-xl border border-border bg-card px-7 py-6 hover:border-primary transition-colors"
+          >
+            <div className="flex items-center gap-3 mb-3">
+              <MapPin className="h-5 w-5 text-primary shrink-0" />
+              <h2 className="text-lg font-semibold">Sample farm — live example</h2>
+              <span className="ml-auto text-xs text-muted-foreground">interactive</span>
+            </div>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              An example barn with panels, circuits and equipment you can click through: approved
+              design positions, the field positions that replaced them, and the note recorded for
+              each one. Demo data only.
+            </p>
+          </Link>
+
+          <Link
             to="/demo/pricing"
             className="block rounded-xl border border-border bg-card px-7 py-6 hover:border-primary transition-colors"
           >
@@ -100,6 +116,7 @@ function DemoIndexPage() {
               compare first-year and ongoing cost across every proposed edition.
             </p>
           </Link>
+
         </div>
       </div>
     </main>
