@@ -63,6 +63,7 @@ import { Route as ElectricalAuditBatchesRouteImport } from './routes/electrical.
 import { Route as ElectricalAuditSheetRouteImport } from './routes/electrical.audit-sheet'
 import { Route as ElectricalChangesRouteImport } from './routes/electrical.changes'
 import { Route as ElectricalCriticalLoadsRouteImport } from './routes/electrical.critical-loads'
+import { Route as ElectricalDesignToFieldRouteImport } from './routes/electrical.design-to-field'
 import { Route as ElectricalDiagramsRouteImport } from './routes/electrical.diagrams'
 import { Route as ElectricalDocumentsRouteImport } from './routes/electrical.documents'
 import { Route as ElectricalExportRouteImport } from './routes/electrical.export'
@@ -406,6 +407,11 @@ const ElectricalChangesRoute = ElectricalChangesRouteImport.update({
 const ElectricalCriticalLoadsRoute = ElectricalCriticalLoadsRouteImport.update({
   id: '/electrical/critical-loads',
   path: '/electrical/critical-loads',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ElectricalDesignToFieldRoute = ElectricalDesignToFieldRouteImport.update({
+  id: '/electrical/design-to-field',
+  path: '/electrical/design-to-field',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ElectricalDiagramsRoute = ElectricalDiagramsRouteImport.update({
@@ -846,6 +852,7 @@ export interface FileRoutesByFullPath {
   '/electrical/audit-sheet': typeof ElectricalAuditSheetRoute
   '/electrical/changes': typeof ElectricalChangesRoute
   '/electrical/critical-loads': typeof ElectricalCriticalLoadsRoute
+  '/electrical/design-to-field': typeof ElectricalDesignToFieldRoute
   '/electrical/diagrams': typeof ElectricalDiagramsRoute
   '/electrical/documents': typeof ElectricalDocumentsRoute
   '/electrical/export': typeof ElectricalExportRoute
@@ -973,6 +980,7 @@ export interface FileRoutesByTo {
   '/electrical/audit-sheet': typeof ElectricalAuditSheetRoute
   '/electrical/changes': typeof ElectricalChangesRoute
   '/electrical/critical-loads': typeof ElectricalCriticalLoadsRoute
+  '/electrical/design-to-field': typeof ElectricalDesignToFieldRoute
   '/electrical/diagrams': typeof ElectricalDiagramsRoute
   '/electrical/documents': typeof ElectricalDocumentsRoute
   '/electrical/export': typeof ElectricalExportRoute
@@ -1104,6 +1112,7 @@ export interface FileRoutesById {
   '/electrical/audit-sheet': typeof ElectricalAuditSheetRoute
   '/electrical/changes': typeof ElectricalChangesRoute
   '/electrical/critical-loads': typeof ElectricalCriticalLoadsRoute
+  '/electrical/design-to-field': typeof ElectricalDesignToFieldRoute
   '/electrical/diagrams': typeof ElectricalDiagramsRoute
   '/electrical/documents': typeof ElectricalDocumentsRoute
   '/electrical/export': typeof ElectricalExportRoute
@@ -1236,6 +1245,7 @@ export interface FileRouteTypes {
     | '/electrical/audit-sheet'
     | '/electrical/changes'
     | '/electrical/critical-loads'
+    | '/electrical/design-to-field'
     | '/electrical/diagrams'
     | '/electrical/documents'
     | '/electrical/export'
@@ -1363,6 +1373,7 @@ export interface FileRouteTypes {
     | '/electrical/audit-sheet'
     | '/electrical/changes'
     | '/electrical/critical-loads'
+    | '/electrical/design-to-field'
     | '/electrical/diagrams'
     | '/electrical/documents'
     | '/electrical/export'
@@ -1493,6 +1504,7 @@ export interface FileRouteTypes {
     | '/electrical/audit-sheet'
     | '/electrical/changes'
     | '/electrical/critical-loads'
+    | '/electrical/design-to-field'
     | '/electrical/diagrams'
     | '/electrical/documents'
     | '/electrical/export'
@@ -1624,6 +1636,7 @@ export interface RootRouteChildren {
   ElectricalAuditSheetRoute: typeof ElectricalAuditSheetRoute
   ElectricalChangesRoute: typeof ElectricalChangesRoute
   ElectricalCriticalLoadsRoute: typeof ElectricalCriticalLoadsRoute
+  ElectricalDesignToFieldRoute: typeof ElectricalDesignToFieldRoute
   ElectricalDiagramsRoute: typeof ElectricalDiagramsRoute
   ElectricalDocumentsRoute: typeof ElectricalDocumentsRoute
   ElectricalExportRoute: typeof ElectricalExportRoute
@@ -2059,6 +2072,13 @@ declare module '@tanstack/react-router' {
       path: '/electrical/critical-loads'
       fullPath: '/electrical/critical-loads'
       preLoaderRoute: typeof ElectricalCriticalLoadsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/electrical/design-to-field': {
+      id: '/electrical/design-to-field'
+      path: '/electrical/design-to-field'
+      fullPath: '/electrical/design-to-field'
+      preLoaderRoute: typeof ElectricalDesignToFieldRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/electrical/diagrams': {
@@ -2725,6 +2745,7 @@ const rootRouteChildren: RootRouteChildren = {
   ElectricalAuditSheetRoute: ElectricalAuditSheetRoute,
   ElectricalChangesRoute: ElectricalChangesRoute,
   ElectricalCriticalLoadsRoute: ElectricalCriticalLoadsRoute,
+  ElectricalDesignToFieldRoute: ElectricalDesignToFieldRoute,
   ElectricalDiagramsRoute: ElectricalDiagramsRoute,
   ElectricalDocumentsRoute: ElectricalDocumentsRoute,
   ElectricalExportRoute: ElectricalExportRoute,

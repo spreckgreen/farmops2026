@@ -72,6 +72,7 @@ function navGroups(): NavGroup[] {
         { label: "Audit sheet", to: "/electrical/audit-sheet" },
         { label: "Install progress", to: "/electrical/install-progress" },
         { label: "Switches & controls", to: "/electrical/switch-controls" },
+        { label: "Design to field", to: "/electrical/design-to-field" },
 
 
         { label: "Labels", to: "/electrical/labels" },
