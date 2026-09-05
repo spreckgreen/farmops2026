@@ -80,12 +80,32 @@ export async function collectSnapshot(supabase: unknown): Promise<ElectricalSnap
     message: f.message,
   })).concat(layoutFindings);
 
+  // Schema 1.3 switching and control topology.
+  const switchTables = [
+    "electrical_switch_banks",
+    "electrical_switch_devices",
+    "electrical_control_groups",
+    "electrical_control_targets",
+    "electrical_control_wiring_segments",
+  ] as const;
+  const switchRows: RawRow[][] = [];
+  for (const table of switchTables) {
+    const { data, error } = await db.from(table).select("*");
+    if (error) throw new Error(error.message);
+    switchRows.push((data ?? []) as RawRow[]);
+  }
+
   return buildElectricalSnapshot({
     generatedAt: new Date().toISOString(),
     rows,
     waypoints: waypointRows,
     breakerPositions,
     panelExits,
+    switchBanks: switchRows[0] ?? [],
+    switchDevices: switchRows[1] ?? [],
+    controlGroups: switchRows[2] ?? [],
+    controlTargets: switchRows[3] ?? [],
+    controlWiringSegments: switchRows[4] ?? [],
     qa,
   });
 }

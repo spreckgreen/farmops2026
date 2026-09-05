@@ -832,6 +832,217 @@ export const TERMS: readonly TermEntry[] = [
       export: ["grid_reference", "x_ft", "y_ft"],
     },
   },
+
+  // ------------------------------------------- Switching and control topology
+  {
+    id: "switch",
+    canonical: "Switch",
+    classification: "NEC_DEFINED",
+    necEdition: ED,
+    necReference: "Art. 100 (Switch, General-Use / General-Use Snap); Art. 404",
+    plain:
+      "A device that opens and closes an electrical circuit. A general-use snap switch is the " +
+      "common wall switch installed in a device box.",
+    aliases: ["wall switch", "snap switch", "toggle"],
+    deprecated: [
+      {
+        usage: "kill switch",
+        instead: "switch, or disconnecting means when that classification is verified",
+        reason:
+          "A wall switch is not a disconnecting means unless the installation is verified as one.",
+        aliasOnly: true,
+      },
+    ],
+    affects: {
+      db: ["electrical_switch_devices"],
+      ui: ["Switches & controls", "Audit sheet"],
+      api: ["/api/v1/electrical/switch-devices"],
+      export: ["switch_device_id", "switch_type"],
+    },
+  },
+  {
+    id: "three_way_switch",
+    canonical: "3-way switch",
+    classification: "NEC_USAGE",
+    necEdition: ED,
+    necReference: "Art. 404 (switch connections); Art. 200.7 for conductor identification",
+    plain:
+      "A switching device with one common terminal and two traveler terminals. Two of them, one " +
+      "at each location, give control of the same target from two places.",
+    aliases: ["3 way", "three way", "two-location switch"],
+    deprecated: [],
+    affects: {
+      db: ["electrical_switch_devices.switch_type"],
+      ui: ["Switches & controls", "Control diagram"],
+      api: ["/api/v1/electrical/switch-devices"],
+      export: ["switch_type"],
+    },
+  },
+  {
+    id: "four_way_switch",
+    canonical: "4-way switch",
+    classification: "NEC_USAGE",
+    necEdition: ED,
+    necReference: "Art. 404 (switch connections)",
+    plain:
+      "An intermediate switching device wired between two 3-way switches so a third or later " +
+      "location can also operate the same target.",
+    aliases: ["4 way", "four way", "intermediate switch"],
+    deprecated: [],
+    affects: {
+      db: ["electrical_switch_devices.switch_type"],
+      ui: ["Switches & controls", "Control diagram"],
+      api: ["/api/v1/electrical/switch-devices"],
+      export: ["switch_type"],
+    },
+  },
+  {
+    id: "traveler",
+    canonical: "Traveler",
+    classification: "NEC_USAGE",
+    necEdition: ED,
+    necReference: "Art. 404; Art. 300.3(B) for conductors of the same circuit",
+    plain:
+      "A conductor between switching devices that carries the switched connection from one device " +
+      "to the next. It belongs to the supplying branch circuit, not to a separate circuit.",
+    aliases: ["traveller", "runner"],
+    deprecated: [],
+    affects: {
+      db: ["electrical_control_wiring_segments.conductor_function"],
+      ui: ["Switches & controls", "Wiring"],
+      api: ["/api/v1/electrical/control-wiring-segments"],
+      export: ["conductor_function"],
+    },
+  },
+  {
+    id: "ungrounded_conductor",
+    canonical: "Ungrounded conductor",
+    classification: "NEC_DEFINED",
+    necEdition: ED,
+    necReference: "Art. 100; Art. 200; 210.5(C)",
+    plain:
+      "A circuit conductor that is not intentionally grounded. A switched ungrounded conductor is " +
+      "the one a switching device controls on its way to the utilization equipment.",
+    aliases: ["ungrounded", "line conductor", "switch leg"],
+    deprecated: [
+      {
+        usage: "hot wire",
+        instead: "ungrounded conductor",
+        reason: "Informal; the NEC term is ungrounded conductor.",
+        aliasOnly: true,
+      },
+    ],
+    affects: {
+      db: ["electrical_control_wiring_segments.conductor_function"],
+      ui: ["Switches & controls", "Wiring"],
+      api: ["/api/v1/electrical/control-wiring-segments"],
+      export: ["conductor_function"],
+    },
+  },
+  {
+    id: "switch_bank",
+    canonical: "Switch bank (FarmOps)",
+    classification: "FARMOPS_OPERATIONAL",
+    necEdition: null,
+    necReference: null,
+    plain:
+      "A FarmOps record for the physical device box or enclosure that holds one or more switching " +
+      "devices, with its own location and lifecycle.",
+    necRelation:
+      "The enclosure itself is a device box (NEC Art. 314); the devices in it are switches " +
+      "(Art. 100, Art. 404). 'Switch bank' is FarmOps bookkeeping and is never a load.",
+    aliases: ["switch box", "gang box", "switch enclosure"],
+    deprecated: [
+      {
+        usage: "switch load",
+        instead: "switch bank (enclosure) or switching device",
+        reason: "A switching device is not a load.",
+      },
+    ],
+    affects: {
+      db: ["electrical_switch_banks"],
+      ui: ["Switches & controls", "Grid map", "Audit sheet"],
+      api: ["/api/v1/electrical/switch-banks"],
+      export: ["switch_bank_id"],
+    },
+  },
+  {
+    id: "control_group",
+    canonical: "Control group (FarmOps)",
+    classification: "FARMOPS_OPERATIONAL",
+    necEdition: null,
+    necReference: null,
+    plain:
+      "A FarmOps logical grouping of switching devices that operate the same target or targets, " +
+      "for example the two 3-way switches controlling the overhead lights.",
+    necRelation:
+      "Not an NEC object and never a circuit group: it describes control, not overcurrent " +
+      "protection or circuit supply. The cable between two 3-way switches stays part of the " +
+      "supplying branch circuit.",
+    aliases: ["control set", "switch group", "control arrangement"],
+    deprecated: [
+      {
+        usage: "control circuit group",
+        instead: "control group (FarmOps)",
+        reason: "Conflates control grouping with the supplying branch circuit.",
+      },
+    ],
+    affects: {
+      db: ["electrical_control_groups", "electrical_control_targets"],
+      ui: ["Switches & controls", "Control diagram"],
+      api: ["/api/v1/electrical/control-groups"],
+      export: ["control_group_id"],
+    },
+  },
+  {
+    id: "control_target",
+    canonical: "Control target (FarmOps)",
+    classification: "FARMOPS_OPERATIONAL",
+    necEdition: null,
+    necReference: null,
+    plain:
+      "The recorded object a control group operates: a light, fan, receptacle outlet, relay, " +
+      "contactor or other utilization equipment.",
+    necRelation:
+      "The target itself is normally utilization equipment or an outlet (NEC Art. 100). The " +
+      "target record is FarmOps bookkeeping of what was observed to be controlled.",
+    aliases: ["controlled load", "controlled equipment", "target"],
+    deprecated: [],
+    affects: {
+      db: ["electrical_control_targets"],
+      ui: ["Switches & controls"],
+      api: ["/api/v1/electrical/control-targets"],
+      export: ["target_kind"],
+    },
+  },
+  {
+    id: "feed_through_sequence",
+    canonical: "Feed-through sequence (FarmOps)",
+    classification: "FARMOPS_OPERATIONAL",
+    necEdition: null,
+    necReference: null,
+    plain:
+      "The recorded order in which devices are fed one from the next along the same branch " +
+      "circuit.",
+    necRelation:
+      "Describes recorded wiring order only. The NEC has no such object; the conductors are " +
+      "branch-circuit conductors (Art. 210).",
+    aliases: ["daisy chain", "downstream device sequence", "pass-through"],
+    deprecated: [
+      {
+        usage: "daisy chain",
+        instead: "feed-through sequence",
+        reason: "Informal; kept only as a searchable alias.",
+        aliasOnly: true,
+      },
+    ],
+    affects: {
+      db: ["electrical_control_wiring_segments"],
+      ui: ["Switches & controls", "Wiring"],
+      api: ["/api/v1/electrical/control-wiring-segments"],
+      export: ["conductor_function"],
+    },
+  },
 ];
 
 export const TERMS_BY_ID: Record<string, TermEntry> = Object.fromEntries(

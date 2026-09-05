@@ -20,6 +20,7 @@ import {
 } from "@/lib/electrical";
 import { diffFieldChanges, type FieldChange } from "@/lib/electrical-dependents";
 import { breakerRelationshipLabel } from "@/lib/electrical-breaker-reference";
+import { checkSwitchControlId } from "@/lib/electrical-switch-controls";
 
 /** JSON-safe value: server functions serialize these across the wire. */
 export type Json = string | number | boolean | null | Json[] | { [k: string]: Json };
@@ -259,7 +260,12 @@ export type AuditEntityKind =
   | "raceway"
   | "jbox"
   | "branch"
-  | "load";
+  | "load"
+  | "switch_bank"
+  | "switch_device"
+  | "control_group"
+  | "control_target"
+  | "control_wiring_segment";
 
 /** Apply order: parents before the records that reference them. */
 export const APPLY_ORDER: readonly AuditEntityKind[] = [
@@ -270,6 +276,11 @@ export const APPLY_ORDER: readonly AuditEntityKind[] = [
   "jbox",
   "branch",
   "load",
+  "switch_bank",
+  "control_group",
+  "switch_device",
+  "control_target",
+  "control_wiring_segment",
 ];
 
 const LOCATION_FIELDS = [
@@ -301,6 +312,8 @@ export interface EntityTarget {
   stableIdColumn: string | null;
   /** Entity kind used for stable-ID validation, when one applies. */
   idKind: ElectricalEntityKind | null;
+  /** Switch/control stable-ID family, when the kind uses one. */
+  switchIdKind?: "switch_bank" | "switch_device" | "control_group";
   /** Columns a field audit may ever write. Everything else is ODS-owned. */
   writable: readonly string[];
   /** Relational link columns (used to classify an item as LINK). */
@@ -419,7 +432,152 @@ export const AUDIT_ENTITY_TARGETS: Record<AuditEntityKind, EntityTarget> = {
     creatable: false,
     title: "Loads",
   },
+  // ---- Switching and control topology (FARMOPS-ELEC-SWITCH-CONTROL-V1) ----
+  // A switching device is never a load and a control group is never a circuit
+  // group. Raceway or cable presence never advances a device past planned, so
+  // component states are written individually from explicit observation.
+  switch_bank: {
+    table: "electrical_switch_banks",
+    stableIdColumn: "switch_bank_id",
+    idKind: null,
+    switchIdKind: "switch_bank",
+    writable: [
+      "description",
+      "building",
+      "location_note",
+      "enclosure_type",
+      "gang_count",
+      "installed_device_count",
+      "supplying_circuit_group_uuid",
+      "source_jbox_uuid",
+      "lifecycle_status",
+      "box_state",
+      "raceway_state",
+      "conductors_state",
+      "devices_state",
+      "termination_state",
+      "function_test_state",
+      "evidence",
+      "notes",
+      ...LOCATION_FIELDS,
+    ],
+    links: ["supplying_circuit_group_uuid", "source_jbox_uuid"],
+    creatable: true,
+    title: "Switch banks",
+  },
+  switch_device: {
+    table: "electrical_switch_devices",
+    stableIdColumn: "switch_device_id",
+    idKind: null,
+    switchIdKind: "switch_device",
+    writable: [
+      "description",
+      "switch_bank_uuid",
+      "gang_position",
+      "switch_type",
+      "poles",
+      "switching_arrangement",
+      "rated_voltage",
+      "rated_current_amps",
+      "supplying_circuit_group_uuid",
+      "control_group_uuid",
+      "is_disconnecting_means",
+      "disconnecting_means_verified",
+      "lifecycle_status",
+      "device_state",
+      "termination_state",
+      "function_test_state",
+      "design_only",
+      "evidence",
+      "notes",
+      "field_verification_status",
+    ],
+    links: ["switch_bank_uuid", "supplying_circuit_group_uuid", "control_group_uuid"],
+    creatable: true,
+    title: "Switching devices",
+  },
+  control_group: {
+    table: "electrical_control_groups",
+    stableIdColumn: "control_group_id",
+    idKind: null,
+    switchIdKind: "control_group",
+    writable: [
+      "description",
+      "building",
+      "control_method",
+      "expected_device_count",
+      "supplying_circuit_group_uuid",
+      "design_only",
+      "lifecycle_status",
+      "field_verification_status",
+      "evidence",
+      "notes",
+    ],
+    links: ["supplying_circuit_group_uuid"],
+    creatable: true,
+    title: "Control groups",
+  },
+  control_target: {
+    table: "electrical_control_targets",
+    stableIdColumn: null,
+    idKind: null,
+    writable: [
+      "control_group_uuid",
+      "target_kind",
+      "load_uuid",
+      "device_uuid",
+      "target_ref",
+      "target_note",
+      "design_only",
+      "field_verification_status",
+      "evidence",
+    ],
+    links: ["control_group_uuid", "load_uuid"],
+    creatable: true,
+    title: "Control targets",
+  },
+  control_wiring_segment: {
+    table: "electrical_control_wiring_segments",
+    stableIdColumn: "segment_id",
+    idKind: null,
+    writable: [
+      "description",
+      "supplying_circuit_group_uuid",
+      "raceway_uuid",
+      "branch_run_uuid",
+      "source_kind",
+      "source_switch_bank_uuid",
+      "source_jbox_uuid",
+      "source_panel_uuid",
+      "dest_kind",
+      "dest_switch_bank_uuid",
+      "dest_jbox_uuid",
+      "dest_load_uuid",
+      "cable_or_raceway_label",
+      "conductor_count",
+      // Conductor function is written only from tracing or testing; an observed
+      // marking is stored in observed_marking and never converted to a function.
+      "conductor_function",
+      "observed_marking",
+      "install_state",
+      "field_verification_status",
+      "evidence",
+      "notes",
+    ],
+    links: [
+      "supplying_circuit_group_uuid",
+      "source_switch_bank_uuid",
+      "source_jbox_uuid",
+      "source_panel_uuid",
+      "dest_switch_bank_uuid",
+      "dest_jbox_uuid",
+      "dest_load_uuid",
+    ],
+    creatable: true,
+    title: "Control wiring segments",
+  },
 };
+
 
 /**
  * Which columns this observation class may write. A temporary observation may
@@ -482,6 +640,10 @@ export const auditBatchItemSchema = z.object({
       load_ref: z.string().trim().max(80).nullish(),
       jbox_ref: z.string().trim().max(80).nullish(),
       raceway_ref: z.string().trim().max(80).nullish(),
+      switch_bank_ref: z.string().trim().max(80).nullish(),
+      source_switch_bank_ref: z.string().trim().max(80).nullish(),
+      dest_switch_bank_ref: z.string().trim().max(80).nullish(),
+      control_group_ref: z.string().trim().max(80).nullish(),
     })
     .default({}),
   observed_label: z.string().trim().max(120).nullish(),
@@ -929,6 +1091,13 @@ export function resolveLinks(
     ["load_uuid", item.refs?.load_ref, "load"],
     ["source_jbox_uuid", item.refs?.jbox_ref, "jbox"],
     ["raceway_uuid", item.refs?.raceway_ref, "raceway"],
+    // Switching and control topology.
+    ["supplying_circuit_group_uuid", item.refs?.circuit_group_ref, "circuit_group"],
+    ["switch_bank_uuid", item.refs?.switch_bank_ref, "switch_bank"],
+    ["source_switch_bank_uuid", item.refs?.source_switch_bank_ref, "switch_bank"],
+    ["dest_switch_bank_uuid", item.refs?.dest_switch_bank_ref, "switch_bank"],
+    ["dest_load_uuid", item.refs?.load_ref, "load"],
+    ["control_group_uuid", item.refs?.control_group_ref, "control_group"],
   ];
   for (const [column, ref, kind] of want) {
     if (!ref) continue;
@@ -1012,6 +1181,10 @@ export function classifyItem(item: AuditBatchItemInput, ctx: ClassifyContext): C
       });
       if (!check.ok) return holdResult(item, ctx, [err(check.error ?? "Invalid stable ID.")]);
       if (check.warning) messages.push(info(check.warning));
+    }
+    if (target.switchIdKind) {
+      const check = checkSwitchControlId(target.switchIdKind, stableId);
+      if (!check.ok) return holdResult(item, ctx, [err(check.error ?? "Invalid stable ID.")]);
     }
   }
 

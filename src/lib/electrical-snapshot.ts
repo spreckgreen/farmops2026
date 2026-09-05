@@ -15,8 +15,12 @@
 import { ENTITIES, type EntityField } from "@/lib/electrical-entities";
 import { relationsFor } from "@/lib/electrical-relations";
 import { FARMOPS_NATIVE_KINDS, type ElectricalEntityKind } from "@/lib/electrical";
+import {
+  buildSwitchControlRecords,
+  switchControlOwnership,
+} from "@/lib/electrical-switch-controls";
 
-export const SNAPSHOT_SCHEMA_VERSION = "1.2";
+export const SNAPSHOT_SCHEMA_VERSION = "1.3";
 
 export type FieldOwnership =
   | "engineering_design"
@@ -37,7 +41,12 @@ export type SnapshotCollection =
   | "panel_exits"
   | "equipment_racks"
   | "power_assets"
-  | "devices";
+  | "devices"
+  | "switch_banks"
+  | "switch_devices"
+  | "control_groups"
+  | "control_targets"
+  | "control_wiring_segments";
 
 /** Collection name for each entity kind. Stable part of the wire contract. */
 export const COLLECTION_FOR_KIND: Record<ElectricalEntityKind, SnapshotCollection> = {
@@ -68,6 +77,11 @@ export const SNAPSHOT_COLLECTIONS: SnapshotCollection[] = [
   "equipment_racks",
   "power_assets",
   "devices",
+  "switch_banks",
+  "switch_devices",
+  "control_groups",
+  "control_targets",
+  "control_wiring_segments",
 ];
 
 
@@ -119,7 +133,15 @@ export interface ElectricalSnapshot {
   equipment_racks: SnapshotRecord[];
   power_assets: SnapshotRecord[];
   devices: SnapshotRecord[];
-
+  /**
+   * Switching and control topology (schema 1.3). Switch banks and switching
+   * devices are never loads, and a control group is never a circuit group.
+   */
+  switch_banks: SnapshotRecord[];
+  switch_devices: SnapshotRecord[];
+  control_groups: SnapshotRecord[];
+  control_targets: SnapshotRecord[];
+  control_wiring_segments: SnapshotRecord[];
 }
 
 export type RawRow = Record<string, unknown>;
@@ -131,6 +153,12 @@ export interface SnapshotInput {
   /** Phase 4.3 child collections; optional so older callers keep compiling. */
   breakerPositions?: RawRow[];
   panelExits?: RawRow[];
+  /** Schema 1.3 switch/control collections; optional for older callers. */
+  switchBanks?: RawRow[];
+  switchDevices?: RawRow[];
+  controlGroups?: RawRow[];
+  controlTargets?: RawRow[];
+  controlWiringSegments?: RawRow[];
   qa?: SnapshotQaFinding[];
 }
 
@@ -429,6 +457,24 @@ export function buildElectricalSnapshot(input: SnapshotInput): ElectricalSnapsho
     .map((row) => buildPanelExitRecord(row, indexes.panel, indexes.raceway))
     .sort(compareRecords);
 
+  collections.switch_banks = buildSwitchControlRecords("switch_banks", input.switchBanks ?? []);
+  collections.switch_devices = buildSwitchControlRecords(
+    "switch_devices",
+    input.switchDevices ?? [],
+  );
+  collections.control_groups = buildSwitchControlRecords(
+    "control_groups",
+    input.controlGroups ?? [],
+  );
+  collections.control_targets = buildSwitchControlRecords(
+    "control_targets",
+    input.controlTargets ?? [],
+  );
+  collections.control_wiring_segments = buildSwitchControlRecords(
+    "control_wiring_segments",
+    input.controlWiringSegments ?? [],
+  );
+
   const counts = {} as Record<SnapshotCollection, number>;
   const ownership = {} as Record<SnapshotCollection, Record<string, FieldOwnership>>;
   for (const collection of SNAPSHOT_COLLECTIONS) {
@@ -438,6 +484,11 @@ export function buildElectricalSnapshot(input: SnapshotInput): ElectricalSnapsho
   ownership.raceway_waypoints = WAYPOINT_OWNERSHIP;
   ownership.panel_breaker_positions = BREAKER_POSITION_OWNERSHIP;
   ownership.panel_exits = PANEL_EXIT_OWNERSHIP;
+  ownership.switch_banks = switchControlOwnership("switch_banks");
+  ownership.switch_devices = switchControlOwnership("switch_devices");
+  ownership.control_groups = switchControlOwnership("control_groups");
+  ownership.control_targets = switchControlOwnership("control_targets");
+  ownership.control_wiring_segments = switchControlOwnership("control_wiring_segments");
 
   const findings = [...(input.qa ?? [])].sort(
     (a, b) =>
@@ -474,7 +525,11 @@ export function buildElectricalSnapshot(input: SnapshotInput): ElectricalSnapsho
     equipment_racks: collections.equipment_racks ?? [],
     power_assets: collections.power_assets ?? [],
     devices: collections.devices ?? [],
-
+    switch_banks: collections.switch_banks ?? [],
+    switch_devices: collections.switch_devices ?? [],
+    control_groups: collections.control_groups ?? [],
+    control_targets: collections.control_targets ?? [],
+    control_wiring_segments: collections.control_wiring_segments ?? [],
   };
 }
 
