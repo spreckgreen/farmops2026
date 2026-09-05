@@ -112,12 +112,12 @@ never edited to satisfy a numeric column.
 | `electrical_branch_circuits.voltage` | `numeric` (nullable) | no |
 | `electrical_loads.volts` | `numeric` (nullable) | single utilization voltage — appropriate as-is |
 
-Panel/feeder/branch voltage describes a **system**, so a scalar column is the
+Panel/feeder/branch-run voltage describes a **system**, so a scalar column is the
 wrong shape. Load `volts` describes one utilization voltage and stays scalar.
 
 ### Implemented representation (`src/lib/electrical-system-voltage.ts`)
 
-Panel/feeder/circuit-group/branch/service-configuration `voltage` carries
+Panel/feeder/circuit-group/branch-run/service-configuration `voltage` carries
 **system-designation** semantics; `electrical_loads.volts` stays a
 **utilization scalar** and power-asset/device voltages stay nameplate scalars
 (`VOLTAGE_FIELD_SEMANTICS`). A designation preserves every component:
@@ -195,7 +195,7 @@ are never written. Apply additionally requires `confirm: true` **and** the row's
 explicit approval key `electrical_panels|<PNL-ID>|system_voltage`.
 
 Out of scope and never modified: panel IDs, service identities/revisions,
-feeder/branch topology, breaker positions, loads, the canonical ODS, Boolean
+feeder/branch-run topology, breaker positions, loads, the canonical ODS, Boolean
 reconciliation, House field observations and every unrelated numeric field.
 
 ### Post-apply validation

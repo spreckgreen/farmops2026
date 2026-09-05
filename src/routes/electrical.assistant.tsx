@@ -537,6 +537,19 @@ function Assistant() {
             ) : (
               <pre className="whitespace-pre-wrap break-words text-sm">{answer.answer}</pre>
             )}
+            {answer.terminologyNotes && answer.terminologyNotes.length > 0 ? (
+              <div className="mt-3 rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-100">
+                <p className="font-medium">Wording note</p>
+                <ul className="mt-1 list-disc pl-4">
+                  {answer.terminologyNotes.map((n, i) => (
+                    <li key={i}>
+                      The answer says &ldquo;{n.matched}&rdquo;. The term used in this record is{" "}
+                      {n.instead}. {n.reason}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
           </CardContent>
         </Card>
       ) : null}

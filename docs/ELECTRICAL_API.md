@@ -267,3 +267,24 @@ fingerprint; `FA-FS-2026-09-03-PM-R3-METADATA` reconciles only the omitted
 lifecycle, shared/dedicated and explicit location metadata for its 20
 field-confirmed loads and recreates no circuit group, breaker position or load
 relationship.
+
+
+## Terminology and code of record (registry electrical.terminology.v1)
+
+Every schema description in this API follows the electrical terminology registry
+(`src/lib/electrical-terminology.ts`). NEC-defined objects use NEC wording — panelboard, service
+equipment, feeder, branch circuit, OCPD, circuit breaker, outlet, receptacle, receptacle outlet,
+junction box, device box, raceway, cable, conductor, grounded conductor, EGC, GEC, disconnecting
+means, load, utilization equipment.
+
+FarmOps operational objects are **not** NEC-defined and are named as such in descriptions:
+`circuit_group` (logical grouping normally representing one breaker-protected branch circuit),
+`branch_run` / run segment (physical routing subordinate to a branch circuit), install stages
+(`planned`, `material_ready`, … `complete`, `as_built_verified`), audit batches, `pole_grid` and
+`grid_reference`. Install stages are project states, never NEC installation classifications.
+
+Code of record: NEC 2023 (NFPA 70). Jurisdiction and local amendments are recorded with the
+registry and may change definitions. FarmOps does not determine code compliance; final
+interpretation and installation acceptance remain with the licensed electrician and the authority
+having jurisdiction. Field names, enum values and stable IDs are contract surface and are never
+renamed because a display term changes.

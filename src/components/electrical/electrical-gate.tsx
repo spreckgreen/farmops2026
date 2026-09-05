@@ -77,6 +77,7 @@ function navGroups(): NavGroup[] {
         { label: "Nameplate scan", to: "/electrical/nameplate-scan", section: "nameplate_scan" },
         { label: "Change log", to: "/electrical/changes", section: "changes" },
         { label: "Standards", to: "/electrical/standards" },
+        { label: "Terminology", to: "/electrical/terminology" },
       ],
     },
     {

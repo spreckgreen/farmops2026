@@ -218,7 +218,7 @@ Supported power asset types: `AC_DC_POWER_SUPPLY`, `UPS`, `PDU`,
 Both levels are preserved on each record: a device stores its *immediate* power
 source (`power_asset_uuid`) and, separately, its upstream electrical source
 (`circuit_group_uuid` / `load_uuid`). Several devices may share one power asset,
-and they are never modelled as independently connected to the upstream branch
+and they are never modelled as independently connected to the upstream branch circuit
 circuit, so failure domains stay computable. A power asset can itself be fed by
 another power asset (`upstream_power_asset_uuid`), e.g. a PDU on a UPS.
 

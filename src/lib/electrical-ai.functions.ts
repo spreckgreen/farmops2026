@@ -11,6 +11,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { TERMINOLOGY_PROMPT_RULES } from "@/lib/electrical-terminology";
+import { scanAiAnswer } from "@/lib/electrical-terminology-audit";
 import { hasAddon } from "@/lib/addons.server";
 import { isAdminRole } from "@/lib/admin-role.server";
 import { electricalAccess } from "@/lib/electrical-access";
@@ -176,6 +178,14 @@ export interface ElectricalAiAnswer {
   answer: string;
   /** Records actually put in front of the model, so the answer is auditable. */
   contextCounts: Record<string, number>;
+  /** Non-canonical wording found in the generated answer, shown to the reader. */
+  terminologyNotes?: {
+    matched: string;
+    canonical: string;
+    instead: string;
+    reason: string;
+  }[];
+
   /** Nameplate scenario only: the transcribed draft fields for confirmation. */
   nameplate?: NameplateField[];
   latencyMs: number;
@@ -282,6 +292,8 @@ export const runElectricalAiScenario = createServerFn({ method: "POST" })
             : "") + contextBlock;
       }
 
+      const terminologyRules = " " + TERMINOLOGY_PROMPT_RULES + " ";
+
       const loadFirstRules =
         "Most questions here are one of three kinds: (a) a LOAD question ('which panel are the " +
         "mini-splits on', 'what feeds the freezer'), (b) a PANEL/topology question, or (c) a TRACE " +
@@ -297,7 +309,8 @@ export const runElectricalAiScenario = createServerFn({ method: "POST" })
         "panels serving that area listed as candidates only) and name the field that must be filled to " +
         "close the path. Never invent an assignment, rating or route. " +
         "If the answer set is empty, say which equipment term you searched for and that no load row " +
-        "matches it — do not fall back to describing other records.";
+        "matches it — do not fall back to describing other records." +
+        terminologyRules;
 
       system =
         def.id === "panel_qa"
@@ -484,6 +497,14 @@ export const runElectricalAiScenario = createServerFn({ method: "POST" })
       model: run.modelId,
       backend: run.backend,
       answer,
+      // Generated wording is checked against the terminology registry so a
+      // reader is told when the model used a non-canonical term.
+      terminologyNotes: scanAiAnswer(answer).map((f) => ({
+        matched: f.matched,
+        canonical: f.canonical,
+        instead: f.instead,
+        reason: f.reason,
+      })),
       contextCounts,
       ...(def.input === "photo"
         ? { nameplate: nameplateFields(parseNameplateDraft(run.value)) }

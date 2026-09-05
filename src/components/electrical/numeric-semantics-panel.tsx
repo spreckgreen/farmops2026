@@ -286,7 +286,7 @@ export function NumericSemanticsPanel({
               </span>
             </p>
             <p className="pt-1 text-xs text-muted-foreground">
-              Panel/feeder/branch voltage is a <em>system designation</em> (two nominal
+              Panel/feeder/branch-run voltage is a <em>system designation</em> (two nominal
               voltages plus phase and wire configuration); a load voltage stays a single
               utilization scalar. Below is each affected record&apos;s current representation next
               to the proposed <code>{diag.system_voltage_preview.proposed_column}</code>{" "}

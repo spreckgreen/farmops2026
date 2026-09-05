@@ -233,8 +233,8 @@ export function EntityManager({
     enabled: relationKinds.length > 0 && Boolean(editing),
   });
 
-  // Branch IDs inherit the junction box they originate from (BR-104-02-03), so a
-  // new branch is renumbered as soon as its origin box is chosen.
+  // Branch run IDs inherit the junction box they originate from (BR-104-02-03), so a
+  // new branch run is renumbered as soon as its origin box is chosen.
   const creating = Boolean(editing && !editing.row);
   const originJboxUuid = kind === "branch" ? String(values["source_jbox_uuid"] ?? "") : "";
   useEffect(() => {

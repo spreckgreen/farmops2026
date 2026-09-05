@@ -108,7 +108,7 @@ const COLLECTION_PURPOSE: Record<SnapshotCollection, [string, string]> = {
     "Pull-point documentation and box-fill checks.",
   ],
   branch_runs: [
-    "Branch conductor runs (BR-*) between endpoints.",
+    "Branch runs — branch-circuit conductor routing (BR-*) between endpoints.",
     "Home-run schedules and conductor documentation.",
   ],
   panel_breaker_positions: [

@@ -3,6 +3,7 @@
 // page and the critical-load study use, so a tap in the field shows up everywhere.
 import { createFileRoute } from "@tanstack/react-router";
 import { ClipboardCheck } from "lucide-react";
+import { TermHint } from "@/components/electrical/term-hint";
 import { ElectricalGate } from "@/components/electrical/electrical-gate";
 import { AuditSheet } from "@/components/electrical/audit-sheet";
 
@@ -45,6 +46,14 @@ function AuditSheetPage() {
             </div>
           </div>
         </header>
+        <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+          Terms used on this sheet:
+          <TermHint id="circuit_group" />
+          <TermHint id="branch_run" />
+          <TermHint id="material_ready" />
+          <TermHint id="complete" />
+          <TermHint id="as_built_verified" />
+        </p>
         <AuditSheet />
       </div>
     </ElectricalGate>

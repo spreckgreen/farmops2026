@@ -91,7 +91,7 @@ export function IdRepairReport() {
             ) : null}
             {plan.dependents.length ? (
               <div className="space-y-1">
-                <p className="font-medium">Dependent references to corrected branch IDs</p>
+                <p className="font-medium">Dependent references to corrected branch run IDs</p>
                 {plan.dependents.map((r, i) => (
                   <div key={`${r.table}-${r.id}-${r.field}-${i}`} className="rounded-md border border-border p-2">
                     <span className="font-mono">{r.stable_id}</span>{" "}

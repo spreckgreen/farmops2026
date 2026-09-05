@@ -130,7 +130,7 @@ recomputed, never stored.
 | Junction_Boxes | JBox ID | Directly mapped | electrical_junction_boxes.jbox_id | engineering_design | JB-###-## hierarchical convention; legacy shapes kept with a warning and never renamed. | complete |
 | Junction_Boxes | Raceway path / parent conduit | Directly mapped | Encoded in the JB ID and validated against linked raceways | engineering_design | QA reports encoded_parent_mismatch when the encoded path disagrees with the linked raceway. | complete |
 | Junction_Boxes | Size / type / grid / notes | Directly mapped | electrical_junction_boxes.box_size, box_type, grid, notes | engineering_design | Verbatim text; grid validated. | complete |
-| Branch_Runs | Branch ID | Directly mapped | electrical_branch_runs.branch_id | engineering_design | BR-###-##-## convention inheriting the originating J-box; legacy IDs preserved. | complete |
+| Branch_Runs | Branch run ID | Directly mapped | electrical_branch_runs.branch_id | engineering_design | BR-###-##-## convention inheriting the originating J-box; legacy IDs preserved. | complete |
 | Branch_Runs | Origin (panel / J-box) | Directly mapped | electrical_branch_runs.source_panel_uuid / source_jbox_uuid | shared | FK is authoritative; the encoded origin is cross-checked in QA. | complete |
 | Branch_Runs | Served load / circuit group | Directly mapped | electrical_branch_runs.load_uuid / circuit_group_uuid | engineering_design | Exact-match FK resolution only. | complete |
 | Branch_Runs | Wiring method / conductor size / length | Directly mapped | electrical_branch_runs.wiring_method, conductor_size, planned_length_ft, measured_length_ft | shared | Measured length is FarmOps-owned. | complete |
