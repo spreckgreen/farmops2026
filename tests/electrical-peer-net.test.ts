@@ -77,7 +77,7 @@ describe("resolved-address enforcement", () => {
 });
 
 describe("peerFetch", () => {
-  it("disables redirects and checks the resolved address first", async () => {
+  it("does not follow redirects and checks the resolved address first", async () => {
     const doFetch = vi.fn(async () => new Response("{}"));
     await peerFetch(
       new URL("https://peer.example.com/x"),
@@ -87,7 +87,21 @@ describe("peerFetch", () => {
     );
     expect(doFetch).toHaveBeenCalledTimes(1);
     const init = doFetch.mock.calls[0]![1] as RequestInit;
-    expect(init.redirect).toBe("error");
+    // "error" is rejected by the serverless runtime, so the fetch uses
+    // "manual" and refuses any 3xx itself.
+    expect(init.redirect).toBe("manual");
+  });
+
+  it("refuses a redirected peer response instead of following it", async () => {
+    const doFetch = vi.fn(async () => new Response(null, { status: 302 }));
+    await expect(
+      peerFetch(
+        new URL("https://peer.example.com/x"),
+        { method: "GET" },
+        async () => ["203.0.114.9"],
+        doFetch as unknown as typeof fetch,
+      ),
+    ).rejects.toThrow(/redirected/i);
   });
 
   it("never fetches when the host resolves privately", async () => {

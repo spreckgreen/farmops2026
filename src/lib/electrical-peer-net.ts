@@ -6,7 +6,9 @@
 //   1. requires https and an absolute URL,
 //   2. rejects loopback / private / link-local / reserved literal hosts,
 //   3. resolves the hostname and rejects the same ranges in the ANSWER, and
-//   4. fetches with `redirect: "error"` so a 302 cannot escape the checks.
+//   4. fetches with `redirect: "manual"` and refuses any 3xx itself, so a 302
+//      cannot escape the checks. (The serverless runtime rejects
+//      `redirect: "error"` outright, so it must not be used.)
 
 export interface AddressVerdict {
   blocked: boolean;
@@ -114,10 +116,12 @@ async function queryDoh(endpoint: string, hostname: string): Promise<string[]> {
       `${endpoint}?name=${encodeURIComponent(hostname)}&type=${type}`,
       {
         headers: { accept: "application/dns-json" },
-        redirect: "error",
+        redirect: "manual",
         signal: AbortSignal.timeout(DOH_TIMEOUT_MS),
       },
     );
+    // A redirected resolver answer is not trusted; treat it as no answer.
+    if (res.status >= 300 && res.status < 400) continue;
     if (!res.ok) continue;
     anyAnswered = true;
     const body = (await res.json()) as { Answer?: { type?: number; data?: string }[] };
@@ -190,7 +194,11 @@ export async function assertResolvedHostAllowed(
   return addresses;
 }
 
-/** Fetch a peer URL with redirects disabled and resolved-address checks applied. */
+/**
+ * Fetch a peer URL with redirects refused and resolved-address checks applied.
+ * `redirect: "manual"` is used because the serverless runtime rejects
+ * `redirect: "error"`; any 3xx is turned into an explicit failure here.
+ */
 export async function peerFetch(
   url: URL,
   init: RequestInit,
@@ -198,5 +206,11 @@ export async function peerFetch(
   doFetch: typeof fetch = fetch,
 ): Promise<Response> {
   await assertResolvedHostAllowed(url.hostname, resolve);
-  return doFetch(url, { ...init, redirect: "error" });
+  const res = await doFetch(url, { ...init, redirect: "manual" });
+  if (res.status >= 300 && res.status < 400) {
+    throw new Error(
+      `Peer instance redirected the request (HTTP ${res.status}); the pull was refused rather than followed to an unverified address.`,
+    );
+  }
+  return res;
 }
