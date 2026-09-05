@@ -324,16 +324,18 @@ export function ownerScopedDb(admin: unknown, ownerUserId: string) {
  * cross it.
  */
 export async function fetchOwnedBatchItems(
-  db: LooseDb,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  db: any,
   batchId: string,
   columns = "*",
+  parentColumns = "id, batch_id",
 ): Promise<
   | { ok: true; batch: Record<string, unknown>; items: Record<string, unknown>[] }
   | { ok: false; reason: "not_found" | "query_failed"; message: string }
 > {
   const parent = await db
     .from("electrical_audit_batches")
-    .select("id, batch_id")
+    .select(parentColumns)
     .eq("batch_id", batchId)
     .maybeSingle();
   if (parent.error) {
@@ -341,12 +343,12 @@ export async function fetchOwnedBatchItems(
   }
   if (!parent.data) return { ok: false, reason: "not_found", message: `No field-audit batch "${batchId}".` };
   const parentRow = parent.data as Record<string, unknown>;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const raw = (db as any).__admin ?? db;
-  const items = await raw
-    .from("electrical_audit_batch_items")
-    .select(columns)
-    .eq("batch_uuid", String(parentRow["id"]));
+  const items = await db.childOfOwnedParent(
+    "electrical_audit_batch_items",
+    "batch_uuid",
+    String(parentRow["id"]),
+    columns,
+  );
   if (items.error) {
     return { ok: false, reason: "query_failed", message: String(items.error.message ?? items.error) };
   }
