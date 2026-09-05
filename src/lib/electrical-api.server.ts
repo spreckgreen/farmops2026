@@ -250,26 +250,94 @@ async function loadServicePrincipal(token: string): Promise<
  * owner's `user_id`, and every insert is stamped with it, so a key can never
  * read or touch another household's electrical records.
  */
+/**
+ * Not every electrical table names its owner `user_id`. Tables listed here are
+ * scoped by their real owner column; tables with NO owner column at all are
+ * listed as `null` and can only be reached through an owner-scoped parent.
+ */
+export const OWNER_COLUMN_BY_TABLE: Record<string, string | null> = {
+  electrical_audit_batches: "created_by",
+  // Items belong to their batch; ownership lives on the parent row only.
+  electrical_audit_batch_items: null,
+};
+
+export function ownerColumnFor(table: string): string | null {
+  return table in OWNER_COLUMN_BY_TABLE ? OWNER_COLUMN_BY_TABLE[table]! : "user_id";
+}
+
 export function ownerScopedDb(admin: unknown, ownerUserId: string) {
   const db = admin as unknown as LooseDb;
-  const stamp = (values: unknown) =>
+  const stamp = (column: string, values: unknown) =>
     Array.isArray(values)
-      ? values.map((v) => ({ ...(v as Record<string, unknown>), user_id: ownerUserId }))
-      : { ...(values as Record<string, unknown>), user_id: ownerUserId };
+      ? values.map((v) => ({ ...(v as Record<string, unknown>), [column]: ownerUserId }))
+      : { ...(values as Record<string, unknown>), [column]: ownerUserId };
   return {
     from(table: string) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const b = (db as any).from(table);
+      const column = ownerColumnFor(table);
+      if (column === null) {
+        // Ownership cannot be expressed on this table. Refuse an unscoped
+        // service-role read outright; callers must resolve the owner-scoped
+        // parent batch first and query by its batch_uuid.
+        const refuse = () => {
+          throw new Error(
+            `${table} has no owner column; resolve an owner-scoped parent row and query by its foreign key instead.`,
+          );
+        };
+        return {
+          select: refuse,
+          insert: refuse,
+          upsert: refuse,
+          update: refuse,
+          delete: refuse,
+        };
+      }
       return {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        select: (...args: any[]) => b.select(...args).eq("user_id", ownerUserId),
-        insert: (values: unknown) => b.insert(stamp(values)),
-        upsert: (values: unknown, opts?: unknown) => b.upsert(stamp(values), opts),
-        update: (values: unknown) => b.update(values).eq("user_id", ownerUserId),
-        delete: () => b.delete().eq("user_id", ownerUserId),
+        select: (...args: any[]) => b.select(...args).eq(column, ownerUserId),
+        insert: (values: unknown) => b.insert(stamp(column, values)),
+        upsert: (values: unknown, opts?: unknown) => b.upsert(stamp(column, values), opts),
+        update: (values: unknown) => b.update(values).eq(column, ownerUserId),
+        delete: () => b.delete().eq(column, ownerUserId),
       };
     },
   };
+}
+
+/**
+ * Fetch audit-batch items only through an owner-scoped parent batch. The parent
+ * lookup carries the ownership boundary (`batch_id` + owner), so items can never
+ * cross it.
+ */
+export async function fetchOwnedBatchItems(
+  db: LooseDb,
+  batchId: string,
+  columns = "*",
+): Promise<
+  | { ok: true; batch: Record<string, unknown>; items: Record<string, unknown>[] }
+  | { ok: false; reason: "not_found" | "query_failed"; message: string }
+> {
+  const parent = await db
+    .from("electrical_audit_batches")
+    .select("id, batch_id")
+    .eq("batch_id", batchId)
+    .maybeSingle();
+  if (parent.error) {
+    return { ok: false, reason: "query_failed", message: String(parent.error.message ?? parent.error) };
+  }
+  if (!parent.data) return { ok: false, reason: "not_found", message: `No field-audit batch "${batchId}".` };
+  const parentRow = parent.data as Record<string, unknown>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const raw = (db as any).__admin ?? db;
+  const items = await raw
+    .from("electrical_audit_batch_items")
+    .select(columns)
+    .eq("batch_uuid", String(parentRow["id"]));
+  if (items.error) {
+    return { ok: false, reason: "query_failed", message: String(items.error.message ?? items.error) };
+  }
+  return { ok: true, batch: parentRow, items: (items.data ?? []) as Record<string, unknown>[] };
 }
 
 
