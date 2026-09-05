@@ -467,7 +467,10 @@ export const rejectElectricalAuditBatch = createServerFn({ method: "POST" })
 export interface PeerPullResult {
   peer: { base_url: string; batch_id: string; status: string | null; applied_at: string | null };
   checksum: { peer_stored: string | null; peer_recomputed: string | null; matches: boolean };
-  preview: AuditBatchPreview;
+  /** Absent when the pull was refused; `error` then explains why. Nothing is staged. */
+  preview: AuditBatchPreview | null;
+  /** Human-readable refusal reason; null on a successful pull. */
+  error: string | null;
 }
 
 /**
@@ -512,9 +515,17 @@ export async function fetchPeerManifest(
     throw new Error("Peer instance could not be reached.");
   }
   if (!res.ok) {
-    throw new Error(
-      `Peer instance refused the manifest export (HTTP ${res.status}). Check the batch ID and that the token carries electrical:audit-batches:read.`,
-    );
+    if (res.status === 404) {
+      throw new Error(
+        `The peer instance has no field-audit batch "${batchId}" to export (HTTP 404). Check the batch ID exactly as it is stored there — its own batch list at /api/v1/electrical/audit-batches shows the available IDs — and make sure the peer is running a build that serves the manifest endpoint.`,
+      );
+    }
+    if (res.status === 401 || res.status === 403) {
+      throw new Error(
+        `The peer instance rejected this key (HTTP ${res.status}). Register the key there and grant it electrical:audit-batches:read.`,
+      );
+    }
+    throw new Error(`Peer instance refused the manifest export (HTTP ${res.status}).`);
   }
   const body = (await res.json()) as Record<string, unknown>;
   const manifest = body["manifest"];
@@ -589,7 +600,20 @@ export const pullPeerAuditBatch = createServerFn({ method: "POST" })
     await requireElectricalAccess(context.supabase, context.userId, "write");
     await requireAdminRole(context.supabase, context.userId);
 
-    const fetched = await fetchPeerManifest(data.peer_base_url, data.batch_id, data.peer_token);
+    // A refusal by the peer (missing batch, wrong scope, unreachable) is an
+    // expected operator condition, not a crash: report it so the panel can show
+    // the reason instead of the page failing on an RPC exception.
+    let fetched: PeerManifestFetch;
+    try {
+      fetched = await fetchPeerManifest(data.peer_base_url, data.batch_id, data.peer_token);
+    } catch (e) {
+      return {
+        peer: { base_url: data.peer_base_url, batch_id: data.batch_id, status: null, applied_at: null },
+        checksum: { peer_stored: null, peer_recomputed: null, matches: false },
+        preview: null,
+        error: e instanceof Error ? e.message : "The peer instance could not be reached.",
+      };
+    }
     const preview = await stageManifestText(context, JSON.stringify(fetched.manifest), {
       source_note: `pulled from peer ${fetched.origin} on ${new Date().toISOString()} (peer status ${fetched.status ?? "unknown"})`,
     });
@@ -621,6 +645,7 @@ export const pullPeerAuditBatch = createServerFn({ method: "POST" })
         matches: !fetched.peer_stored || fetched.peer_stored === fetched.local_checksum,
       },
       preview,
+      error: null,
     };
   });
 
