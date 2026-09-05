@@ -31,6 +31,15 @@ function outcomeVariant(outcome: Outcome): "secondary" | "destructive" | "outlin
   return "outline";
 }
 
+// The saved value is bounded server-side (1-10). Clamp here so an out-of-range
+// entry is corrected in place instead of surfacing a validation crash.
+function clampLimit(raw: string): number {
+  const n = Number.parseInt(raw, 10);
+  if (!Number.isFinite(n) || n < 1) return 1;
+  return Math.min(n, 10);
+}
+
+
 export function PeerSyncPanel() {
   const readState = useServerFn(getPeerSyncState);
   const save = useServerFn(savePeerSyncConfig);
