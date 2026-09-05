@@ -11,6 +11,13 @@ function str(v: unknown): string {
 }
 
 import { breakerDisplay } from "@/lib/electrical-breaker-reference";
+import {
+  LOGICAL_PANEL_CAPTION,
+  isLogicalPanel,
+  logicalPanelMermaidLines,
+  logicalPanelSummaries,
+  type LogicalPanelSummary,
+} from "@/lib/electrical-logical-panel";
 
 export const NOT_IN_RECORD = "NOT IN RECORD";
 
@@ -70,7 +77,14 @@ export interface DiagramPanel {
 }
 
 export interface PanelDiagram {
+  /** PHYSICAL panelboards only. Logical panels never appear here. */
   panels: DiagramPanel[];
+  /**
+   * Logical panels (critical-load / load-shedding groupings), derived from
+   * their member circuits on the hosting physical panel. Never counted in
+   * `totals`, because that would double count the same circuits.
+   */
+  logicalPanels: LogicalPanelSummary[];
   /** Loads with no resolvable panel: the honest "not connected yet" bucket. */
   unassignedLoads: DiagramLoad[];
   /** Circuit groups whose panel_uuid does not resolve. */
@@ -305,6 +319,7 @@ export function buildPanelDiagram(rawInput: PanelDiagramInput): PanelDiagram {
   };
 
   const panels: DiagramPanel[] = input.panels
+    .filter((panel) => !isLogicalPanel(panel))
     .map((panel) => {
       const panelCircuits = (circuitsByPanel.get(str(panel.id)) ?? []).sort((a, b) =>
         a.id.localeCompare(b.id, undefined, { numeric: true }),
@@ -374,6 +389,12 @@ export function buildPanelDiagram(rawInput: PanelDiagramInput): PanelDiagram {
 
   return {
     panels,
+    logicalPanels: logicalPanelSummaries({
+      panels: input.panels,
+      loads: input.loads,
+      circuitGroups: input.circuitGroups,
+      positions: input.positions,
+    }),
     unassignedLoads: unassigned.sort((a, b) =>
       a.id.localeCompare(b.id, undefined, { numeric: true }),
     ),
@@ -431,8 +452,15 @@ const key = (prefix: string, value: string): string =>
 
 const label = (value: string): string => value.replace(/["<>|]/g, " ").trim();
 
-/** Mermaid flowchart for one panel: feeder → panel → breaker/circuit → load. */
-export function panelMermaid(panel: DiagramPanel): string {
+/**
+ * Mermaid flowchart for one panel: feeder → panel → breaker/circuit → load.
+ * Logical panels assigned to this panel are drawn as a DASHED grouping beside
+ * it — never as a second panelboard, bus or feeder.
+ */
+export function panelMermaid(
+  panel: DiagramPanel,
+  logicalPanels: LogicalPanelSummary[] = [],
+): string {
   const lines: string[] = ["flowchart LR"];
   const panelNode = key("PNL", panel.id);
   const panelText = [
@@ -500,8 +528,15 @@ export function panelMermaid(panel: DiagramPanel): string {
     lines.push(`  NOTHING["nothing linked to this panel yet"]`);
     lines.push(`  ${panelNode} -.-> NOTHING`);
   }
+
+  const hosted = logicalPanels.filter((lp) => lp.hostPhysicalPanel === panel.id);
+  if (hosted.length > 0) {
+    for (const lp of hosted) lines.push(...logicalPanelMermaidLines(lp, panelNode));
+    lines.push(`  %% ${LOGICAL_PANEL_CAPTION}`);
+  }
   return lines.join("\n");
 }
+
 
 export interface PanelReading {
   /** What the record proves today, in sentences. */

@@ -93,9 +93,23 @@ export function ringCameraLocationDescription(d: RingCameraDesign): string {
   );
 }
 
-/** The exact planned-design field set for one camera. */
-export function ringCameraDesignFields(d: RingCameraDesign): Record<string, unknown> {
+/**
+ * The exact planned-design field set for one camera.
+ *
+ * `logicalPanelUuid` is the UUID of the LOGICAL panel PNL-FS-CRIT. The physical
+ * proposed source (`suggested_panel` = PNL-FS-NE) and the logical assignment
+ * (`logical_panel_*` = PNL-FS-CRIT) are separate fields, so both coexist.
+ */
+export function ringCameraDesignFields(
+  d: RingCameraDesign,
+  opts: { logicalPanelUuid?: string | null } = {},
+): Record<string, unknown> {
+  const logical: Record<string, unknown> = {
+    logical_panel_ref: RING_CAMERA_LOGICAL_PANEL_TOKEN,
+  };
+  if (opts.logicalPanelUuid) logical["logical_panel_uuid"] = opts.logicalPanelUuid;
   return {
+    ...logical,
     location: ringCameraLocationDescription(d),
     design_location_source: RING_CAMERA_LOCATION_SOURCE,
     corner_reference: d.corner,

@@ -1108,6 +1108,8 @@ export type Database = {
           install_status: string
           label_status: string
           load_shed_group: string | null
+          logical_panel_ref: string | null
+          logical_panel_uuid: string | null
           notes: string | null
           ods_extras: string | null
           panel_uuid: string | null
@@ -1138,6 +1140,8 @@ export type Database = {
           install_status?: string
           label_status?: string
           load_shed_group?: string | null
+          logical_panel_ref?: string | null
+          logical_panel_uuid?: string | null
           notes?: string | null
           ods_extras?: string | null
           panel_uuid?: string | null
@@ -1168,6 +1172,8 @@ export type Database = {
           install_status?: string
           label_status?: string
           load_shed_group?: string | null
+          logical_panel_ref?: string | null
+          logical_panel_uuid?: string | null
           notes?: string | null
           ods_extras?: string | null
           panel_uuid?: string | null
@@ -1178,6 +1184,13 @@ export type Database = {
           voltage?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "electrical_circuit_groups_logical_panel_uuid_fkey"
+            columns: ["logical_panel_uuid"]
+            isOneToOne: false
+            referencedRelation: "electrical_panels"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "electrical_circuit_groups_panel_uuid_fkey"
             columns: ["panel_uuid"]
@@ -2240,6 +2253,8 @@ export type Database = {
           location_evidence: string | null
           location_x_ft: number | null
           location_y_ft: number | null
+          logical_panel_ref: string | null
+          logical_panel_uuid: string | null
           maximum_overcurrent_protection: number | null
           minimum_circuit_ampacity: number | null
           mounting_classification: string | null
@@ -2327,6 +2342,8 @@ export type Database = {
           location_evidence?: string | null
           location_x_ft?: number | null
           location_y_ft?: number | null
+          logical_panel_ref?: string | null
+          logical_panel_uuid?: string | null
           maximum_overcurrent_protection?: number | null
           minimum_circuit_ampacity?: number | null
           mounting_classification?: string | null
@@ -2414,6 +2431,8 @@ export type Database = {
           location_evidence?: string | null
           location_x_ft?: number | null
           location_y_ft?: number | null
+          logical_panel_ref?: string | null
+          logical_panel_uuid?: string | null
           maximum_overcurrent_protection?: number | null
           minimum_circuit_ampacity?: number | null
           mounting_classification?: string | null
@@ -2455,6 +2474,13 @@ export type Database = {
             columns: ["circuit_group_uuid"]
             isOneToOne: false
             referencedRelation: "electrical_circuit_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "electrical_loads_logical_panel_uuid_fkey"
+            columns: ["logical_panel_uuid"]
+            isOneToOne: false
+            referencedRelation: "electrical_panels"
             referencedColumns: ["id"]
           },
         ]
@@ -2698,10 +2724,13 @@ export type Database = {
           location_evidence: string | null
           location_x_ft: number | null
           location_y_ft: number | null
+          logical_panel_note: string | null
           notes: string | null
           ods_extras: string | null
           panel_id: string
+          panel_kind: string
           phase: string | null
+          physical_panel_uuid: string | null
           pole_location_kind: string | null
           pole_ref_end: string | null
           pole_ref_start: string | null
@@ -2742,10 +2771,13 @@ export type Database = {
           location_evidence?: string | null
           location_x_ft?: number | null
           location_y_ft?: number | null
+          logical_panel_note?: string | null
           notes?: string | null
           ods_extras?: string | null
           panel_id: string
+          panel_kind?: string
           phase?: string | null
+          physical_panel_uuid?: string | null
           pole_location_kind?: string | null
           pole_ref_end?: string | null
           pole_ref_start?: string | null
@@ -2786,10 +2818,13 @@ export type Database = {
           location_evidence?: string | null
           location_x_ft?: number | null
           location_y_ft?: number | null
+          logical_panel_note?: string | null
           notes?: string | null
           ods_extras?: string | null
           panel_id?: string
+          panel_kind?: string
           phase?: string | null
+          physical_panel_uuid?: string | null
           pole_location_kind?: string | null
           pole_ref_end?: string | null
           pole_ref_start?: string | null
@@ -2804,7 +2839,15 @@ export type Database = {
           verified_at?: string | null
           voltage?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "electrical_panels_physical_panel_uuid_fkey"
+            columns: ["physical_panel_uuid"]
+            isOneToOne: false
+            referencedRelation: "electrical_panels"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       electrical_peer_sync_config: {
         Row: {
@@ -5551,6 +5594,7 @@ export type Database = {
     Functions: {
       electrical_allowed: { Args: { _domain: string }; Returns: string[] }
       electrical_api_activated_scopes: { Args: never; Returns: string[] }
+      electrical_panel_kinds: { Args: never; Returns: string[] }
       list_peer_sync_cron_secrets: {
         Args: { _actor: string }
         Returns: {
