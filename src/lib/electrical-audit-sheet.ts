@@ -195,8 +195,20 @@ function positionRow(pos: InstallPosition, panel: InstallPanel | undefined): Aud
   };
 }
 
-function circuitRow(c: InstallCircuit, panel: InstallPanel | undefined): AuditSheetRow {
-  const status = txt(c.install_status);
+function circuitRow(
+  c: InstallCircuit,
+  panel: InstallPanel | undefined,
+  derived?: CircuitGroupStateResult,
+): AuditSheetRow {
+  const recorded = txt(c.install_status);
+  // A circuit group displays complete only when its breaker assignment is
+  // complete AND every audited connected load is at least complete; otherwise it
+  // displays configured or partially complete. Assignment alone never cascades.
+  const status = derived
+    ? derived.state === "complete"
+      ? "complete"
+      : recorded
+    : recorded;
   const breaker = panel
     ? breakerDisplay({ panel_id: panel.panel_id, breaker_number: c.breaker_number }).reference
     : null;
@@ -211,6 +223,7 @@ function circuitRow(c: InstallCircuit, panel: InstallPanel | undefined): AuditSh
       breaker ?? (c.breaker_number == null ? "no breaker recorded" : `breaker ${c.breaker_number}`),
       c.circuit_rating_amps == null ? "" : `${c.circuit_rating_amps}A`,
       c.voltage == null ? "" : `${c.voltage}V`,
+      derived ? derived.label : "",
     ]
       .filter(Boolean)
       .join(" · "),
@@ -219,8 +232,8 @@ function circuitRow(c: InstallCircuit, panel: InstallPanel | undefined): AuditSh
     status,
     stageIndex: stageIndexOf(status),
     percent: c.completion_percent ?? null,
-    notes: txt(c.notes),
-    done: DONE_STAGES.includes(status),
+    notes: [txt(c.notes), derived ? derived.because : ""].filter(Boolean).join(" — "),
+    done: derived ? derived.state === "complete" : DONE_STAGES.includes(status),
     verification: null,
   };
 }
