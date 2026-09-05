@@ -57,6 +57,10 @@ export default defineConfig({
     ? {
         nitro: {
           preset: nitroPreset,
+          // Minifying the server bundle is pure cost on a memory-starved host:
+          // nothing downloads it. Skipping it removes the native allocation
+          // spike that ended the Nitro phase with a SIGKILL on 8 GB hosts.
+          ...(lowMem ? { minify: false } : {}),
           output: {
             dir: "dist",
             serverDir: "dist/server",
@@ -65,6 +69,7 @@ export default defineConfig({
         },
       }
     : {}),
+
   vite: {
     ...(lowMem ? { plugins: [lowMemoryGcPlugin] } : {}),
     resolve: {
@@ -89,8 +94,15 @@ export default defineConfig({
             // Skips the final gzip-size pass that briefly doubles RAM.
             reportCompressedSize: false,
           },
+          // The Nitro/SSR server bundle is never shipped to browsers, so
+          // minifying it only burns native memory during the phase that
+          // previously pushed an 8 GB host into the OOM killer.
+          environments: {
+            ssr: { build: { minify: false as const, sourcemap: false } },
+          },
         }
       : {}),
+
   },
 });
 
