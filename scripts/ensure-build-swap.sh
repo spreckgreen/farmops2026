@@ -23,7 +23,11 @@ if [ "$active_mb" -ge "$MIN_ACTIVE_MB" ]; then
   exit 0
 fi
 
-size_mb=$(( ${SIZE%[GgMm]} * $( case "$SIZE" in *[Gg]) echo 1024;; *) echo 1;; esac ) ))
+case "$SIZE" in
+  *[Gg]) size_mb=$(( ${SIZE%[GgMm]} * 1024 )) ;;
+  *[Mm]) size_mb=${SIZE%[GgMm]} ;;
+  *)     size_mb="$SIZE" ;;
+esac
 free_mb=$(df -Pm "$(dirname "$SWAP_FILE")" | awk 'NR==2{print $4}')
 [ "$free_mb" -ge $(( size_mb + 1024 )) ] || \
   die "only ${free_mb}MB free at $(dirname "$SWAP_FILE"); need $(( size_mb + 1024 ))MB for a ${SIZE} swap file (pass a smaller size, e.g. $0 3G)"
