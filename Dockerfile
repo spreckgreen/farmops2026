@@ -88,7 +88,8 @@ ENV NITRO_PRESET=node-server
 ENV NITRO_BUILDER=rollup
 # Node heap cap. This controls V8 old-space only; Rollup/esbuild and Docker use
 # additional native memory. refresh.sh chooses a conservative host-aware value
-# (about 2 GB on an 8 GB host). The default fits a 4 GB host without swap.
+# (about 3 GB on an 8 GB host) after selecting Rollup for the server package.
+# The default remains safe for a 4 GB host.
 ARG NODE_HEAP_MB=1536
 ENV NODE_OPTIONS=--max-old-space-size=${NODE_HEAP_MB}
 ARG ROLLDOWN_WORKER_THREADS=1

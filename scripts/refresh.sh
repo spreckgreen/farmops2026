@@ -232,18 +232,18 @@ fi
 # --- 2. Build ---------------------------------------------------------------
 # Size the builder's Node heap from real host memory. V8 old-space is only part
 # of peak usage: Rolldown's Rust graph, generated chunks, and Docker overhead
-# live outside that cap. On an 8 GB host the Nitro server pass can use roughly
-# 4 GB outside V8, so keep automatic old-space at 25% of RAM and no more than
-# 2048 MB. Override explicitly only on a host with measured extra headroom.
+# live outside that cap. Docker builds use the Rollup server packager below,
+# which keeps native use bounded but needs about 3 GB of JavaScript heap for
+# this application. Preserve at least 3 GB for Docker/the OS on smaller hosts.
 total_mb=$(awk '/MemTotal/{printf "%d", $2/1024}' /proc/meminfo 2>/dev/null || echo 0)
 avail_mb=$(awk '/MemAvailable/{printf "%d", $2/1024}' /proc/meminfo 2>/dev/null || echo 0)
 if [ -z "${NODE_HEAP_MB:-}" ]; then
-  by_total=$(( total_mb * 25 / 100 ))
-  by_available=$(( avail_mb - 4096 ))
+  by_total=$(( total_mb * 40 / 100 ))
+  by_available=$(( avail_mb - 3072 ))
   heap="$by_total"
   [ "$by_available" -lt "$heap" ] && heap="$by_available"
   [ "$heap" -lt 1536 ] && heap=1536
-  [ "$heap" -gt 2048 ] && heap=2048
+  [ "$heap" -gt 3072 ] && heap=3072
   NODE_HEAP_MB="$heap"
   log "Host memory total=${total_mb}MB available=${avail_mb}MB -> NODE_HEAP_MB=${NODE_HEAP_MB} (native reserve preserved)"
 fi
