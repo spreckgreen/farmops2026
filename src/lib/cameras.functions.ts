@@ -15,9 +15,10 @@ import {
   type CameraCheckRow,
   type CameraRow,
 } from "@/lib/cameras";
+import { isCompassSide } from "@/lib/ring-cameras";
 
 const CAMERA_COLUMNS =
-  "id, camera_id, name, area, building, mount, stream_kind, stream_url, snapshot_url, x_feet, y_feet, heading_degrees, fov_degrees, range_feet, electrical_load_ref, status, last_seen_at, last_check_at, last_check_detail, notes, updated_at";
+  "id, camera_id, name, area, building, mount, stream_kind, stream_url, snapshot_url, x_feet, y_feet, heading_degrees, fov_degrees, range_feet, electrical_load_ref, ring_model, compass_side, side_slot, status, last_seen_at, last_check_at, last_check_detail, notes, updated_at";
 
 async function requireCameras(supabase: unknown, userId: string): Promise<void> {
   if (await isAdminRole(supabase, userId)) return;
@@ -42,6 +43,9 @@ interface CameraInput {
   range_feet?: number | null;
   electrical_load_ref?: string | null;
   notes?: string | null;
+  ring_model?: string | null;
+  compass_side?: string | null;
+  side_slot?: number | null;
 }
 
 function clean(value: unknown): string | null {
@@ -71,6 +75,9 @@ interface CameraFields {
   range_feet: number;
   electrical_load_ref: string | null;
   notes: string | null;
+  ring_model: string | null;
+  compass_side: string | null;
+  side_slot: number | null;
 }
 
 function validateCamera(input: CameraInput): CameraFields & { id: string | null } {
@@ -87,6 +94,12 @@ function validateCamera(input: CameraInput): CameraFields & { id: string | null 
   if (fov <= 0 || fov > 360) throw new Error("The field of view must be between 1 and 360 degrees.");
   const range = num(input.range_feet) ?? 30;
   if (range <= 0) throw new Error("The coverage distance must be greater than zero.");
+  const side = clean(input.compass_side);
+  if (side !== null && !isCompassSide(side)) throw new Error("Unknown building side.");
+  const slot = num(input.side_slot);
+  if (slot !== null && (!Number.isInteger(slot) || slot < 1)) {
+    throw new Error("The share number on a side must be a whole number of 1 or more.");
+  }
   const heading = num(input.heading_degrees);
   if (heading !== null && (heading < 0 || heading >= 360)) {
     throw new Error("The facing direction must be between 0 and 359 degrees.");
@@ -108,6 +121,9 @@ function validateCamera(input: CameraInput): CameraFields & { id: string | null 
     range_feet: range,
     electrical_load_ref: clean(input.electrical_load_ref),
     notes: clean(input.notes),
+    ring_model: clean(input.ring_model),
+    compass_side: side,
+    side_slot: slot,
   };
 }
 

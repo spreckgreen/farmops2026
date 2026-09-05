@@ -54,6 +54,9 @@ export interface CameraRow {
   last_check_at: string | null;
   last_check_detail: string | null;
   notes: string | null;
+  ring_model: string | null;
+  compass_side: string | null;
+  side_slot: number | null;
   updated_at?: string | null;
 }
 
