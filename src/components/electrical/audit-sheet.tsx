@@ -322,8 +322,6 @@ export function AuditSheet() {
       .filter((r) => r.capacity.usablePositions > 0 || r.rollout.inScopeCircuits > 0);
   }, [snapshot.data, holds.data, panelChoice]);
 
-  console.log("DBG completeness", completeness.length, snapshot.data?.panels?.length, holds.error);
-
   const panelOptions = useMemo(
     () => (snapshot.data ? buildAuditSheet(snapshot.data).panelOptions : []),
     [snapshot.data],
