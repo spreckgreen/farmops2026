@@ -275,8 +275,16 @@ OLLAMA_WAS_RUNNING=0
 ROOT_CMD=()
 if [ "$(id -u)" -eq 0 ]; then
   ROOT_CMD=()
-elif [ "$ALLOW_SUDO" -eq 1 ] && command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null; then
-  ROOT_CMD=(sudo -n)
+elif [ "$ALLOW_SUDO" -eq 1 ] && command -v sudo >/dev/null 2>&1; then
+  if sudo -n true 2>/dev/null; then
+    ROOT_CMD=(sudo -n)
+  elif [ -t 0 ]; then
+    # Interactive terminal: ask once for the password so the build-only swap can
+    # actually be created. Without swap this host's final native bundler pass is
+    # killed by the kernel, so prompting beats failing.
+    log "Requesting sudo once to enable a temporary build-only swap file"
+    if sudo -v; then ROOT_CMD=(sudo); fi
+  fi
 fi
 cleanup_build_swap() {
   if [ "$BUILD_SWAP_CREATED" -eq 1 ]; then
