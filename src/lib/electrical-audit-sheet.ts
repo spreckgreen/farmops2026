@@ -13,7 +13,7 @@ import type {
 } from "@/lib/electrical-install-progress.functions";
 import { INSTALL_STATUSES } from "@/lib/electrical-install-progress.functions";
 import { breakerDisplay } from "@/lib/electrical-breaker-reference";
-import { DONE_STAGES } from "@/lib/electrical-lifecycle";
+import { DONE_STAGES, stageCompletionPercent } from "@/lib/electrical-lifecycle";
 import {
   deriveCircuitGroupState,
   type CircuitGroupStateResult,
@@ -157,7 +157,7 @@ function panelRow(p: InstallPanel): AuditSheetRow {
     panelUuid: p.id,
     status,
     stageIndex: stageIndexOf(status),
-    percent: p.completion_percent ?? null,
+    percent: stageCompletionPercent(status) ?? p.completion_percent ?? null,
     notes: txt(p.notes),
     done: DONE_STAGES.includes(status),
     verification: null,
@@ -236,7 +236,7 @@ function circuitRow(
     panelUuid: c.panel_uuid,
     status,
     stageIndex: stageIndexOf(status),
-    percent: c.completion_percent ?? null,
+    percent: stageCompletionPercent(status) ?? c.completion_percent ?? null,
     notes: [txt(c.notes), derived ? derived.because : ""].filter(Boolean).join(" — "),
     done: derived ? derived.state === "complete" : DONE_STAGES.includes(status),
     verification: null,

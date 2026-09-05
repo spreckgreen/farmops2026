@@ -494,6 +494,65 @@ export interface PanelCompleteness {
   denominators: { name: string; text: string }[];
 }
 
+/**
+ * Complete % is a presentation of the recorded stage — never an independently
+ * typed number. Each stage on the ten-step install ladder maps to exactly one
+ * percentage, so "Conductors installed" always reads 55% on every record type
+ * (circuit group, panel, breaker position, load, raceway, branch run...).
+ *
+ * The ladder: planned 0 -> material ready 10 -> rough-in started 25 ->
+ * raceway installed 40 -> conductors installed 55 -> load/device termination 70
+ * -> source termination 80 -> tested 90 -> complete 100 -> as-built verified 100.
+ * Material ready means the materials are on hand, so it stays near zero.
+ * Out of service and retired records are not on the install ladder at all.
+ */
+export const STAGE_COMPLETION_PERCENT: Record<string, number> = {
+  planned: 0,
+  material_ready: 10,
+  rough_in_started: 25,
+  raceway_installed: 40,
+  conductors_installed: 55,
+  device_side_connected: 70,
+  load_termination: 70,
+  source_side_connected: 80,
+  source_termination: 80,
+  tested: 90,
+  energized: 95,
+  complete: 100,
+  as_built_verified: 100,
+};
+
+/** The percentage equivalent of a recorded stage, or null when off-ladder. */
+export function stageCompletionPercent(status: string | null | undefined): number | null {
+  const s = norm(status ?? null);
+  if (!s) return null;
+  const v = STAGE_COMPLETION_PERCENT[s];
+  return v == null ? null : v;
+}
+
+/**
+ * What to display for a record's Complete %. The stage always wins; a stored
+ * number that disagrees is reported so it can be corrected rather than shown.
+ */
+export function displayCompletionPercent(
+  status: string | null | undefined,
+  storedPercent: number | null | undefined,
+): { percent: number | null; source: "stage" | "stored" | "none"; stale: boolean } {
+  const derived = stageCompletionPercent(status);
+  if (derived != null) {
+    const stored = storedPercent == null ? null : Number(storedPercent);
+    return {
+      percent: derived,
+      source: "stage",
+      stale: stored != null && Math.round(stored) !== derived,
+    };
+  }
+  if (storedPercent != null) {
+    return { percent: Number(storedPercent), source: "stored", stale: false };
+  }
+  return { percent: null, source: "none", stale: false };
+}
+
 /** Infrastructure stage ladder for the panel enclosure itself. */
 export const INFRASTRUCTURE_STAGES: readonly string[] = [
   "planned",
