@@ -394,8 +394,10 @@ export function buildFsAuditR120260906Manifest(): AuditBatchManifest {
       "fs-2026-09-06-r1-fs-035-grid-unverified",
       "load",
       "FS-035",
-      "The exact building-grid cell for FS-035 was not established. A grid coordinate is never derived from the Post 23N/24NE location.",
+      "ATTRIBUTE UNRESOLVED (building-grid cell only): the conventional grid coordinate for FS-035 was not observed, so it stays unchanged/null and is never derived from the Post 23N/24NE location. This attribute hold does not block the verified Pole Grid location update for FS-035, which applies on its own.",
+      {},
     ),
+
   );
 
   // ---- FS-048 topology -------------------------------------------------
