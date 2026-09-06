@@ -23,6 +23,11 @@ ALLOW_SUDO=1
 QUIET=0
 DUMP_LOGS=1
 LOG_TAIL=80
+# Check 4 (gateway hardening) reports security posture, not liveness. It is
+# advisory by default so a working install is never blocked by it; pass
+# --strict-hardening (or STRICT_HARDENING=1) to make those rows fail the run.
+HARDENING_SEVERITY="WARN"
+[ "${STRICT_HARDENING:-0}" = "1" ] && HARDENING_SEVERITY="FAIL"
 while [ $# -gt 0 ]; do
   case "$1" in
     --host) shift; HOST_NAME="${1:-$HOST_NAME}" ;;
