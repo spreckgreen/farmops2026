@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  classifyItem,
   parseFieldGrid,
   parseManifest,
 } from "@/lib/electrical-audit-batch";
@@ -90,5 +91,38 @@ describe(FS_AUDIT_R1_20260906_BATCH_ID, () => {
     const jb = item("jb-105-01");
     expect(jb?.pole?.pole_ref_start).toBe("03NE");
     expect(JSON.stringify(jb?.fields)).not.toContain("height");
+  });
+});
+
+describe("observed conduit creation", () => {
+  const target = { id: "u1", conduit_id: "CON-201", updated_at: "2026-09-01T00:00:00Z" };
+
+  it("proposes a CREATE for a directly observed raceway with no FarmOps record", () => {
+    const con = item("con-201-flex")!;
+    expect(con.entity_kind).toBe("raceway");
+    expect(con.observation_class).toBe("FIELD_AS_BUILT");
+    const classified = classifyItem(con, { target: null });
+    expect(classified.operation).toBe("CREATE");
+    expect(classified.disposition).toBe("ready");
+    expect(classified.patch["conduit_id"]).toBe("CON-201");
+    expect(classified.patch["dest_endpoint_ref"]).toBe("FS-083");
+    expect(classified.patch["source_endpoint_ref"]).toBeUndefined();
+  });
+
+  it("holds only the unknown upstream endpoint, never the creation", () => {
+    const held = item("con-202-upstream-endpoint")!;
+    expect(held.observation_class).toBe("HOLD_UNRESOLVED");
+    expect(held.target_stable_id).toBe("CON-202");
+    expect(classifyItem(item("con-202-flex")!, { target: null }).disposition).toBe("ready");
+  });
+
+  it("updates instead of creating when the identity already exists", () => {
+    const classified = classifyItem(item("con-201-flex")!, { target });
+    expect(classified.operation).not.toBe("CREATE");
+  });
+
+  it("refuses a raceway create whose stable ID is not canonical", () => {
+    const bad = { ...item("con-201-flex")!, target_stable_id: "EMT-201" };
+    expect(classifyItem(bad, { target: null }).disposition).toBe("hold");
   });
 });
