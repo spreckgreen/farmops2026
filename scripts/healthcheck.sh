@@ -365,7 +365,7 @@ if [ "$FAIL_COUNT" -eq 0 ] && [ "$WARN_COUNT" -eq 0 ]; then
   printf '%sVERDICT: PASS%s — stack is healthy.\n' "$GREEN$BOLD" "$RESET"
   exit 0
 elif [ "$FAIL_COUNT" -eq 0 ]; then
-  printf '%sVERDICT: PASS with warnings%s — %d warning(s), 0 failures.\n' "$YELLOW$BOLD" "$RESET" "$WARN_COUNT"
+  printf '%sVERDICT: PASS with advisories%s — deployment is healthy; %d configuration/security item(s) to review (run ./scripts/audit-config.sh).\n' "$YELLOW$BOLD" "$RESET" "$WARN_COUNT"
   exit 0
 else
   # -----------------------------------------------------------------------
