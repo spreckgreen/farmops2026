@@ -317,43 +317,49 @@ export function buildFsAuditR120260906Manifest(): AuditBatchManifest {
   }
 
   // ---- Conduit final connections --------------------------------------
-  items.push({
-    item_key: "fs-2026-09-06-r1-con-201-flex",
-    entity_kind: "raceway",
-    target_stable_id: "CON-201",
-    observation_class: "FIELD_AS_BUILT",
-    operation: null,
-    fields: {},
-    install_state: "installed",
-    pole: null,
-    field_grid_reference: null,
-    refs: {},
-    observed_label: null,
-    evidence: EV,
-    notes: "Serves FS-083; the final connection uses flexible conduit.",
-    reason: null,
-    ods_field: null,
-    ods_candidate_value: null,
-  } as AuditBatchItemInput);
+  // Both raceways were physically observed in the field, and the auditor supplied
+  // a unique CON-### identity for each. Absence of a FarmOps record is the reason
+  // a create proposal exists — not evidence the asset was invented. The observed
+  // downstream endpoint is recorded verbatim; the upstream endpoint was not
+  // established and stays unknown (null), held as its own topology item below.
+  for (const con of [
+    { id: "CON-201", load: "FS-083" },
+    { id: "CON-202", load: "FS-021" },
+  ]) {
+    items.push({
+      item_key: `fs-2026-09-06-r1-${con.id.toLowerCase()}-flex`,
+      entity_kind: "raceway",
+      target_stable_id: con.id,
+      observation_class: "FIELD_AS_BUILT",
+      operation: null,
+      fields: {
+        description: `Farm Shop final connection to ${con.load}`,
+        dest_endpoint_type: "load",
+        dest_endpoint_ref: con.load,
+      },
+      install_state: "installed",
+      pole: null,
+      field_grid_reference: null,
+      refs: {},
+      observed_label: null,
+      evidence: EV,
+      notes: `Directly observed in the field: serves ${con.load}; the final connection uses flexible conduit. The upstream endpoint was not established and is left unknown rather than inferred.`,
+      reason: null,
+      ods_field: null,
+      ods_candidate_value: null,
+    } as AuditBatchItemInput);
 
-  items.push({
-    item_key: "fs-2026-09-06-r1-con-202-flex",
-    entity_kind: "raceway",
-    target_stable_id: "CON-202",
-    observation_class: "FIELD_AS_BUILT",
-    operation: null,
-    fields: {},
-    install_state: "installed",
-    pole: null,
-    field_grid_reference: null,
-    refs: {},
-    observed_label: null,
-    evidence: EV,
-    notes: "Serves FS-021; the final connection uses flexible conduit.",
-    reason: null,
-    ods_field: null,
-    ods_candidate_value: null,
-  } as AuditBatchItemInput);
+    items.push(
+      holdItem(
+        `fs-2026-09-06-r1-${con.id.toLowerCase()}-upstream-endpoint`,
+        "raceway",
+        con.id,
+        `DISPOSITION_REQUIRED: the upstream (source) endpoint of ${con.id} was not established on 2026-09-06. Only the incomplete topology relationship is held — the raceway record itself is proposed for creation on the directly observed asset. No source panel, junction box or endpoint is inferred.`,
+        {},
+      ),
+    );
+  }
+
 
   // ---- Verified load locations ----------------------------------------
   for (const load of FS_AUDIT_R1_20260906_LOAD_GRIDS) items.push(loadLocationItem(load));
