@@ -105,8 +105,11 @@ echo "PASS: backend hardening configured at $OVERRIDE_PATH"
 
 if [ "$APPLY" -eq 1 ]; then
   echo "Applying backend network hardening…"
+  TARGETS=("$GATEWAY")
+  has_service supavisor && TARGETS+=(supavisor)
+  has_service db && TARGETS+=(db)
   (
     cd "$STACK_DIR"
-    COMPOSE_FILE="$NEXT" "${DOCKER[@]}" compose --env-file .env up -d "$GATEWAY" ${SERVICES[*]/*supavisor*/supavisor}
+    COMPOSE_FILE="$NEXT" "${DOCKER[@]}" compose --env-file .env up -d "${TARGETS[@]}"
   )
 fi
