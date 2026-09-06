@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { SavedSitesOrganizer } from "@/components/site-plan/saved-sites-organizer";
 import { browserMapKeyHint, loadGoogleMaps } from "@/lib/google-maps-loader";
 import {
   deriveBuildings,
@@ -483,69 +484,7 @@ export function SiteTracer() {
         </Card>
       ) : null}
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Saved sites</CardTitle>
-          <CardDescription>Outlines already recorded for this account.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3 text-sm">
-          {(plansQuery.data?.sites ?? []).length === 0 ? (
-            <p className="text-muted-foreground">No sites recorded yet.</p>
-          ) : (
-            (plansQuery.data?.sites ?? []).map((site: any) => {
-              const rows = (plansQuery.data?.buildings ?? []).filter(
-                (b: any) => b.site_plan_id === site.id,
-              );
-              return (
-                <div key={site.id} className="rounded-md border p-3">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div>
-                      <p className="font-medium">{site.site_name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {site.formatted_address || site.address}
-                      </p>
-                    </div>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => deletePlan.mutate(site.id)}
-                      disabled={deletePlan.isPending}
-                    >
-                      Remove
-                    </Button>
-                  </div>
-                  <Separator className="my-2" />
-                  <div className="space-y-1">
-                    {rows.length === 0 ? (
-                      <p className="text-muted-foreground">No buildings recorded.</p>
-                    ) : (
-                      rows.map((row: any) => (
-                        <p key={row.id} className="text-xs">
-                          <span className="font-medium">
-                            {row.building_name || row.temp_name}
-                          </span>
-                          {row.building_name ? (
-                            <span className="text-muted-foreground">
-                              {" "}
-                              (<span className="font-mono">{row.temp_name}</span>)
-                            </span>
-                          ) : null}{" "}
-                          ·{" "}
-                          {Number(row.footprint_sqft ?? 0).toFixed(0)} sq ft ·{" "}
-                          {Number(row.fit_length_ft ?? 0).toFixed(0)}′ ×{" "}
-                          {Number(row.fit_width_ft ?? 0).toFixed(0)}′ · grid{" "}
-                          {row.grid_rows}×{row.grid_columns} at {Number(row.grid_cell_ft)}′
-                          {row.mapped_structure ? ` · mapped to ${row.mapped_structure}` : ""}
-                        </p>
-                      ))
-                    )}
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </CardContent>
-      </Card>
+      <SavedSitesOrganizer />
     </div>
   );
 }
