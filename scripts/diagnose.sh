@@ -92,10 +92,9 @@ probe() {
   curl -sS -o /dev/null -w "HTTP %{http_code}  time=%{time_total}s  size=%{size_download}B\n" \
        --max-time 8 $flags "$url" 2>&1 | tee -a "$OUT" || true
 }
-probe "app direct"        "http://localhost:3000/"        ""
-probe "app healthcheck"   "http://localhost:3000/api/health" ""
-probe "caddy http"        "http://localhost/"             "-H Host:farmops.bostead.life"
-probe "caddy https"       "https://localhost/"            "-k -H Host:farmops.bostead.life"
+probe "app health (host)" "http://localhost:3000/health"   ""
+probe "caddy http"        "http://localhost/health"        "-H Host:farmops.bostead.life"
+probe "caddy https"       "https://localhost/health"       "-k -H Host:farmops.bostead.life"
 probe "ollama tags"       "http://localhost:11434/api/tags" ""
 
 # --- 5. Env sanity (names only, values redacted) ---------------------------

@@ -177,10 +177,11 @@ probe_code() {
   fi
 }
 
-# 3a. Probe from inside the app container. Port 3000 is intentionally exposed
-# only to the compose network, so probing host localhost:3000 is always wrong.
+# 3a. Probe the dedicated public health endpoint from inside the app container.
+# The home page may require authentication, so it is not a reliable liveness
+# signal. Port 3000 is intentionally exposed only to the compose network.
 CODE_APP="$("${DC[@]}" exec -T app bun -e \
-  "fetch('http://127.0.0.1:3000/').then(r=>process.stdout.write(String(r.status))).catch(()=>process.stdout.write('000'))" \
+  "fetch('http://127.0.0.1:3000/health').then(r=>process.stdout.write(String(r.status))).catch(()=>process.stdout.write('000'))" \
   2>/dev/null || true)"
 [[ "$CODE_APP" =~ ^[0-9]{3}$ ]] || CODE_APP="000"
 if [[ "$CODE_APP" =~ ^(200|301|302|307|308)$ ]]; then
@@ -192,7 +193,7 @@ else
 fi
 
 # 3b. Caddy HTTP (:80) with the real Host header. Should 200 or 308→https.
-CODE_CADDY_HTTP="$(probe_code -H "Host: $HOST_NAME" 'http://127.0.0.1/')"
+CODE_CADDY_HTTP="$(probe_code -H "Host: $HOST_NAME" 'http://127.0.0.1/health')"
 if [[ "$CODE_CADDY_HTTP" =~ ^(200|301|308)$ ]]; then
   record PASS "caddy :80" "HTTP $CODE_CADDY_HTTP (Host: $HOST_NAME)"
 elif [ "$CODE_CADDY_HTTP" = "000" ]; then
@@ -204,7 +205,7 @@ fi
 # 3c. Caddy HTTPS (:443) → upstream app. --resolve sets both the HTTP Host and
 # TLS SNI to the configured domain while still connecting locally. A Host
 # header alone leaves SNI as "localhost" and can fail before HTTP is reached.
-CODE_CADDY_HTTPS="$(probe_code -k --resolve "$HOST_NAME:443:127.0.0.1" "https://$HOST_NAME/")"
+CODE_CADDY_HTTPS="$(probe_code -k --resolve "$HOST_NAME:443:127.0.0.1" "https://$HOST_NAME/health")"
 if [[ "$CODE_CADDY_HTTPS" =~ ^(200|301|302|307|308)$ ]]; then
   record PASS "caddy → app (:443)" "HTTP $CODE_CADDY_HTTPS end-to-end OK"
 elif [ "$CODE_CADDY_HTTPS" = "502" ] || [ "$CODE_CADDY_HTTPS" = "503" ] || [ "$CODE_CADDY_HTTPS" = "504" ]; then
@@ -225,12 +226,22 @@ if "${DOCKER[@]}" network inspect supabase_default >/dev/null 2>&1; then
 
   # 4a. The hardening override must be part of the active compose layering,
   #     otherwise `docker compose up` republishes the gateway/pooler ports.
+  SUPABASE_STACK_DIR=""
+  for candidate in ../supabase-project/docker "$HOME/supabase-project/docker" ../supabase/docker /opt/supabase/docker; do
+    if [ -f "$candidate/docker-compose.yml" ]; then
+      SUPABASE_STACK_DIR="$candidate"
+      break
+    fi
+  done
   ACTIVE_COMPOSE="${COMPOSE_FILE:-}"
-  if [ -z "$ACTIVE_COMPOSE" ] && [ -f .env ]; then
-    ACTIVE_COMPOSE="$(sed -n 's/^COMPOSE_FILE=//p' .env | tail -1)"
+  if [ -n "$SUPABASE_STACK_DIR" ] && [ -f "$SUPABASE_STACK_DIR/.env" ]; then
+    ACTIVE_COMPOSE="$(sed -n 's/^[[:space:]]*COMPOSE_FILE=//p' "$SUPABASE_STACK_DIR/.env" | tail -1)"
   fi
-  if [ ! -f docker-compose.hardening.yml ]; then
-    record WARN "hardening override" "docker-compose.hardening.yml not found in this directory"
+  HARDENING_FILE="${SUPABASE_STACK_DIR:+$SUPABASE_STACK_DIR/}docker-compose.hardening.yml"
+  if [ -z "$SUPABASE_STACK_DIR" ]; then
+    record WARN "hardening override" "backend compose directory not found; port exposure is checked directly below"
+  elif [ ! -f "$HARDENING_FILE" ]; then
+    record WARN "hardening override" "$HARDENING_FILE not found"
   elif printf '%s' "$ACTIVE_COMPOSE" | grep -q 'docker-compose.hardening.yml'; then
     record PASS "hardening override" "COMPOSE_FILE includes docker-compose.hardening.yml"
   else
@@ -286,7 +297,8 @@ if "${DOCKER[@]}" network inspect supabase_default >/dev/null 2>&1; then
   fi
 
   # 4f. The Supabase secret file must not be group/world readable.
-  for envpath in ../supabase/docker/.env /opt/supabase/docker/.env "$HOME/supabase/docker/.env"; do
+  for envpath in "${SUPABASE_STACK_DIR:+$SUPABASE_STACK_DIR/.env}" ../supabase/docker/.env /opt/supabase/docker/.env "$HOME/supabase/docker/.env"; do
+    [ -n "$envpath" ] || continue
     [ -f "$envpath" ] || continue
     MODE="$(stat -c '%a' "$envpath" 2>/dev/null || echo '?')"
     if [ "$MODE" = "600" ]; then

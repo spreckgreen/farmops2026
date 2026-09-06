@@ -6,9 +6,10 @@
 #   2. fill-env-from-supabase.sh --validate — dry-run structural check
 #   3. fill-env-from-supabase.sh            — writes ./.env.local
 #   4. check-env.sh                         — required-vars sanity on .env.local
-#   5. scan-secrets.sh --all                — no leaked keys in tracked files
-#   6. install-git-hooks.sh                 — pre-commit scanner hook
-#   7. refresh.sh                           — build + start containers, gated by healthcheck
+#   5. configure-supabase-hardening.sh      — keep backend ports private
+#   6. scan-secrets.sh --all                — no leaked keys in tracked files
+#   7. install-git-hooks.sh                 — pre-commit scanner hook
+#   8. refresh.sh                           — build + start containers, gated by healthcheck
 #
 # Any failing step aborts with a non-zero exit; nothing is silently skipped.
 #
@@ -43,7 +44,7 @@ done
 cd "$(dirname "$0")/.."
 SCRIPTS=./scripts
 
-step() { printf "\n[%s/7] %-28s ... " "$1" "$2"; }
+step() { printf "\n[%s/8] %-28s ... " "$1" "$2"; }
 ok()   { printf "%s\n" "${1:-PASS}"; }
 die()  { printf "FAIL\n\n%s\n" "$1" >&2; exit 1; }
 
@@ -73,21 +74,26 @@ Non-Supabase blocks (VAULT_ENCRYPTION_KEY, PUBLIC_APP_URL, etc.) still need
 values. Edit .env.local, then re-run:  $0"
 ok
 
-step 5 "scan-secrets --all"
+step 5 "secure backend ports"
+"$SCRIPTS/configure-supabase-hardening.sh" --supabase-dir "$SUPABASE_DIR" \
+  >/tmp/bootstrap-5.log 2>&1 || die "$(cat /tmp/bootstrap-5.log)"
+ok
+
+step 6 "scan-secrets --all"
 "$SCRIPTS/scan-secrets.sh" --all >/tmp/bootstrap-5.log 2>&1 || die "$(cat /tmp/bootstrap-5.log)"
 ok
 
-step 6 "install-git-hooks"
+step 7 "install-git-hooks"
 "$SCRIPTS/install-git-hooks.sh" >/tmp/bootstrap-6.log 2>&1 || die "$(cat /tmp/bootstrap-6.log)"
 ok "hook installed"
 
 if [ "$DO_REFRESH" -eq 0 ]; then
-  printf "\n[7/7] refresh                  ... skipped (--no-refresh)\n"
+  printf "\n[8/8] refresh                  ... skipped (--no-refresh)\n"
   echo "✔ env setup complete — run ./scripts/refresh.sh when ready"
   exit 0
 fi
 
-printf "\n[7/7] refresh                  ... starting (streams below)\n"
+printf "\n[8/8] refresh                  ... starting (streams below)\n"
 echo "-----------------------------------------------------------------------"
 # refresh.sh already runs check-env + healthcheck gates; stream its output
 # live so a long build shows progress instead of hanging silently.
