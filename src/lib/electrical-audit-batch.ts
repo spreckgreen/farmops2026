@@ -150,20 +150,66 @@ export interface FieldGridRef {
   row: string;
   column: number;
   fractional: boolean;
+  /** True when the audit recorded a position between two adjacent cells. */
+  span: boolean;
+  endRow: string | null;
+  endColumn: number | null;
+}
+
+const CELL_RE = /^([A-Z])((?:\d{1,2})(?:\.5)?)$/;
+
+function parseCell(id: string): { row: string; column: number } | null {
+  const m = CELL_RE.exec(id);
+  if (!m) return null;
+  const column = Number(m[2]);
+  if (!Number.isFinite(column) || column <= 0) return null;
+  return { row: m[1] as string, column };
 }
 
 /**
  * Audit coordinates may be fractional (F3.5, D2.5). They are preserved in the
  * field-location layer and never coerced into the integer legacy `grid` field.
+ *
+ * A field audit may also record a position BETWEEN two adjacent cells, written
+ * `B9/C9` or `A3/A4`. The span is preserved exactly as observed: a single cell
+ * is never picked out of it, and a midpoint is never invented.
  */
 export function parseFieldGrid(raw: unknown): FieldGridRef | null {
   const id = norm(raw);
-  const m = /^([A-Z])((?:\d{1,2})(?:\.5)?)$/.exec(id);
-  if (!m) return null;
-  const column = Number(m[2]);
-  if (!Number.isFinite(column) || column <= 0) return null;
-  return { raw: id, row: m[1], column, fractional: !Number.isInteger(column) };
+  if (id.includes("/")) {
+    const parts = id.split("/");
+    if (parts.length !== 2) return null;
+    const a = parseCell(parts[0] as string);
+    const b = parseCell(parts[1] as string);
+    if (!a || !b) return null;
+    const rowGap = Math.abs(a.row.charCodeAt(0) - b.row.charCodeAt(0));
+    const colGap = Math.abs(a.column - b.column);
+    const adjacent =
+      (rowGap === 1 && colGap === 0) || (rowGap === 0 && colGap > 0 && colGap <= 1);
+    if (!adjacent) return null;
+    return {
+      raw: id,
+      row: a.row,
+      column: a.column,
+      fractional: !Number.isInteger(a.column) || !Number.isInteger(b.column),
+      span: true,
+      endRow: b.row,
+      endColumn: b.column,
+    };
+  }
+  const cell = parseCell(id);
+  if (!cell) return null;
+  return {
+    raw: id,
+    row: cell.row,
+    column: cell.column,
+    fractional: !Number.isInteger(cell.column),
+    span: false,
+    endRow: null,
+    endColumn: null,
+  };
 }
+
 
 /* ------------------------------------------------------------------ *
  * Observation classes, operations, dispositions
