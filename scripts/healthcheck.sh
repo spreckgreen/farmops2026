@@ -204,17 +204,6 @@ else
 log "${BOLD}[3/4]${RESET} Probing /health and caddy → app path… (readiness, blocking)"
 
 
-probe_code() {
-  # curl already prints 000 for connection/TLS failures. Do not append another
-  # 000 on a non-zero exit or the caller receives the invalid value 000000.
-  local output
-  output="$(curl -sS -o /dev/null -w '%{http_code}' --connect-timeout 3 --max-time 8 "$@" 2>/dev/null || true)"
-  if [[ "$output" =~ ([0-9]{3})$ ]]; then
-    printf '%s' "${BASH_REMATCH[1]}"
-  else
-    printf '000'
-  fi
-}
 
 # 3a. Probe the dedicated public health endpoint from inside the app container.
 # The home page may require authentication, so it is not a reliable liveness
