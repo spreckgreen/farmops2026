@@ -1,16 +1,24 @@
 #!/usr/bin/env bash
 # scripts/healthcheck.sh — one-shot PASS/FAIL report for the Bostead stack.
 #
-# Answers three questions, fast, with a clear verdict at the end:
-#   1. Are all expected containers running & healthy?  (app, caddy, ollama)
-#   2. Are all required env vars set in .env?          (per .env.example)
-#   3. Can the app and caddy route actually respond?   (end-to-end probe)
+# Two classes of check, deliberately separated:
 #
-# Exit code is 0 only if every check PASSES — safe to wire into cron, systemd
-# OnFailure=, or a post-deploy gate in refresh.sh.
+#   DEPLOYMENT READINESS (always blocking — a FAIL here means the site is down)
+#     1. Are all expected containers running & healthy?  (app, caddy, ollama)
+#     2. Does the app answer on /health, and can caddy reach it end-to-end?
+#
+#   CONFIGURATION / SECURITY AUDIT (advisory by default — posture, not liveness)
+#     3. Is every key from .env.example present and filled in?
+#     4. Is the self-hosted Supabase gateway hardened (ports, network, modes)?
+#
+# A working deployment is never reported as FAILED because of an advisory row.
+# Pass --strict (or STRICT=1) to make audit rows blocking — that is what
+# scripts/audit-config.sh does.
 #
 # Usage:
-#   ./scripts/healthcheck.sh                  # human-readable PASS/FAIL table
+#   ./scripts/healthcheck.sh                  # readiness gates blocking, audit advisory
+#   ./scripts/healthcheck.sh --strict         # audit rows fail the run too
+#   ./scripts/healthcheck.sh --audit-only     # skip readiness probes, audit only
 #   ./scripts/healthcheck.sh --host farmops.bostead.life   # override probe host
 #   ./scripts/healthcheck.sh --no-sudo        # never try `sudo docker` fallback
 #   ./scripts/healthcheck.sh --quiet          # only print the final verdict line
@@ -23,11 +31,14 @@ ALLOW_SUDO=1
 QUIET=0
 DUMP_LOGS=1
 LOG_TAIL=80
-# Check 4 (gateway hardening) reports security posture, not liveness. It is
-# advisory by default so a working install is never blocked by it; pass
-# --strict-hardening (or STRICT_HARDENING=1) to make those rows fail the run.
-HARDENING_SEVERITY="WARN"
-[ "${STRICT_HARDENING:-0}" = "1" ] && HARDENING_SEVERITY="FAIL"
+AUDIT_ONLY=0
+# Checks 3 & 4 (env-template completeness, gateway hardening) report
+# configuration/security posture, not liveness. They are advisory by default so
+# a working install is never blocked by them; --strict (STRICT=1) makes them
+# blocking. --strict-hardening / --advisory-hardening are kept as aliases.
+AUDIT_SEVERITY="WARN"
+[ "${STRICT:-0}" = "1" ] && AUDIT_SEVERITY="FAIL"
+[ "${STRICT_HARDENING:-0}" = "1" ] && AUDIT_SEVERITY="FAIL"
 while [ $# -gt 0 ]; do
   case "$1" in
     --host) shift; HOST_NAME="${1:-$HOST_NAME}" ;;
@@ -37,12 +48,14 @@ while [ $# -gt 0 ]; do
     --no-logs) DUMP_LOGS=0 ;;
     --log-tail) shift; LOG_TAIL="${1:-80}" ;;
     --log-tail=*) LOG_TAIL="${1#*=}" ;;
-    --strict-hardening) HARDENING_SEVERITY="FAIL" ;;
-    --advisory-hardening) HARDENING_SEVERITY="WARN" ;;
-    -h|--help) sed -n '2,20p' "$0"; exit 0 ;;
+    --strict|--strict-audit|--strict-hardening) AUDIT_SEVERITY="FAIL" ;;
+    --advisory|--advisory-hardening) AUDIT_SEVERITY="WARN" ;;
+    --audit-only) AUDIT_ONLY=1 ;;
+    -h|--help) sed -n '2,25p' "$0"; exit 0 ;;
     *) echo "Unknown flag: $1" >&2; exit 2 ;;
   esac
   shift || true
+
 done
 
 # Colors (skip if not a TTY, e.g. piped to a file)
@@ -84,11 +97,25 @@ DC=("${DOCKER[@]}" compose)
 if [ -f .env.local ]; then
   export COMPOSE_ENV_FILES=".env,.env.local"
 fi
+probe_code() {
+  # curl already prints 000 for connection/TLS failures. Do not append another
+  # 000 on a non-zero exit or the caller receives the invalid value 000000.
+  local output
+  output="$(curl -sS -o /dev/null -w '%{http_code}' --connect-timeout 3 --max-time 8 "$@" 2>/dev/null || true)"
+  if [[ "$output" =~ ([0-9]{3})$ ]]; then
+    printf '%s' "${BASH_REMATCH[1]}"
+  else
+    printf '000'
+  fi
+}
 
 # ===========================================================================
-# CHECK 1 — containers running & healthy
+# READINESS CHECK 1 — containers running & healthy  (BLOCKING)
 # ===========================================================================
-log "${BOLD}[1/4]${RESET} Checking containers…"
+if [ "$AUDIT_ONLY" -eq 1 ]; then
+  log "${BOLD}[audit-only]${RESET} skipping deployment readiness probes"
+else
+log "${BOLD}[1/4]${RESET} Checking containers… (readiness, blocking)"
 EXPECTED_SERVICES=(app caddy ollama)
 
 if [ ${#DOCKER[@]} -gt 0 ] && docker info >/dev/null 2>&1 || sudo -n docker info >/dev/null 2>&1; then
@@ -117,9 +144,10 @@ if [ ${#DOCKER[@]} -gt 0 ] && docker info >/dev/null 2>&1 || sudo -n docker info
     fi
   done
 fi
+fi
 
 # ===========================================================================
-# CHECK 2 — required env vars present in the active env file
+# AUDIT CHECK 2 — env-template completeness  (ADVISORY unless --strict)
 # ===========================================================================
 # Prefer .env.local (gitignored, holds real self-hosted keys) over .env.
 if   [ -f .env.local ]; then ENV_FILE=".env.local"
@@ -127,9 +155,9 @@ elif [ -f .env ];       then ENV_FILE=".env"
 else                         ENV_FILE=""
 fi
 
-log "${BOLD}[2/4]${RESET} Checking ${ENV_FILE:-<none>} vs .env.example…"
+log "${BOLD}[2/4]${RESET} Auditing ${ENV_FILE:-<none>} vs .env.example… (advisory)"
 if [ -z "$ENV_FILE" ]; then
-  record FAIL "env file" "neither .env.local nor .env found in $(pwd)"
+  record "$AUDIT_SEVERITY" "env file" "neither .env.local nor .env found in $(pwd)"
 elif [ ! -f .env.example ]; then
   record WARN "env template" ".env.example not found — cannot verify required keys"
 else
@@ -163,26 +191,19 @@ else
     [ ${#missing[@]}      -gt 0 ] && detail+="missing: $(IFS=,; echo "${missing[*]}") "
     [ ${#empty[@]}        -gt 0 ] && detail+="empty: $(IFS=,; echo "${empty[*]}") "
     [ ${#placeholders[@]} -gt 0 ] && detail+="placeholders (edit $ENV_FILE or run scripts/fill-env-from-supabase.sh): $(IFS=,; echo "${placeholders[*]}")"
-    record FAIL "env vars" "$detail"
+    record "$AUDIT_SEVERITY" "env vars" "$detail"
   fi
 fi
 
 # ===========================================================================
-# CHECK 3 — caddy → app connectivity (end-to-end)
+# READINESS CHECK 3 — /health + caddy → app connectivity  (BLOCKING)
 # ===========================================================================
-log "${BOLD}[3/4]${RESET} Probing caddy → app path…"
+if [ "$AUDIT_ONLY" -eq 1 ]; then
+  :
+else
+log "${BOLD}[3/4]${RESET} Probing /health and caddy → app path… (readiness, blocking)"
 
-probe_code() {
-  # curl already prints 000 for connection/TLS failures. Do not append another
-  # 000 on a non-zero exit or the caller receives the invalid value 000000.
-  local output
-  output="$(curl -sS -o /dev/null -w '%{http_code}' --connect-timeout 3 --max-time 8 "$@" 2>/dev/null || true)"
-  if [[ "$output" =~ ([0-9]{3})$ ]]; then
-    printf '%s' "${BASH_REMATCH[1]}"
-  else
-    printf '000'
-  fi
-}
+
 
 # 3a. Probe the dedicated public health endpoint from inside the app container.
 # The home page may require authentication, so it is not a reliable liveness
@@ -222,14 +243,16 @@ elif [ "$CODE_CADDY_HTTPS" = "000" ]; then
 else
   record FAIL "caddy → app (:443)" "HTTP $CODE_CADDY_HTTPS (expected 2xx/3xx)"
 fi
+fi
 
 # ===========================================================================
-# CHECK 4 — network / gateway hardening (self-hosted Supabase only)
+# AUDIT CHECK 4 — gateway hardening  (ADVISORY unless --strict)
 # ===========================================================================
 # Skipped entirely when no self-hosted Supabase stack is present, so this file
 # stays usable on a managed backend.
 if "${DOCKER[@]}" network inspect supabase_default >/dev/null 2>&1; then
-  log "${BOLD}[4/4]${RESET} Checking gateway hardening…"
+  log "${BOLD}[4/4]${RESET} Auditing gateway hardening… (advisory)"
+
 
   # 4a. The hardening override must be part of the active compose layering,
   #     otherwise `docker compose up` republishes the gateway/pooler ports.
@@ -252,7 +275,7 @@ if "${DOCKER[@]}" network inspect supabase_default >/dev/null 2>&1; then
   elif printf '%s' "$ACTIVE_COMPOSE" | grep -q 'docker-compose.hardening.yml'; then
     record PASS "hardening override" "COMPOSE_FILE includes docker-compose.hardening.yml"
   else
-    record "$HARDENING_SEVERITY" "hardening override" "COMPOSE_FILE does not include docker-compose.hardening.yml — gateway/pooler ports may be republished"
+    record "$AUDIT_SEVERITY" "hardening override" "COMPOSE_FILE does not include docker-compose.hardening.yml — gateway/pooler ports may be republished"
   fi
 
   # 4b. No database, pooler or gateway port may be published on the host.
@@ -264,7 +287,7 @@ if "${DOCKER[@]}" network inspect supabase_default >/dev/null 2>&1; then
     fi
   done
   if [ -n "$BAD_PORTS" ]; then
-    record "$HARDENING_SEVERITY" "published host ports" "publicly reachable:${BAD_PORTS} (expected none)"
+    record "$AUDIT_SEVERITY" "published host ports" "publicly reachable:${BAD_PORTS} (expected none)"
   else
     record PASS "published host ports" "5432/6543/8000/8443 not published on the host"
   fi
@@ -275,17 +298,17 @@ if "${DOCKER[@]}" network inspect supabase_default >/dev/null 2>&1; then
   if printf '%s' "$ATTACHED" | grep -q 'caddy'; then
     record PASS "caddy on supabase_default" "attached (reverse_proxy kong:8000 resolves)"
   else
-    record "$HARDENING_SEVERITY" "caddy on supabase_default" "not attached — the HTTPS route to the gateway will 502"
+    record "$AUDIT_SEVERITY" "caddy on supabase_default" "not attached — the HTTPS route to the gateway will 502"
   fi
   if printf '%s' "$ATTACHED" | grep -Eq '(^| )[^ ]*[-_]app( |$)'; then
-    record "$HARDENING_SEVERITY" "app off supabase_default" "the app container is attached directly — remove it"
+    record "$AUDIT_SEVERITY" "app off supabase_default" "the app container is attached directly — remove it"
   else
     record PASS "app off supabase_default" "not attached directly"
   fi
 
   # 4d. host.docker.internal must stay removed.
   if grep -q 'host\.docker\.internal' docker-compose.yml Caddyfile 2>/dev/null; then
-    record "$HARDENING_SEVERITY" "host.docker.internal" "still referenced in docker-compose.yml/Caddyfile — remove it"
+    record "$AUDIT_SEVERITY" "host.docker.internal" "still referenced in docker-compose.yml/Caddyfile — remove it"
   else
     record PASS "host.docker.internal" "not referenced"
   fi
@@ -300,7 +323,7 @@ if "${DOCKER[@]}" network inspect supabase_default >/dev/null 2>&1; then
   elif [ "$CODE_SUPA" = "000" ]; then
     record WARN "gateway fails closed" "no response on https://$SUPA_HOST (cert or DNS not ready?)"
   else
-    record "$HARDENING_SEVERITY" "gateway fails closed" "unauthenticated REST → HTTP $CODE_SUPA (expected 401/403)"
+    record "$AUDIT_SEVERITY" "gateway fails closed" "unauthenticated REST → HTTP $CODE_SUPA (expected 401/403)"
   fi
 
   # 4f. The Supabase secret file must not be group/world readable.
@@ -311,7 +334,7 @@ if "${DOCKER[@]}" network inspect supabase_default >/dev/null 2>&1; then
     if [ "$MODE" = "600" ]; then
       record PASS "supabase .env mode" "$envpath is 600"
     else
-      record "$HARDENING_SEVERITY" "supabase .env mode" "$envpath is $MODE (expected 600) — run: chmod 600 $envpath"
+      record "$AUDIT_SEVERITY" "supabase .env mode" "$envpath is $MODE (expected 600) — run: chmod 600 $envpath"
     fi
     break
   done
@@ -342,7 +365,7 @@ if [ "$FAIL_COUNT" -eq 0 ] && [ "$WARN_COUNT" -eq 0 ]; then
   printf '%sVERDICT: PASS%s — stack is healthy.\n' "$GREEN$BOLD" "$RESET"
   exit 0
 elif [ "$FAIL_COUNT" -eq 0 ]; then
-  printf '%sVERDICT: PASS with warnings%s — %d warning(s), 0 failures.\n' "$YELLOW$BOLD" "$RESET" "$WARN_COUNT"
+  printf '%sVERDICT: PASS with advisories%s — deployment is healthy; %d configuration/security item(s) to review (run ./scripts/audit-config.sh).\n' "$YELLOW$BOLD" "$RESET" "$WARN_COUNT"
   exit 0
 else
   # -----------------------------------------------------------------------

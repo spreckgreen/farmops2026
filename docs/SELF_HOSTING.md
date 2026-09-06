@@ -120,17 +120,27 @@ Bostead. The Supabase self-host stack from
    > `VITE_SUPABASE_URL` is baked into the browser bundle, so it **must** be the
    > public HTTPS URL.
 
-   Verify the whole hardening set at any time — `scripts/healthcheck.sh` adds a
-   gateway-hardening section whenever a `supabase_default` network exists:
+   Verify the whole hardening set at any time. Hardening and env-template
+   completeness are **configuration/security audit** checks, not deployment
+   readiness: they are reported as advisories and never fail a working install.
+   Run them as a blocking audit on demand:
 
    ```bash
-   ./scripts/healthcheck.sh
+   ./scripts/audit-config.sh            # env template + gateway hardening, blocking
+   ./scripts/audit-config.sh --advisory # same report, always exit 0
+   ./scripts/healthcheck.sh             # readiness gates blocking, audit advisory
+   ./scripts/healthcheck.sh --strict    # everything blocking
+   ./scripts/refresh.sh --strict        # make the deploy gate blocking too
    ```
 
-   It fails if the override is missing from `COMPOSE_FILE`, if `5432`/`6543`/
-   `8000`/`8443` are published, if Caddy is detached (or the app attached), if
-   `host.docker.internal` returns, if an unauthenticated REST request does not
-   return 401/403, or if the Supabase `.env` is not mode `600`.
+   The audit reports findings if the override is missing from `COMPOSE_FILE`, if
+   `5432`/`6543`/`8000`/`8443` are published, if Caddy is detached (or the app
+   attached), if `host.docker.internal` returns, if an unauthenticated REST
+   request does not return 401/403, or if the Supabase `.env` is not mode `600`.
+
+   `scripts/refresh.sh` keeps blocking only on real deployment failures:
+   application, migration, container, `/health`, or Caddy→app proxy problems.
+
 
    **Migrations after hardening.** Because `5432` is no longer published,
    `postgresql://postgres:...@localhost:5432/postgres` cannot connect from the
