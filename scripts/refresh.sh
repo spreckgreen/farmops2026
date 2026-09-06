@@ -22,6 +22,7 @@
 #   ./scripts/refresh.sh --no-pull    # skip git pull (rebuild from local tree)
 #   ./scripts/refresh.sh --no-sudo    # never fall back to `sudo docker`
 #   ./scripts/refresh.sh --skip-migrations   # deploy without touching the schema
+#   ./scripts/refresh.sh --strict     # also fail on config/security audit findings
 
 #
 # Safe to re-run. Exits non-zero on any failure so it can be wired into cron
@@ -34,9 +35,14 @@ DO_PULL=1
 ALLOW_SUDO=1
 SKIP_HEALTHCHECK=0
 SKIP_MIGRATIONS=0
+# The post-refresh gate covers deployment readiness only (containers, /health,
+# caddy -> app). Configuration/security audit rows (env-template completeness,
+# Supabase gateway hardening) are advisory unless --strict is passed.
+STRICT_AUDIT=0
 for arg in "$@"; do
   case "$arg" in
     --force)   FORCE=1 ;;
+    --strict)  STRICT_AUDIT=1 ;;
     --no-pull) DO_PULL=0 ;;
     --no-sudo) ALLOW_SUDO=0 ;;
     --skip-healthcheck) SKIP_HEALTHCHECK=1 ;;
@@ -429,8 +435,9 @@ for i in $(seq 1 45); do
   sleep 2
 done
 
-# --- 6. Full PASS/FAIL gate (containers + env + caddy→app connectivity) ----
-# scripts/healthcheck.sh exits 0 only when EVERY probe passes. On any FAIL we
+# --- 6. Deployment readiness gate (containers + /health + caddy→app) -------
+# Only readiness probes block; config/security audit rows stay advisory.
+# scripts/healthcheck.sh exits non-zero when a readiness probe fails. On any FAIL we
 # abort the refresh with a non-zero status so cron / systemd / CI notice —
 # instead of silently declaring success on a broken site.
 if [ "$SKIP_HEALTHCHECK" -eq 1 ]; then
@@ -448,6 +455,12 @@ fi
 
 HC_FLAGS=()
 [ "$ALLOW_SUDO" -eq 0 ] && HC_FLAGS+=(--no-sudo)
+if [ "$STRICT_AUDIT" -eq 1 ]; then
+  HC_FLAGS+=(--strict)
+  log "--strict set: configuration/security audit rows will also block the refresh"
+else
+  HC_FLAGS+=(--advisory)
+fi
 
 log "Running full healthcheck gate: $HC ${HC_FLAGS[*]:-}"
 # Capture the probe output so we can echo it back after diagnose.sh runs —
@@ -455,14 +468,14 @@ log "Running full healthcheck gate: $HC ${HC_FLAGS[*]:-}"
 # scrolled past the compose ps / diagnose output.
 HC_LOG="$(mktemp -t refresh-healthcheck.XXXXXX.log)"
 if "$HC" "${HC_FLAGS[@]}" 2>&1 | tee "$HC_LOG"; then
-  log "✅ all probes PASS. Refresh complete."
+  log "✅ deployment readiness PASS. Refresh complete (advisory audit: ./scripts/audit-config.sh)."
   rm -f "$HC_LOG"
   "${DOCKER[@]}" compose ps
   exit 0
 else
   # `set -o pipefail` propagates healthcheck.sh's non-zero status through tee.
   rc=${PIPESTATUS[0]}
-  err "❌ healthcheck reported FAIL (exit=$rc) — refresh aborted."
+  err "❌ deployment readiness check reported FAIL (exit=$rc) — refresh aborted."
 
   # Auto-run diagnose.sh so the operator has a full bundle ready to share
   # without a second round-trip. Never let diagnose.sh's own failure mask
