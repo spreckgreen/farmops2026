@@ -12,7 +12,7 @@ const GATEWAY_URL = "https://connector-gateway.lovable.dev/google_maps";
 const SITE_COLUMNS =
   "id, site_name, address, formatted_address, latitude, longitude, imagery_source, notes, created_at, updated_at";
 const BUILDING_COLUMNS =
-  "id, site_plan_id, temp_name, building_name, size_rank, outline, origin_latitude, origin_longitude, footprint_sqft, perimeter_ft, fit_length_ft, fit_width_ft, orientation_degrees, grid_cell_ft, grid_rows, grid_columns, grid_row_labels, grid_column_labels, mapped_structure, mapped_confidence, trace_method, notes, updated_at";
+  "id, site_plan_id, temp_name, building_name, size_rank, outline, origin_latitude, origin_longitude, footprint_sqft, perimeter_ft, fit_length_ft, fit_width_ft, orientation_degrees, grid_cell_ft, grid_rows, grid_columns, grid_row_labels, grid_column_labels, mapped_structure, mapped_confidence, building_role, parent_building_id, trace_method, notes, updated_at";
 
 /**
  * Footprints the app already holds as frozen, approved geometry. Only these are
@@ -315,4 +315,175 @@ export const deleteSitePlan = createServerFn({ method: "POST" })
     const { error } = await supabase.from("site_plans").delete().eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true };
+  });
+
+// ---------------------------------------------------------------------------
+// Naming and grouping
+//
+// Renaming and regrouping never touches measured geometry: outlines, footprints,
+// orientation and derived grids are left exactly as recorded.
+// ---------------------------------------------------------------------------
+
+/** Rename a site and/or correct its address without touching its buildings. */
+export const updateSitePlan = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { id: string; site_name: string; address?: string | null }) => {
+    const id = clean(input?.id);
+    const siteName = clean(input?.site_name);
+    if (!id) throw new Error("A site is required.");
+    if (!siteName) throw new Error("Give the site a name.");
+    return { id, site_name: siteName, address: clean(input?.address) };
+  })
+  .handler(async ({ data, context }) => {
+    const { supabase } = context as { supabase: any };
+    const fields: Record<string, unknown> = { site_name: data.site_name };
+    if (data.address) fields["address"] = data.address;
+    const { error } = await supabase.from("site_plans").update(fields).eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export interface UpdateSiteBuildingInput {
+  id: string;
+  building_name?: string | null;
+  temp_name?: string | null;
+  building_role?: string | null;
+  parent_building_id?: string | null;
+  mapped_structure?: string | null;
+}
+
+/** Edit one building's names, its role on the site, and which building it belongs to. */
+export const updateSiteBuilding = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: UpdateSiteBuildingInput) => {
+    const id = clean(input?.id);
+    if (!id) throw new Error("A building is required.");
+    const role = clean(input?.building_role);
+    if (role && role !== "PRIMARY" && role !== "OUTBUILDING") {
+      throw new Error("A building is either the main building or an outbuilding.");
+    }
+    const tempName = clean(input?.temp_name);
+    if (tempName && tempName.length > 60) throw new Error("That reference is too long.");
+    return {
+      id,
+      building_name: input?.building_name === undefined ? undefined : clean(input.building_name),
+      temp_name: tempName ?? undefined,
+      building_role: input?.building_role === undefined ? undefined : role,
+      parent_building_id:
+        input?.parent_building_id === undefined ? undefined : clean(input.parent_building_id),
+      mapped_structure:
+        input?.mapped_structure === undefined ? undefined : clean(input.mapped_structure),
+    };
+  })
+  .handler(async ({ data, context }) => {
+    const { supabase } = context as { supabase: any };
+    const fields: Record<string, unknown> = {};
+    if (data.building_name !== undefined) fields["building_name"] = data.building_name;
+    if (data.temp_name !== undefined) fields["temp_name"] = data.temp_name;
+    if (data.building_role !== undefined) fields["building_role"] = data.building_role;
+    if (data.parent_building_id !== undefined) {
+      if (data.parent_building_id === data.id) {
+        throw new Error("A building cannot belong to itself.");
+      }
+      fields["parent_building_id"] = data.parent_building_id;
+    }
+    if (data.mapped_structure !== undefined) fields["mapped_structure"] = data.mapped_structure;
+    if (Object.keys(fields).length === 0) return { ok: true };
+    const { error } = await supabase.from("site_buildings").update(fields).eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+/**
+ * Move every building from the source sites onto one keeper site, then remove the
+ * emptied site records. Duplicate BLDG-n references are renumbered largest to
+ * smallest so no two buildings on the site share a reference.
+ */
+export const mergeSitePlans = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { keep_id: string; merge_ids: string[] }) => {
+    const keepId = clean(input?.keep_id);
+    if (!keepId) throw new Error("Choose which site to keep.");
+    const mergeIds = (Array.isArray(input?.merge_ids) ? input.merge_ids : [])
+      .map((value) => clean(value))
+      .filter((value): value is string => Boolean(value) && value !== keepId);
+    if (mergeIds.length === 0) throw new Error("Choose at least one other site to fold in.");
+    return { keep_id: keepId, merge_ids: [...new Set(mergeIds)] };
+  })
+  .handler(async ({ data, context }) => {
+    const { supabase } = context as { supabase: any };
+
+    const { error: moveError } = await supabase
+      .from("site_buildings")
+      .update({ site_plan_id: data.keep_id, parent_building_id: null })
+      .in("site_plan_id", data.merge_ids);
+    if (moveError) throw new Error(moveError.message);
+
+    const { error: deleteError } = await supabase
+      .from("site_plans")
+      .delete()
+      .in("id", data.merge_ids);
+    if (deleteError) throw new Error(deleteError.message);
+
+    const renumbered = await resequenceReferences(supabase, data.keep_id);
+    return { ok: true, moved_sites: data.merge_ids.length, renumbered };
+  });
+
+/**
+ * Give every building on one site a unique BLDG-n reference, largest footprint
+ * first. Buildings already carrying a hand-typed reference keep it.
+ */
+async function resequenceReferences(supabase: any, siteId: string): Promise<number> {
+  const { data: rows, error } = await supabase
+    .from("site_buildings")
+    .select("id, temp_name, footprint_sqft")
+    .eq("site_plan_id", siteId);
+  if (error) throw new Error(error.message);
+  const list = (rows ?? []) as Array<{
+    id: string;
+    temp_name: string;
+    footprint_sqft: number | null;
+  }>;
+  const auto = list
+    .filter((row) => /^BLDG-\d+$/i.test(String(row.temp_name ?? "").trim()))
+    .sort((a, b) => Number(b.footprint_sqft ?? 0) - Number(a.footprint_sqft ?? 0));
+  const taken = new Set(
+    list
+      .filter((row) => !/^BLDG-\d+$/i.test(String(row.temp_name ?? "").trim()))
+      .map((row) => String(row.temp_name ?? "").trim().toUpperCase()),
+  );
+  let next = 1;
+  let changed = 0;
+  for (const row of auto) {
+    let candidate = `BLDG-${next}`;
+    while (taken.has(candidate.toUpperCase())) {
+      next += 1;
+      candidate = `BLDG-${next}`;
+    }
+    taken.add(candidate.toUpperCase());
+    next += 1;
+    if (candidate !== row.temp_name) {
+      const { error: updateError } = await supabase
+        .from("site_buildings")
+        .update({ temp_name: candidate })
+        .eq("id", row.id);
+      if (updateError) throw new Error(updateError.message);
+      changed += 1;
+    }
+  }
+  return changed;
+}
+
+/** Renumber duplicate references on one site without moving anything. */
+export const resequenceSiteReferences = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { site_id: string }) => {
+    const siteId = clean(input?.site_id);
+    if (!siteId) throw new Error("A site is required.");
+    return { site_id: siteId };
+  })
+  .handler(async ({ data, context }) => {
+    const { supabase } = context as { supabase: any };
+    const renumbered = await resequenceReferences(supabase, data.site_id);
+    return { ok: true, renumbered };
   });

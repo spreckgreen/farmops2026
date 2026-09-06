@@ -6280,6 +6280,7 @@ export type Database = {
       site_buildings: {
         Row: {
           building_name: string | null
+          building_role: string | null
           created_at: string
           definition_method: string | null
           fit_length_ft: number | null
@@ -6301,6 +6302,7 @@ export type Database = {
           origin_longitude: number | null
           outline: Json
           outline_local: Json | null
+          parent_building_id: string | null
           perimeter_ft: number | null
           shape_template: string | null
           site_plan_id: string
@@ -6317,6 +6319,7 @@ export type Database = {
         }
         Insert: {
           building_name?: string | null
+          building_role?: string | null
           created_at?: string
           definition_method?: string | null
           fit_length_ft?: number | null
@@ -6338,6 +6341,7 @@ export type Database = {
           origin_longitude?: number | null
           outline: Json
           outline_local?: Json | null
+          parent_building_id?: string | null
           perimeter_ft?: number | null
           shape_template?: string | null
           site_plan_id: string
@@ -6354,6 +6358,7 @@ export type Database = {
         }
         Update: {
           building_name?: string | null
+          building_role?: string | null
           created_at?: string
           definition_method?: string | null
           fit_length_ft?: number | null
@@ -6375,6 +6380,7 @@ export type Database = {
           origin_longitude?: number | null
           outline?: Json
           outline_local?: Json | null
+          parent_building_id?: string | null
           perimeter_ft?: number | null
           shape_template?: string | null
           site_plan_id?: string
@@ -6390,6 +6396,13 @@ export type Database = {
           walk_start_cell?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "site_buildings_parent_building_id_fkey"
+            columns: ["parent_building_id"]
+            isOneToOne: false
+            referencedRelation: "site_buildings"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "site_buildings_site_plan_id_fkey"
             columns: ["site_plan_id"]
