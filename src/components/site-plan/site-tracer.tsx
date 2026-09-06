@@ -14,7 +14,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { SavedSitesOrganizer } from "@/components/site-plan/saved-sites-organizer";
 import { browserMapKeyHint, loadGoogleMaps } from "@/lib/google-maps-loader";
 import {
@@ -25,7 +24,6 @@ import {
   type LatLng,
 } from "@/lib/site-plan";
 import {
-  deleteSitePlan,
   geocodeSiteAddress,
   listExistingStructures,
   listSitePlans,
@@ -46,7 +44,6 @@ function feet(value: number): string {
 export function SiteTracer() {
   const geocode = useServerFn(geocodeSiteAddress);
   const save = useServerFn(saveSitePlan);
-  const remove = useServerFn(deleteSitePlan);
   const listStructures = useServerFn(listExistingStructures);
   const listPlans = useServerFn(listSitePlans);
   const queryClient = useQueryClient();
@@ -294,15 +291,6 @@ export function SiteTracer() {
       }),
     onSuccess: (result) => {
       toast.success(`Site saved with ${result.buildings} building outline(s).`);
-      queryClient.invalidateQueries({ queryKey: ["site-plan", "plans"] });
-    },
-    onError: (error: Error) => toast.error(error.message),
-  });
-
-  const deletePlan = useMutation({
-    mutationFn: (id: string) => remove({ data: { id } }),
-    onSuccess: () => {
-      toast.success("Site removed.");
       queryClient.invalidateQueries({ queryKey: ["site-plan", "plans"] });
     },
     onError: (error: Error) => toast.error(error.message),
