@@ -81,7 +81,16 @@ Bostead. The Supabase self-host stack from
        ports: !override []
    ```
 
-   Activate it once in the Supabase `docker/.env` (or your shell profile):
+   The one-command FarmOps installer now creates and activates this file. To
+   apply the same hardening to an existing installation without rebuilding
+   FarmOps, run:
+
+   ```bash
+   ./scripts/configure-supabase-hardening.sh \
+     --supabase-dir /home/rpremo/supabase-project
+   ```
+
+   Manual installations can instead activate it in the backend `docker/.env`:
 
    ```bash
    COMPOSE_FILE=docker-compose.yml:docker-compose.hardening.yml

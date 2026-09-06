@@ -225,12 +225,22 @@ if "${DOCKER[@]}" network inspect supabase_default >/dev/null 2>&1; then
 
   # 4a. The hardening override must be part of the active compose layering,
   #     otherwise `docker compose up` republishes the gateway/pooler ports.
+  SUPABASE_STACK_DIR=""
+  for candidate in ../supabase-project/docker "$HOME/supabase-project/docker" ../supabase/docker /opt/supabase/docker; do
+    if [ -f "$candidate/docker-compose.yml" ]; then
+      SUPABASE_STACK_DIR="$candidate"
+      break
+    fi
+  done
   ACTIVE_COMPOSE="${COMPOSE_FILE:-}"
-  if [ -z "$ACTIVE_COMPOSE" ] && [ -f .env ]; then
-    ACTIVE_COMPOSE="$(sed -n 's/^COMPOSE_FILE=//p' .env | tail -1)"
+  if [ -n "$SUPABASE_STACK_DIR" ] && [ -f "$SUPABASE_STACK_DIR/.env" ]; then
+    ACTIVE_COMPOSE="$(sed -n 's/^[[:space:]]*COMPOSE_FILE=//p' "$SUPABASE_STACK_DIR/.env" | tail -1)"
   fi
-  if [ ! -f docker-compose.hardening.yml ]; then
-    record WARN "hardening override" "docker-compose.hardening.yml not found in this directory"
+  HARDENING_FILE="${SUPABASE_STACK_DIR:+$SUPABASE_STACK_DIR/}docker-compose.hardening.yml"
+  if [ -z "$SUPABASE_STACK_DIR" ]; then
+    record WARN "hardening override" "backend compose directory not found; port exposure is checked directly below"
+  elif [ ! -f "$HARDENING_FILE" ]; then
+    record WARN "hardening override" "$HARDENING_FILE not found"
   elif printf '%s' "$ACTIVE_COMPOSE" | grep -q 'docker-compose.hardening.yml'; then
     record PASS "hardening override" "COMPOSE_FILE includes docker-compose.hardening.yml"
   else
@@ -286,7 +296,8 @@ if "${DOCKER[@]}" network inspect supabase_default >/dev/null 2>&1; then
   fi
 
   # 4f. The Supabase secret file must not be group/world readable.
-  for envpath in ../supabase/docker/.env /opt/supabase/docker/.env "$HOME/supabase/docker/.env"; do
+  for envpath in "${SUPABASE_STACK_DIR:+$SUPABASE_STACK_DIR/.env}" ../supabase/docker/.env /opt/supabase/docker/.env "$HOME/supabase/docker/.env"; do
+    [ -n "$envpath" ] || continue
     [ -f "$envpath" ] || continue
     MODE="$(stat -c '%a' "$envpath" 2>/dev/null || echo '?')"
     if [ "$MODE" = "600" ]; then
