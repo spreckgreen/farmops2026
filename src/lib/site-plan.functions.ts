@@ -12,7 +12,7 @@ const GATEWAY_URL = "https://connector-gateway.lovable.dev/google_maps";
 const SITE_COLUMNS =
   "id, site_name, address, formatted_address, latitude, longitude, imagery_source, notes, created_at, updated_at";
 const BUILDING_COLUMNS =
-  "id, site_plan_id, temp_name, building_name, size_rank, outline, origin_latitude, origin_longitude, footprint_sqft, perimeter_ft, fit_length_ft, fit_width_ft, orientation_degrees, grid_cell_ft, grid_rows, grid_columns, grid_row_labels, grid_column_labels, mapped_structure, mapped_confidence, building_role, parent_building_id, trace_method, notes, updated_at";
+  "id, site_plan_id, temp_name, building_name, size_rank, outline, origin_latitude, origin_longitude, footprint_sqft, perimeter_ft, fit_length_ft, fit_width_ft, orientation_degrees, grid_cell_ft, grid_rows, grid_columns, grid_row_labels, grid_column_labels, mapped_structure, mapped_confidence, building_role, parent_building_id, service_type, trace_method, notes, updated_at";
 
 /**
  * Footprints the app already holds as frozen, approved geometry. Only these are
@@ -350,6 +350,7 @@ export interface UpdateSiteBuildingInput {
   building_role?: string | null;
   parent_building_id?: string | null;
   mapped_structure?: string | null;
+  service_type?: string | null;
 }
 
 /** Edit one building's names, its role on the site, and which building it belongs to. */
@@ -362,6 +363,10 @@ export const updateSiteBuilding = createServerFn({ method: "POST" })
     if (role && role !== "PRIMARY" && role !== "OUTBUILDING") {
       throw new Error("A building is either the main building or an outbuilding.");
     }
+    const service = clean(input?.service_type);
+    if (service && !["ELECTRICITY", "WATER", "GAS", "NONE"].includes(service)) {
+      throw new Error("Choose electricity, water, gas or none.");
+    }
     const tempName = clean(input?.temp_name);
     if (tempName && tempName.length > 60) throw new Error("That reference is too long.");
     return {
@@ -373,6 +378,7 @@ export const updateSiteBuilding = createServerFn({ method: "POST" })
         input?.parent_building_id === undefined ? undefined : clean(input.parent_building_id),
       mapped_structure:
         input?.mapped_structure === undefined ? undefined : clean(input.mapped_structure),
+      service_type: input?.service_type === undefined ? undefined : service,
     };
   })
   .handler(async ({ data, context }) => {
@@ -388,6 +394,7 @@ export const updateSiteBuilding = createServerFn({ method: "POST" })
       fields["parent_building_id"] = data.parent_building_id;
     }
     if (data.mapped_structure !== undefined) fields["mapped_structure"] = data.mapped_structure;
+    if (data.service_type !== undefined) fields["service_type"] = data.service_type;
     if (Object.keys(fields).length === 0) return { ok: true };
     const { error } = await supabase.from("site_buildings").update(fields).eq("id", data.id);
     if (error) throw new Error(error.message);
