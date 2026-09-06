@@ -20,6 +20,10 @@ import {
 import { resolveFsNwAuditedLoadLinks } from "@/lib/electrical-fs-nw-links.functions";
 import { FS_NW_AUDIT_R3_BATCH_ID } from "@/lib/electrical-fs-nw-audit-r3";
 import {
+  FS_AUDIT_R1_20260906_BATCH_ID,
+  fsAuditR120260906ManifestText,
+} from "@/lib/electrical-fs-audit-r1-20260906";
+import {
   FS_SWITCH_CONTROLS_BATCH_ID,
   fsSwitchControlsManifestText,
 } from "@/lib/electrical-audit-switch-controls";
@@ -468,6 +472,20 @@ export function AuditBatchPanel() {
           setManifestText(fsNwAuditManifestR2Text());
           toast.success(
             `${FS_NW_AUDIT_R2_BATCH_ID} loaded — ${FS_NW_AUDITED_BREAKERS.length} circuit groups, ${FS_NW_AUDITED_BREAKERS.length} breaker positions, 20 relationship-only load links and 1 hold (35 items). Supersedes ${FS_NW_AUDIT_R1_BATCH_ID}; import to preview, nothing is written yet.`,
+          );
+        },
+      },
+      {
+        id: FS_AUDIT_R1_20260906_BATCH_ID,
+        kind: "load" as const,
+        label: `Load ${FS_AUDIT_R1_20260906_BATCH_ID}`,
+        title:
+          "Loads the 2026-09-06 Farm Shop field audit: JB-105-01 and JB-104-01 with their traced branches, the CON-201/CON-202 flexible final connections, 23 verified load grid locations, and holds for the two branches not found at JB-104-02, the FS-035 grid cell, the FS-048 outgoing branch and the conflicting BR-104-02 → FS-054 note.",
+        disabled: false,
+        onClick: () => {
+          setManifestText(fsAuditR120260906ManifestText());
+          toast.success(
+            `${FS_AUDIT_R1_20260906_BATCH_ID} loaded — preview it before anything is written. Conflicts and not-found records stay held.`,
           );
         },
       },
