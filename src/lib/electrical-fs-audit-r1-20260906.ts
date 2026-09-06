@@ -395,7 +395,7 @@ export function buildFsAuditR120260906Manifest(): AuditBatchManifest {
       "load",
       "FS-035",
       "ATTRIBUTE UNRESOLVED (building-grid cell only): the conventional grid coordinate for FS-035 was not observed, so it stays unchanged/null and is never derived from the Post 23N/24NE location. This attribute hold does not block the verified Pole Grid location update for FS-035, which applies on its own.",
-      { attribute: "grid" },
+      {},
     ),
 
   );
