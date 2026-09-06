@@ -41,7 +41,7 @@ FLAGS=()
 FLAGS+=(--no-logs)
 
 printf '\033[1;36m[audit]\033[0m %s %s\n' "$HC" "${FLAGS[*]} ${PASSTHROUGH[*]:-}"
-"$HC" "${FLAGS[@]}" "${PASSTHROUGH[@]:-}"
+"$HC" "${FLAGS[@]}" ${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"}
 rc=$?
 
 if [ "$ADVISORY" -eq 1 ]; then
