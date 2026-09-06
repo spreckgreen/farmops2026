@@ -32,6 +32,14 @@ import {
 
 const NO_PARENT = "__none__";
 const UNSET_ROLE = "__unset__";
+const UNSET_SERVICE = "__unset_service__";
+
+const SERVICE_LABELS: Record<string, string> = {
+  ELECTRICITY: "Electricity",
+  WATER: "Water",
+  GAS: "Gas",
+  NONE: "None",
+};
 
 interface BuildingRow {
   id: string;
@@ -40,6 +48,7 @@ interface BuildingRow {
   building_name: string | null;
   building_role: string | null;
   parent_building_id: string | null;
+  service_type: string | null;
   footprint_sqft: number | null;
   fit_length_ft: number | null;
   fit_width_ft: number | null;
@@ -379,6 +388,56 @@ export function SavedSitesOrganizer() {
                             </div>
                           </div>
 
+                          <div className="grid gap-2 sm:grid-cols-2">
+                            <div className="space-y-1">
+                              <Label>Service type</Label>
+                              <Select
+                                value={row.service_type ?? UNSET_SERVICE}
+                                onValueChange={(value) =>
+                                  buildingMutation.mutate({
+                                    id: row.id,
+                                    service_type: value === UNSET_SERVICE ? null : value,
+                                  })
+                                }
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Not decided yet" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value={UNSET_SERVICE}>Not decided yet</SelectItem>
+                                  <SelectItem value="ELECTRICITY">Electricity</SelectItem>
+                                  <SelectItem value="WATER">Water</SelectItem>
+                                  <SelectItem value="GAS">Gas</SelectItem>
+                                  <SelectItem value="NONE">None</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="space-y-1">
+                              <Label>Outbuildings depending on this one</Label>
+                              {rows.filter((other) => other.parent_building_id === row.id).length ===
+                              0 ? (
+                                <p className="text-xs text-muted-foreground">
+                                  Nothing depends on this building yet.
+                                </p>
+                              ) : (
+                                <ul className="space-y-1 text-xs">
+                                  {rows
+                                    .filter((other) => other.parent_building_id === row.id)
+                                    .map((child) => (
+                                      <li key={child.id} className="flex items-center gap-2">
+                                        <span>{child.building_name || child.temp_name}</span>
+                                        <Badge variant="outline">
+                                          {child.service_type
+                                            ? SERVICE_LABELS[child.service_type]
+                                            : "Service not decided"}
+                                        </Badge>
+                                      </li>
+                                    ))}
+                                </ul>
+                              )}
+                            </div>
+                          </div>
+
                           <p className="text-xs text-muted-foreground">
                             {Number(row.footprint_sqft ?? 0).toFixed(0)} sq ft ·{" "}
                             {Number(row.fit_length_ft ?? 0).toFixed(0)}′ ×{" "}
@@ -407,6 +466,11 @@ export function SavedSitesOrganizer() {
                             ) : null}
                             {row.building_role === "OUTBUILDING" ? (
                               <Badge variant="outline">Outbuilding</Badge>
+                            ) : null}
+                            {row.service_type ? (
+                              <Badge variant="secondary">
+                                {SERVICE_LABELS[row.service_type]}
+                              </Badge>
                             ) : null}
                           </div>
                         </div>
