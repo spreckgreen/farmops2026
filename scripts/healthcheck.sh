@@ -243,14 +243,16 @@ elif [ "$CODE_CADDY_HTTPS" = "000" ]; then
 else
   record FAIL "caddy → app (:443)" "HTTP $CODE_CADDY_HTTPS (expected 2xx/3xx)"
 fi
+fi
 
 # ===========================================================================
-# CHECK 4 — network / gateway hardening (self-hosted Supabase only)
+# AUDIT CHECK 4 — gateway hardening  (ADVISORY unless --strict)
 # ===========================================================================
 # Skipped entirely when no self-hosted Supabase stack is present, so this file
 # stays usable on a managed backend.
 if "${DOCKER[@]}" network inspect supabase_default >/dev/null 2>&1; then
-  log "${BOLD}[4/4]${RESET} Checking gateway hardening…"
+  log "${BOLD}[4/4]${RESET} Auditing gateway hardening… (advisory)"
+
 
   # 4a. The hardening override must be part of the active compose layering,
   #     otherwise `docker compose up` republishes the gateway/pooler ports.
