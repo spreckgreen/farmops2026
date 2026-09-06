@@ -6304,6 +6304,7 @@ export type Database = {
           outline_local: Json | null
           parent_building_id: string | null
           perimeter_ft: number | null
+          service_type: string | null
           shape_template: string | null
           site_plan_id: string
           size_rank: number
@@ -6343,6 +6344,7 @@ export type Database = {
           outline_local?: Json | null
           parent_building_id?: string | null
           perimeter_ft?: number | null
+          service_type?: string | null
           shape_template?: string | null
           site_plan_id: string
           size_rank?: number
@@ -6382,6 +6384,7 @@ export type Database = {
           outline_local?: Json | null
           parent_building_id?: string | null
           perimeter_ft?: number | null
+          service_type?: string | null
           shape_template?: string | null
           site_plan_id?: string
           size_rank?: number
