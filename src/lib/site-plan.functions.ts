@@ -51,7 +51,9 @@ export const geocodeSiteAddress = createServerFn({ method: "POST" })
   })
   .handler(async ({ data }): Promise<GeocodedSite> => {
     const lovableKey = process.env["LOVABLE_API_KEY"];
-    const connectionKey = process.env["GOOGLE_MAPS_API_KEY"];
+    // A second linked map connection is exposed with a `_1` suffix, so accept both.
+    const connectionKey =
+      process.env["GOOGLE_MAPS_API_KEY"] ?? process.env["GOOGLE_MAPS_API_KEY_1"];
     if (!connectionKey) {
       throw new Error("Map lookup is not configured for this project yet.");
     }
