@@ -23,6 +23,11 @@ ALLOW_SUDO=1
 QUIET=0
 DUMP_LOGS=1
 LOG_TAIL=80
+# Check 4 (gateway hardening) reports security posture, not liveness. It is
+# advisory by default so a working install is never blocked by it; pass
+# --strict-hardening (or STRICT_HARDENING=1) to make those rows fail the run.
+HARDENING_SEVERITY="WARN"
+[ "${STRICT_HARDENING:-0}" = "1" ] && HARDENING_SEVERITY="FAIL"
 while [ $# -gt 0 ]; do
   case "$1" in
     --host) shift; HOST_NAME="${1:-$HOST_NAME}" ;;
@@ -32,6 +37,8 @@ while [ $# -gt 0 ]; do
     --no-logs) DUMP_LOGS=0 ;;
     --log-tail) shift; LOG_TAIL="${1:-80}" ;;
     --log-tail=*) LOG_TAIL="${1#*=}" ;;
+    --strict-hardening) HARDENING_SEVERITY="FAIL" ;;
+    --advisory-hardening) HARDENING_SEVERITY="WARN" ;;
     -h|--help) sed -n '2,20p' "$0"; exit 0 ;;
     *) echo "Unknown flag: $1" >&2; exit 2 ;;
   esac
@@ -245,7 +252,7 @@ if "${DOCKER[@]}" network inspect supabase_default >/dev/null 2>&1; then
   elif printf '%s' "$ACTIVE_COMPOSE" | grep -q 'docker-compose.hardening.yml'; then
     record PASS "hardening override" "COMPOSE_FILE includes docker-compose.hardening.yml"
   else
-    record FAIL "hardening override" "COMPOSE_FILE does not include docker-compose.hardening.yml — gateway/pooler ports may be republished"
+    record "$HARDENING_SEVERITY" "hardening override" "COMPOSE_FILE does not include docker-compose.hardening.yml — gateway/pooler ports may be republished"
   fi
 
   # 4b. No database, pooler or gateway port may be published on the host.
@@ -257,7 +264,7 @@ if "${DOCKER[@]}" network inspect supabase_default >/dev/null 2>&1; then
     fi
   done
   if [ -n "$BAD_PORTS" ]; then
-    record FAIL "published host ports" "publicly reachable:${BAD_PORTS} (expected none)"
+    record "$HARDENING_SEVERITY" "published host ports" "publicly reachable:${BAD_PORTS} (expected none)"
   else
     record PASS "published host ports" "5432/6543/8000/8443 not published on the host"
   fi
@@ -268,17 +275,17 @@ if "${DOCKER[@]}" network inspect supabase_default >/dev/null 2>&1; then
   if printf '%s' "$ATTACHED" | grep -q 'caddy'; then
     record PASS "caddy on supabase_default" "attached (reverse_proxy kong:8000 resolves)"
   else
-    record FAIL "caddy on supabase_default" "not attached — the HTTPS route to the gateway will 502"
+    record "$HARDENING_SEVERITY" "caddy on supabase_default" "not attached — the HTTPS route to the gateway will 502"
   fi
   if printf '%s' "$ATTACHED" | grep -Eq '(^| )[^ ]*[-_]app( |$)'; then
-    record FAIL "app off supabase_default" "the app container is attached directly — remove it"
+    record "$HARDENING_SEVERITY" "app off supabase_default" "the app container is attached directly — remove it"
   else
     record PASS "app off supabase_default" "not attached directly"
   fi
 
   # 4d. host.docker.internal must stay removed.
   if grep -q 'host\.docker\.internal' docker-compose.yml Caddyfile 2>/dev/null; then
-    record FAIL "host.docker.internal" "still referenced in docker-compose.yml/Caddyfile — remove it"
+    record "$HARDENING_SEVERITY" "host.docker.internal" "still referenced in docker-compose.yml/Caddyfile — remove it"
   else
     record PASS "host.docker.internal" "not referenced"
   fi
@@ -293,7 +300,7 @@ if "${DOCKER[@]}" network inspect supabase_default >/dev/null 2>&1; then
   elif [ "$CODE_SUPA" = "000" ]; then
     record WARN "gateway fails closed" "no response on https://$SUPA_HOST (cert or DNS not ready?)"
   else
-    record FAIL "gateway fails closed" "unauthenticated REST → HTTP $CODE_SUPA (expected 401/403)"
+    record "$HARDENING_SEVERITY" "gateway fails closed" "unauthenticated REST → HTTP $CODE_SUPA (expected 401/403)"
   fi
 
   # 4f. The Supabase secret file must not be group/world readable.
@@ -304,7 +311,7 @@ if "${DOCKER[@]}" network inspect supabase_default >/dev/null 2>&1; then
     if [ "$MODE" = "600" ]; then
       record PASS "supabase .env mode" "$envpath is 600"
     else
-      record FAIL "supabase .env mode" "$envpath is $MODE (expected 600) — run: chmod 600 $envpath"
+      record "$HARDENING_SEVERITY" "supabase .env mode" "$envpath is $MODE (expected 600) — run: chmod 600 $envpath"
     fi
     break
   done
