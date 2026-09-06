@@ -472,13 +472,29 @@ export const AUDIT_ENTITY_TARGETS: Record<AuditEntityKind, EntityTarget> = {
   },
   raceway: {
     table: "electrical_raceways",
-    stableIdColumn: "raceway_id",
+    // The raceway's stable ID lives in `conduit_id` (CON-###).
+    stableIdColumn: "conduit_id",
     idKind: "raceway",
-    writable: [...STATE_FIELDS],
+    // A directly observed raceway may be proposed for creation: the absence of
+    // a FarmOps record is the reason a create proposal exists, not evidence the
+    // asset was invented. Observed endpoint text is written verbatim; an
+    // unknown upstream endpoint stays null and is held as its own topology item.
+    writable: [
+      "description",
+      "purpose",
+      "raceway_type",
+      "environment",
+      "source_endpoint_type",
+      "source_endpoint_ref",
+      "dest_endpoint_type",
+      "dest_endpoint_ref",
+      ...STATE_FIELDS,
+    ],
     links: [],
-    creatable: false,
+    creatable: true,
     title: "Raceways",
   },
+
   jbox: {
     table: "electrical_junction_boxes",
     stableIdColumn: "jbox_id",
