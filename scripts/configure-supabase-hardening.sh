@@ -87,15 +87,15 @@ else
 fi
 
 TMP_ENV="$(mktemp)"
-awk -v next="$NEXT" '
+awk -v compose_files="$NEXT" '
   BEGIN { replaced = 0 }
   /^[[:space:]]*COMPOSE_FILE=/ {
-    if (!replaced) print "COMPOSE_FILE=" next
+    if (!replaced) print "COMPOSE_FILE=" compose_files
     replaced = 1
     next
   }
   { print }
-  END { if (!replaced) print "COMPOSE_FILE=" next }
+  END { if (!replaced) print "COMPOSE_FILE=" compose_files }
 ' "$ENV_FILE" > "$TMP_ENV"
 cat "$TMP_ENV" > "$ENV_FILE"
 rm -f "$TMP_ENV"
