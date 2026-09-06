@@ -14,6 +14,10 @@
 //     field and are staged as holds requiring disposition — never deleted,
 //     because "not found" is not yet "removed, abandoned or never installed".
 //   * CON-201 → FS-083 and CON-202 → FS-021 with a flexible final connection.
+//     Both were directly observed with a unique auditor-supplied CON-### ID, so
+//     each is proposed as a raceway CREATE requiring normal audit approval. Only
+//     the unknown upstream endpoint is held; the creation itself is not.
+
 //   * The verified load grid locations, including positions recorded between
 //     two adjacent cells exactly as observed (B9/C9, D9/E9, ...).
 //   * FS-053 D3.5/E3.5, superseding the 2026-09-03 D4/E4 observation. The
