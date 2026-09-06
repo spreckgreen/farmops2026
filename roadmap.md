@@ -24,3 +24,9 @@
 - [ ] Garage electrical plan: grid-linked areas and circuit tracing
 - [ ] Place HS-001..HS-006 Ring cameras on the Farm House grid at real positions
 - [ ] Mark cameras live (blocked: needs playable stream addresses)
+
+## FA-FS-2026-09-06-R1 Farm Shop field audit
+- [x] Manifest staged (junction boxes, traced branches, flex final connections, 23 verified load grids)
+- [x] Between-cell grid positions (B9/C9, D3.5/E3.5) preserved as observed
+- [ ] Owner preview + approval, then apply
+- [ ] Disposition of BR-104-02-01 / BR-104-02-02, FS-035 grid cell, FS-048 outgoing branch ID + downstream sequence, BR-104-02 → FS-054 conflict
