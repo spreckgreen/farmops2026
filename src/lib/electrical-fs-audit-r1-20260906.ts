@@ -175,10 +175,15 @@ function loadLocationItem(load: {
 function branchItem(b: {
   branch_id: string;
   jbox_id: string;
-  dest_kind: "load" | "junction_box";
-  dest_ref: string;
+  /** "unknown" means the far end was not identified; nothing is invented. */
+  dest_kind: "load" | "junction_box" | "unknown";
+  dest_ref?: string;
   note?: string;
 }): AuditBatchItemInput {
+  const dest =
+    b.dest_kind === "unknown" || !b.dest_ref
+      ? {}
+      : { dest_endpoint_type: b.dest_kind, dest_endpoint_ref: b.dest_ref };
   return {
     item_key: `fs-2026-09-06-r1-${b.branch_id.toLowerCase()}`,
     entity_kind: "branch",
@@ -188,8 +193,7 @@ function branchItem(b: {
     fields: {
       source_endpoint_type: "junction_box",
       source_endpoint_ref: b.jbox_id,
-      dest_endpoint_type: b.dest_kind,
-      dest_endpoint_ref: b.dest_ref,
+      ...dest,
     },
     install_state: "installed",
     pole: null,
@@ -287,8 +291,7 @@ export function buildFsAuditR120260906Manifest(): AuditBatchManifest {
     branchItem({
       branch_id: "BR-104-02-03",
       jbox_id: "JB-104-02",
-      dest_kind: "load",
-      dest_ref: "",
+      dest_kind: "unknown",
       note: "Observed serving the fans circuit. The circuit-group record was not identified in the field, so no circuit-group relationship is asserted here.",
     }),
   );
@@ -296,8 +299,7 @@ export function buildFsAuditR120260906Manifest(): AuditBatchManifest {
     branchItem({
       branch_id: "BR-104-02-04",
       jbox_id: "JB-104-02",
-      dest_kind: "load",
-      dest_ref: "",
+      dest_kind: "unknown",
       note: "Observed serving the LED lighting circuit. The circuit-group record was not identified in the field, so no circuit-group relationship is asserted here.",
     }),
   );
