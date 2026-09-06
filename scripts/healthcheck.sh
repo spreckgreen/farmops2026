@@ -37,6 +37,8 @@ while [ $# -gt 0 ]; do
     --no-logs) DUMP_LOGS=0 ;;
     --log-tail) shift; LOG_TAIL="${1:-80}" ;;
     --log-tail=*) LOG_TAIL="${1#*=}" ;;
+    --strict-hardening) HARDENING_SEVERITY="FAIL" ;;
+    --advisory-hardening) HARDENING_SEVERITY="WARN" ;;
     -h|--help) sed -n '2,20p' "$0"; exit 0 ;;
     *) echo "Unknown flag: $1" >&2; exit 2 ;;
   esac
