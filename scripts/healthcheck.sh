@@ -97,11 +97,25 @@ DC=("${DOCKER[@]}" compose)
 if [ -f .env.local ]; then
   export COMPOSE_ENV_FILES=".env,.env.local"
 fi
+probe_code() {
+  # curl already prints 000 for connection/TLS failures. Do not append another
+  # 000 on a non-zero exit or the caller receives the invalid value 000000.
+  local output
+  output="$(curl -sS -o /dev/null -w '%{http_code}' --connect-timeout 3 --max-time 8 "$@" 2>/dev/null || true)"
+  if [[ "$output" =~ ([0-9]{3})$ ]]; then
+    printf '%s' "${BASH_REMATCH[1]}"
+  else
+    printf '000'
+  fi
+}
 
 # ===========================================================================
-# CHECK 1 — containers running & healthy
+# READINESS CHECK 1 — containers running & healthy  (BLOCKING)
 # ===========================================================================
-log "${BOLD}[1/4]${RESET} Checking containers…"
+if [ "$AUDIT_ONLY" -eq 1 ]; then
+  log "${BOLD}[audit-only]${RESET} skipping deployment readiness probes"
+else
+log "${BOLD}[1/4]${RESET} Checking containers… (readiness, blocking)"
 EXPECTED_SERVICES=(app caddy ollama)
 
 if [ ${#DOCKER[@]} -gt 0 ] && docker info >/dev/null 2>&1 || sudo -n docker info >/dev/null 2>&1; then
@@ -130,9 +144,10 @@ if [ ${#DOCKER[@]} -gt 0 ] && docker info >/dev/null 2>&1 || sudo -n docker info
     fi
   done
 fi
+fi
 
 # ===========================================================================
-# CHECK 2 — required env vars present in the active env file
+# AUDIT CHECK 2 — env-template completeness  (ADVISORY unless --strict)
 # ===========================================================================
 # Prefer .env.local (gitignored, holds real self-hosted keys) over .env.
 if   [ -f .env.local ]; then ENV_FILE=".env.local"
@@ -140,9 +155,9 @@ elif [ -f .env ];       then ENV_FILE=".env"
 else                         ENV_FILE=""
 fi
 
-log "${BOLD}[2/4]${RESET} Checking ${ENV_FILE:-<none>} vs .env.example…"
+log "${BOLD}[2/4]${RESET} Auditing ${ENV_FILE:-<none>} vs .env.example… (advisory)"
 if [ -z "$ENV_FILE" ]; then
-  record FAIL "env file" "neither .env.local nor .env found in $(pwd)"
+  record "$AUDIT_SEVERITY" "env file" "neither .env.local nor .env found in $(pwd)"
 elif [ ! -f .env.example ]; then
   record WARN "env template" ".env.example not found — cannot verify required keys"
 else
@@ -176,14 +191,18 @@ else
     [ ${#missing[@]}      -gt 0 ] && detail+="missing: $(IFS=,; echo "${missing[*]}") "
     [ ${#empty[@]}        -gt 0 ] && detail+="empty: $(IFS=,; echo "${empty[*]}") "
     [ ${#placeholders[@]} -gt 0 ] && detail+="placeholders (edit $ENV_FILE or run scripts/fill-env-from-supabase.sh): $(IFS=,; echo "${placeholders[*]}")"
-    record FAIL "env vars" "$detail"
+    record "$AUDIT_SEVERITY" "env vars" "$detail"
   fi
 fi
 
 # ===========================================================================
-# CHECK 3 — caddy → app connectivity (end-to-end)
+# READINESS CHECK 3 — /health + caddy → app connectivity  (BLOCKING)
 # ===========================================================================
-log "${BOLD}[3/4]${RESET} Probing caddy → app path…"
+if [ "$AUDIT_ONLY" -eq 1 ]; then
+  :
+else
+log "${BOLD}[3/4]${RESET} Probing /health and caddy → app path… (readiness, blocking)"
+
 
 probe_code() {
   # curl already prints 000 for connection/TLS failures. Do not append another
