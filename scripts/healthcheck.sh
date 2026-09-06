@@ -1,16 +1,24 @@
 #!/usr/bin/env bash
 # scripts/healthcheck.sh — one-shot PASS/FAIL report for the Bostead stack.
 #
-# Answers three questions, fast, with a clear verdict at the end:
-#   1. Are all expected containers running & healthy?  (app, caddy, ollama)
-#   2. Are all required env vars set in .env?          (per .env.example)
-#   3. Can the app and caddy route actually respond?   (end-to-end probe)
+# Two classes of check, deliberately separated:
 #
-# Exit code is 0 only if every check PASSES — safe to wire into cron, systemd
-# OnFailure=, or a post-deploy gate in refresh.sh.
+#   DEPLOYMENT READINESS (always blocking — a FAIL here means the site is down)
+#     1. Are all expected containers running & healthy?  (app, caddy, ollama)
+#     2. Does the app answer on /health, and can caddy reach it end-to-end?
+#
+#   CONFIGURATION / SECURITY AUDIT (advisory by default — posture, not liveness)
+#     3. Is every key from .env.example present and filled in?
+#     4. Is the self-hosted Supabase gateway hardened (ports, network, modes)?
+#
+# A working deployment is never reported as FAILED because of an advisory row.
+# Pass --strict (or STRICT=1) to make audit rows blocking — that is what
+# scripts/audit-config.sh does.
 #
 # Usage:
-#   ./scripts/healthcheck.sh                  # human-readable PASS/FAIL table
+#   ./scripts/healthcheck.sh                  # readiness gates blocking, audit advisory
+#   ./scripts/healthcheck.sh --strict         # audit rows fail the run too
+#   ./scripts/healthcheck.sh --audit-only     # skip readiness probes, audit only
 #   ./scripts/healthcheck.sh --host farmops.bostead.life   # override probe host
 #   ./scripts/healthcheck.sh --no-sudo        # never try `sudo docker` fallback
 #   ./scripts/healthcheck.sh --quiet          # only print the final verdict line
@@ -23,11 +31,14 @@ ALLOW_SUDO=1
 QUIET=0
 DUMP_LOGS=1
 LOG_TAIL=80
-# Check 4 (gateway hardening) reports security posture, not liveness. It is
-# advisory by default so a working install is never blocked by it; pass
-# --strict-hardening (or STRICT_HARDENING=1) to make those rows fail the run.
-HARDENING_SEVERITY="WARN"
-[ "${STRICT_HARDENING:-0}" = "1" ] && HARDENING_SEVERITY="FAIL"
+AUDIT_ONLY=0
+# Checks 3 & 4 (env-template completeness, gateway hardening) report
+# configuration/security posture, not liveness. They are advisory by default so
+# a working install is never blocked by them; --strict (STRICT=1) makes them
+# blocking. --strict-hardening / --advisory-hardening are kept as aliases.
+AUDIT_SEVERITY="WARN"
+[ "${STRICT:-0}" = "1" ] && AUDIT_SEVERITY="FAIL"
+[ "${STRICT_HARDENING:-0}" = "1" ] && AUDIT_SEVERITY="FAIL"
 while [ $# -gt 0 ]; do
   case "$1" in
     --host) shift; HOST_NAME="${1:-$HOST_NAME}" ;;
@@ -37,12 +48,14 @@ while [ $# -gt 0 ]; do
     --no-logs) DUMP_LOGS=0 ;;
     --log-tail) shift; LOG_TAIL="${1:-80}" ;;
     --log-tail=*) LOG_TAIL="${1#*=}" ;;
-    --strict-hardening) HARDENING_SEVERITY="FAIL" ;;
-    --advisory-hardening) HARDENING_SEVERITY="WARN" ;;
-    -h|--help) sed -n '2,20p' "$0"; exit 0 ;;
+    --strict|--strict-audit|--strict-hardening) AUDIT_SEVERITY="FAIL" ;;
+    --advisory|--advisory-hardening) AUDIT_SEVERITY="WARN" ;;
+    --audit-only) AUDIT_ONLY=1 ;;
+    -h|--help) sed -n '2,25p' "$0"; exit 0 ;;
     *) echo "Unknown flag: $1" >&2; exit 2 ;;
   esac
   shift || true
+
 done
 
 # Colors (skip if not a TTY, e.g. piped to a file)
