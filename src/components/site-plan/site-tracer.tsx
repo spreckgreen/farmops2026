@@ -87,7 +87,7 @@ export function SiteTracer() {
     (window as unknown as { gm_authFailure?: () => void }).gm_authFailure = () => {
       if (cancelled) return;
       setMapError(
-        `Aerial imagery is not permitted on this web address (${window.location.host}). Open the site plan on the Lovable preview or published address, or connect a map key that allows this domain. Everything else on this page still works: you can type building corners in feet on the Building grids page.`,
+        `Aerial imagery is not permitted on this web address (${window.location.host}). ${browserMapKeyHint()} Add https://${window.location.host}/* to that key's allowed websites in Google Cloud, or open the site plan on the Lovable preview or published address. Everything else on this page still works: you can type building corners in feet on the Building grids page.`,
       );
     };
     loadGoogleMaps()
