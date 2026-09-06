@@ -128,11 +128,12 @@ export const listExistingStructures = createServerFn({ method: "GET" })
 
     const [panels, loads, cameras] = await Promise.all([
       supabase.from("electrical_panels").select("building"),
-      supabase.from("electrical_loads").select("building"),
+      // electrical_loads has no `building` column — the structure name lives in `location`.
+      supabase.from("electrical_loads").select("location"),
       supabase.from("cameras").select("building"),
     ]);
     for (const row of panels.data ?? []) bump(row.building, "panels");
-    for (const row of loads.data ?? []) bump(row.building, "loads");
+    for (const row of loads.data ?? []) bump(row.location, "loads");
     for (const row of cameras.data ?? []) bump(row.building, "cameras");
 
     const structures: ExistingStructure[] = [...counts.entries()]
