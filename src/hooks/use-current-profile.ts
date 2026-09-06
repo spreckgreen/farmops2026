@@ -3,30 +3,10 @@
 // fetch. The query is created with `useServerFn` to ensure the auth bearer
 // attacher fires.
 
-import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { supabase } from "@/integrations/supabase/client";
+import { useHasSession } from "@/hooks/use-has-session";
 import { getMyProfile, type MyProfile } from "@/lib/admin.functions";
-
-/** True once we know a Supabase session exists in this browser. */
-function useHasSession() {
-  const [hasSession, setHasSession] = useState<boolean | null>(null);
-  useEffect(() => {
-    let active = true;
-    supabase.auth.getSession().then(({ data }) => {
-      if (active) setHasSession(Boolean(data.session));
-    });
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
-      setHasSession(Boolean(session));
-    });
-    return () => {
-      active = false;
-      sub.subscription.unsubscribe();
-    };
-  }, []);
-  return hasSession;
-}
 
 export function useCurrentProfile() {
   const fetcher = useServerFn(getMyProfile);

@@ -4,13 +4,17 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { getMyAddons, type MyAddon } from "@/lib/addons.functions";
 import type { AddonKey } from "@/lib/addons";
+import { useHasSession } from "@/hooks/use-has-session";
 
 export function useMyAddons() {
   const fetcher = useServerFn(getMyAddons);
+  const hasSession = useHasSession();
   return useQuery<MyAddon[]>({
     queryKey: ["my-addons"],
     queryFn: () => fetcher(),
     staleTime: 60_000,
+    enabled: hasSession === true,
+    retry: false,
   });
 }
 
