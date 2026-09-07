@@ -172,6 +172,11 @@ const PLANNER_CSS = `
   .grid-cal td.out { background: #f6f3ec; }
   .plain { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
   .plain th, .plain td { border: 1px solid #999; font-size: 10.5px; padding: 4px 6px; }
+  .logbar { display: flex; gap: 10px; margin: -8px 0 12px; padding: 5px 0 6px;
+            border-bottom: 1px solid #cdc6b8; font-size: 9px; letter-spacing: .14em;
+            text-transform: uppercase; color: #6b6257; }
+  .logbar .cell { flex: 1; display: flex; align-items: baseline; gap: 5px; }
+  .logbar .line { flex: 1; border-bottom: 1px solid #b8b0a0; height: 12px; }
 `;
 
 function docShell(
