@@ -5457,7 +5457,9 @@ export type Database = {
           id: string
           item_type: string | null
           location: string | null
+          manufacturer: string | null
           min_quantity: number | null
+          model: string | null
           name: string | null
           notes: string | null
           quantity: number | null
@@ -5467,6 +5469,7 @@ export type Database = {
           rack_units: number | null
           raw: Json
           reorder_level: number | null
+          serial_number: string | null
           sku: string | null
           status: string
           tags: string[]
@@ -5487,7 +5490,9 @@ export type Database = {
           id?: string
           item_type?: string | null
           location?: string | null
+          manufacturer?: string | null
           min_quantity?: number | null
+          model?: string | null
           name?: string | null
           notes?: string | null
           quantity?: number | null
@@ -5497,6 +5502,7 @@ export type Database = {
           rack_units?: number | null
           raw?: Json
           reorder_level?: number | null
+          serial_number?: string | null
           sku?: string | null
           status?: string
           tags?: string[]
@@ -5517,7 +5523,9 @@ export type Database = {
           id?: string
           item_type?: string | null
           location?: string | null
+          manufacturer?: string | null
           min_quantity?: number | null
+          model?: string | null
           name?: string | null
           notes?: string | null
           quantity?: number | null
@@ -5527,6 +5535,7 @@ export type Database = {
           rack_units?: number | null
           raw?: Json
           reorder_level?: number | null
+          serial_number?: string | null
           sku?: string | null
           status?: string
           tags?: string[]
