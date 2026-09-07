@@ -346,6 +346,12 @@ export function EntityManager({
     );
   }, [query.data, search]);
 
+  // Only record kinds that actually carry a building link get the service column.
+  const showBuildingService = useMemo(
+    () => (query.data ?? []).some((r) => "site_building_uuid" in r),
+    [query.data],
+  );
+
   const invalidate = () => {
     void qc.invalidateQueries({ queryKey: ["electrical"] });
   };
