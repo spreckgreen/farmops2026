@@ -30,6 +30,7 @@ import {
   JboxRacewayTopology,
   RacewayJunctionPoints,
 } from "@/components/electrical/raceway-path";
+import { RackKitCard } from "@/components/electrical/rack-kit-card";
 
 
 
@@ -268,6 +269,8 @@ function Detail({ kind, id }: { kind: ElectricalEntityKind; id: string }) {
           stableId={String(record[def.stableIdField] ?? "")}
         />
       ) : null}
+
+      {kind === "rack" ? <RackKitCard rackId={id} /> : null}
 
       {kind === "raceway" ? <RacewayJunctionPoints racewayId={id} /> : null}
       {kind === "jbox" ? (
