@@ -172,6 +172,11 @@ const PLANNER_CSS = `
   .grid-cal td.out { background: #f6f3ec; }
   .plain { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
   .plain th, .plain td { border: 1px solid #999; font-size: 10.5px; padding: 4px 6px; }
+  .logbar { display: flex; gap: 10px; margin: -8px 0 12px; padding: 5px 0 6px;
+            border-bottom: 1px solid #cdc6b8; font-size: 9px; letter-spacing: .14em;
+            text-transform: uppercase; color: #6b6257; }
+  .logbar .cell { flex: 1; display: flex; align-items: baseline; gap: 5px; }
+  .logbar .line { flex: 1; border-bottom: 1px solid #b8b0a0; height: 12px; }
 `;
 
 function docShell(
@@ -201,6 +206,19 @@ function head(opts: TemplateOptions, eyebrow: string, heading: string): string {
   <div class="eyebrow">${esc(eyebrow)}</div>
   <h1>${esc(heading)}</h1>
   ${opts.subtitle ? `<div class="sub">${esc(opts.subtitle)}</div>` : ""}
+</div>`;
+}
+
+/**
+ * Title-bar reference for a day's log entries: the three standing readings —
+ * weather, energy and productivity — written once at the top of the sheet so
+ * every entry below it is read against the same day.
+ */
+function logBar(): string {
+  return `<div class="logbar">
+  <span class="cell">Weather <span class="line"></span></span>
+  <span class="cell">Energy (kWh / gen hrs) <span class="line"></span></span>
+  <span class="cell">Productivity (hrs / output) <span class="line"></span></span>
 </div>`;
 }
 
@@ -234,6 +252,7 @@ function renderWork(tasks: PrintTask[], opts: TemplateOptions): string {
     opts,
     "portrait",
     `${head(opts, "FarmOps · Bostead Farms", "The Work")}
+${logBar()}
 <table>
   <thead><tr><th></th><th>Job</th><th>Date done</th><th>What happened</th></tr></thead>
   <tbody>${rows}${blankRows(opts.blankRows, 4)}</tbody>
@@ -247,6 +266,7 @@ function renderWorkYourOwn(_tasks: PrintTask[], opts: TemplateOptions): string {
     opts,
     "portrait",
     `${head(opts, "FarmOps · Bostead Farms", "The Work · Your Own")}
+${logBar()}
 <p class="sub">Nothing printed here. Your jobs, in your order. Tick it, date it, say what happened.</p>
 <table>
   <thead><tr><th></th><th>Job</th><th>Date done</th><th>What happened</th></tr></thead>
@@ -261,6 +281,7 @@ function renderLedger(_tasks: PrintTask[], opts: TemplateOptions): string {
     opts,
     "portrait",
     `${head(opts, "FarmOps · Bostead Farms", "The Ledger")}
+${logBar()}
 <p class="sub">Everything that went into store. Write what it would have cost to buy.</p>
 <table>
   <thead><tr><th>Date</th><th>Item</th><th>Quantity</th><th>Method</th><th>Store value</th><th>Running total</th></tr></thead>
@@ -278,6 +299,7 @@ function renderRecord(_tasks: PrintTask[], opts: TemplateOptions): string {
     opts,
     "portrait",
     `${head(opts, "FarmOps · Bostead Farms", "The Record")}
+${logBar()}
 <p class="sub">Weather, prices, what broke, what the neighbour said.</p>
 ${lines}
 ${foot(opts)}`,
@@ -394,6 +416,7 @@ function renderProductivity(tasks: PrintTask[], opts: TemplateOptions): string {
     opts,
     "landscape",
     `${head(opts, "FarmOps · Bostead Farms", "The Productivity")}
+${logBar()}
 <p class="sub">Hours in against what came out. Fill the empty columns by hand as you go.</p>
 <table>
   <thead><tr><th>Date</th><th>Job</th><th>Hours worked</th><th>What came of it</th><th>Worth it?</th><th>Notes</th></tr></thead>
