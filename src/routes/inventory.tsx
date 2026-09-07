@@ -647,6 +647,9 @@ function InventoryDashboard() {
             <Button size="sm" variant="outline" onClick={() => setScannerOpen(true)}>
               <ScanLine className="h-4 w-4 mr-1" /> Scan
             </Button>
+            <Button size="sm" variant="outline" onClick={() => navigate({ to: "/kits-racks" })}>
+              <Boxes className="h-4 w-4 mr-1" /> Kits &amp; racks
+            </Button>
             <Button
               size="sm"
               variant="outline"
