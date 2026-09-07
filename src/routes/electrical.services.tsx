@@ -19,6 +19,7 @@ import {
   saveServiceConfiguration,
   saveServicePanelLink,
   serviceState,
+  setPanelUtilityService,
 } from "@/lib/electrical-services.functions";
 import {
   FED_FROM_KINDS,
@@ -120,6 +121,10 @@ function Services() {
   const removeConfig = mutate(useServerFn(deleteServiceConfiguration), "Revision removed");
   const addPanel = mutate(useServerFn(saveServicePanelLink), "Panel membership saved");
   const removePanel = mutate(useServerFn(deleteServicePanelLink), "Panel membership removed");
+  const assignService = mutate(
+    useServerFn(setPanelUtilityService),
+    "Panel utility service saved",
+  );
   const addTie = mutate(useServerFn(saveIntertie), "Intertie saved");
   const addTieConfig = mutate(useServerFn(saveIntertieConfiguration), "Intertie revision saved");
   const commissionTie = mutate(
@@ -276,6 +281,11 @@ function Services() {
                 ))}
 
               </div>
+              <ServiceDependentPanels
+                panels={((data?.panels ?? []) as Row[]).filter(
+                  (p) => str(p["utility_service_uuid"]) === str(svc["id"]),
+                )}
+              />
               <NewConfigForm
                 serviceUuid={str(svc["id"])}
                 pending={addConfig.isPending}
@@ -285,6 +295,15 @@ function Services() {
           </Card>
         );
       })}
+
+      <PanelServiceAssignment
+        panels={(data?.panels ?? []) as Row[]}
+        services={(data?.services ?? []) as Row[]}
+        pending={assignService.isPending}
+        onAssign={(panelUuid, serviceUuid) =>
+          assignService.mutate({ panel_uuid: panelUuid, utility_service_uuid: serviceUuid })
+        }
+      />
 
       <Card>
         <CardHeader className="pb-2">
@@ -776,5 +795,132 @@ function NewIntertieConfigForm({
         Add intertie revision
       </Button>
     </div>
+  );
+}
+
+const UNASSIGNED_SERVICE = "__no_service__";
+
+/** Panels fed from one utility service — the dependents list for that service. */
+function ServiceDependentPanels({ panels }: { panels: Row[] }) {
+  return (
+    <div className="space-y-1">
+      <p className="text-sm font-medium">Panels fed from this service ({panels.length})</p>
+      {panels.length === 0 ? (
+        <p className="text-xs text-muted-foreground">
+          No panel is assigned to this service yet.
+        </p>
+      ) : (
+        <ul className="space-y-1 text-sm">
+          {panels.map((p) => (
+            <li key={str(p["id"])} className="flex flex-wrap items-center gap-2">
+              <span className="font-mono">{str(p["panel_id"])}</span>
+              <span className="text-muted-foreground">
+                {str(p["description"]) || "no description recorded"}
+              </span>
+              {str(p["building"]) && <Badge variant="outline">{str(p["building"])}</Badge>}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+/**
+ * One dropdown per panel choosing the utility service that feeds it. Blank stays
+ * blank: an undecided panel is never guessed from its name, building or feeder text.
+ */
+function PanelServiceAssignment({
+  panels,
+  services,
+  pending,
+  onAssign,
+}: {
+  panels: Row[];
+  services: Row[];
+  pending: boolean;
+  onAssign: (panelUuid: string, serviceUuid: string | null) => void;
+}) {
+  const unassigned = panels.filter((p) => !str(p["utility_service_uuid"]));
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base">
+          Panel utility service ({panels.length - unassigned.length} of {panels.length} assigned)
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {services.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            Add a utility service above first — then each panel can be assigned to one.
+          </p>
+        ) : null}
+        {panels.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No panel records yet.</p>
+        ) : (
+          <div className="overflow-x-auto rounded-md border border-border">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/50 text-left">
+                <tr>
+                  <th className="px-3 py-2 font-medium">Panel</th>
+                  <th className="px-3 py-2 font-medium">Description</th>
+                  <th className="px-3 py-2 font-medium">Building / location</th>
+                  <th className="px-3 py-2 font-medium">Utility service</th>
+                </tr>
+              </thead>
+              <tbody>
+                {panels.map((p) => (
+                  <tr key={str(p["id"])} className="border-t border-border">
+                    <td className="px-3 py-2 font-mono whitespace-nowrap">{str(p["panel_id"])}</td>
+                    <td className="px-3 py-2">
+                      {str(p["description"]) || (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2">
+                      {str(p["building"]) || <span className="text-muted-foreground">—</span>}
+                    </td>
+                    <td className="px-3 py-2">
+                      <Select
+                        value={str(p["utility_service_uuid"]) || UNASSIGNED_SERVICE}
+                        disabled={pending || services.length === 0}
+                        onValueChange={(value) =>
+                          onAssign(
+                            str(p["id"]),
+                            value === UNASSIGNED_SERVICE ? null : value,
+                          )
+                        }
+                      >
+                        <SelectTrigger
+                          className="w-[16rem]"
+                          aria-label={`Utility service for ${str(p["panel_id"])}`}
+                        >
+                          <SelectValue placeholder="Not decided yet" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value={UNASSIGNED_SERVICE}>Not decided yet</SelectItem>
+                          {services.map((svc) => (
+                            <SelectItem key={str(svc["id"])} value={str(svc["id"])}>
+                              {str(svc["service_id"])}
+                              {str(svc["name"]) ? ` — ${str(svc["name"])}` : ""}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {unassigned.length > 0 ? (
+          <p className="text-xs text-muted-foreground">
+            {unassigned.length} panel(s) have no service decided yet — they stay blank until you
+            choose one.
+          </p>
+        ) : null}
+      </CardContent>
+    </Card>
   );
 }

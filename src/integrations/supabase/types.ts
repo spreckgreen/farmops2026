@@ -3596,6 +3596,7 @@ export type Database = {
           system_voltage_applied_at: string | null
           updated_at: string
           user_id: string
+          utility_service_uuid: string | null
           verification_notes: string | null
           verified_at: string | null
           voltage: number | null
@@ -3650,6 +3651,7 @@ export type Database = {
           system_voltage_applied_at?: string | null
           updated_at?: string
           user_id: string
+          utility_service_uuid?: string | null
           verification_notes?: string | null
           verified_at?: string | null
           voltage?: number | null
@@ -3704,6 +3706,7 @@ export type Database = {
           system_voltage_applied_at?: string | null
           updated_at?: string
           user_id?: string
+          utility_service_uuid?: string | null
           verification_notes?: string | null
           verified_at?: string | null
           voltage?: number | null
@@ -3728,6 +3731,13 @@ export type Database = {
             columns: ["site_building_uuid"]
             isOneToOne: false
             referencedRelation: "site_buildings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "electrical_panels_utility_service_uuid_fkey"
+            columns: ["utility_service_uuid"]
+            isOneToOne: false
+            referencedRelation: "electrical_services"
             referencedColumns: ["id"]
           },
         ]
