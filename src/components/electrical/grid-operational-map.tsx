@@ -861,6 +861,14 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
               .map((k) => `${PLACEMENT_SOURCE_LABEL[k]}: ${q.data!.summary.placementSources[k]}`)
               .join(" · ")}
           </p>
+          <p className="text-[11px]">
+            Plot provenance —{" "}
+            {PLOT_PROVENANCE_ORDER.filter((k) => q.data!.summary.plotProvenance[k])
+              .map((k) => `${PLOT_PROVENANCE_LABEL[k]}: ${q.data!.summary.plotProvenance[k]}`)
+              .join(" · ")}
+          </p>
+          <p className="text-[11px]">{q.data.summary.locationAuthorityNotice}</p>
+          <p className="text-[11px]">{q.data.summary.deploymentScopeNotice}</p>
           {disagreeing.length ? (
             <ul className="text-[11px]">
               {disagreeing.map((a) => (
