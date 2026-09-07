@@ -6626,6 +6626,33 @@ export type Database = {
         }
         Relationships: []
       }
+      task_print_grants: {
+        Row: {
+          created_at: string
+          granted_by: string | null
+          id: string
+          note: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          granted_by?: string | null
+          id?: string
+          note?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          granted_by?: string | null
+          id?: string
+          note?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       tasks: {
         Row: {
           closed_at: string | null
