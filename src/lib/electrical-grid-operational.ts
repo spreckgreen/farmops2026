@@ -571,30 +571,10 @@ export function placementCandidatesFor(row: OperationalInput): PlacementCandidat
     });
   }
 
-  // 1a. Applied field-observed grid cell. This is an accepted as-built statement
-  //     recorded by an applied audit, so it outranks design intent and every
-  //     inherited grid assignment. It fixes the record to a grid cell, not to a
-  //     measured point, so a verified X/Y still wins.
-  {
-    const observedGrid = parseNewGrid(row.fieldGridReference ?? "");
-    const feet = observedGrid.ok ? newGridFeet(observedGrid) : null;
-    if (feet) {
-      out.push({
-        source: "OBSERVED_FIELD_GRID",
-        xFt: feet.xFt,
-        yFt: feet.yFt,
-        precision: observedGrid.interval ? "INTERVAL" : "GRIDLINE",
-        spanned: feet.span,
-        basis: `Applied field observation: grid ${row.fieldGridReference}${
-          row.verifiedAt ? `, verified ${row.verifiedAt}` : ""
-        }. Fixes the record to that grid cell, not to a measured point.`,
-        accepted: true,
-      });
-    }
-  }
-
-  // 1a2. Applied field-observed perimeter post. Only usable once the post
-  //      geometry proposal has been confirmed by the owner.
+  // 1a. Field-verified physical anchor: a post, pole or wall interval recorded
+  //     by an applied audit. It is a mapped physical reference, so it outranks
+  //     the verified grid cell and every design assignment. Only usable once the
+  //     post geometry proposal has been confirmed by the owner.
   if (POST_GEOMETRY_CONFIRMED && row.poleLocationKind) {
     const post = postObservationFeet({
       pole_scheme: row.poleScheme ?? null,
@@ -609,11 +589,38 @@ export function placementCandidatesFor(row: OperationalInput): PlacementCandidat
         yFt: post.yFt,
         precision: post.spanned ? "INTERVAL" : "NEAREST",
         spanned: post.spanned,
-        basis: `Applied field observation at post ${post.token}. ${post.basis}`,
+        basis: `Field-verified post ${post.token}: plotted at the canonical coordinate for that post${
+          post.spanned ? " (interval midpoint, span preserved)" : ""
+        } — not a measured field X/Y. ${post.basis}`,
         accepted: true,
       });
     }
   }
+
+  // 1a2. Field-verified grid cell recorded by an applied audit. It outranks
+  //      design intent and every inherited grid assignment. It fixes the record
+  //      to a grid cell, so the plotted point is that cell's centroid, never a
+  //      measured point; a verified measured X/Y still wins.
+  {
+    const observedGrid = parseNewGrid(row.fieldGridReference ?? "");
+    const feet = observedGrid.ok ? newGridFeet(observedGrid) : null;
+    if (feet) {
+      out.push({
+        source: "OBSERVED_FIELD_GRID",
+        xFt: feet.xFt,
+        yFt: feet.yFt,
+        precision: observedGrid.interval ? "INTERVAL" : "GRIDLINE",
+        spanned: feet.span,
+        basis: `Field-verified grid ${row.fieldGridReference}${
+          row.verifiedAt ? `, verified ${row.verifiedAt}` : ""
+        }. Plotted from the ${
+          observedGrid.interval ? "verified interval midpoint" : "verified cell centroid"
+        } — a derived rendering point, not a measured field X/Y.`,
+        accepted: true,
+      });
+    }
+  }
+
 
 
   // 1b. Approved design X/Y. The design coordinates are the authoritative
