@@ -77,12 +77,14 @@ function FieldInput({
   onChange,
   options,
   optionsLoading,
+  optionsError,
 }: {
   field: EntityField;
   value: string | boolean;
   onChange: (v: string | boolean) => void;
   options?: EntityOption[];
   optionsLoading?: boolean;
+  optionsError?: string;
 }) {
   if (field.kind === "asset") {
     return (
@@ -101,6 +103,7 @@ function FieldInput({
         hint={field.hint}
         options={options ?? []}
         loading={optionsLoading}
+        error={optionsError}
         value={String(value)}
         onChange={onChange}
       />
@@ -705,6 +708,9 @@ export function EntityManager({
                         }
                         options={f.entityKind ? (optionsQuery.data?.[f.entityKind] ?? []) : undefined}
                         optionsLoading={optionsQuery.isLoading}
+                        optionsError={
+                          optionsQuery.error ? (optionsQuery.error as Error).message : undefined
+                        }
                       />
                     ),
                   )}

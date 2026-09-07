@@ -16,6 +16,7 @@ export function EntitySelect({
   hint,
   options,
   loading,
+  error,
   value,
   onChange,
 }: {
@@ -23,6 +24,8 @@ export function EntitySelect({
   hint?: string;
   options: EntityOption[];
   loading?: boolean;
+  /** Set when the records could not be read — shown instead of "no records". */
+  error?: string;
   value: string;
   onChange: (id: string) => void;
 }) {
@@ -61,6 +64,8 @@ export function EntitySelect({
                   </>
                 ) : loading ? (
                   "Loading records…"
+                ) : error ? (
+                  "Could not load records"
                 ) : (
                   "Not linked"
                 )}
@@ -76,7 +81,9 @@ export function EntitySelect({
               onChange={(e) => setSearch(e.target.value)}
             />
             <div className="mt-2 max-h-64 overflow-y-auto">
-              {!options.length ? (
+              {error ? (
+                <p className="px-2 py-3 text-xs text-destructive">{error}</p>
+              ) : !options.length ? (
                 <p className="px-2 py-3 text-xs text-muted-foreground">
                   No records exist yet to link to.
                 </p>
@@ -125,6 +132,7 @@ export function EntitySelect({
           </Button>
         ) : null}
       </div>
+      {error ? <p className="text-xs text-destructive">{error}</p> : null}
       {hint ? <p className="text-xs text-muted-foreground">{hint}</p> : null}
     </div>
   );
