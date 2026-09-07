@@ -783,6 +783,11 @@ export interface EntityOption {
 /**
  * Selector data for the relationship pickers: stable ID plus enough context
  * (description, building, grid) that the right record is obvious in the field.
+ *
+ * Circuit groups always come from the permanent circuit-group table with no
+ * classification filter, so audit-created and FIELD_AS_BUILT groups appear too;
+ * a read failure throws so the caller shows an explicit error rather than an
+ * empty selector.
  */
 export const electricalEntityOptions = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -794,15 +799,21 @@ export const electricalEntityOptions = createServerFn({ method: "GET" })
     for (const kind of [...new Set(data.kinds)]) {
       const def = ENTITIES[kind];
       const { data: rows, error } = await db.from(def.table).select("*").order(def.stableIdField);
-      if (error) throw new Error(error.message);
+      if (error) throw new Error(`Could not load ${def.title.toLowerCase()}: ${error.message}`);
       out[kind] = ((rows ?? []) as unknown as ElectricalRow[]).map((r) => ({
         id: String(r["id"]),
         stableId: String(r[def.stableIdField] ?? ""),
         label: String(r["description"] ?? r["area"] ?? ""),
-        context: [r["building"], r["grid"], r["area"], r["location"]]
-          .map((v) => String(v ?? "").trim())
-          .filter(Boolean)
-          .join(" · "),
+        context:
+          kind === "circuit_group"
+            ? circuitGroupBreakerText({
+                suggested_panel: r["suggested_panel"] as string | null,
+                breaker_number: r["breaker_number"] as number | null,
+              })
+            : [r["building"], r["grid"], r["area"], r["location"]]
+                .map((v) => String(v ?? "").trim())
+                .filter(Boolean)
+                .join(" · "),
         installStatus: String(r["install_status"] ?? ""),
       }));
     }
