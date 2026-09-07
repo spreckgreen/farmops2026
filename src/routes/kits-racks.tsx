@@ -170,13 +170,20 @@ function BuildoutCard({ buildout }: { buildout: KitRackBuildout }) {
           </ul>
         )}
 
-        {isRack && buildout.rack ? (
-          <Button size="sm" variant="outline" asChild>
-            <Link to="/electrical/item/$kind/$id" params={{ kind: "rack", id: buildout.rack.id }}>
-              Open rack
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm" asChild>
+            <Link to="/kits-racks/$kitId" params={{ kitId: buildout.kitId }}>
+              <Wrench className="mr-1 h-4 w-4" /> Work on this kit
             </Link>
           </Button>
-        ) : null}
+          {isRack && buildout.rack ? (
+            <Button size="sm" variant="outline" asChild>
+              <Link to="/electrical/item/$kind/$id" params={{ kind: "rack", id: buildout.rack.id }}>
+                Open rack
+              </Link>
+            </Button>
+          ) : null}
+        </div>
       </CardContent>
     </Card>
   );
