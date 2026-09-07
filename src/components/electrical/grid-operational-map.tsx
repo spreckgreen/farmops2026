@@ -408,6 +408,7 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
               <option value="with-dq">Map + data quality</option>
             </select>
           </div>
+          ) : null}
           {large ? null : (
             <Button asChild size="sm" variant="outline" className="h-7 px-2 text-xs">
               <Link to="/electrical/grid-map">
