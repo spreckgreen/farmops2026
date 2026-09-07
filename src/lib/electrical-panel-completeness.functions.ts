@@ -3,6 +3,10 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { requireElectricalAccess } from "@/lib/addons.server";
+import {
+  satisfyingCircuitGroup,
+  type PermanentCircuitGroup,
+} from "@/lib/electrical-hold-reconciliation";
 
 type LooseDb = { from: (table: string) => any };
 
@@ -40,7 +44,39 @@ export const loadAuditHolds = createServerFn({ method: "GET" })
       .in("batch_uuid", [...byUuid.keys()])
       .in("disposition", ["hold", "conflict"]);
     if (items.error) throw new Error(items.error.message);
-    return ((items.data ?? []) as Record<string, any>[]).map((r) => {
+
+    // Permanent circuit groups already carry stable identities. A membership
+    // hold whose identity now exists is satisfied and no longer active.
+    const groupRows = await db
+      .from("electrical_circuit_groups")
+      .select("circuit_group_id,breaker_number,description,electrical_panels(panel_id)");
+    if (groupRows.error) throw new Error(groupRows.error.message);
+    const groups: PermanentCircuitGroup[] = ((groupRows.data ?? []) as Record<string, any>[]).map(
+      (g) => ({
+        circuit_group_id: String(g["circuit_group_id"] ?? ""),
+        panel_id: (g["electrical_panels"]?.["panel_id"] as string | null) ?? null,
+        breaker_number:
+          g["breaker_number"] == null ? null : Number(g["breaker_number"]),
+        description: (g["description"] as string | null) ?? null,
+      }),
+    );
+
+    return ((items.data ?? []) as Record<string, any>[])
+      .filter((r) => {
+        const payload = (r["payload"] ?? {}) as Record<string, any>;
+        const breaker = payload["fields"]?.["breaker_number"];
+        return !satisfyingCircuitGroup(
+          {
+            item_key: String(r["item_key"] ?? ""),
+            entity_kind: String(r["entity_kind"] ?? ""),
+            panel_ref: (payload["refs"]?.["panel_ref"] as string | null) ?? null,
+            breaker_number: breaker == null ? null : Number(breaker),
+            observed_label: (payload["observed_label"] as string | null) ?? null,
+          },
+          groups,
+        );
+      })
+      .map((r) => {
       const payload = (r["payload"] ?? {}) as Record<string, any>;
       const pole = payload["pole"] as Record<string, any> | null;
       const grid = payload["field_grid_reference"] as string | null;
