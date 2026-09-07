@@ -1759,9 +1759,13 @@ export function buildManifestGraph(
     if (!id) continue;
     if (!AUDIT_ENTITY_TARGETS[item.entity_kind].creatable) continue;
     if (existing(item.entity_kind, id)) continue; // already a real record
+    // A held observation never writes, so it is not a competing create
+    // proposal: it only records that part of the topology stays unresolved.
+    if (item.observation_class === "HOLD_UNRESOLVED") continue;
     const key = `${item.entity_kind}|${id}`;
     seen.set(key, [...(seen.get(key) ?? []), item.item_key]);
   }
+
   for (const [key, keys] of seen) {
     if (keys.length > 1) {
       conflicts.push(
