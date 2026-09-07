@@ -86,6 +86,7 @@ const data: ElectricalGraphData = {
       branch_id: "BR-057",
       source_endpoint_ref: "JB-014",
       dest_endpoint_ref: "FS-097",
+      circuit_group_uuid: "g1",
       conductor_size: "#12",
       install_status: "complete",
     },
@@ -130,6 +131,48 @@ describe("electrical mermaid diagrams", () => {
     expect(has("CON-030", "JB-014")).toBe(true);
     expect(has("JB-014", "BR-057")).toBe(true);
     expect(has("BR-057", "FS-097")).toBe(true);
+  });
+
+  it("labels branches, loads and boxes with their circuit group and panel", () => {
+    const out = buildDiagram(data, { type: "whole_system" });
+    const label = (stableId: string) =>
+      out.nodes.find((n) => n.stableId === stableId)?.label ?? "";
+    // CG-01 sits on breaker 5 of PNL-FS-CRIT -> PNL-FS-CRIT-B5.
+    expect(label("CG-01")).toContain("PNL-FS-CRIT-B5");
+    expect(label("BR-057")).toContain("CG-01 · PNL-FS-CRIT-B5");
+    expect(label("FS-097")).toContain("CG-01 · PNL-FS-CRIT-B5");
+    expect(label("JB-014")).toContain("CG-01 · PNL-FS-CRIT-B5");
+  });
+
+  it("does not pick one circuit group for a box carrying several", () => {
+    const mixed: ElectricalGraphData = {
+      ...data,
+      circuit_group: [
+        ...data.circuit_group,
+        {
+          id: "g3",
+          circuit_group_id: "CG-03",
+          description: "Shop outlets",
+          suggested_panel: "PNL-FS-CRIT",
+          breaker_number: 7,
+        },
+      ],
+      branch: [
+        ...data.branch,
+        {
+          id: "b3",
+          branch_id: "BR-059",
+          source_endpoint_ref: "JB-014",
+          dest_endpoint_ref: "FS-097",
+          circuit_group_uuid: "g3",
+        },
+      ],
+    };
+    const out = buildDiagram(mixed, { type: "whole_system" });
+    const label = out.nodes.find((n) => n.stableId === "JB-014")?.label ?? "";
+    expect(label).toContain("Groups:");
+    expect(label).toContain("CG-01");
+    expect(label).toContain("CG-03");
   });
 
   it("surfaces invalid references instead of omitting them", () => {
