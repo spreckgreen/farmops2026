@@ -5,7 +5,7 @@
 // Holds, conflicts, ODS candidates, temporary-unresolved and no-change rows can
 // never be selected.
 import { useMemo, useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { AlertTriangle, Download, RefreshCw, ShieldCheck, Upload } from "lucide-react";
 import { toast } from "sonner";
@@ -187,7 +187,30 @@ function ItemRow({
   );
 }
 
+/**
+ * Caches that show applied electrical records: the loads/entity grids, panel
+ * layouts and schedules, the diagram builder, printed document bundles and the
+ * change log. Applying an audit batch writes real records, so every one of
+ * these is refetched immediately — no manual re-edit or page reload.
+ */
+const ELECTRICAL_RESULT_CACHES = [
+  ["electrical"],
+  ["electrical-audit-batches"],
+  ["electrical-diagram"],
+  ["electrical-document-bundle"],
+  ["electrical-change-audit"],
+] as const;
+
 export function AuditBatchPanel() {
+  const qc = useQueryClient();
+  /** Refetch every electrical view that could contain the records just applied. */
+  const refreshElectricalViews = async () => {
+    await Promise.all(
+      ELECTRICAL_RESULT_CACHES.map((queryKey) =>
+        qc.invalidateQueries({ queryKey: [...queryKey] }),
+      ),
+    );
+  };
   const runImport = useServerFn(importElectricalAuditBatch);
   const runPreview = useServerFn(previewElectricalAuditBatch);
   const runApprove = useServerFn(setElectricalAuditItemApproval);
@@ -419,7 +442,15 @@ export function AuditBatchPanel() {
     onSuccess: (data) => {
       adopt(data as AuditBatchPreview);
       setConfirmed(false);
-      batches.refetch();
+      void refreshElectricalViews();
+      const applied = (data as AuditBatchPreview).changes.filter(
+        (c) => c.disposition === "APPLIED",
+      ).length;
+      toast.success(
+        applied > 0
+          ? `${applied} audited record(s) applied — the loads grid, panels and diagrams now show them.`
+          : "Nothing new to apply: every approved item already matched the stored records.",
+      );
     },
     onError: (e) => setError(String(e)),
   });
