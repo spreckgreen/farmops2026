@@ -9,6 +9,7 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { publishToGhost } from "@/lib/ghost.functions";
+import { usePremiumPrint } from "@/hooks/use-premium-print";
 
 type Props = {
   build: () => { title: string; html: string; tags?: string[] } | null;
@@ -29,6 +30,7 @@ export function SendToGhostButton({
   disabled,
   className,
 }: Props) {
+  const premium = usePremiumPrint();
   const fn = useServerFn(publishToGhost);
   const m = useMutation({
     mutationFn: (payload: { title: string; html: string; tags?: string[] }) =>
@@ -44,6 +46,9 @@ export function SendToGhostButton({
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Send failed"),
   });
+
+  // Sending to Ghost is part of the premium print package.
+  if (!premium.allowed) return null;
 
   return (
     <Button

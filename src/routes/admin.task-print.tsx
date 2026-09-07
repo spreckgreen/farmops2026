@@ -87,7 +87,7 @@ function TaskPrintPage() {
   const setGrant = useMutation({
     mutationFn: (v: { user_id: string; allowed: boolean }) => setGrantFn({ data: v }),
     onSuccess: (r) => {
-      toast.success(r.allowed ? "Planner printing granted." : "Planner printing removed.");
+      toast.success(r.allowed ? "Premium print granted." : "Premium print removed.");
       qc.invalidateQueries({ queryKey: ["task-print-grants"] });
       qc.invalidateQueries({ queryKey: ["task-print-access"] });
     },
@@ -193,8 +193,9 @@ function TaskPrintPage() {
             <ShieldCheck className="h-4 w-4" />
             <AlertTitle>Admins only</AlertTitle>
             <AlertDescription>
-              Planner printing is for administrators by default. An administrator can grant it to
-              you from this screen's advanced print options.
+              Premium print — planner sheets, label sheets, grid sheets and publishing to Ghost
+              and Obsidian — is for administrators by default. An administrator can grant it to you
+              from this screen's advanced print options.
             </AlertDescription>
           </Alert>
         </div>
@@ -323,10 +324,11 @@ function TaskPrintPage() {
             {isAdmin ? (
               <Card>
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-base">Who can print planner sheets</CardTitle>
+                  <CardTitle className="text-base">Who has premium print</CardTitle>
                   <p className="text-xs text-muted-foreground">
-                    Administrators always can. Add anyone else here and the print button appears on
-                    their task pages too.
+                    One grant covers the whole premium print package: planner sheets, electrical
+                    label sheets, grid sheets, and publishing out to Ghost and to an Obsidian
+                    vault. Administrators always have it; add anyone else here.
                   </p>
                 </CardHeader>
                 <CardContent className="space-y-3">

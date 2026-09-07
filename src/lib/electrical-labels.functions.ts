@@ -35,6 +35,8 @@ export const listElectricalLabels = createServerFn({ method: "GET" })
   .inputValidator((d: unknown) => z.object({ kinds: z.array(kindSchema).min(1).max(10) }).parse(d))
   .handler(async ({ context, data }): Promise<LabelRecord[]> => {
     await requireElectricalAccess(context.supabase, context.userId, "read");
+    const { requirePremiumPrint } = await import("@/lib/premium-print.server");
+    await requirePremiumPrint(context.supabase, context.userId);
     const db = await readerClient();
     const kinds = [...new Set(data.kinds)];
 
