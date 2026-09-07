@@ -255,6 +255,8 @@ interface Index {
   jboxById: Map<string, Row>;
   loadById: Map<string, Row>;
   groupById: Map<string, Row>;
+  /** Circuit groups keyed by row UUID, for uuid-linked branch runs. */
+  groupByUuid: Map<string, Row>;
   racewayById: Map<string, Row>;
   branchById: Map<string, Row>;
 }
@@ -273,6 +275,9 @@ function indexRows(data: ElectricalGraphData): Index {
     jboxById: build("jbox", data.jbox),
     loadById: build("load", data.load),
     groupById: build("circuit_group", data.circuit_group),
+    groupByUuid: new Map(
+      data.circuit_group.filter((g) => s(g["id"])).map((g) => [s(g["id"]), g] as const),
+    ),
     racewayById: build("raceway", data.raceway),
     branchById: build("branch", data.branch),
   };
@@ -341,8 +346,40 @@ function racewayLabel(r: Row): string {
   return parts.join("<br/>");
 }
 
-function branchLabel(r: Row): string {
+/** Panel + breaker reference for a circuit group, e.g. `PNL-FS-NW-B31`. */
+function circuitGroupPanelText(g: Row): string {
+  const panel = s(g["suggested_panel"]);
+  const breaker = s(g["breaker_number"]);
+  if (!panel) return "";
+  return breakerReference(panel, breaker) ?? panel;
+}
+
+/**
+ * Circuit-group node caption: stable ID, description and the panel/breaker it
+ * is fed from. Unknown parts are omitted rather than invented.
+ */
+function circuitGroupLabel(g: Row): string {
+  return [s(g["circuit_group_id"]) || s(g["stable_id"]), s(g["description"]), circuitGroupPanelText(g)]
+    .filter(Boolean)
+    .join("<br/>");
+}
+
+/**
+ * Branch caption. When the branch carries a circuit-group assignment, the group
+ * and its panel/breaker are shown on the node so the diagram reads without
+ * cross-referencing the item pages.
+ */
+function branchLabel(r: Row, idx?: Index): string {
   const parts = [s(r["branch_id"])];
+  const group =
+    idx?.groupByUuid.get(s(r["circuit_group_uuid"])) ??
+    idx?.groupById.get(s(r["circuit_group_ref"]));
+  if (group) {
+    const groupId = s(group["circuit_group_id"]);
+    const panelText = circuitGroupPanelText(group);
+    const line = [groupId, panelText].filter(Boolean).join(" · ");
+    if (line) parts.push(line);
+  }
   const spec = [s(r["conductor_size"]), s(r["wiring_method"])].filter(Boolean).join(" ");
   if (spec) parts.push(spec);
   return parts.join("<br/>");
@@ -645,7 +682,7 @@ export function buildDiagram(
 
   for (const br of branches) {
     const id = sid("branch", br);
-    const key = b.node("branch", id, branchLabel(br), br);
+    const key = b.node("branch", id, branchLabel(br, idx), br);
     const src = s(br["source_endpoint_ref"]);
     const dst = s(br["dest_endpoint_ref"]);
     if (!src && !dst) {
@@ -686,8 +723,7 @@ export function buildDiagram(
     const id = sid("circuit_group", g);
     const breaker = s(g["breaker_number"]);
     const position = s(g["breaker_position"]);
-    const label = [id, s(g["description"])].filter(Boolean).join("<br/>");
-    const key = b.node("circuit_group", id, label, g);
+    const key = b.node("circuit_group", id, circuitGroupLabel(g), g);
     const panelRef = s(g["suggested_panel"]);
     if (!panelRef) {
       b.issue("warning", "missing_endpoint", `Circuit group ${id} is not assigned to a panel.`);
@@ -738,12 +774,7 @@ export function buildDiagram(
     const group = idx.groupById.get(ref);
     if (group) {
       if (groupsInScope.has(ref) || type === "whole_system") {
-        const gKey = b.node(
-          "circuit_group",
-          ref,
-          [ref, s(group["description"])].filter(Boolean).join("<br/>"),
-          group,
-        );
+        const gKey = b.node("circuit_group", ref, circuitGroupLabel(group), group);
         b.edge(gKey, key);
       }
     } else {
@@ -1048,7 +1079,7 @@ export function buildInfrastructureDiagram(
       if (group && groupById.has(group)) {
         const row = groupById.get(group)!;
         b.edge(
-          b.node("circuit_group", group, [group, s(row["description"])].filter(Boolean).join("<br/>"), row),
+          b.node("circuit_group", group, circuitGroupLabel(row), row),
           key,
           "circuit",
         );
@@ -1056,7 +1087,7 @@ export function buildInfrastructureDiagram(
       if (panel && panelById.has(panel)) {
         const row = panelById.get(panel)!;
         const target = group && groupById.has(group)
-          ? b.node("circuit_group", group, [group, s(groupById.get(group)!["description"])].filter(Boolean).join("<br/>"), groupById.get(group)!)
+          ? b.node("circuit_group", group, circuitGroupLabel(groupById.get(group)!), groupById.get(group)!)
           : key;
         b.edge(b.node("panel", panel, panelLabel(row), row), target, "panel");
       }
@@ -1086,7 +1117,7 @@ export function buildInfrastructureDiagram(
       } else if (group && groupById.has(group)) {
         const row = groupById.get(group)!;
         b.edge(
-          b.node("circuit_group", group, [group, s(row["description"])].filter(Boolean).join("<br/>"), row),
+          b.node("circuit_group", group, circuitGroupLabel(row), row),
           key,
           "direct",
         );
