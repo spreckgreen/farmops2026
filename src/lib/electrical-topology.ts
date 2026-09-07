@@ -22,10 +22,13 @@ export interface TopologyLookup {
 
 export interface RelatedRecord {
   kind: ElectricalEntityKind;
+  /** Row UUID, when the lookup returned one. Enables linking to the detail page. */
+  id: string | null;
   stable_id: string;
   label: string;
   relation: string;
 }
+
 
 /** A relationship lookup that could not be completed in this deployment. */
 export interface TopologyWarning {
