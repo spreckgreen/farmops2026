@@ -302,6 +302,18 @@ function DiagramsPage() {
                 </select>
               </label>
 
+              <label className="flex items-center gap-2 pb-2 text-xs text-muted-foreground">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 accent-primary"
+                  checked={unlinkedLoads}
+                  onChange={(e) => setUnlinkedLoads(e.target.checked)}
+                />
+                Show loads with no circuit recorded
+              </label>
+
+
+
               {needsFocus ? (
                 <label className="flex flex-col gap-1 text-xs text-muted-foreground">
                   Focus record
