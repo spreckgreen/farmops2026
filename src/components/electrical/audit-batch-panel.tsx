@@ -444,7 +444,7 @@ export function AuditBatchPanel() {
       setConfirmed(false);
       void refreshElectricalViews();
       const applied = (data as AuditBatchPreview).changes.filter(
-        (c) => c.disposition === "APPLIED",
+        (c) => c.disposition === "applied",
       ).length;
       toast.success(
         applied > 0
