@@ -292,13 +292,28 @@ function TaskPrintPage() {
           <Card className="min-h-[600px]">
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Preview · {template.name}</CardTitle>
+              <p className="text-xs text-muted-foreground">
+                Shown at true Letter paper size ({template.orientation}, 0.5 in margins) — what you
+                see is the printed page.
+              </p>
             </CardHeader>
             <CardContent>
-              <iframe
-                title="Print preview"
-                srcDoc={html}
-                className="w-full h-[900px] border border-border rounded bg-white"
-              />
+              <div className="overflow-auto rounded bg-muted/40 p-4">
+                <div
+                  className="mx-auto bg-white shadow-lg ring-1 ring-border"
+                  style={{
+                    width: template.orientation === "landscape" ? "11in" : "8.5in",
+                    height: template.orientation === "landscape" ? "8.5in" : "11in",
+                    padding: "0.5in",
+                  }}
+                >
+                  <iframe
+                    title="Print preview"
+                    srcDoc={html}
+                    className="h-full w-full border-0 bg-white"
+                  />
+                </div>
+              </div>
             </CardContent>
           </Card>
         </div>
