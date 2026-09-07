@@ -6,6 +6,8 @@ import { format } from "date-fns";
 import { Check } from "lucide-react";
 import { listProjectTags, listScheduledTasks } from "@/lib/log.functions";
 import { AppLayout } from "@/components/app-layout";
+import { PlannerPrintDialog } from "@/components/tasks/planner-print-dialog";
+
 import { requireAuthenticatedUser } from "@/lib/auth-route";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -79,6 +81,16 @@ function ReportsPage() {
             </p>
           </div>
           <div className="flex items-end gap-2">
+            <PlannerPrintDialog
+              tasks={filteredTasks.map((t) => ({
+                title: t.title,
+                slug: t.slug,
+                status: t.status,
+                recurrence: t.recurrence ?? null,
+                date: t.start_at ? String(t.start_at).slice(0, 10) : null,
+              }))}
+              sheetTitle="Bostead Farms · Scheduled tasks"
+            />
             <button
               type="button"
               onClick={toggleSlugs}

@@ -2,7 +2,8 @@
 // preview the sheet exactly as it will print, then send it to the printer.
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import { Printer, ShieldCheck } from "lucide-react";
 import { AppLayout } from "@/components/app-layout";
@@ -14,6 +15,12 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { listTasks, listBacklog, listScheduledTasks } from "@/lib/log.functions";
+import { listUsers } from "@/lib/admin.functions";
+import {
+  taskPrintAccess,
+  listTaskPrintGrants,
+  setTaskPrintGrant,
+} from "@/lib/task-print-access.functions";
 import { todayDateString } from "@/lib/slug";
 import {
   TASK_PRINT_TEMPLATES,
@@ -63,6 +70,29 @@ function currentMonth(): string {
 function TaskPrintPage() {
   const profile = useCurrentProfile();
   const isAdmin = profile.data?.isAdmin === true;
+  const qc = useQueryClient();
+  const accessFn = useServerFn(taskPrintAccess);
+  const access = useQuery({ queryKey: ["task-print-access"], queryFn: () => accessFn() });
+  const allowed = access.data?.allowed === true;
+
+  const usersFn = useServerFn(listUsers);
+  const grantsFn = useServerFn(listTaskPrintGrants);
+  const setGrantFn = useServerFn(setTaskPrintGrant);
+  const users = useQuery({ queryKey: ["admin-users"], enabled: isAdmin, queryFn: () => usersFn() });
+  const grants = useQuery({
+    queryKey: ["task-print-grants"],
+    enabled: isAdmin,
+    queryFn: () => grantsFn(),
+  });
+  const setGrant = useMutation({
+    mutationFn: (v: { user_id: string; allowed: boolean }) => setGrantFn({ data: v }),
+    onSuccess: (r) => {
+      toast.success(r.allowed ? "Planner printing granted." : "Planner printing removed.");
+      qc.invalidateQueries({ queryKey: ["task-print-grants"] });
+      qc.invalidateQueries({ queryKey: ["task-print-access"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   const todayFn = useServerFn(listTasks);
   const backlogFn = useServerFn(listBacklog);
@@ -80,7 +110,7 @@ function TaskPrintPage() {
 
   const tasksQuery = useQuery({
     queryKey: ["task-print-source", source, today],
-    enabled: isAdmin && source !== "none",
+    enabled: allowed && source !== "none",
     queryFn: async (): Promise<PrintTask[]> => {
       if (source === "today") {
         const rows = await todayFn({ data: { date: today } });
@@ -147,7 +177,7 @@ function TaskPrintPage() {
     setTimeout(() => win.print(), 400);
   }
 
-  if (profile.isLoading) {
+  if (profile.isLoading || access.isLoading) {
     return (
       <AppLayout>
         <div className="max-w-3xl mx-auto p-6 text-sm text-muted-foreground">Checking access…</div>
@@ -155,7 +185,7 @@ function TaskPrintPage() {
     );
   }
 
-  if (!isAdmin) {
+  if (!allowed) {
     return (
       <AppLayout>
         <div className="max-w-2xl mx-auto p-6">
@@ -163,7 +193,8 @@ function TaskPrintPage() {
             <ShieldCheck className="h-4 w-4" />
             <AlertTitle>Admins only</AlertTitle>
             <AlertDescription>
-              You need the <strong>admin</strong> role to use the task print templates.
+              Planner printing is for administrators by default. An administrator can grant it to
+              you from this screen's advanced print options.
             </AlertDescription>
           </Alert>
         </div>
@@ -180,7 +211,8 @@ function TaskPrintPage() {
             Task print templates
           </h1>
           <p className="text-sm text-muted-foreground">
-            Choose which tasks to print and which sheet look to print them on. Admin only.
+            Choose which tasks to print and which sheet look to print them on. Administrators by
+            default; access can be granted to other people below.
           </p>
         </header>
 
@@ -287,6 +319,63 @@ function TaskPrintPage() {
                 </Button>
               </CardContent>
             </Card>
+
+            {isAdmin ? (
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">Who can print planner sheets</CardTitle>
+                  <p className="text-xs text-muted-foreground">
+                    Administrators always can. Add anyone else here and the print button appears on
+                    their task pages too.
+                  </p>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <ul className="space-y-1 text-sm">
+                    {(grants.data ?? []).length === 0 ? (
+                      <li className="text-xs text-muted-foreground">
+                        No one outside the administrators yet.
+                      </li>
+                    ) : null}
+                    {(grants.data ?? []).map((g) => (
+                      <li key={g.user_id} className="flex items-center justify-between gap-2">
+                        <span className="truncate">{g.display_name || g.email || g.user_id}</span>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setGrant.mutate({ user_id: g.user_id, allowed: false })}
+                        >
+                          Remove
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="space-y-1">
+                    <Label htmlFor="tp-grant">Grant to</Label>
+                    <select
+                      id="tp-grant"
+                      className="w-full rounded border border-border bg-background p-2 text-sm"
+                      value=""
+                      onChange={(e) => {
+                        if (e.target.value) {
+                          setGrant.mutate({ user_id: e.target.value, allowed: true });
+                        }
+                      }}
+                    >
+                      <option value="">Choose a person…</option>
+                      {(users.data ?? [])
+                        .filter(
+                          (u) => !(grants.data ?? []).some((g) => g.user_id === u.id),
+                        )
+                        .map((u) => (
+                          <option key={u.id} value={u.id}>
+                            {u.display_name || u.email || u.id}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : null}
           </div>
 
           <Card className="min-h-[600px]">
