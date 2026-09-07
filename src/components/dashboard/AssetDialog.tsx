@@ -185,6 +185,52 @@ const AssetDialog = ({ open, onOpenChange, onSave, asset }: AssetDialogProps) =>
               />
             </div>
             <div className="space-y-2">
+              <Label>Manufacturer</Label>
+              <Input
+                value={form.manufacturer}
+                onChange={(e) => setForm({ ...form, manufacturer: e.target.value })}
+                placeholder='e.g. Kenwood — or "Generic" for commodity items'
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Model #</Label>
+              <Input
+                value={form.model}
+                onChange={(e) => setForm({ ...form, model: e.target.value })}
+                placeholder="e.g. TS-480 SAT"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Serial # (optional)</Label>
+              <Input
+                value={form.serial_number}
+                onChange={(e) => setForm({ ...form, serial_number: e.target.value })}
+                placeholder="Leave blank for commodity items"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Shipped Quantity (optional)</Label>
+              <Input
+                type="number"
+                min={0}
+                step="any"
+                value={form.shipped_quantity ?? ""}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    shipped_quantity:
+                      e.target.value === "" ? null : Number(e.target.value),
+                  })
+                }
+                placeholder="For commodities, e.g. 100"
+              />
+            </div>
+            <p className="col-span-2 -mt-1 text-[11px] text-muted-foreground">
+              Use Serial # for a single tracked machine, or Shipped Quantity for a
+              commodity supplied in bulk. Neither is required.
+            </p>
+
+            <div className="space-y-2">
               <Label>Location</Label>
               <Input
                 value={form.location}
