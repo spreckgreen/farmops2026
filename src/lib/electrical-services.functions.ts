@@ -445,3 +445,60 @@ export const commissionIntertieConfiguration = createServerFn({ method: "POST" }
     );
     return { patches: patches as unknown as SPatch[] };
   });
+
+/**
+ * Assign the utility service a panel is fed from, or clear it back to
+ * "not decided yet". Only the relationship changes here: the panel's stable ID,
+ * ampacity, voltage and every other engineering value are untouched, and the
+ * service record itself never carries panel configuration.
+ */
+export const setPanelUtilityService = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        panel_uuid: z.string().uuid(),
+        utility_service_uuid: z.string().uuid().nullable(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ context, data }) => {
+    await requireElectricalAccess(context.supabase, context.userId, "field_write");
+    const db = context.supabase as unknown as LooseDb;
+
+    const { data: panel, error: panelError } = await db
+      .from("electrical_panels")
+      .select("id, panel_id")
+      .eq("id", data.panel_uuid)
+      .maybeSingle();
+    if (panelError) throw new Error(panelError.message);
+    if (!panel) throw new Error("That panel record could not be found.");
+
+    let serviceLabel = "not decided";
+    if (data.utility_service_uuid) {
+      const { data: service, error: serviceError } = await db
+        .from(SERVICES)
+        .select("id, service_id")
+        .eq("id", data.utility_service_uuid)
+        .maybeSingle();
+      if (serviceError) throw new Error(serviceError.message);
+      if (!service) throw new Error("That utility service could not be found.");
+      serviceLabel = String((service as Row)["service_id"]);
+    }
+
+    const { error } = await db
+      .from("electrical_panels")
+      .update({ utility_service_uuid: data.utility_service_uuid })
+      .eq("id", data.panel_uuid);
+    if (error) throw new Error(error.message);
+
+    await auditService(
+      context,
+      "panel",
+      "update",
+      data.panel_uuid,
+      `Panel ${String((panel as Row)["panel_id"])} utility service set to ${serviceLabel}`,
+      { utility_service_uuid: data.utility_service_uuid },
+    );
+    return { ok: true };
+  });
