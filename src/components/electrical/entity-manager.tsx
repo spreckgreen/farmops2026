@@ -4,6 +4,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { listBuildingServiceLinks } from "@/lib/site-plan.functions";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import {
@@ -204,6 +205,14 @@ function FieldInput({
  * Recorded current and apparent-power columns. A blank cell here means the
  * record does not carry the value — not zero load and not zero capacity.
  */
+/** Utility service wording shown from the linked building record. */
+const BUILDING_SERVICE_LABELS: Record<string, string> = {
+  ELECTRICITY: "Electricity",
+  WATER: "Water",
+  GAS: "Gas",
+  NONE: "None",
+};
+
 const CURRENT_METRIC_KEYS = new Set(["amps", "connected_va"]);
 
 export function EntityManager({
@@ -222,6 +231,30 @@ export function EntityManager({
   const save = useServerFn(saveElectrical);
   const suggest = useServerFn(suggestStableId);
   const loadOptions = useServerFn(electricalEntityOptions);
+  const serviceLinks = useServerFn(listBuildingServiceLinks);
+
+  // Building service is never stored on the electrical record; it is read from the
+  // building each record is linked to, so a rename or service change shows here at once.
+  const serviceLinksQuery = useQuery({
+    queryKey: ["site-plan", "service-links"],
+    queryFn: () => serviceLinks(),
+  });
+  const buildingServiceById = useMemo(() => {
+    const map: Record<string, { name: string; service: string | null }> = {};
+    for (const b of serviceLinksQuery.data?.buildings ?? []) {
+      const row = b as {
+        id: string;
+        temp_name: string | null;
+        building_name: string | null;
+        service_type: string | null;
+      };
+      map[row.id] = {
+        name: row.building_name || row.temp_name || "Building",
+        service: row.service_type ?? null,
+      };
+    }
+    return map;
+  }, [serviceLinksQuery.data]);
 
   const [search, setSearch] = useState("");
   const [environment, setEnvironment] = useState("");
@@ -561,6 +594,9 @@ export function EntityManager({
                     {f.label}
                   </th>
                 ))}
+                {showBuildingService ? (
+                  <th className="px-3 py-2 font-medium whitespace-nowrap">Building service</th>
+                ) : null}
                 <th className="px-3 py-2" />
               </tr>
             </thead>
@@ -613,6 +649,28 @@ export function EntityManager({
                       )}
                     </td>
                   ))}
+                  {showBuildingService ? (
+                    <td className="px-3 py-2 align-top whitespace-nowrap">
+                      {(() => {
+                        const link = buildingServiceById[String(row["site_building_uuid"] ?? "")];
+                        if (!link) {
+                          return (
+                            <span className="text-muted-foreground">No building linked</span>
+                          );
+                        }
+                        return (
+                          <span className="flex items-center gap-2">
+                            <span>{link.name}</span>
+                            <Badge variant={link.service ? "secondary" : "outline"}>
+                              {link.service
+                                ? BUILDING_SERVICE_LABELS[link.service] ?? link.service
+                                : "Service not decided"}
+                            </Badge>
+                          </span>
+                        );
+                      })()}
+                    </td>
+                  ) : null}
                   <td className="px-3 py-2 text-right whitespace-nowrap">
                     <Button
                       variant="ghost"
