@@ -1,8 +1,9 @@
 // Every kit and rack build-out on the place, in one list, with a picture of how
 // each rack is stacked (bottom space at the bottom, just like the real rack).
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
+import { toast } from "sonner";
 import { AppLayout } from "@/components/app-layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,8 +11,15 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Boxes, Server, AlertTriangle, ArrowLeft, Wrench } from "lucide-react";
 import { requireAuthenticatedUser } from "@/lib/auth-route";
-import { listKitRackBuildouts, type KitRackBuildout } from "@/lib/kit-rack-index.functions";
+import {
+  listKitRackBuildouts,
+  listRacksWithoutKit,
+  type KitRackBuildout,
+  type RackWithoutKit,
+} from "@/lib/kit-rack-index.functions";
+import { createRackKit } from "@/lib/rack-kit.functions";
 import { buildRackElevation, formatSpan } from "@/lib/rack-elevation";
+
 
 export const Route = createFileRoute("/kits-racks")({
   ssr: false,
@@ -191,13 +199,34 @@ function BuildoutCard({ buildout }: { buildout: KitRackBuildout }) {
 
 function KitsRacksPage() {
   const fn = useServerFn(listKitRackBuildouts);
+  const rackFn = useServerFn(listRacksWithoutKit);
+  const startKit = useServerFn(createRackKit);
+  const navigate = useNavigate();
+  const qc = useQueryClient();
   const q = useQuery<KitRackBuildout[]>({
     queryKey: ["kit-rack-buildouts"],
     queryFn: () => fn(),
   });
+  const bare = useQuery<RackWithoutKit[]>({
+    queryKey: ["racks-without-kit"],
+    queryFn: () => rackFn(),
+  });
+
+  const start = useMutation({
+    mutationFn: (rackId: string) => startKit({ data: { rackId } }),
+    onSuccess: async (view) => {
+      await qc.invalidateQueries({ queryKey: ["kit-rack-buildouts"] });
+      await qc.invalidateQueries({ queryKey: ["racks-without-kit"] });
+      if (view?.kit) {
+        navigate({ to: "/kits-racks/$kitId", params: { kitId: view.kit.id } });
+      }
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   const racks = (q.data ?? []).filter((b) => b.rack);
   const kits = (q.data ?? []).filter((b) => !b.rack);
+
 
   return (
     <AppLayout>
@@ -256,6 +285,47 @@ function KitsRacksPage() {
             ) : null}
           </>
         )}
+
+        {(bare.data ?? []).length > 0 ? (
+          <section className="space-y-3">
+            <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
+              Equipment racks with no build kit yet ({(bare.data ?? []).length})
+            </h2>
+            <div className="grid gap-4 md:grid-cols-2">
+              {(bare.data ?? []).map((r) => (
+                <Card key={r.id}>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="flex flex-wrap items-center gap-2 text-base">
+                      <Server className="h-4 w-4" />
+                      {r.stableId || "Equipment rack"}
+                      <Badge variant="outline">
+                        {r.sizeU != null ? `${r.sizeU} spaces` : "No height recorded"}
+                      </Badge>
+                    </CardTitle>
+                    <p className="text-xs text-muted-foreground">
+                      {r.description || "No description recorded"}
+                    </p>
+                  </CardHeader>
+                  <CardContent className="flex flex-wrap gap-2">
+                    <Button
+                      size="sm"
+                      onClick={() => start.mutate(r.id)}
+                      disabled={start.isPending}
+                    >
+                      <Wrench className="mr-1 h-4 w-4" /> Start build kit
+                    </Button>
+                    <Button size="sm" variant="outline" asChild>
+                      <Link to="/electrical/item/$kind/$id" params={{ kind: "rack", id: r.id }}>
+                        Open rack
+                      </Link>
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
       </div>
     </AppLayout>
   );

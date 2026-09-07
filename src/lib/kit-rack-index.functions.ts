@@ -153,3 +153,41 @@ export const listKitRackBuildouts = createServerFn({ method: "GET" })
       return a.kitName.localeCompare(b.kitName);
     });
   });
+
+export interface RackWithoutKit {
+  id: string;
+  stableId: string;
+  description: string | null;
+  sizeU: number | null;
+}
+
+/**
+ * Equipment racks that have no build kit yet. They are listed alongside the
+ * kits so every rack on site can be worked on from one place.
+ */
+export const listRacksWithoutKit = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<RackWithoutKit[]> => {
+    const db = context.supabase as unknown as LooseDb;
+    try {
+      const { data, error } = await db
+        .from("electrical_racks")
+        .select("id, rack_id, description, rack_size_u, build_kit_item_id")
+        .is("build_kit_item_id", null)
+        .order("rack_id", { ascending: true })
+        .limit(500);
+      if (error) return [];
+      return (data ?? []).map(
+        (r: { id: string; rack_id: string | null; description: string | null; rack_size_u: number | null }) => ({
+          id: String(r.id),
+          stableId: String(r.rack_id ?? ""),
+          description: r.description ?? null,
+          sizeU: r.rack_size_u == null ? null : Number(r.rack_size_u),
+        }),
+      );
+    } catch {
+      // no electrical access — nothing to offer
+      return [];
+    }
+  });
+

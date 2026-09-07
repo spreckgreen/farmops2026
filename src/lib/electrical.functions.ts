@@ -650,6 +650,23 @@ export const electricalOverview = createServerFn({ method: "GET" })
       branch: branches.length,
     };
 
+    // Every other record kind shown on the overview (equipment racks, power
+    // assets, devices, switch banks, …) is counted too, so no card sits at 0
+    // while records exist.
+    const remainingKinds = (Object.keys(ENTITIES) as ElectricalEntityKind[]).filter(
+      (k) => counts[k] === undefined,
+    );
+    await Promise.all(
+      remainingKinds.map(async (kind) => {
+        const { count, error } = await db
+          .from(ENTITIES[kind].table)
+          .select("id", { count: "exact", head: true });
+        // A kind the reader cannot see stays at 0 rather than failing the page.
+        counts[kind] = error ? 0 : Number(count ?? 0);
+      }),
+    );
+
+
     const all = [
       ...panels.map((r) => ({ kind: "panel" as const, row: r })),
       ...groups.map((r) => ({ kind: "circuit_group" as const, row: r })),
