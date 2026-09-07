@@ -29,6 +29,8 @@ const filterSchema = z.object({
   grid: z.string().trim().max(40).optional(),
   circuitGroup: z.string().trim().max(60).optional(),
   environment: z.string().trim().max(40).optional(),
+  unlinkedLoads: z.boolean().optional(),
+
 });
 
 export interface DiagramPayload extends GeneratedDiagram {
