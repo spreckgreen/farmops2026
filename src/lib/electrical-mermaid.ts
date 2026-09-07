@@ -1024,6 +1024,10 @@ export function renderMermaid(
   lines.push("  classDef branch fill:#4d7c0f,stroke:#365314,color:#ffffff;");
   lines.push("  classDef circuit_group fill:#7c3aed,stroke:#4c1d95,color:#ffffff;");
   lines.push("  classDef load fill:#e2e8f0,stroke:#94a3b8,color:#0f172a;");
+  lines.push(
+    "  classDef unlinked_load fill:#fff7ed,stroke:#c2410c,color:#7c2d12,stroke-dasharray: 5 3;",
+  );
+
   lines.push("  classDef critical fill:#b91c1c,stroke:#7f1d1d,color:#ffffff;");
   lines.push("  classDef future fill:#f1f5f9,stroke:#94a3b8,color:#475569,stroke-dasharray: 4 3;");
   lines.push("  classDef rack fill:#0369a1,stroke:#075985,color:#ffffff;");
