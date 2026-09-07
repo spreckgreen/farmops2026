@@ -49,7 +49,9 @@ export const loadAuditHolds = createServerFn({ method: "GET" })
     // hold whose identity now exists is satisfied and no longer active.
     const groupRows = await db
       .from("electrical_circuit_groups")
-      .select("circuit_group_id,breaker_number,description,electrical_panels(panel_id)");
+      .select(
+        "circuit_group_id,breaker_number,description,electrical_panels!electrical_circuit_groups_panel_uuid_fkey(panel_id)",
+      );
     if (groupRows.error) throw new Error(groupRows.error.message);
     const groups: PermanentCircuitGroup[] = ((groupRows.data ?? []) as Record<string, any>[]).map(
       (g) => ({
