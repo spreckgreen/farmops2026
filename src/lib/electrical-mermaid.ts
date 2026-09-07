@@ -257,6 +257,12 @@ interface Index {
   groupById: Map<string, Row>;
   /** Circuit groups keyed by row UUID, for uuid-linked branch runs. */
   groupByUuid: Map<string, Row>;
+  /**
+   * Junction box stable ID -> circuit-group caption, derived from the branch
+   * runs that land in the box. A box carrying more than one group is labelled
+   * with all of them; no single group is ever chosen for it.
+   */
+  jboxGroupText: Map<string, string>;
   racewayById: Map<string, Row>;
   branchById: Map<string, Row>;
 }
@@ -280,7 +286,66 @@ function indexRows(data: ElectricalGraphData): Index {
     ),
     racewayById: build("raceway", data.raceway),
     branchById: build("branch", data.branch),
+    jboxGroupText: new Map(),
   };
+}
+
+/** Circuit group a record is assigned to, by UUID link first then legacy ref. */
+function groupOf(row: Row, idx: Index): Row | undefined {
+  return (
+    idx.groupByUuid.get(s(row["circuit_group_uuid"])) ??
+    idx.groupById.get(s(row["circuit_group_ref"]))
+  );
+}
+
+/** `CG-FS-007 · PNL-FS-NE-B31`, omitting whatever is not recorded. */
+function groupSuffix(group: Row | undefined): string {
+  if (!group) return "";
+  return [s(group["circuit_group_id"]), circuitGroupPanelText(group)]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+/**
+ * Junction-box captions get every circuit group whose branch runs land in the
+ * box, so a mixed box reads as mixed instead of being collapsed to one group.
+ */
+function buildJboxGroupText(data: ElectricalGraphData, idx: Index) {
+  const perBox = new Map<string, Set<string>>();
+  for (const br of data.branch ?? []) {
+    const suffix = groupSuffix(groupOf(br, idx));
+    if (!suffix) continue;
+    for (const key of ["source_endpoint_ref", "dest_endpoint_ref"]) {
+      const ref = s(br[key]);
+      if (!ref || !idx.jboxById.has(ref)) continue;
+      if (!perBox.has(ref)) perBox.set(ref, new Set());
+      perBox.get(ref)!.add(suffix);
+    }
+    const boxUuid = s(br["source_jbox_uuid"]);
+    if (boxUuid) {
+      for (const [id, row] of idx.jboxById) {
+        if (s(row["id"]) !== boxUuid) continue;
+        if (!perBox.has(id)) perBox.set(id, new Set());
+        perBox.get(id)!.add(suffix);
+      }
+    }
+  }
+  for (const [id, set] of perBox) {
+    const list = [...set].sort();
+    idx.jboxGroupText.set(id, list.length === 1 ? list[0]! : `Groups: ${list.join(" | ")}`);
+  }
+}
+
+function jboxLabel(row: Row, id: string, idx: Index): string {
+  return [id, s(row["box_type"]) || "J-box", idx.jboxGroupText.get(id) ?? ""]
+    .filter(Boolean)
+    .join("<br/>");
+}
+
+/** Load caption: stable ID, description, and its circuit group + panel. */
+function loadLabel(row: Row, id: string, idx?: Index): string {
+  const suffix = idx ? groupSuffix(groupOf(row, idx)) : "";
+  return [id, s(row["description"]), suffix].filter(Boolean).join("<br/>");
 }
 
 /** Duplicate stable IDs are a data error, surfaced rather than silently deduped. */
@@ -317,9 +382,9 @@ function endpointNode(b: Builder, idx: Index, ref: string, context: string): str
   const panel = idx.panelById.get(ref);
   if (panel) return b.node("panel", ref, panelLabel(panel), panel);
   const jbox = idx.jboxById.get(ref);
-  if (jbox) return b.node("jbox", ref, `${ref}<br/>${s(jbox["box_type"]) || "J-box"}`, jbox);
+  if (jbox) return b.node("jbox", ref, jboxLabel(jbox, ref, idx), jbox);
   const load = idx.loadById.get(ref);
-  if (load) return b.node("load", ref, `${ref}<br/>${s(load["description"])}`, load);
+  if (load) return b.node("load", ref, loadLabel(load, ref, idx), load);
   if (ref.toUpperCase().startsWith("PNL-")) {
     b.issue("error", "unknown_panel", `${context} references unknown panel ${ref}.`);
   } else {
@@ -413,6 +478,7 @@ export function buildDiagram(
   }
   const b = new Builder();
   const idx = indexRows(data);
+  buildJboxGroupText(data, idx);
   duplicateIdIssues(data, b);
 
   const state = filters.state ?? "all";
@@ -614,12 +680,7 @@ export function buildDiagram(
       if (chained.has(point.stableId)) continue;
       chained.add(point.stableId);
       jboxIds.add(point.stableId);
-      const jbKey = b.node(
-        "jbox",
-        point.stableId,
-        `${point.stableId}<br/>${s(point.row["box_type"]) || "J-box"}`,
-        point.row,
-      );
+      const jbKey = b.node("jbox", point.stableId, jboxLabel(point.row, point.stableId, idx), point.row);
       const label = point.sequence == null ? "junction point" : `junction ${positionLabel(point.sequence)}`;
       b.edge(previous ?? key, jbKey, label);
       previous = jbKey;
@@ -768,7 +829,7 @@ export function buildDiagram(
 
   for (const l of loads) {
     const id = sid("load", l);
-    const key = b.node("load", id, `${id}<br/>${s(l["description"])}`, l);
+    const key = b.node("load", id, loadLabel(l, id, idx), l);
     const ref = s(l["circuit_group_ref"]);
     if (!ref) continue;
     const group = idx.groupById.get(ref);
