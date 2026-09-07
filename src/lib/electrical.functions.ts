@@ -8,6 +8,7 @@ import {
   servicePanelDomainFindings,
 } from "@/lib/electrical-service-topology";
 import { requireElectricalAccess } from "@/lib/addons.server";
+import { circuitGroupBreakerText } from "@/lib/electrical-circuit-group-topology";
 import { recordElectricalChange } from "@/lib/electrical-audit.server";
 import {
   ENTITIES,
