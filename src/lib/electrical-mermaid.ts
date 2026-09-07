@@ -113,6 +113,12 @@ export interface DiagramFilters {
   circuitGroup?: string;
   /** raceway environment, e.g. SITE_UNDERGROUND */
   environment?: string;
+  /**
+   * Include loads that have no circuit-group relationship recorded, shown as
+   * "no circuit recorded" nodes hung off the panel they name. Default true.
+   */
+  unlinkedLoads?: boolean;
+
 }
 
 export interface DiagramIssue {
