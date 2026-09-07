@@ -434,6 +434,9 @@ const RENDERERS: Record<TemplateId, (tasks: PrintTask[], opts: TemplateOptions) 
   grid: renderGrid,
   ledger: renderLedger,
   record: renderRecord,
+  weather: renderWeather,
+  energy: renderEnergy,
+  productivity: renderProductivity,
   "farmops-list": renderFarmopsList,
 };
 
