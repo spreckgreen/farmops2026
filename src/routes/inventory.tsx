@@ -16,6 +16,7 @@ import {
   Wrench,
   History,
   Undo2,
+  Boxes,
 } from "lucide-react";
 import Papa from "papaparse";
 import AssetDialog from "@/components/dashboard/AssetDialog";
