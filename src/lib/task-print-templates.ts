@@ -24,6 +24,9 @@ export type TemplateId =
   | "grid"
   | "ledger"
   | "record"
+  | "weather"
+  | "energy"
+  | "productivity"
   | "farmops-list";
 
 export interface TemplateOptions {
@@ -91,6 +94,33 @@ export const TASK_PRINT_TEMPLATES: TaskPrintTemplate[] = [
     orientation: "portrait",
     usesTasks: false,
     defaultBlankRows: 30,
+  },
+  {
+    id: "weather",
+    name: "The Weather",
+    description:
+      "Day-by-day weather sheet: high, low, rain, wind, frost and what it meant for the work.",
+    orientation: "portrait",
+    usesTasks: false,
+    defaultBlankRows: 31,
+  },
+  {
+    id: "energy",
+    name: "The Energy",
+    description:
+      "Meter and fuel sheet: reading, kWh used, generator hours, propane and fuel added.",
+    orientation: "portrait",
+    usesTasks: false,
+    defaultBlankRows: 24,
+  },
+  {
+    id: "productivity",
+    name: "The Productivity",
+    description:
+      "Effort against output: job, hours worked, what came of it, and whether it paid.",
+    orientation: "landscape",
+    usesTasks: true,
+    defaultBlankRows: 10,
   },
   {
     id: "farmops-list",
@@ -319,6 +349,60 @@ ${foot(opts)}`,
   );
 }
 
+function renderWeather(_tasks: PrintTask[], opts: TemplateOptions): string {
+  return docShell(
+    opts,
+    "portrait",
+    `${head(opts, "FarmOps · Bostead Farms", "The Weather")}
+<p class="sub">What the sky did, and what it cost you. One line a day.</p>
+<table>
+  <thead><tr><th>Date</th><th>High</th><th>Low</th><th>Rain / snow</th><th>Wind</th><th>Frost</th><th>What it meant for the work</th></tr></thead>
+  <tbody>${blankRows(Math.max(opts.blankRows, 1), 7)}</tbody>
+</table>
+${foot(opts)}`,
+  );
+}
+
+function renderEnergy(_tasks: PrintTask[], opts: TemplateOptions): string {
+  return docShell(
+    opts,
+    "portrait",
+    `${head(opts, "FarmOps · Bostead Farms", "The Energy")}
+<p class="sub">Meter readings, fuel in, hours run. Read it the same time each day.</p>
+<table>
+  <thead><tr><th>Date</th><th>Meter reading</th><th>kWh used</th><th>Generator hours</th><th>Fuel / propane added</th><th>Notes</th></tr></thead>
+  <tbody>${blankRows(Math.max(opts.blankRows, 1), 6)}</tbody>
+</table>
+${foot(opts)}`,
+  );
+}
+
+function renderProductivity(tasks: PrintTask[], opts: TemplateOptions): string {
+  const rows = tasks
+    .map(
+      (t) => `<tr>
+      <td>${esc(t.date ?? "")}</td>
+      <td class="printed">${esc(t.title)}</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>&nbsp;</td>
+      <td>${esc(t.note ?? "")}</td>
+    </tr>`,
+    )
+    .join("");
+  return docShell(
+    opts,
+    "landscape",
+    `${head(opts, "FarmOps · Bostead Farms", "The Productivity")}
+<p class="sub">Hours in against what came out. Fill the empty columns by hand as you go.</p>
+<table>
+  <thead><tr><th>Date</th><th>Job</th><th>Hours worked</th><th>What came of it</th><th>Worth it?</th><th>Notes</th></tr></thead>
+  <tbody>${rows}${blankRows(opts.blankRows, 6)}</tbody>
+</table>
+${foot(opts)}`,
+  );
+}
+
 function renderFarmopsList(tasks: PrintTask[], opts: TemplateOptions): string {
   const rows = tasks
     .map(
@@ -350,6 +434,9 @@ const RENDERERS: Record<TemplateId, (tasks: PrintTask[], opts: TemplateOptions) 
   grid: renderGrid,
   ledger: renderLedger,
   record: renderRecord,
+  weather: renderWeather,
+  energy: renderEnergy,
+  productivity: renderProductivity,
   "farmops-list": renderFarmopsList,
 };
 

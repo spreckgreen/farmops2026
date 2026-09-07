@@ -22,6 +22,9 @@ describe("task print templates", () => {
       "grid",
       "ledger",
       "record",
+      "weather",
+      "energy",
+      "productivity",
       "farmops-list",
     ]);
     expect(getTemplate("nope")).toBeNull();
