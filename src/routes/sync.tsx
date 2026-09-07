@@ -8,6 +8,7 @@ import { useSelfHostConfig } from "@/hooks/use-self-host-config";
 import { requireAuthenticatedUser } from "@/lib/auth-route";
 import { Button } from "@/components/ui/button";
 import { obsidianExport, obsidianImport, type ObsidianFile } from "@/lib/obsidian.functions";
+import { usePremiumPrint } from "@/hooks/use-premium-print";
 import { VAULT_ROOT, TOP_LEVEL_FOLDERS } from "@/lib/obsidian-layout";
 import { toast } from "sonner";
 import { FolderOpen, Download, Upload, RefreshCw, CheckCircle2, XCircle, Monitor, FileText } from "lucide-react";
@@ -70,6 +71,8 @@ async function readAllMarkdown(root: DirHandle): Promise<ObsidianFile[]> {
 
 function SyncPage() {
   const selfHost = useSelfHostConfig();
+  // Publishing out to an Obsidian vault is part of the premium print package.
+  const premiumPrint = usePremiumPrint();
   const hidePublish = selfHost.data?.selfHostMode ?? false;
   const [vault, setVault] = useState<DirHandle | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -270,7 +273,7 @@ function SyncPage() {
                     Open in Chrome tab
                   </Button>
                 ) : null}
-                <Button size="sm" variant="secondary" onClick={fallbackPush} disabled={!!busy}>
+                <Button size="sm" variant="secondary" onClick={fallbackPush} disabled={!!busy || !premiumPrint.allowed}>
                   <Download className="w-4 h-4 mr-2" />
                   Download all files
                 </Button>
@@ -315,15 +318,22 @@ function SyncPage() {
             <Download className="w-4 h-4 mr-2" />
             Pull from vault
           </Button>
-          <Button onClick={pushToVault} disabled={!vault || !!busy}>
+          <Button onClick={pushToVault} disabled={!vault || !!busy || !premiumPrint.allowed}>
             <Upload className="w-4 h-4 mr-2" />
             Push to vault
           </Button>
-          <Button onClick={roundTrip} disabled={!vault || !!busy} variant="outline">
+          <Button onClick={roundTrip} disabled={!vault || !!busy || !premiumPrint.allowed} variant="outline">
             <RefreshCw className="w-4 h-4 mr-2" />
             Pull + Push
           </Button>
         </div>
+
+        {!premiumPrint.allowed && !premiumPrint.isLoading ? (
+          <div className="text-xs text-muted-foreground">
+            Publishing out to an Obsidian vault is part of the premium print package — an
+            administrator can turn it on for you. Importing files back in still works.
+          </div>
+        ) : null}
 
         {busy ? <div className="text-sm text-muted-foreground">{busy}</div> : null}
         {lastSync ? (
