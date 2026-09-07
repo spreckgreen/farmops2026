@@ -86,6 +86,7 @@ const data: ElectricalGraphData = {
       branch_id: "BR-057",
       source_endpoint_ref: "JB-014",
       dest_endpoint_ref: "FS-097",
+      circuit_group_uuid: "g1",
       conductor_size: "#12",
       install_status: "complete",
     },
