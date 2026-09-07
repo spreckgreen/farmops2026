@@ -886,14 +886,20 @@ export function AssetDetail({ asset }: { asset: OperationalAsset }) {
     ["Current FarmOps grid", asset.grid ?? "NOT IN RECORD"],
     ["Design / proposed grid", asset.designGrid ?? "NOT IN RECORD"],
     [
-      "X / Y",
+      "Plotted point",
       asset.plottedXFt != null
         ? `${asset.plottedXFt} ft E, ${asset.plottedYFt} ft S`
-        : "NOT IN RECORD",
+        : "NOT PLOTTED",
     ],
+    ["Plot provenance", PLOT_PROVENANCE_LABEL[asset.plotProvenance]],
+    ["Derivation method", asset.plotDerivation],
+    ["Verified reference", asset.verifiedReference ?? "NOT IN RECORD"],
+    ["Audit ID", asset.auditId ?? "not stated in record"],
     ["Effective location", asset.locationProvenance],
     ["Location precision", PRECISION_META[asset.precision].label],
     ["Placement source", PLACEMENT_SOURCE_LABEL[asset.locationSource]],
+
+
 
     ["Install status", asset.installStatus ?? "NOT IN RECORD"],
     ["Field verification", VERIFICATION_LABEL[verificationOf(asset.verification)]],
