@@ -324,6 +324,103 @@ export const PLACEMENT_SOURCE_ORDER: PlacementSource[] = [
   "NOT_PLOTTED",
 ];
 
+/**
+ * Explicit plot provenance for the point actually drawn. A derived centroid,
+ * post anchor or interval midpoint is never presented as a measured field X/Y.
+ */
+export type PlotProvenance =
+  | "FIELD_VERIFIED_XY"
+  | "FIELD_VERIFIED_POST"
+  | "FIELD_VERIFIED_INTERVAL"
+  | "FIELD_VERIFIED_GRID_CENTROID"
+  | "DESIGN_XY"
+  | "DESIGN_GRID_CENTROID"
+  | "UNRESOLVED";
+
+export const PLOT_PROVENANCE_ORDER: PlotProvenance[] = [
+  "FIELD_VERIFIED_XY",
+  "FIELD_VERIFIED_POST",
+  "FIELD_VERIFIED_INTERVAL",
+  "FIELD_VERIFIED_GRID_CENTROID",
+  "DESIGN_XY",
+  "DESIGN_GRID_CENTROID",
+  "UNRESOLVED",
+];
+
+export const PLOT_PROVENANCE_LABEL: Record<PlotProvenance, string> = {
+  FIELD_VERIFIED_XY: "Field-verified measured X/Y",
+  FIELD_VERIFIED_POST: "Field-verified post anchor (canonical post coordinate)",
+  FIELD_VERIFIED_INTERVAL: "Field-verified interval (midpoint drawn, span preserved)",
+  FIELD_VERIFIED_GRID_CENTROID: "Field-verified grid cell (centroid drawn)",
+  DESIGN_XY: "Design X/Y (not field verified)",
+  DESIGN_GRID_CENTROID: "Design grid cell (centroid drawn, not field verified)",
+  UNRESOLVED: "Unresolved — no usable location",
+};
+
+/** How the drawn point was obtained from the verified or design reference. */
+export const PLOT_DERIVATION: Record<PlotProvenance, string> = {
+  FIELD_VERIFIED_XY: "Measured coordinate recorded in the field; used as recorded.",
+  FIELD_VERIFIED_POST: "Canonical coordinate of the verified post / pole callout.",
+  FIELD_VERIFIED_INTERVAL:
+    "Midpoint of the verified interval; interval precision is preserved and the span is kept.",
+  FIELD_VERIFIED_GRID_CENTROID: "Centroid of the verified grid cell.",
+  DESIGN_XY: "Accepted design coordinate; design intent only.",
+  DESIGN_GRID_CENTROID: "Centroid of the accepted design grid cell.",
+  UNRESOLVED: "No derivation — nothing is plotted.",
+};
+
+/**
+ * Explicit plot provenance for a chosen placement. Field-verified sources stay
+ * field-verified; derived points are never labelled as measured coordinates.
+ */
+export function plotProvenanceFor(source: PlacementSource, spanned: boolean): PlotProvenance {
+  switch (source) {
+    case "VERIFIED_FIELD_OBSERVATION_XY":
+      return spanned ? "FIELD_VERIFIED_INTERVAL" : "FIELD_VERIFIED_XY";
+    case "OBSERVED_POST":
+      return spanned ? "FIELD_VERIFIED_INTERVAL" : "FIELD_VERIFIED_POST";
+    case "OBSERVED_FIELD_GRID":
+    case "PENDING_FIELD_OBSERVATION":
+      return spanned ? "FIELD_VERIFIED_INTERVAL" : "FIELD_VERIFIED_GRID_CENTROID";
+    case "APPROVED_DESIGN_XY":
+    case "PROVISIONAL_RECORDED_XY":
+      return "DESIGN_XY";
+    case "DERIVED_FROM_GRID_REFERENCE":
+    case "DERIVED_FROM_CURRENT_GRID":
+    case "DERIVED_FROM_LEGACY_GRID":
+      return "DESIGN_GRID_CENTROID";
+    default:
+      return "UNRESOLVED";
+  }
+}
+
+export const FIELD_VERIFIED_SOURCES: PlacementSource[] = [
+  "VERIFIED_FIELD_OBSERVATION_XY",
+  "OBSERVED_POST",
+  "OBSERVED_FIELD_GRID",
+];
+
+/** Deployment scope of field audit evidence, explained separately from plotting. */
+export const DEPLOYMENT_SCOPE_NOTICE =
+  "Field audits are deployment-local until synchronized. If an audit was applied in another FarmOps deployment, this instance cannot use that evidence until the audit batch or resulting canonical records are imported and verified.";
+
+/**
+ * The location-authority notice for this instance, stated from the records
+ * actually present here — never from an audit that lives in another deployment.
+ */
+export function fieldVerifiedLocationNotice(counts: {
+  verified: number;
+  measuredXy: number;
+}): string {
+  const { verified, measuredXy } = counts;
+  if (verified === 0)
+    return `No records in this FarmOps instance contain field-verified location references. ${DEPLOYMENT_SCOPE_NOTICE}`;
+  const measuredSentence =
+    measuredXy === 0
+      ? "None contains a measured field X/Y coordinate."
+      : `${measuredXy} of them contain a measured field X/Y coordinate.`;
+  return `${verified} records in this FarmOps instance contain field-verified location references. ${measuredSentence} FarmOps therefore plots each record from its verified grid, post, or interval using a deterministic derived rendering point. These points are field-authoritative at the recorded precision, but they are not measured coordinates.`;
+}
 
 
 /** One candidate position the record could support, evaluated but not chosen. */
