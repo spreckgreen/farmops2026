@@ -495,3 +495,35 @@ export const resequenceSiteReferences = createServerFn({ method: "POST" })
     const renumbered = await resequenceReferences(supabase, data.site_id);
     return { ok: true, renumbered };
   });
+
+/**
+ * Buildings with their utility service, plus how many electrical loads are
+ * linked to each one. Loads carry the building link (site_building_uuid); the
+ * service type stays on the building record and is only read here — a load
+ * never stores its own service type, so the two can never disagree.
+ */
+export const listBuildingServiceLinks = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase } = context as { supabase: any };
+    const { data: buildings, error } = await supabase
+      .from("site_buildings")
+      .select(
+        "id, site_plan_id, temp_name, building_name, building_role, parent_building_id, service_type",
+      )
+      .order("size_rank", { ascending: true });
+    if (error) throw new Error(error.message);
+
+    const { data: loads, error: loadError } = await supabase
+      .from("electrical_loads")
+      .select("site_building_uuid")
+      .not("site_building_uuid", "is", null);
+    if (loadError) throw new Error(loadError.message);
+
+    const loadCounts: Record<string, number> = {};
+    for (const row of loads ?? []) {
+      const id = String((row as { site_building_uuid: string }).site_building_uuid);
+      loadCounts[id] = (loadCounts[id] ?? 0) + 1;
+    }
+    return { buildings: buildings ?? [], loadCounts };
+  });
