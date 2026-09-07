@@ -22,10 +22,13 @@ export interface TopologyLookup {
 
 export interface RelatedRecord {
   kind: ElectricalEntityKind;
+  /** Row UUID, when the lookup returned one. Enables linking to the detail page. */
+  id: string | null;
   stable_id: string;
   label: string;
   relation: string;
 }
+
 
 /** A relationship lookup that could not be completed in this deployment. */
 export interface TopologyWarning {
@@ -100,7 +103,9 @@ export function relatedFromRows(lookup: TopologyLookup, rows: Rec[]): RelatedRec
   const target = ENTITIES[lookup.kind];
   return (rows ?? []).map((r) => ({
     kind: lookup.kind,
+    id: str(r["id"]) || null,
     stable_id: str(r[target.stableIdField]),
+
     label:
       lookup.kind === "circuit_group"
         ? [
