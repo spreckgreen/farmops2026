@@ -1,8 +1,9 @@
 // Every kit and rack build-out on the place, in one list, with a picture of how
 // each rack is stacked (bottom space at the bottom, just like the real rack).
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
+import { toast } from "sonner";
 import { AppLayout } from "@/components/app-layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,8 +11,15 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Boxes, Server, AlertTriangle, ArrowLeft, Wrench } from "lucide-react";
 import { requireAuthenticatedUser } from "@/lib/auth-route";
-import { listKitRackBuildouts, type KitRackBuildout } from "@/lib/kit-rack-index.functions";
+import {
+  listKitRackBuildouts,
+  listRacksWithoutKit,
+  type KitRackBuildout,
+  type RackWithoutKit,
+} from "@/lib/kit-rack-index.functions";
+import { createRackKit } from "@/lib/rack-kit.functions";
 import { buildRackElevation, formatSpan } from "@/lib/rack-elevation";
+
 
 export const Route = createFileRoute("/kits-racks")({
   ssr: false,
