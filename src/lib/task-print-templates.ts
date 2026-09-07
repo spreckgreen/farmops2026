@@ -96,6 +96,33 @@ export const TASK_PRINT_TEMPLATES: TaskPrintTemplate[] = [
     defaultBlankRows: 30,
   },
   {
+    id: "weather",
+    name: "The Weather",
+    description:
+      "Day-by-day weather sheet: high, low, rain, wind, frost and what it meant for the work.",
+    orientation: "portrait",
+    usesTasks: false,
+    defaultBlankRows: 31,
+  },
+  {
+    id: "energy",
+    name: "The Energy",
+    description:
+      "Meter and fuel sheet: reading, kWh used, generator hours, propane and fuel added.",
+    orientation: "portrait",
+    usesTasks: false,
+    defaultBlankRows: 24,
+  },
+  {
+    id: "productivity",
+    name: "The Productivity",
+    description:
+      "Effort against output: job, hours worked, what came of it, and whether it paid.",
+    orientation: "landscape",
+    usesTasks: true,
+    defaultBlankRows: 10,
+  },
+  {
     id: "farmops-list",
     name: "FarmOps List",
     description: "Plain compact FarmOps table: title, slug, status, recurrence. No decoration.",
