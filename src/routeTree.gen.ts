@@ -18,6 +18,7 @@ import { Route as DeckRouteImport } from './routes/deck'
 import { Route as FoodRouteImport } from './routes/food'
 import { Route as HealthRouteImport } from './routes/health'
 import { Route as InventoryRouteImport } from './routes/inventory'
+import { Route as KitsRacksRouteImport } from './routes/kits-racks'
 import { Route as MaintenanceRouteImport } from './routes/maintenance'
 import { Route as ProceduresRouteImport } from './routes/procedures'
 import { Route as ProjectsRouteImport } from './routes/projects'
@@ -207,6 +208,11 @@ const HealthRoute = HealthRouteImport.update({
 const InventoryRoute = InventoryRouteImport.update({
   id: '/inventory',
   path: '/inventory',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const KitsRacksRoute = KitsRacksRouteImport.update({
+  id: '/kits-racks',
+  path: '/kits-racks',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MaintenanceRoute = MaintenanceRouteImport.update({
@@ -965,6 +971,7 @@ export interface FileRoutesByFullPath {
   '/food': typeof FoodRouteWithChildren
   '/health': typeof HealthRouteWithChildren
   '/inventory': typeof InventoryRoute
+  '/kits-racks': typeof KitsRacksRoute
   '/maintenance': typeof MaintenanceRouteWithChildren
   '/procedures': typeof ProceduresRouteWithChildren
   '/projects': typeof ProjectsRoute
@@ -1119,6 +1126,7 @@ export interface FileRoutesByTo {
   '/deck': typeof DeckRoute
   '/health': typeof HealthRouteWithChildren
   '/inventory': typeof InventoryRoute
+  '/kits-racks': typeof KitsRacksRoute
   '/projects': typeof ProjectsRoute
   '/promo': typeof PromoRoute
   '/ready': typeof ReadyRoute
@@ -1273,6 +1281,7 @@ export interface FileRoutesById {
   '/food': typeof FoodRouteWithChildren
   '/health': typeof HealthRouteWithChildren
   '/inventory': typeof InventoryRoute
+  '/kits-racks': typeof KitsRacksRoute
   '/maintenance': typeof MaintenanceRouteWithChildren
   '/procedures': typeof ProceduresRouteWithChildren
   '/projects': typeof ProjectsRoute
@@ -1431,6 +1440,7 @@ export interface FileRouteTypes {
     | '/food'
     | '/health'
     | '/inventory'
+    | '/kits-racks'
     | '/maintenance'
     | '/procedures'
     | '/projects'
@@ -1585,6 +1595,7 @@ export interface FileRouteTypes {
     | '/deck'
     | '/health'
     | '/inventory'
+    | '/kits-racks'
     | '/projects'
     | '/promo'
     | '/ready'
@@ -1738,6 +1749,7 @@ export interface FileRouteTypes {
     | '/food'
     | '/health'
     | '/inventory'
+    | '/kits-racks'
     | '/maintenance'
     | '/procedures'
     | '/projects'
@@ -1895,6 +1907,7 @@ export interface RootRouteChildren {
   FoodRoute: typeof FoodRouteWithChildren
   HealthRoute: typeof HealthRouteWithChildren
   InventoryRoute: typeof InventoryRoute
+  KitsRacksRoute: typeof KitsRacksRoute
   MaintenanceRoute: typeof MaintenanceRouteWithChildren
   ProceduresRoute: typeof ProceduresRouteWithChildren
   ProjectsRoute: typeof ProjectsRoute
@@ -2081,6 +2094,13 @@ declare module '@tanstack/react-router' {
       path: '/inventory'
       fullPath: '/inventory'
       preLoaderRoute: typeof InventoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/kits-racks': {
+      id: '/kits-racks'
+      path: '/kits-racks'
+      fullPath: '/kits-racks'
+      preLoaderRoute: typeof KitsRacksRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/maintenance': {
@@ -3225,6 +3245,7 @@ const rootRouteChildren: RootRouteChildren = {
   FoodRoute: FoodRouteWithChildren,
   HealthRoute: HealthRouteWithChildren,
   InventoryRoute: InventoryRoute,
+  KitsRacksRoute: KitsRacksRoute,
   MaintenanceRoute: MaintenanceRouteWithChildren,
   ProceduresRoute: ProceduresRouteWithChildren,
   ProjectsRoute: ProjectsRoute,

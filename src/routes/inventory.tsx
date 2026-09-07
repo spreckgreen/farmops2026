@@ -16,6 +16,7 @@ import {
   Wrench,
   History,
   Undo2,
+  Boxes,
 } from "lucide-react";
 import Papa from "papaparse";
 import AssetDialog from "@/components/dashboard/AssetDialog";
@@ -646,6 +647,9 @@ function InventoryDashboard() {
             </label>
             <Button size="sm" variant="outline" onClick={() => setScannerOpen(true)}>
               <ScanLine className="h-4 w-4 mr-1" /> Scan
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => navigate({ to: "/kits-racks" })}>
+              <Boxes className="h-4 w-4 mr-1" /> Kits &amp; racks
             </Button>
             <Button
               size="sm"
