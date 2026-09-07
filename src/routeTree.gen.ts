@@ -49,6 +49,7 @@ import { Route as AdminSchemaRouteImport } from './routes/admin.schema'
 import { Route as AdminSubscriptionsRouteImport } from './routes/admin.subscriptions'
 import { Route as AdminTaskDedupeRouteImport } from './routes/admin.task-dedupe'
 import { Route as AdminTaskHealthRouteImport } from './routes/admin.task-health'
+import { Route as AdminTaskPrintRouteImport } from './routes/admin.task-print'
 import { Route as AdminUsersRouteImport } from './routes/admin.users'
 import { Route as AdminVaultBackupRouteImport } from './routes/admin.vault-backup'
 import { Route as AdminVaultBitwardenRouteImport } from './routes/admin.vault-bitwarden'
@@ -361,6 +362,11 @@ const AdminTaskDedupeRoute = AdminTaskDedupeRouteImport.update({
 const AdminTaskHealthRoute = AdminTaskHealthRouteImport.update({
   id: '/admin/task-health',
   path: '/admin/task-health',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminTaskPrintRoute = AdminTaskPrintRouteImport.update({
+  id: '/admin/task-print',
+  path: '/admin/task-print',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminUsersRoute = AdminUsersRouteImport.update({
@@ -989,6 +995,7 @@ export interface FileRoutesByFullPath {
   '/admin/subscriptions': typeof AdminSubscriptionsRoute
   '/admin/task-dedupe': typeof AdminTaskDedupeRoute
   '/admin/task-health': typeof AdminTaskHealthRoute
+  '/admin/task-print': typeof AdminTaskPrintRoute
   '/admin/users': typeof AdminUsersRoute
   '/admin/vault-backup': typeof AdminVaultBackupRoute
   '/admin/vault-bitwarden': typeof AdminVaultBitwardenRoute
@@ -1139,6 +1146,7 @@ export interface FileRoutesByTo {
   '/admin/subscriptions': typeof AdminSubscriptionsRoute
   '/admin/task-dedupe': typeof AdminTaskDedupeRoute
   '/admin/task-health': typeof AdminTaskHealthRoute
+  '/admin/task-print': typeof AdminTaskPrintRoute
   '/admin/users': typeof AdminUsersRoute
   '/admin/vault-backup': typeof AdminVaultBackupRoute
   '/admin/vault-bitwarden': typeof AdminVaultBitwardenRoute
@@ -1295,6 +1303,7 @@ export interface FileRoutesById {
   '/admin/subscriptions': typeof AdminSubscriptionsRoute
   '/admin/task-dedupe': typeof AdminTaskDedupeRoute
   '/admin/task-health': typeof AdminTaskHealthRoute
+  '/admin/task-print': typeof AdminTaskPrintRoute
   '/admin/users': typeof AdminUsersRoute
   '/admin/vault-backup': typeof AdminVaultBackupRoute
   '/admin/vault-bitwarden': typeof AdminVaultBitwardenRoute
@@ -1452,6 +1461,7 @@ export interface FileRouteTypes {
     | '/admin/subscriptions'
     | '/admin/task-dedupe'
     | '/admin/task-health'
+    | '/admin/task-print'
     | '/admin/users'
     | '/admin/vault-backup'
     | '/admin/vault-bitwarden'
@@ -1602,6 +1612,7 @@ export interface FileRouteTypes {
     | '/admin/subscriptions'
     | '/admin/task-dedupe'
     | '/admin/task-health'
+    | '/admin/task-print'
     | '/admin/users'
     | '/admin/vault-backup'
     | '/admin/vault-bitwarden'
@@ -1757,6 +1768,7 @@ export interface FileRouteTypes {
     | '/admin/subscriptions'
     | '/admin/task-dedupe'
     | '/admin/task-health'
+    | '/admin/task-print'
     | '/admin/users'
     | '/admin/vault-backup'
     | '/admin/vault-bitwarden'
@@ -1913,6 +1925,7 @@ export interface RootRouteChildren {
   AdminSubscriptionsRoute: typeof AdminSubscriptionsRoute
   AdminTaskDedupeRoute: typeof AdminTaskDedupeRoute
   AdminTaskHealthRoute: typeof AdminTaskHealthRoute
+  AdminTaskPrintRoute: typeof AdminTaskPrintRoute
   AdminUsersRoute: typeof AdminUsersRoute
   AdminVaultBackupRoute: typeof AdminVaultBackupRoute
   AdminVaultBitwardenRoute: typeof AdminVaultBitwardenRoute
@@ -2285,6 +2298,13 @@ declare module '@tanstack/react-router' {
       path: '/admin/task-health'
       fullPath: '/admin/task-health'
       preLoaderRoute: typeof AdminTaskHealthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/task-print': {
+      id: '/admin/task-print'
+      path: '/admin/task-print'
+      fullPath: '/admin/task-print'
+      preLoaderRoute: typeof AdminTaskPrintRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/users': {
@@ -3235,6 +3255,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminSubscriptionsRoute: AdminSubscriptionsRoute,
   AdminTaskDedupeRoute: AdminTaskDedupeRoute,
   AdminTaskHealthRoute: AdminTaskHealthRoute,
+  AdminTaskPrintRoute: AdminTaskPrintRoute,
   AdminUsersRoute: AdminUsersRoute,
   AdminVaultBackupRoute: AdminVaultBackupRoute,
   AdminVaultBitwardenRoute: AdminVaultBitwardenRoute,

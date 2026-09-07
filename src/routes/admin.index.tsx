@@ -20,7 +20,9 @@ import {
 
 
   ClipboardList,
+  Printer,
   Grid3x3,
+
 } from "lucide-react";
 
 export const Route = createFileRoute("/admin/")({
@@ -107,6 +109,10 @@ function AdminIndexPage() {
             <Link to="/admin/task-health" className="flex items-center gap-2 rounded-md border p-3 hover:bg-accent">
               <Activity className="h-4 w-4" /> Task health monitor
             </Link>
+            <Link to="/admin/task-print" className="flex items-center gap-2 rounded-md border p-3 hover:bg-accent">
+              <Printer className="h-4 w-4" /> Task print templates
+            </Link>
+
             <Link
               to="/electrical/grid-data-quality"
               search={{ tab: "status" }}
