@@ -199,13 +199,34 @@ function BuildoutCard({ buildout }: { buildout: KitRackBuildout }) {
 
 function KitsRacksPage() {
   const fn = useServerFn(listKitRackBuildouts);
+  const rackFn = useServerFn(listRacksWithoutKit);
+  const startKit = useServerFn(createRackKit);
+  const navigate = useNavigate();
+  const qc = useQueryClient();
   const q = useQuery<KitRackBuildout[]>({
     queryKey: ["kit-rack-buildouts"],
     queryFn: () => fn(),
   });
+  const bare = useQuery<RackWithoutKit[]>({
+    queryKey: ["racks-without-kit"],
+    queryFn: () => rackFn(),
+  });
+
+  const start = useMutation({
+    mutationFn: (rackId: string) => startKit({ data: { rackId } }),
+    onSuccess: async (view) => {
+      await qc.invalidateQueries({ queryKey: ["kit-rack-buildouts"] });
+      await qc.invalidateQueries({ queryKey: ["racks-without-kit"] });
+      if (view?.kit) {
+        navigate({ to: "/kits-racks/$kitId", params: { kitId: view.kit.id } });
+      }
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   const racks = (q.data ?? []).filter((b) => b.rack);
   const kits = (q.data ?? []).filter((b) => !b.rack);
+
 
   return (
     <AppLayout>
