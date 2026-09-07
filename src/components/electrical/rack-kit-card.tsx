@@ -271,7 +271,7 @@ export function RackKitCard({ rackId }: { rackId: string }) {
             ) : (
               <div className="overflow-hidden rounded-md border-x-4 border-y border-border bg-muted/40">
                 {(() => {
-                  const blocks: JSX.Element[] = [];
+                  const blocks: ReactElement[] = [];
                   let u = sizeU;
                   while (u >= 1) {
                     const part = elevation.placed.find((p) => p.topU === u);
