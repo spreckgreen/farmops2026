@@ -277,3 +277,45 @@ describe("source availability without a renderer", () => {
     expect(a.mermaid).toBe(b.mermaid);
   });
 });
+
+describe("unlinked loads", () => {
+  const withUnlinked: ElectricalGraphData = {
+    ...data,
+    load: [
+      ...data.load,
+      {
+        id: "l2",
+        load_id: "FS-035",
+        description: "Mini-split",
+        suggested_panel: "PNL-FS-NE",
+        install_status: "planned",
+      },
+      {
+        id: "l3",
+        load_id: "FS-048",
+        description: "Unknown feed",
+        install_status: "planned",
+      },
+    ],
+  };
+
+  it("hangs a circuit-less load off its named panel and marks it", () => {
+    const out = buildDiagram(withUnlinked, { type: "whole_system" });
+    expect(out.mermaid).toContain("no circuit recorded");
+    expect(out.mermaid).toContain("FS-035");
+    const edge = out.edges.find((e) => e.label === "named panel · no circuit recorded");
+    expect(edge?.dashed).toBe(true);
+  });
+
+  it("summarises loads with no circuit and no panel instead of inventing one", () => {
+    const out = buildDiagram(withUnlinked, { type: "whole_system" });
+    expect(out.mermaid).toContain("no circuit and no panel recorded");
+    expect(out.mermaid).not.toContain("FS-048<br/>");
+  });
+
+  it("omits circuit-less loads when the toggle is off", () => {
+    const out = buildDiagram(withUnlinked, { type: "whole_system", unlinkedLoads: false });
+    expect(out.mermaid).not.toContain("no circuit recorded");
+    expect(out.mermaid).toContain("FS-097");
+  });
+});
