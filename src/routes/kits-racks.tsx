@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Boxes, Server, AlertTriangle, ArrowLeft } from "lucide-react";
+import { Boxes, Server, AlertTriangle, ArrowLeft, Wrench } from "lucide-react";
 import { requireAuthenticatedUser } from "@/lib/auth-route";
 import { listKitRackBuildouts, type KitRackBuildout } from "@/lib/kit-rack-index.functions";
 import { buildRackElevation, formatSpan } from "@/lib/rack-elevation";
