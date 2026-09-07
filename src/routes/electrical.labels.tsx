@@ -172,6 +172,8 @@ function paperNote(format: LabelFormat): string {
 
 function PanelLabelsPage() {
   const navigate = useNavigate();
+  // Label sheets belong to the premium print package.
+  const premiumPrint = usePremiumPrint();
   const fetchLabels = useServerFn(listElectricalLabels);
 
   // Selection: one label type, or a print group covering several types.
