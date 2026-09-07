@@ -1,11 +1,12 @@
 // Rack build kits. An equipment rack is usually populated with gear that is
 // screwed down and stays there, so the rack's contents are described by a kit
 // parts list (bill of materials) on an inventory kit item — e.g.
-// RACK-FS-NET-01 → 1 × UniFi switch, 1 × patch panel, 2 × rack shelf.
+// RACK-FS-HAM-01 → 1 × Kenwood TS-480 SAT, 1 × rack shelf, 1 × power strip.
 //
 // The kit is an ordinary inventory kit record (item_type 32_kits) linked to the
-// rack through the existing rack asset link, so nothing about the rack's stable
-// ID or topology changes.
+// rack through electrical_racks.build_kit_item_id. That link is deliberately
+// separate from asset_uuid, so recording the rack's contents never disturbs the
+// asset already recorded on the rack, its stable ID, or its topology.
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -19,19 +20,32 @@ const RackInput = z.object({ rackId: z.string().uuid() });
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type LooseDb = { from: (table: string) => any };
 
+export interface RackKitPart {
+  id: string;
+  componentItemId: string;
+  name: string;
+  itemType: string | null;
+  quantity: number;
+  unit: string | null;
+  location: string | null;
+  notes: string | null;
+}
+
 export interface RackKitView {
   rackStableId: string;
   rackDescription: string | null;
-  /** The linked kit item, when the rack's asset link points at a kit. */
-  kit: { id: string; name: string; componentCount: number } | null;
-  /** A linked asset that is not a kit — never silently replaced. */
-  linkedNonKitAsset: { id: string; name: string } | null;
+  /** The kit whose parts list describes what is installed in this rack. */
+  kit: { id: string; name: string } | null;
+  /** Parts recorded on that kit, in the kit's own order. */
+  parts: RackKitPart[];
+  /** The rack's own asset link, shown for context — never changed here. */
+  linkedAsset: { id: string; name: string } | null;
 }
 
 async function readRackKit(db: LooseDb, userId: string, rackId: string): Promise<RackKitView> {
   const { data: rack, error } = await db
     .from("electrical_racks")
-    .select("id, rack_id, description, asset_uuid")
+    .select("id, rack_id, description, asset_uuid, asset_ref, build_kit_item_id")
     .eq("id", rackId)
     .maybeSingle();
   if (error) throw new Error(error.message);
@@ -41,31 +55,72 @@ async function readRackKit(db: LooseDb, userId: string, rackId: string): Promise
     rackStableId: String(rack.rack_id ?? ""),
     rackDescription: rack.description ?? null,
     kit: null,
-    linkedNonKitAsset: null,
+    parts: [],
+    linkedAsset: rack.asset_uuid
+      ? { id: String(rack.asset_uuid), name: String(rack.asset_ref ?? "") }
+      : null,
   };
-  if (!rack.asset_uuid) return view;
+  if (!rack.build_kit_item_id) return view;
 
-  const { data: asset, error: aErr } = await db
+  const { data: kit, error: kErr } = await db
     .from("inventory_items")
-    .select("id, name, item_type")
+    .select("id, name")
     .eq("user_id", userId)
-    .eq("id", rack.asset_uuid)
+    .eq("id", rack.build_kit_item_id)
     .maybeSingle();
-  if (aErr) throw new Error(aErr.message);
-  if (!asset) return view;
+  if (kErr) throw new Error(kErr.message);
+  if (!kit) return view;
+  view.kit = { id: String(kit.id), name: String(kit.name ?? "") };
 
-  if (String(asset.item_type ?? "") !== KIT_ITEM_TYPE) {
-    view.linkedNonKitAsset = { id: asset.id, name: String(asset.name ?? "") };
-    return view;
+  const { data: rows, error: cErr } = await db
+    .from("inventory_components")
+    .select("id, component_item_id, quantity, unit, notes, sort_order")
+    .eq("user_id", userId)
+    .eq("parent_item_id", kit.id)
+    .order("sort_order", { ascending: true });
+  if (cErr) throw new Error(cErr.message);
+
+  const componentIds = (rows ?? []).map((r: { component_item_id: string }) => r.component_item_id);
+  const byId = new Map<string, { name: string; item_type: string | null; location: string | null; unit: string | null }>();
+  if (componentIds.length > 0) {
+    const { data: items, error: iErr } = await db
+      .from("inventory_items")
+      .select("id, name, item_type, location, unit")
+      .eq("user_id", userId)
+      .in("id", componentIds);
+    if (iErr) throw new Error(iErr.message);
+    for (const it of items ?? []) {
+      byId.set(String(it.id), {
+        name: String(it.name ?? ""),
+        item_type: it.item_type ?? null,
+        location: it.location ?? null,
+        unit: it.unit ?? null,
+      });
+    }
   }
 
-  const { count } = await db
-    .from("inventory_components")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", userId)
-    .eq("parent_item_id", asset.id);
+  view.parts = (rows ?? []).map(
+    (r: {
+      id: string;
+      component_item_id: string;
+      quantity: number | string;
+      unit: string | null;
+      notes: string | null;
+    }) => {
+      const item = byId.get(String(r.component_item_id));
+      return {
+        id: String(r.id),
+        componentItemId: String(r.component_item_id),
+        name: item?.name ?? "(missing inventory item)",
+        itemType: item?.item_type ?? null,
+        quantity: Number(r.quantity),
+        unit: r.unit ?? item?.unit ?? null,
+        location: item?.location ?? null,
+        notes: r.notes ?? null,
+      };
+    },
+  );
 
-  view.kit = { id: asset.id, name: String(asset.name ?? ""), componentCount: count ?? 0 };
   return view;
 }
 
@@ -86,11 +141,6 @@ export const createRackKit = createServerFn({ method: "POST" })
     const existing = await readRackKit(db, context.userId, data.rackId);
     // Already built out — never create a second kit for the same rack.
     if (existing.kit) return existing;
-    if (existing.linkedNonKitAsset) {
-      throw new Error(
-        `This rack is already linked to the asset "${existing.linkedNonKitAsset.name}". Clear that link on the rack first, then create the kit.`,
-      );
-    }
 
     const name = existing.rackStableId
       ? `${existing.rackStableId} rack build kit`
@@ -116,7 +166,7 @@ export const createRackKit = createServerFn({ method: "POST" })
 
     const { error: linkErr } = await db
       .from("electrical_racks")
-      .update({ asset_uuid: kit.id, asset_ref: kit.name })
+      .update({ build_kit_item_id: kit.id })
       .eq("id", data.rackId);
     if (linkErr) throw new Error(linkErr.message);
 
@@ -127,11 +177,8 @@ export const createRackKit = createServerFn({ method: "POST" })
       entityUuid: data.rackId,
       entityRef: existing.rackStableId || null,
       summary: `Created rack build kit "${kit.name}" for rack ${existing.rackStableId}`,
-      patch: { asset_uuid: kit.id, asset_ref: kit.name },
+      patch: { build_kit_item_id: kit.id },
     });
 
-    return {
-      ...existing,
-      kit: { id: kit.id, name: String(kit.name ?? name), componentCount: 0 },
-    };
+    return { ...existing, kit: { id: String(kit.id), name: String(kit.name ?? name) }, parts: [] };
   });
