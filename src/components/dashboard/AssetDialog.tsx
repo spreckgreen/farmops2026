@@ -100,6 +100,10 @@ const emptyForm: AssetFormData = {
   current_miles: 0,
   usage_tracking: "none",
   item_type: "",
+  manufacturer: "",
+  model: "",
+  serial_number: "",
+  shipped_quantity: null,
 };
 
 
@@ -124,12 +128,18 @@ const AssetDialog = ({ open, onOpenChange, onSave, asset }: AssetDialogProps) =>
         current_miles: Number(asset.current_miles ?? 0),
         usage_tracking: asset.usage_tracking ?? "none",
         item_type: asset.item_type ?? "",
+        manufacturer: asset.manufacturer ?? "",
+        model: asset.model ?? "",
+        serial_number: asset.serial_number ?? "",
+        shipped_quantity:
+          asset.shipped_quantity == null ? null : Number(asset.shipped_quantity),
       });
     } else {
       setForm(emptyForm);
     }
     setTagInput("");
   }, [asset, open]);
+
 
   const addTag = () => {
     const tag = tagInput.trim();
