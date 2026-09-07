@@ -14,6 +14,10 @@ export interface Asset {
   current_miles: number | null;
   usage_tracking: string | null;
   item_type: string | null;
+  manufacturer: string | null;
+  model: string | null;
+  serial_number: string | null;
+  shipped_quantity: number | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -31,5 +35,11 @@ export interface AssetFormData {
   current_miles: number;
   usage_tracking: string;
   item_type: string;
+  manufacturer: string;
+  model: string;
+  serial_number: string;
+  /** Quantity as shipped for commodity items; null when not recorded. */
+  shipped_quantity: number | null;
 }
+
 

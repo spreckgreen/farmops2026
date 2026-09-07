@@ -5470,6 +5470,7 @@ export type Database = {
           raw: Json
           reorder_level: number | null
           serial_number: string | null
+          shipped_quantity: number | null
           sku: string | null
           status: string
           tags: string[]
@@ -5503,6 +5504,7 @@ export type Database = {
           raw?: Json
           reorder_level?: number | null
           serial_number?: string | null
+          shipped_quantity?: number | null
           sku?: string | null
           status?: string
           tags?: string[]
@@ -5536,6 +5538,7 @@ export type Database = {
           raw?: Json
           reorder_level?: number | null
           serial_number?: string | null
+          shipped_quantity?: number | null
           sku?: string | null
           status?: string
           tags?: string[]
