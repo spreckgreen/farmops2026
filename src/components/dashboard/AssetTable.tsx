@@ -75,6 +75,16 @@ const AssetTable = ({ assets, onEdit, onDelete, onEditParts }: AssetTableProps) 
                       )}
                       <div>
                         <div className="font-medium">{asset.name || "Unnamed"}</div>
+                        {(asset.manufacturer || asset.model) && (
+                          <div className="text-xs text-muted-foreground">
+                            {[asset.manufacturer, asset.model].filter(Boolean).join(" ")}
+                          </div>
+                        )}
+                        {asset.serial_number && (
+                          <div className="font-mono text-[11px] text-muted-foreground">
+                            S/N {asset.serial_number}
+                          </div>
+                        )}
                         {asset.description && (
                           <div className="text-xs text-muted-foreground truncate max-w-[200px]">
                             {asset.description}
@@ -83,6 +93,7 @@ const AssetTable = ({ assets, onEdit, onDelete, onEditParts }: AssetTableProps) 
                       </div>
                     </div>
                   </td>
+
                   <td className="px-4 py-3 hidden md:table-cell text-muted-foreground">
                     {typeLabel(asset.item_type) || "—"}
                   </td>
