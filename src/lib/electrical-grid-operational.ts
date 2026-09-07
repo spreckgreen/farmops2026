@@ -903,6 +903,8 @@ export function buildOperationalAssets(rows: OperationalInput[]): OperationalAss
     const place = classifyLocation(row);
     const effective = effectiveLocationForOperational(row);
     const plottable = PRECISION_META[place.precision].plottable && place.xFt != null;
+    const source: PlacementSource = plottable ? place.source : "NOT_PLOTTED";
+    const provenance = plotProvenanceFor(source, place.spanned);
 
     const asset: OperationalAsset = {
       ...row,
@@ -913,11 +915,16 @@ export function buildOperationalAssets(rows: OperationalInput[]): OperationalAss
       xPct: plottable ? ((place.xFt as number) / SHOP_WIDTH_FT) * 100 : null,
       yPct: plottable ? ((place.yFt as number) / SHOP_DEPTH_FT) * 100 : null,
       spanned: place.spanned,
-      locationSource: plottable ? place.source : "NOT_PLOTTED",
+      locationSource: source,
+      plotProvenance: provenance,
+      plotDerivation: PLOT_DERIVATION[provenance],
+      verifiedReference: verifiedReferenceOf(row, source),
+      auditId: auditIdOf(row),
       placementCandidates: place.candidates,
       placementDisagreement: place.disagreement,
       effectiveLocation: effective,
       locationProvenance: effective.provenance,
+
 
       stackIndex: 0,
       stackSize: 1,
