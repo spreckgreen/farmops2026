@@ -6,6 +6,7 @@ import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useUiChoice, useUiFlag } from "@/hooks/use-ui-preference";
+import { usePremiumPrint } from "@/hooks/use-premium-print";
 import {
   GRID_BASE_OVERLAY_LABEL,
   GRID_BASE_OVERLAY_NOTE,
@@ -179,6 +180,8 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
   );
 
   const [printMode, setPrintMode] = usePrintMode();
+  // Grid sheets (print and PDF) are part of the premium print package.
+  const premiumPrint = usePremiumPrint();
   const [saving, setSaving] = useState(false);
   // Stamped at the moment a sheet is produced, so the header time is the
   // generation time rather than whenever the page happened to render.
@@ -364,6 +367,7 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
               </Badge>
             </Link>
           </Button>
+          {premiumPrint.allowed ? (
           <div className="flex items-center rounded border border-border">
             <Button
               size="sm"
