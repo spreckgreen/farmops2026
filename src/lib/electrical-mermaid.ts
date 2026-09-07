@@ -436,15 +436,8 @@ function circuitGroupLabel(g: Row): string {
  */
 function branchLabel(r: Row, idx?: Index): string {
   const parts = [s(r["branch_id"])];
-  const group =
-    idx?.groupByUuid.get(s(r["circuit_group_uuid"])) ??
-    idx?.groupById.get(s(r["circuit_group_ref"]));
-  if (group) {
-    const groupId = s(group["circuit_group_id"]);
-    const panelText = circuitGroupPanelText(group);
-    const line = [groupId, panelText].filter(Boolean).join(" · ");
-    if (line) parts.push(line);
-  }
+  const suffix = idx ? groupSuffix(groupOf(r, idx)) : "";
+  if (suffix) parts.push(suffix);
   const spec = [s(r["conductor_size"]), s(r["wiring_method"])].filter(Boolean).join(" ");
   if (spec) parts.push(spec);
   return parts.join("<br/>");
@@ -705,12 +698,23 @@ export function buildDiagram(
 
   if (type === "jbox" && focus) jboxIds.add(focus);
 
+  // System-wide views also show boxes that only branch runs reference, so a box
+  // whose raceway link is not yet recorded is still visible in the circuit.
+  if (type === "whole_system" || type === "farm_shop") {
+    for (const br of data.branch ?? []) {
+      for (const key of ["source_endpoint_ref", "dest_endpoint_ref"]) {
+        const ref = s(br[key]);
+        if (ref && idx.jboxById.has(ref)) jboxIds.add(ref);
+      }
+    }
+  }
+
   // ---- junction boxes in scope
   for (const jb of data.jbox) {
     const id = sid("jbox", jb);
     if (!jboxIds.has(id)) continue;
     if (!passesCommonFilters(jb, filters)) continue;
-    b.node("jbox", id, `${id}<br/>${s(jb["box_type"]) || "J-box"}`, jb);
+    b.node("jbox", id, jboxLabel(jb, id, idx), jb);
   }
 
   // ---- branch runs
