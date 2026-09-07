@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { suggestedItemName, nameMatchesSuggestion } from "@/lib/inventory-name";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -111,6 +112,9 @@ const AssetDialog = ({ open, onOpenChange, onSave, asset }: AssetDialogProps) =>
   const [form, setForm] = useState<AssetFormData>(emptyForm);
   const [tagInput, setTagInput] = useState("");
   const [scannerOpen, setScannerOpen] = useState(false);
+  // While false, the name follows manufacturer + model. Typing in the name box
+  // (or opening an item that was renamed by hand) stops that for good.
+  const [nameEdited, setNameEdited] = useState(false);
 
   useEffect(() => {
     if (asset) {
@@ -137,9 +141,26 @@ const AssetDialog = ({ open, onOpenChange, onSave, asset }: AssetDialogProps) =>
     } else {
       setForm(emptyForm);
     }
+    setNameEdited(
+      asset ? !nameMatchesSuggestion(asset.name, asset.manufacturer, asset.model) : false,
+    );
     setTagInput("");
   }, [asset, open]);
 
+
+  const suggestion = suggestedItemName(form.manufacturer, form.model);
+
+  /** Updating either field also refreshes the name, unless it was renamed. */
+  const setManufacturerOrModel = (patch: { manufacturer?: string; model?: string }) => {
+    setForm((f) => {
+      const next = { ...f, ...patch };
+      if (!nameEdited) {
+        const s = suggestedItemName(next.manufacturer, next.model);
+        if (s) next.name = s;
+      }
+      return next;
+    });
+  };
 
   const addTag = () => {
     const tag = tagInput.trim();
@@ -169,12 +190,36 @@ const AssetDialog = ({ open, onOpenChange, onSave, asset }: AssetDialogProps) =>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2 space-y-2">
-              <Label>Name *</Label>
+              <div className="flex items-center justify-between gap-2">
+                <Label>Name *</Label>
+                {nameEdited && suggestion && suggestion !== form.name ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-2 text-xs"
+                    onClick={() => {
+                      setForm((f) => ({ ...f, name: suggestion }));
+                      setNameEdited(false);
+                    }}
+                  >
+                    Use "{suggestion}"
+                  </Button>
+                ) : null}
+              </div>
               <Input
                 value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                onChange={(e) => {
+                  setNameEdited(true);
+                  setForm({ ...form, name: e.target.value });
+                }}
                 required
               />
+              <p className="text-xs text-muted-foreground">
+                {nameEdited
+                  ? "Custom name — it stays as you typed it."
+                  : "Filled in from the manufacturer and model. Type over it to use your own name."}
+              </p>
             </div>
             <div className="col-span-2 space-y-2">
               <Label>Description</Label>
@@ -188,7 +233,7 @@ const AssetDialog = ({ open, onOpenChange, onSave, asset }: AssetDialogProps) =>
               <Label>Manufacturer</Label>
               <Input
                 value={form.manufacturer}
-                onChange={(e) => setForm({ ...form, manufacturer: e.target.value })}
+                onChange={(e) => setManufacturerOrModel({ manufacturer: e.target.value })}
                 placeholder='e.g. Kenwood — or "Generic" for commodity items'
               />
             </div>
@@ -196,7 +241,7 @@ const AssetDialog = ({ open, onOpenChange, onSave, asset }: AssetDialogProps) =>
               <Label>Model #</Label>
               <Input
                 value={form.model}
-                onChange={(e) => setForm({ ...form, model: e.target.value })}
+                onChange={(e) => setManufacturerOrModel({ model: e.target.value })}
                 placeholder="e.g. TS-480 SAT"
               />
             </div>
