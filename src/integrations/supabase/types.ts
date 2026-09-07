@@ -1365,6 +1365,7 @@ export type Database = {
           is_vertical_riser: boolean
           label_status: string
           load_uuid: string | null
+          location_evidence: string | null
           measured_length_ft: number | null
           notes: string | null
           ods_extras: string | null
@@ -1406,6 +1407,7 @@ export type Database = {
           is_vertical_riser?: boolean
           label_status?: string
           load_uuid?: string | null
+          location_evidence?: string | null
           measured_length_ft?: number | null
           notes?: string | null
           ods_extras?: string | null
@@ -1447,6 +1449,7 @@ export type Database = {
           is_vertical_riser?: boolean
           label_status?: string
           load_uuid?: string | null
+          location_evidence?: string | null
           measured_length_ft?: number | null
           notes?: string | null
           ods_extras?: string | null
@@ -2850,6 +2853,7 @@ export type Database = {
           jbox_id: string
           label_status: string
           level_grid_reference: string | null
+          location_evidence: string | null
           location_precision: string | null
           location_source: string | null
           location_x_ft: number | null
@@ -2885,6 +2889,7 @@ export type Database = {
           jbox_id: string
           label_status?: string
           level_grid_reference?: string | null
+          location_evidence?: string | null
           location_precision?: string | null
           location_source?: string | null
           location_x_ft?: number | null
@@ -2920,6 +2925,7 @@ export type Database = {
           jbox_id?: string
           label_status?: string
           level_grid_reference?: string | null
+          location_evidence?: string | null
           location_precision?: string | null
           location_source?: string | null
           location_x_ft?: number | null
@@ -4203,6 +4209,7 @@ export type Database = {
           install_status: string
           is_vertical_riser: boolean
           label_status: string
+          location_evidence: string | null
           material: string | null
           measured_length_ft: number | null
           notes: string | null
@@ -4251,6 +4258,7 @@ export type Database = {
           install_status?: string
           is_vertical_riser?: boolean
           label_status?: string
+          location_evidence?: string | null
           material?: string | null
           measured_length_ft?: number | null
           notes?: string | null
@@ -4299,6 +4307,7 @@ export type Database = {
           install_status?: string
           is_vertical_riser?: boolean
           label_status?: string
+          location_evidence?: string | null
           material?: string | null
           measured_length_ft?: number | null
           notes?: string | null
