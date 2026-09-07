@@ -222,14 +222,28 @@ function Detail({ kind, id }: { kind: ElectricalEntityKind; id: string }) {
               </p>
             ) : (
               related.map((r, i) => (
-                <div key={`${r.kind}-${r.stable_id}-${i}`} className="flex flex-wrap gap-2">
-                  <Badge variant="secondary" className="font-mono">
-                    {r.stable_id}
-                  </Badge>
+                <div key={`${r.kind}-${r.stable_id}-${i}`} className="flex flex-wrap items-center gap-2">
+                  {r.id ? (
+                    <Link
+                      to="/electrical/item/$kind/$id"
+                      params={{ kind: r.kind, id: r.id }}
+                      className="rounded-md underline-offset-2 hover:underline"
+                      title={`Open ${ENTITIES[r.kind].singular} ${r.stable_id}`}
+                    >
+                      <Badge variant="secondary" className="font-mono cursor-pointer">
+                        {r.stable_id}
+                      </Badge>
+                    </Link>
+                  ) : (
+                    <Badge variant="secondary" className="font-mono">
+                      {r.stable_id}
+                    </Badge>
+                  )}
                   <span className="text-muted-foreground">{r.relation}</span>
                   <span>{r.label}</span>
                 </div>
               ))
+
             )}
             {warnings.length ? (
               <div className="mt-2 space-y-1 rounded-md border border-border bg-muted/40 p-2">
