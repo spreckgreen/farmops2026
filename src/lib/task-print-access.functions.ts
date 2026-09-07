@@ -16,20 +16,16 @@ export interface TaskPrintAccess {
   granted: boolean;
 }
 
-/** Whether the signed-in person may open the planner sheets. */
+/**
+ * Whether the signed-in person has the premium print package: planner sheets,
+ * label sheets, grid sheets, and publishing to Ghost and Obsidian.
+ */
 export const taskPrintAccess = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<TaskPrintAccess> => {
     const isAdmin = await isAdminRole(context.supabase, context.userId);
     if (isAdmin) return { allowed: true, isAdmin: true, granted: false };
-    const db = context.supabase as unknown as LooseDb;
-    const res = await db
-      .from("task_print_grants")
-      .select("user_id")
-      .eq("user_id", context.userId)
-      .maybeSingle();
-    if (res.error) throw new Error(res.error.message);
-    const granted = Boolean(res.data);
+    const granted = await hasPremiumPrint(context.supabase, context.userId);
     return { allowed: granted, isAdmin: false, granted };
   });
 
