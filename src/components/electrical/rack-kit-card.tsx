@@ -3,6 +3,7 @@
 // each part can record its shelf size in rack spaces (U) and which space it sits
 // at, which gives the rack a stacked elevation and a spaces-used count.
 import { useState } from "react";
+import type { ReactElement } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Link } from "@tanstack/react-router";
@@ -13,29 +14,55 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertTriangle, Boxes, Pencil, Plus } from "lucide-react";
-import { createRackKit, getRackKit, setRackPartPlacement } from "@/lib/rack-kit.functions";
+import { AlertTriangle, Boxes, ImageIcon, Loader2, Pencil, Plus } from "lucide-react";
+import {
+  createRackKit,
+  generateRackPartFace,
+  getRackKit,
+  setRackPartPlacement,
+} from "@/lib/rack-kit.functions";
 import type { RackKitPart } from "@/lib/rack-kit.functions";
 import { InventoryBomDialog } from "@/components/inventory-bom-dialog";
 import { formatQty } from "@/lib/inventory-bom";
 import { buildRackElevation, formatSpan, nextFreePosition } from "@/lib/rack-elevation";
+
+/** Pixel height of one rack space in the drawn elevation. */
+const U_PX = 30;
 
 function PlacementRow({
   part,
   suggestion,
   onSave,
   saving,
+  onDrawFace,
+  drawing,
 }: {
   part: RackKitPart;
   suggestion: number | null;
   onSave: (rackUnits: number | null, positionU: number | null) => void;
   saving: boolean;
+  onDrawFace: () => void;
+  drawing: boolean;
 }) {
   const [units, setUnits] = useState(part.rackUnits == null ? "" : String(part.rackUnits));
   const [pos, setPos] = useState(part.positionU == null ? "" : String(part.positionU));
 
   return (
     <div className="flex flex-wrap items-end gap-3 border-b border-border px-3 py-2 last:border-0">
+      <div className="h-9 w-16 shrink-0 overflow-hidden rounded border border-border bg-muted/50">
+        {part.faceImageUrl ? (
+          <img
+            src={part.faceImageUrl}
+            alt={`Front panel of ${part.name}`}
+            loading="lazy"
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-muted-foreground/60">
+            <ImageIcon className="h-4 w-4" />
+          </div>
+        )}
+      </div>
       <div className="min-w-40 flex-1">
         <div className="font-medium">{part.name}</div>
         <div className="text-xs text-muted-foreground">
@@ -79,16 +106,38 @@ function PlacementRow({
       >
         Save
       </Button>
+      <Button
+        size="sm"
+        variant="ghost"
+        disabled={drawing || part.rackUnits == null}
+        title={
+          part.rackUnits == null
+            ? "Record how many rack spaces this part takes first"
+            : "Draw this part's front panel"
+        }
+        onClick={onDrawFace}
+        className="gap-1"
+      >
+        {drawing ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <ImageIcon className="h-4 w-4" />
+        )}
+        {part.faceImageUrl ? "Redraw" : "Draw panel"}
+      </Button>
     </div>
   );
 }
+
 
 export function RackKitCard({ rackId }: { rackId: string }) {
   const queryClient = useQueryClient();
   const readFn = useServerFn(getRackKit);
   const createFn = useServerFn(createRackKit);
   const placeFn = useServerFn(setRackPartPlacement);
+  const faceFn = useServerFn(generateRackPartFace);
   const [bomOpen, setBomOpen] = useState(false);
+  const [drawingId, setDrawingId] = useState<string | null>(null);
 
   const q = useQuery({
     queryKey: ["rack-kit", rackId],
@@ -119,6 +168,18 @@ export function RackKitCard({ rackId }: { rackId: string }) {
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
+  const drawFace = useMutation({
+    mutationFn: (componentRowId: string) => faceFn({ data: { rackId, componentRowId } }),
+    onMutate: (componentRowId: string) => setDrawingId(componentRowId),
+    onSuccess: () => {
+      refresh();
+      toast.success("Front panel drawn");
+    },
+    onError: (e: Error) => toast.error(e.message),
+    onSettled: () => setDrawingId(null),
+  });
+
 
   const kit = q.data?.kit ?? null;
   const parts = q.data?.parts ?? [];
@@ -208,37 +269,72 @@ export function RackKitCard({ rackId }: { rackId: string }) {
                 see the stack.
               </p>
             ) : (
-              <div className="overflow-hidden rounded-md border border-border font-mono text-xs">
-                {rows.map((u) => {
-                  const startingHere = startsAt.get(u);
-                  const occupied = elevation.placed.find((p) => u >= p.positionU && u <= p.topU);
-                  return (
-                    <div
-                      key={u}
-                      className={`flex items-center gap-3 border-b border-border/60 px-3 py-1 last:border-0 ${
-                        occupied ? "bg-primary/10" : ""
-                      }`}
-                    >
-                      <span className="w-8 shrink-0 text-muted-foreground">U{u}</span>
-                      <span className="truncate">
-                        {startingHere ? (
-                          <>
-                            <span className="font-sans font-medium">{startingHere.name}</span>
-                            <span className="ml-2 text-muted-foreground">
-                              {startingHere.rackUnits}U · {formatSpan(startingHere)}
+              <div className="overflow-hidden rounded-md border-x-4 border-y border-border bg-muted/40">
+                {(() => {
+                  const blocks: JSX.Element[] = [];
+                  let u = sizeU;
+                  while (u >= 1) {
+                    const part = elevation.placed.find((p) => p.topU === u);
+                    if (part) {
+                      const partData = parts.find((p) => p.id === part.id);
+                      const height = part.rackUnits * U_PX;
+                      blocks.push(
+                        <div
+                          key={`p${part.id}`}
+                          className="relative flex items-center gap-3 overflow-hidden border-b border-border/60 bg-card px-3"
+                          style={{ height }}
+                        >
+                          {partData?.faceImageUrl ? (
+                            <img
+                              src={partData.faceImageUrl}
+                              alt={`Front panel of ${part.name}`}
+                              loading="lazy"
+                              className="absolute inset-0 h-full w-full object-cover"
+                            />
+                          ) : null}
+                          <div
+                            className={`relative flex w-full items-center gap-2 ${
+                              partData?.faceImageUrl
+                                ? "bg-background/70 px-2 py-0.5 backdrop-blur-sm"
+                                : ""
+                            }`}
+                          >
+                            <span className="w-12 shrink-0 font-mono text-[11px] text-muted-foreground">
+                              {formatSpan(part)}
                             </span>
-                          </>
-                        ) : occupied ? (
-                          <span className="text-muted-foreground">↑ {occupied.name}</span>
-                        ) : (
-                          <span className="text-muted-foreground/60">empty</span>
-                        )}
-                      </span>
-                    </div>
-                  );
-                })}
+                            <span className="truncate font-medium">{part.name}</span>
+                            <span className="shrink-0 text-xs text-muted-foreground">
+                              {part.rackUnits}U
+                            </span>
+                          </div>
+                        </div>,
+                      );
+                      u -= part.rackUnits;
+                    } else {
+                      const covering = elevation.placed.find(
+                        (p) => u >= p.positionU && u <= p.topU,
+                      );
+                      blocks.push(
+                        <div
+                          key={`e${u}`}
+                          className="flex items-center gap-3 border-b border-border/60 px-3 font-mono text-xs"
+                          style={{ height: U_PX }}
+                        >
+                          <span className="w-12 shrink-0 text-muted-foreground">U{u}</span>
+                          <span className="truncate text-muted-foreground/70">
+                            {covering ? `↑ ${covering.name}` : "empty"}
+                          </span>
+                        </div>,
+                      );
+                      u -= 1;
+                    }
+
+                  }
+                  return blocks;
+                })()}
               </div>
             )}
+
 
             {parts.length === 0 ? (
               <p className="text-muted-foreground">
