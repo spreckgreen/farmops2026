@@ -5461,6 +5461,9 @@ export type Database = {
           name: string | null
           notes: string | null
           quantity: number | null
+          rack_face_generated_at: string | null
+          rack_face_image_url: string | null
+          rack_face_prompt: string | null
           rack_units: number | null
           raw: Json
           reorder_level: number | null
@@ -5488,6 +5491,9 @@ export type Database = {
           name?: string | null
           notes?: string | null
           quantity?: number | null
+          rack_face_generated_at?: string | null
+          rack_face_image_url?: string | null
+          rack_face_prompt?: string | null
           rack_units?: number | null
           raw?: Json
           reorder_level?: number | null
@@ -5515,6 +5521,9 @@ export type Database = {
           name?: string | null
           notes?: string | null
           quantity?: number | null
+          rack_face_generated_at?: string | null
+          rack_face_image_url?: string | null
+          rack_face_prompt?: string | null
           rack_units?: number | null
           raw?: Json
           reorder_level?: number | null

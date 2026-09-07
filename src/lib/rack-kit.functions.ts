@@ -35,6 +35,12 @@ export interface RackKitPart {
   itemRackUnits: number | null;
   /** Lowest rack space occupied, counted from the bottom. NULL when not placed. */
   positionU: number | null;
+  /** Item description, used when drawing the front-panel picture. */
+  description: string | null;
+  /** Short-lived link to the stored front-panel picture, when one exists. */
+  faceImageUrl: string | null;
+  /** When the front-panel picture was drawn. */
+  faceGeneratedAt: string | null;
 }
 
 export interface RackKitView {
@@ -98,12 +104,17 @@ async function readRackKit(db: LooseDb, userId: string, rackId: string): Promise
       location: string | null;
       unit: string | null;
       rack_units: number | null;
+      description: string | null;
+      rack_face_image_url: string | null;
+      rack_face_generated_at: string | null;
     }
   >();
   if (componentIds.length > 0) {
     const { data: items, error: iErr } = await db
       .from("inventory_items")
-      .select("id, name, item_type, location, unit, rack_units")
+      .select(
+        "id, name, item_type, location, unit, rack_units, description, rack_face_image_url, rack_face_generated_at",
+      )
       .eq("user_id", userId)
       .in("id", componentIds);
     if (iErr) throw new Error(iErr.message);
@@ -114,8 +125,21 @@ async function readRackKit(db: LooseDb, userId: string, rackId: string): Promise
         location: it.location ?? null,
         unit: it.unit ?? null,
         rack_units: it.rack_units == null ? null : Number(it.rack_units),
+        description: it.description ?? null,
+        rack_face_image_url: it.rack_face_image_url ?? null,
+        rack_face_generated_at: it.rack_face_generated_at ?? null,
       });
     }
+  }
+
+  // Stored pictures are private; hand out short-lived links instead.
+  const facePaths = [...byId.values()]
+    .map((v) => v.rack_face_image_url)
+    .filter((p): p is string => !!p);
+  let signed = new Map<string, string>();
+  if (facePaths.length > 0) {
+    const { signFacePaths } = await import("@/lib/rack-face.server");
+    signed = await signFacePaths(facePaths);
   }
 
   view.parts = (rows ?? []).map(
@@ -130,6 +154,7 @@ async function readRackKit(db: LooseDb, userId: string, rackId: string): Promise
     }) => {
       const item = byId.get(String(r.component_item_id));
       const itemRackUnits = item?.rack_units ?? null;
+      const facePath = item?.rack_face_image_url ?? null;
       return {
         id: String(r.id),
         componentItemId: String(r.component_item_id),
@@ -142,12 +167,16 @@ async function readRackKit(db: LooseDb, userId: string, rackId: string): Promise
         rackUnits: r.rack_units == null ? itemRackUnits : Number(r.rack_units),
         itemRackUnits,
         positionU: r.rack_position_u == null ? null : Number(r.rack_position_u),
+        description: item?.description ?? null,
+        faceImageUrl: facePath ? (signed.get(facePath) ?? null) : null,
+        faceGeneratedAt: item?.rack_face_generated_at ?? null,
       };
     },
   );
 
   return view;
 }
+
 
 const PlacementInput = z.object({
   rackId: z.string().uuid(),
@@ -287,6 +316,69 @@ export const setRackPartPlacement = createServerFn({ method: "POST" })
           ? `Removed rack position for "${row.name}" in ${before.rackStableId}`
           : `Placed "${row.name}" at U${data.positionU} (${height}U) in ${before.rackStableId}`,
       patch: { rack_units: data.rackUnits, rack_position_u: data.positionU },
+    });
+
+    return readRackKit(db, context.userId, data.rackId);
+  });
+
+const FaceInput = z.object({
+  rackId: z.string().uuid(),
+  componentRowId: z.string().uuid(),
+});
+
+/**
+ * Draw a front-panel picture for one part with Lovable AI, sized to the number
+ * of rack spaces the part occupies, and keep it on the inventory item so every
+ * rack that uses the same gear shows the same picture.
+ */
+export const generateRackPartFace = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => FaceInput.parse(d))
+  .handler(async ({ context, data }): Promise<RackKitView> => {
+    await requireElectricalAccess(context.supabase, context.userId, "field_write");
+    const db = context.supabase as unknown as LooseDb;
+    const before = await readRackKit(db, context.userId, data.rackId);
+    const row = before.parts.find((p) => p.id === data.componentRowId);
+    if (!row) throw new Error("That part is not on this rack's build kit.");
+
+    const rackUnits = row.rackUnits;
+    if (rackUnits == null) {
+      throw new Error(
+        "Record how many rack spaces this part takes first, so the picture is drawn to the right size.",
+      );
+    }
+
+    const { buildFacePrompt, renderFaceImage, storeFaceImage } = await import(
+      "@/lib/rack-face.server"
+    );
+    const prompt = buildFacePrompt({
+      name: row.name,
+      description: row.description,
+      itemType: row.itemType,
+      rackUnits,
+    });
+    const b64 = await renderFaceImage(prompt);
+    const path = await storeFaceImage(context.userId, row.componentItemId, b64);
+
+    const { error } = await db
+      .from("inventory_items")
+      .update({
+        rack_face_image_url: path,
+        rack_face_prompt: prompt,
+        rack_face_generated_at: new Date().toISOString(),
+      })
+      .eq("id", row.componentItemId)
+      .eq("user_id", context.userId);
+    if (error) throw new Error(error.message);
+
+    await recordElectricalChange(context.supabase, context.userId, {
+      section: "entities",
+      entityKind: "rack",
+      action: "update",
+      entityUuid: data.rackId,
+      entityRef: before.rackStableId || null,
+      summary: `Generated a ${rackUnits}U front-panel picture for "${row.name}" in ${before.rackStableId}`,
+      patch: { component_item_id: row.componentItemId, rack_face_image_url: path },
     });
 
     return readRackKit(db, context.userId, data.rackId);
