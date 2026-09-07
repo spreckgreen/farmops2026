@@ -825,8 +825,11 @@ export function buildDiagram(
     loads = loads.filter(
       (l) =>
         groupsInScope.has(s(l["circuit_group_ref"])) ||
-        b.nodes.has(nodeKey("LOAD", sid("load", l))),
+        b.nodes.has(nodeKey("LOAD", sid("load", l))) ||
+        (!s(l["circuit_group_ref"]) &&
+          panelIds.has(s(l["suggested_panel"]) || s(l["logical_panel_ref"]))),
     );
+
   } else if (type === "raceway" || type === "jbox") {
     loads = loads.filter((l) => b.nodes.has(nodeKey("LOAD", sid("load", l))));
   }
