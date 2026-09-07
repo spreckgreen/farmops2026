@@ -831,11 +831,48 @@ export function buildDiagram(
     loads = loads.filter((l) => b.nodes.has(nodeKey("LOAD", sid("load", l))));
   }
 
+  const showUnlinked = filters.unlinkedLoads !== false;
+  const unlinkedNoPanel: string[] = [];
+
   for (const l of loads) {
     const id = sid("load", l);
-    const key = b.node("load", id, loadLabel(l, id, idx), l);
     const ref = s(l["circuit_group_ref"]);
-    if (!ref) continue;
+    if (!ref) {
+      // No circuit relationship recorded. Never invent one: show the load only
+      // when the operator asked for it, hung off the panel it names.
+      if (!showUnlinked) continue;
+      if (type === "raceway" || type === "jbox") continue;
+      const namedPanel = s(l["suggested_panel"]) || s(l["logical_panel_ref"]);
+      const key = b.node(
+        "load",
+        id,
+        `${loadLabel(l, id, idx)}<br/>no circuit recorded`,
+        l,
+        "unlinked_load",
+      );
+      if (!namedPanel) {
+        unlinkedNoPanel.push(id);
+        continue;
+      }
+      const panel = idx.panelById.get(namedPanel);
+      if (panel) {
+        b.edge(
+          b.node("panel", namedPanel, panelLabel(panel), panel),
+          key,
+          "named panel · no circuit recorded",
+          true,
+        );
+      } else {
+        b.edge(
+          b.node("unknown", namedPanel, `${namedPanel}<br/>(unknown)`, undefined, "unknown"),
+          key,
+          "named panel · no circuit recorded",
+          true,
+        );
+      }
+      continue;
+    }
+    const key = b.node("load", id, loadLabel(l, id, idx), l);
     const group = idx.groupById.get(ref);
     if (group) {
       if (groupsInScope.has(ref) || type === "whole_system") {
@@ -847,6 +884,26 @@ export function buildDiagram(
       b.edge(b.node("unknown", ref, `${ref}<br/>(unknown)`, undefined, "unknown"), key);
     }
   }
+
+  if (unlinkedNoPanel.length) {
+    // Summarised rather than drawn individually: these have no recorded panel
+    // and no recorded circuit, so there is nothing to attach them to.
+    b.node(
+      "load",
+      "NO-CIRCUIT-NO-PANEL",
+      `${unlinkedNoPanel.length} load${unlinkedNoPanel.length === 1 ? "" : "s"}<br/>no circuit and no panel recorded`,
+      undefined,
+      "unlinked_load",
+    );
+    b.issue(
+      "warning",
+      "missing_endpoint",
+      `${unlinkedNoPanel.length} load(s) have no circuit group and no named panel recorded: ${unlinkedNoPanel
+        .slice(0, 12)
+        .join(", ")}${unlinkedNoPanel.length > 12 ? ", …" : ""}.`,
+    );
+  }
+
 
   // Orphan branch runs: connected to nothing that exists in the dataset.
   for (const br of data.branch) {
