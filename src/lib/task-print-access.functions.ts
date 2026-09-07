@@ -6,6 +6,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { isAdminRole, requireAdminRole } from "@/lib/admin-role.server";
+import { hasPremiumPrint } from "@/lib/premium-print.server";
 
 type LooseDb = { from: (table: string) => any };
 
