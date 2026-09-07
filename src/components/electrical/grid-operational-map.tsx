@@ -771,6 +771,23 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
                 ))}
               </div>
 
+              <div className="space-y-1 rounded-md border border-border p-2">
+                <p className="text-xs font-medium">How plotted points were derived</p>
+                <p className="text-[11px] text-muted-foreground">
+                  {q.data!.summary.locationAuthorityNotice}
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  {q.data!.summary.deploymentScopeNotice}
+                </p>
+                {PLOT_PROVENANCE_ORDER.filter((k) => q.data!.summary.plotProvenance[k]).map((k) => (
+                  <p key={k} className="text-[11px] text-muted-foreground">
+                    {PLOT_PROVENANCE_LABEL[k]}: {q.data!.summary.plotProvenance[k]}
+                  </p>
+                ))}
+              </div>
+
+
+
               {q.data!.gaps.length ? (
                 <div className="space-y-1 rounded-md border border-border bg-muted/40 p-2">
                   <p className="text-xs font-medium">Record gaps</p>
