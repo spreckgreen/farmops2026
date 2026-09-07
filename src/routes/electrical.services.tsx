@@ -19,6 +19,7 @@ import {
   saveServiceConfiguration,
   saveServicePanelLink,
   serviceState,
+  setPanelUtilityService,
 } from "@/lib/electrical-services.functions";
 import {
   FED_FROM_KINDS,
@@ -120,6 +121,10 @@ function Services() {
   const removeConfig = mutate(useServerFn(deleteServiceConfiguration), "Revision removed");
   const addPanel = mutate(useServerFn(saveServicePanelLink), "Panel membership saved");
   const removePanel = mutate(useServerFn(deleteServicePanelLink), "Panel membership removed");
+  const assignService = mutate(
+    useServerFn(setPanelUtilityService),
+    "Panel utility service saved",
+  );
   const addTie = mutate(useServerFn(saveIntertie), "Intertie saved");
   const addTieConfig = mutate(useServerFn(saveIntertieConfiguration), "Intertie revision saved");
   const commissionTie = mutate(
@@ -276,6 +281,11 @@ function Services() {
                 ))}
 
               </div>
+              <ServiceDependentPanels
+                panels={((data?.panels ?? []) as Row[]).filter(
+                  (p) => str(p["utility_service_uuid"]) === str(svc["id"]),
+                )}
+              />
               <NewConfigForm
                 serviceUuid={str(svc["id"])}
                 pending={addConfig.isPending}
@@ -285,6 +295,15 @@ function Services() {
           </Card>
         );
       })}
+
+      <PanelServiceAssignment
+        panels={(data?.panels ?? []) as Row[]}
+        services={(data?.services ?? []) as Row[]}
+        pending={assignService.isPending}
+        onAssign={(panelUuid, serviceUuid) =>
+          assignService.mutate({ panel_uuid: panelUuid, utility_service_uuid: serviceUuid })
+        }
+      />
 
       <Card>
         <CardHeader className="pb-2">
