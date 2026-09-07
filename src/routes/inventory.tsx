@@ -303,7 +303,15 @@ function InventoryDashboard() {
       // Trim the name so maintenance records can match it reliably.
       name: formData.name?.trim() ?? formData.name,
       item_type: formData.item_type || null,
+      manufacturer: formData.manufacturer?.trim() || null,
+      model: formData.model?.trim() || null,
+      serial_number: formData.serial_number?.trim() || null,
+      shipped_quantity:
+        formData.shipped_quantity == null || Number.isNaN(formData.shipped_quantity)
+          ? null
+          : formData.shipped_quantity,
     };
+
     if (editingAsset) {
       const { error } = await supabase
         .from("inventory_items")
