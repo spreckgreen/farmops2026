@@ -209,6 +209,19 @@ function head(opts: TemplateOptions, eyebrow: string, heading: string): string {
 </div>`;
 }
 
+/**
+ * Title-bar reference for a day's log entries: the three standing readings —
+ * weather, energy and productivity — written once at the top of the sheet so
+ * every entry below it is read against the same day.
+ */
+function logBar(): string {
+  return `<div class="logbar">
+  <span class="cell">Weather <span class="line"></span></span>
+  <span class="cell">Energy (kWh / gen hrs) <span class="line"></span></span>
+  <span class="cell">Productivity (hrs / output) <span class="line"></span></span>
+</div>`;
+}
+
 function foot(opts: TemplateOptions): string {
   if (!opts.motto) return "";
   return `<div class="foot"><span>${esc(opts.title)}</span><span>${esc(opts.motto)}</span></div>`;
