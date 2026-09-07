@@ -479,6 +479,12 @@ export function SavedSitesOrganizer() {
                                 {SERVICE_LABELS[row.service_type]}
                               </Badge>
                             ) : null}
+                            {loadCounts[row.id] ? (
+                              <Badge variant="outline">
+                                {loadCounts[row.id]} electrical load
+                                {loadCounts[row.id] === 1 ? "" : "s"}
+                              </Badge>
+                            ) : null}
                           </div>
                         </div>
                       );
