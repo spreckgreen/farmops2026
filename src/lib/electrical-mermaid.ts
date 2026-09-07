@@ -113,6 +113,12 @@ export interface DiagramFilters {
   circuitGroup?: string;
   /** raceway environment, e.g. SITE_UNDERGROUND */
   environment?: string;
+  /**
+   * Include loads that have no circuit-group relationship recorded, shown as
+   * "no circuit recorded" nodes hung off the panel they name. Default true.
+   */
+  unlinkedLoads?: boolean;
+
 }
 
 export interface DiagramIssue {
@@ -825,17 +831,57 @@ export function buildDiagram(
     loads = loads.filter(
       (l) =>
         groupsInScope.has(s(l["circuit_group_ref"])) ||
-        b.nodes.has(nodeKey("LOAD", sid("load", l))),
+        b.nodes.has(nodeKey("LOAD", sid("load", l))) ||
+        (!s(l["circuit_group_ref"]) &&
+          panelIds.has(s(l["suggested_panel"]) || s(l["logical_panel_ref"]))),
     );
+
   } else if (type === "raceway" || type === "jbox") {
     loads = loads.filter((l) => b.nodes.has(nodeKey("LOAD", sid("load", l))));
   }
 
+  const showUnlinked = filters.unlinkedLoads !== false;
+  const unlinkedNoPanel: string[] = [];
+
   for (const l of loads) {
     const id = sid("load", l);
-    const key = b.node("load", id, loadLabel(l, id, idx), l);
     const ref = s(l["circuit_group_ref"]);
-    if (!ref) continue;
+    if (!ref) {
+      // No circuit relationship recorded. Never invent one: show the load only
+      // when the operator asked for it, hung off the panel it names.
+      if (!showUnlinked) continue;
+      if (type === "raceway" || type === "jbox") continue;
+      const namedPanel = s(l["suggested_panel"]) || s(l["logical_panel_ref"]);
+      const key = b.node(
+        "load",
+        id,
+        `${loadLabel(l, id, idx)}<br/>no circuit recorded`,
+        l,
+        "unlinked_load",
+      );
+      if (!namedPanel) {
+        unlinkedNoPanel.push(id);
+        continue;
+      }
+      const panel = idx.panelById.get(namedPanel);
+      if (panel) {
+        b.edge(
+          b.node("panel", namedPanel, panelLabel(panel), panel),
+          key,
+          "named panel · no circuit recorded",
+          true,
+        );
+      } else {
+        b.edge(
+          b.node("unknown", namedPanel, `${namedPanel}<br/>(unknown)`, undefined, "unknown"),
+          key,
+          "named panel · no circuit recorded",
+          true,
+        );
+      }
+      continue;
+    }
+    const key = b.node("load", id, loadLabel(l, id, idx), l);
     const group = idx.groupById.get(ref);
     if (group) {
       if (groupsInScope.has(ref) || type === "whole_system") {
@@ -847,6 +893,26 @@ export function buildDiagram(
       b.edge(b.node("unknown", ref, `${ref}<br/>(unknown)`, undefined, "unknown"), key);
     }
   }
+
+  if (unlinkedNoPanel.length) {
+    // Summarised rather than drawn individually: these have no recorded panel
+    // and no recorded circuit, so there is nothing to attach them to.
+    b.node(
+      "load",
+      "NO-CIRCUIT-NO-PANEL",
+      `${unlinkedNoPanel.length} load${unlinkedNoPanel.length === 1 ? "" : "s"}<br/>no circuit and no panel recorded`,
+      undefined,
+      "unlinked_load",
+    );
+    b.issue(
+      "warning",
+      "missing_endpoint",
+      `${unlinkedNoPanel.length} load(s) have no circuit group and no named panel recorded: ${unlinkedNoPanel
+        .slice(0, 12)
+        .join(", ")}${unlinkedNoPanel.length > 12 ? ", …" : ""}.`,
+    );
+  }
+
 
   // Orphan branch runs: connected to nothing that exists in the dataset.
   for (const br of data.branch) {
@@ -958,6 +1024,10 @@ export function renderMermaid(
   lines.push("  classDef branch fill:#4d7c0f,stroke:#365314,color:#ffffff;");
   lines.push("  classDef circuit_group fill:#7c3aed,stroke:#4c1d95,color:#ffffff;");
   lines.push("  classDef load fill:#e2e8f0,stroke:#94a3b8,color:#0f172a;");
+  lines.push(
+    "  classDef unlinked_load fill:#fff7ed,stroke:#c2410c,color:#7c2d12,stroke-dasharray: 5 3;",
+  );
+
   lines.push("  classDef critical fill:#b91c1c,stroke:#7f1d1d,color:#ffffff;");
   lines.push("  classDef future fill:#f1f5f9,stroke:#94a3b8,color:#475569,stroke-dasharray: 4 3;");
   lines.push("  classDef rack fill:#0369a1,stroke:#075985,color:#ffffff;");

@@ -145,11 +145,13 @@ function DiagramsPage() {
   const [grid, setGrid] = useState("");
   const [circuitGroup, setCircuitGroup] = useState("");
   const [environment, setEnvironment] = useState("");
+  const [unlinkedLoads, setUnlinkedLoads] = useState(true);
 
   const filters = useMemo(
     () => ({
       type,
       state,
+      unlinkedLoads,
       ...(focus ? { focus } : {}),
       ...(panel ? { panel } : {}),
       ...(building ? { building } : {}),
@@ -157,8 +159,9 @@ function DiagramsPage() {
       ...(circuitGroup ? { circuitGroup } : {}),
       ...(environment ? { environment } : {}),
     }),
-    [type, state, focus, panel, building, grid, circuitGroup, environment],
+    [type, state, unlinkedLoads, focus, panel, building, grid, circuitGroup, environment],
   );
+
 
   const q = useQuery({
     queryKey: ["electrical-diagram", filters],
@@ -298,6 +301,18 @@ function DiagramsPage() {
                   ))}
                 </select>
               </label>
+
+              <label className="flex items-center gap-2 pb-2 text-xs text-muted-foreground">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 accent-primary"
+                  checked={unlinkedLoads}
+                  onChange={(e) => setUnlinkedLoads(e.target.checked)}
+                />
+                Show loads with no circuit recorded
+              </label>
+
+
 
               {needsFocus ? (
                 <label className="flex flex-col gap-1 text-xs text-muted-foreground">
