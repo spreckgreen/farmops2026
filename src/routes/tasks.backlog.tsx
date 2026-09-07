@@ -12,6 +12,8 @@ import {
   createBacklogTask,
 } from "@/lib/log.functions";
 import { AppLayout } from "@/components/app-layout";
+import { PlannerPrintDialog } from "@/components/tasks/planner-print-dialog";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -212,6 +214,16 @@ function BacklogPage() {
         <div className="flex items-baseline justify-between mb-1">
           <h1 className="text-2xl font-mono font-bold">Backlog</h1>
           <div className="flex items-center gap-3">
+            <PlannerPrintDialog
+              tasks={(data ?? []).map((t) => ({
+                title: t.title,
+                slug: t.slug,
+                status: t.status,
+                recurrence: (t as { recurrence?: string | null }).recurrence ?? null,
+                date: null,
+              }))}
+              sheetTitle="Bostead Farms · Backlog"
+            />
             <CsvToolbar
               filename="tasks-backlog.csv"
               columns={[

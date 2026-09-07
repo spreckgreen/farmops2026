@@ -15,6 +15,8 @@ import { useShowTaskSlugs } from "@/hooks/use-show-task-slugs";
 import { CsvToolbar } from "@/components/csv-toolbar";
 import { TaskQuickSearch } from "@/components/task-quick-search";
 import { TaskMoveDay } from "@/components/task-move-day";
+import { PlannerPrintDialog } from "@/components/tasks/planner-print-dialog";
+
 
 
 
@@ -106,6 +108,16 @@ function TasksPage() {
           <DayWindowIndicator date={today} className="mt-1" />
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          <PlannerPrintDialog
+            tasks={(data ?? []).map((t) => ({
+              title: t.title,
+              slug: t.slug,
+              status: t.status,
+              recurrence: (t as { recurrence?: string | null }).recurrence ?? null,
+              date: today,
+            }))}
+            sheetTitle="Bostead Farms · Today's tasks"
+          />
           <TaskQuickSearch />
           <div className="flex items-center gap-1.5 border border-border rounded px-2 py-1 bg-background focus-within:border-primary/60">
             <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" aria-hidden />
