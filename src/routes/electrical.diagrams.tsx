@@ -145,11 +145,13 @@ function DiagramsPage() {
   const [grid, setGrid] = useState("");
   const [circuitGroup, setCircuitGroup] = useState("");
   const [environment, setEnvironment] = useState("");
+  const [unlinkedLoads, setUnlinkedLoads] = useState(true);
 
   const filters = useMemo(
     () => ({
       type,
       state,
+      unlinkedLoads,
       ...(focus ? { focus } : {}),
       ...(panel ? { panel } : {}),
       ...(building ? { building } : {}),
@@ -157,8 +159,9 @@ function DiagramsPage() {
       ...(circuitGroup ? { circuitGroup } : {}),
       ...(environment ? { environment } : {}),
     }),
-    [type, state, focus, panel, building, grid, circuitGroup, environment],
+    [type, state, unlinkedLoads, focus, panel, building, grid, circuitGroup, environment],
   );
+
 
   const q = useQuery({
     queryKey: ["electrical-diagram", filters],
