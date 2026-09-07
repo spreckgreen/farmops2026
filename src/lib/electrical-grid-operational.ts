@@ -898,6 +898,37 @@ function cluster(assets: OperationalAsset[]): OperationalAsset[] {
   return assets;
 }
 
+/** The verified reference the plot came from, preserved exactly as recorded. */
+function verifiedReferenceOf(row: OperationalInput, source: PlacementSource): string | null {
+  const post = [row.poleRefStart, row.poleRefEnd].filter(Boolean).join(" – ") || null;
+  switch (source) {
+    case "OBSERVED_POST":
+      return post;
+    case "OBSERVED_FIELD_GRID":
+      return row.fieldGridReference ?? null;
+    case "PENDING_FIELD_OBSERVATION":
+      return row.pendingObservation?.fieldGridReference ?? null;
+    case "VERIFIED_FIELD_OBSERVATION_XY":
+      return row.xFt != null && row.yFt != null ? `${row.xFt} ft E / ${row.yFt} ft S` : null;
+    case "APPROVED_DESIGN_XY":
+    case "DERIVED_FROM_GRID_REFERENCE":
+      return row.gridReference ?? row.designGrid ?? null;
+    default:
+      return row.grid ?? null;
+  }
+}
+
+/** Audit batch identifier behind the verified reference, when the record states one. */
+function auditIdOf(row: OperationalInput): string | null {
+  const staged = row.pendingObservation?.batchId ?? null;
+  if (staged) return staged;
+  for (const text of [row.locationEvidence, row.verificationNotes]) {
+    const m = /\b(FA-[A-Z0-9-]+)\b/i.exec(text ?? "");
+    if (m) return m[1]!.toUpperCase();
+  }
+  return null;
+}
+
 export function buildOperationalAssets(rows: OperationalInput[]): OperationalAsset[] {
   const assets = rows.map((row) => {
     const place = classifyLocation(row);
