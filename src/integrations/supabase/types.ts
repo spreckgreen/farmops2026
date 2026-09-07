@@ -4382,6 +4382,7 @@ export type Database = {
         Row: {
           asset_ref: string | null
           asset_uuid: string | null
+          build_kit_item_id: string | null
           building: string | null
           building_level_uuid: string | null
           completion_percent: number | null
@@ -4412,6 +4413,7 @@ export type Database = {
         Insert: {
           asset_ref?: string | null
           asset_uuid?: string | null
+          build_kit_item_id?: string | null
           building?: string | null
           building_level_uuid?: string | null
           completion_percent?: number | null
@@ -4442,6 +4444,7 @@ export type Database = {
         Update: {
           asset_ref?: string | null
           asset_uuid?: string | null
+          build_kit_item_id?: string | null
           building?: string | null
           building_level_uuid?: string | null
           completion_percent?: number | null
@@ -4473,6 +4476,13 @@ export type Database = {
           {
             foreignKeyName: "electrical_racks_asset_uuid_fkey"
             columns: ["asset_uuid"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "electrical_racks_build_kit_item_id_fkey"
+            columns: ["build_kit_item_id"]
             isOneToOne: false
             referencedRelation: "inventory_items"
             referencedColumns: ["id"]
