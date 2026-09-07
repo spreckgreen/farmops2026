@@ -124,6 +124,7 @@ import { Route as FoodReportsRouteImport } from './routes/food.reports'
 import { Route as FoodSeasonsRouteImport } from './routes/food.seasons'
 import { Route as FoodStorageRouteImport } from './routes/food.storage'
 import { Route as HealthSchemaRouteImport } from './routes/health.schema'
+import { Route as KitsRacksKitIdRouteImport } from './routes/kits-racks.$kitId'
 import { Route as MaintenanceIndexRouteImport } from './routes/maintenance.index'
 import { Route as MaintenanceDiagnoseRouteImport } from './routes/maintenance.diagnose'
 import { Route as MaintenanceForecastRouteImport } from './routes/maintenance.forecast'
@@ -746,6 +747,11 @@ const HealthSchemaRoute = HealthSchemaRouteImport.update({
   path: '/schema',
   getParentRoute: () => HealthRoute,
 } as any)
+const KitsRacksKitIdRoute = KitsRacksKitIdRouteImport.update({
+  id: '/$kitId',
+  path: '/$kitId',
+  getParentRoute: () => KitsRacksRoute,
+} as any)
 const MaintenanceIndexRoute = MaintenanceIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -971,7 +977,7 @@ export interface FileRoutesByFullPath {
   '/food': typeof FoodRouteWithChildren
   '/health': typeof HealthRouteWithChildren
   '/inventory': typeof InventoryRoute
-  '/kits-racks': typeof KitsRacksRoute
+  '/kits-racks': typeof KitsRacksRouteWithChildren
   '/maintenance': typeof MaintenanceRouteWithChildren
   '/procedures': typeof ProceduresRouteWithChildren
   '/projects': typeof ProjectsRoute
@@ -1072,6 +1078,7 @@ export interface FileRoutesByFullPath {
   '/food/seasons': typeof FoodSeasonsRoute
   '/food/storage': typeof FoodStorageRoute
   '/health/schema': typeof HealthSchemaRoute
+  '/kits-racks/$kitId': typeof KitsRacksKitIdRoute
   '/maintenance/diagnose': typeof MaintenanceDiagnoseRoute
   '/maintenance/forecast': typeof MaintenanceForecastRoute
   '/maintenance/generate-schedule': typeof MaintenanceGenerateScheduleRoute
@@ -1126,7 +1133,7 @@ export interface FileRoutesByTo {
   '/deck': typeof DeckRoute
   '/health': typeof HealthRouteWithChildren
   '/inventory': typeof InventoryRoute
-  '/kits-racks': typeof KitsRacksRoute
+  '/kits-racks': typeof KitsRacksRouteWithChildren
   '/projects': typeof ProjectsRoute
   '/promo': typeof PromoRoute
   '/ready': typeof ReadyRoute
@@ -1224,6 +1231,7 @@ export interface FileRoutesByTo {
   '/food/seasons': typeof FoodSeasonsRoute
   '/food/storage': typeof FoodStorageRoute
   '/health/schema': typeof HealthSchemaRoute
+  '/kits-racks/$kitId': typeof KitsRacksKitIdRoute
   '/maintenance/diagnose': typeof MaintenanceDiagnoseRoute
   '/maintenance/forecast': typeof MaintenanceForecastRoute
   '/maintenance/generate-schedule': typeof MaintenanceGenerateScheduleRoute
@@ -1281,7 +1289,7 @@ export interface FileRoutesById {
   '/food': typeof FoodRouteWithChildren
   '/health': typeof HealthRouteWithChildren
   '/inventory': typeof InventoryRoute
-  '/kits-racks': typeof KitsRacksRoute
+  '/kits-racks': typeof KitsRacksRouteWithChildren
   '/maintenance': typeof MaintenanceRouteWithChildren
   '/procedures': typeof ProceduresRouteWithChildren
   '/projects': typeof ProjectsRoute
@@ -1382,6 +1390,7 @@ export interface FileRoutesById {
   '/food/seasons': typeof FoodSeasonsRoute
   '/food/storage': typeof FoodStorageRoute
   '/health/schema': typeof HealthSchemaRoute
+  '/kits-racks/$kitId': typeof KitsRacksKitIdRoute
   '/maintenance/diagnose': typeof MaintenanceDiagnoseRoute
   '/maintenance/forecast': typeof MaintenanceForecastRoute
   '/maintenance/generate-schedule': typeof MaintenanceGenerateScheduleRoute
@@ -1541,6 +1550,7 @@ export interface FileRouteTypes {
     | '/food/seasons'
     | '/food/storage'
     | '/health/schema'
+    | '/kits-racks/$kitId'
     | '/maintenance/diagnose'
     | '/maintenance/forecast'
     | '/maintenance/generate-schedule'
@@ -1693,6 +1703,7 @@ export interface FileRouteTypes {
     | '/food/seasons'
     | '/food/storage'
     | '/health/schema'
+    | '/kits-racks/$kitId'
     | '/maintenance/diagnose'
     | '/maintenance/forecast'
     | '/maintenance/generate-schedule'
@@ -1850,6 +1861,7 @@ export interface FileRouteTypes {
     | '/food/seasons'
     | '/food/storage'
     | '/health/schema'
+    | '/kits-racks/$kitId'
     | '/maintenance/diagnose'
     | '/maintenance/forecast'
     | '/maintenance/generate-schedule'
@@ -1907,7 +1919,7 @@ export interface RootRouteChildren {
   FoodRoute: typeof FoodRouteWithChildren
   HealthRoute: typeof HealthRouteWithChildren
   InventoryRoute: typeof InventoryRoute
-  KitsRacksRoute: typeof KitsRacksRoute
+  KitsRacksRoute: typeof KitsRacksRouteWithChildren
   MaintenanceRoute: typeof MaintenanceRouteWithChildren
   ProceduresRoute: typeof ProceduresRouteWithChildren
   ProjectsRoute: typeof ProjectsRoute
@@ -2838,6 +2850,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HealthSchemaRouteImport
       parentRoute: typeof HealthRoute
     }
+    '/kits-racks/$kitId': {
+      id: '/kits-racks/$kitId'
+      path: '/$kitId'
+      fullPath: '/kits-racks/$kitId'
+      preLoaderRoute: typeof KitsRacksKitIdRouteImport
+      parentRoute: typeof KitsRacksRoute
+    }
     '/maintenance/': {
       id: '/maintenance/'
       path: '/'
@@ -3177,6 +3196,18 @@ const HealthRouteChildren: HealthRouteChildren = {
 const HealthRouteWithChildren =
   HealthRoute._addFileChildren(HealthRouteChildren)
 
+interface KitsRacksRouteChildren {
+  KitsRacksKitIdRoute: typeof KitsRacksKitIdRoute
+}
+
+const KitsRacksRouteChildren: KitsRacksRouteChildren = {
+  KitsRacksKitIdRoute: KitsRacksKitIdRoute,
+}
+
+const KitsRacksRouteWithChildren = KitsRacksRoute._addFileChildren(
+  KitsRacksRouteChildren,
+)
+
 interface MaintenanceRouteChildren {
   MaintenanceDiagnoseRoute: typeof MaintenanceDiagnoseRoute
   MaintenanceForecastRoute: typeof MaintenanceForecastRoute
@@ -3245,7 +3276,7 @@ const rootRouteChildren: RootRouteChildren = {
   FoodRoute: FoodRouteWithChildren,
   HealthRoute: HealthRouteWithChildren,
   InventoryRoute: InventoryRoute,
-  KitsRacksRoute: KitsRacksRoute,
+  KitsRacksRoute: KitsRacksRouteWithChildren,
   MaintenanceRoute: MaintenanceRouteWithChildren,
   ProceduresRoute: ProceduresRouteWithChildren,
   ProjectsRoute: ProjectsRoute,

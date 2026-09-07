@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Boxes, Server, AlertTriangle, ArrowLeft } from "lucide-react";
+import { Boxes, Server, AlertTriangle, ArrowLeft, Wrench } from "lucide-react";
 import { requireAuthenticatedUser } from "@/lib/auth-route";
 import { listKitRackBuildouts, type KitRackBuildout } from "@/lib/kit-rack-index.functions";
 import { buildRackElevation, formatSpan } from "@/lib/rack-elevation";
@@ -170,13 +170,20 @@ function BuildoutCard({ buildout }: { buildout: KitRackBuildout }) {
           </ul>
         )}
 
-        {isRack && buildout.rack ? (
-          <Button size="sm" variant="outline" asChild>
-            <Link to="/electrical/item/$kind/$id" params={{ kind: "rack", id: buildout.rack.id }}>
-              Open rack
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm" asChild>
+            <Link to="/kits-racks/$kitId" params={{ kitId: buildout.kitId }}>
+              <Wrench className="mr-1 h-4 w-4" /> Work on this kit
             </Link>
           </Button>
-        ) : null}
+          {isRack && buildout.rack ? (
+            <Button size="sm" variant="outline" asChild>
+              <Link to="/electrical/item/$kind/$id" params={{ kind: "rack", id: buildout.rack.id }}>
+                Open rack
+              </Link>
+            </Button>
+          ) : null}
+        </div>
       </CardContent>
     </Card>
   );

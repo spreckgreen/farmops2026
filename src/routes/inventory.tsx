@@ -678,7 +678,15 @@ function InventoryDashboard() {
             assets={filtered}
             onEdit={handleEdit}
             onDelete={handleDelete}
-            onEditParts={(asset) => setPartsItemId(asset.id)}
+            onEditParts={(asset) => {
+              // Kits get the full build-out workspace (sizes, stack positions,
+              // panel pictures); plain parts lists stay in the quick dialog.
+              if (isKitItem(asset)) {
+                navigate({ to: "/kits-racks/$kitId", params: { kitId: asset.id } });
+                return;
+              }
+              setPartsItemId(asset.id);
+            }}
           />
         )}
       </main>
