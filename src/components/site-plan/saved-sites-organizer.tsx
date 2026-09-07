@@ -431,6 +431,13 @@ export function SavedSitesOrganizer() {
                                             ? SERVICE_LABELS[child.service_type]
                                             : "Service not decided"}
                                         </Badge>
+                                        <span className="text-muted-foreground">
+                                          {loadCounts[child.id]
+                                            ? `${loadCounts[child.id]} electrical load${
+                                                loadCounts[child.id] === 1 ? "" : "s"
+                                              }`
+                                            : "no electrical loads linked"}
+                                        </span>
                                       </li>
                                     ))}
                                 </ul>
