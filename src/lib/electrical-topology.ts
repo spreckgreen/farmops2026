@@ -6,6 +6,7 @@
 // server function, and a failing relationship lookup degrades into a warning
 // instead of taking the whole record down with it.
 import { ENTITIES } from "@/lib/electrical-entities";
+import { circuitGroupBreakerText } from "@/lib/electrical-circuit-group-topology";
 import type { ElectricalEntityKind } from "@/lib/electrical";
 
 export interface TopologyLookup {
@@ -68,6 +69,7 @@ export function topologyLookups(
     add("panel", "panel_id", str(record["suggested_panel"]), "panel");
   } else if (kind === "load") {
     add("circuit_group", "circuit_group_id", str(record["circuit_group_ref"]), "circuit group");
+    add("circuit_group", "id", str(record["circuit_group_uuid"]), "circuit group");
     add("branch", "dest_endpoint_ref", stableId, "branch run feeding load");
   } else if (kind === "raceway") {
     for (const ref of [record["source_endpoint_ref"], record["dest_endpoint_ref"]]) {
@@ -80,6 +82,9 @@ export function topologyLookups(
     add("raceway", "dest_endpoint_ref", stableId, "raceway entering box");
     add("branch", "source_endpoint_ref", stableId, "branch run from box");
   } else if (kind === "branch") {
+    // Relationship-derived: the branch's own circuit-group link, read from the
+    // permanent circuit-group table (audit-created groups included).
+    add("circuit_group", "id", str(record["circuit_group_uuid"]), "circuit group");
     for (const ref of [record["source_endpoint_ref"], record["dest_endpoint_ref"]]) {
       const value = str(ref);
       if (value.startsWith("PNL-")) add("panel", "panel_id", value, "endpoint");
@@ -96,7 +101,18 @@ export function relatedFromRows(lookup: TopologyLookup, rows: Rec[]): RelatedRec
   return (rows ?? []).map((r) => ({
     kind: lookup.kind,
     stable_id: str(r[target.stableIdField]),
-    label: str(r["description"]) || str(r["dest_endpoint_ref"]),
+    label:
+      lookup.kind === "circuit_group"
+        ? [
+            str(r["description"]),
+            circuitGroupBreakerText({
+              suggested_panel: r["suggested_panel"] as string | null,
+              breaker_number: r["breaker_number"] as number | null,
+            }),
+          ]
+            .filter(Boolean)
+            .join(" — ")
+        : str(r["description"]) || str(r["dest_endpoint_ref"]),
     relation: lookup.relation,
   }));
 }
