@@ -33,6 +33,8 @@ import {
   ASSET_KIND_LABEL,
   PLACEMENT_SOURCE_LABEL,
   PLACEMENT_SOURCE_ORDER,
+  PLOT_PROVENANCE_LABEL,
+  PLOT_PROVENANCE_ORDER,
   PRECISION_META,
   PRECISION_ORDER,
   VERIFICATION_LABEL,
@@ -769,6 +771,23 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
                 ))}
               </div>
 
+              <div className="space-y-1 rounded-md border border-border p-2">
+                <p className="text-xs font-medium">How plotted points were derived</p>
+                <p className="text-[11px] text-muted-foreground">
+                  {q.data!.summary.locationAuthorityNotice}
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  {q.data!.summary.deploymentScopeNotice}
+                </p>
+                {PLOT_PROVENANCE_ORDER.filter((k) => q.data!.summary.plotProvenance[k]).map((k) => (
+                  <p key={k} className="text-[11px] text-muted-foreground">
+                    {PLOT_PROVENANCE_LABEL[k]}: {q.data!.summary.plotProvenance[k]}
+                  </p>
+                ))}
+              </div>
+
+
+
               {q.data!.gaps.length ? (
                 <div className="space-y-1 rounded-md border border-border bg-muted/40 p-2">
                   <p className="text-xs font-medium">Record gaps</p>
@@ -842,6 +861,14 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
               .map((k) => `${PLACEMENT_SOURCE_LABEL[k]}: ${q.data!.summary.placementSources[k]}`)
               .join(" · ")}
           </p>
+          <p className="text-[11px]">
+            Plot provenance —{" "}
+            {PLOT_PROVENANCE_ORDER.filter((k) => q.data!.summary.plotProvenance[k])
+              .map((k) => `${PLOT_PROVENANCE_LABEL[k]}: ${q.data!.summary.plotProvenance[k]}`)
+              .join(" · ")}
+          </p>
+          <p className="text-[11px]">{q.data.summary.locationAuthorityNotice}</p>
+          <p className="text-[11px]">{q.data.summary.deploymentScopeNotice}</p>
           {disagreeing.length ? (
             <ul className="text-[11px]">
               {disagreeing.map((a) => (
@@ -886,14 +913,20 @@ export function AssetDetail({ asset }: { asset: OperationalAsset }) {
     ["Current FarmOps grid", asset.grid ?? "NOT IN RECORD"],
     ["Design / proposed grid", asset.designGrid ?? "NOT IN RECORD"],
     [
-      "X / Y",
+      "Plotted point",
       asset.plottedXFt != null
         ? `${asset.plottedXFt} ft E, ${asset.plottedYFt} ft S`
-        : "NOT IN RECORD",
+        : "NOT PLOTTED",
     ],
+    ["Plot provenance", PLOT_PROVENANCE_LABEL[asset.plotProvenance]],
+    ["Derivation method", asset.plotDerivation],
+    ["Verified reference", asset.verifiedReference ?? "NOT IN RECORD"],
+    ["Audit ID", asset.auditId ?? "not stated in record"],
     ["Effective location", asset.locationProvenance],
     ["Location precision", PRECISION_META[asset.precision].label],
     ["Placement source", PLACEMENT_SOURCE_LABEL[asset.locationSource]],
+
+
 
     ["Install status", asset.installStatus ?? "NOT IN RECORD"],
     ["Field verification", VERIFICATION_LABEL[verificationOf(asset.verification)]],

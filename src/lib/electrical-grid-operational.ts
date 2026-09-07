@@ -277,11 +277,19 @@ export interface PendingObservation {
 }
 
 
-/** Where a plotted position came from, in precedence order. */
+/**
+ * Where a plotted position came from, in precedence order.
+ *
+ * An applied field audit is the highest authority for everything it verified.
+ * A missing measured X/Y never demotes an audit-verified post or grid cell back
+ * to an older design assignment: measured X/Y, then a mapped physical anchor
+ * (post / pole / wall interval), then the verified grid cell, and only then
+ * accepted design coordinates and accepted design grid labels.
+ */
 export type PlacementSource =
   | "VERIFIED_FIELD_OBSERVATION_XY"
-  | "OBSERVED_FIELD_GRID"
   | "OBSERVED_POST"
+  | "OBSERVED_FIELD_GRID"
   | "APPROVED_DESIGN_XY"
   | "PENDING_FIELD_OBSERVATION"
   | "DERIVED_FROM_GRID_REFERENCE"
@@ -291,12 +299,12 @@ export type PlacementSource =
   | "NOT_PLOTTED";
 
 export const PLACEMENT_SOURCE_LABEL: Record<PlacementSource, string> = {
-  VERIFIED_FIELD_OBSERVATION_XY: "Verified field observation X/Y",
-  OBSERVED_FIELD_GRID: "Applied field-observed grid cell",
-  OBSERVED_POST: "Applied field-observed perimeter post",
-  APPROVED_DESIGN_XY: "Approved design X/Y (not yet field verified)",
+  VERIFIED_FIELD_OBSERVATION_XY: "Field-verified measured X/Y",
+  OBSERVED_POST: "Field-verified post / pole anchor",
+  OBSERVED_FIELD_GRID: "Field-verified grid cell",
+  APPROVED_DESIGN_XY: "Accepted design X/Y (not field verified)",
   PENDING_FIELD_OBSERVATION: "Field observation staged for approval (not applied)",
-  DERIVED_FROM_GRID_REFERENCE: "Accepted corrected grid reference",
+  DERIVED_FROM_GRID_REFERENCE: "Accepted design grid reference",
   DERIVED_FROM_CURRENT_GRID: "Accepted current FarmOps grid",
   DERIVED_FROM_LEGACY_GRID: "Canonical / recovery-derived legacy grid",
   PROVISIONAL_RECORDED_XY: "Provisional recorded X/Y (unverified)",
@@ -305,8 +313,8 @@ export const PLACEMENT_SOURCE_LABEL: Record<PlacementSource, string> = {
 
 export const PLACEMENT_SOURCE_ORDER: PlacementSource[] = [
   "VERIFIED_FIELD_OBSERVATION_XY",
-  "OBSERVED_FIELD_GRID",
   "OBSERVED_POST",
+  "OBSERVED_FIELD_GRID",
   "APPROVED_DESIGN_XY",
   "PENDING_FIELD_OBSERVATION",
   "DERIVED_FROM_GRID_REFERENCE",
@@ -316,6 +324,103 @@ export const PLACEMENT_SOURCE_ORDER: PlacementSource[] = [
   "NOT_PLOTTED",
 ];
 
+/**
+ * Explicit plot provenance for the point actually drawn. A derived centroid,
+ * post anchor or interval midpoint is never presented as a measured field X/Y.
+ */
+export type PlotProvenance =
+  | "FIELD_VERIFIED_XY"
+  | "FIELD_VERIFIED_POST"
+  | "FIELD_VERIFIED_INTERVAL"
+  | "FIELD_VERIFIED_GRID_CENTROID"
+  | "DESIGN_XY"
+  | "DESIGN_GRID_CENTROID"
+  | "UNRESOLVED";
+
+export const PLOT_PROVENANCE_ORDER: PlotProvenance[] = [
+  "FIELD_VERIFIED_XY",
+  "FIELD_VERIFIED_POST",
+  "FIELD_VERIFIED_INTERVAL",
+  "FIELD_VERIFIED_GRID_CENTROID",
+  "DESIGN_XY",
+  "DESIGN_GRID_CENTROID",
+  "UNRESOLVED",
+];
+
+export const PLOT_PROVENANCE_LABEL: Record<PlotProvenance, string> = {
+  FIELD_VERIFIED_XY: "Field-verified measured X/Y",
+  FIELD_VERIFIED_POST: "Field-verified post anchor (canonical post coordinate)",
+  FIELD_VERIFIED_INTERVAL: "Field-verified interval (midpoint drawn, span preserved)",
+  FIELD_VERIFIED_GRID_CENTROID: "Field-verified grid cell (centroid drawn)",
+  DESIGN_XY: "Design X/Y (not field verified)",
+  DESIGN_GRID_CENTROID: "Design grid cell (centroid drawn, not field verified)",
+  UNRESOLVED: "Unresolved — no usable location",
+};
+
+/** How the drawn point was obtained from the verified or design reference. */
+export const PLOT_DERIVATION: Record<PlotProvenance, string> = {
+  FIELD_VERIFIED_XY: "Measured coordinate recorded in the field; used as recorded.",
+  FIELD_VERIFIED_POST: "Canonical coordinate of the verified post / pole callout.",
+  FIELD_VERIFIED_INTERVAL:
+    "Midpoint of the verified interval; interval precision is preserved and the span is kept.",
+  FIELD_VERIFIED_GRID_CENTROID: "Centroid of the verified grid cell.",
+  DESIGN_XY: "Accepted design coordinate; design intent only.",
+  DESIGN_GRID_CENTROID: "Centroid of the accepted design grid cell.",
+  UNRESOLVED: "No derivation — nothing is plotted.",
+};
+
+/**
+ * Explicit plot provenance for a chosen placement. Field-verified sources stay
+ * field-verified; derived points are never labelled as measured coordinates.
+ */
+export function plotProvenanceFor(source: PlacementSource, spanned: boolean): PlotProvenance {
+  switch (source) {
+    case "VERIFIED_FIELD_OBSERVATION_XY":
+      return spanned ? "FIELD_VERIFIED_INTERVAL" : "FIELD_VERIFIED_XY";
+    case "OBSERVED_POST":
+      return spanned ? "FIELD_VERIFIED_INTERVAL" : "FIELD_VERIFIED_POST";
+    case "OBSERVED_FIELD_GRID":
+    case "PENDING_FIELD_OBSERVATION":
+      return spanned ? "FIELD_VERIFIED_INTERVAL" : "FIELD_VERIFIED_GRID_CENTROID";
+    case "APPROVED_DESIGN_XY":
+    case "PROVISIONAL_RECORDED_XY":
+      return "DESIGN_XY";
+    case "DERIVED_FROM_GRID_REFERENCE":
+    case "DERIVED_FROM_CURRENT_GRID":
+    case "DERIVED_FROM_LEGACY_GRID":
+      return "DESIGN_GRID_CENTROID";
+    default:
+      return "UNRESOLVED";
+  }
+}
+
+export const FIELD_VERIFIED_SOURCES: PlacementSource[] = [
+  "VERIFIED_FIELD_OBSERVATION_XY",
+  "OBSERVED_POST",
+  "OBSERVED_FIELD_GRID",
+];
+
+/** Deployment scope of field audit evidence, explained separately from plotting. */
+export const DEPLOYMENT_SCOPE_NOTICE =
+  "Field audits are deployment-local until synchronized. If an audit was applied in another FarmOps deployment, this instance cannot use that evidence until the audit batch or resulting canonical records are imported and verified.";
+
+/**
+ * The location-authority notice for this instance, stated from the records
+ * actually present here — never from an audit that lives in another deployment.
+ */
+export function fieldVerifiedLocationNotice(counts: {
+  verified: number;
+  measuredXy: number;
+}): string {
+  const { verified, measuredXy } = counts;
+  if (verified === 0)
+    return `No records in this FarmOps instance contain field-verified location references. ${DEPLOYMENT_SCOPE_NOTICE}`;
+  const measuredSentence =
+    measuredXy === 0
+      ? "None contains a measured field X/Y coordinate."
+      : `${measuredXy} of them contain a measured field X/Y coordinate.`;
+  return `${verified} records in this FarmOps instance contain field-verified location references. ${measuredSentence} FarmOps therefore plots each record from its verified grid, post, or interval using a deterministic derived rendering point. These points are field-authoritative at the recorded precision, but they are not measured coordinates.`;
+}
 
 
 /** One candidate position the record could support, evaluated but not chosen. */
@@ -341,6 +446,14 @@ export interface OperationalAsset extends Omit<OperationalInput, "storedPrecisio
   /** True when the plotted point represents a span rather than a point. */
   spanned: boolean;
   locationSource: PlacementSource;
+  /** Explicit provenance of the point drawn (never claims a measured X/Y). */
+  plotProvenance: PlotProvenance;
+  /** How the drawn point was derived from the verified or design reference. */
+  plotDerivation: string;
+  /** The verified reference the plot came from, preserved verbatim. */
+  verifiedReference: string | null;
+  /** Audit batch / evidence identifier behind the verified reference, if stated. */
+  auditId: string | null;
   /** Every position the record could support, including the rejected ones. */
   placementCandidates: PlacementCandidate[];
   /** Set when candidates disagree; a Data Quality finding, never silently resolved. */
@@ -466,30 +579,10 @@ export function placementCandidatesFor(row: OperationalInput): PlacementCandidat
     });
   }
 
-  // 1a. Applied field-observed grid cell. This is an accepted as-built statement
-  //     recorded by an applied audit, so it outranks design intent and every
-  //     inherited grid assignment. It fixes the record to a grid cell, not to a
-  //     measured point, so a verified X/Y still wins.
-  {
-    const observedGrid = parseNewGrid(row.fieldGridReference ?? "");
-    const feet = observedGrid.ok ? newGridFeet(observedGrid) : null;
-    if (feet) {
-      out.push({
-        source: "OBSERVED_FIELD_GRID",
-        xFt: feet.xFt,
-        yFt: feet.yFt,
-        precision: observedGrid.interval ? "INTERVAL" : "GRIDLINE",
-        spanned: feet.span,
-        basis: `Applied field observation: grid ${row.fieldGridReference}${
-          row.verifiedAt ? `, verified ${row.verifiedAt}` : ""
-        }. Fixes the record to that grid cell, not to a measured point.`,
-        accepted: true,
-      });
-    }
-  }
-
-  // 1a2. Applied field-observed perimeter post. Only usable once the post
-  //      geometry proposal has been confirmed by the owner.
+  // 1a. Field-verified physical anchor: a post, pole or wall interval recorded
+  //     by an applied audit. It is a mapped physical reference, so it outranks
+  //     the verified grid cell and every design assignment. Only usable once the
+  //     post geometry proposal has been confirmed by the owner.
   if (POST_GEOMETRY_CONFIRMED && row.poleLocationKind) {
     const post = postObservationFeet({
       pole_scheme: row.poleScheme ?? null,
@@ -504,11 +597,38 @@ export function placementCandidatesFor(row: OperationalInput): PlacementCandidat
         yFt: post.yFt,
         precision: post.spanned ? "INTERVAL" : "NEAREST",
         spanned: post.spanned,
-        basis: `Applied field observation at post ${post.token}. ${post.basis}`,
+        basis: `Field-verified post ${post.token}: plotted at the canonical coordinate for that post${
+          post.spanned ? " (interval midpoint, span preserved)" : ""
+        } — not a measured field X/Y. ${post.basis}`,
         accepted: true,
       });
     }
   }
+
+  // 1a2. Field-verified grid cell recorded by an applied audit. It outranks
+  //      design intent and every inherited grid assignment. It fixes the record
+  //      to a grid cell, so the plotted point is that cell's centroid, never a
+  //      measured point; a verified measured X/Y still wins.
+  {
+    const observedGrid = parseNewGrid(row.fieldGridReference ?? "");
+    const feet = observedGrid.ok ? newGridFeet(observedGrid) : null;
+    if (feet) {
+      out.push({
+        source: "OBSERVED_FIELD_GRID",
+        xFt: feet.xFt,
+        yFt: feet.yFt,
+        precision: observedGrid.interval ? "INTERVAL" : "GRIDLINE",
+        spanned: feet.span,
+        basis: `Field-verified grid ${row.fieldGridReference}${
+          row.verifiedAt ? `, verified ${row.verifiedAt}` : ""
+        }. Plotted from the ${
+          observedGrid.interval ? "verified interval midpoint" : "verified cell centroid"
+        } — a derived rendering point, not a measured field X/Y.`,
+        accepted: true,
+      });
+    }
+  }
+
 
 
   // 1b. Approved design X/Y. The design coordinates are the authoritative
@@ -778,11 +898,44 @@ function cluster(assets: OperationalAsset[]): OperationalAsset[] {
   return assets;
 }
 
+/** The verified reference the plot came from, preserved exactly as recorded. */
+function verifiedReferenceOf(row: OperationalInput, source: PlacementSource): string | null {
+  const post = [row.poleRefStart, row.poleRefEnd].filter(Boolean).join(" – ") || null;
+  switch (source) {
+    case "OBSERVED_POST":
+      return post;
+    case "OBSERVED_FIELD_GRID":
+      return row.fieldGridReference ?? null;
+    case "PENDING_FIELD_OBSERVATION":
+      return row.pendingObservation?.fieldGridReference ?? null;
+    case "VERIFIED_FIELD_OBSERVATION_XY":
+      return row.xFt != null && row.yFt != null ? `${row.xFt} ft E / ${row.yFt} ft S` : null;
+    case "APPROVED_DESIGN_XY":
+    case "DERIVED_FROM_GRID_REFERENCE":
+      return row.gridReference ?? row.designGrid ?? null;
+    default:
+      return row.grid ?? null;
+  }
+}
+
+/** Audit batch identifier behind the verified reference, when the record states one. */
+function auditIdOf(row: OperationalInput): string | null {
+  const staged = row.pendingObservation?.batchId ?? null;
+  if (staged) return staged;
+  for (const text of [row.locationEvidence, row.verificationNotes]) {
+    const m = /\b(FA-[A-Z0-9-]+)\b/i.exec(text ?? "");
+    if (m) return m[1]!.toUpperCase();
+  }
+  return null;
+}
+
 export function buildOperationalAssets(rows: OperationalInput[]): OperationalAsset[] {
   const assets = rows.map((row) => {
     const place = classifyLocation(row);
     const effective = effectiveLocationForOperational(row);
     const plottable = PRECISION_META[place.precision].plottable && place.xFt != null;
+    const source: PlacementSource = plottable ? place.source : "NOT_PLOTTED";
+    const provenance = plotProvenanceFor(source, place.spanned);
 
     const asset: OperationalAsset = {
       ...row,
@@ -793,11 +946,16 @@ export function buildOperationalAssets(rows: OperationalInput[]): OperationalAss
       xPct: plottable ? ((place.xFt as number) / SHOP_WIDTH_FT) * 100 : null,
       yPct: plottable ? ((place.yFt as number) / SHOP_DEPTH_FT) * 100 : null,
       spanned: place.spanned,
-      locationSource: plottable ? place.source : "NOT_PLOTTED",
+      locationSource: source,
+      plotProvenance: provenance,
+      plotDerivation: PLOT_DERIVATION[provenance],
+      verifiedReference: verifiedReferenceOf(row, source),
+      auditId: auditIdOf(row),
       placementCandidates: place.candidates,
       placementDisagreement: place.disagreement,
       effectiveLocation: effective,
       locationProvenance: effective.provenance,
+
 
       stackIndex: 0,
       stackSize: 1,
@@ -821,8 +979,18 @@ export interface OperationalSummary {
   kinds: Record<string, number>;
   /** Count of records by the placement source actually used. */
   placementSources: Record<PlacementSource, number>;
+  /** Count of records by the provenance of the point actually drawn. */
+  plotProvenance: Record<PlotProvenance, number>;
+  /** Records carrying a field-verified location reference in this instance. */
+  fieldVerified: number;
+  /** Records carrying a measured field X/Y coordinate in this instance. */
+  measuredFieldXy: number;
   /** Records whose placement sources disagree and need owner review. */
   placementDisagreements: number;
+  /** The location-authority notice for this instance, stated from these records. */
+  locationAuthorityNotice: string;
+  /** Deployment scope of field-audit evidence, explained separately. */
+  deploymentScopeNotice: string;
 }
 
 export function summarizeOperational(assets: OperationalAsset[]): OperationalSummary {
@@ -837,14 +1005,27 @@ export function summarizeOperational(assets: OperationalAsset[]): OperationalSum
   const placementSources = Object.fromEntries(
     PLACEMENT_SOURCE_ORDER.map((p) => [p, 0]),
   ) as Record<PlacementSource, number>;
+  const plotProvenance = Object.fromEntries(
+    PLOT_PROVENANCE_ORDER.map((p) => [p, 0]),
+  ) as Record<PlotProvenance, number>;
   const kinds: Record<string, number> = {};
   let plotted = 0;
   let placementDisagreements = 0;
+  let fieldVerified = 0;
+  let measuredFieldXy = 0;
   for (const a of assets) {
     precision[a.precision] += 1;
     verification[verificationOf(a.verification)] += 1;
     placementSources[a.locationSource] += 1;
+    plotProvenance[a.plotProvenance] += 1;
     if (a.placementDisagreement) placementDisagreements += 1;
+    if (
+      a.fieldGridReference ||
+      a.poleLocationKind ||
+      FIELD_VERIFIED_SOURCES.includes(a.locationSource)
+    )
+      fieldVerified += 1;
+    if (a.locationSource === "VERIFIED_FIELD_OBSERVATION_XY") measuredFieldXy += 1;
     kinds[a.kind] = (kinds[a.kind] ?? 0) + 1;
     if (a.xPct != null) plotted += 1;
   }
@@ -856,7 +1037,15 @@ export function summarizeOperational(assets: OperationalAsset[]): OperationalSum
     verification,
     kinds,
     placementSources,
+    plotProvenance,
+    fieldVerified,
+    measuredFieldXy,
     placementDisagreements,
+    locationAuthorityNotice: fieldVerifiedLocationNotice({
+      verified: fieldVerified,
+      measuredXy: measuredFieldXy,
+    }),
+    deploymentScopeNotice: DEPLOYMENT_SCOPE_NOTICE,
   };
 }
 
