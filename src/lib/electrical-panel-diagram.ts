@@ -471,7 +471,7 @@ export function panelMermaid(
   ]
     .filter(Boolean)
     .map(label)
-    .join("\\n");
+    .join("<br/>");
   const src = key("SRC", panel.feeder);
   lines.push(`  ${src}["${label(panel.feeder)}"]`);
   lines.push(`  ${panelNode}["${panelText}"]`);
@@ -489,7 +489,7 @@ export function panelMermaid(
     ]
       .filter(Boolean)
       .map(label)
-      .join("\\n");
+      .join("<br/>");
     lines.push(`  ${cNode}("${cText}")`);
     lines.push(`  ${panelNode} --> ${cNode}`);
     if (c.loads.length === 0) {
@@ -503,7 +503,7 @@ export function panelMermaid(
       const lText = [l.id, l.description, l.amps ? `${l.amps} A` : ""]
         .filter(Boolean)
         .map(label)
-        .join("\\n");
+        .join("<br/>");
       lines.push(`  ${lNode}["${lText}"]`);
       lines.push(`  ${cNode} --> ${lNode}`);
     });
@@ -511,14 +511,14 @@ export function panelMermaid(
 
   panel.directLoads.forEach((l, i) => {
     const lNode = key(`DL${i}`, l.id);
-    lines.push(`  ${lNode}["${[l.id, l.description].filter(Boolean).map(label).join("\\n")}"]`);
+    lines.push(`  ${lNode}["${[l.id, l.description].filter(Boolean).map(label).join("<br/>")}"]`);
     lines.push(`  ${panelNode} -->|"breaker only, no circuit"| ${lNode}`);
   });
 
   panel.expectedLoads.forEach((l, i) => {
     const lNode = key(`EX${i}`, l.id);
     lines.push(
-      `  ${lNode}["${[l.id, l.description, "expected here"].filter(Boolean).map(label).join("\\n")}"]`,
+      `  ${lNode}["${[l.id, l.description, "expected here"].filter(Boolean).map(label).join("<br/>")}"]`,
     );
     lines.push(`  ${panelNode} -.->|"not linked in record"| ${lNode}`);
     lines.push(`  style ${lNode} stroke-dasharray: 4 3`);
@@ -714,7 +714,7 @@ export function plannedMermaid(panel: DiagramPanel): string {
   const panelText = [panel.id, panel.description, panel.building ? `in ${panel.building}` : ""]
     .filter(Boolean)
     .map(label)
-    .join("\\n");
+    .join("<br/>");
   lines.push(`  ${panelNode}["${panelText}"]`);
   lines.push(`  style ${panelNode} stroke-width:3px`);
 
@@ -727,7 +727,7 @@ export function plannedMermaid(panel: DiagramPanel): string {
 
   plan.groups.forEach((g, gi) => {
     const gNode = key(`PGRP${gi}`, g.where);
-    lines.push(`  ${gNode}("${label(g.where)}\\n${g.loads.length} planned load(s)")`);
+    lines.push(`  ${gNode}("${label(g.where)}<br/>${g.loads.length} planned load(s)")`);
     lines.push(`  ${panelNode} -.-> ${gNode}`);
     lines.push(`  style ${gNode} stroke-dasharray: 4 3`);
     g.loads.forEach((e, li) => {
@@ -739,7 +739,7 @@ export function plannedMermaid(panel: DiagramPanel): string {
       ]
         .filter(Boolean)
         .map(label)
-        .join("\\n");
+        .join("<br/>");
       lines.push(`  ${lNode}["${lText}"]`);
       if (e.basis === "linked_record") {
         lines.push(`  ${gNode} -->|"already linked"| ${lNode}`);
