@@ -277,11 +277,19 @@ export interface PendingObservation {
 }
 
 
-/** Where a plotted position came from, in precedence order. */
+/**
+ * Where a plotted position came from, in precedence order.
+ *
+ * An applied field audit is the highest authority for everything it verified.
+ * A missing measured X/Y never demotes an audit-verified post or grid cell back
+ * to an older design assignment: measured X/Y, then a mapped physical anchor
+ * (post / pole / wall interval), then the verified grid cell, and only then
+ * accepted design coordinates and accepted design grid labels.
+ */
 export type PlacementSource =
   | "VERIFIED_FIELD_OBSERVATION_XY"
-  | "OBSERVED_FIELD_GRID"
   | "OBSERVED_POST"
+  | "OBSERVED_FIELD_GRID"
   | "APPROVED_DESIGN_XY"
   | "PENDING_FIELD_OBSERVATION"
   | "DERIVED_FROM_GRID_REFERENCE"
@@ -291,12 +299,12 @@ export type PlacementSource =
   | "NOT_PLOTTED";
 
 export const PLACEMENT_SOURCE_LABEL: Record<PlacementSource, string> = {
-  VERIFIED_FIELD_OBSERVATION_XY: "Verified field observation X/Y",
-  OBSERVED_FIELD_GRID: "Applied field-observed grid cell",
-  OBSERVED_POST: "Applied field-observed perimeter post",
-  APPROVED_DESIGN_XY: "Approved design X/Y (not yet field verified)",
+  VERIFIED_FIELD_OBSERVATION_XY: "Field-verified measured X/Y",
+  OBSERVED_POST: "Field-verified post / pole anchor",
+  OBSERVED_FIELD_GRID: "Field-verified grid cell",
+  APPROVED_DESIGN_XY: "Accepted design X/Y (not field verified)",
   PENDING_FIELD_OBSERVATION: "Field observation staged for approval (not applied)",
-  DERIVED_FROM_GRID_REFERENCE: "Accepted corrected grid reference",
+  DERIVED_FROM_GRID_REFERENCE: "Accepted design grid reference",
   DERIVED_FROM_CURRENT_GRID: "Accepted current FarmOps grid",
   DERIVED_FROM_LEGACY_GRID: "Canonical / recovery-derived legacy grid",
   PROVISIONAL_RECORDED_XY: "Provisional recorded X/Y (unverified)",
@@ -305,8 +313,8 @@ export const PLACEMENT_SOURCE_LABEL: Record<PlacementSource, string> = {
 
 export const PLACEMENT_SOURCE_ORDER: PlacementSource[] = [
   "VERIFIED_FIELD_OBSERVATION_XY",
-  "OBSERVED_FIELD_GRID",
   "OBSERVED_POST",
+  "OBSERVED_FIELD_GRID",
   "APPROVED_DESIGN_XY",
   "PENDING_FIELD_OBSERVATION",
   "DERIVED_FROM_GRID_REFERENCE",
