@@ -443,9 +443,7 @@ export function AuditBatchPanel() {
       adopt(data as AuditBatchPreview);
       setConfirmed(false);
       void refreshElectricalViews();
-      const applied = (data as AuditBatchPreview).changes.filter(
-        (c) => c.disposition === "applied",
-      ).length;
+      const applied = (data as AuditBatchPreview).summary.applied;
       toast.success(
         applied > 0
           ? `${applied} audited record(s) applied — the loads grid, panels and diagrams now show them.`
