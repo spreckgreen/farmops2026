@@ -29,11 +29,19 @@ export interface RackKitPart {
   unit: string | null;
   location: string | null;
   notes: string | null;
+  /** Height in rack spaces for this placement (falls back to the item's own height). */
+  rackUnits: number | null;
+  /** Height recorded on the inventory item itself, when any. */
+  itemRackUnits: number | null;
+  /** Lowest rack space occupied, counted from the bottom. NULL when not placed. */
+  positionU: number | null;
 }
 
 export interface RackKitView {
   rackStableId: string;
   rackDescription: string | null;
+  /** Rack height in spaces, as recorded on the rack. */
+  rackSizeU: number | null;
   /** The kit whose parts list describes what is installed in this rack. */
   kit: { id: string; name: string } | null;
   /** Parts recorded on that kit, in the kit's own order. */
@@ -45,7 +53,7 @@ export interface RackKitView {
 async function readRackKit(db: LooseDb, userId: string, rackId: string): Promise<RackKitView> {
   const { data: rack, error } = await db
     .from("electrical_racks")
-    .select("id, rack_id, description, asset_uuid, asset_ref, build_kit_item_id")
+    .select("id, rack_id, description, rack_size_u, asset_uuid, asset_ref, build_kit_item_id")
     .eq("id", rackId)
     .maybeSingle();
   if (error) throw new Error(error.message);
@@ -54,6 +62,7 @@ async function readRackKit(db: LooseDb, userId: string, rackId: string): Promise
   const view: RackKitView = {
     rackStableId: String(rack.rack_id ?? ""),
     rackDescription: rack.description ?? null,
+    rackSizeU: rack.rack_size_u == null ? null : Number(rack.rack_size_u),
     kit: null,
     parts: [],
     linkedAsset: rack.asset_uuid
@@ -74,18 +83,27 @@ async function readRackKit(db: LooseDb, userId: string, rackId: string): Promise
 
   const { data: rows, error: cErr } = await db
     .from("inventory_components")
-    .select("id, component_item_id, quantity, unit, notes, sort_order")
+    .select("id, component_item_id, quantity, unit, notes, sort_order, rack_units, rack_position_u")
     .eq("user_id", userId)
     .eq("parent_item_id", kit.id)
     .order("sort_order", { ascending: true });
   if (cErr) throw new Error(cErr.message);
 
   const componentIds = (rows ?? []).map((r: { component_item_id: string }) => r.component_item_id);
-  const byId = new Map<string, { name: string; item_type: string | null; location: string | null; unit: string | null }>();
+  const byId = new Map<
+    string,
+    {
+      name: string;
+      item_type: string | null;
+      location: string | null;
+      unit: string | null;
+      rack_units: number | null;
+    }
+  >();
   if (componentIds.length > 0) {
     const { data: items, error: iErr } = await db
       .from("inventory_items")
-      .select("id, name, item_type, location, unit")
+      .select("id, name, item_type, location, unit, rack_units")
       .eq("user_id", userId)
       .in("id", componentIds);
     if (iErr) throw new Error(iErr.message);
@@ -95,6 +113,7 @@ async function readRackKit(db: LooseDb, userId: string, rackId: string): Promise
         item_type: it.item_type ?? null,
         location: it.location ?? null,
         unit: it.unit ?? null,
+        rack_units: it.rack_units == null ? null : Number(it.rack_units),
       });
     }
   }
@@ -106,8 +125,11 @@ async function readRackKit(db: LooseDb, userId: string, rackId: string): Promise
       quantity: number | string;
       unit: string | null;
       notes: string | null;
+      rack_units: number | null;
+      rack_position_u: number | null;
     }) => {
       const item = byId.get(String(r.component_item_id));
+      const itemRackUnits = item?.rack_units ?? null;
       return {
         id: String(r.id),
         componentItemId: String(r.component_item_id),
@@ -117,12 +139,27 @@ async function readRackKit(db: LooseDb, userId: string, rackId: string): Promise
         unit: r.unit ?? item?.unit ?? null,
         location: item?.location ?? null,
         notes: r.notes ?? null,
+        rackUnits: r.rack_units == null ? itemRackUnits : Number(r.rack_units),
+        itemRackUnits,
+        positionU: r.rack_position_u == null ? null : Number(r.rack_position_u),
       };
     },
   );
 
   return view;
 }
+
+const PlacementInput = z.object({
+  rackId: z.string().uuid(),
+  componentRowId: z.string().uuid(),
+  /** Height in rack spaces; null clears it and leaves the item's own height. */
+  rackUnits: z.number().int().positive().max(100).nullable(),
+  /** Lowest space occupied; null unplaces the part. */
+  positionU: z.number().int().positive().max(100).nullable(),
+  /** Also store the height on the inventory item, so it is remembered elsewhere. */
+  applyToItem: z.boolean().optional(),
+});
+
 
 export const getRackKit = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
