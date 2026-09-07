@@ -103,7 +103,9 @@ export function relatedFromRows(lookup: TopologyLookup, rows: Rec[]): RelatedRec
   const target = ENTITIES[lookup.kind];
   return (rows ?? []).map((r) => ({
     kind: lookup.kind,
+    id: str(r["id"]) || null,
     stable_id: str(r[target.stableIdField]),
+
     label:
       lookup.kind === "circuit_group"
         ? [
