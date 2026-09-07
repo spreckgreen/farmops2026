@@ -197,6 +197,8 @@ function safeSlug(s: string, fallback: string): string {
 export const obsidianExport = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<{ files: ObsidianFile[] }> => {
+    const { requirePremiumPrint } = await import("@/lib/premium-print.server");
+    await requirePremiumPrint(context.supabase, context.userId);
     const { supabase } = context;
     const files: ObsidianFile[] = [];
 

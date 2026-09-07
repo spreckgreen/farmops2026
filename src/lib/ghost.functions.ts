@@ -72,7 +72,9 @@ export const publishToGhost = createServerFn({ method: "POST" })
       status: d.status === "published" ? "published" : "draft",
     } satisfies Required<Input>;
   })
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
+    const { requirePremiumPrint } = await import("@/lib/premium-print.server");
+    await requirePremiumPrint(context.supabase, context.userId);
     const { getServerEnv } = await import("./server-env.server");
     const url = await getServerEnv("GHOST_API_URL");
     const adminKey = await getServerEnv("GHOST_ADMIN_API_KEY");
