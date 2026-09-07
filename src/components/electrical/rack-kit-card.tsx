@@ -355,6 +355,8 @@ export function RackKitCard({ rackId }: { rackId: string }) {
                     onSave={(rackUnits, positionU) =>
                       place.mutate({ componentRowId: p.id, rackUnits, positionU })
                     }
+                    onDrawFace={() => drawFace.mutate(p.id)}
+                    drawing={drawingId === p.id}
                   />
                 ))}
               </div>
