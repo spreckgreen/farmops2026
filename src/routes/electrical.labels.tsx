@@ -12,6 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { Camera, CameraOff, Printer, QrCode, Search } from "lucide-react";
 
 import { ElectricalGate } from "@/components/electrical/electrical-gate";
+import { usePremiumPrint } from "@/hooks/use-premium-print";
 import {
   LABEL_FORMATS,
   LABEL_FORMAT_LIST,
@@ -399,10 +400,21 @@ function PanelLabelsPage() {
                 variant="outline"
                 size="sm"
                 onClick={() => window.print()}
-                disabled={!total}
+                disabled={!total || !premiumPrint.allowed}
+                title={
+                  premiumPrint.allowed
+                    ? undefined
+                    : "Label printing is part of the premium print package."
+                }
               >
                 <Printer className="mr-1 h-4 w-4" /> Print {total} label{total === 1 ? "" : "s"}
               </Button>
+              {!premiumPrint.allowed && !premiumPrint.isLoading ? (
+                <p className="text-xs text-muted-foreground">
+                  Label sheets are part of the premium print package — an administrator can turn
+                  it on for you.
+                </p>
+              ) : null}
               <p className="text-xs text-muted-foreground">
                 {perPage} per page · {pages} page{pages === 1 ? "" : "s"}. Set the printer paper to{" "}
                 {paperNote(format)} and turn off scaling.
