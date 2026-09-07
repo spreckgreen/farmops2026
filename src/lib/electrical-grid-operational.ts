@@ -979,8 +979,18 @@ export interface OperationalSummary {
   kinds: Record<string, number>;
   /** Count of records by the placement source actually used. */
   placementSources: Record<PlacementSource, number>;
+  /** Count of records by the provenance of the point actually drawn. */
+  plotProvenance: Record<PlotProvenance, number>;
+  /** Records carrying a field-verified location reference in this instance. */
+  fieldVerified: number;
+  /** Records carrying a measured field X/Y coordinate in this instance. */
+  measuredFieldXy: number;
   /** Records whose placement sources disagree and need owner review. */
   placementDisagreements: number;
+  /** The location-authority notice for this instance, stated from these records. */
+  locationAuthorityNotice: string;
+  /** Deployment scope of field-audit evidence, explained separately. */
+  deploymentScopeNotice: string;
 }
 
 export function summarizeOperational(assets: OperationalAsset[]): OperationalSummary {
@@ -995,14 +1005,27 @@ export function summarizeOperational(assets: OperationalAsset[]): OperationalSum
   const placementSources = Object.fromEntries(
     PLACEMENT_SOURCE_ORDER.map((p) => [p, 0]),
   ) as Record<PlacementSource, number>;
+  const plotProvenance = Object.fromEntries(
+    PLOT_PROVENANCE_ORDER.map((p) => [p, 0]),
+  ) as Record<PlotProvenance, number>;
   const kinds: Record<string, number> = {};
   let plotted = 0;
   let placementDisagreements = 0;
+  let fieldVerified = 0;
+  let measuredFieldXy = 0;
   for (const a of assets) {
     precision[a.precision] += 1;
     verification[verificationOf(a.verification)] += 1;
     placementSources[a.locationSource] += 1;
+    plotProvenance[a.plotProvenance] += 1;
     if (a.placementDisagreement) placementDisagreements += 1;
+    if (
+      a.fieldGridReference ||
+      a.poleLocationKind ||
+      FIELD_VERIFIED_SOURCES.includes(a.locationSource)
+    )
+      fieldVerified += 1;
+    if (a.locationSource === "VERIFIED_FIELD_OBSERVATION_XY") measuredFieldXy += 1;
     kinds[a.kind] = (kinds[a.kind] ?? 0) + 1;
     if (a.xPct != null) plotted += 1;
   }
@@ -1014,7 +1037,15 @@ export function summarizeOperational(assets: OperationalAsset[]): OperationalSum
     verification,
     kinds,
     placementSources,
+    plotProvenance,
+    fieldVerified,
+    measuredFieldXy,
     placementDisagreements,
+    locationAuthorityNotice: fieldVerifiedLocationNotice({
+      verified: fieldVerified,
+      measuredXy: measuredFieldXy,
+    }),
+    deploymentScopeNotice: DEPLOYMENT_SCOPE_NOTICE,
   };
 }
 
