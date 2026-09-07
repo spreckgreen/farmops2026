@@ -37,7 +37,7 @@ export interface TaskPrintGrantRow {
   user_id: string;
   email: string | null;
   display_name: string | null;
-  note: string | null
+  note: string | null;
   created_at: string;
 }
 
