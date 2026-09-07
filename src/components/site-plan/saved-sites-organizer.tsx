@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/select";
 import {
   deleteSitePlan,
+  listBuildingServiceLinks,
   listSitePlans,
   mergeSitePlans,
   resequenceSiteReferences,
@@ -77,6 +78,15 @@ export function SavedSitesOrganizer() {
   const plansQuery = useQuery({ queryKey: ["site-plan", "plans"], queryFn: () => listPlans() });
   const sites: SiteRow[] = plansQuery.data?.sites ?? [];
   const buildings: BuildingRow[] = plansQuery.data?.buildings ?? [];
+
+  // Electrical load counts per building, so each service assignment shows what
+  // actually depends on it. Counts are read from the load records' building link.
+  const listServiceLinks = useServerFn(listBuildingServiceLinks);
+  const serviceLinksQuery = useQuery({
+    queryKey: ["site-plan", "service-links"],
+    queryFn: () => listServiceLinks(),
+  });
+  const loadCounts: Record<string, number> = serviceLinksQuery.data?.loadCounts ?? {};
 
   const [siteNames, setSiteNames] = useState<Record<string, string>>({});
   const [buildingNames, setBuildingNames] = useState<Record<string, string>>({});
