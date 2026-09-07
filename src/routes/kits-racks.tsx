@@ -285,6 +285,47 @@ function KitsRacksPage() {
             ) : null}
           </>
         )}
+
+        {(bare.data ?? []).length > 0 ? (
+          <section className="space-y-3">
+            <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
+              Equipment racks with no build kit yet ({(bare.data ?? []).length})
+            </h2>
+            <div className="grid gap-4 md:grid-cols-2">
+              {(bare.data ?? []).map((r) => (
+                <Card key={r.id}>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="flex flex-wrap items-center gap-2 text-base">
+                      <Server className="h-4 w-4" />
+                      {r.stableId || "Equipment rack"}
+                      <Badge variant="outline">
+                        {r.sizeU != null ? `${r.sizeU} spaces` : "No height recorded"}
+                      </Badge>
+                    </CardTitle>
+                    <p className="text-xs text-muted-foreground">
+                      {r.description || "No description recorded"}
+                    </p>
+                  </CardHeader>
+                  <CardContent className="flex flex-wrap gap-2">
+                    <Button
+                      size="sm"
+                      onClick={() => start.mutate(r.id)}
+                      disabled={start.isPending}
+                    >
+                      <Wrench className="mr-1 h-4 w-4" /> Start build kit
+                    </Button>
+                    <Button size="sm" variant="outline" asChild>
+                      <Link to="/electrical/item/$kind/$id" params={{ kind: "rack", id: r.id }}>
+                        Open rack
+                      </Link>
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
       </div>
     </AppLayout>
   );
