@@ -24,6 +24,9 @@ export type TemplateId =
   | "grid"
   | "ledger"
   | "record"
+  | "weather"
+  | "energy"
+  | "productivity"
   | "farmops-list";
 
 export interface TemplateOptions {
