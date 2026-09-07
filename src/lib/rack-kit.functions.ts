@@ -219,3 +219,75 @@ export const createRackKit = createServerFn({ method: "POST" })
 
     return { ...existing, kit: { id: String(kit.id), name: String(kit.name ?? name) }, parts: [] };
   });
+
+/**
+ * Record a part's shelf size and where it sits in the rack. Positions are
+ * checked against the other placed parts and the rack's own height, so gear
+ * cannot double-book a space or hang out of the top of the rack.
+ */
+export const setRackPartPlacement = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => PlacementInput.parse(d))
+  .handler(async ({ context, data }): Promise<RackKitView> => {
+    await requireElectricalAccess(context.supabase, context.userId, "field_write");
+    const db = context.supabase as unknown as LooseDb;
+    const before = await readRackKit(db, context.userId, data.rackId);
+    const row = before.parts.find((p) => p.id === data.componentRowId);
+    if (!row) throw new Error("That part is not on this rack's build kit.");
+
+    const height = data.rackUnits ?? row.itemRackUnits;
+    if (data.positionU != null) {
+      if (height == null) {
+        throw new Error(
+          "Record how many rack spaces this part takes before giving it a position.",
+        );
+      }
+      const top = data.positionU + height - 1;
+      if (before.rackSizeU != null && top > before.rackSizeU) {
+        throw new Error(
+          `${height} spaces starting at U${data.positionU} runs past the top of this ${before.rackSizeU}-space rack.`,
+        );
+      }
+      for (const other of before.parts) {
+        if (other.id === row.id) continue;
+        if (other.positionU == null || other.rackUnits == null) continue;
+        const otherTop = other.positionU + other.rackUnits - 1;
+        if (data.positionU <= otherTop && other.positionU <= top) {
+          throw new Error(
+            `U${data.positionU}${top === data.positionU ? "" : `–U${top}`} is already taken by ${other.name}.`,
+          );
+        }
+      }
+    }
+
+    const { error } = await db
+      .from("inventory_components")
+      .update({ rack_units: data.rackUnits, rack_position_u: data.positionU })
+      .eq("id", data.componentRowId)
+      .eq("user_id", context.userId);
+    if (error) throw new Error(error.message);
+
+    if (data.applyToItem && data.rackUnits != null) {
+      const { error: iErr } = await db
+        .from("inventory_items")
+        .update({ rack_units: data.rackUnits })
+        .eq("id", row.componentItemId)
+        .eq("user_id", context.userId);
+      if (iErr) throw new Error(iErr.message);
+    }
+
+    await recordElectricalChange(context.supabase, context.userId, {
+      section: "entities",
+      entityKind: "rack",
+      action: "update",
+      entityUuid: data.rackId,
+      entityRef: before.rackStableId || null,
+      summary:
+        data.positionU == null
+          ? `Removed rack position for "${row.name}" in ${before.rackStableId}`
+          : `Placed "${row.name}" at U${data.positionU} (${height}U) in ${before.rackStableId}`,
+      patch: { rack_units: data.rackUnits, rack_position_u: data.positionU },
+    });
+
+    return readRackKit(db, context.userId, data.rackId);
+  });
