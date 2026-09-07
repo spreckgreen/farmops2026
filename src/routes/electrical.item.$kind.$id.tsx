@@ -269,6 +269,8 @@ function Detail({ kind, id }: { kind: ElectricalEntityKind; id: string }) {
         />
       ) : null}
 
+      {kind === "rack" ? <RackKitCard rackId={id} /> : null}
+
       {kind === "raceway" ? <RacewayJunctionPoints racewayId={id} /> : null}
       {kind === "jbox" ? (
         <JboxRacewayTopology
