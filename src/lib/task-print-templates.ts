@@ -252,6 +252,7 @@ function renderWork(tasks: PrintTask[], opts: TemplateOptions): string {
     opts,
     "portrait",
     `${head(opts, "FarmOps · Bostead Farms", "The Work")}
+${logBar()}
 <table>
   <thead><tr><th></th><th>Job</th><th>Date done</th><th>What happened</th></tr></thead>
   <tbody>${rows}${blankRows(opts.blankRows, 4)}</tbody>
@@ -265,6 +266,7 @@ function renderWorkYourOwn(_tasks: PrintTask[], opts: TemplateOptions): string {
     opts,
     "portrait",
     `${head(opts, "FarmOps · Bostead Farms", "The Work · Your Own")}
+${logBar()}
 <p class="sub">Nothing printed here. Your jobs, in your order. Tick it, date it, say what happened.</p>
 <table>
   <thead><tr><th></th><th>Job</th><th>Date done</th><th>What happened</th></tr></thead>
@@ -279,6 +281,7 @@ function renderLedger(_tasks: PrintTask[], opts: TemplateOptions): string {
     opts,
     "portrait",
     `${head(opts, "FarmOps · Bostead Farms", "The Ledger")}
+${logBar()}
 <p class="sub">Everything that went into store. Write what it would have cost to buy.</p>
 <table>
   <thead><tr><th>Date</th><th>Item</th><th>Quantity</th><th>Method</th><th>Store value</th><th>Running total</th></tr></thead>
@@ -296,6 +299,7 @@ function renderRecord(_tasks: PrintTask[], opts: TemplateOptions): string {
     opts,
     "portrait",
     `${head(opts, "FarmOps · Bostead Farms", "The Record")}
+${logBar()}
 <p class="sub">Weather, prices, what broke, what the neighbour said.</p>
 ${lines}
 ${foot(opts)}`,
@@ -412,6 +416,7 @@ function renderProductivity(tasks: PrintTask[], opts: TemplateOptions): string {
     opts,
     "landscape",
     `${head(opts, "FarmOps · Bostead Farms", "The Productivity")}
+${logBar()}
 <p class="sub">Hours in against what came out. Fill the empty columns by hand as you go.</p>
 <table>
   <thead><tr><th>Date</th><th>Job</th><th>Hours worked</th><th>What came of it</th><th>Worth it?</th><th>Notes</th></tr></thead>
