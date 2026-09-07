@@ -446,6 +446,14 @@ export interface OperationalAsset extends Omit<OperationalInput, "storedPrecisio
   /** True when the plotted point represents a span rather than a point. */
   spanned: boolean;
   locationSource: PlacementSource;
+  /** Explicit provenance of the point drawn (never claims a measured X/Y). */
+  plotProvenance: PlotProvenance;
+  /** How the drawn point was derived from the verified or design reference. */
+  plotDerivation: string;
+  /** The verified reference the plot came from, preserved verbatim. */
+  verifiedReference: string | null;
+  /** Audit batch / evidence identifier behind the verified reference, if stated. */
+  auditId: string | null;
   /** Every position the record could support, including the rejected ones. */
   placementCandidates: PlacementCandidate[];
   /** Set when candidates disagree; a Data Quality finding, never silently resolved. */
