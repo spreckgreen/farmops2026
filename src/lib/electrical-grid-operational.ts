@@ -257,6 +257,50 @@ export interface OperationalInput {
   poleRefEnd?: string | null;
   /** A staged, not-yet-approved field observation for this record, if any. */
   pendingObservation?: PendingObservation | null;
+  /**
+   * Measured field X/Y record: an actual instrument measurement taken on site
+   * (tape, laser, GPS, total station). Its presence makes `xFt`/`yFt` a measured
+   * point, which outranks every post, interval, grid or design reference.
+   */
+  measuredMethod?: string | null;
+  measuredAccuracyFt?: number | null;
+  measuredDatum?: string | null;
+  measuredAt?: string | null;
+  measuredBy?: string | null;
+}
+
+/** Instrument methods a measured field X/Y record may state. */
+export const MEASURED_XY_METHODS = [
+  "TAPE",
+  "LASER",
+  "GPS_RTK",
+  "GPS_HANDHELD",
+  "TOTAL_STATION",
+  "OTHER",
+] as const;
+export type MeasuredXyMethod = (typeof MEASURED_XY_METHODS)[number];
+
+export const MEASURED_XY_METHOD_LABEL: Record<MeasuredXyMethod, string> = {
+  TAPE: "Tape measure",
+  LASER: "Laser rangefinder",
+  GPS_RTK: "RTK GPS",
+  GPS_HANDHELD: "Handheld GPS",
+  TOTAL_STATION: "Total station",
+  OTHER: "Other measured method",
+};
+
+export function measuredXyMethodOf(v: string | null | undefined): MeasuredXyMethod | null {
+  const t = (v ?? "").trim().toUpperCase();
+  return (MEASURED_XY_METHODS as readonly string[]).includes(t) ? (t as MeasuredXyMethod) : null;
+}
+
+/** True when the record carries a measured field X/Y coordinate record. */
+export function hasMeasuredFieldXy(row: {
+  xFt: number | null;
+  yFt: number | null;
+  measuredMethod?: string | null;
+}): boolean {
+  return row.xFt != null && row.yFt != null && measuredXyMethodOf(row.measuredMethod) != null;
 }
 
 /**
