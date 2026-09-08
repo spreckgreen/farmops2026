@@ -98,6 +98,7 @@ import { Route as ElectricalMappingAuditRouteImport } from './routes/electrical.
 import { Route as ElectricalMappingRepairRouteImport } from './routes/electrical.mapping-repair'
 import { Route as ElectricalNameplateScanRouteImport } from './routes/electrical.nameplate-scan'
 import { Route as ElectricalPanelDiagramRouteImport } from './routes/electrical.panel-diagram'
+import { Route as ElectricalPeerImportRouteImport } from './routes/electrical.peer-import'
 import { Route as ElectricalQaRouteImport } from './routes/electrical.qa'
 import { Route as ElectricalReconciliationRouteImport } from './routes/electrical.reconciliation'
 import { Route as ElectricalServicesRouteImport } from './routes/electrical.services'
@@ -160,6 +161,7 @@ import { Route as ApiPublicVaultBridgeRunCompleteRouteImport } from './routes/ap
 import { Route as ApiPublicWebhooksRachioRouteImport } from './routes/api/public/webhooks/rachio'
 import { Route as ApiV1ElectricalIndexRouteImport } from './routes/api/v1/electrical/index'
 import { Route as ApiV1ElectricalSplatRouteImport } from './routes/api/v1/electrical/$'
+import { Route as ApiV1ElectricalLocationBundleRouteImport } from './routes/api/v1/electrical/location-bundle'
 import { Route as ElectricalItemKindIdRouteImport } from './routes/electrical.item.$kind.$id'
 import { Route as ApiElectricalV1FieldObservationsApplyRouteImport } from './routes/api/electrical/v1/field-observations.apply'
 import { Route as ApiElectricalV1FieldObservationsPreviewRouteImport } from './routes/api/electrical/v1/field-observations.preview'
@@ -615,6 +617,11 @@ const ElectricalPanelDiagramRoute = ElectricalPanelDiagramRouteImport.update({
   path: '/electrical/panel-diagram',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ElectricalPeerImportRoute = ElectricalPeerImportRouteImport.update({
+  id: '/electrical/peer-import',
+  path: '/electrical/peer-import',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ElectricalQaRoute = ElectricalQaRouteImport.update({
   id: '/electrical/qa',
   path: '/electrical/qa',
@@ -937,6 +944,12 @@ const ApiV1ElectricalSplatRoute = ApiV1ElectricalSplatRouteImport.update({
   path: '/api/v1/electrical/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiV1ElectricalLocationBundleRoute =
+  ApiV1ElectricalLocationBundleRouteImport.update({
+    id: '/api/v1/electrical/location-bundle',
+    path: '/api/v1/electrical/location-bundle',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ElectricalItemKindIdRoute = ElectricalItemKindIdRouteImport.update({
   id: '/electrical/item/$kind/$id',
   path: '/electrical/item/$kind/$id',
@@ -1053,6 +1066,7 @@ export interface FileRoutesByFullPath {
   '/electrical/mapping-repair': typeof ElectricalMappingRepairRoute
   '/electrical/nameplate-scan': typeof ElectricalNameplateScanRoute
   '/electrical/panel-diagram': typeof ElectricalPanelDiagramRoute
+  '/electrical/peer-import': typeof ElectricalPeerImportRoute
   '/electrical/qa': typeof ElectricalQaRoute
   '/electrical/reconciliation': typeof ElectricalReconciliationRoute
   '/electrical/services': typeof ElectricalServicesRoute
@@ -1118,6 +1132,7 @@ export interface FileRoutesByFullPath {
   '/api/public/vault-bridge/run-complete': typeof ApiPublicVaultBridgeRunCompleteRoute
   '/api/public/webhooks/rachio': typeof ApiPublicWebhooksRachioRoute
   '/api/v1/electrical/$': typeof ApiV1ElectricalSplatRoute
+  '/api/v1/electrical/location-bundle': typeof ApiV1ElectricalLocationBundleRoute
   '/electrical/item/$kind/$id': typeof ElectricalItemKindIdRoute
   '/api/v1/electrical/': typeof ApiV1ElectricalIndexRoute
   '/api/electrical/v1/field-observations/apply': typeof ApiElectricalV1FieldObservationsApplyRoute
@@ -1206,6 +1221,7 @@ export interface FileRoutesByTo {
   '/electrical/mapping-repair': typeof ElectricalMappingRepairRoute
   '/electrical/nameplate-scan': typeof ElectricalNameplateScanRoute
   '/electrical/panel-diagram': typeof ElectricalPanelDiagramRoute
+  '/electrical/peer-import': typeof ElectricalPeerImportRoute
   '/electrical/qa': typeof ElectricalQaRoute
   '/electrical/reconciliation': typeof ElectricalReconciliationRoute
   '/electrical/services': typeof ElectricalServicesRoute
@@ -1271,6 +1287,7 @@ export interface FileRoutesByTo {
   '/api/public/vault-bridge/run-complete': typeof ApiPublicVaultBridgeRunCompleteRoute
   '/api/public/webhooks/rachio': typeof ApiPublicWebhooksRachioRoute
   '/api/v1/electrical/$': typeof ApiV1ElectricalSplatRoute
+  '/api/v1/electrical/location-bundle': typeof ApiV1ElectricalLocationBundleRoute
   '/electrical/item/$kind/$id': typeof ElectricalItemKindIdRoute
   '/api/v1/electrical': typeof ApiV1ElectricalIndexRoute
   '/api/electrical/v1/field-observations/apply': typeof ApiElectricalV1FieldObservationsApplyRoute
@@ -1365,6 +1382,7 @@ export interface FileRoutesById {
   '/electrical/mapping-repair': typeof ElectricalMappingRepairRoute
   '/electrical/nameplate-scan': typeof ElectricalNameplateScanRoute
   '/electrical/panel-diagram': typeof ElectricalPanelDiagramRoute
+  '/electrical/peer-import': typeof ElectricalPeerImportRoute
   '/electrical/qa': typeof ElectricalQaRoute
   '/electrical/reconciliation': typeof ElectricalReconciliationRoute
   '/electrical/services': typeof ElectricalServicesRoute
@@ -1430,6 +1448,7 @@ export interface FileRoutesById {
   '/api/public/vault-bridge/run-complete': typeof ApiPublicVaultBridgeRunCompleteRoute
   '/api/public/webhooks/rachio': typeof ApiPublicWebhooksRachioRoute
   '/api/v1/electrical/$': typeof ApiV1ElectricalSplatRoute
+  '/api/v1/electrical/location-bundle': typeof ApiV1ElectricalLocationBundleRoute
   '/electrical/item/$kind/$id': typeof ElectricalItemKindIdRoute
   '/api/v1/electrical/': typeof ApiV1ElectricalIndexRoute
   '/api/electrical/v1/field-observations/apply': typeof ApiElectricalV1FieldObservationsApplyRoute
@@ -1525,6 +1544,7 @@ export interface FileRouteTypes {
     | '/electrical/mapping-repair'
     | '/electrical/nameplate-scan'
     | '/electrical/panel-diagram'
+    | '/electrical/peer-import'
     | '/electrical/qa'
     | '/electrical/reconciliation'
     | '/electrical/services'
@@ -1590,6 +1610,7 @@ export interface FileRouteTypes {
     | '/api/public/vault-bridge/run-complete'
     | '/api/public/webhooks/rachio'
     | '/api/v1/electrical/$'
+    | '/api/v1/electrical/location-bundle'
     | '/electrical/item/$kind/$id'
     | '/api/v1/electrical/'
     | '/api/electrical/v1/field-observations/apply'
@@ -1678,6 +1699,7 @@ export interface FileRouteTypes {
     | '/electrical/mapping-repair'
     | '/electrical/nameplate-scan'
     | '/electrical/panel-diagram'
+    | '/electrical/peer-import'
     | '/electrical/qa'
     | '/electrical/reconciliation'
     | '/electrical/services'
@@ -1743,6 +1765,7 @@ export interface FileRouteTypes {
     | '/api/public/vault-bridge/run-complete'
     | '/api/public/webhooks/rachio'
     | '/api/v1/electrical/$'
+    | '/api/v1/electrical/location-bundle'
     | '/electrical/item/$kind/$id'
     | '/api/v1/electrical'
     | '/api/electrical/v1/field-observations/apply'
@@ -1836,6 +1859,7 @@ export interface FileRouteTypes {
     | '/electrical/mapping-repair'
     | '/electrical/nameplate-scan'
     | '/electrical/panel-diagram'
+    | '/electrical/peer-import'
     | '/electrical/qa'
     | '/electrical/reconciliation'
     | '/electrical/services'
@@ -1901,6 +1925,7 @@ export interface FileRouteTypes {
     | '/api/public/vault-bridge/run-complete'
     | '/api/public/webhooks/rachio'
     | '/api/v1/electrical/$'
+    | '/api/v1/electrical/location-bundle'
     | '/electrical/item/$kind/$id'
     | '/api/v1/electrical/'
     | '/api/electrical/v1/field-observations/apply'
@@ -1995,6 +2020,7 @@ export interface RootRouteChildren {
   ElectricalMappingRepairRoute: typeof ElectricalMappingRepairRoute
   ElectricalNameplateScanRoute: typeof ElectricalNameplateScanRoute
   ElectricalPanelDiagramRoute: typeof ElectricalPanelDiagramRoute
+  ElectricalPeerImportRoute: typeof ElectricalPeerImportRoute
   ElectricalQaRoute: typeof ElectricalQaRoute
   ElectricalReconciliationRoute: typeof ElectricalReconciliationRoute
   ElectricalServicesRoute: typeof ElectricalServicesRoute
@@ -2035,6 +2061,7 @@ export interface RootRouteChildren {
   ApiPublicVaultBridgeRunCompleteRoute: typeof ApiPublicVaultBridgeRunCompleteRoute
   ApiPublicWebhooksRachioRoute: typeof ApiPublicWebhooksRachioRoute
   ApiV1ElectricalSplatRoute: typeof ApiV1ElectricalSplatRoute
+  ApiV1ElectricalLocationBundleRoute: typeof ApiV1ElectricalLocationBundleRoute
   ElectricalItemKindIdRoute: typeof ElectricalItemKindIdRoute
   ApiV1ElectricalIndexRoute: typeof ApiV1ElectricalIndexRoute
   ApiElectricalV1FieldObservationsApplyRoute: typeof ApiElectricalV1FieldObservationsApplyRoute
@@ -2668,6 +2695,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ElectricalPanelDiagramRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/electrical/peer-import': {
+      id: '/electrical/peer-import'
+      path: '/electrical/peer-import'
+      fullPath: '/electrical/peer-import'
+      preLoaderRoute: typeof ElectricalPeerImportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/electrical/qa': {
       id: '/electrical/qa'
       path: '/electrical/qa'
@@ -3102,6 +3136,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiV1ElectricalSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/v1/electrical/location-bundle': {
+      id: '/api/v1/electrical/location-bundle'
+      path: '/api/v1/electrical/location-bundle'
+      fullPath: '/api/v1/electrical/location-bundle'
+      preLoaderRoute: typeof ApiV1ElectricalLocationBundleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/electrical/item/$kind/$id': {
       id: '/electrical/item/$kind/$id'
       path: '/electrical/item/$kind/$id'
@@ -3352,6 +3393,7 @@ const rootRouteChildren: RootRouteChildren = {
   ElectricalMappingRepairRoute: ElectricalMappingRepairRoute,
   ElectricalNameplateScanRoute: ElectricalNameplateScanRoute,
   ElectricalPanelDiagramRoute: ElectricalPanelDiagramRoute,
+  ElectricalPeerImportRoute: ElectricalPeerImportRoute,
   ElectricalQaRoute: ElectricalQaRoute,
   ElectricalReconciliationRoute: ElectricalReconciliationRoute,
   ElectricalServicesRoute: ElectricalServicesRoute,
@@ -3392,6 +3434,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicVaultBridgeRunCompleteRoute: ApiPublicVaultBridgeRunCompleteRoute,
   ApiPublicWebhooksRachioRoute: ApiPublicWebhooksRachioRoute,
   ApiV1ElectricalSplatRoute: ApiV1ElectricalSplatRoute,
+  ApiV1ElectricalLocationBundleRoute: ApiV1ElectricalLocationBundleRoute,
   ElectricalItemKindIdRoute: ElectricalItemKindIdRoute,
   ApiV1ElectricalIndexRoute: ApiV1ElectricalIndexRoute,
   ApiElectricalV1FieldObservationsApplyRoute:
