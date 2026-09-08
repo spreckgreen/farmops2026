@@ -184,26 +184,26 @@ export const electricalGridOperational = createServerFn({ method: "GET" })
           .select(
             // Junction boxes carry location_precision / location_source rather than the
             // loads/panels grid_reference_precision + field_verification_status pair.
-            "jbox_id, description, building, grid, location_x_ft, location_y_ft, grid_reference_precision:location_precision, install_status, location_evidence, updated_at, " +
+            "id, jbox_id, description, building, grid, location_x_ft, location_y_ft, grid_reference_precision:location_precision, install_status, location_evidence, updated_at, " +
               OBSERVED_LOCATION_COLS,
           ),
         db
           .from("electrical_devices")
-          .select("device_id, description, building, location_note, grid, install_status, updated_at"),
+          .select("id, device_id, description, building, location_note, grid, install_status, updated_at"),
         db
           .from("electrical_power_assets")
           .select(
-            "power_asset_id, description, building, location_note, grid, install_status, updated_at",
+            "id, power_asset_id, description, building, location_note, grid, install_status, updated_at",
           ),
         db
           .from("electrical_racks")
           .select(
-            "rack_id, description, building, site_area, location_note, grid, install_status, updated_at",
+            "id, rack_id, description, building, site_area, location_note, grid, install_status, updated_at",
           ),
         db
           .from("electrical_raceways")
           .select(
-            "conduit_id, description, source_building, dest_building, source_grid, dest_grid, install_status, updated_at",
+            "id, conduit_id, description, source_building, dest_building, source_grid, dest_grid, install_status, updated_at",
           ),
       ]);
     for (const r of [loads, panels, groups, positions, jboxes, devices, assets, racks, raceways]) {
