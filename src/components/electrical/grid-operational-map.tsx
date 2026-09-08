@@ -316,6 +316,21 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
     window.setTimeout(clear, 2000);
   };
 
+  /** Map sheet: every record in scope with its plot provenance, derivation,
+   * audit evidence and conflict notices. Part of the premium print package. */
+  const printMapSheet = () => {
+    const generated = new Date();
+    setGeneratedAt(generated);
+    const model = mapSheetModel({
+      assets: filtered,
+      scopeLabel: panelLabel,
+      filterSummary,
+      gaps: q.data?.gaps ?? [],
+      generatedAt: generated,
+    });
+    openPrintWindow(model.title, renderMapSheetHtml(model));
+  };
+
   /** Save the same rendering as a PDF file, using the remembered method so a
    * download matches what printing would produce. */
   const downloadPdf = async (mode: PrintMode) => {
