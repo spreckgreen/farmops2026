@@ -299,6 +299,29 @@ function renderDataQuality(doc: jsPDF, input: GridMapPdfInput): void {
   );
   y += 6;
 
+  // Location authority: measured field X/Y first, then derived references.
+  const measured = input.plotted.filter((a) => a.plotProvenance === "FIELD_VERIFIED_XY");
+  line("Location authority — measured field X/Y first", 9);
+  line(
+    `${measured.length} record(s) carry a measured field X/Y coordinate and are plotted at that ` +
+      "measured point, which outranks every grid, post and interval reference. The remaining " +
+      `${input.plotted.length - measured.length} plotted record(s) use a deterministic derived ` +
+      "point from a verified grid, post or interval: field-authoritative at the recorded " +
+      "precision, but not measured coordinates.",
+    7.5,
+    10,
+  );
+  for (const a of measured) {
+    line(
+      `${a.stableId} — measured ${a.plottedXFt} ft E / ${a.plottedYFt} ft S` +
+        (a.grid ? ` · secondary grid/post reference ${a.grid}` : " · no grid/post reference") +
+        (a.auditId ? ` · audit ${a.auditId}` : ""),
+      7.5,
+      10,
+    );
+  }
+  y += 6;
+
   if (input.unplotted.length) {
     line(
       `${input.unplotted.length} record(s) not plotted — no permanent location in the record`,
