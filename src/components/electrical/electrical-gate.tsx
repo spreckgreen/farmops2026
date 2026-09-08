@@ -106,6 +106,8 @@ function navGroups(): NavGroup[] {
         { label: "Field mapping", to: "/electrical/mapping", section: "mapping" },
         { label: "Grid data quality", to: "/electrical/grid-data-quality" },
         { label: "Audit batches", to: "/electrical/audit-batches" },
+        { label: "Measured coordinates", to: "/electrical/measured-xy" },
+
         { label: "Share between sites", to: "/electrical/peer-import" },
         { label: "Reconciliation export", to: "/electrical/export", section: "export" },
       ],
