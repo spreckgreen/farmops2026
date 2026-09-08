@@ -541,9 +541,27 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
               <Printer className="mr-1 h-3.5 w-3.5" />
               Label sheet
             </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 rounded-none border-l border-border px-2 text-xs"
+              onClick={() => {
+                setMapOnlyDef(
+                  mapOnlyDef || gridDefs.data?.find((d) => d.isActive)?.uuid || gridDefs.data?.[0]?.uuid || "",
+                );
+                setMapOnlyPanel(panel);
+                setMapOnlyOpen(true);
+              }}
+              disabled={!q.data}
+              title="Print just the grid map: one landscape page, footer-stamped with the grid map name and date"
+            >
+              <MapIcon className="mr-1 h-3.5 w-3.5" />
+              Map only
+            </Button>
 
           </div>
           ) : null}
+
           {large ? null : (
             <Button asChild size="sm" variant="outline" className="h-7 px-2 text-xs">
               <Link to="/electrical/grid-map">
