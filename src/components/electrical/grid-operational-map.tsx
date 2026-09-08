@@ -52,7 +52,14 @@ import {
 } from "@/lib/electrical-provenance-labels";
 
 import { openPrintWindow } from "@/lib/print";
-import { GridPlanSvg, PROPOSED_LED_HEX } from "@/components/electrical/grid-plan-svg";
+import {
+  GridPlanSvg,
+  MEASURED_XY_HEX,
+  MEASURED_XY_LAYER_LABEL,
+  PROPOSED_LED_HEX,
+  measuredXyAssets,
+  type MeasuredXyLayerMode,
+} from "@/components/electrical/grid-plan-svg";
 import {
   PLAN_ASPECT_RATIO,
   PROPOSED_OVERHEAD_LED_LEGEND,
@@ -187,6 +194,15 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
     "farmops.grid-map.recent-observed",
     false,
   );
+  // Measured field X/Y points are a layer of their own, and the reader chooses
+  // whether they sit above or below the grid lines and post callouts.
+  const [measuredXyLayer, setMeasuredXyLayer] = useUiChoice<MeasuredXyLayerMode>(
+    "grid-map.measured-xy-layer",
+    "farmops.grid-map.measured-xy-layer",
+    ["OFF", "ABOVE", "BELOW"],
+    "ABOVE",
+  );
+
 
   const [printMode, setPrintMode] = usePrintMode();
   // Grid sheets (print and PDF) are part of the premium print package.
@@ -246,6 +262,8 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
   const cellCounts = useMemo(() => gridCellCounts(plotted), [plotted]);
   const recent = useMemo(() => (showRecent ? recentObserved(filtered, 12) : []), [filtered, showRecent]);
   const recentIds = useMemo(() => recent.map((r) => r.stableId), [recent]);
+  const measuredPoints = useMemo(() => measuredXyAssets(plotted), [plotted]);
+
 
 
   const allKinds = (Object.keys(ASSET_KIND_LABEL) as AssetKind[]).length;
@@ -585,7 +603,28 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
                 >
                   Planned vs verified ({designField.counts.MISMATCH} mismatch)
                 </Chip>
+                <Chip
+                  active={measuredXyLayer !== "OFF"}
+                  onClick={() => setMeasuredXyLayer(measuredXyLayer === "OFF" ? "ABOVE" : "OFF")}
+                  title="Draw records that carry a measured field X/Y coordinate as fixed survey points at the exact recorded coordinate."
+                >
+                  Measured X/Y points ({measuredPoints.length})
+                </Chip>
+                {measuredXyLayer === "OFF" ? null : (
+                  <label className="flex items-center gap-1 text-xs">
+                    Draw
+                    <select
+                      className="rounded border border-border bg-background px-1 py-0.5"
+                      value={measuredXyLayer}
+                      onChange={(e) => setMeasuredXyLayer(e.target.value as MeasuredXyLayerMode)}
+                    >
+                      <option value="ABOVE">{MEASURED_XY_LAYER_LABEL.ABOVE}</option>
+                      <option value="BELOW">{MEASURED_XY_LAYER_LABEL.BELOW}</option>
+                    </select>
+                  </label>
+                )}
               </div>
+
 
 
               <div className="flex flex-wrap items-center gap-1.5">
@@ -662,6 +701,8 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
                 showProposedLeds={showLeds}
                 baseOverlay={baseOverlay}
                 cellCounts={cellCounts}
+                measuredXyLayer={measuredXyLayer}
+
                 {...(showRecent ? { recentIds } : {})}
                 {...(showDesignVsField ? { designOverlay: designField.pairs } : {})}
               />
@@ -712,6 +753,19 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
                 {PROPOSED_OVERHEAD_LED_LEGEND} — design/proposed centres, not field verified.
               </p>
             ) : null}
+            {measuredXyLayer !== "OFF" ? (
+              <p className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                <span
+                  aria-hidden
+                  className="inline-block h-2.5 w-2.5 rounded-full border-2"
+                  style={{ borderColor: MEASURED_XY_HEX }}
+                />
+                {measuredPoints.length} measured field X/Y point(s) drawn as fixed crosshairs at the
+                exact recorded coordinate ({MEASURED_XY_LAYER_LABEL[measuredXyLayer].toLowerCase()}).
+                Every other marker is derived from a grid, post or interval reference.
+              </p>
+            ) : null}
+
             {showDesignVsField ? (
               <CollapsibleGroup
                 title={`Design vs field — ${designField.counts.MISMATCH} mismatch, ${designField.counts.MATCH} confirmed, ${designField.counts.DESIGN_ONLY} design only, ${designField.counts.FIELD_ONLY} field only`}
@@ -895,6 +949,8 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
             showProposedLeds={showLeds}
             baseOverlay={baseOverlay}
             cellCounts={cellCounts}
+            measuredXyLayer={measuredXyLayer}
+
           />
         </div>
 
