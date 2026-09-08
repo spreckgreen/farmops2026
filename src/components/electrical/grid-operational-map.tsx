@@ -645,6 +645,26 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
                 ))}
               </div>
 
+              {/* Marker sizes carry meaning, so they are stated rather than
+                  left for the reader to infer. */}
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                <span className="mr-1">Marker size:</span>
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-full bg-foreground/70" />
+                  Normal — one record
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="h-3.5 w-3.5 rounded-full bg-foreground/70 ring-2 ring-foreground/30" />
+                  Larger — the record you have selected
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="relative flex h-3.5 w-3.5 items-center justify-center rounded-full bg-foreground/70 text-[8px] font-semibold text-background">
+                    3
+                  </span>
+                  Numbered — several records at the same point; select one to fan them apart
+                </span>
+              </div>
+
               <div className="flex flex-wrap items-center gap-3 text-xs">
                 <label className="flex items-center gap-1">
                   Install status
