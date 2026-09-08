@@ -458,6 +458,18 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
               <Printer className="mr-1 h-3.5 w-3.5" />
               Map sheet
             </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 rounded-none border-l border-border px-2 text-xs"
+              onClick={printProvenanceLabels}
+              disabled={!q.data}
+              title="Print the provenance label sheet: one label per record with its stable ID, plot provenance, precision and audit ID"
+            >
+              <Printer className="mr-1 h-3.5 w-3.5" />
+              Label sheet
+            </Button>
+
           </div>
           ) : null}
           {large ? null : (
