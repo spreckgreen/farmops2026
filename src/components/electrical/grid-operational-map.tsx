@@ -405,6 +405,50 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
     }
   };
 
+  /** Map only: one landscape page of the chosen saved grid map, footer-stamped
+   * with that map's name and the print date. No schedules, no legend tables. */
+  const downloadMapOnlyPdf = async () => {
+    const def = gridDefs.data?.find((d) => d.uuid === mapOnlyDef) ?? gridDefs.data?.[0];
+    if (!def) {
+      toast.error("No saved grid map to print");
+      return;
+    }
+    setSaving(true);
+    try {
+      const mod = await import("@/lib/electrical-grid-map-pdf");
+      const printedAt = new Date();
+      const scopeLabel = mapOnlyPanel === "ALL" ? "all panels" : mapOnlyPanel;
+      const scoped =
+        mapOnlyPanel === "ALL"
+          ? plotted
+          : plotted.filter((a) => (a.panel ?? "NOT IN RECORD") === mapOnlyPanel);
+      const doc = mod.renderGridMapOnlyPdf({
+        plotted: scoped,
+        gridMapName: def.name,
+        geometry: {
+          widthFt: def.geometry.widthFt,
+          depthFt: def.geometry.depthFt,
+          rows: def.geometry.rows.map((r) => ({ label: r.label, offsetFt: r.offsetFt })),
+          cols: def.geometry.cols.map((c) => ({ label: c.label, offsetFt: c.offsetFt })),
+        },
+        panelLabel: scopeLabel,
+        printedAt,
+      });
+      const name = mod.gridMapOnlyPdfFileName(def.name, scopeLabel, printedAt);
+      doc.save(name);
+      setMapOnlyOpen(false);
+      toast.success("Grid map saved", { description: name });
+    } catch (err) {
+      toast.error("Could not save the grid map", {
+        description: err instanceof Error ? err.message : String(err),
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+
+
   return (
     <>
     <Card className="grid-map-screen-only">
