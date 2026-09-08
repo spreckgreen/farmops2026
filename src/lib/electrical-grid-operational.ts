@@ -459,11 +459,9 @@ export function fieldVerifiedLocationNotice(counts: {
   const { verified, measuredXy } = counts;
   if (verified === 0)
     return `No records in this FarmOps instance contain field-verified location references. ${DEPLOYMENT_SCOPE_NOTICE}`;
-  const measuredSentence =
-    measuredXy === 0
-      ? "None contains a measured field X/Y coordinate."
-      : `${measuredXy} of them contain a measured field X/Y coordinate.`;
-  return `${verified} records in this FarmOps instance contain field-verified location references. ${measuredSentence} FarmOps therefore plots each record from its verified grid, post, or interval using a deterministic derived rendering point. These points are field-authoritative at the recorded precision, but they are not measured coordinates.`;
+  if (measuredXy === 0)
+    return `${verified} records in this FarmOps instance contain field-verified location references. None contains a measured field X/Y coordinate. FarmOps therefore plots each record from its verified grid, post, or interval using a deterministic derived rendering point. These points are field-authoritative at the recorded precision, but they are not measured coordinates.`;
+  return `${verified} records in this FarmOps instance contain field-verified location references. ${measuredXy} of them carry a measured field X/Y coordinate record and are plotted at that measured point, which outranks every grid, post or interval reference. The remaining ${verified - measuredXy} are plotted from their verified grid, post, or interval using a deterministic derived rendering point: field-authoritative at the recorded precision, but not measured coordinates.`;
 }
 
 
@@ -975,8 +973,13 @@ function verifiedReferenceOf(row: OperationalInput, source: PlacementSource): st
       return row.fieldGridReference ?? null;
     case "PENDING_FIELD_OBSERVATION":
       return row.pendingObservation?.fieldGridReference ?? null;
-    case "VERIFIED_FIELD_OBSERVATION_XY":
-      return row.xFt != null && row.yFt != null ? `${row.xFt} ft E / ${row.yFt} ft S` : null;
+    case "VERIFIED_FIELD_OBSERVATION_XY": {
+      if (row.xFt == null || row.yFt == null) return null;
+      const method = measuredXyMethodOf(row.measuredMethod);
+      return `${row.xFt} ft E / ${row.yFt} ft S${
+        method ? ` (measured, ${MEASURED_XY_METHOD_LABEL[method]})` : ""
+      }`;
+    }
     case "APPROVED_DESIGN_XY":
     case "DERIVED_FROM_GRID_REFERENCE":
       return row.gridReference ?? row.designGrid ?? null;
