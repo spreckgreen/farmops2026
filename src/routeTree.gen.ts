@@ -86,6 +86,7 @@ import { Route as ElectricalDiagramsRouteImport } from './routes/electrical.diag
 import { Route as ElectricalDocumentsRouteImport } from './routes/electrical.documents'
 import { Route as ElectricalExportRouteImport } from './routes/electrical.export'
 import { Route as ElectricalGridDataQualityRouteImport } from './routes/electrical.grid-data-quality'
+import { Route as ElectricalGridLayoutRouteImport } from './routes/electrical.grid-layout'
 import { Route as ElectricalGridMapRouteImport } from './routes/electrical.grid-map'
 import { Route as ElectricalGridMigrationRouteImport } from './routes/electrical.grid-migration'
 import { Route as ElectricalGridRecoveryRouteImport } from './routes/electrical.grid-recovery'
@@ -555,6 +556,11 @@ const ElectricalGridDataQualityRoute =
     path: '/electrical/grid-data-quality',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ElectricalGridLayoutRoute = ElectricalGridLayoutRouteImport.update({
+  id: '/electrical/grid-layout',
+  path: '/electrical/grid-layout',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ElectricalGridMapRoute = ElectricalGridMapRouteImport.update({
   id: '/electrical/grid-map',
   path: '/electrical/grid-map',
@@ -1054,6 +1060,7 @@ export interface FileRoutesByFullPath {
   '/electrical/documents': typeof ElectricalDocumentsRoute
   '/electrical/export': typeof ElectricalExportRoute
   '/electrical/grid-data-quality': typeof ElectricalGridDataQualityRoute
+  '/electrical/grid-layout': typeof ElectricalGridLayoutRoute
   '/electrical/grid-map': typeof ElectricalGridMapRoute
   '/electrical/grid-migration': typeof ElectricalGridMigrationRoute
   '/electrical/grid-recovery': typeof ElectricalGridRecoveryRoute
@@ -1209,6 +1216,7 @@ export interface FileRoutesByTo {
   '/electrical/documents': typeof ElectricalDocumentsRoute
   '/electrical/export': typeof ElectricalExportRoute
   '/electrical/grid-data-quality': typeof ElectricalGridDataQualityRoute
+  '/electrical/grid-layout': typeof ElectricalGridLayoutRoute
   '/electrical/grid-map': typeof ElectricalGridMapRoute
   '/electrical/grid-migration': typeof ElectricalGridMigrationRoute
   '/electrical/grid-recovery': typeof ElectricalGridRecoveryRoute
@@ -1370,6 +1378,7 @@ export interface FileRoutesById {
   '/electrical/documents': typeof ElectricalDocumentsRoute
   '/electrical/export': typeof ElectricalExportRoute
   '/electrical/grid-data-quality': typeof ElectricalGridDataQualityRoute
+  '/electrical/grid-layout': typeof ElectricalGridLayoutRoute
   '/electrical/grid-map': typeof ElectricalGridMapRoute
   '/electrical/grid-migration': typeof ElectricalGridMigrationRoute
   '/electrical/grid-recovery': typeof ElectricalGridRecoveryRoute
@@ -1532,6 +1541,7 @@ export interface FileRouteTypes {
     | '/electrical/documents'
     | '/electrical/export'
     | '/electrical/grid-data-quality'
+    | '/electrical/grid-layout'
     | '/electrical/grid-map'
     | '/electrical/grid-migration'
     | '/electrical/grid-recovery'
@@ -1687,6 +1697,7 @@ export interface FileRouteTypes {
     | '/electrical/documents'
     | '/electrical/export'
     | '/electrical/grid-data-quality'
+    | '/electrical/grid-layout'
     | '/electrical/grid-map'
     | '/electrical/grid-migration'
     | '/electrical/grid-recovery'
@@ -1847,6 +1858,7 @@ export interface FileRouteTypes {
     | '/electrical/documents'
     | '/electrical/export'
     | '/electrical/grid-data-quality'
+    | '/electrical/grid-layout'
     | '/electrical/grid-map'
     | '/electrical/grid-migration'
     | '/electrical/grid-recovery'
@@ -2008,6 +2020,7 @@ export interface RootRouteChildren {
   ElectricalDocumentsRoute: typeof ElectricalDocumentsRoute
   ElectricalExportRoute: typeof ElectricalExportRoute
   ElectricalGridDataQualityRoute: typeof ElectricalGridDataQualityRoute
+  ElectricalGridLayoutRoute: typeof ElectricalGridLayoutRoute
   ElectricalGridMapRoute: typeof ElectricalGridMapRoute
   ElectricalGridMigrationRoute: typeof ElectricalGridMigrationRoute
   ElectricalGridRecoveryRoute: typeof ElectricalGridRecoveryRoute
@@ -2609,6 +2622,13 @@ declare module '@tanstack/react-router' {
       path: '/electrical/grid-data-quality'
       fullPath: '/electrical/grid-data-quality'
       preLoaderRoute: typeof ElectricalGridDataQualityRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/electrical/grid-layout': {
+      id: '/electrical/grid-layout'
+      path: '/electrical/grid-layout'
+      fullPath: '/electrical/grid-layout'
+      preLoaderRoute: typeof ElectricalGridLayoutRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/electrical/grid-map': {
@@ -3381,6 +3401,7 @@ const rootRouteChildren: RootRouteChildren = {
   ElectricalDocumentsRoute: ElectricalDocumentsRoute,
   ElectricalExportRoute: ElectricalExportRoute,
   ElectricalGridDataQualityRoute: ElectricalGridDataQualityRoute,
+  ElectricalGridLayoutRoute: ElectricalGridLayoutRoute,
   ElectricalGridMapRoute: ElectricalGridMapRoute,
   ElectricalGridMigrationRoute: ElectricalGridMigrationRoute,
   ElectricalGridRecoveryRoute: ElectricalGridRecoveryRoute,

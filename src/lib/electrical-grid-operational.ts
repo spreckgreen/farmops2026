@@ -16,6 +16,11 @@ import {
   parseOldGrid,
 } from "@/lib/electrical-grid-migration";
 import {
+  activeGridGeometry,
+  intervalMidpoint,
+  lineFeet,
+} from "@/lib/electrical-grid-definition";
+import {
   effectiveLocationForRecord,
   type EffectiveLocation,
 } from "@/lib/electrical-effective-location";
@@ -167,19 +172,27 @@ const MOBILE = /^mobile$/i;
 const ARTIFACT = /^(\?+|na|n\/a|none|tbd|0(\.0+)?%?|0\.00%)$/i;
 
 export interface ParsedNewGrid {
-  /** Row letters the reference covers (1 letter, or 2 for a preserved interval). */
+  /** Row line labels the reference covers (1, or 2 for a preserved interval). */
   rows: string[];
-  /** Column numbers the reference covers. */
+  /** Column labels as numbers, for callers that read the historic numeric form. */
   cols: number[];
+  /** Column labels exactly as defined — the authoritative form. */
+  colLabels: string[];
+  /** Set when the whole reference names a site-defined interval (e.g. `RUN-N-01`). */
+  intervalRef: string | null;
   interval: boolean;
   mobile: boolean;
   artifact: boolean;
   ok: boolean;
 }
 
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\-]/g, "\\$&");
+
 /**
- * Parses a corrected-grid reference such as `A1`, `C3`, `C-D3`, `E2-3` or
- * `C-D2-3`. Intervals stay intervals: both endpoints are returned and no
+ * Parses a grid reference such as `A1`, `C3`, `C-D3`, `E2-3` or `C-D2-3`, plus
+ * any interval the site has named in its own grid definition. Row and column
+ * labels come from the ACTIVE grid definition, so redefining the grid changes
+ * what parses. Intervals stay intervals: both endpoints are returned and no
  * single cell is chosen.
  */
 export function parseNewGrid(raw: string): ParsedNewGrid {
@@ -187,6 +200,8 @@ export function parseNewGrid(raw: string): ParsedNewGrid {
   const empty: ParsedNewGrid = {
     rows: [],
     cols: [],
+    colLabels: [],
+    intervalRef: null,
     interval: false,
     mobile: false,
     artifact: false,
@@ -196,35 +211,51 @@ export function parseNewGrid(raw: string): ParsedNewGrid {
   if (MOBILE.test(text)) return { ...empty, mobile: true };
   if (ARTIFACT.test(text)) return { ...empty, artifact: true };
 
-  const m = /^([A-Fa-f])(?:\s*-\s*([A-Fa-f]))?\s*(\d)(?:\s*-\s*(\d))?$/.exec(text);
+  const geometry = activeGridGeometry();
+
+  const named = geometry.intervals.find((i) => i.ref === text.toUpperCase());
+  if (named) return { ...empty, intervalRef: named.ref, interval: true, ok: true };
+
+  const rowAlt = geometry.rows.map((r) => escapeRe(r.label)).join("|");
+  const colAlt = geometry.cols.map((c) => escapeRe(c.label)).join("|");
+  if (!rowAlt || !colAlt) return empty;
+
+  const re = new RegExp(
+    `^(${rowAlt})(?:\\s*-\\s*(${rowAlt}))?\\s*(${colAlt})(?:\\s*-\\s*(${colAlt}))?$`,
+    "i",
+  );
+  const m = re.exec(text);
   if (!m) return empty;
   const rows = [m[1]!.toUpperCase(), ...(m[2] ? [m[2].toUpperCase()] : [])];
-  const cols = [Number(m[3]), ...(m[4] ? [Number(m[4])] : [])];
-  const validRows = rows.every((r) => NEW_ROWS.some((row) => row.label === r));
-  const validCols = cols.every((c) => NEW_COLS.some((col) => col.label === String(c)));
-  if (!validRows || !validCols) return empty;
+  const colLabels = [m[3]!.toUpperCase(), ...(m[4] ? [m[4].toUpperCase()] : [])];
   return {
     rows,
-    cols,
-    interval: rows.length > 1 || cols.length > 1,
+    cols: colLabels.map((c) => Number(c)),
+    colLabels,
+    intervalRef: null,
+    interval: rows.length > 1 || colLabels.length > 1,
     mobile: false,
     artifact: false,
     ok: true,
   };
 }
 
-const rowFt = (label: string): number | null =>
-  NEW_ROWS.find((r) => r.label === label)?.yFt ?? null;
-const colFt = (label: number): number | null =>
-  NEW_COLS.find((c) => c.label === String(label))?.xFt ?? null;
+const rowFt = (label: string): number | null => lineFeet(activeGridGeometry(), "ROW", label);
+const colFt = (label: string): number | null => lineFeet(activeGridGeometry(), "COLUMN", label);
 
 /** Display-only centre of a parsed reference; an interval keeps its span. */
 export function newGridFeet(
   parsed: ParsedNewGrid,
 ): { xFt: number; yFt: number; span: boolean } | null {
   if (!parsed.ok) return null;
+  if (parsed.intervalRef) {
+    const mid = intervalMidpoint(activeGridGeometry(), parsed.intervalRef);
+    return mid ? { xFt: mid.xFt, yFt: mid.yFt, span: true } : null;
+  }
   const ys = parsed.rows.map(rowFt).filter((v): v is number => v != null);
-  const xs = parsed.cols.map(colFt).filter((v): v is number => v != null);
+  const xs = (parsed.colLabels.length ? parsed.colLabels : parsed.cols.map(String))
+    .map(colFt)
+    .filter((v): v is number => v != null);
   if (!ys.length || !xs.length) return null;
   return {
     xFt: xs.reduce((a, b) => a + b, 0) / xs.length,
@@ -1001,8 +1032,8 @@ export function buildOperationalAssets(rows: OperationalInput[]): OperationalAss
       precisionBasis: place.basis,
       plottedXFt: plottable ? place.xFt : null,
       plottedYFt: plottable ? place.yFt : null,
-      xPct: plottable ? ((place.xFt as number) / SHOP_WIDTH_FT) * 100 : null,
-      yPct: plottable ? ((place.yFt as number) / SHOP_DEPTH_FT) * 100 : null,
+      xPct: plottable ? ((place.xFt as number) / activeGridGeometry().widthFt) * 100 : null,
+      yPct: plottable ? ((place.yFt as number) / activeGridGeometry().depthFt) * 100 : null,
       spanned: place.spanned,
       locationSource: source,
       plotProvenance: provenance,

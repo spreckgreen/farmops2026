@@ -26,6 +26,7 @@
 import { POLE_CORNERS, POLE_SEQUENCE, type PoleObservation } from "@/lib/electrical-audit-batch";
 import { SHOP_DEPTH_FT, SHOP_WIDTH_FT } from "@/lib/electrical-grid-migration";
 import { derivedGridLabel } from "@/lib/electrical-grid-map";
+import { activeGridGeometry } from "@/lib/electrical-grid-definition";
 
 export const POST_GEOMETRY_VERSION = "fs-post-geometry-v1-confirmed";
 
@@ -147,9 +148,29 @@ export const PROPOSED_POST_POSITIONS: PostPosition[] = buildPositions();
 
 const BY_REF = new Map(PROPOSED_POST_POSITIONS.map((p) => [p.ref, p]));
 
-/** Proposed position of one post, or null when the reference is not in the scheme. */
+/**
+ * Position of one post. A post the site defined itself on the Grid Layout page
+ * wins over the derived proposal; otherwise the frozen proposal is used. Returns
+ * null when the reference is in neither, so nothing is guessed.
+ */
 export function proposedPostFeet(raw: unknown): PostPosition | null {
-  return BY_REF.get(normalizePostRef(raw)) ?? null;
+  const ref = normalizePostRef(raw);
+  const geometry = activeGridGeometry();
+  const defined = geometry.posts.find((p) => p.ref === ref);
+  if (defined) {
+    return {
+      ref: defined.ref,
+      wall: (defined.wall ?? "north") as PostWall,
+      corner: defined.corner,
+      xFt: defined.xFt,
+      yFt: defined.yFt,
+      gridCell: derivedGridLabel(defined.xFt, defined.yFt),
+      basis: `Site-defined post ${defined.ref} from grid definition ${geometry.definitionId}${
+        defined.notes ? ` (${defined.notes})` : ""
+      }.`,
+    };
+  }
+  return BY_REF.get(ref) ?? null;
 }
 
 export interface PostObservationPlacement {

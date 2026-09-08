@@ -2697,6 +2697,180 @@ export type Database = {
           },
         ]
       }
+      electrical_grid_definition_intervals: {
+        Row: {
+          created_at: string
+          definition_uuid: string
+          from_ref: string
+          id: string
+          interval_ref: string
+          kind: string
+          notes: string | null
+          to_ref: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          definition_uuid: string
+          from_ref: string
+          id?: string
+          interval_ref: string
+          kind: string
+          notes?: string | null
+          to_ref: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          definition_uuid?: string
+          from_ref?: string
+          id?: string
+          interval_ref?: string
+          kind?: string
+          notes?: string | null
+          to_ref?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "electrical_grid_definition_intervals_definition_uuid_fkey"
+            columns: ["definition_uuid"]
+            isOneToOne: false
+            referencedRelation: "electrical_grid_definitions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      electrical_grid_definition_lines: {
+        Row: {
+          axis: string
+          created_at: string
+          definition_uuid: string
+          id: string
+          label: string
+          notes: string | null
+          offset_ft: number
+          updated_at: string
+        }
+        Insert: {
+          axis: string
+          created_at?: string
+          definition_uuid: string
+          id?: string
+          label: string
+          notes?: string | null
+          offset_ft: number
+          updated_at?: string
+        }
+        Update: {
+          axis?: string
+          created_at?: string
+          definition_uuid?: string
+          id?: string
+          label?: string
+          notes?: string | null
+          offset_ft?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "electrical_grid_definition_lines_definition_uuid_fkey"
+            columns: ["definition_uuid"]
+            isOneToOne: false
+            referencedRelation: "electrical_grid_definitions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      electrical_grid_definition_posts: {
+        Row: {
+          created_at: string
+          definition_uuid: string
+          id: string
+          is_corner: boolean
+          notes: string | null
+          post_ref: string
+          updated_at: string
+          wall: string | null
+          x_ft: number
+          y_ft: number
+        }
+        Insert: {
+          created_at?: string
+          definition_uuid: string
+          id?: string
+          is_corner?: boolean
+          notes?: string | null
+          post_ref: string
+          updated_at?: string
+          wall?: string | null
+          x_ft: number
+          y_ft: number
+        }
+        Update: {
+          created_at?: string
+          definition_uuid?: string
+          id?: string
+          is_corner?: boolean
+          notes?: string | null
+          post_ref?: string
+          updated_at?: string
+          wall?: string | null
+          x_ft?: number
+          y_ft?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "electrical_grid_definition_posts_definition_uuid_fkey"
+            columns: ["definition_uuid"]
+            isOneToOne: false
+            referencedRelation: "electrical_grid_definitions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      electrical_grid_definitions: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          definition_id: string
+          envelope_depth_ft: number
+          envelope_width_ft: number
+          id: string
+          is_active: boolean
+          name: string
+          notes: string | null
+          scope_note: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          definition_id: string
+          envelope_depth_ft: number
+          envelope_width_ft: number
+          id?: string
+          is_active?: boolean
+          name: string
+          notes?: string | null
+          scope_note?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          definition_id?: string
+          envelope_depth_ft?: number
+          envelope_width_ft?: number
+          id?: string
+          is_active?: boolean
+          name?: string
+          notes?: string | null
+          scope_note?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       electrical_intertie_configurations: {
         Row: {
           capacity_amps: number | null
