@@ -24,6 +24,8 @@ import {
   type PendingObservation,
   type OperationalSummary,
 } from "@/lib/electrical-grid-operational";
+import { setActiveGridGeometry } from "@/lib/electrical-grid-definition";
+import { loadActiveGridGeometry } from "@/lib/electrical-grid-definition.functions";
 import {
   POST_GEOMETRY_CONFIRMED,
   POST_GEOMETRY_REVIEW_NOTE,
@@ -148,6 +150,14 @@ export const electricalGridOperational = createServerFn({ method: "GET" })
   .handler(async ({ context }): Promise<OperationalPayload> => {
     await requireElectricalAccess(context.supabase, context.userId, "read");
     const db = context.supabase as unknown as LooseDb;
+
+    // Records plot from the site's own grid definition when one is active.
+    try {
+      const def = await loadActiveGridGeometry(context.supabase);
+      setActiveGridGeometry(def.uuid ? def.geometry : null);
+    } catch {
+      setActiveGridGeometry(null);
+    }
 
     const [loads, panels, groups, positions, jboxes, devices, assets, racks, raceways] =
       await Promise.all([
