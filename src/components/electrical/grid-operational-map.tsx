@@ -262,6 +262,8 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
   const cellCounts = useMemo(() => gridCellCounts(plotted), [plotted]);
   const recent = useMemo(() => (showRecent ? recentObserved(filtered, 12) : []), [filtered, showRecent]);
   const recentIds = useMemo(() => recent.map((r) => r.stableId), [recent]);
+  const measuredPoints = useMemo(() => measuredXyAssets(plotted), [plotted]);
+
 
 
   const allKinds = (Object.keys(ASSET_KIND_LABEL) as AssetKind[]).length;
