@@ -303,7 +303,12 @@ export function interpretNote(
 
     // ---- entry-type prefix ----
     let entryType: InterpretedLine["entryType"] = "note";
-    let body = trimmed;
+    // A leading markdown bullet is presentation, not meaning. Lines written by
+    // "Add to today" look like `- #task/<slug> Title`, so strip `- `/`* `/`+ `
+    // before looking for a task reference — otherwise they fell through to
+    // "note only" and every one of them printed "Kept in this note's text".
+    let body = trimmed.replace(/^[-*+]\s+/, "");
+
     let usedPrefix: string | null = null;
     for (const [prefix, type] of Object.entries(ENTRY_TYPE_PREFIXES)) {
       if (body.toLowerCase().startsWith(prefix)) {

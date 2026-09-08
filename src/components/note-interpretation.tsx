@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SlugChip } from "@/components/slug-chip";
@@ -109,6 +109,15 @@ export function NoteInterpretation({
     () => interpretNote(markdown, { tasks, projects }),
     [markdown, tasks, projects],
   );
+  const [showNoteOnly, setShowNoteOnly] = useState(false);
+  const noteOnlyCount = useMemo(
+    () => lines.filter((l) => l.action === "ignored").length,
+    [lines],
+  );
+  const shownLines = useMemo(
+    () => (showNoteOnly ? lines : lines.filter((l) => l.action !== "ignored")),
+    [lines, showNoteOnly],
+  );
   const exampleProject = projects[0]?.slug ?? "bosteadfarmshop";
 
   return (
@@ -125,14 +134,34 @@ export function NoteInterpretation({
         </span>
       </div>
 
-      {lines.length === 0 ? (
+      {noteOnlyCount > 0 && (
+        <div className="mb-3 flex items-center gap-2 text-[11px] font-mono text-muted-foreground">
+          <FileText className="h-3.5 w-3.5 shrink-0" aria-hidden />
+          <span>
+            {noteOnlyCount} line{noteOnlyCount === 1 ? "" : "s"} kept as note text only — no task,
+            no log entry.
+          </span>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-5 px-1.5 text-[11px]"
+            onClick={() => setShowNoteOnly((v) => !v)}
+          >
+            {showNoteOnly ? "hide" : "show"}
+          </Button>
+        </div>
+      )}
+
+      {shownLines.length === 0 ? (
         <p className="text-xs text-muted-foreground italic">
-          Nothing typed yet. Try one of the examples below — each line shows up here explained
-          before anything is saved.
+          {lines.length === 0
+            ? "Nothing typed yet. Try one of the examples below — each line shows up here explained before anything is saved."
+            : "Nothing will be created or logged from this note yet."}
         </p>
       ) : (
         <ul className="space-y-2">
-          {lines.map((l) => {
+          {shownLines.map((l) => {
+
             const { icon: Icon, badge, tint } = rowStyle(l.action);
             return (
               <li key={l.lineNumber} className={`pl-3 ${tint}`}>
