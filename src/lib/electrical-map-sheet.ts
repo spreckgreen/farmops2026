@@ -39,6 +39,12 @@ export interface MapSheetRow {
   kind: string;
   description: string;
   reference: string;
+  /** True when the record carries a measured field X/Y coordinate. */
+  measured: boolean;
+  /** Highest-authority location statement: the measured point when present. */
+  primaryLocation: string;
+  /** Grid, post or interval reference, secondary to a measured coordinate. */
+  secondaryReference: string | null;
   plotted: string;
   provenance: PlotProvenance;
   provenanceLabel: string;
@@ -90,6 +96,17 @@ function referenceText(a: OperationalAsset): string {
   if (a.grid) return a.grid;
   if (a.designGrid) return `${a.designGrid} (design)`;
   return "none recorded";
+}
+
+/**
+ * The grid, post or interval reference a record also carries. Stated as
+ * secondary information whenever a measured field X/Y is present, because the
+ * measured coordinate is the higher-authority location statement.
+ */
+function secondaryReferenceText(a: OperationalAsset): string | null {
+  if (a.grid) return `Grid/post reference ${a.grid}`;
+  if (a.designGrid) return `Design grid ${a.designGrid} (DESIGN)`;
+  return null;
 }
 
 /**
