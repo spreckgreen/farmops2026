@@ -585,7 +585,28 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
                 >
                   Planned vs verified ({designField.counts.MISMATCH} mismatch)
                 </Chip>
+                <Chip
+                  active={measuredXyLayer !== "OFF"}
+                  onClick={() => setMeasuredXyLayer(measuredXyLayer === "OFF" ? "ABOVE" : "OFF")}
+                  title="Draw records that carry a measured field X/Y coordinate as fixed survey points at the exact recorded coordinate."
+                >
+                  Measured X/Y points ({measuredPoints.length})
+                </Chip>
+                {measuredXyLayer === "OFF" ? null : (
+                  <label className="flex items-center gap-1 text-xs">
+                    Draw
+                    <select
+                      className="rounded border border-border bg-background px-1 py-0.5"
+                      value={measuredXyLayer}
+                      onChange={(e) => setMeasuredXyLayer(e.target.value as MeasuredXyLayerMode)}
+                    >
+                      <option value="ABOVE">{MEASURED_XY_LAYER_LABEL.ABOVE}</option>
+                      <option value="BELOW">{MEASURED_XY_LAYER_LABEL.BELOW}</option>
+                    </select>
+                  </label>
+                )}
               </div>
+
 
 
               <div className="flex flex-wrap items-center gap-1.5">
