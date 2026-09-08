@@ -108,6 +108,7 @@ export function GridPlanSvg({
   baseOverlay = "GRID_ONLY",
   cellCounts,
   recentIds,
+  measuredXyLayer = "OFF",
   className,
 }: {
   plotted: OperationalAsset[];
@@ -125,7 +126,10 @@ export function GridPlanSvg({
   cellCounts?: GridCellCount[];
   /** Most-recently-observed records, ringed so they read at a glance. */
   recentIds?: string[];
+  /** Measured field X/Y points, drawn above or below grid and post references. */
+  measuredXyLayer?: MeasuredXyLayerMode;
   className?: string;
+
 }) {
 
   // Helper text follows, in order: the marker under the pointer/keyboard focus,
