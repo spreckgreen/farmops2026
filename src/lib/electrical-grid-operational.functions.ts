@@ -181,7 +181,9 @@ export const electricalGridOperational = createServerFn({ method: "GET" })
         db
           .from("electrical_junction_boxes")
           .select(
-            "jbox_id, description, building, grid, location_x_ft, location_y_ft, grid_reference_precision, install_status, field_verification_status, location_evidence, updated_at, " +
+            // Junction boxes carry location_precision / location_source rather than the
+            // loads/panels grid_reference_precision + field_verification_status pair.
+            "jbox_id, description, building, grid, location_x_ft, location_y_ft, grid_reference_precision:location_precision, install_status, location_evidence, updated_at, " +
               OBSERVED_LOCATION_COLS,
           ),
         db
