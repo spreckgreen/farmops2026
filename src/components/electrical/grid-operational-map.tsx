@@ -45,6 +45,8 @@ import {
   type VerificationStatus,
 } from "@/lib/electrical-grid-operational";
 import { AXIS_COLS, AXIS_ROWS } from "@/lib/electrical-grid-map";
+import { mapSheetModel, renderMapSheetHtml } from "@/lib/electrical-map-sheet";
+import { openPrintWindow } from "@/lib/print";
 import { GridPlanSvg, PROPOSED_LED_HEX } from "@/components/electrical/grid-plan-svg";
 import {
   PLAN_ASPECT_RATIO,
@@ -316,6 +318,21 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
     window.setTimeout(clear, 2000);
   };
 
+  /** Map sheet: every record in scope with its plot provenance, derivation,
+   * audit evidence and conflict notices. Part of the premium print package. */
+  const printMapSheet = () => {
+    const generated = new Date();
+    setGeneratedAt(generated);
+    const model = mapSheetModel({
+      assets: filtered,
+      scopeLabel: panelLabel,
+      filterSummary,
+      gaps: q.data?.gaps ?? [],
+      generatedAt: generated,
+    });
+    openPrintWindow(model.title, renderMapSheetHtml(model));
+  };
+
   /** Save the same rendering as a PDF file, using the remembered method so a
    * download matches what printing would produce. */
   const downloadPdf = async (mode: PrintMode) => {
@@ -409,6 +426,17 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
               <option value="solo">Map only</option>
               <option value="with-dq">Map + data quality</option>
             </select>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 rounded-none border-l border-border px-2 text-xs"
+              onClick={printMapSheet}
+              disabled={!q.data}
+              title="Print the map sheet: every record in scope with its plot provenance, derivation, audit evidence and conflict notices"
+            >
+              <Printer className="mr-1 h-3.5 w-3.5" />
+              Map sheet
+            </Button>
           </div>
           ) : null}
           {large ? null : (
