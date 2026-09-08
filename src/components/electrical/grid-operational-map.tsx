@@ -46,6 +46,11 @@ import {
 } from "@/lib/electrical-grid-operational";
 import { AXIS_COLS, AXIS_ROWS } from "@/lib/electrical-grid-map";
 import { mapSheetModel, renderMapSheetHtml } from "@/lib/electrical-map-sheet";
+import {
+  provenanceLabelSheet,
+  renderProvenanceLabelsHtml,
+} from "@/lib/electrical-provenance-labels";
+
 import { openPrintWindow } from "@/lib/print";
 import { GridPlanSvg, PROPOSED_LED_HEX } from "@/components/electrical/grid-plan-svg";
 import {
@@ -333,6 +338,22 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
     openPrintWindow(model.title, renderMapSheetHtml(model));
   };
 
+  /** Provenance label sheet: one label per record with its stable ID, plot
+   * provenance, precision and audit ID. Part of the premium print package. */
+  const printProvenanceLabels = () => {
+    const generated = new Date();
+    setGeneratedAt(generated);
+    const sheet = provenanceLabelSheet({
+      assets: filtered,
+      scopeLabel: panelLabel,
+      filterSummary,
+      gaps: q.data?.gaps ?? [],
+      generatedAt: generated,
+    });
+    openPrintWindow(sheet.title, renderProvenanceLabelsHtml(sheet));
+  };
+
+
   /** Save the same rendering as a PDF file, using the remembered method so a
    * download matches what printing would produce. */
   const downloadPdf = async (mode: PrintMode) => {
@@ -437,6 +458,18 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
               <Printer className="mr-1 h-3.5 w-3.5" />
               Map sheet
             </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 rounded-none border-l border-border px-2 text-xs"
+              onClick={printProvenanceLabels}
+              disabled={!q.data}
+              title="Print the provenance label sheet: one label per record with its stable ID, plot provenance, precision and audit ID"
+            >
+              <Printer className="mr-1 h-3.5 w-3.5" />
+              Label sheet
+            </Button>
+
           </div>
           ) : null}
           {large ? null : (
