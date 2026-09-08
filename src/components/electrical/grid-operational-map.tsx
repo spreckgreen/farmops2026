@@ -1112,7 +1112,72 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
         </div>
       </div>
     ) : null}
+    <Dialog open={mapOnlyOpen} onOpenChange={setMapOnlyOpen}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Print the grid map only</DialogTitle>
+          <DialogDescription>
+            One landscape page with nothing but the map, footer-stamped with the grid map name
+            and the print date.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3 text-xs">
+          <div className="space-y-1">
+            <label className="font-medium" htmlFor="map-only-def">
+              Grid map
+            </label>
+            <select
+              id="map-only-def"
+              className="h-8 w-full rounded border border-border bg-background px-2"
+              value={mapOnlyDef}
+              onChange={(e) => setMapOnlyDef(e.target.value)}
+            >
+              {(gridDefs.data ?? []).map((d) => (
+                <option key={d.uuid} value={d.uuid}>
+                  {d.name}
+                  {d.isActive ? " (active)" : ""}
+                </option>
+              ))}
+            </select>
+            {gridDefs.data && gridDefs.data.length === 0 ? (
+              <p className="text-muted-foreground">
+                No saved grid map yet — define one on the grid layout page.
+              </p>
+            ) : null}
+          </div>
+          <div className="space-y-1">
+            <label className="font-medium" htmlFor="map-only-panel">
+              Panel scope
+            </label>
+            <select
+              id="map-only-panel"
+              className="h-8 w-full rounded border border-border bg-background px-2"
+              value={mapOnlyPanel}
+              onChange={(e) => setMapOnlyPanel(e.target.value)}
+            >
+              <option value="ALL">All panels</option>
+              {(q.data?.panels ?? []).map((p) => (
+                <option key={p.panel} value={p.panel}>
+                  {p.panel === "NOT IN RECORD" ? "No panel in record" : p.panel} ({p.count})
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button
+            size="sm"
+            onClick={() => void downloadMapOnlyPdf()}
+            disabled={saving || !gridDefs.data?.length}
+          >
+            <Download className="mr-1 h-3.5 w-3.5" />
+            {saving ? "Saving…" : "Save map PDF"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
     </>
+
   );
 }
 
