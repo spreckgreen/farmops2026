@@ -29,6 +29,16 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Download, Maximize2, Map as MapIcon, Printer, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 import { electricalGridOperational } from "@/lib/electrical-grid-operational.functions";
+import { listGridDefinitions } from "@/lib/electrical-grid-definition.functions";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+
 import {
   ASSET_KIND_LABEL,
   PLACEMENT_SOURCE_LABEL,
