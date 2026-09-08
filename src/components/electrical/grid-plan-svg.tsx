@@ -272,10 +272,13 @@ export function GridPlanSvg({
       </defs>
       <g clipPath={`url(#${CLIP_ID})`}>
         <PlanDrawing />
+        {measuredXyLayer === "BELOW" ? <MeasuredXyLayer assets={plotted} /> : null}
         <BaseReferenceLayer overlay={baseOverlay} />
+        {measuredXyLayer === "ABOVE" ? <MeasuredXyLayer assets={plotted} /> : null}
         {cellCounts?.length && !selectedId ? <CellCountLayer counts={cellCounts} /> : null}
         {showProposedLeds ? <ProposedLedLayer /> : null}
         {designOverlay?.length ? <DesignFieldLayer pairs={designOverlay} /> : null}
+
 
         {items.map(({ asset: a, dxFt, dyFt, badge }) => {
           const anchor = feetToPlan(a.plottedXFt as number, a.plottedYFt as number);
