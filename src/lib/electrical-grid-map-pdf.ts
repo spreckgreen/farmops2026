@@ -151,8 +151,14 @@ export function renderGridMapPdf(input: GridMapPdfInput): jsPDF {
     }
   }
 
-  // Dot placement uses the one documented feet → plan transform.
-  for (const a of input.plotted) {
+  // Dot placement uses the one documented feet → plan transform. Measured field
+  // X/Y records are drawn last so they sit above every derived grid, post or
+  // interval marker — they are the highest-authority location statement.
+  const isMeasured = (a: OperationalAsset) => a.plotProvenance === "FIELD_VERIFIED_XY";
+  const drawOrder = [...input.plotted].sort(
+    (p, q) => Number(isMeasured(p)) - Number(isMeasured(q)),
+  );
+  for (const a of drawOrder) {
     if (a.plottedXFt == null || a.plottedYFt == null) continue;
     const { fx, fy } = feetToPlanFraction(a.plottedXFt, a.plottedYFt);
     const cx = x0 + fx * planW;
