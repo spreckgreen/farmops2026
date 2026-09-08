@@ -24,6 +24,19 @@ import {
   postObservationFeet,
 } from "@/lib/electrical-grid-post-geometry";
 import { approvedDesignXy } from "@/lib/electrical-grid-plan-geometry";
+import {
+  MEASURED_XY_METHODS,
+  MEASURED_XY_METHOD_LABEL,
+  measuredXyMethodOf,
+  type MeasuredXyMethod,
+} from "@/lib/electrical-measured-xy";
+
+export {
+  MEASURED_XY_METHODS,
+  MEASURED_XY_METHOD_LABEL,
+  measuredXyMethodOf,
+  type MeasuredXyMethod,
+};
 
 
 
@@ -257,6 +270,25 @@ export interface OperationalInput {
   poleRefEnd?: string | null;
   /** A staged, not-yet-approved field observation for this record, if any. */
   pendingObservation?: PendingObservation | null;
+  /**
+   * Measured field X/Y record: an actual instrument measurement taken on site
+   * (tape, laser, GPS, total station). Its presence makes `xFt`/`yFt` a measured
+   * point, which outranks every post, interval, grid or design reference.
+   */
+  measuredMethod?: string | null;
+  measuredAccuracyFt?: number | null;
+  measuredDatum?: string | null;
+  measuredAt?: string | null;
+  measuredBy?: string | null;
+}
+
+/** True when the record carries a measured field X/Y coordinate record. */
+export function hasMeasuredFieldXy(row: {
+  xFt: number | null;
+  yFt: number | null;
+  measuredMethod?: string | null;
+}): boolean {
+  return row.xFt != null && row.yFt != null && measuredXyMethodOf(row.measuredMethod) != null;
 }
 
 /**
@@ -415,11 +447,9 @@ export function fieldVerifiedLocationNotice(counts: {
   const { verified, measuredXy } = counts;
   if (verified === 0)
     return `No records in this FarmOps instance contain field-verified location references. ${DEPLOYMENT_SCOPE_NOTICE}`;
-  const measuredSentence =
-    measuredXy === 0
-      ? "None contains a measured field X/Y coordinate."
-      : `${measuredXy} of them contain a measured field X/Y coordinate.`;
-  return `${verified} records in this FarmOps instance contain field-verified location references. ${measuredSentence} FarmOps therefore plots each record from its verified grid, post, or interval using a deterministic derived rendering point. These points are field-authoritative at the recorded precision, but they are not measured coordinates.`;
+  if (measuredXy === 0)
+    return `${verified} records in this FarmOps instance contain field-verified location references. None contains a measured field X/Y coordinate. FarmOps therefore plots each record from its verified grid, post, or interval using a deterministic derived rendering point. These points are field-authoritative at the recorded precision, but they are not measured coordinates.`;
+  return `${verified} records in this FarmOps instance contain field-verified location references. ${measuredXy} of them carry a measured field X/Y coordinate record and are plotted at that measured point, which outranks every grid, post or interval reference. The remaining ${verified - measuredXy} are plotted from their verified grid, post, or interval using a deterministic derived rendering point: field-authoritative at the recorded precision, but not measured coordinates.`;
 }
 
 
@@ -563,9 +593,32 @@ export function placementCandidatesFor(row: OperationalInput): PlacementCandidat
   const correctedReference = parseNewGrid(row.gridReference ?? "");
   const currentGrid = parseNewGrid(row.grid ?? "");
 
+  // 0. Measured field X/Y record: an instrument measurement taken on site. It is
+  //    the highest authority there is — it outranks posts, intervals, verified
+  //    grid cells and every design assignment — and it is the only source that
+  //    may be presented as a measured coordinate.
+  const measuredMethod = measuredXyMethodOf(row.measuredMethod);
+  if (x != null && y != null && measuredMethod) {
+    out.push({
+      source: "VERIFIED_FIELD_OBSERVATION_XY",
+      xFt: x,
+      yFt: y,
+      precision: "EXACT",
+      spanned: false,
+      basis: `Measured field coordinate: ${x} ft E, ${y} ft S by ${
+        MEASURED_XY_METHOD_LABEL[measuredMethod]
+      }${row.measuredAccuracyFt != null ? ` (±${row.measuredAccuracyFt} ft)` : ""}${
+        row.measuredDatum ? `, datum ${row.measuredDatum}` : ""
+      }${row.measuredAt ? `, measured ${row.measuredAt}` : ""}${
+        row.measuredBy ? ` by ${row.measuredBy}` : ""
+      }. Used as recorded.`,
+      accepted: true,
+    });
+  }
+
   // 1. Exact X/Y, but only from an approved/verified field observation that is
   //    marked as the current installed location.
-  if (x != null && y != null && isCurrentVerifiedObservation(row)) {
+  else if (x != null && y != null && isCurrentVerifiedObservation(row)) {
     out.push({
       source: "VERIFIED_FIELD_OBSERVATION_XY",
       xFt: x,
@@ -908,8 +961,13 @@ function verifiedReferenceOf(row: OperationalInput, source: PlacementSource): st
       return row.fieldGridReference ?? null;
     case "PENDING_FIELD_OBSERVATION":
       return row.pendingObservation?.fieldGridReference ?? null;
-    case "VERIFIED_FIELD_OBSERVATION_XY":
-      return row.xFt != null && row.yFt != null ? `${row.xFt} ft E / ${row.yFt} ft S` : null;
+    case "VERIFIED_FIELD_OBSERVATION_XY": {
+      if (row.xFt == null || row.yFt == null) return null;
+      const method = measuredXyMethodOf(row.measuredMethod);
+      return `${row.xFt} ft E / ${row.yFt} ft S${
+        method ? ` (measured, ${MEASURED_XY_METHOD_LABEL[method]})` : ""
+      }`;
+    }
     case "APPROVED_DESIGN_XY":
     case "DERIVED_FROM_GRID_REFERENCE":
       return row.gridReference ?? row.designGrid ?? null;

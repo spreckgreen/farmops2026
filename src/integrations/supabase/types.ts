@@ -1700,6 +1700,11 @@ export type Database = {
           location_z_ft: number | null
           logical_panel_ref: string | null
           logical_panel_uuid: string | null
+          measured_xy_accuracy_ft: number | null
+          measured_xy_at: string | null
+          measured_xy_by: string | null
+          measured_xy_datum: string | null
+          measured_xy_method: string | null
           notes: string | null
           ods_extras: string | null
           panel_uuid: string | null
@@ -1741,6 +1746,11 @@ export type Database = {
           location_z_ft?: number | null
           logical_panel_ref?: string | null
           logical_panel_uuid?: string | null
+          measured_xy_accuracy_ft?: number | null
+          measured_xy_at?: string | null
+          measured_xy_by?: string | null
+          measured_xy_datum?: string | null
+          measured_xy_method?: string | null
           notes?: string | null
           ods_extras?: string | null
           panel_uuid?: string | null
@@ -1782,6 +1792,11 @@ export type Database = {
           location_z_ft?: number | null
           logical_panel_ref?: string | null
           logical_panel_uuid?: string | null
+          measured_xy_accuracy_ft?: number | null
+          measured_xy_at?: string | null
+          measured_xy_by?: string | null
+          measured_xy_datum?: string | null
+          measured_xy_method?: string | null
           notes?: string | null
           ods_extras?: string | null
           panel_uuid?: string | null
@@ -2859,6 +2874,11 @@ export type Database = {
           location_x_ft: number | null
           location_y_ft: number | null
           location_z_ft: number | null
+          measured_xy_accuracy_ft: number | null
+          measured_xy_at: string | null
+          measured_xy_by: string | null
+          measured_xy_datum: string | null
+          measured_xy_method: string | null
           notes: string | null
           ods_extras: string | null
           pole_location_kind: string | null
@@ -2895,6 +2915,11 @@ export type Database = {
           location_x_ft?: number | null
           location_y_ft?: number | null
           location_z_ft?: number | null
+          measured_xy_accuracy_ft?: number | null
+          measured_xy_at?: string | null
+          measured_xy_by?: string | null
+          measured_xy_datum?: string | null
+          measured_xy_method?: string | null
           notes?: string | null
           ods_extras?: string | null
           pole_location_kind?: string | null
@@ -2931,6 +2956,11 @@ export type Database = {
           location_x_ft?: number | null
           location_y_ft?: number | null
           location_z_ft?: number | null
+          measured_xy_accuracy_ft?: number | null
+          measured_xy_at?: string | null
+          measured_xy_by?: string | null
+          measured_xy_datum?: string | null
+          measured_xy_method?: string | null
           notes?: string | null
           ods_extras?: string | null
           pole_location_kind?: string | null
@@ -3081,6 +3111,11 @@ export type Database = {
           logical_panel_ref: string | null
           logical_panel_uuid: string | null
           maximum_overcurrent_protection: number | null
+          measured_xy_accuracy_ft: number | null
+          measured_xy_at: string | null
+          measured_xy_by: string | null
+          measured_xy_datum: string | null
+          measured_xy_method: string | null
           minimum_circuit_ampacity: number | null
           mounting_classification: string | null
           mounting_height_ft: number | null
@@ -3177,6 +3212,11 @@ export type Database = {
           logical_panel_ref?: string | null
           logical_panel_uuid?: string | null
           maximum_overcurrent_protection?: number | null
+          measured_xy_accuracy_ft?: number | null
+          measured_xy_at?: string | null
+          measured_xy_by?: string | null
+          measured_xy_datum?: string | null
+          measured_xy_method?: string | null
           minimum_circuit_ampacity?: number | null
           mounting_classification?: string | null
           mounting_height_ft?: number | null
@@ -3273,6 +3313,11 @@ export type Database = {
           logical_panel_ref?: string | null
           logical_panel_uuid?: string | null
           maximum_overcurrent_protection?: number | null
+          measured_xy_accuracy_ft?: number | null
+          measured_xy_at?: string | null
+          measured_xy_by?: string | null
+          measured_xy_datum?: string | null
+          measured_xy_method?: string | null
           minimum_circuit_ampacity?: number | null
           mounting_classification?: string | null
           mounting_height_ft?: number | null
@@ -3585,6 +3630,11 @@ export type Database = {
           location_y_ft: number | null
           location_z_ft: number | null
           logical_panel_note: string | null
+          measured_xy_accuracy_ft: number | null
+          measured_xy_at: string | null
+          measured_xy_by: string | null
+          measured_xy_datum: string | null
+          measured_xy_method: string | null
           notes: string | null
           ods_extras: string | null
           panel_id: string
@@ -3640,6 +3690,11 @@ export type Database = {
           location_y_ft?: number | null
           location_z_ft?: number | null
           logical_panel_note?: string | null
+          measured_xy_accuracy_ft?: number | null
+          measured_xy_at?: string | null
+          measured_xy_by?: string | null
+          measured_xy_datum?: string | null
+          measured_xy_method?: string | null
           notes?: string | null
           ods_extras?: string | null
           panel_id: string
@@ -3695,6 +3750,11 @@ export type Database = {
           location_y_ft?: number | null
           location_z_ft?: number | null
           logical_panel_note?: string | null
+          measured_xy_accuracy_ft?: number | null
+          measured_xy_at?: string | null
+          measured_xy_by?: string | null
+          measured_xy_datum?: string | null
+          measured_xy_method?: string | null
           notes?: string | null
           ods_extras?: string | null
           panel_id?: string
@@ -4212,6 +4272,11 @@ export type Database = {
           location_evidence: string | null
           material: string | null
           measured_length_ft: number | null
+          measured_xy_accuracy_ft: number | null
+          measured_xy_at: string | null
+          measured_xy_by: string | null
+          measured_xy_datum: string | null
+          measured_xy_method: string | null
           notes: string | null
           ods_extras: string | null
           planned_length_ft: number | null
@@ -4261,6 +4326,11 @@ export type Database = {
           location_evidence?: string | null
           material?: string | null
           measured_length_ft?: number | null
+          measured_xy_accuracy_ft?: number | null
+          measured_xy_at?: string | null
+          measured_xy_by?: string | null
+          measured_xy_datum?: string | null
+          measured_xy_method?: string | null
           notes?: string | null
           ods_extras?: string | null
           planned_length_ft?: number | null
@@ -4310,6 +4380,11 @@ export type Database = {
           location_evidence?: string | null
           material?: string | null
           measured_length_ft?: number | null
+          measured_xy_accuracy_ft?: number | null
+          measured_xy_at?: string | null
+          measured_xy_by?: string | null
+          measured_xy_datum?: string | null
+          measured_xy_method?: string | null
           notes?: string | null
           ods_extras?: string | null
           planned_length_ft?: number | null
@@ -4749,6 +4824,11 @@ export type Database = {
           location_x_ft: number | null
           location_y_ft: number | null
           location_z_ft: number | null
+          measured_xy_accuracy_ft: number | null
+          measured_xy_at: string | null
+          measured_xy_by: string | null
+          measured_xy_datum: string | null
+          measured_xy_method: string | null
           notes: string | null
           pole_ref: string | null
           pole_scheme: string | null
@@ -4787,6 +4867,11 @@ export type Database = {
           location_x_ft?: number | null
           location_y_ft?: number | null
           location_z_ft?: number | null
+          measured_xy_accuracy_ft?: number | null
+          measured_xy_at?: string | null
+          measured_xy_by?: string | null
+          measured_xy_datum?: string | null
+          measured_xy_method?: string | null
           notes?: string | null
           pole_ref?: string | null
           pole_scheme?: string | null
@@ -4825,6 +4910,11 @@ export type Database = {
           location_x_ft?: number | null
           location_y_ft?: number | null
           location_z_ft?: number | null
+          measured_xy_accuracy_ft?: number | null
+          measured_xy_at?: string | null
+          measured_xy_by?: string | null
+          measured_xy_datum?: string | null
+          measured_xy_method?: string | null
           notes?: string | null
           pole_ref?: string | null
           pole_scheme?: string | null
@@ -4891,6 +4981,11 @@ export type Database = {
           location_x_ft: number | null
           location_y_ft: number | null
           location_z_ft: number | null
+          measured_xy_accuracy_ft: number | null
+          measured_xy_at: string | null
+          measured_xy_by: string | null
+          measured_xy_datum: string | null
+          measured_xy_method: string | null
           notes: string | null
           poles: number | null
           rated_current_amps: number | null
@@ -4927,6 +5022,11 @@ export type Database = {
           location_x_ft?: number | null
           location_y_ft?: number | null
           location_z_ft?: number | null
+          measured_xy_accuracy_ft?: number | null
+          measured_xy_at?: string | null
+          measured_xy_by?: string | null
+          measured_xy_datum?: string | null
+          measured_xy_method?: string | null
           notes?: string | null
           poles?: number | null
           rated_current_amps?: number | null
@@ -4963,6 +5063,11 @@ export type Database = {
           location_x_ft?: number | null
           location_y_ft?: number | null
           location_z_ft?: number | null
+          measured_xy_accuracy_ft?: number | null
+          measured_xy_at?: string | null
+          measured_xy_by?: string | null
+          measured_xy_datum?: string | null
+          measured_xy_method?: string | null
           notes?: string | null
           poles?: number | null
           rated_current_amps?: number | null

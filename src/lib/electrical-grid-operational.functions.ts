@@ -82,12 +82,18 @@ function baseInput(kind: AssetKind, row: Row, id: string): OperationalInput {
     poleRefStart: str(row["pole_ref_start"]),
     poleRefEnd: str(row["pole_ref_end"]),
     pendingObservation: null,
+    measuredMethod: str(row["measured_xy_method"]),
+    measuredAccuracyFt: num(row["measured_xy_accuracy_ft"]),
+    measuredDatum: str(row["measured_xy_datum"]),
+    measuredAt: str(row["measured_xy_at"]),
+    measuredBy: str(row["measured_xy_by"]),
   };
 }
 
 /** Location columns an applied audit writes onto a record. */
 const OBSERVED_LOCATION_COLS =
-  "field_grid_reference, pole_scheme, pole_location_kind, pole_ref_start, pole_ref_end";
+  "field_grid_reference, pole_scheme, pole_location_kind, pole_ref_start, pole_ref_end, " +
+  "measured_xy_method, measured_xy_accuracy_ft, measured_xy_datum, measured_xy_at, measured_xy_by";
 
 /**
  * Staged field observations: audit-batch items that state a location but have not
@@ -165,7 +171,7 @@ export const electricalGridOperational = createServerFn({ method: "GET" })
         db
           .from("electrical_junction_boxes")
           .select(
-            "jbox_id, description, building, grid, install_status, updated_at, " +
+            "jbox_id, description, building, grid, location_x_ft, location_y_ft, grid_reference_precision, install_status, field_verification_status, location_evidence, updated_at, " +
               OBSERVED_LOCATION_COLS,
           ),
         db
