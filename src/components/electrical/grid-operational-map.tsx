@@ -205,7 +205,17 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
 
 
   const [printMode, setPrintMode] = usePrintMode();
+  // "Map only": pick which saved grid map and which panel scope to print.
+  const [mapOnlyOpen, setMapOnlyOpen] = useState(false);
+  const [mapOnlyDef, setMapOnlyDef] = useState<string>("");
+  const [mapOnlyPanel, setMapOnlyPanel] = useState<string>("ALL");
+  const gridDefsFetcher = useServerFn(listGridDefinitions);
+  const gridDefs = useQuery({
+    queryKey: ["electrical", "grid-definitions"],
+    queryFn: () => gridDefsFetcher(),
+  });
   // Grid sheets (print and PDF) are part of the premium print package.
+
   const premiumPrint = usePremiumPrint();
   const [saving, setSaving] = useState(false);
   // Stamped at the moment a sheet is produced, so the header time is the
