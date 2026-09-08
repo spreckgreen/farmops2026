@@ -151,8 +151,14 @@ export function renderGridMapPdf(input: GridMapPdfInput): jsPDF {
     }
   }
 
-  // Dot placement uses the one documented feet → plan transform.
-  for (const a of input.plotted) {
+  // Dot placement uses the one documented feet → plan transform. Measured field
+  // X/Y records are drawn last so they sit above every derived grid, post or
+  // interval marker — they are the highest-authority location statement.
+  const isMeasured = (a: OperationalAsset) => a.plotProvenance === "FIELD_VERIFIED_XY";
+  const drawOrder = [...input.plotted].sort(
+    (p, q) => Number(isMeasured(p)) - Number(isMeasured(q)),
+  );
+  for (const a of drawOrder) {
     if (a.plottedXFt == null || a.plottedYFt == null) continue;
     const { fx, fy } = feetToPlanFraction(a.plottedXFt, a.plottedYFt);
     const cx = x0 + fx * planW;
@@ -163,6 +169,15 @@ export function renderGridMapPdf(input: GridMapPdfInput): jsPDF {
     doc.setLineWidth(0.6);
     if (a.kind === "panel") doc.rect(cx - 3, cy - 3, 6, 6, "FD");
     else doc.circle(cx, cy, 3, "FD");
+    // Measured field X/Y gets a survey crosshair over the dot so a printed sheet
+    // shows at a glance which points are measured rather than derived.
+    if (isMeasured(a)) {
+      doc.setDrawColor(220, 38, 38);
+      doc.setLineWidth(0.7);
+      doc.line(cx - 6, cy, cx + 6, cy);
+      doc.line(cx, cy - 6, cx, cy + 6);
+      doc.circle(cx, cy, 5.2, "S");
+    }
     // Labels only where the cluster is small enough to stay readable.
     if (a.stackSize <= 4) {
       doc.setFontSize(4.6);
@@ -173,9 +188,27 @@ export function renderGridMapPdf(input: GridMapPdfInput): jsPDF {
     }
   }
 
-  // Legend to the right of the plan.
+  // Legend to the right of the plan. Measured X/Y leads it, because a measured
+  // coordinate outranks every grid, post and interval reference.
+  const measuredCount = input.plotted.filter(isMeasured).length;
   let ly = y0 + 10;
   const lx = x0 + planW + 16;
+  doc.setFontSize(8);
+  doc.text("Location authority", lx, ly);
+  ly += 12;
+  doc.setFontSize(7);
+  doc.setDrawColor(220, 38, 38);
+  doc.setLineWidth(0.7);
+  doc.line(lx, ly - 2.4, lx + 6, ly - 2.4);
+  doc.line(lx + 3, ly - 5.4, lx + 3, ly + 0.6);
+  doc.text(`1. Measured field X/Y — ${measuredCount} plotted`, lx + 10, ly, {
+    maxWidth: legendW - 12,
+  });
+  ly += 11;
+  doc.text("2. Grid, post or interval reference (derived point)", lx, ly, {
+    maxWidth: legendW - 4,
+  });
+  ly += 20;
   doc.setFontSize(8);
   doc.text("Location precision", lx, ly);
   ly += 12;
@@ -206,6 +239,8 @@ export function renderGridMapPdf(input: GridMapPdfInput): jsPDF {
   doc.setFontSize(7.5);
   doc.text(
     `${input.plotted.length} of ${input.filteredCount} record(s) plotted · ` +
+      `${measuredCount} measured field X/Y (plotted as recorded) · ` +
+      `${input.plotted.length - measuredCount} from grid, post or interval reference (derived) · ` +
       `${input.unplotted.length} not mapped (no permanent location in the record)` +
       (input.gaps.length ? ` · ${input.gaps.length} record gap(s)` : ""),
     MARGIN,
@@ -262,6 +297,29 @@ function renderDataQuality(doc: jsPDF, input: GridMapPdfInput): void {
       `${input.gaps.length} record gap(s)`,
     9,
   );
+  y += 6;
+
+  // Location authority: measured field X/Y first, then derived references.
+  const measured = input.plotted.filter((a) => a.plotProvenance === "FIELD_VERIFIED_XY");
+  line("Location authority — measured field X/Y first", 9);
+  line(
+    `${measured.length} record(s) carry a measured field X/Y coordinate and are plotted at that ` +
+      "measured point, which outranks every grid, post and interval reference. The remaining " +
+      `${input.plotted.length - measured.length} plotted record(s) use a deterministic derived ` +
+      "point from a verified grid, post or interval: field-authoritative at the recorded " +
+      "precision, but not measured coordinates.",
+    7.5,
+    10,
+  );
+  for (const a of measured) {
+    line(
+      `${a.stableId} — measured ${a.plottedXFt} ft E / ${a.plottedYFt} ft S` +
+        (a.grid ? ` · secondary grid/post reference ${a.grid}` : " · no grid/post reference") +
+        (a.auditId ? ` · audit ${a.auditId}` : ""),
+      7.5,
+      10,
+    );
+  }
   y += 6;
 
   if (input.unplotted.length) {

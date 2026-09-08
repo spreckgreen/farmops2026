@@ -23,6 +23,12 @@ export interface ProvenanceLabel {
   description: string;
   /** "C4 · field-verified grid cell" style reference line. */
   reference: string;
+  /** True when the record carries a measured field X/Y coordinate. */
+  measured: boolean;
+  /** Highest-authority location line: the measured point when one exists. */
+  primaryLocation: string;
+  /** Grid, post or interval reference, secondary to a measured coordinate. */
+  secondaryReference: string | null;
   plotted: string;
   provenance: string;
   provenanceLabel: string;
@@ -40,6 +46,8 @@ export interface ProvenanceLabelSheet {
   perPage: number;
   /** Records carrying a conflict notice, counted so the sheet states its own risk. */
   conflictCount: number;
+  /** Records carrying a measured field X/Y coordinate; these labels print first. */
+  measuredCount: number;
 }
 
 function labelFrom(row: MapSheetRow): ProvenanceLabel {
@@ -48,6 +56,9 @@ function labelFrom(row: MapSheetRow): ProvenanceLabel {
     kind: row.kind,
     description: row.description,
     reference: row.reference,
+    measured: row.measured,
+    primaryLocation: row.primaryLocation,
+    secondaryReference: row.secondaryReference,
     plotted: row.plotted,
     provenance: row.provenance,
     provenanceLabel: row.provenanceLabel,
@@ -68,6 +79,7 @@ export function provenanceLabelSheet(input: MapSheetInput): ProvenanceLabelSheet
     perPage: PROVENANCE_LABELS_PER_PAGE,
     pages: Math.max(1, Math.ceil(labels.length / PROVENANCE_LABELS_PER_PAGE)),
     conflictCount: model.counts.conflicts,
+    measuredCount: model.counts.measuredXy,
   };
 }
 
@@ -83,10 +95,12 @@ export function renderProvenanceLabelsHtml(sheet: ProvenanceLabelSheet): string 
   const cells = sheet.labels
     .map(
       (l) => `<div class="plabel">
-  <div class="pid">${esc(l.stableId)}${l.conflict ? ' <span class="pconflict">CONFLICT</span>' : ""}</div>
+  <div class="pid">${esc(l.stableId)}${l.measured ? ' <span class="pmeasured">MEASURED X/Y</span>' : ""}${l.conflict ? ' <span class="pconflict">CONFLICT</span>' : ""}</div>
   <div class="pkind">${esc(l.kind)}${l.description ? ` — ${esc(l.description)}` : ""}</div>
-  <div class="prow"><b>Reference</b> ${esc(l.reference)}</div>
-  <div class="prow"><b>Plotted</b> ${esc(l.plotted)}</div>
+  <div class="prow prime"><b>${l.measured ? "Measured X/Y" : "Reference"}</b> ${esc(l.primaryLocation)}</div>
+  <div class="prow"><b>${l.measured ? "Secondary reference" : "Plotted"}</b> ${esc(
+    l.measured ? (l.secondaryReference ?? "none recorded") : l.plotted,
+  )}</div>
   <div class="prow"><b>Provenance</b> ${esc(l.provenance)} — ${esc(l.provenanceLabel)}</div>
   <div class="prow"><b>Precision</b> ${esc(l.precision)}</div>
   <div class="prow"><b>Audit</b> ${esc(l.auditId)}</div>
@@ -107,6 +121,8 @@ export function renderProvenanceLabelsHtml(sheet: ProvenanceLabelSheet): string 
   .pkind { font-size: 10px; color: #444; margin-bottom: 2px; }
   .prow { font-size: 9.5px; line-height: 1.25; }
   .prow b { font-weight: 600; }
+  .prow.prime { font-size: 10.5px; font-weight: 600; }
+  .pmeasured { font-size: 9px; font-weight: 700; border: 1px solid #111; background: #111; color: #fff; padding: 0 3px; vertical-align: middle; }
   .pnote { font-size: 10px; color: #555; margin-bottom: 8px; }
   @media print { .pnote, .psheet-head { display: none; } .plabel { border: none; } }
 </style>
@@ -117,6 +133,8 @@ export function renderProvenanceLabelsHtml(sheet: ProvenanceLabelSheet): string 
   )} UTC · ${sheet.labels.length} label(s) · ${sheet.pages} page(s)</div>
 </header>
 <div class="pnote">Avery 5163 stock (2" x 4", 10 per page). Print at 100% scale. ${
+    sheet.measuredCount
+  } record(s) carry a measured field X/Y coordinate; those labels print first and lead with the measured point, with any grid or post reference shown as secondary. ${
     sheet.conflictCount
   } record(s) in this scope carry a conflict notice and are marked CONFLICT; see the map sheet for the full notice.</div></div>
 ${body}`;

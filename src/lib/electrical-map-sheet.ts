@@ -39,6 +39,12 @@ export interface MapSheetRow {
   kind: string;
   description: string;
   reference: string;
+  /** True when the record carries a measured field X/Y coordinate. */
+  measured: boolean;
+  /** Highest-authority location statement: the measured point when present. */
+  primaryLocation: string;
+  /** Grid, post or interval reference, secondary to a measured coordinate. */
+  secondaryReference: string | null;
   plotted: string;
   provenance: PlotProvenance;
   provenanceLabel: string;
@@ -93,6 +99,17 @@ function referenceText(a: OperationalAsset): string {
 }
 
 /**
+ * The grid, post or interval reference a record also carries. Stated as
+ * secondary information whenever a measured field X/Y is present, because the
+ * measured coordinate is the higher-authority location statement.
+ */
+function secondaryReferenceText(a: OperationalAsset): string | null {
+  if (a.grid) return `Grid/post reference ${a.grid}`;
+  if (a.designGrid) return `Design grid ${a.designGrid} (DESIGN)`;
+  return null;
+}
+
+/**
  * Conflict notice for one record: the placement disagreement the resolver
  * recorded, plus a field-vs-design grid conflict where the verified reference
  * and the design grid disagree. The verified reference always controls the plot.
@@ -119,6 +136,11 @@ export function mapSheetModel(input: MapSheetInput): MapSheetModel {
     kind: ASSET_KIND_LABEL[a.kind] ?? a.kind,
     description: a.description ?? "",
     reference: referenceText(a),
+    measured: a.plotProvenance === "FIELD_VERIFIED_XY",
+    primaryLocation:
+      a.plotProvenance === "FIELD_VERIFIED_XY" ? plottedText(a) : referenceText(a),
+    secondaryReference:
+      a.plotProvenance === "FIELD_VERIFIED_XY" ? secondaryReferenceText(a) : null,
     plotted: plottedText(a),
     provenance: a.plotProvenance,
     provenanceLabel: PLOT_PROVENANCE_LABEL[a.plotProvenance],
@@ -128,7 +150,11 @@ export function mapSheetModel(input: MapSheetInput): MapSheetModel {
     panel: a.panel ?? "not in record",
     conflict: conflictNoticeFor(a),
   }));
-  rows.sort((x, y) => x.stableId.localeCompare(y.stableId));
+  // Measured field X/Y records are the highest-authority location statement, so
+  // they lead every printed list; grid, post and interval references follow.
+  rows.sort(
+    (x, y) => Number(y.measured) - Number(x.measured) || x.stableId.localeCompare(y.stableId),
+  );
 
   const fieldVerified = rows.filter((r) => isFieldVerifiedProvenance(r.provenance)).length;
   const measuredXy = rows.filter((r) => r.provenance === "FIELD_VERIFIED_XY").length;
@@ -181,8 +207,10 @@ export function renderMapSheetHtml(model: MapSheetModel): string {
   const recordRows = model.rows
     .map(
       (r) =>
-        `<tr><td>${esc(r.stableId)}</td><td>${esc(r.kind)}</td><td>${esc(r.reference)}</td><td>${esc(
-          r.plotted,
+        `<tr><td>${esc(r.stableId)}</td><td>${esc(r.kind)}</td><td>${
+          r.measured ? "measured X/Y" : ""
+        }</td><td>${esc(r.primaryLocation)}</td><td>${esc(
+          r.secondaryReference ?? (r.measured ? "none recorded" : r.plotted),
         )}</td><td>${esc(r.provenance)}</td><td>${esc(r.precision)}</td><td>${esc(
           r.derivation,
         )}</td><td>${esc(r.auditId)}</td><td>${r.conflict ? "yes" : ""}</td></tr>`,
@@ -227,7 +255,8 @@ export function renderMapSheetHtml(model: MapSheetModel): string {
 <table><thead><tr><th>Provenance</th><th>Meaning</th><th>Records</th><th>Derivation method</th></tr></thead><tbody>${summaryRows}</tbody></table>
 ${filters}
 <h2>Records</h2>
-<table><thead><tr><th>Stable ID</th><th>Type</th><th>Reference</th><th>Plotted point</th><th>Provenance</th><th>Precision</th><th>Derivation</th><th>Audit</th><th>Conflict</th></tr></thead><tbody>${recordRows}</tbody></table>
+<p>${model.counts.measuredXy} record(s) carry a measured field X/Y coordinate and are listed first; a measured coordinate outranks every grid, post and interval reference, which are shown as secondary.</p>
+<table><thead><tr><th>Stable ID</th><th>Type</th><th>Measured</th><th>Primary location (measured X/Y first)</th><th>Secondary grid / post reference</th><th>Provenance</th><th>Precision</th><th>Derivation</th><th>Audit</th><th>Conflict</th></tr></thead><tbody>${recordRows}</tbody></table>
 <h2>Conflict notices (${model.counts.conflicts})</h2>
 ${conflictCards}
 ${gaps}`;
