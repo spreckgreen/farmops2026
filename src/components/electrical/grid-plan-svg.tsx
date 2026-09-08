@@ -55,6 +55,19 @@ export const PRECISION_HEX: Record<LocationPrecision, string> = {
 
 export const PROPOSED_LED_HEX = "#f59e0b";
 
+/** Measured field X/Y points are drawn in one deliberate colour of their own. */
+export const MEASURED_XY_HEX = "#be123c";
+
+/** Where the measured X/Y point layer sits relative to grid lines and posts. */
+export type MeasuredXyLayerMode = "OFF" | "ABOVE" | "BELOW";
+
+export const MEASURED_XY_LAYER_LABEL: Record<MeasuredXyLayerMode, string> = {
+  OFF: "Hidden",
+  ABOVE: "Above grid and posts",
+  BELOW: "Below grid and posts",
+};
+
+
 export const PLAN_ALT =
   "Overhead grid plan of the 60 by 40 foot Farm Shop, with lettered rows A to F north to south and numbered columns 1 to 9 west to east, the GD2 and GD1 overhead doors and the north-east and south-west man doors";
 
