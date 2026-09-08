@@ -46,6 +46,8 @@ export interface ProvenanceLabelSheet {
   perPage: number;
   /** Records carrying a conflict notice, counted so the sheet states its own risk. */
   conflictCount: number;
+  /** Records carrying a measured field X/Y coordinate; these labels print first. */
+  measuredCount: number;
 }
 
 function labelFrom(row: MapSheetRow): ProvenanceLabel {
@@ -77,6 +79,7 @@ export function provenanceLabelSheet(input: MapSheetInput): ProvenanceLabelSheet
     perPage: PROVENANCE_LABELS_PER_PAGE,
     pages: Math.max(1, Math.ceil(labels.length / PROVENANCE_LABELS_PER_PAGE)),
     conflictCount: model.counts.conflicts,
+    measuredCount: model.counts.measuredXy,
   };
 }
 
