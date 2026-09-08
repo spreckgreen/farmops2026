@@ -698,9 +698,59 @@ function ProposedLedLayer() {
   );
 }
 
+/** Records plotted from a measured field X/Y coordinate, in drawing order. */
+export function measuredXyAssets(assets: OperationalAsset[]): OperationalAsset[] {
+  return assets
+    .filter(
+      (a) =>
+        a.plotProvenance === "FIELD_VERIFIED_XY" &&
+        a.plottedXFt != null &&
+        a.plottedYFt != null &&
+        !a.spanned,
+    )
+    .sort((a, b) => a.stableId.localeCompare(b.stableId));
+}
+
+/** Measured field X/Y coordinates, drawn as fixed survey points.
+ *
+ * These are the only points on the plan that are measured rather than derived,
+ * so they get their own symbol: a filled centre dot inside a crosshair at the
+ * exact recorded coordinate. Nothing here is nudged, clustered or fanned — the
+ * point is drawn where it was measured. */
+function MeasuredXyLayer({ assets }: { assets: OperationalAsset[] }) {
+  const points = measuredXyAssets(assets);
+  if (points.length === 0) return null;
+  return (
+    <g pointerEvents="none" data-layer="measured-xy">
+      {points.map((a) => {
+        const p = feetToPlan(a.plottedXFt as number, a.plottedYFt as number);
+        return (
+          <g key={`mxy-${a.stableId}`} data-measured-xy={a.stableId}>
+            <title>{`${a.stableId} — measured field X/Y at ${a.plottedXFt} ft east, ${a.plottedYFt} ft south`}</title>
+            <g stroke={MEASURED_XY_HEX} strokeWidth={u(0.14)}>
+              <line x1={p.x - u(1.1)} y1={p.y} x2={p.x + u(1.1)} y2={p.y} />
+              <line x1={p.x} y1={p.y - u(1.1)} x2={p.x} y2={p.y + u(1.1)} />
+            </g>
+            <circle
+              cx={p.x}
+              cy={p.y}
+              r={u(0.72)}
+              fill="none"
+              stroke={MEASURED_XY_HEX}
+              strokeWidth={u(0.14)}
+            />
+            <circle cx={p.x} cy={p.y} r={u(0.24)} fill={MEASURED_XY_HEX} />
+          </g>
+        );
+      })}
+    </g>
+  );
+}
+
 /** Approved design vs latest field observation.
  *
  * Design positions are drawn as dashed squares, verified field positions as
+
  * small crosses, and the two are joined by a leader line. A mismatch beyond
  * tolerance gets a red halo and its separation in feet — the layer reports the
  * disagreement, it never resolves it. */
