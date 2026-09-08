@@ -607,9 +607,32 @@ export function placementCandidatesFor(row: OperationalInput): PlacementCandidat
   const correctedReference = parseNewGrid(row.gridReference ?? "");
   const currentGrid = parseNewGrid(row.grid ?? "");
 
+  // 0. Measured field X/Y record: an instrument measurement taken on site. It is
+  //    the highest authority there is — it outranks posts, intervals, verified
+  //    grid cells and every design assignment — and it is the only source that
+  //    may be presented as a measured coordinate.
+  const measuredMethod = measuredXyMethodOf(row.measuredMethod);
+  if (x != null && y != null && measuredMethod) {
+    out.push({
+      source: "VERIFIED_FIELD_OBSERVATION_XY",
+      xFt: x,
+      yFt: y,
+      precision: "EXACT",
+      spanned: false,
+      basis: `Measured field coordinate: ${x} ft E, ${y} ft S by ${
+        MEASURED_XY_METHOD_LABEL[measuredMethod]
+      }${row.measuredAccuracyFt != null ? ` (±${row.measuredAccuracyFt} ft)` : ""}${
+        row.measuredDatum ? `, datum ${row.measuredDatum}` : ""
+      }${row.measuredAt ? `, measured ${row.measuredAt}` : ""}${
+        row.measuredBy ? ` by ${row.measuredBy}` : ""
+      }. Used as recorded.`,
+      accepted: true,
+    });
+  }
+
   // 1. Exact X/Y, but only from an approved/verified field observation that is
   //    marked as the current installed location.
-  if (x != null && y != null && isCurrentVerifiedObservation(row)) {
+  else if (x != null && y != null && isCurrentVerifiedObservation(row)) {
     out.push({
       source: "VERIFIED_FIELD_OBSERVATION_XY",
       xFt: x,
