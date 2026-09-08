@@ -239,6 +239,8 @@ export function renderGridMapPdf(input: GridMapPdfInput): jsPDF {
   doc.setFontSize(7.5);
   doc.text(
     `${input.plotted.length} of ${input.filteredCount} record(s) plotted · ` +
+      `${measuredCount} measured field X/Y (plotted as recorded) · ` +
+      `${input.plotted.length - measuredCount} from grid, post or interval reference (derived) · ` +
       `${input.unplotted.length} not mapped (no permanent location in the record)` +
       (input.gaps.length ? ` · ${input.gaps.length} record gap(s)` : ""),
     MARGIN,
