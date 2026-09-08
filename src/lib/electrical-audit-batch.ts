@@ -331,6 +331,13 @@ export const APPLY_ORDER: readonly AuditEntityKind[] = [
 ];
 
 const LOCATION_FIELDS = [
+  "location_x_ft",
+  "location_y_ft",
+  "measured_xy_method",
+  "measured_xy_accuracy_ft",
+  "measured_xy_datum",
+  "measured_xy_at",
+  "measured_xy_by",
   "pole_scheme",
   "pole_location_kind",
   "pole_ref_start",
@@ -738,6 +745,24 @@ const poleSchema = z.object({
   pole_ref_end: z.string().trim().nullish(),
 });
 
+/**
+ * A measured field X/Y record: an instrument measurement taken on site. It is the
+ * highest-authority location statement there is and outranks verified posts,
+ * intervals, grid cells and every design coordinate. It is the only source that
+ * may be presented as a measured coordinate.
+ */
+export const measuredXySchema = z.object({
+  x_ft: z.number().finite(),
+  y_ft: z.number().finite(),
+  method: z.enum(MEASURED_XY_METHODS),
+  accuracy_ft: z.number().finite().positive().nullish(),
+  datum: z.string().trim().max(120).nullish(),
+  measured_at: z.string().trim().max(40).nullish(),
+  measured_by: z.string().trim().max(120).nullish(),
+});
+
+export type MeasuredXyInput = z.infer<typeof measuredXySchema>;
+
 export const auditBatchItemSchema = z.object({
   item_key: z.string().trim().min(1).max(160),
   entity_kind: z.enum(
@@ -751,6 +776,8 @@ export const auditBatchItemSchema = z.object({
   fields: z.record(z.string(), z.any() as unknown as z.ZodType<Json>).default({}),
   install_state: z.enum(AUDIT_INSTALL_STATES).nullish(),
   pole: poleSchema.nullish(),
+  /** Measured field X/Y coordinate record; outranks every other location claim. */
+  measured_xy: measuredXySchema.nullish(),
   field_grid_reference: z.string().trim().max(20).nullish(),
   /** Human-readable references kept as evidence only, never as authority. */
   refs: z
@@ -987,6 +1014,11 @@ export const LOCATION_DOES_NOT_SUPPRESS_LINKS_RULE =
 
 /** The columns that state where a record physically is. */
 export const LOCATION_PATCH_COLUMNS = [
+  "measured_xy_method",
+  "measured_xy_accuracy_ft",
+  "measured_xy_datum",
+  "measured_xy_at",
+  "measured_xy_by",
   "field_grid_reference",
   "pole_scheme",
   "pole_location_kind",
@@ -1110,6 +1142,31 @@ export function buildPatch(
     }
   }
 
+  if (item.measured_xy) {
+    const m = item.measured_xy;
+    if (!allowed.has("measured_xy_method") || !allowed.has("location_x_ft")) {
+      messages.push(
+        locErr(`${item.entity_kind} records cannot carry a measured field X/Y coordinate.`),
+      );
+    } else {
+      patch["location_x_ft"] = m.x_ft;
+      patch["location_y_ft"] = m.y_ft;
+      patch["measured_xy_method"] = m.method;
+      patch["measured_xy_accuracy_ft"] = m.accuracy_ft ?? null;
+      patch["measured_xy_datum"] = m.datum ? norm(m.datum) : null;
+      patch["measured_xy_at"] = m.measured_at ? norm(m.measured_at) : null;
+      patch["measured_xy_by"] = m.measured_by ? norm(m.measured_by) : null;
+      if (allowed.has("grid_reference_precision")) patch["grid_reference_precision"] = "EXACT";
+      messages.push(
+        info(
+          `Measured field coordinate ${m.x_ft} ft E / ${m.y_ft} ft S (${m.method}${
+            m.accuracy_ft != null ? `, ±${m.accuracy_ft} ft` : ""
+          }) is plotted as a measured point and outranks any grid, post or interval reference on this record.`,
+        ),
+      );
+    }
+  }
+
   if (item.field_grid_reference) {
     const grid = parseFieldGrid(item.field_grid_reference);
     if (!grid) {
@@ -1173,7 +1230,7 @@ export function buildPatch(
   }
 
 
-  if (allowed.has("location_evidence") && (item.pole || item.field_grid_reference)) {
+  if (allowed.has("location_evidence") && (item.pole || item.field_grid_reference || item.measured_xy)) {
     patch["location_evidence"] = `${item.evidence}${
       item.pole ? ` — pole ${poleToken(item.pole)}` : ""
     }`;
