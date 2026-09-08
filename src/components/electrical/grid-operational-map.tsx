@@ -701,6 +701,8 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
                 showProposedLeds={showLeds}
                 baseOverlay={baseOverlay}
                 cellCounts={cellCounts}
+                measuredXyLayer={measuredXyLayer}
+
                 {...(showRecent ? { recentIds } : {})}
                 {...(showDesignVsField ? { designOverlay: designField.pairs } : {})}
               />
