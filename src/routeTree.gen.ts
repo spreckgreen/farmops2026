@@ -97,6 +97,7 @@ import { Route as ElectricalLabelsRouteImport } from './routes/electrical.labels
 import { Route as ElectricalMappingRouteImport } from './routes/electrical.mapping'
 import { Route as ElectricalMappingAuditRouteImport } from './routes/electrical.mapping-audit'
 import { Route as ElectricalMappingRepairRouteImport } from './routes/electrical.mapping-repair'
+import { Route as ElectricalMeasuredXyRouteImport } from './routes/electrical.measured-xy'
 import { Route as ElectricalNameplateScanRouteImport } from './routes/electrical.nameplate-scan'
 import { Route as ElectricalPanelDiagramRouteImport } from './routes/electrical.panel-diagram'
 import { Route as ElectricalPeerImportRouteImport } from './routes/electrical.peer-import'
@@ -613,6 +614,11 @@ const ElectricalMappingRepairRoute = ElectricalMappingRepairRouteImport.update({
   path: '/electrical/mapping-repair',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ElectricalMeasuredXyRoute = ElectricalMeasuredXyRouteImport.update({
+  id: '/electrical/measured-xy',
+  path: '/electrical/measured-xy',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ElectricalNameplateScanRoute = ElectricalNameplateScanRouteImport.update({
   id: '/electrical/nameplate-scan',
   path: '/electrical/nameplate-scan',
@@ -1071,6 +1077,7 @@ export interface FileRoutesByFullPath {
   '/electrical/mapping': typeof ElectricalMappingRoute
   '/electrical/mapping-audit': typeof ElectricalMappingAuditRoute
   '/electrical/mapping-repair': typeof ElectricalMappingRepairRoute
+  '/electrical/measured-xy': typeof ElectricalMeasuredXyRoute
   '/electrical/nameplate-scan': typeof ElectricalNameplateScanRoute
   '/electrical/panel-diagram': typeof ElectricalPanelDiagramRoute
   '/electrical/peer-import': typeof ElectricalPeerImportRoute
@@ -1227,6 +1234,7 @@ export interface FileRoutesByTo {
   '/electrical/mapping': typeof ElectricalMappingRoute
   '/electrical/mapping-audit': typeof ElectricalMappingAuditRoute
   '/electrical/mapping-repair': typeof ElectricalMappingRepairRoute
+  '/electrical/measured-xy': typeof ElectricalMeasuredXyRoute
   '/electrical/nameplate-scan': typeof ElectricalNameplateScanRoute
   '/electrical/panel-diagram': typeof ElectricalPanelDiagramRoute
   '/electrical/peer-import': typeof ElectricalPeerImportRoute
@@ -1389,6 +1397,7 @@ export interface FileRoutesById {
   '/electrical/mapping': typeof ElectricalMappingRoute
   '/electrical/mapping-audit': typeof ElectricalMappingAuditRoute
   '/electrical/mapping-repair': typeof ElectricalMappingRepairRoute
+  '/electrical/measured-xy': typeof ElectricalMeasuredXyRoute
   '/electrical/nameplate-scan': typeof ElectricalNameplateScanRoute
   '/electrical/panel-diagram': typeof ElectricalPanelDiagramRoute
   '/electrical/peer-import': typeof ElectricalPeerImportRoute
@@ -1552,6 +1561,7 @@ export interface FileRouteTypes {
     | '/electrical/mapping'
     | '/electrical/mapping-audit'
     | '/electrical/mapping-repair'
+    | '/electrical/measured-xy'
     | '/electrical/nameplate-scan'
     | '/electrical/panel-diagram'
     | '/electrical/peer-import'
@@ -1708,6 +1718,7 @@ export interface FileRouteTypes {
     | '/electrical/mapping'
     | '/electrical/mapping-audit'
     | '/electrical/mapping-repair'
+    | '/electrical/measured-xy'
     | '/electrical/nameplate-scan'
     | '/electrical/panel-diagram'
     | '/electrical/peer-import'
@@ -1869,6 +1880,7 @@ export interface FileRouteTypes {
     | '/electrical/mapping'
     | '/electrical/mapping-audit'
     | '/electrical/mapping-repair'
+    | '/electrical/measured-xy'
     | '/electrical/nameplate-scan'
     | '/electrical/panel-diagram'
     | '/electrical/peer-import'
@@ -2031,6 +2043,7 @@ export interface RootRouteChildren {
   ElectricalMappingRoute: typeof ElectricalMappingRoute
   ElectricalMappingAuditRoute: typeof ElectricalMappingAuditRoute
   ElectricalMappingRepairRoute: typeof ElectricalMappingRepairRoute
+  ElectricalMeasuredXyRoute: typeof ElectricalMeasuredXyRoute
   ElectricalNameplateScanRoute: typeof ElectricalNameplateScanRoute
   ElectricalPanelDiagramRoute: typeof ElectricalPanelDiagramRoute
   ElectricalPeerImportRoute: typeof ElectricalPeerImportRoute
@@ -2699,6 +2712,13 @@ declare module '@tanstack/react-router' {
       path: '/electrical/mapping-repair'
       fullPath: '/electrical/mapping-repair'
       preLoaderRoute: typeof ElectricalMappingRepairRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/electrical/measured-xy': {
+      id: '/electrical/measured-xy'
+      path: '/electrical/measured-xy'
+      fullPath: '/electrical/measured-xy'
+      preLoaderRoute: typeof ElectricalMeasuredXyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/electrical/nameplate-scan': {
@@ -3412,6 +3432,7 @@ const rootRouteChildren: RootRouteChildren = {
   ElectricalMappingRoute: ElectricalMappingRoute,
   ElectricalMappingAuditRoute: ElectricalMappingAuditRoute,
   ElectricalMappingRepairRoute: ElectricalMappingRepairRoute,
+  ElectricalMeasuredXyRoute: ElectricalMeasuredXyRoute,
   ElectricalNameplateScanRoute: ElectricalNameplateScanRoute,
   ElectricalPanelDiagramRoute: ElectricalPanelDiagramRoute,
   ElectricalPeerImportRoute: ElectricalPeerImportRoute,
