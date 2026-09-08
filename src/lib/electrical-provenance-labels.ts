@@ -95,10 +95,12 @@ export function renderProvenanceLabelsHtml(sheet: ProvenanceLabelSheet): string 
   const cells = sheet.labels
     .map(
       (l) => `<div class="plabel">
-  <div class="pid">${esc(l.stableId)}${l.conflict ? ' <span class="pconflict">CONFLICT</span>' : ""}</div>
+  <div class="pid">${esc(l.stableId)}${l.measured ? ' <span class="pmeasured">MEASURED X/Y</span>' : ""}${l.conflict ? ' <span class="pconflict">CONFLICT</span>' : ""}</div>
   <div class="pkind">${esc(l.kind)}${l.description ? ` — ${esc(l.description)}` : ""}</div>
-  <div class="prow"><b>Reference</b> ${esc(l.reference)}</div>
-  <div class="prow"><b>Plotted</b> ${esc(l.plotted)}</div>
+  <div class="prow prime"><b>${l.measured ? "Measured X/Y" : "Reference"}</b> ${esc(l.primaryLocation)}</div>
+  <div class="prow"><b>${l.measured ? "Secondary reference" : "Plotted"}</b> ${esc(
+    l.measured ? (l.secondaryReference ?? "none recorded") : l.plotted,
+  )}</div>
   <div class="prow"><b>Provenance</b> ${esc(l.provenance)} — ${esc(l.provenanceLabel)}</div>
   <div class="prow"><b>Precision</b> ${esc(l.precision)}</div>
   <div class="prow"><b>Audit</b> ${esc(l.auditId)}</div>
@@ -119,6 +121,8 @@ export function renderProvenanceLabelsHtml(sheet: ProvenanceLabelSheet): string 
   .pkind { font-size: 10px; color: #444; margin-bottom: 2px; }
   .prow { font-size: 9.5px; line-height: 1.25; }
   .prow b { font-weight: 600; }
+  .prow.prime { font-size: 10.5px; font-weight: 600; }
+  .pmeasured { font-size: 9px; font-weight: 700; border: 1px solid #111; background: #111; color: #fff; padding: 0 3px; vertical-align: middle; }
   .pnote { font-size: 10px; color: #555; margin-bottom: 8px; }
   @media print { .pnote, .psheet-head { display: none; } .plabel { border: none; } }
 </style>
