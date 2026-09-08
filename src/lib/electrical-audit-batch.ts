@@ -19,6 +19,7 @@ import {
   type ElectricalEntityKind,
 } from "@/lib/electrical";
 import { diffFieldChanges, type FieldChange } from "@/lib/electrical-dependents";
+import { MEASURED_XY_METHODS } from "@/lib/electrical-measured-xy";
 import { breakerRelationshipLabel } from "@/lib/electrical-breaker-reference";
 import { checkSwitchControlId } from "@/lib/electrical-switch-controls";
 
@@ -347,6 +348,7 @@ const LOCATION_FIELDS = [
   "verification_notes",
   "location_evidence",
   "verified_at",
+  "grid_reference_precision",
 ];
 
 const STATE_FIELDS = ["install_status", "label_status", "completion_percent", "notes"];

@@ -24,6 +24,19 @@ import {
   postObservationFeet,
 } from "@/lib/electrical-grid-post-geometry";
 import { approvedDesignXy } from "@/lib/electrical-grid-plan-geometry";
+import {
+  MEASURED_XY_METHODS,
+  MEASURED_XY_METHOD_LABEL,
+  measuredXyMethodOf,
+  type MeasuredXyMethod,
+} from "@/lib/electrical-measured-xy";
+
+export {
+  MEASURED_XY_METHODS,
+  MEASURED_XY_METHOD_LABEL,
+  measuredXyMethodOf,
+  type MeasuredXyMethod,
+};
 
 
 
@@ -267,31 +280,6 @@ export interface OperationalInput {
   measuredDatum?: string | null;
   measuredAt?: string | null;
   measuredBy?: string | null;
-}
-
-/** Instrument methods a measured field X/Y record may state. */
-export const MEASURED_XY_METHODS = [
-  "TAPE",
-  "LASER",
-  "GPS_RTK",
-  "GPS_HANDHELD",
-  "TOTAL_STATION",
-  "OTHER",
-] as const;
-export type MeasuredXyMethod = (typeof MEASURED_XY_METHODS)[number];
-
-export const MEASURED_XY_METHOD_LABEL: Record<MeasuredXyMethod, string> = {
-  TAPE: "Tape measure",
-  LASER: "Laser rangefinder",
-  GPS_RTK: "RTK GPS",
-  GPS_HANDHELD: "Handheld GPS",
-  TOTAL_STATION: "Total station",
-  OTHER: "Other measured method",
-};
-
-export function measuredXyMethodOf(v: string | null | undefined): MeasuredXyMethod | null {
-  const t = (v ?? "").trim().toUpperCase();
-  return (MEASURED_XY_METHODS as readonly string[]).includes(t) ? (t as MeasuredXyMethod) : null;
 }
 
 /** True when the record carries a measured field X/Y coordinate record. */
