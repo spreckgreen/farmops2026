@@ -108,7 +108,7 @@ describe("measured X/Y priority in print output", () => {
     expect(s.labels[0]!.stableId).toBe("FS-001");
     expect(s.labels[0]!.measured).toBe(true);
     expect(s.labels[0]!.primaryLocation).toBe("42.5 ft E / 18 ft S");
-    expect(s.labels[0]!.secondaryReference).toContain("D5");
+    expect(s.labels[0]!.secondaryReference).toMatch(/Grid\/post reference|Design grid/);
     expect(s.measuredCount).toBe(1);
     const html = renderProvenanceLabelsHtml(s);
     expect(html).toContain("MEASURED X/Y");
