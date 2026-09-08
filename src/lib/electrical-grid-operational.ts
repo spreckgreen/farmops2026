@@ -269,6 +269,8 @@ export function newGridFeet(
 export interface OperationalInput {
   kind: AssetKind;
   stableId: string;
+  /** Database row id, so a plotted marker can open its own record for editing. */
+  recordId?: string | null;
   description: string | null;
   /** Current FarmOps grid / install location string. */
   grid: string | null;

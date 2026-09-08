@@ -101,6 +101,7 @@ export function GridPlanSvg({
   plotted,
   selectedId,
   onSelect,
+  onClearSelection,
   interactive = true,
   markerScale = 1,
   showProposedLeds = false,
@@ -114,6 +115,8 @@ export function GridPlanSvg({
   plotted: OperationalAsset[];
   selectedId?: string | null;
   onSelect?: (stableId: string) => void;
+  /** Called when the reader clicks empty plan space, so the helper text clears. */
+  onClearSelection?: () => void;
   interactive?: boolean;
   markerScale?: number;
   /** Draw the proposed 2 x 5 overhead LED design layer. */
@@ -257,6 +260,19 @@ export function GridPlanSvg({
       aria-label={interactive ? `${PLAN_ALT}. ${order.length} markers.` : PLAN_ALT}
       aria-describedby={interactive ? "grid-plan-keyboard-help" : undefined}
       preserveAspectRatio="xMidYMid meet"
+      {...(interactive
+        ? {
+            onClick: (e: React.MouseEvent<SVGSVGElement>) => {
+              // A click on empty plan space dismisses the helper text so the
+              // next marker can be picked without anything left pinned.
+              const el = e.target as Element | null;
+              if (el?.closest?.("[data-stable-id]")) return;
+              setHovered(null);
+              setDismissed(null);
+              onClearSelection?.();
+            },
+          }
+        : {})}
       data-plan-units="drawing"
     >
       {interactive ? (

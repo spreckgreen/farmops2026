@@ -697,6 +697,7 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
                 plotted={plotted}
                 selectedId={selected}
                 onSelect={setSelected}
+                onClearSelection={() => setSelected(null)}
                 markerScale={large ? 1 : 0.8}
                 showProposedLeds={showLeds}
                 baseOverlay={baseOverlay}
@@ -824,7 +825,9 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
             ) : null}
 
 
-            {chosen ? <AssetDetail asset={chosen} /> : null}
+            {chosen ? (
+              <AssetDetail asset={chosen} onClose={() => setSelected(null)} />
+            ) : null}
 
             <CollapsibleGroup
               title={`Data quality — ${unplotted.length} not mapped, ${discrepancies} imprecise, ${disagreeing.length} placement conflict(s), ${q.data!.gaps.length} record gap(s)`}
@@ -1022,7 +1025,25 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
 }
 
 
-export function AssetDetail({ asset }: { asset: OperationalAsset }) {
+const ENTITY_KIND_FOR: Partial<Record<AssetKind, string>> = {
+  load: "load",
+  panel: "panel",
+  junction_box: "jbox",
+  device: "device",
+  power_asset: "power_asset",
+  rack: "rack",
+  raceway: "raceway",
+};
+
+export function AssetDetail({
+  asset,
+  onClose,
+}: {
+  asset: OperationalAsset;
+  onClose?: () => void;
+}) {
+  const entityKind = ENTITY_KIND_FOR[asset.kind];
+  const recordId = asset.recordId ?? null;
   const rows: [string, string][] = [
     ["Stable ID", asset.stableId],
     ["Type", ASSET_KIND_LABEL[asset.kind]],
@@ -1055,6 +1076,30 @@ export function AssetDetail({ asset }: { asset: OperationalAsset }) {
   ];
   return (
     <div className="rounded-md border border-border p-3 text-xs">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <span className="font-mono text-sm">{asset.stableId}</span>
+        <span className="flex items-center gap-2">
+          {entityKind && recordId ? (
+            <Button asChild size="sm" variant="outline">
+              <Link
+                to="/electrical/item/$kind/$id"
+                params={{ kind: entityKind, id: recordId }}
+              >
+                Open record to review and edit
+              </Link>
+            </Button>
+          ) : (
+            <span className="text-[11px] text-muted-foreground">
+              No editable record link available for this row.
+            </span>
+          )}
+          {onClose ? (
+            <Button size="sm" variant="ghost" onClick={onClose}>
+              Close
+            </Button>
+          ) : null}
+        </span>
+      </div>
       <div className="grid gap-x-4 gap-y-1 sm:grid-cols-2">
         {rows.map(([k, v]) => (
           <div key={k} className="grid grid-cols-[9rem_1fr] gap-2">
