@@ -753,6 +753,19 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
                 {PROPOSED_OVERHEAD_LED_LEGEND} — design/proposed centres, not field verified.
               </p>
             ) : null}
+            {measuredXyLayer !== "OFF" ? (
+              <p className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                <span
+                  aria-hidden
+                  className="inline-block h-2.5 w-2.5 rounded-full border-2"
+                  style={{ borderColor: MEASURED_XY_HEX }}
+                />
+                {measuredPoints.length} measured field X/Y point(s) drawn as fixed crosshairs at the
+                exact recorded coordinate ({MEASURED_XY_LAYER_LABEL[measuredXyLayer].toLowerCase()}).
+                Every other marker is derived from a grid, post or interval reference.
+              </p>
+            ) : null}
+
             {showDesignVsField ? (
               <CollapsibleGroup
                 title={`Design vs field — ${designField.counts.MISMATCH} mismatch, ${designField.counts.MATCH} confirmed, ${designField.counts.DESIGN_ONLY} design only, ${designField.counts.FIELD_ONLY} field only`}
