@@ -343,3 +343,130 @@ function renderDataQuality(doc: jsPDF, input: GridMapPdfInput): void {
     for (const g of input.gaps) line(g, 7.5, 10);
   }
 }
+
+/** Input for the map-only sheet: one landscape page, nothing but the drawing. */
+export type GridMapOnlyPdfInput = {
+  /** Records in scope that carry a plottable location. */
+  plotted: OperationalAsset[];
+  /** The saved grid map this sheet was drawn from. */
+  gridMapName: string;
+  /** Envelope and grid lines of that saved map. */
+  geometry: {
+    widthFt: number;
+    depthFt: number;
+    rows: { label: string; offsetFt: number }[];
+    cols: { label: string; offsetFt: number }[];
+  };
+  /** Human label for the panel scope, e.g. "PNL-FS-NW" or "all panels". */
+  panelLabel: string;
+  printedAt?: Date;
+};
+
+/** File name for a map-only sheet, stamped with the grid map name and date. */
+export function gridMapOnlyPdfFileName(
+  gridMapName: string,
+  panelLabel: string,
+  printedAt = new Date(),
+): string {
+  const slug = (s: string) => s.replace(/[^A-Za-z0-9-]+/g, "-").replace(/^-|-$/g, "");
+  const stamp = printedAt.toISOString().slice(0, 10);
+  return `grid-map-${slug(gridMapName) || "grid"}-${slug(panelLabel) || "all-panels"}-${stamp}.pdf`;
+}
+
+/**
+ * Map only: the chosen grid map drawn on a single landscape page, with a footer
+ * naming the grid map and the date it was printed. No schedules, no legend
+ * tables, no data-quality pages — presentation of recorded points only.
+ */
+export function renderGridMapOnlyPdf(input: GridMapOnlyPdfInput): jsPDF {
+  const printedAt = input.printedAt ?? new Date();
+  const doc = new jsPDF({ unit: "pt", format: "letter", orientation: "landscape" });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  doc.setProperties({
+    title: `${input.gridMapName} — grid map (${input.panelLabel})`,
+    subject: "Grid map only, plotted from recorded locations",
+    creator: "FarmOps",
+  });
+
+  const widthFt = input.geometry.widthFt > 0 ? input.geometry.widthFt : PLAN_WIDTH_FT;
+  const depthFt = input.geometry.depthFt > 0 ? input.geometry.depthFt : PLAN_DEPTH_FT;
+  const footerY = pageHeight - MARGIN + 12;
+  const top = MARGIN;
+  const availW = pageWidth - MARGIN * 2;
+  const availH = pageHeight - top - MARGIN - 10;
+  const ratio = depthFt / widthFt;
+  const planW = Math.min(availW, availH / ratio);
+  const planH = planW * ratio;
+  const x0 = MARGIN + (availW - planW) / 2;
+  const y0 = top;
+  const fx = (xFt: number) => x0 + (xFt / widthFt) * planW;
+  const fy = (yFt: number) => y0 + (yFt / depthFt) * planH;
+
+  doc.setFillColor(255, 255, 255);
+  doc.rect(x0, y0, planW, planH, "F");
+  doc.setDrawColor(148, 163, 184);
+  doc.setLineWidth(0.3);
+  for (const c of input.geometry.cols) doc.line(fx(c.offsetFt), y0, fx(c.offsetFt), y0 + planH);
+  for (const r of input.geometry.rows) doc.line(x0, fy(r.offsetFt), x0 + planW, fy(r.offsetFt));
+  doc.setFontSize(6);
+  doc.setTextColor(100);
+  // Axis labels sit inside the envelope, so an edge line keeps its label on the
+  // drawing rather than dropping it off the page.
+  for (const c of input.geometry.cols) {
+    const x = fx(c.offsetFt);
+    doc.text(c.label, x >= x0 + planW - 8 ? x - 7 : x + 1, y0 + 8);
+  }
+  for (const r of input.geometry.rows) {
+    const y = fy(r.offsetFt);
+    doc.text(r.label, x0 + 2, y >= y0 + planH - 8 ? y - 3 : y + 7);
+  }
+
+  doc.setTextColor(0);
+  doc.setDrawColor(15, 23, 42);
+  doc.setLineWidth(1.6);
+  doc.rect(x0, y0, planW, planH);
+
+  const isMeasured = (a: OperationalAsset) => a.plotProvenance === "FIELD_VERIFIED_XY";
+  const drawOrder = [...input.plotted].sort(
+    (p, q) => Number(isMeasured(p)) - Number(isMeasured(q)),
+  );
+  for (const a of drawOrder) {
+    if (a.plottedXFt == null || a.plottedYFt == null) continue;
+    const cx = fx(a.plottedXFt);
+    const cy = fy(a.plottedYFt);
+    const [r, g, b] = PRECISION_RGB[a.precision];
+    doc.setFillColor(r, g, b);
+    doc.setDrawColor(255);
+    doc.setLineWidth(0.6);
+    if (a.kind === "panel") doc.rect(cx - 3, cy - 3, 6, 6, "FD");
+    else doc.circle(cx, cy, 3, "FD");
+    if (isMeasured(a)) {
+      doc.setDrawColor(220, 38, 38);
+      doc.setLineWidth(0.7);
+      doc.line(cx - 6, cy, cx + 6, cy);
+      doc.line(cx, cy - 6, cx, cy + 6);
+      doc.circle(cx, cy, 5.2, "S");
+    }
+    if (a.stackSize <= 4) {
+      doc.setFontSize(4.6);
+      doc.setTextColor(30);
+      const dy = a.stackSize > 1 ? 10 + a.stackIndex * 5 : 1.6;
+      doc.text(a.stableId, cx + 4.5, cy + dy);
+      doc.setTextColor(0);
+    }
+  }
+
+  // Footer stamp: the grid map's own name and the print date.
+  doc.setFontSize(8);
+  doc.setTextColor(80);
+  doc.text(
+    `${input.gridMapName} · ${input.panelLabel} · printed ${printedAt.toLocaleDateString()} (${printedAt
+      .toISOString()
+      .slice(0, 10)})`,
+    MARGIN,
+    footerY,
+  );
+  doc.setTextColor(0);
+  return doc;
+}

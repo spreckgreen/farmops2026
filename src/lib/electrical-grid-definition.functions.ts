@@ -184,3 +184,52 @@ export const saveGridDefinition = createServerFn({ method: "POST" })
 
     return readActive(db);
   });
+
+/** One saved grid map the reader can choose to print. */
+export interface GridDefinitionSummary {
+  uuid: string;
+  name: string;
+  scopeNote: string | null;
+  isActive: boolean;
+  geometry: GridGeometry;
+}
+
+/**
+ * Every saved grid map, so a printed sheet can name the exact map it came from.
+ * Read-only; the active map is listed first.
+ */
+export const listGridDefinitions = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<GridDefinitionSummary[]> => {
+    await requireElectricalAccess(context.supabase, context.userId, "read");
+    const db = context.supabase as unknown as LooseDb;
+    const defs = await db.from(DEFS).select("*").order("is_active", { ascending: false });
+    if (defs.error) throw new Error(defs.error.message);
+    const rows = (defs.data ?? []) as any[];
+    const out: GridDefinitionSummary[] = [];
+    for (const row of rows) {
+      const uuid = String(row.id);
+      const [lines, posts, intervals] = await Promise.all([
+        db.from(LINES).select("axis,label,offset_ft,notes").eq("definition_uuid", uuid),
+        db.from(POSTS).select("post_ref,wall,is_corner,x_ft,y_ft,notes").eq("definition_uuid", uuid),
+        db
+          .from(INTERVALS)
+          .select("interval_ref,kind,from_ref,to_ref,notes")
+          .eq("definition_uuid", uuid),
+      ]);
+      for (const r of [lines, posts, intervals]) if (r.error) throw new Error(r.error.message);
+      out.push({
+        uuid,
+        name: String(row.name ?? "Unnamed grid map"),
+        scopeNote: row.scope_note ?? null,
+        isActive: Boolean(row.is_active),
+        geometry: normalizeGridDefinition({
+          ...row,
+          lines: lines.data ?? [],
+          posts: posts.data ?? [],
+          intervals: intervals.data ?? [],
+        }),
+      });
+    }
+    return out;
+  });

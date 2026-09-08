@@ -29,6 +29,16 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Download, Maximize2, Map as MapIcon, Printer, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 import { electricalGridOperational } from "@/lib/electrical-grid-operational.functions";
+import { listGridDefinitions } from "@/lib/electrical-grid-definition.functions";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+
 import {
   ASSET_KIND_LABEL,
   PLACEMENT_SOURCE_LABEL,
@@ -205,7 +215,17 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
 
 
   const [printMode, setPrintMode] = usePrintMode();
+  // "Map only": pick which saved grid map and which panel scope to print.
+  const [mapOnlyOpen, setMapOnlyOpen] = useState(false);
+  const [mapOnlyDef, setMapOnlyDef] = useState<string>("");
+  const [mapOnlyPanel, setMapOnlyPanel] = useState<string>("ALL");
+  const gridDefsFetcher = useServerFn(listGridDefinitions);
+  const gridDefs = useQuery({
+    queryKey: ["electrical", "grid-definitions"],
+    queryFn: () => gridDefsFetcher(),
+  });
   // Grid sheets (print and PDF) are part of the premium print package.
+
   const premiumPrint = usePremiumPrint();
   const [saving, setSaving] = useState(false);
   // Stamped at the moment a sheet is produced, so the header time is the
@@ -405,6 +425,50 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
     }
   };
 
+  /** Map only: one landscape page of the chosen saved grid map, footer-stamped
+   * with that map's name and the print date. No schedules, no legend tables. */
+  const downloadMapOnlyPdf = async () => {
+    const def = gridDefs.data?.find((d) => d.uuid === mapOnlyDef) ?? gridDefs.data?.[0];
+    if (!def) {
+      toast.error("No saved grid map to print");
+      return;
+    }
+    setSaving(true);
+    try {
+      const mod = await import("@/lib/electrical-grid-map-pdf");
+      const printedAt = new Date();
+      const scopeLabel = mapOnlyPanel === "ALL" ? "all panels" : mapOnlyPanel;
+      const scoped =
+        mapOnlyPanel === "ALL"
+          ? plotted
+          : plotted.filter((a) => (a.panel ?? "NOT IN RECORD") === mapOnlyPanel);
+      const doc = mod.renderGridMapOnlyPdf({
+        plotted: scoped,
+        gridMapName: def.name,
+        geometry: {
+          widthFt: def.geometry.widthFt,
+          depthFt: def.geometry.depthFt,
+          rows: def.geometry.rows.map((r) => ({ label: r.label, offsetFt: r.offsetFt })),
+          cols: def.geometry.cols.map((c) => ({ label: c.label, offsetFt: c.offsetFt })),
+        },
+        panelLabel: scopeLabel,
+        printedAt,
+      });
+      const name = mod.gridMapOnlyPdfFileName(def.name, scopeLabel, printedAt);
+      doc.save(name);
+      setMapOnlyOpen(false);
+      toast.success("Grid map saved", { description: name });
+    } catch (err) {
+      toast.error("Could not save the grid map", {
+        description: err instanceof Error ? err.message : String(err),
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+
+
   return (
     <>
     <Card className="grid-map-screen-only">
@@ -487,9 +551,27 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
               <Printer className="mr-1 h-3.5 w-3.5" />
               Label sheet
             </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 rounded-none border-l border-border px-2 text-xs"
+              onClick={() => {
+                setMapOnlyDef(
+                  mapOnlyDef || gridDefs.data?.find((d) => d.isActive)?.uuid || gridDefs.data?.[0]?.uuid || "",
+                );
+                setMapOnlyPanel(panel);
+                setMapOnlyOpen(true);
+              }}
+              disabled={!q.data}
+              title="Print just the grid map: one landscape page, footer-stamped with the grid map name and date"
+            >
+              <MapIcon className="mr-1 h-3.5 w-3.5" />
+              Map only
+            </Button>
 
           </div>
           ) : null}
+
           {large ? null : (
             <Button asChild size="sm" variant="outline" className="h-7 px-2 text-xs">
               <Link to="/electrical/grid-map">
@@ -1040,7 +1122,72 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
         </div>
       </div>
     ) : null}
+    <Dialog open={mapOnlyOpen} onOpenChange={setMapOnlyOpen}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Print the grid map only</DialogTitle>
+          <DialogDescription>
+            One landscape page with nothing but the map, footer-stamped with the grid map name
+            and the print date.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3 text-xs">
+          <div className="space-y-1">
+            <label className="font-medium" htmlFor="map-only-def">
+              Grid map
+            </label>
+            <select
+              id="map-only-def"
+              className="h-8 w-full rounded border border-border bg-background px-2"
+              value={mapOnlyDef}
+              onChange={(e) => setMapOnlyDef(e.target.value)}
+            >
+              {(gridDefs.data ?? []).map((d) => (
+                <option key={d.uuid} value={d.uuid}>
+                  {d.name}
+                  {d.isActive ? " (active)" : ""}
+                </option>
+              ))}
+            </select>
+            {gridDefs.data && gridDefs.data.length === 0 ? (
+              <p className="text-muted-foreground">
+                No saved grid map yet — define one on the grid layout page.
+              </p>
+            ) : null}
+          </div>
+          <div className="space-y-1">
+            <label className="font-medium" htmlFor="map-only-panel">
+              Panel scope
+            </label>
+            <select
+              id="map-only-panel"
+              className="h-8 w-full rounded border border-border bg-background px-2"
+              value={mapOnlyPanel}
+              onChange={(e) => setMapOnlyPanel(e.target.value)}
+            >
+              <option value="ALL">All panels</option>
+              {(q.data?.panels ?? []).map((p) => (
+                <option key={p.panel} value={p.panel}>
+                  {p.panel === "NOT IN RECORD" ? "No panel in record" : p.panel} ({p.count})
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button
+            size="sm"
+            onClick={() => void downloadMapOnlyPdf()}
+            disabled={saving || !gridDefs.data?.length}
+          >
+            <Download className="mr-1 h-3.5 w-3.5" />
+            {saving ? "Saving…" : "Save map PDF"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
     </>
+
   );
 }
 
