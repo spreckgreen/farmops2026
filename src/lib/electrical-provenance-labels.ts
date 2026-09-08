@@ -133,6 +133,8 @@ export function renderProvenanceLabelsHtml(sheet: ProvenanceLabelSheet): string 
   )} UTC · ${sheet.labels.length} label(s) · ${sheet.pages} page(s)</div>
 </header>
 <div class="pnote">Avery 5163 stock (2" x 4", 10 per page). Print at 100% scale. ${
+    sheet.measuredCount
+  } record(s) carry a measured field X/Y coordinate; those labels print first and lead with the measured point, with any grid or post reference shown as secondary. ${
     sheet.conflictCount
   } record(s) in this scope carry a conflict notice and are marked CONFLICT; see the map sheet for the full notice.</div></div>
 ${body}`;
