@@ -194,6 +194,15 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
     "farmops.grid-map.recent-observed",
     false,
   );
+  // Measured field X/Y points are a layer of their own, and the reader chooses
+  // whether they sit above or below the grid lines and post callouts.
+  const [measuredXyLayer, setMeasuredXyLayer] = useUiChoice<MeasuredXyLayerMode>(
+    "grid-map.measured-xy-layer",
+    "farmops.grid-map.measured-xy-layer",
+    ["OFF", "ABOVE", "BELOW"],
+    "ABOVE",
+  );
+
 
   const [printMode, setPrintMode] = usePrintMode();
   // Grid sheets (print and PDF) are part of the premium print package.
