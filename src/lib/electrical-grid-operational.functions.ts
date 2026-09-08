@@ -57,6 +57,7 @@ function baseInput(kind: AssetKind, row: Row, id: string): OperationalInput {
   return {
     kind,
     stableId: id,
+    recordId: str(row["id"]),
     description: str(row["description"]),
     grid: str(row["grid"]),
     designGrid: str(row["design_grid"]),
