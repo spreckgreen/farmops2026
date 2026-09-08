@@ -45,6 +45,8 @@ import {
   type VerificationStatus,
 } from "@/lib/electrical-grid-operational";
 import { AXIS_COLS, AXIS_ROWS } from "@/lib/electrical-grid-map";
+import { mapSheetModel, renderMapSheetHtml } from "@/lib/electrical-map-sheet";
+import { openPrintWindow } from "@/lib/print";
 import { GridPlanSvg, PROPOSED_LED_HEX } from "@/components/electrical/grid-plan-svg";
 import {
   PLAN_ASPECT_RATIO,
