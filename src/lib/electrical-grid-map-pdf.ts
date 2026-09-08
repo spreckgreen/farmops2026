@@ -411,8 +411,17 @@ export function renderGridMapOnlyPdf(input: GridMapOnlyPdfInput): jsPDF {
   for (const r of input.geometry.rows) doc.line(x0, fy(r.offsetFt), x0 + planW, fy(r.offsetFt));
   doc.setFontSize(6);
   doc.setTextColor(100);
-  for (const c of input.geometry.cols) doc.text(c.label, fx(c.offsetFt) + 1, y0 + 8);
-  for (const r of input.geometry.rows) doc.text(r.label, x0 + 2, fy(r.offsetFt) + 7);
+  // Axis labels sit inside the envelope, so an edge line keeps its label on the
+  // drawing rather than dropping it off the page.
+  for (const c of input.geometry.cols) {
+    const x = fx(c.offsetFt);
+    doc.text(c.label, x >= x0 + planW - 8 ? x - 7 : x + 1, y0 + 8);
+  }
+  for (const r of input.geometry.rows) {
+    const y = fy(r.offsetFt);
+    doc.text(r.label, x0 + 2, y >= y0 + planH - 8 ? y - 3 : y + 7);
+  }
+
   doc.setTextColor(0);
   doc.setDrawColor(15, 23, 42);
   doc.setLineWidth(1.6);
