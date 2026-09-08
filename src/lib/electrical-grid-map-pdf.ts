@@ -169,6 +169,15 @@ export function renderGridMapPdf(input: GridMapPdfInput): jsPDF {
     doc.setLineWidth(0.6);
     if (a.kind === "panel") doc.rect(cx - 3, cy - 3, 6, 6, "FD");
     else doc.circle(cx, cy, 3, "FD");
+    // Measured field X/Y gets a survey crosshair over the dot so a printed sheet
+    // shows at a glance which points are measured rather than derived.
+    if (isMeasured(a)) {
+      doc.setDrawColor(220, 38, 38);
+      doc.setLineWidth(0.7);
+      doc.line(cx - 6, cy, cx + 6, cy);
+      doc.line(cx, cy - 6, cx, cy + 6);
+      doc.circle(cx, cy, 5.2, "S");
+    }
     // Labels only where the cluster is small enough to stay readable.
     if (a.stackSize <= 4) {
       doc.setFontSize(4.6);
@@ -179,9 +188,27 @@ export function renderGridMapPdf(input: GridMapPdfInput): jsPDF {
     }
   }
 
-  // Legend to the right of the plan.
+  // Legend to the right of the plan. Measured X/Y leads it, because a measured
+  // coordinate outranks every grid, post and interval reference.
+  const measuredCount = input.plotted.filter(isMeasured).length;
   let ly = y0 + 10;
   const lx = x0 + planW + 16;
+  doc.setFontSize(8);
+  doc.text("Location authority", lx, ly);
+  ly += 12;
+  doc.setFontSize(7);
+  doc.setDrawColor(220, 38, 38);
+  doc.setLineWidth(0.7);
+  doc.line(lx, ly - 2.4, lx + 6, ly - 2.4);
+  doc.line(lx + 3, ly - 5.4, lx + 3, ly + 0.6);
+  doc.text(`1. Measured field X/Y — ${measuredCount} plotted`, lx + 10, ly, {
+    maxWidth: legendW - 12,
+  });
+  ly += 11;
+  doc.text("2. Grid, post or interval reference (derived point)", lx, ly, {
+    maxWidth: legendW - 4,
+  });
+  ly += 20;
   doc.setFontSize(8);
   doc.text("Location precision", lx, ly);
   ly += 12;
