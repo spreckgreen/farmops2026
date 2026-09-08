@@ -333,6 +333,22 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
     openPrintWindow(model.title, renderMapSheetHtml(model));
   };
 
+  /** Provenance label sheet: one label per record with its stable ID, plot
+   * provenance, precision and audit ID. Part of the premium print package. */
+  const printProvenanceLabels = () => {
+    const generated = new Date();
+    setGeneratedAt(generated);
+    const sheet = provenanceLabelSheet({
+      assets: filtered,
+      scopeLabel: panelLabel,
+      filterSummary,
+      gaps: q.data?.gaps ?? [],
+      generatedAt: generated,
+    });
+    openPrintWindow(sheet.title, renderProvenanceLabelsHtml(sheet));
+  };
+
+
   /** Save the same rendering as a PDF file, using the remembered method so a
    * download matches what printing would produce. */
   const downloadPdf = async (mode: PrintMode) => {
