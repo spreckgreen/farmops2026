@@ -136,6 +136,11 @@ export function mapSheetModel(input: MapSheetInput): MapSheetModel {
     kind: ASSET_KIND_LABEL[a.kind] ?? a.kind,
     description: a.description ?? "",
     reference: referenceText(a),
+    measured: a.plotProvenance === "FIELD_VERIFIED_XY",
+    primaryLocation:
+      a.plotProvenance === "FIELD_VERIFIED_XY" ? plottedText(a) : referenceText(a),
+    secondaryReference:
+      a.plotProvenance === "FIELD_VERIFIED_XY" ? secondaryReferenceText(a) : null,
     plotted: plottedText(a),
     provenance: a.plotProvenance,
     provenanceLabel: PLOT_PROVENANCE_LABEL[a.plotProvenance],
@@ -145,7 +150,11 @@ export function mapSheetModel(input: MapSheetInput): MapSheetModel {
     panel: a.panel ?? "not in record",
     conflict: conflictNoticeFor(a),
   }));
-  rows.sort((x, y) => x.stableId.localeCompare(y.stableId));
+  // Measured field X/Y records are the highest-authority location statement, so
+  // they lead every printed list; grid, post and interval references follow.
+  rows.sort(
+    (x, y) => Number(y.measured) - Number(x.measured) || x.stableId.localeCompare(y.stableId),
+  );
 
   const fieldVerified = rows.filter((r) => isFieldVerifiedProvenance(r.provenance)).length;
   const measuredXy = rows.filter((r) => r.provenance === "FIELD_VERIFIED_XY").length;
