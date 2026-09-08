@@ -52,7 +52,14 @@ import {
 } from "@/lib/electrical-provenance-labels";
 
 import { openPrintWindow } from "@/lib/print";
-import { GridPlanSvg, PROPOSED_LED_HEX } from "@/components/electrical/grid-plan-svg";
+import {
+  GridPlanSvg,
+  MEASURED_XY_HEX,
+  MEASURED_XY_LAYER_LABEL,
+  PROPOSED_LED_HEX,
+  measuredXyAssets,
+  type MeasuredXyLayerMode,
+} from "@/components/electrical/grid-plan-svg";
 import {
   PLAN_ASPECT_RATIO,
   PROPOSED_OVERHEAD_LED_LEGEND,
