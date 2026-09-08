@@ -23,6 +23,12 @@ export interface ProvenanceLabel {
   description: string;
   /** "C4 · field-verified grid cell" style reference line. */
   reference: string;
+  /** True when the record carries a measured field X/Y coordinate. */
+  measured: boolean;
+  /** Highest-authority location line: the measured point when one exists. */
+  primaryLocation: string;
+  /** Grid, post or interval reference, secondary to a measured coordinate. */
+  secondaryReference: string | null;
   plotted: string;
   provenance: string;
   provenanceLabel: string;
@@ -48,6 +54,9 @@ function labelFrom(row: MapSheetRow): ProvenanceLabel {
     kind: row.kind,
     description: row.description,
     reference: row.reference,
+    measured: row.measured,
+    primaryLocation: row.primaryLocation,
+    secondaryReference: row.secondaryReference,
     plotted: row.plotted,
     provenance: row.provenance,
     provenanceLabel: row.provenanceLabel,
