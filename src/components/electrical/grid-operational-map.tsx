@@ -409,6 +409,17 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
               <option value="solo">Map only</option>
               <option value="with-dq">Map + data quality</option>
             </select>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 rounded-none border-l border-border px-2 text-xs"
+              onClick={printMapSheet}
+              disabled={!q.data}
+              title="Print the map sheet: every record in scope with its plot provenance, derivation, audit evidence and conflict notices"
+            >
+              <Printer className="mr-1 h-3.5 w-3.5" />
+              Map sheet
+            </Button>
           </div>
           ) : null}
           {large ? null : (
