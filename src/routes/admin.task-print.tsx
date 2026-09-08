@@ -193,7 +193,7 @@ function TaskPrintPage() {
             <ShieldCheck className="h-4 w-4" />
             <AlertTitle>Admins only</AlertTitle>
             <AlertDescription>
-              Premium print — planner sheets, label sheets, grid sheets and publishing to Ghost
+              Premium print — planner sheets, label sheets, grid sheets, the map sheet and publishing to Ghost
               and Obsidian — is for administrators by default. An administrator can grant it to you
               from this screen's advanced print options.
             </AlertDescription>
@@ -327,7 +327,7 @@ function TaskPrintPage() {
                   <CardTitle className="text-base">Who has premium print</CardTitle>
                   <p className="text-xs text-muted-foreground">
                     One grant covers the whole premium print package: planner sheets, electrical
-                    label sheets, grid sheets, and publishing out to Ghost and to an Obsidian
+                    label sheets, grid sheets, the map sheet, and publishing out to Ghost and to an Obsidian
                     vault. Administrators always have it; add anyone else here.
                   </p>
                 </CardHeader>

@@ -4,7 +4,7 @@
  * One grant covers the whole premium print package:
  *   - planner sheets (the task print templates)
  *   - electrical label sheets
- *   - grid sheets (grid map print / PDF)
+ *   - grid sheets (grid map print / PDF) and the map sheet (records, provenance, conflicts)
  *   - publishing out to Ghost and to an Obsidian vault
  *
  * Administrators always have it. Anyone else needs an explicit row in

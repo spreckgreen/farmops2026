@@ -19,7 +19,7 @@ export interface TaskPrintAccess {
 
 /**
  * Whether the signed-in person has the premium print package: planner sheets,
- * label sheets, grid sheets, and publishing to Ghost and Obsidian.
+ * label sheets, grid sheets, the map sheet, and publishing to Ghost and Obsidian.
  */
 export const taskPrintAccess = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
