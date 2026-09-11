@@ -29,6 +29,7 @@ const TABS: Array<{ to: string; label: string; exact?: boolean }> = [
   { to: "/food/livestock", label: "Livestock" },
   { to: "/food/processing", label: "Processing" },
   { to: "/food/preserve", label: "Preserve" },
+  { to: "/food/nutrition", label: "Nutrition" },
   { to: "/food/storage", label: "Storage" },
   { to: "/food/prices", label: "Prices" },
   { to: "/food/seasons", label: "Seasons" },

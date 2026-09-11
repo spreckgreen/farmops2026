@@ -1,0 +1,128 @@
+export type UsdaNutrient = {
+  id: number | null;
+  name: string;
+  unit: string;
+  amount: number;
+};
+
+export type UsdaFoodSummary = {
+  fdcId: number;
+  description: string;
+  dataType: string;
+  foodCategory: string | null;
+  publicationDate: string | null;
+  brandOwner: string | null;
+  ingredients: string | null;
+  nutrients: UsdaNutrient[];
+  portions: unknown[];
+  raw: Record<string, unknown>;
+};
+
+export type MacroNutrients = {
+  energyKcal: number | null;
+  proteinG: number | null;
+  fatG: number | null;
+  carbohydrateG: number | null;
+  fiberG: number | null;
+  sugarG: number | null;
+  sodiumMg: number | null;
+};
+
+function record(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function text(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function number(value: unknown): number | null {
+  const parsed = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+/** Handles both Food Details and abridged Food Search nutrient shapes. */
+export function normalizeNutrients(value: unknown): UsdaNutrient[] {
+  if (!Array.isArray(value)) return [];
+  const nutrients = value.flatMap((entry): UsdaNutrient[] => {
+    const row = record(entry);
+    const definition = record(row.nutrient);
+    const name = text(definition.name) ?? text(row.nutrientName) ?? text(row.name);
+    const amount = number(row.amount ?? row.value);
+    if (!name || amount == null) return [];
+    return [
+      {
+        id: number(definition.id ?? row.nutrientId),
+        name,
+        unit: text(definition.unitName) ?? text(row.unitName) ?? text(row.unit) ?? "",
+        amount,
+      },
+    ];
+  });
+
+  // USDA occasionally supplies duplicate analytical rows. Keep the first
+  // identified nutrient so display and calculations stay deterministic.
+  const seen = new Set<string>();
+  return nutrients.filter((nutrient) => {
+    const key = nutrient.id != null ? `id:${nutrient.id}` : `${nutrient.name}:${nutrient.unit}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+export function normalizeUsdaFood(value: unknown): UsdaFoodSummary {
+  const raw = record(value);
+  const fdcId = number(raw.fdcId);
+  const description = text(raw.description);
+  if (fdcId == null || !description)
+    throw new Error("USDA food record is missing fdcId or description");
+
+  const category = record(raw.foodCategory);
+  return {
+    fdcId,
+    description,
+    dataType: text(raw.dataType) ?? "Unknown",
+    foodCategory: text(category.description) ?? text(raw.foodCategory),
+    publicationDate: text(raw.publicationDate),
+    brandOwner: text(raw.brandOwner),
+    ingredients: text(raw.ingredients),
+    nutrients: normalizeNutrients(raw.foodNutrients),
+    portions: Array.isArray(raw.foodPortions) ? raw.foodPortions : [],
+    raw,
+  };
+}
+
+function findNutrient(nutrients: UsdaNutrient[], ids: number[], names: RegExp): number | null {
+  const byId = nutrients.find((item) => item.id != null && ids.includes(item.id));
+  const match = byId ?? nutrients.find((item) => names.test(item.name));
+  return match?.amount ?? null;
+}
+
+/** USDA values are normally expressed per 100 g for Foundation/FNDDS foods. */
+export function extractMacros(nutrients: UsdaNutrient[]): MacroNutrients {
+  return {
+    energyKcal: findNutrient(nutrients, [1008], /^energy$/i),
+    proteinG: findNutrient(nutrients, [1003], /^protein$/i),
+    fatG: findNutrient(nutrients, [1004], /total lipid|total fat/i),
+    carbohydrateG: findNutrient(
+      nutrients,
+      [1005],
+      /carbohydrate, by difference|total carbohydrate/i,
+    ),
+    fiberG: findNutrient(nutrients, [1079], /fiber, total dietary/i),
+    sugarG: findNutrient(nutrients, [2000], /sugars, total including nlea|total sugars/i),
+    sodiumMg: findNutrient(nutrients, [1093], /^sodium/i),
+  };
+}
+
+export function extractFoodsFromDownload(value: unknown): unknown[] {
+  if (Array.isArray(value)) return value;
+  const root = record(value);
+  for (const key of ["FoundationFoods", "SurveyFoods", "SRLegacyFoods", "BrandedFoods", "foods"]) {
+    if (Array.isArray(root[key])) return root[key] as unknown[];
+  }
+  throw new Error("Unsupported FoodData Central JSON download shape");
+}
