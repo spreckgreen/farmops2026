@@ -96,15 +96,26 @@ export function normalizeUsdaFood(value: unknown): UsdaFoodSummary {
 }
 
 function findNutrient(nutrients: UsdaNutrient[], ids: number[], names: RegExp): number | null {
-  const byId = nutrients.find((item) => item.id != null && ids.includes(item.id));
-  const match = byId ?? nutrients.find((item) => names.test(item.name));
-  return match?.amount ?? null;
+  // The order of ids is a preference order. This matters for Foundation Foods,
+  // which can include both Atwater specific and general energy calculations.
+  for (const id of ids) {
+    const match = nutrients.find((item) => item.id === id);
+    if (match) return match.amount;
+  }
+  return nutrients.find((item) => names.test(item.name))?.amount ?? null;
 }
 
 /** USDA values are normally expressed per 100 g for Foundation/FNDDS foods. */
 export function extractMacros(nutrients: UsdaNutrient[]): MacroNutrients {
   return {
-    energyKcal: findNutrient(nutrients, [1008], /^energy$/i),
+    // 1008 is the conventional kcal value. Newer Foundation records may
+    // instead provide Atwater-specific (2048) and general (2047) values;
+    // prefer the more food-specific calculation when both are available.
+    energyKcal: findNutrient(
+      nutrients,
+      [1008, 2048, 2047],
+      /^energy(?: \(atwater (?:specific|general) factors\))?$/i,
+    ),
     proteinG: findNutrient(nutrients, [1003], /^protein$/i),
     fatG: findNutrient(nutrients, [1004], /total lipid|total fat/i),
     carbohydrateG: findNutrient(

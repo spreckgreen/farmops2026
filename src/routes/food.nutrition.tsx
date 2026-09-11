@@ -51,7 +51,7 @@ function FoodNutritionPage() {
 
   const [foodId, setFoodId] = useState("");
   const [query, setQuery] = useState("");
-  const [foodForm, setFoodForm] = useState("As listed");
+  const [foodForm, setFoodForm] = useState("");
   const [includeBranded, setIncludeBranded] = useState(false);
   const foods = catalog.data?.foods ?? [];
   const selectedFood = foods.find((food) => food.id === foodId);
@@ -129,6 +129,7 @@ function FoodNutritionPage() {
                 setFoodId(next);
                 const food = foods.find((item) => item.id === next);
                 if (food) setQuery(food.name);
+                setFoodForm("");
               }}
               className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
             >
@@ -141,7 +142,7 @@ function FoodNutritionPage() {
             </select>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="food-form">Food form</Label>
+            <Label htmlFor="food-form">Food form (required)</Label>
             <Input
               id="food-form"
               value={foodForm}
