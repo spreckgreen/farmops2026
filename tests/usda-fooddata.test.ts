@@ -32,6 +32,34 @@ describe("USDA FoodData Central normalization", () => {
     });
   });
 
+  it("prefers specific Atwater energy for newer Foundation Foods", () => {
+    const food = normalizeUsdaFood({
+      fdcId: 1750341,
+      description: "Apples, gala, with skin, raw",
+      dataType: "Foundation",
+      foodNutrients: [
+        {
+          nutrient: {
+            id: 2047,
+            name: "Energy (Atwater General Factors)",
+            unitName: "kcal",
+          },
+          amount: 60.9536,
+        },
+        {
+          nutrient: {
+            id: 2048,
+            name: "Energy (Atwater Specific Factors)",
+            unitName: "kcal",
+          },
+          amount: 54.866865,
+        },
+      ],
+    });
+
+    expect(extractMacros(food.nutrients).energyKcal).toBe(54.866865);
+  });
+
   it("normalizes abridged search nutrients", () => {
     const food = normalizeUsdaFood({
       fdcId: 456,
