@@ -31,6 +31,26 @@ export const MAX_ITEM_CHARS = 12_000;
 const MAX_GROUP_CHARS = 24_000;
 const MAX_ARTICLES = 60;
 
+const LIBRARY_METADATA_MARKERS = [
+  "library_artifact_subtype",
+  "library_artifact_type",
+  "thumbnail_sources",
+  "the app's library files",
+];
+
+export function isLibraryMetadataRecord(item: IngestSourceInput): boolean {
+  const title = String(item.title ?? "").trim();
+  const text = String(item.text ?? "").toLowerCase();
+
+  if (/^library files? record\b/i.test(title)) return true;
+
+  const matches = LIBRARY_METADATA_MARKERS.filter((marker) =>
+    text.includes(marker),
+  );
+
+  return matches.length >= 2;
+}
+
 const ARTICLE_SHAPE = `Return GitHub-flavored Markdown only (no code fence around the whole answer), in exactly this shape:
 
 # <Article title>
@@ -140,15 +160,29 @@ export async function runIngest(
   const taken = new Set<string>(
     (existingRows ?? []).map((r: { name: string }) => String(r.name)),
   );
-
   const skipped: { title: string; reason: string }[] = [];
 
-  type Unit = { title: string; sources: IngestSourceInput[] };
-  let units: Unit[] = data.items.map((it) => ({ title: it.title, sources: [it] }));
+  const rejected = data.items.filter(isLibraryMetadataRecord);
+  const accepted = data.items.filter(
+    (item) => !isLibraryMetadataRecord(item),
+  );
 
-  if (data.mode === "grouped" && data.items.length > 1) {
+  for (const item of rejected) {
+    skipped.push({
+      title: item.title,
+      reason:
+        "Library metadata record; not suitable for procedure summarization",
+    });
+  }
+
+  type Unit = { title: string; sources: IngestSourceInput[] };
+  let units: Unit[] = accepted.map((it) => ({
+    title: it.title,
+    sources: [it],
+  }));
+  if (data.mode === "grouped" && accepted.length > 1) {
     try {
-      const list = data.items
+      const list = accepted
         .map(
           (it) =>
             `${it.id} | ${it.title} | ${it.text.slice(0, 300).replace(/\n/g, " ")}`,
@@ -160,7 +194,7 @@ export async function runIngest(
           "Use every id exactly once. Prefer 3-10 topics. No commentary.",
         `Sources (id | title | excerpt):\n${list}`,
       );
-      const byId = new Map(data.items.map((it) => [it.id, it]));
+      const byId = new Map(accepted.map((it) => [it.id, it]));
       const grouped: Unit[] = [];
       const used = new Set<string>();
       for (const line of clustered.split("\n")) {
@@ -177,7 +211,7 @@ export async function runIngest(
           sources: ids.map((id) => byId.get(id)!),
         });
       }
-      for (const it of data.items) {
+      for (const it of accepted) {
         if (!used.has(it.id)) grouped.push({ title: it.title, sources: [it] });
       }
       if (grouped.length) units = grouped;
