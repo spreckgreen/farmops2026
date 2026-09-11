@@ -30,6 +30,10 @@ services:
     #   - "3000:3000"
     expose:
       - "3000"
+    networks:
+      - default
+      - supabase_internal
+
     # Load both env files at the service level so `docker compose up` picks up
     # .env.local even when invoked directly (without COMPOSE_ENV_FILES). Later
     # files win, so .env.local overrides .env. `required: false` prevents a
