@@ -1148,13 +1148,13 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
             <select
               id="map-only-def"
               className="h-8 w-full rounded border border-border bg-background px-2"
-              value={mapOnlyDef}
+              value={mapOnlyDef || (gridDefs.data?.find((d) => d.isActive)?.uuid ?? "")}
               onChange={(e) => setMapOnlyDef(e.target.value)}
             >
               {(gridDefs.data ?? []).map((d) => (
-                <option key={d.uuid} value={d.uuid}>
+                <option key={d.uuid} value={d.uuid} disabled={!d.isActive}>
                   {d.name}
-                  {d.isActive ? " (active)" : ""}
+                  {d.isActive ? " (active)" : " — activate it first to plot records"}
                 </option>
               ))}
             </select>
@@ -1162,7 +1162,13 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
               <p className="text-muted-foreground">
                 No saved grid map yet — define one on the grid layout page.
               </p>
-            ) : null}
+            ) : (
+              <p className="text-muted-foreground">
+                Records are placed using the active grid map, so only that map can be printed with
+                its points. Activate another map on the grid layout page to print it.
+              </p>
+            )}
+
           </div>
           <div className="space-y-1">
             <label className="font-medium" htmlFor="map-only-panel">
