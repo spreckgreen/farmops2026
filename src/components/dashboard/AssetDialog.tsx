@@ -448,7 +448,12 @@ const AssetDialog = ({ open, onOpenChange, onSave, asset }: AssetDialogProps) =>
               )}
             </div>
             {asset ? (
-              <InventoryConnectivityEditor itemId={asset.id} itemName={form.name || asset.name || "Inventory item"} />
+              <InventoryConnectivityEditor
+                itemId={asset.id}
+                itemName={form.name || asset.name || "Inventory item"}
+                manufacturer={form.manufacturer}
+                model={form.model}
+              />
             ) : (
               <p className="col-span-2 text-[11px] text-muted-foreground">
                 Save this item first, then edit it to add device ports or cable ends.
