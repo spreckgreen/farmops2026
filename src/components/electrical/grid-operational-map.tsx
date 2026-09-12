@@ -428,11 +428,20 @@ export function GridOperationalMap({ large = false }: { large?: boolean }) {
   /** Map only: one landscape page of the chosen saved grid map, footer-stamped
    * with that map's name and the print date. No schedules, no legend tables. */
   const downloadMapOnlyPdf = async () => {
-    const def = gridDefs.data?.find((d) => d.uuid === mapOnlyDef) ?? gridDefs.data?.[0];
+    // Record placements are resolved against the ACTIVE grid map only, so the
+    // printed sheet must draw that same map — otherwise the dots would sit on
+    // another map's grid lines and send crews to the wrong spot.
+    const active = gridDefs.data?.find((d) => d.isActive);
+    const chosen = gridDefs.data?.find((d) => d.uuid === mapOnlyDef);
+    const def = chosen?.isActive ? chosen : active;
     if (!def) {
-      toast.error("No saved grid map to print");
+      toast.error("No active grid map to print", {
+        description:
+          "Records plot from the active grid map. Activate the map you want on the grid layout page, then print it.",
+      });
       return;
     }
+
     setSaving(true);
     try {
       const mod = await import("@/lib/electrical-grid-map-pdf");
