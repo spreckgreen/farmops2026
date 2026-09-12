@@ -33,6 +33,8 @@ ALTER TABLE public.inventory_cable_specs
 ALTER TABLE public.inventory_cable_specs
   ADD CONSTRAINT inventory_cable_specs_supported_domains_check
   CHECK (
+    cardinality(supported_domains) > 0
+    AND
     supported_domains <@ ARRAY[
       'ham_radio',
       'communications',
