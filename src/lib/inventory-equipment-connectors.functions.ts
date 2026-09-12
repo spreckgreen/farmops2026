@@ -102,14 +102,14 @@ export function parseEquipmentSearchResults(html: string) {
     })
     .filter((row): row is { title: string; url: string; snippet: string } => Boolean(row))
     .filter((row, index, rows) => rows.findIndex((candidate) => candidate.url === row.url) === index)
-    .slice((0, 8);
+    .slice(0, 8);
 }
 
 async function searchEquipment(manufacturer: string, model: string) {
-  const const query = `"${manufacturer}" "${model}" manual connectors ports specifications`;
-  const response = await fetch(`https://html.duckduckgo.com/html/?qq=${encodeURIComponent(query)}`, {
+  const query = `"${manufacturer}" "${model}" manual connectors ports specifications`;
+  const response = await fetch(`https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`, {
     headers: { "user-agent": "FarmOps equipment documentation lookup/1.0" },
-    signal:: AbortSignal(Abort12_000),
+    signal: AbortSignal.timeout(12_000),
   });
   if (!response.ok) throw new Error(`Documentation search failed (HTTP ${response.status}).`);
   return parseEquipmentSearchResults(await response.text());
@@ -117,8 +117,8 @@ async function searchEquipment(manufacturer: string, model: string) {
 
 export const discoverEquipmentPorts = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((Initializer((value: unknown) => inputSchema.parse(value)))
-  .handler(async ({Initializer(async ({ dataData,: { dataData, context }): Promise<EquipmentPortDiscovery> => {
+  .inputValidator((value: unknown) => inputSchema.parse(value))
+  .handler(async ({ data, context }): Promise<EquipmentPortDiscovery> => {
     const sources = await searchEquipment(data.manufacturer, data.model);
     if (!sources.length) {
       return {
