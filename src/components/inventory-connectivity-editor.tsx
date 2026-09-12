@@ -17,7 +17,8 @@ import {
 } from "@/lib/inventory-connectors";
 
 type InventoryChoice = { id: string; name: string | null; sku: string | null };
-type CableRow = Omit<CableSpec, "ends"> & { ends: CableEnd[]; item?: InventoryChoice };
+type CableEndRow = CableEnd & { cable_item_id: string };
+type CableRow = Omit<CableSpec, "ends"> & { ends: CableEndRow[]; item?: InventoryChoice };
 
 const blankPort = {
   name: "",
@@ -86,13 +87,7 @@ function ConnectorPicker({
   );
 }
 
-export function InventoryConnectivityEditor({
-  itemId,
-  itemName,
-}: {
-  itemId: string;
-  itemName: string;
-}) {
+export function InventoryConnectivityEditor({ itemId }: { itemId: string }) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [connectors, setConnectors] = useState<ConnectorRef[]>([]);
@@ -120,10 +115,10 @@ export function InventoryConnectivityEditor({
       const connectorRows = (catalogRes.data ?? []) as ConnectorRef[];
       const itemRows = (itemsRes.data ?? []) as InventoryChoice[];
       const itemMap = new Map(itemRows.map((item) => [item.id, item]));
-      const endRows = (endsRes.data ?? []) as CableEnd[];
+      const endRows = (endsRes.data ?? []) as CableEndRow[];
       const cableRows = ((specsRes.data ?? []) as Array<Omit<CableRow, "ends">>).map((spec) => ({
         ...spec,
-        ends: endRows.filter((end: any) => end.cable_item_id === spec.inventory_item_id),
+        ends: endRows.filter((end) => end.cable_item_id === spec.inventory_item_id),
         item: itemMap.get(spec.inventory_item_id),
       }));
       setConnectors(connectorRows);
@@ -348,7 +343,7 @@ export function InventoryConnectivityEditor({
                 <select name="length_unit" defaultValue={cableSpec?.length_unit ?? "ft"} className="h-8 rounded-md border bg-background px-2 text-xs"><option>in</option><option>ft</option><option>mm</option><option>cm</option><option>m</option></select>
                 <Input name="awg" type="number" min="0" max="60" defaultValue={cableSpec?.awg ?? ""} placeholder="AWG" className="h-8 text-xs" />
                 <Input name="impedance" type="number" min="0" defaultValue={cableSpec?.impedance_ohms ?? ""} placeholder="Impedance Ω" className="h-8 text-xs" />
-                <Input name="shielding" defaultValue={(cableSpec as any)?.shielding ?? ""} placeholder="Shielding" className="h-8 text-xs" />
+                <Input name="shielding" defaultValue={cableSpec?.shielding ?? ""} placeholder="Shielding" className="h-8 text-xs" />
                 <Input name="max_frequency_hz" type="number" min="0" defaultValue={cableSpec?.max_frequency_hz ?? ""} placeholder="Max frequency Hz" className="h-8 text-xs" />
                 <Input name="max_current_a" type="number" min="0" step="any" defaultValue={cableSpec?.max_current_a ?? ""} placeholder="Max current A" className="h-8 text-xs" />
                 <Input name="max_power_w" type="number" min="0" step="any" defaultValue={cableSpec?.max_power_w ?? ""} placeholder="Max power W" className="h-8 text-xs" />
@@ -359,11 +354,10 @@ export function InventoryConnectivityEditor({
                 {(["A", "B"] as const).map((label) => (
                   <fieldset key={label} className="space-y-2 rounded border p-2">
                     <legend className="px-1 text-xs font-medium">End {label}</legend>
-                    <ConnectorPicker connectors={connectors} value={end(label)?.connector_type_id ?? ""} onChange={(value) => {
-                      const select = document.querySelector<HTMLSelectElement>(`select[name="connector_${label.toLowerCase()}"]`);
-                      if (select) select.value = value;
-                    }} />
-                    <select name={`connector_${label.toLowerCase()}`} defaultValue={end(label)?.connector_type_id ?? ""} className="hidden" aria-hidden="true"><option value={end(label)?.connector_type_id ?? ""} /></select>
+                    <select name={`connector_${label.toLowerCase()}`} defaultValue={end(label)?.connector_type_id ?? ""} className="h-8 w-full rounded-md border bg-background px-2 text-xs" required>
+                      <option value="">Choose connector…</option>
+                      {connectors.map((connector) => <option key={connector.id} value={connector.id}>{connector.display_name}</option>)}
+                    </select>
                     <select name={`gender_${label.toLowerCase()}`} defaultValue={end(label)?.connector_gender ?? "plug"} className="h-8 w-full rounded-md border bg-background px-2 text-xs">{genders.map((gender) => <option key={gender} value={gender}>{gender}</option>)}</select>
                     <select name={`polarity_${label.toLowerCase()}`} defaultValue={end(label)?.polarity ?? "standard"} className="h-8 w-full rounded-md border bg-background px-2 text-xs"><option value="standard">standard polarity</option><option value="reverse">reverse polarity</option><option value="not_applicable">not applicable</option></select>
                   </fieldset>
