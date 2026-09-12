@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { InventoryEquipmentPortDiscovery } from "@/components/inventory-equipment-port-discovery";
 import {
   cableCompatibility,
   connectorSearchText,
@@ -87,7 +88,16 @@ function ConnectorPicker({
   );
 }
 
-export function InventoryConnectivityEditor({ itemId }: { itemId: string }) {
+export function InventoryConnectivityEditor({
+  itemId,
+  manufacturer = "",
+  model = "",
+}: {
+  itemId: string;
+  itemName?: string;
+  manufacturer?: string;
+  model?: string;
+}) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [connectors, setConnectors] = useState<ConnectorRef[]>([]);
@@ -256,6 +266,15 @@ export function InventoryConnectivityEditor({ itemId }: { itemId: string }) {
       {open ? (
         <div className="space-y-4 border-t border-border/70 p-3">
           {loading ? <p className="text-sm text-muted-foreground">Loading connections…</p> : null}
+
+          <InventoryEquipmentPortDiscovery
+            itemId={itemId}
+            manufacturer={manufacturer}
+            model={model}
+            connectors={connectors}
+            existingPortNames={ports.map((port) => port.name)}
+            onCreated={load}
+          />
 
           <div className="space-y-2">
             <div className="flex items-center justify-between">
