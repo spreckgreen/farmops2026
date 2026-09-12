@@ -173,11 +173,36 @@ function FoodPlanPage() {
     let weeklyCost = 0;
     for (const f of foods) {
       const qty = perFood.get(f.id) ?? 0;
-      // qty here is treated as servings/oz; price_per_pound × (qty/16) assuming qty is ounces
-      if (f.price_per_pound != null) weeklyCost += (f.price_per_pound * qty) / 16;
+      const plannedOunces = qty * (f.oz_per_serving ?? 1);
+      if (f.price_per_pound != null) weeklyCost += (f.price_per_pound * plannedOunces) / 16;
     }
     return { perFood, weeklyCost };
   }, [entries, foods]);
+
+  const perPersonTotals = useMemo(() => {
+    const foodById = new Map(foods.map((food) => [food.id, food]));
+    return people.map((person) => {
+      const daily = DAYS.map(() => 0);
+      let weeklyCost = 0;
+      for (const entry of entries) {
+        if (entry.person_id !== person.id) continue;
+        const quantity = Number(entry.quantity) || 0;
+        daily[entry.day_of_week - 1] += quantity;
+        const food = foodById.get(entry.food_id);
+        const plannedOunces = quantity * (food?.oz_per_serving ?? 1);
+        if (food?.price_per_pound != null) {
+          weeklyCost += Number(food.price_per_pound) * plannedOunces / 16;
+        }
+      }
+      return {
+        personId: person.id,
+        name: person.name,
+        daily,
+        weeklyQuantity: daily.reduce((sum, value) => sum + value, 0),
+        weeklyCost,
+      };
+    });
+  }, [entries, foods, people]);
 
   const [selectedPerson, setSelectedPerson] = useState<string | null>(null);
   const [personDialog, setPersonDialog] = useState(false);
@@ -361,6 +386,48 @@ function FoodPlanPage() {
             <Trash2 className="h-3 w-3" />
           </Button>
         )}
+      </div>
+
+      <div className="border border-border rounded-md overflow-auto">
+        <table className="w-full min-w-[720px] text-xs font-mono">
+          <thead className="bg-muted/50">
+            <tr>
+              <th className="p-2 text-left">Person totals</th>
+              {DAY_LABELS.map((label) => <th key={label} className="p-2 text-right">{label}</th>)}
+              <th className="p-2 text-right">Week</th>
+              <th className="p-2 text-right">Est. cost</th>
+            </tr>
+          </thead>
+          <tbody>
+            {perPersonTotals.map((total) => (
+              <tr
+                key={total.personId}
+                className={`border-t border-border cursor-pointer hover:bg-accent/30 ${activePerson === total.personId ? "bg-accent/40" : ""}`}
+                onClick={() => setSelectedPerson(total.personId)}
+              >
+                <td className="p-2 font-semibold">{total.name}</td>
+                {total.daily.map((value, index) => (
+                  <td key={index} className="p-2 text-right">{value ? value.toFixed(2) : "—"}</td>
+                ))}
+                <td className="p-2 text-right font-semibold">{total.weeklyQuantity.toFixed(2)}</td>
+                <td className="p-2 text-right">{fmtUsd(total.weeklyCost)}</td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot className="border-t-2 border-border bg-muted/30">
+            <tr>
+              <td className="p-2 font-semibold">Household</td>
+              {DAYS.map((_, index) => {
+                const value = perPersonTotals.reduce((sum, total) => sum + total.daily[index], 0);
+                return <td key={index} className="p-2 text-right font-semibold">{value ? value.toFixed(2) : "—"}</td>;
+              })}
+              <td className="p-2 text-right font-semibold">
+                {perPersonTotals.reduce((sum, total) => sum + total.weeklyQuantity, 0).toFixed(2)}
+              </td>
+              <td className="p-2 text-right font-semibold">{fmtUsd(totals.weeklyCost)}</td>
+            </tr>
+          </tfoot>
+        </table>
       </div>
 
       <NutritionAssessmentPanel
@@ -661,6 +728,29 @@ function FoodPlanPage() {
               );
             })}
           </tbody>
+          {(() => {
+            const total = perPersonTotals.find((item) => item.personId === activePerson);
+            if (!total) return null;
+            return (
+              <tfoot className="sticky bottom-0 border-t-2 border-border bg-card">
+                <tr>
+                  <td className="p-2 sticky left-0 bg-card border-r border-border font-semibold">
+                    {total.name} total (all foods)
+                  </td>
+                  <td className="p-2 border-r border-border"></td>
+                  {total.daily.map((value, index) => (
+                    <td key={index} className="p-2 border-r border-border text-right font-semibold">
+                      {value ? value.toFixed(2) : "—"}
+                    </td>
+                  ))}
+                  <td className="p-2 border-r border-border text-right font-semibold">
+                    {total.weeklyQuantity.toFixed(2)}
+                  </td>
+                  <td className="p-1"></td>
+                </tr>
+              </tfoot>
+            );
+          })()}
         </table>
       </div>
 
