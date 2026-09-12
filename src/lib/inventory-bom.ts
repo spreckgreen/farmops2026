@@ -18,6 +18,8 @@ export interface BomComponentRow {
   /** Component unit cost, when known. */
   unitCost: number | null;
   notes: string | null;
+  /** The one physical home container; logical BOM membership may have several parents. */
+  primaryContainerItemId?: string | null;
 }
 
 export interface BomRollup {
@@ -28,7 +30,12 @@ export interface BomRollup {
   /** How many whole parents current stock can build (min over components). */
   buildableUnits: number;
   /** Components that block a build right now, with the shortfall per unit. */
-  shortfalls: Array<{ name: string; needed: number; onHand: number; short: number }>;
+  shortfalls: Array<{
+    name: string;
+    needed: number;
+    onHand: number;
+    short: number;
+  }>;
 }
 
 /** Cost + buildability rollup for one parent's direct components. */
@@ -64,7 +71,10 @@ export function rollupBom(rows: BomComponentRow[]): BomRollup {
 }
 
 /** How many of each component a build of `units` parents consumes. */
-export function requirementsFor(rows: BomComponentRow[], units: number): Array<{
+export function requirementsFor(
+  rows: BomComponentRow[],
+  units: number,
+): Array<{
   componentItemId: string;
   name: string;
   needed: number;

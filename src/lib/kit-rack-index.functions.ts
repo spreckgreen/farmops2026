@@ -6,6 +6,7 @@
 // here — parts, heights and positions are read exactly as recorded.
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { z } from "zod";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type LooseDb = { from: (table: string) => any };
@@ -28,9 +29,15 @@ export interface KitRackBuildout {
   sku: string | null;
   location: string | null;
   onHand: number;
+  containerKind: "kit" | "bag";
   parts: KitRackPart[];
   /** Set when an equipment rack is built out by this kit. */
-  rack: { id: string; stableId: string; description: string | null; sizeU: number | null } | null;
+  rack: {
+    id: string;
+    stableId: string;
+    description: string | null;
+    sizeU: number | null;
+  } | null;
 }
 
 /** All kits, with rack build-outs first. */
@@ -43,7 +50,7 @@ export const listKitRackBuildouts = createServerFn({ method: "GET" })
 
     const { data: kits, error } = await db
       .from("inventory_items")
-      .select("id, name, sku, location, quantity")
+      .select("id, name, sku, location, quantity, container_kind")
       .eq("user_id", userId)
       .in("item_type", KIT_ITEM_TYPES)
       .order("name", { ascending: true })
@@ -64,9 +71,16 @@ export const listKitRackBuildouts = createServerFn({ method: "GET" })
     if (cErr) throw new Error(cErr.message);
 
     const componentIds = [
-      ...new Set((rows ?? []).map((r: { component_item_id: string }) => String(r.component_item_id))),
+      ...new Set(
+        (rows ?? []).map((r: { component_item_id: string }) =>
+          String(r.component_item_id),
+        ),
+      ),
     ];
-    const items = new Map<string, { name: string; unit: string | null; rackUnits: number | null }>();
+    const items = new Map<
+      string,
+      { name: string; unit: string | null; rackUnits: number | null }
+    >();
     if (componentIds.length > 0) {
       const { data: comps, error: iErr } = await db
         .from("inventory_items")
@@ -110,10 +124,14 @@ export const listKitRackBuildouts = createServerFn({ method: "GET" })
         sku: string | null;
         location: string | null;
         quantity: number | null;
+        container_kind: string | null;
       }) => {
         const kitId = String(k.id);
         const parts: KitRackPart[] = (rows ?? [])
-          .filter((r: { parent_item_id: string }) => String(r.parent_item_id) === kitId)
+          .filter(
+            (r: { parent_item_id: string }) =>
+              String(r.parent_item_id) === kitId,
+          )
           .map(
             (r: {
               id: string;
@@ -130,8 +148,12 @@ export const listKitRackBuildouts = createServerFn({ method: "GET" })
                 name: item?.name ?? "(missing inventory item)",
                 quantity: Number(r.quantity ?? 0),
                 unit: r.unit ?? item?.unit ?? null,
-                rackUnits: r.rack_units == null ? (item?.rackUnits ?? null) : Number(r.rack_units),
-                positionU: r.rack_position_u == null ? null : Number(r.rack_position_u),
+                rackUnits:
+                  r.rack_units == null
+                    ? (item?.rackUnits ?? null)
+                    : Number(r.rack_units),
+                positionU:
+                  r.rack_position_u == null ? null : Number(r.rack_position_u),
               };
             },
           );
@@ -141,17 +163,48 @@ export const listKitRackBuildouts = createServerFn({ method: "GET" })
           sku: k.sku ?? null,
           location: k.location ?? null,
           onHand: Number(k.quantity ?? 0),
+          containerKind: k.container_kind === "bag" ? "bag" : "kit",
           parts,
           rack: racks.get(kitId) ?? null,
         };
       },
     );
 
-    // Rack build-outs first, then the rest, each alphabetical.
+    // Kits, bags and rack build-outs are grouped by the page. Keep each kind alphabetical here.
     return out.sort((a, b) => {
-      if (Boolean(a.rack) !== Boolean(b.rack)) return a.rack ? -1 : 1;
       return a.kitName.localeCompare(b.kitName);
     });
+  });
+
+const CreateBagInput = z.object({
+  name: z.string().trim().min(1).max(160),
+  sku: z.string().trim().max(80).nullable().optional(),
+  homeLocation: z.string().trim().max(240).nullable().optional(),
+});
+
+/** Create one physical bag/mini-kit. Its contents are managed through the shared BOM editor. */
+export const createBag = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => CreateBagInput.parse(d))
+  .handler(async ({ context, data }) => {
+    const db = context.supabase as unknown as LooseDb;
+    const { data: row, error } = await db
+      .from("inventory_items")
+      .insert({
+        user_id: context.userId,
+        name: data.name,
+        sku: data.sku || null,
+        item_type: "32_kits",
+        quantity: 1,
+        unit: "bag",
+        location: data.homeLocation || null,
+        home_location: data.homeLocation || null,
+        container_kind: "bag",
+      })
+      .select("id")
+      .single();
+    if (error) throw new Error(error.message);
+    return { id: String(row.id) };
   });
 
 export interface RackWithoutKit {
@@ -178,7 +231,12 @@ export const listRacksWithoutKit = createServerFn({ method: "GET" })
         .limit(500);
       if (error) return [];
       return (data ?? []).map(
-        (r: { id: string; rack_id: string | null; description: string | null; rack_size_u: number | null }) => ({
+        (r: {
+          id: string;
+          rack_id: string | null;
+          description: string | null;
+          rack_size_u: number | null;
+        }) => ({
           id: String(r.id),
           stableId: String(r.rack_id ?? ""),
           description: r.description ?? null,
@@ -190,4 +248,3 @@ export const listRacksWithoutKit = createServerFn({ method: "GET" })
       return [];
     }
   });
-

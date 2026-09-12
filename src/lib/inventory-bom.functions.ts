@@ -6,7 +6,13 @@ import { z } from "zod";
 import type { BomComponentRow, BomRollup } from "@/lib/inventory-bom";
 
 export interface BomView {
-  parent: { id: string; name: string; sku: string | null; unit: string | null; onHand: number };
+  parent: {
+    id: string;
+    name: string;
+    sku: string | null;
+    unit: string | null;
+    onHand: number;
+  };
   components: BomComponentRow[];
   rollup: BomRollup;
   /** Parents that consume this item, so you can see what a shortage blocks. */
@@ -35,7 +41,7 @@ export const getInventoryBom = createServerFn({ method: "GET" })
       .from("inventory_components")
       .select(
         "id, component_item_id, quantity, unit, notes, sort_order, " +
-          "component:inventory_items!inventory_components_component_item_id_fkey(name, sku, unit, quantity, unit_cost)",
+          "component:inventory_items!inventory_components_component_item_id_fkey(name, sku, unit, quantity, unit_cost, primary_container_item_id)",
       )
       .eq("user_id", userId)
       .eq("parent_item_id", data.parentItemId)
@@ -56,6 +62,7 @@ export const getInventoryBom = createServerFn({ method: "GET" })
           unit: string | null;
           quantity: number | null;
           unit_cost: number | null;
+          primary_container_item_id: string | null;
         } | null;
       }>
     ).map((r) => ({
@@ -66,8 +73,10 @@ export const getInventoryBom = createServerFn({ method: "GET" })
       unit: r.unit ?? r.component?.unit ?? null,
       quantity: Number(r.quantity ?? 0),
       onHand: Number(r.component?.quantity ?? 0),
-      unitCost: r.component?.unit_cost == null ? null : Number(r.component.unit_cost),
+      unitCost:
+        r.component?.unit_cost == null ? null : Number(r.component.unit_cost),
       notes: r.notes ?? null,
+      primaryContainerItemId: r.component?.primary_container_item_id ?? null,
     }));
 
     const { data: usedRows } = await supabase
@@ -92,7 +101,13 @@ export const getInventoryBom = createServerFn({ method: "GET" })
       quantity: Number(r.quantity ?? 0),
     }));
 
-    const p = parent as { id: string; name: string | null; sku: string | null; unit: string | null; quantity: number | null };
+    const p = parent as {
+      id: string;
+      name: string | null;
+      sku: string | null;
+      unit: string | null;
+      quantity: number | null;
+    };
     return {
       parent: {
         id: p.id,
@@ -164,7 +179,8 @@ export const addBomComponent = createServerFn({ method: "POST" })
       .eq("user_id", userId)
       .in("id", [data.parentItemId, data.componentItemId]);
     if (ownErr) throw new Error(ownErr.message);
-    if ((owned ?? []).length !== 2) throw new Error("Inventory item not found.");
+    if ((owned ?? []).length !== 2)
+      throw new Error("Inventory item not found.");
 
     // Cycle guard: build the existing parent -> components graph.
     const { data: allEdges } = await supabase
@@ -172,7 +188,10 @@ export const addBomComponent = createServerFn({ method: "POST" })
       .select("parent_item_id, component_item_id")
       .eq("user_id", userId);
     const edges = new Map<string, string[]>();
-    for (const e of (allEdges ?? []) as Array<{ parent_item_id: string; component_item_id: string }>) {
+    for (const e of (allEdges ?? []) as Array<{
+      parent_item_id: string;
+      component_item_id: string;
+    }>) {
       const list = edges.get(e.parent_item_id) ?? [];
       list.push(e.component_item_id);
       edges.set(e.parent_item_id, list);
@@ -193,9 +212,46 @@ export const addBomComponent = createServerFn({ method: "POST" })
     });
     if (error) {
       if (/unique/i.test(error.message)) {
-        throw new Error("That part is already listed — edit its quantity instead.");
+        throw new Error(
+          "That part is already listed — edit its quantity instead.",
+        );
       }
       throw new Error(error.message);
+    }
+
+    // The BOM edge is a logical membership and may exist in several kits. The
+    // first physical-container assignment becomes the part's primary/home
+    // assignment; later memberships never overwrite it.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const db = context.supabase as any;
+    const { data: parent } = await db
+      .from("inventory_items")
+      .select("container_kind")
+      .eq("user_id", userId)
+      .eq("id", data.parentItemId)
+      .maybeSingle();
+    if (
+      parent &&
+      (parent.container_kind === "kit" || parent.container_kind === "bag")
+    ) {
+      const { error: assignmentError } = await db
+        .from("inventory_items")
+        .update({
+          primary_container_item_id: data.parentItemId,
+          current_container_item_id: data.parentItemId,
+        })
+        .eq("user_id", userId)
+        .eq("id", data.componentItemId)
+        .is("primary_container_item_id", null);
+      if (assignmentError) {
+        await db
+          .from("inventory_components")
+          .delete()
+          .eq("user_id", userId)
+          .eq("parent_item_id", data.parentItemId)
+          .eq("component_item_id", data.componentItemId);
+        throw new Error(assignmentError.message);
+      }
     }
     return { ok: true as const };
   });
@@ -211,7 +267,11 @@ export const updateBomComponent = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => UpdateInput.parse(d))
   .handler(async ({ context, data }) => {
-    const patch: { quantity?: number; unit?: string | null; notes?: string | null } = {};
+    const patch: {
+      quantity?: number;
+      unit?: string | null;
+      notes?: string | null;
+    } = {};
     if (data.quantity !== undefined) patch.quantity = data.quantity;
     if (data.unit !== undefined) patch.unit = data.unit;
     if (data.notes !== undefined) patch.notes = data.notes;
@@ -222,6 +282,52 @@ export const updateBomComponent = createServerFn({ method: "POST" })
       .update(patch)
       .eq("user_id", context.userId)
       .eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true as const };
+  });
+
+const PrimaryContainerInput = z.object({
+  parentItemId: z.string().uuid(),
+  componentItemId: z.string().uuid(),
+});
+
+/** Choose which one of a part's logical memberships is its physical home. */
+export const setPrimaryBomContainer = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => PrimaryContainerInput.parse(d))
+  .handler(async ({ context, data }) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const db = context.supabase as any;
+    const { data: membership, error: membershipError } = await db
+      .from("inventory_components")
+      .select("id")
+      .eq("user_id", context.userId)
+      .eq("parent_item_id", data.parentItemId)
+      .eq("component_item_id", data.componentItemId)
+      .maybeSingle();
+    if (membershipError) throw new Error(membershipError.message);
+    if (!membership)
+      throw new Error("That item is not assigned to this kit or bag.");
+
+    const { data: movement } = await db
+      .from("inventory_container_movements")
+      .select("id")
+      .eq("user_id", context.userId)
+      .eq("item_id", data.componentItemId)
+      .is("restored_at", null)
+      .limit(1)
+      .maybeSingle();
+    if (movement)
+      throw new Error("Check this item in before changing its primary home.");
+
+    const { error } = await db
+      .from("inventory_items")
+      .update({
+        primary_container_item_id: data.parentItemId,
+        current_container_item_id: data.parentItemId,
+      })
+      .eq("user_id", context.userId)
+      .eq("id", data.componentItemId);
     if (error) throw new Error(error.message);
     return { ok: true as const };
   });

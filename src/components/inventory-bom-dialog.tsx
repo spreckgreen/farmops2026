@@ -28,6 +28,7 @@ import {
   getInventoryBom,
   listBomCandidates,
   removeBomComponent,
+  setPrimaryBomContainer,
   updateBomComponent,
 } from "@/lib/inventory-bom.functions";
 import { formatQty, requirementsFor } from "@/lib/inventory-bom";
@@ -52,6 +53,7 @@ export function InventoryBomDialog({
   const addFn = useServerFn(addBomComponent);
   const updateFn = useServerFn(updateBomComponent);
   const removeFn = useServerFn(removeBomComponent);
+  const primaryFn = useServerFn(setPrimaryBomContainer);
 
   const [componentId, setComponentId] = useState("");
   const [qty, setQty] = useState("1");
@@ -109,6 +111,16 @@ export function InventoryBomDialog({
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const makePrimary = useMutation({
+    mutationFn: (componentItemId: string) =>
+      primaryFn({ data: { parentItemId: itemId!, componentItemId } }),
+    onSuccess: () => {
+      invalidate();
+      toast.success("Primary home assignment updated");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const bom = bomQuery.data;
   const requirements = useMemo(
     () => (bom ? requirementsFor(bom.components, Number(buildUnits) || 0) : []),
@@ -123,35 +135,50 @@ export function InventoryBomDialog({
             Parts &amp; dependencies{bom ? ` — ${bom.parent.name}` : ""}
           </DialogTitle>
           <DialogDescription>
-            List the inventory parts this item is made from, with the quantity needed to
-            build one. Stock and unit costs come from those parts' own records.
+            Add loose parts or completed bags. A bag keeps its own contents
+            while becoming a nested component of this kit.
           </DialogDescription>
         </DialogHeader>
 
         {bomQuery.isLoading ? (
           <p className="text-sm text-muted-foreground">Loading parts…</p>
         ) : bomQuery.error ? (
-          <p className="text-sm text-red-600">{(bomQuery.error as Error).message}</p>
+          <p className="text-sm text-red-600">
+            {(bomQuery.error as Error).message}
+          </p>
         ) : bom ? (
           <div className="space-y-5">
             <div className="grid gap-2 sm:grid-cols-3">
               <div className="rounded-md border p-3">
-                <div className="text-xs text-muted-foreground">Material cost / unit</div>
-                <div className="text-lg font-semibold">{money(bom.rollup.materialCost)}</div>
+                <div className="text-xs text-muted-foreground">
+                  Material cost / unit
+                </div>
+                <div className="text-lg font-semibold">
+                  {money(bom.rollup.materialCost)}
+                </div>
                 {bom.rollup.componentsMissingCost > 0 ? (
                   <div className="text-xs text-amber-600">
                     {bom.rollup.componentsMissingCost} part
-                    {bom.rollup.componentsMissingCost === 1 ? "" : "s"} missing a unit cost
+                    {bom.rollup.componentsMissingCost === 1 ? "" : "s"} missing
+                    a unit cost
                   </div>
                 ) : null}
               </div>
               <div className="rounded-md border p-3">
-                <div className="text-xs text-muted-foreground">Buildable from stock</div>
-                <div className="text-lg font-semibold">{bom.rollup.buildableUnits}</div>
+                <div className="text-xs text-muted-foreground">
+                  Buildable from stock
+                </div>
+                <div className="text-lg font-semibold">
+                  {bom.rollup.buildableUnits}
+                </div>
               </div>
               <div className="rounded-md border p-3">
-                <div className="text-xs text-muted-foreground">Parts listed</div>
-                <div className="text-lg font-semibold">{bom.components.length}</div>
+                <div className="text-xs text-muted-foreground">
+                  Parts listed
+                </div>
+                <div className="text-lg font-semibold">
+                  {bom.components.length}
+                </div>
               </div>
             </div>
 
@@ -164,7 +191,8 @@ export function InventoryBomDialog({
                 <ul className="mt-1 list-disc pl-5 text-xs">
                   {bom.rollup.shortfalls.map((s) => (
                     <li key={s.name}>
-                      {s.name}: need {s.needed}, have {s.onHand} (short {s.short})
+                      {s.name}: need {s.needed}, have {s.onHand} (short{" "}
+                      {s.short})
                     </li>
                   ))}
                 </ul>
@@ -176,8 +204,12 @@ export function InventoryBomDialog({
                 <thead>
                   <tr className="border-b bg-muted/30 text-muted-foreground">
                     <th className="text-left px-3 py-2 font-medium">Part</th>
-                    <th className="text-center px-3 py-2 font-medium">Qty / unit</th>
-                    <th className="text-center px-3 py-2 font-medium">On hand</th>
+                    <th className="text-center px-3 py-2 font-medium">
+                      Qty / unit
+                    </th>
+                    <th className="text-center px-3 py-2 font-medium">
+                      On hand
+                    </th>
                     <th className="text-right px-3 py-2 font-medium">Cost</th>
                     <th className="px-3 py-2" />
                   </tr>
@@ -185,7 +217,10 @@ export function InventoryBomDialog({
                 <tbody>
                   {bom.components.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="px-3 py-6 text-center text-muted-foreground">
+                      <td
+                        colSpan={5}
+                        className="px-3 py-6 text-center text-muted-foreground"
+                      >
                         No parts listed yet.
                       </td>
                     </tr>
@@ -194,11 +229,32 @@ export function InventoryBomDialog({
                       <tr key={c.id} className="border-b last:border-0">
                         <td className="px-3 py-2">
                           <div className="font-medium">{c.name}</div>
+                          {c.primaryContainerItemId === bom.parent.id ? (
+                            <Badge variant="secondary" className="mt-1">
+                              Primary home
+                            </Badge>
+                          ) : (
+                            <Button
+                              variant="link"
+                              size="sm"
+                              className="h-auto px-0 py-0 text-xs"
+                              disabled={makePrimary.isPending}
+                              onClick={() =>
+                                makePrimary.mutate(c.componentItemId)
+                              }
+                            >
+                              Make this the primary home
+                            </Button>
+                          )}
                           {c.sku ? (
-                            <div className="text-xs text-muted-foreground font-mono">{c.sku}</div>
+                            <div className="text-xs text-muted-foreground font-mono">
+                              {c.sku}
+                            </div>
                           ) : null}
                           {c.notes ? (
-                            <div className="text-xs text-muted-foreground">{c.notes}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {c.notes}
+                            </div>
                           ) : null}
                         </td>
                         <td className="px-3 py-2 text-center">
@@ -216,11 +272,19 @@ export function InventoryBomDialog({
                             }}
                           />
                           {c.unit ? (
-                            <div className="text-[10px] text-muted-foreground mt-1">{c.unit}</div>
+                            <div className="text-[10px] text-muted-foreground mt-1">
+                              {c.unit}
+                            </div>
                           ) : null}
                         </td>
                         <td className="px-3 py-2 text-center">
-                          <span className={c.onHand < c.quantity ? "text-amber-600 font-medium" : ""}>
+                          <span
+                            className={
+                              c.onHand < c.quantity
+                                ? "text-amber-600 font-medium"
+                                : ""
+                            }
+                          >
                             {formatQty(c.onHand, c.unit)}
                           </span>
                         </td>
@@ -249,13 +313,15 @@ export function InventoryBomDialog({
             </div>
 
             <div className="rounded-md border p-3 space-y-2">
-              <div className="text-sm font-medium">Add a part</div>
+              <div className="text-sm font-medium">Add a part or bag</div>
               <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_100px_auto]">
                 <Select value={componentId} onValueChange={setComponentId}>
                   <SelectTrigger>
                     <SelectValue
                       placeholder={
-                        candidatesQuery.isLoading ? "Loading inventory…" : "Choose a part…"
+                        candidatesQuery.isLoading
+                          ? "Loading inventory…"
+                          : "Choose a part…"
                       }
                     />
                   </SelectTrigger>
@@ -309,13 +375,24 @@ export function InventoryBomDialog({
                 unit(s)
               </div>
               {requirements.length === 0 ? (
-                <p className="text-xs text-muted-foreground">Add parts to see requirements.</p>
+                <p className="text-xs text-muted-foreground">
+                  Add parts to see requirements.
+                </p>
               ) : (
                 <ul className="text-xs space-y-1">
                   {requirements.map((r) => (
-                    <li key={r.componentItemId} className="flex justify-between gap-2">
+                    <li
+                      key={r.componentItemId}
+                      className="flex justify-between gap-2"
+                    >
                       <span>{r.name}</span>
-                      <span className={r.short > 0 ? "text-amber-600" : "text-muted-foreground"}>
+                      <span
+                        className={
+                          r.short > 0
+                            ? "text-amber-600"
+                            : "text-muted-foreground"
+                        }
+                      >
                         need {r.needed} · have {r.onHand}
                         {r.short > 0 ? ` · short ${r.short}` : ""}
                       </span>

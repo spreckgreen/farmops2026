@@ -13,7 +13,14 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertTriangle, Boxes, ImageIcon, Loader2, Pencil, Server } from "lucide-react";
+import {
+  AlertTriangle,
+  Boxes,
+  ImageIcon,
+  Loader2,
+  Pencil,
+  Server,
+} from "lucide-react";
 import {
   generateKitPartFace,
   getKitBuild,
@@ -23,7 +30,11 @@ import {
 import type { KitBuildPart } from "@/lib/kit-build.functions";
 import { InventoryBomDialog } from "@/components/inventory-bom-dialog";
 import { formatQty } from "@/lib/inventory-bom";
-import { buildRackElevation, formatSpan, nextFreePosition } from "@/lib/rack-elevation";
+import {
+  buildRackElevation,
+  formatSpan,
+  nextFreePosition,
+} from "@/lib/rack-elevation";
 
 const U_PX = 30;
 
@@ -42,8 +53,12 @@ function PlacementRow({
   onDrawFace: () => void;
   drawing: boolean;
 }) {
-  const [units, setUnits] = useState(part.rackUnits == null ? "" : String(part.rackUnits));
-  const [pos, setPos] = useState(part.positionU == null ? "" : String(part.positionU));
+  const [units, setUnits] = useState(
+    part.rackUnits == null ? "" : String(part.rackUnits),
+  );
+  const [pos, setPos] = useState(
+    part.positionU == null ? "" : String(part.positionU),
+  );
 
   return (
     <div className="flex flex-wrap items-end gap-3 border-b border-border px-3 py-2 last:border-0">
@@ -74,7 +89,9 @@ function PlacementRow({
           value={units}
           onChange={(e) => setUnits(e.target.value)}
           inputMode="numeric"
-          placeholder={part.itemRackUnits == null ? "—" : String(part.itemRackUnits)}
+          placeholder={
+            part.itemRackUnits == null ? "—" : String(part.itemRackUnits)
+          }
           className="mt-1 h-8 bg-card/60"
         />
       </div>
@@ -95,7 +112,10 @@ function PlacementRow({
         onClick={() => {
           const u = units.trim() === "" ? null : Number(units);
           const p = pos.trim() === "" ? null : Number(pos);
-          if ((u != null && !Number.isInteger(u)) || (p != null && !Number.isInteger(p))) {
+          if (
+            (u != null && !Number.isInteger(u)) ||
+            (p != null && !Number.isInteger(p))
+          ) {
             toast.error("Use whole numbers of spaces");
             return;
           }
@@ -116,7 +136,11 @@ function PlacementRow({
         onClick={onDrawFace}
         className="gap-1"
       >
-        {drawing ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImageIcon className="h-4 w-4" />}
+        {drawing ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <ImageIcon className="h-4 w-4" />
+        )}
         {part.faceImageUrl ? "Redraw" : "Draw panel"}
       </Button>
     </div>
@@ -158,7 +182,8 @@ export function KitBuildCard({ kitItemId }: { kitItemId: string }) {
   });
 
   const drawFace = useMutation({
-    mutationFn: (componentRowId: string) => faceFn({ data: { kitItemId, componentRowId } }),
+    mutationFn: (componentRowId: string) =>
+      faceFn({ data: { kitItemId, componentRowId } }),
     onMutate: (componentRowId: string) => setDrawingId(componentRowId),
     onSuccess: () => {
       refresh();
@@ -169,7 +194,8 @@ export function KitBuildCard({ kitItemId }: { kitItemId: string }) {
   });
 
   const saveSize = useMutation({
-    mutationFn: (sizeU: number | null) => sizeFn({ data: { kitItemId, sizeU } }),
+    mutationFn: (sizeU: number | null) =>
+      sizeFn({ data: { kitItemId, sizeU } }),
     onSuccess: () => {
       refresh();
       setSizeDraft(null);
@@ -197,8 +223,14 @@ export function KitBuildCard({ kitItemId }: { kitItemId: string }) {
     <Card>
       <CardHeader className="pb-2">
         <CardTitle className="flex flex-wrap items-center gap-2 text-base">
-          {view?.rack ? <Server className="h-4 w-4" /> : <Boxes className="h-4 w-4" />}
-          {view?.rack ? `${view.rack.stableId} build-out` : (view?.kit.name ?? "Kit build-out")}
+          {view?.rack ? (
+            <Server className="h-4 w-4" />
+          ) : (
+            <Boxes className="h-4 w-4" />
+          )}
+          {view?.rack
+            ? `${view.rack.stableId} build-out`
+            : (view?.kit.name ?? "Kit build-out")}
           <Badge variant="secondary">
             {parts.length} {parts.length === 1 ? "part" : "parts"}
           </Badge>
@@ -211,7 +243,9 @@ export function KitBuildCard({ kitItemId }: { kitItemId: string }) {
         {view ? (
           <p className="text-xs text-muted-foreground">
             {view.rack ? `${view.kit.name} · ` : ""}
-            {view.rack?.description || view.kit.location || "No location recorded"}
+            {view.rack?.description ||
+              view.kit.location ||
+              "No location recorded"}
           </p>
         ) : null}
       </CardHeader>
@@ -222,7 +256,8 @@ export function KitBuildCard({ kitItemId }: { kitItemId: string }) {
           <p className="text-destructive">{(q.error as Error).message}</p>
         ) : (
           <>
-            {(elevation.conflicts.length > 0 || elevation.overflow.length > 0) && (
+            {(elevation.conflicts.length > 0 ||
+              elevation.overflow.length > 0) && (
               <div className="rounded-md border border-destructive/50 bg-destructive/10 p-2 text-xs">
                 <div className="flex items-center gap-1 font-medium text-destructive">
                   <AlertTriangle className="h-3.5 w-3.5" />
@@ -246,7 +281,9 @@ export function KitBuildCard({ kitItemId }: { kitItemId: string }) {
             {view?.rack ? null : (
               <div className="flex flex-wrap items-end gap-2">
                 <div className="w-36">
-                  <Label className="text-xs text-muted-foreground">Build height (spaces)</Label>
+                  <Label className="text-xs text-muted-foreground">
+                    Build height (spaces)
+                  </Label>
                   <Input
                     value={sizeDraft ?? (sizeU == null ? "" : String(sizeU))}
                     onChange={(e) => setSizeDraft(e.target.value)}
@@ -273,7 +310,8 @@ export function KitBuildCard({ kitItemId }: { kitItemId: string }) {
                   Save height
                 </Button>
                 <p className="text-xs text-muted-foreground">
-                  Set a height to draw the stack. Leave blank for a plain parts list.
+                  Set a height to draw the stack. Leave blank for a plain parts
+                  list.
                 </p>
               </div>
             )}
@@ -311,7 +349,9 @@ export function KitBuildCard({ kitItemId }: { kitItemId: string }) {
                             <span className="w-12 shrink-0 font-mono text-[11px] text-muted-foreground">
                               {formatSpan(part)}
                             </span>
-                            <span className="truncate font-medium">{part.name}</span>
+                            <span className="truncate font-medium">
+                              {part.name}
+                            </span>
                             <span className="shrink-0 text-xs text-muted-foreground">
                               {part.rackUnits}U
                             </span>
@@ -320,14 +360,18 @@ export function KitBuildCard({ kitItemId }: { kitItemId: string }) {
                       );
                       u -= part.rackUnits;
                     } else {
-                      const covering = elevation.placed.find((p) => u >= p.positionU && u <= p.topU);
+                      const covering = elevation.placed.find(
+                        (p) => u >= p.positionU && u <= p.topU,
+                      );
                       blocks.push(
                         <div
                           key={`e${u}`}
                           className="flex items-center gap-3 border-b border-border/60 px-3 font-mono text-xs"
                           style={{ height: U_PX }}
                         >
-                          <span className="w-12 shrink-0 text-muted-foreground">U{u}</span>
+                          <span className="w-12 shrink-0 text-muted-foreground">
+                            U{u}
+                          </span>
                           <span className="truncate text-muted-foreground/70">
                             {covering ? `↑ ${covering.name}` : "empty"}
                           </span>
@@ -352,11 +396,17 @@ export function KitBuildCard({ kitItemId }: { kitItemId: string }) {
                     key={p.id}
                     part={p}
                     suggestion={
-                      placedById.has(p.id) ? null : nextFreePosition(elevation, p.rackUnits ?? 1)
+                      placedById.has(p.id)
+                        ? null
+                        : nextFreePosition(elevation, p.rackUnits ?? 1)
                     }
                     saving={place.isPending}
                     onSave={(rackUnits, positionU) =>
-                      place.mutate({ componentRowId: p.id, rackUnits, positionU })
+                      place.mutate({
+                        componentRowId: p.id,
+                        rackUnits,
+                        positionU,
+                      })
                     }
                     onDrawFace={() => drawFace.mutate(p.id)}
                     drawing={drawingId === p.id}
@@ -367,15 +417,20 @@ export function KitBuildCard({ kitItemId }: { kitItemId: string }) {
 
             {elevation.unplaced.length > 0 && sizeU != null ? (
               <p className="text-xs text-muted-foreground">
-                Not placed yet: {elevation.unplaced.map((p) => p.name).join(", ")} — give each one a
-                size in spaces and a starting space.
+                Not placed yet:{" "}
+                {elevation.unplaced.map((p) => p.name).join(", ")} — give each
+                one a size in spaces and a starting space.
               </p>
             ) : null}
 
             <div className="flex flex-wrap gap-2">
-              <Button size="sm" onClick={() => setBomOpen(true)} className="gap-1">
+              <Button
+                size="sm"
+                onClick={() => setBomOpen(true)}
+                className="gap-1"
+              >
                 <Pencil className="h-4 w-4" />
-                Edit kit parts
+                Manage contents
               </Button>
               {view?.rack ? (
                 <Button asChild size="sm" variant="outline">
