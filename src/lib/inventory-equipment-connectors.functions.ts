@@ -149,7 +149,7 @@ export const discoverEquipmentPorts = createServerFn({ method: "POST" })
       hostedDefaultModel: "google/gemini-3.6-flash",
       client: context.supabase,
     });
-    const { generateText, Output } = await import("ai");
+    const { generateText, Output, NoObjectGeneratedError } = await import("ai");
 
     const outputSchema = z.object({
       exact_model_match: z.boolean(),
@@ -185,16 +185,53 @@ export const discoverEquipmentPorts = createServerFn({ method: "POST" })
       ),
     ].join("\n");
 
-    const { output } = await generateText({
-      model: ai.provider(ai.modelId),
-      output: Output.object({ schema: outputSchema }),
-      system:
-        "Extract equipment ports for review; never invent them. Use only explicit evidence in the supplied search results. " +
-        "Every port must cite one supplied source_url and an evidence phrase. Reject the whole variant as exact_model_match=false " +
-        "when the manufacturer/model is not explicitly supported. Omit ambiguous ports. Use low confidence for snippet-only evidence. " +
-        "Do not treat a cable included in a package as a device port. Return at most 30 ports.",
-      prompt,
-    });
+    type ModelOutput = z.infer<typeof outputSchema>;
+    const system =
+      "Extract equipment ports for review; never invent them. Use only explicit evidence in the supplied search results. " +
+      "Every port must cite one supplied source_url and an evidence phrase. Reject the whole variant as exact_model_match=false " +
+      "when the manufacturer/model is not explicitly supported. Omit ambiguous ports. Use low confidence for snippet-only evidence. " +
+      "Do not treat a cable included in a package as a device port. Return at most 30 ports.";
+
+    const attempt = async (attemptPrompt: string): Promise<ModelOutput | null> => {
+      try {
+        const response = await generateText({
+          model: ai.provider(ai.modelId),
+          output: Output.object({ schema: outputSchema }),
+          system,
+          prompt: attemptPrompt,
+        });
+        return response.output;
+      } catch (error) {
+        if (NoObjectGeneratedError.isInstance(error)) return null;
+        throw error;
+      }
+    };
+
+    let output = await attempt(prompt);
+    if (!output) {
+      output = await attempt(
+        prompt +
+          "\n\nRETRY REQUIREMENT: Return one JSON object with exactly these top-level keys: " +
+          "exact_model_match (boolean), warnings (string array), ports (array). " +
+          "Every port must include every requested field; use null for unknown protocol, impedance_ohms, and notes. " +
+          "Use only enum values and connector_type_id values listed above.",
+      );
+    }
+
+    if (!output) {
+      return {
+        manufacturer: data.manufacturer,
+        model: data.model,
+        exact_model_match: false,
+        sources,
+        proposals: [],
+        warnings: [
+          "The documentation search completed, but the configured AI model returned an invalid result twice.",
+          "No ports were created. Retry the lookup or select a more capable model for Procedures & manual generation in AI Settings.",
+        ],
+        model_id: ai.modelId,
+      };
+    }
 
     const proposals = output.ports
       .filter((port) => connectorIds.has(port.connector_type_id) && sourceUrls.has(port.source_url))
