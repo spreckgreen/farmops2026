@@ -4,11 +4,11 @@
 // Text only: the on-screen decks carry screenshots and gradients that a static
 // file cannot reproduce faithfully, so the export is a plain, readable handout.
 //
-// pptxgenjs is browser-only, so this module must be imported dynamically from a
+// pptxgenjs-plus is browser-only, so this module must be imported dynamically from a
 // click handler — never at module scope in a route.
 import { type PromoSlide } from "@/lib/promo-slides";
 
-/** Deck palette as literal hex (pptxgenjs takes 6-char hex, not CSS tokens). */
+/** Deck palette as literal hex (pptxgenjs-plus takes 6-char hex, not CSS tokens). */
 const INK = "1C1917";
 const MUTED = "57534E";
 const ACCENT = "B45309";
@@ -23,7 +23,7 @@ function clean(text: string): string {
  * Builds and downloads a .pptx handout for a deck.
  * Returns the filename that was saved.
  */
-/** pptxgenjs expects table cells as objects, not bare strings. */
+/** pptxgenjs-plus expects table cells as objects, not bare strings. */
 function toRow(cells: string[]) {
   return cells.map((text) => ({ text }));
 }
@@ -34,7 +34,7 @@ export async function downloadDeckPptx(options: {
   fileBase: string;
 }): Promise<string> {
   const { slides, deckTitle, fileBase } = options;
-  const PptxGenJS = (await import("pptxgenjs")).default;
+  const PptxGenJS = (await import("pptxgenjs-plus")).default;
   const pptx = new PptxGenJS();
   pptx.layout = "LAYOUT_16x9"; // 10in x 5.63in
   pptx.title = deckTitle;

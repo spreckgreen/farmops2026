@@ -1,6 +1,22 @@
 export type ConnectorGender = "male" | "female" | "plug" | "receptacle" | "genderless";
 export type ConnectorPolarity = "standard" | "reverse" | "not_applicable";
 export type SignalType = "rf" | "data" | "power" | "display" | "audio" | "control" | "other";
+export type CableDomain = "ham_radio" | "communications" | "compute" | "network";
+
+export const CABLE_DOMAINS: Array<{ value: CableDomain; label: string }> = [
+  { value: "ham_radio", label: "Ham Radio" },
+  { value: "communications", label: "Communications" },
+  { value: "compute", label: "Compute" },
+  { value: "network", label: "Network" },
+];
+
+export function inventoryTypeCableDomain(itemType?: string | null): CableDomain | null {
+  if (itemType === "23_2_ham_radio") return "ham_radio";
+  if (itemType === "23_communication") return "communications";
+  if (itemType === "23_3_compute") return "compute";
+  if (itemType === "23_1_network") return "network";
+  return null;
+}
 
 export interface ConnectorRef {
   id: string;
@@ -46,6 +62,7 @@ export interface CableSpec {
   max_current_a?: number | null;
   max_power_w?: number | null;
   adapter_or_pigtail?: boolean;
+  supported_domains?: CableDomain[] | null;
   ends: [CableEnd, CableEnd] | CableEnd[];
 }
 
@@ -127,6 +144,7 @@ export function cableCompatibility(
   port: DevicePort,
   cable: CableSpec,
   connectors: ConnectorRef[],
+  requiredDomain?: CableDomain | null,
 ): CompatibilityResult {
   const catalog = new Map(connectors.map((connector) => [connector.id, connector]));
   const a = cable.ends.find((end) => end.end_label === "A");
@@ -155,6 +173,16 @@ export function cableCompatibility(
   }
 
   const ratings = assessRatings(port, cable);
+  if (
+    requiredDomain &&
+    cable.supported_domains?.length &&
+    !cable.supported_domains.includes(requiredDomain)
+  ) {
+    ratings.blockers.push(`Cable is not classified for ${CABLE_DOMAINS.find((domain) => domain.value === requiredDomain)?.label ?? requiredDomain}.`);
+  }
+  if (requiredDomain && !cable.supported_domains?.length) {
+    ratings.warnings.push("Cable support domain is not classified.");
+  }
   return {
     compatible: ratings.blockers.length === 0,
     orientation,

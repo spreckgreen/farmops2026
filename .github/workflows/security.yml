@@ -11,8 +11,10 @@ on:
 
 jobs:
   npm-audit:
-    name: npm audit (fail on high)
+    name: bun audit (fail on high)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
 
@@ -23,23 +25,18 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      # bun has no audit yet; use npm against the existing lockfile.
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-
-      - name: Run npm audit (high+critical)
+      - name: Run Bun audit (high+critical)
         run: |
           set -o pipefail
-          npm audit --omit=dev --audit-level=high --json | tee npm-audit.json
-          # `npm audit` exits non-zero when any finding at the requested level exists.
+          bun audit --json --audit-level=high | tee bun-audit.json
+          # `bun audit` exits non-zero when any finding at the requested level exists.
 
       - name: Upload audit report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: npm-audit-report
-          path: npm-audit.json
+          name: bun-audit-report
+          path: bun-audit.json
 
   codeql:
     name: CodeQL static analysis

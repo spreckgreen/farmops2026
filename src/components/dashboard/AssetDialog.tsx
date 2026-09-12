@@ -453,6 +453,7 @@ const AssetDialog = ({ open, onOpenChange, onSave, asset }: AssetDialogProps) =>
                 itemName={form.name || asset.name || "Inventory item"}
                 manufacturer={form.manufacturer}
                 model={form.model}
+                itemType={form.item_type || asset.item_type}
               />
             ) : (
               <p className="col-span-2 text-[11px] text-muted-foreground">

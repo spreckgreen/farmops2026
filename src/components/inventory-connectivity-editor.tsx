@@ -7,8 +7,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { InventoryEquipmentPortDiscovery } from "@/components/inventory-equipment-port-discovery";
 import {
+  CABLE_DOMAINS,
   cableCompatibility,
   connectorSearchText,
+  inventoryTypeCableDomain,
+  type CableDomain,
   type CableEnd,
   type CableSpec,
   type ConnectorGender,
@@ -16,6 +19,7 @@ import {
   type DevicePort,
   type SignalType,
 } from "@/lib/inventory-connectors";
+import { InventoryUploadedPortTemplates } from "@/components/inventory-uploaded-port-templates";
 
 type InventoryChoice = { id: string; name: string | null; sku: string | null };
 type CableEndRow = CableEnd & { cable_item_id: string };
@@ -35,6 +39,7 @@ const blankPort = {
 
 const genders: ConnectorGender[] = ["male", "female", "plug", "receptacle", "genderless"];
 const signals: SignalType[] = ["rf", "data", "power", "display", "audio", "control", "other"];
+const cableDomainValues = new Set<CableDomain>(CABLE_DOMAINS.map((domain) => domain.value));
 
 const numberOrNull = (value: string) => {
   const n = Number(value);
@@ -90,13 +95,16 @@ function ConnectorPicker({
 
 export function InventoryConnectivityEditor({
   itemId,
+  itemName = "",
   manufacturer = "",
   model = "",
+  itemType = null,
 }: {
   itemId: string;
   itemName?: string;
   manufacturer?: string;
   model?: string;
+  itemType?: string | null;
 }) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -148,17 +156,28 @@ export function InventoryConnectivityEditor({
   }, [open, itemId]);
 
   const selectedPort = ports.find((port) => port.id === selectedPortId) ?? null;
+  const existingPortNames = useMemo(() => ports.map((port) => port.name), [ports]);
+  const nextPortSortOrder = useMemo(
+    () => {
+      const maxSortOrder = ports.reduce((max, port) => {
+        const sortOrder = Number(port.sort_order);
+        return Number.isFinite(sortOrder) ? Math.max(max, sortOrder) : max;
+      }, -1);
+      return maxSortOrder < 0 ? 10 : maxSortOrder + 10;
+    },
+    [ports],
+  );
   const matches = useMemo(() => {
     if (!selectedPort) return [];
     return cables
       .filter((cable) => cable.inventory_item_id !== itemId)
       .map((cable) => ({
         cable,
-        result: cableCompatibility(selectedPort, cable, connectors),
+        result: cableCompatibility(selectedPort, cable, connectors, inventoryTypeCableDomain(itemType)),
       }))
       .filter(({ result }) => result.compatible)
       .sort((a, b) => a.result.warnings.length - b.result.warnings.length);
-  }, [cables, connectors, itemId, selectedPort]);
+  }, [cables, connectors, itemId, itemType, selectedPort]);
 
   const addPort = async () => {
     if (!portForm.name.trim() || !portForm.connector_type_id) {
@@ -179,7 +198,7 @@ export function InventoryConnectivityEditor({
       protocol: portForm.protocol.trim() || null,
       impedance_ohms: numberOrNull(portForm.impedance_ohms),
       notes: portForm.notes.trim() || null,
-      sort_order: ports.length,
+      sort_order: nextPortSortOrder,
     };
     const { error } = await db.from("inventory_device_ports").insert(payload);
     if (error) return toast.error(error.message);
@@ -199,7 +218,17 @@ export function InventoryConnectivityEditor({
     const values = new FormData(form);
     const connectorA = String(values.get("connector_a") ?? "");
     const connectorB = String(values.get("connector_b") ?? "");
+    const supportedDomainsInput = values.getAll("supported_domains").map(String);
+    const supportedDomains = supportedDomainsInput.filter(
+      (value): value is CableDomain => cableDomainValues.has(value as CableDomain),
+    );
     if (!connectorA || !connectorB) return toast.error("Both cable ends are required.");
+    if (supportedDomains.length !== supportedDomainsInput.length) {
+      return toast.error("Unsupported cable domain selection.");
+    }
+    if (!supportedDomains.length) {
+      return toast.error("Select at least one supported cable domain.");
+    }
     const { data: auth } = await supabase.auth.getUser();
     if (!auth.user) return toast.error("Sign in again before saving.");
     const userId = auth.user.id;
@@ -213,6 +242,7 @@ export function InventoryConnectivityEditor({
       impedance_ohms: numberOrNull(String(values.get("impedance") ?? "")),
       shielding: String(values.get("shielding") ?? "").trim() || null,
       signal_types: values.getAll("signal_types").map(String),
+      supported_domains: supportedDomains,
       protocol: String(values.get("protocol") ?? "").trim() || null,
       max_frequency_hz: numberOrNull(String(values.get("max_frequency_hz") ?? "")),
       max_current_a: numberOrNull(String(values.get("max_current_a") ?? "")),
@@ -272,7 +302,15 @@ export function InventoryConnectivityEditor({
             manufacturer={manufacturer}
             model={model}
             connectors={connectors}
-            existingPortNames={ports.map((port) => port.name)}
+            existingPortNames={existingPortNames}
+            nextSortOrder={nextPortSortOrder}
+            onCreated={load}
+          />
+          <InventoryUploadedPortTemplates
+            itemId={itemId}
+            itemName={itemName}
+            existingPortNames={existingPortNames}
+            nextSortOrder={nextPortSortOrder}
             onCreated={load}
           />
 
@@ -352,6 +390,9 @@ export function InventoryConnectivityEditor({
                 {cableSpec.awg ? ` · ${cableSpec.awg} AWG` : ""}
                 {cableSpec.impedance_ohms ? ` · ${cableSpec.impedance_ohms} Ω` : ""}
                 {" · "}{end("A")?.connector_type_id ?? "End A missing"} to {end("B")?.connector_type_id ?? "End B missing"}
+                {cableSpec.supported_domains?.length
+                  ? ` · ${cableSpec.supported_domains.map((value) => CABLE_DOMAINS.find((domain) => domain.value === value)?.label ?? value).join(", ")}`
+                  : " · domains not classified"}
               </p>
             ) : null}
             {editingCable ? (
@@ -369,6 +410,20 @@ export function InventoryConnectivityEditor({
                 <fieldset className="col-span-2 flex flex-wrap gap-3 text-xs">
                   <legend className="mb-1 text-muted-foreground">Suitable signal types</legend>
                   {signals.map((signal) => <label key={signal} className="flex items-center gap-1"><input type="checkbox" name="signal_types" value={signal} defaultChecked={cableSpec?.signal_types?.includes(signal)} />{signal}</label>)}
+                </fieldset>
+                <fieldset className="col-span-2 flex flex-wrap gap-3 text-xs">
+                  <legend className="mb-1 text-muted-foreground">Supported inventory areas</legend>
+                  {CABLE_DOMAINS.map((domain) => (
+                    <label key={domain.value} className="flex items-center gap-1">
+                      <input
+                        type="checkbox"
+                        name="supported_domains"
+                        value={domain.value}
+                        defaultChecked={cableSpec?.supported_domains?.includes(domain.value)}
+                      />
+                      {domain.label}
+                    </label>
+                  ))}
                 </fieldset>
                 {(["A", "B"] as const).map((label) => (
                   <fieldset key={label} className="space-y-2 rounded border p-2">
