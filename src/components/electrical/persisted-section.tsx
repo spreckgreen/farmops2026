@@ -5,6 +5,26 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const PREFIX = "farmops.section-open.v1:";
+const SET_OPEN_EVENT = "farmops:set-section-open";
+
+type SetOpenDetail = { keys: string[]; open: boolean };
+
+function writeStored(key: string, open: boolean) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(PREFIX + key, open ? "1" : "0");
+  } catch {
+    // storage unavailable — keep the in-memory state
+  }
+}
+
+export function setPersistedSectionsOpen(keys: string[], open: boolean) {
+  if (typeof window === "undefined") return;
+  keys.forEach((key) => writeStored(key, open));
+  window.dispatchEvent(
+    new CustomEvent<SetOpenDetail>(SET_OPEN_EVENT, { detail: { keys, open } }),
+  );
+}
 
 function readStored(key: string): boolean | null {
   if (typeof window === "undefined") return null;
@@ -25,18 +45,21 @@ export function usePersistedOpen(key: string, defaultOpen: boolean) {
     setOpen(stored === null ? defaultOpen : stored);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
-  const toggle = () => {
-    setOpen((v) => {
-      const next = !v;
-      try {
-        window.localStorage.setItem(PREFIX + key, next ? "1" : "0");
-      } catch {
-        // ignore write failures
-      }
-      return next;
-    });
+  useEffect(() => {
+    const handleSetOpen = (event: Event) => {
+      const detail = (event as CustomEvent<SetOpenDetail>).detail;
+      if (detail?.keys.includes(key)) setOpen(detail.open);
+    };
+    window.addEventListener(SET_OPEN_EVENT, handleSetOpen);
+    return () => window.removeEventListener(SET_OPEN_EVENT, handleSetOpen);
+  }, [key]);
+
+  const setPersistedOpen = (next: boolean) => {
+    writeStored(key, next);
+    setOpen(next);
   };
-  return { open, toggle };
+  const toggle = () => setPersistedOpen(!open);
+  return { open, toggle, setOpen: setPersistedOpen };
 }
 
 export function PersistedSection({
