@@ -13,7 +13,11 @@ import {
   deleteFoodPlanFood,
   setFoodPlanEntry,
   seedFoodPlanFromTemplate,
+  setFoodPlanNutritionTargets,
 } from "@/lib/food.functions";
+import { getNutritionCatalog, type NutritionProfile } from "@/lib/usda-fooddata.functions";
+import { NutritionAssessmentPanel } from "@/components/food/nutrition-assessment-panel";
+import type { NutritionTargets } from "@/lib/nutrition-assessment";
 import { fmtUsd } from "@/lib/currency";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -52,7 +56,12 @@ export const Route = createFileRoute("/food/plan")({
   component: FoodPlanPage,
 });
 
-type Person = { id: string; name: string; sort_order: number };
+type Person = {
+  id: string;
+  name: string;
+  sort_order: number;
+  nutrition_targets?: Partial<NutritionTargets> | null;
+};
 type Food = {
   id: string;
   name: string;
@@ -62,6 +71,7 @@ type Food = {
   price_per_pound: number | null;
   oz_per_serving: number | null;
   unit: string | null;
+  nutrition_form?: string | null;
   sort_order: number;
 };
 type Entry = {
@@ -84,10 +94,16 @@ function FoodPlanPage() {
   const upsertFood = useServerFn(upsertFoodPlanFood);
   const delFood = useServerFn(deleteFoodPlanFood);
   const setEntryFn = useServerFn(setFoodPlanEntry);
+  const catalogFn = useServerFn(getNutritionCatalog);
+  const setTargetsFn = useServerFn(setFoodPlanNutritionTargets);
 
   const { data, isLoading } = useQuery({
     queryKey: ["food-plan"],
     queryFn: () => list(),
+  });
+  const nutritionCatalog = useQuery({
+    queryKey: ["food", "nutrition"],
+    queryFn: () => catalogFn(),
   });
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ["food-plan"] });
@@ -127,6 +143,15 @@ function FoodPlanPage() {
     mutationFn: (v: { person_id: string; food_id: string; day_of_week: number; quantity: number }) =>
       setEntryFn({ data: v }),
     onSuccess: () => invalidate(),
+    onError: (e: Error) => toast.error(e.message),
+  });
+  const saveTargets = useMutation({
+    mutationFn: ({ personId, targets }: { personId: string; targets: NutritionTargets }) =>
+      setTargetsFn({ data: { personId, targets } }),
+    onSuccess: () => {
+      toast.success("Nutrition targets saved");
+      invalidate();
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 
@@ -337,6 +362,16 @@ function FoodPlanPage() {
           </Button>
         )}
       </div>
+
+      <NutritionAssessmentPanel
+        people={people}
+        foods={foods}
+        entries={entries}
+        profiles={nutritionCatalog.data?.profiles ?? []}
+        activePersonId={activePerson}
+        savingTargets={saveTargets.isPending}
+        onSaveTargets={(personId, targets) => saveTargets.mutate({ personId, targets })}
+      />
 
       {/* Filter chips */}
       <div className="space-y-2">
@@ -664,6 +699,9 @@ function FoodPlanPage() {
           if (!v) setEditingFood(null);
         }}
         food={editingFood}
+        profiles={(nutritionCatalog.data?.profiles ?? []).filter(
+          (profile) => profile.foodId === editingFood?.id,
+        )}
         onSubmit={(payload) => {
           saveFood.mutate(payload);
           setFoodDialog(false);
@@ -727,17 +765,20 @@ type FoodPayload = {
   oz_per_serving: number | null;
   price_per_pound: number | null;
   freeze_dry: boolean;
+  nutrition_form?: string | null;
 };
 
 function FoodEditDialog({
   open,
   onOpenChange,
   food,
+  profiles,
   onSubmit,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   food: Food | null;
+  profiles: NutritionProfile[];
   onSubmit: (payload: FoodPayload) => void;
 }) {
   const isEdit = !!food;
@@ -748,6 +789,7 @@ function FoodEditDialog({
   const [oz, setOz] = useState<string>("");
   const [price, setPrice] = useState<string>("");
   const [freezeDry, setFreezeDry] = useState(false);
+  const [nutritionForm, setNutritionForm] = useState("As listed");
 
   // reset whenever dialog opens
   useEffect(() => {
@@ -759,6 +801,7 @@ function FoodEditDialog({
       setOz(food?.oz_per_serving != null ? String(food.oz_per_serving) : "");
       setPrice(food?.price_per_pound != null ? String(food.price_per_pound) : "");
       setFreezeDry(!!food?.freeze_dry);
+      setNutritionForm(food?.nutrition_form ?? "As listed");
     }
   }, [open, food]);
 
@@ -773,6 +816,7 @@ function FoodEditDialog({
       oz_per_serving: oz.trim() ? Number(oz) : null,
       price_per_pound: price.trim() ? Number(price) : null,
       freeze_dry: freezeDry,
+      nutrition_form: nutritionForm,
     });
   };
 
@@ -843,6 +887,26 @@ function FoodEditDialog({
               />
             </div>
           </div>
+          {profiles.length > 0 && (
+            <div>
+              <Label>Planner nutrition form</Label>
+              <Select value={nutritionForm} onValueChange={setNutritionForm}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {profiles.map((profile) => (
+                    <SelectItem key={profile.id} value={profile.foodForm}>
+                      {profile.foodForm} — FDC {profile.fdcId}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-[10px] text-muted-foreground mt-1">
+                Chooses which approved USDA form supplies this food's planner nutrition.
+              </p>
+            </div>
+          )}
           <label className="flex items-center gap-2 text-sm">
             <Checkbox
               checked={freezeDry}

@@ -48,6 +48,12 @@ export type NutritionFood = {
   category: string | null;
 };
 
+export type UsdaMatchSuggestion = {
+  foodId: string;
+  foodName: string;
+  candidates: Array<UsdaSearchResult & { confidence: number }>;
+};
+
 export type NutritionProfile = {
   id: string;
   foodId: string;
@@ -255,6 +261,114 @@ export const searchUsdaFoods = createServerFn({ method: "POST" })
       return { results: [...merged.values()].slice(0, data.pageSize), apiConfigured: true };
     },
   );
+
+function matchConfidence(foodName: string, description: string): number {
+  const tokens = (value: string) =>
+    new Set(
+      value
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, " ")
+        .split(" ")
+        .filter((token) => token.length > 1),
+    );
+  const wanted = [...tokens(foodName)];
+  if (!wanted.length) return 0;
+  const candidate = tokens(description);
+  const coverage = wanted.filter((token) => candidate.has(token)).length / wanted.length;
+  const exact = description.trim().toLowerCase() === foodName.trim().toLowerCase() ? 0.15 : 0;
+  const rawBonus = /\b(raw|fresh)\b/i.test(description) ? 0.05 : 0;
+  return Math.min(1, coverage * 0.8 + exact + rawBonus);
+}
+
+export const suggestUsdaFoodMatches = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((value: unknown) =>
+    z.object({ maxFoods: z.number().int().min(1).max(100).default(75) }).parse(value),
+  )
+  .handler(async ({ context, data }): Promise<{
+    suggestions: UsdaMatchSuggestion[];
+    apiConfigured: boolean;
+    alreadyLinked: number;
+  }> => {
+    const db = context.supabase as unknown as LooseDb;
+    const [{ data: foods, error: foodsError }, { data: profiles, error: profilesError }] =
+      await Promise.all([
+        db
+          .from("food_plan_foods")
+          .select("id,name,category")
+          .eq("user_id", context.userId)
+          .order("sort_order")
+          .limit(data.maxFoods),
+        db
+          .from("food_nutrient_profiles")
+          .select("food_id")
+          .eq("user_id", context.userId)
+          .eq("match_status", "approved"),
+      ]);
+    if (foodsError) throw new Error(foodsError.message);
+    if (profilesError) throw new Error(profilesError.message);
+
+    const linked = new Set((profiles ?? []).map((row: any) => row.food_id));
+    const unmatched = (foods ?? []).filter((food: any) => !linked.has(food.id));
+    const key = await fdcApiKey(context.supabase);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const admin = supabaseAdmin as unknown as LooseDb;
+
+    const findCandidates = async (food: any): Promise<UsdaMatchSuggestion> => {
+      const safeQuery = String(food.name).replace(/[%_]/g, "");
+      const { data: cached, error: cacheError } = await admin
+        .from("usda_fdc_foods")
+        .select("*")
+        .ilike("description", `%${safeQuery}%`)
+        .in("data_type", [...DATA_TYPES].filter((type) => type !== "Branded"))
+        .limit(5);
+      if (cacheError) throw new Error(cacheError.message);
+      const merged = new Map<number, UsdaSearchResult>();
+      for (const row of cached ?? []) {
+        const result = toSearchResult(fromCacheRow(row), "local");
+        merged.set(result.fdcId, result);
+      }
+
+      if (key) {
+        const response = await fetch(
+          `https://api.nal.usda.gov/fdc/v1/foods/search?api_key=${encodeURIComponent(key)}`,
+          {
+            method: "POST",
+            headers: { "content-type": "application/json", accept: "application/json" },
+            body: JSON.stringify({
+              query: food.name,
+              dataType: ["Foundation", "Survey (FNDDS)", "SR Legacy"],
+              pageSize: 5,
+            }),
+            signal: AbortSignal.timeout(15_000),
+          },
+        );
+        if (!response.ok) throw new Error(`USDA FoodData Central returned HTTP ${response.status}`);
+        const payload = (await response.json()) as { foods?: unknown[] };
+        for (const value of payload.foods ?? []) {
+          const result = toSearchResult(normalizeUsdaFood(value), "api");
+          merged.set(result.fdcId, result);
+        }
+      }
+
+      const candidates = [...merged.values()]
+        .map((candidate) => ({
+          ...candidate,
+          confidence: matchConfidence(food.name, candidate.description),
+        }))
+        .sort((a, b) => b.confidence - a.confidence)
+        .slice(0, 3);
+      return { foodId: food.id, foodName: food.name, candidates };
+    };
+
+    const suggestions: UsdaMatchSuggestion[] = [];
+    // Small batches protect the USDA service and keep a 60-food planner well
+    // below FoodData Central's normal hourly request limit.
+    for (let index = 0; index < unmatched.length; index += 4) {
+      suggestions.push(...(await Promise.all(unmatched.slice(index, index + 4).map(findCandidates))));
+    }
+    return { suggestions, apiConfigured: !!key, alreadyLinked: linked.size };
+  });
 
 export const approveUsdaFoodMatch = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

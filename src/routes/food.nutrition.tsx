@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
-import { Database, Search, Trash2 } from "lucide-react";
+import { Database, Search, Sparkles, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,8 @@ import {
   getNutritionCatalog,
   removeNutritionProfile,
   searchUsdaFoods,
+  suggestUsdaFoodMatches,
+  type UsdaMatchSuggestion,
   type UsdaSearchResult,
 } from "@/lib/usda-fooddata.functions";
 
@@ -47,6 +49,7 @@ function FoodNutritionPage() {
   const searchFn = useServerFn(searchUsdaFoods);
   const approveFn = useServerFn(approveUsdaFoodMatch);
   const removeFn = useServerFn(removeNutritionProfile);
+  const suggestFn = useServerFn(suggestUsdaFoodMatches);
   const catalog = useQuery({ queryKey: ["food", "nutrition"], queryFn: () => catalogFn() });
 
   const [foodId, setFoodId] = useState("");
@@ -69,13 +72,22 @@ function FoodNutritionPage() {
   });
 
   const approve = useMutation({
-    mutationFn: (result: UsdaSearchResult) =>
+    mutationFn: ({
+      result,
+      targetFoodId = foodId,
+      form = foodForm,
+    }: {
+      result: UsdaSearchResult;
+      targetFoodId?: string;
+      form?: string;
+    }) =>
       approveFn({
-        data: { foodId, fdcId: result.fdcId, foodForm },
+        data: { foodId: targetFoodId, fdcId: result.fdcId, foodForm: form },
       }),
     onSuccess: (saved) => {
       toast.success(`Approved USDA FDC ${saved.fdcId}`);
       qc.invalidateQueries({ queryKey: ["food", "nutrition"] });
+      qc.invalidateQueries({ queryKey: ["food-plan"] });
     },
     onError: (error: Error) => toast.error(error.message),
   });
@@ -86,6 +98,11 @@ function FoodNutritionPage() {
       toast.success("Nutrition profile removed");
       qc.invalidateQueries({ queryKey: ["food", "nutrition"] });
     },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  const suggest = useMutation({
+    mutationFn: () => suggestFn({ data: { maxFoods: 75 } }),
     onError: (error: Error) => toast.error(error.message),
   });
 
@@ -115,6 +132,15 @@ function FoodNutritionPage() {
           Match a FarmOps food and preparation form to an authoritative USDA record. Search results
           are previews only; nothing is saved until you approve a specific FDC record.
         </p>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => suggest.mutate()}
+          disabled={suggest.isPending}
+        >
+          <Sparkles className="h-4 w-4" />
+          {suggest.isPending ? "Matching planner foods…" : "Suggest matches for unlinked planner foods"}
+        </Button>
       </section>
 
       <section className="border border-border rounded-md bg-card p-4 space-y-4">
@@ -217,13 +243,67 @@ function FoodNutritionPage() {
                   type="button"
                   size="sm"
                   disabled={!selectedFood || !foodForm.trim() || approve.isPending}
-                  onClick={() => approve.mutate(result)}
+                  onClick={() => approve.mutate({ result })}
                 >
                   Use for {selectedFood?.name ?? "selected food"}
                 </Button>
               </div>
             ))}
           </div>
+        </section>
+      )}
+
+      {suggest.data && (
+        <section className="space-y-3">
+          <div>
+            <h3 className="font-semibold">Planner match suggestions</h3>
+            <p className="text-xs text-muted-foreground">
+              {suggest.data.alreadyLinked} foods already linked. Review the top USDA candidates for
+              each remaining planner food; approving a candidate makes it available to the planner.
+            </p>
+          </div>
+          {!suggest.data.apiConfigured && (
+            <div className="border border-amber-500/40 bg-amber-500/10 rounded-md p-3 text-sm">
+              Suggestions are limited to the local USDA cache because the API key is unavailable.
+            </div>
+          )}
+          {suggest.data.suggestions.map((suggestion: UsdaMatchSuggestion) => (
+            <div key={suggestion.foodId} className="border border-border rounded-md bg-card p-3 space-y-2">
+              <div className="font-medium">{suggestion.foodName}</div>
+              {suggestion.candidates.length === 0 ? (
+                <p className="text-xs text-muted-foreground">No candidate found; use manual search.</p>
+              ) : (
+                <div className="space-y-2">
+                  {suggestion.candidates.map((candidate) => (
+                    <div key={candidate.fdcId} className="flex gap-3 justify-between items-start border-t border-border pt-2">
+                      <div className="min-w-0">
+                        <div className="text-sm">{candidate.description}</div>
+                        <div className="text-xs text-muted-foreground">
+                          FDC {candidate.fdcId} · {candidate.dataType} · {Math.round(candidate.confidence * 100)}% name match
+                        </div>
+                        <MacroLine result={candidate} />
+                      </div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={candidate === suggestion.candidates[0] ? "default" : "outline"}
+                        disabled={approve.isPending}
+                        onClick={() =>
+                          approve.mutate({
+                            result: candidate,
+                            targetFoodId: suggestion.foodId,
+                            form: "As listed",
+                          })
+                        }
+                      >
+                        Approve
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
         </section>
       )}
 

@@ -52,3 +52,44 @@ USDA releases should be imported as a reviewed maintenance operation. Record the
 release argument exactly as published, back up Postgres first, run the importer,
 and spot-check existing approved FDC IDs. The import refreshes reference records;
 it never chooses a different FDC ID for a FarmOps food.
+
+
+## Planner linking and assessment
+
+**Suggest matches for unlinked planner foods** searches the local cache and,
+when configured, the FoodData Central API for every currently unlinked food.
+It returns up to three ranked candidates per food. Suggestions remain previews:
+a signed-in user must approve the FDC ID before the planner treats it as a
+nutrition source.
+
+A planner food may have multiple approved profiles, such as raw, canned, or
+dehydrated. Use **Edit food → Planner nutrition form** to select which approved
+form supplies the daily assessment. The selected person's Monday-through-Sunday
+chart expresses energy, protein, fat, carbohydrate, fiber, and sodium as a
+percentage of that person's targets.
+
+Planner quantities are servings. `oz_per_serving` converts servings to grams
+before applying USDA values per 100 g. Older foods without a serving size use a
+one-ounce-per-unit compatibility fallback and should be completed for accurate
+assessment.
+
+New people start with the FDA adult Daily Values: 2,000 kcal, 50 g protein,
+78 g fat, 275 g carbohydrate, 28 g fiber, and 2,300 mg sodium. These values are
+general label references, not individualized medical recommendations. Each
+person's targets can be edited in the planner.
+
+- FDA Daily Values:
+  https://www.fda.gov/food/nutrition-facts-label/daily-value-nutrition-and-supplement-facts-labels
+- FoodData Central API:
+  https://fdc.nal.usda.gov/api-guide/
+
+## Preservation conversions
+
+The planner shows weekly planning equivalents for fresh quantity, freeze-dried
+dry ounces, dehydrated dry ounces, and canned quarts. These estimates use the
+same crop-specific yield assumptions as Preservation Coach; actual batch yield
+must replace the estimate when known.
+
+Nutrition is not transformed with a universal retention percentage. Canning,
+dehydration, and freeze-drying affect foods differently. Match each applicable
+form to its own USDA FDC record and select that approved form for the planner.
