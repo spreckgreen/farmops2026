@@ -24,6 +24,7 @@ type Props = {
   model: string;
   connectors: ConnectorRef[];
   existingPortNames: string[];
+  nextSortOrder: number;
   onCreated: () => Promise<void>;
 };
 
@@ -38,6 +39,7 @@ export function InventoryEquipmentPortDiscovery({
   model: initialModel,
   connectors,
   existingPortNames,
+  nextSortOrder,
   onCreated,
 }: Props) {
   const discover = useServerFn(discoverEquipmentPorts);
@@ -106,7 +108,7 @@ export function InventoryEquipmentPortDiscovery({
           `Evidence: ${proposal.evidence}`,
           `Lookup confidence: ${proposal.confidence}`,
         ].filter(Boolean).join("\n"),
-        sort_order: existingPortNames.length + index,
+        sort_order: nextSortOrder + index,
       }));
       const { error } = await (supabase as any).from("inventory_device_ports").insert(rows);
       if (error) throw error;

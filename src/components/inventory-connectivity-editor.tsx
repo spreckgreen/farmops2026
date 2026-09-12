@@ -155,6 +155,10 @@ export function InventoryConnectivityEditor({
   }, [open, itemId]);
 
   const selectedPort = ports.find((port) => port.id === selectedPortId) ?? null;
+  const nextPortSortOrder = useMemo(
+    () => ports.reduce((max, port) => Math.max(max, Number(port.sort_order ?? -1)), -1) + 1,
+    [ports],
+  );
   const matches = useMemo(() => {
     if (!selectedPort) return [];
     return cables
@@ -186,7 +190,7 @@ export function InventoryConnectivityEditor({
       protocol: portForm.protocol.trim() || null,
       impedance_ohms: numberOrNull(portForm.impedance_ohms),
       notes: portForm.notes.trim() || null,
-      sort_order: ports.length,
+      sort_order: nextPortSortOrder,
     };
     const { error } = await db.from("inventory_device_ports").insert(payload);
     if (error) return toast.error(error.message);
@@ -281,13 +285,14 @@ export function InventoryConnectivityEditor({
             model={model}
             connectors={connectors}
             existingPortNames={ports.map((port) => port.name)}
+            nextSortOrder={nextPortSortOrder}
             onCreated={load}
           />
-
           <InventoryUploadedPortTemplates
             itemId={itemId}
             itemName={itemName}
             existingPortNames={ports.map((port) => port.name)}
+            nextSortOrder={nextPortSortOrder}
             onCreated={load}
           />
 

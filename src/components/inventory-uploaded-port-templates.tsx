@@ -28,11 +28,13 @@ export function InventoryUploadedPortTemplates({
   itemId,
   itemName,
   existingPortNames,
+  nextSortOrder,
   onCreated,
 }: {
   itemId: string;
   itemName: string;
   existingPortNames: string[];
+  nextSortOrder: number;
   onCreated: () => Promise<void>;
 }) {
   const [rows, setRows] = useState<TemplatePort[]>([]);
@@ -98,7 +100,7 @@ export function InventoryUploadedPortTemplates({
         notes: [row.notes, `Reviewed uploaded reference: ${row.source_name}`]
           .filter(Boolean)
           .join("\n"),
-        sort_order: existingPortNames.length + index,
+        sort_order: nextSortOrder + index,
       }));
       const { error } = await db.from("inventory_device_ports").insert(payload);
       if (error) throw error;

@@ -13,6 +13,8 @@ jobs:
   npm-audit:
     name: bun audit (fail on high)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
 
