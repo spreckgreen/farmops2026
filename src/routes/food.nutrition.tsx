@@ -56,6 +56,8 @@ function FoodNutritionPage() {
   const [query, setQuery] = useState("");
   const [foodForm, setFoodForm] = useState("");
   const [includeBranded, setIncludeBranded] = useState(false);
+  const [selectedSuggestions, setSelectedSuggestions] = useState<Record<string, number>>({});
+  const [approvedSuggestionFoods, setApprovedSuggestionFoods] = useState<Set<string>>(new Set());
   const foods = catalog.data?.foods ?? [];
   const selectedFood = foods.find((food) => food.id === foodId);
 
@@ -84,8 +86,11 @@ function FoodNutritionPage() {
       approveFn({
         data: { foodId: targetFoodId, fdcId: result.fdcId, foodForm: form },
       }),
-    onSuccess: (saved) => {
+    onSuccess: (saved, variables) => {
       toast.success(`Approved USDA FDC ${saved.fdcId}`);
+      if (variables.targetFoodId) {
+        setApprovedSuggestionFoods((current) => new Set(current).add(variables.targetFoodId!));
+      }
       qc.invalidateQueries({ queryKey: ["food", "nutrition"] });
       qc.invalidateQueries({ queryKey: ["food-plan"] });
     },
@@ -103,6 +108,16 @@ function FoodNutritionPage() {
 
   const suggest = useMutation({
     mutationFn: () => suggestFn({ data: { maxFoods: 75 } }),
+    onSuccess: (result) => {
+      setSelectedSuggestions(
+        Object.fromEntries(
+          result.suggestions.flatMap((item) =>
+            item.candidates[0] ? [[item.foodId, item.candidates[0].fdcId]] : [],
+          ),
+        ),
+      );
+      setApprovedSuggestionFoods(new Set());
+    },
     onError: (error: Error) => toast.error(error.message),
   });
 
@@ -267,43 +282,87 @@ function FoodNutritionPage() {
               Suggestions are limited to the local USDA cache because the API key is unavailable.
             </div>
           )}
-          {suggest.data.suggestions.map((suggestion: UsdaMatchSuggestion) => (
-            <div key={suggestion.foodId} className="border border-border rounded-md bg-card p-3 space-y-2">
-              <div className="font-medium">{suggestion.foodName}</div>
-              {suggestion.candidates.length === 0 ? (
-                <p className="text-xs text-muted-foreground">No candidate found; use manual search.</p>
-              ) : (
-                <div className="space-y-2">
-                  {suggestion.candidates.map((candidate) => (
-                    <div key={candidate.fdcId} className="flex gap-3 justify-between items-start border-t border-border pt-2">
-                      <div className="min-w-0">
-                        <div className="text-sm">{candidate.description}</div>
-                        <div className="text-xs text-muted-foreground">
-                          FDC {candidate.fdcId} · {candidate.dataType} · {Math.round(candidate.confidence * 100)}% name match
-                        </div>
-                        <MacroLine result={candidate} />
-                      </div>
+          {suggest.data.suggestions.map((suggestion: UsdaMatchSuggestion) => {
+            const selectedFdcId =
+              selectedSuggestions[suggestion.foodId] ?? suggestion.candidates[0]?.fdcId;
+            const selectedCandidate = suggestion.candidates.find(
+              (candidate) => candidate.fdcId === selectedFdcId,
+            );
+            const approved = approvedSuggestionFoods.has(suggestion.foodId);
+            return (
+              <div key={suggestion.foodId} className="border border-border rounded-md bg-card p-3 space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="font-medium">{suggestion.foodName}</div>
+                  {approved && <Badge variant="secondary">Linked</Badge>}
+                </div>
+                {suggestion.candidates.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">No candidate found; use manual search.</p>
+                ) : (
+                  <>
+                    <div className="space-y-2" role="radiogroup" aria-label={`USDA matches for ${suggestion.foodName}`}>
+                      {suggestion.candidates.map((candidate, index) => {
+                        const selected = candidate.fdcId === selectedFdcId;
+                        return (
+                          <button
+                            key={candidate.fdcId}
+                            type="button"
+                            role="radio"
+                            aria-checked={selected}
+                            disabled={approved}
+                            onClick={() =>
+                              setSelectedSuggestions((current) => ({
+                                ...current,
+                                [suggestion.foodId]: candidate.fdcId,
+                              }))
+                            }
+                            className={`w-full rounded-md border p-3 text-left transition-colors ${selected
+                              ? "border-primary bg-primary/10 ring-1 ring-primary"
+                              : "border-border hover:bg-accent/40"} ${approved ? "opacity-60" : ""}`}
+                          >
+                            <div className="flex items-start gap-3">
+                              <span
+                                aria-hidden="true"
+                                className={`mt-1 h-3.5 w-3.5 shrink-0 rounded-full border ${selected
+                                  ? "border-primary bg-primary ring-2 ring-background"
+                                  : "border-muted-foreground"}`}
+                              />
+                              <div className="min-w-0">
+                                <div className="flex flex-wrap items-center gap-2 text-sm">
+                                  <span>{candidate.description}</span>
+                                  {index === 0 && <Badge variant="outline">Recommended</Badge>}
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  FDC {candidate.fdcId} · {candidate.dataType} · {Math.round(candidate.confidence * 100)}% name match
+                                </div>
+                                <MacroLine result={candidate} />
+                              </div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div className="flex justify-end">
                       <Button
                         type="button"
                         size="sm"
-                        variant={candidate === suggestion.candidates[0] ? "default" : "outline"}
-                        disabled={approve.isPending}
+                        disabled={!selectedCandidate || approve.isPending || approved}
                         onClick={() =>
+                          selectedCandidate &&
                           approve.mutate({
-                            result: candidate,
+                            result: selectedCandidate,
                             targetFoodId: suggestion.foodId,
                             form: "As listed",
                           })
                         }
                       >
-                        Approve
+                        {approved ? "Approved" : "Approve highlighted match"}
                       </Button>
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
+                  </>
+                )}
+              </div>
+            );
+          })}
         </section>
       )}
 
