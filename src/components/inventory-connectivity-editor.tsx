@@ -94,6 +94,7 @@ function ConnectorPicker({
 
 export function InventoryConnectivityEditor({
   itemId,
+  itemName = "",
   manufacturer = "",
   model = "",
   itemType = null,
