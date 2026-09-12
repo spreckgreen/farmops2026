@@ -411,6 +411,16 @@ export function InventoryConnectivityEditor({
               <select className="h-8 rounded-md border bg-background px-2 text-xs" value={portForm.connector_gender} onChange={(e) => setPortForm({ ...portForm, connector_gender: e.target.value as ConnectorGender })}>
                 {genders.map((gender) => <option key={gender} value={gender}>{gender}</option>)}
               </select>
+              <select
+                aria-label="Connector polarity"
+                className="h-8 rounded-md border bg-background px-2 text-xs"
+                value={portForm.polarity}
+                onChange={(e) => setPortForm({ ...portForm, polarity: e.target.value as ConnectorPolarity })}
+              >
+                <option value="standard">Standard polarity</option>
+                <option value="reverse">Reverse polarity</option>
+                <option value="not_applicable">Polarity not applicable</option>
+              </select>
               <div className="col-span-2"><ConnectorPicker connectors={connectors} value={portForm.connector_type_id} onChange={(value) => setPortForm({ ...portForm, connector_type_id: value })} /></div>
               <Input className="h-8 text-xs" placeholder="Protocol/capability, e.g. USB 10 Gbps" value={portForm.protocol} onChange={(e) => setPortForm({ ...portForm, protocol: e.target.value })} />
               <Input className="h-8 text-xs" type="number" placeholder="Impedance Ω" value={portForm.impedance_ohms} onChange={(e) => setPortForm({ ...portForm, impedance_ohms: e.target.value })} />
