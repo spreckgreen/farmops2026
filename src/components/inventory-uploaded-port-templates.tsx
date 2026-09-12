@@ -86,7 +86,9 @@ export function InventoryUploadedPortTemplates({
   }, [shown, existing]);
 
   const apply = async () => {
-    const chosen = shown.filter((row) => selected.has(row.id));
+    const chosen = shown
+      .filter((row) => selected.has(row.id))
+      .sort((a, b) => a.sort_order - b.sort_order);
     if (!chosen.length) return toast.error("Select at least one connector to apply.");
     const { data: auth } = await supabase.auth.getUser();
     if (!auth.user) return toast.error("Sign in again before saving.");
