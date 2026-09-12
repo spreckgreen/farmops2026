@@ -145,7 +145,7 @@ export const discoverEquipmentPorts = createServerFn({ method: "POST" })
     const sourceUrls = new Set(sources.map((source) => source.url));
 
     const { resolveAreaAi } = await import("./ai-routing.server");
-    const ai = await resolveAreaAi("maintenance.manual_import", {
+    const ai = await resolveAreaAi("procedures", {
       hostedDefaultModel: "google/gemini-3.6-flash",
       client: context.supabase,
     });
