@@ -3,6 +3,10 @@
   "private": true,
   "sideEffects": false,
   "type": "module",
+  "engines": {
+    "node": ">=24",
+    "bun": ">=1.0.0"
+  },
   "scripts": {
     "dev:clean": "rimraf node_modules/.vite",
     "predev": "bun run dev:clean",

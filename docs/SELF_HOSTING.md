@@ -14,7 +14,7 @@ You need three things before you deploy:
    on <https://supabase.com>. Bostead never talks to the Lovable-managed
    database — bring your own.
 2. **A host to run the app.** Docker 24+ / Docker Compose v2, or Node.js
-   20+ with Bun 1.x. 1 vCPU / 512 MB RAM is enough for a household.
+   24+ with Bun 1.x. 1 vCPU / 512 MB RAM is enough for a household.
 3. **A domain (recommended).** Rachio and any other webhook provider need
    a stable HTTPS URL to call back into.
 
@@ -750,7 +750,7 @@ docker run -d \
 
 ## 6. Deploy without Docker (Node.js runtime)
 
-Requires Node 20+ and Bun 1.x.
+Requires Node 24+ and Bun 1.x.
 
 ```bash
 # 1. Clone & install
