@@ -157,11 +157,13 @@ export function InventoryConnectivityEditor({
   const selectedPort = ports.find((port) => port.id === selectedPortId) ?? null;
   const existingPortNames = useMemo(() => ports.map((port) => port.name), [ports]);
   const nextPortSortOrder = useMemo(
-    () =>
-      ports.reduce((max, port) => {
+    () => {
+      const maxSortOrder = ports.reduce((max, port) => {
         const sortOrder = Number(port.sort_order);
         return Number.isFinite(sortOrder) ? Math.max(max, sortOrder) : max;
-      }, -1) + 1,
+      }, -1);
+      return maxSortOrder < 0 ? 10 : Math.floor(maxSortOrder / 10) * 10 + 10;
+    },
     [ports],
   );
   const matches = useMemo(() => {

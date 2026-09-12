@@ -98,7 +98,7 @@ export function InventoryUploadedPortTemplates({
     if (!auth.user) return toast.error("Sign in again before saving.");
     setSaving(true);
     try {
-      const firstSortOrder = Math.min(...chosen.map((row) => row.sort_order));
+      const firstSortOrder = Math.min(...shown.map((row) => row.sort_order));
       const payload = chosen.map((row) => ({
         user_id: auth.user!.id,
         inventory_item_id: itemId,
