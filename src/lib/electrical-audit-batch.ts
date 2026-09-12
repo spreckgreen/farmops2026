@@ -529,7 +529,7 @@ export const AUDIT_ENTITY_TARGETS: Record<AuditEntityKind, EntityTarget> = {
     table: "electrical_junction_boxes",
     stableIdColumn: "jbox_id",
     idKind: "jbox",
-    writable: ["raceway_uuid", "raceway_sequence", ...STATE_FIELDS, ...LOCATION_FIELDS],
+    writable: ["raceway_uuid", "raceway_sequence", ...STATE_FIELDS, ...JBOX_LOCATION_FIELDS],
     links: ["raceway_uuid"],
     creatable: true,
     title: "Junction boxes",
