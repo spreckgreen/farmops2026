@@ -163,7 +163,7 @@ export function InventoryConnectivityEditor({
         const sortOrder = Number(port.sort_order);
         return Number.isFinite(sortOrder) ? Math.max(max, sortOrder) : max;
       }, -1);
-      return maxSortOrder < 0 ? 10 : Math.floor(maxSortOrder / 10) * 10 + 10;
+      return maxSortOrder < 0 ? 10 : maxSortOrder + 10;
     },
     [ports],
   );

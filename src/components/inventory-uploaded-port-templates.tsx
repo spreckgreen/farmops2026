@@ -94,8 +94,9 @@ export function InventoryUploadedPortTemplates({
       .filter((row) => selected.has(row.id))
       .sort((a, b) => a.sort_order - b.sort_order);
     if (!chosen.length) return toast.error("Select at least one connector to apply.");
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return toast.error("Sign in again before saving.");
+    const auth = await supabase.auth.getUser();
+    const user = auth.data?.user;
+    if (auth.error || !user) return toast.error("Sign in again before saving.");
     setSaving(true);
     try {
       const firstSortOrder = chosen[0]?.sort_order ?? 0;
