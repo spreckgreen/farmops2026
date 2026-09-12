@@ -1051,8 +1051,11 @@ export const LOCATION_PATCH_COLUMNS = [
   "grid",
   "grid_reference",
   "grid_reference_precision",
+  "location_precision",
+  "location_source",
   "location_x_ft",
   "location_y_ft",
+
 ] as const;
 
 function holdResult(
