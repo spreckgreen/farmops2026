@@ -33,15 +33,15 @@ jobs:
             --audit-level=high \
             --ignore GHSA-5p2g-fcmc-qvqq \
             --ignore GHSA-w3rx-r6r6-pgpr \
-            | tee npm-audit.json
+            | tee bun-audit.json
           # `bun audit` exits non-zero when any finding at the requested level exists.
 
       - name: Upload audit report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: npm-audit-report
-          path: npm-audit.json
+          name: bun-audit-report
+          path: bun-audit.json
 
   codeql:
     name: CodeQL static analysis
