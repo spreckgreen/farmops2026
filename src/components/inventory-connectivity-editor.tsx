@@ -211,9 +211,8 @@ export function InventoryConnectivityEditor({
     const connectorA = String(values.get("connector_a") ?? "");
     const connectorB = String(values.get("connector_b") ?? "");
     const supportedDomains = values.getAll("supported_domains").map(String) as CableDomain[];
-    const allowLegacyUnclassifiedDomains = !!cableSpec && !cableSpec.supported_domains?.length;
     if (!connectorA || !connectorB) return toast.error("Both cable ends are required.");
-    if (!supportedDomains.length && !allowLegacyUnclassifiedDomains) {
+    if (!supportedDomains.length) {
       return toast.error("Select at least one supported cable domain.");
     }
     const { data: auth } = await supabase.auth.getUser();
