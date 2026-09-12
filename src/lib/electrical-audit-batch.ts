@@ -1182,7 +1182,11 @@ export function buildPatch(
       patch["measured_xy_datum"] = m.datum ? norm(m.datum) : null;
       patch["measured_xy_at"] = m.measured_at ? norm(m.measured_at) : null;
       patch["measured_xy_by"] = m.measured_by ? norm(m.measured_by) : null;
+      // Precision lives in different columns per table: loads and panels use
+      // grid_reference_precision, junction boxes use location_precision.
       if (allowed.has("grid_reference_precision")) patch["grid_reference_precision"] = "EXACT";
+      else if (allowed.has("location_precision")) patch["location_precision"] = "EXACT";
+
       messages.push(
         info(
           `Measured field coordinate ${m.x_ft} ft E / ${m.y_ft} ft S (${m.method}${
