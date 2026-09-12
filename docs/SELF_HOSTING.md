@@ -229,7 +229,7 @@ Bostead. The Supabase self-host stack from
    SUPABASE_DB_CONTAINER=supabase-db ./scripts/apply-migrations.sh --adopt
    ```
 
-   A literal `SUPABASE_DB_URL` containing `<PASSWORD>` or `CHANGE_ME` is treated
+   A literal `SUPABASE_DB_URL` containing `<PASSWORD>` or `CHANGE_ME` is treated <!-- scan-secrets: allow -->
    as a placeholder and ignored; the runner derives the connection from
    `POSTGRES_PASSWORD` instead.
 

@@ -129,7 +129,7 @@ done
 # password below. This commonly happens when the example command containing
 # literal <PASSWORD> is pasted unchanged into .env.local.
 case "$DB_URL" in
-  *'<PASSWORD>'*|*'CHANGE_ME'*)
+  *'<PASSWORD>'*|*'CHANGE_ME'*) # scan-secrets: allow
     warn "Ignoring placeholder SUPABASE_DB_URL; deriving the real local connection instead"
     DB_URL=""
     ;;
