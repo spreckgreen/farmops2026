@@ -46,6 +46,9 @@ export interface DevicePort extends ConnectableEnd {
   voltage_v?: number | null;
   max_current_a?: number | null;
   max_power_w?: number | null;
+  required?: boolean;
+  notes?: string | null;
+  sort_order?: number;
 }
 
 export interface CableSpec {
