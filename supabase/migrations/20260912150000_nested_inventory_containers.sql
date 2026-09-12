@@ -158,6 +158,25 @@ BEGIN
 END;
 $$;
 
+CREATE OR REPLACE FUNCTION public.restore_kit_contents_on_deployment_delete()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  UPDATE public.inventory_items i
+  SET location = m.prior_location,
+      current_container_item_id = m.prior_current_container_item_id
+  FROM public.inventory_container_movements m
+  WHERE m.deployment_id = OLD.id
+    AND m.user_id = OLD.user_id
+    AND m.item_id = i.id
+    AND m.restored_at IS NULL;
+  RETURN OLD;
+END;
+$$;
+
 DROP TRIGGER IF EXISTS kit_deployment_move_contents ON public.kit_deployments;
 CREATE TRIGGER kit_deployment_move_contents
   AFTER INSERT ON public.kit_deployments
@@ -169,6 +188,12 @@ CREATE TRIGGER kit_deployment_restore_contents
   AFTER UPDATE OF status ON public.kit_deployments
   FOR EACH ROW
   EXECUTE FUNCTION public.restore_kit_contents_on_checkin();
+
+DROP TRIGGER IF EXISTS kit_deployment_restore_contents_on_delete ON public.kit_deployments;
+CREATE TRIGGER kit_deployment_restore_contents_on_delete
+  BEFORE DELETE ON public.kit_deployments
+  FOR EACH ROW
+  EXECUTE FUNCTION public.restore_kit_contents_on_deployment_delete();
 
 COMMENT ON COLUMN public.inventory_items.container_kind IS
   'Physical/logical role: ordinary item, kit, or reusable bag/mini-kit.';

@@ -309,6 +309,17 @@ export const setPrimaryBomContainer = createServerFn({ method: "POST" })
     if (!membership)
       throw new Error("That item is not assigned to this kit or bag.");
 
+    const { data: parent, error: parentError } = await db
+      .from("inventory_items")
+      .select("container_kind")
+      .eq("user_id", context.userId)
+      .eq("id", data.parentItemId)
+      .maybeSingle();
+    if (parentError) throw new Error(parentError.message);
+    if (!parent || !["kit", "bag"].includes(parent.container_kind)) {
+      throw new Error("Only a kit or bag can be a primary physical home.");
+    }
+
     const { data: movement } = await db
       .from("inventory_container_movements")
       .select("id")
@@ -336,11 +347,43 @@ export const removeBomComponent = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ context, data }) => {
-    const { error } = await context.supabase
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const db = context.supabase as any;
+    const { data: membership, error: readError } = await db
+      .from("inventory_components")
+      .select("parent_item_id, component_item_id")
+      .eq("user_id", context.userId)
+      .eq("id", data.id)
+      .maybeSingle();
+    if (readError) throw new Error(readError.message);
+    if (!membership) throw new Error("Part assignment not found.");
+
+    const { error } = await db
       .from("inventory_components")
       .delete()
       .eq("user_id", context.userId)
       .eq("id", data.id);
     if (error) throw new Error(error.message);
+
+    const { data: movement } = await db
+      .from("inventory_container_movements")
+      .select("id")
+      .eq("user_id", context.userId)
+      .eq("item_id", membership.component_item_id)
+      .is("restored_at", null)
+      .limit(1)
+      .maybeSingle();
+    if (!movement) {
+      const { error: clearError } = await db
+        .from("inventory_items")
+        .update({
+          primary_container_item_id: null,
+          current_container_item_id: null,
+        })
+        .eq("user_id", context.userId)
+        .eq("id", membership.component_item_id)
+        .eq("primary_container_item_id", membership.parent_item_id);
+      if (clearError) throw new Error(clearError.message);
+    }
     return { ok: true as const };
   });
