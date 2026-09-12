@@ -66,8 +66,14 @@ export function InventoryUploadedPortTemplates({
     () => [...new Set(rows.map((row) => row.device_name))].sort(),
     [rows],
   );
-  const shown = rows.filter((row) => row.device_name === deviceName);
-  const existing = new Set(existingPortNames.map((name) => name.trim().toLowerCase()));
+  const shown = useMemo(
+    () => rows.filter((row) => row.device_name === deviceName),
+    [deviceName, rows],
+  );
+  const existing = useMemo(
+    () => new Set(existingPortNames.map((name) => name.trim().toLowerCase())),
+    [existingPortNames],
+  );
 
   useEffect(() => {
     setSelected(
@@ -77,7 +83,7 @@ export function InventoryUploadedPortTemplates({
           .map((row) => row.id),
       ),
     );
-  }, [deviceName, rows, existingPortNames.join("|")]);
+  }, [shown, existing]);
 
   const apply = async () => {
     const chosen = shown.filter((row) => selected.has(row.id));

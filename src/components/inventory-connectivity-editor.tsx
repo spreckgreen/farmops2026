@@ -155,6 +155,7 @@ export function InventoryConnectivityEditor({
   }, [open, itemId]);
 
   const selectedPort = ports.find((port) => port.id === selectedPortId) ?? null;
+  const existingPortNames = useMemo(() => ports.map((port) => port.name), [ports]);
   const nextPortSortOrder = useMemo(
     () => ports.reduce((max, port) => Math.max(max, Number(port.sort_order ?? -1)), -1) + 1,
     [ports],
@@ -288,14 +289,14 @@ export function InventoryConnectivityEditor({
             manufacturer={manufacturer}
             model={model}
             connectors={connectors}
-            existingPortNames={ports.map((port) => port.name)}
+            existingPortNames={existingPortNames}
             nextSortOrder={nextPortSortOrder}
             onCreated={load}
           />
           <InventoryUploadedPortTemplates
             itemId={itemId}
             itemName={itemName}
-            existingPortNames={ports.map((port) => port.name)}
+            existingPortNames={existingPortNames}
             nextSortOrder={nextPortSortOrder}
             onCreated={load}
           />
