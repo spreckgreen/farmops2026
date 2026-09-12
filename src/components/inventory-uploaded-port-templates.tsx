@@ -86,7 +86,8 @@ export function InventoryUploadedPortTemplates({
     if (!auth.user) return toast.error("Sign in again before saving.");
     setSaving(true);
     try {
-      const payload = chosen.map((row, index) => ({
+      const firstSortOrder = Math.min(...chosen.map((row) => row.sort_order));
+      const payload = chosen.map((row) => ({
         user_id: auth.user!.id,
         inventory_item_id: itemId,
         name: row.port_name,
@@ -100,7 +101,7 @@ export function InventoryUploadedPortTemplates({
         notes: [row.notes, `Reviewed uploaded reference: ${row.source_name}`]
           .filter(Boolean)
           .join("\n"),
-        sort_order: nextSortOrder + index,
+        sort_order: nextSortOrder + (row.sort_order - firstSortOrder),
       }));
       const { error } = await db.from("inventory_device_ports").insert(payload);
       if (error) throw error;
