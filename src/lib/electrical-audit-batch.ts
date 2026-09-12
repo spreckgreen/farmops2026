@@ -351,6 +351,27 @@ const LOCATION_FIELDS = [
   "grid_reference_precision",
 ];
 
+/**
+ * Junction boxes store location precision in `location_precision` and carry no
+ * `grid_reference_precision`, `field_verification_status`, `verification_notes`
+ * or `verified_at` column. Writing the loads/panels field names to a junction
+ * box fails in the database, so the j-box target uses its own column list.
+ */
+const JBOX_LOCATION_FIELDS = [
+  ...LOCATION_FIELDS.filter(
+    (c) =>
+      ![
+        "grid_reference_precision",
+        "field_verification_status",
+        "verification_notes",
+        "verified_at",
+      ].includes(c),
+  ),
+  "location_precision",
+  "location_source",
+];
+
+
 const STATE_FIELDS = ["install_status", "label_status", "completion_percent", "notes"];
 
 /**
