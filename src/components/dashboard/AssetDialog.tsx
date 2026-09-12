@@ -10,6 +10,7 @@ import BarcodeScanner from "./BarcodeScanner";
 import type { Asset, AssetFormData } from "./types";
 import { INVENTORY_TYPES } from "@/lib/obsidian-layout";
 import { InventoryTypeCombobox, KIT_TYPE } from "@/components/inventory-type-combobox";
+import { InventoryConnectivityEditor } from "@/components/inventory-connectivity-editor";
 
 /**
  * Shows what is actually stored in the database for this item's type, so a kit
@@ -181,7 +182,7 @@ const AssetDialog = ({ open, onOpenChange, onSave, asset }: AssetDialogProps) =>
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg bg-card border-border">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl bg-card border-border">
         <DialogHeader>
           <DialogTitle className="font-heading">
             {asset ? "Edit Asset" : "Add Asset"}
@@ -446,6 +447,13 @@ const AssetDialog = ({ open, onOpenChange, onSave, asset }: AssetDialogProps) =>
                 </div>
               )}
             </div>
+            {asset ? (
+              <InventoryConnectivityEditor itemId={asset.id} itemName={form.name || asset.name || "Inventory item"} />
+            ) : (
+              <p className="col-span-2 text-[11px] text-muted-foreground">
+                Save this item first, then edit it to add device ports or cable ends.
+              </p>
+            )}
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
