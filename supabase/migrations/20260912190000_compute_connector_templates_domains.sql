@@ -6,13 +6,24 @@ VALUES (
   '23_3_compute',
   '23.3 Compute',
   '21 Infrastructure systems/23 Communication/23.3 Compute',
-  145
+  65
 )
 ON CONFLICT (value) DO UPDATE SET
   label = EXCLUDED.label,
   folder = EXCLUDED.folder,
   sort_order = EXCLUDED.sort_order,
   active = true;
+
+INSERT INTO public.connector_types
+  (id, family, display_name, description, aliases, mating_key, pin_count)
+VALUES
+  ('wire-terminal','other','Wire terminal','Direct wire, spring terminal or binding terminal; verify the exact terminal style on the device.','{"Random Wire","Bare wire","Spring terminal","Binding terminal"}','wire-terminal',1)
+ON CONFLICT (id) DO UPDATE SET
+  display_name = EXCLUDED.display_name,
+  description = EXCLUDED.description,
+  aliases = EXCLUDED.aliases,
+  mating_key = EXCLUDED.mating_key
+WHERE connector_types.user_id IS NULL;
 
 ALTER TABLE public.inventory_cable_specs
   ADD COLUMN IF NOT EXISTS supported_domains text[] NOT NULL DEFAULT '{}';
