@@ -11,7 +11,7 @@ import { PanelCompletenessCard } from "@/components/electrical/panel-completenes
 import { panelCompletenessFromSnapshot } from "@/lib/electrical-panel-completeness";
 import { loadAuditHolds } from "@/lib/electrical-panel-completeness.functions";
 import { ElectricalGate } from "@/components/electrical/electrical-gate";
-import { PersistedSection } from "@/components/electrical/persisted-section";
+import { PersistedSection, setPersistedSectionsOpen } from "@/components/electrical/persisted-section";
 import { GridOperationalMap } from "@/components/electrical/grid-operational-map";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -494,13 +494,106 @@ function InstallProgressPage() {
     queryKey: ["electrical", "install-progress"],
     queryFn: () => fetchSnapshot(),
   });
+  const [selectedBuilding, setSelectedBuilding] = useState("");
   const [selected, setSelected] = useState("");
   const [editing, setEditing] = useState<string | null>(null);
 
-  const panels = data?.panels ?? [];
+  const allPanels = data?.panels ?? [];
+  const buildings = useMemo(
+    () =>
+      Array.from(new Set(allPanels.map((p) => p.building?.trim() || "Unassigned"))).sort(
+        (a, b) => a.localeCompare(b),
+      ),
+    [allPanels],
+  );
+  const panels = useMemo(
+    () =>
+      allPanels.filter(
+        (p) => (p.building?.trim() || "Unassigned") === selectedBuilding,
+      ),
+    [allPanels, selectedBuilding],
+  );
+
   useEffect(() => {
-    if (!selected && panels.length) setSelected(panels[0]!.id);
-  }, [panels, selected]);
+    if (!buildings.length) return;
+    const saved =
+      typeof window === "undefined"
+        ? null
+        : window.localStorage.getItem("farmops.install-progress.building.v1");
+    const next = selectedBuilding && buildings.includes(selectedBuilding)
+      ? selectedBuilding
+      : saved && buildings.includes(saved)
+        ? saved
+        : buildings[0]!;
+    if (next !== selectedBuilding) setSelectedBuilding(next);
+  }, [buildings, selectedBuilding]);
+
+  useEffect(() => {
+    if (!selectedBuilding || !panels.length || !data) {
+      if (selected) setSelected("");
+      return;
+    }
+    if (panels.some((p) => p.id === selected)) return;
+
+    const savedKey = `farmops.install-progress.panel.v1:${selectedBuilding}`;
+    const saved = typeof window === "undefined" ? null : window.localStorage.getItem(savedKey);
+    const savedPanel = panels.find((p) => p.id === saved);
+    if (savedPanel) {
+      setSelected(savedPanel.id);
+      return;
+    }
+
+    const circuitsByPanel = new Map<string, Set<string>>();
+    for (const circuit of data.circuits) {
+      if (!circuit.panel_uuid) continue;
+      const ids = circuitsByPanel.get(circuit.panel_uuid) ?? new Set<string>();
+      ids.add(circuit.id);
+      circuitsByPanel.set(circuit.panel_uuid, ids);
+    }
+    const score = (panelId: string) => {
+      const circuitIds = circuitsByPanel.get(panelId) ?? new Set<string>();
+      const loadCount = data.loads.filter(
+        (load) => load.circuit_group_uuid && circuitIds.has(load.circuit_group_uuid),
+      ).length;
+      const positionCount = data.positions.filter((position) => position.panel_uuid === panelId).length;
+      return { loadCount, positionCount, circuitCount: circuitIds.size };
+    };
+    const ranked = [...panels].sort((a, b) => {
+      const left = score(a.id);
+      const right = score(b.id);
+      return (
+        right.loadCount - left.loadCount ||
+        right.positionCount - left.positionCount ||
+        right.circuitCount - left.circuitCount ||
+        a.panel_id.localeCompare(b.panel_id)
+      );
+    });
+    setSelected(ranked[0]!.id);
+  }, [data, panels, selected, selectedBuilding]);
+
+  const chooseBuilding = (building: string) => {
+    setSelectedBuilding(building);
+    setSelected("");
+    setEditing(null);
+    try {
+      window.localStorage.setItem("farmops.install-progress.building.v1", building);
+    } catch {
+      // Preferences remain usable in memory when storage is unavailable.
+    }
+  };
+
+  const choosePanel = (panelId: string) => {
+    setSelected(panelId);
+    setEditing(null);
+    try {
+      window.localStorage.setItem(
+        `farmops.install-progress.panel.v1:${selectedBuilding}`,
+        panelId,
+      );
+    } catch {
+      // Preferences remain usable in memory when storage is unavailable.
+    }
+  };
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ["electrical"] });
@@ -538,6 +631,18 @@ function InstallProgressPage() {
     return (data?.loads ?? []).filter((l) => l.circuit_group_uuid && ids.has(l.circuit_group_uuid));
   }, [data, circuits]);
 
+  const paneScope = `${encodeURIComponent(selectedBuilding || "none")}:${selected || "none"}`;
+  const paneKeys = {
+    map: `install-progress.${paneScope}.progress-map`,
+    panel: `install-progress.${paneScope}.panel`,
+    state: `install-progress.${paneScope}.panel-state`,
+    circuits: `install-progress.${paneScope}.circuits`,
+    positions: `install-progress.${paneScope}.positions`,
+    wireLoads: `install-progress.${paneScope}.wire-loads`,
+    wired: `install-progress.${paneScope}.wired`,
+  };
+  const allPaneKeys = Object.values(paneKeys);
+
   return (
     <ElectricalGate>
       <div className="mx-auto w-full max-w-5xl space-y-4 p-4">
@@ -551,12 +656,43 @@ function InstallProgressPage() {
               <Button size="sm" variant="ghost" onClick={() => refetch()} disabled={isFetching}>
                 <RefreshCw className={`mr-1.5 h-4 w-4 ${isFetching ? "animate-spin" : ""}`} /> Refresh
               </Button>
+              <Button size="sm" variant="outline" onClick={() => setPersistedSectionsOpen(allPaneKeys, true)}>
+                Expand all
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => setPersistedSectionsOpen(allPaneKeys, false)}>
+                Collapse all
+              </Button>
             </CardTitle>
           </CardHeader>
-          <CardContent className="text-sm text-muted-foreground">
-            What you record here is written straight to the panel, circuit, breaker-position and
-            load records — the same records the wiring page and the critical-load study read. Only
-            record what is actually installed; nothing here is inferred.
+          <CardContent className="space-y-3">
+            <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+              <div className="space-y-1">
+                <Label>Site</Label>
+                <div className="flex h-10 items-center rounded-md border border-input bg-muted/30 px-3 text-sm">
+                  Bostead Farms
+                </div>
+              </div>
+              <div className="min-w-0 space-y-1">
+                <Label htmlFor="install-progress-building">Building</Label>
+                <Select value={selectedBuilding} onValueChange={chooseBuilding}>
+                  <SelectTrigger id="install-progress-building">
+                    <SelectValue placeholder="Select a building" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {buildings.map((building) => (
+                      <SelectItem key={building} value={building}>
+                        {building}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              What you record here is written straight to the panel, circuit, breaker-position and
+              load records — the same records the wiring page and the critical-load study read. Only
+              record what is actually installed; nothing here is inferred.
+            </p>
           </CardContent>
         </Card>
 
@@ -570,38 +706,51 @@ function InstallProgressPage() {
           </Card>
         ) : (
           <>
-            {/* Visual progress: the same grid map, with the base-reference,
-                progress-mode and most-recent-observed controls. Read-only —
-                recording still happens in the forms below. */}
-            {completeness ? <PanelCompletenessCard result={completeness} /> : null}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Panel selector</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex min-w-0 flex-wrap gap-2 overflow-x-auto">
+                  {panels.map((p) => {
+                    const panelCircuits = (data?.circuits ?? []).filter((c) => c.panel_uuid === p.id);
+                    const circuitIds = new Set(panelCircuits.map((c) => c.id));
+                    const loadCount = (data?.loads ?? []).filter(
+                      (load) => load.circuit_group_uuid && circuitIds.has(load.circuit_group_uuid),
+                    ).length;
+                    const occupied = (data?.positions ?? []).filter(
+                      (position) => position.panel_uuid === p.id,
+                    ).length;
+                    return (
+                      <Button
+                        key={p.id}
+                        size="sm"
+                        variant={p.id === selected ? "default" : "outline"}
+                        onClick={() => choosePanel(p.id)}
+                        title={`${loadCount} load(s), ${occupied} occupied position(s)`}
+                      >
+                        <span className="font-mono">{p.panel_id}</span>
+                        <span className="ml-1 text-xs opacity-75">{loadCount} loads</span>
+                      </Button>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
 
-            <PersistedSection
-              storageKey="install-progress.progress-map"
-              title="Visual progress map"
-              defaultOpen
-            >
-              <GridOperationalMap />
+            {/* Visual progress is read-only; recording remains in the Panel forms below. */}
+            <PersistedSection storageKey={paneKeys.map} title="Visual progress map" defaultOpen>
+              <GridOperationalMap key={`install-progress-map:${paneScope}`} />
             </PersistedSection>
 
-            <PersistedSection storageKey="install-progress.panels" title="Panel" defaultOpen>
-              <div className="flex flex-wrap gap-2">
-                {panels.map((p) => (
-                  <Button
-                    key={p.id}
-                    size="sm"
-                    variant={p.id === selected ? "default" : "outline"}
-                    onClick={() => setSelected(p.id)}
-                  >
-                    <span className="font-mono">{p.panel_id}</span>
-                  </Button>
-                ))}
-              </div>
-            </PersistedSection>
+            <PersistedSection storageKey={paneKeys.panel} title="Panel" defaultOpen>
+              <div className="min-w-0 space-y-4">
+                {completeness ? <PanelCompletenessCard result={completeness} /> : null}
 
             {panel && data ? (
               <>
                 <PersistedSection
-                  storageKey="install-progress.panel-state"
+                  storageKey={paneKeys.state}
                   title={`${panel.panel_id} — installed panel state`}
                   defaultOpen
                 >
@@ -609,7 +758,7 @@ function InstallProgressPage() {
                 </PersistedSection>
 
                 <PersistedSection
-                  storageKey="install-progress.circuits"
+                  storageKey={paneKeys.circuits}
                   title={`Circuits on ${panel.panel_id} (${circuits.length})`}
                   defaultOpen
                 >
@@ -667,7 +816,7 @@ function InstallProgressPage() {
                 </PersistedSection>
 
                 <PersistedSection
-                  storageKey="install-progress.positions"
+                  storageKey={paneKeys.positions}
                   title={`Breaker positions in ${panel.panel_id} (${positions.length})`}
                 >
                   <div className="space-y-2">
@@ -696,7 +845,7 @@ function InstallProgressPage() {
                 </PersistedSection>
 
                 <PersistedSection
-                  storageKey="install-progress.wire-loads"
+                  storageKey={paneKeys.wireLoads}
                   title={`Wire loads to a circuit (${wiredLoads.length} already wired here)`}
                 >
                   <WireLoads
@@ -708,7 +857,7 @@ function InstallProgressPage() {
                 </PersistedSection>
 
                 <PersistedSection
-                  storageKey="install-progress.wired"
+                  storageKey={paneKeys.wired}
                   title={`Loads wired to ${panel.panel_id} (${wiredLoads.length})`}
                 >
                   {wiredLoads.length === 0 ? (
@@ -754,10 +903,12 @@ function InstallProgressPage() {
             ) : (
               <Card>
                 <CardContent className="pt-6 text-sm text-muted-foreground">
-                  No panel record exists yet.
+                  No panel record exists yet for this building.
                 </CardContent>
               </Card>
             )}
+              </div>
+            </PersistedSection>
           </>
         )}
       </div>
