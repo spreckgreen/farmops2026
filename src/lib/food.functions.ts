@@ -629,6 +629,16 @@ export const getFoodYieldProgress = createServerFn({ method: "GET" })
 
 import seedJson from "@/data/food-plan-seed.json";
 
+const NutritionTargetsSchema = z.object({
+  energyKcal: z.number().positive(),
+  proteinG: z.number().positive(),
+  fatG: z.number().positive(),
+  carbohydrateG: z.number().positive(),
+  fiberG: z.number().positive(),
+  sugarG: z.number().positive().nullable().default(null),
+  sodiumMg: z.number().positive(),
+});
+
 const PersonSchema = z.object({
   id: z.string().uuid().nullable().optional(),
   name: z.string().trim().min(1).max(100),
@@ -645,6 +655,7 @@ const FoodSchema = z.object({
   price_per_pound: z.union([z.number(), z.string(), z.null()]).optional(),
   oz_per_serving: z.union([z.number(), z.string(), z.null()]).optional(),
   unit: z.string().trim().max(50).nullable().optional(),
+  nutrition_form: z.string().trim().min(1).max(100).optional(),
   sort_order: z.number().int().optional(),
 });
 
@@ -701,6 +712,24 @@ export const upsertFoodPlanPerson = createServerFn({ method: "POST" })
     return out;
   });
 
+export const setFoodPlanNutritionTargets = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((value: unknown) =>
+    z.object({
+      personId: z.string().uuid(),
+      targets: NutritionTargetsSchema,
+    }).parse(value),
+  )
+  .handler(async ({ data, context }) => {
+    const table = context.supabase.from("food_plan_people") as any;
+    const { error } = await table
+      .update({ nutrition_targets: data.targets })
+      .eq("id", data.personId)
+      .eq("user_id", context.userId);
+    if (error) throw new Error(error.message);
+    return { updated: true };
+  });
+
 export const deleteFoodPlanPerson = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
@@ -730,6 +759,7 @@ export const upsertFoodPlanFood = createServerFn({ method: "POST" })
           ? null
           : toNumber(data.oz_per_serving),
       unit: emptyToNull(data.unit ?? null),
+      nutrition_form: data.nutrition_form ?? "As listed",
       sort_order: data.sort_order ?? 0,
     };
     if (data.id) {
