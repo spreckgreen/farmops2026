@@ -351,6 +351,27 @@ const LOCATION_FIELDS = [
   "grid_reference_precision",
 ];
 
+/**
+ * Junction boxes store location precision in `location_precision` and carry no
+ * `grid_reference_precision`, `field_verification_status`, `verification_notes`
+ * or `verified_at` column. Writing the loads/panels field names to a junction
+ * box fails in the database, so the j-box target uses its own column list.
+ */
+const JBOX_LOCATION_FIELDS = [
+  ...LOCATION_FIELDS.filter(
+    (c) =>
+      ![
+        "grid_reference_precision",
+        "field_verification_status",
+        "verification_notes",
+        "verified_at",
+      ].includes(c),
+  ),
+  "location_precision",
+  "location_source",
+];
+
+
 const STATE_FIELDS = ["install_status", "label_status", "completion_percent", "notes"];
 
 /**
@@ -508,7 +529,7 @@ export const AUDIT_ENTITY_TARGETS: Record<AuditEntityKind, EntityTarget> = {
     table: "electrical_junction_boxes",
     stableIdColumn: "jbox_id",
     idKind: "jbox",
-    writable: ["raceway_uuid", "raceway_sequence", ...STATE_FIELDS, ...LOCATION_FIELDS],
+    writable: ["raceway_uuid", "raceway_sequence", ...STATE_FIELDS, ...JBOX_LOCATION_FIELDS],
     links: ["raceway_uuid"],
     creatable: true,
     title: "Junction boxes",
@@ -1030,8 +1051,11 @@ export const LOCATION_PATCH_COLUMNS = [
   "grid",
   "grid_reference",
   "grid_reference_precision",
+  "location_precision",
+  "location_source",
   "location_x_ft",
   "location_y_ft",
+
 ] as const;
 
 function holdResult(
@@ -1158,7 +1182,11 @@ export function buildPatch(
       patch["measured_xy_datum"] = m.datum ? norm(m.datum) : null;
       patch["measured_xy_at"] = m.measured_at ? norm(m.measured_at) : null;
       patch["measured_xy_by"] = m.measured_by ? norm(m.measured_by) : null;
+      // Precision lives in different columns per table: loads and panels use
+      // grid_reference_precision, junction boxes use location_precision.
       if (allowed.has("grid_reference_precision")) patch["grid_reference_precision"] = "EXACT";
+      else if (allowed.has("location_precision")) patch["location_precision"] = "EXACT";
+
       messages.push(
         info(
           `Measured field coordinate ${m.x_ft} ft E / ${m.y_ft} ft S (${m.method}${
