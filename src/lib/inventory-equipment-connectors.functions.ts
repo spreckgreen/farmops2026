@@ -144,11 +144,13 @@ export const discoverEquipmentPorts = createServerFn({ method: "POST" })
     const connectorIds = new Set(connectors.map((connector) => String(connector.id)));
     const sourceUrls = new Set(sources.map((source) => source.url));
 
-    const { resolveAreaAi } = await import("./ai-routing.server");
+    const { resolveAreaAi, hostedHandle } = await import("./ai-routing.server");
     const ai = await resolveAreaAi("procedures", {
       hostedDefaultModel: "google/gemini-3.6-flash",
       client: context.supabase,
     });
+    let provider = ai.provider;
+    let modelId = ai.modelId;
     const { generateText, Output, NoObjectGeneratedError } = await import("ai");
 
     const outputSchema = z.object({
@@ -195,7 +197,7 @@ export const discoverEquipmentPorts = createServerFn({ method: "POST" })
     const attempt = async (attemptPrompt: string): Promise<ModelOutput | null> => {
       try {
         const response = await generateText({
-          model: ai.provider(ai.modelId),
+          model: provider(modelId),
           output: Output.object({ schema: outputSchema }),
           system,
           prompt: attemptPrompt,
@@ -219,6 +221,19 @@ export const discoverEquipmentPorts = createServerFn({ method: "POST" })
     }
 
     if (!output) {
+      const hosted = hostedHandle(
+        ai,
+        "error",
+        `${modelId} returned invalid structured equipment data twice.`,
+      );
+      if (hosted) {
+        provider = hosted.provider;
+        modelId = hosted.modelId;
+        output = await attempt(prompt);
+      }
+    }
+
+    if (!output) {
       return {
         manufacturer: data.manufacturer,
         model: data.model,
@@ -229,7 +244,7 @@ export const discoverEquipmentPorts = createServerFn({ method: "POST" })
           "The documentation search completed, but the configured AI model returned an invalid result twice.",
           "No ports were created. Retry the lookup or select a more capable model for Procedures & manual generation in AI Settings.",
         ],
-        model_id: ai.modelId,
+        model_id: modelId,
       };
     }
 
@@ -269,6 +284,6 @@ export const discoverEquipmentPorts = createServerFn({ method: "POST" })
           ? ["Medium- and low-confidence results require explicit selection before creation."]
           : []),
       ],
-      model_id: ai.modelId,
+      model_id: modelId,
     };
   });
