@@ -1,10 +1,12 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { InventoryConnectivityEditor } from "@/components/inventory-connectivity-editor";
 
-const { fromMock, getUserMock } = vi.hoisted(() => ({
+const { fromMock, getUserMock, upsertMock, toastErrorMock } = vi.hoisted(() => ({
   fromMock: vi.fn(),
   getUserMock: vi.fn(),
+  upsertMock: vi.fn(),
+  toastErrorMock: vi.fn(),
 }));
 
 vi.mock("@/integrations/supabase/client", () => ({
@@ -22,7 +24,13 @@ vi.mock("@/components/inventory-uploaded-port-templates", () => ({
   InventoryUploadedPortTemplates: () => null,
 }));
 
-vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() } }));
+vi.mock("sonner", () => ({
+  toast: {
+    success: vi.fn(),
+    error: toastErrorMock,
+    info: vi.fn(),
+  },
+}));
 
 type QueryResult = { data: any[]; error: null };
 
@@ -33,7 +41,10 @@ function createQuery(result: QueryResult) {
     eq: () => chain,
     order: () => chain,
     insert: () => promise,
-    upsert: () => promise,
+    upsert: (...args: any[]) => {
+      upsertMock(...args);
+      return promise;
+    },
     delete: () => chain,
     then: promise.then.bind(promise),
     catch: promise.catch.bind(promise),
@@ -46,6 +57,8 @@ describe("InventoryConnectivityEditor", () => {
   beforeEach(() => {
     fromMock.mockReset();
     getUserMock.mockReset();
+    upsertMock.mockReset();
+    toastErrorMock.mockReset();
 
     const tableResults: Record<string, QueryResult> = {
       connector_types: {
@@ -99,34 +112,10 @@ describe("InventoryConnectivityEditor", () => {
       },
       inventory_cable_ends: {
         data: [
-          {
-            cable_item_id: "cable-ham",
-            end_label: "A",
-            connector_type_id: "uhf",
-            connector_gender: "male",
-            polarity: "standard",
-          },
-          {
-            cable_item_id: "cable-ham",
-            end_label: "B",
-            connector_type_id: "uhf",
-            connector_gender: "male",
-            polarity: "standard",
-          },
-          {
-            cable_item_id: "cable-network",
-            end_label: "A",
-            connector_type_id: "uhf",
-            connector_gender: "male",
-            polarity: "standard",
-          },
-          {
-            cable_item_id: "cable-network",
-            end_label: "B",
-            connector_type_id: "uhf",
-            connector_gender: "male",
-            polarity: "standard",
-          },
+          { cable_item_id: "cable-ham", end_label: "A", connector_type_id: "uhf", connector_gender: "male", polarity: "standard" },
+          { cable_item_id: "cable-ham", end_label: "B", connector_type_id: "uhf", connector_gender: "male", polarity: "standard" },
+          { cable_item_id: "cable-network", end_label: "A", connector_type_id: "uhf", connector_gender: "male", polarity: "standard" },
+          { cable_item_id: "cable-network", end_label: "B", connector_type_id: "uhf", connector_gender: "male", polarity: "standard" },
         ],
         error: null,
       },
@@ -157,5 +146,32 @@ describe("InventoryConnectivityEditor", () => {
 
     expect(await screen.findByText("Ham Cable")).toBeInTheDocument();
     expect(screen.queryByText("Network Cable")).not.toBeInTheDocument();
+  });
+
+  it("blocks saving a cable without any supported domains selected", async () => {
+    const { container } = render(
+      <InventoryConnectivityEditor
+        itemId="radio-1"
+        itemName="Base Station"
+        itemType="23_2_ham_radio"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /connections and compatible cables/i }));
+    await screen.findByRole("button", { name: /antenna/i });
+    fireEvent.click(screen.getByRole("button", { name: /mark as cable/i }));
+
+    const connectorA = container.querySelector('select[name="connector_a"]') as HTMLSelectElement;
+    const connectorB = container.querySelector('select[name="connector_b"]') as HTMLSelectElement;
+    const form = container.querySelector("form") as HTMLFormElement;
+
+    fireEvent.change(connectorA, { target: { value: "uhf" } });
+    fireEvent.change(connectorB, { target: { value: "uhf" } });
+    fireEvent.submit(form);
+
+    await waitFor(() => {
+      expect(toastErrorMock).toHaveBeenCalledWith("Select at least one supported cable domain.");
+    });
+    expect(upsertMock).not.toHaveBeenCalled();
   });
 });

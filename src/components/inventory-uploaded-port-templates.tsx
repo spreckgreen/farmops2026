@@ -44,22 +44,26 @@ export function InventoryUploadedPortTemplates({
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    setLoading(true);
-    db.from("inventory_device_port_templates")
-      .select("*")
-      .eq("source_name", "HamConnectors080624.xlsx")
-      .eq("active", true)
-      .order("device_name")
-      .order("sort_order")
-      .then(({ data, error }: { data: TemplatePort[] | null; error: Error | null }) => {
-        setLoading(false);
+    const load = async () => {
+      setLoading(true);
+      try {
+        const { data, error } = await db.from("inventory_device_port_templates")
+          .select("*")
+          .eq("source_name", "HamConnectors080624.xlsx")
+          .eq("active", true)
+          .order("device_name")
+          .order("sort_order");
         if (error) return toast.error(`Could not load uploaded connector reference: ${error.message}`);
         const next = data ?? [];
         setRows(next);
         const normalizedItem = itemName.trim().toLowerCase();
         const exact = next.find((row) => row.device_name.toLowerCase() === normalizedItem)?.device_name;
-        if (exact) setDeviceName(exact);
-      });
+        setDeviceName(exact ?? "");
+      } finally {
+        setLoading(false);
+      }
+    };
+    void load();
   }, [itemName]);
 
   const deviceNames = useMemo(
