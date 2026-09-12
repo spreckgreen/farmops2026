@@ -15,6 +15,7 @@ import {
   type CableEnd,
   type CableSpec,
   type ConnectorGender,
+  type ConnectorPolarity,
   type ConnectorRef,
   type DevicePort,
   type SignalType,
@@ -25,7 +26,19 @@ type InventoryChoice = { id: string; name: string | null; sku: string | null };
 type CableEndRow = CableEnd & { cable_item_id: string };
 type CableRow = Omit<CableSpec, "ends"> & { ends: CableEndRow[]; item?: InventoryChoice };
 
-const blankPort = {
+type PortForm = {
+  name: string;
+  direction: "input" | "output" | "bidirectional";
+  signal_type: SignalType;
+  connector_type_id: string;
+  connector_gender: ConnectorGender;
+  polarity: ConnectorPolarity;
+  protocol: string;
+  impedance_ohms: string;
+  notes: string;
+};
+
+const blankPort: PortForm = {
   name: "",
   direction: "bidirectional" as const,
   signal_type: "other" as SignalType,
@@ -188,7 +201,7 @@ export function InventoryConnectivityEditor({
       signal_type: port.signal_type,
       connector_type_id: port.connector_type_id,
       connector_gender: port.connector_gender,
-      polarity: port.polarity,
+      polarity: port.polarity ?? "standard",
       protocol: port.protocol ?? "",
       impedance_ohms: port.impedance_ohms == null ? "" : String(port.impedance_ohms),
       notes: port.notes ?? "",
