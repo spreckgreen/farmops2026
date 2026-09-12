@@ -2,9 +2,10 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { InventoryConnectivityEditor } from "@/components/inventory-connectivity-editor";
 
-const { fromMock, getUserMock, upsertMock, toastErrorMock } = vi.hoisted(() => ({
+const { fromMock, getUserMock, updateMock, upsertMock, toastErrorMock } = vi.hoisted(() => ({
   fromMock: vi.fn(),
   getUserMock: vi.fn(),
+  updateMock: vi.fn(),
   upsertMock: vi.fn(),
   toastErrorMock: vi.fn(),
 }));
@@ -41,6 +42,10 @@ function createQuery(result: QueryResult) {
     eq: () => chain,
     order: () => chain,
     insert: () => promise,
+    update: (payload: any) => {
+      updateMock(payload);
+      return chain;
+    },
     upsert: (...args: any[]) => {
       upsertMock(...args);
       return promise;
@@ -57,6 +62,7 @@ describe("InventoryConnectivityEditor", () => {
   beforeEach(() => {
     fromMock.mockReset();
     getUserMock.mockReset();
+    updateMock.mockReset();
     upsertMock.mockReset();
     toastErrorMock.mockReset();
 
@@ -85,7 +91,9 @@ describe("InventoryConnectivityEditor", () => {
             connector_type_id: "uhf",
             connector_gender: "female",
             polarity: "standard",
+            protocol: null,
             impedance_ohms: 50,
+            notes: "Rear SO-239",
             sort_order: 20,
           },
         ],
@@ -146,6 +154,36 @@ describe("InventoryConnectivityEditor", () => {
 
     expect(await screen.findByText("Ham Cable")).toBeInTheDocument();
     expect(screen.queryByText("Network Cable")).not.toBeInTheDocument();
+  });
+
+  it("updates an existing port in place", async () => {
+    render(
+      <InventoryConnectivityEditor
+        itemId="radio-1"
+        itemName="Base Station"
+        itemType="23_2_ham_radio"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /connections and compatible cables/i }));
+    await screen.findByRole("button", { name: /antenna/i });
+    fireEvent.click(screen.getByRole("button", { name: /edit antenna/i }));
+
+    const name = screen.getByPlaceholderText(/port name/i);
+    fireEvent.change(name, { target: { value: "HF Antenna" } });
+    fireEvent.click(screen.getByRole("button", { name: /save port changes/i }));
+
+    await waitFor(() => {
+      expect(updateMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: "HF Antenna",
+          connector_type_id: "uhf",
+          impedance_ohms: 50,
+          notes: "Rear SO-239",
+        }),
+      );
+    });
+    expect(fromMock).toHaveBeenCalledWith("inventory_device_ports");
   });
 
   it("blocks saving a cable without any supported domains selected", async () => {
