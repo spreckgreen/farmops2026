@@ -25,6 +25,7 @@ type Food = {
   id: string;
   name: string;
   oz_per_serving: number | null;
+  nutrition_form?: string | null;
 };
 
 type Entry = {
@@ -61,7 +62,11 @@ function emptyMacros(): MacroNutrients {
   };
 }
 
-function preferredProfile(profiles: Profile[]): Profile | undefined {
+function preferredProfile(profiles: Profile[], preferredForm?: string | null): Profile | undefined {
+  const explicit = preferredForm
+    ? profiles.find((profile) => profile.foodForm.toLowerCase() === preferredForm.toLowerCase())
+    : undefined;
+  if (explicit) return explicit;
   return [...profiles].sort((a, b) => {
     const rank = (form: string) =>
       /^(as listed|raw|fresh)$/i.test(form.trim()) ? 0 : /cooked/i.test(form) ? 1 : 2;
@@ -90,7 +95,7 @@ export function buildDailyNutritionAssessment(input: {
 
   const selectedProfiles = new Map<string, Profile>();
   for (const [foodId, profiles] of profilesByFood) {
-    const profile = preferredProfile(profiles);
+    const profile = preferredProfile(profiles, foods.get(foodId)?.nutrition_form);
     if (profile) selectedProfiles.set(foodId, profile);
   }
 
