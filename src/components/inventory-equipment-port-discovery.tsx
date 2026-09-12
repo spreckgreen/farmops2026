@@ -45,8 +45,8 @@ export function InventoryEquipmentPortDiscovery({
   const [model, setModel] = useState(initialModel);
   const [result, setResult] = useState<EquipmentPortDiscovery | null>(null);
   const [proposals, setProposals] = useState<EquipmentPortProposal[]>([]);
-  const [searching, set set] = useState(false);
-  const [ [saving, setSaving] = useState(false);
+  const [searching, setSearching] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const patch = (id: string, changes: Partial<EquipmentPortProposal>) =>
     setProposals((rows) => rows.map((row) => (row.id === id ? { ...row, ...changes } : row)));
@@ -138,7 +138,7 @@ export function InventoryEquipmentPortDiscovery({
         <Input
           className="h-8 text-xs"
           value={model}
-          onChange={(event) => set(event.target.value)}
+          onChange={(event) => setModel(event.target.value)}
           placeholder="Exact model, e.g. TS-480SAT"
         />
         <Button type="button" size="sm" className="col-span-2" disabled={searching} onClick={() => void runSearch()}>
