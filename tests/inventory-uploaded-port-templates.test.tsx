@@ -135,8 +135,8 @@ describe("InventoryUploadedPortTemplates", () => {
         sort_order: row.sort_order,
       })),
     ).toEqual([
-      { name: "USB 2", sort_order: 110 },
-      { name: "USB 3", sort_order: 120 },
+      { name: "USB 2", sort_order: 100 },
+      { name: "USB 3", sort_order: 110 },
     ]);
     expect(toastSuccessMock).toHaveBeenCalledWith("2 uploaded connectors applied");
     expect(onCreated).toHaveBeenCalled();

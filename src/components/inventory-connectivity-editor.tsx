@@ -39,6 +39,7 @@ const blankPort = {
 
 const genders: ConnectorGender[] = ["male", "female", "plug", "receptacle", "genderless"];
 const signals: SignalType[] = ["rf", "data", "power", "display", "audio", "control", "other"];
+const cableDomainValues = new Set<CableDomain>(CABLE_DOMAINS.map((domain) => domain.value));
 
 const numberOrNull = (value: string) => {
   const n = Number(value);
@@ -217,8 +218,14 @@ export function InventoryConnectivityEditor({
     const values = new FormData(form);
     const connectorA = String(values.get("connector_a") ?? "");
     const connectorB = String(values.get("connector_b") ?? "");
-    const supportedDomains = values.getAll("supported_domains").map(String) as CableDomain[];
+    const supportedDomainsInput = values.getAll("supported_domains").map(String);
+    const supportedDomains = supportedDomainsInput.filter(
+      (value): value is CableDomain => cableDomainValues.has(value as CableDomain),
+    );
     if (!connectorA || !connectorB) return toast.error("Both cable ends are required.");
+    if (supportedDomains.length !== supportedDomainsInput.length) {
+      return toast.error("Unsupported cable domain selection.");
+    }
     if (!supportedDomains.length) {
       return toast.error("Select at least one supported cable domain.");
     }
