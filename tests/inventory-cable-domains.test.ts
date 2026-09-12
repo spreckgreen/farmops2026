@@ -72,7 +72,7 @@ describe("inventory cable domains", () => {
   });
 
   it("rejects a cable explicitly classified outside the device domain", () => {
-    const hamOnly = { ...cable, supported_domains: ["ham_radio"] as const };
+    const hamOnly: CableSpec = { ...cable, supported_domains: ["ham_radio"] };
     const result = cableCompatibility(computePort, hamOnly, [usbC], "compute");
     expect(result.compatible).toBe(false);
     expect(result.blockers.join(" ")).toContain("not classified for Compute");
