@@ -94,13 +94,13 @@ export function InventoryUploadedPortTemplates({
       .filter((row) => selected.has(row.id))
       .sort((a, b) => a.sort_order - b.sort_order);
     if (!chosen.length) return toast.error("Select at least one connector to apply.");
-    const { data: auth } = await supabase.auth.getUser();
-    if (!auth.user) return toast.error("Sign in again before saving.");
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return toast.error("Sign in again before saving.");
     setSaving(true);
     try {
       const firstSortOrder = chosen[0]?.sort_order ?? 0;
       const payload = chosen.map((row) => ({
-        user_id: auth.user!.id,
+        user_id: user.id,
         inventory_item_id: itemId,
         name: row.port_name,
         direction: row.direction,
