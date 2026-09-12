@@ -31,6 +31,9 @@ jobs:
           bun audit \
             --json \
             --audit-level=high \
+            # Temporary suppressions: revalidate monthly and remove as soon as
+            # upstream fixes are available in the Bun dependency graph.
+            # Review deadline: 2026-10-12.
             --ignore GHSA-5p2g-fcmc-qvqq \
             --ignore GHSA-w3rx-r6r6-pgpr \
             | tee bun-audit.json
