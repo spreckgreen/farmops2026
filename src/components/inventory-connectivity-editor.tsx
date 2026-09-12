@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Cable, ChevronDown, ChevronRight, Link2, Plus, Trash2 } from "lucide-react";
+import { Cable, ChevronDown, ChevronRight, Link2, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -115,6 +115,7 @@ export function InventoryConnectivityEditor({
   const [cableSpec, setCableSpec] = useState<CableRow | null>(null);
   const [portForm, setPortForm] = useState(blankPort);
   const [selectedPortId, setSelectedPortId] = useState("");
+  const [editingPortId, setEditingPortId] = useState("");
   const [editingCable, setEditingCable] = useState(false);
 
   const load = async () => {
@@ -179,16 +180,34 @@ export function InventoryConnectivityEditor({
       .sort((a, b) => a.result.warnings.length - b.result.warnings.length);
   }, [cables, connectors, itemId, itemType, selectedPort]);
 
-  const addPort = async () => {
+  const startEditingPort = (port: DevicePort) => {
+    setEditingPortId(port.id);
+    setPortForm({
+      name: port.name,
+      direction: port.direction,
+      signal_type: port.signal_type,
+      connector_type_id: port.connector_type_id,
+      connector_gender: port.connector_gender,
+      polarity: port.polarity,
+      protocol: port.protocol ?? "",
+      impedance_ohms: port.impedance_ohms == null ? "" : String(port.impedance_ohms),
+      notes: port.notes ?? "",
+    });
+  };
+
+  const cancelPortEdit = () => {
+    setEditingPortId("");
+    setPortForm(blankPort);
+  };
+
+  const savePort = async () => {
     if (!portForm.name.trim() || !portForm.connector_type_id) {
       toast.error("Port name and connector are required.");
       return;
     }
     const { data: auth } = await supabase.auth.getUser();
     if (!auth.user) return toast.error("Sign in again before saving.");
-    const payload = {
-      user_id: auth.user.id,
-      inventory_item_id: itemId,
+    const portValues = {
       name: portForm.name.trim(),
       direction: portForm.direction,
       signal_type: portForm.signal_type,
@@ -198,12 +217,19 @@ export function InventoryConnectivityEditor({
       protocol: portForm.protocol.trim() || null,
       impedance_ohms: numberOrNull(portForm.impedance_ohms),
       notes: portForm.notes.trim() || null,
-      sort_order: nextPortSortOrder,
     };
-    const { error } = await db.from("inventory_device_ports").insert(payload);
-    if (error) return toast.error(error.message);
+    const result = editingPortId
+      ? await db.from("inventory_device_ports").update(portValues).eq("id", editingPortId)
+      : await db.from("inventory_device_ports").insert({
+          ...portValues,
+          user_id: auth.user.id,
+          inventory_item_id: itemId,
+          sort_order: nextPortSortOrder,
+        });
+    if (result.error) return toast.error(result.error.message);
     setPortForm(blankPort);
-    toast.success("Device port added");
+    setEditingPortId("");
+    toast.success(editingPortId ? "Device port updated" : "Device port added");
     await load();
   };
 
@@ -211,6 +237,7 @@ export function InventoryConnectivityEditor({
     const { error } = await db.from("inventory_device_ports").delete().eq("id", id);
     if (error) return toast.error(error.message);
     if (selectedPortId === id) setSelectedPortId("");
+    if (editingPortId === id) cancelPortEdit();
     await load();
   };
 
@@ -337,7 +364,24 @@ export function InventoryConnectivityEditor({
                       {port.impedance_ohms ? ` · ${port.impedance_ohms} Ω` : ""}
                     </span>
                   </button>
-                  <Button type="button" size="icon" variant="ghost" className="h-7 w-7" onClick={() => void removePort(port.id)}>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    className="h-7 w-7"
+                    aria-label={`Edit ${port.name}`}
+                    onClick={() => startEditingPort(port)}
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    className="h-7 w-7"
+                    aria-label={`Delete ${port.name}`}
+                    onClick={() => void removePort(port.id)}
+                  >
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
                 </div>
@@ -358,7 +402,17 @@ export function InventoryConnectivityEditor({
               <Input className="h-8 text-xs" placeholder="Protocol/capability, e.g. USB 10 Gbps" value={portForm.protocol} onChange={(e) => setPortForm({ ...portForm, protocol: e.target.value })} />
               <Input className="h-8 text-xs" type="number" placeholder="Impedance Ω" value={portForm.impedance_ohms} onChange={(e) => setPortForm({ ...portForm, impedance_ohms: e.target.value })} />
               <Input className="col-span-2 h-8 text-xs" placeholder="Port notes" value={portForm.notes} onChange={(e) => setPortForm({ ...portForm, notes: e.target.value })} />
-              <Button type="button" size="sm" className="col-span-2" onClick={() => void addPort()}><Plus className="mr-1 h-3.5 w-3.5" />Add port</Button>
+              <div className="col-span-2 flex gap-2">
+                <Button type="button" size="sm" className="flex-1" onClick={() => void savePort()}>
+                  {editingPortId ? <Pencil className="mr-1 h-3.5 w-3.5" /> : <Plus className="mr-1 h-3.5 w-3.5" />}
+                  {editingPortId ? "Save port changes" : "Add port"}
+                </Button>
+                {editingPortId ? (
+                  <Button type="button" size="sm" variant="outline" onClick={cancelPortEdit}>
+                    Cancel
+                  </Button>
+                ) : null}
+              </div>
             </div>
           </div>
 
