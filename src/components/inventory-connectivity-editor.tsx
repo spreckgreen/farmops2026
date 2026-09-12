@@ -210,7 +210,9 @@ export function InventoryConnectivityEditor({
     const values = new FormData(form);
     const connectorA = String(values.get("connector_a") ?? "");
     const connectorB = String(values.get("connector_b") ?? "");
+    const supportedDomains = values.getAll("supported_domains").map(String) as CableDomain[];
     if (!connectorA || !connectorB) return toast.error("Both cable ends are required.");
+    if (!supportedDomains.length) return toast.error("Select at least one supported cable domain.");
     const { data: auth } = await supabase.auth.getUser();
     if (!auth.user) return toast.error("Sign in again before saving.");
     const userId = auth.user.id;
@@ -224,7 +226,7 @@ export function InventoryConnectivityEditor({
       impedance_ohms: numberOrNull(String(values.get("impedance") ?? "")),
       shielding: String(values.get("shielding") ?? "").trim() || null,
       signal_types: values.getAll("signal_types").map(String),
-      supported_domains: values.getAll("supported_domains").map(String) as CableDomain[],
+      supported_domains: supportedDomains,
       protocol: String(values.get("protocol") ?? "").trim() || null,
       max_frequency_hz: numberOrNull(String(values.get("max_frequency_hz") ?? "")),
       max_current_a: numberOrNull(String(values.get("max_current_a") ?? "")),
