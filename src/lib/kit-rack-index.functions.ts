@@ -180,6 +180,7 @@ const CreateBagInput = z.object({
   name: z.string().trim().min(1).max(160),
   sku: z.string().trim().max(80).nullable().optional(),
   homeLocation: z.string().trim().max(240).nullable().optional(),
+  parentKitItemId: z.string().uuid().nullable().optional(),
 });
 
 /** Create one physical bag/mini-kit. Its contents are managed through the shared BOM editor. */
@@ -204,7 +205,49 @@ export const createBag = createServerFn({ method: "POST" })
       .select("id")
       .single();
     if (error) throw new Error(error.message);
-    return { id: String(row.id) };
+    const bagId = String(row.id);
+    if (data.parentKitItemId) {
+      const { error: memberError } = await db
+        .from("inventory_components")
+        .insert({
+          user_id: context.userId,
+          parent_item_id: data.parentKitItemId,
+          component_item_id: bagId,
+          quantity: 1,
+          unit: "bag",
+        });
+      if (memberError) {
+        await db
+          .from("inventory_items")
+          .delete()
+          .eq("id", bagId)
+          .eq("user_id", context.userId);
+        throw new Error(memberError.message);
+      }
+      const { error: homeError } = await db
+        .from("inventory_items")
+        .update({
+          primary_container_item_id: data.parentKitItemId,
+          current_container_item_id: data.parentKitItemId,
+        })
+        .eq("id", bagId)
+        .eq("user_id", context.userId);
+      if (homeError) {
+        await db
+          .from("inventory_components")
+          .delete()
+          .eq("parent_item_id", data.parentKitItemId)
+          .eq("component_item_id", bagId)
+          .eq("user_id", context.userId);
+        await db
+          .from("inventory_items")
+          .delete()
+          .eq("id", bagId)
+          .eq("user_id", context.userId);
+        throw new Error(homeError.message);
+      }
+    }
+    return { id: bagId };
   });
 
 export interface RackWithoutKit {

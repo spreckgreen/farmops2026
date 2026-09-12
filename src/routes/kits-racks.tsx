@@ -1,6 +1,11 @@
 // Every kit and rack build-out on the place, in one list, with a picture of how
 // each rack is stacked (bottom space at the bottom, just like the real rack).
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import {
+  createFileRoute,
+  Link,
+  Outlet,
+  useLocation,
+} from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -34,6 +39,8 @@ import {
   ChevronRight,
   PackagePlus,
   Printer,
+  ArrowUp,
+  PackageOpen,
 } from "lucide-react";
 import { requireAuthenticatedUser } from "@/lib/auth-route";
 import {
@@ -45,6 +52,8 @@ import {
 } from "@/lib/kit-rack-index.functions";
 import { createRackKit } from "@/lib/rack-kit.functions";
 import { buildRackElevation, formatSpan } from "@/lib/rack-elevation";
+import { KitBuildCard } from "@/components/kit-build-card";
+import { addBomComponent } from "@/lib/inventory-bom.functions";
 
 export const Route = createFileRoute("/kits-racks")({
   ssr: false,
@@ -70,8 +79,18 @@ export const Route = createFileRoute("/kits-racks")({
       { name: "twitter:card", content: "summary" },
     ],
   }),
-  component: KitsRacksPageV2,
+  component: KitsRacksRoute,
 });
+
+/** Render the index workspace only at /kits-racks; child kit URLs need the outlet. */
+function KitsRacksRoute() {
+  const pathname = useLocation().pathname;
+  return pathname === "/kits-racks" || pathname === "/kits-racks/" ? (
+    <KitsRacksPageV2 />
+  ) : (
+    <Outlet />
+  );
+}
 
 const U_PX = 26;
 
@@ -226,14 +245,22 @@ async function printContainerLabel(buildout: KitRackBuildout) {
   popup.document.close();
 }
 
-function BuildoutCard({ buildout }: { buildout: KitRackBuildout }) {
+function BuildoutCard({
+  buildout,
+  onWork,
+  active = false,
+}: {
+  buildout: KitRackBuildout;
+  onWork?: () => void;
+  active?: boolean;
+}) {
   const isRack = Boolean(buildout.rack);
   const [open, setOpen] = usePersistentOpen(
     `farmops:kits-racks:pane:${buildout.kitId}`,
   );
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
-      <Card>
+      <Card className={active ? "ring-2 ring-primary" : undefined}>
         <CollapsibleTrigger asChild>
           <CardHeader className="cursor-pointer pb-2 hover:bg-muted/30">
             <CardTitle className="flex flex-wrap items-center gap-2 text-base">
@@ -296,13 +323,13 @@ function BuildoutCard({ buildout }: { buildout: KitRackBuildout }) {
             )}
 
             <div className="flex flex-wrap gap-2">
-              <Button size="sm" asChild>
-                <Link
-                  to="/kits-racks/$kitId"
-                  params={{ kitId: buildout.kitId }}
-                >
-                  <Wrench className="mr-1 h-4 w-4" /> Work on this kit
-                </Link>
+              <Button size="sm" onClick={onWork} disabled={!onWork}>
+                <Wrench className="mr-1 h-4 w-4" /> Work on this{" "}
+                {isRack
+                  ? "rack"
+                  : buildout.containerKind === "bag"
+                    ? "bag"
+                    : "kit"}
               </Button>
               <Button
                 size="sm"
@@ -389,15 +416,258 @@ function BareRackCard({
   );
 }
 
+function BuildWorkspace({
+  target,
+  bags,
+}: {
+  target: KitRackBuildout | null;
+  bags: KitRackBuildout[];
+}) {
+  const qc = useQueryClient();
+  const addMember = useServerFn(addBomComponent);
+  const addBag = useServerFn(createBag);
+  const [drillBagId, setDrillBagId] = useState<string | null>(null);
+  const [selectedBagId, setSelectedBagId] = useState("");
+  const [showCreate, setShowCreate] = useState(false);
+  const [name, setName] = useState("");
+  const [sku, setSku] = useState("");
+  const [home, setHome] = useState("");
+  const [open, setOpen] = usePersistentOpen(
+    "farmops:kits-racks:build-workspace",
+  );
+
+  useEffect(() => {
+    setDrillBagId(null);
+    setSelectedBagId("");
+  }, [target?.kitId]);
+
+  const current = drillBagId
+    ? (bags.find((b) => b.kitId === drillBagId) ?? null)
+    : target;
+  const directBagIds = new Set(
+    (target?.parts ?? [])
+      .map((part) => part.componentItemId)
+      .filter((id) => bags.some((bag) => bag.kitId === id)),
+  );
+  const selectedBag = bags.find((bag) => bag.kitId === selectedBagId) ?? null;
+
+  const refresh = async () => {
+    await Promise.all([
+      qc.invalidateQueries({ queryKey: ["kit-rack-buildouts"] }),
+      target
+        ? qc.invalidateQueries({ queryKey: ["kit-build", target.kitId] })
+        : Promise.resolve(),
+    ]);
+  };
+
+  const assign = useMutation({
+    mutationFn: () =>
+      addMember({
+        data: {
+          parentItemId: target!.kitId,
+          componentItemId: selectedBagId,
+          quantity: 1,
+          unit: "bag",
+          notes: "Nested bag / mini-kit",
+        },
+      }),
+    onSuccess: async () => {
+      await refresh();
+      toast.success("Bag assigned to kit");
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  const create = useMutation({
+    mutationFn: () =>
+      addBag({
+        data: {
+          name,
+          sku: sku || null,
+          homeLocation: home || null,
+          parentKitItemId: target!.kitId,
+        },
+      }),
+    onSuccess: async ({ id }) => {
+      await refresh();
+      setName("");
+      setSku("");
+      setHome("");
+      setShowCreate(false);
+      setDrillBagId(id);
+      toast.success("Bag created and assigned — add its parts now");
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  if (!target) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Build workspace</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Choose Work on this kit, bag, or rack from either focused pane.
+          </p>
+        </CardHeader>
+      </Card>
+    );
+  }
+
+  const isKit = !target.rack && target.containerKind === "kit";
+  return (
+    <Collapsible open={open} onOpenChange={setOpen}>
+      <Card className="border-primary/40">
+        <CollapsibleTrigger asChild>
+          <CardHeader className="cursor-pointer hover:bg-muted/30">
+            <CardTitle className="flex items-center gap-2 text-base">
+              {open ? (
+                <ChevronDown className="h-4 w-4" />
+              ) : (
+                <ChevronRight className="h-4 w-4" />
+              )}
+              <PackageOpen className="h-4 w-4" />
+              Build workspace · {target.rack?.stableId || target.kitName}
+              {drillBagId ? (
+                <Badge variant="secondary">Inside bag</Badge>
+              ) : null}
+            </CardTitle>
+          </CardHeader>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <CardContent className="space-y-4">
+            {drillBagId ? (
+              <div className="flex items-center gap-2 rounded-md border bg-muted/30 p-2 text-sm">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setDrillBagId(null)}
+                >
+                  <ArrowUp className="mr-1 h-4 w-4" /> Back to {target.kitName}
+                </Button>
+                <span>{target.kitName}</span>
+                <span>›</span>
+                <span className="font-medium">{current?.kitName}</span>
+              </div>
+            ) : null}
+
+            {isKit && !drillBagId ? (
+              <div className="space-y-3 rounded-md border p-3">
+                <div>
+                  <h3 className="font-medium">Bags in this kit</h3>
+                  <p className="text-xs text-muted-foreground">
+                    Preview an existing bag, assign it to this kit, or create a
+                    nested bag.
+                  </p>
+                </div>
+                <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_auto_auto]">
+                  <Select
+                    value={selectedBagId}
+                    onValueChange={setSelectedBagId}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choose a bag / mini-kit" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {bags
+                        .filter((bag) => bag.kitId !== target.kitId)
+                        .map((bag) => (
+                          <SelectItem key={bag.kitId} value={bag.kitId}>
+                            {bag.kitName} · {bag.parts.length} part
+                            {bag.parts.length === 1 ? "" : "s"}
+                            {directBagIds.has(bag.kitId) ? " · assigned" : ""}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    variant="outline"
+                    disabled={!selectedBag || directBagIds.has(selectedBagId)}
+                    onClick={() => assign.mutate()}
+                  >
+                    Assign to kit
+                  </Button>
+                  <Button
+                    disabled={!selectedBag}
+                    onClick={() => setDrillBagId(selectedBagId)}
+                  >
+                    Open bag
+                  </Button>
+                </div>
+                {selectedBag ? (
+                  <div className="rounded-md bg-muted/30 p-2 text-xs">
+                    <div className="font-medium">{selectedBag.kitName}</div>
+                    <div className="text-muted-foreground">
+                      Home: {selectedBag.location || "Not recorded"}
+                    </div>
+                    <div className="mt-1">
+                      {selectedBag.parts.length
+                        ? selectedBag.parts
+                            .map((part) => `${part.name} × ${part.quantity}`)
+                            .join(", ")
+                        : "No parts in this bag yet."}
+                    </div>
+                  </div>
+                ) : null}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setShowCreate((value) => !value)}
+                >
+                  <PackagePlus className="mr-1 h-4 w-4" /> Create a bag in this
+                  kit
+                </Button>
+                {showCreate ? (
+                  <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_180px_minmax(0,1fr)_auto] md:items-end">
+                    <div>
+                      <Label>Bag name</Label>
+                      <Input
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <Label>Bag ID / SKU</Label>
+                      <Input
+                        value={sku}
+                        onChange={(e) => setSku(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <Label>Home location</Label>
+                      <Input
+                        value={home}
+                        onChange={(e) => setHome(e.target.value)}
+                        placeholder={target.kitName}
+                      />
+                    </div>
+                    <Button
+                      disabled={!name.trim() || create.isPending}
+                      onClick={() => create.mutate()}
+                    >
+                      Create, assign &amp; open
+                    </Button>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+
+            {current ? <KitBuildCard kitItemId={current.kitId} /> : null}
+          </CardContent>
+        </CollapsibleContent>
+      </Card>
+    </Collapsible>
+  );
+}
+
 function KitsRacksPageV2() {
   const fn = useServerFn(listKitRackBuildouts);
   const rackFn = useServerFn(listRacksWithoutKit);
   const startKit = useServerFn(createRackKit);
   const addBag = useServerFn(createBag);
-  const navigate = useNavigate();
   const qc = useQueryClient();
   const [focusOne, setFocusOne] = useState("");
   const [focusTwo, setFocusTwo] = useState("");
+  const [activeKey, setActiveKey] = useState("");
   const [showNewBag, setShowNewBag] = useState(false);
   const [bagName, setBagName] = useState("");
   const [bagSku, setBagSku] = useState("");
@@ -419,8 +689,7 @@ function KitsRacksPageV2() {
         qc.invalidateQueries({ queryKey: ["kit-rack-buildouts"] }),
         qc.invalidateQueries({ queryKey: ["racks-without-kit"] }),
       ]);
-      if (view?.kit)
-        navigate({ to: "/kits-racks/$kitId", params: { kitId: view.kit.id } });
+      if (view?.kit) setActiveKey(`build:${view.kit.id}`);
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -441,7 +710,7 @@ function KitsRacksPageV2() {
       setBagHome("");
       setShowNewBag(false);
       toast.success("Bag created — add its contents next");
-      navigate({ to: "/kits-racks/$kitId", params: { kitId: id } });
+      setActiveKey(`build:${id}`);
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -487,6 +756,7 @@ function KitsRacksPageV2() {
         : options.find((o) => o.key !== one)?.key || "";
     setFocusOne((current) => current || one);
     setFocusTwo((current) => current || twoCandidate);
+    setActiveKey((current) => current || one);
   }, [options]);
 
   const selectFocus = (slot: 1 | 2, value: string) => {
@@ -509,7 +779,14 @@ function KitsRacksPageV2() {
   const renderEntity = (key: string) => {
     if (key.startsWith("build:")) {
       const item = buildouts.find((b) => b.kitId === key.slice(6));
-      return item ? <BuildoutCard key={key} buildout={item} /> : null;
+      return item ? (
+        <BuildoutCard
+          key={key}
+          buildout={item}
+          active={activeKey === key}
+          onWork={() => setActiveKey(key)}
+        />
+      ) : null;
     }
     const rack = (bare.data ?? []).find((r) => r.id === key.slice(5));
     return rack ? (
@@ -523,6 +800,9 @@ function KitsRacksPageV2() {
   };
 
   const focused = new Set([focusOne, focusTwo].filter(Boolean));
+  const activeTarget = activeKey.startsWith("build:")
+    ? (buildouts.find((item) => item.kitId === activeKey.slice(6)) ?? null)
+    : null;
   const kits = buildouts.filter(
     (b) =>
       !b.rack && b.containerKind === "kit" && !focused.has(`build:${b.kitId}`),
@@ -619,6 +899,13 @@ function KitsRacksPageV2() {
           </Card>
         ) : null}
 
+        <BuildWorkspace
+          target={activeTarget}
+          bags={buildouts.filter(
+            (item) => !item.rack && item.containerKind === "bag",
+          )}
+        />
+
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Focused work</CardTitle>
@@ -672,7 +959,12 @@ function KitsRacksPageV2() {
                 <div className="space-y-2">
                   <h3 className="font-medium">Kits ({kits.length})</h3>
                   {kits.map((b) => (
-                    <BuildoutCard key={b.kitId} buildout={b} />
+                    <BuildoutCard
+                      key={b.kitId}
+                      buildout={b}
+                      active={activeKey === `build:${b.kitId}`}
+                      onWork={() => setActiveKey(`build:${b.kitId}`)}
+                    />
                   ))}
                 </div>
               ) : null}
@@ -682,7 +974,12 @@ function KitsRacksPageV2() {
                     Bags / mini-kits ({bags.length})
                   </h3>
                   {bags.map((b) => (
-                    <BuildoutCard key={b.kitId} buildout={b} />
+                    <BuildoutCard
+                      key={b.kitId}
+                      buildout={b}
+                      active={activeKey === `build:${b.kitId}`}
+                      onWork={() => setActiveKey(`build:${b.kitId}`)}
+                    />
                   ))}
                 </div>
               ) : null}
@@ -692,7 +989,12 @@ function KitsRacksPageV2() {
                     Racks ({rackBuilds.length + bareRacks.length})
                   </h3>
                   {rackBuilds.map((b) => (
-                    <BuildoutCard key={b.kitId} buildout={b} />
+                    <BuildoutCard
+                      key={b.kitId}
+                      buildout={b}
+                      active={activeKey === `build:${b.kitId}`}
+                      onWork={() => setActiveKey(`build:${b.kitId}`)}
+                    />
                   ))}
                   {bareRacks.map((r) => (
                     <BareRackCard
