@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { STORAGE_REFERENCE, storageReferenceMatches } from "@/lib/storage-reference";
+import { storageReferenceMatches } from "@/lib/storage-reference";
 
 const GROUP_LABELS = {
   building: "Building",
