@@ -511,7 +511,7 @@ export function InventoryBomDialog({
                       ) : (
                         <Plus className="mr-1 h-4 w-4" />
                       )}
-                      Create and add to this {bom.parent.id === itemId ? "container" : "item"}
+                      Create and add to this bag or kit
                     </Button>
                   </div>
                 ) : null}
