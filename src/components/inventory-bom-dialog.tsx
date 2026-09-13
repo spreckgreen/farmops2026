@@ -32,6 +32,7 @@ import {
   updateBomComponent,
 } from "@/lib/inventory-bom.functions";
 import { formatQty, requirementsFor } from "@/lib/inventory-bom";
+import { createInventory } from "@/lib/inventory.functions";
 import { KitDeployPanel } from "@/components/kit-deploy-panel";
 import { KitProcedureSuggestions } from "@/components/kit-procedure-suggestions";
 
@@ -54,11 +55,18 @@ export function InventoryBomDialog({
   const updateFn = useServerFn(updateBomComponent);
   const removeFn = useServerFn(removeBomComponent);
   const primaryFn = useServerFn(setPrimaryBomContainer);
+  const createInventoryFn = useServerFn(createInventory);
 
   const [componentId, setComponentId] = useState("");
   const [qty, setQty] = useState("1");
   const [notes, setNotes] = useState("");
   const [buildUnits, setBuildUnits] = useState("1");
+  const [showQuickCreate, setShowQuickCreate] = useState(false);
+  const [newPartKind, setNewPartKind] = useState<"part" | "cable">("part");
+  const [newPartName, setNewPartName] = useState("");
+  const [newPartSku, setNewPartSku] = useState("");
+  const [newPartQuantity, setNewPartQuantity] = useState("1");
+  const [newPartUnit, setNewPartUnit] = useState("each");
 
   const enabled = open && Boolean(itemId);
   const bomQuery = useQuery({
@@ -92,6 +100,47 @@ export function InventoryBomDialog({
       setNotes("");
       invalidate();
       toast.success("Part added");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const quickCreate = useMutation({
+    mutationFn: async () => {
+      const created = await createInventoryFn({
+        data: {
+          name: newPartName.trim(),
+          sku: newPartSku.trim() || null,
+          category: newPartKind === "cable" ? "Cable" : "Part",
+          quantity: Number(newPartQuantity),
+          unit: newPartUnit.trim() || "each",
+          location: null,
+        },
+      });
+      await addFn({
+        data: {
+          parentItemId: itemId!,
+          componentItemId: created.id,
+          quantity: Number(qty),
+          notes: notes.trim() || null,
+        },
+      });
+      return created;
+    },
+    onSuccess: (created) => {
+      setComponentId("");
+      setNewPartName("");
+      setNewPartSku("");
+      setNewPartQuantity("1");
+      setNewPartUnit("each");
+      setQty("1");
+      setNotes("");
+      setShowQuickCreate(false);
+      invalidate();
+      queryClient.invalidateQueries({
+        queryKey: ["inventory-bom-candidates", itemId],
+      });
+      queryClient.invalidateQueries({ queryKey: ["inventory"] });
+      toast.success(`${created.name ?? "Part"} created and added`);
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -329,7 +378,10 @@ export function InventoryBomDialog({
                     {(candidatesQuery.data ?? []).map((c) => (
                       <SelectItem key={c.id} value={c.id}>
                         {c.name}
-                        {c.sku ? ` · ${c.sku}` : ""} · {c.onHand} on hand
+                        {c.sku ? ` · ${c.sku}` : ""} · {c.onHand} on hand ·{" "}
+                        {c.assignmentStatus === "assigned_elsewhere"
+                          ? `assigned to ${c.assignedContainerName}`
+                          : "available"}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -360,6 +412,110 @@ export function InventoryBomDialog({
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="Optional note — e.g. 'sweat joint, use lead-free solder'"
               />
+              {componentId ? (
+                <div className="text-xs">
+                  {(() => {
+                    const selected = (candidatesQuery.data ?? []).find(
+                      (candidate) => candidate.id === componentId,
+                    );
+                    if (!selected) return null;
+                    return selected.assignmentStatus === "assigned_elsewhere" ? (
+                      <div className="rounded-md border border-amber-300 bg-amber-50 p-2 text-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+                        Assigned to <strong>{selected.assignedContainerName}</strong>.
+                        Adding it here creates a logical membership; use “Make this
+                        the primary home” after adding if the physical part is moving.
+                      </div>
+                    ) : (
+                      <div className="text-emerald-700 dark:text-emerald-400">
+                        Available for assignment to this bag or kit.
+                      </div>
+                    );
+                  })()}
+                </div>
+              ) : null}
+
+              <div className="border-t pt-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowQuickCreate((value) => !value)}
+                >
+                  <Plus className="mr-1 h-4 w-4" />
+                  {showQuickCreate ? "Cancel new part" : "Create missing part or cable"}
+                </Button>
+                {showQuickCreate ? (
+                  <div className="mt-3 space-y-2 rounded-md bg-muted/30 p-3">
+                    <div className="text-xs text-muted-foreground">
+                      The new inventory record will be created and added here without
+                      leaving this bag.
+                    </div>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <Select
+                        value={newPartKind}
+                        onValueChange={(value) =>
+                          setNewPartKind(value as "part" | "cable")
+                        }
+                      >
+                        <SelectTrigger aria-label="New inventory type">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="part">Part</SelectItem>
+                          <SelectItem value="cable">Cable</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        value={newPartName}
+                        onChange={(e) => setNewPartName(e.target.value)}
+                        placeholder={newPartKind === "cable" ? "Cable name" : "Part name"}
+                        aria-label="New part name"
+                      />
+                      <Input
+                        value={newPartSku}
+                        onChange={(e) => setNewPartSku(e.target.value)}
+                        placeholder="SKU (optional)"
+                        aria-label="New part SKU"
+                      />
+                      <div className="grid grid-cols-2 gap-2">
+                        <Input
+                          type="number"
+                          min="0"
+                          step="any"
+                          value={newPartQuantity}
+                          onChange={(e) => setNewPartQuantity(e.target.value)}
+                          placeholder="On hand"
+                          aria-label="New part on hand"
+                        />
+                        <Input
+                          value={newPartUnit}
+                          onChange={(e) => setNewPartUnit(e.target.value)}
+                          placeholder="Unit"
+                          aria-label="New part unit"
+                        />
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={
+                        !newPartName.trim() ||
+                        !(Number(newPartQuantity) >= 0) ||
+                        !(Number(qty) > 0) ||
+                        quickCreate.isPending
+                      }
+                      onClick={() => quickCreate.mutate()}
+                    >
+                      {quickCreate.isPending ? (
+                        <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                      ) : (
+                        <Plus className="mr-1 h-4 w-4" />
+                      )}
+                      Create and add to this bag or kit
+                    </Button>
+                  </div>
+                ) : null}
+              </div>
             </div>
 
             <div className="rounded-md border p-3 space-y-2">

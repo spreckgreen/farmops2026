@@ -129,29 +129,69 @@ export const listBomCandidates = createServerFn({ method: "GET" })
   .handler(async ({ context, data }) => {
     const { data: rows, error } = await context.supabase
       .from("inventory_items")
-      .select("id, name, sku, unit, quantity, unit_cost")
+      .select("id, name, sku, unit, quantity, unit_cost, primary_container_item_id")
       .eq("user_id", context.userId)
       .neq("id", data.parentItemId)
       .order("name", { ascending: true })
       .limit(1000);
     if (error) throw new Error(error.message);
-    return (
-      (rows ?? []) as Array<{
+
+    const typedRows = (rows ?? []) as Array<{
+      id: string;
+      name: string | null;
+      sku: string | null;
+      unit: string | null;
+      quantity: number | null;
+      unit_cost: number | null;
+      primary_container_item_id: string | null;
+    }>;
+    const containerIds = [
+      ...new Set(
+        typedRows
+          .map((row) => row.primary_container_item_id)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    ];
+    const containerNames = new Map<string, string>();
+    if (containerIds.length > 0) {
+      const { data: containers, error: containerError } = await context.supabase
+        .from("inventory_items")
+        .select("id, name, sku")
+        .eq("user_id", context.userId)
+        .in("id", containerIds);
+      if (containerError) throw new Error(containerError.message);
+      for (const container of (containers ?? []) as Array<{
         id: string;
         name: string | null;
         sku: string | null;
-        unit: string | null;
-        quantity: number | null;
-        unit_cost: number | null;
-      }>
-    ).map((r) => ({
-      id: r.id,
-      name: r.name || r.sku || "(unnamed item)",
-      sku: r.sku ?? null,
-      unit: r.unit ?? null,
-      onHand: Number(r.quantity ?? 0),
-      unitCost: r.unit_cost == null ? null : Number(r.unit_cost),
-    }));
+      }>) {
+        containerNames.set(
+          container.id,
+          container.name || container.sku || "(unnamed bag or kit)",
+        );
+      }
+    }
+
+    return typedRows.map((r) => {
+      const assignedElsewhere =
+        Boolean(r.primary_container_item_id) &&
+        r.primary_container_item_id !== data.parentItemId;
+      return {
+        id: r.id,
+        name: r.name || r.sku || "(unnamed item)",
+        sku: r.sku ?? null,
+        unit: r.unit ?? null,
+        onHand: Number(r.quantity ?? 0),
+        unitCost: r.unit_cost == null ? null : Number(r.unit_cost),
+        primaryContainerItemId: r.primary_container_item_id,
+        assignmentStatus: assignedElsewhere
+          ? ("assigned_elsewhere" as const)
+          : ("available" as const),
+        assignedContainerName: assignedElsewhere
+          ? containerNames.get(r.primary_container_item_id!) ?? "another bag or kit"
+          : null,
+      };
+    });
   });
 
 const AddInput = z.object({
