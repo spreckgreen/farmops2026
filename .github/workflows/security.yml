@@ -47,9 +47,35 @@ jobs:
       security-events: write
     steps:
       - uses: actions/checkout@v4
+      - name: Check code scanning availability
+        id: code-scanning
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            try {
+              await github.request("GET /repos/{owner}/{repo}/code-scanning/alerts", {
+                owner,
+                repo,
+                per_page: 1,
+              });
+              core.setOutput("enabled", "true");
+            } catch (error) {
+              if (error.status === 404) {
+                core.notice("Code scanning is not enabled for this repository; skipping CodeQL analysis.");
+                core.setOutput("enabled", "false");
+                return;
+              }
+              throw error;
+            }
       - uses: github/codeql-action/init@v3
+        if: steps.code-scanning.outputs.enabled == 'true'
         with:
           languages: javascript-typescript
       - uses: github/codeql-action/analyze@v3
+        if: steps.code-scanning.outputs.enabled == 'true'
         with:
           category: "/language:javascript-typescript"
+      - name: CodeQL skipped
+        if: steps.code-scanning.outputs.enabled != 'true'
+        run: echo "Code scanning is not enabled for this repository; skipping CodeQL."
