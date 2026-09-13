@@ -35,6 +35,8 @@ export interface RackKitPart {
   itemRackUnits: number | null;
   /** Lowest rack space occupied, counted from the bottom. NULL when not placed. */
   positionU: number | null;
+  /** Horizontal portion of the rack face occupied by this device. */
+  rackLane: "full" | "left" | "right";
   /** Item description, used when drawing the front-panel picture. */
   description: string | null;
   /** Short-lived link to the stored front-panel picture, when one exists. */
@@ -89,7 +91,7 @@ async function readRackKit(db: LooseDb, userId: string, rackId: string): Promise
 
   const { data: rows, error: cErr } = await db
     .from("inventory_components")
-    .select("id, component_item_id, quantity, unit, notes, sort_order, rack_units, rack_position_u")
+    .select("id, component_item_id, quantity, unit, notes, sort_order, rack_units, rack_position_u, rack_lane")
     .eq("user_id", userId)
     .eq("parent_item_id", kit.id)
     .order("sort_order", { ascending: true });
@@ -151,6 +153,7 @@ async function readRackKit(db: LooseDb, userId: string, rackId: string): Promise
       notes: string | null;
       rack_units: number | null;
       rack_position_u: number | null;
+      rack_lane: "full" | "left" | "right" | null;
     }) => {
       const item = byId.get(String(r.component_item_id));
       const itemRackUnits = item?.rack_units ?? null;
@@ -167,6 +170,7 @@ async function readRackKit(db: LooseDb, userId: string, rackId: string): Promise
         rackUnits: r.rack_units == null ? itemRackUnits : Number(r.rack_units),
         itemRackUnits,
         positionU: r.rack_position_u == null ? null : Number(r.rack_position_u),
+        rackLane: r.rack_lane ?? "full",
         description: item?.description ?? null,
         faceImageUrl: facePath ? (signed.get(facePath) ?? null) : null,
         faceGeneratedAt: item?.rack_face_generated_at ?? null,
@@ -185,6 +189,8 @@ const PlacementInput = z.object({
   rackUnits: z.number().int().positive().max(100).nullable(),
   /** Lowest space occupied; null unplaces the part. */
   positionU: z.number().int().positive().max(100).nullable(),
+  /** Horizontal portion of the rack face used by this placement. */
+  rackLane: z.enum(["full", "left", "right"]).default("full"),
   /** Also store the height on the inventory item, so it is remembered elsewhere. */
   applyToItem: z.boolean().optional(),
 });
@@ -281,9 +287,16 @@ export const setRackPartPlacement = createServerFn({ method: "POST" })
         if (other.id === row.id) continue;
         if (other.positionU == null || other.rackUnits == null) continue;
         const otherTop = other.positionU + other.rackUnits - 1;
-        if (data.positionU <= otherTop && other.positionU <= top) {
+        const verticalOverlap =
+          data.positionU <= otherTop && other.positionU <= top;
+        const otherLane = other.rackLane ?? "full";
+        const horizontalOverlap =
+          data.rackLane === "full" ||
+          otherLane === "full" ||
+          data.rackLane === otherLane;
+        if (verticalOverlap && horizontalOverlap) {
           throw new Error(
-            `U${data.positionU}${top === data.positionU ? "" : `–U${top}`} is already taken by ${other.name}.`,
+            `U${data.positionU}${top === data.positionU ? "" : `–U${top}`} ${data.rackLane === "full" ? "full width" : `${data.rackLane} half`} is already taken by ${other.name}.`,
           );
         }
       }
@@ -291,7 +304,11 @@ export const setRackPartPlacement = createServerFn({ method: "POST" })
 
     const { error } = await db
       .from("inventory_components")
-      .update({ rack_units: data.rackUnits, rack_position_u: data.positionU })
+      .update({
+        rack_units: data.rackUnits,
+        rack_position_u: data.positionU,
+        rack_lane: data.rackLane,
+      })
       .eq("id", data.componentRowId)
       .eq("user_id", context.userId);
     if (error) throw new Error(error.message);
@@ -314,8 +331,12 @@ export const setRackPartPlacement = createServerFn({ method: "POST" })
       summary:
         data.positionU == null
           ? `Removed rack position for "${row.name}" in ${before.rackStableId}`
-          : `Placed "${row.name}" at U${data.positionU} (${height}U) in ${before.rackStableId}`,
-      patch: { rack_units: data.rackUnits, rack_position_u: data.positionU },
+          : `Placed "${row.name}" at U${data.positionU} (${height}U, ${data.rackLane}) in ${before.rackStableId}`,
+      patch: {
+        rack_units: data.rackUnits,
+        rack_position_u: data.positionU,
+        rack_lane: data.rackLane,
+      },
     });
 
     return readRackKit(db, context.userId, data.rackId);
