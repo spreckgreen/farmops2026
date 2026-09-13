@@ -11,7 +11,7 @@ export type ContainerCategory = (typeof CONTAINER_CATEGORIES)[number];
 export const COMPARTMENT_TYPES = [
   "main_compartment", "drawer", "pocket", "lid_compartment", "tray",
   "divider_bin", "removable_pouch", "device_sleeve", "document_sleeve",
-  "cable_pocket", "section", "attachment_point",
+  "cable_pocket", "section", "attachment_point", "top_surface",
 ] as const;
 export type CompartmentType = (typeof COMPARTMENT_TYPES)[number];
 
@@ -36,11 +36,19 @@ export const CONTAINER_TEMPLATES: readonly ContainerTemplate[] = [
     containerKind:"toolbox", category:"tools", suggestedCompartments:[
       {code:"MAIN",name:"Main bay",compartmentType:"main_compartment",sortOrder:10},
       {code:"LID",name:"Lid storage",compartmentType:"lid_compartment",sortOrder:20},
+      {code:"TOP",name:"Top surface",compartmentType:"top_surface",sortOrder:30},
+      {code:"TOP-L",name:"Top left",compartmentType:"top_surface",sortOrder:31},
+      {code:"TOP-C",name:"Top center",compartmentType:"top_surface",sortOrder:32},
+      {code:"TOP-R",name:"Top right",compartmentType:"top_surface",sortOrder:33},
     ]},
   { id:"ridgid_drawer_toolbox", label:"RIDGID drawer toolbox",
-    containerKind:"drawer_unit", category:"tools", suggestedCompartments:[1,2,3].map((number)=>({
-      code:"D"+number, name:"Drawer "+number, compartmentType:"drawer" as const, sortOrder:number*10,
-    }))},
+    containerKind:"drawer_unit", category:"tools", suggestedCompartments:[
+      ...[1,2,3].map((number)=>({ code:"D"+number, name:"Drawer "+number, compartmentType:"drawer" as const, sortOrder:number*10 })),
+      {code:"TOP",name:"Top surface",compartmentType:"top_surface",sortOrder:40},
+      {code:"TOP-L",name:"Top left",compartmentType:"top_surface",sortOrder:41},
+      {code:"TOP-C",name:"Top center",compartmentType:"top_surface",sortOrder:42},
+      {code:"TOP-R",name:"Top right",compartmentType:"top_surface",sortOrder:43},
+    ]},
   { id:"first_aid_medical_bag", label:"First aid / medical bag",
     containerKind:"bag", category:"medical", suggestedCompartments:[
       {code:"MAIN",name:"Main compartment",compartmentType:"main_compartment",sortOrder:10},

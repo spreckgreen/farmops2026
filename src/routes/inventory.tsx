@@ -60,6 +60,7 @@ import {
 } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ModuleGate } from "@/components/module-gate";
+import { StorageReferenceLookup } from "@/components/storage-reference-lookup";
 
 
 
@@ -573,6 +574,7 @@ function InventoryDashboard() {
   return (
     <AppLayout>
       <main className="max-w-6xl mx-auto px-6 py-8 space-y-6">
+        <StorageReferenceLookup title="Inventory storage and container reference" />
         <StatsCards
           total={assets.length}
           available={assets.filter((a) => a.status === "available").length}

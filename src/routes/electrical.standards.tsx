@@ -21,6 +21,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { StorageReferenceLookup } from "@/components/storage-reference-lookup";
 
 export const Route = createFileRoute("/electrical/standards")({
   component: StandardsPage,
@@ -98,6 +99,8 @@ function Standards() {
           </p>
         </CardContent>
       </Card>
+
+      <StorageReferenceLookup title="Storage location and container-component codes" />
 
       <Card>
         <CardHeader className="pb-2">

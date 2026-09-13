@@ -50,7 +50,7 @@ export const listKitRackBuildouts = createServerFn({ method: "GET" })
 
     const { data: kits, error } = await db
       .from("inventory_items")
-      .select("id, name, sku, location, quantity, container_kind")
+      .select("id, name, sku, location, home_location, quantity, container_kind")
       .eq("user_id", userId)
       .in("item_type", KIT_ITEM_TYPES)
       .order("name", { ascending: true })
@@ -123,6 +123,7 @@ export const listKitRackBuildouts = createServerFn({ method: "GET" })
         name: string | null;
         sku: string | null;
         location: string | null;
+        home_location: string | null;
         quantity: number | null;
         container_kind: string | null;
       }) => {
@@ -161,7 +162,7 @@ export const listKitRackBuildouts = createServerFn({ method: "GET" })
           kitId,
           kitName: String(k.name ?? k.sku ?? "(unnamed kit)"),
           sku: k.sku ?? null,
-          location: k.location ?? null,
+          location: k.home_location ?? k.location ?? null,
           onHand: Number(k.quantity ?? 0),
           containerKind: k.container_kind === "bag" ? "bag" : "kit",
           parts,
