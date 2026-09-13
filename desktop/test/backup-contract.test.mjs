@@ -1,0 +1,6 @@
+import test from "node:test"; import assert from "node:assert/strict"; import { createBackupManifest, verifyBackupManifest } from "../src/backup-contract.mjs";
+const base={reason:"pre-update",profileId:"profile-live",profileType:"live",siteId:"site-1",appVersion:"0.1.0",schemaVersion:1,moduleVersions:{procedures:1},files:{"database.sqlite":Buffer.from("sqlite"),"configuration/settings.json":Buffer.from("{}")}};
+test("creates and verifies a versioned backup manifest",()=>{const manifest=createBackupManifest(base);assert.equal(manifest.formatVersion,1);assert.deepEqual(verifyBackupManifest(manifest,base.files),{valid:true});});
+test("detects changed or missing backup content",()=>{const manifest=createBackupManifest(base);assert.match(verifyBackupManifest(manifest,{...base.files,"database.sqlite":Buffer.from("changed")}).reason,/checksum-mismatch/);assert.match(verifyBackupManifest(manifest,{"database.sqlite":base.files["database.sqlite"]}).reason,/missing-file/);});
+test("rejects secret-bearing metadata",()=>assert.throws(()=>createBackupManifest({...base,counts:{apiKey:"must-not-export"}}),/Secret-like field/));
+test("rejects unsupported backup reasons",()=>assert.throws(()=>createBackupManifest({...base,reason:"update"}),/Unsupported backup reason/));
