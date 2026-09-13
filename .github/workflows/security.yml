@@ -60,11 +60,7 @@ jobs:
               });
               core.setOutput("enabled", "true");
             } catch (error) {
-              const message = String(error?.message ?? error?.response?.data?.message ?? "");
-              if (
-                error?.status === 404 &&
-                message.includes("Code scanning is not enabled for this repository")
-              ) {
+              if (error?.status === 404) {
                 core.notice("Code scanning is not enabled for this repository; skipping CodeQL analysis.");
                 core.setOutput("enabled", "false");
                 return;
