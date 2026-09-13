@@ -1,34 +1,51 @@
 name: Desktop
+
 on:
   pull_request:
-    paths: ["desktop/**", ".github/workflows/desktop.yml"]
-  workflow_dispatch:
+    paths:
+      - "desktop/**"
+      - ".github/workflows/desktop.yml"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
-    defaults: { run: { working-directory: desktop } }
+    defaults:
+      run:
+        working-directory: desktop
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: 24 }
+        with:
+          node-version: "24"
       - run: npm install
       - run: npm test
+
   package:
     needs: test
     strategy:
       matrix:
         include:
-          - { os: windows-latest, artifact: farmops-desktop-windows }
-          - { os: ubuntu-latest, artifact: farmops-desktop-linux }
+          - os: windows-latest
+            artifact: farmops-desktop-windows
+          - os: ubuntu-latest
+            artifact: farmops-desktop-linux
     runs-on: ${{ matrix.os }}
-    defaults: { run: { working-directory: desktop } }
+    defaults:
+      run:
+        working-directory: desktop
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: 24 }
+        with:
+          node-version: "24"
       - run: npm install
       - run: npm run dist
-        env: { GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} }
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
