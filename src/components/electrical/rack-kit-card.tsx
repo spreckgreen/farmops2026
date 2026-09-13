@@ -39,13 +39,20 @@ function PlacementRow({
 }: {
   part: RackKitPart;
   suggestion: number | null;
-  onSave: (rackUnits: number | null, positionU: number | null) => void;
+  onSave: (
+    rackUnits: number | null,
+    positionU: number | null,
+    rackLane: "full" | "left" | "right",
+  ) => void;
   saving: boolean;
   onDrawFace: () => void;
   drawing: boolean;
 }) {
   const [units, setUnits] = useState(part.rackUnits == null ? "" : String(part.rackUnits));
   const [pos, setPos] = useState(part.positionU == null ? "" : String(part.positionU));
+  const [lane, setLane] = useState<"full" | "left" | "right">(
+    part.rackLane ?? "full",
+  );
 
   return (
     <div className="flex flex-wrap items-end gap-3 border-b border-border px-3 py-2 last:border-0">
@@ -90,6 +97,21 @@ function PlacementRow({
           className="mt-1 h-8 bg-card/60"
         />
       </div>
+      <div className="w-28">
+        <Label className="text-xs text-muted-foreground">Rack width</Label>
+        <select
+          value={lane}
+          onChange={(e) =>
+            setLane(e.target.value as "full" | "left" | "right")
+          }
+          className="mt-1 h-8 w-full rounded-md border border-input bg-card/60 px-2 text-sm"
+          aria-label="Rack width position"
+        >
+          <option value="full">Full width</option>
+          <option value="left">Left half</option>
+          <option value="right">Right half</option>
+        </select>
+      </div>
       <Button
         size="sm"
         variant="outline"
@@ -101,7 +123,7 @@ function PlacementRow({
             toast.error("Use whole numbers of rack spaces");
             return;
           }
-          onSave(u, p);
+          onSave(u, p, lane);
         }}
       >
         Save
@@ -160,8 +182,12 @@ export function RackKitCard({ rackId }: { rackId: string }) {
   });
 
   const place = useMutation({
-    mutationFn: (v: { componentRowId: string; rackUnits: number | null; positionU: number | null }) =>
-      placeFn({ data: { rackId, ...v, applyToItem: true } }),
+    mutationFn: (v: {
+      componentRowId: string;
+      rackUnits: number | null;
+      positionU: number | null;
+      rackLane: "full" | "left" | "right";
+    }) => placeFn({ data: { rackId, ...v, applyToItem: true } }),
     onSuccess: () => {
       refresh();
       toast.success("Rack position saved");
@@ -191,14 +217,14 @@ export function RackKitCard({ rackId }: { rackId: string }) {
       rackUnits: p.rackUnits,
       positionU: p.positionU,
       quantity: p.quantity,
+      rackLane: p.rackLane,
     })),
     sizeU,
   );
   const placedById = new Map(elevation.placed.map((p) => [p.id, p]));
   // Top space first, so the picture reads like the rack in front of you.
   const rows = sizeU == null ? [] : Array.from({ length: sizeU }, (_, i) => sizeU - i);
-  const startsAt = new Map(elevation.placed.map((p) => [p.positionU, p]));
-
+ 
   return (
     <Card>
       <CardHeader className="pb-2">
@@ -272,63 +298,60 @@ export function RackKitCard({ rackId }: { rackId: string }) {
               <div className="overflow-hidden rounded-md border-x-4 border-y border-border bg-muted/40">
                 {(() => {
                   const blocks: ReactElement[] = [];
-                  let u = sizeU;
-                  while (u >= 1) {
-                    const part = elevation.placed.find((p) => p.topU === u);
-                    if (part) {
-                      const partData = parts.find((p) => p.id === part.id);
-                      const height = part.rackUnits * U_PX;
-                      blocks.push(
-                        <div
-                          key={`p${part.id}`}
-                          className="relative flex items-center gap-3 overflow-hidden border-b border-border/60 bg-card px-3"
-                          style={{ height }}
-                        >
-                          {partData?.faceImageUrl ? (
-                            <img
-                              src={partData.faceImageUrl}
-                              alt={`Front panel of ${part.name}`}
-                              loading="lazy"
-                              className="absolute inset-0 h-full w-full object-cover"
-                            />
-                          ) : null}
-                          <div
-                            className={`relative flex w-full items-center gap-2 ${
-                              partData?.faceImageUrl
-                                ? "bg-background/70 px-2 py-0.5 backdrop-blur-sm"
-                                : ""
-                            }`}
-                          >
-                            <span className="w-12 shrink-0 font-mono text-[11px] text-muted-foreground">
-                              {formatSpan(part)}
+                  for (let u = sizeU; u >= 1; u -= 1) {
+                    const covering = elevation.placed.filter(
+                      (part) => u >= part.positionU && u <= part.topU,
+                    );
+                    blocks.push(
+                      <div
+                        key={`u${u}`}
+                        className="flex border-b border-border/60"
+                        style={{ minHeight: U_PX }}
+                      >
+                        <span className="flex w-12 shrink-0 items-center px-2 font-mono text-[11px] text-muted-foreground">
+                          U{u}
+                        </span>
+                        <div className="grid min-w-0 flex-1 grid-cols-2 gap-px bg-border/60">
+                          {covering.length === 0 ? (
+                            <span className="col-span-2 bg-muted/40 px-2 py-1 text-xs text-muted-foreground/70">
+                              empty
                             </span>
-                            <span className="truncate font-medium">{part.name}</span>
-                            <span className="shrink-0 text-xs text-muted-foreground">
-                              {part.rackUnits}U
-                            </span>
-                          </div>
-                        </div>,
-                      );
-                      u -= part.rackUnits;
-                    } else {
-                      const covering = elevation.placed.find(
-                        (p) => u >= p.positionU && u <= p.topU,
-                      );
-                      blocks.push(
-                        <div
-                          key={`e${u}`}
-                          className="flex items-center gap-3 border-b border-border/60 px-3 font-mono text-xs"
-                          style={{ height: U_PX }}
-                        >
-                          <span className="w-12 shrink-0 text-muted-foreground">U{u}</span>
-                          <span className="truncate text-muted-foreground/70">
-                            {covering ? `↑ ${covering.name}` : "empty"}
-                          </span>
-                        </div>,
-                      );
-                      u -= 1;
-                    }
-
+                          ) : (
+                            covering.map((part) => {
+                              const partData = parts.find((p) => p.id === part.id);
+                              const lane = part.rackLane ?? "full";
+                              return (
+                                <div
+                                  key={part.id}
+                                  className={`relative min-w-0 overflow-hidden bg-card px-2 py-1 ${
+                                    lane === "full"
+                                      ? "col-span-2"
+                                      : lane === "left"
+                                        ? "col-start-1"
+                                        : "col-start-2"
+                                  }`}
+                                >
+                                  {partData?.faceImageUrl ? (
+                                    <img
+                                      src={partData.faceImageUrl}
+                                      alt={`Front panel of ${part.name}`}
+                                      loading="lazy"
+                                      className="absolute inset-0 h-full w-full object-cover opacity-35"
+                                    />
+                                  ) : null}
+                                  <div className="relative flex items-center justify-between gap-2">
+                                    <span className="truncate font-medium">{part.name}</span>
+                                    <span className="shrink-0 text-[10px] text-muted-foreground">
+                                      {lane === "full" ? "full" : lane}
+                                    </span>
+                                  </div>
+                                </div>
+                              );
+                            })
+                          )}
+                        </div>
+                      </div>,
+                    );
                   }
                   return blocks;
                 })()}
@@ -349,11 +372,20 @@ export function RackKitCard({ rackId }: { rackId: string }) {
                     suggestion={
                       placedById.has(p.id)
                         ? null
-                        : nextFreePosition(elevation, p.rackUnits ?? 1)
+                        : nextFreePosition(
+                            elevation,
+                            p.rackUnits ?? 1,
+                            p.rackLane ?? "full",
+                          )
                     }
                     saving={place.isPending}
-                    onSave={(rackUnits, positionU) =>
-                      place.mutate({ componentRowId: p.id, rackUnits, positionU })
+                    onSave={(rackUnits, positionU, rackLane) =>
+                      place.mutate({
+                        componentRowId: p.id,
+                        rackUnits,
+                        positionU,
+                        rackLane,
+                      })
                     }
                     onDrawFace={() => drawFace.mutate(p.id)}
                     drawing={drawingId === p.id}
