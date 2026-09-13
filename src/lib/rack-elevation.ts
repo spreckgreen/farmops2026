@@ -6,6 +6,8 @@
 // at position 3 occupies U3 and U4. Nothing here invents a size or a position —
 // parts with no size or no position stay unplaced and are reported as such.
 
+export type RackLane = "full" | "left" | "right";
+
 export interface RackPartPlacement {
   id: string;
   name: string;
@@ -13,6 +15,8 @@ export interface RackPartPlacement {
   rackUnits: number | null;
   /** Lowest rack space occupied, counted from the bottom (1 = bottom). */
   positionU: number | null;
+  /** Horizontal portion of the rack face occupied by the device. */
+  rackLane?: RackLane | null;
   /** How many of this part the kit lists. */
   quantity: number;
 }
@@ -41,6 +45,12 @@ export interface RackElevation {
   conflicts: Array<{ a: string; b: string; spaces: number[] }>;
   /** Parts that stick out past the top of the rack. */
   overflow: PlacedRackPart[];
+}
+
+function lanesOverlap(a: RackLane | null | undefined, b: RackLane | null | undefined): boolean {
+  const laneA = a ?? "full";
+  const laneB = b ?? "full";
+  return laneA === "full" || laneB === "full" || laneA === laneB;
 }
 
 function spansOf(p: PlacedRackPart): number[] {
@@ -73,7 +83,7 @@ export function buildRackElevation(
       const b = placed[j]!;
       const from = Math.max(a.positionU, b.positionU);
       const to = Math.min(a.topU, b.topU);
-      if (from <= to) {
+      if (from <= to && lanesOverlap(a.rackLane, b.rackLane)) {
         const spaces: number[] = [];
         for (let u = from; u <= to; u += 1) spaces.push(u);
         conflicts.push({ a: a.name, b: b.name, spaces });
@@ -108,13 +118,21 @@ export function buildRackElevation(
  * no room (or no recorded height). Used to suggest a position, never to assign
  * one silently.
  */
-export function nextFreePosition(elevation: RackElevation, units: number): number | null {
+export function nextFreePosition(
+  elevation: RackElevation,
+  units: number,
+  rackLane: RackLane = "full",
+): number | null {
   if (elevation.sizeU == null || units <= 0) return null;
-  const free = new Set(elevation.emptyU);
   for (let start = 1; start + units - 1 <= elevation.sizeU; start += 1) {
-    let ok = true;
-    for (let u = start; u <= start + units - 1; u += 1) if (!free.has(u)) ok = false;
-    if (ok) return start;
+    const top = start + units - 1;
+    const blocked = elevation.placed.some(
+      (part) =>
+        start <= part.topU &&
+        part.positionU <= top &&
+        lanesOverlap(part.rackLane, rackLane),
+    );
+    if (!blocked) return start;
   }
   return null;
 }

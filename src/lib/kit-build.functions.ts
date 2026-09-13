@@ -30,6 +30,8 @@ export interface KitBuildPart {
   itemRackUnits: number | null;
   /** Lowest space occupied, counted from the bottom. NULL when not placed. */
   positionU: number | null;
+  /** Horizontal portion of the rack face occupied by this device. */
+  rackLane: "full" | "left" | "right";
   description: string | null;
   faceImageUrl: string | null;
   faceGeneratedAt: string | null;
@@ -78,7 +80,7 @@ async function readKitBuild(db: LooseDb, userId: string, kitItemId: string): Pro
 
   const { data: rows, error: cErr } = await db
     .from("inventory_components")
-    .select("id, component_item_id, quantity, unit, notes, sort_order, rack_units, rack_position_u")
+    .select("id, component_item_id, quantity, unit, notes, sort_order, rack_units, rack_position_u, rack_lane")
     .eq("user_id", userId)
     .eq("parent_item_id", kitItemId)
     .order("sort_order", { ascending: true });
@@ -142,6 +144,7 @@ async function readKitBuild(db: LooseDb, userId: string, kitItemId: string): Pro
       notes: string | null;
       rack_units: number | null;
       rack_position_u: number | null;
+      rack_lane: "full" | "left" | "right" | null;
     }) => {
       const item = byId.get(String(r.component_item_id));
       const itemRackUnits = item?.rack_units ?? null;
@@ -158,6 +161,7 @@ async function readKitBuild(db: LooseDb, userId: string, kitItemId: string): Pro
         rackUnits: r.rack_units == null ? itemRackUnits : Number(r.rack_units),
         itemRackUnits,
         positionU: r.rack_position_u == null ? null : Number(r.rack_position_u),
+        rackLane: r.rack_lane ?? "full",
         description: item?.description ?? null,
         faceImageUrl: facePath ? (signed.get(facePath) ?? null) : null,
         faceGeneratedAt: item?.rack_face_generated_at ?? null,
@@ -212,6 +216,7 @@ const PlacementInput = z.object({
   componentRowId: z.string().uuid(),
   rackUnits: z.number().int().positive().max(100).nullable(),
   positionU: z.number().int().positive().max(100).nullable(),
+  rackLane: z.enum(["full", "left", "right"]).default("full"),
   applyToItem: z.boolean().optional(),
 });
 
@@ -244,9 +249,16 @@ export const setKitPartPlacement = createServerFn({ method: "POST" })
         if (other.id === row.id) continue;
         if (other.positionU == null || other.rackUnits == null) continue;
         const otherTop = other.positionU + other.rackUnits - 1;
-        if (data.positionU <= otherTop && other.positionU <= top) {
+        const verticalOverlap =
+          data.positionU <= otherTop && other.positionU <= top;
+        const otherLane = other.rackLane ?? "full";
+        const horizontalOverlap =
+          data.rackLane === "full" ||
+          otherLane === "full" ||
+          data.rackLane === otherLane;
+        if (verticalOverlap && horizontalOverlap) {
           throw new Error(
-            `U${data.positionU}${top === data.positionU ? "" : `–U${top}`} is already taken by ${other.name}.`,
+            `U${data.positionU}${top === data.positionU ? "" : `–U${top}`} ${data.rackLane === "full" ? "full width" : `${data.rackLane} half`} is already taken by ${other.name}.`,
           );
         }
       }
@@ -254,7 +266,11 @@ export const setKitPartPlacement = createServerFn({ method: "POST" })
 
     const { error } = await db
       .from("inventory_components")
-      .update({ rack_units: data.rackUnits, rack_position_u: data.positionU })
+      .update({
+        rack_units: data.rackUnits,
+        rack_position_u: data.positionU,
+        rack_lane: data.rackLane,
+      })
       .eq("id", data.componentRowId)
       .eq("user_id", context.userId);
     if (error) throw new Error(error.message);

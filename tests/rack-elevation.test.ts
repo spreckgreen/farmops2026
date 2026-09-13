@@ -9,11 +9,44 @@ import {
 const part = (over: Partial<RackPartPlacement> & { id: string; name: string }): RackPartPlacement => ({
   rackUnits: 1,
   positionU: null,
+  rackLane: "full",
   quantity: 1,
   ...over,
 });
 
 describe("rack elevation", () => {
+  it("allows left and right half-width devices to share the same U", () => {
+    const e = buildRackElevation(
+      [
+        part({ id: "a", name: "Radio", positionU: 4, rackLane: "left" }),
+        part({ id: "b", name: "Control head", positionU: 4, rackLane: "right" }),
+      ],
+      10,
+    );
+    expect(e.conflicts).toEqual([]);
+    expect(e.usedU).toBe(1);
+  });
+
+  it("still rejects devices that overlap on the same half or with full width", () => {
+    const sameHalf = buildRackElevation(
+      [
+        part({ id: "a", name: "Radio", positionU: 4, rackLane: "left" }),
+        part({ id: "b", name: "Meter", positionU: 4, rackLane: "left" }),
+      ],
+      10,
+    );
+    expect(sameHalf.conflicts).toHaveLength(1);
+
+    const fullWidth = buildRackElevation(
+      [
+        part({ id: "a", name: "Shelf", positionU: 4, rackLane: "full" }),
+        part({ id: "b", name: "Meter", positionU: 4, rackLane: "right" }),
+      ],
+      10,
+    );
+    expect(fullWidth.conflicts).toHaveLength(1);
+  });
+
   it("orders placed parts bottom to top and reports the span", () => {
     const e = buildRackElevation(
       [

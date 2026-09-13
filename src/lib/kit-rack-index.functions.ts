@@ -21,6 +21,8 @@ export interface KitRackPart {
   rackUnits: number | null;
   /** Lowest rack space occupied, counted from the bottom. */
   positionU: number | null;
+  /** Horizontal portion of the rack face occupied by this device. */
+  rackLane: "full" | "left" | "right";
 }
 
 export interface KitRackBuildout {
@@ -63,7 +65,7 @@ export const listKitRackBuildouts = createServerFn({ method: "GET" })
     const { data: rows, error: cErr } = await db
       .from("inventory_components")
       .select(
-        "id, parent_item_id, component_item_id, quantity, unit, sort_order, rack_units, rack_position_u",
+        "id, parent_item_id, component_item_id, quantity, unit, sort_order, rack_units, rack_position_u, rack_lane",
       )
       .eq("user_id", userId)
       .in("parent_item_id", kitIds)
@@ -141,6 +143,7 @@ export const listKitRackBuildouts = createServerFn({ method: "GET" })
               unit: string | null;
               rack_units: number | null;
               rack_position_u: number | null;
+              rack_lane: "full" | "left" | "right" | null;
             }) => {
               const item = items.get(String(r.component_item_id));
               return {
@@ -155,6 +158,7 @@ export const listKitRackBuildouts = createServerFn({ method: "GET" })
                     : Number(r.rack_units),
                 positionU:
                   r.rack_position_u == null ? null : Number(r.rack_position_u),
+                rackLane: r.rack_lane ?? "full",
               };
             },
           );
