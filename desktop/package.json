@@ -33,9 +33,7 @@
       "target": [
         "AppImage"
       ],
-      "category": "Utility",
-      "desktopName": "FarmOpsDesktop.desktop",
-      "syncDesktopName": true
+      "category": "Utility"
     },
     "executableName": "FarmOpsDesktop"
   },
