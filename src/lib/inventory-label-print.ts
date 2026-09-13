@@ -64,7 +64,7 @@ export async function printContainerLabelPair(buildout: KitRackBuildout): Promis
   if (!popup) throw new Error("Allow pop-ups to print inventory labels.");
 
   const objectUrl = `${window.location.origin}/kits-racks/${buildout.kitId}`;
-  const qr = spec.short ? "" : await QRCode.toString(objectUrl, { type:"svg", margin:1, width:spec.qrPx * 2 });
+  const qr = await QRCode.toString(objectUrl, { type:"svg", margin:1, width:spec.short ? 120 : spec.qrPx * 2 });
   const includeItemQr = !spec.short && spec.id !== "letter-2x5" && buildout.parts.length <= 8;
   const partQrs = includeItemQr
     ? await Promise.all(buildout.parts.map((part) =>
@@ -97,8 +97,7 @@ h1{font-size:16px;line-height:1.1;margin:4px 0}.kind{font-size:10px;font-weight:
 .contents ul{list-style:none;padding:0;margin:0;font-size:9px;columns:${spec.id === "letter-4x2" ? 2 : 1};column-gap:8px}
 .contents li{break-inside:avoid;margin:0 0 3px}.contents li.with-qr{display:flex;align-items:center;gap:3px}
 .item-qr{display:inline-block;width:30px;flex:0 0 30px}.empty{font-size:10px;color:#555}
-.short{border-radius:2px;padding:4px;min-height:0}.short h1{font-size:10px;text-align:left}
-.short .barcode{height:28px}.short .home,.short .kind{font-size:7px}.short.contents ul{font-size:7px;white-space:nowrap;overflow:hidden}
+.short{border-radius:2px;padding:2px;min-height:0}.short.identity{display:grid;grid-template-columns:42px minmax(0,1fr);grid-template-rows:auto auto auto;column-gap:4px;text-align:left;align-items:center}.short.identity .qr{grid-column:1;grid-row:1 / 4;width:42px}.short.identity h1{grid-column:2;grid-row:1;font-size:8px;line-height:1;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.short.identity .barcode{grid-column:2;grid-row:2;height:25px;overflow:hidden}.short.identity .home{grid-column:2;grid-row:3;font-size:7px;line-height:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.short.identity .kind{display:none}
 @media print{
  @page{size:${spec.page.widthIn}in ${spec.page.heightIn}in;margin:${marginIn}in}
  body{margin:0}.toolbar{display:none}.sheet{display:grid;grid-template-columns:repeat(${spec.cols},${cellW}in);grid-auto-rows:${cellH}in;gap:0}
@@ -114,10 +113,10 @@ h1{font-size:16px;line-height:1.1;margin:4px 0}.kind{font-size:10px;font-weight:
  <div class="barcode">${code39Svg(stableId)}</div>
  <div class="home"><b>Home:</b> ${escapeHtml(buildout.location || "Not recorded")}</div>
 </section>
-<section class="label contents ${spec.short ? "short" : ""}">
+${spec.short ? "" : `<section class="label contents">
  <h2>LABEL B · ${escapeHtml(buildout.kitName)} contents</h2>
  ${parts ? `<ul>${parts}</ul>` : '<p class="empty">No contents recorded.</p>'}
-</section>
+</section>`}
 </main></body></html>`);
   popup.document.close();
 }
