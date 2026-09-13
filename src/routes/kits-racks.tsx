@@ -105,6 +105,7 @@ function ElevationPreview({ buildout }: { buildout: KitRackBuildout }) {
       rackUnits: p.rackUnits,
       positionU: p.positionU,
       quantity: p.quantity,
+      rackLane: p.rackLane,
     })),
     sizeU,
   );
