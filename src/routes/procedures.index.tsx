@@ -6,6 +6,7 @@ import { ProceduresAiPrompt } from "@/components/procedures-ai-prompt";
 import { InventorySopGenerator } from "@/components/inventory-sop-generator";
 import { RunAiTestCard } from "@/components/run-ai-test-card";
 import { Wand2 } from "lucide-react";
+import { StorageReferenceLookup } from "@/components/storage-reference-lookup";
 
 export const Route = createFileRoute("/procedures/")({
   component: ProceduresPage,
@@ -48,6 +49,7 @@ function ProceduresPage() {
             </Link>
           </Button>
         </header>
+        <StorageReferenceLookup title="Procedure storage-location reference" />
         <ProceduresAiPrompt />
         <InventorySopGenerator />
         <RunAiTestCard description="Verify the AI backend answering procedure queries is your self-hosted model on the VPS before running a long prompt." />
