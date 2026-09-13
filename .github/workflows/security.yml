@@ -54,10 +54,9 @@ jobs:
           script: |
             const { owner, repo } = context.repo;
             try {
-              await github.request("GET /repos/{owner}/{repo}/code-scanning/alerts", {
+              await github.request("GET /repos/{owner}/{repo}/code-scanning/default-setup", {
                 owner,
                 repo,
-                per_page: 1,
               });
               core.setOutput("enabled", "true");
             } catch (error) {
