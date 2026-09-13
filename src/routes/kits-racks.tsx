@@ -54,6 +54,7 @@ import { createRackKit } from "@/lib/rack-kit.functions";
 import { buildRackElevation, formatSpan } from "@/lib/rack-elevation";
 import { KitBuildCard } from "@/components/kit-build-card";
 import { addBomComponent } from "@/lib/inventory-bom.functions";
+import { printContainerLabelPair } from "@/lib/inventory-label-print";
 
 export const Route = createFileRoute("/kits-racks")({
   ssr: false,
@@ -221,30 +222,6 @@ function usePersistentOpen(key: string) {
   return [open, change] as const;
 }
 
-async function printContainerLabel(buildout: KitRackBuildout) {
-  const popup = window.open("", "_blank", "width=640,height=520");
-  if (!popup) throw new Error("Allow pop-ups to print a bag or kit label.");
-  const safe = (value: string) =>
-    value.replace(
-      /[&<>"']/g,
-      (c) =>
-        ({
-          "&": "&amp;",
-          "<": "&lt;",
-          ">": "&gt;",
-          '"': "&quot;",
-          "'": "&#39;",
-        })[c]!,
-    );
-  const QRCode = (await import("qrcode")).default;
-  const url = `${window.location.origin}/kits-racks/${buildout.kitId}`;
-  const qr = await QRCode.toString(url, { type: "svg", margin: 1, width: 180 });
-  popup.document.write(
-    `<!doctype html><title>${safe(buildout.kitName)}</title><style>body{font:16px system-ui;margin:24px}.label{width:3in;min-height:2in;border:1px solid #111;padding:14px;box-sizing:border-box}.row{display:flex;gap:12px;align-items:center}h1{font-size:18px;margin:0 0 6px}.meta{font-size:12px;margin:3px 0;color:#333}.qr{width:105px}.qr svg{width:100%;height:auto}@media print{body{margin:0}.label{border:0}}</style><div class="label"><div class="row"><div class="qr">${qr}</div><div><h1>${safe(buildout.kitName)}</h1><div class="meta">${buildout.containerKind === "bag" ? "BAG / MINI-KIT" : buildout.rack ? "RACK BUILD-OUT" : "KIT"}</div><div class="meta">ID: ${safe(buildout.sku || buildout.kitId)}</div><div class="meta">${buildout.parts.length} listed part${buildout.parts.length === 1 ? "" : "s"}</div><div class="meta">Home: ${safe(buildout.location || "Not recorded")}</div></div></div></div><script>print()</script>`,
-  );
-  popup.document.close();
-}
-
 function BuildoutCard({
   buildout,
   onWork,
@@ -335,7 +312,7 @@ function BuildoutCard({
                 size="sm"
                 variant="outline"
                 onClick={() =>
-                  printContainerLabel(buildout).catch((e: Error) =>
+                  printContainerLabelPair(buildout).catch((e: Error) =>
                     toast.error(e.message),
                   )
                 }
