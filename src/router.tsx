@@ -7,6 +7,23 @@ import {
   assertRouterUsable,
 } from "./components/router-context-guard";
 
+const PRELOAD_RELOAD_KEY = "farmops:vite-preload-reload";
+
+// A browser tab left open across a deployment can retain the old route manifest.
+// Its next lazy-route navigation then requests a removed hashed chunk and receives
+// a 404. Vite emits this event before surfacing the failure; reload once so the tab
+// receives the current HTML/manifest. The timestamp prevents a broken deployment
+// from producing an infinite reload loop.
+if (typeof window !== "undefined") {
+  window.addEventListener("vite:preloadError", (event) => {
+    event.preventDefault();
+    const lastReload = Number(window.sessionStorage.getItem(PRELOAD_RELOAD_KEY) ?? "0");
+    if (Date.now() - lastReload < 15_000) return;
+    window.sessionStorage.setItem(PRELOAD_RELOAD_KEY, String(Date.now()));
+    window.location.reload();
+  });
+}
+
 export const getRouter = () => {
   const queryClient = new QueryClient();
 
