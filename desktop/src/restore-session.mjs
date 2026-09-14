@@ -1,0 +1,4 @@
+const PUBLIC_FIELDS=["valid","createdAt","reason","profileId","profileType","siteId","appVersion","schemaVersion","counts","fileCount"];
+export function toPublicRestorePreview(value){return Object.fromEntries(PUBLIC_FIELDS.filter(key=>value?.[key]!==undefined).map(key=>[key,value[key]]));}
+export function sameRestorePreview(previous,current){return Boolean(previous?.valid&&current?.valid&&previous.path===current.path&&previous.createdAt===current.createdAt&&previous.profileId===current.profileId&&previous.appVersion===current.appVersion&&previous.schemaVersion===current.schemaVersion&&previous.fileCount===current.fileCount);}
+export function createRestoreSession(){let pending=null;return Object.freeze({record(value){pending=value?.valid&&typeof value.path==="string"?Object.freeze({...value}):null;return Boolean(pending);},get(){return pending;},clear(){pending=null;}});}
