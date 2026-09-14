@@ -1,6 +1,6 @@
 import type { FarmOpsModuleId, FeatureAvailability } from "./entitlements";
 
-export const SUBSCRIPTION_ROUTE = "/subscription" as const;
+export const SUBSCRIPTION_ROUTE = "/admin/subscription" as const;
 
 export interface PaidModulePresentation {
   moduleId: FarmOpsModuleId;
