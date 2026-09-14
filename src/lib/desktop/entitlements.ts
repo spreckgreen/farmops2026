@@ -63,13 +63,13 @@ export type FeatureAvailability =
   | {
       state: "locked";
       moduleId: FarmOpsModuleId;
-      subscriptionRoute: "/subscription";
+      subscriptionRoute: "/admin/subscription";
     }
   | {
       state: "trial-expired";
       moduleId: FarmOpsModuleId;
       expiredAt: string;
-      subscriptionRoute: "/subscription";
+      subscriptionRoute: "/admin/subscription";
       dataDisposition: "retained_locked";
     }
   | {
@@ -173,7 +173,7 @@ export function evaluateFeatureAvailability({
         state: "trial-expired",
         moduleId,
         expiredAt: siteEntitlements.trialExpiresAt,
-        subscriptionRoute: "/subscription",
+        subscriptionRoute: "/admin/subscription",
         dataDisposition: "retained_locked",
       };
     }
@@ -181,7 +181,7 @@ export function evaluateFeatureAvailability({
     return {
       state: "locked",
       moduleId,
-      subscriptionRoute: "/subscription",
+      subscriptionRoute: "/admin/subscription",
     };
   }
 
