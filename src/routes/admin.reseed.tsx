@@ -52,6 +52,7 @@ function CloudSyncedReseedPage() {
   const [integrity, setIntegrity] = useState<RestoreIntegrityStatus | null>(null);
   const [allowMissingIntegrity, setAllowMissingIntegrity] = useState(false);
   const [confirmText, setConfirmText] = useState("");
+  const [ackDestructiveApply, setAckDestructiveApply] = useState(false);
   const [debugMode, setDebugMode] = useState(false);
 
   const dryRunMut = useMutation({
@@ -99,6 +100,7 @@ function CloudSyncedReseedPage() {
     setIntegrity(null);
     setAllowMissingIntegrity(false);
     setConfirmText("");
+    setAckDestructiveApply(false);
     dryRunMut.reset();
     applyMut.reset();
     try {
@@ -144,6 +146,7 @@ function CloudSyncedReseedPage() {
   const readyForApply =
     Boolean(preview) &&
     confirmText === "RESEED" &&
+    ackDestructiveApply &&
     cloudSyncedTarget &&
     !applyMut.isPending;
 
@@ -317,6 +320,16 @@ function CloudSyncedReseedPage() {
             <p className="text-muted-foreground">
               This applies destructive replace-mode reseed after readiness passes. Type RESEED to unlock the button.
             </p>
+            <label className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/5 p-3 text-sm">
+              <Checkbox
+                checked={ackDestructiveApply}
+                onCheckedChange={(value) => setAckDestructiveApply(value === true)}
+                className="mt-0.5"
+              />
+              <span>
+                I understand this operation deletes current operational rows before reseeding and should only be used for intentional cloud-synced recovery.
+              </span>
+            </label>
             <Input
               value={confirmText}
               onChange={(e) => setConfirmText(e.target.value)}
