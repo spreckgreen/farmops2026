@@ -10,7 +10,7 @@ function escape(value) {
 
 function renderProcedureList(procedures) {
   if (procedures.length === 0) {
-    return '<li class="procedure-empty">No local procedures yet. Seed one in Demo or add import/create flows next.</li>';
+    return '<li class="empty-state">No local procedures yet. Seed one in Demo or add import/create flows next.</li>';
   }
 
   return procedures
@@ -20,9 +20,32 @@ function renderProcedureList(procedures) {
         `<h4>${escape(procedure.title)}</h4>` +
         `<p class="procedure-site">Site: <span class="value">${escape(procedure.siteId)}</span></p>` +
         `<p class="procedure-body">${escape(procedure.body)}</p>` +
-        `<div class="procedure-actions">` +
+        `<div class="item-actions">` +
         `<button type="button" data-procedure-edit="${escape(procedure.id)}">Edit</button>` +
         `<button type="button" data-procedure-delete="${escape(procedure.id)}">Delete</button>` +
+        `</div>` +
+        `</li>`,
+    )
+    .join("");
+}
+
+function renderTaskList(tasks) {
+  if (tasks.length === 0) {
+    return '<li class="empty-state">No local tasks yet. Add one here to start the desktop task port.</li>';
+  }
+
+  return tasks
+    .map(
+      (task) =>
+        `<li class="task-item">` +
+        `<div class="task-header">` +
+        `<h4>${escape(task.title)}</h4>` +
+        `<span class="task-badge task-badge-${escape(task.status)}">${escape(task.status)}</span>` +
+        `</div>` +
+        `<p class="task-meta">#${escape(task.slug)}</p>` +
+        `<div class="item-actions">` +
+        `<button type="button" data-task-edit="${escape(task.id)}">Edit</button>` +
+        `<button type="button" data-task-delete="${escape(task.id)}">Delete</button>` +
         `</div>` +
         `</li>`,
     )
@@ -42,6 +65,7 @@ export function buildDesktopHealthHtml({
   aiConfigured = false,
   licenseStatus = "demo-trial",
   recoveryHealth = { history: [], cleanupRequired: false, cleanup: [] },
+  tasks = [],
   procedures = [],
 }) {
   const latestRestore = recoveryHealth.history?.[0] ?? null;
@@ -66,126 +90,213 @@ export function buildDesktopHealthHtml({
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width">
-    <title>FarmOps Desktop Health</title>
+    <title>FarmOps Desktop</title>
     <style>
       :root { font-family: system-ui; color: #183126; background: #f3f6f2; }
       body { margin: 0; }
       header { background: #244d37; color: white; padding: 24px 32px; }
       main { max-width: 1100px; margin: auto; padding: 24px; }
+      .topbar { display: flex; justify-content: space-between; gap: 16px; align-items: center; flex-wrap: wrap; }
+      .screen-nav { display: flex; gap: 8px; flex-wrap: wrap; }
+      .screen-nav button[aria-current="page"] { background: #183126; color: white; border-color: #183126; }
+      .screen { margin-top: 18px; }
+      .screen[hidden] { display: none; }
+      .hero-card, .card { background: white; border: 1px solid #ccd8cf; border-radius: 12px; padding: 18px; }
+      .hero-card { display: flex; flex-direction: column; gap: 10px; }
+      .hero-actions, .item-actions { display: flex; gap: 8px; flex-wrap: wrap; }
       .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; }
-      .card { background: white; border: 1px solid #ccd8cf; border-radius: 12px; padding: 18px; }
+      .stack { display: flex; flex-direction: column; gap: 10px; }
       .ok { color: #176b3a; }
       .warn { color: #925f00; }
-      a { color: #145b37; }
       .value { font-weight: 700; word-break: break-word; }
-      button { padding: 9px 12px; }
-      .stack { display: flex; flex-direction: column; gap: 10px; }
-      .procedure-list { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
-      .procedure-item { border: 1px solid #dfe7e1; border-radius: 10px; padding: 12px; background: #f9fbf8; }
-      .procedure-item h4 { margin: 0 0 6px; }
-      .procedure-site { margin: 0 0 6px; font-size: 0.9rem; color: #365443; }
-      .procedure-body { margin: 0; white-space: pre-wrap; }
-      .procedure-empty { color: #5f6f65; }
       .muted { color: #5f6f65; font-size: 0.9rem; }
-      .procedure-form { display: grid; gap: 8px; }
-      .procedure-form input, .procedure-form textarea { width: 100%; box-sizing: border-box; padding: 9px 10px; border: 1px solid #ccd8cf; border-radius: 8px; font: inherit; }
-      .procedure-form textarea { min-height: 88px; resize: vertical; }
-      .procedure-actions { display: flex; gap: 8px; margin-top: 10px; }
+      .list { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+      .procedure-item, .task-item { border: 1px solid #dfe7e1; border-radius: 10px; padding: 12px; background: #f9fbf8; }
+      .procedure-item h4, .task-header h4 { margin: 0 0 6px; }
+      .procedure-site, .task-meta { margin: 0 0 6px; font-size: 0.9rem; color: #365443; }
+      .procedure-body { margin: 0; white-space: pre-wrap; }
+      .empty-state { color: #5f6f65; }
+      .editor-form { display: grid; gap: 8px; }
+      .editor-form input, .editor-form textarea, .editor-form select { width: 100%; box-sizing: border-box; padding: 9px 10px; border: 1px solid #ccd8cf; border-radius: 8px; font: inherit; }
+      .editor-form textarea { min-height: 88px; resize: vertical; }
+      button { padding: 9px 12px; }
+      .task-header { display: flex; justify-content: space-between; gap: 10px; align-items: center; }
+      .task-badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 999px; font-size: 0.75rem; text-transform: uppercase; border: 1px solid #ccd8cf; }
+      .task-badge-open { background: #eef7ef; color: #176b3a; }
+      .task-badge-blocked { background: #fff3e0; color: #925f00; }
+      .task-badge-done { background: #eceff3; color: #4b5563; }
+      a { color: #145b37; }
     </style>
   </head>
   <body>
     <header>
-      <h1>FarmOps Desktop</h1>
-      <p>Offline health and setup</p>
+      <div class="topbar">
+        <div>
+          <h1>FarmOps Desktop</h1>
+          <p>Standalone local app powered by the desktop SQLite profile</p>
+        </div>
+        <nav class="screen-nav" aria-label="Desktop screens">
+          <button type="button" data-screen-target="tasks">Tasks</button>
+          <button type="button" data-screen-target="procedures">Procedures</button>
+          <button type="button" data-screen-target="setup">Setup &amp; recovery</button>
+        </nav>
+      </div>
     </header>
     <main>
-      <h2 class="${warnings.length ? "warn" : "ok"}">${status}</h2>
+      <section id="screen-tasks" class="screen" data-screen="tasks">
+        <article class="hero-card">
+          <div>
+            <h2>Tasks</h2>
+            <p class="muted">First standalone task slice: local title, slug, and status live in the desktop SQLite profile and stay offline.</p>
+          </div>
+          <div class="hero-actions">
+            <button type="button" data-screen-target="procedures">Open procedures</button>
+            <button type="button" data-screen-target="setup">Open setup &amp; recovery</button>
+          </div>
+        </article>
 
-      <section class="grid">
-        <article class="card">
-          <h3>Profile</h3>
-          <p class="value">${escape(profileType)}</p>
-          <p>Database schema ${escape(schemaVersion)}</p>
-          <p>${escape(databasePath)}</p>
-        </article>
-        <article class="card">
-          <h3>Application</h3>
-          <p>Version <span class="value">${escape(appVersion)}</span></p>
-          <p>License: <span class="value">${escape(licenseStatus)}</span></p>
-          <a href="#subscription">Subscription &amp; modules</a>
-        </article>
-        <article class="card">
-          <h3>Configuration health</h3>
-          ${warnings.length
-            ? `<ul>${warnings.map((item) => `<li>⚠ <a href="${item.target}">${escape(item.label)}</a></li>`).join("")}</ul>`
-            : '<p class="ok">✓ Required setup is ready</p>'}
-        </article>
+        <section class="screen" style="margin-top:16px">
+          <article class="card stack" id="tasks">
+            <div>
+              <h3>Local tasks</h3>
+              <p class="muted">This mirrors the core app's basic task shape: slug, title, and status. Scheduling and Today integration can layer on later.</p>
+            </div>
+            <div>
+              <form id="create-task-form" class="editor-form">
+                <input id="task-id" name="id" type="hidden">
+                <input id="task-title" name="title" type="text" maxlength="160" placeholder="Task title" aria-label="Task title">
+                <select id="task-status" name="status" aria-label="Task status">
+                  <option value="open">Open</option>
+                  <option value="blocked">Blocked</option>
+                  <option value="done">Done</option>
+                </select>
+                <button id="create-task" type="submit">Add local task</button>
+                <button id="cancel-task-edit" type="button" hidden>Cancel edit</button>
+              </form>
+            </div>
+            <div>
+              <button id="refresh-tasks" type="button">Refresh local tasks</button>
+              <p id="tasks-result" aria-live="polite">Loaded ${tasks.length} local task${tasks.length === 1 ? "" : "s"}.</p>
+            </div>
+            <ul id="tasks-list" class="list">${renderTaskList(tasks)}</ul>
+          </article>
+        </section>
       </section>
 
-      <section class="grid" style="margin-top:16px">
-        <article class="card stack" id="procedures">
+      <section id="screen-procedures" class="screen" data-screen="procedures" hidden>
+        <article class="hero-card">
           <div>
-            <h3>Local procedures</h3>
-            <p class="muted">Read directly from the standalone SQLite profile. This stays available without any web app or Supabase runtime.</p>
+            <h2>Procedures</h2>
+            <p class="muted">This is a dedicated standalone desktop screen backed directly by the local SQLite profile. No web app or Supabase service is involved.</p>
           </div>
+          <div class="hero-actions">
+            <button type="button" data-screen-target="tasks">Open tasks</button>
+            <button type="button" data-screen-target="setup">Open setup &amp; recovery</button>
+          </div>
+        </article>
+
+        <section class="screen" style="margin-top:16px">
+          <article class="card stack" id="procedures">
+            <div>
+              <h3>Local procedures</h3>
+              <p class="muted">Read directly from the standalone SQLite profile. This stays available without any web app or Supabase runtime.</p>
+            </div>
+            <div>
+              <form id="create-procedure-form" class="editor-form">
+                <input id="procedure-id" name="id" type="hidden">
+                <input id="procedure-title" name="title" type="text" maxlength="160" placeholder="Procedure title" aria-label="Procedure title">
+                <textarea id="procedure-body" name="body" placeholder="Procedure steps or notes" aria-label="Procedure body"></textarea>
+                <button id="create-procedure" type="submit">Add local procedure</button>
+                <button id="cancel-procedure-edit" type="button" hidden>Cancel edit</button>
+              </form>
+            </div>
+            <div>
+              <button id="refresh-procedures" type="button">Refresh local procedures</button>
+              <p id="procedures-result" aria-live="polite">Loaded ${procedures.length} local procedure${procedures.length === 1 ? "" : "s"}.</p>
+            </div>
+            <ul id="procedures-list" class="list">${renderProcedureList(procedures)}</ul>
+          </article>
+        </section>
+      </section>
+
+      <section id="screen-setup" class="screen" data-screen="setup" hidden>
+        <article class="hero-card">
           <div>
-            <form id="create-procedure-form" class="procedure-form">
-              <input id="procedure-id" name="id" type="hidden">
-              <input id="procedure-title" name="title" type="text" maxlength="160" placeholder="Procedure title" aria-label="Procedure title">
-              <textarea id="procedure-body" name="body" placeholder="Procedure steps or notes" aria-label="Procedure body"></textarea>
-              <button id="create-procedure" type="submit">Add local procedure</button>
-              <button id="cancel-procedure-edit" type="button" hidden>Cancel edit</button>
-            </form>
+            <h2 class="${warnings.length ? "warn" : "ok"}">${status}</h2>
+            <p class="muted">Configuration, backups, restore verification, rollback cleanup, and desktop safety controls stay here.</p>
           </div>
-          <div>
-            <button id="refresh-procedures" type="button">Refresh local procedures</button>
-            <p id="procedures-result" aria-live="polite">Loaded ${procedures.length} local procedure${procedures.length === 1 ? "" : "s"}.</p>
+          <div class="hero-actions">
+            <button type="button" data-screen-target="tasks">Open tasks</button>
+            <button type="button" data-screen-target="procedures">Open procedures</button>
           </div>
-          <ul id="procedures-list" class="procedure-list">${renderProcedureList(procedures)}</ul>
         </article>
 
-        <article class="card" id="config-backup">
-          <h3>Backup</h3>
-          <p>${backupConfigured ? "Configured" : "Choose a local, mounted file-server, OneDrive, or Google Drive synchronized folder."}</p>
-          <button id="select-backup" type="button">Select backup destination</button>
-          <button id="backup-now" type="button">Back up now</button>
-          <button id="restore-preview" type="button">Select and verify backup</button>
-          <button id="restore-confirm" type="button" disabled>Restore verified backup</button>
-          <button id="retention-preview" type="button">Review old backups</button>
-          <button id="retention-apply" type="button" disabled>Remove reviewed backups</button>
-          <button id="schedule-enable" type="button">Enable daily backup</button>
-          <button id="schedule-disable" type="button">Disable schedule</button>
-          <p id="backup-result" aria-live="polite"></p>
-        </article>
+        <section class="grid" style="margin-top:16px">
+          <article class="card">
+            <h3>Profile</h3>
+            <p class="value">${escape(profileType)}</p>
+            <p>Database schema ${escape(schemaVersion)}</p>
+            <p>${escape(databasePath)}</p>
+          </article>
+          <article class="card">
+            <h3>Application</h3>
+            <p>Version <span class="value">${escape(appVersion)}</span></p>
+            <p>License: <span class="value">${escape(licenseStatus)}</span></p>
+            <a href="#subscription">Subscription &amp; modules</a>
+          </article>
+          <article class="card">
+            <h3>Configuration health</h3>
+            ${warnings.length
+              ? `<ul>${warnings.map((item) => `<li>⚠ <a href="${item.target}">${escape(item.label)}</a></li>`).join("")}</ul>`
+              : '<p class="ok">✓ Required setup is ready</p>'}
+          </article>
+        </section>
 
-        <article class="card" id="recovery">
-          <h3>Recovery history</h3>
-          ${recoveryHealth.cleanupRequired
-            ? `<p class="warn">⚠ ${escape(recoveryHealth.cleanup.length)} rollback folder(s) require cleanup.</p>`
-            : ""}
-          ${latestRestore
-            ? `<p>Latest restore: <strong>${escape(latestRestore.status)}</strong></p><p>${escape(latestRestore.recordedAt)}</p>`
-            : "<p>No restore attempts recorded.</p>"}
-          ${recoveryHealth.cleanupRequired
-            ? '<button id="cleanup-rollbacks" type="button">Remove rollback data</button><p id="recovery-result" aria-live="polite"></p>'
-            : ""}
-        </article>
+        <section class="grid" style="margin-top:16px">
+          <article class="card" id="config-backup">
+            <h3>Backup</h3>
+            <p>${backupConfigured ? "Configured" : "Choose a local, mounted file-server, OneDrive, or Google Drive synchronized folder."}</p>
+            <button id="select-backup" type="button">Select backup destination</button>
+            <button id="backup-now" type="button">Back up now</button>
+            <button id="restore-preview" type="button">Select and verify backup</button>
+            <button id="restore-confirm" type="button" disabled>Restore verified backup</button>
+            <button id="retention-preview" type="button">Review old backups</button>
+            <button id="retention-apply" type="button" disabled>Remove reviewed backups</button>
+            <button id="schedule-enable" type="button">Enable daily backup</button>
+            <button id="schedule-disable" type="button">Disable schedule</button>
+            <p id="backup-result" aria-live="polite"></p>
+          </article>
 
-        <article class="card" id="config-ai">
-          <h3>AI provider</h3>
-          <p>${aiConfigured ? "Configured" : "AI is optional. Configure BYOK, Ollama/local, or leave AI disabled."}</p>
-          <button type="button">Configure AI</button>
-        </article>
+          <article class="card" id="recovery">
+            <h3>Recovery history</h3>
+            ${recoveryHealth.cleanupRequired
+              ? `<p class="warn">⚠ ${escape(recoveryHealth.cleanup.length)} rollback folder(s) require cleanup.</p>`
+              : ""}
+            ${latestRestore
+              ? `<p>Latest restore: <strong>${escape(latestRestore.status)}</strong></p><p>${escape(latestRestore.recordedAt)}</p>`
+              : "<p>No restore attempts recorded.</p>"}
+            ${recoveryHealth.cleanupRequired
+              ? '<button id="cleanup-rollbacks" type="button">Remove rollback data</button><p id="recovery-result" aria-live="polite"></p>'
+              : ""}
+          </article>
 
-        <article class="card" id="subscription">
-          <h3>Subscription &amp; modules</h3>
-          <p>Procedures: <strong>Free for life</strong></p>
-          <p>Paid modules remain visible and retain their data when locked.</p>
-        </article>
+          <article class="card" id="config-ai">
+            <h3>AI provider</h3>
+            <p>${aiConfigured ? "Configured" : "AI is optional. Configure BYOK, Ollama/local, or leave AI disabled."}</p>
+            <button type="button">Configure AI</button>
+          </article>
+
+          <article class="card" id="subscription">
+            <h3>Subscription &amp; modules</h3>
+            <p>Procedures: <strong>Free for life</strong></p>
+            <p>Paid modules remain visible and retain their data when locked.</p>
+          </article>
+        </section>
       </section>
     </main>
 
     <script>
+      const initialTasks = ${inlineJson(tasks)};
       const initialProcedures = ${inlineJson(procedures)};
 
       function escapeHtml(value) {
@@ -198,13 +309,57 @@ export function buildDesktopHealthHtml({
         })[char]);
       }
 
+      function showScreen(screen) {
+        document.querySelectorAll('[data-screen]').forEach((element) => {
+          element.hidden = element.getAttribute('data-screen') !== screen;
+        });
+        document.querySelectorAll('[data-screen-target]').forEach((button) => {
+          const active = button.getAttribute('data-screen-target') === screen;
+          button.setAttribute('aria-current', active ? 'page' : 'false');
+        });
+      }
+
+      function renderTasks(tasks) {
+        const list = document.getElementById('tasks-list');
+        const result = document.getElementById('tasks-result');
+        if (!list || !result) return;
+
+        if (!tasks.length) {
+          list.innerHTML = '<li class="empty-state">No local tasks yet. Add one here to start the desktop task port.</li>';
+        } else {
+          list.innerHTML = tasks
+            .map((task) =>
+              '<li class="task-item">' +
+              '<div class="task-header">' +
+              '<h4>' + escapeHtml(task.title) + '</h4>' +
+              '<span class="task-badge task-badge-' + escapeHtml(task.status) + '">' + escapeHtml(task.status) + '</span>' +
+              '</div>' +
+              '<p class="task-meta">#' + escapeHtml(task.slug) + '</p>' +
+              '<div class="item-actions">' +
+              '<button type="button" data-task-edit="' + escapeHtml(task.id) + '">Edit</button>' +
+              '<button type="button" data-task-delete="' + escapeHtml(task.id) + '">Delete</button>' +
+              '</div>' +
+              '</li>'
+            )
+            .join('');
+        }
+
+        result.textContent = 'Loaded ' + tasks.length + ' local task' + (tasks.length === 1 ? '' : 's') + '.';
+        list.querySelectorAll('[data-task-edit]').forEach((button) => {
+          button.addEventListener('click', () => beginTaskEdit(button.getAttribute('data-task-edit')));
+        });
+        list.querySelectorAll('[data-task-delete]').forEach((button) => {
+          button.addEventListener('click', () => removeTask(button.getAttribute('data-task-delete')));
+        });
+      }
+
       function renderProcedures(procedures) {
-        const list = document.getElementById("procedures-list");
-        const result = document.getElementById("procedures-result");
+        const list = document.getElementById('procedures-list');
+        const result = document.getElementById('procedures-result');
         if (!list || !result) return;
 
         if (!procedures.length) {
-          list.innerHTML = '<li class="procedure-empty">No local procedures yet. Seed one in Demo or add import/create flows next.</li>';
+          list.innerHTML = '<li class="empty-state">No local procedures yet. Seed one in Demo or add import/create flows next.</li>';
         } else {
           list.innerHTML = procedures
             .map((procedure) =>
@@ -212,234 +367,315 @@ export function buildDesktopHealthHtml({
               '<h4>' + escapeHtml(procedure.title) + '</h4>' +
               '<p class="procedure-site">Site: <span class="value">' + escapeHtml(procedure.siteId) + '</span></p>' +
               '<p class="procedure-body">' + escapeHtml(procedure.body) + '</p>' +
+              '<div class="item-actions">' +
+              '<button type="button" data-procedure-edit="' + escapeHtml(procedure.id) + '">Edit</button>' +
+              '<button type="button" data-procedure-delete="' + escapeHtml(procedure.id) + '">Delete</button>' +
+              '</div>' +
               '</li>'
             )
-            .join("");
+            .join('');
         }
 
-        result.textContent =
-          "Loaded " + procedures.length + " local procedure" + (procedures.length === 1 ? "" : "s") + ".";
+        result.textContent = 'Loaded ' + procedures.length + ' local procedure' + (procedures.length === 1 ? '' : 's') + '.';
+        list.querySelectorAll('[data-procedure-edit]').forEach((button) => {
+          button.addEventListener('click', () => beginProcedureEdit(button.getAttribute('data-procedure-edit')));
+        });
+        list.querySelectorAll('[data-procedure-delete]').forEach((button) => {
+          button.addEventListener('click', () => removeProcedure(button.getAttribute('data-procedure-delete')));
+        });
+      }
 
-        list.querySelectorAll("[data-procedure-edit]").forEach((button) => {
-          button.addEventListener("click", () => beginEdit(button.getAttribute("data-procedure-edit")));
-        });
-        list.querySelectorAll("[data-procedure-delete]").forEach((button) => {
-          button.addEventListener("click", () => removeProcedure(button.getAttribute("data-procedure-delete")));
-        });
+      function resetTaskForm() {
+        document.getElementById('task-id').value = '';
+        document.getElementById('task-title').value = '';
+        document.getElementById('task-status').value = 'open';
+        document.getElementById('create-task').textContent = 'Add local task';
+        document.getElementById('cancel-task-edit').hidden = true;
       }
 
       function resetProcedureForm() {
-        document.getElementById("procedure-id").value = "";
-        document.getElementById("procedure-title").value = "";
-        document.getElementById("procedure-body").value = "";
-        document.getElementById("create-procedure").textContent = "Add local procedure";
-        document.getElementById("cancel-procedure-edit").hidden = true;
+        document.getElementById('procedure-id').value = '';
+        document.getElementById('procedure-title').value = '';
+        document.getElementById('procedure-body').value = '';
+        document.getElementById('create-procedure').textContent = 'Add local procedure';
+        document.getElementById('cancel-procedure-edit').hidden = true;
       }
 
-      function beginEdit(id) {
+      function beginTaskEdit(id) {
+        const item = currentTasks.find((task) => task.id === id);
+        if (!item) return;
+        document.getElementById('task-id').value = item.id;
+        document.getElementById('task-title').value = item.title;
+        document.getElementById('task-status').value = item.status;
+        document.getElementById('create-task').textContent = 'Save task';
+        document.getElementById('cancel-task-edit').hidden = false;
+      }
+
+      function beginProcedureEdit(id) {
         const item = currentProcedures.find((procedure) => procedure.id === id);
         if (!item) return;
-        document.getElementById("procedure-id").value = item.id;
-        document.getElementById("procedure-title").value = item.title;
-        document.getElementById("procedure-body").value = item.body;
-        document.getElementById("create-procedure").textContent = "Save procedure";
-        document.getElementById("cancel-procedure-edit").hidden = false;
+        document.getElementById('procedure-id').value = item.id;
+        document.getElementById('procedure-title').value = item.title;
+        document.getElementById('procedure-body').value = item.body;
+        document.getElementById('create-procedure').textContent = 'Save procedure';
+        document.getElementById('cancel-procedure-edit').hidden = false;
+      }
+
+      async function removeTask(id) {
+        const result = document.getElementById('tasks-result');
+        if (!window.farmopsDesktop?.deleteTask) {
+          result.textContent = 'Desktop task service is unavailable.';
+          return;
+        }
+        result.textContent = 'Removing local task…';
+        try {
+          const payload = await window.farmopsDesktop.deleteTask({ id });
+          currentTasks = payload?.tasks ?? [];
+          renderTasks(currentTasks);
+          resetTaskForm();
+          result.textContent = 'Local task removed.';
+        } catch (error) {
+          result.textContent = error instanceof Error ? error.message : 'Task delete failed.';
+        }
       }
 
       async function removeProcedure(id) {
-        const result = document.getElementById("procedures-result");
+        const result = document.getElementById('procedures-result');
         if (!window.farmopsDesktop?.deleteProcedure) {
-          result.textContent = "Desktop procedures service is unavailable.";
+          result.textContent = 'Desktop procedures service is unavailable.';
           return;
         }
-
-        result.textContent = "Removing local procedure…";
+        result.textContent = 'Removing local procedure…';
         try {
           const payload = await window.farmopsDesktop.deleteProcedure({ id });
           currentProcedures = payload?.procedures ?? [];
           renderProcedures(currentProcedures);
           resetProcedureForm();
-          result.textContent = "Local procedure removed.";
+          result.textContent = 'Local procedure removed.';
         } catch (error) {
-          result.textContent = error instanceof Error ? error.message : "Procedure delete failed.";
+          result.textContent = error instanceof Error ? error.message : 'Procedure delete failed.';
         }
       }
 
+      let currentTasks = initialTasks;
       let currentProcedures = initialProcedures;
 
+      document.querySelectorAll('[data-screen-target]').forEach((button) => {
+        button.addEventListener('click', () => showScreen(button.getAttribute('data-screen-target')));
+      });
+
+      showScreen('tasks');
+      renderTasks(currentTasks);
       renderProcedures(currentProcedures);
 
-      document.getElementById("create-procedure-form").addEventListener("submit", async (event) => {
+      document.getElementById('create-task-form').addEventListener('submit', async (event) => {
         event.preventDefault();
-        const result = document.getElementById("procedures-result");
-        const id = document.getElementById("procedure-id");
-        const title = document.getElementById("procedure-title");
-        const body = document.getElementById("procedure-body");
+        const result = document.getElementById('tasks-result');
+        const id = document.getElementById('task-id');
+        const title = document.getElementById('task-title');
+        const status = document.getElementById('task-status');
+        const isEditing = Boolean(id.value);
+        const action = isEditing ? window.farmopsDesktop?.updateTask : window.farmopsDesktop?.createTask;
+        if (!action) {
+          result.textContent = 'Desktop task service is unavailable.';
+          return;
+        }
+        result.textContent = isEditing ? 'Saving local task changes…' : 'Saving local task…';
+        try {
+          const payload = await action({ id: id.value, title: title.value, status: status.value });
+          currentTasks = payload?.tasks ?? [];
+          renderTasks(currentTasks);
+          resetTaskForm();
+          result.textContent = isEditing ? 'Local task updated.' : 'Local task saved.';
+        } catch (error) {
+          result.textContent = error instanceof Error ? error.message : 'Task save failed.';
+        }
+      });
+
+      document.getElementById('cancel-task-edit').addEventListener('click', () => {
+        resetTaskForm();
+        document.getElementById('tasks-result').textContent =
+          'Loaded ' + currentTasks.length + ' local task' + (currentTasks.length === 1 ? '' : 's') + '.';
+      });
+
+      document.getElementById('refresh-tasks').addEventListener('click', async () => {
+        const result = document.getElementById('tasks-result');
+        if (!window.farmopsDesktop?.listTasks) {
+          result.textContent = 'Desktop task service is unavailable.';
+          return;
+        }
+        result.textContent = 'Refreshing local tasks…';
+        const payload = await window.farmopsDesktop.listTasks();
+        currentTasks = payload?.tasks ?? [];
+        renderTasks(currentTasks);
+        resetTaskForm();
+      });
+
+      document.getElementById('create-procedure-form').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const result = document.getElementById('procedures-result');
+        const id = document.getElementById('procedure-id');
+        const title = document.getElementById('procedure-title');
+        const body = document.getElementById('procedure-body');
         const isEditing = Boolean(id.value);
         const action = isEditing ? window.farmopsDesktop?.updateProcedure : window.farmopsDesktop?.createProcedure;
         if (!action) {
-          result.textContent = "Desktop procedures service is unavailable.";
+          result.textContent = 'Desktop procedures service is unavailable.';
           return;
         }
-
-        result.textContent = isEditing ? "Saving local procedure changes…" : "Saving local procedure…";
+        result.textContent = isEditing ? 'Saving local procedure changes…' : 'Saving local procedure…';
         try {
-          const payload = await action({
-            id: id.value,
-            title: title.value,
-            body: body.value,
-          });
+          const payload = await action({ id: id.value, title: title.value, body: body.value });
           currentProcedures = payload?.procedures ?? [];
           renderProcedures(currentProcedures);
           resetProcedureForm();
-          result.textContent = isEditing ? "Local procedure updated." : "Local procedure saved.";
+          result.textContent = isEditing ? 'Local procedure updated.' : 'Local procedure saved.';
         } catch (error) {
-          result.textContent = error instanceof Error ? error.message : "Procedure save failed.";
+          result.textContent = error instanceof Error ? error.message : 'Procedure save failed.';
         }
       });
 
-      document.getElementById("cancel-procedure-edit").addEventListener("click", () => {
+      document.getElementById('cancel-procedure-edit').addEventListener('click', () => {
         resetProcedureForm();
-        document.getElementById("procedures-result").textContent =
-          "Loaded " + currentProcedures.length + " local procedure" + (currentProcedures.length === 1 ? "" : "s") + ".";
+        document.getElementById('procedures-result').textContent =
+          'Loaded ' + currentProcedures.length + ' local procedure' + (currentProcedures.length === 1 ? '' : 's') + '.';
       });
 
-      document.getElementById("refresh-procedures").addEventListener("click", async () => {
-        const result = document.getElementById("procedures-result");
+      document.getElementById('refresh-procedures').addEventListener('click', async () => {
+        const result = document.getElementById('procedures-result');
         if (!window.farmopsDesktop?.listProcedures) {
-          result.textContent = "Desktop procedures service is unavailable.";
+          result.textContent = 'Desktop procedures service is unavailable.';
           return;
         }
-
-        result.textContent = "Refreshing local procedures…";
+        result.textContent = 'Refreshing local procedures…';
         const payload = await window.farmopsDesktop.listProcedures();
         currentProcedures = payload?.procedures ?? [];
         renderProcedures(currentProcedures);
         resetProcedureForm();
       });
 
-      document.getElementById("select-backup").addEventListener("click", async () => {
-        const output = document.getElementById("backup-result");
+      document.getElementById('select-backup').addEventListener('click', async () => {
+        const output = document.getElementById('backup-result');
         if (!window.farmopsDesktop) {
-          output.textContent = "Desktop setup service is unavailable.";
+          output.textContent = 'Desktop setup service is unavailable.';
           return;
         }
-        output.textContent = "Checking destination…";
+        output.textContent = 'Checking destination…';
         const result = await window.farmopsDesktop.selectBackupDestination();
         if (result.configured) {
-          output.textContent = "✓ Backup destination ready: " + result.destination.directory;
+          output.textContent = '✓ Backup destination ready: ' + result.destination.directory;
         } else if (result.canceled) {
-          output.textContent = "No folder selected.";
+          output.textContent = 'No folder selected.';
         } else {
-          output.textContent = "⚠ " + result.error;
+          output.textContent = '⚠ ' + result.error;
         }
       });
 
-      document.getElementById("backup-now").addEventListener("click", async () => {
-        const output = document.getElementById("backup-result");
-        output.textContent = "Creating and verifying backup…";
+      document.getElementById('backup-now').addEventListener('click', async () => {
+        const output = document.getElementById('backup-result');
+        output.textContent = 'Creating and verifying backup…';
         const result = await window.farmopsDesktop?.backupNow();
         output.textContent = result?.ok
-          ? "✓ Verified backup: " + result.path + " (" + result.verification.valid + ")"
-          : "⚠ " + (result?.error ?? "Desktop backup service is unavailable.");
+          ? '✓ Verified backup: ' + result.path + ' (' + result.verification.valid + ')'
+          : '⚠ ' + (result?.error ?? 'Desktop backup service is unavailable.');
       });
 
-      document.getElementById("restore-preview").addEventListener("click", async () => {
-        const output = document.getElementById("backup-result");
-        output.textContent = "Reading and verifying backup…";
+      document.getElementById('restore-preview').addEventListener('click', async () => {
+        const output = document.getElementById('backup-result');
+        output.textContent = 'Reading and verifying backup…';
         const result = await window.farmopsDesktop?.selectRestorePreview();
-        const restoreButton = document.getElementById("restore-confirm");
+        const restoreButton = document.getElementById('restore-confirm');
         restoreButton.disabled = true;
         if (result?.canceled) {
-          output.textContent = "No backup selected.";
+          output.textContent = 'No backup selected.';
         } else if (result?.valid) {
           restoreButton.disabled = false;
           output.textContent =
-            "✓ Compatible backup from " +
+            '✓ Compatible backup from ' +
             result.createdAt +
-            "; schema " +
+            '; schema ' +
             result.schemaVersion +
-            "; " +
+            '; ' +
             result.fileCount +
-            " files. No data has been changed.";
+            ' files. No data has been changed.';
         } else {
-          output.textContent = "⚠ Backup cannot be restored: " + (result?.reason ?? "Desktop restore service is unavailable.");
+          output.textContent = '⚠ Backup cannot be restored: ' + (result?.reason ?? 'Desktop restore service is unavailable.');
         }
       });
 
-      document.getElementById("restore-confirm").addEventListener("click", async () => {
-        const output = document.getElementById("backup-result");
-        output.textContent = "Waiting for restore confirmation…";
+      document.getElementById('restore-confirm').addEventListener('click', async () => {
+        const output = document.getElementById('backup-result');
+        output.textContent = 'Waiting for restore confirmation…';
         const result = await window.farmopsDesktop?.confirmRestore();
         if (result?.canceled) {
-          output.textContent = "Restore canceled. No data was changed.";
+          output.textContent = 'Restore canceled. No data was changed.';
         } else if (!result?.ok) {
-          output.textContent = "⚠ Restore not started: " + (result?.reason ?? "Desktop restore service is unavailable.");
+          output.textContent = '⚠ Restore not started: ' + (result?.reason ?? 'Desktop restore service is unavailable.');
         }
       });
 
       ${recoveryHealth.cleanupRequired
-        ? `document.getElementById("cleanup-rollbacks").addEventListener("click", async () => {
-        const output = document.getElementById("recovery-result");
-        output.textContent = "Waiting for confirmation…";
+        ? `document.getElementById('cleanup-rollbacks').addEventListener('click', async () => {
+        const output = document.getElementById('recovery-result');
+        output.textContent = 'Waiting for confirmation…';
         const result = await window.farmopsDesktop?.cleanupRestoreRollbacks();
         if (result?.canceled) {
-          output.textContent = "Cleanup canceled.";
+          output.textContent = 'Cleanup canceled.';
         } else if (result?.ok) {
-          output.textContent = "✓ Removed " + result.removedCount + " rollback folder(s).";
-          document.getElementById("cleanup-rollbacks").disabled = true;
+          output.textContent = '✓ Removed ' + result.removedCount + ' rollback folder(s).';
+          document.getElementById('cleanup-rollbacks').disabled = true;
         } else {
-          output.textContent = "⚠ " + (result?.reason ?? "Rollback cleanup is unavailable.");
+          output.textContent = '⚠ ' + (result?.reason ?? 'Rollback cleanup is unavailable.');
         }
       });`
         : ""}
 
-      document.getElementById("retention-preview").addEventListener("click", async () => {
-        const output = document.getElementById("backup-result");
-        const apply = document.getElementById("retention-apply");
+      document.getElementById('retention-preview').addEventListener('click', async () => {
+        const output = document.getElementById('backup-result');
+        const apply = document.getElementById('retention-apply');
         apply.disabled = true;
-        output.textContent = "Checking verified backup history…";
+        output.textContent = 'Checking verified backup history…';
         const result = await window.farmopsDesktop?.previewBackupRetention();
         if (result?.ok) {
           apply.disabled = result.removableCount === 0;
           output.textContent =
-            "Keep " +
+            'Keep ' +
             result.protectedCount +
-            " verified backup(s); " +
+            ' verified backup(s); ' +
             result.removableCount +
-            " old backup(s) eligible; " +
+            ' old backup(s) eligible; ' +
             result.invalidCount +
-            " invalid archive(s) preserved.";
+            ' invalid archive(s) preserved.';
         } else {
-          output.textContent = "⚠ " + (result?.reason ?? "Retention preview is unavailable.");
+          output.textContent = '⚠ ' + (result?.reason ?? 'Retention preview is unavailable.');
         }
       });
 
-      document.getElementById("retention-apply").addEventListener("click", async () => {
-        const output = document.getElementById("backup-result");
-        output.textContent = "Waiting for confirmation…";
+      document.getElementById('retention-apply').addEventListener('click', async () => {
+        const output = document.getElementById('backup-result');
+        output.textContent = 'Waiting for confirmation…';
         const result = await window.farmopsDesktop?.applyBackupRetention();
         if (result?.canceled) {
-          output.textContent = "Retention canceled. No backups were removed.";
+          output.textContent = 'Retention canceled. No backups were removed.';
         } else if (result?.ok) {
-          output.textContent = "✓ Removed " + result.removedCount + " reviewed backup(s).";
-          document.getElementById("retention-apply").disabled = true;
+          output.textContent = '✓ Removed ' + result.removedCount + ' reviewed backup(s).';
+          document.getElementById('retention-apply').disabled = true;
         } else {
-          output.textContent = "⚠ " + (result?.reason ?? "Backup retention failed.");
+          output.textContent = '⚠ ' + (result?.reason ?? 'Backup retention failed.');
         }
       });
 
       async function setSchedule(enabled) {
-        const output = document.getElementById("backup-result");
-        output.textContent = enabled ? "Enabling daily verified backups…" : "Disabling automatic backups…";
+        const output = document.getElementById('backup-result');
+        output.textContent = enabled ? 'Enabling daily verified backups…' : 'Disabling automatic backups…';
         const result = await window.farmopsDesktop?.setBackupScheduleEnabled(enabled);
         output.textContent = result?.ok
-          ? (result.schedule.enabled ? "✓ Daily automatic backups enabled." : "Automatic backups disabled.")
-          : "⚠ " + (result?.reason ?? "Schedule service unavailable.");
+          ? (result.schedule.enabled ? '✓ Daily automatic backups enabled.' : 'Automatic backups disabled.')
+          : '⚠ ' + (result?.reason ?? 'Schedule service unavailable.');
       }
 
-      document.getElementById("schedule-enable").addEventListener("click", () => setSchedule(true));
-      document.getElementById("schedule-disable").addEventListener("click", () => setSchedule(false));
+      document.getElementById('schedule-enable').addEventListener('click', () => setSchedule(true));
+      document.getElementById('schedule-disable').addEventListener('click', () => setSchedule(false));
     </script>
   </body>
 </html>`;

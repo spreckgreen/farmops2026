@@ -8,10 +8,14 @@ import { configureBackupFolder } from "./backup-folder-setup.mjs";
 import { buildDesktopHealthHtml } from "./health-screen.mjs";
 import {
   createProcedure,
+  createTask,
   deleteProcedure,
+  deleteTask,
   listProcedures,
+  listTasks,
   openProfileDatabase,
   updateProcedure,
+  updateTask,
   DESKTOP_SCHEMA_VERSION,
 } from "./local-storage.mjs";
 import {
@@ -92,6 +96,19 @@ function registerDesktopHandlers(userData, opened, profileType) {
   ipcMain.handle("farmops:create-procedure", (_event, input) => {
     const procedure = createProcedure(opened.db, profileType, input);
     return { procedure, procedures: listProcedures(opened.db) };
+  });
+  ipcMain.handle("farmops:list-tasks", () => ({ tasks: listTasks(opened.db) }));
+  ipcMain.handle("farmops:create-task", (_event, input) => {
+    const task = createTask(opened.db, input);
+    return { task, tasks: listTasks(opened.db) };
+  });
+  ipcMain.handle("farmops:update-task", (_event, input) => {
+    const task = updateTask(opened.db, input);
+    return { task, tasks: listTasks(opened.db) };
+  });
+  ipcMain.handle("farmops:delete-task", (_event, input) => {
+    const task = deleteTask(opened.db, input);
+    return { task, tasks: listTasks(opened.db) };
   });
   ipcMain.handle("farmops:update-procedure", (_event, input) => {
     const procedure = updateProcedure(opened.db, input);
@@ -344,6 +361,7 @@ function createWindow() {
           appVersion: app.getVersion(),
           recoveryHealth: getRecoveryHealth(userData),
           procedures: listProcedures(opened.db),
+          tasks: listTasks(opened.db),
         }),
       ),
   );

@@ -20,10 +20,76 @@ export function openProfileDatabase(userDataRoot, profileType) {
     PRAGMA foreign_keys=ON;
     CREATE TABLE IF NOT EXISTS app_metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS sites (id TEXT PRIMARY KEY, name TEXT NOT NULL, kind TEXT NOT NULL CHECK(kind IN ('live','demo','blank')));
-    CREATE TABLE IF NOT EXISTS procedures (id TEXT PRIMARY KEY, site_id TEXT NOT NULL REFERENCES sites(id) ON DELETE CASCADE, title TEXT NOT NULL, body TEXT NOT NULL);`);
+    CREATE TABLE IF NOT EXISTS procedures (id TEXT PRIMARY KEY, site_id TEXT NOT NULL REFERENCES sites(id) ON DELETE CASCADE, title TEXT NOT NULL, body TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS tasks (id TEXT PRIMARY KEY, slug TEXT NOT NULL UNIQUE, title TEXT NOT NULL, status TEXT NOT NULL CHECK(status IN ('open','blocked','done')), created_at TEXT NOT NULL);`);
   db.prepare("INSERT OR REPLACE INTO app_metadata(key,value) VALUES (?,?)").run("schema_version", String(DESKTOP_SCHEMA_VERSION));
   if (profileType === "demo") seedDemo(db);
   return { db, profile };
+}
+
+export function listTasks(db) {
+  return db
+    .prepare(
+      "SELECT id, slug, title, status, created_at AS createdAt FROM tasks ORDER BY created_at DESC, title COLLATE NOCASE ASC",
+    )
+    .all()
+    .map((row) => ({
+      id: row.id,
+      slug: row.slug,
+      title: row.title,
+      status: row.status,
+      createdAt: row.createdAt,
+    }));
+}
+
+export function createTask(db, input) {
+  const title = String(input?.title ?? "").trim();
+  if (!title) throw new Error("Task title is required");
+  const status = normalizeTaskStatus(input?.status);
+  const slug = allocateTaskSlug(db, title);
+  const task = {
+    id: `task-${crypto.randomUUID()}`,
+    slug,
+    title,
+    status,
+    createdAt: new Date().toISOString(),
+  };
+  db.prepare("INSERT INTO tasks(id, slug, title, status, created_at) VALUES (?,?,?,?,?)").run(
+    task.id,
+    task.slug,
+    task.title,
+    task.status,
+    task.createdAt,
+  );
+  return task;
+}
+
+export function updateTask(db, input) {
+  const id = String(input?.id ?? "").trim();
+  if (!id) throw new Error("Task id is required");
+  const existing = db.prepare("SELECT id, slug, created_at AS createdAt FROM tasks WHERE id = ?").get(id);
+  if (!existing) throw new Error("Task not found");
+
+  const title = String(input?.title ?? "").trim();
+  if (!title) throw new Error("Task title is required");
+  const status = normalizeTaskStatus(input?.status);
+  db.prepare("UPDATE tasks SET title = ?, status = ? WHERE id = ?").run(title, status, id);
+  return {
+    id,
+    slug: existing.slug,
+    title,
+    status,
+    createdAt: existing.createdAt,
+  };
+}
+
+export function deleteTask(db, input) {
+  const id = String(input?.id ?? "").trim();
+  if (!id) throw new Error("Task id is required");
+  const existing = db.prepare("SELECT id FROM tasks WHERE id = ?").get(id);
+  if (!existing) throw new Error("Task not found");
+  db.prepare("DELETE FROM tasks WHERE id = ?").run(id);
+  return { id };
 }
 
 export function listProcedures(db) {
@@ -101,6 +167,26 @@ function ensurePrimarySite(db, profileType) {
   return fallback.id;
 }
 
+function normalizeTaskStatus(value) {
+  return value === "blocked" || value === "done" ? value : "open";
+}
+
+function allocateTaskSlug(db, title) {
+  const base =
+    title
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 48) || `task-${crypto.randomUUID().slice(0, 8)}`;
+  let slug = base;
+  let suffix = 2;
+  while (db.prepare("SELECT 1 FROM tasks WHERE slug = ?").get(slug)) {
+    slug = `${base}-${suffix}`;
+    suffix += 1;
+  }
+  return slug;
+}
+
 function seedDemo(db) {
   const current = db.prepare("SELECT value FROM app_metadata WHERE key=?").get("demo_seed_version");
   if (current?.value === String(DEMO_SEED_VERSION)) return;
@@ -108,6 +194,7 @@ function seedDemo(db) {
   try {
     db.prepare("INSERT OR REPLACE INTO sites(id,name,kind) VALUES (?,?,?)").run(DEMO_SITE.id, DEMO_SITE.name, DEMO_SITE.kind);
     db.prepare("INSERT OR REPLACE INTO procedures(id,site_id,title,body) VALUES (?,?,?,?)").run("demo-procedure-well-check", DEMO_SITE.id, "Weekly well-system check", "Inspect pressure, leaks, and pump status; record findings.");
+    db.prepare("INSERT OR REPLACE INTO tasks(id,slug,title,status,created_at) VALUES (?,?,?,?,?)").run("demo-task-well-check", "weekly-well-check", "Weekly well-system check", "open", "2026-09-14T12:00:00.000Z");
     db.prepare("INSERT OR REPLACE INTO app_metadata(key,value) VALUES (?,?)").run("demo_seed_version", String(DEMO_SEED_VERSION));
     db.exec("COMMIT");
   } catch (error) { db.exec("ROLLBACK"); throw error; }
