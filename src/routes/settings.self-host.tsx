@@ -1,9 +1,16 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useMutation } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { AppLayout } from "@/components/app-layout";
 import { requireAuthenticatedUser } from "@/lib/auth-route";
 import { useSelfHostConfig } from "@/hooks/use-self-host-config";
+import {
+  runCloudSyncedReseedDryRun,
+  runReseedReadinessCheck,
+} from "@/lib/self-host.functions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { SmtpConfigCard } from "@/components/smtp-config-card";
 import {
   AlertTriangle,
@@ -13,6 +20,8 @@ import {
   Sparkles,
   Webhook,
   ExternalLink,
+  RefreshCw,
+  Route as RouteIcon,
 } from "lucide-react";
 
 
@@ -57,6 +66,10 @@ function Row({
 function SelfHostSettingsPage() {
   const q = useSelfHostConfig();
   const cfg = q.data;
+  const runReadinessCheck = useServerFn(runReseedReadinessCheck);
+  const runReseedDryRun = useServerFn(runCloudSyncedReseedDryRun);
+  const readinessCheck = useMutation({ mutationFn: () => runReadinessCheck() });
+  const reseedDryRun = useMutation({ mutationFn: () => runReseedDryRun() });
 
   return (
     <AppLayout>
@@ -114,6 +127,137 @@ function SelfHostSettingsPage() {
                     </div>
                   </>
                 )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <RefreshCw className="h-4 w-4" />
+                  Hosting model and migration posture
+                  <Badge variant="secondary" className="ml-2">
+                    {cfg.hostingModelLabel}
+                  </Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2 text-sm">
+                <p className="text-muted-foreground">
+                  FarmOps supports isolated self-host, cloud-only, and cloud-synced deployment models. This instance reports its current mode here so operators can reason about backup, migration, and sync behavior.
+                </p>
+                <Row label="Hosting mode" value={cfg.hostingModelLabel} ok={true} />
+                <Row
+                  label="Pending divergence"
+                  value={cfg.pendingDivergence ? "reported" : "not reported"}
+                  ok={!cfg.pendingDivergence}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Use <Link to="/admin/export" className="underline">Export snapshot</Link> for portability and backup, and <Link to="/admin/restore" className="underline">Restore backup</Link> for dry-run migration review. Replace restores into cloud-synced targets are intentionally blocked in the current safety model.
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <RouteIcon className="h-4 w-4" />
+                  Cloud-synced reseed workflow
+                  <Badge variant={cfg.reseedWorkflowAvailable ? "secondary" : "outline"} className="ml-2">
+                    {cfg.reseedWorkflowAvailable ? "Available" : "Planned"}
+                  </Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2 text-sm">
+                <p className="text-muted-foreground">{cfg.reseedWorkflowHint}</p>
+                <div className="rounded-md border bg-muted/30 p-3 space-y-2 text-xs">
+                  <div className="font-medium flex items-center gap-2">
+                    Reseed readiness
+                    <Badge variant={cfg.reseedReadiness.ready ? "secondary" : "outline"}>
+                      {cfg.reseedReadiness.ready ? "Ready" : "Blocked"}
+                    </Badge>
+                  </div>
+                  <ul className="space-y-2">
+                    {cfg.reseedReadiness.checks.map((check) => (
+                      <li key={check.key} className="space-y-0.5">
+                        <div className="flex items-center gap-2">
+                          {check.ok ? (
+                            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                          ) : (
+                            <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
+                          )}
+                          <span className="font-medium">{check.label}</span>
+                        </div>
+                        <div className="pl-5 text-muted-foreground">{check.detail}</div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => readinessCheck.mutate()}
+                    disabled={readinessCheck.isPending}
+                  >
+                    {readinessCheck.isPending ? "Running readiness check…" : "Run reseed readiness check"}
+                  </Button>
+                  {readinessCheck.data && (
+                    <span className="text-xs text-muted-foreground">
+                      {readinessCheck.data.summary} Checked {new Date(readinessCheck.data.checkedAt).toLocaleString()}.
+                    </span>
+                  )}
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => reseedDryRun.mutate()}
+                    disabled={reseedDryRun.isPending}
+                  >
+                    {reseedDryRun.isPending ? "Running reseed dry-run…" : "Run cloud-synced reseed dry-run"}
+                  </Button>
+                </div>
+                {reseedDryRun.data && (
+                  <div className="rounded-md border bg-muted/30 p-3 space-y-2 text-xs">
+                    <div className="font-medium">{reseedDryRun.data.summary}</div>
+                    <div className="text-muted-foreground">
+                      Checked {new Date(reseedDryRun.data.checkedAt).toLocaleString()}.
+                    </div>
+                    <div className="text-muted-foreground">
+                      Recommended path: {reseedDryRun.data.recommendedPath.replace(/-/g, " ")}.
+                    </div>
+                    {reseedDryRun.data.blockedReasons.length > 0 && (
+                      <ul className="space-y-1 text-muted-foreground">
+                        {reseedDryRun.data.blockedReasons.map((reason) => (
+                          <li key={reason}>Blocked by: {reason}</li>
+                        ))}
+                      </ul>
+                    )}
+                    <ul className="space-y-1 text-muted-foreground">
+                      {reseedDryRun.data.requiredArtifacts.map((artifact) => (
+                        <li key={artifact}>Need: {artifact}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  Use the dedicated cloud-synced reseed workflow for destructive reseed operations. Keep the generic restore wizard for routine backups and migration review.
+                </p>
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <Link to="/admin/reseed" className="inline-flex items-center gap-2 rounded-md border px-3 py-2 hover:bg-accent">
+                    Cloud-synced reseed
+                  </Link>
+                  <Link to="/admin/export" className="inline-flex items-center gap-2 rounded-md border px-3 py-2 hover:bg-accent">
+                    Export snapshot
+                  </Link>
+                  <Link to="/admin/restore" className="inline-flex items-center gap-2 rounded-md border px-3 py-2 hover:bg-accent">
+                    Review restore dry-run
+                  </Link>
+                  <Link to="/settings/troubleshooting" className="inline-flex items-center gap-2 rounded-md border px-3 py-2 hover:bg-accent">
+                    Troubleshooting
+                  </Link>
+                </div>
               </CardContent>
             </Card>
 

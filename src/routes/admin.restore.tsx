@@ -40,6 +40,17 @@ import {
   type Snapshot,
 } from "@/lib/admin.functions";
 import {
+  allowReplaceInGenericRestore,
+  classifyRestoreWorkflowPath,
+  evaluateSnapshotImportWarnings,
+  hostingModelLabel,
+  importWarningRemediation,
+  importWarningsBlockApply,
+  importWarningsRequireAcknowledgement,
+  restoreWorkflowPathLabel,
+  snapshotOriginFromEnv,
+} from "@/lib/snapshot-hosting";
+import {
   parseRestoreSnapshotJson,
   type RestoreParseDebugInfo,
   type RestoreIntegrityStatus,
@@ -78,6 +89,7 @@ function RestorePage() {
 
   // Step 4 — apply
   const [confirmText, setConfirmText] = useState("");
+  const [ackWarnings, setAckWarnings] = useState(false);
   const [result, setResult] = useState<ImportResult | null>(null);
 
   const dryRunMut = useMutation({
@@ -96,6 +108,7 @@ function RestorePage() {
     },
     onSuccess: (r) => {
       setPreview(r);
+      setAckWarnings(false);
       setStep(4);
     },
     onError: (e) => toast.error((e as Error).message),
@@ -137,6 +150,7 @@ function RestorePage() {
     setIntegrity(null);
     setParseDebug(null);
     setAllowMissingIntegrity(false);
+    setAckWarnings(false);
     try {
       const text = await file.text();
       const parsed = await parseRestoreSnapshotJson(text, {
@@ -165,11 +179,27 @@ function RestorePage() {
     [snapshot],
   );
 
+  const targetOrigin = snapshotOriginFromEnv();
+  const replaceAllowedInGenericRestore = allowReplaceInGenericRestore(targetOrigin);
+  const restorePath = classifyRestoreWorkflowPath({
+    snapshotOrigin: snapshot?.origin,
+    targetOrigin,
+    mode,
+  });
+  const reseedPathSelected = restorePath === "cloud-synced-reseed";
+
   const integrityBlocked =
     integrity?.kind === "mismatch" ||
     (integrity?.kind === "missing" && !allowMissingIntegrity);
   const canLeaveStep1 = !!snapshot && !integrityBlocked;
   const replaceLocked = mode === "replace" && confirmText !== "REPLACE";
+  const previewBlocked = importWarningsBlockApply(preview?.warnings ?? []);
+  const previewAckRequired = importWarningsRequireAcknowledgement(preview?.warnings ?? []);
+  const applyLocked =
+    reseedPathSelected ||
+    replaceLocked ||
+    previewBlocked ||
+    (previewAckRequired && !ackWarnings);
 
   if (profile.isLoading) {
     return (
@@ -209,6 +239,18 @@ function RestorePage() {
             </Link>
             . Every step is safe until you click <strong>Apply restore</strong> in step 4.
           </p>
+          <p className="text-sm text-muted-foreground mt-2">
+            This flow handles ordinary backups and cross-model migration imports.
+            Snapshot origin metadata is shown after file load so you can tell whether
+            you are restoring in place or moving between hosting models.
+          </p>
+          <p className="text-sm text-muted-foreground mt-2">
+            For cloud-synced destructive reseed operations, use the dedicated{" "}
+            <Link to="/admin/reseed" className="underline">
+              Cloud-synced reseed
+            </Link>{" "}
+            workflow.
+          </p>
         </header>
 
         <Stepper current={step} />
@@ -216,6 +258,30 @@ function RestorePage() {
         {/* -------------------------------- STEP 1 -------------------------------- */}
         {step === 1 && (
           <StepCard title="Step 1 — Choose backup & verify">
+            <div className="rounded-md border bg-muted/30 p-3 text-xs space-y-1">
+              <div className="font-medium flex items-center gap-2">
+                Workflow path
+                <Badge variant={reseedPathSelected ? "destructive" : restorePath === "cross-model-migration-restore" ? "outline" : "secondary"}>
+                  {restoreWorkflowPathLabel(restorePath)}
+                </Badge>
+              </div>
+              {restorePath === "routine-backup-restore" && (
+                <p className="text-muted-foreground">
+                  This wizard is in routine restore mode.
+                </p>
+              )}
+              {restorePath === "cross-model-migration-restore" && (
+                <p className="text-muted-foreground">
+                  Snapshot and target hosting models differ; treat dry-run output as migration evidence.
+                </p>
+              )}
+              {restorePath === "cloud-synced-reseed" && (
+                <p className="text-destructive">
+                  Cloud-synced replace applies are routed to <Link to="/admin/reseed" className="underline">Cloud-synced reseed</Link>. You can still run dry-run previews here.
+                </p>
+              )}
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="backup-file">Backup file (.json)</Label>
               <Input
@@ -241,6 +307,28 @@ function RestorePage() {
                 </p>
               )}
             </div>
+
+            {snapshot?.origin && (
+              <div className="rounded-md border bg-muted/30 p-3 text-xs space-y-1">
+                <div className="font-medium flex items-center gap-2">
+                  Snapshot origin
+                  <Badge variant="secondary">{hostingModelLabel(snapshot.origin.hosting_model)}</Badge>
+                </div>
+                <div className="text-muted-foreground">
+                  Exported from {snapshot.origin.exported_from}
+                  {snapshot.origin.public_app_url ? ` (${snapshot.origin.public_app_url})` : ""}.
+                </div>
+                <div className="text-muted-foreground">
+                  Treat this as a {hostingModelLabel(snapshot.origin.hosting_model).toLowerCase()} snapshot.
+                  If you are importing into a different hosting model, keep rewrite ownership on and review the dry-run carefully.
+                </div>
+                <div className="text-muted-foreground">
+                  {snapshot.origin.pending_divergence
+                    ? "This snapshot reports pending divergence between local and cloud state. Review dry-run output as migration evidence, not just as a routine restore."
+                    : "No pending divergence was reported when this snapshot was generated."}
+                </div>
+              </div>
+            )}
 
             {integrity && <IntegrityPanel
               integrity={integrity}
@@ -270,11 +358,44 @@ function RestorePage() {
         {/* -------------------------------- STEP 2 -------------------------------- */}
         {step === 2 && (
           <StepCard title="Step 2 — Choose restore mode & ownership">
+            <div className="rounded-md border bg-muted/30 p-3 text-xs space-y-1">
+              <div className="font-medium flex items-center gap-2">
+                Workflow path
+                <Badge variant={reseedPathSelected ? "destructive" : restorePath === "cross-model-migration-restore" ? "outline" : "secondary"}>
+                  {restoreWorkflowPathLabel(restorePath)}
+                </Badge>
+              </div>
+              {restorePath === "routine-backup-restore" && (
+                <p className="text-muted-foreground">
+                  Snapshot and target models are aligned for routine restore behavior.
+                </p>
+              )}
+              {restorePath === "cross-model-migration-restore" && (
+                <p className="text-muted-foreground">
+                  Snapshot and target models differ, so this run should be treated as migration evidence.
+                </p>
+              )}
+              {restorePath === "cloud-synced-reseed" && (
+                <p className="text-destructive">
+                  Replace into cloud-synced target is routed to the dedicated reseed workflow.
+                  Use this wizard for dry-run evidence only, then switch to <Link to="/admin/reseed" className="underline">Cloud-synced reseed</Link> to apply.
+                </p>
+              )}
+            </div>
+
             <div className="space-y-3">
               <Label>Restore mode</Label>
               <RadioGroup
                 value={mode}
                 onValueChange={(v) => {
+                  if (v === "replace" && !replaceAllowedInGenericRestore) {
+                    setMode("merge");
+                    setConfirmText("");
+                    toast.error(
+                      "Replace restore is disabled for cloud-synced targets. Use the dedicated cloud-synced reseed workflow.",
+                    );
+                    return;
+                  }
                   setMode(v as ImportMode);
                   setConfirmText("");
                 }}
@@ -286,12 +407,17 @@ function RestorePage() {
                     <div className="font-medium">Merge (safe, recommended)</div>
                     <div className="text-muted-foreground text-xs">
                       Upsert each row by primary key. Never deletes. Existing rows
-                      not in the backup are kept as-is.
+                      not in the backup are kept as-is. Best for in-place restores
+                      and cautious cross-model imports.
                     </div>
                   </div>
                 </label>
                 <label className="flex items-start gap-2 rounded-md border p-3 cursor-pointer">
-                  <RadioGroupItem value="replace" className="mt-1" />
+                  <RadioGroupItem
+                    value="replace"
+                    className="mt-1"
+                    disabled={!replaceAllowedInGenericRestore}
+                  />
                   <div className="text-sm">
                     <div className="font-medium text-destructive">
                       Replace (destructive)
@@ -299,8 +425,18 @@ function RestorePage() {
                     <div className="text-muted-foreground text-xs">
                       Delete every row in every operational table first, then
                       insert from the backup. Use only when migrating into an empty
-                      instance.
+                      instance or when an operator has explicitly decided to replace
+                      one hosting model's dataset with another.
                     </div>
+                    {!replaceAllowedInGenericRestore && (
+                      <div className="text-destructive text-xs mt-1">
+                        Disabled in this wizard for cloud-synced targets. Use{" "}
+                        <Link to="/admin/reseed" className="underline">
+                          Cloud-synced reseed
+                        </Link>{" "}
+                        instead.
+                      </div>
+                    )}
                   </div>
                 </label>
               </RadioGroup>
@@ -364,6 +500,7 @@ function RestorePage() {
               onBack={() => setStep(1)}
               onNext={() => {
                 setPreview(null);
+                setAckWarnings(false);
                 setStep(3);
               }}
               nextLabel="Continue to dry-run"
@@ -381,6 +518,15 @@ function RestorePage() {
             </p>
             <div className="rounded-md border p-3 text-xs bg-muted/40 space-y-1">
               <div>
+                Target hosting model: <strong>{hostingModelLabel(targetOrigin.hosting_model)}</strong>
+              </div>
+              <div>
+                Snapshot hosting model: <strong>{snapshot?.origin ? hostingModelLabel(snapshot.origin.hosting_model) : "Legacy / unspecified"}</strong>
+              </div>
+              <div>
+                Workflow path: <strong>{restoreWorkflowPathLabel(restorePath)}</strong>
+              </div>
+              <div>
                 Mode: <strong>{mode}</strong>
               </div>
               <div>
@@ -395,6 +541,10 @@ function RestorePage() {
                 <strong>{totalRows}</strong> rows
               </div>
             </div>
+
+            {previewWarnings(snapshot, mode, rewriteOwnership).length > 0 && (
+              <WarningsPanel warnings={previewWarnings(snapshot, mode, rewriteOwnership)} />
+            )}
 
             <Button
               onClick={() => dryRunMut.mutate()}
@@ -416,6 +566,49 @@ function RestorePage() {
               yet. Review the counts and errors, then click <strong>Apply restore</strong>{" "}
               to commit.
             </p>
+
+            {preview.warnings && preview.warnings.length > 0 && (
+              <WarningsPanel warnings={preview.warnings} />
+            )}
+
+            {preview.target_reseed_readiness && (
+              <ReseedReadinessPanel readiness={preview.target_reseed_readiness} />
+            )}
+
+            {previewBlocked && (
+              <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive space-y-2">
+                <div>
+                  This restore is blocked by migration safety rules. Change restore mode, reconcile divergence, or use a cleaner snapshot before applying.
+                </div>
+                <div className="text-xs">
+                  For cloud-synced targets, use the operator guidance in <Link to="/settings/self-host" className="underline">Self-host settings</Link> to follow the current reseed-safe path.
+                </div>
+              </div>
+            )}
+
+            {reseedPathSelected && (
+              <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive space-y-2">
+                <div>
+                  Apply restore is disabled in this wizard because this run matches the cloud-synced reseed path.
+                </div>
+                <div className="text-xs">
+                  Continue to <Link to="/admin/reseed" className="underline">Cloud-synced reseed</Link> for readiness-gated destructive apply.
+                </div>
+              </div>
+            )}
+
+            {previewAckRequired && (
+              <label className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/5 p-3 text-sm">
+                <Checkbox
+                  checked={ackWarnings}
+                  onCheckedChange={(value) => setAckWarnings(value === true)}
+                  className="mt-0.5"
+                />
+                <span>
+                  I understand these migration and compatibility warnings and want to continue with this restore.
+                </span>
+              </label>
+            )}
 
             <ResultTable result={preview} showDeleted={mode === "replace"} previewOnly />
 
@@ -441,11 +634,20 @@ function RestorePage() {
               </Button>
               <Button
                 onClick={() => applyMut.mutate()}
-                disabled={applyMut.isPending || replaceLocked}
+                disabled={applyMut.isPending || applyLocked}
               >
                 <Upload className="h-4 w-4 mr-2" />
-                {applyMut.isPending ? "Restoring…" : `Apply restore (${mode})`}
+                {applyMut.isPending
+                  ? "Restoring…"
+                  : reseedPathSelected
+                    ? "Use cloud-synced reseed workflow"
+                    : `Apply restore (${mode})`}
               </Button>
+              {reseedPathSelected && (
+                <Button asChild variant="outline">
+                  <Link to="/admin/reseed">Open cloud-synced reseed</Link>
+                </Button>
+              )}
             </div>
           </StepCard>
         )}
@@ -575,6 +777,84 @@ function WizardNav({
           {nextLabel} <ArrowRight className="h-4 w-4 ml-2" />
         </Button>
       )}
+    </div>
+  );
+}
+
+function previewWarnings(
+  snapshot: Snapshot | null,
+  mode: ImportMode,
+  rewriteOwnership: boolean,
+) {
+  if (!snapshot) return [];
+  return evaluateSnapshotImportWarnings({
+    snapshotOrigin: snapshot.origin,
+    targetOrigin: snapshotOriginFromEnv(),
+    mode,
+    rewriteOwnership,
+  });
+}
+
+function WarningsPanel({ warnings }: { warnings: ImportResult["warnings"] }) {
+  if (!warnings || warnings.length === 0) return null;
+  const hasBlocking = warnings.some((warning) => warning.severity === "blocking");
+  return (
+    <div
+      className={
+        "rounded-md p-3 space-y-2 border " +
+        (hasBlocking
+          ? "border-destructive/40 bg-destructive/5"
+          : "border-amber-500/40 bg-amber-500/5")
+      }
+    >
+      <div
+        className={
+          "flex items-center gap-2 text-sm font-medium " +
+          (hasBlocking ? "text-destructive" : "text-amber-800")
+        }
+      >
+        <AlertTriangle className="h-4 w-4" /> Migration and compatibility warnings
+      </div>
+      <ul className={"space-y-1 text-xs " + (hasBlocking ? "text-destructive" : "text-amber-900")}>
+        {warnings.map((warning) => (
+          <li key={warning.code}>
+            <strong className="uppercase">{warning.severity}</strong>: {warning.message}
+            <div className="mt-1 opacity-90">Next: {importWarningRemediation(warning.code)}</div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function ReseedReadinessPanel({
+  readiness,
+}: {
+  readiness: NonNullable<ImportResult["target_reseed_readiness"]>;
+}) {
+  return (
+    <div className="rounded-md border bg-muted/30 p-3 space-y-2">
+      <div className="flex items-center gap-2 text-sm font-medium">
+        <UserCheck className="h-4 w-4" /> Cloud-synced reseed readiness
+        <Badge variant={readiness.ready ? "secondary" : "outline"} className="ml-1">
+          {readiness.ready ? "Ready" : "Blocked"}
+        </Badge>
+      </div>
+      <ul className="space-y-2 text-xs">
+        {readiness.checks.map((check) => (
+          <li key={check.key} className="space-y-0.5">
+            <div className="flex items-center gap-2">
+              {check.ok ? (
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+              ) : (
+                <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
+              )}
+              <span className="font-medium">{check.label}</span>
+            </div>
+            <div className="pl-5 text-muted-foreground">{check.detail}</div>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

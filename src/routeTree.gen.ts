@@ -44,6 +44,7 @@ import { Route as AdminElectricalAuditRouteImport } from './routes/admin.electri
 import { Route as AdminExportRouteImport } from './routes/admin.export'
 import { Route as AdminExportKeyRouteImport } from './routes/admin.export-key'
 import { Route as AdminPanelAccessRouteImport } from './routes/admin.panel-access'
+import { Route as AdminReseedRouteImport } from './routes/admin.reseed'
 import { Route as AdminResetRouteImport } from './routes/admin.reset'
 import { Route as AdminRestoreRouteImport } from './routes/admin.restore'
 import { Route as AdminSchemaRouteImport } from './routes/admin.schema'
@@ -344,6 +345,11 @@ const AdminExportKeyRoute = AdminExportKeyRouteImport.update({
 const AdminPanelAccessRoute = AdminPanelAccessRouteImport.update({
   id: '/admin/panel-access',
   path: '/admin/panel-access',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminReseedRoute = AdminReseedRouteImport.update({
+  id: '/admin/reseed',
+  path: '/admin/reseed',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminResetRoute = AdminResetRouteImport.update({
@@ -1033,6 +1039,7 @@ export interface FileRoutesByFullPath {
   '/admin/export': typeof AdminExportRoute
   '/admin/export-key': typeof AdminExportKeyRoute
   '/admin/panel-access': typeof AdminPanelAccessRoute
+  '/admin/reseed': typeof AdminReseedRoute
   '/admin/reset': typeof AdminResetRoute
   '/admin/restore': typeof AdminRestoreRoute
   '/admin/schema': typeof AdminSchemaRoute
@@ -1191,6 +1198,7 @@ export interface FileRoutesByTo {
   '/admin/export': typeof AdminExportRoute
   '/admin/export-key': typeof AdminExportKeyRoute
   '/admin/panel-access': typeof AdminPanelAccessRoute
+  '/admin/reseed': typeof AdminReseedRoute
   '/admin/reset': typeof AdminResetRoute
   '/admin/restore': typeof AdminRestoreRoute
   '/admin/schema': typeof AdminSchemaRoute
@@ -1355,6 +1363,7 @@ export interface FileRoutesById {
   '/admin/export': typeof AdminExportRoute
   '/admin/export-key': typeof AdminExportKeyRoute
   '/admin/panel-access': typeof AdminPanelAccessRoute
+  '/admin/reseed': typeof AdminReseedRoute
   '/admin/reset': typeof AdminResetRoute
   '/admin/restore': typeof AdminRestoreRoute
   '/admin/schema': typeof AdminSchemaRoute
@@ -1520,6 +1529,7 @@ export interface FileRouteTypes {
     | '/admin/export'
     | '/admin/export-key'
     | '/admin/panel-access'
+    | '/admin/reseed'
     | '/admin/reset'
     | '/admin/restore'
     | '/admin/schema'
@@ -1678,6 +1688,7 @@ export interface FileRouteTypes {
     | '/admin/export'
     | '/admin/export-key'
     | '/admin/panel-access'
+    | '/admin/reseed'
     | '/admin/reset'
     | '/admin/restore'
     | '/admin/schema'
@@ -1841,6 +1852,7 @@ export interface FileRouteTypes {
     | '/admin/export'
     | '/admin/export-key'
     | '/admin/panel-access'
+    | '/admin/reseed'
     | '/admin/reset'
     | '/admin/restore'
     | '/admin/schema'
@@ -2005,6 +2017,7 @@ export interface RootRouteChildren {
   AdminExportRoute: typeof AdminExportRoute
   AdminExportKeyRoute: typeof AdminExportKeyRoute
   AdminPanelAccessRoute: typeof AdminPanelAccessRoute
+  AdminReseedRoute: typeof AdminReseedRoute
   AdminResetRoute: typeof AdminResetRoute
   AdminRestoreRoute: typeof AdminRestoreRoute
   AdminSchemaRoute: typeof AdminSchemaRoute
@@ -2353,6 +2366,13 @@ declare module '@tanstack/react-router' {
       path: '/admin/panel-access'
       fullPath: '/admin/panel-access'
       preLoaderRoute: typeof AdminPanelAccessRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/reseed': {
+      id: '/admin/reseed'
+      path: '/admin/reseed'
+      fullPath: '/admin/reseed'
+      preLoaderRoute: typeof AdminReseedRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/reset': {
@@ -3403,6 +3423,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminExportRoute: AdminExportRoute,
   AdminExportKeyRoute: AdminExportKeyRoute,
   AdminPanelAccessRoute: AdminPanelAccessRoute,
+  AdminReseedRoute: AdminReseedRoute,
   AdminResetRoute: AdminResetRoute,
   AdminRestoreRoute: AdminRestoreRoute,
   AdminSchemaRoute: AdminSchemaRoute,

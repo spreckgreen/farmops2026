@@ -4,7 +4,11 @@ import { requireAuthenticatedUser } from "@/lib/auth-route";
 import { RunAiTestCard } from "@/components/run-ai-test-card";
 import { ReseedProfileCard } from "@/components/reseed-profile-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { useSelfHostConfig } from "@/hooks/use-self-host-config";
 import {
+  AlertTriangle,
+  CheckCircle2,
   Users,
   Download,
   Upload,
@@ -13,6 +17,7 @@ import {
   ShieldCheck,
   KeyRound,
   Database,
+  DatabaseBackup,
   Bot,
   Merge,
   Activity,
@@ -42,6 +47,9 @@ export const Route = createFileRoute("/admin/")({
 });
 
 function AdminIndexPage() {
+  const selfHost = useSelfHostConfig();
+  const cfg = selfHost.data;
+
   return (
     <AppLayout>
       <div className="max-w-3xl mx-auto p-6 space-y-6">
@@ -58,6 +66,62 @@ function AdminIndexPage() {
         <ReseedProfileCard />
 
         <RunAiTestCard description="Verify the active AI backend and model before relying on it for reports and procedures." />
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Hosting model and reseed status</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            {selfHost.isLoading && (
+              <p className="text-muted-foreground">Loading hosting status…</p>
+            )}
+            {selfHost.error && (
+              <p className="text-destructive">
+                Could not load hosting status: {(selfHost.error as Error).message}
+              </p>
+            )}
+            {cfg && (
+              <>
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground">Current model:</span>
+                  <Badge variant="secondary">{cfg.hostingModelLabel}</Badge>
+                </div>
+                <div className="flex items-center gap-2 text-xs">
+                  {cfg.pendingDivergence ? (
+                    <>
+                      <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
+                      <span className="text-amber-800">
+                        Pending divergence reported. Resolve before destructive migration or reseed.
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                      <span className="text-muted-foreground">No pending divergence reported.</span>
+                    </>
+                  )}
+                </div>
+                <div className="rounded-md border bg-muted/30 p-3 text-xs space-y-1">
+                  <div className="font-medium flex items-center gap-2">
+                    Cloud-synced reseed
+                    <Badge variant={cfg.reseedReadiness.ready ? "secondary" : "outline"}>
+                      {cfg.reseedReadiness.ready ? "Ready" : "Blocked"}
+                    </Badge>
+                  </div>
+                  <p className="text-muted-foreground">{cfg.reseedWorkflowHint}</p>
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    <Link to="/admin/reseed" className="inline-flex items-center gap-2 rounded-md border px-3 py-2 hover:bg-accent">
+                      <DatabaseBackup className="h-4 w-4" /> Open cloud-synced reseed
+                    </Link>
+                    <Link to="/settings/self-host" className="inline-flex items-center gap-2 rounded-md border px-3 py-2 hover:bg-accent">
+                      <Server className="h-4 w-4" /> Self-host settings
+                    </Link>
+                  </div>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
 
         <Card>
           <CardHeader>
@@ -79,6 +143,9 @@ function AdminIndexPage() {
             </Link>
             <Link to="/admin/restore" className="flex items-center gap-2 rounded-md border p-3 hover:bg-accent">
               <Upload className="h-4 w-4" /> Restore backup
+            </Link>
+            <Link to="/admin/reseed" className="flex items-center gap-2 rounded-md border p-3 hover:bg-accent">
+              <DatabaseBackup className="h-4 w-4" /> Cloud-synced reseed
             </Link>
             <Link to="/admin/reset" className="flex items-center gap-2 rounded-md border p-3 hover:bg-accent">
               <Trash2 className="h-4 w-4" /> Reset data
