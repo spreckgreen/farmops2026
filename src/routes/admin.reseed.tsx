@@ -78,6 +78,7 @@ function CloudSyncedReseedPage() {
           snapshot,
           mode: "apply",
           confirm: "RESEED",
+          acknowledgeDestructiveApply: ackDestructiveApply,
           debug: debugMode,
           allowMissingIntegrity,
         },

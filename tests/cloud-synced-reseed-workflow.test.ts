@@ -24,6 +24,7 @@ describe("cloud-synced reseed workflow validation", () => {
 
     expect(normalized.mode).toBe("dry-run");
     expect(normalized.debug).toBe(false);
+    expect(normalized.acknowledgeDestructiveApply).toBe(false);
     expect(normalized.allowMissingIntegrity).toBe(false);
   });
 
@@ -67,8 +68,28 @@ describe("cloud-synced reseed workflow validation", () => {
         readiness,
         mode: "apply",
         confirm: "",
+        acknowledgeDestructiveApply: true,
       }),
     ).toThrow(/confirm="RESEED"/);
+  });
+
+  it("blocks apply without destructive acknowledgement", () => {
+    const readiness = buildReseedReadinessReport({
+      SELF_HOST_MODE: "true",
+      SELF_HOST_SYNC_MODE: "true",
+      PUBLIC_APP_URL: "https://farm.example.com",
+      VAULT_ENCRYPTION_KEY: "abc",
+      SELF_HOST_PENDING_DIVERGENCE: "false",
+    });
+
+    expect(() =>
+      assertCloudSyncedReseedPreconditions({
+        readiness,
+        mode: "apply",
+        confirm: "RESEED",
+        acknowledgeDestructiveApply: false,
+      }),
+    ).toThrow(/destructive acknowledgement/);
   });
 
   it("blocks reseed when readiness checks are not satisfied", () => {

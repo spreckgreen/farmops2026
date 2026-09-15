@@ -101,6 +101,7 @@ export type CloudSyncedReseedWorkflowInput = {
   snapshot: Snapshot;
   mode?: CloudSyncedReseedRunMode;
   confirm?: string;
+  acknowledgeDestructiveApply?: boolean;
   debug?: boolean;
   allowMissingIntegrity?: boolean;
 };
@@ -109,6 +110,7 @@ export type NormalizedCloudSyncedReseedWorkflowInput = {
   snapshot: Snapshot;
   mode: CloudSyncedReseedRunMode;
   confirm?: string;
+  acknowledgeDestructiveApply: boolean;
   debug: boolean;
   allowMissingIntegrity: boolean;
 };
@@ -135,6 +137,7 @@ export function normalizeCloudSyncedReseedWorkflowInput(
     snapshot: d.snapshot,
     mode: d.mode === "apply" ? "apply" : "dry-run",
     confirm: d.confirm,
+    acknowledgeDestructiveApply: d.acknowledgeDestructiveApply === true,
     debug: d.debug === true,
     allowMissingIntegrity: d.allowMissingIntegrity === true,
   };
@@ -144,12 +147,16 @@ export function assertCloudSyncedReseedPreconditions(args: {
   readiness: ReseedReadinessReport;
   mode: CloudSyncedReseedRunMode;
   confirm?: string;
+  acknowledgeDestructiveApply?: boolean;
 }): void {
   if (!args.readiness.readiness.ready) {
     throw new Error(`Cloud-synced reseed is blocked: ${args.readiness.summary}`);
   }
   if (args.mode === "apply" && args.confirm !== "RESEED") {
     throw new Error('Apply mode requires confirm="RESEED".');
+  }
+  if (args.mode === "apply" && args.acknowledgeDestructiveApply !== true) {
+    throw new Error("Apply mode requires destructive acknowledgement.");
   }
 }
 
@@ -165,6 +172,7 @@ export const runCloudSyncedReseedWorkflow = createServerFn({ method: "POST" })
       readiness,
       mode,
       confirm: data.confirm,
+      acknowledgeDestructiveApply: data.acknowledgeDestructiveApply,
     });
 
     const importResult = await executeImportApplicationData({
