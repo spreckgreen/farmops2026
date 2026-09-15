@@ -117,7 +117,7 @@ describe("InventoryUploadedPortTemplates", () => {
       <InventoryUploadedPortTemplates
         itemId="item-1"
         itemName="RPI5"
-        existingPortNames={[]}
+        existingPortNames={["USB 1"]}
         nextSortOrder={100}
         onCreated={onCreated}
       />,
@@ -125,7 +125,10 @@ describe("InventoryUploadedPortTemplates", () => {
 
     await screen.findByText("USB 1");
     const checkboxes = screen.getAllByRole("checkbox") as HTMLInputElement[];
-    fireEvent.click(checkboxes[0]);
+    expect(checkboxes).toHaveLength(3);
+    expect(checkboxes[0]).toBeDisabled();
+    if (!checkboxes[1].checked) fireEvent.click(checkboxes[1]);
+    if (!checkboxes[2].checked) fireEvent.click(checkboxes[2]);
     fireEvent.click(screen.getByRole("button", { name: /apply selected connectors/i }));
 
     await waitFor(() => expect(insertMock).toHaveBeenCalledTimes(1));

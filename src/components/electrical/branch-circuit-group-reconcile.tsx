@@ -1,5 +1,5 @@
-// Topology-derived circuit-group reconciliation for branch runs.
-// Preview first: a branch inherits its endpoint load's circuit group only when
+// Topology-derived circuit-group reconciliation for wiring runs.
+// Preview first: a wiring run inherits its endpoint load's circuit group only when
 // that load has exactly one assignment. Junction boxes and raceways are never
 // assigned, because both can carry more than one circuit.
 import { useState } from "react";
@@ -46,9 +46,9 @@ export function BranchCircuitGroupReconcile() {
       </CardHeader>
       <CardContent className="space-y-3 text-sm">
         <p className="text-muted-foreground">
-          When a branch ends at a verified load and that load sits on exactly one circuit, the
-          branch is put on the same circuit. This comes from the recorded relationship, never
-          from the branch name. {RACEWAY_NO_AUTO_ASSIGN_RULE}
+            When a wiring run ends at a verified load and that load sits on exactly one circuit, the
+            run is put on the same circuit. This comes from the recorded relationship, never
+            from the run name. {RACEWAY_NO_AUTO_ASSIGN_RULE}
         </p>
 
         {q.isLoading ? (
@@ -89,7 +89,7 @@ export function BranchCircuitGroupReconcile() {
                   <table className="w-full text-xs">
                     <thead className="bg-muted/50 text-left">
                       <tr>
-                        <th className="px-2 py-1 font-medium">Branch</th>
+                          <th className="px-2 py-1 font-medium">Wiring run</th>
                         <th className="px-2 py-1 font-medium">Endpoint load</th>
                         <th className="px-2 py-1 font-medium">Circuit group</th>
                         <th className="px-2 py-1 font-medium">Why</th>

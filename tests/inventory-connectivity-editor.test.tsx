@@ -150,7 +150,7 @@ describe("InventoryConnectivityEditor", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: /connections and compatible cables/i }));
-    fireEvent.click(await screen.findByRole("button", { name: /antenna/i }));
+    fireEvent.click(await screen.findByRole("button", { name: /^antenna\b/i }));
 
     expect(await screen.findByText("Ham Cable")).toBeInTheDocument();
     expect(screen.queryByText("Network Cable")).not.toBeInTheDocument();
@@ -166,7 +166,7 @@ describe("InventoryConnectivityEditor", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: /connections and compatible cables/i }));
-    await screen.findByRole("button", { name: /antenna/i });
+    await screen.findByRole("button", { name: /^antenna\b/i });
     fireEvent.click(screen.getByRole("button", { name: /edit antenna/i }));
 
     const name = screen.getByPlaceholderText(/port name/i);
@@ -196,7 +196,7 @@ describe("InventoryConnectivityEditor", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: /connections and compatible cables/i }));
-    await screen.findByRole("button", { name: /antenna/i });
+    await screen.findByRole("button", { name: /^antenna\b/i });
     fireEvent.click(screen.getByRole("button", { name: /mark as cable/i }));
 
     const connectorA = container.querySelector('select[name="connector_a"]') as HTMLSelectElement;

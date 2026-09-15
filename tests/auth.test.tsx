@@ -24,9 +24,24 @@ const {
 }));
 
 vi.mock("@tanstack/react-router", () => ({
-  createFileRoute: () => (cfg: any) => cfg,
+  createFileRoute: () => (cfg: any) => ({
+    ...cfg,
+    useSearch: () => ({}),
+  }),
   useNavigate: () => navigate,
 }));
+
+vi.mock("@tanstack/react-start", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@tanstack/react-start")>();
+  return {
+    ...actual,
+    useServerFn: () =>
+      vi.fn().mockResolvedValue({
+        handled: false,
+        message: "",
+      }),
+  };
+});
 
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: { auth: { getUser, signInWithPassword, signUp } },

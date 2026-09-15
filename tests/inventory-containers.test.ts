@@ -23,7 +23,15 @@ describe("inventory container templates", () => {
   it("provides addressable drawers for the RIDGID drawer box", () => {
     const template = getContainerTemplate("ridgid_drawer_toolbox");
     expect(template?.containerKind).toBe("drawer_unit");
-    expect(template?.suggestedCompartments.map((row) => row.code)).toEqual(["D1","D2","D3"]);
+    expect(template?.suggestedCompartments.map((row) => row.code)).toEqual([
+      "D1",
+      "D2",
+      "D3",
+      "TOP",
+      "TOP-L",
+      "TOP-C",
+      "TOP-R",
+    ]);
   });
 
   it("provides medical, computer, and recovery layouts", () => {

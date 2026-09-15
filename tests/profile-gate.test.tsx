@@ -26,6 +26,8 @@ const { navigate, signOut, cancelQueries, clear, refetch, profileState } = vi.ho
 
 vi.mock("@tanstack/react-router", () => ({
   useRouter: () => ({ navigate }),
+  useRouterState: ({ select }: any) =>
+    select({ location: { pathname: "/inventory" } }),
 }));
 
 vi.mock("@tanstack/react-query", async (importOriginal) => {

@@ -1,6 +1,67 @@
-import { describe, expect, it } from "vitest";import { createFourteenDayTrial,evaluateFeatureAvailability } from "../src/lib/desktop/entitlements";import { paidModulePresentation } from "../src/lib/desktop/paid-module-presentation";
-const started=new Date("2026-09-01T00:00:00.000Z");const site=createFourteenDayTrial("site-1",started);
-describe("paid module presentation",()=>{it("clearly discloses paid trial areas before data entry",()=>{const availability=evaluateFeatureAvailability({moduleId:"inventory",siteEntitlements:site,now:new Date("2026-09-10T00:00:00.000Z")});const view=paidModulePresentation({moduleId:"inventory",availability});expect(view.commercialLabel).toBe("Paid feature");expect(view.requiresFirstUseAcknowledgement).toBe(true);expect(view.message).toContain("become inaccessible unless you subscribe");expect(view.subscriptionRoute).toBe("/admin/subscription");});
-it("retains counts while locking expired paid data",()=>{const availability=evaluateFeatureAvailability({moduleId:"inventory",siteEntitlements:site,now:new Date("2026-09-15T00:00:00.000Z")});const view=paidModulePresentation({moduleId:"inventory",availability,recordCount:42,attachmentCount:3});expect(view.access).toBe("locked");expect(view.dataDisposition).toBe("retained_locked");expect(view.retainedRecordCount).toBe(42);expect(view.actions).toEqual(["subscribe","one_time_export","purge"]);});
-it("keeps Procedures permanently available",()=>{const availability=evaluateFeatureAvailability({moduleId:"procedures",siteEntitlements:site,now:new Date("2036-09-15T00:00:00.000Z")});const view=paidModulePresentation({moduleId:"procedures",availability,recordCount:4});expect(view.access).toBe("full");expect(view.commercialLabel).toBe("Free for life");expect(view.subscriptionRoute).toBeNull();expect(view.actions).toContain("purge");});
-it("rejects invalid retained-data counts",()=>{const availability=evaluateFeatureAvailability({moduleId:"food",siteEntitlements:site,now:started});expect(()=>paidModulePresentation({moduleId:"food",availability,recordCount:-1})).toThrow(/non-negative integers/);});});
+import { describe, expect, it } from "vitest";
+import { createFourteenDayTrial, evaluateFeatureAvailability } from "../src/lib/desktop/entitlements";
+import { paidModulePresentation } from "../src/lib/desktop/paid-module-presentation";
+
+const started = new Date("2026-09-01T00:00:00.000Z");
+const site = createFourteenDayTrial("site-1", started);
+
+describe("paid module presentation", () => {
+	it("clearly discloses paid trial areas before data entry", () => {
+		const availability = evaluateFeatureAvailability({
+			moduleId: "inventory",
+			siteEntitlements: site,
+			now: new Date("2026-09-10T00:00:00.000Z"),
+		});
+		const view = paidModulePresentation({ moduleId: "inventory", availability });
+		expect(view.commercialLabel).toBe("Paid feature");
+		expect(view.requiresFirstUseAcknowledgement).toBe(true);
+		expect(view.message).toContain("become inaccessible unless you subscribe");
+		expect(view.subscriptionRoute).toBe("/admin/subscriptions");
+	});
+
+	it("retains counts while locking expired paid data", () => {
+		const availability = evaluateFeatureAvailability({
+			moduleId: "inventory",
+			siteEntitlements: site,
+			now: new Date("2026-09-15T00:00:00.000Z"),
+		});
+		const view = paidModulePresentation({
+			moduleId: "inventory",
+			availability,
+			recordCount: 42,
+			attachmentCount: 3,
+		});
+		expect(view.access).toBe("locked");
+		expect(view.dataDisposition).toBe("retained_locked");
+		expect(view.retainedRecordCount).toBe(42);
+		expect(view.actions).toEqual(["subscribe", "one_time_export", "purge"]);
+	});
+
+	it("keeps Procedures permanently available", () => {
+		const availability = evaluateFeatureAvailability({
+			moduleId: "procedures",
+			siteEntitlements: site,
+			now: new Date("2036-09-15T00:00:00.000Z"),
+		});
+		const view = paidModulePresentation({
+			moduleId: "procedures",
+			availability,
+			recordCount: 4,
+		});
+		expect(view.access).toBe("full");
+		expect(view.commercialLabel).toBe("Free for life");
+		expect(view.subscriptionRoute).toBeNull();
+		expect(view.actions).toContain("purge");
+	});
+
+	it("rejects invalid retained-data counts", () => {
+		const availability = evaluateFeatureAvailability({
+			moduleId: "food",
+			siteEntitlements: site,
+			now: started,
+		});
+		expect(() => paidModulePresentation({ moduleId: "food", availability, recordCount: -1 })).toThrow(
+			/non-negative integers/,
+		);
+	});
+});

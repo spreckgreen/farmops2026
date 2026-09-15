@@ -643,7 +643,7 @@ These must be set in `.env` (or exported in the shell) for the Node.js runtime �
 | `PUBLIC_APP_URL` | recommended (self-hosted) | Externally reachable origin of this deployment (e.g. `https://farm.example.com`). Used to build the Rachio webhook callback URL shown on the irrigation settings page. Defaults to `https://bostead.lovable.app`. |
 | `SELF_HOST_MODE` | optional | Set to `true` to hide Lovable-hosted-only UI (publish-status panel on `/sync`). Visible at *Admin › Self-host settings*. |
 | `VAULT_ENCRYPTION_KEY` | yes (Vault) | 64-hex-char (32-byte) key used to AES-256-GCM encrypt secrets at rest. Generate with `openssl rand -hex 32`. **Treat as irreplaceable — losing it makes every stored secret unrecoverable.** |
-| `NODE_ENV` | recommended | Set to `production` for the built server |
+| `NODE_ENV` | optional | Leave unset for `bun run dev`; set to `production` only in the built server runtime |
 | `PORT` | optional | Listen port (defaults to `3000`) |
 
 ### Validate your env before running

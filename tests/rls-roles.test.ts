@@ -11,12 +11,15 @@ const URL = process.env.SUPABASE_URL;
 const ANON = process.env.SUPABASE_PUBLISHABLE_KEY;
 const SRK = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const enabled = Boolean(URL && ANON && SRK);
+const TEST_URL = URL ?? "http://127.0.0.1";
+const TEST_ANON = ANON ?? "test-anon-key";
+const TEST_SRK = SRK ?? "test-service-role-key";
 
 describe.skipIf(!enabled)("RLS: viewer is read-only, editor can write own rows", () => {
-  const admin = createClient(URL!, SRK!, { auth: { persistSession: false } });
+  const admin = createClient(TEST_URL, TEST_SRK, { auth: { persistSession: false } });
 
   async function asUser(email: string, password: string): Promise<SupabaseClient> {
-    const c = createClient(URL!, ANON!, { auth: { persistSession: false } });
+    const c = createClient(TEST_URL, TEST_ANON, { auth: { persistSession: false } });
     const { error } = await c.auth.signInWithPassword({ email, password });
     if (error) throw new Error(`signin ${email}: ${error.message}`);
     return c;

@@ -35,7 +35,26 @@ vi.mock("@tanstack/react-query", async (importOriginal) => {
 });
 
 vi.mock("@/integrations/supabase/client", () => ({
-  supabase: { auth: { signOut } },
+  supabase: {
+    auth: {
+      signOut,
+      getSession: vi.fn().mockResolvedValue({ data: { session: { user: { id: "u1" } } } }),
+      onAuthStateChange: vi.fn(() => ({
+        data: { subscription: { unsubscribe: vi.fn() } },
+      })),
+    },
+  },
+}));
+
+vi.mock("@/hooks/use-addon", () => ({
+  useAddon: () => ({
+    isLoading: false,
+    error: null,
+    refetch: vi.fn(),
+    enabled: false,
+    status: null,
+    expiresAt: null,
+  }),
 }));
 
 vi.mock("@/hooks/use-current-profile", () => ({

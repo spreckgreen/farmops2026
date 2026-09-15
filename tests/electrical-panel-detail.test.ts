@@ -72,6 +72,7 @@ describe("imported panel detail", () => {
     expect(related).toEqual([
       {
         kind: "raceway",
+        id: null,
         stable_id: "CON-030",
         label: "NE feeder",
         relation: "raceway leaving panel",

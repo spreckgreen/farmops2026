@@ -44,7 +44,7 @@ describe("desktop entitlements", () => {
     ).toMatchObject({
       state: "trial-expired",
       dataDisposition: "retained_locked",
-      subscriptionRoute: "/admin/subscription",
+      subscriptionRoute: "/admin/subscriptions",
     });
   });
 
@@ -112,7 +112,7 @@ describe("desktop entitlements", () => {
     ).toEqual({
       state: "locked",
       moduleId: "maintenance",
-      subscriptionRoute: "/admin/subscription",
+      subscriptionRoute: "/admin/subscriptions",
     });
   });
 });

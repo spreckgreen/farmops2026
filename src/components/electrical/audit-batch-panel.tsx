@@ -509,7 +509,7 @@ export function AuditBatchPanel() {
         kind: "load" as const,
         label: `Load ${FS_AUDIT_R1_20260906_BATCH_ID}`,
         title:
-          "Loads the 2026-09-06 Farm Shop field audit: JB-105-01 and JB-104-01 with their traced branches, the CON-201/CON-202 flexible final connections, 23 verified load grid locations, and holds for the two branches not found at JB-104-02, the FS-035 grid cell, the FS-048 outgoing branch and the conflicting BR-104-02 → FS-054 note.",
+            "Loads the 2026-09-06 Farm Shop field audit: JB-105-01 and JB-104-01 with their traced wiring runs, the CON-201/CON-202 flexible final connections, 23 verified load grid locations, and holds for the two runs not found at JB-104-02, the FS-035 grid cell, the FS-048 outgoing run and the conflicting BR-104-02 → FS-054 note.",
         disabled: false,
         onClick: () => {
           setManifestText(fsAuditR120260906ManifestText());

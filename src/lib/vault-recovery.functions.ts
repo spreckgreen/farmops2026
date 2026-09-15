@@ -30,6 +30,9 @@ export interface UnrecoverableRow {
 
 export interface ReencryptResult {
   scanned: number;
+  pageSize: number;
+  pagesProcessed: number;
+  completeScan: boolean;
   resealed: number;
   /** rows already sealed with the current key (no work needed) */
   alreadyCurrent: number;
@@ -40,6 +43,20 @@ export interface ReencryptResult {
   recoveryKeyFingerprints: Array<{ fingerprint: string; shape: string }>;
   errors: Array<{ id: string; message: string }>;
 }
+
+type VaultSecretRow = {
+  id: string;
+  title: string;
+  scope: string;
+  env_key: string | null;
+  key_version: number | null;
+  value_ciphertext: string;
+  value_iv: string;
+  value_tag: string;
+  notes_ciphertext: string | null;
+  notes_iv: string | null;
+  notes_tag: string | null;
+};
 
 
 /**
@@ -73,104 +90,118 @@ export const reencryptVaultWithCurrentKey = createServerFn({ method: "POST" })
     const fp = await getKeyFingerprints();
     const recoveryKeyFingerprints = await fingerprintRecoveryKeys(recoveryKeys);
 
-    const { data: rows, error } = await context.supabase
-      .from("vault_secrets")
-      .select(
-        "id, title, scope, env_key, key_version, value_ciphertext, value_iv, value_tag, notes_ciphertext, notes_iv, notes_tag",
-      )
-      .limit(data.limit);
-    if (error) throw new Error(error.message);
-
     const usage = new Map<string, { fingerprint: string; source: "primary" | "old" | "recovery"; rows: number }>();
     const unrecoverable: UnrecoverableRow[] = [];
     const errors: Array<{ id: string; message: string }> = [];
     let resealed = 0;
     let alreadyCurrent = 0;
+    let scanned = 0;
+    let pagesProcessed = 0;
+    let completeScan = true;
+    const envKeysToInvalidate = new Set<string>();
+    const targetVersion = await computeCurrentKeyVersion();
 
-    for (const row of rows ?? []) {
-      const r = row as {
-        id: string;
-        title: string;
-        scope: string;
-        env_key: string | null;
-        key_version: number | null;
-        value_ciphertext: string;
-        value_iv: string;
-        value_tag: string;
-        notes_ciphertext: string | null;
-        notes_iv: string | null;
-        notes_tag: string | null;
-      };
-      try {
-        const value = await tryOpenWithRecoveryKeys(
-          { ciphertext: r.value_ciphertext, iv: r.value_iv, tag: r.value_tag },
-          recoveryKeys,
-        );
-        if (!value) {
-          unrecoverable.push({
-            id: r.id,
-            title: r.title,
-            scope: r.scope,
-            envKey: r.env_key,
-            keyVersion: r.key_version,
-          });
-          continue;
-        }
+    const pageSize = data.limit;
+    const maxPages = 10_000;
+    let offset = 0;
 
-        let notesPlain: string | null = null;
-        if (r.notes_ciphertext && r.notes_iv && r.notes_tag) {
-          const notes = await tryOpenWithRecoveryKeys(
-            { ciphertext: r.notes_ciphertext, iv: r.notes_iv, tag: r.notes_tag },
+    for (;;) {
+      if (pagesProcessed >= maxPages) {
+        completeScan = false;
+        break;
+      }
+
+      const { data: rows, error } = await context.supabase
+        .from("vault_secrets")
+        .select(
+          "id, title, scope, env_key, key_version, value_ciphertext, value_iv, value_tag, notes_ciphertext, notes_iv, notes_tag",
+        )
+        .order("id", { ascending: true })
+        .range(offset, offset + pageSize - 1);
+      if (error) throw new Error(error.message);
+
+      const batch = (rows ?? []) as VaultSecretRow[];
+      if (!batch.length) break;
+      pagesProcessed++;
+      scanned += batch.length;
+
+      for (const r of batch) {
+        if (r.env_key) envKeysToInvalidate.add(r.env_key);
+        try {
+          const value = await tryOpenWithRecoveryKeys(
+            { ciphertext: r.value_ciphertext, iv: r.value_iv, tag: r.value_tag },
             recoveryKeys,
           );
-          notesPlain = notes ? notes.plaintext : null;
+          if (!value) {
+            unrecoverable.push({
+              id: r.id,
+              title: r.title,
+              scope: r.scope,
+              envKey: r.env_key,
+              keyVersion: r.key_version,
+            });
+            continue;
+          }
+
+          let notesPlain: string | null = null;
+          if (r.notes_ciphertext && r.notes_iv && r.notes_tag) {
+            const notes = await tryOpenWithRecoveryKeys(
+              { ciphertext: r.notes_ciphertext, iv: r.notes_iv, tag: r.notes_tag },
+              recoveryKeys,
+            );
+            notesPlain = notes ? notes.plaintext : null;
+          }
+
+          const seen = usage.get(`${value.source}:${value.fingerprint}`) ?? {
+            fingerprint: value.fingerprint,
+            source: value.source,
+            rows: 0,
+          };
+          seen.rows++;
+          usage.set(`${value.source}:${value.fingerprint}`, seen);
+
+          if (value.source === "primary") {
+            alreadyCurrent++;
+            // Still normalise key_version so the rotation dashboard reads clean.
+          }
+
+          const v = await seal(value.plaintext);
+          const n = notesPlain != null ? await seal(notesPlain) : null;
+
+          const { error: upErr } = await context.supabase
+            .from("vault_secrets")
+            .update({
+              value_ciphertext: v.ciphertext,
+              value_iv: v.iv,
+              value_tag: v.tag,
+              notes_ciphertext: n?.ciphertext ?? null,
+              notes_iv: n?.iv ?? null,
+              notes_tag: n?.tag ?? null,
+              key_version: targetVersion,
+            })
+            .eq("id", r.id);
+          if (upErr) throw new Error(upErr.message);
+          if (value.source !== "primary") resealed++;
+        } catch (e) {
+          errors.push({ id: r.id, message: e instanceof Error ? e.message : String(e) });
         }
-
-        const seen = usage.get(`${value.source}:${value.fingerprint}`) ?? {
-          fingerprint: value.fingerprint,
-          source: value.source,
-          rows: 0,
-        };
-        seen.rows++;
-        usage.set(`${value.source}:${value.fingerprint}`, seen);
-
-        if (value.source === "primary") {
-          alreadyCurrent++;
-          // Still normalise key_version so the rotation dashboard reads clean.
-        }
-
-        const v = await seal(value.plaintext);
-        const n = notesPlain != null ? await seal(notesPlain) : null;
-        const targetVersion = await computeCurrentKeyVersion();
-
-        const { error: upErr } = await context.supabase
-          .from("vault_secrets")
-          .update({
-            value_ciphertext: v.ciphertext,
-            value_iv: v.iv,
-            value_tag: v.tag,
-            notes_ciphertext: n?.ciphertext ?? null,
-            notes_iv: n?.iv ?? null,
-            notes_tag: n?.tag ?? null,
-            key_version: targetVersion,
-          })
-          .eq("id", r.id);
-        if (upErr) throw new Error(upErr.message);
-        if (value.source !== "primary") resealed++;
-      } catch (e) {
-        errors.push({ id: r.id, message: e instanceof Error ? e.message : String(e) });
       }
+
+      if (batch.length < pageSize) break;
+      offset += pageSize;
     }
 
     // Any shared env override we just re-sealed must be re-read by the runtime.
     const { invalidateServerEnv } = await import("./server-env.server");
-    for (const row of rows ?? []) {
-      const envKey = (row as { env_key: string | null }).env_key;
-      if (envKey) invalidateServerEnv(envKey);
+    for (const envKey of envKeysToInvalidate) {
+      invalidateServerEnv(envKey);
     }
 
     return {
-      scanned: rows?.length ?? 0,
+      scanned,
+      pageSize,
+      pagesProcessed,
+      completeScan,
       resealed,
       alreadyCurrent,
       unrecoverable,

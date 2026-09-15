@@ -120,6 +120,9 @@ export function VaultReencryptCard({ onDone }: { onDone?: () => void }) {
           <div className="space-y-3 pt-3 border-t text-sm">
             <div className="grid grid-cols-2 gap-x-4 gap-y-1">
               <Stat label="Entries scanned" value={result.scanned} />
+              <Stat label="Pages processed" value={result.pagesProcessed} />
+              <Stat label="Page size" value={result.pageSize} />
+              <Stat label="Scan complete" value={result.completeScan ? "Yes" : "No"} />
               <Stat label="Recovered & re-sealed" value={result.resealed} />
               <Stat label="Already on current key" value={result.alreadyCurrent} />
               <Stat
@@ -168,6 +171,12 @@ export function VaultReencryptCard({ onDone }: { onDone?: () => void }) {
                     </li>
                   ))}
                 </ul>
+              </div>
+            )}
+
+            {!result.completeScan && (
+              <div className="rounded-md border border-amber-500/50 bg-amber-500/5 p-3 text-xs text-amber-900">
+                Scan stopped at the safety cap after {result.pagesProcessed} page(s). Re-run to continue scanning additional rows.
               </div>
             )}
 
